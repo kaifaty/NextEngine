@@ -404,3 +404,17 @@ This selects `JOINT_PRESSURE_B4B2_CONTROLLER_CANDIDATE` and authorizes B4C3
 canonical transaction design only. Its `14,149/11,860` workspace counts also
 freeze committed-workspace/static-index optimization as mandatory B4C4 work
 before B4D nominal execution.
+The [B4C3 audit](../../development/nonlocal-nsr3b4c3-canonical-transaction-research-2026-08-21.md)
+shows that canonical decode inside an adaptive level and global publication of
+that level are separate transactions. The first
+[B4C3A contract](03b4c3a-canonical-stage-contract.md) freezes one-frame
+P1/P2 level-local staging, exact fine-only commit, roundtrip/order roots and
+failure atomicity before any full canonical-controller physical bounds.
+B4C3A passes both selected one-frame controls: every continuation input equals
+the prior decoded canonical frame, only the fine level commits, repeat and
+publication-order roots are exact, physical differences remain within the
+frozen bounds and all four failure paths are atomic; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3a-canonical-stage-evidence-2026-08-21.md).
+This selects `JOINT_PRESSURE_CANONICAL_STAGE_CANDIDATE` and authorizes only
+B4C3T full canonical-controller physical-bound design. B4C4 and B4D remain
+blocked.

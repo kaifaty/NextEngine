@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C2T_PASS / NSR3B4C3_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3A_PASS / NSR3B4C3T_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -10,6 +10,18 @@
 | Authority | Working context only; Accepted architecture, SPEC-38/ADR-076 and the frozen stage contracts outrank this file |
 
 ## Resume in 60 seconds
+
+- **Current conclusion:** B4C3A passes P1 `21/42` and P2 `1/2` one-frame
+  canonical transactions. Fine-only commit, decoded continuation, sample/step
+  identity, repeat/reverse/affine roots, binary physical bounds and four atomic
+  failure controls all pass twice byte-identically at raw `80920420...8ee3`.
+- **Current decision:** select `JOINT_PRESSURE_CANONICAL_STAGE_CANDIDATE` and
+  authorize only B4C3T full canonical-controller physical-bound design. The
+  first false rejection at a half-microunit tie is preserved as a diagnostic
+  measurement defect; quantizer, solver and frozen bound did not change.
+- **Current action:** audit whole-controller canonical state ownership, derive
+  independent multi-frame physical/drift gates and freeze B4C3T before any
+  implementation. B4C4 packaging and B4D nominal execution remain blocked.
 
 - **Current conclusion:** B4B2 passes P1 supported startup and P2 detached
   release/floor impact under the unchanged KKT, fixed `48/96/192` references,
@@ -807,6 +819,30 @@
   contract, freeze transactional substep ownership and derive new bounded
   physical comparisons without reusing invalid binary64 equality gates.
 
+### D-044 -- Select level-local canonical staging
+
+- **Observation:** B4C3A passes P1 `21/42` and P2 `1/2`. Every staged successor
+  consumes the exact decoded prior frame; fine-only commit, step/sample
+  identity, repeat/reverse/affine roots, binary physical bounds and all four
+  failure-atomicity controls pass. Two reports are byte-identical and NPR1-A,
+  B4C1, B4C2Q and B4C2T raw hashes remain exact.
+- **Decision:** select `JOINT_PRESSURE_CANONICAL_STAGE_CANDIDATE` and permit
+  B4C3T physical-bound design only.
+- **Rejected alternatives:** do not publish coarse or provisional frames,
+  continue from unquantized solver state, import the stopped NPR1 solver, or
+  loosen `0.5e-6` because a binary64 decode/subtract diagnostic crossed the
+  half-unit boundary.
+- **Consequence:** a complete canonical adaptive controller may now be designed
+  around private level batches and atomic selected-fine commit. B4C4/B4D and
+  runtime/production remain blocked.
+- **Remaining uncertainty:** one frame does not bound accumulation across all
+  P1/P2 macro frames, contact-onset drift, adaptive schedule changes, discarded
+  levels, trajectory root continuity or canonical failure after earlier
+  committed macro frames.
+- **Smallest next action:** freeze B4C3T with complete P1/P2 adaptive and fixed
+  canonical trajectories, explicit checkpoint rollback and independent
+  canonical-versus-binary physical envelopes.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -819,13 +855,13 @@
 
 ## Exact next action
 
-1. Audit the existing canonical publisher and frozen micrometre rounding/
-   overflow/failure semantics without importing the stopped solver identity.
-2. Freeze B4C3 so each accepted physical substep publishes once, continuation
-   decodes only published integers, discarded levels publish nothing and every
-   failure leaves no partial committed frame.
-3. Derive independent canonical-versus-binary64 physical bounds and exact
-   repeat/reverse/affine roots. B4C4 packaging and nominal B4D remain blocked.
+1. Audit complete B4B2 controller ownership for frame-start, forecast, coarse,
+   fine, fixed-reference and failure rollback under canonical continuation.
+2. Derive and freeze independent multi-frame canonical-versus-binary64 physical
+   envelopes, adaptive schedule/contact tolerances and exact trajectory-root
+   continuity without reusing invalid binary64 state equality.
+3. Implement B4C3T only after the discriminator is frozen. B4C4 packaging and
+   nominal B4D remain blocked.
 
 ## Reconsideration triggers
 

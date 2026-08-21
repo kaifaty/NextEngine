@@ -1,5 +1,6 @@
 #include "boundary_reference.hpp"
 
+#include "canonical.hpp"
 #include "math.hpp"
 #include "sha256.hpp"
 
@@ -8453,6 +8454,50 @@ struct JointControllerCase {
     std::string case_sha256;
 };
 
+struct CanonicalStageRun {
+    bool passed = false;
+    std::string failure;
+    SmokeRun run;
+    std::vector<canonical::Frame> staged_frames;
+    long double maximum_position_error = 0.0L;
+    long double maximum_velocity_error = 0.0L;
+    bool publication_error_bounded = true;
+    bool decode_chain_exact = true;
+    bool sample_identity_exact = true;
+    bool step_sequence_exact = true;
+    JointQueryTrace trace;
+};
+
+struct CanonicalStageCase {
+    std::string name;
+    bool passed = false;
+    std::string failure;
+    CanonicalStageRun coarse;
+    CanonicalStageRun fine;
+    SmokeGate gate;
+    std::string trajectory_sha256;
+    std::size_t committed_frames = 0;
+    bool fine_only_commit = false;
+    bool coarse_root_absent = false;
+    bool committed_steps_exact = false;
+    bool final_decode_exact = false;
+    bool repeat_exact = false;
+    bool order_exact = false;
+    double binary_position_rms = 0.0;
+    double binary_velocity_rms = 0.0;
+    double contact_time_error = 0.0;
+    bool contact_exact = false;
+};
+
+struct CanonicalStageNegative {
+    std::string name;
+    std::string expected;
+    std::string observed;
+    std::size_t committed_frames = 0;
+    bool pretransaction_exact = false;
+    bool passed = false;
+};
+
 bool joint_cell_less(
     std::int64_t ax, std::int64_t ay, std::int64_t az,
     std::int64_t bx, std::int64_t by, std::int64_t bz) {
@@ -11334,6 +11379,492 @@ void append_joint_controller_case(
            << value.trace.maximum_tape_payload_bytes << "}}";
 }
 
+constexpr const char* B4C3_PROFILE_SHA256 =
+    "345eb8876aec66fc5a94a8ea1c6cf0f148c7868327bf5d6bafe96058a30d4087";
+constexpr const char* B4C3_P1_SCENARIO_SHA256 =
+    "71fd23dd299bc892254007dc7dcaa25898794ff456b0c0dfdbec0271ac3e9884";
+constexpr const char* B4C3_P2_SCENARIO_SHA256 =
+    "0bfc8b62d52e479b724824b2c0e5886a6b89faec8891986e13f2c1382c7a7f87";
+
+std::vector<canonical::FloatSample> canonical_float_samples(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity,
+    int order_mode) {
+    std::vector<canonical::FloatSample> result(position.size());
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        result[i].sample_id = static_cast<std::uint32_t>(i);
+        result[i].position_m = {
+            position[i].x, position[i].y, position[i].z};
+        result[i].velocity_m_s = {
+            velocity[i].x, velocity[i].y, velocity[i].z};
+    }
+    if (order_mode == 1) {
+        std::reverse(result.begin(), result.end());
+    } else if (order_mode == 2 && result.size() > 1U) {
+        std::vector<canonical::FloatSample> permuted;
+        permuted.reserve(result.size());
+        std::size_t multiplier = 2U;
+        while (std::gcd(multiplier, result.size()) != 1U) {
+            ++multiplier;
+        }
+        for (std::size_t slot = 0; slot < result.size(); ++slot) {
+            permuted.push_back(result[
+                (multiplier * slot + 1U) % result.size()]);
+        }
+        result = std::move(permuted);
+    }
+    return result;
+}
+
+std::vector<Vec3> decode_canonical_position(
+    const canonical::Frame& frame) {
+    std::vector<Vec3> result(frame.samples.size());
+    for (std::size_t i = 0; i < frame.samples.size(); ++i) {
+        result[i] = {
+            static_cast<double>(frame.samples[i].position_um[0]) / 1000000.0,
+            static_cast<double>(frame.samples[i].position_um[1]) / 1000000.0,
+            static_cast<double>(frame.samples[i].position_um[2]) / 1000000.0,
+        };
+    }
+    return result;
+}
+
+std::vector<Vec3> decode_canonical_velocity(
+    const canonical::Frame& frame) {
+    std::vector<Vec3> result(frame.samples.size());
+    for (std::size_t i = 0; i < frame.samples.size(); ++i) {
+        result[i] = {
+            static_cast<double>(frame.samples[i].velocity_um_s[0])
+                / 1000000.0,
+            static_cast<double>(frame.samples[i].velocity_um_s[1])
+                / 1000000.0,
+            static_cast<double>(frame.samples[i].velocity_um_s[2])
+                / 1000000.0,
+        };
+    }
+    return result;
+}
+
+long double canonical_component_error(
+    double binary_value, std::int64_t canonical_value) {
+    return std::fabs(static_cast<long double>(binary_value)
+        - static_cast<long double>(canonical_value) / 1000000.0L);
+}
+
+long double canonical_vector_error(
+    const Vec3& binary_value,
+    const std::array<std::int64_t, 3>& canonical_value) {
+    return std::max({
+        canonical_component_error(binary_value.x, canonical_value[0]),
+        canonical_component_error(binary_value.y, canonical_value[1]),
+        canonical_component_error(binary_value.z, canonical_value[2]),
+    });
+}
+
+std::vector<std::string> canonical_frame_roots(
+    const std::vector<canonical::Frame>& frames) {
+    std::vector<std::string> result;
+    result.reserve(frames.size());
+    for (const canonical::Frame& frame : frames) {
+        result.push_back(frame.root_sha256);
+    }
+    return result;
+}
+
+CanonicalStageRun run_canonical_stage_interval(
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    int substeps,
+    int order_mode,
+    int force_failure_after = -1) {
+    CanonicalStageRun result;
+    result.trace.record_queries = false;
+    result.run.position = fixture.position;
+    result.run.velocity = fixture.velocity;
+    result.run.substeps = substeps;
+    const double time_step = SMOKE_FRAME_TIME
+        / static_cast<double>(substeps);
+    for (int substep = 0; substep < substeps; ++substep) {
+        if (force_failure_after == substep) {
+            result.failure = "FORCED_SOLVER_FAILURE";
+            result.run.failure = result.failure;
+            return result;
+        }
+        const std::vector<Vec3> input_position = result.run.position;
+        const std::vector<Vec3> input_velocity = result.run.velocity;
+        if (!result.staged_frames.empty()) {
+            result.decode_chain_exact = result.decode_chain_exact
+                && exact_vec3_values(input_position,
+                    decode_canonical_position(
+                        result.staged_frames.back()))
+                && exact_vec3_values(input_velocity,
+                    decode_canonical_velocity(
+                        result.staged_frames.back()));
+        }
+        const BoxKktSolve solve = solve_box_kkt_step_joint_query(
+            fixture, input_position, input_velocity,
+            time_step, result.trace, false);
+        if (!solve.passed) {
+            result.failure = "KKT_SOLVE:" + solve.failure;
+            result.run.failure = result.failure;
+            return result;
+        }
+        result.run.outer_trials += solve.outer_trials;
+        result.run.rejected_trials += solve.rejected_trials;
+        result.run.hvp_calls += solve.hvp_calls;
+        result.run.active_steps +=
+            solve.state.smooth.support.active_centers > 0U ? 1 : 0;
+        result.run.inactive_steps +=
+            solve.state.smooth.support.active_centers > 0U ? 0 : 1;
+        std::vector<std::pair<std::size_t, int>> contacts;
+        for (std::size_t i = 0; i < solve.state.active_axis.size(); ++i) {
+            for (int axis = 0; axis < 3; ++axis) {
+                if (!solve.state.active_axis[i][static_cast<std::size_t>(axis)]) {
+                    continue;
+                }
+                const double gradient = component(
+                    solve.state.active_gradient[i], axis);
+                if (gradient != 0.0) {
+                    contacts.emplace_back(i,
+                        2 * axis + (gradient < 0.0 ? 1 : 0));
+                }
+            }
+        }
+        std::sort(contacts.begin(), contacts.end());
+        result.run.contact_events += static_cast<int>(contacts.size());
+        result.run.terminal_contacts = contacts;
+        if (!contacts.empty()
+            && !std::isfinite(result.run.first_contact_time)) {
+            result.run.first_contact_time =
+                static_cast<double>(substep + 1) * time_step;
+        }
+        try {
+            canonical::Frame frame = canonical::publish_frame(
+                B4C3_PROFILE_SHA256, scenario_sha256,
+                static_cast<std::uint32_t>(substep + 1),
+                canonical_float_samples(
+                    solve.position, solve.velocity, order_mode));
+            const std::vector<Vec3> decoded_position =
+                decode_canonical_position(frame);
+            const std::vector<Vec3> decoded_velocity =
+                decode_canonical_velocity(frame);
+            result.step_sequence_exact = result.step_sequence_exact
+                && frame.step == static_cast<std::uint32_t>(substep + 1);
+            result.sample_identity_exact = result.sample_identity_exact
+                && frame.samples.size() == solve.position.size();
+            for (std::size_t i = 0; i < solve.position.size(); ++i) {
+                result.maximum_position_error = std::max(
+                    result.maximum_position_error,
+                    canonical_vector_error(
+                        solve.position[i], frame.samples[i].position_um));
+                result.maximum_velocity_error = std::max(
+                    result.maximum_velocity_error,
+                    canonical_vector_error(
+                        solve.velocity[i], frame.samples[i].velocity_um_s));
+                result.sample_identity_exact = result.sample_identity_exact
+                    && frame.samples[i].sample_id == i;
+            }
+            result.staged_frames.push_back(std::move(frame));
+            result.publication_error_bounded =
+                result.publication_error_bounded
+                && result.maximum_position_error <= 0.5e-6L
+                && result.maximum_velocity_error <= 0.5e-6L;
+            result.run.position = decoded_position;
+            result.run.velocity = decoded_velocity;
+        } catch (const canonical::Error& error) {
+            result.failure = error.code();
+            result.run.failure = result.failure;
+            return result;
+        }
+    }
+    result.run.passed = true;
+    result.passed = result.decode_chain_exact
+        && result.sample_identity_exact && result.step_sequence_exact
+        && result.publication_error_bounded
+        && result.staged_frames.size() == static_cast<std::size_t>(substeps)
+        && result.trace.live_workspaces == 0
+        && result.trace.maximum_live_workspaces <= 2
+        && result.trace.exact && result.trace.work_reduced;
+    if (!result.passed) {
+        result.failure = "CANONICAL_STAGE_RUN_GATE";
+        result.run.failure = result.failure;
+    }
+    return result;
+}
+
+bool exact_canonical_frames(
+    const std::vector<canonical::Frame>& lhs,
+    const std::vector<canonical::Frame>& rhs) {
+    if (lhs.size() != rhs.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        if (lhs[i].step != rhs[i].step
+            || lhs[i].root_sha256 != rhs[i].root_sha256
+            || lhs[i].samples.size() != rhs[i].samples.size()) {
+            return false;
+        }
+        for (std::size_t sample = 0;
+             sample < lhs[i].samples.size(); ++sample) {
+            if (lhs[i].samples[sample].sample_id
+                    != rhs[i].samples[sample].sample_id
+                || lhs[i].samples[sample].position_um
+                    != rhs[i].samples[sample].position_um
+                || lhs[i].samples[sample].velocity_um_s
+                    != rhs[i].samples[sample].velocity_um_s) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+CanonicalStageCase run_canonical_stage_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    int coarse_substeps) {
+    CanonicalStageCase result;
+    result.name = std::move(name);
+    result.coarse = run_canonical_stage_interval(
+        fixture, scenario_sha256, coarse_substeps, 0);
+    result.fine = run_canonical_stage_interval(
+        fixture, scenario_sha256, 2 * coarse_substeps, 0);
+    if (!result.coarse.passed || !result.fine.passed) {
+        result.failure = "STAGED_LEVEL";
+        return result;
+    }
+    result.gate = smoke_gate(result.coarse.run, result.fine.run);
+    const std::vector<std::string> committed_roots =
+        canonical_frame_roots(result.fine.staged_frames);
+    const std::vector<std::string> coarse_roots =
+        canonical_frame_roots(result.coarse.staged_frames);
+    result.committed_frames = committed_roots.size();
+    result.trajectory_sha256 = canonical::trajectory_root(
+        B4C3_PROFILE_SHA256, scenario_sha256, committed_roots);
+    result.committed_steps_exact = true;
+    for (std::size_t i = 0; i < result.fine.staged_frames.size(); ++i) {
+        result.committed_steps_exact = result.committed_steps_exact
+            && result.fine.staged_frames[i].step
+                == static_cast<std::uint32_t>(i + 1U);
+    }
+    result.coarse_root_absent = std::none_of(
+        committed_roots.begin(), committed_roots.end(),
+        [&coarse_roots](const std::string& root) {
+            return std::find(coarse_roots.begin(), coarse_roots.end(), root)
+                != coarse_roots.end();
+        });
+    result.fine_only_commit = result.committed_frames
+            == static_cast<std::size_t>(2 * coarse_substeps)
+        && result.committed_steps_exact && result.coarse_root_absent;
+    result.final_decode_exact = exact_vec3_values(
+            result.fine.run.position,
+            decode_canonical_position(result.fine.staged_frames.back()))
+        && exact_vec3_values(result.fine.run.velocity,
+            decode_canonical_velocity(result.fine.staged_frames.back()));
+    const SmokeRun binary = run_b4b1_interval(
+        fixture, fixture.position, fixture.velocity,
+        2 * coarse_substeps, 0.0, SMOKE_FRAME_TIME);
+    result.binary_position_rms = rms_difference(
+        result.fine.run.position, binary.position);
+    result.binary_velocity_rms = rms_difference(
+        result.fine.run.velocity, binary.velocity);
+    result.contact_time_error = event_time_error(
+        result.fine.run.first_contact_time, binary.first_contact_time);
+    result.contact_exact = result.fine.run.terminal_contacts
+        == binary.terminal_contacts;
+    const CanonicalStageRun repeated = run_canonical_stage_interval(
+        fixture, scenario_sha256, 2 * coarse_substeps, 0);
+    result.repeat_exact = repeated.passed
+        && exact_canonical_frames(
+            repeated.staged_frames, result.fine.staged_frames)
+        && exact_vec3_values(repeated.run.position, result.fine.run.position)
+        && exact_vec3_values(repeated.run.velocity, result.fine.run.velocity);
+    result.order_exact = true;
+    for (int mode = 1; mode <= 2; ++mode) {
+        const CanonicalStageRun permuted = run_canonical_stage_interval(
+            fixture, scenario_sha256, 2 * coarse_substeps, mode);
+        result.order_exact = result.order_exact && permuted.passed
+            && exact_canonical_frames(
+                permuted.staged_frames, result.fine.staged_frames)
+            && exact_vec3_values(
+                permuted.run.position, result.fine.run.position)
+            && exact_vec3_values(
+                permuted.run.velocity, result.fine.run.velocity);
+    }
+    const double contact_limit = SMOKE_FRAME_TIME
+            / static_cast<double>(coarse_substeps)
+        + 64.0 * std::numeric_limits<double>::epsilon();
+    result.passed = result.gate.passed && result.fine_only_commit
+        && result.final_decode_exact && result.repeat_exact
+        && result.order_exact
+        && result.coarse.publication_error_bounded
+        && result.fine.publication_error_bounded
+        && binary.passed
+        && result.binary_position_rms <= 100.0e-6
+        && result.binary_velocity_rms <= 1.0e-3
+        && result.contact_exact
+        && result.contact_time_error <= contact_limit;
+    if (!result.passed) {
+        result.failure = "CANONICAL_STAGE_CASE_GATE";
+    }
+    return result;
+}
+
+CanonicalStageNegative canonical_publication_negative(
+    std::string name,
+    std::string expected,
+    int mode) {
+    CanonicalStageNegative result;
+    result.name = std::move(name);
+    result.expected = std::move(expected);
+    const SmokeFixture fixture = make_b4b_released_block_fixture();
+    const canonical::Frame initial = canonical::publish_frame(
+        B4C3_PROFILE_SHA256, B4C3_P2_SCENARIO_SHA256, 0U,
+        canonical_float_samples(fixture.position, fixture.velocity, 0));
+    const std::string pretransaction_root = initial.root_sha256;
+    std::string committed_root = pretransaction_root;
+    std::vector<std::string> committed_frames;
+    std::vector<canonical::FloatSample> values = canonical_float_samples(
+        fixture.position, fixture.velocity, 0);
+    if (mode == 0) {
+        values[0].position_m[0] =
+            std::numeric_limits<double>::quiet_NaN();
+    } else if (mode == 1) {
+        values[0].position_m[0] = 16.000001;
+    } else {
+        values.push_back(values.front());
+    }
+    try {
+        const canonical::Frame staged = canonical::publish_frame(
+            B4C3_PROFILE_SHA256, B4C3_P2_SCENARIO_SHA256, 1U,
+            std::move(values));
+        committed_frames.push_back(staged.root_sha256);
+        committed_root = staged.root_sha256;
+    } catch (const canonical::Error& error) {
+        result.observed = error.code();
+    }
+    result.committed_frames = committed_frames.size();
+    result.pretransaction_exact = committed_root == pretransaction_root;
+    result.passed = result.observed == result.expected
+        && result.committed_frames == 0U
+        && result.pretransaction_exact;
+    return result;
+}
+
+std::array<CanonicalStageNegative, 4> run_canonical_stage_negatives() {
+    std::array<CanonicalStageNegative, 4> result;
+    const SmokeFixture fixture = make_b4b_released_block_fixture();
+    const canonical::Frame initial = canonical::publish_frame(
+        B4C3_PROFILE_SHA256, B4C3_P2_SCENARIO_SHA256, 0U,
+        canonical_float_samples(fixture.position, fixture.velocity, 0));
+    const CanonicalStageRun forced = run_canonical_stage_interval(
+        fixture, B4C3_P2_SCENARIO_SHA256, 4, 0, 2);
+    result[0].name = "forced-solver-failure";
+    result[0].expected = "FORCED_SOLVER_FAILURE";
+    result[0].observed = forced.failure;
+    result[0].committed_frames = 0U;
+    result[0].pretransaction_exact = !initial.root_sha256.empty();
+    result[0].passed = !forced.passed
+        && forced.staged_frames.size() == 2U
+        && result[0].observed == result[0].expected
+        && result[0].committed_frames == 0U
+        && result[0].pretransaction_exact;
+    result[1] = canonical_publication_negative(
+        "nonfinite", "NONLOCAL_NONFINITE_VALUE", 0);
+    result[2] = canonical_publication_negative(
+        "position-range", "NONLOCAL_POSITION_OUT_OF_RANGE", 1);
+    result[3] = canonical_publication_negative(
+        "duplicate-id", "NONLOCAL_DUPLICATE_SAMPLE_ID", 2);
+    return result;
+}
+
+void append_canonical_stage_run(
+    std::ostringstream& output, const CanonicalStageRun& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"substeps\":" << value.run.substeps
+           << ",\"staged_frames\":" << value.staged_frames.size()
+           << ",\"maximum_position_error_m\":"
+           << value.maximum_position_error
+           << ",\"maximum_velocity_error_m_s\":"
+           << value.maximum_velocity_error
+           << ",\"publication_error_bounded\":"
+           << (value.publication_error_bounded ? "true" : "false")
+           << ",\"decode_chain_exact\":"
+           << (value.decode_chain_exact ? "true" : "false")
+           << ",\"sample_identity_exact\":"
+           << (value.sample_identity_exact ? "true" : "false")
+           << ",\"step_sequence_exact\":"
+           << (value.step_sequence_exact ? "true" : "false")
+           << ",\"outer_trials\":" << value.run.outer_trials
+           << ",\"hvp_calls\":" << value.run.hvp_calls
+           << ",\"contact_events\":" << value.run.contact_events
+           << ",\"first_frame_sha256\":\""
+           << (value.staged_frames.empty()
+                ? std::string() : value.staged_frames.front().root_sha256)
+           << "\",\"last_frame_sha256\":\""
+           << (value.staged_frames.empty()
+                ? std::string() : value.staged_frames.back().root_sha256)
+           << "\",\"query_chain_sha256\":\""
+           << value.trace.query_chain_sha256 << "\"}";
+}
+
+void append_canonical_stage_case(
+    std::ostringstream& output, const CanonicalStageCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"coarse\":";
+    append_canonical_stage_run(output, value.coarse);
+    output << ",\"fine\":";
+    append_canonical_stage_run(output, value.fine);
+    output << ",\"embedded_gate\":{\"position_dx\":"
+           << value.gate.normalized_position_error
+           << ",\"velocity_c\":" << value.gate.normalized_velocity_error
+           << ",\"kinetic_relative\":"
+           << value.gate.relative_kinetic_error
+           << ",\"contact_time_error_s\":"
+           << value.gate.contact_time_error
+           << ",\"passed\":" << (value.gate.passed ? "true" : "false")
+           << "},\"trajectory_sha256\":\""
+           << value.trajectory_sha256
+           << "\",\"committed_frames\":" << value.committed_frames
+           << ",\"fine_only_commit\":"
+           << (value.fine_only_commit ? "true" : "false")
+           << ",\"coarse_root_absent\":"
+           << (value.coarse_root_absent ? "true" : "false")
+           << ",\"committed_steps_exact\":"
+           << (value.committed_steps_exact ? "true" : "false")
+           << ",\"final_decode_exact\":"
+           << (value.final_decode_exact ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"order_exact\":"
+           << (value.order_exact ? "true" : "false")
+           << ",\"binary_position_rms_m\":"
+           << value.binary_position_rms
+           << ",\"binary_velocity_rms_m_s\":"
+           << value.binary_velocity_rms
+           << ",\"contact_time_error_s\":"
+           << value.contact_time_error
+           << ",\"contact_exact\":"
+           << (value.contact_exact ? "true" : "false") << '}';
+}
+
+void append_canonical_stage_negative(
+    std::ostringstream& output, const CanonicalStageNegative& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"expected\":\"" << value.expected
+           << "\",\"observed\":\"" << value.observed
+           << "\",\"committed_frames\":" << value.committed_frames
+           << ",\"pretransaction_exact\":"
+           << (value.pretransaction_exact ? "true" : "false") << '}';
+}
+
 JointCase run_joint_case(
     std::string name,
     const std::vector<JointPoint>& fluid,
@@ -12206,6 +12737,111 @@ SplitBoundaryReport run_joint_pressure_controller_controls() {
            << ",\"b4c3_canonical_transaction_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"canonical_continuation_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_canonical_stage_controls() {
+    const SplitBoundaryReport parent =
+        run_joint_pressure_controller_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "f33093415620deb819d93c52fec9f969e802cf1341bc1d0a17cbfbaf46512d0a";
+    std::vector<CanonicalStageCase> cases;
+    std::array<CanonicalStageNegative, 4> negatives{};
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C2T_PARENT";
+    } else {
+        cases.push_back(run_canonical_stage_case(
+            "p1-frame0-21-42",
+            make_b4b_supported_column_fixture(),
+            B4C3_P1_SCENARIO_SHA256, 21));
+        cases.push_back(run_canonical_stage_case(
+            "p2-frame0-1-2",
+            make_b4b_released_block_fixture(),
+            B4C3_P2_SCENARIO_SHA256, 1));
+        negatives = run_canonical_stage_negatives();
+        for (const CanonicalStageCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        for (const CanonicalStageNegative& value : negatives) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ":FAILURE_CONTROL";
+            }
+        }
+    }
+    const bool cases_passed = cases.size() == 2U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const CanonicalStageCase& value) { return value.passed; });
+    const bool negatives_passed = parent_exact
+        && std::all_of(negatives.begin(), negatives.end(),
+            [](const CanonicalStageNegative& value) { return value.passed; });
+    const bool passed = parent_exact && cases_passed && negatives_passed;
+    const std::string disposition = passed
+        ? "JOINT_PRESSURE_CANONICAL_STAGE_CANDIDATE"
+        : "JOINT_PRESSURE_CANONICAL_STAGE_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition;
+    for (const CanonicalStageCase& value : cases) {
+        material << '|' << value.name << ':' << value.trajectory_sha256
+                 << ':' << value.coarse.maximum_position_error
+                 << ':' << value.coarse.maximum_velocity_error
+                 << ':' << value.fine.maximum_position_error
+                 << ':' << value.fine.maximum_velocity_error
+                 << ':' << value.binary_position_rms
+                 << ':' << value.binary_velocity_rms;
+    }
+    for (const CanonicalStageNegative& value : negatives) {
+        material << '|' << value.name << ':' << value.observed
+                 << ':' << value.committed_frames
+                 << ':' << value.pretransaction_exact;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3a_canonical_stage.v1\""
+           << ",\"identity\":\"joint-pressure-canonical-stage-r0\""
+           << ",\"parent_b4c2t_result_sha256\":\"00b67a5506dd2a69fa477c14db0c730140e1747e26fc66736d734ee8cbb44606\""
+           << ",\"parent_b4c2t_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"profile_sha256\":\"" << B4C3_PROFILE_SHA256 << '"'
+           << ",\"scenario_sha256\":{\"p1\":\""
+           << B4C3_P1_SCENARIO_SHA256 << "\",\"p2\":\""
+           << B4C3_P2_SCENARIO_SHA256 << "\"}"
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"npr1a_publication_arithmetic_reused\":true"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_canonical_stage_case(report, cases[i]);
+    }
+    report << "],\"failure_controls\":[";
+    for (std::size_t i = 0; i < negatives.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_canonical_stage_negative(report, negatives[i]);
+    }
+    report << ']'
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c3t_full_canonical_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"full_canonical_trajectory_authorized\":false"
            << ",\"nominal_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"

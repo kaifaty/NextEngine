@@ -43,6 +43,7 @@ target_compile_options(
 add_executable(
     nonlocal-formula-reclosure
     src/boundary_reference.cpp
+    src/canonical.cpp
     src/dimensional_profile.cpp
     src/formula_discriminators.cpp
     src/formula_reclosure.cpp

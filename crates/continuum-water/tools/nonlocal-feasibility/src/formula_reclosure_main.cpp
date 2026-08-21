@@ -56,7 +56,8 @@ int main(int argc, char** argv) {
                          "--joint-neighborhood-one-pass-self-test|"
                          "--joint-pressure-tape-self-test|"
                          "--joint-pressure-query-self-test|"
-                         "--joint-pressure-controller-self-test\n";
+                         "--joint-pressure-controller-self-test|"
+                         "--canonical-stage-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -390,6 +391,12 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--canonical-stage-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::run_canonical_stage_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -436,7 +443,8 @@ int main(int argc, char** argv) {
                      "--joint-neighborhood-one-pass-self-test|"
                      "--joint-pressure-tape-self-test|"
                      "--joint-pressure-query-self-test|"
-                     "--joint-pressure-controller-self-test\n";
+                     "--joint-pressure-controller-self-test|"
+                     "--canonical-stage-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';
