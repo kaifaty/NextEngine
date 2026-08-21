@@ -824,3 +824,9 @@ to v2: outer controls use `[0,1]^3`, while aperture controls use the real
 `[0,2] x [0,1] x [0,1]` orifice box. This prevents a legal pass beyond
 internal wall `x=1` from being misclassified as an outer escape. The v1 root
 has no implementation authority.
+R1B passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1b-contact-adapter-evidence-2026-08-21.md).
+Two builds produce the same adapter ELF and normalized command root, two fresh
+processes produce the same 1,730-byte report, all eight contact cases pass and
+all environment mutations fail before contact. Freeze R1C manifests next;
+no 24-step trajectory or B4E design is authorized yet.

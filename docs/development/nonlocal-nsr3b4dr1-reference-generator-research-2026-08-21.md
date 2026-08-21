@@ -1,6 +1,6 @@
 # NSR3-B4DR1 reproducible external-reference generator research -- 2026-08-21
 
-Status: `COMPLETE / R1A_PASS / R1B_DESIGN_AUTHORIZED`
+Status: `COMPLETE / R1B_PASS / R1C_DESIGN_AUTHORIZED`
 
 ## Problem
 
@@ -84,3 +84,12 @@ fresh full-clone static builds under the strict binary64/no-AVX/no-FMA profile.
 It also rejects linked Git worktrees because the upstream revision probe cannot
 resolve their HEAD. R1B contract/design is authorized; no adapter execution or
 trajectory is authorized yet.
+
+## R1B outcome
+
+The [R1B evidence](nonlocal-nsr3b4dr1b-contact-adapter-evidence-2026-08-21.md)
+attests the standalone adapter source/build/binary closure, all contact
+branches, fail-closed process mutations and two-process byte equality. The
+DFSPH symbol closure is linked but no solver step or trajectory ran. R1C
+scenario-manifest design is authorized next; execution still requires a
+separately frozen contract.

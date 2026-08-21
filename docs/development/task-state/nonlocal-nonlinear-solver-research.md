@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1A_PASS / R1B_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4DR1_R1B_PASS / R1C_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -38,8 +38,12 @@
 - **Current correction:** R1B v2 separates the unit outer-clamp fixture from
   the `[0,2] x [0,1] x [0,1]` orifice box. Rejected v1 placed wall `x=1` on
   the outer face and never reached implementation.
-- **Next action:** implement and link only the R1B no-trajectory self-test,
-  then bind source/build/binary/output roots and negative mutations.
+- **Current conclusion:** R1B passes. Two builds reproduce executable SHA
+  `c1150fad...a5da`, two processes reproduce stdout SHA `c6a4950d...a8a`, all
+  eight contact cases pass, and float/locale/OpenMP mutations reject before
+  contact. No trajectory ran.
+- **Next action:** freeze exact R1C hydro/dam/orifice scenario manifests and
+  their 24-step serialization/convergence gates before executing any solver.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -57,7 +61,7 @@
 | NSR3B4C4A/B/C | retained workspace, immutable support index and flat CSR ownership | packaged complete adaptive/fixed research runner |
 | NSR3B4D | fail-closed external reference reader | deterministic missing-artifact boundary only |
 | NSR3B4DR1A | reproducible strict external DFSPH library bootstrap | build/toolchain candidate only; no adapter or trajectory |
-| NSR3B4DR1B | frozen standalone contact/validation contract | implementation authorized; no particle world |
+| NSR3B4DR1B | reproducible standalone contact/validation adapter | contact algebra and ABI gate only; R1C design authorized |
 
 Candidate solver identity remains:
 
@@ -83,6 +87,7 @@ production authority is created by this lineage.
 | [B4C4C1](../nonlocal-nsr3b4c4c1-complete-flat-adjacency-evidence-2026-08-21.md) | all eight lanes/rollback exact; zero final ownership | B4C4 is closed; keep legacy path as oracle/rollback |
 | [B4D](../nonlocal-nsr3b4d-reference-reattestation-evidence-2026-08-21.md) | local identities exact, all external files missing | no nominal trajectory until reference closure is restored |
 | [B4DR1A](../nonlocal-nsr3b4dr1a-external-bootstrap-evidence-2026-08-21.md) | strict external library closure reproduces 8/8 artifacts across full clones | freeze adapter/contact semantics before execution; never use linked worktrees |
+| [B4DR1B](../nonlocal-nsr3b4dr1b-contact-adapter-evidence-2026-08-21.md) | adapter binary/output reproduce and all contact/preflight gates pass | freeze R1C manifests before the first DFSPH step; do not inherit W1 credit |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -159,6 +164,15 @@ adapter/source/binary SHA-256 values.
   for every reference build; bind generated `Utilities/Version.h` separately.
 - **Rejected:** lazy blob-by-blob checkout and linked Git worktrees.
 
+### D-007 -- Select the independent contact adapter
+
+- **Observation:** the v2 geometry, all eight branch cases and independent
+  clearance/chord validator pass under a reproducible linked DFSPH ABI.
+- **Decision:** select R1B only as the contact/preflight boundary and authorize
+  R1C scenario-manifest design.
+- **Rejected:** the v1 outer-box geometry, a weakened header-only ABI anchor,
+  and starting trajectories before manifest/serialization closure.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -183,10 +197,11 @@ adapter/source/binary SHA-256 values.
 
 ## Exact next action
 
-1. Implement the frozen R1B standalone geometry/environment self-test without
-   starting a particle simulation.
-2. Bind tracked source, compiler/link, ABI, binary, stdout and mutation roots.
-3. Only R1B PASS may freeze and run R1C 24-step scenario manifests.
+1. Freeze R1C hydro, dam-break and orifice manifests, stable sample IDs,
+   convergence/clearance gates and canonical `CWREFV2` preflight projection.
+2. Commit the R1C contract before building or executing its trajectory path.
+3. Only the committed R1C contract may authorize two 24-step processes per
+   scenario; any failure stops before R1D.
 4. Keep B4E blocked until a new R1E reference attestation passes twice.
 
 ## Reconsideration triggers

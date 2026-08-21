@@ -1,6 +1,6 @@
 # NSR3-B4DR1B -- standalone external contact-adapter contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / TRAJECTORY_FORBIDDEN`
+Status: `FROZEN / R1B_PASS / R1C_DESIGN_AUTHORIZED / TRAJECTORY_FORBIDDEN`
 
 Identity projection:
 

@@ -1,6 +1,6 @@
 # NSR3-B4DR1B standalone contact-adapter research -- 2026-08-21
 
-Status: `COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `COMPLETE / R1B_PASS / R1C_DESIGN_AUTHORIZED`
 
 ## Problem
 
@@ -82,5 +82,9 @@ internal vectors. The rejected v1 root remains recorded as negative evidence.
 ## Decision
 
 Freeze the [R1B contract](../plans/nonlocal-nonlinear-solver-research/03b4dr1b-contact-adapter-contract.md)
-and implement only this no-trajectory self-test next. R1C and B4E remain
+and implement only this no-trajectory self-test next.
+
+The subsequent [R1B evidence](nonlocal-nsr3b4dr1b-contact-adapter-evidence-2026-08-21.md)
+passes every vector, sentinel, environment mutation and reproducibility gate.
+Only R1C scenario-manifest design is authorized. R1C execution and B4E remain
 blocked.
