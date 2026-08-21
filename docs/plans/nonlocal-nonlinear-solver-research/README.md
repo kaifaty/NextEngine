@@ -893,3 +893,8 @@ and [frozen contract](03b4dr1c5-orifice-domain-reclosure-contract.md) separate
 analytical domain extent from boundary lattice width, keep all boundary roots
 unchanged and require every pair to rerun under a new global identity. R1D is
 still blocked.
+R1C5 now passes all three corrected pairs byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1c5-trajectory-evidence-2026-08-21.md).
+Orifice completes 24 steps with 28 final receiver samples while its source-
+support boundary remains unchanged. This opens only R1D full external
+generation; R1E, B4E, runtime and production authority remain blocked.

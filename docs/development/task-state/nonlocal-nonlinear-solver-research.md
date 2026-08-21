@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1C4_FAIL / R1C5_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4DR1_R1C5_PASS / R1D_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -77,8 +77,12 @@
 - **Current decision:** R1C4 fails overall. R1C5 separates domain extent from
   boundary lattice extent, keeps Orifice support unchanged and uses a new
   global profile identity.
-- **Next action:** implement/commit R1C5 plus manifest-only extent assertions,
-  then rerun all three pairs. Do not inherit R1C4 payload credit or run R1D.
+- **Current conclusion:** R1C5 passes all three pairs byte-identically. All six
+  processes exit zero with empty stderr; Orifice completes with 28 receiver
+  samples under analytical `x_max=2.0` and unchanged one-metre source support.
+- **Next action:** freeze and implement R1D full schedules under the corrected
+  profile, then run each scenario twice in fresh processes. Do not begin R1E
+  until all three full pairs pass.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -108,6 +112,7 @@
 | NSR3B4DR1C4 contract | cap 300 and new trajectory identity | paired short scenarios; R1D still blocked |
 | NSR3B4DR1C4 execution | Hydro/Dam exact; Orifice fails before contact at extent mismatch | R1C4 FAIL; no R1D |
 | NSR3B4DR1C5 contract | explicit domain/support extent ownership | rerun all pairs under new identity |
+| NSR3B4DR1C5 PASS | all short pairs exact; Orifice reaches 28 receiver samples | R1D full generation only |
 
 Candidate solver identity remains:
 
@@ -141,6 +146,7 @@ production authority is created by this lineage.
 | [B4DR1C2](../nonlocal-nsr3b4dr1c2-failure-observability-evidence-2026-08-21.md) | pressure hits 100 iterations at `8.2744x` threshold on step 1; divergence and dt exact | sweep pressure cap before changing calibration/tolerance |
 | [B4DR1C3](../nonlocal-nsr3b4dr1c3-pressure-cap-evidence-2026-08-21.md) | residual falls monotonically and crosses threshold at iteration 220; physical volume is lattice-normalized | reclose cap 300 only; retain mass/volume and cold policy |
 | [B4DR1C4](../nonlocal-nsr3b4dr1c4-trajectory-evidence-2026-08-21.md) | Hydro/Dam pairs exact; Orifice domain extent conflated with source support | preserve partial evidence but grant no pass; separate ownership in R1C5 |
+| [B4DR1C5](../nonlocal-nsr3b4dr1c5-trajectory-evidence-2026-08-21.md) | all three pairs byte-exact; corrected Orifice crosses into receiver | execute R1D full schedules; retain all earlier negative evidence |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -295,6 +301,15 @@ adapter/source/binary SHA-256 values.
 - **Rejected:** extending receiver-side Akinci support, weakening contact's
   two-metre assertion or inheriting R1C4 Hydro/Dam payload roots.
 
+### D-015 -- Admit corrected short trajectories to full generation
+
+- **Observation:** all six R1C5 processes pass with byte-identical paired
+  reports/payloads; Orifice records 28 final receiver samples.
+- **Decision:** authorize only R1D full external generation under the R1C5
+  profile and cap 300.
+- **Rejected:** inheriting short payloads as full references, starting R1E
+  early or converting this research pass into runtime/production authority.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -319,12 +334,12 @@ adapter/source/binary SHA-256 values.
 
 ## Exact next action
 
-1. Create a new ordinary full upstream clone and apply only the frozen R1C
-   cold-start/diagnostic patch; record its exact dirty-path/build closure.
-2. Implement the exact `CWREFV2` 24-step path without changing R1B output or
-   R1C1 manifest roots.
-3. Run two fresh 24-step processes per scenario; any failure stops before R1D.
-4. Keep B4E blocked until a new R1E reference attestation passes twice.
+1. Freeze the R1D execution/profile projection over the accepted R1C5 lineage.
+2. Implement output schedules Hydro `0..1200/24` and Dam/Orifice `0..720/4`
+   without changing solver/contact physics, R1B output or R1C1 manifests.
+3. Run each scenario twice from fresh one-thread processes into explicit
+   external artifact roots; require byte-identical same-scenario payloads.
+4. Design R1E only after complete R1D PASS; keep B4E blocked until R1E passes.
 
 ## Reconsideration triggers
 

@@ -1,6 +1,6 @@
 # NSR3-B4DR1 -- reproducible external-reference generator contract
 
-Status: `FROZEN / R1C4_FAIL / R1C5_DOMAIN_RECLOSURE / NEW_ROOT_ONLY`
+Status: `FROZEN / R1C5_PASS / R1D_EXECUTION / NEW_ROOT_ONLY`
 
 Identity projection:
 
@@ -109,6 +109,10 @@ R1C4 Hydro/Dam pairs pass, but Orifice exposes an analytical-domain/source-
 support ownership conflict. The
 [R1C5 contract](03b4dr1c5-orifice-domain-reclosure-contract.md) separates
 those fields and requires all pairs to rerun under a new identity.
+
+R1C5 passes all three pairs byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1c5-trajectory-evidence-2026-08-21.md).
+This authorizes only R1D full external generation under the corrected profile.
 
 ## R1D -- full external generation
 

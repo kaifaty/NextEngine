@@ -1,6 +1,6 @@
 # NSR3-B4DR1C5 -- Orifice analytical-domain reclosure contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / NEW_ROOT_ONLY`
+Status: `FROZEN / PASS / R1D_EXECUTION_AUTHORIZED / NEW_ROOT_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -40,3 +40,8 @@ same-scenario payloads must be byte-identical.
 
 Only complete R1C5 PASS authorizes R1D under the corrected new-root profile.
 It grants no R1E, B4E, runtime or production authority.
+
+R1C5 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1c5-trajectory-evidence-2026-08-21.md).
+All three pairs are byte-identical and Orifice ends with 28 receiver samples.
+Proceed only to R1D full external generation.
