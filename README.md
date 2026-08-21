@@ -13,14 +13,13 @@ playable, and correct without a network connection, an LLM, or an external AI
 service. Models can enrich the experience when available; declared in-process
 fallbacks keep the game working when they are not.
 
-> **Project status:** Next Engine is in active pre-1.0 development. A playable
-> Linux reference alpha and its deterministic headless counterpart work
-> locally. Linux x86_64 is the only current v1 target; Windows support is out
-> of scope and deferred indefinitely. The bounded procedural physical-character baseline is
-> complete; the public creator project/template/scenario/replay workflow and
-> independent project-package/projection slice are available, while versioned
-> Linux release closure, hard release performance, broader consumer-driven editor
-> tooling, and v1 are not. See the
+> **Project status:** Next Engine 1.0 is in final Linux release-candidate
+> closure. A playable Linux reference project and its deterministic headless
+> counterpart work locally. Linux x86_64 is the only current v1 target;
+> Windows support is out of scope and deferred indefinitely. The bounded
+> procedural physical-character baseline and public creator
+> project/template/scenario/replay workflow are complete. Final physical-display
+> performance and native package acceptance remain release gates. See the
 > [roadmap](docs/roadmap.md) for the current stage and open blockers.
 
 Next Engine is an independent project. It is not an OpenGothic port and it is
@@ -182,6 +181,10 @@ the current pre-v1 compatibility boundary.
   blockers.
 - [Creator SDK beta](docs/creator-sdk.md) — cold project authoring, cooking,
   packaging, inspection and extension examples.
+- [Linux package quick start](GETTING_STARTED.md) — requirements and packaged
+  game/headless/tool commands.
+- [Linux troubleshooting](TROUBLESHOOTING.md) — display, Vulkan, audio, state
+  recovery and stable diagnostic guidance.
 - [Architecture index](docs/architecture/README.md) — specifications and
   accepted decisions.
 - [Contributing](CONTRIBUTING.md) — the local development workflow.

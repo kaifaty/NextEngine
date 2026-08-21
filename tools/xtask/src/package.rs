@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 mod build;
+mod distribution;
 mod inventory;
 mod manifest;
 mod runtime;
@@ -13,13 +14,24 @@ mod source;
 
 use build::{
     LINUX_SDL_CMAKE_TOOLCHAIN_ENV, cargo_target_directory, package_build_target_directory,
-    package_sdl_toolchain_file, release_binary_directory, run_checked_with_environment,
+    package_encoded_rustflags, package_sdl_toolchain_file, release_binary_directory,
+    run_checked_with_environment,
+};
+pub use distribution::{
+    DependencyInventoryV1, DependencyLicenseFileV1, DependencyRecordV1, DependencyRootV1,
+    PackageDistributionV1, PackageProtectedDataScanV1,
+};
+use distribution::{
+    build_distribution_materials, validate_distribution_materials, validate_protected_data_scan,
 };
 use inventory::{
     checked_metadata, collect_inventory, hash_file, read_bounded, validate_package_root,
     validate_project_store_layout, validate_relative_package_path,
 };
-use manifest::{canonical_json_bytes, hash_bytes};
+use manifest::{
+    MAX_MANIFEST_BYTES, PackageManifestVersionProbe, REFERENCE_PROJECT_DOCUMENT_PATHS,
+    REQUIRED_NOTICE_PATHS, canonical_json_bytes, hash_bytes,
+};
 #[cfg(test)]
 use smoke::{
     LINUX_DYNAMIC_LOADER_FAILURE_EXIT_CODE, WINDOWS_STATUS_DLL_NOT_FOUND,
@@ -36,24 +48,13 @@ use source::{
 };
 
 pub const PACKAGE_MANIFEST_FILE: &str = "package.manifest.jcs";
-pub const PACKAGE_MANIFEST_SCHEMA_VERSION: u32 = 5;
-
-const MAX_MANIFEST_BYTES: usize = 8 * 1024 * 1024;
-const REQUIRED_NOTICE_PATHS: [&str; 4] = [
-    "LICENSE",
-    "MIGRATION_PROVENANCE.md",
-    "NOTICE",
-    "THIRD_PARTY_NOTICES.md",
-];
-const REFERENCE_PROJECT_DOCUMENT_PATHS: [(&str, &str); 2] = [
-    ("projects/reference-alpha/ACCEPTANCE.md", "ACCEPTANCE.md"),
-    ("projects/reference-alpha/NOTICE", "REFERENCE_ALPHA_NOTICE"),
-];
+pub const PACKAGE_MANIFEST_SCHEMA_VERSION: u32 = 6;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PackageManifestV5 {
+pub struct PackageManifestV6 {
     pub binaries: PackageBinariesV3,
+    pub distribution: PackageDistributionV1,
     pub file_inventory: Vec<PackageFileV2>,
     pub required_notices: Vec<String>,
     pub runtime_profile: PackageRuntimeProfileV3,
@@ -161,14 +162,9 @@ pub struct PackageTargetNeutralRootsV3 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PackageBuildResult {
-    pub manifest: PackageManifestV5,
+    pub manifest: PackageManifestV6,
     pub output: PathBuf,
     pub package_manifest_sha256: String,
-}
-
-#[derive(Deserialize)]
-struct PackageManifestVersionProbe {
-    schema_version: u32,
 }
 
 pub fn build_v1_package(
@@ -273,7 +269,7 @@ where
     })
 }
 
-pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV5, String> {
+pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV6, String> {
     validate_package_root(package_root)?;
     let manifest_path = package_root.join(PACKAGE_MANIFEST_FILE);
     let manifest_metadata = checked_metadata(&manifest_path)?;
@@ -296,7 +292,7 @@ pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV5, Str
             version.schema_version, PACKAGE_MANIFEST_SCHEMA_VERSION
         ));
     }
-    let manifest: PackageManifestV5 = serde_json::from_slice(&manifest_bytes)
+    let manifest: PackageManifestV6 = serde_json::from_slice(&manifest_bytes)
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: invalid manifest JSON: {error}"))?;
     let canonical = canonical_json_bytes(&manifest)?;
     if manifest_bytes != canonical {
@@ -309,6 +305,12 @@ pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV5, Str
     if manifest.file_inventory != actual_inventory {
         return package_error("package file inventory does not exactly match package files");
     }
+    validate_distribution_materials(package_root, &manifest.distribution, &actual_inventory)?;
+    validate_protected_data_scan(
+        package_root,
+        &manifest.distribution.protected_data_scan,
+        &actual_inventory,
+    )?;
     validate_binary_inventory(&manifest)?;
     runtime::validate_runtime_profile(
         package_root,
@@ -335,7 +337,7 @@ fn build_staged_package(
     smoke_root: &Path,
     target_triple: &str,
     binary_sources: &PackageBinarySources,
-) -> Result<(PackageManifestV5, Vec<u8>), String> {
+) -> Result<(PackageManifestV6, Vec<u8>), String> {
     let bin_directory = staging.join("bin");
     fs::create_dir(&bin_directory).map_err(|error| {
         format!("NATIVE_GATE_PACKAGE_INVALID: failed to create package bin: {error}")
@@ -358,6 +360,7 @@ fn build_staged_package(
 
     copy_required_notices(repository_root, staging)?;
     copy_reference_project_documents(repository_root, staging)?;
+    let mut distribution = build_distribution_materials(repository_root, staging)?;
 
     let executable_suffix = if target_triple == "x86_64-pc-windows-msvc" {
         ".exe"
@@ -386,6 +389,8 @@ fn build_staged_package(
         ],
     )?;
     let inventory_before_smoke = collect_inventory(staging)?;
+    distribution.protected_data_scan =
+        distribution::scan_protected_data(staging, &inventory_before_smoke)?;
 
     fs::create_dir(smoke_root).map_err(|error| {
         format!(
@@ -464,12 +469,13 @@ fn build_staged_package(
         headless_report,
     )?;
     let tools = packaged_tool_run(&tools_name, &tools_destination, tools_report)?;
-    let manifest = PackageManifestV5 {
+    let manifest = PackageManifestV6 {
         binaries: PackageBinariesV3 {
             game,
             headless,
             tools,
         },
+        distribution,
         file_inventory: inventory_after_smoke,
         required_notices: required_notice_paths(),
         runtime_profile,
@@ -504,9 +510,13 @@ fn prepare_release_binary_sources(
             path.display()
         ));
     }
-    let mut environment = vec![("CARGO_TARGET_DIR", build_target_directory.as_path())];
+    let encoded_rustflags = package_encoded_rustflags(repository_root)?;
+    let mut environment = vec![
+        ("CARGO_TARGET_DIR", build_target_directory.as_os_str()),
+        ("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags.as_os_str()),
+    ];
     if let Some(toolchain) = &toolchain {
-        environment.push((LINUX_SDL_CMAKE_TOOLCHAIN_ENV, toolchain.as_path()));
+        environment.push((LINUX_SDL_CMAKE_TOOLCHAIN_ENV, toolchain.as_os_str()));
     }
     run_checked_with_environment(
         repository_root,
@@ -562,17 +572,14 @@ fn packaged_run(
     })
 }
 
-fn validate_manifest_fields(manifest: &PackageManifestV5) -> Result<(), String> {
+fn validate_manifest_fields(manifest: &PackageManifestV6) -> Result<(), String> {
     if manifest.schema_version != PACKAGE_MANIFEST_SCHEMA_VERSION {
         return Err(format!(
             "UNSUPPORTED_PACKAGE_FORMAT: package schema version {} is unsupported; expected {}",
             manifest.schema_version, PACKAGE_MANIFEST_SCHEMA_VERSION
         ));
     }
-    if !matches!(
-        manifest.target_triple.as_str(),
-        "x86_64-pc-windows-msvc" | "x86_64-unknown-linux-gnu"
-    ) {
+    if manifest.target_triple != "x86_64-unknown-linux-gnu" {
         return package_error(format!(
             "unsupported package target {}",
             manifest.target_triple
@@ -664,7 +671,7 @@ fn validate_packaged_run(
     Ok(())
 }
 
-fn validate_binary_inventory(manifest: &PackageManifestV5) -> Result<(), String> {
+fn validate_binary_inventory(manifest: &PackageManifestV6) -> Result<(), String> {
     for (binary_path, binary_sha256) in [
         (
             manifest.binaries.game.binary_path.as_str(),

@@ -1,5 +1,19 @@
 # Third-party notices
 
+## Native Linux package dependencies
+
+The current PackageManifest V6 Linux distribution contains a canonical
+`DEPENDENCY_INVENTORY.jcs` generated offline from the exact selected Cargo
+release graph and `Cargo.lock`. Every external record names its version,
+registry source, checksum and declared license expression. The corresponding
+upstream license, notice and copyright files are copied without semantic edits
+under `THIRD_PARTY_LICENSES/<name>-<version>/` and are bound by the package file
+inventory and manifest hash.
+
+This repository-level notice describes the generation policy. The packaged
+inventory and copied files are the exact authority for a particular binary
+distribution.
+
 ## Migrated OpenGothic documentation
 
 The files under `docs/architecture/` originated in the OpenGothic repository as recorded in `MIGRATION_PROVENANCE.md`. The source repository carried the following MIT License notice:

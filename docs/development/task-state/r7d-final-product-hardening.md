@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ACCEPTANCE_MATRIX_LOCKED / EVIDENCE_NEXT` |
+| Status | `ACTIVE / CPU_OFFLINE_PASS / DESKTOP_NON_CLAIM` |
 | Updated | 2026-08-21 |
 | Task key | `r7d-final-product-hardening` |
 | Scope | Close release-blocking Linux gameplay, persistence/replay, corrupted-input, long-session, renderer/input/audio, lifecycle/recovery and offline-fallback defects without adding new product scope |
@@ -11,19 +11,16 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R7d is primarily an evidence-and-defect-closure step,
-  not a request for a new aggregate runtime or subsystem. Existing production
-  paths already contain direct coverage for representative gameplay,
-  save/load/replay, corrupt-generation fallback without source rewriting,
-  long-session input/state roots, audio, desktop device recovery and
-  game/headless parity.
-- **Why:** `persistence-replay` injects corrupt RPG and physics generations and
-  verifies exact fallback/preservation; `platform` injects device and audio
-  loss through the production desktop adapter; `long-session-soak` drives
-  3,600 authoritative and application ticks in three windows with periodic
-  camera input and root closure.
-- **Next action:** Run the locked R7d acceptance matrix from the exact Linux
-  candidate and fix only a concrete failing boundary.
+- **Current conclusion:** Every runnable CPU/offline R7d row passes on the
+  candidate without a release-blocking defect. Only the physical-display
+  desktop row remains an explicit non-claim and may be completed with the final
+  Linux acceptance run after the connector becomes OS-visible.
+- **Why:** Application `26/26`, verification `83/83` plus one declared ignored
+  diagnostic, `play`, `persistence-replay`, `audio-scene` and the clean release
+  long-session report all pass. The soak completes 3,600 driver/application
+  ticks with exact roots and zero diagnostics.
+- **Next action:** Continue R7e distribution closure while preserving the
+  display-dependent `platform`/R2 boundary for final acceptance.
 - **Current blocker:** Physical-display R2/platform evidence is unavailable:
   Xwayland reports 0x0, NVIDIA reports display inactive and every DRM connector
   reports disconnected. This also remains the sole unfinished R7c workload.
@@ -40,6 +37,13 @@
 | `crates/verification/src/live_runtime_performance.rs` and `prepared/*` | Long-session workload drives 3,600 ticks, three 1,200-tick windows, 120 state samples and periodic camera events; finalization requires authoritative/application completion and roots | `performance --scenario long-session-soak --mode report` is the bounded soak authority, independent of R7c hard-gate statistics |
 | `crates/verification/src/platform_check.rs` | Production desktop candidate requires normalized controls, resize/focus/fullscreen, device-loss recovery, audio-device reopen and UI overlay success | `platform` remains the renderer/input/audio/lifecycle authority once a physical display is visible |
 | Current Linux display probes | `NOT_RUN`: Xwayland 0x0, NVIDIA inactive, all DRM connectors disconnected | Preserve as a non-claim; do not fabricate desktop acceptance |
+| `cargo test --locked -p next_application` | `PASS`: 26/26 including manual save/load/close, crash resume, pause-menu lifecycle, preference quarantine and close retry | Application lifecycle and recovery rows are closed for this candidate |
+| `cargo test --locked -p next_verification` | `PASS`: 83 tests across unit/integration suites, zero failures; one declared report-only history diagnostic ignored | Replay tamper/corruption, production parity and verification cleanup remain green |
+| `xtask play` on `fec8d9d…` | `PASS`: 32 ticks, 52 events, 23 RPG events, state `1e1498bd…bf4e`, ledger `e66f0788…3167` | Representative gameplay and offline deterministic composition pass |
+| `xtask persistence-replay` on `fec8d9d…` | `PASS`: 20 ticks, two generations, state `62013d24…da6`, ledger `ad6234b7…08b` | Save/load/replay and corrupt-generation fallback pass |
+| `xtask audio-scene` on `fec8d9d…` | `PASS`: 12 cues/facts, 13 non-silent windows, repeated run identical | Displayless audio/fallback row passes |
+| Clean release `long-session-soak` on `fec8d9d…` | `PASS / REPORT_ONLY`: 3,600 ticks, 3,617 command bodies, windows `4,019,784/4,751,431/5,582,732 us`, state `d51e9841…f10`, peak RSS `52,228,096`, ready boundaries and zero diagnostics | Long-session degradation/root closure passes; this does not claim R7c/B-12 |
+| Post-V6 workspace `host-check` | `PASS`: Linux format, Clippy, workspace tests and doc-tests on pinned Rust 1.97.1 | Distribution/version integration introduces no CPU/offline hardening regression |
 
 ## Decisions that still constrain the work
 
@@ -57,7 +61,8 @@
   boundary failed.
 - **Consequences:** Evidence remains composable and failures remain locally
   actionable; final release closure can cite the exact report for each risk.
-- **Uncertainty:** The matrix has not yet been executed on this candidate.
+- **Uncertainty:** Only the physical-desktop row has not executed on this
+  candidate; every CPU/offline row is closed by the evidence above.
 - **Reconsider when:** A roadmap risk cannot be represented by an existing
   report or focused production-path test.
 
@@ -81,8 +86,8 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Existing checks fully cover R7d without new product code | Source audit covers every named risk class | Candidate-wide evidence has not run yet | Execute the locked matrix and inspect typed failures/reports |
-| H2: Long-session behavior remains bounded and root-stable | Workload and finalization require exact tick/sample/root closure | No report from the current candidate yet | Run the release long-session report once |
+| H1: Existing checks fully cover R7d without new product code | All runnable candidate rows pass and expose the named roots/failure semantics | Physical desktop row is not currently runnable | Resolve with final physical-display platform acceptance |
+| H2: Long-session behavior remains bounded and root-stable | Clean release report completes 3,600 ticks with exact root and zero diagnostics | None observed | Closed for this candidate; repeat only after a material hot-path change |
 
 ## Required context
 
@@ -99,11 +104,10 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Run focused application/persistence/platform tests and the CPU/offline
-   product-check rows.
-2. Treat the first typed failure as the only implementation target; otherwise
-   record the passing exact reports.
-3. Re-run the affected row plus its routed non-regression check after any fix.
+1. Continue R7e without changing gameplay/runtime semantics.
+2. When a physical connector becomes visible, run the release desktop
+   `platform` row and the remaining R2 evidence rather than a substitute.
+3. Repeat a completed R7d row only after a material affected-path change.
 
 ## Do not retry
 
@@ -120,8 +124,11 @@ Read these sources in precedence order before acting:
   `/home/kaifaty/Documents/NextEngine-r7d` on
   `codex/r7d-final-hardening`; the clean main worktree remains the exact R7c
   evidence anchor.
-- **Checks:** Source audit complete; candidate execution pending. Desktop is
-  `NOT_RUN` because no physical connector is visible.
-- **Remaining risk:** Candidate-wide failures and physical-display availability.
-- **Promotion needed:** Exact R7d evidence and roadmap status after the matrix
-  completes; no new ADR is currently justified.
+- **Checks:** Application `26/26`, verification `83/83`, `play`,
+  `persistence-replay`, `audio-scene` and clean release long-session report
+  pass. Desktop is `NOT_RUN` because no physical connector is visible.
+- **Remaining risk:** Physical-display availability and final post-R7e package
+  acceptance; no CPU/offline release blocker was found.
+- **Promotion needed:** Final physical-desktop receipt and exact post-V6 native
+  acceptance; the roadmap now records the CPU/offline pass without promoting
+  the remaining `NOT_RUN` row.

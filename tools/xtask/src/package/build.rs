@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -11,7 +12,7 @@ pub(super) fn run_checked_with_environment(
     root: &Path,
     program: &str,
     arguments: &[&str],
-    environment: &[(&str, &Path)],
+    environment: &[(&str, &OsStr)],
 ) -> Result<(), String> {
     let mut command = Command::new(program);
     command.args(arguments).current_dir(root);
@@ -36,6 +37,27 @@ pub(super) fn run_checked_with_environment(
             output.status
         ))
     }
+}
+
+pub(super) fn package_encoded_rustflags(repository_root: &Path) -> Result<OsString, String> {
+    let repository = repository_root.to_str().ok_or_else(|| {
+        "NATIVE_GATE_PACKAGE_INVALID: repository path is not UTF-8 for release path remapping"
+            .to_owned()
+    })?;
+    let mut flags = vec![format!(
+        "--remap-path-prefix={repository}=/nextengine/source"
+    )];
+    if let Some(user_root) = env::var_os("HOME") {
+        let user_root = PathBuf::from(user_root);
+        let user_root = user_root.to_str().ok_or_else(|| {
+            "NATIVE_GATE_PACKAGE_INVALID: user path is not UTF-8 for release path remapping"
+                .to_owned()
+        })?;
+        flags.push(format!(
+            "--remap-path-prefix={user_root}=/nextengine/build-user"
+        ));
+    }
+    Ok(OsString::from(flags.join("\u{1f}")))
 }
 
 pub(super) fn cargo_target_directory(repository_root: &Path) -> PathBuf {

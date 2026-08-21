@@ -4,6 +4,10 @@ use std::path::{Component, Path};
 
 use sha2::{Digest, Sha256};
 
+use super::distribution::{
+    CARGO_LOCK_PATH, DEPENDENCY_INVENTORY_PATH, GETTING_STARTED_PATH,
+    THIRD_PARTY_LICENSE_DIRECTORY, TROUBLESHOOTING_PATH,
+};
 use super::{PACKAGE_MANIFEST_FILE, PackageFileV2, package_error, validate_hash};
 
 pub(super) const MAX_PACKAGE_DEPTH: usize = 32;
@@ -27,8 +31,12 @@ pub(super) fn validate_package_root(package_root: &Path) -> Result<(), String> {
             .map_err(|_| "NATIVE_GATE_PACKAGE_INVALID: package path is not UTF-8".to_owned())?;
         let metadata = checked_metadata(&entry.path())?;
         match name.as_str() {
-            "bin" | "project" | "source" if metadata.is_dir() => {}
+            "bin" | "project" | "source" | THIRD_PARTY_LICENSE_DIRECTORY if metadata.is_dir() => {}
             PACKAGE_MANIFEST_FILE
+            | CARGO_LOCK_PATH
+            | DEPENDENCY_INVENTORY_PATH
+            | GETTING_STARTED_PATH
+            | TROUBLESHOOTING_PATH
             | "ACCEPTANCE.md"
             | "LICENSE"
             | "NOTICE"
@@ -46,7 +54,12 @@ pub(super) fn validate_package_root(package_root: &Path) -> Result<(), String> {
         "bin",
         "project",
         "source",
+        THIRD_PARTY_LICENSE_DIRECTORY,
         PACKAGE_MANIFEST_FILE,
+        CARGO_LOCK_PATH,
+        DEPENDENCY_INVENTORY_PATH,
+        GETTING_STARTED_PATH,
+        TROUBLESHOOTING_PATH,
         "LICENSE",
         "NOTICE",
         "THIRD_PARTY_NOTICES.md",
@@ -226,6 +239,12 @@ pub(super) fn validate_relative_package_path(path: &str) -> Result<(), String> {
                 .any(forbidden_operational_token);
         if component == "." || component == ".." || forbidden {
             return package_error(format!("forbidden package path component {component}"));
+        }
+        if [".vdf", ".zen", ".mrm", ".mdm", ".mds", ".man"]
+            .iter()
+            .any(|extension| normalized.ends_with(extension))
+        {
+            return package_error(format!("protected legacy asset path component {component}"));
         }
     }
     Ok(())

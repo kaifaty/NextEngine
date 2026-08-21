@@ -82,7 +82,7 @@ impl Serialize for NativeGateClosureCheckResult {
 }
 
 struct NativeGatePackageCheckResult {
-    report: CommandReportV2<PackageDetailsV2>,
+    report: CommandReportV3<PackageDetailsV3>,
     release_target: NativeGateClosureTargetSummaryV1,
     release_roots: NativeGateReleaseRootsV2,
     package: NativeGatePackageSummaryV1,
@@ -315,7 +315,7 @@ fn v1_package(root: &Path, requested_output: &Path) -> Result<(), String> {
 fn v1_package_report(
     root: &Path,
     requested_output: &Path,
-) -> Result<CommandReportV2<PackageDetailsV2>, String> {
+) -> Result<CommandReportV3<PackageDetailsV3>, String> {
     let package = xtask::package::build_v1_package(root, requested_output)?;
     Ok(package_command_report(
         &package,
@@ -325,12 +325,12 @@ fn v1_package_report(
 fn package_command_report(
     package: &xtask::package::PackageBuildResult,
     output: String,
-) -> CommandReportV2<PackageDetailsV2> {
+) -> CommandReportV3<PackageDetailsV3> {
     let manifest = &package.manifest;
-    CommandReportV2::new(
+    CommandReportV3::new(
         "v1-package",
         "PASS",
-        PackageDetailsV2 {
+        PackageDetailsV3 {
             target: manifest.target_triple.clone(),
             output,
             package_manifest_hash: package.package_manifest_sha256.clone(),
@@ -345,6 +345,14 @@ fn package_command_report(
             tool_authoring_hash: manifest.binaries.tools.authoring_sha256.clone(),
             tool_neutral_record_count: manifest.binaries.tools.neutral_record_count,
             tool_publication_file_count: manifest.binaries.tools.publication_file_count,
+            release_version: manifest.distribution.release_version.clone(),
+            cargo_lock_hash: manifest.distribution.cargo_lock_sha256.clone(),
+            dependency_inventory_hash: manifest.distribution.dependency_inventory_sha256.clone(),
+            dependency_count: manifest.distribution.dependency_count,
+            license_file_count: manifest.distribution.license_file_count,
+            protected_data_scan: manifest.distribution.protected_data_scan.status.clone(),
+            getting_started_path: manifest.distribution.getting_started_path.clone(),
+            troubleshooting_path: manifest.distribution.troubleshooting_path.clone(),
         },
     )
 }

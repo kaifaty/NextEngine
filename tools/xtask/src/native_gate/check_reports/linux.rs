@@ -3,7 +3,7 @@ use std::path::Path;
 use super::*;
 
 const CLOSURE_REPORT_SCHEMA_VERSION: u32 = 2;
-const PACKAGE_REPORT_SCHEMA_VERSION: u32 = 2;
+const PACKAGE_REPORT_SCHEMA_VERSION: u32 = 3;
 
 pub(in crate::native_gate) fn validate_linux_target_report_json_shape(
     bytes: &[u8],
@@ -111,7 +111,7 @@ pub(in crate::native_gate) fn validate_linux_check_reports(
 fn parse_linux_package_report(
     bytes: &[u8],
 ) -> Result<ValidatedCheckReportV1, NativeGateComparisonError> {
-    let report: CommandReportV2<PackageDetailsV2> =
+    let report: CommandReportV3<PackageDetailsV3> =
         parse_json(NativeGateCheckNameV1::V1Package, bytes)?;
     let details = &report.details;
     if report.schema_version != PACKAGE_REPORT_SCHEMA_VERSION
@@ -124,9 +124,15 @@ fn parse_linux_package_report(
         || details.source_project != "source/reference-alpha"
         || details.tool_neutral_record_count == 0
         || details.tool_publication_file_count == 0
+        || details.release_version != env!("CARGO_PKG_VERSION")
+        || details.dependency_count == 0
+        || details.license_file_count == 0
+        || details.protected_data_scan != "PASS"
+        || details.getting_started_path != "GETTING_STARTED.md"
+        || details.troubleshooting_path != "TROUBLESHOOTING.md"
     {
         return Err(report_invalid(
-            "v1-package report must use schema 2 and bind package output plus all clean-install launches",
+            "v1-package report must use schema 3 and bind package output, distribution evidence and all clean-install launches",
         ));
     }
     for (field, value) in [
@@ -145,10 +151,15 @@ fn parse_linux_package_report(
         ),
         ("tool_binary_hash", details.tool_binary_hash.as_str()),
         ("tool_authoring_hash", details.tool_authoring_hash.as_str()),
+        ("cargo_lock_hash", details.cargo_lock_hash.as_str()),
+        (
+            "dependency_inventory_hash",
+            details.dependency_inventory_hash.as_str(),
+        ),
     ] {
         validate_hash(field, value)?;
     }
-    Ok(ValidatedCheckReportV1::V1PackageV2(Box::new(report)))
+    Ok(ValidatedCheckReportV1::V1PackageV3(Box::new(report)))
 }
 
 fn parse_linux_closure_report(
@@ -361,9 +372,9 @@ fn validate_linux_pass_bindings(
     };
     validate_linux_closure_bindings(target, &closure.details)?;
 
-    let ValidatedCheckReportV1::V1PackageV2(package_report) = &reports[7] else {
+    let ValidatedCheckReportV1::V1PackageV3(package_report) = &reports[7] else {
         return Err(report_invalid(
-            "v1-package schema 2 typed report is out of order",
+            "v1-package schema 3 typed report is out of order",
         ));
     };
     for (field, actual, expected) in [
@@ -507,7 +518,7 @@ mod tests {
     fn package_report() -> serde_json::Value {
         let hash = "a".repeat(64);
         serde_json::json!({
-            "schema_version": 2,
+            "schema_version": 3,
             "status": "PASS",
             "command": "v1-package",
             "details": {
@@ -524,17 +535,25 @@ mod tests {
                 "source_project": "source/reference-alpha",
                 "tool_authoring_hash": hash,
                 "tool_neutral_record_count": 1,
-                "tool_publication_file_count": 1
+                "tool_publication_file_count": 1,
+                "release_version": env!("CARGO_PKG_VERSION"),
+                "cargo_lock_hash": hash,
+                "dependency_inventory_hash": hash,
+                "dependency_count": 1,
+                "license_file_count": 1,
+                "protected_data_scan": "PASS",
+                "getting_started_path": "GETTING_STARTED.md",
+                "troubleshooting_path": "TROUBLESHOOTING.md"
             }
         })
     }
 
     #[test]
-    fn current_linux_package_report_requires_schema_two_tools_receipt() {
+    fn current_linux_package_report_requires_schema_three_distribution_receipt() {
         let bytes = serde_json::to_vec(&package_report()).expect("package report");
         assert!(matches!(
-            parse_linux_package_report(&bytes).expect("schema two package report"),
-            ValidatedCheckReportV1::V1PackageV2(_)
+            parse_linux_package_report(&bytes).expect("schema three package report"),
+            ValidatedCheckReportV1::V1PackageV3(_)
         ));
 
         let mut schema_one = package_report();

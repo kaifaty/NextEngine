@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.66 |
+| Версия | 2.67 |
 | Последняя проверка | 2026-08-28 |
-| Заменяет | INDEX-001 2.65; replaces the Linux performance patch-kernel boot pin with exact active-kernel campaign cohorts under ADR-096 |
+| Заменяет | INDEX-001 2.66; adds ADR-097 Linux v1 distribution closure and PackageManifest V6 after the ADR-096 active-kernel performance cohort |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -302,6 +302,7 @@ traceability — навигационная карта, не admission authority
 | ADR-094 | [Confidence-gated relative warnings](adr/094-confidence-gated-relative-warnings.md) | Accepted CI95-lower-bound gating for relative warnings under methodology v11 with stderr-only failure diagnostics |
 | ADR-095 | [Provider-neutral generative content authoring boundary](adr/095-provider-neutral-generative-content-authoring-boundary.md) | Proposed quarantined-candidate and explicit-promotion boundary; ordinary exact authored source remains the complete fallback |
 | ADR-096 | [Active-kernel Linux performance cohort](adr/096-active-kernel-linux-performance-cohort.md) | Accepted V2 profile; current Ubuntu generic patch kernel is admissible while every report in one campaign retains byte-exact full-fingerprint equality |
+| ADR-097 | [Linux v1 distribution closure](adr/097-linux-v1-distribution-closure.md) | Accepted PackageManifest V6, release 1.0.0, selected offline dependency/license inventory, packaged user docs, builder-path remapping and reproducible protected-data scan |
 
 ## Proposed tracks
 

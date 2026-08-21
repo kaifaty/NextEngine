@@ -845,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "next_agent"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
  "next_mechanics",
@@ -855,7 +855,7 @@ dependencies = [
 
 [[package]]
 name = "next_application"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_agent",
  "next_assets",
@@ -873,7 +873,7 @@ dependencies = [
 
 [[package]]
 name = "next_assets"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
  "next_runtime",
@@ -881,7 +881,7 @@ dependencies = [
 
 [[package]]
 name = "next_cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_application",
  "next_assets",
@@ -893,7 +893,7 @@ dependencies = [
 
 [[package]]
 name = "next_continuum_water"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rayon",
  "serde",
@@ -903,7 +903,7 @@ dependencies = [
 
 [[package]]
 name = "next_contracts"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "sha2 0.10.9",
  "unicode-normalization",
@@ -919,7 +919,7 @@ dependencies = [
 
 [[package]]
 name = "next_desktop_sdl_ash"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "ash",
  "next_contracts",
@@ -930,7 +930,7 @@ dependencies = [
 
 [[package]]
 name = "next_game"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_application",
  "next_assets",
@@ -944,7 +944,7 @@ dependencies = [
 
 [[package]]
 name = "next_headless"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_application",
  "next_assets",
@@ -959,7 +959,7 @@ dependencies = [
 
 [[package]]
 name = "next_mechanics"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
  "next_project",
@@ -968,7 +968,7 @@ dependencies = [
 
 [[package]]
 name = "next_motor"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
  "next_cpu_affinity",
@@ -979,14 +979,14 @@ dependencies = [
 
 [[package]]
 name = "next_physics_api"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
 ]
 
 [[package]]
 name = "next_physics_physx"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
  "next_physics_api",
@@ -995,25 +995,25 @@ dependencies = [
 
 [[package]]
 name = "next_physics_physx_ffi"
-version = "0.1.0"
+version = "1.0.0"
 
 [[package]]
 name = "next_platform"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
 ]
 
 [[package]]
 name = "next_player"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
 ]
 
 [[package]]
 name = "next_plugin_host"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
  "next_mechanics",
@@ -1022,14 +1022,14 @@ dependencies = [
 
 [[package]]
 name = "next_presentation"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
 ]
 
 [[package]]
 name = "next_project"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_assets",
  "next_contracts",
@@ -1040,7 +1040,7 @@ dependencies = [
 
 [[package]]
 name = "next_reference_game"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_agent",
  "next_assets",
@@ -1056,7 +1056,7 @@ dependencies = [
 
 [[package]]
 name = "next_render"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
  "next_project",
@@ -1065,14 +1065,14 @@ dependencies = [
 
 [[package]]
 name = "next_rpg"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_contracts",
 ]
 
 [[package]]
 name = "next_runtime"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_agent",
  "next_contracts",
@@ -1086,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "next_script_luau"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "mlua",
  "next_contracts",
@@ -1096,7 +1096,7 @@ dependencies = [
 
 [[package]]
 name = "next_verification"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_agent",
  "next_application",
@@ -1121,7 +1121,7 @@ dependencies = [
 
 [[package]]
 name = "next_world"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "next_assets",
  "next_contracts",
@@ -1565,6 +1565,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_spanned"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1737,6 +1746,45 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
+name = "toml"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75129e1dc5000bfbaa9fee9d1b21f974f9fbad9daec557a521ee6e080825f6e8"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
+ "toml_parser",
+ "toml_writer",
+ "winnow 0.7.15",
+]
+
+[[package]]
+name = "toml_datetime"
+version = "0.7.5+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92e1cfed4a3038bc5a127e35a2d360f145e1f4b971b551a2ba5fd7aedf7e1347"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "toml_parser"
+version = "1.1.3+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d38ac1cf9b95face32296c0a3ede1fdc270627c9d9c02a7274dd6d960dc4d56"
+dependencies = [
+ "winnow 1.0.4",
+]
+
+[[package]]
+name = "toml_writer"
+version = "1.1.2+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 
 [[package]]
 name = "tracing"
@@ -2352,6 +2400,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
+name = "winnow"
+version = "0.7.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
+
+[[package]]
+name = "winnow"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
+
+[[package]]
 name = "wit-parser"
 version = "0.248.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2372,7 +2432,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "crc32fast",
  "flate2",
@@ -2393,6 +2453,7 @@ dependencies = [
  "serde_json",
  "sha1 0.10.6",
  "sha2 0.10.9",
+ "toml",
  "zip",
 ]
 

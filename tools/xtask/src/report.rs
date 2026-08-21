@@ -66,6 +66,35 @@ impl<T: Serialize> CommandReportV2<T> {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct CommandReportV3<T> {
+    pub schema_version: u32,
+    pub status: String,
+    pub command: String,
+    pub details: T,
+}
+
+impl<T: Serialize> CommandReportV3<T> {
+    pub fn new(command: &str, status: &str, details: T) -> Self {
+        Self {
+            schema_version: 3,
+            status: status.to_owned(),
+            command: command.to_owned(),
+            details,
+        }
+    }
+
+    pub fn to_json(&self) -> Result<String, String> {
+        serde_json::to_string(self).map_err(|error| error.to_string())
+    }
+
+    pub fn emit_report(&self) -> Result<(), String> {
+        println!("{}", self.to_json()?);
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BoundaryScanDetailsV1 {
     pub checks: Vec<String>,
 }
@@ -107,6 +136,33 @@ pub struct PackageDetailsV2 {
     pub tool_authoring_hash: String,
     pub tool_neutral_record_count: u32,
     pub tool_publication_file_count: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageDetailsV3 {
+    pub target: String,
+    pub output: String,
+    pub package_manifest_hash: String,
+    pub composition_lock_hash: String,
+    pub game_binary_hash: String,
+    pub headless_binary_hash: String,
+    pub tool_binary_hash: String,
+    pub game_launch: String,
+    pub headless_launch: String,
+    pub tool_launch: String,
+    pub source_project: String,
+    pub tool_authoring_hash: String,
+    pub tool_neutral_record_count: u32,
+    pub tool_publication_file_count: u32,
+    pub release_version: String,
+    pub cargo_lock_hash: String,
+    pub dependency_inventory_hash: String,
+    pub dependency_count: u32,
+    pub license_file_count: u32,
+    pub protected_data_scan: String,
+    pub getting_started_path: String,
+    pub troubleshooting_path: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
