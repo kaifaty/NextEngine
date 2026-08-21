@@ -563,3 +563,11 @@ ratio ill-conditioned. Resolved temporal contamination and absolute physical
 utilization instead support a mixed budget: at most half of resolved binary
 temporal error, or 1% of the existing physical comparison scale. Only B4C3PE1
 design is authorized; B4C3P remains FAIL.
+The
+[B4C3PE1 design](../../development/nonlocal-nsr3b4c3pe1-mixed-budget-research-2026-08-21.md)
+freezes a [mixed stability contract](03b4c3pe1-mixed-stability-budget-contract.md):
+each lane/frame/field receives at most half its resolved adjacent binary
+temporal difference, or 1% of the existing physical accuracy scale when that
+relative budget is unavailable or smaller than material representation noise.
+Both canonical fields must still show observed first-order convergence; all
+events, physical, ledger and transaction gates remain unchanged.

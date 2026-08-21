@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3PE_PASS / B4C3PE1_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3PE_PASS / B4C3PE1_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -41,9 +41,12 @@
 - **Current decision:** authorize B4C3PE1 mixed stability-budget design: error
   may use at most half a resolved temporal estimate or 1% of the existing
   physical comparison scale. B4C3P remains FAIL.
-- **Current action:** freeze B4C3PE1 and replay the complete macro-publication
-  candidate under the new stability admission. Adaptive redesign/B4C3TC/B4C4/
-  B4D remain blocked.
+- **Current action:** implement frozen B4C3PE1 and replay the complete
+  macro-publication candidate under explicit temporal/absolute classifications.
+  Adaptive redesign/B4C3TC/B4C4/B4D remain blocked.
+- **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
+  `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
+  `0.05dx/0.001c`. Both canonical fields must retain observed first order.
 - **Performance finding:** six independent lanes use `311--312%` CPU and turn
   `~60.4` CPU-seconds into `~19.7` wall-seconds (`3.06x`) with byte-identical
   output. This validates harness parallelism, not solver/runtime performance.
@@ -1324,6 +1327,25 @@
 - **Smallest next action:** freeze the B4C3PE1 policy identity, adjacent-level
   mapping, branch priority, rollback and unchanged gates before implementation.
 
+### D-065 -- Freeze mixed stability admission
+
+- **Observation:** a durable representation error should be subordinate to
+  resolved time-discretization uncertainty, but exact/free-flight frames need
+  a small absolute allowance independent of a near-zero denominator.
+- **Decision:** map levels to binary temporal pairs `{0,0,1}`, admit temporal
+  share `<=0.5`, otherwise absolute share `<=0.01` of `0.05dx/0.001c`, and
+  require an explicit branch for every position/velocity frame.
+- **Rejected alternatives:** no maximum-of-scales without classification,
+  level-dependent fitted constants, reuse of `32*P*q` as a hidden fallback,
+  or representation-floor-only final convergence.
+- **Consequence:** B4C3PE1 can select a fixed macro canonical reference only if
+  both fields retain observed first order and every non-stability gate remains
+  exact.
+- **Remaining uncertainty:** all-level branch coverage and exact complete
+  replay have not yet been executed.
+- **Smallest next action:** implement the policy report and two exact
+  parent-gated replays.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1336,10 +1358,10 @@
 
 ## Exact next action
 
-1. Freeze B4C3PE1 policy identity and per-level adjacent binary temporal
-   estimator, with explicit temporal/absolute classifications.
-2. Apply it to all P1/P2 `48/96/192` macro-publication frames while retaining
-   observed first-order, event, physical, ledger and rollback gates.
+1. Apply B4C3PE1 to every macro-publication lane/frame/field and report branch
+   counts plus maximum temporal/absolute utilization.
+2. Gate all non-tube physics, observed first-order convergence, roots and
+   rollback unchanged.
 3. Execute twice before authorizing any adaptive macro-transaction redesign.
 
 ## Reconsideration triggers
