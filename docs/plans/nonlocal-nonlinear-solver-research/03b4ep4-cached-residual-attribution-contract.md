@@ -1,6 +1,6 @@
 # NSR3-B4EP4 -- cached residual-attribution contract
 
-Status: `FROZEN / ONE_EXTERNAL_PROFILE_AUTHORIZED / NO_OPTIMIZATION`
+Status: `FROZEN / PASS / B4EP5_HVP_DESIGN_AUTHORIZED / NO_OPTIMIZATION`
 
 Identity projection (exact bytes, no final LF):
 
@@ -60,3 +60,11 @@ optimization.
 A stdout mismatch is `PROFILER_CORRESPONDENCE_FAIL`; empty samples are
 `PROFILER_NO_SAMPLES`. B4E2, reference decode, runtime/CUDA integration and
 production remain blocked.
+
+## Closed result
+
+The exact-output profile records 1,112 samples. HVP owns 6.91 s (62.14%)
+inclusive versus 3.95 s (35.52%) for complete cached workspace, a `1.749x`
+lead that clears the frozen selection ratio. This authorizes only B4EP5 HVP
+research/design. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep4-cached-residual-attribution-evidence-2026-08-22.md).

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP3I_PASS / B4EP4_PROFILE_AUTHORIZED` |
+| Status | `ACTIVE / NSR3B4EP4_PASS / B4EP5_HVP_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -185,6 +185,9 @@
 - **Current decision:** B4EP4 uses one exact-output GCC/gprof profile and
   selects a next design only when one comparable category leads by at least
   `1.20x`; otherwise it routes to scoped internal phase timing.
+- **Current conclusion:** B4EP4 matches cached stdout exactly and records 1,112
+  samples. HVP is 62.14% inclusive versus 35.52% complete cached workspace;
+  its `1.749x` lead selects B4EP5 HVP research/design only.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -236,6 +239,7 @@
 | NSR3B4EP3 PASS | one build, 226 exact reuses, work proxy `0.1998` | B4EP3I internal cache design/A-B only |
 | NSR3B4EP3I contract | transaction-local cached work-only A/B | implement and time only; no default/runtime/B4E2 change |
 | NSR3B4EP3I PASS | exact cached transaction and median `1.5899x` paired speedup | B4EP4 residual profiling/design only |
+| NSR3B4EP4 PASS | exact-output profile; HVP 62.14% versus workspace 35.52% | B4EP5 HVP research/design only |
 
 Candidate solver identity remains:
 
@@ -289,6 +293,7 @@ production authority is created by this lineage.
 | [B4EP3I research](../nonlocal-nsr3b4ep3i-hotpath-cache-research-2026-08-21.md) | trace ownership avoids global/persistent state and signature fan-out | implement dedicated cached candidate; defaults remain byte-exact |
 | [B4EP3I](../nonlocal-nsr3b4ep3i-hotpath-cache-evidence-2026-08-22.md) | exact physics, one build/225 reuse and median `1.5899x` paired speedup | retain cache for nominal research and reprofile optimized residual before another change |
 | [B4EP4 research](../nonlocal-nsr3b4ep4-cached-residual-attribution-research-2026-08-22.md) | HVP, filtered workspace and nonlinear control remain competing residual costs | execute one frozen exact-output gprof profile; select no optimization before attribution |
+| [B4EP4](../nonlocal-nsr3b4ep4-cached-residual-attribution-evidence-2026-08-22.md) | HVP leads complete cached workspace `1.749x` with exact output | research one HVP-only mechanical discriminator before implementation |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -629,6 +634,15 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   whole-solver speed, starting B4E2 at 10.4 s per macro, or assuming HVP is now
   dominant without a fresh profile.
 
+### D-033 -- Select HVP as the next residual research target
+
+- **Observation:** B4EP4 assigns 6.91 s (62.14%) inclusive to 459 exact HVPs
+  and 3.95 s (35.52%) to complete cached workspaces; HVP leads `1.749x`.
+- **Decision:** research one HVP-only mechanical discriminator that preserves
+  exact arithmetic, call schedule and solver policy before implementation.
+- **Rejected:** another topology/evaluation optimization, solver trial-policy
+  change, CPU parallelism or GPU work before the HVP dataflow is isolated.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -650,6 +664,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - B4EP3I cached work-only retains exact physics and wins all three Release
   pairs. Median paired speedup is `1.5899x`; median wall/RSS change from
   16.71 s/62,672 KiB to 10.40 s/62,416 KiB.
+- B4EP4's exact cached profile records 1,112 samples: HVP is 62.14%, complete
+  workspace 35.52%, evaluation/tape 24.64% and filter/CSR 10.25% inclusive.
 - No multi-macro nominal, 50k, GPU or production performance result exists
   for this corrected Nonlocal lineage; B4E1M is one CPU research macro only.
 
@@ -666,11 +682,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Build the frozen external B4EP4 `-pg` profile and require exact cached
-   stdout plus nonempty gprof samples.
-2. Distinguish HVP, evaluation/tape, superset filtering/CSR and nonlinear
-   bookkeeping under the `1.20x` routing rule. Do not start B4E2 or implement
-   the next optimization before the attribution is closed.
+1. Audit the exact HVP hot path and separate output allocation, invariant tape
+   inputs and arithmetic/reduction traversal with bounded counters or a tiny
+   exact microbenchmark.
+2. Freeze one B4EP5 HVP ablation only after the audit selects a mechanism.
+   Do not start B4E2, parallelism or GPU work from the profile alone.
 
 ## Reconsideration triggers
 

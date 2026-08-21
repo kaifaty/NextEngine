@@ -1039,3 +1039,9 @@ residual hypotheses. Its
 [frozen contract](03b4ep4-cached-residual-attribution-contract.md) selects one
 exact-output GCC/gprof run and a predeclared `1.20x` leader rule. Execute that
 profile only; do not implement the next optimization yet.
+B4EP4 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep4-cached-residual-attribution-evidence-2026-08-22.md).
+The exact-output profile assigns 62.14% inclusive time to HVP and 35.52% to
+complete cached workspace. HVP leads by `1.749x`, clearing the frozen rule;
+only B4EP5 HVP research/design is authorized. No second workspace change,
+B4E2, CUDA, runtime or production work is authorized.
