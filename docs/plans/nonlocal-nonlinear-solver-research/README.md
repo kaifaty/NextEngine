@@ -940,3 +940,9 @@ twice and remain within 118/117 neighbors. The zero-step probe takes about
 0.4 s and 47 MiB, but this is not solver throughput. Hydro's nine active
 centres are only `6.66e-16` positive strain and remain an explicit B4E1 cost
 diagnostic. Design only the one-macro resource probe next.
+The [B4E1S audit](../../development/nonlocal-nsr3b4e1s-spectrum-research-2026-08-21.md)
+splits that probe again because Hydro's nine epsilon-active centres force 48
+HVPs before KKT work. Its
+[frozen contract](03b4e1s-hydro-spectrum-contract.md) measures the exact
+nominal Lanczos path and derives whether the existing adjacent fine-level cap
+can admit a macro solve. Implement and run only B4E1S next.
