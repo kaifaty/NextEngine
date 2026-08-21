@@ -86,6 +86,7 @@ struct Scenario {
     std::string_view boundary_root;
     int boundary_nx;
     std::size_t boundary_count;
+    std::int64_t domain_x_um;
     bool orifice;
 };
 
@@ -98,6 +99,7 @@ constexpr std::array<Scenario, 3> SCENARIOS = {{
         "25de85b5eeec041c12bbb5de10e00b8374457b4cf09cb61d99dfc4d5511d8d62",
         20,
         5'824,
+        1'000'000,
         false,
     },
     {
@@ -108,6 +110,7 @@ constexpr std::array<Scenario, 3> SCENARIOS = {{
         "1cf0fd172dcb321e995f372119ea956d1e376b8a409b804bc07e31a729aa830d",
         80,
         16'384,
+        4'000'000,
         false,
     },
     {
@@ -118,6 +121,7 @@ constexpr std::array<Scenario, 3> SCENARIOS = {{
         "5d23bd8c407c1b1d6bb86fc6dda2250c36db4cde1227d9f48fc6239c728a2cb3",
         20,
         5'792,
+        2'000'000,
         true,
     },
 }};
@@ -221,7 +225,7 @@ R1CScenarioData build_r1c_scenario(std::string_view scenario_id) {
     R1CScenarioData result;
     result.id = std::string(selected->id);
     result.manifest = std::string(selected->manifest);
-    result.x_max = static_cast<double>(selected->boundary_nx) * 0.05;
+    result.x_max = static_cast<double>(selected->domain_x_um) / 1'000'000.0;
     result.orifice = selected->orifice;
     result.fluid_positions.reserve(6'000);
     for (std::uint32_t iy = 0; iy < 15; ++iy) {
@@ -268,6 +272,23 @@ AdapterRun run_r1c_manifest_preflight(bool force_manifest_mismatch) {
     try {
         std::ostringstream scenario_report;
         for (const Scenario &scenario : SCENARIOS) {
+            const bool extent_matches =
+                (scenario.id == "CW-HYDRO-001" && scenario.domain_x_um == 1'000'000
+                    && scenario.boundary_nx == 20)
+                || (scenario.id == "CW-DAMBREAK-001"
+                    && scenario.domain_x_um == 4'000'000 && scenario.boundary_nx == 80)
+                || (scenario.id == "CW-ORIFICE-001"
+                    && scenario.domain_x_um == 2'000'000 && scenario.boundary_nx == 20);
+            if (!extent_matches) {
+                throw std::runtime_error(std::string(scenario.id) + ":DOMAIN_EXTENT");
+            }
+            const R1CScenarioData built_scenario = build_r1c_scenario(scenario.id);
+            const double expected_x_max =
+                static_cast<double>(scenario.domain_x_um) / 1'000'000.0;
+            if (built_scenario.x_max != expected_x_max
+                || built_scenario.orifice != scenario.orifice) {
+                throw std::runtime_error(std::string(scenario.id) + ":BUILT_DOMAIN_EXTENT");
+            }
             const std::string actual_manifest_root = scenario_root(scenario.manifest);
             if (actual_manifest_root != scenario.manifest_root) {
                 throw std::runtime_error(std::string(scenario.id) + ":MANIFEST_ROOT");

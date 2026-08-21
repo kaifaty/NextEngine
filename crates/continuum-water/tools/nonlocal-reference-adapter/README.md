@@ -91,3 +91,14 @@ nonlocal_reference_adapter --r1c4-trajectory \
 It retains the full R1C trajectory and payload path under a new identity and
 changes only the pressure maximum from 100 to 300. R1D is still a separate
 gate.
+
+R1C5 corrects only the Orifice analytical domain ownership:
+
+```text
+nonlocal_reference_adapter --r1c5-trajectory \
+  <CW-HYDRO-001|CW-DAMBREAK-001|CW-ORIFICE-001> \
+  <absolute-empty-output-directory>
+```
+
+The Orifice domain remains two metres while its Akinci boundary lattice stays
+source-side and one metre wide. The global payload profile identity is new.

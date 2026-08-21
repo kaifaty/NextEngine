@@ -74,4 +74,3 @@ analytical domain extent and source-side boundary lattice extent are separate
 frozen fields. Orifice uses domain `x_max=2.0` with `boundary_nx=20`; Hydro and
 Dam retain `1.0/20` and `4.0/80`. Give the corrected global profile a new
 identity and rerun all pairs because the payload manifest changes.
-

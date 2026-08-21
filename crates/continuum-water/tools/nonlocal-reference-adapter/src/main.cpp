@@ -20,6 +20,13 @@ int main(int argc, char **argv) {
     using nextengine::nonlocal_reference::PreflightMutation;
 
     PreflightMutation mutation = PreflightMutation::None;
+    if (argc == 4 && std::string_view(argv[1]) == "--r1c5-trajectory") {
+        const auto run = nextengine::nonlocal_reference::run_r1c5_trajectory(
+            argv[2],
+            argv[3]);
+        std::cout << run.report;
+        return run.passed ? 0 : 1;
+    }
     if (argc == 4 && std::string_view(argv[1]) == "--r1c4-trajectory") {
         const auto run = nextengine::nonlocal_reference::run_r1c4_trajectory(
             argv[2],

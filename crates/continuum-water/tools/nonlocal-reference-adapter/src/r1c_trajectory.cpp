@@ -60,6 +60,18 @@ constexpr std::string_view R1C4_PROFILE_IDENTITY_PROJECTION =
     "threshold:0x3fb999999999999a|volume=.000125|mass=.125|all-else=r1c1|"
     "runs=2-fresh-byte-exact-per-scenario|"
     "order=hydro,dam,orifice;stop-first-failure|credit=new-root-only";
+constexpr std::string_view R1C5_SCHEMA =
+    "nextengine.nonlocal.nsr3b4dr1c5-trajectory.v1";
+constexpr std::string_view R1C5_CONTRACT_IDENTITY =
+    "3f5a73693f05daf487898fd692160357c1775652a1c11e65205356243c57386f";
+constexpr std::string_view R1C5_PROFILE_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4dr1c5-orifice-domain-reclosure|v1|"
+    "parent=7490aa5390296c5f7fc29a56f7039458ced1969ddee555bfe0ea07f50d49be41|"
+    "failed_report=507:73b880fc4bf7cbd30447808f80d68bd278d9bf34617cb812011311695d923100|"
+    "correction=orifice-domain-x-max:1->2;boundary-source-nx:20-unchanged|"
+    "geometry=hydro:1,dam:4,orifice:2|pressure-max=300|all-else=r1c4|"
+    "runs=2-fresh-byte-exact-per-scenario|"
+    "order=hydro,dam,orifice;stop-first-failure|credit=new-root-only";
 constexpr std::uint64_t DT_BITS = UINT64_C(0x3f71111111111111);
 constexpr std::uint32_t SAMPLE_COUNT = 6'000;
 constexpr std::uint32_t FRAME_COUNT = 25;
@@ -71,6 +83,7 @@ enum class TrajectoryMode {
     R1C2,
     R1C3PressureSweep,
     R1C4,
+    R1C5,
 };
 
 std::string_view schema_for(TrajectoryMode mode) {
@@ -82,6 +95,9 @@ std::string_view schema_for(TrajectoryMode mode) {
     }
     if (mode == TrajectoryMode::R1C4) {
         return R1C4_SCHEMA;
+    }
+    if (mode == TrajectoryMode::R1C5) {
+        return R1C5_SCHEMA;
     }
     return SCHEMA;
 }
@@ -95,6 +111,9 @@ std::string_view contract_for(TrajectoryMode mode) {
     }
     if (mode == TrajectoryMode::R1C4) {
         return R1C4_CONTRACT_IDENTITY;
+    }
+    if (mode == TrajectoryMode::R1C5) {
+        return R1C5_CONTRACT_IDENTITY;
     }
     return CONTRACT_IDENTITY;
 }
@@ -486,10 +505,13 @@ AdapterRun run_r1c_trajectory_impl(
         payload.reserve(8U * 1024U * 1024U);
         const std::array<std::uint8_t, 8> magic = {'C', 'W', 'R', 'E', 'F', 'V', '2', 0};
         payload.insert(payload.end(), magic.begin(), magic.end());
-        std::string manifest(
-            mode == TrajectoryMode::R1C4
-                ? R1C4_PROFILE_IDENTITY_PROJECTION
-                : r1c_profile_identity_projection());
+        std::string_view profile_identity = r1c_profile_identity_projection();
+        if (mode == TrajectoryMode::R1C4) {
+            profile_identity = R1C4_PROFILE_IDENTITY_PROJECTION;
+        } else if (mode == TrajectoryMode::R1C5) {
+            profile_identity = R1C5_PROFILE_IDENTITY_PROJECTION;
+        }
+        std::string manifest(profile_identity);
         manifest.push_back('\n');
         manifest.append(scenario.manifest);
         append_u32(payload, checked_u32(manifest.size(), "MANIFEST_LENGTH"));
@@ -755,6 +777,16 @@ AdapterRun run_r1c4_trajectory(
         scenario_id,
         output_dir,
         TrajectoryMode::R1C4,
+        300U);
+}
+
+AdapterRun run_r1c5_trajectory(
+    std::string_view scenario_id,
+    std::string_view output_dir) {
+    return run_r1c_trajectory_impl(
+        scenario_id,
+        output_dir,
+        TrajectoryMode::R1C5,
         300U);
 }
 

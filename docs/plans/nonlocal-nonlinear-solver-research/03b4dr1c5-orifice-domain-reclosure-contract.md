@@ -40,4 +40,3 @@ same-scenario payloads must be byte-identical.
 
 Only complete R1C5 PASS authorizes R1D under the corrected new-root profile.
 It grants no R1E, B4E, runtime or production authority.
-
