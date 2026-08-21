@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP7D_PASS / B4EP7I_FUSION_DESIGN` |
+| Status | `ACTIVE / NSR3B4EP7D_PASS / B4EP7I_FUSION_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -211,6 +211,8 @@
   fusion removes 71.75% radius and 60.63% gradient-kernel evaluations.
 - **Next action:** freeze a B4EP7I exact fused evaluation/tape A/B contract;
   implementation must follow only after its operation/ownership boundary.
+- **Current decision:** B4EP7I uses one canonical pair pass and one unchanged
+  center/adjacency pass, moves CSR only after validation, and fails closed.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -269,6 +271,7 @@
 | NSR3B4EP6 PASS | workspace `4.66s` over HVP `3.45s`; eval/base `2.73s` | B4EP7 evaluation/base-tape research/design only |
 | NSR3B4EP7D contract | post-tape derived duplicate-work audit | implement/run twice only; no fusion/timing |
 | NSR3B4EP7D PASS | `D=131,987,230`; 71.75% radius and 60.63% gradient removable | B4EP7I exact fusion design/A-B only |
+| NSR3B4EP7I contract | transaction-only exact flat evaluation/tape fusion | implement/A-B only; no default/runtime/B4E2 change |
 
 Candidate solver identity remains:
 
@@ -329,6 +332,7 @@ production authority is created by this lineage.
 | [B4EP6](../nonlocal-nsr3b4ep6-coefficient-residual-attribution-evidence-2026-08-22.md) | workspace leads; evaluation/base tape dominates its subcategories | audit one exact fusion/reuse discriminator before implementation |
 | [B4EP7D research](../nonlocal-nsr3b4ep7d-evaluation-tape-dataflow-research-2026-08-22.md) | radius, gradient kernel and compression repeat across evaluation/tape | run derived-counter audit; freeze exact removable work before fusion |
 | [B4EP7D](../nonlocal-nsr3b4ep7d-evaluation-tape-dataflow-evidence-2026-08-22.md) | exact duplicate-work counts with all regressions unchanged | freeze one fused evaluation/tape A/B contract |
+| [B4EP7I research](../nonlocal-nsr3b4ep7i-fused-evaluation-tape-research-2026-08-22.md) | exact pair/center order permits one fused builder | implement dedicated command and controlled exact A/B |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -717,10 +721,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Freeze the B4EP7I fused evaluation/tape operation, failure and ownership
-   boundary with exact old/candidate correspondence.
-2. Only then implement and run its controlled A/B. Do not stack parallelism,
-   B4E2 or GPU work.
+1. Implement only the dedicated B4EP7I fused builder/command and frozen work
+   counters.
+2. Prove two-build/old-command exactness, then run the three balanced timing
+   pairs. Do not stack parallelism, B4E2 or GPU work.
 
 ## Reconsideration triggers
 

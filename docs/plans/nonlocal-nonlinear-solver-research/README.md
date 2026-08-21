@@ -1081,3 +1081,8 @@ B4EP7D passes; see the
 The audit freezes 131,987,230 active directed records and shows that exact
 fusion can remove 71.75% of radius evaluations and 60.63% of gradient-kernel
 evaluations. This authorizes only a frozen B4EP7I exact fusion A/B contract.
+The [B4EP7I research](../../development/nonlocal-nsr3b4ep7i-fused-evaluation-tape-research-2026-08-22.md)
+selects one transaction-only flat-workspace fusion that preserves density and
+gradient accumulation order. Its
+[frozen contract](03b4ep7i-fused-evaluation-tape-contract.md) requires exact
+old/candidate bytes and three balanced Release wins before retaining it.
