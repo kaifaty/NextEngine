@@ -1,6 +1,6 @@
 # NSR3-B4DR1C1 -- dam manifest-identity reclosure contract
 
-Status: `PASS / R1C_REJECTED / TRAJECTORY_IMPLEMENTATION_AUTHORIZED`
+Status: `PASS / TRAJECTORY_EXECUTED_AND_FAILED / R1D_BLOCKED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -74,3 +74,8 @@ require nonzero exit with `simulation_created=false` and
 Only dated R1C1 PASS evidence restores the parent's conditional trajectory
 authority. It does not itself execute a solver or authorize R1D, R1E, B4E,
 runtime integration, CUDA or production claims.
+
+The subsequent first Hydro trajectory failed at pressure convergence; see
+the [dated negative evidence](../../development/nonlocal-nsr3b4dr1c-trajectory-negative-evidence-2026-08-21.md).
+That result does not invalidate this manifest-only PASS, but it exhausts its
+trajectory authority and leaves R1D blocked.

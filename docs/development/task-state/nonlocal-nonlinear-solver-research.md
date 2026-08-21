@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1C1_PASS / R1C_TRAJECTORY_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4DR1_R1C_FAIL / R1C2_OBSERVABILITY_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -53,9 +53,14 @@
 - **Current conclusion:** R1C1 passes. Two builds reproduce executable SHA
   `c8933e01...b6ca`; two processes reproduce report SHA `6d293328...8f3`;
   all roots/mutations pass and forced mismatch rejects before Simulation.
-- **Next action:** create a new ordinary full upstream clone, apply only the
-  frozen cold-start/diagnostic patch, attest its dirty paths/build closure and
-  implement the 24-step trajectory path. Do not run R1D.
+- **Negative result:** the first authorized Hydro trajectory exits at
+  `PRESSURE_NOT_CONVERGED`; report root `1d3f7c4e...67e`, no stderr and zero
+  output entries. No repeat, Dam or Orifice ran. R1C and R1D are blocked.
+- **Current decision:** freeze R1C2 failure observability only. Preserve all
+  physics/profile bytes and run one diagnostic Hydro process exposing the
+  failing step, phase, iteration/residual/convergence and time-step bits.
+- **Next action:** implement R1C2 canonical failure context, pass focused
+  no-Simulation tests, commit it, then execute exactly one Hydro diagnostic.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -77,6 +82,8 @@
 | NSR3B4DR1C contract | frozen manifests, source patch and short-trajectory format | manifest-only implementation; trajectory conditional on preflight PASS |
 | NSR3B4DR1C1 | corrected normative dam scenario identity | repeat manifest-only gate; no solver object yet |
 | NSR3B4DR1C1 PASS | reproducible zero-physics manifest preflight | R1C trajectory implementation only; no full schedules |
+| NSR3B4DR1C trajectory | first Hydro rejects at pressure convergence with no payload | R1C/R1D blocked; do not advance scenarios |
+| NSR3B4DR1C2 contract | observability-only diagnostic reclosure | one Hydro diagnostic; no solver tuning or R1C credit |
 
 Candidate solver identity remains:
 
@@ -106,6 +113,7 @@ production authority is created by this lineage.
 | [B4DR1C research](../nonlocal-nsr3b4dr1c-trajectory-preflight-research-2026-08-21.md) | warm starts and hidden convergence diagnostics violate the intended profile | use only the tracked equation-preserving patch; pass manifest preflight first |
 | [B4DR1C negative](../nonlocal-nsr3b4dr1c-manifest-preflight-negative-evidence-2026-08-21.md) | shortened dam ID contradicts frozen fluid/boundary roots; stopped before Simulation | preserve rejection; use only R1C1 normative ID reclosure |
 | [B4DR1C1](../nonlocal-nsr3b4dr1c1-manifest-preflight-evidence-2026-08-21.md) | two builds/reports exact; roots and negative mismatch gate pass without Simulation | apply frozen patch in a fresh clone and implement short trajectory only |
+| [B4DR1C trajectory](../nonlocal-nsr3b4dr1c-trajectory-negative-evidence-2026-08-21.md) | first Hydro fails at pressure convergence; current report hides solver fields | preserve FAIL; instrument only R1C2 observability before any tuning |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -221,6 +229,16 @@ adapter/source/binary SHA-256 values.
 - **Decision:** select R1C1 and authorize implementation of the already-frozen
   short trajectory path in a separately patched full clone.
 - **Rejected:** mutating a clean R1A clone or jumping directly to R1D.
+
+### D-011 -- Preserve the first physical failure and reclose observability
+
+- **Observation:** the first Hydro process fails at pressure convergence and
+  publishes no payload, while the adapter discards its populated diagnostic
+  fields when constructing the failure report.
+- **Decision:** R1C fails and R1D remains blocked. Select R1C2 as a report-only
+  reclosure followed by exactly one Hydro diagnostic process.
+- **Rejected:** a blind iteration/tolerance change, warm-start restoration,
+  retry under the failed identity, or advancing to Dam/Orifice.
 
 ## Performance facts retained
 

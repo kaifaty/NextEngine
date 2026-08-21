@@ -1,6 +1,6 @@
 # NSR3-B4DR1 -- reproducible external-reference generator contract
 
-Status: `FROZEN / R1B_PASS / R1C_REJECTED / R1C1_PASS / TRAJECTORY_IMPLEMENTATION / NEW_ROOT_ONLY`
+Status: `FROZEN / R1B_PASS / R1C1_PASS / TRAJECTORY_FAIL / R1C2_DIAGNOSTIC / NEW_ROOT_ONLY`
 
 Identity projection:
 
@@ -89,6 +89,12 @@ Each scenario runs 24 steps twice in separate fresh processes. The complete
 `CWREFV2` preflight files must be byte-identical per scenario; all pressure and
 divergence solves finish, all values are finite, outer/internal clearance is
 exact and the orifice transition validator sees no solid chord.
+
+The first Hydro process failed at pressure convergence and published no
+payload. R1C therefore does not pass. The
+[R1C2 observability contract](03b4dr1c2-failure-observability-contract.md)
+permits one diagnostic Hydro process without changing physics. It does not
+authorize a retry under the failed identity or either later scenario.
 
 ## R1D -- full external generation
 

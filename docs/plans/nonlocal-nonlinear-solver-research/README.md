@@ -856,3 +856,12 @@ Two builds and reports are byte-identical, all exact geometry roots pass, the
 R1B report is unchanged, and a forced manifest mismatch rejects before
 Simulation creation. This authorizes only implementation of the frozen
 24-step path using a fresh patched upstream clone. R1D and B4E remain blocked.
+The first physical Hydro process then fails at `PRESSURE_NOT_CONVERGED` and
+publishes no payload; see the
+[negative evidence](../../development/nonlocal-nsr3b4dr1c-trajectory-negative-evidence-2026-08-21.md).
+The cost-aware ladder stops before a repeat, Dam or Orifice. The failure report
+omits the already available iteration/residual fields, so the
+[R1C2 research](../../development/nonlocal-nsr3b4dr1c2-failure-observability-research-2026-08-21.md)
+and [frozen contract](03b4dr1c2-failure-observability-contract.md) authorize
+only canonical failure observability and one Hydro diagnostic process. No
+solver tuning or R1C/R1D credit is authorized.
