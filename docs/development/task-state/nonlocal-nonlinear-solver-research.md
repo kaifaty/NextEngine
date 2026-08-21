@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E1M_PASS / B4EP_RESEARCH` |
+| Status | `ACTIVE / NSR3B4E1M_PASS / B4EP0_EXECUTION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -136,8 +136,12 @@
 - **Current decision:** hold B4E2 execution and route early to B4EP. First
   freeze an attribution profiler; do not choose parallelism, reuse or GPU work
   until measured stage costs identify the dominant paths.
-- **Next action:** research/freeze B4EP0 profiling over the exact B4E1M macro,
-  preserving its report/root as a non-regression oracle.
+- **Attribution constraint:** process `perf` is blocked by host
+  `perf_event_paranoid=4`; do not change the sysctl. B4EP0 uses a separate
+  GCC `-pg`/gprof build and requires byte-exact B4E1M stdout correspondence.
+- **Next action:** build/run the frozen external B4EP0 profile once, hash its
+  gmon/text artifacts and select exactly one B4EP1 Release ablation from
+  measured self-time dominance.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -179,6 +183,7 @@
 | NSR3B4E1S PASS | deterministic 48-HVP spectrum; 14 initial substeps | B4E1M one-macro contract design only |
 | NSR3B4E1M contract | one nominal retained-flat Hydro transaction | implement/execute step 1 only; reference remains closed |
 | NSR3B4E1M PASS | exact physical step-1 macro at 48.8 s serial cost | correctness candidate; B4EP required before B4E2 execution |
+| NSR3B4EP0 contract | exact-output gprof attribution of B4E1M | external profile only; no optimization or B4E2 |
 
 Candidate solver identity remains:
 
@@ -221,6 +226,7 @@ production authority is created by this lineage.
 | [B4E1S](../nonlocal-nsr3b4e1s-hydro-spectrum-evidence-2026-08-21.md) | four bit-exact estimates give 14 initial substeps and zero all-pairs work | design one Hydro macro transaction only |
 | [B4E1M research](../nonlocal-nsr3b4e1m-hydro-macro-research-2026-08-21.md) | complete transaction can isolate levels `14,28,56,112`, fine commit and cost | execute one step-1 macro per fresh process |
 | [B4E1M](../nonlocal-nsr3b4e1m-hydro-macro-evidence-2026-08-21.md) | physical/root PASS but one macro is 48.8 s and 227 workspace builds | hold B4E2; profile B4EP first |
+| [B4EP0 research](../nonlocal-nsr3b4ep0-attribution-research-2026-08-21.md) | four competing serial-cost hypotheses; perf events unavailable | run exact-output gprof attribution only |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -487,6 +493,16 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   treating process-level parallelism as reduced machine-hours or assuming the
   227 rebuilds dominate without a profiler.
 
+### D-026 -- Attribute serial cost without changing host policy
+
+- **Observation:** work counts alone cannot distinguish SHA/stream cost,
+  neighborhood rebuild, HVP traversal and nonlinear-control overhead; Linux
+  perf events are blocked by the current host policy.
+- **Decision:** use one separate GCC `-pg`/gprof build, require byte-exact
+  B4E1M stdout and select only one follow-up Release ablation from self time.
+- **Rejected:** changing `perf_event_paranoid`, optimizing from code inspection
+  alone, comparing gprof wall time as Release throughput or starting B4E2.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -516,12 +532,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research existing instrumentation boundaries and freeze B4EP0 attribution
-   over the exact B4E1M macro without changing its solver decisions.
-2. Separate neighborhood/tape construction, evaluation, HVP, KKT bookkeeping,
-   publication and hashing costs; keep timings external to deterministic data.
-3. Use the measured dominance and Amdahl bound to select exactly one next
-   optimization. Keep B4E2, references, runtime and production work blocked.
+1. Configure/build the external B4EP0 GCC `-pg` binary and record exact build
+   commands, executable hash and Build ID.
+2. Run one B4E1M macro under watchdog/time; require exact Release stdout, then
+   generate and hash gprof flat/call-graph artifacts.
+3. Rank measured self time, compute an Amdahl ceiling and freeze exactly one
+   B4EP1 Release ablation. Keep B4E2 and production work blocked.
 
 ## Reconsideration triggers
 

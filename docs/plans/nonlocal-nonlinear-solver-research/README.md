@@ -966,3 +966,10 @@ It selects the 28-substep fine level with zero energy creation, strain
 99% of one CPU core per first macro project one unrepeated Hydro+Dam pair to
 about 26 machine-hours. B4E2 execution is therefore held. Profile B4EP before
 selecting or implementing an optimization.
+The [B4EP0 research](../../development/nonlocal-nsr3b4ep0-attribution-research-2026-08-21.md)
+finds four live hypotheses: unconditional inner-state SHA/streaming, complete
+cell/CSR/tape rebuilds, serial HVP traversal and 221 outer trials. Process
+`perf` is unavailable under `perf_event_paranoid=4`; host policy remains
+unchanged. The [frozen B4EP0 contract](03b4ep0-attribution-contract.md)
+selects one external `-pg`/gprof run whose stdout must remain byte-identical to
+B4E1M. Run attribution only; do not optimize yet.
