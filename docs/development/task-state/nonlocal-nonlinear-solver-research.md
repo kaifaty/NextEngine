@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3Q_PASS / NSR3B4C3A1_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3A1_PASS / NSR3B4C3T_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -10,6 +10,17 @@
 | Authority | Working context only; Accepted architecture, SPEC-38/ADR-076 and the frozen stage contracts outrank this file |
 
 ## Resume in 60 seconds
+
+- **Current conclusion:** B4C3A1 passes twice at raw `bfce9a11...eb68`.
+  Fine-only frames and ledger entries commit atomically; raw published residual
+  reaches `9.98e-6`, while explicit impulse compensation restores `<=4.67e-10`.
+  P1 fine absolute pressure publication delta is `6.55e-5 J` in one frame.
+- **Current decision:** select `CANONICAL_BALANCED_STAGE_LEDGER_CANDIDATE` and
+  authorize B4C3T full-controller/long-horizon gate design only. Do not fit a
+  pressure-energy cap from the one-frame value.
+- **Current action:** design complete P1/P2 adaptive and fixed canonical lanes,
+  global step/root continuity, macro-frame rollback and independent cumulative
+  physical/publication-energy envelopes. B4C4/B4D remain blocked.
 
 - **Current conclusion:** B4C3Q exact aggregate-balanced apportionment passes
   twice at raw `ae44e39f...0731`. Biased aggregate error and 1,024-step center
@@ -929,6 +940,27 @@
 - **Smallest next action:** implement the frozen B4C3A1 transaction and ledger,
   preserve all parent hashes and execute two byte-identical reports.
 
+### D-048 -- Select balanced stage ledger semantics
+
+- **Observation:** B4C3A1 commits P1/P2 fine frames and ledger entries exactly,
+  preserves order/repeat/rollback and keeps physical correspondence. Raw
+  published residual is up to `9.98e-6`; subtracting the recorded numerical
+  impulse restores at most `4.67e-10`. P1 pressure publication deltas dominate
+  its one-frame representation-energy record at `6.55e-5 J` absolute sum.
+- **Decision:** select `CANONICAL_BALANCED_STAGE_LEDGER_CANDIDATE`. Raw residual
+  remains evidence; compensated residual is the KKT gate. Pressure-energy is a
+  recorded numerical term pending a long-horizon discriminator.
+- **Rejected alternatives:** do not apply `1e-9` directly to raw decoded state,
+  hide `I_q`, classify it as physical reaction, or derive a global energy cap
+  from one frame.
+- **Consequence:** B4C3T full canonical-controller design is now authorized.
+  Nominal/runtime/production remain blocked.
+- **Remaining uncertainty:** aggregate pressure/mechanical deltas across 8/16
+  macro frames, adaptive schedule changes, contact onset and fixed-reference
+  convergence are unknown.
+- **Smallest next action:** audit full lane ownership and freeze B4C3T physical,
+  root, rollback and cumulative publication-ledger bounds before implementation.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -941,11 +973,11 @@
 
 ## Exact next action
 
-1. Implement B4C3A1 per-stage raw/compensated momentum and decomposed energy
-   publication ledger under the selected balanced profile.
-2. Prove fine-only frame/ledger commit, exact order/repeat and zero-ledger
-   rollback for forced and typed publication failures.
-3. Execute twice and preserve parent hashes before resuming B4C3T. B4C4
+1. Audit complete adaptive/fixed lane ownership and freeze independent B4C3T
+   physical and cumulative publication-ledger envelopes.
+2. Bind global accepted-step numbering, per-lane trajectory roots and
+   macro-frame rollback without publishing forecast/coarse/diagnostic states.
+3. Implement B4C3T only after its full-horizon discriminator is frozen. B4C4
    packaging and nominal B4D remain blocked.
 
 ## Reconsideration triggers

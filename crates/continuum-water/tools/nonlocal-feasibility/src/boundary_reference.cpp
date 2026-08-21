@@ -8455,6 +8455,27 @@ struct JointControllerCase {
     std::string case_sha256;
 };
 
+struct CanonicalPublicationLedgerEntry {
+    Vec3 reported_impulse;
+    Vec3 direct_impulse;
+    Vec3 solver_ledger;
+    Vec3 raw_published_ledger;
+    Vec3 compensated_ledger;
+    Vec3 reported_center_shift;
+    Vec3 direct_center_shift;
+    double impulse_report_closure = 0.0;
+    double compensated_ledger_closure = 0.0;
+    double center_report_closure = 0.0;
+    double raw_ledger_residual = 0.0;
+    double compensated_ledger_residual = 0.0;
+    double kinetic_delta = 0.0;
+    double pressure_delta = 0.0;
+    double gravitational_delta = 0.0;
+    double mechanical_delta = 0.0;
+    double energy_decomposition_error = 0.0;
+    bool passed = false;
+};
+
 struct CanonicalStageRun {
     bool passed = false;
     std::string failure;
@@ -8473,6 +8494,19 @@ struct CanonicalStageRun {
     double maximum_publication_center_shift = 0.0;
     double maximum_publication_momentum_impulse = 0.0;
     double maximum_publication_kinetic_change = 0.0;
+    std::vector<CanonicalPublicationLedgerEntry> publication_ledger;
+    Vec3 cumulative_publication_impulse;
+    double maximum_raw_published_ledger_residual = 0.0;
+    double maximum_compensated_ledger_residual = 0.0;
+    double maximum_impulse_report_closure = 0.0;
+    double maximum_compensated_ledger_closure = 0.0;
+    double maximum_center_report_closure = 0.0;
+    double maximum_energy_decomposition_error = 0.0;
+    double cumulative_absolute_kinetic_delta = 0.0;
+    double cumulative_absolute_pressure_delta = 0.0;
+    double cumulative_absolute_gravitational_delta = 0.0;
+    double cumulative_absolute_mechanical_delta = 0.0;
+    bool publication_ledger_exact = true;
     JointQueryTrace trace;
 };
 
@@ -8565,6 +8599,38 @@ struct BalancedNegative {
     bool pretransaction_exact = false;
     std::size_t committed_frames = 0U;
     bool passed = false;
+};
+
+struct BalancedLedgerCase {
+    std::string name;
+    bool passed = false;
+    std::string failure;
+    CanonicalStageRun coarse;
+    CanonicalStageRun fine;
+    SmokeGate gate;
+    std::size_t committed_frames = 0U;
+    std::size_t committed_ledger_entries = 0U;
+    bool fine_only_commit = false;
+    bool committed_ledger_exact = false;
+    bool repeat_exact = false;
+    bool order_exact = false;
+    double binary_position_rms = 0.0;
+    double binary_velocity_rms = 0.0;
+    double nearest_position_rms = 0.0;
+    double nearest_velocity_rms = 0.0;
+    bool contact_exact = false;
+    double contact_time_error = 0.0;
+    std::string trajectory_sha256;
+};
+
+struct BalancedLedgerNegative {
+    bool passed = false;
+    std::string failure;
+    std::size_t private_frames = 0U;
+    std::size_t private_ledger_entries = 0U;
+    std::size_t committed_frames = 0U;
+    std::size_t committed_ledger_entries = 0U;
+    bool pretransaction_exact = false;
 };
 
 bool joint_cell_less(
@@ -11557,8 +11623,14 @@ CanonicalStageRun run_canonical_stage_interval(
     int order_mode,
     int force_failure_after = -1,
     bool aggregate_balanced = false,
-    const char* profile_sha256 = B4C3_PROFILE_SHA256) {
+    const char* profile_sha256 = B4C3_PROFILE_SHA256,
+    bool publication_ledger = false) {
     CanonicalStageRun result;
+    if (publication_ledger && !aggregate_balanced) {
+        result.failure = "PUBLICATION_LEDGER_REQUIRES_BALANCED_POLICY";
+        result.run.failure = result.failure;
+        return result;
+    }
     result.trace.record_queries = false;
     result.run.position = fixture.position;
     result.run.velocity = fixture.velocity;
@@ -11729,6 +11801,183 @@ CanonicalStageRun run_canonical_stage_interval(
                     kinetic_change);
                 result.kinetic_bound_exact = result.kinetic_bound_exact
                     && kinetic_change <= kinetic_allowance;
+                if (publication_ledger) {
+                    CanonicalPublicationLedgerEntry entry;
+                    entry.reported_impulse = MASS * velocity_error;
+                    entry.direct_impulse = momentum(decoded_velocity)
+                        - momentum(solve.velocity);
+                    entry.solver_ledger = momentum(solve.velocity)
+                        - momentum(input_velocity)
+                        - solve.state.gravity_impulse
+                        + solve.state.support_reaction
+                        + solve.state.contact_reaction;
+                    entry.raw_published_ledger = momentum(decoded_velocity)
+                        - momentum(input_velocity)
+                        - solve.state.gravity_impulse
+                        + solve.state.support_reaction
+                        + solve.state.contact_reaction;
+                    entry.compensated_ledger =
+                        entry.raw_published_ledger - entry.direct_impulse;
+                    entry.reported_center_shift = position_error
+                        / static_cast<double>(solve.position.size());
+                    entry.direct_center_shift =
+                        average_values(decoded_position)
+                        - average_values(solve.position);
+                    entry.impulse_report_closure = norm(
+                        entry.direct_impulse - entry.reported_impulse);
+                    entry.compensated_ledger_closure = norm(
+                        entry.compensated_ledger - entry.solver_ledger);
+                    entry.center_report_closure = norm(
+                        entry.direct_center_shift
+                        - entry.reported_center_shift);
+                    const double raw_scale = std::max({
+                        norm(momentum(decoded_velocity)
+                            - momentum(input_velocity)),
+                        norm(solve.state.gravity_impulse)
+                            + norm(solve.state.support_reaction)
+                            + norm(solve.state.contact_reaction),
+                        1.0e-30,
+                    });
+                    const double compensated_scale = std::max({
+                        norm(momentum(solve.velocity)
+                            - momentum(input_velocity)),
+                        norm(solve.state.gravity_impulse)
+                            + norm(solve.state.support_reaction)
+                            + norm(solve.state.contact_reaction),
+                        1.0e-30,
+                    });
+                    entry.raw_ledger_residual = norm(
+                        entry.raw_published_ledger) / raw_scale;
+                    entry.compensated_ledger_residual = norm(
+                        entry.compensated_ledger) / compensated_scale;
+                    entry.kinetic_delta = kinetic_after - kinetic_before;
+                    JointPressureWorkspace decoded_workspace =
+                        build_joint_query_workspace(
+                            decoded_position, fixture.boundary,
+                            "CANONICAL_LEDGER_"
+                                + std::to_string(substep),
+                            false, result.trace, false);
+                    if (!decoded_workspace.passed) {
+                        result.failure = "PUBLICATION_LEDGER_WORKSPACE";
+                        result.run.failure = result.failure;
+                        return result;
+                    }
+                    entry.pressure_delta =
+                        decoded_workspace.evaluation.energy
+                        - solve.state.smooth.support.energy;
+                    release_joint_query_workspace(
+                        decoded_workspace, result.trace);
+                    const auto gravitational_energy =
+                        [&fixture](const std::vector<Vec3>& position) {
+                            double value = 0.0;
+                            for (const Vec3& sample : position) {
+                                value += MASS * (-fixture.gravity.y)
+                                    * sample.y;
+                            }
+                            return value;
+                        };
+                    entry.gravitational_delta =
+                        gravitational_energy(decoded_position)
+                        - gravitational_energy(solve.position);
+                    const double mechanical_before = kinetic_before
+                        + solve.state.smooth.support.energy
+                        + gravitational_energy(solve.position);
+                    const double mechanical_after = kinetic_after
+                        + (solve.state.smooth.support.energy
+                            + entry.pressure_delta)
+                        + gravitational_energy(decoded_position);
+                    entry.mechanical_delta = mechanical_after
+                        - mechanical_before;
+                    entry.energy_decomposition_error = std::abs(
+                        entry.mechanical_delta
+                        - (entry.kinetic_delta + entry.pressure_delta
+                            + entry.gravitational_delta));
+                    const double impulse_allowance = gamma_factor(
+                        96U + 18U * solve.velocity.size()) * std::max({
+                            MASS * (vector_norm(decoded_velocity)
+                                + vector_norm(solve.velocity)),
+                            norm(entry.direct_impulse),
+                            norm(entry.reported_impulse), 1.0e-30});
+                    const double ledger_allowance = gamma_factor(
+                        128U + 24U * solve.velocity.size()) * std::max({
+                            norm(entry.compensated_ledger),
+                            norm(entry.solver_ledger), compensated_scale,
+                            1.0e-30});
+                    const double center_allowance = gamma_factor(
+                        64U + 12U * solve.position.size()) * std::max({
+                            (vector_norm(decoded_position)
+                                + vector_norm(solve.position))
+                                / static_cast<double>(solve.position.size()),
+                            norm(entry.direct_center_shift),
+                            norm(entry.reported_center_shift), 1.0e-30});
+                    const double energy_allowance = gamma_factor(
+                        128U + 24U * solve.position.size()) * std::max({
+                            std::abs(mechanical_before),
+                            std::abs(mechanical_after),
+                            std::abs(entry.kinetic_delta),
+                            std::abs(entry.pressure_delta),
+                            std::abs(entry.gravitational_delta), 1.0e-30});
+                    const double impulse_bound = MASS
+                        * std::sqrt(3.0) * 0.5e-6
+                        + impulse_allowance;
+                    const double gravitational_bound = MASS
+                        * std::abs(fixture.gravity.y) * 0.5e-6
+                        + energy_allowance;
+                    entry.passed = finite(entry.reported_impulse)
+                        && finite(entry.direct_impulse)
+                        && finite(entry.solver_ledger)
+                        && finite(entry.raw_published_ledger)
+                        && finite(entry.compensated_ledger)
+                        && finite(entry.reported_center_shift)
+                        && finite(entry.direct_center_shift)
+                        && std::isfinite(entry.kinetic_delta)
+                        && std::isfinite(entry.pressure_delta)
+                        && std::isfinite(entry.gravitational_delta)
+                        && std::isfinite(entry.mechanical_delta)
+                        && entry.impulse_report_closure
+                            <= impulse_allowance
+                        && entry.compensated_ledger_closure
+                            <= ledger_allowance
+                        && entry.center_report_closure
+                            <= center_allowance
+                        && entry.compensated_ledger_residual <= 1.0e-9
+                        && norm(entry.direct_impulse) <= impulse_bound
+                        && std::abs(entry.gravitational_delta)
+                            <= gravitational_bound
+                        && entry.energy_decomposition_error
+                            <= energy_allowance;
+                    result.publication_ledger_exact =
+                        result.publication_ledger_exact && entry.passed;
+                    result.cumulative_publication_impulse +=
+                        entry.direct_impulse;
+                    result.maximum_raw_published_ledger_residual = std::max(
+                        result.maximum_raw_published_ledger_residual,
+                        entry.raw_ledger_residual);
+                    result.maximum_compensated_ledger_residual = std::max(
+                        result.maximum_compensated_ledger_residual,
+                        entry.compensated_ledger_residual);
+                    result.maximum_impulse_report_closure = std::max(
+                        result.maximum_impulse_report_closure,
+                        entry.impulse_report_closure);
+                    result.maximum_compensated_ledger_closure = std::max(
+                        result.maximum_compensated_ledger_closure,
+                        entry.compensated_ledger_closure);
+                    result.maximum_center_report_closure = std::max(
+                        result.maximum_center_report_closure,
+                        entry.center_report_closure);
+                    result.maximum_energy_decomposition_error = std::max(
+                        result.maximum_energy_decomposition_error,
+                        entry.energy_decomposition_error);
+                    result.cumulative_absolute_kinetic_delta +=
+                        std::abs(entry.kinetic_delta);
+                    result.cumulative_absolute_pressure_delta +=
+                        std::abs(entry.pressure_delta);
+                    result.cumulative_absolute_gravitational_delta +=
+                        std::abs(entry.gravitational_delta);
+                    result.cumulative_absolute_mechanical_delta +=
+                        std::abs(entry.mechanical_delta);
+                    result.publication_ledger.push_back(entry);
+                }
             }
             result.staged_frames.push_back(std::move(frame));
             result.publication_error_bounded =
@@ -11747,10 +11996,24 @@ CanonicalStageRun run_canonical_stage_interval(
         }
     }
     result.run.passed = true;
+    if (publication_ledger) {
+        const double cumulative_bound = static_cast<double>(substeps)
+                * MASS * std::sqrt(3.0) * 0.5e-6
+            + gamma_factor(32U + 3U * result.publication_ledger.size())
+                * std::max(norm(result.cumulative_publication_impulse),
+                    1.0e-30);
+        result.publication_ledger_exact =
+            result.publication_ledger_exact
+            && result.publication_ledger.size()
+                == result.staged_frames.size()
+            && norm(result.cumulative_publication_impulse)
+                <= cumulative_bound;
+    }
     result.passed = result.decode_chain_exact
         && result.sample_identity_exact && result.step_sequence_exact
         && result.publication_error_bounded
         && result.aggregate_bounds_exact && result.kinetic_bound_exact
+        && result.publication_ledger_exact
         && result.staged_frames.size() == static_cast<std::size_t>(substeps)
         && result.trace.live_workspaces == 0
         && result.trace.maximum_live_workspaces <= 2
@@ -12432,6 +12695,218 @@ std::array<BalancedNegative, 6> run_balanced_negatives() {
     return result;
 }
 
+bool exact_publication_ledger_entry(
+    const CanonicalPublicationLedgerEntry& lhs,
+    const CanonicalPublicationLedgerEntry& rhs) {
+    return lhs.reported_impulse.x == rhs.reported_impulse.x
+        && lhs.reported_impulse.y == rhs.reported_impulse.y
+        && lhs.reported_impulse.z == rhs.reported_impulse.z
+        && lhs.direct_impulse.x == rhs.direct_impulse.x
+        && lhs.direct_impulse.y == rhs.direct_impulse.y
+        && lhs.direct_impulse.z == rhs.direct_impulse.z
+        && lhs.solver_ledger.x == rhs.solver_ledger.x
+        && lhs.solver_ledger.y == rhs.solver_ledger.y
+        && lhs.solver_ledger.z == rhs.solver_ledger.z
+        && lhs.raw_published_ledger.x == rhs.raw_published_ledger.x
+        && lhs.raw_published_ledger.y == rhs.raw_published_ledger.y
+        && lhs.raw_published_ledger.z == rhs.raw_published_ledger.z
+        && lhs.compensated_ledger.x == rhs.compensated_ledger.x
+        && lhs.compensated_ledger.y == rhs.compensated_ledger.y
+        && lhs.compensated_ledger.z == rhs.compensated_ledger.z
+        && lhs.reported_center_shift.x == rhs.reported_center_shift.x
+        && lhs.reported_center_shift.y == rhs.reported_center_shift.y
+        && lhs.reported_center_shift.z == rhs.reported_center_shift.z
+        && lhs.direct_center_shift.x == rhs.direct_center_shift.x
+        && lhs.direct_center_shift.y == rhs.direct_center_shift.y
+        && lhs.direct_center_shift.z == rhs.direct_center_shift.z
+        && lhs.impulse_report_closure == rhs.impulse_report_closure
+        && lhs.compensated_ledger_closure
+            == rhs.compensated_ledger_closure
+        && lhs.center_report_closure == rhs.center_report_closure
+        && lhs.raw_ledger_residual == rhs.raw_ledger_residual
+        && lhs.compensated_ledger_residual
+            == rhs.compensated_ledger_residual
+        && lhs.kinetic_delta == rhs.kinetic_delta
+        && lhs.pressure_delta == rhs.pressure_delta
+        && lhs.gravitational_delta == rhs.gravitational_delta
+        && lhs.mechanical_delta == rhs.mechanical_delta
+        && lhs.energy_decomposition_error
+            == rhs.energy_decomposition_error
+        && lhs.passed == rhs.passed;
+}
+
+bool exact_publication_ledger(
+    const std::vector<CanonicalPublicationLedgerEntry>& lhs,
+    const std::vector<CanonicalPublicationLedgerEntry>& rhs) {
+    if (lhs.size() != rhs.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        if (!exact_publication_ledger_entry(lhs[i], rhs[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+BalancedLedgerCase run_balanced_ledger_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& balanced_scenario_sha256,
+    const std::string& nearest_scenario_sha256,
+    int coarse_substeps) {
+    BalancedLedgerCase result;
+    result.name = std::move(name);
+    result.coarse = run_canonical_stage_interval(
+        fixture, balanced_scenario_sha256, coarse_substeps,
+        0, -1, true, B4C3Q_PROFILE_SHA256, true);
+    result.fine = run_canonical_stage_interval(
+        fixture, balanced_scenario_sha256, 2 * coarse_substeps,
+        0, -1, true, B4C3Q_PROFILE_SHA256, true);
+    if (!result.coarse.passed || !result.fine.passed) {
+        result.failure = "LEDGER_STAGE";
+        return result;
+    }
+    result.gate = smoke_gate(result.coarse.run, result.fine.run);
+    const std::vector<std::string> committed_roots =
+        canonical_frame_roots(result.fine.staged_frames);
+    const std::vector<std::string> coarse_roots =
+        canonical_frame_roots(result.coarse.staged_frames);
+    const std::vector<CanonicalPublicationLedgerEntry> committed_ledger =
+        result.fine.publication_ledger;
+    result.committed_frames = committed_roots.size();
+    result.committed_ledger_entries = committed_ledger.size();
+    const bool no_coarse_root = std::none_of(
+        committed_roots.begin(), committed_roots.end(),
+        [&coarse_roots](const std::string& root) {
+            return std::find(coarse_roots.begin(), coarse_roots.end(), root)
+                != coarse_roots.end();
+        });
+    result.fine_only_commit = result.committed_frames
+            == static_cast<std::size_t>(2 * coarse_substeps)
+        && result.committed_ledger_entries == result.committed_frames
+        && result.committed_ledger_entries
+            != result.coarse.publication_ledger.size()
+                + result.fine.publication_ledger.size()
+        && no_coarse_root;
+    Vec3 committed_impulse;
+    double committed_kinetic = 0.0;
+    double committed_pressure = 0.0;
+    double committed_gravitational = 0.0;
+    double committed_mechanical = 0.0;
+    for (const CanonicalPublicationLedgerEntry& entry : committed_ledger) {
+        committed_impulse += entry.direct_impulse;
+        committed_kinetic += std::abs(entry.kinetic_delta);
+        committed_pressure += std::abs(entry.pressure_delta);
+        committed_gravitational += std::abs(entry.gravitational_delta);
+        committed_mechanical += std::abs(entry.mechanical_delta);
+    }
+    result.committed_ledger_exact =
+        committed_impulse.x == result.fine.cumulative_publication_impulse.x
+        && committed_impulse.y == result.fine.cumulative_publication_impulse.y
+        && committed_impulse.z == result.fine.cumulative_publication_impulse.z
+        && committed_kinetic
+            == result.fine.cumulative_absolute_kinetic_delta
+        && committed_pressure
+            == result.fine.cumulative_absolute_pressure_delta
+        && committed_gravitational
+            == result.fine.cumulative_absolute_gravitational_delta
+        && committed_mechanical
+            == result.fine.cumulative_absolute_mechanical_delta;
+    result.trajectory_sha256 = canonical::trajectory_root(
+        B4C3Q_PROFILE_SHA256, balanced_scenario_sha256,
+        committed_roots);
+    const SmokeRun binary = run_b4b1_interval(
+        fixture, fixture.position, fixture.velocity,
+        2 * coarse_substeps, 0.0, SMOKE_FRAME_TIME);
+    const CanonicalStageRun nearest = run_canonical_stage_interval(
+        fixture, nearest_scenario_sha256, 2 * coarse_substeps, 0);
+    if (!binary.passed || !nearest.passed) {
+        result.failure = "LEDGER_REFERENCE";
+        return result;
+    }
+    result.binary_position_rms = rms_difference(
+        result.fine.run.position, binary.position);
+    result.binary_velocity_rms = rms_difference(
+        result.fine.run.velocity, binary.velocity);
+    result.nearest_position_rms = rms_difference(
+        result.fine.run.position, nearest.run.position);
+    result.nearest_velocity_rms = rms_difference(
+        result.fine.run.velocity, nearest.run.velocity);
+    result.contact_exact = result.fine.run.terminal_contacts
+            == binary.terminal_contacts
+        && result.fine.run.terminal_contacts
+            == nearest.run.terminal_contacts;
+    result.contact_time_error = event_time_error(
+        result.fine.run.first_contact_time, binary.first_contact_time);
+    const CanonicalStageRun repeated = run_canonical_stage_interval(
+        fixture, balanced_scenario_sha256, 2 * coarse_substeps,
+        0, -1, true, B4C3Q_PROFILE_SHA256, true);
+    result.repeat_exact = repeated.passed
+        && exact_canonical_frames(
+            result.fine.staged_frames, repeated.staged_frames)
+        && exact_publication_ledger(
+            result.fine.publication_ledger,
+            repeated.publication_ledger);
+    result.order_exact = true;
+    for (int mode = 1; mode <= 2; ++mode) {
+        const CanonicalStageRun permuted = run_canonical_stage_interval(
+            fixture, balanced_scenario_sha256, 2 * coarse_substeps,
+            mode, -1, true, B4C3Q_PROFILE_SHA256, true);
+        result.order_exact = result.order_exact && permuted.passed
+            && exact_canonical_frames(
+                result.fine.staged_frames, permuted.staged_frames)
+            && exact_publication_ledger(
+                result.fine.publication_ledger,
+                permuted.publication_ledger);
+    }
+    const double contact_limit = SMOKE_FRAME_TIME
+            / static_cast<double>(coarse_substeps)
+        + 64.0 * std::numeric_limits<double>::epsilon();
+    result.passed = result.gate.passed && result.fine_only_commit
+        && result.committed_ledger_exact
+        && result.repeat_exact && result.order_exact
+        && result.binary_position_rms <= 100.0e-6
+        && result.binary_velocity_rms <= 1.0e-3
+        && result.nearest_position_rms <= 100.0e-6
+        && result.nearest_velocity_rms <= 1.0e-3
+        && result.contact_exact
+        && result.contact_time_error <= contact_limit
+        && result.coarse.publication_ledger_exact
+        && result.fine.publication_ledger_exact
+        && result.coarse.maximum_compensated_ledger_residual <= 1.0e-9
+        && result.fine.maximum_compensated_ledger_residual <= 1.0e-9;
+    if (!result.passed) {
+        result.failure = "BALANCED_STAGE_LEDGER_GATE";
+    }
+    return result;
+}
+
+BalancedLedgerNegative run_balanced_ledger_negative() {
+    BalancedLedgerNegative result;
+    const SmokeFixture fixture = make_b4b_released_block_fixture();
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4C3Q_PROFILE_SHA256, B4C3Q_P2_SCENARIO_SHA256, 0U,
+            canonical_float_samples(
+                fixture.position, fixture.velocity, 0));
+    const CanonicalStageRun forced = run_canonical_stage_interval(
+        fixture, B4C3Q_P2_SCENARIO_SHA256, 4,
+        0, 2, true, B4C3Q_PROFILE_SHA256, true);
+    result.failure = forced.failure;
+    result.private_frames = forced.staged_frames.size();
+    result.private_ledger_entries = forced.publication_ledger.size();
+    result.pretransaction_exact = !initial.frame.root_sha256.empty();
+    result.passed = !forced.passed
+        && result.failure == "FORCED_SOLVER_FAILURE"
+        && result.private_frames == 2U
+        && result.private_ledger_entries == 2U
+        && result.committed_frames == 0U
+        && result.committed_ledger_entries == 0U
+        && result.pretransaction_exact;
+    return result;
+}
+
 void append_canonical_stage_run(
     std::ostringstream& output, const CanonicalStageRun& value) {
     output << std::setprecision(17)
@@ -12832,6 +13307,137 @@ void append_balanced_negative(
            << "\",\"expected\":\"" << value.expected
            << "\",\"observed\":\"" << value.observed
            << "\",\"committed_frames\":" << value.committed_frames
+           << ",\"pretransaction_exact\":"
+           << (value.pretransaction_exact ? "true" : "false") << '}';
+}
+
+std::string publication_ledger_hash(
+    const std::vector<CanonicalPublicationLedgerEntry>& entries) {
+    std::ostringstream material;
+    material << std::setprecision(17);
+    for (const CanonicalPublicationLedgerEntry& value : entries) {
+        material << value.reported_impulse.x << ':'
+                 << value.reported_impulse.y << ':'
+                 << value.reported_impulse.z << '|'
+                 << value.direct_impulse.x << ':'
+                 << value.direct_impulse.y << ':'
+                 << value.direct_impulse.z << '|'
+                 << value.solver_ledger.x << ':'
+                 << value.solver_ledger.y << ':'
+                 << value.solver_ledger.z << '|'
+                 << value.raw_published_ledger.x << ':'
+                 << value.raw_published_ledger.y << ':'
+                 << value.raw_published_ledger.z << '|'
+                 << value.compensated_ledger.x << ':'
+                 << value.compensated_ledger.y << ':'
+                 << value.compensated_ledger.z << '|'
+                 << value.reported_center_shift.x << ':'
+                 << value.reported_center_shift.y << ':'
+                 << value.reported_center_shift.z << '|'
+                 << value.direct_center_shift.x << ':'
+                 << value.direct_center_shift.y << ':'
+                 << value.direct_center_shift.z << '|'
+                 << value.impulse_report_closure << ':'
+                 << value.compensated_ledger_closure << ':'
+                 << value.center_report_closure << ':'
+                 << value.raw_ledger_residual << ':'
+                 << value.compensated_ledger_residual << ':'
+                 << value.kinetic_delta << ':'
+                 << value.pressure_delta << ':'
+                 << value.gravitational_delta << ':'
+                 << value.mechanical_delta << ':'
+                 << value.energy_decomposition_error << ':'
+                 << value.passed << ';';
+    }
+    return sha256_hex(material.str());
+}
+
+void append_balanced_ledger_run(
+    std::ostringstream& output, const CanonicalStageRun& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"substeps\":" << value.run.substeps
+           << ",\"frames\":" << value.staged_frames.size()
+           << ",\"ledger_entries\":" << value.publication_ledger.size()
+           << ",\"publication_ledger_exact\":"
+           << (value.publication_ledger_exact ? "true" : "false")
+           << ",\"maximum_raw_published_ledger_residual\":"
+           << value.maximum_raw_published_ledger_residual
+           << ",\"maximum_compensated_ledger_residual\":"
+           << value.maximum_compensated_ledger_residual
+           << ",\"maximum_impulse_report_closure\":"
+           << value.maximum_impulse_report_closure
+           << ",\"maximum_compensated_ledger_closure\":"
+           << value.maximum_compensated_ledger_closure
+           << ",\"maximum_center_report_closure\":"
+           << value.maximum_center_report_closure
+           << ",\"maximum_energy_decomposition_error\":"
+           << value.maximum_energy_decomposition_error
+           << ",\"cumulative_publication_impulse\":";
+    append_vec3(output, value.cumulative_publication_impulse);
+    output << ",\"cumulative_absolute_kinetic_delta_j\":"
+           << value.cumulative_absolute_kinetic_delta
+           << ",\"cumulative_absolute_pressure_delta_j\":"
+           << value.cumulative_absolute_pressure_delta
+           << ",\"cumulative_absolute_gravitational_delta_j\":"
+           << value.cumulative_absolute_gravitational_delta
+           << ",\"cumulative_absolute_mechanical_delta_j\":"
+           << value.cumulative_absolute_mechanical_delta
+           << ",\"ledger_sha256\":\""
+           << publication_ledger_hash(value.publication_ledger)
+           << "\"}";
+}
+
+void append_balanced_ledger_case(
+    std::ostringstream& output, const BalancedLedgerCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"coarse\":";
+    append_balanced_ledger_run(output, value.coarse);
+    output << ",\"fine\":";
+    append_balanced_ledger_run(output, value.fine);
+    output << ",\"embedded_gate_passed\":"
+           << (value.gate.passed ? "true" : "false")
+           << ",\"committed_frames\":" << value.committed_frames
+           << ",\"committed_ledger_entries\":"
+           << value.committed_ledger_entries
+           << ",\"fine_only_commit\":"
+           << (value.fine_only_commit ? "true" : "false")
+           << ",\"committed_ledger_exact\":"
+           << (value.committed_ledger_exact ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"order_exact\":"
+           << (value.order_exact ? "true" : "false")
+           << ",\"binary_position_rms_m\":"
+           << value.binary_position_rms
+           << ",\"binary_velocity_rms_m_s\":"
+           << value.binary_velocity_rms
+           << ",\"nearest_position_rms_m\":"
+           << value.nearest_position_rms
+           << ",\"nearest_velocity_rms_m_s\":"
+           << value.nearest_velocity_rms
+           << ",\"contact_exact\":"
+           << (value.contact_exact ? "true" : "false")
+           << ",\"contact_time_error_s\":"
+           << value.contact_time_error
+           << ",\"trajectory_sha256\":\""
+           << value.trajectory_sha256 << "\"}";
+}
+
+void append_balanced_ledger_negative(
+    std::ostringstream& output, const BalancedLedgerNegative& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"private_frames\":" << value.private_frames
+           << ",\"private_ledger_entries\":"
+           << value.private_ledger_entries
+           << ",\"committed_frames\":" << value.committed_frames
+           << ",\"committed_ledger_entries\":"
+           << value.committed_ledger_entries
            << ",\"pretransaction_exact\":"
            << (value.pretransaction_exact ? "true" : "false") << '}';
 }
@@ -13752,6 +14358,102 @@ SplitBoundaryReport run_balanced_canonical_controls() {
            << ",\"b4c3a1_selected_policy_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"b4c3t_full_canonical_design_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_balanced_stage_ledger_controls() {
+    const SplitBoundaryReport parent = run_balanced_canonical_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "35def7a51dcce516d3f65d763595a4e3dc52fe771b16368773d3b4493c30182c";
+    std::vector<BalancedLedgerCase> cases;
+    BalancedLedgerNegative negative;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3Q_PARENT";
+    } else {
+        cases.push_back(run_balanced_ledger_case(
+            "p1-frame0-21-42-balanced-ledger",
+            make_b4b_supported_column_fixture(),
+            B4C3Q_P1_SCENARIO_SHA256,
+            B4C3_P1_SCENARIO_SHA256, 21));
+        cases.push_back(run_balanced_ledger_case(
+            "p2-frame0-1-2-balanced-ledger",
+            make_b4b_released_block_fixture(),
+            B4C3Q_P2_SCENARIO_SHA256,
+            B4C3_P2_SCENARIO_SHA256, 1));
+        negative = run_balanced_ledger_negative();
+        for (const BalancedLedgerCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!negative.passed && first_failure.empty()) {
+            first_failure = "FORCED_LEDGER_ROLLBACK";
+        }
+    }
+    const bool cases_passed = cases.size() == 2U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const BalancedLedgerCase& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && cases_passed && negative.passed;
+    const std::string disposition = passed
+        ? "CANONICAL_BALANCED_STAGE_LEDGER_CANDIDATE"
+        : "CANONICAL_BALANCED_STAGE_LEDGER_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition;
+    for (const BalancedLedgerCase& value : cases) {
+        material << '|' << value.name << ':' << value.trajectory_sha256
+                 << ':' << publication_ledger_hash(
+                        value.coarse.publication_ledger)
+                 << ':' << publication_ledger_hash(
+                        value.fine.publication_ledger)
+                 << ':' << value.fine.maximum_raw_published_ledger_residual
+                 << ':' << value.fine.maximum_compensated_ledger_residual
+                 << ':' << value.fine.cumulative_absolute_pressure_delta
+                 << ':' << value.fine.cumulative_absolute_mechanical_delta;
+    }
+    material << "|R:" << negative.failure
+             << ':' << negative.private_frames
+             << ':' << negative.private_ledger_entries
+             << ':' << negative.committed_frames
+             << ':' << negative.committed_ledger_entries;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3a1_balanced_stage_ledger.v1\""
+           << ",\"identity\":\"joint-pressure-canonical-balanced-stage-r1\""
+           << ",\"parent_b4c3q_result_sha256\":\"ca5f49f3179e05f01fed58a690919b1b78877cc7d6ad2d20611aeb836dd6468f\""
+           << ",\"parent_b4c3q_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"profile_sha256\":\"" << B4C3Q_PROFILE_SHA256 << '"'
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"raw_published_ledger_is_physical_gate\":false"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_balanced_ledger_case(report, cases[i]);
+    }
+    report << "],\"forced_rollback\":";
+    append_balanced_ledger_negative(report, negative);
+    report << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c3t_full_controller_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"full_canonical_trajectory_authorized\":false"
            << ",\"nominal_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"

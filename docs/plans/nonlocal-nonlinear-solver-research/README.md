@@ -441,3 +441,10 @@ fine-only atomic frame/ledger commit, explicit quantization impulse and center
 shift, compensated momentum closure and a decomposed kinetic/pressure/gravity
 publication-energy record. It intentionally leaves the pressure-energy
 long-horizon cap to B4C3T evidence rather than fitting one before measurement.
+B4C3A1 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3a1-publication-ledger-evidence-2026-08-21.md).
+The raw decoded-state residual reaches `9.98e-6`, while subtracting the explicit
+publication impulse reproduces the KKT ledger at `4.67e-10` or below. Fine-only
+frame/ledger commit, rollback, order, energy decomposition and P1/P2 physical
+gates pass. This selects `CANONICAL_BALANCED_STAGE_LEDGER_CANDIDATE` and
+authorizes B4C3T design only.

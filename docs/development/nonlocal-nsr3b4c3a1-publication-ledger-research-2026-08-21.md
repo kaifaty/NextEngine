@@ -1,6 +1,6 @@
 # NSR3-B4C3A1 balanced publication ledger research -- 2026-08-21
 
-Status: `COMPLETE / LEDGER_CONTRACT_REQUIRED / B4C3T_BLOCKED`
+Status: `COMPLETE / BALANCED_STAGE_LEDGER_SELECTED / B4C3T_DESIGN_AUTHORIZED`
 
 ## State transition being audited
 
@@ -57,3 +57,9 @@ Freeze B4C3A1 under the B4C3Q selected profile. It revalidates P1 `21/42` and P2
 `1/2`, fine-only commit, exact order/repeat, physical correspondence and the
 quantization-aware momentum/energy ledger. B4C3T, B4C4 and nominal execution
 remain blocked.
+
+B4C3A1 subsequently passes twice byte-identically. Its main result is that raw
+published momentum residual reaches `9.98e-6`, while the explicitly compensated
+ledger remains `4.67e-10` or lower. P1 fine publication pressure-energy deltas
+accumulate to `6.55e-5 J` in absolute value; preserve that observation for the
+full-horizon discriminator rather than fitting a one-frame cap.
