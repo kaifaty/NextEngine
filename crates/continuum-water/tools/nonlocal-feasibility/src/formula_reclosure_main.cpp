@@ -87,7 +87,9 @@ int main(int argc, char** argv) {
                          "--macro-adaptive-replay-probe|"
                          "--macro-adaptive-replay-self-test|"
                          "--adaptive-fixed-diagnostic-probe|"
-                         "--adaptive-fixed-diagnostic-self-test\n";
+                         "--adaptive-fixed-diagnostic-self-test|"
+                         "--adaptive-accuracy-budget-probe|"
+                         "--adaptive-accuracy-budget-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -636,6 +638,20 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--adaptive-accuracy-budget-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_adaptive_accuracy_budget_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--adaptive-accuracy-budget-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_adaptive_accuracy_budget_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -713,7 +729,9 @@ int main(int argc, char** argv) {
                      "--macro-adaptive-replay-probe|"
                      "--macro-adaptive-replay-self-test|"
                      "--adaptive-fixed-diagnostic-probe|"
-                     "--adaptive-fixed-diagnostic-self-test\n";
+                     "--adaptive-fixed-diagnostic-self-test|"
+                     "--adaptive-accuracy-budget-probe|"
+                     "--adaptive-accuracy-budget-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

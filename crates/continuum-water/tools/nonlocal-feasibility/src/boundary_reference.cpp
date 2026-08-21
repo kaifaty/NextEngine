@@ -16401,6 +16401,7 @@ struct AdaptiveFixedFrameDiagnostic {
     double kinetic_relative = 0.0;
     double kinetic_floor = 0.0;
     bool kinetic_floor_overlap = false;
+    bool kinetic_relative_applicable = false;
     bool terminal_contacts_exact = false;
 };
 
@@ -16427,6 +16428,88 @@ struct AdaptiveFixedDiagnosticCase {
     std::array<std::string, 3> fixed_trajectory_sha256;
     std::array<std::string, 3> fixed_legacy_ledger_sha256;
     std::array<std::string, 3> fixed_policy_ledger_sha256;
+};
+
+enum class TemporalEvidenceClass {
+    ResolvedRatio = 0,
+    FloorCoincident = 1,
+    StableReferenceSeparation = 2,
+};
+
+struct TemporalEvidence {
+    bool passed = false;
+    TemporalEvidenceClass classification =
+        TemporalEvidenceClass::ResolvedRatio;
+    double adaptive_error = 0.0;
+    double temporal_difference = 0.0;
+    double temporal_floor = 0.0;
+    double resolved_ratio = 0.0;
+};
+
+struct AdaptiveAccuracyInput {
+    double position_dx = 0.0;
+    double velocity_c = 0.0;
+    double center_dx = 0.0;
+    double q99_height_dx = 0.0;
+    double q99_front_dx = 0.0;
+    bool kinetic_relative_applicable = true;
+    double kinetic_relative = 0.0;
+    double kinetic_absolute = 0.0;
+    double kinetic_floor = 0.0;
+    bool terminal_contacts_exact = true;
+};
+
+struct AdaptiveAccuracyFrame {
+    bool passed = false;
+    int frame = -1;
+    AdaptiveAccuracyInput input;
+    TemporalEvidence position_temporal;
+    TemporalEvidence velocity_temporal;
+    double position_utilization = 0.0;
+    double velocity_utilization = 0.0;
+    double center_utilization = 0.0;
+    double q99_height_utilization = 0.0;
+    double q99_front_utilization = 0.0;
+    double kinetic_utilization = 0.0;
+};
+
+struct AdaptiveAccuracyCase {
+    bool passed = false;
+    bool physical_budget_passed = false;
+    bool temporal_classification_exact = false;
+    std::string name;
+    std::string failure;
+    std::vector<AdaptiveAccuracyFrame> frames;
+    std::array<int, 3> position_temporal_counts{};
+    std::array<int, 3> velocity_temporal_counts{};
+    double maximum_position_utilization = 0.0;
+    double maximum_velocity_utilization = 0.0;
+    double maximum_center_utilization = 0.0;
+    double maximum_q99_height_utilization = 0.0;
+    double maximum_q99_front_utilization = 0.0;
+    double maximum_kinetic_utilization = 0.0;
+    double contact_time_error = 0.0;
+    double contact_time_limit = 0.0;
+    double contact_time_utilization = 0.0;
+    bool per_frame_contacts_exact = false;
+    bool final_terminal_contacts_exact = false;
+};
+
+struct AdaptiveAccuracyNegatives {
+    bool passed = false;
+    bool exact_boundaries_accepted = false;
+    std::array<bool, 5> next_state_aggregate_rejected{};
+    bool next_kinetic_relative_rejected = false;
+    bool kinetic_floor_boundary_accepted = false;
+    bool next_kinetic_floor_rejected = false;
+    bool onset_boundary_accepted = false;
+    bool next_onset_rejected = false;
+    bool contact_identity_rejected = false;
+    bool non_finite_rejected = false;
+    bool resolved_class_exact = false;
+    bool floor_coincident_class_exact = false;
+    bool stable_separation_class_exact = false;
+    bool invalid_temporal_rejected = false;
 };
 
 bool macro_policy_entry_valid(
@@ -18693,6 +18776,8 @@ AdaptiveFixedDiagnosticCase analyze_adaptive_fixed_case(
                 std::numeric_limits<double>::min());
         measurement.kinetic_floor_overlap = kinetic_scale <= 1.0e-12
             && measurement.kinetic_absolute <= measurement.kinetic_floor;
+        measurement.kinetic_relative_applicable =
+            kinetic_scale > 1.0e-12;
         if (kinetic_scale > 1.0e-12) {
             measurement.kinetic_relative =
                 measurement.kinetic_absolute / kinetic_scale;
@@ -18766,6 +18851,331 @@ analyze_adaptive_fixed_cases(
         analyze_adaptive_fixed_case(
             adaptive[1], fixed[1], fixed_admission[1]),
     };
+}
+
+const char* temporal_evidence_name(TemporalEvidenceClass value) {
+    switch (value) {
+    case TemporalEvidenceClass::ResolvedRatio:
+        return "RESOLVED_RATIO";
+    case TemporalEvidenceClass::FloorCoincident:
+        return "FLOOR_COINCIDENT";
+    case TemporalEvidenceClass::StableReferenceSeparation:
+        return "STABLE_REFERENCE_SEPARATION";
+    }
+    return "INVALID";
+}
+
+std::size_t temporal_evidence_index(TemporalEvidenceClass value) {
+    return static_cast<std::size_t>(value);
+}
+
+TemporalEvidence classify_temporal_evidence(
+    double adaptive_error,
+    double temporal_difference,
+    double temporal_floor) {
+    TemporalEvidence result;
+    result.adaptive_error = adaptive_error;
+    result.temporal_difference = temporal_difference;
+    result.temporal_floor = temporal_floor;
+    if (!std::isfinite(adaptive_error)
+        || !std::isfinite(temporal_difference)
+        || !std::isfinite(temporal_floor)
+        || adaptive_error < 0.0 || temporal_difference < 0.0
+        || temporal_floor < 0.0) {
+        return result;
+    }
+    if (temporal_difference > temporal_floor) {
+        result.classification = TemporalEvidenceClass::ResolvedRatio;
+        result.resolved_ratio = adaptive_error / temporal_difference;
+        result.passed = std::isfinite(result.resolved_ratio);
+    } else if (adaptive_error <= temporal_floor) {
+        result.classification = TemporalEvidenceClass::FloorCoincident;
+        result.passed = true;
+    } else {
+        result.classification =
+            TemporalEvidenceClass::StableReferenceSeparation;
+        result.passed = true;
+    }
+    return result;
+}
+
+TemporalEvidence classify_temporal_evidence(
+    const AdaptiveFixedFieldDiagnostic& value) {
+    return classify_temporal_evidence(
+        value.fixed_level_error[2], value.temporal_difference,
+        value.temporal_floor);
+}
+
+bool adaptive_accuracy_input_passed(const AdaptiveAccuracyInput& value) {
+    const bool finite_values = std::isfinite(value.position_dx)
+        && std::isfinite(value.velocity_c)
+        && std::isfinite(value.center_dx)
+        && std::isfinite(value.q99_height_dx)
+        && std::isfinite(value.q99_front_dx)
+        && std::isfinite(value.kinetic_relative)
+        && std::isfinite(value.kinetic_absolute)
+        && std::isfinite(value.kinetic_floor);
+    const bool kinetic_passed = value.kinetic_relative_applicable
+        ? value.kinetic_relative <= 0.15
+        : value.kinetic_absolute <= value.kinetic_floor;
+    return finite_values
+        && value.position_dx >= 0.0 && value.position_dx <= 0.05
+        && value.velocity_c >= 0.0 && value.velocity_c <= 0.001
+        && value.center_dx >= 0.0 && value.center_dx <= 0.05
+        && value.q99_height_dx >= 0.0 && value.q99_height_dx <= 0.10
+        && value.q99_front_dx >= 0.0 && value.q99_front_dx <= 0.10
+        && value.kinetic_relative >= 0.0
+        && value.kinetic_absolute >= 0.0
+        && value.kinetic_floor >= 0.0
+        && kinetic_passed && value.terminal_contacts_exact;
+}
+
+double adaptive_contact_time_limit(const MacroAdaptiveReplay& adaptive) {
+    if (!std::isfinite(adaptive.first_contact_time)
+        || adaptive.frames.empty()) {
+        return 0.0;
+    }
+    const int frame = std::clamp(
+        static_cast<int>(adaptive.first_contact_time / SMOKE_FRAME_TIME),
+        0, static_cast<int>(adaptive.frames.size()) - 1);
+    const int accepted_substeps =
+        adaptive.frames[static_cast<std::size_t>(frame)].accepted_substeps;
+    if (accepted_substeps <= 0) {
+        return 0.0;
+    }
+    return SMOKE_FRAME_TIME / static_cast<double>(accepted_substeps)
+        + 64.0 * std::numeric_limits<double>::epsilon();
+}
+
+AdaptiveAccuracyCase analyze_adaptive_accuracy_case(
+    const MacroAdaptiveReplay& adaptive,
+    const AdaptiveFixedDiagnosticCase& diagnostic) {
+    AdaptiveAccuracyCase result;
+    result.name = diagnostic.name;
+    bool frames_passed = adaptive.passed && diagnostic.passed
+        && adaptive.frames.size() == diagnostic.frames.size();
+    bool temporal_passed = frames_passed;
+    result.per_frame_contacts_exact = frames_passed;
+    for (std::size_t index = 0; index < diagnostic.frames.size(); ++index) {
+        const AdaptiveFixedFrameDiagnostic& source =
+            diagnostic.frames[index];
+        AdaptiveAccuracyFrame frame;
+        frame.frame = source.frame;
+        frame.input.position_dx =
+            source.position.fixed_level_error[2] / SPACING;
+        frame.input.velocity_c =
+            source.velocity.fixed_level_error[2]
+            / std::sqrt(KAPPA / MASS);
+        frame.input.center_dx = source.center_dx;
+        frame.input.q99_height_dx = source.q99_height_dx;
+        frame.input.q99_front_dx = source.q99_front_dx;
+        frame.input.kinetic_relative_applicable =
+            source.kinetic_relative_applicable;
+        frame.input.kinetic_relative = source.kinetic_relative;
+        frame.input.kinetic_absolute = source.kinetic_absolute;
+        frame.input.kinetic_floor = source.kinetic_floor;
+        frame.input.terminal_contacts_exact =
+            source.terminal_contacts_exact;
+        frame.position_temporal =
+            classify_temporal_evidence(source.position);
+        frame.velocity_temporal =
+            classify_temporal_evidence(source.velocity);
+        frame.position_utilization = frame.input.position_dx / 0.05;
+        frame.velocity_utilization = frame.input.velocity_c / 0.001;
+        frame.center_utilization = frame.input.center_dx / 0.05;
+        frame.q99_height_utilization = frame.input.q99_height_dx / 0.10;
+        frame.q99_front_utilization = frame.input.q99_front_dx / 0.10;
+        frame.kinetic_utilization =
+            frame.input.kinetic_relative_applicable
+            ? frame.input.kinetic_relative / 0.15
+            : frame.input.kinetic_absolute
+                / std::max(frame.input.kinetic_floor, 1.0e-300);
+        frame.passed = adaptive_accuracy_input_passed(frame.input)
+            && frame.position_temporal.passed
+            && frame.velocity_temporal.passed;
+        frames_passed = frames_passed && frame.passed;
+        temporal_passed = temporal_passed
+            && frame.position_temporal.passed
+            && frame.velocity_temporal.passed;
+        result.per_frame_contacts_exact =
+            result.per_frame_contacts_exact
+            && frame.input.terminal_contacts_exact;
+        if (frame.position_temporal.passed) {
+            ++result.position_temporal_counts[temporal_evidence_index(
+                frame.position_temporal.classification)];
+        }
+        if (frame.velocity_temporal.passed) {
+            ++result.velocity_temporal_counts[temporal_evidence_index(
+                frame.velocity_temporal.classification)];
+        }
+        result.maximum_position_utilization = std::max(
+            result.maximum_position_utilization,
+            frame.position_utilization);
+        result.maximum_velocity_utilization = std::max(
+            result.maximum_velocity_utilization,
+            frame.velocity_utilization);
+        result.maximum_center_utilization = std::max(
+            result.maximum_center_utilization,
+            frame.center_utilization);
+        result.maximum_q99_height_utilization = std::max(
+            result.maximum_q99_height_utilization,
+            frame.q99_height_utilization);
+        result.maximum_q99_front_utilization = std::max(
+            result.maximum_q99_front_utilization,
+            frame.q99_front_utilization);
+        result.maximum_kinetic_utilization = std::max(
+            result.maximum_kinetic_utilization,
+            frame.kinetic_utilization);
+        result.frames.push_back(frame);
+    }
+    result.contact_time_error = diagnostic.contact_time_error;
+    result.contact_time_limit = adaptive_contact_time_limit(adaptive);
+    result.contact_time_utilization = result.contact_time_error
+        / std::max(result.contact_time_limit, 1.0e-300);
+    result.final_terminal_contacts_exact =
+        diagnostic.final_terminal_contacts_exact;
+    const int frame_count = static_cast<int>(result.frames.size());
+    const int position_classified = std::accumulate(
+        result.position_temporal_counts.begin(),
+        result.position_temporal_counts.end(), 0);
+    const int velocity_classified = std::accumulate(
+        result.velocity_temporal_counts.begin(),
+        result.velocity_temporal_counts.end(), 0);
+    result.temporal_classification_exact = temporal_passed
+        && position_classified == frame_count
+        && velocity_classified == frame_count;
+    result.physical_budget_passed = frames_passed
+        && std::isfinite(result.contact_time_error)
+        && std::isfinite(result.contact_time_limit)
+        && result.contact_time_error <= result.contact_time_limit
+        && result.per_frame_contacts_exact
+        && result.final_terminal_contacts_exact;
+    result.passed = result.physical_budget_passed
+        && result.temporal_classification_exact;
+    if (!frames_passed) {
+        result.failure = "FRAME_ACCURACY_BUDGET";
+    } else if (result.contact_time_error > result.contact_time_limit) {
+        result.failure = "CONTACT_TIME_BUDGET";
+    } else if (!result.per_frame_contacts_exact
+        || !result.final_terminal_contacts_exact) {
+        result.failure = "CONTACT_IDENTITY";
+    } else if (!result.temporal_classification_exact) {
+        result.failure = "TEMPORAL_CLASSIFICATION";
+    }
+    return result;
+}
+
+std::array<AdaptiveAccuracyCase, 2> analyze_adaptive_accuracy_cases(
+    const std::array<MacroAdaptiveReplay, 2>& adaptive,
+    const std::array<AdaptiveFixedDiagnosticCase, 2>& diagnostic) {
+    return {
+        analyze_adaptive_accuracy_case(adaptive[0], diagnostic[0]),
+        analyze_adaptive_accuracy_case(adaptive[1], diagnostic[1]),
+    };
+}
+
+bool onset_budget_passed(double error, double limit) {
+    return std::isfinite(error) && std::isfinite(limit)
+        && error >= 0.0 && limit >= 0.0 && error <= limit;
+}
+
+AdaptiveAccuracyNegatives run_adaptive_accuracy_negatives() {
+    AdaptiveAccuracyNegatives result;
+    AdaptiveAccuracyInput boundary;
+    boundary.position_dx = 0.05;
+    boundary.velocity_c = 0.001;
+    boundary.center_dx = 0.05;
+    boundary.q99_height_dx = 0.10;
+    boundary.q99_front_dx = 0.10;
+    boundary.kinetic_relative_applicable = true;
+    boundary.kinetic_relative = 0.15;
+    boundary.kinetic_absolute = 1.0;
+    boundary.kinetic_floor = 0.0;
+    result.exact_boundaries_accepted =
+        adaptive_accuracy_input_passed(boundary);
+    const std::array<double AdaptiveAccuracyInput::*, 5> members = {
+        &AdaptiveAccuracyInput::position_dx,
+        &AdaptiveAccuracyInput::velocity_c,
+        &AdaptiveAccuracyInput::center_dx,
+        &AdaptiveAccuracyInput::q99_height_dx,
+        &AdaptiveAccuracyInput::q99_front_dx,
+    };
+    const std::array<double, 5> limits = {
+        0.05, 0.001, 0.05, 0.10, 0.10,
+    };
+    for (std::size_t index = 0; index < members.size(); ++index) {
+        AdaptiveAccuracyInput invalid = boundary;
+        invalid.*members[index] = std::nextafter(
+            limits[index], std::numeric_limits<double>::infinity());
+        result.next_state_aggregate_rejected[index] =
+            !adaptive_accuracy_input_passed(invalid);
+    }
+    AdaptiveAccuracyInput kinetic_relative = boundary;
+    kinetic_relative.kinetic_relative = std::nextafter(
+        0.15, std::numeric_limits<double>::infinity());
+    result.next_kinetic_relative_rejected =
+        !adaptive_accuracy_input_passed(kinetic_relative);
+    AdaptiveAccuracyInput kinetic_floor;
+    kinetic_floor.kinetic_relative_applicable = false;
+    kinetic_floor.kinetic_floor = 1.0e-24;
+    kinetic_floor.kinetic_absolute = kinetic_floor.kinetic_floor;
+    result.kinetic_floor_boundary_accepted =
+        adaptive_accuracy_input_passed(kinetic_floor);
+    kinetic_floor.kinetic_absolute = std::nextafter(
+        kinetic_floor.kinetic_floor,
+        std::numeric_limits<double>::infinity());
+    result.next_kinetic_floor_rejected =
+        !adaptive_accuracy_input_passed(kinetic_floor);
+    const double onset_limit = 1.0 / 2400.0;
+    result.onset_boundary_accepted = onset_budget_passed(
+        onset_limit, onset_limit);
+    result.next_onset_rejected = !onset_budget_passed(
+        std::nextafter(onset_limit,
+            std::numeric_limits<double>::infinity()),
+        onset_limit);
+    AdaptiveAccuracyInput wrong_contacts;
+    wrong_contacts.terminal_contacts_exact = false;
+    result.contact_identity_rejected =
+        !adaptive_accuracy_input_passed(wrong_contacts);
+    AdaptiveAccuracyInput non_finite;
+    non_finite.position_dx =
+        std::numeric_limits<double>::quiet_NaN();
+    result.non_finite_rejected =
+        !adaptive_accuracy_input_passed(non_finite);
+    const TemporalEvidence resolved = classify_temporal_evidence(
+        2.0, 1.0, 0.5);
+    const TemporalEvidence coincident = classify_temporal_evidence(
+        0.5, 0.5, 0.5);
+    const TemporalEvidence separated = classify_temporal_evidence(
+        std::nextafter(0.5, std::numeric_limits<double>::infinity()),
+        0.5, 0.5);
+    const TemporalEvidence invalid = classify_temporal_evidence(
+        std::numeric_limits<double>::quiet_NaN(), 1.0, 0.5);
+    result.resolved_class_exact = resolved.passed
+        && resolved.classification == TemporalEvidenceClass::ResolvedRatio
+        && resolved.resolved_ratio == 2.0;
+    result.floor_coincident_class_exact = coincident.passed
+        && coincident.classification
+            == TemporalEvidenceClass::FloorCoincident;
+    result.stable_separation_class_exact = separated.passed
+        && separated.classification
+            == TemporalEvidenceClass::StableReferenceSeparation;
+    result.invalid_temporal_rejected = !invalid.passed;
+    result.passed = result.exact_boundaries_accepted
+        && std::all_of(
+            result.next_state_aggregate_rejected.begin(),
+            result.next_state_aggregate_rejected.end(),
+            [](bool value) { return value; })
+        && result.next_kinetic_relative_rejected
+        && result.kinetic_floor_boundary_accepted
+        && result.next_kinetic_floor_rejected
+        && result.onset_boundary_accepted && result.next_onset_rejected
+        && result.contact_identity_rejected && result.non_finite_rejected
+        && result.resolved_class_exact
+        && result.floor_coincident_class_exact
+        && result.stable_separation_class_exact
+        && result.invalid_temporal_rejected;
+    return result;
 }
 
 CanonicalMacroRollback run_macro_publication_rollback() {
@@ -19765,6 +20175,171 @@ void append_adaptive_fixed_diagnostic_case(
                << '}';
     }
     output << "]}";
+}
+
+void append_temporal_evidence(
+    std::ostringstream& output,
+    const TemporalEvidence& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"classification\":\""
+           << temporal_evidence_name(value.classification)
+           << "\",\"adaptive_error\":" << value.adaptive_error
+           << ",\"temporal_difference\":"
+           << value.temporal_difference
+           << ",\"temporal_floor\":" << value.temporal_floor
+           << ",\"resolved_ratio\":" << value.resolved_ratio << '}';
+}
+
+void append_adaptive_accuracy_frame(
+    std::ostringstream& output,
+    const AdaptiveAccuracyFrame& value) {
+    output << std::setprecision(17)
+           << "{\"frame\":" << value.frame
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"position_dx\":" << value.input.position_dx
+           << ",\"velocity_c\":" << value.input.velocity_c
+           << ",\"center_dx\":" << value.input.center_dx
+           << ",\"q99_height_dx\":" << value.input.q99_height_dx
+           << ",\"q99_front_dx\":" << value.input.q99_front_dx
+           << ",\"kinetic_relative_applicable\":"
+           << (value.input.kinetic_relative_applicable ? "true" : "false")
+           << ",\"kinetic_relative\":" << value.input.kinetic_relative
+           << ",\"kinetic_absolute_j\":" << value.input.kinetic_absolute
+           << ",\"kinetic_floor_j\":" << value.input.kinetic_floor
+           << ",\"terminal_contacts_exact\":"
+           << (value.input.terminal_contacts_exact ? "true" : "false")
+           << ",\"utilization\":{\"position\":"
+           << value.position_utilization
+           << ",\"velocity\":" << value.velocity_utilization
+           << ",\"center\":" << value.center_utilization
+           << ",\"q99_height\":" << value.q99_height_utilization
+           << ",\"q99_front\":" << value.q99_front_utilization
+           << ",\"kinetic\":" << value.kinetic_utilization
+           << "},\"position_temporal\":";
+    append_temporal_evidence(output, value.position_temporal);
+    output << ",\"velocity_temporal\":";
+    append_temporal_evidence(output, value.velocity_temporal);
+    output << '}';
+}
+
+void append_temporal_counts(
+    std::ostringstream& output,
+    const std::array<int, 3>& counts) {
+    output << "{\"resolved_ratio\":" << counts[0]
+           << ",\"floor_coincident\":" << counts[1]
+           << ",\"stable_reference_separation\":" << counts[2]
+           << '}';
+}
+
+void append_adaptive_accuracy_case(
+    std::ostringstream& output,
+    const AdaptiveAccuracyCase& value,
+    const AdaptiveFixedDiagnosticCase& source) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"physical_budget_passed\":"
+           << (value.physical_budget_passed ? "true" : "false")
+           << ",\"temporal_classification_exact\":"
+           << (value.temporal_classification_exact ? "true" : "false")
+           << ",\"maximum_utilization\":{\"position\":"
+           << value.maximum_position_utilization
+           << ",\"velocity\":" << value.maximum_velocity_utilization
+           << ",\"center\":" << value.maximum_center_utilization
+           << ",\"q99_height\":" << value.maximum_q99_height_utilization
+           << ",\"q99_front\":" << value.maximum_q99_front_utilization
+           << ",\"kinetic\":" << value.maximum_kinetic_utilization
+           << ",\"contact_time\":" << value.contact_time_utilization
+           << "},\"contact_time_error_s\":" << value.contact_time_error
+           << ",\"contact_time_limit_s\":" << value.contact_time_limit
+           << ",\"per_frame_contacts_exact\":"
+           << (value.per_frame_contacts_exact ? "true" : "false")
+           << ",\"final_terminal_contacts_exact\":"
+           << (value.final_terminal_contacts_exact ? "true" : "false")
+           << ",\"position_temporal_counts\":";
+    append_temporal_counts(output, value.position_temporal_counts);
+    output << ",\"velocity_temporal_counts\":";
+    append_temporal_counts(output, value.velocity_temporal_counts);
+    output << ",\"adaptive_trajectory_sha256\":\""
+           << source.adaptive_trajectory_sha256
+           << "\",\"adaptive_legacy_ledger_sha256\":\""
+           << source.adaptive_legacy_ledger_sha256
+           << "\",\"adaptive_policy_ledger_sha256\":\""
+           << source.adaptive_policy_ledger_sha256
+           << "\",\"fixed_trajectory_sha256\":[";
+    for (std::size_t index = 0;
+         index < source.fixed_trajectory_sha256.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        output << '"' << source.fixed_trajectory_sha256[index] << '"';
+    }
+    output << "],\"fixed_legacy_ledger_sha256\":[";
+    for (std::size_t index = 0;
+         index < source.fixed_legacy_ledger_sha256.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        output << '"' << source.fixed_legacy_ledger_sha256[index] << '"';
+    }
+    output << "],\"fixed_policy_ledger_sha256\":[";
+    for (std::size_t index = 0;
+         index < source.fixed_policy_ledger_sha256.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        output << '"' << source.fixed_policy_ledger_sha256[index] << '"';
+    }
+    output << "],\"frames\":[";
+    for (std::size_t index = 0; index < value.frames.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        append_adaptive_accuracy_frame(output, value.frames[index]);
+    }
+    output << "]}";
+}
+
+void append_adaptive_accuracy_negatives(
+    std::ostringstream& output,
+    const AdaptiveAccuracyNegatives& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"exact_boundaries_accepted\":"
+           << (value.exact_boundaries_accepted ? "true" : "false")
+           << ",\"next_state_aggregate_rejected\":[";
+    for (std::size_t index = 0;
+         index < value.next_state_aggregate_rejected.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        output << (value.next_state_aggregate_rejected[index]
+            ? "true" : "false");
+    }
+    output << "],\"next_kinetic_relative_rejected\":"
+           << (value.next_kinetic_relative_rejected ? "true" : "false")
+           << ",\"kinetic_floor_boundary_accepted\":"
+           << (value.kinetic_floor_boundary_accepted ? "true" : "false")
+           << ",\"next_kinetic_floor_rejected\":"
+           << (value.next_kinetic_floor_rejected ? "true" : "false")
+           << ",\"onset_boundary_accepted\":"
+           << (value.onset_boundary_accepted ? "true" : "false")
+           << ",\"next_onset_rejected\":"
+           << (value.next_onset_rejected ? "true" : "false")
+           << ",\"contact_identity_rejected\":"
+           << (value.contact_identity_rejected ? "true" : "false")
+           << ",\"non_finite_rejected\":"
+           << (value.non_finite_rejected ? "true" : "false")
+           << ",\"resolved_class_exact\":"
+           << (value.resolved_class_exact ? "true" : "false")
+           << ",\"floor_coincident_class_exact\":"
+           << (value.floor_coincident_class_exact ? "true" : "false")
+           << ",\"stable_separation_class_exact\":"
+           << (value.stable_separation_class_exact ? "true" : "false")
+           << ",\"invalid_temporal_rejected\":"
+           << (value.invalid_temporal_rejected ? "true" : "false")
+           << '}';
 }
 
 } // namespace
@@ -23022,6 +23597,188 @@ SplitBoundaryReport run_adaptive_fixed_diagnostic_probe_controls() {
 
 SplitBoundaryReport run_adaptive_fixed_diagnostic_controls() {
     return run_adaptive_fixed_diagnostic_impl(true);
+}
+
+namespace {
+
+SplitBoundaryReport run_adaptive_accuracy_budget_impl(
+    bool require_parent) {
+    bool parent_exact = true;
+    if (require_parent) {
+        const SplitBoundaryReport parent =
+            run_adaptive_fixed_diagnostic_controls();
+        parent_exact = parent.passed
+            && sha256_hex(parent.json)
+                == "923c09a8e86a473df8b5903ce170a10154c959a6ca8532136618bd05cf2d57c8";
+    }
+    std::array<MacroAdaptiveReplay, 2> adaptive;
+    std::array<CanonicalFixedCase, 2> fixed;
+    std::array<MixedStabilityCase, 2> fixed_admission;
+    std::array<AdaptiveFixedDiagnosticCase, 2> diagnostics;
+    std::array<AdaptiveAccuracyCase, 2> accuracy;
+    AdaptiveAccuracyNegatives negatives;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3MC0_PARENT";
+    } else {
+        std::future<MacroAdaptiveReplay> p1 = std::async(
+            std::launch::async, []() {
+                return run_macro_adaptive_replay(
+                    "p1-supported-adaptive-accuracy",
+                    make_b4b_supported_column_fixture(),
+                    B4C3TA_P1_SCENARIO_SHA256, false);
+            });
+        std::future<MacroAdaptiveReplay> p2 = std::async(
+            std::launch::async, []() {
+                return run_macro_adaptive_replay(
+                    "p2-released-adaptive-accuracy",
+                    make_b4b_released_block_fixture(),
+                    B4C3TA_P2_SCENARIO_SHA256, true);
+            });
+        std::future<std::array<CanonicalFixedCase, 2>> fixed_future =
+            std::async(std::launch::async, []() {
+                return run_macro_publication_fixed_cases();
+            });
+        adaptive = {p1.get(), p2.get()};
+        fixed = fixed_future.get();
+        fixed_admission = analyze_mixed_stability_cases(fixed);
+        diagnostics = analyze_adaptive_fixed_cases(
+            adaptive, fixed, fixed_admission);
+        accuracy = analyze_adaptive_accuracy_cases(adaptive, diagnostics);
+        negatives = run_adaptive_accuracy_negatives();
+        for (const AdaptiveAccuracyCase& value : accuracy) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!negatives.passed && first_failure.empty()) {
+            first_failure = "NEGATIVE_CONTROLS";
+        }
+    }
+    const bool sources_exact = parent_exact
+        && std::all_of(
+            diagnostics.begin(), diagnostics.end(),
+            [](const AdaptiveFixedDiagnosticCase& value) {
+                return value.passed;
+            });
+    const bool accuracy_exact = parent_exact
+        && std::all_of(
+            accuracy.begin(), accuracy.end(),
+            [](const AdaptiveAccuracyCase& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && sources_exact
+        && accuracy_exact && negatives.passed;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|identity:40f5923fc02e696bf7c98d09d0964ec99c331c4ffda0e8fcef4f81b8ee8b6503"
+             << "|sources:" << sources_exact
+             << "|accuracy:" << accuracy_exact
+             << "|negatives:" << negatives.passed;
+    if (parent_exact) {
+        for (std::size_t case_index = 0;
+             case_index < accuracy.size(); ++case_index) {
+            const AdaptiveAccuracyCase& value = accuracy[case_index];
+            const AdaptiveFixedDiagnosticCase& source =
+                diagnostics[case_index];
+            material << '|' << value.name << ':' << value.passed << ':'
+                     << value.physical_budget_passed << ':'
+                     << value.temporal_classification_exact << ':'
+                     << value.maximum_position_utilization << ':'
+                     << value.maximum_velocity_utilization << ':'
+                     << value.maximum_center_utilization << ':'
+                     << value.maximum_q99_height_utilization << ':'
+                     << value.maximum_q99_front_utilization << ':'
+                     << value.maximum_kinetic_utilization << ':'
+                     << value.contact_time_error << ':'
+                     << value.contact_time_limit << ':'
+                     << value.contact_time_utilization << ':'
+                     << value.per_frame_contacts_exact << ':'
+                     << value.final_terminal_contacts_exact << ':'
+                     << source.adaptive_trajectory_sha256 << ':'
+                     << source.adaptive_legacy_ledger_sha256 << ':'
+                     << source.adaptive_policy_ledger_sha256;
+            for (std::size_t root = 0; root < 3U; ++root) {
+                material << ':' << source.fixed_trajectory_sha256[root]
+                         << ':' << source.fixed_legacy_ledger_sha256[root]
+                         << ':' << source.fixed_policy_ledger_sha256[root];
+            }
+            for (const AdaptiveAccuracyFrame& frame : value.frames) {
+                material << ':' << frame.frame << ':' << frame.passed << ':'
+                         << frame.input.position_dx << ':'
+                         << frame.input.velocity_c << ':'
+                         << frame.input.center_dx << ':'
+                         << frame.input.q99_height_dx << ':'
+                         << frame.input.q99_front_dx << ':'
+                         << frame.input.kinetic_relative_applicable << ':'
+                         << frame.input.kinetic_relative << ':'
+                         << frame.input.kinetic_absolute << ':'
+                         << frame.input.kinetic_floor << ':'
+                         << frame.input.terminal_contacts_exact << ':'
+                         << temporal_evidence_name(
+                                frame.position_temporal.classification)
+                         << ':' << frame.position_temporal.resolved_ratio
+                         << ':' << temporal_evidence_name(
+                                frame.velocity_temporal.classification)
+                         << ':' << frame.velocity_temporal.resolved_ratio;
+            }
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+           << (require_parent
+                ? "nsr3b4c3mc1_adaptive_accuracy_budget.v1"
+                : "nsr3b4c3mc1_adaptive_accuracy_budget_probe.v1")
+           << "\",\"identity_sha256\":\"40f5923fc02e696bf7c98d09d0964ec99c331c4ffda0e8fcef4f81b8ee8b6503\""
+           << ",\"parent_b4c3mc0_raw_sha256\":\"923c09a8e86a473df8b5903ce170a10154c959a6ca8532136618bd05cf2d57c8\""
+           << ",\"parent_b4c3mc0_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"parent_gate_required\":"
+           << (require_parent ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"TINY_CORPUS_ACCURACY_ONLY\""
+           << ",\"threshold_source\":\"B4B_UNCHANGED\""
+           << ",\"ratio_threshold_applied\":false"
+           << ",\"source_measurements_exact\":"
+           << (sources_exact ? "true" : "false")
+           << ",\"cases\":[";
+    if (parent_exact) {
+        for (std::size_t index = 0; index < accuracy.size(); ++index) {
+            if (index != 0U) {
+                report << ',';
+            }
+            append_adaptive_accuracy_case(
+                report, accuracy[index], diagnostics[index]);
+        }
+    }
+    report << "],\"negative_controls\":";
+    append_adaptive_accuracy_negatives(report, negatives);
+    report << ",\"adaptive_accuracy_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"temporal_equivalence_selected\":false"
+           << ",\"nominal_corpus_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_adaptive_accuracy_budget_probe_controls() {
+    return run_adaptive_accuracy_budget_impl(false);
+}
+
+SplitBoundaryReport run_adaptive_accuracy_budget_controls() {
+    return run_adaptive_accuracy_budget_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr

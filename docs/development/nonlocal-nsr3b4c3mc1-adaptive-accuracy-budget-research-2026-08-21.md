@@ -1,6 +1,6 @@
 # B4C3MC1 adaptive accuracy budget design
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / PASS / NOMINAL CORPUS DESIGN AUTHORIZED`
 
 Date: `2026-08-21`
 
@@ -64,3 +64,9 @@ temporal equivalence, performance, runtime/schema suitability or production.
 Freeze the
 [B4C3MC1 contract](../plans/nonlocal-nonlinear-solver-research/03b4c3mc1-adaptive-accuracy-budget-contract.md)
 with no fitted constants and implement it as a distinct parent-gated stage.
+
+Execution passed twice byte-identically. See the
+[dated evidence](nonlocal-nsr3b4c3mc1-adaptive-accuracy-budget-evidence-2026-08-21.md).
+The unchanged physical gate selects the adaptive controller only for P1/P2;
+temporal equivalence remains explicitly unselected. Nominal-corpus design is
+authorized next.

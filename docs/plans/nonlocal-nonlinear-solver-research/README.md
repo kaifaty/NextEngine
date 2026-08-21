@@ -641,3 +641,10 @@ the B4B state, aggregate, kinetic and one-adaptive-substep onset limits exactly,
 while temporal evidence is classified as resolved ratio, floor coincidence or
 stable-reference separation. A PASS may select accuracy only for the two tiny
 research fixtures and authorize nominal-corpus design.
+B4C3MC1 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3mc1-adaptive-accuracy-budget-evidence-2026-08-21.md).
+All unchanged B4B budgets pass. Maximum utilization is `0.78125` in P1 onset
+timing and `0.79151` in P2 velocity. Temporal evidence remains separate: P2
+velocity contains 14 floor coincidences, one stable-reference separation and
+one resolved ratio. The adaptive macro controller is selected only for P1/P2,
+and only nominal-corpus design is authorized.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3MC0_PASS / B4C3MC1_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3MC1_PASS / NOMINAL_CORPUS_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -49,8 +49,15 @@
   independent claims. Design B4C3MC1 against unchanged B4B budgets and classify
   resolved, floor-coincident and stable-reference-separated fields without a
   fitted ratio threshold.
-- **Current action:** implement frozen B4C3MC1 two-axis comparison-budget gate
-  and branch-discriminating negative controls. Nominal corpus and B4C4/B4D
+- **Current conclusion:** B4C3MC1 passes twice byte-identically at full raw
+  `71c5297d...9297`. All unchanged B4B budgets pass; maximum utilization is
+  `0.78125` for P1 onset and `0.79151` for P2 velocity. Temporal equivalence is
+  explicitly not selected.
+- **Current decision:** select
+  `ADAPTIVE_MACRO_TINY_CORPUS_ACCURACY_CANDIDATE`. Expand scenario diversity
+  before any performance or production claim; do not retune on P1/P2.
+- **Current action:** research and freeze a nominal pressure/contact corpus
+  spanning independent geometry, support, onset and motion regimes. B4C4/B4D
   remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
@@ -1511,6 +1518,26 @@
 - **Smallest next action:** freeze and run the two-axis B4C3MC1 gate with exact
   parent/root preservation and branch-discriminating negative controls.
 
+### D-075 -- Select tiny-corpus adaptive accuracy
+
+- **Observation:** B4C3MC1 passes twice with exact B4C3MC0 provenance and all
+  threshold/next-value negative controls. P1/P2 maximum physical utilization is
+  below one, while the P2 contact transition remains explicitly classified as
+  a stable-reference separation.
+- **Decision:** select `ADAPTIVE_MACRO_TINY_CORPUS_ACCURACY_CANDIDATE` without
+  selecting temporal equivalence. Authorize only nominal-corpus design.
+- **Rejected alternatives:** treat P1/P2 as representative production proof,
+  proceed directly to CUDA/performance, or tune the controller while all
+  currently authorized accuracy budgets pass.
+- **Consequence:** the next corpus must add independent variation rather than
+  duplicate the two calibration fixtures and must retain fixed-reference,
+  physical, transaction and root evidence.
+- **Remaining uncertainty:** accuracy and convergence under oblique motion,
+  edge/corner contact, aspect-ratio variation, stronger compression and larger
+  particle populations are unmeasured.
+- **Smallest next action:** define a bounded scenario taxonomy and run cheap
+  pilot discriminators before freezing an expensive full corpus.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1523,10 +1550,9 @@
 
 ## Exact next action
 
-1. Freeze B4C3MC1 without changing any B4B physical threshold.
-2. Implement physical admission and three-way temporal classification with
-   explicit negative controls.
-3. Execute isolated and twice parent-gated before nominal-corpus design.
+1. Inventory supported fixture controls and define independent nominal axes.
+2. Run cheap pilots to reject unsupported or redundant scenarios.
+3. Freeze the smallest diverse corpus before the full adaptive/fixed replay.
 
 ## Reconsideration triggers
 
