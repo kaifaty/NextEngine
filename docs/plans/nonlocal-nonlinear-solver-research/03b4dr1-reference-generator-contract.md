@@ -1,6 +1,6 @@
 # NSR3-B4DR1 -- reproducible external-reference generator contract
 
-Status: `FROZEN / R1B_PASS / R1C1_PASS / TRAJECTORY_FAIL / R1C2_DIAGNOSTIC / NEW_ROOT_ONLY`
+Status: `FROZEN / R1C_TRAJECTORY_FAIL / R1C2_PASS / R1C3_CAP_SWEEP / NEW_ROOT_ONLY`
 
 Identity projection:
 
@@ -95,6 +95,11 @@ payload. R1C therefore does not pass. The
 [R1C2 observability contract](03b4dr1c2-failure-observability-contract.md)
 permits one diagnostic Hydro process without changing physics. It does not
 authorize a retry under the failed identity or either later scenario.
+
+R1C2 confirms a step-1 pressure cap hit at 100 iterations while divergence
+and timestep remain exact. The
+[R1C3 cap-sweep contract](03b4dr1c3-pressure-cap-sweep-contract.md) authorizes
+only fixed one-step diagnostic caps before any reference-profile reclosure.
 
 ## R1D -- full external generation
 

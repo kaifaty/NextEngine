@@ -1,6 +1,6 @@
 # NSR3-B4DR1C2 -- pressure-failure observability contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / DIAGNOSTIC_ONLY`
+Status: `PASS / PRESSURE_CAP_CONFIRMED / R1C3_DESIGN_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -63,3 +63,8 @@ required fields closes R1C2 and authorizes a new research/design decision
 based on the observed values. A pass is an unexpected diagnostic discrepancy
 and must be investigated without granting R1C credit. Dam, Orifice and R1D
 remain blocked in either case.
+
+The one diagnostic process failed at step 1 with pressure iterations `100`,
+residual bits `0x3fea7a64ac09a4ac`, pressure convergence false, divergence
+iterations `1`/zero residual/convergence true and unchanged timestep bits.
+See the [dated evidence](../../development/nonlocal-nsr3b4dr1c2-failure-observability-evidence-2026-08-21.md).

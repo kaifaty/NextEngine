@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1C_FAIL / R1C2_OBSERVABILITY_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4DR1_R1C2_PASS / R1C3_CAP_SWEEP_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -59,8 +59,13 @@
 - **Current decision:** freeze R1C2 failure observability only. Preserve all
   physics/profile bytes and run one diagnostic Hydro process exposing the
   failing step, phase, iteration/residual/convergence and time-step bits.
-- **Next action:** implement R1C2 canonical failure context, pass focused
-  no-Simulation tests, commit it, then execute exactly one Hydro diagnostic.
+- **Current conclusion:** R1C2 shows step 1 pressure reaches cap 100 with
+  residual `0.8274405823` versus threshold `0.1`; divergence converges in one
+  iteration with zero residual and timestep bits remain exact.
+- **Current decision:** select an ascending one-step R1C3 pressure-cap sweep
+  over `25,50,75,100,125,150,200,300`, changing no other profile value.
+- **Next action:** implement the report-only fixed-cap mode, commit it, then
+  run fresh processes until the first converged point. Do not run R1D.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -84,6 +89,8 @@
 | NSR3B4DR1C1 PASS | reproducible zero-physics manifest preflight | R1C trajectory implementation only; no full schedules |
 | NSR3B4DR1C trajectory | first Hydro rejects at pressure convergence with no payload | R1C/R1D blocked; do not advance scenarios |
 | NSR3B4DR1C2 contract | observability-only diagnostic reclosure | one Hydro diagnostic; no solver tuning or R1C credit |
+| NSR3B4DR1C2 PASS | step-1 cap hit isolated to pressure; divergence/dt exact | R1C3 cap-sweep design only |
+| NSR3B4DR1C3 contract | fixed one-step pressure-cap sweep | diagnose bounded convergence; no payload or R1C credit |
 
 Candidate solver identity remains:
 
@@ -114,6 +121,7 @@ production authority is created by this lineage.
 | [B4DR1C negative](../nonlocal-nsr3b4dr1c-manifest-preflight-negative-evidence-2026-08-21.md) | shortened dam ID contradicts frozen fluid/boundary roots; stopped before Simulation | preserve rejection; use only R1C1 normative ID reclosure |
 | [B4DR1C1](../nonlocal-nsr3b4dr1c1-manifest-preflight-evidence-2026-08-21.md) | two builds/reports exact; roots and negative mismatch gate pass without Simulation | apply frozen patch in a fresh clone and implement short trajectory only |
 | [B4DR1C trajectory](../nonlocal-nsr3b4dr1c-trajectory-negative-evidence-2026-08-21.md) | first Hydro fails at pressure convergence; current report hides solver fields | preserve FAIL; instrument only R1C2 observability before any tuning |
+| [B4DR1C2](../nonlocal-nsr3b4dr1c2-failure-observability-evidence-2026-08-21.md) | pressure hits 100 iterations at `8.2744x` threshold on step 1; divergence and dt exact | sweep pressure cap before changing calibration/tolerance |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -239,6 +247,15 @@ adapter/source/binary SHA-256 values.
   reclosure followed by exactly one Hydro diagnostic process.
 - **Rejected:** a blind iteration/tolerance change, warm-start restoration,
   retry under the failed identity, or advancing to Dam/Orifice.
+
+### D-012 -- Measure the pressure convergence boundary before remediation
+
+- **Observation:** R1C2 isolates a finite pressure-only cap hit at step 1 but
+  provides only one convergence endpoint.
+- **Decision:** run a fixed ascending one-step R1C3 cap sweep, stopping at the
+  first converged result and changing no other profile field.
+- **Rejected:** immediate cap promotion, tolerance loosening or simultaneous
+  mass/volume/boundary changes.
 
 ## Performance facts retained
 

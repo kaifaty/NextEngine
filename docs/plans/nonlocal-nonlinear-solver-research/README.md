@@ -865,3 +865,12 @@ omits the already available iteration/residual fields, so the
 and [frozen contract](03b4dr1c2-failure-observability-contract.md) authorize
 only canonical failure observability and one Hydro diagnostic process. No
 solver tuning or R1C/R1D credit is authorized.
+R1C2 confirms the failure is pressure-only on step 1: cap `100`, residual
+`0x3fea7a64ac09a4ac` (`0.8274405823`) against threshold `0.1`; divergence
+converges in one iteration with zero residual and timestep bits remain exact.
+See the
+[dated evidence](../../development/nonlocal-nsr3b4dr1c2-failure-observability-evidence-2026-08-21.md).
+The [R1C3 research](../../development/nonlocal-nsr3b4dr1c3-pressure-cap-research-2026-08-21.md)
+and [frozen sweep contract](03b4dr1c3-pressure-cap-sweep-contract.md) select a
+one-step ascending cap discriminator next. It changes no other profile value,
+writes no payload and grants no R1C/R1D authority.
