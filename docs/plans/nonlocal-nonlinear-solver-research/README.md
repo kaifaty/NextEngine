@@ -512,3 +512,13 @@ known exact reject-limit failures, preserves atomic roots and schedules, and
 passes every pre-frozen physical and energy bound. This selects
 `CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE` and authorizes only
 B4C3TR complete fixed canonical reference design.
+The
+[B4C3TR audit](../../development/nonlocal-nsr3b4c3tr-fixed-reference-research-2026-08-21.md)
+separates physical time-discretization convergence from the deterministic
+canonical representation floor. Its
+[frozen contract](03b4c3tr-fixed-canonical-reference-contract.md) requires
+independent canonical `48/96/192` lanes, same-level binary tubes, exact
+canonical/legacy/policy roots, KKT-ledger and energy gates, and an explicit
+order-or-forward-floor convergence classification. The six independent lanes
+may execute concurrently with fixed report order; this changes harness
+resource utilization, not solver semantics. B4C3TC remains blocked.

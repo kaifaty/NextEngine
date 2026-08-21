@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3TAR2_PASS / B4C3TR_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3TAR2_PASS / B4C3TR_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -19,9 +19,12 @@
   `CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE`. B4C3TA and
   B4C3TAR remain preserved FAIL evidence; B4C3A2 remains the selected
   one-frame ledger transaction.
-- **Current action:** design B4C3TR complete canonical fixed `48/96/192`
-  reference lanes and convergence gates. Do not execute them before freezing
-  the contract. B4C3TC/B4C4/B4D remain blocked.
+- **Current action:** implement the frozen B4C3TR complete canonical fixed
+  `48/96/192` reference lanes. B4C3TC/B4C4/B4D remain blocked.
+- **Current contract:** each fixed lane owns independent contiguous canonical,
+  legacy-ledger and policy-ledger roots; it must remain in the pre-frozen
+  same-level binary tube. Temporal differences must show inherited first-order
+  convergence or explicit canonical forward-floor overlap.
 - **Current evidence:** full raw-with-LF `911f4ee0...81c6`, no-LF
   `5862a1c9...6c3d`, semantic `ae52a97a...77f7`; wall time
   `107.72/107.50 s`. P1 accepts/attempts `364/563` substeps and has two strict
@@ -1147,6 +1150,27 @@
   ownership, convergence/floor gates, exact work accounting and failure
   atomicity before implementation.
 
+### D-058 -- Freeze fixed canonical reference validation
+
+- **Observation:** fixed binary64 convergence and deterministic canonical
+  publication are separate error sources. A raw canonical ratio alone can
+  mislabel representation noise as lost temporal order, while a broad physical
+  tolerance alone would not establish reference validity.
+- **Decision:** B4C3TR requires both the inherited binary64 convergence result
+  and per-level canonical-to-binary forward tubes. Canonical successive levels
+  must show first-order ratio or an explicitly named, independently computed
+  representation-floor overlap.
+- **Rejected alternatives:** do not compare adaptive and fixed in the same
+  stage, reuse adaptive roots, hide floor overlap as observed order, derive a
+  tolerance from future fixed output, or change the KKT/quantization policy.
+- **Consequence:** six `(case,level)` lanes may execute independently and in
+  parallel, but each owns complete state, work and three evidence roots.
+- **Remaining uncertainty:** canonical fixed lanes may expose nonlinear failure,
+  exceed the forward tube/energy budget or be dominated by representation
+  floor; their wall-time scaling is not yet measured.
+- **Smallest next action:** implement isolated lane execution, convergence and
+  rollback controls, then run the isolated report before parent-gated replay.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1159,12 +1183,12 @@
 
 ## Exact next action
 
-1. Audit the existing binary fixed `48/96/192` references and canonical stage
-   ownership; derive B4C3TR gates without using future results.
-2. Freeze B4C3TR canonical trajectory plus legacy/policy ledger roots,
-   convergence-or-floor rules, exact work accounting and failure atomicity.
-3. Implement only after the contract is frozen. B4C3TC/B4C4/B4D remain
-   blocked.
+1. Implement B4C3TR's six independent fixed canonical lanes with exact roots,
+   work, same-level binary tubes and physical/energy accounting.
+2. Add the frozen binary and canonical convergence classifications plus
+   post-commit forced rollback.
+3. Run the isolated report first, then two complete parent-gated reports.
+   B4C3TC/B4C4/B4D remain blocked.
 
 ## Reconsideration triggers
 
