@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP0_PASS / B4EP1_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP0_PASS / B4EP1_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -146,8 +146,12 @@
   full-state hashing as the oracle/default; a work-only nominal transaction may
   skip inner workspace/pair/tape hashes but must reproduce all physics roots
   and counters exactly in Release.
-- **Next action:** freeze B4EP1 policy/physics/performance gates before code,
-  then implement and run a balanced Release A/B timing experiment.
+- **Current decision:** the frozen B4EP1 work-only policy skips only transient
+  workspace/pair/tape hashes, retains a small domain-separated work chain and
+  leaves parent/final publication evidence unchanged.
+- **Next action:** implement the dedicated work-only command, preserve exact
+  B4E1M stdout, then run two deterministic candidates and three alternating
+  Release timing pairs.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -191,6 +195,7 @@
 | NSR3B4E1M PASS | exact physical step-1 macro at 48.8 s serial cost | correctness candidate; B4EP required before B4E2 execution |
 | NSR3B4EP0 contract | exact-output gprof attribution of B4E1M | external profile only; no optimization or B4E2 |
 | NSR3B4EP0 PASS | SHA 41.36%, HVP 23.4%, neighborhood 22.7%, evaluation 8.3% | B4EP1 query-evidence separation design only |
+| NSR3B4EP1 contract | full-state default plus work-only nominal transaction | implement/A-B only; physics and B4E2 unchanged |
 
 Candidate solver identity remains:
 
@@ -235,6 +240,7 @@ production authority is created by this lineage.
 | [B4E1M](../nonlocal-nsr3b4e1m-hydro-macro-evidence-2026-08-21.md) | physical/root PASS but one macro is 48.8 s and 227 workspace builds | hold B4E2; profile B4EP first |
 | [B4EP0 research](../nonlocal-nsr3b4ep0-attribution-research-2026-08-21.md) | four competing serial-cost hypotheses; perf events unavailable | run exact-output gprof attribution only |
 | [B4EP0](../nonlocal-nsr3b4ep0-attribution-evidence-2026-08-21.md) | exact-output profile selects SHA as largest leaf with `~1.70x` ceiling | freeze one Release evidence-policy ablation |
+| [B4EP1 research](../nonlocal-nsr3b4ep1-query-evidence-research-2026-08-21.md) | inner hashes are non-physical and separable from parent/final roots | implement work-only policy and balanced A/B |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -522,6 +528,15 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   publication hashes, changing formulas/solver policy or parallelizing before
   this lower-risk cost is separated.
 
+### D-028 -- Preserve full evidence as default during the hash ablation
+
+- **Observation:** transient workspace roots do not feed physics, but deleting
+  them globally would destroy the exact B4E1M oracle and existing diagnostics.
+- **Decision:** add an internal work-only policy used by one candidate command;
+  keep full-state bytes unchanged and require exact durable physics roots.
+- **Rejected:** replacing final hashes, silently changing existing commands,
+  timing different binaries or granting B4E2 authority from this ablation.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -551,12 +566,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Freeze B4EP1 full-state/default versus work-only trace semantics and exact
-   physical correspondence gates before implementation.
-2. Add a dedicated candidate command, preserve B4E1M byte-exact regression and
-   run two deterministic candidate processes plus three balanced timing pairs.
-3. Require all paired wins and median speedup at least `1.10x`; regardless of
-   PASS, keep B4E2 blocked and route next by the residual profile/Amdahl gap.
+1. Implement internal full/work-only policy, counters and the dedicated B4EP1
+   command without changing any default report bytes.
+2. Rebuild twice; require exact oracle regression and candidate physical roots,
+   then run two candidate repeats plus the frozen six-process timing order.
+3. Close B4EP1 with paired medians/Amdahl residual and route to B4EP2; keep
+   B4E2, references, runtime and production work blocked.
 
 ## Reconsideration triggers
 

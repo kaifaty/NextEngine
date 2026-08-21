@@ -980,3 +980,10 @@ to HVP, 22.7% to neighborhood construction and 8.3% to evaluation. Hashing is
 the largest safe first ablation, but its `~1.70x` Amdahl ceiling cannot close
 the full gap. Design B4EP1 query-evidence separation next; retain topology and
 HVP as required later stages.
+The [B4EP1 research](../../development/nonlocal-nsr3b4ep1-query-evidence-research-2026-08-21.md)
+separates transient proof hashing from physical computation without deleting
+final publication/ledger roots. Its
+[frozen contract](03b4ep1-query-evidence-contract.md) keeps full-state hashing
+as the byte-exact default, introduces a work-only transaction policy and
+requires exact B4E1M roots/counters plus three balanced Release timing wins.
+Implement and A/B only B4EP1 next.
