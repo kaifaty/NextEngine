@@ -1149,3 +1149,9 @@ Eight workers are selected at `1.237020x` median same-round speedup and 6.421
 effective cores. Sixteen workers are only 1.70% faster while using nearly
 twice the CPU. This authorizes only B4EP10R selected-count residual profile
 research; one macro still takes 5.91 s.
+The [B4EP10R research](../../development/nonlocal-nsr3b4ep10r-selected8-profile-research-2026-08-22.md)
+selects one unmodified gprofng clock/synchronization profile because Linux
+perf remains policy-blocked and classic gprof cannot reliably own worker
+samples. Its [frozen contract](03b4ep10r-selected8-profile-contract.md)
+routes only to persistent-region research, one `1.20x` CPU-category leader or
+scoped internal timing.

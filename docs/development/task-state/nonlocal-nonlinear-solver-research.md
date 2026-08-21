@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10S_PASS / B4EP10R_PROFILE_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10R_FROZEN / SELECTED8_PROFILE_EXECUTION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -259,8 +259,11 @@
 - **Performance problem:** owner-computes at one worker takes 11.416808981 s,
   exposing about 4.10 s of transpose/region/memory overhead before scaling.
   The result is far below B4EP9's idealized parallel-fraction ceiling.
-- **Next action:** research and freeze B4EP10R residual attribution at the
-  selected 8-worker count. Do not add threads or another optimization first.
+- **Current decision:** B4EP10R uses one unmodified gprofng 2.46 8-worker
+  profile with 1 ms clock samples and native synchronization tracing. Exact
+  output is required; profile overhead grants no speed credit.
+- **Next action:** execute the frozen B4EP10R profile and route by normalized
+  sync wait or a `1.20x` exclusive-CPU category leader.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -331,6 +334,7 @@
 | NSR3B4EP10I PASS | common exact correspondence at all worker counts; exact 16-worker repeat | B4EP10S serialized scaling contract research only |
 | NSR3B4EP10S contract | three balanced serialized physical-core rounds | execute timing only; host-specific selection or serial fallback |
 | NSR3B4EP10S PASS | 8 workers, median `1.237020x`, 6.421 effective cores | B4EP10R selected-count residual profiling research only |
+| NSR3B4EP10R contract | one exact gprofng clock/sync profile at 8 workers | attribution only; route one next design target |
 
 Candidate solver identity remains:
 
@@ -403,6 +407,7 @@ production authority is created by this lineage.
 | [B4EP10I](../nonlocal-nsr3b4ep10i-owner-parallel-evidence-2026-08-22.md) | exact cross-count correspondence and fail-closed negatives | freeze balanced serialized scaling before any speedup claim |
 | [B4EP10S research](../nonlocal-nsr3b4ep10s-scaling-design-research-2026-08-22.md) | physical-core affinity and short balanced matrix selected | execute frozen scaling contract without concurrent conditions |
 | [B4EP10S](../nonlocal-nsr3b4ep10s-owner-parallel-scaling-evidence-2026-08-22.md) | 8-worker host-specific knee passes every frozen gate | attribute selected parallel residual before another change |
+| [B4EP10R research](../nonlocal-nsr3b4ep10r-selected8-profile-research-2026-08-22.md) | unmodified clock/sync profile selected | run exact profile and route one next design only |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -818,10 +823,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research the least intrusive exact B4EP10R attribution method for the
-   selected 8-worker command under the blocked Linux perf policy.
-2. Freeze and execute one residual profile before choosing another
-   optimization; do not infer production readiness.
+1. Execute the frozen B4EP10R selected-8 gprofng profile and exact-output gate.
+2. Aggregate the frozen CPU/synchronization categories and route one next
+   design; do not infer production readiness.
 
 ## Reconsideration triggers
 
