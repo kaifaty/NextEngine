@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R9 -- divided-difference reduction contract
 
-Status: `FROZEN / NOT_RUN / PRIVATE_DIAGNOSTIC_ONLY`
+Status: `CLOSED / FAIL / INVALID_REPLAY_ACCEPTANCE_CONTROL / PRIVATE_DIAGNOSTIC_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -47,4 +47,16 @@ hard FAIL. PASS is diagnostic classification only. It grants no formula
 integration, trial acceptance, cap/tolerance, pressure gate, `beta`, kernel,
 state-precision, solver-family, trajectory, performance, GPU/runtime or
 production authority.
+
+## Closed result
+
+Two clean Release builds/processes reproduce failing stdout SHA
+`2c45e93d4153edf714b0f490be3f3d760b14a1ead1e8ed8ae9528d2555ec91f0`
+and semantic result
+`b5a0f921a65d82c07a019ee08be970468b80aeec6075c3da706f7623cd346ce9`.
+The first failure is `REPLAY_ACCEPTANCE`: exact parent work contains two
+historical accepted intermediate trials, contradicting this contract's zero-
+inherited-acceptance control. Preserve FAIL. The unselected divided candidate
+passes all `11/11` scored numerical comparisons; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r9-divided-difference-evidence-2026-08-22.md).
 

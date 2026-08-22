@@ -1615,3 +1615,13 @@ wider runtime state or a noise-relaxed acceptance rule. Its
 eleven resolved D7R8 trials, reports the other twelve without classification,
 and compares a compensated-absolute ablation with the fully propagated
 binary64 delta. Implement/run only this replay discriminator next.
+D7R9 fails on an invalid replay-acceptance control; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r9-divided-difference-evidence-2026-08-22.md).
+Exact parent work contains two historical accepted intermediate trials, so it
+cannot also satisfy the frozen zero-inherited-acceptance assertion. No new
+trial was accepted. The unselected divided candidate passes all `11/11`
+scored comparisons while compensated absolute energy passes `2/11`.
+The [D7R9R1 reclosure](../../development/nonlocal-nsr3b4e2d7r9r1-acceptance-ledger-research-2026-08-22.md)
+and [frozen contract](03b4e2d7r9r1-acceptance-ledger-reclosure-contract.md)
+change only the inherited ledger to the exact two parent trials and require
+zero new acceptance. Implement/run that reclosure next.

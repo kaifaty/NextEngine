@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R8_PASS_BINARY64_ENERGY_EVALUATION / B4E2D7R9_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R9_FAIL_INVALID_CONTROL / B4E2D7R9R1_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -18,10 +18,16 @@
   reductions, none has a resolved negative reduction and all pair-membership
   decisions agree. All five `eta=1e-10` microtrials remain below the strict
   1024-extended-ULP resolution threshold.
-- **Current decision:** D7R9 is frozen around binary64 computational
-  divided differencing: stable radius delta, same-segment cubic kernel delta,
-  density/PHR/inertia delta propagation and compensated final reduction. It
-  remains replay-only and must not accept a trial.
+- **Current conclusion:** D7R9 reproducibly fails only at
+  `REPLAY_ACCEPTANCE`: exact failed-inner traces contain two inherited
+  accepted intermediate trials, contradicting the frozen zero count. No new
+  candidate acceptance or public commit occurred.
+- **Numerical observation:** unselected divided differences pass all `11/11`
+  resolved comparisons at `0.0071%--3.9915%` relative error; compensated
+  absolute energies pass only `2/11`.
+- **Current decision:** D7R9R1 is frozen with the exact inherited ledger
+  `1e-8/trial7`, `1e-9/trial5`, none at `1e-10`, total two, and zero new
+  acceptance. Candidate formula, scoring and routes are unchanged.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1666,6 +1672,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   bounded error or identifies the first operation/branch that still requires
   stronger arithmetic.
 
+### D-068 -- Separate inherited work from candidate authority
+
+- **Observation:** D7R9 preserves exact D7R8 work, including two intermediate
+  trials accepted before their respective inner solves later fail. Its frozen
+  simultaneous requirement of zero inherited acceptance is impossible.
+- **Decision:** preserve D7R9 FAIL and reclose only the ledger in D7R9R1.
+  Require the exact two inherited coordinates and zero acceptance caused by
+  the candidate. Keep every numerical value and route gate unchanged.
+- **Rejected:** editing D7R9 after execution, deleting parent accepted trials,
+  calling the otherwise successful classification a PASS, or integrating the
+  candidate before the reclosure passes.
+- **Reconsider when:** D7R9R1 reproduces complete failed-parent bytes and
+  selects one route with exact inherited/new ownership.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1722,9 +1742,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
-5. Implement/run frozen B4E2D7R9 over every D7R8 replay trial; admit only
-   resolved extended signs for candidate scoring and preserve zero trial
-   acceptance.
+5. Implement/run frozen B4E2D7R9R1; reproduce D7R9 FAIL bytes, the exact two
+   inherited acceptances and zero candidate-created acceptance.
 
 ## Reconsideration triggers
 
