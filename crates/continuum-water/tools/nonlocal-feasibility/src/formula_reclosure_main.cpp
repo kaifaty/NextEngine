@@ -150,6 +150,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-sparse-workspace-equivalence|"
                          "--nonlocal-al-nominal-prerequisites|"
                          "--nonlocal-al-sparse-precision-transaction|"
+                         "--nonlocal-al-nominal-substep-shadow|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1178,6 +1179,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_sparse_precision_transaction_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-nominal-substep-shadow") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_nominal_substep_shadow_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

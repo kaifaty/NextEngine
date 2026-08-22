@@ -48801,6 +48801,105 @@ struct ALSparseWorkTrace {
     bool lifecycle_underflow = false;
 };
 
+struct ALSparseStructuralBudget {
+    std::size_t maximum_outer_updates = 0U;
+    std::size_t maximum_inner_trials_per_update = 0U;
+    std::size_t maximum_hvp_per_trust_step = 0U;
+    std::size_t maximum_total_hvp = 0U;
+    std::size_t maximum_workspace_builds = 0U;
+    std::size_t maximum_precision_audits = 0U;
+    std::size_t outer_updates = 0U;
+    std::size_t inner_trials_in_update = 0U;
+    std::size_t hvp_in_trust_step = 0U;
+    std::size_t total_hvp = 0U;
+    std::size_t workspace_builds = 0U;
+    std::size_t precision_audits = 0U;
+    bool exhausted = false;
+    std::string failure;
+};
+
+bool al_sparse_structural_budget_valid(
+    const ALSparseStructuralBudget& budget) {
+    return budget.maximum_outer_updates > 0U
+        && budget.maximum_inner_trials_per_update > 0U
+        && budget.maximum_hvp_per_trust_step > 0U
+        && budget.maximum_total_hvp > 0U
+        && budget.maximum_workspace_builds > 0U
+        && budget.maximum_precision_audits > 0U;
+}
+
+bool al_sparse_budget_consume(
+    std::size_t maximum,
+    std::size_t& consumed,
+    const char* failure,
+    ALSparseStructuralBudget* budget) {
+    if (budget == nullptr) {
+        return true;
+    }
+    if (consumed >= maximum) {
+        budget->exhausted = true;
+        if (budget->failure.empty()) {
+            budget->failure = failure;
+        }
+        return false;
+    }
+    ++consumed;
+    return true;
+}
+
+bool al_sparse_budget_begin_outer_update(
+    ALSparseStructuralBudget* budget) {
+    if (budget == nullptr) return true;
+    budget->inner_trials_in_update = 0U;
+    return al_sparse_budget_consume(
+        budget->maximum_outer_updates, budget->outer_updates,
+        "STRUCTURAL_BUDGET_OUTER_UPDATES", budget);
+}
+
+bool al_sparse_budget_begin_inner_trial(
+    ALSparseStructuralBudget* budget) {
+    if (budget == nullptr) return true;
+    budget->hvp_in_trust_step = 0U;
+    return al_sparse_budget_consume(
+        budget->maximum_inner_trials_per_update,
+        budget->inner_trials_in_update,
+        "STRUCTURAL_BUDGET_INNER_TRIALS", budget);
+}
+
+bool al_sparse_budget_consume_hvp(
+    ALSparseStructuralBudget* budget) {
+    if (budget == nullptr) return true;
+    if (!al_sparse_budget_consume(
+            budget->maximum_hvp_per_trust_step,
+            budget->hvp_in_trust_step,
+            "STRUCTURAL_BUDGET_HVP_PER_STEP", budget)) {
+        return false;
+    }
+    if (!al_sparse_budget_consume(
+            budget->maximum_total_hvp, budget->total_hvp,
+            "STRUCTURAL_BUDGET_TOTAL_HVP", budget)) {
+        --budget->hvp_in_trust_step;
+        return false;
+    }
+    return true;
+}
+
+bool al_sparse_budget_consume_workspace(
+    ALSparseStructuralBudget* budget) {
+    if (budget == nullptr) return true;
+    return al_sparse_budget_consume(
+        budget->maximum_workspace_builds, budget->workspace_builds,
+        "STRUCTURAL_BUDGET_WORKSPACES", budget);
+}
+
+bool al_sparse_budget_consume_precision_audit(
+    ALSparseStructuralBudget* budget) {
+    if (budget == nullptr) return true;
+    return al_sparse_budget_consume(
+        budget->maximum_precision_audits, budget->precision_audits,
+        "STRUCTURAL_BUDGET_PRECISION_AUDITS", budget);
+}
+
 struct ALSparseWorkspace {
     bool passed = false;
     std::string failure;
@@ -49180,7 +49279,8 @@ std::vector<Vec3> al_sparse_trust_step(
     double radius,
     double time_step,
     int& hvp_calls,
-    bool& negative_curvature) {
+    bool& negative_curvature,
+    ALSparseStructuralBudget* structural_budget = nullptr) {
     std::vector<Vec3> point(gradient.size());
     std::vector<Vec3> residual = gradient;
     std::vector<Vec3> direction = gradient;
@@ -49189,6 +49289,9 @@ std::vector<Vec3> al_sparse_trust_step(
     const double initial_residual = std::sqrt(residual_squared);
     for (std::size_t iteration = 0U;
          iteration < 3U * gradient.size(); ++iteration) {
+        if (!al_sparse_budget_consume_hvp(structural_budget)) {
+            return {};
+        }
         const std::vector<Vec3> image =
             apply_al_sparse_inner_hessian(
                 workspace, direction, time_step);
@@ -51525,6 +51628,7 @@ struct ALSparsePrecisionTransactionContext {
     StaticSupportWorkTrace* static_work = nullptr;
     FlatAdjacencyWorkTrace* adjacency_work = nullptr;
     std::vector<LongDoubleTrialEnergyAudit>* long_double_audits = nullptr;
+    ALSparseStructuralBudget* structural_budget = nullptr;
 };
 
 LongDoubleTrialEnergyAudit audit_al_sparse_inner_long_double(
@@ -52263,6 +52367,9 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
     ALSparsePrecisionTransactionContext* precision_context = nullptr) {
     ALDividedPrivateInnerSolve result;
     result.position = initial;
+    ALSparseStructuralBudget* structural_budget =
+        precision_context != nullptr
+        ? precision_context->structural_budget : nullptr;
     if (precision_context != nullptr
         && (precision_context->binding == nullptr
             || !precision_context->binding->passed
@@ -52272,6 +52379,21 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
                     ->expected_identity_sha256)) {
         result.all_finite = false;
         result.failure = "STATIC_SUPPORT_INDEX_IDENTITY";
+        return result;
+    }
+    if (precision_context != nullptr
+        && precision_context->structural_budget != nullptr
+        && !al_sparse_structural_budget_valid(
+            *precision_context->structural_budget)) {
+        precision_context->structural_budget->exhausted = true;
+        precision_context->structural_budget->failure =
+            "STRUCTURAL_BUDGET_INVALID";
+        result.all_finite = false;
+        result.failure = "STRUCTURAL_BUDGET_INVALID";
+        return result;
+    }
+    if (!al_sparse_budget_consume_workspace(structural_budget)) {
+        result.failure = structural_budget->failure;
         return result;
     }
     const auto evaluate = [&](const std::vector<Vec3>& position) {
@@ -52301,6 +52423,11 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
             release_al_sparse_workspace(current.workspace, work);
             return result;
         }
+        if (!al_sparse_budget_begin_inner_trial(structural_budget)) {
+            result.failure = structural_budget->failure;
+            release_al_sparse_workspace(current.workspace, work);
+            return result;
+        }
         ALDividedPrivateInnerTrial record;
         record.trial = trial_index;
         record.current_position = result.position;
@@ -52309,7 +52436,21 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
         int hvp_calls = 0;
         const std::vector<Vec3> step = al_sparse_trust_step(
             current.workspace, current.gradient, trust_radius,
-            time_step, hvp_calls, record.negative_curvature);
+            time_step, hvp_calls, record.negative_curvature,
+            structural_budget);
+        if (structural_budget != nullptr
+            && structural_budget->exhausted) {
+            result.hvp_calls += hvp_calls;
+            result.failure = structural_budget->failure;
+            release_al_sparse_workspace(current.workspace, work);
+            return result;
+        }
+        if (!al_sparse_budget_consume_hvp(structural_budget)) {
+            result.hvp_calls += hvp_calls;
+            result.failure = structural_budget->failure;
+            release_al_sparse_workspace(current.workspace, work);
+            return result;
+        }
         const std::vector<Vec3> image = apply_al_sparse_inner_hessian(
             current.workspace, step, time_step);
         ++hvp_calls;
@@ -52322,6 +52463,11 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
         const std::vector<Vec3> trial_position = add_scaled(
             result.position, step, 1.0);
         record.trial_position = trial_position;
+        if (!al_sparse_budget_consume_workspace(structural_budget)) {
+            result.failure = structural_budget->failure;
+            release_al_sparse_workspace(current.workspace, work);
+            return result;
+        }
         ALSparseInnerState trial = evaluate(trial_position);
         record.raw_reduction = current.total - trial.total;
         record.direct_reduction = al_vector_direct_actual_reduction_dt(
@@ -52379,6 +52525,13 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
             && std::isfinite(record.inertia_reduction);
         result.all_finite = result.all_finite && record.finite_values;
         if (record.candidate_accepted) {
+            if (!al_sparse_budget_consume_precision_audit(
+                    structural_budget)) {
+                result.failure = structural_budget->failure;
+                release_al_sparse_workspace(trial.workspace, work);
+                release_al_sparse_workspace(current.workspace, work);
+                return result;
+            }
             ALStepNormInnerTrial oracle_input;
             oracle_input.current_position = result.position;
             oracle_input.trial_position = trial_position;
@@ -53588,6 +53741,14 @@ ALDividedOuterUpdate al_sparse_divided_private_outer_update(
         if (!trial.candidate_effect) {
             continue;
         }
+        if (precision_context != nullptr
+            && !al_sparse_budget_consume_precision_audit(
+                precision_context->structural_budget)) {
+            result.failure = precision_context
+                ->structural_budget->failure;
+            result.finite_failure = true;
+            return result;
+        }
         result.candidate_audits.push_back(
             precision_context != nullptr
             ? audit_al_sparse_inner_binary128(
@@ -53636,6 +53797,13 @@ ALDividedOuterUpdate al_sparse_divided_private_outer_update(
         return result;
     }
 
+    if (precision_context != nullptr
+        && !al_sparse_budget_consume_workspace(
+            precision_context->structural_budget)) {
+        result.failure = precision_context->structural_budget->failure;
+        result.finite_failure = true;
+        return result;
+    }
     ALSparseInnerState inner_state = precision_context != nullptr
         ? evaluate_al_sparse_inner_with_static_support(
             inner.position, predicted, *precision_context->binding,
@@ -53970,9 +54138,28 @@ ALDividedOuterContinuation solve_al_sparse_divided_full_private_transaction(
         result.failure = "STATIC_SUPPORT_INDEX_IDENTITY";
         return result;
     }
+    if (precision_context != nullptr
+        && precision_context->structural_budget != nullptr
+        && !al_sparse_structural_budget_valid(
+            *precision_context->structural_budget)) {
+        precision_context->structural_budget->exhausted = true;
+        precision_context->structural_budget->failure =
+            "STRUCTURAL_BUDGET_INVALID";
+        result.all_inners_pass = false;
+        result.all_finite = false;
+        result.failure = "STRUCTURAL_BUDGET_INVALID";
+        return result;
+    }
     double previous_primal = std::numeric_limits<double>::infinity();
     bool previous_admissible = false;
     for (int outer = 0; outer < maximum_outer; ++outer) {
+        if (precision_context != nullptr
+            && !al_sparse_budget_begin_outer_update(
+                precision_context->structural_budget)) {
+            result.failure = precision_context
+                ->structural_budget->failure;
+            return result;
+        }
         ALDividedOuterUpdate update =
             al_sparse_divided_private_outer_update(
                 fixture, predicted, position, multiplier, outer,
@@ -54019,6 +54206,13 @@ ALDividedOuterContinuation solve_al_sparse_divided_full_private_transaction(
             return result;
         }
         result.warm_holdout_attempted = true;
+        if (precision_context != nullptr
+            && !al_sparse_budget_begin_outer_update(
+                precision_context->structural_budget)) {
+            result.failure = precision_context
+                ->structural_budget->failure;
+            return result;
+        }
         result.warm_holdout = al_sparse_divided_private_outer_update(
             fixture, predicted, result.position, result.multiplier,
             result.confirmation_index + 1, stationarity_limit,
@@ -61484,6 +61678,576 @@ SplitBoundaryReport run_al_sparse_precision_transaction_controls() {
            << ",\"nominal_transaction_backend_authorized\":"
            << (passed && route == "NOMINAL_TRANSACTION_BACKEND_CONFIRMED"
                    ? "true" : "false")
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R17_IDENTITY_SHA256 =
+    "4d11030cab2be075fcb703e1f3d377a3d3e331c71906784656ab0b2e725305f5";
+constexpr const char* B4E2D7R17_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r17-nominal-substep-shadow|v1|"
+    "parent=1297a1f83a3dee629c9e7987de9d159f7c6795e3:"
+    "47976f826fa5c7c16209f5e3e8a0829e443ec90d3bd225fb61e73c1d506ff156:"
+    "4c537f706dee3941808f0c44c1b2db30dd79254bcbbd42c9ac0dc92aee3f8cd5|"
+    "alignment=frame0-0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7;"
+    "dt0x3f0c01c01c01c01c;particles6000;lower-y-clamps400;free5600|"
+    "predictor=v+dt*g;box-clamp;contact-impulse-separate|"
+    "solver=d7r16-static-bound-sparse-precision;eta1e-10;kappa1226.25;"
+    "private-only;confirmed+warm-holdout|"
+    "required-budget=outer-updates16;inner-trials16;hvp-per-step32;"
+    "hvp-total512;workspace-builds288;accepted-audits64;"
+    "prework-check;release-exact|"
+    "ledger=gravity;predictor-contact;kinematic-pressure;"
+    "fixed-support-reaction;fluid-momentum-identity;"
+    "pressure-support-residual|"
+    "gates=finite;mass-exact;dual-feasible;primal<=1e-8;"
+    "stationarity<=1e-10;complementarity<=1e-9;penetration<=1e-12;"
+    "impulse-closure<=1e-10-scaled;all-pair-calls0;live-workspaces<=2|"
+    "routes=nominal-structural-watchdog-exhausted;"
+    "nominal-solver-not-confirmed;nominal-boundary-penetration;"
+    "nominal-impulse-ledger-mismatch;nominal-substep-shadow-confirmed|"
+    "precedence=watchdog,solver,boundary,ledger,confirmed|"
+    "runs=2-clean-release-builds;1-process-each;byte-exact;timing=none|"
+    "trajectory=none;nominal-substeps=1;macro=none;public-commit=none;"
+    "physics-mutation=none;projected-contact=none;"
+    "runtime-wide-precision=none|credit=one-private-nominal-substep-only";
+
+} // namespace
+
+SplitBoundaryReport run_al_nominal_substep_shadow_controls() {
+    constexpr std::uint64_t substep_dt_bits = 0x3f0c01c01c01c01cULL;
+    const bool identity_exact = sha256_hex(
+        B4E2D7R17_IDENTITY_PROJECTION) == B4E2D7R17_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_sparse_precision_transaction_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "4c537f706dee3941808f0c44c1b2db30dd79254bcbbd42c9ac0dc92aee3f8cd5";
+
+    const NominalAlignmentSpec& nominal_spec = B4E0_SCENARIOS[1];
+    const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(nominal_spec, false));
+    const balanced_canonical::PublishResult nominal_initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(nominal_fixture.position,
+                nominal_fixture.velocity, 0));
+    const std::vector<Vec3> initial_position =
+        decode_canonical_position(nominal_initial.frame);
+    const std::vector<Vec3> initial_velocity =
+        decode_canonical_velocity(nominal_initial.frame);
+    const std::string frame_zero_root = b4e2d2_frame_zero_root(
+        initial_position, initial_velocity);
+    const double time_step = TIME_STEP / 78.0;
+    std::vector<Vec3> free_displacement(initial_position.size());
+    for (std::size_t index = 0U; index < initial_position.size(); ++index) {
+        free_displacement[index] = time_step
+            * (initial_velocity[index]
+                + time_step * nominal_fixture.gravity);
+    }
+    const std::vector<Vec3> predictor_displacement =
+        clamp_box_displacement(
+            nominal_fixture, initial_position, free_displacement);
+    const std::vector<Vec3> predicted_position =
+        materialize_displacement(initial_position, predictor_displacement);
+    std::size_t lower_y_clamped = 0U;
+    std::size_t free_samples = 0U;
+    std::size_t other_clamped = 0U;
+    for (std::size_t index = 0U; index < initial_position.size(); ++index) {
+        const bool x_same = binary64_bits(predictor_displacement[index].x)
+            == binary64_bits(free_displacement[index].x);
+        const bool y_same = binary64_bits(predictor_displacement[index].y)
+            == binary64_bits(free_displacement[index].y);
+        const bool z_same = binary64_bits(predictor_displacement[index].z)
+            == binary64_bits(free_displacement[index].z);
+        if (x_same && y_same && z_same) {
+            ++free_samples;
+        } else if (x_same && !y_same && z_same
+            && initial_position[index].y
+                == nominal_fixture.contact_low.y) {
+            ++lower_y_clamped;
+        } else {
+            ++other_clamped;
+        }
+    }
+    const bool alignment_exact = scenario_root == nominal_spec.scenario_root
+        && frame_zero_root
+            == "0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7"
+        && binary64_bits(time_step) == substep_dt_bits
+        && initial_position.size() == 6000U
+        && initial_velocity.size() == initial_position.size()
+        && lower_y_clamped == 400U && free_samples == 5600U
+        && other_clamped == 0U;
+
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex static_index =
+        build_joint_static_support_index(
+            tagged_points(nominal_fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+    Fixture solver_fixture;
+    solver_fixture.name = nominal_fixture.name;
+    solver_fixture.cells = {80, 20, 20};
+    solver_fixture.fluid = initial_position;
+    solver_fixture.boundary = nominal_fixture.boundary;
+    const std::vector<double> zero_multiplier(initial_position.size());
+
+    ALSparseStructuralBudget invalid_budget;
+    invalid_budget.maximum_outer_updates = 0U;
+    invalid_budget.maximum_inner_trials_per_update = 16U;
+    invalid_budget.maximum_hvp_per_trust_step = 32U;
+    invalid_budget.maximum_total_hvp = 512U;
+    invalid_budget.maximum_workspace_builds = 288U;
+    invalid_budget.maximum_precision_audits = 64U;
+    ALSparseWorkTrace invalid_work;
+    ALSparsePrecisionWorkTrace invalid_precision_work;
+    StaticSupportWorkTrace invalid_static_work;
+    FlatAdjacencyWorkTrace invalid_adjacency_work;
+    ALSparsePrecisionTransactionContext invalid_context{
+        &binding, &invalid_precision_work, &invalid_static_work,
+        &invalid_adjacency_work, nullptr, &invalid_budget};
+    const ALDividedOuterContinuation invalid_transaction =
+        solve_al_sparse_divided_full_private_transaction(
+            solver_fixture, predicted_position, predicted_position,
+            zero_multiplier, time_step, &invalid_work, &invalid_context);
+    const bool invalid_budget_rejected = invalid_budget.exhausted
+        && invalid_budget.failure == "STRUCTURAL_BUDGET_INVALID"
+        && invalid_transaction.failure == "STRUCTURAL_BUDGET_INVALID"
+        && invalid_work.workspace_builds == 0U
+        && invalid_precision_work.superset_builds == 0U
+        && invalid_static_work.workspace_builds == 0U
+        && invalid_adjacency_work.workspace_builds == 0U;
+
+    ALSparseStructuralBudget budget;
+    budget.maximum_outer_updates = 16U;
+    budget.maximum_inner_trials_per_update = 16U;
+    budget.maximum_hvp_per_trust_step = 32U;
+    budget.maximum_total_hvp = 512U;
+    budget.maximum_workspace_builds = 288U;
+    budget.maximum_precision_audits = 64U;
+    ALSparseWorkTrace work;
+    ALSparsePrecisionWorkTrace precision_work;
+    std::vector<LongDoubleTrialEnergyAudit> long_double_audits;
+    ALSparsePrecisionTransactionContext context{
+        &binding, &precision_work, &static_work, &adjacency_work,
+        &long_double_audits, &budget};
+    const ALDividedOuterContinuation transaction =
+        solve_al_sparse_divided_full_private_transaction(
+            solver_fixture, predicted_position, predicted_position,
+            zero_multiplier, time_step, &work, &context);
+
+    const bool selected_state_available = transaction.confirmed
+        && transaction.warm_holdout_attempted
+        && !transaction.updates.empty();
+    const ALDividedOuterUpdate* observed_update =
+        !transaction.updates.empty() ? &transaction.updates.back() : nullptr;
+    const ALVectorOuterRecord* observed_record = observed_update != nullptr
+        ? &observed_update->record.state : nullptr;
+    const ALDividedOuterUpdate* selected_update =
+        selected_state_available ? &transaction.updates.back() : nullptr;
+    const ALVectorOuterRecord* selected_record = selected_update != nullptr
+        ? &selected_update->record.state : nullptr;
+    const std::vector<Vec3>& final_position = selected_state_available
+        ? transaction.position : predicted_position;
+    const std::vector<double>& final_multiplier = selected_state_available
+        ? transaction.multiplier : zero_multiplier;
+
+    double minimum_density = std::numeric_limits<double>::infinity();
+    double maximum_density = -std::numeric_limits<double>::infinity();
+    double maximum_penetration = 0.0;
+    if (observed_update != nullptr) {
+        for (double density : observed_update->support.density) {
+            minimum_density = std::min(minimum_density, density);
+            maximum_density = std::max(maximum_density, density);
+        }
+        for (Vec3 position : transaction.position) {
+            for (int axis = 0; axis < 3; ++axis) {
+                maximum_penetration = std::max(maximum_penetration,
+                    component(nominal_fixture.contact_low, axis)
+                        - component(position, axis));
+                maximum_penetration = std::max(maximum_penetration,
+                    component(position, axis)
+                        - component(nominal_fixture.contact_high, axis));
+            }
+        }
+        maximum_penetration = std::max(0.0, maximum_penetration);
+    } else {
+        minimum_density = 0.0;
+        maximum_density = 0.0;
+    }
+
+    using Impulse = std::array<long double, 3U>;
+    Impulse gravity_impulse{};
+    Impulse contact_impulse{};
+    Impulse pressure_impulse{};
+    Impulse fluid_momentum_change{};
+    Impulse pressure_from_gradient{};
+    Impulse support_reaction{};
+    const auto add = [](Impulse& target, Vec3 value, long double scale) {
+        target[0] += scale * static_cast<long double>(value.x);
+        target[1] += scale * static_cast<long double>(value.y);
+        target[2] += scale * static_cast<long double>(value.z);
+    };
+    for (std::size_t index = 0U;
+         index < initial_position.size(); ++index) {
+        const Vec3 free_velocity = initial_velocity[index]
+            + time_step * nominal_fixture.gravity;
+        const Vec3 predictor_velocity =
+            predictor_displacement[index] / time_step;
+        add(gravity_impulse, nominal_fixture.gravity,
+            static_cast<long double>(MASS * time_step));
+        add(contact_impulse, predictor_velocity - free_velocity,
+            static_cast<long double>(MASS));
+    }
+    if (selected_update != nullptr) {
+        for (std::size_t index = 0U;
+             index < initial_position.size(); ++index) {
+            const Vec3 predictor_velocity =
+                predictor_displacement[index] / time_step;
+            const Vec3 correction_velocity =
+                (final_position[index] - predicted_position[index])
+                / time_step;
+            const Vec3 final_velocity = predictor_velocity
+                + correction_velocity;
+            add(pressure_impulse, correction_velocity,
+                static_cast<long double>(MASS));
+            add(fluid_momentum_change,
+                final_velocity - initial_velocity[index],
+                static_cast<long double>(MASS));
+            add(pressure_from_gradient,
+                selected_update->support.gradient[index],
+                -static_cast<long double>(time_step));
+        }
+        for (std::size_t index = initial_position.size();
+             index < selected_update->support.gradient.size(); ++index) {
+            add(support_reaction,
+                selected_update->support.gradient[index],
+                -static_cast<long double>(time_step));
+        }
+    }
+    Impulse fluid_ledger_residual{};
+    Impulse pressure_support_residual{};
+    Impulse gradient_pair_residual{};
+    Impulse kinematic_stationarity_residual{};
+    if (selected_update != nullptr) {
+        for (std::size_t axis = 0U; axis < 3U; ++axis) {
+            fluid_ledger_residual[axis] = fluid_momentum_change[axis]
+                - gravity_impulse[axis] - contact_impulse[axis]
+                - pressure_impulse[axis];
+            pressure_support_residual[axis] = pressure_impulse[axis]
+                + support_reaction[axis];
+            gradient_pair_residual[axis] = pressure_from_gradient[axis]
+                + support_reaction[axis];
+            kinematic_stationarity_residual[axis] = pressure_impulse[axis]
+                - pressure_from_gradient[axis];
+        }
+    }
+    const auto maximum_absolute = [](const Impulse& value) {
+        return std::max({std::abs(value[0]), std::abs(value[1]),
+            std::abs(value[2])});
+    };
+    const double total_mass =
+        static_cast<double>(initial_position.size()) * MASS;
+    const long double impulse_scale = static_cast<long double>(
+        total_mass * SPACING / time_step);
+    const long double fluid_ledger_scaled = impulse_scale > 0.0L
+        ? maximum_absolute(fluid_ledger_residual) / impulse_scale : 0.0L;
+    const long double pressure_support_scaled = impulse_scale > 0.0L
+        ? maximum_absolute(pressure_support_residual) / impulse_scale
+        : 0.0L;
+    const long double gradient_pair_scaled = impulse_scale > 0.0L
+        ? maximum_absolute(gradient_pair_residual) / impulse_scale : 0.0L;
+    const long double stationarity_impulse_scaled = impulse_scale > 0.0L
+        ? maximum_absolute(kinematic_stationarity_residual)
+            / impulse_scale
+        : 0.0L;
+
+    const bool budget_shape_exact =
+        budget.maximum_outer_updates == 16U
+        && budget.maximum_inner_trials_per_update == 16U
+        && budget.maximum_hvp_per_trust_step == 32U
+        && budget.maximum_total_hvp == 512U
+        && budget.maximum_workspace_builds == 288U
+        && budget.maximum_precision_audits == 64U;
+    const bool lifecycle_exact = work.workspace_builds
+            == work.workspace_releases
+        && work.live_workspaces == 0U
+        && work.maximum_live_workspaces <= 2U
+        && !work.lifecycle_underflow
+        && budget.workspace_builds == work.workspace_builds
+        && static_work.static_index_builds == 1U
+        && static_work.support_canonicalizations == 1U
+        && static_work.workspace_builds == work.workspace_builds
+        && adjacency_work.workspace_builds == work.workspace_builds
+        && work.all_pair_candidate_calls == 0U
+        && precision_work.all_pair_candidate_calls == 0U;
+    const bool finite_exact = transaction.all_finite
+        && std::all_of(final_position.begin(), final_position.end(),
+            [](Vec3 value) { return finite(value); })
+        && std::all_of(final_multiplier.begin(), final_multiplier.end(),
+            [](double value) { return std::isfinite(value); })
+        && (observed_update == nullptr
+            || (std::isfinite(minimum_density)
+                && std::isfinite(maximum_density)
+                && std::isfinite(maximum_penetration)
+                && std::isfinite(
+                    static_cast<double>(fluid_ledger_scaled))
+                && std::isfinite(
+                    static_cast<double>(pressure_support_scaled))));
+    const bool mass_exact = binary64_bits(total_mass)
+        == binary64_bits(750.0);
+    const bool solver_confirmed = selected_state_available
+        && transaction.all_inners_pass && transaction.all_finite
+        && transaction.primal_monotone && transaction.dual_feasible
+        && transaction.private_confirmation_count == 1
+        && transaction.warm_holdout.passed
+        && transaction.warm_holdout_admissible
+        && !transaction.audit_hard_failure
+        && !transaction.sign_contradiction
+        && !transaction.oracle_bound_required
+        && selected_record != nullptr
+        && selected_update->record.admissible
+        && selected_record->primal <= 1.0e-8
+        && selected_record->stationarity <= 1.0e-10
+        && selected_record->complementarity <= 1.0e-9
+        && selected_record->minimum_multiplier >= 0.0;
+    const bool boundary_exact = solver_confirmed
+        && maximum_penetration <= 1.0e-12;
+    const bool ledger_exact = boundary_exact
+        && fluid_ledger_scaled <= 1.0e-10L
+        && pressure_support_scaled <= 1.0e-10L
+        && gradient_pair_scaled <= 1.0e-10L
+        && stationarity_impulse_scaled <= 1.0e-10L;
+    const std::string private_state_root = solver_confirmed
+        ? al_vector_stable_state_root(
+            "d7r17-private-nominal", final_position, final_multiplier)
+        : std::string{};
+    const std::string frame_zero_after_root = b4e2d2_frame_zero_root(
+        initial_position, initial_velocity);
+    const bool rollback_exact = frame_zero_after_root == frame_zero_root;
+    const bool hard_controls = identity_exact && parent_exact
+        && alignment_exact && invalid_budget_rejected
+        && budget_shape_exact && lifecycle_exact
+        && finite_exact && mass_exact && rollback_exact
+        && static_index.passed && binding.passed;
+    std::string route;
+    if (hard_controls) {
+        if (budget.exhausted) {
+            route = "NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED";
+        } else if (!solver_confirmed) {
+            route = "NOMINAL_SOLVER_NOT_CONFIRMED";
+        } else if (!boundary_exact) {
+            route = "NOMINAL_BOUNDARY_PENETRATION";
+        } else if (!ledger_exact) {
+            route = "NOMINAL_IMPULSE_LEDGER_MISMATCH";
+        } else {
+            route = "NOMINAL_SUBSTEP_SHADOW_CONFIRMED";
+        }
+    }
+    const bool route_precedence_exact =
+        (budget.exhausted
+            && route == "NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED")
+        || (!budget.exhausted && !solver_confirmed
+            && route == "NOMINAL_SOLVER_NOT_CONFIRMED")
+        || (!budget.exhausted && solver_confirmed && !boundary_exact
+            && route == "NOMINAL_BOUNDARY_PENETRATION")
+        || (!budget.exhausted && solver_confirmed && boundary_exact
+            && !ledger_exact
+            && route == "NOMINAL_IMPULSE_LEDGER_MISMATCH")
+        || (!budget.exhausted && solver_confirmed && boundary_exact
+            && ledger_exact
+            && route == "NOMINAL_SUBSTEP_SHADOW_CONFIRMED");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R16_PARENT_BYTES";
+    else if (!alignment_exact) first_failure = "ALIGNMENT";
+    else if (!invalid_budget_rejected)
+        first_failure = "INVALID_BUDGET_PREWORK";
+    else if (!budget_shape_exact) first_failure = "BUDGET_SHAPE";
+    else if (!lifecycle_exact) first_failure = "LIFECYCLE";
+    else if (!finite_exact) first_failure = "NONFINITE";
+    else if (!mass_exact) first_failure = "MASS";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!static_index.passed || !binding.passed)
+        first_failure = "STATIC_BINDING";
+    else if (!route_precedence_exact)
+        first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<long double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R17_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << '|' << frame_zero_root << ':'
+             << binary64_bits(time_step) << ':' << lower_y_clamped << ':'
+             << free_samples << '|' << budget.exhausted << ':'
+             << budget.failure << ':' << budget.outer_updates << ':'
+             << budget.total_hvp << ':' << budget.workspace_builds << ':'
+             << budget.precision_audits << '|' << transaction.confirmed
+             << ':' << transaction.confirmation_index << ':'
+             << transaction.warm_holdout_admissible << ':'
+             << transaction.failure << '|' << private_state_root << ':'
+             << minimum_density << ':' << maximum_density << ':'
+             << maximum_penetration << '|' << fluid_ledger_scaled << ':'
+             << pressure_support_scaled << ':' << gradient_pair_scaled
+             << ':' << stationarity_impulse_scaled << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_impulse = [](std::ostringstream& output,
+                                   const Impulse& value) {
+        output << '[' << value[0] << ',' << value[1] << ','
+               << value[2] << ']';
+    };
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<long double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r17_nominal_substep_shadow.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R17_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"d7r16_stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"alignment\":{\"frame_zero_root\":\""
+           << frame_zero_root << "\",\"dt_bits\":\"0x" << std::hex
+           << binary64_bits(time_step) << std::dec
+           << "\",\"particles\":" << initial_position.size()
+           << ",\"lower_y_clamped\":" << lower_y_clamped
+           << ",\"free_samples\":" << free_samples
+           << ",\"exact\":" << (alignment_exact ? "true" : "false")
+           << '}'
+           << ",\"budget\":{\"limits\":{\"outer_updates\":16,"
+              "\"inner_trials_per_update\":16,"
+              "\"hvp_per_trust_step\":32,\"total_hvp\":512,"
+              "\"workspace_builds\":288,\"precision_audits\":64},"
+           << "\"used\":{\"outer_updates\":" << budget.outer_updates
+           << ",\"total_hvp\":" << budget.total_hvp
+           << ",\"workspace_builds\":" << budget.workspace_builds
+           << ",\"precision_audits\":" << budget.precision_audits
+           << "},\"exhausted\":"
+           << (budget.exhausted ? "true" : "false")
+           << ",\"failure\":\"" << budget.failure
+           << "\",\"invalid_rejected_before_work\":"
+           << (invalid_budget_rejected ? "true" : "false") << '}'
+           << ",\"solver\":{\"confirmed\":"
+           << (transaction.confirmed ? "true" : "false")
+           << ",\"confirmation_index\":"
+           << transaction.confirmation_index
+           << ",\"warm_holdout_attempted\":"
+           << (transaction.warm_holdout_attempted ? "true" : "false")
+           << ",\"warm_holdout_admissible\":"
+           << (transaction.warm_holdout_admissible ? "true" : "false")
+           << ",\"failure\":\"" << transaction.failure
+           << "\",\"accepted_trials\":"
+           << transaction.accepted_trials
+           << ",\"rejected_trials\":"
+           << transaction.rejected_trials
+           << ",\"hvp_calls\":" << transaction.hvp_calls
+           << ",\"private_state_root\":\"" << private_state_root << '"';
+    if (observed_record != nullptr) {
+        report << ",\"observed_outer\":" << observed_record->outer
+               << ",\"primal\":" << observed_record->primal
+               << ",\"stationarity\":"
+               << observed_record->stationarity
+               << ",\"complementarity\":"
+               << observed_record->complementarity
+               << ",\"absolute_dual_change\":"
+               << observed_record->absolute_dual_change
+               << ",\"equivalent_pressure_change\":"
+               << observed_record->equivalent_pressure_change
+               << ",\"position_update_dx\":"
+               << observed_record->position_update_dx
+               << ",\"minimum_multiplier\":"
+               << observed_record->minimum_multiplier
+               << ",\"observed_admissible\":"
+               << (observed_update->record.admissible
+                       ? "true" : "false");
+    }
+    report << ",\"selected\":"
+           << (solver_confirmed ? "true" : "false")
+           << ",\"outer_records\":[";
+    for (std::size_t index = 0U; index < transaction.updates.size(); ++index) {
+        if (index != 0U) report << ',';
+        const ALDividedOuterUpdate& update = transaction.updates[index];
+        const ALVectorOuterRecord& record = update.record.state;
+        report << "{\"outer\":" << record.outer
+               << ",\"primal\":" << record.primal
+               << ",\"stationarity\":" << record.stationarity
+               << ",\"complementarity\":" << record.complementarity
+               << ",\"absolute_dual_change\":"
+               << record.absolute_dual_change
+               << ",\"equivalent_pressure_change\":"
+               << record.equivalent_pressure_change
+               << ",\"position_update_dx\":"
+               << record.position_update_dx
+               << ",\"admissible\":"
+               << (update.record.admissible ? "true" : "false")
+               << '}';
+    }
+    report << "]}"
+           << ",\"physics\":{\"mass_kg\":" << total_mass
+           << ",\"observed_only\":"
+           << (solver_confirmed ? "false" : "true")
+           << ",\"ledger_available\":"
+           << (selected_update != nullptr ? "true" : "false")
+           << ",\"minimum_density\":" << minimum_density
+           << ",\"maximum_density\":" << maximum_density
+           << ",\"maximum_penetration_m\":" << maximum_penetration
+           << ",\"gravity_impulse_ns\":";
+    append_impulse(report, gravity_impulse);
+    report << ",\"predictor_contact_impulse_ns\":";
+    append_impulse(report, contact_impulse);
+    report << ",\"kinematic_pressure_impulse_ns\":";
+    append_impulse(report, pressure_impulse);
+    report << ",\"fixed_support_reaction_ns\":";
+    append_impulse(report, support_reaction);
+    report << ",\"fluid_momentum_change_ns\":";
+    append_impulse(report, fluid_momentum_change);
+    report << ",\"fluid_ledger_scaled\":" << fluid_ledger_scaled
+           << ",\"pressure_support_scaled\":"
+           << pressure_support_scaled
+           << ",\"gradient_pair_scaled\":" << gradient_pair_scaled
+           << ",\"stationarity_impulse_scaled\":"
+           << stationarity_impulse_scaled
+           << ",\"boundary_exact\":"
+           << (boundary_exact ? "true" : "false")
+           << ",\"ledger_exact\":"
+           << (ledger_exact ? "true" : "false") << '}'
+           << ",\"work\":{\"workspace_builds\":"
+           << work.workspace_builds << ",\"workspace_releases\":"
+           << work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << work.maximum_live_workspaces
+           << ",\"long_double_audits\":"
+           << precision_work.long_double_audits
+           << ",\"binary128_audits\":"
+           << precision_work.binary128_audits
+           << ",\"all_pair_candidate_calls\":"
+           << work.all_pair_candidate_calls
+                + precision_work.all_pair_candidate_calls
+           << ",\"lifecycle_exact\":"
+           << (lifecycle_exact ? "true" : "false") << '}'
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"nominal_substeps\":1,\"macro_frames\":0"
+           << ",\"trajectory_steps\":0,\"public_commit_count\":0"
+           << ",\"physics_mutation\":false"
+           << ",\"projected_contact_added\":false"
+           << ",\"timing_admitted\":false,\"speedup_claim\":false"
+           << ",\"runtime_wide_precision_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
