@@ -46194,6 +46194,34 @@ constexpr const char* B4E2D6_IDENTITY_PROJECTION =
     "exhausted;fail-otherwise|runs=2-release-builds;2-processes;byte-exact;"
     "timing=none|trajectory=none;nominal=none|"
     "credit=dense-al-oracle-contract-research-only";
+constexpr const char* B4E2D7_IDENTITY_SHA256 =
+    "daea8b078ceebbc971b830ab030f6790725d53f1860341f14a219199329378c2";
+constexpr const char* B4E2D7_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7-al-dense-vector|v1|parent="
+    "997212cb24fdda96c43a3cfba516f42c62617550e22ed61924855a3442f1d16b:"
+    "6b05ed4cf6da4a6007a1e4557ef559b56ab9bffafeb5730841c15bc34853403f:"
+    "7deec6fd7aeb596cb358657f2e900e8b150f9a82285dec76ac018e2d642d0cc8|"
+    "fixture=nsr3b2-corner-box-2x2x2:8:176;fixed-support;rest-feasible|"
+    "identity=nuv-al-pressure-r0+dense-vector-v1|"
+    "objective=inertia-mass0.125-dt1/240;"
+    "active-prediction=isotropic0.99;inactive-prediction=isotropic1.01;"
+    "constraint8=rho/rho0-1<=0;lambda8>=0;beta=1226.25|"
+    "al-gradient=max(0,lambda+beta*c)*J;"
+    "al-hvp=beta*JtJ+max(0,lambda+beta*c)*H|"
+    "derivatives=directional-gradient<=1e-7;hvp<=2e-6;"
+    "dense-symmetry<=2e-12;dense-product<=2e-12;active-set-stable;"
+    "reaction-closure<=1e-12|inner=steihaug-trust;outer<=64;reject<=8;"
+    "scaled-stationarity<=1e-8;positive-actual-and-model|"
+    "outer=phr-update<=8;primal<=1e-8;dual-change/beta<=1e-8;"
+    "stationarity<=1e-8;complementarity<=1e-9;dual-feasible;"
+    "primal-monotone|controls=cold;warm<=2;state-correspondence<=1e-8;"
+    "inactive-exact;zero-lambda-reset-positive;forced-rollback-exact;"
+    "multiplier-mutation-sensitive;fixed-boundary|"
+    "route=al-dense-viable-if-converged;"
+    "semismooth-primal-dual-required-if-inner-exact-and-monotone-cap-"
+    "exhausted;fail-otherwise|runs=2-release-builds;2-processes;byte-exact;"
+    "timing=none|trajectory=none;nominal=none|"
+    "credit=tiny-vector-transaction-contract-research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -48067,6 +48095,831 @@ SplitBoundaryReport run_al_path_oracle_controls() {
            << ",\"route\":\"" << route << '"'
            << ",\"trajectory_steps\":0,\"timing_admitted\":false"
            << ",\"dense_al_oracle_contract_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+struct ALVectorSupport {
+    bool finite_values = false;
+    double energy = 0.0;
+    std::vector<double> density;
+    std::vector<double> constraint;
+    std::vector<double> active_coefficient;
+    std::vector<Vec3> gradient;
+    std::size_t active_centers = 0U;
+    std::size_t fluid_pairs = 0U;
+    std::size_t boundary_pairs = 0U;
+};
+
+struct ALVectorInnerState {
+    ALVectorSupport support;
+    double total = 0.0;
+    std::vector<Vec3> gradient;
+};
+
+struct ALVectorInnerSolve {
+    bool passed = false;
+    std::string failure;
+    std::vector<Vec3> position;
+    ALVectorSupport support;
+    int outer_trials = 0;
+    int accepted_trials = 0;
+    int rejected_trials = 0;
+    int hvp_calls = 0;
+    int negative_curvature_exits = 0;
+    double final_scaled_stationarity = 0.0;
+    double minimum_accepted_ratio = std::numeric_limits<double>::infinity();
+    bool positive_accepted_models = true;
+};
+
+struct ALVectorOuterRecord {
+    int outer = 0;
+    int inner_outer_trials = 0;
+    int inner_accepted_trials = 0;
+    int inner_rejected_trials = 0;
+    int inner_hvp_calls = 0;
+    double primal = 0.0;
+    double scaled_dual_change = 0.0;
+    double stationarity = 0.0;
+    double complementarity = 0.0;
+    double minimum_multiplier = 0.0;
+    double maximum_multiplier = 0.0;
+};
+
+struct ALVectorOuterSolve {
+    bool passed = false;
+    bool inner_exact = true;
+    bool primal_monotone = true;
+    bool cap_exhausted = false;
+    std::string failure;
+    std::vector<Vec3> position;
+    std::vector<double> multiplier;
+    ALVectorSupport support;
+    std::vector<ALVectorOuterRecord> records;
+};
+
+ALVectorSupport evaluate_al_vector_support(
+    const std::vector<Vec3>& fluid,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier) {
+    ALVectorSupport result;
+    const std::size_t fluid_count = fluid.size();
+    if (multiplier.size() != fluid_count) {
+        return result;
+    }
+    result.gradient.resize(fluid_count + boundary.size());
+    result.density.assign(fluid_count, MASS * weight(0.0));
+    for (std::size_t i = 0U; i < fluid_count; ++i) {
+        for (std::size_t j = i + 1U; j < fluid_count; ++j) {
+            const double radius = norm(fluid[i] - fluid[j]);
+            if (radius <= HORIZON) {
+                const double contribution = MASS * weight(radius);
+                result.density[i] += contribution;
+                result.density[j] += contribution;
+                ++result.fluid_pairs;
+            }
+        }
+        for (std::size_t support = 0U;
+             support < boundary.size(); ++support) {
+            const double radius = norm(fluid[i] - boundary[support]);
+            if (radius <= HORIZON) {
+                result.density[i] += MASS * weight(radius);
+                ++result.boundary_pairs;
+            }
+        }
+    }
+    result.constraint.resize(fluid_count);
+    result.active_coefficient.resize(fluid_count);
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const double constraint =
+            result.density[center] / REST_DENSITY - 1.0;
+        const double active = std::max(
+            0.0, multiplier[center] + KAPPA * constraint);
+        result.constraint[center] = constraint;
+        result.active_coefficient[center] = active;
+        result.energy += (
+            active * active - multiplier[center] * multiplier[center])
+            / (2.0 * KAPPA);
+        if (active <= 0.0) {
+            continue;
+        }
+        ++result.active_centers;
+        const double scale = active * MASS / REST_DENSITY;
+        const auto accumulate = [&](std::size_t participant,
+                                     Vec3 displacement) {
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                return;
+            }
+            const Vec3 pair = scale * weight_gradient(radius)
+                * (displacement / radius);
+            result.gradient[center] += pair;
+            result.gradient[participant] += -pair;
+        };
+        for (std::size_t neighbor = 0U;
+             neighbor < fluid_count; ++neighbor) {
+            if (neighbor != center) {
+                accumulate(neighbor, fluid[center] - fluid[neighbor]);
+            }
+        }
+        for (std::size_t support = 0U;
+             support < boundary.size(); ++support) {
+            accumulate(fluid_count + support,
+                fluid[center] - boundary[support]);
+        }
+    }
+    result.finite_values = std::isfinite(result.energy)
+        && std::all_of(result.density.begin(), result.density.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.constraint.begin(), result.constraint.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.active_coefficient.begin(),
+            result.active_coefficient.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.gradient.begin(), result.gradient.end(),
+            [](Vec3 value) { return finite(value); });
+    return result;
+}
+
+std::vector<Vec3> apply_al_vector_hessian(
+    const std::vector<Vec3>& fluid,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    const std::vector<Vec3>& direction) {
+    const std::size_t fluid_count = fluid.size();
+    const std::size_t total_count = fluid_count + boundary.size();
+    if (direction.size() != total_count
+        || multiplier.size() != fluid_count) {
+        throw std::invalid_argument("AL dense HVP size mismatch");
+    }
+    const ALVectorSupport state = evaluate_al_vector_support(
+        fluid, boundary, multiplier);
+    std::vector<Vec3> result(total_count);
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const double active = state.active_coefficient[center];
+        if (active <= 0.0) {
+            continue;
+        }
+        double constraint_direction = 0.0;
+        const auto fold_direction = [&](std::size_t participant,
+                                         Vec3 displacement) {
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                return;
+            }
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * weight_gradient(radius) * (displacement / radius);
+            constraint_direction += dot(
+                jacobian, direction[center] - direction[participant]);
+        };
+        for (std::size_t neighbor = 0U;
+             neighbor < fluid_count; ++neighbor) {
+            if (neighbor != center) {
+                fold_direction(
+                    neighbor, fluid[center] - fluid[neighbor]);
+            }
+        }
+        for (std::size_t support = 0U;
+             support < boundary.size(); ++support) {
+            fold_direction(fluid_count + support,
+                fluid[center] - boundary[support]);
+        }
+        const auto accumulate = [&](std::size_t participant,
+                                     Vec3 displacement) {
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                return;
+            }
+            const Vec3 normal = displacement / radius;
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * weight_gradient(radius) * normal;
+            const Vec3 relative =
+                direction[center] - direction[participant];
+            const Vec3 curvature = MASS / REST_DENSITY
+                * radial_hessian_product(normal,
+                    weight_second(radius),
+                    weight_gradient(radius) / radius, relative);
+            const Vec3 pair = KAPPA * constraint_direction * jacobian
+                + active * curvature;
+            result[center] += pair;
+            result[participant] += -pair;
+        };
+        for (std::size_t neighbor = 0U;
+             neighbor < fluid_count; ++neighbor) {
+            if (neighbor != center) {
+                accumulate(neighbor, fluid[center] - fluid[neighbor]);
+            }
+        }
+        for (std::size_t support = 0U;
+             support < boundary.size(); ++support) {
+            accumulate(fluid_count + support,
+                fluid[center] - boundary[support]);
+        }
+    }
+    return result;
+}
+
+ALVectorInnerState evaluate_al_vector_inner(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier) {
+    ALVectorInnerState result;
+    result.support = evaluate_al_vector_support(
+        position, boundary, multiplier);
+    result.total = result.support.energy;
+    result.gradient = fluid_part(
+        result.support.gradient, position.size());
+    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    for (std::size_t index = 0U; index < position.size(); ++index) {
+        const Vec3 displacement = position[index] - predicted[index];
+        result.total += 0.5 * inertia_scale * norm_squared(displacement);
+        result.gradient[index] += inertia_scale * displacement;
+    }
+    return result;
+}
+
+std::vector<Vec3> apply_al_vector_inner_hessian(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    const std::vector<Vec3>& direction) {
+    std::vector<Vec3> joint(direction.size() + boundary.size());
+    std::copy(direction.begin(), direction.end(), joint.begin());
+    std::vector<Vec3> result = fluid_part(
+        apply_al_vector_hessian(
+            position, boundary, multiplier, joint), position.size());
+    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    for (std::size_t index = 0U; index < result.size(); ++index) {
+        result[index] += inertia_scale * direction[index];
+    }
+    return result;
+}
+
+std::vector<Vec3> al_vector_trust_step(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    const std::vector<Vec3>& gradient,
+    double radius,
+    int& hvp_calls,
+    bool& negative_curvature) {
+    std::vector<Vec3> point(gradient.size());
+    std::vector<Vec3> residual = gradient;
+    std::vector<Vec3> direction = gradient;
+    for (Vec3& value : direction) value = -value;
+    double residual_squared = flat_dot(residual, residual);
+    const double initial_residual = std::sqrt(residual_squared);
+    for (std::size_t iteration = 0U;
+         iteration < 3U * gradient.size(); ++iteration) {
+        const std::vector<Vec3> image = apply_al_vector_inner_hessian(
+            position, boundary, multiplier, direction);
+        ++hvp_calls;
+        const double curvature = flat_dot(direction, image);
+        if (!std::isfinite(curvature) || curvature <= 0.0) {
+            negative_curvature = true;
+            return add_scaled(point, direction,
+                trust_boundary_tau(point, direction, radius));
+        }
+        const double alpha = residual_squared / curvature;
+        const std::vector<Vec3> candidate =
+            add_scaled(point, direction, alpha);
+        if (vector_norm(candidate) >= radius) {
+            return add_scaled(point, direction,
+                trust_boundary_tau(point, direction, radius));
+        }
+        point = candidate;
+        std::vector<Vec3> next_residual = residual;
+        for (std::size_t index = 0U;
+             index < next_residual.size(); ++index) {
+            next_residual[index] += alpha * image[index];
+        }
+        const double next_squared = flat_dot(
+            next_residual, next_residual);
+        if (std::sqrt(next_squared)
+            <= std::min(0.5, std::sqrt(initial_residual))
+                * initial_residual) {
+            return point;
+        }
+        const double beta = next_squared / residual_squared;
+        for (std::size_t index = 0U;
+             index < direction.size(); ++index) {
+            direction[index] = -next_residual[index]
+                + beta * direction[index];
+        }
+        residual = std::move(next_residual);
+        residual_squared = next_squared;
+    }
+    return point;
+}
+
+double al_vector_scaled_stationarity(
+    const std::vector<Vec3>& gradient) {
+    double maximum = 0.0;
+    for (Vec3 value : gradient) {
+        maximum = std::max(maximum, norm(value));
+    }
+    return TIME_STEP * TIME_STEP / MASS * maximum / SPACING;
+}
+
+ALVectorInnerSolve solve_al_vector_inner(
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& initial,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier) {
+    ALVectorInnerSolve result;
+    result.position = initial;
+    ALVectorInnerState current = evaluate_al_vector_inner(
+        result.position, predicted, boundary, multiplier);
+    if (!current.support.finite_values) {
+        result.failure = "INITIAL_NONFINITE";
+        return result;
+    }
+    double trust_radius = 0.25 * SPACING;
+    for (int outer = 0; outer < 64; ++outer) {
+        result.outer_trials = outer + 1;
+        result.final_scaled_stationarity =
+            al_vector_scaled_stationarity(current.gradient);
+        if (result.final_scaled_stationarity <= 1.0e-8) {
+            result.passed = true;
+            result.support = std::move(current.support);
+            return result;
+        }
+        bool negative_curvature = false;
+        const std::vector<Vec3> step = al_vector_trust_step(
+            result.position, boundary, multiplier, current.gradient,
+            trust_radius, result.hvp_calls, negative_curvature);
+        if (negative_curvature) ++result.negative_curvature_exits;
+        const std::vector<Vec3> image = apply_al_vector_inner_hessian(
+            result.position, boundary, multiplier, step);
+        ++result.hvp_calls;
+        const double predicted_reduction =
+            -flat_dot(current.gradient, step)
+            - 0.5 * flat_dot(step, image);
+        const std::vector<Vec3> trial_position = add_scaled(
+            result.position, step, 1.0);
+        ALVectorInnerState trial = evaluate_al_vector_inner(
+            trial_position, predicted, boundary, multiplier);
+        const double actual_reduction = current.total - trial.total;
+        const double ratio = predicted_reduction > 0.0
+            ? actual_reduction / predicted_reduction
+            : -std::numeric_limits<double>::infinity();
+        if (ratio < 0.25) {
+            trust_radius *= 0.25;
+        } else if (ratio > 0.75
+            && vector_norm(step) >= 0.9 * trust_radius) {
+            trust_radius = std::min(
+                2.0 * trust_radius, 2.0 * SPACING);
+        }
+        if (trial.support.finite_values
+            && predicted_reduction > 0.0
+            && actual_reduction > 0.0 && ratio >= 0.1) {
+            ++result.accepted_trials;
+            result.minimum_accepted_ratio = std::min(
+                result.minimum_accepted_ratio, ratio);
+            result.positive_accepted_models =
+                result.positive_accepted_models
+                && predicted_reduction > 0.0 && actual_reduction > 0.0;
+            result.position = trial_position;
+            current = std::move(trial);
+        } else {
+            ++result.rejected_trials;
+            if (result.rejected_trials > 8) {
+                result.failure = "REJECT_LIMIT";
+                return result;
+            }
+        }
+        if (trust_radius < 1.0e-14) {
+            result.failure = "MINIMUM_TRUST_RADIUS";
+            return result;
+        }
+    }
+    result.failure = "OUTER_LIMIT";
+    return result;
+}
+
+ALVectorOuterSolve solve_al_vector_outer(
+    const Fixture& fixture,
+    const std::vector<Vec3>& predicted,
+    std::vector<Vec3> position,
+    std::vector<double> multiplier,
+    int maximum_outer) {
+    ALVectorOuterSolve result;
+    result.position = position;
+    result.multiplier = multiplier;
+    double previous_primal = std::numeric_limits<double>::infinity();
+    for (int outer = 0; outer < maximum_outer; ++outer) {
+        const ALVectorInnerSolve inner = solve_al_vector_inner(
+            predicted, position, fixture.boundary, multiplier);
+        if (!inner.passed || !inner.positive_accepted_models) {
+            result.inner_exact = false;
+            result.failure = "INNER:" + inner.failure;
+            return result;
+        }
+        std::vector<double> next(multiplier.size());
+        ALVectorOuterRecord record;
+        record.outer = outer;
+        record.inner_outer_trials = inner.outer_trials;
+        record.inner_accepted_trials = inner.accepted_trials;
+        record.inner_rejected_trials = inner.rejected_trials;
+        record.inner_hvp_calls = inner.hvp_calls;
+        record.minimum_multiplier = std::numeric_limits<double>::infinity();
+        for (std::size_t center = 0U;
+             center < multiplier.size(); ++center) {
+            next[center] = std::max(0.0,
+                multiplier[center]
+                    + KAPPA * inner.support.constraint[center]);
+            record.primal = std::max(record.primal,
+                std::max(0.0, inner.support.constraint[center]));
+            record.scaled_dual_change = std::max(
+                record.scaled_dual_change,
+                std::abs(next[center] - multiplier[center]) / KAPPA);
+            record.complementarity = std::max(record.complementarity,
+                std::abs(next[center] * inner.support.constraint[center]));
+            record.minimum_multiplier = std::min(
+                record.minimum_multiplier, next[center]);
+            record.maximum_multiplier = std::max(
+                record.maximum_multiplier, next[center]);
+        }
+        record.stationarity = inner.final_scaled_stationarity;
+        result.primal_monotone = result.primal_monotone
+            && record.primal <= previous_primal;
+        previous_primal = record.primal;
+        result.records.push_back(record);
+        result.position = inner.position;
+        result.multiplier = next;
+        result.support = inner.support;
+        position = inner.position;
+        multiplier = std::move(next);
+        if (record.primal <= 1.0e-8
+            && record.scaled_dual_change <= 1.0e-8
+            && record.stationarity <= 1.0e-8
+            && record.complementarity <= 1.0e-9
+            && record.minimum_multiplier >= 0.0) {
+            result.passed = true;
+            return result;
+        }
+    }
+    result.cap_exhausted = result.inner_exact && result.primal_monotone;
+    result.failure = "OUTER_ITERATION_LIMIT";
+    return result;
+}
+
+std::string al_vector_state_root(
+    const std::string& tag,
+    const std::vector<Vec3>& position,
+    const std::vector<double>& multiplier) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.nsr3b4e2d7-state|v1|" << tag << '|'
+             << position.size() << ':' << multiplier.size();
+    for (Vec3 value : position) {
+        material << ':' << binary64_bits(value.x)
+                 << ':' << binary64_bits(value.y)
+                 << ':' << binary64_bits(value.z);
+    }
+    for (double value : multiplier) {
+        material << ':' << binary64_bits(value);
+    }
+    return sha256_hex(material.str());
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_dense_vector_oracle_controls() {
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> boundary_before = fixture.boundary;
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<Vec3> inactive_prediction =
+        compressed_fluid(fixture, 1.01);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const bool identity_exact = sha256_hex(B4E2D7_IDENTITY_PROJECTION)
+        == B4E2D7_IDENTITY_SHA256;
+    const Evaluation rest = evaluate(fixture.fluid, fixture.boundary);
+    double rest_error = 0.0;
+    for (double density : rest.density) {
+        rest_error = std::max(rest_error,
+            std::abs(density / REST_DENSITY - 1.0));
+    }
+    const bool fixture_exact = fixture.fluid.size() == 8U
+        && fixture.boundary.size() == 176U && rest_error <= 3.0e-15;
+
+    std::vector<double> derivative_multiplier(
+        fixture.fluid.size(), 0.0053516806);
+    const ALVectorSupport derivative_state = evaluate_al_vector_support(
+        active_prediction, fixture.boundary, derivative_multiplier);
+    const std::vector<Vec3> direction = deterministic_direction(
+        active_prediction.size());
+    constexpr double derivative_epsilon = 2.0e-7;
+    const ALVectorSupport plus = evaluate_al_vector_support(
+        displace(active_prediction, direction, derivative_epsilon),
+        fixture.boundary, derivative_multiplier);
+    const ALVectorSupport minus = evaluate_al_vector_support(
+        displace(active_prediction, direction, -derivative_epsilon),
+        fixture.boundary, derivative_multiplier);
+    double analytic_direction = 0.0;
+    for (std::size_t index = 0U;
+         index < active_prediction.size(); ++index) {
+        analytic_direction += dot(
+            derivative_state.gradient[index], direction[index]);
+    }
+    const double finite_direction =
+        (plus.energy - minus.energy) / (2.0 * derivative_epsilon);
+    const double gradient_error = relative_error(
+        analytic_direction, finite_direction);
+    std::vector<Vec3> joint_direction(
+        active_prediction.size() + fixture.boundary.size());
+    std::copy(direction.begin(), direction.end(), joint_direction.begin());
+    const std::vector<Vec3> analytic_hvp = fluid_part(
+        apply_al_vector_hessian(active_prediction, fixture.boundary,
+            derivative_multiplier, joint_direction),
+        active_prediction.size());
+    std::vector<Vec3> finite_hvp(active_prediction.size());
+    for (std::size_t index = 0U;
+         index < finite_hvp.size(); ++index) {
+        finite_hvp[index] = (plus.gradient[index] - minus.gradient[index])
+            / (2.0 * derivative_epsilon);
+    }
+    const double hvp_error = vector_relative_error(
+        analytic_hvp, finite_hvp);
+    const std::size_t dimension = 3U * active_prediction.size();
+    std::vector<double> dense(dimension * dimension);
+    for (std::size_t column = 0U; column < dimension; ++column) {
+        std::vector<Vec3> basis(
+            active_prediction.size() + fixture.boundary.size());
+        set_component(basis[column / 3U],
+            static_cast<int>(column % 3U), 1.0);
+        const std::vector<double> product = flatten(fluid_part(
+            apply_al_vector_hessian(active_prediction, fixture.boundary,
+                derivative_multiplier, basis), active_prediction.size()));
+        for (std::size_t row = 0U; row < dimension; ++row) {
+            dense[row * dimension + column] = product[row];
+        }
+    }
+    double maximum_asymmetry = 0.0;
+    double maximum_dense = 0.0;
+    for (std::size_t row = 0U; row < dimension; ++row) {
+        for (std::size_t column = 0U; column < dimension; ++column) {
+            maximum_asymmetry = std::max(maximum_asymmetry,
+                std::abs(dense[row * dimension + column]
+                    - dense[column * dimension + row]));
+            maximum_dense = std::max(maximum_dense,
+                std::abs(dense[row * dimension + column]));
+        }
+    }
+    const double dense_symmetry_error = maximum_asymmetry
+        / std::max(maximum_dense, 1.0e-30);
+    const std::vector<double> flat_direction = flatten(direction);
+    std::vector<double> dense_product(dimension);
+    for (std::size_t row = 0U; row < dimension; ++row) {
+        for (std::size_t column = 0U; column < dimension; ++column) {
+            dense_product[row] += dense[row * dimension + column]
+                * flat_direction[column];
+        }
+    }
+    const std::vector<double> flat_hvp = flatten(analytic_hvp);
+    double product_difference = 0.0;
+    double product_scale = 0.0;
+    for (std::size_t index = 0U; index < dimension; ++index) {
+        product_difference += (dense_product[index] - flat_hvp[index])
+            * (dense_product[index] - flat_hvp[index]);
+        product_scale = std::max(product_scale,
+            std::max(std::abs(dense_product[index]),
+                std::abs(flat_hvp[index])));
+    }
+    const double dense_product_error = std::sqrt(product_difference)
+        / std::max(product_scale * std::sqrt(
+            static_cast<double>(dimension)), 1.0e-30);
+    const Vec3 gradient_sum = sum_values(
+        derivative_state.gradient, 0U,
+        derivative_state.gradient.size());
+    double gradient_scale = 0.0;
+    for (Vec3 value : derivative_state.gradient) {
+        gradient_scale += norm(value);
+    }
+    const double reaction_closure = norm(gradient_sum)
+        / std::max(gradient_scale, 1.0e-30);
+    const bool derivative_exact = derivative_state.finite_values
+        && plus.finite_values && minus.finite_values
+        && derivative_state.active_centers == plus.active_centers
+        && derivative_state.active_centers == minus.active_centers
+        && derivative_state.fluid_pairs == plus.fluid_pairs
+        && derivative_state.fluid_pairs == minus.fluid_pairs
+        && derivative_state.boundary_pairs == plus.boundary_pairs
+        && derivative_state.boundary_pairs == minus.boundary_pairs
+        && gradient_error <= 1.0e-7 && hvp_error <= 2.0e-6
+        && dense_symmetry_error <= 2.0e-12
+        && dense_product_error <= 2.0e-12
+        && reaction_closure <= 1.0e-12
+        && exact_vec3_values(fixture.boundary, boundary_before);
+
+    const ALVectorOuterSolve cold = solve_al_vector_outer(
+        fixture, active_prediction, active_prediction,
+        zero_multiplier, 8);
+    const ALVectorOuterSolve warm = cold.passed
+        ? solve_al_vector_outer(fixture, active_prediction,
+            cold.position, cold.multiplier, 2)
+        : ALVectorOuterSolve{};
+    const double warm_position_error = cold.passed && warm.passed
+        ? rms_difference(cold.position, warm.position) / SPACING
+        : std::numeric_limits<double>::infinity();
+    double warm_multiplier_error = 0.0;
+    if (cold.multiplier.size() == warm.multiplier.size()) {
+        for (std::size_t index = 0U;
+             index < cold.multiplier.size(); ++index) {
+            warm_multiplier_error = std::max(warm_multiplier_error,
+                std::abs(cold.multiplier[index] - warm.multiplier[index]));
+        }
+    } else {
+        warm_multiplier_error = std::numeric_limits<double>::infinity();
+    }
+    const bool warm_exact = cold.passed && warm.passed
+        && warm.records.size() <= 2U
+        && warm_position_error <= 1.0e-8
+        && warm_multiplier_error <= 1.0e-8;
+
+    const ALVectorOuterSolve inactive = solve_al_vector_outer(
+        fixture, inactive_prediction, inactive_prediction,
+        zero_multiplier, 2);
+    const bool inactive_exact = inactive.passed
+        && exact_vec3_values(inactive.position, inactive_prediction)
+        && exact_al_multiplier(inactive.multiplier, zero_multiplier)
+        && std::all_of(inactive.support.constraint.begin(),
+            inactive.support.constraint.end(),
+            [](double value) { return value <= 0.0; });
+
+    const ALVectorInnerSolve reset = solve_al_vector_inner(
+        active_prediction, active_prediction,
+        fixture.boundary, zero_multiplier);
+    double reset_primal = 0.0;
+    for (double value : reset.support.constraint) {
+        reset_primal = std::max(reset_primal, std::max(0.0, value));
+    }
+    const bool reset_negative = reset.passed && reset_primal > 1.0e-8;
+
+    const ALVectorOuterSolve forced_private = solve_al_vector_outer(
+        fixture, active_prediction, active_prediction,
+        zero_multiplier, 1);
+    const std::vector<Vec3> public_position = active_prediction;
+    const std::vector<double> public_multiplier = zero_multiplier;
+    const bool rollback_exact =
+        exact_vec3_values(public_position, active_prediction)
+        && exact_al_multiplier(public_multiplier, zero_multiplier)
+        && !forced_private.records.empty()
+        && (!exact_vec3_values(forced_private.position, public_position)
+            || !exact_al_multiplier(
+                forced_private.multiplier, public_multiplier));
+
+    std::vector<double> mutated_multiplier = cold.passed
+        ? cold.multiplier : zero_multiplier;
+    if (!mutated_multiplier.empty()) {
+        mutated_multiplier.front() = std::nextafter(
+            mutated_multiplier.front(),
+            std::numeric_limits<double>::infinity());
+    }
+    const ALVectorInnerSolve mutation_control = solve_al_vector_inner(
+        active_prediction, cold.passed ? cold.position : active_prediction,
+        fixture.boundary, cold.passed ? cold.multiplier : zero_multiplier);
+    const ALVectorInnerSolve mutation = solve_al_vector_inner(
+        active_prediction, cold.passed ? cold.position : active_prediction,
+        fixture.boundary, mutated_multiplier);
+    const std::string cold_root = al_vector_state_root(
+        "cold", cold.position, cold.multiplier);
+    const std::string warm_root = al_vector_state_root(
+        "warm", warm.position, warm.multiplier);
+    const std::string inactive_root = al_vector_state_root(
+        "inactive", inactive.position, inactive.multiplier);
+    const std::string mutation_control_root = al_vector_state_root(
+        "mutation", mutation_control.position,
+        cold.passed ? cold.multiplier : zero_multiplier);
+    const std::string mutation_root = al_vector_state_root(
+        "mutation", mutation.position, mutated_multiplier);
+    const bool mutation_sensitive = mutation_control.passed
+        && mutation.passed && mutation_root != mutation_control_root;
+
+    const bool al_dense_viable = cold.passed && cold.primal_monotone
+        && warm_exact && inactive_exact && reset_negative
+        && rollback_exact && mutation_sensitive;
+    const bool fallback_selected = !cold.passed && cold.inner_exact
+        && cold.primal_monotone && cold.cap_exhausted
+        && inactive_exact && reset_negative && rollback_exact
+        && mutation_sensitive;
+    const std::string route = al_dense_viable ? "AL_DENSE_VIABLE"
+        : (fallback_selected
+            ? "SEMISMOOTH_PRIMAL_DUAL_REQUIRED" : std::string{});
+    const bool passed = identity_exact && fixture_exact && derivative_exact
+        && !route.empty();
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!fixture_exact) first_failure = "FIXTURE";
+    else if (!derivative_exact) first_failure = "DERIVATIVE";
+    else if (route.empty()) first_failure = "AL_DENSE_CONTROLS";
+
+    const auto append_outer = [](std::ostringstream& output,
+            const ALVectorOuterSolve& solve) {
+        output << '[';
+        for (std::size_t index = 0U; index < solve.records.size(); ++index) {
+            if (index != 0U) output << ',';
+            const ALVectorOuterRecord& record = solve.records[index];
+            output << std::setprecision(17)
+                   << "{\"outer\":" << record.outer
+                   << ",\"inner_outer_trials\":"
+                   << record.inner_outer_trials
+                   << ",\"inner_accepted_trials\":"
+                   << record.inner_accepted_trials
+                   << ",\"inner_rejected_trials\":"
+                   << record.inner_rejected_trials
+                   << ",\"inner_hvp_calls\":" << record.inner_hvp_calls
+                   << ",\"primal\":" << record.primal
+                   << ",\"scaled_dual_change\":"
+                   << record.scaled_dual_change
+                   << ",\"stationarity\":" << record.stationarity
+                   << ",\"complementarity\":"
+                   << record.complementarity
+                   << ",\"multiplier_range\":["
+                   << record.minimum_multiplier << ','
+                   << record.maximum_multiplier << "]}";
+        }
+        output << ']';
+    };
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7_IDENTITY_SHA256 << '|'
+             << fixture.fluid.size() << ':' << fixture.boundary.size() << ':'
+             << rest_error << '|' << gradient_error << ':' << hvp_error << ':'
+             << dense_symmetry_error << ':' << dense_product_error << ':'
+             << reaction_closure << '|'
+             << cold.passed << ':' << cold.records.size() << ':' << cold_root
+             << ':' << cold.primal_monotone << '|'
+             << warm.passed << ':' << warm.records.size() << ':' << warm_root
+             << ':' << warm_position_error << ':' << warm_multiplier_error
+             << '|' << inactive.passed << ':' << inactive_root << '|'
+             << reset.passed << ':' << reset_primal << ':' << rollback_exact
+             << ':' << mutation_sensitive << ':' << mutation_root << '|'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7_al_dense_vector.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7_IDENTITY_SHA256
+           << "\",\"solver_identity\":\""
+              "nuv-al-pressure-r0+dense-vector-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"fixture\":{\"fluid_samples\":"
+           << fixture.fluid.size() << ",\"support_samples\":"
+           << fixture.boundary.size() << ",\"rest_error\":"
+           << rest_error << ",\"exact\":"
+           << (fixture_exact ? "true" : "false") << '}'
+           << ",\"derivatives\":{\"gradient_error\":"
+           << gradient_error << ",\"hvp_error\":" << hvp_error
+           << ",\"dense_symmetry_error\":" << dense_symmetry_error
+           << ",\"dense_product_error\":" << dense_product_error
+           << ",\"reaction_closure\":" << reaction_closure
+           << ",\"active_centers\":"
+           << derivative_state.active_centers
+           << ",\"exact\":" << (derivative_exact ? "true" : "false")
+           << "},\"cold\":{\"status\":\""
+           << (cold.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << cold.failure
+           << "\",\"state_root\":\"" << cold_root
+           << "\",\"primal_monotone\":"
+           << (cold.primal_monotone ? "true" : "false")
+           << ",\"outer\":";
+    append_outer(report, cold);
+    report << "},\"warm\":{\"status\":\""
+           << (warm.passed ? "PASS" : "FAIL")
+           << "\",\"state_root\":\"" << warm_root
+           << "\",\"position_error_dx\":" << warm_position_error
+           << ",\"multiplier_max_difference\":" << warm_multiplier_error
+           << ",\"exact\":" << (warm_exact ? "true" : "false")
+           << ",\"outer\":";
+    append_outer(report, warm);
+    report << "},\"inactive\":{\"status\":\""
+           << (inactive.passed ? "PASS" : "FAIL")
+           << "\",\"state_root\":\"" << inactive_root
+           << "\",\"exact\":" << (inactive_exact ? "true" : "false")
+           << "},\"reset_negative\":{\"primal\":" << reset_primal
+           << ",\"exact\":" << (reset_negative ? "true" : "false")
+           << "},\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"mutation\":{\"root\":\"" << mutation_root
+           << "\",\"control_root\":\"" << mutation_control_root
+           << "\",\"sensitive\":"
+           << (mutation_sensitive ? "true" : "false") << '}'
+           << ",\"route\":\"" << route << '"'
+           << ",\"trajectory_steps\":0,\"timing_admitted\":false"
+           << ",\"tiny_vector_transaction_contract_research_authorized\":"
            << (passed ? "true" : "false")
            << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
