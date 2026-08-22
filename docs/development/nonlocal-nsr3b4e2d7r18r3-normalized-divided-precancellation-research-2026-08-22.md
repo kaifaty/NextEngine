@@ -2,7 +2,7 @@
 
 Date: `2026-08-22`
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_NEXT`
+Status: `CLOSED / PASS / NORMALIZED_DIVIDED_PRECANCELLATION_CANDIDATE`
 
 ## Question
 
@@ -152,3 +152,12 @@ authorize research/freeze of a complete normalized transaction using the
 precancelled formula. It does not authorize that transaction, D7R19, a nominal
 substep, macro, trajectory, timing, runtime binary128, public state or
 production use.
+
+## Closure
+
+R3 selects the candidate reproducibly; see the
+[dated evidence](nonlocal-nsr3b4e2d7r18r3-normalized-divided-precancellation-evidence-2026-08-22.md).
+The candidate is positive, within `1.18e-5` relative of the compensated
+binary128 result and exact across reference/aligned normalized profiles. The
+next stage is a separately frozen full private transaction using this formula;
+the replay itself remains unable to accept a trial.

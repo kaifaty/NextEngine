@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R18R3 -- normalized divided precancellation replay contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / D7R19_BLOCKED`
+Status: `CLOSED / PASS / NORMALIZED_DIVIDED_PRECANCELLATION_CANDIDATE / D7R19_BLOCKED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -60,3 +60,6 @@ research/freeze of a separately bounded complete normalized private
 transaction with the candidate formula. It grants no execution authority for
 that transaction, D7R19, a nominal substep, macro, trajectory, timing, public
 state, runtime binary128, GPU/runtime or production use.
+
+The command closes with the candidate route. See the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18r3-normalized-divided-precancellation-evidence-2026-08-22.md).

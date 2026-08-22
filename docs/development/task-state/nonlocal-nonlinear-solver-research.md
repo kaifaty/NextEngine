@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R18R2_PASS_INNER_POLICY_INSUFFICIENT / NSR3B4E2D7R18R3_FROZEN / D7R19_BLOCKED / NORMALIZED_DIVIDED_PRECANCELLATION_REPLAY_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R18R3_PASS_PRECANCELLATION_CANDIDATE / D7R19_BLOCKED / FULL_NORMALIZED_PRECANCELLED_TRANSACTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -81,6 +81,18 @@
   precancellation discriminator at the exact first divergent pair. It carries
   pairwise `density_delta`, forms `delta_active=delta_constraint`, and may not
   accept the target trial. D7R19 remains blocked.
+- **Current conclusion:** D7R18R3 passes in two clean builds at stdout SHA
+  `e0b36e34...8d3e5`, semantic result `884dcda8...bf75` and route
+  `NORMALIZED_DIVIDED_PRECANCELLATION_CANDIDATE`. R2 and D7R13 bytes remain
+  exact.
+- **Certificate fact:** the candidate returns `3.163242142e-22` against
+  binary128 `3.163279198e-22`; relative error is `1.17145e-5`, the model error
+  is `1.64640e-5`, and the positive sign resolves at `3.44e18` binary128 ULPs.
+  Reference/aligned candidate and oracle roots are exact.
+- **Current decision:** keep the replay incapable of acceptance. Research and
+  freeze a complete normalized private transaction whose only solver delta is
+  the certified pairwise numerator. Preserve all R2 gates; D7R19 remains
+  blocked until that transaction passes.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -987,7 +999,7 @@
 | NSR3B4E2D7R18 PASS classification | explicit `kappa` isolates dimensional HVP accumulation mismatch | direct normalized transaction formulation only |
 | NSR3B4E2D7R18R1 PASS | `u=lambda/kappa`, `theta=kappa*dt^2/M` are exact across scales and reconstruction is certified | tiny full normalized D7R13 transaction research only; D7R19 blocked |
 | NSR3B4E2D7R18R2 PASS classification | cross-scale full transaction roots are exact; active inner stalls at outer 1 after normalized reduction loses a positive `3.16e-22` signal | replay-only normalized precancellation research; D7R19 blocked |
-| NSR3B4E2D7R18R3 frozen | exact outer-1/trial-2 replay compares pairwise-precancelled normalized reduction with direct binary128 | implement/run R3 only; candidate accepts nothing; D7R19 blocked |
+| NSR3B4E2D7R18R3 PASS | exact outer-1/trial-2 replay restores the positive signal within `1.18e-5` of binary128 | full normalized precancelled transaction research only; D7R19 blocked |
 
 Candidate solver identity remains:
 
@@ -1941,10 +1953,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R18R2/R1/D7R18/D7R17 and D7R13 exactly. Implement/run only the
-   frozen D7R18R3 replay at R2 outer 1/trial 2. The candidate cannot accept a
-   trial or continue the solve. Do not run D7R19, retry the full transaction,
-   or start a nominal substep, macro, trajectory or timing lane.
+6. Preserve D7R18R3/R2/R1/D7R18/D7R17 and D7R13 exactly. Research/freeze a
+   complete normalized private transaction using the certified pairwise
+   numerator as its only solver delta. Do not execute it before freeze, run
+   D7R19, or start a nominal substep, macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 
