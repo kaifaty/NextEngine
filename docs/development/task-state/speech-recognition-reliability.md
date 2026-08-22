@@ -11,22 +11,22 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R2 data plumbing is real end-to-end: prepared index, deterministic degradations and degraded-audio replay through the bound GigaAM identity all run on actual public data with typed outcomes.
-- **Why:** `augment` generated 2 995 derivations for 500 train/calibration clips (control + ≤5 grid conditions each), and the resident replay completed 2 995/2 995 turns — control exact 91.4 %, hardest condition noise+room 84.5 %, one typed speech_but_empty.
-- **Next action:** Scale augmentation/replay to the full train/calibration partitions in background batches, then fit the constant/rule/L2-logistic baselines on the frozen outputs (§12) and report §16 metrics per condition bucket.
-- **Current blocker:** None technical; wall-clock budgeting is the only scaling constraint (~90 min per 3 000 turns unpaced).
-- **Do not retry:** Pooling GigaAM scores with other routes; tuning thresholds on held_out; treating the 92 %/89 % numbers as route quality benchmarks (CV domain proximity inflates them).
-- **Reconsider when:** Baselines are fitted and gates need held-out evaluation runs.
+- **Current conclusion:** The §12 baseline ladder is implemented and honestly fitted once: logistic L2 improves calibration Brier by only 1.9 % against constant (gate ≥10 % fails), so the candidate stays report-only exactly as the spec requires.
+- **Why:** Fitted on aug-500 replay outputs (2 923 train / 71 calibration rows); the revision-stability rule is degenerate on a final-only route and scored worse than constant (-7 %).
+- **Next action:** When `replay-runs/aug-batch2` finishes (~6 h for 11 984 turns), refit baselines on the merged table via one extra `--results` file and record whether the gate verdict changes with n≈9k calibration rows.
+- **Current blocker:** None technical; wall-clock dominates scaling (~1.9 s/turn unpaced GigaAM finalize overhead).
+- **Do not retry:** Tuning RULE_CONSTANTS or λ against calibration; touching held_out before gates; pooling routes; treating CV-domain accuracies as route benchmarks.
+- **Reconsider when:** Batch2 data lands or a streaming route (gigastt/Voxtral) supplies non-degenerate revision features.
 
 ## Current evidence
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
 | External store `~/.cache/nextengine/speech-reliability/prepared.jsonl` | `PASS` prepare 2026-08-22 | 63 389 speech + 61 068 asset rows, splits 84 106/16 176/24 075; index sha256 `53c5eb50…` |
-| `augmented/train-calib-500.jsonl` | `PASS` augment 2026-08-22 | 500 clips → 2 995 rows (controls + attenuation/MUSAN/RIRS/room+noise/EQ variants); codec-damage honestly capped out by the five-variant limit; sha256 `61b09777…`; determinism proven by fixture double-run |
-| `replay-runs/gigaam-200` + `gigaam-first` | `PASS` clean replay 2026-08-22 | 200/200 held-out clips, exact 184 (92 %), WER mean 1.44 %, zero empty finals |
-| `replay-runs/aug-500` | `PASS` degraded replay 2026-08-22 | 2 994 completed + 1 typed speech_but_empty; exact by condition: control 91.4 %, attenuation 91.0 %, EQ 90.2 %, MUSAN 87.1 %, room+noise 84.5 % |
-| Degradation-scale replay of full partitions / baselines / calibration | `NOT_RUN` | No learned reliability claim exists yet |
+| `replay-runs/aug-500` | `PASS` degraded replay | 2 994 completed + 1 typed speech_but_empty; exact by condition: control 91.4 %, attenuation 91.0 %, EQ 90.2 %, MUSAN 87.1 %, room+noise 84.5 % |
+| `baselines/gigaam-v1/baseline-report.json` | `PASS` fit, gate FAILED | constant cal-Brier 0.1445 / rule 0.1546 / logistic 0.1418; improvement +1.9 % < 10 % ⇒ candidate report-only; ECE 0.0718 > 0.05 also failing |
+| `augmented/train-calib-500-2500.jsonl` + batch2 replay | `RUNNING` | 11 984 rows (offset 500, limit 1500); replay cap raised to 50 000 with bounded-memory justification |
+| Held-out evaluation / isotonic / shipped artifact | `NOT_RUN` | No calibrated reliability claim exists |
 
 ## Decisions that still constrain the work
 
