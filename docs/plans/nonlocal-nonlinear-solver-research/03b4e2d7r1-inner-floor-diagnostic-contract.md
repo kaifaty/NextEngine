@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R1 -- inner-floor observability contract
 
-Status: `FROZEN / NOT_RUN / REPLAY_ONLY`
+Status: `FAIL / TOPOLOGY_GATE / REPLAY_ONLY`
 
 Identity projection (exact bytes, no final LF):
 

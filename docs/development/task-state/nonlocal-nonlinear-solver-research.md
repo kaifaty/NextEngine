@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R_FAIL_INNER_FLOOR / B4E2D7R1_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R1_FAIL_TOPOLOGY_GATE / B4E2D7R2_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -549,8 +549,19 @@
   a factored per-term objective-difference diagnostic. It routes nested
   accuracy plus merit reclosure, accuracy schedule only or model/active-set
   research; it cannot accept a trial.
-- **Next action:** implement/run B4E2D7R1 twice. Preserve D7/D7R bytes and all
-  public state; no tolerance, beta or formula change is authorized.
+- **Negative result:** B4E2D7R1 reproduces D7/D7R and all nine rejected trials
+  exactly. Raw and independently factored actual reductions agree that the
+  proposed step increases energy, so binary64 subtraction is not hiding
+  descent. Every trial changes topology and therefore violates the literal
+  frozen topology gate; final status is `FAIL / TOPOLOGY_GATE`.
+- **Current decision:** preserve the D7R1 hard FAIL instead of weakening its
+  post-freeze gate. The trust radius never binds the approximately
+  `2.48e-10 m` Newton step before reject limit, so a new replay-only
+  topology/step discriminator is required.
+- **Next action:** research/freeze B4E2D7R2. Name the changed active/pair sets,
+  inspect compact-support horizon margins, scan a fixed alpha ladder and
+  compare live- versus fixed-current-topology objective differences. Do not
+  alter tolerance, beta, formula, trust policy or state.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -669,6 +680,7 @@
 | NSR3B4E2D7R contract | absolute pressure-state admission plus private confirmation | implement/run tiny dense oracle only |
 | NSR3B4E2D7R FAIL | D7 prefix exact; fixed inner accuracy alternates zero-work admission and reject limit | inner-floor observability research only |
 | NSR3B4E2D7R1 contract | failed-inner trust trace plus direct energy-difference discriminator | implement/run replay-only diagnostic |
+| NSR3B4E2D7R1 FAIL | direct and raw differences agree on ascent; every trial violates frozen topology gate | preserve FAIL; topology/step discriminator research only |
 
 Candidate solver identity remains:
 
