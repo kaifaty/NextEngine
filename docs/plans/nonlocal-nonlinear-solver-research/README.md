@@ -1436,3 +1436,10 @@ The fast path is exact and removes 678 regions, but wins only `1/3` CPU pairs;
 median paired speedup is `0.983844x` and range ratio is `1.565388`. Retain
 SIRDI. Qualify a less interference-sensitive measurement lane before another
 performance implementation; do not rerun Q3.
+The [B4EP10SIRDIREQ4 research](../../development/nonlocal-nsr3b4ep10sirdireq4-executor-adjusted-cpu-research-2026-08-22.md)
+finds that Q1's whole-transaction instability is concentrated in process CPU
+inside OpenMP regions but outside measured worker-active intervals. Its
+[frozen contract](03b4ep10sirdireq4-executor-adjusted-cpu-qualification-contract.md)
+derives `E = transaction - region + active-worker` from the unchanged Q1
+command and requires three fresh stable reports. Execute only this
+qualification; it grants no implementation or wall credit.
