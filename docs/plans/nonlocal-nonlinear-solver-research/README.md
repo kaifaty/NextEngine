@@ -1284,3 +1284,9 @@ Source-local work has stable median share `0.587730` and leads topology by
 `2.918189x`. Median executor orchestration and imbalance are only
 `0.011919/0.071954`, rejecting persistent-region and partition-balance work.
 Research one narrower source-local discriminator before changing code.
+The [B4EP10SIRD research](../../development/nonlocal-nsr3b4ep10sird-source-local-discriminator-research-2026-08-22.md)
+reduces the unchanged source-local subphases into directed, setup, compression
+and local-scalar groups. Its
+[frozen contract](03b4ep10sird-source-local-discriminator-contract.md)
+requires three fresh exact processes and a stable `1.20x` leader before one
+structural audit can be selected. Execute only this reduction; change no code.
