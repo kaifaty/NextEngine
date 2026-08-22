@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R15_PASS_NOMINAL_AL_PREREQUISITES / B4E2D7R16_FROZEN_SPARSE_PRECISION_TRANSACTION_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R16_PASS_NOMINAL_TRANSACTION_BACKEND / B4E2D7R17_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -126,8 +126,18 @@
 - **Current decision:** D7R16 is frozen as sparse long-double plus complete
   static/sparse precision transaction integration. The first nominal solve is
   deferred to D7R17.
-- **Next action:** implement/run only D7R16; preserve all D7R13/D7R15 bytes,
-  execute no nominal solve, macro, trajectory or timing lane.
+- **Current conclusion:** D7R16 passes reproducibly at stdout SHA
+  `4c537f70...f8cd`, semantic result `47976f82...f156` and route
+  `NOMINAL_TRANSACTION_BACKEND_CONFIRMED`. D7R15 and D7R13 bytes remain exact.
+- **Backend fact:** all 38 accepted long-double audits and eight binary128
+  audits run over sparse current/trial unions with zero candidate all-pair
+  calls. All complete transaction, inner and precision roots are exact.
+- **Lifecycle fact:** one static index and one support canonicalization serve
+  100 identity-bound workspace builds/releases; maximum live count is two.
+- **Next action:** research/freeze D7R17 as exactly one aligned nominal Dam
+  substep shadow with bounded work, separate contact/pressure/support impulse
+  ledger, residual, conservation, penetration, watchdog and rollback gates.
+  Execute no macro, trajectory or timing lane.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1844,10 +1854,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R15 exactly. Implement D7R16 sparse long-double and integrate
-   identity-bound static support plus both sparse precision audits through the
-   complete transaction. Defer the first aligned nominal substep to D7R17 and
-   defer macro, trajectory and timing work.
+6. Preserve D7R16/D7R15 exactly. Research/freeze D7R17 before executing one
+   aligned nominal Dam substep with separate predictor-contact, AL pressure
+   and fixed-support reaction accounting. Defer macro, trajectory and timing
+   work.
 
 ## Reconsideration triggers
 

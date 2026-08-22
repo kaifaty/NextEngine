@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R16 -- sparse precision transaction contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP`
+Status: `PASS / NOMINAL_TRANSACTION_BACKEND_CONFIRMED / SHARED_HOST_PERFORMANCE_STOP`
 
 Identity projection (exact bytes, no final LF):
 

@@ -379,6 +379,14 @@ The [frozen contract](03b4e2d7r16-sparse-precision-transaction-contract.md)
 therefore integrates sparse long-double, static binding and sparse binary128
 through the complete tiny transaction first. Implement/run D7R16 next; the
 first aligned nominal substep moves to D7R17.
+D7R16 passes and selects `NOMINAL_TRANSACTION_BACKEND_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r16-sparse-precision-transaction-evidence-2026-08-22.md).
+All 38 accepted long-double audits and eight candidate binary128 audits use
+canonical sparse unions with zero candidate all-pair calls. Active, repeat,
+inactive, every inner and every precision root remain exact while one static
+index serves all 100 workspaces. Research/freeze D7R17 next as exactly one
+aligned nominal substep with a separate predictor-contact/pressure/support
+impulse ledger; no macro, trajectory or timing lane is authorized.
 The [B4C1 research](../../development/nonlocal-nsr3b4c1-pressure-tape-research-2026-08-21.md)
 rejects copying the full multi-term A2 record into pressure-only support
 states. The [B4C1 contract](03b4c1-compact-pressure-tape-contract.md) instead
@@ -1735,3 +1743,8 @@ the remaining dense long-double accepted-trial audit and the missing
 transaction integration of D7R15's proof helpers. Implement the frozen D7R16
 sparse precision transaction next; defer the first aligned nominal substep to
 D7R17 and run no macro, trajectory or timing lane.
+D7R16 then passes and selects `NOMINAL_TRANSACTION_BACKEND_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r16-sparse-precision-transaction-evidence-2026-08-22.md).
+The complete static-bound transaction removes the hidden dense precision path,
+preserves all inherited roots and confirms the separate predictor-contact
+impulse. Research/freeze D7R17 before executing its one nominal substep.
