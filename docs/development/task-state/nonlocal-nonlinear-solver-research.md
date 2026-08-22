@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R2R_PASS_TRUST_RECLOSURE / B4E2D7R3_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R3_PASS_STEP_NORM_TRUST / B4E2D7R4_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -595,6 +595,11 @@
   explicit fallbacks with fixed selection precedence.
 - **Next action:** implement/run B4E2D7R3 twice with zero accepted/public
   steps. Preserve every parent command and shared-host performance stop.
+- **Current conclusion:** B4E2D7R3 passes twice byte-identically and selects
+  step-norm-aware trust. Interpolation gives `alpha_hat=0.42694`; one two-HVP
+  boundary solve is topology-stable and admitted at ratio `0.73044`.
+- **Next action:** research/freeze B4E2D7R4 implementing this update only in a
+  new tiny-inner candidate. Keep raw acceptance, reject cap and old path.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -719,6 +724,7 @@
 | NSR3B4E2D7R2R contract | numerical-zero gate with exact signed bits over unchanged D7R2 | implement/run reclosure only |
 | NSR3B4E2D7R2R PASS | full step too large; topology-stable half step descends with ratio `1.3285` | trust/globalization discriminator research only |
 | NSR3B4E2D7R3 contract | backtrack versus step-norm trust versus legacy first binding | implement/run replay-only policy discriminator |
+| NSR3B4E2D7R3 PASS | step-relative radius yields stable admitted boundary step in two HVPs | tiny inner-policy implementation contract research only |
 
 Candidate solver identity remains:
 

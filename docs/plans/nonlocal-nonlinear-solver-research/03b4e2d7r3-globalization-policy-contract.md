@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R3 -- globalization-policy discriminator contract
 
-Status: `FROZEN / NOT_RUN / REPLAY_ONLY`
+Status: `PASS / STEP_NORM_AWARE_TRUST_SELECTED / REPLAY_ONLY`
 
 Identity projection (exact bytes, no final LF):
 

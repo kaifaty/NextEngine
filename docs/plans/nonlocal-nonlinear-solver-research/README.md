@@ -1540,3 +1540,10 @@ direction line search. Its
 [frozen contract](03b4e2d7r3-globalization-policy-contract.md) compares three
 exact replay lanes with fixed precedence. Implement/run only this discriminator
 next; no candidate may update state.
+B4E2D7R3 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r3-globalization-policy-evidence-2026-08-22.md).
+The step-norm-aware interpolation produces a topology-stable boundary step in
+two HVPs with direct/model ratio `0.73044`; backtrack succeeds but remains the
+fallback, while legacy needs 13 repeated rejects. Research/freeze a new tiny-
+inner implementation contract next. Keep raw acceptance and every old command
+unchanged; outer AL integration remains blocked.
