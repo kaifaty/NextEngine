@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R18R4_FAIL_WORK_LIFECYCLE / NSR3B4E2D7R18R4R1_PASS_RETAINS_SECOND_ITERATION / NSR3B4E2D7R18R4R2_PASS_CONFIRMED / D7R19_RESEARCH_NEXT / D7R19_EXECUTION_BLOCKED / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R18R4_FAIL_WORK_LIFECYCLE / NSR3B4E2D7R18R4R1_PASS_RETAINS_SECOND_ITERATION / NSR3B4E2D7R18R4R2_PASS_CONFIRMED / D7R19_FROZEN / NORMALIZED_NOMINAL_SUBSTEP_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -149,6 +149,16 @@
 - **Current decision:** D7R19 research/freeze is now authorized. Its execution
   remains blocked until a new one-substep contract revalidates the D7R17
   mapping, watchdog, physical admission, resource bounds and rollback.
+- **Current decision:** D7R19 is frozen as a rerun of D7R17's same first
+  aligned Dam substep from frame zero, using scaled `kappa=7,460,505`, the
+  R4R2 normalized transaction and explicit dimensionless forcing. It is not a
+  second substep.
+- **Ledger decision:** normalized support gradients map back to physical
+  impulse by `-(M/dt) sum(gbar_support)`; kinematic pressure maps by
+  `(M/dt) sum(y-yhat)`. D7R17's dimensional `-dt*g` formula must not be reused.
+- **Execution boundary:** retain D7R17's 16-outer/512-HVP/288-workspace/64-
+  precision-audit watchdog, one identity-bound static index, exact rollback
+  and route precedence. No macro, trajectory, timing or publication follows.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -1061,6 +1071,7 @@
 | NSR3B4E2D7R18R4R1 PASS | inherited scale defect confirmed; dimensionless `eta` still retains the second Krylov iteration at a `3.05e15`-ULP separation | research/freeze a separate complete dimensionless-policy transaction; D7R19 blocked |
 | NSR3B4E2D7R18R4R2 contract | explicit dimensionless forcing; dominance proof freezes 39 active / 117 total HVP before implementation | implement/run five rollback-only transactions; D7R19 execution blocked |
 | NSR3B4E2D7R18R4R2 PASS | all roots/precision exact; 57 explicit dimensionless trust solves reproduce the pre-derived 117-HVP ledger | research/freeze D7R19 one-substep contract; execution blocked |
+| NSR3B4E2D7R19 contract | same frame-zero first aligned substep with R4R2 normalized solver, corrected `M/dt` impulse reconstruction and D7R17 watchdog | implement/run one private substep only |
 
 Candidate solver identity remains:
 
@@ -2015,10 +2026,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R18R4R2/R4R1/R4/R3/R2/R1/D7R18/D7R17 and D7R13 exactly.
-   Research/freeze D7R19 as one aligned nominal-substep rerun using the
-   confirmed normalized pairwise-precancelled transaction and explicit
-   dimensionless forcing. Do not execute it before the contract or start a
-   second substep, macro, trajectory or timing lane.
+   Implement/run frozen D7R19 as exactly one private aligned nominal-substep
+   rerun from frame zero with the normalized solver, explicit dimensionless
+   forcing and corrected `M/dt` impulse ledger. Do not start a second substep,
+   macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 
