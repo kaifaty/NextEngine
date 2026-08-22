@@ -1654,3 +1654,11 @@ D7R10 acceptances. Its
 compensated 113-bit signs above 4096 binary128 ULPs, exact pair membership and
 at most 5% candidate error. It explicitly grants no runtime wider precision.
 Implement/run only this offline oracle next.
+D7R11 passes and selects `OFFLINE_ACCEPTED_SIGN_CERTIFICATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r11-binary128-oracle-evidence-2026-08-22.md).
+All three exact candidate acceptances resolve positive at least `3.77e17`
+binary128 ULPs from zero, all pair memberships agree and the maximum divided
+reduction error is `3.23e-5`. Runtime wider precision is not selected. Research
+and freeze D7R12 as a rollback-only complete private-outer integration that
+preserves the pressure-state confirmation gate and audits every new
+candidate-created acceptance before any trajectory or public state exists.

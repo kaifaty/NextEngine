@@ -2,7 +2,7 @@
 
 Date: `2026-08-22`
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / NOT_RUN`
+Status: `CLOSED / PASS / OFFLINE_ACCEPTED_SIGN_CERTIFICATE`
 
 ## Question
 
@@ -80,3 +80,11 @@ stage must audit every newly accepted near-floor step; production integration
 will still need either a derived binary64 certificate, a bounded fallback or
 a justified stationarity/noise floor.
 
+## Closure
+
+D7R11 passes; see the
+[dated evidence](nonlocal-nsr3b4e2d7r11-binary128-oracle-evidence-2026-08-22.md).
+All three reductions resolve positive at least `3.77e17` binary128 ULPs from
+zero, pair membership is exact and the maximum candidate relative error is
+`3.23e-5`. This selects a three-pair offline certificate, not wider runtime
+precision. Proceed only to a rollback-only complete private-outer D7R12.

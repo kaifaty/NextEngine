@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R11 -- binary128 accepted-sign oracle contract
 
-Status: `FROZEN / NOT_RUN / OFFLINE_DIAGNOSTIC_ONLY`
+Status: `CLOSED / PASS / OFFLINE_ACCEPTED_SIGN_CERTIFICATE`
 
 Identity projection (exact bytes, no final LF):
 
@@ -43,3 +43,5 @@ does not authorize runtime binary128, outer integration, a general error
 bound, cap/tolerance, pressure gate, `beta`, kernel, state precision,
 trajectory, performance, GPU/runtime or production use.
 
+Closure evidence:
+[NSR3-B4E2D7R11 binary128 accepted-sign oracle evidence](../../development/nonlocal-nsr3b4e2d7r11-binary128-oracle-evidence-2026-08-22.md).
