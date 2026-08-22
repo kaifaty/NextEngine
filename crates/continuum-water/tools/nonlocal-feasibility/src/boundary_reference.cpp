@@ -46477,6 +46477,42 @@ constexpr const char* B4E2D7R8_IDENTITY_PROJECTION =
     "runs=2-release-builds;2-processes;byte-exact;timing=none|"
     "trajectory=none;trial-acceptance=none;public-commit=none;"
     "physics-mutation=none|credit=one-local-numerical-remedy-research-only";
+constexpr const char* B4E2D7R9_IDENTITY_SHA256 =
+    "c53abac70daab09c9a006d73c79d595eace232e81e30e620a91ba4b30b8fd13a";
+constexpr const char* B4E2D7R9_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r9-divided-difference-discriminator|v1|"
+    "parent="
+    "dd7357db48445a0d68cb88b3a9d7171c069faac2:"
+    "dbdfcf009a44ddaf36cd643d750a0859f93678904a27668a020de9c21a245cac:"
+    "42ce10541b29dd03b589e1e8699436e65cb5a794a45b8644fc040990dd4648b1|"
+    "states=eta1e-8:"
+    "21ad77e22bdba4520ca231bb78d51947a1b67e4263e08dae33af13b0aafabd05;"
+    "eta1e-9:"
+    "075442656934aeed156642091e9fc1ed41bc739513b5710990cdfb231d8aabc2;"
+    "eta1e-10:"
+    "299e4ce372a8a3d418ac6f354c70c362fd772acdf278464fb603a3881527901c|"
+    "oracle=d7r8-resolved-only;11-positive;0-negative;12-unresolved;"
+    "long-double-for-scoring-only|"
+    "candidate=binary64-only;compensated-current-density;"
+    "stable-squared-radius-delta;"
+    "sqrt-delta=delta-r2/(trial-r+current-r);"
+    "piecewise-cubic-kernel-delta;same-segment-factorization;"
+    "cross-segment-knot-telescope;density-delta;"
+    "branch-aware-phr-square-delta;inertia=2d-dot-step+step2;"
+    "compensated-reduction|"
+    "ablations=parent-direct;compensated-absolute;divided-difference|"
+    "gate=all-11-resolved-signs;relative-error<=0.5;"
+    "repair-at-least-one-causative;finite;branch-ledger-exact|"
+    "unresolved=reported-not-scored-not-accepted|"
+    "controls=d7r8-complete-bytes;state-roots;work-acceptance;"
+    "forced-rollback|"
+    "routes=compensated-absolute-candidate;divided-difference-candidate;"
+    "branch-reclosure;stronger-arithmetic|"
+    "precedence=absolute,divided,branch,stronger|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|"
+    "trajectory=none;trial-acceptance=none;public-commit=none;"
+    "physics-mutation=none|"
+    "credit=one-binary64-actual-reduction-candidate-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -50841,6 +50877,331 @@ LongDoubleTrialEnergyAudit audit_al_vector_inner_long_double(
     return result;
 }
 
+struct Binary64CompensatedAccumulator {
+    double sum = 0.0;
+    double correction = 0.0;
+
+    void add(double value) {
+        const double next = sum + value;
+        correction += std::abs(sum) >= std::abs(value)
+            ? (sum - next) + value
+            : (value - next) + sum;
+        sum = next;
+    }
+
+    double value() const {
+        return sum + correction;
+    }
+};
+
+double al_binary64_squared_norm_delta(Vec3 current, Vec3 step) {
+    Binary64CompensatedAccumulator result;
+    result.add(2.0 * current.x * step.x);
+    result.add(step.x * step.x);
+    result.add(2.0 * current.y * step.y);
+    result.add(step.y * step.y);
+    result.add(2.0 * current.z * step.z);
+    result.add(step.z * step.z);
+    return result.value();
+}
+
+int al_binary64_kernel_segment(double radius) {
+    if (radius > HORIZON) {
+        return 2;
+    }
+    return radius >= 0.5 * HORIZON ? 1 : 0;
+}
+
+double al_binary64_kernel_shape_segment_delta(
+    int segment, double q, double delta_q) {
+    if (segment == 0) {
+        return delta_q * (
+            -(2.0 * q + delta_q)
+            + 0.5 * (3.0 * q * q + 3.0 * q * delta_q
+                + delta_q * delta_q));
+    }
+    if (segment == 1) {
+        const double current = 2.0 - q;
+        const double delta = -delta_q;
+        return delta * (3.0 * current * current
+            + 3.0 * current * delta + delta * delta) / 6.0;
+    }
+    return 0.0;
+}
+
+struct Binary64KernelDelta {
+    bool finite_values = false;
+    double value = 0.0;
+    double radius_delta = 0.0;
+    int current_segment = 0;
+    int trial_segment = 0;
+};
+
+Binary64KernelDelta al_binary64_kernel_delta(
+    Vec3 current_displacement,
+    Vec3 trial_displacement,
+    Vec3 representable_step) {
+    Binary64KernelDelta result;
+    const double current_radius = norm(current_displacement);
+    const double trial_radius = norm(trial_displacement);
+    const double squared_delta = al_binary64_squared_norm_delta(
+        current_displacement, representable_step);
+    const double radius_sum = current_radius + trial_radius;
+    result.radius_delta = radius_sum > 0.0
+        ? squared_delta / radius_sum : 0.0;
+    result.current_segment = al_binary64_kernel_segment(current_radius);
+    result.trial_segment = al_binary64_kernel_segment(trial_radius);
+    const double current_q = 2.0 * current_radius / HORIZON;
+    double remaining = 2.0 * result.radius_delta / HORIZON;
+    double q = current_q;
+    int segment = result.current_segment;
+    double shape_delta = 0.0;
+    if (segment == result.trial_segment) {
+        shape_delta = al_binary64_kernel_shape_segment_delta(
+            segment, q, remaining);
+    } else if (remaining > 0.0) {
+        while (segment < result.trial_segment) {
+            const double knot = segment == 0 ? 1.0 : 2.0;
+            const double piece = knot - q;
+            shape_delta += al_binary64_kernel_shape_segment_delta(
+                segment, q, piece);
+            remaining -= piece;
+            q = knot;
+            ++segment;
+        }
+        shape_delta += al_binary64_kernel_shape_segment_delta(
+            segment, q, remaining);
+    } else {
+        while (segment > result.trial_segment) {
+            const double knot = segment == 2 ? 2.0 : 1.0;
+            const double piece = knot - q;
+            shape_delta += al_binary64_kernel_shape_segment_delta(
+                segment, q, piece);
+            remaining -= piece;
+            q = knot;
+            --segment;
+        }
+        shape_delta += al_binary64_kernel_shape_segment_delta(
+            segment, q, remaining);
+    }
+    const double alpha = 3.0
+        / (2.0 * PI * HORIZON * HORIZON * HORIZON);
+    result.value = kernel_scale() * alpha * shape_delta;
+    result.finite_values = std::isfinite(current_radius)
+        && std::isfinite(trial_radius) && std::isfinite(squared_delta)
+        && std::isfinite(result.radius_delta)
+        && std::isfinite(result.value);
+    return result;
+}
+
+struct Binary64CompensatedEnergy {
+    bool finite_values = false;
+    double total = 0.0;
+    double phr = 0.0;
+    double inertia = 0.0;
+};
+
+Binary64CompensatedEnergy evaluate_al_vector_inner_compensated_binary64(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier) {
+    Binary64CompensatedEnergy result;
+    if (position.size() != predicted.size()
+        || position.size() != multiplier.size()) {
+        return result;
+    }
+    std::vector<Binary64CompensatedAccumulator> density(position.size());
+    for (Binary64CompensatedAccumulator& value : density) {
+        value.add(MASS * weight(0.0));
+    }
+    for (std::size_t i = 0U; i < position.size(); ++i) {
+        for (std::size_t j = i + 1U; j < position.size(); ++j) {
+            const double radius = norm(position[i] - position[j]);
+            if (radius <= HORIZON) {
+                const double contribution = MASS * weight(radius);
+                density[i].add(contribution);
+                density[j].add(contribution);
+            }
+        }
+        for (Vec3 support : boundary) {
+            const double radius = norm(position[i] - support);
+            if (radius <= HORIZON) {
+                density[i].add(MASS * weight(radius));
+            }
+        }
+    }
+    Binary64CompensatedAccumulator phr;
+    Binary64CompensatedAccumulator inertia;
+    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    for (std::size_t center = 0U; center < position.size(); ++center) {
+        const double constraint =
+            density[center].value() / REST_DENSITY - 1.0;
+        const double active = std::max(
+            0.0, multiplier[center] + KAPPA * constraint);
+        phr.add((active * active
+            - multiplier[center] * multiplier[center]) / (2.0 * KAPPA));
+        const Vec3 displacement = position[center] - predicted[center];
+        inertia.add(0.5 * inertia_scale * norm_squared(displacement));
+    }
+    result.phr = phr.value();
+    result.inertia = inertia.value();
+    Binary64CompensatedAccumulator total;
+    total.add(result.phr);
+    total.add(result.inertia);
+    result.total = total.value();
+    result.finite_values = std::isfinite(result.total)
+        && std::isfinite(result.phr) && std::isfinite(result.inertia)
+        && std::all_of(density.begin(), density.end(),
+            [](const Binary64CompensatedAccumulator& value) {
+                return std::isfinite(value.value());
+            });
+    return result;
+}
+
+struct Binary64DividedDifference {
+    bool finite_values = false;
+    double reduction = 0.0;
+    double phr_reduction = 0.0;
+    double inertia_reduction = 0.0;
+    std::size_t support_crossings = 0U;
+    std::size_t kernel_segment_crossings = 0U;
+    std::size_t phr_branch_crossings = 0U;
+};
+
+Binary64DividedDifference evaluate_al_vector_inner_divided_difference(
+    const std::vector<Vec3>& current_position,
+    const std::vector<Vec3>& trial_position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier) {
+    Binary64DividedDifference result;
+    if (current_position.size() != trial_position.size()
+        || current_position.size() != predicted.size()
+        || current_position.size() != multiplier.size()) {
+        return result;
+    }
+    const std::size_t count = current_position.size();
+    std::vector<Vec3> step(count);
+    for (std::size_t center = 0U; center < count; ++center) {
+        step[center] = trial_position[center] - current_position[center];
+    }
+    std::vector<Binary64CompensatedAccumulator> current_density(count);
+    std::vector<Binary64CompensatedAccumulator> density_delta(count);
+    for (Binary64CompensatedAccumulator& value : current_density) {
+        value.add(MASS * weight(0.0));
+    }
+    bool pair_finite = true;
+    const auto fold_pair = [&](std::size_t center,
+                               std::size_t other,
+                               Vec3 current_displacement,
+                               Vec3 trial_displacement,
+                               Vec3 pair_step,
+                               bool symmetric) {
+        const double current_radius = norm(current_displacement);
+        const double trial_radius = norm(trial_displacement);
+        if (current_radius <= HORIZON) {
+            current_density[center].add(MASS * weight(current_radius));
+            if (symmetric) {
+                current_density[other].add(MASS * weight(current_radius));
+            }
+        }
+        const Binary64KernelDelta delta = al_binary64_kernel_delta(
+            current_displacement, trial_displacement, pair_step);
+        pair_finite = pair_finite && delta.finite_values;
+        const double contribution = MASS * delta.value;
+        density_delta[center].add(contribution);
+        if (symmetric) {
+            density_delta[other].add(contribution);
+        }
+        result.support_crossings +=
+            (current_radius <= HORIZON) != (trial_radius <= HORIZON)
+            ? 1U : 0U;
+        result.kernel_segment_crossings +=
+            delta.current_segment != delta.trial_segment ? 1U : 0U;
+    };
+    for (std::size_t i = 0U; i < count; ++i) {
+        for (std::size_t j = i + 1U; j < count; ++j) {
+            fold_pair(i, j,
+                current_position[i] - current_position[j],
+                trial_position[i] - trial_position[j],
+                step[i] - step[j], true);
+        }
+        for (std::size_t support = 0U;
+             support < boundary.size(); ++support) {
+            fold_pair(i, 0U,
+                current_position[i] - boundary[support],
+                trial_position[i] - boundary[support],
+                step[i], false);
+        }
+    }
+    Binary64CompensatedAccumulator phr_reduction;
+    Binary64CompensatedAccumulator inertia_reduction;
+    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    for (std::size_t center = 0U; center < count; ++center) {
+        const double current_constraint =
+            current_density[center].value() / REST_DENSITY - 1.0;
+        const double constraint_delta =
+            density_delta[center].value() / REST_DENSITY;
+        const double current_unclamped = multiplier[center]
+            + KAPPA * current_constraint;
+        const double active_delta = KAPPA * constraint_delta;
+        const double trial_unclamped = current_unclamped + active_delta;
+        const bool current_active = current_unclamped > 0.0;
+        const bool trial_active = trial_unclamped > 0.0;
+        result.phr_branch_crossings +=
+            current_active != trial_active ? 1U : 0U;
+        double active_square_delta = 0.0;
+        if (current_active && trial_active) {
+            active_square_delta = active_delta
+                * (2.0 * current_unclamped + active_delta);
+        } else if (current_active) {
+            active_square_delta = -current_unclamped * current_unclamped;
+        } else if (trial_active) {
+            active_square_delta = trial_unclamped * trial_unclamped;
+        }
+        phr_reduction.add(-active_square_delta / (2.0 * KAPPA));
+        const Vec3 displacement =
+            current_position[center] - predicted[center];
+        const double norm_squared_delta =
+            al_binary64_squared_norm_delta(displacement, step[center]);
+        inertia_reduction.add(-0.5 * inertia_scale * norm_squared_delta);
+    }
+    result.phr_reduction = phr_reduction.value();
+    result.inertia_reduction = inertia_reduction.value();
+    Binary64CompensatedAccumulator reduction;
+    reduction.add(result.phr_reduction);
+    reduction.add(result.inertia_reduction);
+    result.reduction = reduction.value();
+    result.finite_values = pair_finite
+        && std::isfinite(result.reduction)
+        && std::isfinite(result.phr_reduction)
+        && std::isfinite(result.inertia_reduction)
+        && std::all_of(current_density.begin(), current_density.end(),
+            [](const Binary64CompensatedAccumulator& value) {
+                return std::isfinite(value.value());
+            })
+        && std::all_of(density_delta.begin(), density_delta.end(),
+            [](const Binary64CompensatedAccumulator& value) {
+                return std::isfinite(value.value());
+            });
+    return result;
+}
+
+bool al_binary64_divided_difference_exact(
+    const Binary64DividedDifference& lhs,
+    const Binary64DividedDifference& rhs) {
+    return lhs.finite_values == rhs.finite_values
+        && binary64_bits(lhs.reduction) == binary64_bits(rhs.reduction)
+        && binary64_bits(lhs.phr_reduction)
+            == binary64_bits(rhs.phr_reduction)
+        && binary64_bits(lhs.inertia_reduction)
+            == binary64_bits(rhs.inertia_reduction)
+        && lhs.support_crossings == rhs.support_crossings
+        && lhs.kernel_segment_crossings == rhs.kernel_segment_crossings
+        && lhs.phr_branch_crossings == rhs.phr_branch_crossings;
+}
+
 } // namespace
 
 SplitBoundaryReport run_al_dense_vector_oracle_controls() {
@@ -53989,6 +54350,419 @@ SplitBoundaryReport run_al_extended_precision_energy_discriminator_controls() {
            << (passed ? "true" : "false")
            << ",\"long_double_production_authorized\":false"
            << ",\"formula_change_authorized\":false"
+           << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
+    constexpr std::array<double, 5> stationarity_limits{
+        1.0e-8, 1.0e-9, 1.0e-10, 1.0e-11, 1.0e-12};
+    constexpr std::array<std::size_t, 3> unique_lane_indices{0U, 1U, 2U};
+    constexpr std::array<const char*, 3> expected_state_roots{
+        "21ad77e22bdba4520ca231bb78d51947a1b67e4263e08dae33af13b0aafabd05",
+        "075442656934aeed156642091e9fc1ed41bc739513b5710990cdfb231d8aabc2",
+        "299e4ce372a8a3d418ac6f354c70c362fd772acdf278464fb603a3881527901c"};
+    const bool identity_exact = sha256_hex(B4E2D7R9_IDENTITY_PROJECTION)
+        == B4E2D7R9_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_extended_precision_energy_discriminator_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "42ce10541b29dd03b589e1e8699436e65cb5a794a45b8644fc040990dd4648b1";
+    const bool binary64_profile_exact = sizeof(double) == 8U
+        && std::numeric_limits<double>::is_iec559
+        && std::numeric_limits<double>::radix == 2
+        && std::numeric_limits<double>::digits == 53;
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALStepNormPrivateOuterSolve d7r5 =
+        solve_al_step_norm_private_outer(
+            fixture, active_prediction, active_prediction, zero_multiplier);
+    std::array<ALCapAccuracyLane, stationarity_limits.size()> lanes;
+    if (d7r5.records.size() >= 8U) {
+        for (std::size_t index = 0U; index < lanes.size(); ++index) {
+            lanes[index] = solve_al_cap_accuracy_lane(
+                fixture, active_prediction, d7r5.prefix_position,
+                d7r5.prefix_multiplier, d7r5.records[7],
+                stationarity_limits[index]);
+        }
+    }
+    std::array<std::string, unique_lane_indices.size()> state_roots;
+    bool state_roots_exact = true;
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        const ALCapAccuracyLane& lane = lanes[unique_lane_indices[unique]];
+        state_roots[unique] = al_vector_stable_state_root(
+            unique == 0U ? "d7r7-pre-failure-eta1e-8"
+                : (unique == 1U ? "d7r7-pre-failure-eta1e-9"
+                    : "d7r7-pre-failure-eta1e-10"),
+            lane.position, lane.multiplier);
+        state_roots_exact = state_roots_exact
+            && state_roots[unique] == expected_state_roots[unique];
+    }
+    const auto lane_exact = [](const ALCapAccuracyLane& lhs,
+                               const ALCapAccuracyLane& rhs) {
+        if (!exact_vec3_values(lhs.position, rhs.position)
+            || !exact_al_multiplier(lhs.multiplier, rhs.multiplier)
+            || lhs.failed_inner_trials.size()
+                != rhs.failed_inner_trials.size()) {
+            return false;
+        }
+        for (std::size_t index = 0U;
+             index < lhs.failed_inner_trials.size(); ++index) {
+            if (!al_step_norm_inner_trial_exact(
+                    lhs.failed_inner_trials[index],
+                    rhs.failed_inner_trials[index])) {
+                return false;
+            }
+        }
+        return true;
+    };
+    const bool common_tight_state_exact = lane_exact(lanes[2], lanes[3])
+        && lane_exact(lanes[2], lanes[4]);
+
+    struct TrialAudit {
+        LongDoubleTrialEnergyAudit oracle;
+        Binary64CompensatedEnergy absolute_current;
+        Binary64CompensatedEnergy absolute_trial;
+        Binary64DividedDifference divided;
+        double absolute_reduction = 0.0;
+        long double absolute_relative_error = 0.0L;
+        long double divided_relative_error = 0.0L;
+        bool scored = false;
+        bool absolute_pass = false;
+        bool divided_pass = false;
+        bool repeat_exact = false;
+    };
+    std::array<std::vector<TrialAudit>, unique_lane_indices.size()> audits;
+    bool all_finite = true;
+    bool branch_ledger_exact = true;
+    bool work_acceptance_exact = true;
+    int accepted_replay_trials = 0;
+    int resolved_positive = 0;
+    int resolved_negative = 0;
+    int unresolved = 0;
+    int scored = 0;
+    bool absolute_all_scored = true;
+    bool divided_all_scored = true;
+    bool absolute_repaired = false;
+    bool divided_repaired = false;
+    bool any_divided_mismatch = false;
+    bool every_divided_mismatch_crosses_branch = true;
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        const ALCapAccuracyLane& lane = lanes[unique_lane_indices[unique]];
+        audits[unique].reserve(lane.failed_inner_trials.size());
+        for (const ALStepNormInnerTrial& trial : lane.failed_inner_trials) {
+            const bool unchanged_decision = trial.finite_values
+                && trial.predicted_reduction > 0.0
+                && trial.raw_actual_reduction > 0.0
+                && trial.raw_ratio >= 0.1;
+            work_acceptance_exact = work_acceptance_exact
+                && trial.accepted == unchanged_decision
+                && trial.current_position.size() == active_prediction.size()
+                && trial.trial_position.size() == active_prediction.size();
+            accepted_replay_trials += trial.accepted ? 1 : 0;
+
+            TrialAudit audit;
+            audit.oracle = audit_al_vector_inner_long_double(
+                trial, active_prediction, fixture.boundary,
+                lane.multiplier);
+            audit.absolute_current =
+                evaluate_al_vector_inner_compensated_binary64(
+                    trial.current_position, active_prediction,
+                    fixture.boundary, lane.multiplier);
+            audit.absolute_trial =
+                evaluate_al_vector_inner_compensated_binary64(
+                    trial.trial_position, active_prediction,
+                    fixture.boundary, lane.multiplier);
+            audit.absolute_reduction = audit.absolute_current.total
+                - audit.absolute_trial.total;
+            audit.divided = evaluate_al_vector_inner_divided_difference(
+                trial.current_position, trial.trial_position,
+                active_prediction, fixture.boundary, lane.multiplier);
+            const Binary64CompensatedEnergy absolute_current_repeat =
+                evaluate_al_vector_inner_compensated_binary64(
+                    trial.current_position, active_prediction,
+                    fixture.boundary, lane.multiplier);
+            const Binary64CompensatedEnergy absolute_trial_repeat =
+                evaluate_al_vector_inner_compensated_binary64(
+                    trial.trial_position, active_prediction,
+                    fixture.boundary, lane.multiplier);
+            const Binary64DividedDifference divided_repeat =
+                evaluate_al_vector_inner_divided_difference(
+                    trial.current_position, trial.trial_position,
+                    active_prediction, fixture.boundary, lane.multiplier);
+            audit.repeat_exact =
+                binary64_bits(audit.absolute_current.total)
+                    == binary64_bits(absolute_current_repeat.total)
+                && binary64_bits(audit.absolute_current.phr)
+                    == binary64_bits(absolute_current_repeat.phr)
+                && binary64_bits(audit.absolute_current.inertia)
+                    == binary64_bits(absolute_current_repeat.inertia)
+                && binary64_bits(audit.absolute_trial.total)
+                    == binary64_bits(absolute_trial_repeat.total)
+                && binary64_bits(audit.absolute_trial.phr)
+                    == binary64_bits(absolute_trial_repeat.phr)
+                && binary64_bits(audit.absolute_trial.inertia)
+                    == binary64_bits(absolute_trial_repeat.inertia)
+                && al_binary64_divided_difference_exact(
+                    audit.divided, divided_repeat);
+            branch_ledger_exact = branch_ledger_exact && audit.repeat_exact
+                && audit.divided.phr_branch_crossings == 0U;
+            all_finite = all_finite && audit.oracle.finite_values
+                && audit.absolute_current.finite_values
+                && audit.absolute_trial.finite_values
+                && audit.divided.finite_values
+                && std::isfinite(audit.absolute_reduction);
+
+            resolved_positive += audit.oracle.resolved_positive ? 1 : 0;
+            resolved_negative += audit.oracle.resolved_negative ? 1 : 0;
+            unresolved += audit.oracle.resolved ? 0 : 1;
+            audit.scored = audit.oracle.resolved;
+            if (audit.scored) {
+                ++scored;
+                const long double oracle =
+                    audit.oracle.compensated_reduction;
+                const auto score = [oracle](double candidate,
+                                            long double& relative_error) {
+                    relative_error = std::abs(
+                        static_cast<long double>(candidate) - oracle)
+                        / std::abs(oracle);
+                    const bool sign_exact =
+                        (candidate > 0.0 && oracle > 0.0L)
+                        || (candidate < 0.0 && oracle < 0.0L);
+                    return sign_exact && relative_error <= 0.5L;
+                };
+                audit.absolute_pass = score(
+                    audit.absolute_reduction,
+                    audit.absolute_relative_error);
+                audit.divided_pass = score(
+                    audit.divided.reduction,
+                    audit.divided_relative_error);
+                absolute_all_scored = absolute_all_scored
+                    && audit.absolute_pass;
+                divided_all_scored = divided_all_scored
+                    && audit.divided_pass;
+                const bool causative = trial.predicted_reduction > 0.0
+                    && trial.direct_actual_reduction < 0.0;
+                absolute_repaired = absolute_repaired
+                    || (causative && audit.absolute_pass);
+                divided_repaired = divided_repaired
+                    || (causative && audit.divided_pass);
+                if (!audit.divided_pass) {
+                    any_divided_mismatch = true;
+                    every_divided_mismatch_crosses_branch =
+                        every_divided_mismatch_crosses_branch
+                        && (audit.divided.support_crossings != 0U
+                            || audit.divided.kernel_segment_crossings != 0U
+                            || audit.divided.phr_branch_crossings != 0U);
+                }
+            }
+            audits[unique].push_back(std::move(audit));
+        }
+    }
+    const bool oracle_ledger_exact = resolved_positive == 11
+        && resolved_negative == 0 && unresolved == 12 && scored == 11;
+    const bool zero_acceptance_exact = accepted_replay_trials == 0;
+    const bool absolute_candidate_pass = oracle_ledger_exact
+        && absolute_all_scored && absolute_repaired;
+    const bool divided_candidate_pass = oracle_ledger_exact
+        && divided_all_scored && divided_repaired;
+    const bool branch_reclosure = !absolute_candidate_pass
+        && !divided_candidate_pass && any_divided_mismatch
+        && every_divided_mismatch_crosses_branch;
+
+    const std::vector<Vec3> public_position = active_prediction;
+    const std::vector<double> public_multiplier = zero_multiplier;
+    const std::string prior_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const std::string forced_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const bool rollback_exact = prior_public_root == forced_public_root
+        && exact_vec3_values(public_position, active_prediction)
+        && exact_al_multiplier(public_multiplier, zero_multiplier)
+        && state_roots_exact;
+
+    std::string route;
+    if (identity_exact && parent_exact && binary64_profile_exact
+        && state_roots_exact && common_tight_state_exact
+        && oracle_ledger_exact && all_finite && branch_ledger_exact
+        && work_acceptance_exact && zero_acceptance_exact
+        && rollback_exact) {
+        if (absolute_candidate_pass) {
+            route = "COMPENSATED_ABSOLUTE_REDUCTION_CANDIDATE";
+        } else if (divided_candidate_pass) {
+            route = "DIVIDED_DIFFERENCE_REDUCTION_CANDIDATE";
+        } else if (branch_reclosure) {
+            route = "BRANCH_RECLOSURE_REQUIRED";
+        } else {
+            route = "STRONGER_ARITHMETIC_REQUIRED";
+        }
+    }
+    const bool route_precedence_exact =
+        (absolute_candidate_pass
+            && route == "COMPENSATED_ABSOLUTE_REDUCTION_CANDIDATE")
+        || (!absolute_candidate_pass && divided_candidate_pass
+            && route == "DIVIDED_DIFFERENCE_REDUCTION_CANDIDATE")
+        || (!absolute_candidate_pass && !divided_candidate_pass
+            && branch_reclosure && route == "BRANCH_RECLOSURE_REQUIRED")
+        || (!absolute_candidate_pass && !divided_candidate_pass
+            && !branch_reclosure && route == "STRONGER_ARITHMETIC_REQUIRED");
+    const bool passed = !route.empty() && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R8_PARENT_BYTES";
+    else if (!binary64_profile_exact) first_failure = "BINARY64_PROFILE";
+    else if (!state_roots_exact) first_failure = "STATE_ROOTS";
+    else if (!common_tight_state_exact)
+        first_failure = "COMMON_TIGHT_STATE";
+    else if (!oracle_ledger_exact) first_failure = "ORACLE_LEDGER";
+    else if (!all_finite) first_failure = "NONFINITE";
+    else if (!branch_ledger_exact) first_failure = "BRANCH_LEDGER";
+    else if (!work_acceptance_exact) first_failure = "WORK_ACCEPTANCE";
+    else if (!zero_acceptance_exact) first_failure = "REPLAY_ACCEPTANCE";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<long double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R9_IDENTITY_SHA256 << '|' << parent_stdout_sha256
+             << '|' << binary64_profile_exact << '|';
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        semantic << stationarity_limits[unique_lane_indices[unique]] << ':'
+                 << state_roots[unique] << '[';
+        const ALCapAccuracyLane& lane = lanes[unique_lane_indices[unique]];
+        for (std::size_t index = 0U; index < audits[unique].size(); ++index) {
+            const ALStepNormInnerTrial& trial = lane.failed_inner_trials[index];
+            const TrialAudit& audit = audits[unique][index];
+            semantic << trial.trial << ':'
+                     << trial.direct_actual_reduction << ':'
+                     << audit.oracle.compensated_reduction << ':'
+                     << audit.oracle.resolved << ':'
+                     << audit.absolute_reduction << ':'
+                     << audit.divided.reduction << ':'
+                     << audit.divided.phr_reduction << ':'
+                     << audit.divided.inertia_reduction << ':'
+                     << audit.absolute_relative_error << ':'
+                     << audit.divided_relative_error << ':'
+                     << audit.absolute_pass << ':' << audit.divided_pass
+                     << ':' << audit.divided.support_crossings << ':'
+                     << audit.divided.kernel_segment_crossings << ':'
+                     << audit.divided.phr_branch_crossings << ':'
+                     << audit.repeat_exact << ';';
+        }
+        semantic << "]|";
+    }
+    semantic << absolute_candidate_pass << ':' << divided_candidate_pass
+             << ':' << branch_reclosure << ':' << rollback_exact << '|'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<long double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r9_divided_difference_discriminator.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R9_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"binary64_profile_exact\":"
+           << (binary64_profile_exact ? "true" : "false")
+           << ",\"common_tight_state_exact\":"
+           << (common_tight_state_exact ? "true" : "false")
+           << ",\"oracle_ledger\":{\"resolved_positive\":"
+           << resolved_positive << ",\"resolved_negative\":"
+           << resolved_negative << ",\"unresolved\":" << unresolved
+           << ",\"scored\":" << scored << ",\"exact\":"
+           << (oracle_ledger_exact ? "true" : "false") << '}'
+           << ",\"replays\":[";
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        if (unique != 0U) report << ',';
+        const std::size_t lane_index = unique_lane_indices[unique];
+        const ALCapAccuracyLane& lane = lanes[lane_index];
+        report << "{\"eta\":" << stationarity_limits[lane_index]
+               << ",\"state_root\":\"" << state_roots[unique]
+               << "\",\"trials\":[";
+        for (std::size_t index = 0U; index < audits[unique].size(); ++index) {
+            if (index != 0U) report << ',';
+            const ALStepNormInnerTrial& trial = lane.failed_inner_trials[index];
+            const TrialAudit& audit = audits[unique][index];
+            report << "{\"trial\":" << trial.trial
+                   << ",\"parent_direct\":"
+                   << trial.direct_actual_reduction
+                   << ",\"oracle\":{\"compensated_reduction\":"
+                   << audit.oracle.compensated_reduction
+                   << ",\"resolved\":"
+                   << (audit.oracle.resolved ? "true" : "false") << '}'
+                   << ",\"absolute\":{\"current_total\":"
+                   << audit.absolute_current.total
+                   << ",\"trial_total\":" << audit.absolute_trial.total
+                   << ",\"reduction\":" << audit.absolute_reduction
+                   << ",\"relative_error\":"
+                   << audit.absolute_relative_error << ",\"pass\":"
+                   << (audit.absolute_pass ? "true" : "false") << '}'
+                   << ",\"divided\":{\"reduction\":"
+                   << audit.divided.reduction << ",\"phr_reduction\":"
+                   << audit.divided.phr_reduction
+                   << ",\"inertia_reduction\":"
+                   << audit.divided.inertia_reduction
+                   << ",\"relative_error\":"
+                   << audit.divided_relative_error
+                   << ",\"support_crossings\":"
+                   << audit.divided.support_crossings
+                   << ",\"kernel_segment_crossings\":"
+                   << audit.divided.kernel_segment_crossings
+                   << ",\"phr_branch_crossings\":"
+                   << audit.divided.phr_branch_crossings
+                   << ",\"pass\":"
+                   << (audit.divided_pass ? "true" : "false") << '}'
+                   << ",\"scored\":"
+                   << (audit.scored ? "true" : "false")
+                   << ",\"repeat_exact\":"
+                   << (audit.repeat_exact ? "true" : "false") << '}';
+        }
+        report << "]}";
+    }
+    report << "],\"classification\":{\"absolute_candidate_pass\":"
+           << (absolute_candidate_pass ? "true" : "false")
+           << ",\"divided_candidate_pass\":"
+           << (divided_candidate_pass ? "true" : "false")
+           << ",\"branch_reclosure\":"
+           << (branch_reclosure ? "true" : "false") << '}'
+           << ",\"controls\":{\"branch_ledger_exact\":"
+           << (branch_ledger_exact ? "true" : "false")
+           << ",\"work_acceptance_exact\":"
+           << (work_acceptance_exact ? "true" : "false")
+           << ",\"accepted_replay_trials\":" << accepted_replay_trials
+           << ",\"prior_public_root\":\"" << prior_public_root
+           << "\",\"forced_public_root\":\"" << forced_public_root
+           << "\",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false") << '}'
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"trajectory_steps\":0,\"public_commit_count\":0"
+           << ",\"trial_acceptance_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"binary64_reduction_candidate_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"formula_integration_authorized\":false"
            << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
