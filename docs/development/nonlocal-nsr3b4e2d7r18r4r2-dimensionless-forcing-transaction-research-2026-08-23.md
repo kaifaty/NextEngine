@@ -2,7 +2,7 @@
 
 Date: `2026-08-23`
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_NEXT`
+Status: `CLOSED / PASS / FULL_NORMALIZED_DIMENSIONLESS_FORCING_STATE_CONFIRMED`
 
 ## Question
 
@@ -121,3 +121,9 @@ Freeze R4R2 as five complete rollback-only transactions whose only solver
 change from R4 is explicit dimensionless Krylov forcing. A confirmed result
 may authorize research and contract design for D7R19; it does not authorize a
 nominal substep or production integration.
+
+R4R2 subsequently passes and selects
+`FULL_NORMALIZED_DIMENSIONLESS_FORCING_STATE_CONFIRMED`; see the
+[dated evidence](nonlocal-nsr3b4e2d7r18r4r2-dimensionless-forcing-transaction-evidence-2026-08-23.md).
+Every root, precision fact and the pre-derived 117-HVP ledger closes exactly.
+D7R19 research is authorized; execution remains blocked pending its contract.

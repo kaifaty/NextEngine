@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R18R4R2 -- dimensionless-forcing transaction contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / D7R19_EXECUTION_BLOCKED`
+Status: `CLOSED / PASS / FULL_NORMALIZED_DIMENSIONLESS_FORCING_STATE_CONFIRMED / D7R19_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
