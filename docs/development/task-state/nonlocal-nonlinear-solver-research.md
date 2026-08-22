@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10PCI_FROZEN / PARTITIONED_PLAN_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP10PCI_FAIL_PERFORMANCE / CURRENT_TOPOLOGY_PLAN_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -881,6 +881,17 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   changing the canonical energy fold, or promoting the builder to a default
   or runtime path before exact A/B gates pass.
 
+### D-042 -- Reject partitioned plan as selected fast path
+
+- **Observation:** the exact partitioned builder wins `3/3`, but median paired
+  speedup is `1.033650x`; median user/system CPU increase by 2.06/0.63 seconds.
+- **Decision:** retain B4EP10I. Research a current-topology reverse plan that
+  can be produced with topology compaction and masks compression during
+  gathers, avoiding both superset expansion and five per-plan build regions.
+- **Rejected:** lowering the 5% gate, selecting from wall wins alone, or
+  returning immediately to generic persistent-team work after B4EP10R1 found
+  low orchestration cost on the selected path.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -929,10 +940,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen B4EP10PCI opt-in candidate command without constructing
-   the serial or masked plans.
-2. Verify exact work and old-command bytes, then run one warmup each and three
-   serialized balanced Release pairs against B4EP10I worker-8.
+1. Audit whether a compression-independent reverse plan over each current
+   topology is an exact ordered superset of every active evaluation/HVP gather.
+2. Freeze its construction ownership, scan expansion, capacity and negative
+   gates before any candidate implementation or timing.
 
 ## Reconsideration triggers
 

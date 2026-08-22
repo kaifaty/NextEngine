@@ -1,6 +1,6 @@
 # NSR3-B4EP10PCI -- partitioned active-plan implementation/A-B contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / FAIL_PERFORMANCE / ACTIVE_PLAN_RETAINED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -74,3 +74,11 @@ Any functional failure rejects the implementation. A performance-gate failure
 retains B4EP10PCD structural evidence but keeps B4EP10I's serial active plan
 as selected execution. B4E2, broad corpus, runtime/GPU/schema and production
 remain blocked.
+
+## Closure
+
+B4EP10PCI fails its performance gate; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10pci-partitioned-plan-evidence-2026-08-22.md).
+The candidate is exact, wins all three pairs and is stable, but median paired
+speedup is only `1.033650x` versus the frozen `1.05x`. B4EP10I remains the
+selected execution path.
