@@ -64922,6 +64922,7 @@ struct ALNormalizedPrivateTrial {
     bool finite_values = false;
     bool divided_repeat_exact = false;
     bool raw_would_accept = false;
+    bool inherited_would_accept = false;
     bool candidate_accepted = false;
     bool candidate_effect = false;
     bool negative_curvature = false;
@@ -65194,6 +65195,178 @@ std::string al_normalized_private_inner_root(
     return sha256_hex(projection.str());
 }
 
+struct ALNormalizedPrecancellationDivided {
+    ALNormalizedDivided value;
+    std::size_t union_visits = 0U;
+    std::size_t current_members = 0U;
+    std::size_t trial_members = 0U;
+    std::size_t support_crossings = 0U;
+    std::size_t kernel_segment_crossings = 0U;
+    std::size_t phr_branch_crossings = 0U;
+};
+
+ALNormalizedPrecancellationDivided
+evaluate_al_normalized_sparse_precancelled_divided(
+    const ALNormalizedWorkspace& current,
+    const ALNormalizedWorkspace& trial,
+    const std::vector<Vec3>& predicted,
+    const std::vector<double>& u,
+    double theta,
+    ALSparseWorkTrace* work = nullptr) {
+    ALNormalizedPrecancellationDivided result;
+    const std::size_t count = current.neighborhood.fluid.size();
+    if (!current.passed || !trial.passed
+        || trial.neighborhood.fluid.size() != count
+        || current.neighborhood.support.size()
+            != trial.neighborhood.support.size()
+        || predicted.size() != count || u.size() != count
+        || !al_normalized_inputs_valid(theta, u)
+        || binary64_bits(current.theta) != binary64_bits(theta)
+        || binary64_bits(trial.theta) != binary64_bits(theta)
+        || !exact_joint_points(current.neighborhood.support,
+            trial.neighborhood.support)) {
+        return result;
+    }
+
+    std::vector<Vec3> step(count);
+    for (std::size_t center = 0U; center < count; ++center) {
+        step[center] = trial.neighborhood.fluid[center].position
+            - current.neighborhood.fluid[center].position;
+    }
+    std::vector<Binary64CompensatedAccumulator> current_density(count);
+    std::vector<Binary64CompensatedAccumulator> density_delta(count);
+    for (Binary64CompensatedAccumulator& value : current_density) {
+        value.add(MASS * weight(0.0));
+    }
+
+    const std::vector<JointPair>& current_pairs =
+        current.neighborhood.pairs;
+    const std::vector<JointPair>& trial_pairs = trial.neighborhood.pairs;
+    std::size_t current_index = 0U;
+    std::size_t trial_index = 0U;
+    bool pair_finite = true;
+    while (current_index < current_pairs.size()
+        || trial_index < trial_pairs.size()) {
+        const bool have_current = current_index < current_pairs.size();
+        const bool have_trial = trial_index < trial_pairs.size();
+        const bool current_before = have_current
+            && (!have_trial || al_joint_pair_less(
+                current_pairs[current_index], trial_pairs[trial_index]));
+        const bool trial_before = have_trial
+            && (!have_current || al_joint_pair_less(
+                trial_pairs[trial_index], current_pairs[current_index]));
+        const bool current_member = have_current && !trial_before;
+        const bool trial_member = have_trial && !current_before;
+        const JointPair pair = current_before
+            ? current_pairs[current_index] : trial_pairs[trial_index];
+        if (current_member) ++current_index;
+        if (trial_member) ++trial_index;
+        ++result.union_visits;
+        result.current_members += current_member ? 1U : 0U;
+        result.trial_members += trial_member ? 1U : 0U;
+        if (work != nullptr) {
+            ++work->divided_union_visits;
+            work->current_members += current_member ? 1U : 0U;
+            work->trial_members += trial_member ? 1U : 0U;
+        }
+
+        if (pair.fluid >= count
+            || pair.participant >= count
+                + current.neighborhood.support.size()
+            || (pair.participant < count
+                && pair.participant <= pair.fluid)) {
+            return ALNormalizedPrecancellationDivided{};
+        }
+        const bool symmetric = pair.participant < count;
+        const std::size_t other = symmetric ? pair.participant : 0U;
+        const std::size_t support_index = symmetric
+            ? 0U : pair.participant - count;
+        const Vec3 current_other = symmetric
+            ? current.neighborhood.fluid[other].position
+            : current.neighborhood.support[support_index].position;
+        const Vec3 trial_other = symmetric
+            ? trial.neighborhood.fluid[other].position
+            : trial.neighborhood.support[support_index].position;
+        const Vec3 current_displacement =
+            current.neighborhood.fluid[pair.fluid].position
+            - current_other;
+        const Vec3 trial_displacement =
+            trial.neighborhood.fluid[pair.fluid].position - trial_other;
+        const Vec3 pair_step = symmetric
+            ? step[pair.fluid] - step[other] : step[pair.fluid];
+        const double current_radius = norm(current_displacement);
+        if (current_member) {
+            const double contribution = MASS * weight(current_radius);
+            current_density[pair.fluid].add(contribution);
+            if (symmetric) current_density[other].add(contribution);
+        }
+        const Binary64KernelDelta delta = al_binary64_kernel_delta(
+            current_displacement, trial_displacement, pair_step);
+        pair_finite = pair_finite && delta.finite_values;
+        const double contribution = MASS * delta.value;
+        density_delta[pair.fluid].add(contribution);
+        if (symmetric) density_delta[other].add(contribution);
+        result.support_crossings +=
+            current_member != trial_member ? 1U : 0U;
+        result.kernel_segment_crossings +=
+            delta.current_segment != delta.trial_segment ? 1U : 0U;
+    }
+
+    Binary64CompensatedAccumulator phr_reduction;
+    Binary64CompensatedAccumulator inertia_reduction;
+    for (std::size_t center = 0U; center < count; ++center) {
+        const double current_constraint =
+            current_density[center].value() / REST_DENSITY - 1.0;
+        const double constraint_delta =
+            density_delta[center].value() / REST_DENSITY;
+        const double current_unclamped = u[center] + current_constraint;
+        const double active_delta = constraint_delta;
+        const double trial_unclamped = current_unclamped + active_delta;
+        const bool current_active = current_unclamped > 0.0;
+        const bool trial_active = trial_unclamped > 0.0;
+        result.phr_branch_crossings +=
+            current_active != trial_active ? 1U : 0U;
+        double active_square_delta = 0.0;
+        if (current_active && trial_active) {
+            active_square_delta = active_delta
+                * (2.0 * current_unclamped + active_delta);
+        } else if (current_active) {
+            active_square_delta = -current_unclamped * current_unclamped;
+        } else if (trial_active) {
+            active_square_delta = trial_unclamped * trial_unclamped;
+        }
+        phr_reduction.add(-0.5 * theta * active_square_delta);
+        const Vec3 displacement =
+            current.neighborhood.fluid[center].position
+            - predicted[center];
+        inertia_reduction.add(-0.5 * al_binary64_squared_norm_delta(
+            displacement, step[center]));
+    }
+    result.value.phr_reduction = phr_reduction.value();
+    result.value.inertia_reduction = inertia_reduction.value();
+    Binary64CompensatedAccumulator total;
+    total.add(result.value.phr_reduction);
+    total.add(result.value.inertia_reduction);
+    result.value.reduction = total.value();
+    result.value.finite_values = pair_finite
+        && std::isfinite(result.value.reduction)
+        && std::isfinite(result.value.phr_reduction)
+        && std::isfinite(result.value.inertia_reduction)
+        && std::all_of(current_density.begin(), current_density.end(),
+            [](const Binary64CompensatedAccumulator& value) {
+                return std::isfinite(value.value());
+            })
+        && std::all_of(density_delta.begin(), density_delta.end(),
+            [](const Binary64CompensatedAccumulator& value) {
+                return std::isfinite(value.value());
+            });
+    return result;
+}
+
+bool al_normalized_precancellation_exact(
+    const ALNormalizedPrecancellationDivided& lhs,
+    const ALNormalizedPrecancellationDivided& rhs);
+
 ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& initial,
@@ -65204,7 +65377,8 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
     ALSparsePrecisionWorkTrace* precision_work,
     StaticSupportWorkTrace* static_work,
     FlatAdjacencyWorkTrace* adjacency_work,
-    ALSparseStructuralBudget* budget) {
+    ALSparseStructuralBudget* budget,
+    bool use_precancelled_divided = false) {
     constexpr double stationarity_limit = 1.0e-10;
     ALNormalizedPrivateInnerSolve result;
     result.position = initial;
@@ -65299,15 +65473,32 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
                 trial_position, predicted, binding, u, theta, work,
                 static_work, adjacency_work);
         record.raw_reduction = current.inner.total - trial.inner.total;
-        const ALNormalizedDivided divided = evaluate_al_normalized_divided(
+        const ALNormalizedDivided inherited_divided =
+            evaluate_al_normalized_divided(
             current.inner, trial.inner, result.position, trial_position,
             predicted, u, theta);
-        const ALNormalizedDivided divided_repeat =
+        const ALNormalizedDivided inherited_divided_repeat =
             evaluate_al_normalized_divided(
                 current.inner, trial.inner, result.position,
                 trial_position, predicted, u, theta);
-        record.divided_repeat_exact = al_normalized_divided_exact(
-            divided, divided_repeat);
+        ALNormalizedDivided divided = inherited_divided;
+        bool selected_repeat_exact = al_normalized_divided_exact(
+            inherited_divided, inherited_divided_repeat);
+        if (use_precancelled_divided) {
+            const ALNormalizedPrecancellationDivided candidate =
+                evaluate_al_normalized_sparse_precancelled_divided(
+                    current.workspace, trial.workspace, predicted, u,
+                    theta, work);
+            const ALNormalizedPrecancellationDivided candidate_repeat =
+                evaluate_al_normalized_sparse_precancelled_divided(
+                    current.workspace, trial.workspace, predicted, u,
+                    theta, work);
+            divided = candidate.value;
+            selected_repeat_exact =
+                al_normalized_precancellation_exact(
+                    candidate, candidate_repeat);
+        }
+        record.divided_repeat_exact = selected_repeat_exact;
         result.divided_repeat_exact = result.divided_repeat_exact
             && record.divided_repeat_exact;
         record.divided_reduction = divided.reduction;
@@ -65322,13 +65513,25 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
         record.raw_would_accept = trial.inner.passed
             && record.predicted_reduction > 0.0
             && record.raw_reduction > 0.0 && raw_ratio >= 0.1;
+        const double inherited_ratio = record.predicted_reduction > 0.0
+            ? inherited_divided.reduction / record.predicted_reduction
+            : -std::numeric_limits<double>::infinity();
+        record.inherited_would_accept = trial.inner.passed
+            && inherited_divided.finite_values
+            && al_normalized_divided_exact(
+                inherited_divided, inherited_divided_repeat)
+            && record.predicted_reduction > 0.0
+            && inherited_divided.reduction > 0.0
+            && inherited_ratio >= 0.1;
         record.candidate_accepted = trial.inner.passed
             && divided.finite_values && record.divided_repeat_exact
             && record.predicted_reduction > 0.0
             && record.divided_reduction > 0.0
             && record.divided_ratio >= 0.1;
         record.candidate_effect = record.candidate_accepted
-            && !record.raw_would_accept;
+            && (!record.raw_would_accept
+                || (use_precancelled_divided
+                    && !record.inherited_would_accept));
         record.finite_values = trial.inner.passed
             && divided.finite_values
             && std::isfinite(record.stationarity_before)
@@ -65478,7 +65681,8 @@ ALNormalizedOuterUpdate al_normalized_private_outer_update(
     ALSparsePrecisionWorkTrace* precision_work,
     StaticSupportWorkTrace* static_work,
     FlatAdjacencyWorkTrace* adjacency_work,
-    ALSparseStructuralBudget* budget) {
+    ALSparseStructuralBudget* budget,
+    bool use_precancelled_divided = false) {
     constexpr double dual_limit = 8.154943934760449e-12;
     constexpr double complementarity_limit = 8.154943934760449e-13;
     ALNormalizedOuterUpdate result;
@@ -65486,7 +65690,8 @@ ALNormalizedOuterUpdate al_normalized_private_outer_update(
     const ALNormalizedPrivateInnerSolve inner =
         solve_al_normalized_private_inner(
             predicted, position, u, theta, binding, work,
-            precision_work, static_work, adjacency_work, budget);
+            precision_work, static_work, adjacency_work, budget,
+            use_precancelled_divided);
     result.inner_root = al_normalized_private_inner_root(inner);
     result.trials = inner.trials;
     result.state.inner_trials = static_cast<int>(inner.trials.size()) + 1;
@@ -65617,7 +65822,8 @@ ALNormalizedPrivateTransaction solve_al_full_normalized_private_transaction(
     ALSparsePrecisionWorkTrace* precision_work,
     StaticSupportWorkTrace* static_work,
     FlatAdjacencyWorkTrace* adjacency_work,
-    ALSparseStructuralBudget* budget) {
+    ALSparseStructuralBudget* budget,
+    bool use_precancelled_divided = false) {
     constexpr int maximum_outer = 64;
     ALNormalizedPrivateTransaction result;
     result.position = position;
@@ -65650,7 +65856,8 @@ ALNormalizedPrivateTransaction solve_al_full_normalized_private_transaction(
         ALNormalizedOuterUpdate update =
             al_normalized_private_outer_update(
                 predicted, position, u, theta, outer, binding, work,
-                precision_work, static_work, adjacency_work, budget);
+                precision_work, static_work, adjacency_work, budget,
+                use_precancelled_divided);
         al_normalized_transaction_observe(result, update);
         if (!update.passed) {
             if (!update.sign_contradiction
@@ -65696,7 +65903,8 @@ ALNormalizedPrivateTransaction solve_al_full_normalized_private_transaction(
         result.warm_holdout = al_normalized_private_outer_update(
             predicted, result.position, result.u, theta,
             result.confirmation_index + 1, binding, work,
-            precision_work, static_work, adjacency_work, budget);
+            precision_work, static_work, adjacency_work, budget,
+            use_precancelled_divided);
         al_normalized_transaction_observe(result, result.warm_holdout);
         if (!result.warm_holdout.passed) {
             if (!result.warm_holdout.sign_contradiction
@@ -65885,7 +66093,8 @@ ALNormalizedTransactionRun run_al_normalized_transaction(
     const std::vector<Vec3>& initial,
     const std::vector<double>& u,
     double theta,
-    const JointStaticSupportBinding& binding) {
+    const JointStaticSupportBinding& binding,
+    bool use_precancelled_divided = false) {
     ALNormalizedTransactionRun result;
     result.budget.maximum_outer_updates = 64U;
     result.budget.maximum_inner_trials_per_update = 64U;
@@ -65896,7 +66105,8 @@ ALNormalizedTransactionRun run_al_normalized_transaction(
     result.transaction = solve_al_full_normalized_private_transaction(
         predicted, initial, u, theta, binding, &result.work,
         &result.precision_work, &result.static_work,
-        &result.adjacency_work, &result.budget);
+        &result.adjacency_work, &result.budget,
+        use_precancelled_divided);
     result.root = al_full_normalized_private_transaction_root(
         result.transaction, theta);
     return result;
@@ -66475,174 +66685,6 @@ constexpr const char* B4E2D7R18R3_IDENTITY_SHA256 =
 constexpr const char* B4E2D7R18R3_IDENTITY_PROJECTION =
     "nextengine.nonlocal.nsr3b4e2d7r18r3-normalized-divided-precancellation-replay|v1|parent=daf97f3dbc7d37d258ddad0e95b1d3ddc22f582e:3659eac888c22eae5bcf7ae8c5f8a426bcbc12bd24bd3320c23be0c176815d77:69223a86a9a889a5c85fd11b824a4bd178efe505907d6f3877b5a42b8fd0f392|legacy=d7r18r2-complete-bytes;d7r13-stdout514ea1925a85d398a948a2dcbc319689116114a02335a599e51d6703202c18de|fixture=corner-box-2x2x2;active-compressed0.99;initial-equals-prediction;u0|profiles=reference-dt0x3f71111111111111-kappa0x4093290000000000;aligned-dt0x3f0c01c01c01c01c-kappa0x415c75a640000000;theta0x3fc5cccccccccccd;derived-prework|target=active-root-c76bea9f1bff57c16e27a08c4fc51dad7029af1730c11ac80e568ebe112601a5;inner-root-b7f44b27a51e6249b0d88b29cd08af42a7490e69ea5fed4e081cf64f48b44515;outer1;trial2;stationarity0x3dfde62308c06538;radius0x3f8999999999999a;step0x3da69c573653b780;predicted0x3b77e6c5c7652902;raw0xbc16aa0000000000;old-divided0xbc16a9d909f08000|formula=static-sparse-sorted-current-trial-union;d7r10-binary64-kernel-delta;compensated-current-density+density-delta;current-c=density/rest-1;delta-c=density-delta/rest;current-a=u+current-c;delta-a=delta-c;trial-a=current-a+delta-a;piecewise-active-square-delta;phr=-0.5theta*active-square-delta;inertia=-0.5*squared-norm-delta;compensated-center-sums;rounded-active-subtraction-forbidden|oracle=direct-normalized-long-double-naive+compensated-1024ulp;direct-normalized-binary128-naive+compensated-4096ulp;candidate-relative-error<=0.05;predicted-relative-error<=0.05;candidate-ratio>=0.1;pair-membership-exact;runtime-float128-none|correspondence=candidate-repeat-byte-exact;reference-aligned-candidate-root-byte-exact|controls=parent-bytes;target-anchors;inherited-old-divided-exact;static-binding;invalid-prework;work-ledger;workspace-live<=2;all-pair0;forced-rollback|routes=normalized-precancellation-sign-contradiction;normalized-precancellation-bound-required;normalized-model-or-derivative-reclosure-required;normalized-divided-precancellation-candidate|precedence=contradiction,bound,model,candidate|runs=2-clean-release-builds;1-process-each;byte-exact;timing=none|candidate-acceptances=0;outer-updates-by-candidate=0;trajectory=none;nominal-substeps=0;macro=none;public-commit=none;physics-mutation=none;production-scale=none|credit=one-replay-only-normalized-divided-precancellation-discriminator";
 
-struct ALNormalizedPrecancellationDivided {
-    ALNormalizedDivided value;
-    std::size_t union_visits = 0U;
-    std::size_t current_members = 0U;
-    std::size_t trial_members = 0U;
-    std::size_t support_crossings = 0U;
-    std::size_t kernel_segment_crossings = 0U;
-    std::size_t phr_branch_crossings = 0U;
-};
-
-ALNormalizedPrecancellationDivided
-evaluate_al_normalized_sparse_precancelled_divided(
-    const ALNormalizedWorkspace& current,
-    const ALNormalizedWorkspace& trial,
-    const std::vector<Vec3>& predicted,
-    const std::vector<double>& u,
-    double theta,
-    ALSparseWorkTrace* work = nullptr) {
-    ALNormalizedPrecancellationDivided result;
-    const std::size_t count = current.neighborhood.fluid.size();
-    if (!current.passed || !trial.passed
-        || trial.neighborhood.fluid.size() != count
-        || current.neighborhood.support.size()
-            != trial.neighborhood.support.size()
-        || predicted.size() != count || u.size() != count
-        || !al_normalized_inputs_valid(theta, u)
-        || binary64_bits(current.theta) != binary64_bits(theta)
-        || binary64_bits(trial.theta) != binary64_bits(theta)
-        || !exact_joint_points(current.neighborhood.support,
-            trial.neighborhood.support)) {
-        return result;
-    }
-
-    std::vector<Vec3> step(count);
-    for (std::size_t center = 0U; center < count; ++center) {
-        step[center] = trial.neighborhood.fluid[center].position
-            - current.neighborhood.fluid[center].position;
-    }
-    std::vector<Binary64CompensatedAccumulator> current_density(count);
-    std::vector<Binary64CompensatedAccumulator> density_delta(count);
-    for (Binary64CompensatedAccumulator& value : current_density) {
-        value.add(MASS * weight(0.0));
-    }
-
-    const std::vector<JointPair>& current_pairs =
-        current.neighborhood.pairs;
-    const std::vector<JointPair>& trial_pairs = trial.neighborhood.pairs;
-    std::size_t current_index = 0U;
-    std::size_t trial_index = 0U;
-    bool pair_finite = true;
-    while (current_index < current_pairs.size()
-        || trial_index < trial_pairs.size()) {
-        const bool have_current = current_index < current_pairs.size();
-        const bool have_trial = trial_index < trial_pairs.size();
-        const bool current_before = have_current
-            && (!have_trial || al_joint_pair_less(
-                current_pairs[current_index], trial_pairs[trial_index]));
-        const bool trial_before = have_trial
-            && (!have_current || al_joint_pair_less(
-                trial_pairs[trial_index], current_pairs[current_index]));
-        const bool current_member = have_current && !trial_before;
-        const bool trial_member = have_trial && !current_before;
-        const JointPair pair = current_before
-            ? current_pairs[current_index] : trial_pairs[trial_index];
-        if (current_member) ++current_index;
-        if (trial_member) ++trial_index;
-        ++result.union_visits;
-        result.current_members += current_member ? 1U : 0U;
-        result.trial_members += trial_member ? 1U : 0U;
-        if (work != nullptr) {
-            ++work->divided_union_visits;
-            work->current_members += current_member ? 1U : 0U;
-            work->trial_members += trial_member ? 1U : 0U;
-        }
-
-        if (pair.fluid >= count
-            || pair.participant >= count
-                + current.neighborhood.support.size()
-            || (pair.participant < count
-                && pair.participant <= pair.fluid)) {
-            return ALNormalizedPrecancellationDivided{};
-        }
-        const bool symmetric = pair.participant < count;
-        const std::size_t other = symmetric ? pair.participant : 0U;
-        const std::size_t support_index = symmetric
-            ? 0U : pair.participant - count;
-        const Vec3 current_other = symmetric
-            ? current.neighborhood.fluid[other].position
-            : current.neighborhood.support[support_index].position;
-        const Vec3 trial_other = symmetric
-            ? trial.neighborhood.fluid[other].position
-            : trial.neighborhood.support[support_index].position;
-        const Vec3 current_displacement =
-            current.neighborhood.fluid[pair.fluid].position
-            - current_other;
-        const Vec3 trial_displacement =
-            trial.neighborhood.fluid[pair.fluid].position - trial_other;
-        const Vec3 pair_step = symmetric
-            ? step[pair.fluid] - step[other] : step[pair.fluid];
-        const double current_radius = norm(current_displacement);
-        if (current_member) {
-            const double contribution = MASS * weight(current_radius);
-            current_density[pair.fluid].add(contribution);
-            if (symmetric) current_density[other].add(contribution);
-        }
-        const Binary64KernelDelta delta = al_binary64_kernel_delta(
-            current_displacement, trial_displacement, pair_step);
-        pair_finite = pair_finite && delta.finite_values;
-        const double contribution = MASS * delta.value;
-        density_delta[pair.fluid].add(contribution);
-        if (symmetric) density_delta[other].add(contribution);
-        result.support_crossings +=
-            current_member != trial_member ? 1U : 0U;
-        result.kernel_segment_crossings +=
-            delta.current_segment != delta.trial_segment ? 1U : 0U;
-    }
-
-    Binary64CompensatedAccumulator phr_reduction;
-    Binary64CompensatedAccumulator inertia_reduction;
-    for (std::size_t center = 0U; center < count; ++center) {
-        const double current_constraint =
-            current_density[center].value() / REST_DENSITY - 1.0;
-        const double constraint_delta =
-            density_delta[center].value() / REST_DENSITY;
-        const double current_unclamped = u[center] + current_constraint;
-        const double active_delta = constraint_delta;
-        const double trial_unclamped = current_unclamped + active_delta;
-        const bool current_active = current_unclamped > 0.0;
-        const bool trial_active = trial_unclamped > 0.0;
-        result.phr_branch_crossings +=
-            current_active != trial_active ? 1U : 0U;
-        double active_square_delta = 0.0;
-        if (current_active && trial_active) {
-            active_square_delta = active_delta
-                * (2.0 * current_unclamped + active_delta);
-        } else if (current_active) {
-            active_square_delta = -current_unclamped * current_unclamped;
-        } else if (trial_active) {
-            active_square_delta = trial_unclamped * trial_unclamped;
-        }
-        phr_reduction.add(-0.5 * theta * active_square_delta);
-        const Vec3 displacement =
-            current.neighborhood.fluid[center].position
-            - predicted[center];
-        inertia_reduction.add(-0.5 * al_binary64_squared_norm_delta(
-            displacement, step[center]));
-    }
-    result.value.phr_reduction = phr_reduction.value();
-    result.value.inertia_reduction = inertia_reduction.value();
-    Binary64CompensatedAccumulator total;
-    total.add(result.value.phr_reduction);
-    total.add(result.value.inertia_reduction);
-    result.value.reduction = total.value();
-    result.value.finite_values = pair_finite
-        && std::isfinite(result.value.reduction)
-        && std::isfinite(result.value.phr_reduction)
-        && std::isfinite(result.value.inertia_reduction)
-        && std::all_of(current_density.begin(), current_density.end(),
-            [](const Binary64CompensatedAccumulator& value) {
-                return std::isfinite(value.value());
-            })
-        && std::all_of(density_delta.begin(), density_delta.end(),
-            [](const Binary64CompensatedAccumulator& value) {
-                return std::isfinite(value.value());
-            });
-    return result;
-}
-
 bool al_normalized_precancellation_exact(
     const ALNormalizedPrecancellationDivided& lhs,
     const ALNormalizedPrecancellationDivided& rhs) {
@@ -67206,6 +67248,547 @@ run_al_normalized_divided_precancellation_replay_controls() {
                 ? "true" : "false")
            << ",\"full_normalized_precancelled_transaction_execution_authorized\":false"
            << ",\"d7r19_authorized\":false"
+           << ",\"nominal_substeps\":0,\"macro_frames\":0"
+           << ",\"trajectory_steps\":0,\"public_commit_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"runtime_binary128_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R18R4_IDENTITY_SHA256 =
+    "77f147fb3cb6b963e1873e0fd66afc55712c3dd9bda8bb4ba38e8a35cecec539";
+constexpr const char* B4E2D7R18R4_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r18r4-full-normalized-precancelled-private-transaction|v1|parent=27b13e35748f89fd43d81dfb350429b4d5fcdbc8:e0b36e34a047de1d8bb1435fa6f68cf5a53ab8a4260a95719775c03e4608d3e5:884dcda82ec013903db389a6bd873326d2501f452babc8a7d2cedcda1faebf75|legacy=d7r18r3-complete-bytes;d7r18r2-stdout3659eac888c22eae5bcf7ae8c5f8a426bcbc12bd24bd3320c23be0c176815d77;d7r13-stdout514ea1925a85d398a948a2dcbc319689116114a02335a599e51d6703202c18de|fixture=corner-box-2x2x2;active-compressed0.99;inactive1.01;initial-equals-prediction;u0|profiles=reference-dt0x3f71111111111111-kappa0x4093290000000000;aligned-dt0x3f0c01c01c01c01c-kappa0x415c75a640000000;theta0x3fc5cccccccccccd;derived-prework|variables=u=lambda/kappa;theta=kappa*dt2/M;u-next=max(0,u+c)|inner=direct-normalized-static-sparse;steihaug;eta1e-10;64-trials;8-rejects;minimum-radius1e-14;radius-policy-unchanged;r3-pairwise-precancelled-divided-actual-reduction|precision=every-accepted-direct-normalized-long-double-naive+compensated;1024-ulp;resolved-negative-forbidden;candidate-effect=accepted-and-raw-or-r2-rounded-divided-would-reject;every-candidate-effect-direct-normalized-binary128-naive+compensated;4096-ulp;relative-error<=0.05;pair-membership-exact;runtime-float128-none|outer=indices0-through63;primal1e-8;stationarity1e-10;dual-u0x3da1eed347666340;complementarity-u0x3d6cb1520bd70533;position1e-8dx;u-nonnegative;primal-monotone;pressure-diagnostic-only|correspondence=active-provisional11-confirm12-holdout13;active-each-outer14-accepted19-rejected0-hvp38;inactive-provisional0-confirm1-holdout2;inactive-each-outer3-accepted0-rejected0-hvp0;reference-repeat-exact;reference-aligned-transaction-byte-exact|controls=r3-parent-bytes;r2+d7r13-regression;static-binding;invalid-prework;work-ledger;precision-ledger;forced-rollback|work=transactions5;outer48;inner-trials57;hvp114;all-pair0;workspace-live<=2;timing=none|routes=precancelled-accepted-sign-contradiction;precancelled-oracle-or-reduction-bound-required;full-normalized-precancelled-private-state-confirmed;precancelled-inner-policy-still-insufficient;precancelled-outer-state-formulation-required|precedence=contradiction,oracle,confirmed,inner,outer|runs=2-clean-release-builds;1-process-each;byte-exact|trajectory=none;nominal-substeps=0;macro=none;public-commit=none;physics-mutation=none;production-scale=none|credit=one-tiny-full-normalized-precancelled-private-transaction-only";
+
+std::size_t al_normalized_transaction_trial_count(
+    const ALNormalizedPrivateTransaction& value) {
+    std::size_t count = 0U;
+    for (const ALNormalizedOuterUpdate& update : value.updates) {
+        count += update.trials.size();
+    }
+    if (value.warm_holdout_attempted) {
+        count += value.warm_holdout.trials.size();
+    }
+    return count;
+}
+
+bool al_precancelled_active_work_exact(
+    const ALNormalizedTransactionRun& run) {
+    return al_normalized_active_semantics(run.transaction)
+        && run.transaction.updates.size() == 13U
+        && run.budget.outer_updates == 14U
+        && al_normalized_transaction_trial_count(run.transaction) == 19U
+        && run.transaction.accepted_trials == 19
+        && run.transaction.rejected_trials == 0
+        && run.transaction.hvp_calls == 38
+        && run.budget.total_hvp == 38U;
+}
+
+bool al_precancelled_inactive_work_exact(
+    const ALNormalizedTransactionRun& run,
+    const std::vector<Vec3>& initial,
+    const std::vector<double>& zero_u) {
+    return al_normalized_inactive_semantics(
+            run.transaction, initial, zero_u)
+        && run.transaction.updates.size() == 2U
+        && run.budget.outer_updates == 3U
+        && al_normalized_transaction_trial_count(run.transaction) == 0U
+        && run.transaction.accepted_trials == 0
+        && run.transaction.rejected_trials == 0
+        && run.transaction.hvp_calls == 0
+        && run.budget.total_hvp == 0U;
+}
+
+bool al_precancelled_precision_exact(
+    const ALNormalizedTransactionRun& run) {
+    return !run.transaction.precision_hard_failure
+        && !run.transaction.sign_contradiction
+        && !run.transaction.oracle_bound_required
+        && run.transaction.resolved_negative == 0
+        && run.transaction.binary128_resolved_negative == 0
+        && run.transaction.long_double_audits
+            == run.transaction.accepted_trials
+        && run.transaction.binary128_audits
+            == run.transaction.candidate_effect_acceptances
+        && run.transaction.binary128_resolved_positive
+            == run.transaction.binary128_audits
+        && run.precision_work.long_double_audits
+            == static_cast<std::size_t>(
+                run.transaction.long_double_audits)
+        && run.precision_work.binary128_audits
+            == static_cast<std::size_t>(
+                run.transaction.binary128_audits);
+}
+
+} // namespace
+
+SplitBoundaryReport
+run_al_full_normalized_precancelled_private_transaction_controls() {
+    constexpr std::uint64_t reference_dt_bits = 0x3f71111111111111ULL;
+    constexpr std::uint64_t reference_kappa_bits = 0x4093290000000000ULL;
+    constexpr std::uint64_t aligned_dt_bits = 0x3f0c01c01c01c01cULL;
+    constexpr std::uint64_t aligned_kappa_bits = 0x415c75a640000000ULL;
+    constexpr std::uint64_t theta_bits = 0x3fc5cccccccccccdULL;
+    constexpr double aligned_kappa = 7460505.0;
+
+    const bool identity_exact = sha256_hex(
+        B4E2D7R18R4_IDENTITY_PROJECTION)
+        == B4E2D7R18R4_IDENTITY_SHA256;
+#if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) \
+    && defined(__SIZEOF_FLOAT128__)
+    constexpr bool frozen_platform = true;
+#else
+    constexpr bool frozen_platform = false;
+#endif
+    const bool binary128_profile_exact = frozen_platform
+        && sizeof(Binary128) == 16U && FLT_RADIX == 2
+        && FLT128_MANT_DIG == 113;
+
+    const SplitBoundaryReport parent =
+        run_al_normalized_divided_precancellation_replay_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "e0b36e34a047de1d8bb1435fa6f68cf5a53ab8a4260a95719775c03e4608d3e5";
+    const SplitBoundaryReport r2_regression =
+        run_al_full_normalized_private_transaction_controls();
+    const std::string r2_stdout_sha256 = sha256_hex(
+        r2_regression.json + "\n");
+    const SplitBoundaryReport d7r13_regression =
+        run_al_divided_full_private_transaction_controls();
+    const std::string d7r13_stdout_sha256 = sha256_hex(
+        d7r13_regression.json + "\n");
+    const bool legacy_exact = r2_regression.passed
+        && d7r13_regression.passed
+        && r2_stdout_sha256
+            == "3659eac888c22eae5bcf7ae8c5f8a426bcbc12bd24bd3320c23be0c176815d77"
+        && d7r13_stdout_sha256
+            == "514ea1925a85d398a948a2dcbc319689116114a02335a599e51d6703202c18de";
+
+    const double reference_dt = TIME_STEP;
+    const double aligned_dt = TIME_STEP / 78.0;
+    const double reference_theta = al_normalized_theta(
+        reference_dt, KAPPA);
+    const double aligned_theta = al_normalized_theta(
+        aligned_dt, aligned_kappa);
+    const bool profile_exact = binary64_bits(reference_dt)
+            == reference_dt_bits
+        && binary64_bits(KAPPA) == reference_kappa_bits
+        && binary64_bits(aligned_dt) == aligned_dt_bits
+        && binary64_bits(aligned_kappa) == aligned_kappa_bits
+        && binary64_bits(reference_theta) == theta_bits
+        && binary64_bits(aligned_theta) == theta_bits;
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<Vec3> inactive_prediction =
+        compressed_fluid(fixture, 1.01);
+    const std::vector<double> zero_u(fixture.fluid.size());
+    const std::string active_before =
+        al_binary64_vec3_root(active_prediction);
+    const std::string inactive_before =
+        al_binary64_vec3_root(inactive_prediction);
+    std::ostringstream zero_before_projection;
+    for (double value : zero_u) {
+        zero_before_projection << binary64_bits(value) << ':';
+    }
+    const std::string zero_before = sha256_hex(
+        zero_before_projection.str());
+
+    StaticSupportWorkTrace index_work;
+    const JointStaticSupportIndex static_index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &index_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+    const ALNormalizedTransactionRun reference_active =
+        run_al_normalized_transaction(
+            active_prediction, active_prediction, zero_u,
+            reference_theta, binding, true);
+    const ALNormalizedTransactionRun reference_repeat =
+        run_al_normalized_transaction(
+            active_prediction, active_prediction, zero_u,
+            reference_theta, binding, true);
+    const ALNormalizedTransactionRun reference_inactive =
+        run_al_normalized_transaction(
+            inactive_prediction, inactive_prediction, zero_u,
+            reference_theta, binding, true);
+    const ALNormalizedTransactionRun aligned_active =
+        run_al_normalized_transaction(
+            active_prediction, active_prediction, zero_u,
+            aligned_theta, binding, true);
+    const ALNormalizedTransactionRun aligned_inactive =
+        run_al_normalized_transaction(
+            inactive_prediction, inactive_prediction, zero_u,
+            aligned_theta, binding, true);
+    const std::array<const ALNormalizedTransactionRun*, 5U> runs{
+        &reference_active, &reference_repeat, &reference_inactive,
+        &aligned_active, &aligned_inactive};
+
+    const bool reference_repeat_exact = reference_active.root
+            == reference_repeat.root
+        && al_normalized_run_work_same(
+            reference_active, reference_repeat);
+    const bool cross_profile_exact = reference_active.root
+            == aligned_active.root
+        && reference_inactive.root == aligned_inactive.root
+        && al_normalized_run_work_same(
+            reference_active, aligned_active)
+        && al_normalized_run_work_same(
+            reference_inactive, aligned_inactive);
+    const bool expected_correspondence =
+        al_precancelled_active_work_exact(reference_active)
+        && al_precancelled_active_work_exact(reference_repeat)
+        && al_precancelled_active_work_exact(aligned_active)
+        && al_precancelled_inactive_work_exact(
+            reference_inactive, inactive_prediction, zero_u)
+        && al_precancelled_inactive_work_exact(
+            aligned_inactive, inactive_prediction, zero_u);
+
+    bool precision_exact = true;
+    bool run_work_exact = true;
+    std::size_t total_outer = 0U;
+    std::size_t total_trials = 0U;
+    std::size_t total_hvp = 0U;
+    std::size_t total_workspaces = 0U;
+    std::size_t total_divided_union_visits = 0U;
+    std::size_t total_long_double = 0U;
+    std::size_t total_binary128 = 0U;
+    std::size_t total_precision_union_candidates = 0U;
+    for (const ALNormalizedTransactionRun* run : runs) {
+        precision_exact = precision_exact
+            && al_precancelled_precision_exact(*run);
+        run_work_exact = run_work_exact
+            && al_normalized_run_work_exact(*run);
+        total_outer += run->budget.outer_updates;
+        total_trials += al_normalized_transaction_trial_count(
+            run->transaction);
+        total_hvp += run->budget.total_hvp;
+        total_workspaces += run->work.workspace_builds;
+        total_divided_union_visits += run->work.divided_union_visits;
+        total_long_double += run->precision_work.long_double_audits;
+        total_binary128 += run->precision_work.binary128_audits;
+        total_precision_union_candidates +=
+            run->precision_work.union_candidate_pairs;
+    }
+    const bool total_work_exact = run_work_exact
+        && total_outer == 48U && total_trials == 57U
+        && total_hvp == 114U && total_divided_union_visits > 0U;
+
+    const auto invalid_run = [&](double theta,
+                                 std::vector<double> invalid_u,
+                                 JointStaticSupportBinding invalid_binding,
+                                 bool invalid_budget_value) {
+        ALNormalizedTransactionRun result;
+        result.budget.maximum_outer_updates =
+            invalid_budget_value ? 0U : 64U;
+        result.budget.maximum_inner_trials_per_update = 64U;
+        result.budget.maximum_hvp_per_trust_step = 25U;
+        result.budget.maximum_total_hvp = 102400U;
+        result.budget.maximum_workspace_builds = 4224U;
+        result.budget.maximum_precision_audits = 8192U;
+        result.transaction = solve_al_full_normalized_private_transaction(
+            active_prediction, active_prediction, std::move(invalid_u),
+            theta, invalid_binding, &result.work,
+            &result.precision_work, &result.static_work,
+            &result.adjacency_work, &result.budget, true);
+        return result;
+    };
+    const ALNormalizedTransactionRun invalid_theta = invalid_run(
+        std::numeric_limits<double>::quiet_NaN(), zero_u,
+        binding, false);
+    std::vector<double> nonfinite_u = zero_u;
+    nonfinite_u[0] = std::numeric_limits<double>::infinity();
+    const ALNormalizedTransactionRun invalid_u = invalid_run(
+        reference_theta, std::move(nonfinite_u), binding, false);
+    JointStaticSupportBinding invalid_binding = binding;
+    invalid_binding.expected_identity_sha256.push_back('0');
+    const ALNormalizedTransactionRun invalid_identity = invalid_run(
+        reference_theta, zero_u, invalid_binding, false);
+    const ALNormalizedTransactionRun invalid_budget = invalid_run(
+        reference_theta, zero_u, binding, true);
+    const std::array<const ALNormalizedTransactionRun*, 4U> invalid_runs{
+        &invalid_theta, &invalid_u, &invalid_identity, &invalid_budget};
+    bool invalid_prework_exact = true;
+    for (const ALNormalizedTransactionRun* run : invalid_runs) {
+        invalid_prework_exact = invalid_prework_exact
+            && !run->transaction.all_finite
+            && run->transaction.failure == "NORMALIZED_PREWORK_INVALID"
+            && run->work.workspace_builds == 0U
+            && run->work.pair_visits == 0U
+            && run->work.divided_union_visits == 0U
+            && run->precision_work.superset_builds == 0U
+            && run->precision_work.long_double_audits == 0U
+            && run->precision_work.binary128_audits == 0U
+            && run->static_work.workspace_builds == 0U
+            && run->adjacency_work.workspace_builds == 0U
+            && run->budget.outer_updates == 0U
+            && run->budget.total_hvp == 0U;
+    }
+
+    std::ostringstream zero_after_projection;
+    for (double value : zero_u) {
+        zero_after_projection << binary64_bits(value) << ':';
+    }
+    const bool rollback_exact = active_before
+            == al_binary64_vec3_root(active_prediction)
+        && inactive_before == al_binary64_vec3_root(inactive_prediction)
+        && zero_before == sha256_hex(zero_after_projection.str());
+    const bool sign_contradiction =
+        reference_active.transaction.sign_contradiction
+        || aligned_active.transaction.sign_contradiction
+        || reference_active.transaction.resolved_negative != 0
+        || aligned_active.transaction.resolved_negative != 0
+        || reference_active.transaction.binary128_resolved_negative != 0
+        || aligned_active.transaction.binary128_resolved_negative != 0;
+    const bool oracle_boundary =
+        reference_active.transaction.oracle_bound_required
+        || aligned_active.transaction.oracle_bound_required
+        || reference_active.transaction.binary128_resolved_positive
+            != reference_active.transaction.binary128_audits
+        || aligned_active.transaction.binary128_resolved_positive
+            != aligned_active.transaction.binary128_audits;
+    const bool all_inners_pass =
+        reference_active.transaction.all_inners_pass
+        && reference_repeat.transaction.all_inners_pass
+        && reference_inactive.transaction.all_inners_pass
+        && aligned_active.transaction.all_inners_pass
+        && aligned_inactive.transaction.all_inners_pass;
+
+    const bool hard_controls = identity_exact
+        && binary128_profile_exact && parent_exact && legacy_exact
+        && profile_exact && static_index.passed && binding.passed
+        && index_work.static_index_builds == 1U
+        && index_work.support_canonicalizations == 1U
+        && reference_repeat_exact && cross_profile_exact
+        && precision_exact && total_work_exact
+        && invalid_prework_exact && rollback_exact;
+    std::string route;
+    if (hard_controls) {
+        if (sign_contradiction) {
+            route = "PRECANCELLED_ACCEPTED_SIGN_CONTRADICTION";
+        } else if (oracle_boundary) {
+            route = "PRECANCELLED_ORACLE_OR_REDUCTION_BOUND_REQUIRED";
+        } else if (expected_correspondence) {
+            route = "FULL_NORMALIZED_PRECANCELLED_PRIVATE_STATE_CONFIRMED";
+        } else if (!all_inners_pass) {
+            route = "PRECANCELLED_INNER_POLICY_STILL_INSUFFICIENT";
+        } else {
+            route = "PRECANCELLED_OUTER_STATE_FORMULATION_REQUIRED";
+        }
+    }
+    const bool route_precedence_exact =
+        (sign_contradiction
+            && route == "PRECANCELLED_ACCEPTED_SIGN_CONTRADICTION")
+        || (!sign_contradiction && oracle_boundary
+            && route
+                == "PRECANCELLED_ORACLE_OR_REDUCTION_BOUND_REQUIRED")
+        || (!sign_contradiction && !oracle_boundary
+            && expected_correspondence
+            && route
+                == "FULL_NORMALIZED_PRECANCELLED_PRIVATE_STATE_CONFIRMED")
+        || (!sign_contradiction && !oracle_boundary
+            && !expected_correspondence && !all_inners_pass
+            && route == "PRECANCELLED_INNER_POLICY_STILL_INSUFFICIENT")
+        || (!sign_contradiction && !oracle_boundary
+            && !expected_correspondence && all_inners_pass
+            && route
+                == "PRECANCELLED_OUTER_STATE_FORMULATION_REQUIRED");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!binary128_profile_exact) first_failure = "BINARY128_PROFILE";
+    else if (!parent_exact) first_failure = "D7R18R3_PARENT_BYTES";
+    else if (!legacy_exact) first_failure = "LEGACY_REGRESSION";
+    else if (!profile_exact) first_failure = "PROFILE_DERIVATION";
+    else if (!static_index.passed || !binding.passed
+        || index_work.static_index_builds != 1U
+        || index_work.support_canonicalizations != 1U)
+        first_failure = "STATIC_BINDING";
+    else if (!reference_repeat_exact) first_failure = "REFERENCE_REPEAT";
+    else if (!cross_profile_exact) first_failure = "CROSS_PROFILE_ROOT";
+    else if (!precision_exact) first_failure = "PRECISION_LEDGER";
+    else if (!total_work_exact) first_failure = "WORK_LIFECYCLE";
+    else if (!invalid_prework_exact) first_failure = "INVALID_PREWORK";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<long double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R18R4_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << ':' << r2_stdout_sha256 << ':'
+             << d7r13_stdout_sha256 << '|'
+             << reference_active.root << ':' << reference_repeat.root
+             << ':' << reference_inactive.root << ':'
+             << aligned_active.root << ':' << aligned_inactive.root << '|'
+             << reference_repeat_exact << ':' << cross_profile_exact << ':'
+             << expected_correspondence << ':' << precision_exact << '|'
+             << total_outer << ':' << total_trials << ':' << total_hvp
+             << ':' << total_workspaces << ':'
+             << total_divided_union_visits << ':' << total_long_double
+             << ':' << total_binary128 << ':'
+             << total_precision_union_candidates << '|'
+             << invalid_prework_exact << ':' << rollback_exact << '|'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_summary = [](std::ostringstream& report,
+                                   const char* name,
+                                   const ALNormalizedTransactionRun& run) {
+        const ALNormalizedPrivateTransaction& value = run.transaction;
+        report << '"' << name << "\":{\"root\":\"" << run.root
+               << "\",\"failure\":\"" << value.failure
+               << "\",\"confirmed\":"
+               << (value.confirmed ? "true" : "false")
+               << ",\"provisional_index\":" << value.provisional_index
+               << ",\"confirmation_index\":"
+               << value.confirmation_index
+               << ",\"holdout_outer\":"
+               << (value.warm_holdout_attempted
+                    ? value.warm_holdout.state.outer : -1)
+               << ",\"holdout_admissible\":"
+               << (value.warm_holdout_admissible ? "true" : "false")
+               << ",\"work\":{\"outer\":"
+               << run.budget.outer_updates << ",\"trials\":"
+               << al_normalized_transaction_trial_count(value)
+               << ",\"accepted\":" << value.accepted_trials
+               << ",\"rejected\":" << value.rejected_trials
+               << ",\"hvp\":" << value.hvp_calls
+               << ",\"workspaces\":" << run.work.workspace_builds
+               << ",\"divided_union_visits\":"
+               << run.work.divided_union_visits
+               << ",\"maximum_live\":"
+               << run.work.maximum_live_workspaces << '}'
+               << ",\"precision\":{\"long_double\":"
+               << value.long_double_audits
+               << ",\"long_positive\":" << value.resolved_positive
+               << ",\"long_negative\":" << value.resolved_negative
+               << ",\"long_unresolved\":" << value.unresolved
+               << ",\"candidate_effects\":"
+               << value.candidate_effect_acceptances
+               << ",\"binary128\":" << value.binary128_audits
+               << ",\"binary_positive\":"
+               << value.binary128_resolved_positive
+               << ",\"binary_negative\":"
+               << value.binary128_resolved_negative
+               << ",\"binary_unresolved\":"
+               << value.binary128_unresolved << "}}";
+    };
+
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<long double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r18r4_full_normalized_precancelled_private_"
+              "transaction.v1\""
+           << ",\"identity_sha256\":\""
+           << B4E2D7R18R4_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"d7r18r3_stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"r2_stdout_sha256\":\""
+           << r2_stdout_sha256 << "\",\"d7r13_stdout_sha256\":\""
+           << d7r13_stdout_sha256 << "\",\"exact\":"
+           << ((parent_exact && legacy_exact) ? "true" : "false") << '}'
+           << ",\"profiles\":{\"reference_dt_bits\":\"0x"
+           << std::hex << binary64_bits(reference_dt)
+           << "\",\"reference_kappa_bits\":\"0x"
+           << binary64_bits(KAPPA)
+           << "\",\"aligned_dt_bits\":\"0x"
+           << binary64_bits(aligned_dt)
+           << "\",\"aligned_kappa_bits\":\"0x"
+           << binary64_bits(aligned_kappa)
+           << "\",\"theta_bits\":\"0x"
+           << binary64_bits(reference_theta) << std::dec
+           << "\",\"exact\":"
+           << (profile_exact ? "true" : "false") << '}'
+           << ",\"transactions\":{";
+    append_summary(report, "reference_active", reference_active);
+    report << ',';
+    append_summary(report, "reference_repeat", reference_repeat);
+    report << ',';
+    append_summary(report, "reference_inactive", reference_inactive);
+    report << ',';
+    append_summary(report, "aligned_active", aligned_active);
+    report << ',';
+    append_summary(report, "aligned_inactive", aligned_inactive);
+    report << "},\"active_hvp_trace\":[";
+    bool first_trace = true;
+    const auto append_hvp_trace = [&](const ALNormalizedOuterUpdate& update) {
+        for (const ALNormalizedPrivateTrial& trial : update.trials) {
+            if (!first_trace) report << ',';
+            first_trace = false;
+            report << "{\"outer\":" << update.state.outer
+                   << ",\"trial\":" << trial.trial
+                   << ",\"hvp\":" << trial.hvp_calls
+                   << ",\"stationarity\":"
+                   << trial.stationarity_before
+                   << ",\"step_norm\":" << trial.step_norm
+                   << ",\"predicted\":"
+                   << trial.predicted_reduction
+                   << ",\"divided\":" << trial.divided_reduction
+                   << ",\"raw_would_accept\":"
+                   << (trial.raw_would_accept ? "true" : "false")
+                   << ",\"inherited_would_accept\":"
+                   << (trial.inherited_would_accept ? "true" : "false")
+                   << ",\"candidate_effect\":"
+                   << (trial.candidate_effect ? "true" : "false")
+                   << '}';
+        }
+    };
+    for (const ALNormalizedOuterUpdate& update :
+         reference_active.transaction.updates) {
+        append_hvp_trace(update);
+    }
+    if (reference_active.transaction.warm_holdout_attempted) {
+        append_hvp_trace(reference_active.transaction.warm_holdout);
+    }
+    report << "],\"correspondence\":{\"reference_repeat_exact\":"
+           << (reference_repeat_exact ? "true" : "false")
+           << ",\"cross_profile_exact\":"
+           << (cross_profile_exact ? "true" : "false")
+           << ",\"expected_indices_and_work\":"
+           << (expected_correspondence ? "true" : "false") << '}'
+           << ",\"precision\":{\"exact\":"
+           << (precision_exact ? "true" : "false")
+           << ",\"sign_contradiction\":"
+           << (sign_contradiction ? "true" : "false")
+           << ",\"oracle_boundary\":"
+           << (oracle_boundary ? "true" : "false") << '}'
+           << ",\"work\":{\"transactions\":5,\"outer\":"
+           << total_outer << ",\"inner_trials\":" << total_trials
+           << ",\"hvp\":" << total_hvp
+           << ",\"workspaces\":" << total_workspaces
+           << ",\"divided_union_visits\":"
+           << total_divided_union_visits
+           << ",\"long_double_audits\":" << total_long_double
+           << ",\"binary128_audits\":" << total_binary128
+           << ",\"precision_union_candidates\":"
+           << total_precision_union_candidates
+           << ",\"all_pair_candidate_calls\":0,\"exact\":"
+           << (total_work_exact ? "true" : "false") << '}'
+           << ",\"invalid\":{\"cases\":4,\"rejected_prework\":"
+           << (invalid_prework_exact ? "true" : "false") << '}'
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"d7r19_research_authorized\":"
+           << (passed && route
+                    == "FULL_NORMALIZED_PRECANCELLED_PRIVATE_STATE_CONFIRMED"
+                ? "true" : "false")
+           << ",\"d7r19_execution_authorized\":false"
            << ",\"nominal_substeps\":0,\"macro_frames\":0"
            << ",\"trajectory_steps\":0,\"public_commit_count\":0"
            << ",\"physics_mutation\":false,\"timing_admitted\":false"
