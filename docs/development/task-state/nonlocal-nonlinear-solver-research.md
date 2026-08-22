@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIR_FROZEN / RESIDUAL_TIMING_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP10SIR_PASS / SOURCE_LOCAL_DISCRIMINATOR_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -307,6 +307,12 @@
   reconstructs disjoint topology, source-local, target-fold and control
   categories across three fresh processes. Route only through its frozen
   stability and `1.20x` leader rule.
+- **Current conclusion:** B4EP10SIR passes three exact processes. Source-local
+  work has median transaction share `0.587730` and leads topology `2.918189x`;
+  every category-share range is below `0.0018`.
+- **Rejected routes:** median executor orchestration/imbalance are only
+  `0.011919/0.071954`, so persistent-region and partition-balance work are not
+  selected. Research one narrower source-local discriminator before code.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -392,7 +398,7 @@
 | NSR3B4EP10SID PASS | exact lower/own/upper fold at `1.106670x` projected visits | incoming construction audit only |
 | NSR3B4EP10SICD PASS | exact pair-endpoint incoming builder | B4EP10SII opt-in integration/A-B only |
 | NSR3B4EP10SII PASS | exact candidate; median `1.052521x`, RSS `-4,852 KiB` | candidate residual timing research only |
-| NSR3B4EP10SIR contract | candidate hierarchical/category timing | implement/run three only; no speed credit |
+| NSR3B4EP10SIR PASS | stable timing; source-local median `58.77%`, `2.918x` lead | one source-local discriminator research only |
 
 Candidate solver identity remains:
 
@@ -481,6 +487,7 @@ production authority is created by this lineage.
 | [B4EP10SICD](../nonlocal-nsr3b4ep10sicd-incoming-construction-evidence-2026-08-22.md) | exact pair-endpoint construction | integrate opt-in floating path and A/B |
 | [B4EP10SII](../nonlocal-nsr3b4ep10sii-split-incoming-plan-evidence-2026-08-22.md) | exact and narrowly passes frozen speed gate | retain for research; profile candidate residual next |
 | [B4EP10SIR research](../nonlocal-nsr3b4ep10sir-split-incoming-residual-research-2026-08-22.md) | existing timers can isolate four architecture categories | implement/run frozen timing command only |
+| [B4EP10SIR](../nonlocal-nsr3b4ep10sir-split-incoming-residual-timing-evidence-2026-08-22.md) | source-local work is the stable leader; executor hypotheses fail | research one narrower source-local discriminator |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).

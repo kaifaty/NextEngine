@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIR -- split incoming residual timing contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / SOURCE_LOCAL_DISCRIMINATOR_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
