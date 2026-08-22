@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D0_PASS / B4E2D1_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D1_PASS / B4E2D2_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -466,12 +466,15 @@
 - **Binary64 diagnostic:** all 6,000 external Dam frame-zero positions match
   integer-micrometre decode bit-for-bit, while only 384 also match the current
   addition-built lattice. Horizon-boundary pairs expose the one-ulp change.
-- **Current decision:** B4E2D1 freezes an independent standalone external
-  frame-zero raw-bit root and exact comparison with micrometre-division versus
-  addition-built candidate states.
-- **Next action:** implement/run B4E2D1 across two Release builds/processes,
-  preserving the old first-output report bytes, then freeze the selected
-  topology-alignment repair.
+- **Current conclusion:** B4E2D1 passes across two builds/processes. External
+  root `0d567ba5...74d7` equals micrometre division for all 6,000 vectors and
+  differs from addition root `b7063e2b...8dc4`; old first-output bytes remain
+  exact.
+- **Current decision:** B4E2D2 freezes decoded topology facts and an explicit
+  audit that every pair-set delta lies only at the compact-support horizon and
+  carries no active initial pressure term.
+- **Next action:** implement/run B4E2D2 twice without a trajectory, then freeze
+  a safe B4E2D pilot repair using the selected topology identity.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 

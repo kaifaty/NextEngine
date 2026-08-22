@@ -1,6 +1,6 @@
 # NSR3-B4E2D1 -- external frame-zero binary64 contract
 
-Status: `FROZEN / NOT_RUN / NO_SOLVER / NO_TRAJECTORY`
+Status: `FROZEN / PASS / MICROMETRE_DIVISION / NO_SOLVER / NO_TRAJECTORY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -54,3 +54,5 @@ PASS authorizes only B4E2D2 topology-alignment research/contract design using
 the selected frame-zero representation. It grants no B4E2D rerun, Hydro/full
 corpus, runtime/GPU/schema/PhysX or production authority.
 
+B4E2D1 passes across two builds/processes and selects micrometre division; see
+the [dated evidence](../../development/nonlocal-nsr3b4e2d1-frame-zero-binary64-evidence-2026-08-22.md).
