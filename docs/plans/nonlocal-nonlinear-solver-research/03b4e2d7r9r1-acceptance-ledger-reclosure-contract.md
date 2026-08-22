@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R9R1 -- acceptance-ledger reclosure contract
 
-Status: `FROZEN / NOT_RUN / PRIVATE_DIAGNOSTIC_ONLY`
+Status: `CLOSED / PASS / DIVIDED_DIFFERENCE_REDUCTION_CANDIDATE / PRIVATE_DIAGNOSTIC_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -28,4 +28,16 @@ state, work, rollback or precedence mismatch is hard FAIL. PASS grants one
 binary64 reduction candidate only. It grants no solver integration, new trial
 acceptance, cap/tolerance, pressure gate, `beta`, kernel, state precision,
 trajectory, performance, GPU/runtime or production authority.
+
+## Closed result
+
+Two clean Release builds/processes reproduce stdout SHA
+`2f9a935e4a8f24bc60b8b146424d73c98b5d8dc47756bcf6a70b367f03f47e64`
+and semantic result
+`5866926c59596624bfea7341d2c3d45eef4bc15ecb149f5c7e6ac0bbea5dd0a7`.
+The exact inherited/new ledger is `2/0`; D7R9 FAIL bytes remain exact. The
+divided candidate passes `11/11` scored comparisons and the absolute
+compensated ablation passes `2/11`. Select
+`DIVIDED_DIFFERENCE_REDUCTION_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r9r1-acceptance-ledger-evidence-2026-08-22.md).
 

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R9_FAIL_INVALID_CONTROL / B4E2D7R9R1_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R9R1_PASS_DIVIDED_DIFFERENCE / B4E2D7R10_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -25,9 +25,16 @@
 - **Numerical observation:** unselected divided differences pass all `11/11`
   resolved comparisons at `0.0071%--3.9915%` relative error; compensated
   absolute energies pass only `2/11`.
-- **Current decision:** D7R9R1 is frozen with the exact inherited ledger
-  `1e-8/trial7`, `1e-9/trial5`, none at `1e-10`, total two, and zero new
-  acceptance. Candidate formula, scoring and routes are unchanged.
+- **Current conclusion:** D7R9R1 passes reproducibly at stdout SHA
+  `2f9a935e...7e64`, semantic result `5866926c...d0a7` and route
+  `DIVIDED_DIFFERENCE_REDUCTION_CANDIDATE`. D7R8 and D7R9 bytes remain exact.
+- **Accuracy fact:** propagated binary64 differences pass `11/11` resolved
+  signs with at most `3.99153%` relative error. Compensated independent totals
+  pass only `2/11`. The inherited/new acceptance ledger is exact at `2/0`.
+- **Current decision:** research/freeze D7R10 as a three-state private-inner
+  integration. Candidate actual reductions may change only private trust
+  decisions; every new acceptance needs extended sign observability and all
+  state must roll back.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1742,8 +1749,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
-5. Implement/run frozen B4E2D7R9R1; reproduce D7R9 FAIL bytes, the exact two
-   inherited acceptances and zero candidate-created acceptance.
+5. Research/freeze B4E2D7R10 private-inner integration over the three exact
+   failed states; distinguish convergence, unresolved accepted signs,
+   resolved contradiction and remaining policy failure.
 
 ## Reconsideration triggers
 

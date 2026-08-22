@@ -1625,3 +1625,11 @@ The [D7R9R1 reclosure](../../development/nonlocal-nsr3b4e2d7r9r1-acceptance-ledg
 and [frozen contract](03b4e2d7r9r1-acceptance-ledger-reclosure-contract.md)
 change only the inherited ledger to the exact two parent trials and require
 zero new acceptance. Implement/run that reclosure next.
+D7R9R1 passes and selects `DIVIDED_DIFFERENCE_REDUCTION_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r9r1-acceptance-ledger-evidence-2026-08-22.md).
+Both clean builds preserve D7R8 and the original D7R9 FAIL bytes. The
+propagated binary64 difference passes all `11/11` resolved comparisons at
+most `3.99153%` relative error; compensated absolute totals pass only `2/11`.
+Freeze a bounded D7R10 private-inner integration next. It must audit every
+candidate-created acceptance, distinguish unresolved extended signs from
+resolved contradiction and roll every state back.
