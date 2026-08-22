@@ -151,6 +151,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-nominal-prerequisites|"
                          "--nonlocal-al-sparse-precision-transaction|"
                          "--nonlocal-al-nominal-substep-shadow|"
+                         "--nonlocal-al-kappa-scaling-prerequisites|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1186,6 +1187,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_nominal_substep_shadow_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-kappa-scaling-prerequisites") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_kappa_scaling_prerequisites_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

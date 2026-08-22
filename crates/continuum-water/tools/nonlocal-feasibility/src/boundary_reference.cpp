@@ -48630,10 +48630,12 @@ struct ALVectorStableSolve {
 ALVectorSupport evaluate_al_vector_support(
     const std::vector<Vec3>& fluid,
     const std::vector<Vec3>& boundary,
-    const std::vector<double>& multiplier) {
+    const std::vector<double>& multiplier,
+    double kappa = KAPPA) {
     ALVectorSupport result;
     const std::size_t fluid_count = fluid.size();
-    if (multiplier.size() != fluid_count) {
+    if (multiplier.size() != fluid_count
+        || !std::isfinite(kappa) || kappa <= 0.0) {
         return result;
     }
     result.gradient.resize(fluid_count + boundary.size());
@@ -48663,12 +48665,12 @@ ALVectorSupport evaluate_al_vector_support(
         const double constraint =
             result.density[center] / REST_DENSITY - 1.0;
         const double active = std::max(
-            0.0, multiplier[center] + KAPPA * constraint);
+            0.0, multiplier[center] + kappa * constraint);
         result.constraint[center] = constraint;
         result.active_coefficient[center] = active;
         result.energy += (
             active * active - multiplier[center] * multiplier[center])
-            / (2.0 * KAPPA);
+            / (2.0 * kappa);
         if (active <= 0.0) {
             continue;
         }
@@ -48714,15 +48716,17 @@ std::vector<Vec3> apply_al_vector_hessian(
     const std::vector<Vec3>& fluid,
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
-    const std::vector<Vec3>& direction) {
+    const std::vector<Vec3>& direction,
+    double kappa = KAPPA) {
     const std::size_t fluid_count = fluid.size();
     const std::size_t total_count = fluid_count + boundary.size();
     if (direction.size() != total_count
-        || multiplier.size() != fluid_count) {
+        || multiplier.size() != fluid_count
+        || !std::isfinite(kappa) || kappa <= 0.0) {
         throw std::invalid_argument("AL dense HVP size mismatch");
     }
     const ALVectorSupport state = evaluate_al_vector_support(
-        fluid, boundary, multiplier);
+        fluid, boundary, multiplier, kappa);
     std::vector<Vec3> result(total_count);
     for (std::size_t center = 0U; center < fluid_count; ++center) {
         const double active = state.active_coefficient[center];
@@ -48768,7 +48772,7 @@ std::vector<Vec3> apply_al_vector_hessian(
                 * radial_hessian_product(normal,
                     weight_second(radius),
                     weight_gradient(radius) / radius, relative);
-            const Vec3 pair = KAPPA * constraint_direction * jacobian
+            const Vec3 pair = kappa * constraint_direction * jacobian
                 + active * curvature;
             result[center] += pair;
             result[participant] += -pair;
@@ -48900,6 +48904,15 @@ bool al_sparse_budget_consume_precision_audit(
         "STRUCTURAL_BUDGET_PRECISION_AUDITS", budget);
 }
 
+double al_sparse_multiplier_update(
+    double multiplier, double constraint, double kappa) {
+    if (!std::isfinite(multiplier) || !std::isfinite(constraint)
+        || !std::isfinite(kappa) || kappa <= 0.0) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    return std::max(0.0, multiplier + kappa * constraint);
+}
+
 struct ALSparseWorkspace {
     bool passed = false;
     std::string failure;
@@ -48908,14 +48921,20 @@ struct ALSparseWorkspace {
     std::vector<double> radius;
     std::vector<double> weight_first;
     std::vector<double> weight_second_value;
+    double kappa = 0.0;
     std::size_t payload_bytes = 0U;
 };
 
 ALSparseWorkspace build_al_sparse_workspace_from_neighborhood(
     JointNeighborhood neighborhood,
     const std::vector<double>& multiplier,
-    ALSparseWorkTrace* work = nullptr) {
+    ALSparseWorkTrace* work = nullptr,
+    double kappa = KAPPA) {
     ALSparseWorkspace result;
+    if (!std::isfinite(kappa) || kappa <= 0.0) {
+        result.failure = "AL_SCALE_INVALID";
+        return result;
+    }
     if (work != nullptr) {
         ++work->workspace_builds;
         ++work->live_workspaces;
@@ -48923,6 +48942,7 @@ ALSparseWorkspace build_al_sparse_workspace_from_neighborhood(
             work->maximum_live_workspaces, work->live_workspaces);
     }
     result.neighborhood = std::move(neighborhood);
+    result.kappa = kappa;
     if (!result.neighborhood.passed
         || multiplier.size() != result.neighborhood.fluid.size()) {
         result.failure = result.neighborhood.passed
@@ -48965,12 +48985,12 @@ ALSparseWorkspace build_al_sparse_workspace_from_neighborhood(
         const double constraint =
             result.support.density[center] / REST_DENSITY - 1.0;
         const double active = std::max(
-            0.0, multiplier[center] + KAPPA * constraint);
+            0.0, multiplier[center] + kappa * constraint);
         result.support.constraint[center] = constraint;
         result.support.active_coefficient[center] = active;
         result.support.energy += (
             active * active - multiplier[center] * multiplier[center])
-            / (2.0 * KAPPA);
+            / (2.0 * kappa);
         if (active <= 0.0) {
             continue;
         }
@@ -49034,11 +49054,17 @@ ALSparseWorkspace build_al_sparse_workspace(
     const std::vector<Vec3>& fluid,
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
-    ALSparseWorkTrace* work = nullptr) {
+    ALSparseWorkTrace* work = nullptr,
+    double kappa = KAPPA) {
+    if (!std::isfinite(kappa) || kappa <= 0.0) {
+        ALSparseWorkspace result;
+        result.failure = "AL_SCALE_INVALID";
+        return result;
+    }
     return build_al_sparse_workspace_from_neighborhood(
         build_joint_neighborhood(
             tagged_points(fluid), tagged_points(boundary), true,
-            nullptr, true), multiplier, work);
+            nullptr, true), multiplier, work, kappa);
 }
 
 [[maybe_unused]] ALSparseWorkspace
@@ -49048,11 +49074,17 @@ build_al_sparse_workspace_with_static_support(
     const std::vector<double>& multiplier,
     ALSparseWorkTrace* work = nullptr,
     StaticSupportWorkTrace* static_work = nullptr,
-    FlatAdjacencyWorkTrace* adjacency_work = nullptr) {
+    FlatAdjacencyWorkTrace* adjacency_work = nullptr,
+    double kappa = KAPPA) {
+    if (!std::isfinite(kappa) || kappa <= 0.0) {
+        ALSparseWorkspace result;
+        result.failure = "AL_SCALE_INVALID";
+        return result;
+    }
     return build_al_sparse_workspace_from_neighborhood(
         build_joint_neighborhood_with_static_support(
             tagged_points(fluid), &binding, true, static_work, true,
-            adjacency_work), multiplier, work);
+            adjacency_work), multiplier, work, kappa);
 }
 
 void release_al_sparse_workspace(
@@ -49126,7 +49158,8 @@ std::vector<Vec3> apply_al_sparse_hessian(
                     workspace.weight_second_value[pair_index],
                     workspace.weight_first[pair_index] / radius,
                     relative);
-            const Vec3 pair = KAPPA * constraint_direction * jacobian
+            const Vec3 pair = workspace.kappa
+                    * constraint_direction * jacobian
                 + active * curvature;
             result[center] += pair;
             result[participant] += -pair;
@@ -49140,14 +49173,16 @@ ALVectorInnerState evaluate_al_vector_inner(
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
-    double time_step = TIME_STEP) {
+    double time_step = TIME_STEP,
+    double kappa = KAPPA) {
     ALVectorInnerState result;
     if (position.size() != predicted.size()
-        || !std::isfinite(time_step) || time_step <= 0.0) {
+        || !std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(kappa) || kappa <= 0.0) {
         return result;
     }
     result.support = evaluate_al_vector_support(
-        position, boundary, multiplier);
+        position, boundary, multiplier, kappa);
     result.total = result.support.energy;
     result.gradient = fluid_part(
         result.support.gradient, position.size());
@@ -49165,15 +49200,18 @@ std::vector<Vec3> apply_al_vector_inner_hessian(
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
     const std::vector<Vec3>& direction,
-    double time_step = TIME_STEP) {
-    if (!std::isfinite(time_step) || time_step <= 0.0) {
+    double time_step = TIME_STEP,
+    double kappa = KAPPA) {
+    if (!std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(kappa) || kappa <= 0.0) {
         throw std::invalid_argument("AL dense HVP time step");
     }
     std::vector<Vec3> joint(direction.size() + boundary.size());
     std::copy(direction.begin(), direction.end(), joint.begin());
     std::vector<Vec3> result = fluid_part(
         apply_al_vector_hessian(
-            position, boundary, multiplier, joint), position.size());
+            position, boundary, multiplier, joint, kappa),
+        position.size());
     const double inertia_scale = MASS / (time_step * time_step);
     for (std::size_t index = 0U; index < result.size(); ++index) {
         result[index] += inertia_scale * direction[index];
@@ -49194,14 +49232,16 @@ ALSparseInnerState evaluate_al_sparse_inner(
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
     double time_step,
-    ALSparseWorkTrace* work) {
+    ALSparseWorkTrace* work,
+    double kappa = KAPPA) {
     ALSparseInnerState result;
     if (position.size() != predicted.size()
-        || !std::isfinite(time_step) || time_step <= 0.0) {
+        || !std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(kappa) || kappa <= 0.0) {
         return result;
     }
     result.workspace = build_al_sparse_workspace(
-        position, boundary, multiplier, work);
+        position, boundary, multiplier, work, kappa);
     if (!result.workspace.passed) {
         return result;
     }
@@ -49228,14 +49268,17 @@ ALSparseInnerState evaluate_al_sparse_inner_with_static_support(
     double time_step,
     ALSparseWorkTrace* work,
     StaticSupportWorkTrace* static_work,
-    FlatAdjacencyWorkTrace* adjacency_work) {
+    FlatAdjacencyWorkTrace* adjacency_work,
+    double kappa = KAPPA) {
     ALSparseInnerState result;
     if (position.size() != predicted.size()
-        || !std::isfinite(time_step) || time_step <= 0.0) {
+        || !std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(kappa) || kappa <= 0.0) {
         return result;
     }
     result.workspace = build_al_sparse_workspace_with_static_support(
-        position, binding, multiplier, work, static_work, adjacency_work);
+        position, binding, multiplier, work, static_work,
+        adjacency_work, kappa);
     if (!result.workspace.passed) {
         return result;
     }
@@ -49258,7 +49301,8 @@ std::vector<Vec3> apply_al_sparse_inner_hessian(
     const ALSparseWorkspace& workspace,
     const std::vector<Vec3>& direction,
     double time_step) {
-    if (!std::isfinite(time_step) || time_step <= 0.0) {
+    if (!std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(workspace.kappa) || workspace.kappa <= 0.0) {
         throw std::invalid_argument("AL sparse HVP time step");
     }
     std::vector<Vec3> joint(
@@ -49772,12 +49816,14 @@ double al_vector_direct_actual_reduction_dt(
     const std::vector<Vec3>& predicted,
     const ALVectorSupport& current_support,
     const ALVectorSupport& trial_support,
-    double time_step) {
+    double time_step,
+    double kappa = KAPPA) {
     if (current_position.size() != trial_position.size()
         || current_position.size() != predicted.size()
         || current_support.active_coefficient.size()
             != trial_support.active_coefficient.size()
-        || !std::isfinite(time_step) || time_step <= 0.0) {
+        || !std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(kappa) || kappa <= 0.0) {
         return std::numeric_limits<double>::quiet_NaN();
     }
     double delta = 0.0;
@@ -49794,7 +49840,7 @@ double al_vector_direct_actual_reduction_dt(
         const double current =
             current_support.active_coefficient[center];
         const double trial = trial_support.active_coefficient[center];
-        delta += (trial - current) * (trial + current) / (2.0 * KAPPA);
+        delta += (trial - current) * (trial + current) / (2.0 * kappa);
     }
     return -delta;
 }
@@ -51365,11 +51411,13 @@ LongDoubleEnergyEvaluation evaluate_al_vector_inner_long_double(
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
     bool compensated,
-    double time_step = TIME_STEP) {
+    double time_step = TIME_STEP,
+    double penalty = KAPPA) {
     LongDoubleEnergyEvaluation result;
     if (position.size() != predicted.size()
         || position.size() != multiplier.size()
-        || !std::isfinite(time_step) || time_step <= 0.0) {
+        || !std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(penalty) || penalty <= 0.0) {
         return result;
     }
     const std::size_t count = position.size();
@@ -51385,7 +51433,7 @@ LongDoubleEnergyEvaluation evaluate_al_vector_inner_long_double(
     const long double mass = static_cast<long double>(MASS);
     const long double rest_density =
         static_cast<long double>(REST_DENSITY);
-    const long double kappa = static_cast<long double>(KAPPA);
+    const long double kappa = static_cast<long double>(penalty);
     const long double horizon = static_cast<long double>(HORIZON);
     const long double half_horizon = 0.5L * horizon;
     std::vector<long double> density(
@@ -51512,20 +51560,21 @@ LongDoubleTrialEnergyAudit audit_al_vector_inner_long_double(
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
-    double time_step = TIME_STEP) {
+    double time_step = TIME_STEP,
+    double penalty = KAPPA) {
     LongDoubleTrialEnergyAudit result;
     result.current_naive = evaluate_al_vector_inner_long_double(
         trial.current_position, predicted, boundary, multiplier,
-        false, time_step);
+        false, time_step, penalty);
     result.current_compensated = evaluate_al_vector_inner_long_double(
         trial.current_position, predicted, boundary, multiplier,
-        true, time_step);
+        true, time_step, penalty);
     result.trial_naive = evaluate_al_vector_inner_long_double(
         trial.trial_position, predicted, boundary, multiplier,
-        false, time_step);
+        false, time_step, penalty);
     result.trial_compensated = evaluate_al_vector_inner_long_double(
         trial.trial_position, predicted, boundary, multiplier,
-        true, time_step);
+        true, time_step, penalty);
     result.naive_reduction = result.current_naive.total
         - result.trial_naive.total;
     result.compensated_reduction = result.current_compensated.total
@@ -51637,7 +51686,8 @@ LongDoubleTrialEnergyAudit audit_al_sparse_inner_long_double(
     const std::vector<double>& multiplier,
     const JointStaticSupportBinding& binding,
     double time_step,
-    ALSparsePrecisionWorkTrace* work);
+    ALSparsePrecisionWorkTrace* work,
+    double penalty = KAPPA);
 
 struct Binary64CompensatedAccumulator {
     double sum = 0.0;
@@ -51837,12 +51887,14 @@ Binary64DividedDifference evaluate_al_vector_inner_divided_difference(
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
-    double time_step = TIME_STEP) {
+    double time_step = TIME_STEP,
+    double kappa = KAPPA) {
     Binary64DividedDifference result;
     if (current_position.size() != trial_position.size()
         || current_position.size() != predicted.size()
         || current_position.size() != multiplier.size()
-        || !std::isfinite(time_step) || time_step <= 0.0) {
+        || !std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(kappa) || kappa <= 0.0) {
         return result;
     }
     const std::size_t count = current_position.size();
@@ -51908,8 +51960,8 @@ Binary64DividedDifference evaluate_al_vector_inner_divided_difference(
         const double constraint_delta =
             density_delta[center].value() / REST_DENSITY;
         const double current_unclamped = multiplier[center]
-            + KAPPA * current_constraint;
-        const double active_delta = KAPPA * constraint_delta;
+            + kappa * current_constraint;
+        const double active_delta = kappa * constraint_delta;
         const double trial_unclamped = current_unclamped + active_delta;
         const bool current_active = current_unclamped > 0.0;
         const bool trial_active = trial_unclamped > 0.0;
@@ -51924,7 +51976,7 @@ Binary64DividedDifference evaluate_al_vector_inner_divided_difference(
         } else if (trial_active) {
             active_square_delta = trial_unclamped * trial_unclamped;
         }
-        phr_reduction.add(-active_square_delta / (2.0 * KAPPA));
+        phr_reduction.add(-active_square_delta / (2.0 * kappa));
         const Vec3 displacement =
             current_position[center] - predicted[center];
         const double norm_squared_delta =
@@ -51964,7 +52016,8 @@ Binary64DividedDifference evaluate_al_sparse_inner_divided_difference(
     const std::vector<Vec3>& predicted,
     const std::vector<double>& multiplier,
     double time_step,
-    ALSparseWorkTrace* work = nullptr) {
+    ALSparseWorkTrace* work = nullptr,
+    double kappa = KAPPA) {
     Binary64DividedDifference result;
     const std::size_t count = current.neighborhood.fluid.size();
     if (!current.passed || !trial.passed
@@ -51973,6 +52026,9 @@ Binary64DividedDifference evaluate_al_sparse_inner_divided_difference(
             != trial.neighborhood.support.size()
         || predicted.size() != count || multiplier.size() != count
         || !std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(kappa) || kappa <= 0.0
+        || binary64_bits(current.kappa) != binary64_bits(kappa)
+        || binary64_bits(trial.kappa) != binary64_bits(kappa)
         || !exact_joint_points(current.neighborhood.support,
             trial.neighborhood.support)) {
         return result;
@@ -52065,8 +52121,8 @@ Binary64DividedDifference evaluate_al_sparse_inner_divided_difference(
         const double constraint_delta =
             density_delta[center].value() / REST_DENSITY;
         const double current_unclamped = multiplier[center]
-            + KAPPA * current_constraint;
-        const double active_delta = KAPPA * constraint_delta;
+            + kappa * current_constraint;
+        const double active_delta = kappa * constraint_delta;
         const double trial_unclamped = current_unclamped + active_delta;
         const bool current_active = current_unclamped > 0.0;
         const bool trial_active = trial_unclamped > 0.0;
@@ -52081,7 +52137,7 @@ Binary64DividedDifference evaluate_al_sparse_inner_divided_difference(
         } else if (trial_active) {
             active_square_delta = trial_unclamped * trial_unclamped;
         }
-        phr_reduction.add(-active_square_delta / (2.0 * KAPPA));
+        phr_reduction.add(-active_square_delta / (2.0 * kappa));
         const Vec3 displacement =
             current.neighborhood.fluid[center].position
             - predicted[center];
@@ -52364,12 +52420,19 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
     double stationarity_limit,
     double time_step,
     ALSparseWorkTrace* work,
-    ALSparsePrecisionTransactionContext* precision_context = nullptr) {
+    ALSparsePrecisionTransactionContext* precision_context = nullptr,
+    double kappa = KAPPA) {
     ALDividedPrivateInnerSolve result;
     result.position = initial;
     ALSparseStructuralBudget* structural_budget =
         precision_context != nullptr
         ? precision_context->structural_budget : nullptr;
+    if (!std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(kappa) || kappa <= 0.0) {
+        result.all_finite = false;
+        result.failure = "AL_SCALE_INVALID";
+        return result;
+    }
     if (precision_context != nullptr
         && (precision_context->binding == nullptr
             || !precision_context->binding->passed
@@ -52402,10 +52465,10 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
                 position, predicted, *precision_context->binding,
                 multiplier, time_step, work,
                 precision_context->static_work,
-                precision_context->adjacency_work)
+                precision_context->adjacency_work, kappa)
             : evaluate_al_sparse_inner(
                 position, predicted, boundary, multiplier,
-                time_step, work);
+                time_step, work, kappa);
     };
     ALSparseInnerState current = evaluate(result.position);
     if (!current.passed) {
@@ -52473,15 +52536,15 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
         record.direct_reduction = al_vector_direct_actual_reduction_dt(
             result.position, trial_position, predicted,
             current.workspace.support, trial.workspace.support,
-            time_step);
+            time_step, kappa);
         const Binary64DividedDifference divided =
             evaluate_al_sparse_inner_divided_difference(
                 current.workspace, trial.workspace, predicted,
-                multiplier, time_step, work);
+                multiplier, time_step, work, kappa);
         const Binary64DividedDifference divided_repeat =
             evaluate_al_sparse_inner_divided_difference(
                 current.workspace, trial.workspace, predicted,
-                multiplier, time_step, nullptr);
+                multiplier, time_step, nullptr, kappa);
         record.divided_repeat_exact =
             al_binary64_divided_difference_exact(divided, divided_repeat);
         result.divided_repeat_exact = result.divided_repeat_exact
@@ -52540,10 +52603,10 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
                 ? audit_al_sparse_inner_long_double(
                     oracle_input, predicted, multiplier,
                     *precision_context->binding, time_step,
-                    precision_context->precision_work)
+                    precision_context->precision_work, kappa)
                 : audit_al_vector_inner_long_double(
                     oracle_input, predicted, boundary, multiplier,
-                    time_step);
+                    time_step, kappa);
             if (precision_context != nullptr
                 && precision_context->long_double_audits != nullptr) {
                 precision_context->long_double_audits->push_back(oracle);
@@ -52750,11 +52813,13 @@ Binary128EnergyEvaluation evaluate_al_vector_inner_binary128(
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
     bool compensated,
-    double time_step = TIME_STEP) {
+    double time_step = TIME_STEP,
+    double penalty = KAPPA) {
     Binary128EnergyEvaluation result;
     if (position.size() != predicted.size()
         || position.size() != multiplier.size()
-        || !std::isfinite(time_step) || time_step <= 0.0) {
+        || !std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(penalty) || penalty <= 0.0) {
         return result;
     }
     const std::size_t count = position.size();
@@ -52769,7 +52834,7 @@ Binary128EnergyEvaluation evaluate_al_vector_inner_binary128(
         al_binary128_vec3);
     const Binary128 mass = static_cast<Binary128>(MASS);
     const Binary128 rest_density = static_cast<Binary128>(REST_DENSITY);
-    const Binary128 kappa = static_cast<Binary128>(KAPPA);
+    const Binary128 kappa = static_cast<Binary128>(penalty);
     const Binary128 horizon = static_cast<Binary128>(HORIZON);
     std::vector<Binary128> density(
         count, mass * al_binary128_weight(static_cast<Binary128>(0.0)));
@@ -52989,7 +53054,8 @@ LongDoubleEnergyEvaluation evaluate_al_sparse_inner_long_double(
     const ALBinary128PairUnion& candidate_union,
     bool compensated,
     double time_step,
-    ALSparsePrecisionWorkTrace* work = nullptr) {
+    ALSparsePrecisionWorkTrace* work = nullptr,
+    double penalty = KAPPA) {
     LongDoubleEnergyEvaluation result;
     if (!candidate_union.passed || !binding.passed
         || binding.index == nullptr
@@ -53000,7 +53066,8 @@ LongDoubleEnergyEvaluation evaluate_al_sparse_inner_long_double(
         || position.size() != candidate_union.fluid_count
         || binding.index->support.size()
             != candidate_union.support_count
-        || !std::isfinite(time_step) || time_step <= 0.0) {
+        || !std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(penalty) || penalty <= 0.0) {
         return result;
     }
     const std::size_t count = position.size();
@@ -53019,7 +53086,7 @@ LongDoubleEnergyEvaluation evaluate_al_sparse_inner_long_double(
     const long double mass = static_cast<long double>(MASS);
     const long double rest_density =
         static_cast<long double>(REST_DENSITY);
-    const long double kappa = static_cast<long double>(KAPPA);
+    const long double kappa = static_cast<long double>(penalty);
     const long double horizon = static_cast<long double>(HORIZON);
     const long double half_horizon = 0.5L * horizon;
     std::vector<long double> density(
@@ -53191,7 +53258,12 @@ LongDoubleTrialEnergyAudit audit_al_sparse_inner_long_double(
     const std::vector<double>& multiplier,
     const JointStaticSupportBinding& binding,
     double time_step,
-    ALSparsePrecisionWorkTrace* work) {
+    ALSparsePrecisionWorkTrace* work,
+    double penalty) {
+    if (!std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(penalty) || penalty <= 0.0) {
+        return {};
+    }
     if (work != nullptr) {
         ++work->long_double_audits;
     }
@@ -53205,16 +53277,16 @@ LongDoubleTrialEnergyAudit audit_al_sparse_inner_long_double(
     return finalize_al_long_double_trial_energy_audit(
         evaluate_al_sparse_inner_long_double(
             trial.current_position, predicted, multiplier, binding,
-            candidate_union, false, time_step, work),
+            candidate_union, false, time_step, work, penalty),
         evaluate_al_sparse_inner_long_double(
             trial.current_position, predicted, multiplier, binding,
-            candidate_union, true, time_step, work),
+            candidate_union, true, time_step, work, penalty),
         evaluate_al_sparse_inner_long_double(
             trial.trial_position, predicted, multiplier, binding,
-            candidate_union, false, time_step, work),
+            candidate_union, false, time_step, work, penalty),
         evaluate_al_sparse_inner_long_double(
             trial.trial_position, predicted, multiplier, binding,
-            candidate_union, true, time_step, work));
+            candidate_union, true, time_step, work, penalty));
 }
 
 Binary128EnergyEvaluation evaluate_al_sparse_inner_binary128(
@@ -53225,7 +53297,8 @@ Binary128EnergyEvaluation evaluate_al_sparse_inner_binary128(
     const ALBinary128PairUnion& candidate_union,
     bool compensated,
     double time_step,
-    ALSparsePrecisionWorkTrace* work = nullptr) {
+    ALSparsePrecisionWorkTrace* work = nullptr,
+    double penalty = KAPPA) {
     Binary128EnergyEvaluation result;
     if (!candidate_union.passed || !binding.passed
         || binding.index == nullptr
@@ -53236,7 +53309,8 @@ Binary128EnergyEvaluation evaluate_al_sparse_inner_binary128(
         || position.size() != candidate_union.fluid_count
         || binding.index->support.size()
             != candidate_union.support_count
-        || !std::isfinite(time_step) || time_step <= 0.0) {
+        || !std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(penalty) || penalty <= 0.0) {
         return result;
     }
     const std::size_t count = position.size();
@@ -53254,7 +53328,7 @@ Binary128EnergyEvaluation evaluate_al_sparse_inner_binary128(
         });
     const Binary128 mass = static_cast<Binary128>(MASS);
     const Binary128 rest_density = static_cast<Binary128>(REST_DENSITY);
-    const Binary128 kappa = static_cast<Binary128>(KAPPA);
+    const Binary128 kappa = static_cast<Binary128>(penalty);
     const Binary128 horizon = static_cast<Binary128>(HORIZON);
     std::vector<Binary128> density(
         count, mass * al_binary128_weight(static_cast<Binary128>(0.0)));
@@ -53433,23 +53507,24 @@ Binary128TrialEnergyAudit audit_al_vector_inner_binary128(
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
     double candidate_reduction,
-    double time_step = TIME_STEP) {
+    double time_step = TIME_STEP,
+    double penalty = KAPPA) {
     Binary128EnergyEvaluation current_naive =
         evaluate_al_vector_inner_binary128(
         current_position, predicted, boundary, multiplier,
-        false, time_step);
+        false, time_step, penalty);
     Binary128EnergyEvaluation current_compensated =
         evaluate_al_vector_inner_binary128(
         current_position, predicted, boundary, multiplier,
-        true, time_step);
+        true, time_step, penalty);
     Binary128EnergyEvaluation trial_naive =
         evaluate_al_vector_inner_binary128(
         trial_position, predicted, boundary, multiplier,
-        false, time_step);
+        false, time_step, penalty);
     Binary128EnergyEvaluation trial_compensated =
         evaluate_al_vector_inner_binary128(
         trial_position, predicted, boundary, multiplier,
-        true, time_step);
+        true, time_step, penalty);
     return finalize_al_binary128_trial_energy_audit(
         std::move(current_naive), std::move(current_compensated),
         std::move(trial_naive), std::move(trial_compensated),
@@ -53465,7 +53540,12 @@ audit_al_sparse_inner_binary128(
     const JointStaticSupportBinding& binding,
     double candidate_reduction,
     double time_step,
-    ALSparsePrecisionWorkTrace* work = nullptr) {
+    ALSparsePrecisionWorkTrace* work = nullptr,
+    double penalty = KAPPA) {
+    if (!std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(penalty) || penalty <= 0.0) {
+        return {};
+    }
     if (work != nullptr) {
         ++work->binary128_audits;
     }
@@ -53479,19 +53559,19 @@ audit_al_sparse_inner_binary128(
     Binary128EnergyEvaluation current_naive =
         evaluate_al_sparse_inner_binary128(
             current_position, predicted, multiplier, binding,
-            candidate_union, false, time_step, work);
+            candidate_union, false, time_step, work, penalty);
     Binary128EnergyEvaluation current_compensated =
         evaluate_al_sparse_inner_binary128(
             current_position, predicted, multiplier, binding,
-            candidate_union, true, time_step, work);
+            candidate_union, true, time_step, work, penalty);
     Binary128EnergyEvaluation trial_naive =
         evaluate_al_sparse_inner_binary128(
             trial_position, predicted, multiplier, binding,
-            candidate_union, false, time_step, work);
+            candidate_union, false, time_step, work, penalty);
     Binary128EnergyEvaluation trial_compensated =
         evaluate_al_sparse_inner_binary128(
             trial_position, predicted, multiplier, binding,
-            candidate_union, true, time_step, work);
+            candidate_union, true, time_step, work, penalty);
     return finalize_al_binary128_trial_energy_audit(
         std::move(current_naive), std::move(current_compensated),
         std::move(trial_naive), std::move(trial_compensated),
@@ -53718,12 +53798,14 @@ ALDividedOuterUpdate al_sparse_divided_private_outer_update(
     double stationarity_limit,
     double time_step,
     ALSparseWorkTrace* work,
-    ALSparsePrecisionTransactionContext* precision_context = nullptr) {
+    ALSparsePrecisionTransactionContext* precision_context = nullptr,
+    double kappa = KAPPA) {
     ALDividedOuterUpdate result;
     const ALDividedPrivateInnerSolve inner =
         solve_al_sparse_divided_private_inner(
             predicted, position, fixture.boundary, multiplier,
-            stationarity_limit, time_step, work, precision_context);
+            stationarity_limit, time_step, work, precision_context,
+            kappa);
     result.inner_root = al_divided_private_inner_root(inner);
     result.trials = inner.trials;
     ALVectorOuterRecord& record = result.record.state;
@@ -53755,11 +53837,11 @@ ALDividedOuterUpdate al_sparse_divided_private_outer_update(
                 trial.current_position, trial.trial_position,
                 predicted, multiplier, *precision_context->binding,
                 trial.divided_reduction, time_step,
-                precision_context->precision_work)
+                precision_context->precision_work, kappa)
             : audit_al_vector_inner_binary128(
                 trial.current_position, trial.trial_position,
                 predicted, fixture.boundary, multiplier,
-                trial.divided_reduction, time_step));
+                trial.divided_reduction, time_step, kappa));
         const Binary128TrialEnergyAudit& audit =
             result.candidate_audits.back();
         result.candidate_audit_roots.push_back(
@@ -53809,10 +53891,10 @@ ALDividedOuterUpdate al_sparse_divided_private_outer_update(
             inner.position, predicted, *precision_context->binding,
             multiplier, time_step, work,
             precision_context->static_work,
-            precision_context->adjacency_work)
+            precision_context->adjacency_work, kappa)
         : evaluate_al_sparse_inner(
             inner.position, predicted, fixture.boundary, multiplier,
-            time_step, work);
+            time_step, work, kappa);
     result.position = inner.position;
     result.multiplier.resize(multiplier.size());
     result.support = inner_state.workspace.support;
@@ -53821,16 +53903,16 @@ ALDividedOuterUpdate al_sparse_divided_private_outer_update(
         rms_difference(position, inner.position) / SPACING;
     for (std::size_t center = 0U;
          center < multiplier.size(); ++center) {
-        result.multiplier[center] = std::max(0.0,
-            multiplier[center]
-                + KAPPA * inner_state.workspace.support.constraint[center]);
+        result.multiplier[center] = al_sparse_multiplier_update(
+            multiplier[center],
+            inner_state.workspace.support.constraint[center], kappa);
         const double absolute_change = std::abs(
             result.multiplier[center] - multiplier[center]);
         record.primal = std::max(record.primal,
             std::max(0.0,
                 inner_state.workspace.support.constraint[center]));
         record.scaled_dual_change = std::max(
-            record.scaled_dual_change, absolute_change / KAPPA);
+            record.scaled_dual_change, absolute_change / kappa);
         record.absolute_dual_change = std::max(
             record.absolute_dual_change, absolute_change);
         record.equivalent_pressure_change = std::max(
@@ -54120,12 +54202,20 @@ ALDividedOuterContinuation solve_al_sparse_divided_full_private_transaction(
     std::vector<double> multiplier,
     double time_step,
     ALSparseWorkTrace* work,
-    ALSparsePrecisionTransactionContext* precision_context = nullptr) {
+    ALSparsePrecisionTransactionContext* precision_context = nullptr,
+    double kappa = KAPPA) {
     constexpr double stationarity_limit = 1.0e-10;
     constexpr int maximum_outer = 64;
     ALDividedOuterContinuation result;
     result.position = position;
     result.multiplier = multiplier;
+    if (!std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(kappa) || kappa <= 0.0) {
+        result.all_inners_pass = false;
+        result.all_finite = false;
+        result.failure = "AL_SCALE_INVALID";
+        return result;
+    }
     if (precision_context != nullptr
         && (precision_context->binding == nullptr
             || !precision_context->binding->passed
@@ -54164,7 +54254,7 @@ ALDividedOuterContinuation solve_al_sparse_divided_full_private_transaction(
             al_sparse_divided_private_outer_update(
                 fixture, predicted, position, multiplier, outer,
                 stationarity_limit, time_step, work,
-                precision_context);
+                precision_context, kappa);
         al_divided_outer_observe_update(result, update);
         if (!update.passed) {
             if (!update.sign_contradiction
@@ -54216,7 +54306,7 @@ ALDividedOuterContinuation solve_al_sparse_divided_full_private_transaction(
         result.warm_holdout = al_sparse_divided_private_outer_update(
             fixture, predicted, result.position, result.multiplier,
             result.confirmation_index + 1, stationarity_limit,
-            time_step, work, precision_context);
+            time_step, work, precision_context, kappa);
         al_divided_outer_observe_update(result, result.warm_holdout);
         if (!result.warm_holdout.passed) {
             if (!result.warm_holdout.sign_contradiction
@@ -62248,6 +62338,622 @@ SplitBoundaryReport run_al_nominal_substep_shadow_controls() {
            << ",\"projected_contact_added\":false"
            << ",\"timing_admitted\":false,\"speedup_claim\":false"
            << ",\"runtime_wide_precision_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R18_IDENTITY_SHA256 =
+    "72d05af759eb440959ea6273373eb8851d43ff1a80cb49a8004055e92654925a";
+constexpr const char* B4E2D7R18_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r18-kappa-scaling-prerequisites|v1|"
+    "parent=ae81c21dee45dffeebd88d4a0365e4d96bdf3715:"
+    "1f368c86ec760a232e0314875d7f61010ecdf37f3a2b80023274855c8c71913b:"
+    "a2a8de930d41d8e49c255a3fcf987a8794b4da067ddadf658732946fca0ffced|"
+    "scale=dt-ref0x3f71111111111111;kappa-ref0x4093290000000000;"
+    "ratio78;ratio2=6084;dt-sub0x3f0c01c01c01c01c;"
+    "kappa-sub0x415c75a640000000;kappa-dt2=0x3f95cccccccccccd;"
+    "inertia-ref7200;inertia-sub43804800|"
+    "api=explicit-finite-positive-dt+kappa;workspace-kappa-bound;"
+    "phr-energy-gradient-hvp;divided-reduction;long-double;binary128;"
+    "outer-multiplier+scaled-dual|"
+    "oracle=tiny-active-same-position+prediction+direction;"
+    "zero+scaled-multiplier;reference-vs-substep-normalized;"
+    "dense-sparse-exact-per-scale;one-ulp-kappa-mutation|"
+    "invalid=zero;negative;nan;+inf;reject-before-static-workspace,pair,"
+    "precision,hvp,outer|legacy=d7r16-complete-bytes;"
+    "d7r17-direct-clean-regression|work=no-nominal-solve;"
+    "no-outer-transaction;all-pair0;workspace-live<=2;timing=none|"
+    "routes=kappa-propagation-mismatch;dt-kappa-nondimensional-mismatch;"
+    "kappa-invalid-prework-mismatch;"
+    "dt-kappa-scaling-prerequisites-confirmed|"
+    "precedence=propagation,nondimensional,invalid,confirmed|"
+    "runs=2-clean-release-builds;1-process-each;byte-exact|"
+    "trajectory=none;nominal-substeps=0;macro=none;public-commit=none;"
+    "physics-mutation=none;production-kappa-selection=none|"
+    "credit=explicit-kappa+nondimensional-prerequisite-only";
+
+double al_scaled_scalar_error(
+    double scaled, double reference, double factor) {
+    if (reference == 0.0 || scaled == 0.0) {
+        return binary64_bits(reference) == binary64_bits(scaled)
+            ? 0.0 : std::numeric_limits<double>::infinity();
+    }
+    return relative_error(scaled, factor * reference);
+}
+
+double al_scaled_double_vector_error(
+    const std::vector<double>& scaled,
+    const std::vector<double>& reference,
+    double factor) {
+    if (scaled.size() != reference.size()) {
+        return std::numeric_limits<double>::infinity();
+    }
+    double result = 0.0;
+    for (std::size_t index = 0U; index < scaled.size(); ++index) {
+        result = std::max(result, al_scaled_scalar_error(
+            scaled[index], reference[index], factor));
+    }
+    return result;
+}
+
+double al_scaled_vec3_vector_error(
+    const std::vector<Vec3>& scaled,
+    const std::vector<Vec3>& reference,
+    double factor) {
+    if (scaled.size() != reference.size()) {
+        return std::numeric_limits<double>::infinity();
+    }
+    double result = 0.0;
+    for (std::size_t index = 0U; index < scaled.size(); ++index) {
+        result = std::max({result,
+            al_scaled_scalar_error(
+                scaled[index].x, reference[index].x, factor),
+            al_scaled_scalar_error(
+                scaled[index].y, reference[index].y, factor),
+            al_scaled_scalar_error(
+                scaled[index].z, reference[index].z, factor)});
+    }
+    return result;
+}
+
+std::string al_kappa_active_root(const ALSparseWorkspace& workspace) {
+    std::ostringstream projection;
+    projection << binary64_bits(workspace.kappa) << ':'
+               << binary64_bits(workspace.support.energy) << ':'
+               << workspace.support.active_centers;
+    for (double value : workspace.support.active_coefficient) {
+        projection << ':' << binary64_bits(value);
+    }
+    return sha256_hex(projection.str());
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_kappa_scaling_prerequisites_controls() {
+    constexpr std::uint64_t reference_dt_bits = 0x3f71111111111111ULL;
+    constexpr std::uint64_t reference_kappa_bits = 0x4093290000000000ULL;
+    constexpr std::uint64_t substep_dt_bits = 0x3f0c01c01c01c01cULL;
+    constexpr std::uint64_t substep_kappa_bits = 0x415c75a640000000ULL;
+    constexpr std::uint64_t invariant_product_bits =
+        0x3f95cccccccccccdULL;
+    constexpr double scale_ratio = 78.0;
+    constexpr double scale_factor = 6084.0;
+    constexpr double scaled_kappa = 7460505.0;
+    constexpr double comparison_limit = 64.0
+        * std::numeric_limits<double>::epsilon();
+
+    const bool identity_exact = sha256_hex(
+        B4E2D7R18_IDENTITY_PROJECTION) == B4E2D7R18_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_sparse_precision_transaction_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "4c537f706dee3941808f0c44c1b2db30dd79254bcbbd42c9ac0dc92aee3f8cd5";
+
+    const double reference_dt = TIME_STEP;
+    const double substep_dt = TIME_STEP / scale_ratio;
+    const double reference_product = KAPPA * reference_dt * reference_dt;
+    const double substep_product = scaled_kappa * substep_dt * substep_dt;
+    const double reference_inertia = MASS
+        / (reference_dt * reference_dt);
+    const double substep_inertia = MASS / (substep_dt * substep_dt);
+    const bool coefficient_exact = binary64_bits(reference_dt)
+            == reference_dt_bits
+        && binary64_bits(KAPPA) == reference_kappa_bits
+        && reference_dt / substep_dt == scale_ratio
+        && scale_ratio * scale_ratio == scale_factor
+        && binary64_bits(substep_dt) == substep_dt_bits
+        && binary64_bits(scaled_kappa) == substep_kappa_bits
+        && binary64_bits(reference_product) == invariant_product_bits
+        && binary64_bits(substep_product) == invariant_product_bits
+        && reference_inertia == 7200.0
+        && substep_inertia == 43804800.0
+        && substep_inertia == scale_factor * reference_inertia;
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> position = compressed_fluid(fixture, 0.99);
+    std::vector<Vec3> predicted = position;
+    std::vector<Vec3> trial_position = position;
+    std::vector<Vec3> direction(position.size());
+    std::vector<double> reference_multiplier(position.size());
+    std::vector<double> substep_multiplier(position.size());
+    for (std::size_t index = 0U; index < position.size(); ++index) {
+        const double value = static_cast<double>(index + 1U);
+        predicted[index].x += value * 1.0e-5;
+        predicted[index].y -= value * 0.5e-5;
+        predicted[index].z += value * 0.25e-5;
+        trial_position[index].x -= value * 0.2e-5;
+        trial_position[index].y += value * 0.1e-5;
+        trial_position[index].z -= value * 0.05e-5;
+        direction[index] = {
+            value * 0.000125,
+            -value * 0.00025,
+            value * 0.0000625};
+        reference_multiplier[index] = KAPPA * value * 1.0e-5;
+        substep_multiplier[index] =
+            scale_factor * reference_multiplier[index];
+    }
+    const std::string position_root_before =
+        al_binary64_vec3_root(position);
+    const std::string predicted_root_before =
+        al_binary64_vec3_root(predicted);
+
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex static_index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+    ALSparseWorkTrace work;
+    ALSparsePrecisionWorkTrace precision_work;
+
+    const auto evaluate_profile = [&](double time_step, double kappa,
+                                      const std::vector<double>& multiplier,
+                                      ALVectorInnerState& dense_current,
+                                      ALVectorInnerState& dense_trial,
+                                      ALSparseInnerState& sparse_current,
+                                      ALSparseInnerState& sparse_trial,
+                                      std::vector<Vec3>& dense_hvp,
+                                      std::vector<Vec3>& sparse_hvp,
+                                      Binary64DividedDifference& dense_divided,
+                                      Binary64DividedDifference& sparse_divided,
+                                      LongDoubleTrialEnergyAudit& dense_long,
+                                      LongDoubleTrialEnergyAudit& sparse_long,
+                                      Binary128TrialEnergyAudit& dense_quad,
+                                      Binary128TrialEnergyAudit& sparse_quad) {
+        dense_current = evaluate_al_vector_inner(
+            position, predicted, fixture.boundary, multiplier,
+            time_step, kappa);
+        dense_trial = evaluate_al_vector_inner(
+            trial_position, predicted, fixture.boundary, multiplier,
+            time_step, kappa);
+        sparse_current = evaluate_al_sparse_inner_with_static_support(
+            position, predicted, binding, multiplier, time_step,
+            &work, &static_work, &adjacency_work, kappa);
+        sparse_trial = evaluate_al_sparse_inner_with_static_support(
+            trial_position, predicted, binding, multiplier, time_step,
+            &work, &static_work, &adjacency_work, kappa);
+        dense_hvp = apply_al_vector_inner_hessian(
+            position, fixture.boundary, multiplier, direction,
+            time_step, kappa);
+        sparse_hvp = apply_al_sparse_inner_hessian(
+            sparse_current.workspace, direction, time_step);
+        dense_divided = evaluate_al_vector_inner_divided_difference(
+            position, trial_position, predicted, fixture.boundary,
+            multiplier, time_step, kappa);
+        sparse_divided = evaluate_al_sparse_inner_divided_difference(
+            sparse_current.workspace, sparse_trial.workspace, predicted,
+            multiplier, time_step, &work, kappa);
+        ALStepNormInnerTrial trial;
+        trial.current_position = position;
+        trial.trial_position = trial_position;
+        dense_long = audit_al_vector_inner_long_double(
+            trial, predicted, fixture.boundary, multiplier,
+            time_step, kappa);
+        sparse_long = audit_al_sparse_inner_long_double(
+            trial, predicted, multiplier, binding, time_step,
+            &precision_work, kappa);
+        dense_quad = audit_al_vector_inner_binary128(
+            position, trial_position, predicted, fixture.boundary,
+            multiplier, dense_divided.reduction, time_step, kappa);
+        sparse_quad = audit_al_sparse_inner_binary128(
+            position, trial_position, predicted, multiplier, binding,
+            dense_divided.reduction, time_step, &precision_work, kappa);
+    };
+
+    ALVectorInnerState reference_dense_current;
+    ALVectorInnerState reference_dense_trial;
+    ALSparseInnerState reference_sparse_current;
+    ALSparseInnerState reference_sparse_trial;
+    std::vector<Vec3> reference_dense_hvp;
+    std::vector<Vec3> reference_sparse_hvp;
+    Binary64DividedDifference reference_dense_divided;
+    Binary64DividedDifference reference_sparse_divided;
+    LongDoubleTrialEnergyAudit reference_dense_long;
+    LongDoubleTrialEnergyAudit reference_sparse_long;
+    Binary128TrialEnergyAudit reference_dense_quad;
+    Binary128TrialEnergyAudit reference_sparse_quad;
+    evaluate_profile(reference_dt, KAPPA, reference_multiplier,
+        reference_dense_current, reference_dense_trial,
+        reference_sparse_current, reference_sparse_trial,
+        reference_dense_hvp, reference_sparse_hvp,
+        reference_dense_divided, reference_sparse_divided,
+        reference_dense_long, reference_sparse_long,
+        reference_dense_quad, reference_sparse_quad);
+    const bool reference_dense_sparse_exact =
+        al_sparse_inner_exact(
+            reference_dense_current, reference_sparse_current)
+        && al_sparse_inner_exact(
+            reference_dense_trial, reference_sparse_trial)
+        && exact_vec3_values(
+            reference_dense_hvp, reference_sparse_hvp)
+        && al_binary64_divided_difference_exact(
+            reference_dense_divided, reference_sparse_divided)
+        && al_long_double_trial_energy_audit_exact(
+            reference_dense_long, reference_sparse_long)
+        && al_binary128_audit_root(reference_dense_quad)
+            == al_binary128_audit_root(reference_sparse_quad)
+        && binary64_bits(reference_sparse_current.workspace.kappa)
+            == reference_kappa_bits;
+    release_al_sparse_workspace(reference_sparse_current.workspace, &work);
+    release_al_sparse_workspace(reference_sparse_trial.workspace, &work);
+
+    ALVectorInnerState substep_dense_current;
+    ALVectorInnerState substep_dense_trial;
+    ALSparseInnerState substep_sparse_current;
+    ALSparseInnerState substep_sparse_trial;
+    std::vector<Vec3> substep_dense_hvp;
+    std::vector<Vec3> substep_sparse_hvp;
+    Binary64DividedDifference substep_dense_divided;
+    Binary64DividedDifference substep_sparse_divided;
+    LongDoubleTrialEnergyAudit substep_dense_long;
+    LongDoubleTrialEnergyAudit substep_sparse_long;
+    Binary128TrialEnergyAudit substep_dense_quad;
+    Binary128TrialEnergyAudit substep_sparse_quad;
+    evaluate_profile(substep_dt, scaled_kappa, substep_multiplier,
+        substep_dense_current, substep_dense_trial,
+        substep_sparse_current, substep_sparse_trial,
+        substep_dense_hvp, substep_sparse_hvp,
+        substep_dense_divided, substep_sparse_divided,
+        substep_dense_long, substep_sparse_long,
+        substep_dense_quad, substep_sparse_quad);
+
+    const bool substep_dense_sparse_exact =
+        al_sparse_inner_exact(substep_dense_current, substep_sparse_current)
+        && al_sparse_inner_exact(
+            substep_dense_trial, substep_sparse_trial)
+        && exact_vec3_values(substep_dense_hvp, substep_sparse_hvp)
+        && al_binary64_divided_difference_exact(
+            substep_dense_divided, substep_sparse_divided)
+        && al_long_double_trial_energy_audit_exact(
+            substep_dense_long, substep_sparse_long)
+        && al_binary128_audit_root(substep_dense_quad)
+            == al_binary128_audit_root(substep_sparse_quad)
+        && binary64_bits(substep_sparse_current.workspace.kappa)
+            == substep_kappa_bits;
+    const std::string scaled_active_root =
+        al_kappa_active_root(substep_sparse_current.workspace);
+    release_al_sparse_workspace(substep_sparse_current.workspace, &work);
+    release_al_sparse_workspace(substep_sparse_trial.workspace, &work);
+
+    const bool membership_exact = al_sparse_double_vector_exact(
+            reference_dense_current.support.density,
+            substep_dense_current.support.density)
+        && al_sparse_double_vector_exact(
+            reference_dense_current.support.constraint,
+            substep_dense_current.support.constraint)
+        && reference_dense_current.support.active_centers
+            == substep_dense_current.support.active_centers;
+    const double support_scaling_error = al_scaled_scalar_error(
+        substep_dense_current.support.energy,
+        reference_dense_current.support.energy, scale_factor);
+    const double total_scaling_error = al_scaled_scalar_error(
+        substep_dense_current.total,
+        reference_dense_current.total, scale_factor);
+    const double active_scaling_error = al_scaled_double_vector_error(
+        substep_dense_current.support.active_coefficient,
+        reference_dense_current.support.active_coefficient,
+        scale_factor);
+    const double gradient_scaling_error = al_scaled_vec3_vector_error(
+        substep_dense_current.gradient,
+        reference_dense_current.gradient, scale_factor);
+    const double hvp_scaling_error = al_scaled_vec3_vector_error(
+        substep_dense_hvp, reference_dense_hvp, scale_factor);
+    const double divided_scaling_error = std::max({
+        al_scaled_scalar_error(substep_dense_divided.reduction,
+            reference_dense_divided.reduction, scale_factor),
+        al_scaled_scalar_error(substep_dense_divided.phr_reduction,
+            reference_dense_divided.phr_reduction, scale_factor),
+        al_scaled_scalar_error(substep_dense_divided.inertia_reduction,
+            reference_dense_divided.inertia_reduction, scale_factor)});
+    const double long_double_scaling_error = al_scaled_scalar_error(
+        static_cast<double>(substep_dense_long.compensated_reduction),
+        static_cast<double>(reference_dense_long.compensated_reduction),
+        scale_factor);
+    const double binary128_scaling_error = al_scaled_scalar_error(
+        static_cast<double>(substep_dense_quad.compensated_reduction),
+        static_cast<double>(reference_dense_quad.compensated_reduction),
+        scale_factor);
+    const double maximum_scaling_error = std::max({
+        support_scaling_error, total_scaling_error,
+        active_scaling_error, gradient_scaling_error,
+        hvp_scaling_error, divided_scaling_error,
+        long_double_scaling_error, binary128_scaling_error});
+
+    double maximum_multiplier_error = 0.0;
+    double maximum_scaled_dual_error = 0.0;
+    for (std::size_t index = 0U; index < position.size(); ++index) {
+        const double constraint =
+            reference_dense_current.support.constraint[index];
+        const double reference_next = al_sparse_multiplier_update(
+            reference_multiplier[index], constraint, KAPPA);
+        const double substep_next = al_sparse_multiplier_update(
+            substep_multiplier[index], constraint, scaled_kappa);
+        maximum_multiplier_error = std::max(maximum_multiplier_error,
+            al_scaled_scalar_error(
+                substep_next, reference_next, scale_factor));
+        maximum_scaled_dual_error = std::max(maximum_scaled_dual_error,
+            relative_error(
+                (substep_next - substep_multiplier[index]) / scaled_kappa,
+                (reference_next - reference_multiplier[index]) / KAPPA));
+    }
+    const bool precision_sign_exact = reference_dense_long.finite_values
+        && substep_dense_long.finite_values
+        && reference_dense_quad.finite_values
+        && substep_dense_quad.finite_values
+        && reference_dense_long.sign_agrees == substep_dense_long.sign_agrees
+        && reference_dense_long.resolved_positive
+            == substep_dense_long.resolved_positive
+        && reference_dense_long.resolved_negative
+            == substep_dense_long.resolved_negative
+        && reference_dense_quad.sign_agrees == substep_dense_quad.sign_agrees
+        && reference_dense_quad.resolved_positive
+            == substep_dense_quad.resolved_positive
+        && reference_dense_quad.resolved_negative
+            == substep_dense_quad.resolved_negative
+        && reference_dense_quad.membership_exact
+        && substep_dense_quad.membership_exact;
+    const bool nondimensional_exact = coefficient_exact && membership_exact
+        && maximum_scaling_error <= comparison_limit
+        && maximum_multiplier_error <= comparison_limit
+        && maximum_scaled_dual_error <= comparison_limit
+        && precision_sign_exact;
+
+    const double mutated_kappa = std::nextafter(
+        scaled_kappa, std::numeric_limits<double>::infinity());
+    ALSparseWorkspace mutated_workspace =
+        build_al_sparse_workspace_with_static_support(
+            position, binding, substep_multiplier, &work,
+            &static_work, &adjacency_work, mutated_kappa);
+    const std::string mutated_active_root =
+        al_kappa_active_root(mutated_workspace);
+    const bool mutation_sensitive = binary64_bits(mutated_kappa)
+            == substep_kappa_bits + 1U
+        && binary64_bits(mutated_kappa * substep_dt * substep_dt)
+            != invariant_product_bits
+        && scaled_active_root != mutated_active_root;
+
+    const std::array<double, 4U> invalid_kappa{
+        0.0, -KAPPA, std::numeric_limits<double>::quiet_NaN(),
+        std::numeric_limits<double>::infinity()};
+    bool invalid_prework_exact = true;
+    for (double invalid : invalid_kappa) {
+        ALSparseWorkTrace invalid_work;
+        ALSparsePrecisionWorkTrace invalid_precision_work;
+        StaticSupportWorkTrace invalid_static_work;
+        FlatAdjacencyWorkTrace invalid_adjacency_work;
+        ALSparseWorkspace regular_invalid = build_al_sparse_workspace(
+            position, fixture.boundary, reference_multiplier,
+            &invalid_work, invalid);
+        ALSparseWorkspace static_invalid =
+            build_al_sparse_workspace_with_static_support(
+                position, binding, reference_multiplier, &invalid_work,
+                &invalid_static_work, &invalid_adjacency_work, invalid);
+        const ALDividedOuterContinuation outer_invalid =
+            solve_al_sparse_divided_full_private_transaction(
+                fixture, predicted, position, reference_multiplier,
+                reference_dt, &invalid_work, nullptr, invalid);
+        ALStepNormInnerTrial invalid_trial;
+        invalid_trial.current_position = position;
+        invalid_trial.trial_position = trial_position;
+        const LongDoubleTrialEnergyAudit long_invalid =
+            audit_al_sparse_inner_long_double(
+                invalid_trial, predicted, reference_multiplier, binding,
+                reference_dt, &invalid_precision_work, invalid);
+        const Binary128TrialEnergyAudit quad_invalid =
+            audit_al_sparse_inner_binary128(
+                position, trial_position, predicted,
+                reference_multiplier, binding, 1.0, reference_dt,
+                &invalid_precision_work, invalid);
+        ALSparseWorkspace hvp_invalid;
+        hvp_invalid.kappa = invalid;
+        bool hvp_rejected = false;
+        try {
+            static_cast<void>(apply_al_sparse_inner_hessian(
+                hvp_invalid, direction, reference_dt));
+        } catch (const std::invalid_argument&) {
+            hvp_rejected = true;
+        }
+        invalid_prework_exact = invalid_prework_exact
+            && !regular_invalid.passed
+            && regular_invalid.failure == "AL_SCALE_INVALID"
+            && !static_invalid.passed
+            && static_invalid.failure == "AL_SCALE_INVALID"
+            && outer_invalid.failure == "AL_SCALE_INVALID"
+            && !long_invalid.finite_values && !quad_invalid.finite_values
+            && hvp_rejected && invalid_work.workspace_builds == 0U
+            && invalid_work.pair_visits == 0U
+            && invalid_precision_work.superset_builds == 0U
+            && invalid_precision_work.long_double_audits == 0U
+            && invalid_precision_work.binary128_audits == 0U
+            && invalid_static_work.workspace_builds == 0U
+            && invalid_adjacency_work.workspace_builds == 0U;
+    }
+
+    release_al_sparse_workspace(mutated_workspace, &work);
+    const bool lifecycle_exact = work.workspace_builds
+            == work.workspace_releases
+        && work.live_workspaces == 0U
+        && work.maximum_live_workspaces <= 2U
+        && !work.lifecycle_underflow
+        && work.all_pair_candidate_calls == 0U
+        && precision_work.all_pair_candidate_calls == 0U
+        && static_work.static_index_builds == 1U
+        && static_work.support_canonicalizations == 1U;
+    const bool finite_exact = reference_dense_current.support.finite_values
+        && substep_dense_current.support.finite_values
+        && reference_sparse_current.passed && substep_sparse_current.passed
+        && std::isfinite(maximum_scaling_error)
+        && std::isfinite(maximum_multiplier_error)
+        && std::isfinite(maximum_scaled_dual_error);
+    const bool rollback_exact = position_root_before
+            == al_binary64_vec3_root(position)
+        && predicted_root_before == al_binary64_vec3_root(predicted);
+    const bool propagation_exact = reference_dense_sparse_exact
+        && substep_dense_sparse_exact && mutation_sensitive;
+    const bool hard_controls = identity_exact && parent_exact
+        && static_index.passed && binding.passed && lifecycle_exact
+        && finite_exact && rollback_exact;
+    std::string route;
+    if (hard_controls) {
+        if (!propagation_exact) {
+            route = "KAPPA_PROPAGATION_MISMATCH";
+        } else if (!nondimensional_exact) {
+            route = "DT_KAPPA_NONDIMENSIONAL_MISMATCH";
+        } else if (!invalid_prework_exact) {
+            route = "KAPPA_INVALID_PREWORK_MISMATCH";
+        } else {
+            route = "DT_KAPPA_SCALING_PREREQUISITES_CONFIRMED";
+        }
+    }
+    const bool route_precedence_exact =
+        (!propagation_exact && route == "KAPPA_PROPAGATION_MISMATCH")
+        || (propagation_exact && !nondimensional_exact
+            && route == "DT_KAPPA_NONDIMENSIONAL_MISMATCH")
+        || (propagation_exact && nondimensional_exact
+            && !invalid_prework_exact
+            && route == "KAPPA_INVALID_PREWORK_MISMATCH")
+        || (propagation_exact && nondimensional_exact
+            && invalid_prework_exact
+            && route == "DT_KAPPA_SCALING_PREREQUISITES_CONFIRMED");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R16_PARENT_BYTES";
+    else if (!static_index.passed || !binding.passed)
+        first_failure = "STATIC_BINDING";
+    else if (!lifecycle_exact) first_failure = "LIFECYCLE";
+    else if (!finite_exact) first_failure = "NONFINITE";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R18_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << '|' << coefficient_exact << ':'
+             << binary64_bits(reference_product) << ':'
+             << binary64_bits(substep_product) << '|'
+             << reference_dense_sparse_exact << ':'
+             << substep_dense_sparse_exact << ':' << membership_exact
+             << ':' << maximum_scaling_error << ':'
+             << maximum_multiplier_error << ':'
+             << maximum_scaled_dual_error << ':' << precision_sign_exact
+             << '|' << mutation_sensitive << ':' << invalid_prework_exact
+             << '|' << work.workspace_builds << ':'
+             << work.workspace_releases << ':'
+             << work.maximum_live_workspaces << ':'
+             << precision_work.long_double_audits << ':'
+             << precision_work.binary128_audits << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r18_kappa_scaling_prerequisites.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R18_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"d7r16_stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"scale\":{\"dt_ref_bits\":\"0x" << std::hex
+           << binary64_bits(reference_dt) << "\",\"kappa_ref_bits\":\"0x"
+           << binary64_bits(KAPPA) << "\",\"dt_sub_bits\":\"0x"
+           << binary64_bits(substep_dt) << "\",\"kappa_sub_bits\":\"0x"
+           << binary64_bits(scaled_kappa) << "\",\"product_bits\":\"0x"
+           << binary64_bits(reference_product) << std::dec
+           << "\",\"ratio\":" << scale_ratio
+           << ",\"ratio_squared\":" << scale_factor
+           << ",\"inertia_ref\":" << reference_inertia
+           << ",\"inertia_sub\":" << substep_inertia
+           << ",\"exact\":" << (coefficient_exact ? "true" : "false")
+           << '}'
+           << ",\"propagation\":{\"reference_dense_sparse_exact\":"
+           << (reference_dense_sparse_exact ? "true" : "false")
+           << ",\"substep_dense_sparse_exact\":"
+           << (substep_dense_sparse_exact ? "true" : "false")
+           << ",\"workspace_kappa_bound\":true,\"mutation_root\":\""
+           << mutated_active_root << "\",\"mutation_sensitive\":"
+           << (mutation_sensitive ? "true" : "false") << '}'
+           << ",\"nondimensional\":{\"membership_exact\":"
+           << (membership_exact ? "true" : "false")
+           << ",\"maximum_scaling_error\":" << maximum_scaling_error
+           << ",\"support_scaling_error\":" << support_scaling_error
+           << ",\"total_scaling_error\":" << total_scaling_error
+           << ",\"active_scaling_error\":" << active_scaling_error
+           << ",\"gradient_scaling_error\":" << gradient_scaling_error
+           << ",\"hvp_scaling_error\":" << hvp_scaling_error
+           << ",\"divided_scaling_error\":" << divided_scaling_error
+           << ",\"long_double_scaling_error\":"
+           << long_double_scaling_error
+           << ",\"binary128_scaling_error\":"
+           << binary128_scaling_error
+           << ",\"maximum_multiplier_error\":"
+           << maximum_multiplier_error
+           << ",\"maximum_scaled_dual_error\":"
+           << maximum_scaled_dual_error
+           << ",\"comparison_limit\":" << comparison_limit
+           << ",\"precision_sign_exact\":"
+           << (precision_sign_exact ? "true" : "false")
+           << ",\"exact\":" << (nondimensional_exact ? "true" : "false")
+           << '}'
+           << ",\"invalid\":{\"cases\":4,\"rejected_before_work\":"
+           << (invalid_prework_exact ? "true" : "false") << '}'
+           << ",\"work\":{\"workspace_builds\":"
+           << work.workspace_builds << ",\"workspace_releases\":"
+           << work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << work.maximum_live_workspaces
+           << ",\"long_double_audits\":"
+           << precision_work.long_double_audits
+           << ",\"binary128_audits\":"
+           << precision_work.binary128_audits
+           << ",\"all_pair_candidate_calls\":"
+           << work.all_pair_candidate_calls
+                + precision_work.all_pair_candidate_calls
+           << ",\"lifecycle_exact\":"
+           << (lifecycle_exact ? "true" : "false") << '}'
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"nominal_substeps\":0,\"outer_transactions\":0"
+           << ",\"macro_frames\":0,\"trajectory_steps\":0"
+           << ",\"public_commit_count\":0,\"physics_mutation\":false"
+           << ",\"timing_admitted\":false,\"speedup_claim\":false"
+           << ",\"production_kappa_selected\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
