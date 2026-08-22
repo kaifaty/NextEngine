@@ -293,8 +293,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 bounds=profile.service.bounds,
                 diagnostic_audio=diagnostic_audio,
                 model_identity={
-                    "voxtral_sha256": profile.voxtral.model_sha256,
-                    "transcribe_revision": profile.voxtral.runtime_revision,
+                    **(
+                        {
+                            "voxtral_sha256": profile.voxtral.model_sha256,
+                            "transcribe_revision": profile.voxtral.runtime_revision,
+                        }
+                        if profile.voxtral is not None
+                        else {}
+                    ),
                     "default_asr_model": profile.default_asr_model,
                     **(
                         {

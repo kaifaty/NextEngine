@@ -560,7 +560,6 @@ def import_common_voice(
                 "channels": 1,
                 "encoding": "pcm_s16le_wav",
                 "transcript": transcript[:4_096],
-                "source_id": source_id,
             }
         )
     if len(rows) > MAX_INDEX_ROWS:
@@ -608,7 +607,15 @@ def import_rirs(
             raise ReliabilityImportError(f"missing RIRS subset: {subset_dir}")
         for source_path in sorted(subset_dir.rglob("*.wav")):
             name = _validate_raw_name(source_path.name, f"rirs/{subset}")
-            flat_stem = _stable_id(f"{subset}-{Path(name).stem}", name)
+            # Room001-00001.wav exists under smallroom/, mediumroom/ and
+            # largeroom/; the full relative path keeps identities unique.
+            flat_stem = _stable_id(
+                f"{subset}-"
+                + source_path.relative_to(subset_dir).as_posix()[:-4].replace(
+                    "/", "_"
+                ),
+                str(source_path),
+            )
             label = f"rirs/{flat_stem}"
             try:
                 probe = _probe_wav(source_path)
@@ -628,7 +635,9 @@ def import_rirs(
                 source_path.resolve().relative_to(store_root).as_posix(),
                 label,
             )
-            room_group = Path(name).stem.split("-")[0]
+            room_group = source_path.parent.name if (
+                source_path.parent != subset_dir
+            ) else Path(name).stem.split("-")[0]
             rows.append(
                 {
                     "schema_version": 0,

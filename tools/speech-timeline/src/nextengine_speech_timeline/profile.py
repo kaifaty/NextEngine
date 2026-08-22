@@ -186,7 +186,7 @@ class ServiceProfile:
 
 @dataclass(frozen=True)
 class SpeechTimelineProfile:
-    voxtral: VoxtralProfile
+    voxtral: VoxtralProfile | None
     gigaam: GigaAmProfile | None
     gigastt: GigasttProfile | None
     nemotron: NemotronProfile | None
@@ -212,33 +212,38 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
         raise ProfileError(f"invalid profile JSON: {error}") from error
     root = _object_with_optional(
         value,
-        {"schema_version", "voxtral", "emotion", "service"},
+        {"schema_version", "emotion", "service"},
         {
             "audio_preprocessor",
             "audio_enhancers",
+            "default_asr_model",
             "gigaam",
             "gigastt",
             "nemotron",
-            "default_asr_model",
+            "voxtral",
         },
         "profile",
     )
     if root["schema_version"] != 1:
         raise ProfileError("profile schema_version must be 1")
-    voxtral = _object_with_optional(
-        root["voxtral"],
-        {
-            "model_path",
-            "model_size_bytes",
-            "model_sha256",
-            "transcribe_root",
-            "library",
-            "runtime_revision",
-            "backend",
-            "delay_ms",
-        },
-        {"partial_decode_interval_ms"},
-        "voxtral",
+    voxtral = (
+        _object_with_optional(
+            root["voxtral"],
+            {
+                "model_path",
+                "model_size_bytes",
+                "model_sha256",
+                "transcribe_root",
+                "library",
+                "runtime_revision",
+                "backend",
+                "delay_ms",
+            },
+            {"partial_decode_interval_ms"},
+            "voxtral",
+        )
+        if "voxtral" in root
+        else None
     )
     emotion = _object_with_optional(
         root["emotion"],
@@ -364,20 +369,28 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
         "emotion.adapter_id",
         SUPPORTED_EMOTION_ADAPTERS,
     )
+    if voxtral is None and "default_asr_model" not in root:
+        raise ProfileError(
+            "default_asr_model is required when no voxtral profile is configured"
+        )
     profile = SpeechTimelineProfile(
-        voxtral=VoxtralProfile(
-            model_path=_path(voxtral["model_path"], "voxtral.model_path"),
-            model_size_bytes=_positive_int(voxtral["model_size_bytes"], "model_size_bytes"),
-            model_sha256=_sha256(voxtral["model_sha256"], "model_sha256"),
-            transcribe_root=_path(voxtral["transcribe_root"], "transcribe_root"),
-            library=_path(voxtral["library"], "library"),
-            runtime_revision=_string(voxtral["runtime_revision"], "runtime_revision", 128),
-            backend=_choice(voxtral["backend"], "backend", {"auto", "cpu", "cuda", "vulkan"}),
-            delay_ms=_positive_int(voxtral["delay_ms"], "delay_ms"),
-            partial_decode_interval_ms=_positive_int(
-                voxtral.get("partial_decode_interval_ms", 240),
-                "partial_decode_interval_ms",
-            ),
+        voxtral=(
+            VoxtralProfile(
+                model_path=_path(voxtral["model_path"], "voxtral.model_path"),
+                model_size_bytes=_positive_int(voxtral["model_size_bytes"], "voxtral.model_size_bytes"),
+                model_sha256=_sha256(voxtral["model_sha256"], "voxtral.model_sha256"),
+                transcribe_root=_path(voxtral["transcribe_root"], "voxtral.transcribe_root"),
+                library=_path(voxtral["library"], "voxtral.library"),
+                runtime_revision=_string(voxtral["runtime_revision"], "voxtral.runtime_revision", 128),
+                backend=_choice(voxtral["backend"], "voxtral.backend", {"auto", "cpu", "cuda", "vulkan"}),
+                delay_ms=_positive_int(voxtral["delay_ms"], "voxtral.delay_ms"),
+                partial_decode_interval_ms=_positive_int(
+                    voxtral.get("partial_decode_interval_ms", 240),
+                    "partial_decode_interval_ms",
+                ),
+            )
+            if voxtral is not None
+            else None
         ),
         gigaam=(
             GigaAmProfile(
@@ -603,26 +616,31 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
 
 
 def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
-    model = profile.voxtral.model_path
-    _require_external(model, "Voxtral model")
-    _require_external(profile.voxtral.transcribe_root, "transcribe.cpp checkout")
-    _require_external(profile.voxtral.library, "transcribe.cpp library")
-    if not model.is_file():
-        raise ProfileError(f"Voxtral model does not exist: {model}")
-    actual_size = model.stat().st_size
-    if actual_size != profile.voxtral.model_size_bytes:
+    if profile.voxtral is not None:
+        model = profile.voxtral.model_path
+        _require_external(model, "Voxtral model")
+        _require_external(profile.voxtral.transcribe_root, "transcribe.cpp checkout")
+        _require_external(profile.voxtral.library, "transcribe.cpp library")
+        if not model.is_file():
+            raise ProfileError(f"Voxtral model does not exist: {model}")
+        actual_size = model.stat().st_size
+        if actual_size != profile.voxtral.model_size_bytes:
+            raise ProfileError(
+                f"Voxtral model size mismatch: expected {profile.voxtral.model_size_bytes}, got {actual_size}"
+            )
+        digest = hashlib.sha256()
+        with model.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        actual_hash = f"sha256:{digest.hexdigest()}"
+        if actual_hash != profile.voxtral.model_sha256:
+            raise ProfileError("Voxtral model SHA-256 does not match the profile")
+        if not profile.voxtral.library.is_file():
+            raise ProfileError(f"transcribe.cpp library does not exist: {profile.voxtral.library}")
+    elif profile.default_asr_model == VOXTRAL_MODEL_ROUTE_ID:
         raise ProfileError(
-            f"Voxtral model size mismatch: expected {profile.voxtral.model_size_bytes}, got {actual_size}"
+            "default_asr_model requires a configured voxtral profile"
         )
-    digest = hashlib.sha256()
-    with model.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    actual_hash = f"sha256:{digest.hexdigest()}"
-    if actual_hash != profile.voxtral.model_sha256:
-        raise ProfileError("Voxtral model SHA-256 does not match the profile")
-    if not profile.voxtral.library.is_file():
-        raise ProfileError(f"transcribe.cpp library does not exist: {profile.voxtral.library}")
     if not profile.emotion.cache_dir.is_dir():
         raise ProfileError(f"emotion cache directory does not exist: {profile.emotion.cache_dir}")
     if profile.emotion.adapter_id in TRANSFORMERS_AUDIO_ADAPTER_IDS:
@@ -649,11 +667,12 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
         _validate_nemotron(profile.nemotron)
     elif profile.default_asr_model == NEMOTRON_MODEL_ROUTE_ID:
         raise ProfileError("default_asr_model requires a configured nemotron profile")
-    _validate_git_revision(
-        profile.voxtral.transcribe_root,
-        profile.voxtral.runtime_revision,
-        "transcribe.cpp",
-    )
+    if profile.voxtral is not None:
+        _validate_git_revision(
+            profile.voxtral.transcribe_root,
+            profile.voxtral.runtime_revision,
+            "transcribe.cpp",
+        )
     _require_external(profile.emotion.cache_dir, "emotion cache")
     _require_external(profile.service.ready_file, "ready file")
     if not profile.service.ready_file.parent.is_dir():
@@ -686,8 +705,9 @@ def build_adapters(
         | GigaAmTranscriberAdapter
         | GigasttTranscriberAdapter
         | NemotronTranscriberAdapter,
-    ] = {
-        VOXTRAL_MODEL_ROUTE_ID: VoxtralTranscriberAdapter(
+    ] = {}
+    if profile.voxtral is not None:
+        transcribers[VOXTRAL_MODEL_ROUTE_ID] = VoxtralTranscriberAdapter(
             profile.voxtral.model_path,
             profile.voxtral.transcribe_root,
             profile.voxtral.library,
@@ -695,7 +715,6 @@ def build_adapters(
             delay_ms=profile.voxtral.delay_ms,
             partial_decode_interval_ms=profile.voxtral.partial_decode_interval_ms,
         )
-    }
     if profile.gigaam is not None:
         transcribers[GIGAAM_MODEL_ROUTE_ID] = GigaAmTranscriberAdapter(
             profile.gigaam.snapshot_path,

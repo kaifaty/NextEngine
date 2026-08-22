@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from nextengine_speech_timeline.profile import ProfileError, load_profile, validate_profile_artifacts
+from nextengine_speech_timeline.profile import build_adapters, ProfileError, load_profile, validate_profile_artifacts
 
 
 class ProfileTests(unittest.TestCase):
@@ -131,6 +131,95 @@ class ProfileTests(unittest.TestCase):
             profile.write_text("{}", encoding="utf-8")
             with self.assertRaises(ProfileError):
                 load_profile(profile)
+
+    def test_gigaam_only_profile_requires_no_voxtral_branch(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            cache = root / "emotion-cache"
+            cache.mkdir()
+            snapshot = root / "gigaam-snapshot"
+            snapshot.mkdir()
+            artifacts = {
+                "pytorch_model.bin": b"weights",
+                "modeling_gigaam.py": b"modeling",
+                "config.json": b"{}",
+                "tokenizer.model": b"tokenizer",
+            }
+            for filename, payload in artifacts.items():
+                (snapshot / filename).write_bytes(payload)
+            profile_path = root / "profile.json"
+            profile_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "default_asr_model": "gigaam-v3-e2e-rnnt",
+                        "gigaam": {
+                            "model_id": "ai-sage/GigaAM-v3",
+                            "model_revision": "b" * 40,
+                            "snapshot_path": str(snapshot),
+                            "device": "cuda",
+                            "classification": "unclassified_local_only",
+                            "weights_sha256": f"sha256:{hashlib.sha256(artifacts['pytorch_model.bin']).hexdigest()}",
+                            "modeling_sha256": f"sha256:{hashlib.sha256(artifacts['modeling_gigaam.py']).hexdigest()}",
+                            "config_sha256": f"sha256:{hashlib.sha256(artifacts['config.json']).hexdigest()}",
+                            "tokenizer_sha256": f"sha256:{hashlib.sha256(artifacts['tokenizer.model']).hexdigest()}",
+                        },
+                        "emotion": {
+                            "model_id": "emotion2vec/emotion2vec_plus_base",
+                            "model_revision": "c" * 40,
+                            "cache_dir": str(cache),
+                            "device": "cpu",
+                            "classification": "unclassified_local_only",
+                        },
+                        "service": {
+                            "port": 0,
+                            "ready_file": str(root / "ready.json"),
+                            "max_frame_bytes": 32000,
+                            "max_turn_bytes": 960000,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            profile = load_profile(profile_path)
+
+            self.assertIsNone(profile.voxtral)
+            self.assertEqual(profile.default_asr_model, "gigaam-v3-e2e-rnnt")
+            transcribers, default, _affect, _pre = build_adapters(profile)
+            self.assertIn("gigaam-v3-e2e-rnnt", transcribers)
+            self.assertNotIn("voxtral-realtime", transcribers)
+            self.assertEqual(default, "gigaam-v3-e2e-rnnt")
+
+    def test_profile_without_voxtral_requires_explicit_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            cache = root / "emotion-cache"
+            cache.mkdir()
+            profile_path = root / "profile.json"
+            profile_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "emotion": {
+                            "model_id": "emotion2vec/emotion2vec_plus_base",
+                            "model_revision": "c" * 40,
+                            "cache_dir": str(cache),
+                            "device": "cpu",
+                            "classification": "unclassified_local_only",
+                        },
+                        "service": {
+                            "port": 0,
+                            "ready_file": str(root / "ready.json"),
+                            "max_frame_bytes": 32000,
+                            "max_turn_bytes": 960000,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ProfileError, "default_asr_model is required"):
+                load_profile(profile_path)
 
     def test_optional_gigaam_snapshot_is_hash_closed_and_selectable(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
