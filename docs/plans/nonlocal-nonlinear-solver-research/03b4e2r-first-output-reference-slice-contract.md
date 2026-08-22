@@ -1,6 +1,6 @@
 # NSR3-B4E2R -- first-output reference-slice contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / NO_TRAJECTORY`
+Status: `FROZEN / PASS / FIRST_OUTPUT_REFERENCE_SLICE / NO_TRAJECTORY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -90,3 +90,7 @@ PASS selects `FIRST_OUTPUT_REFERENCE_SLICE` and authorizes only B4E2D Dam
 first-output simulation research/contract design. It grants no timing/speed,
 Hydro trajectory, broad corpus, runtime/GPU/schema or production authority.
 
+B4E2R passes across two independent builds/processes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2r-first-output-reference-slice-evidence-2026-08-22.md).
+The selected result authorizes only B4E2D Dam-first pilot research and
+contract design.

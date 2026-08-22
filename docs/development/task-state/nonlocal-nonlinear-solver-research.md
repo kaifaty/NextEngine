@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2R_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2R_PASS / B4E2D_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -446,8 +446,14 @@
   B4E2R freezes a standalone timing-free Dam-step-4/Hydro-step-24 slice
   extractor with complete-hash admission, canonical micrometre aggregates and
   mutation controls. It runs no Nonlocal trajectory.
+- **Current conclusion:** B4E2R passes across two independent Release builds
+  and fresh processes. Both emit report SHA `6f2d0ffb...40f1`; Dam step 4
+  aggregate is `b8ad20e8...750c` and Hydro step 24 is `d9a113a3...3c47`.
+- **Current decision:** research and freeze a Dam-first B4E2D multi-macro
+  physical-pilot contract. Do not start the trajectory before its state
+  handoff, cumulative physics, reference tolerance and watchdog gates freeze.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
-  coupling, persistence or production work before B4E2R passes.
+  coupling, persistence or production work before a B4E2D contract freezes.
 
 ## Current selected lineage
 
@@ -556,6 +562,7 @@
 | NSR3B4EP10SIRDIREQ3 FAIL | exact path; CPU wins `1/3`, median `0.983844x`, range `1.565388`; reverted | retain SIRDI; measurement-lane qualification research only |
 | NSR3B4EP10SIRDIREQ4 contract | `E = transaction - region + active-worker`, existing exact Q1 command | execute three fresh qualification runs only |
 | NSR3B4EP10SIRDIREQ4 FAIL | exact accounting; adjusted range `1.031236x` misses `1.03` | dedicated/quiescent host before another candidate A/B |
+| NSR3B4E2R PASS | exact Dam-step-4/Hydro-step-24 canonical reference slices | B4E2D Dam-first contract research only |
 
 Candidate solver identity remains:
 
@@ -1369,6 +1376,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** B4E2R passes and its immutable slice roots can become
   the parent of a separately frozen Dam-first physical pilot.
 
+### D-064 -- Admit only Dam-first physical-pilot contract research
+
+- **Observation:** B4E2R independently closes path, complete-hash, frame
+  layout, stable-ID and canonical aggregate extraction without starting a
+  trajectory.
+- **Decision:** use the frozen Dam step-4 slice as the only external parent of
+  the next physical stage. Research state handoff and cumulative transaction
+  gates before implementing four macros.
+- **Rejected:** starting Dam from the extractor PASS alone, combining Dam and
+  Hydro in one command, comparing DFSPH iterations/density or treating a
+  coarse watchdog as performance evidence.
+- **Reconsider when:** a B4E2D contract freezes exact solver lineage,
+  comparison observables, tolerances, failure order and execution bound.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1423,9 +1444,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
-3. Implement and run the frozen standalone B4E2R reference-slice extractor;
-   it must not start a Nonlocal trajectory or emit timing evidence.
-4. Only after B4E2R PASS, research a separate Dam-first B4E2D physical pilot.
+3. Research and freeze a separate Dam-first B4E2D physical-pilot contract.
+4. Do not implement or run its four macros until state handoff, cumulative
+   physics, reference tolerance, ownership and watchdog gates are frozen.
 
 ## Reconsideration triggers
 
