@@ -1,6 +1,6 @@
 # NSR3-B4E2D5 -- pressure-state formulation contract
 
-Status: `FROZEN / NOT_RUN / NO_TRAJECTORY`
+Status: `PASS / AUGMENTED_LAGRANGIAN_SELECTED / NO_TRAJECTORY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -41,3 +41,10 @@ require exit zero, empty stderr and byte-identical stdout. PASS authorizes only
 research and contract design for a tiny dense augmented-Lagrangian oracle. It
 does not authorize a `kappa` change, nominal trajectory, persistent pressure
 schema, runtime/GPU/PhysX integration, performance or production claim.
+
+## Closed execution
+
+Both clean Release processes pass with empty stderr and byte-identical stdout.
+The selected route is `AUGMENTED_LAGRANGIAN_PRESSURE_STATE`; exact values and
+artifact hashes are recorded in
+[the B4E2D5 evidence](../../development/nonlocal-nsr3b4e2d5-pressure-state-formulation-evidence-2026-08-22.md).

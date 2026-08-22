@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D4_PASS_FINITE_PENALTY / B4E2D5_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D5_PASS_AL_SELECTED / B4E2D6_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -499,6 +499,13 @@
   scalar discriminator; retain semismooth primal-dual as fallback.
 - **Next action:** implement/run B4E2D5 without a trajectory or physics
   mutation. PASS may authorize only a tiny dense AL oracle contract.
+- **Current conclusion:** B4E2D5 passes twice byte-identically. PHR recovers
+  the penalty at zero multiplier and carries `11.516 kPa` at zero strain with
+  `lambda=1.439524 J`, exact feasibility and complementarity. Select explicit
+  augmented-Lagrangian pressure state as a new solver identity.
+- **Next action:** research/freeze a tiny dense AL oracle with multiplier
+  convergence, warm-start, inactive-state and rollback controls. No nominal
+  trajectory or runtime pressure schema is authorized.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
