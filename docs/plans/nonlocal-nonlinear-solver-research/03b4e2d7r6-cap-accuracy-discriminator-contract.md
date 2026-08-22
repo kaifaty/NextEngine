@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R6 -- cap versus nested-accuracy discriminator contract
 
-Status: `FROZEN / NOT_RUN / PRIVATE_DIAGNOSTIC_ONLY`
+Status: `CLOSED / FAIL / INNER_SUBPROBLEM_NUMERICAL_FLOOR / PRIVATE_ONLY`
 
 Identity projection (exact bytes, no final LF):
 

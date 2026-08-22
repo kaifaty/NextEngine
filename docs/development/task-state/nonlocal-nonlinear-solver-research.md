@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R5_PASS_CAP_ACCURACY_RESEARCH / B4E2D7R6_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R6_FAIL_INNER_NUMERICAL_FLOOR / B4E2D7R7_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,19 @@
 
 ## Resume in 60 seconds
 
+- **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
+  `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
+  byte-exact, controls pass and public commit count is zero.
+- **Current boundary:** the `1e-8` lane develops a five-update primal cycle
+  and fails at outer 58; `1e-9` fails at outer 13; `1e-10/1e-11/1e-12` share
+  the same outer-11 `MINIMUM_TRUST_RADIUS` state.
+- **Near-gate fact:** the `1e-10` outer-10 dual/pressure update misses the
+  absolute state gate by only `1.023944x`, but its next inner solve stalls at
+  stationarity `1.534119e-10`. Do not relax the gate after observing this.
+- **Current decision:** D7R7 is frozen as a replay-only mechanism
+  discriminator over the three unique failed states. It observes raw/direct
+  merit, binary64 ULP scale, trust ownership and exact active/pair topology;
+  it cannot accept a trial or select a solver family.
 - **Current conclusion:** B4C4 packaging is complete. The B4C4C1 packaged
   runner still reproduces identity `66e318cb...d6f3c` and semantic result
   `b4d52600...550c`; formula/profile/source hashes are unchanged.
@@ -1588,6 +1601,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** a B4E2D contract freezes exact solver lineage,
   comparison observables, tolerances, failure order and execution bound.
 
+### D-065 -- Reject cap/tolerance selection at the finite inner floor
+
+- **Observation:** D7R6 preserves D7R5 exactly, but all five cap/accuracy
+  lanes fail the unchanged inner policy. Baseline pressure corrections cycle
+  every five updates; tighter lanes reach minimum trust radius, and the three
+  tightest requests share one outer-11 state at stationarity
+  `1.534119330122981e-10`.
+- **Decision:** retain the hard FAIL and freeze one replay-only D7R7 mechanism
+  discriminator over the three unique failures. Compare raw/direct/model
+  reduction against binary64 ULP scale and exact PHR/pair topology before
+  researching any remedy.
+- **Rejected:** increasing the outer cap, trying another tolerance decade,
+  relaxing the absolute gate by the observed 2.4%, changing `beta`, selecting
+  semismooth Newton from citations, or starting Dam/Hydro.
+- **Reconsider when:** D7R7 classifies the common failure mechanism with
+  exact parent/state/work/rollback evidence.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1644,9 +1674,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
-5. Implement/run frozen B4E2D7R6 from the exact post-outer-7 fork; change only
-   the private inner stationarity stop and do not select a cap/tolerance or
-   start a trajectory.
+5. Implement/run frozen B4E2D7R7 over the three exact D7R6 failed states;
+   preserve raw admission and emit trial/ULP/topology facts only.
 
 ## Reconsideration triggers
 

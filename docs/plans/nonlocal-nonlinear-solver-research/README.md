@@ -1576,3 +1576,14 @@ lanes through a bounded 64-update observation horizon. Its
 [contract](03b4e2d7r6-cap-accuracy-discriminator-contract.md) separates
 cap-only, accuracy-only, coupled and formulation outcomes. Implement/run only
 this private discriminator next; it cannot itself change a cap or tolerance.
+D7R6 fails closed; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r6-cap-accuracy-discriminator-evidence-2026-08-22.md).
+The unchanged `1e-8` lane develops a five-update primal cycle and eventually
+hits `REJECT_LIMIT`; tighter lanes reach `MINIMUM_TRUST_RADIUS`, with the
+three tightest lanes sharing the same outer-11 state. No cap/tolerance route
+is selected. The
+[D7R7 research](../../development/nonlocal-nsr3b4e2d7r7-inner-floor-mechanism-research-2026-08-22.md)
+and [frozen contract](03b4e2d7r7-inner-floor-mechanism-contract.md) select a
+replay-only mechanism discriminator over the three unique failures. Implement
+only its trial/ULP/topology trace next; no acceptance, penalty, solver-family,
+trajectory or production change is authorized.
