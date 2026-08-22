@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R2_FAIL_SIGNED_ZERO / B4E2D7R2R_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R2_FAIL_SIGNED_ZERO / B4E2D7R2R_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -576,6 +576,12 @@
   the topology-stable half step has direct ratio `1.3285` and clear descent.
 - **Next action:** freeze a narrow D7R2R signed-zero reclosure that records the
   bits, accepts numerical zero of either sign and preserves all D7R2 bytes.
+- **Current decision:** B4E2D7R2R supersedes only the positive-zero
+  representation predicate. It requires numerical zero plus exact observed
+  bits `[0,2^63,0]`, the complete unchanged D7R2 trace and the topology-stable
+  half-step row before applying the original route precedence.
+- **Next action:** implement/run B4E2D7R2R twice. No kernel canonicalization,
+  trust-policy implementation or trajectory is authorized.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -697,6 +703,7 @@
 | NSR3B4E2D7R1 FAIL | direct and raw differences agree on ascent; every trial violates frozen topology gate | preserve FAIL; topology/step discriminator research only |
 | NSR3B4E2D7R2 contract | exact set deltas, horizon branch continuation and fixed alpha ladder | implement/run replay-only discriminator |
 | NSR3B4E2D7R2 FAIL | `W'(h)=-0.0` violates the frozen positive-zero bit gate | signed-zero contract reclosure only |
+| NSR3B4E2D7R2R contract | numerical-zero gate with exact signed bits over unchanged D7R2 | implement/run reclosure only |
 
 Candidate solver identity remains:
 

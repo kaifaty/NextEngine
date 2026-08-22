@@ -1521,3 +1521,9 @@ The implementation yields `W'(h)=-0.0`, which is numerically zero but not the
 required positive-zero bit pattern. Preserve the FAIL. Research/freeze one
 narrow signed-zero reclosure that changes no kernel or route precedence and
 keeps the complete D7R2 report byte-exact.
+The [B4E2D7R2R research](../../development/nonlocal-nsr3b4e2d7r2r-signed-zero-reclosure-research-2026-08-22.md)
+selects numerical equality to zero plus the exact observed signed-zero bits.
+Its [frozen contract](03b4e2d7r2r-signed-zero-reclosure-contract.md) requires
+the unchanged complete D7R2 report and half-step facts before route selection.
+Implement/run only this narrow reclosure next; do not canonicalize the kernel
+or implement the anticipated trust-policy route.
