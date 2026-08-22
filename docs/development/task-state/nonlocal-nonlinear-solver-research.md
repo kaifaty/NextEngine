@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R3_PASS_STEP_NORM_TRUST / B4E2D7R4_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R4_PASS_INNER_CANDIDATE / B4E2D7R5_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -606,6 +606,12 @@
   exact quarter shrink and no outer update may execute.
 - **Next action:** implement/run B4E2D7R4 twice, then stop at its exact inner
   boundary before designing outer AL integration.
+- **Current conclusion:** B4E2D7R4 passes twice byte-identically. The failed
+  inner state now converges in two trials/four HVPs at stationarity `6.006e-9`;
+  one step-norm update replaces nine repeated rejects and raw acceptance stays
+  unchanged.
+- **Next action:** research/freeze B4E2D7R5 integrating only this candidate
+  inner into the complete private D7R outer/confirmation transaction.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -732,6 +738,7 @@
 | NSR3B4E2D7R3 contract | backtrack versus step-norm trust versus legacy first binding | implement/run replay-only policy discriminator |
 | NSR3B4E2D7R3 PASS | step-relative radius yields stable admitted boundary step in two HVPs | tiny inner-policy implementation contract research only |
 | NSR3B4E2D7R4 contract | separate step-norm-aware private inner with raw acceptance | implement/run inner replay only |
+| NSR3B4E2D7R4 PASS | exact failed inner converges in two trials/four HVPs with unchanged raw gate | full private outer-integration contract research only |
 
 Candidate solver identity remains:
 

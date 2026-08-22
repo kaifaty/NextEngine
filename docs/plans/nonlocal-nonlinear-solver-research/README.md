@@ -1552,3 +1552,9 @@ freezes the selected update behind a separate private-inner candidate. Its
 [contract](03b4e2d7r4-step-norm-inner-contract.md) keeps raw admission, exact
 fallback and the original reject/work caps. Implement/run only this failed-
 state inner replay next; multiplier and outer state must remain untouched.
+B4E2D7R4 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r4-step-norm-inner-evidence-2026-08-22.md).
+The exact failed state converges privately in two trials and four HVPs with
+unchanged raw acceptance and exact fallback. Research/freeze B4E2D7R5 next to
+integrate only this inner candidate into D7R's complete private AL and
+two-confirmation protocol. No public state or trajectory is authorized.

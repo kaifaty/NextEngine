@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R4 -- step-norm trust inner contract
 
-Status: `FROZEN / NOT_RUN / PRIVATE_INNER_ONLY`
+Status: `PASS / STEP_NORM_TRUST_INNER_CANDIDATE / PRIVATE_INNER_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
