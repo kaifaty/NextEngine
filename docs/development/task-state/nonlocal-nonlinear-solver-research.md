@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10PI_FROZEN / MASKED_PLAN_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP10PI_PERF_FAIL / PARALLEL_ACTIVE_PLAN_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -281,6 +281,11 @@
 - **Current decision:** B4EP10PI keeps the fixed plan cache-owned, mapping
   workspace-owned and canonical energy fold unchanged. It must eliminate all
   226 active plan builds and pass three balanced external A/B pairs.
+- **Negative result:** B4EP10PI is exact and wins all three pairs, but median
+  paired speedup is only `1.030796x`, below 1.05. RSS falls 5,244 KiB while
+  median user CPU rises from 37.31 to 39.27 s due to full masked scans.
+- **Current decision:** retain B4EP10I active plans. Research deterministic
+  parallel construction of only the active transpose; do not relax the gate.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -358,6 +363,7 @@
 | NSR3B4EP10PD contract | one masked superset target CSR versus 226 active plans | structural/capacity audit only; no timing or fast path |
 | NSR3B4EP10PD PASS | exact stable rows; `1.288507x` scan, 38.0 MB conservative peak | B4EP10PI implementation/A-B contract research only |
 | NSR3B4EP10PI contract | opt-in cache-plan gather and three balanced A/B pairs | implement/time only; old path remains rollback |
+| NSR3B4EP10PI FAIL | exact and `3/3` faster, but median only `1.030796x` | retain B4EP10I; parallel active-plan research only |
 
 Candidate solver identity remains:
 
@@ -437,6 +443,7 @@ production authority is created by this lineage.
 | [B4EP10P research](../nonlocal-nsr3b4ep10p-masked-superset-plan-research-2026-08-22.md) | stable superset subsequence can remove repeated transpose construction | run structural/scan/capacity audit before fast path |
 | [B4EP10PD](../nonlocal-nsr3b4ep10pd-masked-superset-plan-evidence-2026-08-22.md) | all active target rows exactly filter one fixed plan within gates | freeze opt-in implementation/A-B before speed claim |
 | [B4EP10PI research](../nonlocal-nsr3b4ep10pi-masked-plan-implementation-research-2026-08-22.md) | cache/workspace lifetime and exact masked gather selected | implement candidate then run frozen external A/B |
+| [B4EP10PI](../nonlocal-nsr3b4ep10pi-masked-plan-evidence-2026-08-22.md) | exact masked reuse misses frozen speed gate and raises CPU work | retain active plan; research deterministic parallel rebuild |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -846,6 +853,15 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** claiming speed from structural evidence or promoting the
   audit-only structures into runtime/default ownership.
 
+### D-040 -- Reject masked plan as selected fast path
+
+- **Observation:** masked reuse wins `3/3` and lowers RSS, but median paired
+  speedup is `1.030796x` and median user CPU increases by 1.96 s.
+- **Decision:** preserve the exact negative candidate, retain B4EP10I active
+  plans and research a stable parallel active transpose.
+- **Rejected:** lowering the predeclared 5% gate after seeing the result or
+  hiding added scan work behind the 3.6% aggregate-median wall change.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -894,10 +910,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen B4EP10PI candidate without changing old commands or
-   the canonical energy fold.
-2. Run exact regressions and three serialized balanced A/B pairs; route only
-   if every functional, speed, stability, RSS and rollback gate passes.
+1. Research deterministic parallel active-plan construction using fixed
+   logical partitions and stable counting-sort/CSR transpose techniques.
+2. Freeze a structural/capacity discriminator before another fast path; keep
+   B4EP10PI as negative evidence and B4EP10I as selected execution.
 
 ## Reconsideration triggers
 

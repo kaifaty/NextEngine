@@ -1191,3 +1191,9 @@ energy fold unchanged. Its
 [frozen contract](03b4ep10pi-masked-superset-plan-implementation-contract.md)
 requires exact candidate work and three balanced external A/B pairs before
 any speed credit.
+B4EP10PI fails the speed gate; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10pi-masked-plan-evidence-2026-08-22.md).
+It is physically exact, wins `3/3`, lowers RSS and has stable wall, but median
+paired speedup is only `1.030796x` versus the frozen `1.05x`. The extra masked
+scan raises CPU work; B4EP10I's active plan remains selected and parallel
+active-plan construction is the next research direction.

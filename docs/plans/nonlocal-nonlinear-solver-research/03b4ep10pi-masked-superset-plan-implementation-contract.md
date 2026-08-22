@@ -1,6 +1,6 @@
 # NSR3-B4EP10PI -- masked superset plan implementation/A-B contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / FAIL_PERFORMANCE / ACTIVE_PLAN_RETAINED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -70,3 +70,12 @@ PASS authorizes only separately frozen masked-path residual timing research.
 Any functional failure rejects the implementation. A performance-gate failure
 retains B4EP10PD structural evidence but keeps B4EP10I as selected execution.
 B4E2, broad corpus, runtime/GPU/schema and production remain blocked.
+
+## Closure
+
+B4EP10PI fails its performance gate; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10pi-masked-plan-evidence-2026-08-22.md).
+The candidate is exact, wins all three pairs, is stable and lowers RSS, but
+median paired speedup is only `1.030796x` versus the frozen `1.05x`. The
+active-plan path remains selected; deterministic parallel active-plan
+construction research is allowed next.
