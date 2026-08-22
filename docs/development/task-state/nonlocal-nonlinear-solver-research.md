@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D4_PASS_FINITE_PENALTY / B4E2D5_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D4_PASS_FINITE_PENALTY / B4E2D5_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -493,6 +493,12 @@
 - **Next action:** research a formulation discriminator comparing the minimum
   sufficient bulk-penalty increase and its stiffness cost with constrained or
   augmented-Lagrangian incompressibility. Do not alter the adaptive controller.
+- **Architecture result:** penalty-only pressure is identically zero at zero
+  compression and its required coefficient scales linearly with pressure/head.
+  Select a unilateral PHR augmented-Lagrangian pressure state for the next
+  scalar discriminator; retain semismooth primal-dual as fallback.
+- **Next action:** implement/run B4E2D5 without a trajectory or physics
+  mutation. PASS may authorize only a tiny dense AL oracle contract.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
