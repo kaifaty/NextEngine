@@ -1271,3 +1271,10 @@ The candidate is bit-exact, wins `3/3` pairs and clears the frozen gate at
 B4EP10I as rollback and freeze candidate-specific residual timing before
 another construction or floating-work change. B4E2, broad corpus, runtime,
 GPU, schema and production remain blocked.
+The [B4EP10SIR research](../../development/nonlocal-nsr3b4ep10sir-split-incoming-residual-research-2026-08-22.md)
+selects the existing hierarchical stage/subphase and worker-active timers over
+the exact split-incoming command. Its
+[frozen contract](03b4ep10sir-split-incoming-residual-timing-contract.md)
+requires three exact fresh processes, stable disjoint category shares and a
+predeclared leader rule before one next mechanical discriminator may be
+selected. Implement and measure only this timing command.

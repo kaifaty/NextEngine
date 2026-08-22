@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SII_PASS / RESIDUAL_TIMING_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SIR_FROZEN / RESIDUAL_TIMING_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -303,6 +303,10 @@
 - **Current decision:** select split incoming only for the nominal research
   path, retain B4EP10I as rollback and remeasure the candidate residual before
   another code change.
+- **Current decision:** B4EP10SIR reuses the exact hierarchical timers and
+  reconstructs disjoint topology, source-local, target-fold and control
+  categories across three fresh processes. Route only through its frozen
+  stability and `1.20x` leader rule.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -388,6 +392,7 @@
 | NSR3B4EP10SID PASS | exact lower/own/upper fold at `1.106670x` projected visits | incoming construction audit only |
 | NSR3B4EP10SICD PASS | exact pair-endpoint incoming builder | B4EP10SII opt-in integration/A-B only |
 | NSR3B4EP10SII PASS | exact candidate; median `1.052521x`, RSS `-4,852 KiB` | candidate residual timing research only |
+| NSR3B4EP10SIR contract | candidate hierarchical/category timing | implement/run three only; no speed credit |
 
 Candidate solver identity remains:
 
@@ -475,6 +480,7 @@ production authority is created by this lineage.
 | [B4EP10SID](../nonlocal-nsr3b4ep10sid-split-incoming-plan-evidence-2026-08-22.md) | exact three-part fold and bounded visit ratio | prove independent incoming construction |
 | [B4EP10SICD](../nonlocal-nsr3b4ep10sicd-incoming-construction-evidence-2026-08-22.md) | exact pair-endpoint construction | integrate opt-in floating path and A/B |
 | [B4EP10SII](../nonlocal-nsr3b4ep10sii-split-incoming-plan-evidence-2026-08-22.md) | exact and narrowly passes frozen speed gate | retain for research; profile candidate residual next |
+| [B4EP10SIR research](../nonlocal-nsr3b4ep10sir-split-incoming-residual-research-2026-08-22.md) | existing timers can isolate four architecture categories | implement/run frozen timing command only |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -1014,10 +1020,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research and freeze one B4EP10SIR candidate-specific internal timing
-   contract over the unchanged split incoming command.
-2. Measure three exact fresh processes and route only from stable topology,
-   evaluation, HVP, target-fold and executor-capacity evidence.
+1. Implement only the frozen B4EP10SIR timing command over unchanged
+   B4EP10SII execution.
+2. Run three exact fresh processes and route only from stable category and
+   executor-capacity evidence.
 
 ## Reconsideration triggers
 
