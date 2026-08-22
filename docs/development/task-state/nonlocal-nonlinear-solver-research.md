@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R18R4_FAIL_WORK_LIFECYCLE / NSR3B4E2D7R18R4R1_PASS_RETAINS_SECOND_ITERATION / D7R19_BLOCKED / DIMENSIONLESS_FORCING_TRANSACTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R18R4_FAIL_WORK_LIFECYCLE / NSR3B4E2D7R18R4R1_PASS_RETAINS_SECOND_ITERATION / NSR3B4E2D7R18R4R2_FROZEN / D7R19_EXECUTION_BLOCKED / DIMENSIONLESS_FORCING_TRANSACTION_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -129,6 +129,17 @@
   a new explicit dimensionless-policy contract. Research/freeze that complete
   rollback-only R4R2 transaction before implementation; do not change R4's
   frozen 38-HVP expectation or open D7R19.
+- **Current decision:** D7R18R4R2 is frozen as five complete rollback-only
+  transactions whose only R4 solver delta is explicit
+  `min(0.5,sqrt(max_i ||g_i||/dx))` forcing, frozen once per trust solve.
+- **Pre-implementation work proof:** `dx*sqrt(8)<1` gives
+  `eta_dimensionless>=eta_inherited`, so the new policy cannot add an
+  iteration. R4R1 proves it retains the second HVP at the sole two-iteration
+  boundary. Therefore each active run is frozen at 39 HVP and the five-run
+  total at 117 before implementation.
+- **Scope boundary:** R4R2 requires 57 explicit dimensionless-policy trust
+  solves, zero inherited-policy selections and exact R4 state/precision roots.
+  Even a pass authorizes only D7R19 research/freeze, not execution.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -1039,6 +1050,7 @@
 | NSR3B4E2D7R18R4 FAIL | confirmation and precision pass, but normalized active work uses 39 rather than frozen 38 HVP | replay-only dimensionless Krylov-forcing research; D7R19 blocked |
 | NSR3B4E2D7R18R4R1 contract | dimensionless forcing replay at active outer 11/trial 0 with exactly two diagnostic HVPs | implement/run replay only; D7R19 blocked |
 | NSR3B4E2D7R18R4R1 PASS | inherited scale defect confirmed; dimensionless `eta` still retains the second Krylov iteration at a `3.05e15`-ULP separation | research/freeze a separate complete dimensionless-policy transaction; D7R19 blocked |
+| NSR3B4E2D7R18R4R2 contract | explicit dimensionless forcing; dominance proof freezes 39 active / 117 total HVP before implementation | implement/run five rollback-only transactions; D7R19 execution blocked |
 
 Candidate solver identity remains:
 
@@ -1993,10 +2005,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R18R4R1/R4/R3/R2/R1/D7R18/D7R17 and D7R13 exactly.
-   Research/freeze R4R2 as one complete rollback-only normalized transaction
-   whose solver explicitly uses dimensionless Krylov forcing and whose work
-   ledger is derived before implementation. Do not relax the R4 work gate,
-   run D7R19, or start a nominal substep, macro, trajectory or timing lane.
+   Implement/run frozen R4R2 as five complete rollback-only normalized
+   transactions with explicit dimensionless Krylov forcing, exact 117-HVP
+   total and no other solver delta. Do not relax the R4 work gate, run D7R19,
+   or start a nominal substep, macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 
