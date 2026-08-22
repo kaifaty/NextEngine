@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R18R4R1 -- normalized Krylov forcing replay contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / D7R19_BLOCKED`
+Status: `CLOSED / PASS / DIMENSIONLESS_FORCING_RETAINS_SECOND_ITERATION / D7R19_BLOCKED`
 
 Identity projection (exact bytes, no final LF):
 

@@ -2,7 +2,7 @@
 
 Date: `2026-08-22`
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_NEXT`
+Status: `CLOSED / PASS / DIMENSIONLESS_FORCING_RETAINS_SECOND_ITERATION`
 
 ## Question
 
@@ -125,3 +125,10 @@ Freeze R4R1 as a no-acceptance one-HVP diagnostic. A resolved route may
 authorize research/freeze of one new complete private transaction with an
 explicit dimensionless forcing policy and a work expectation derived from
 that policy. D7R19 remains blocked.
+
+R4R1 subsequently passes and selects
+`DIMENSIONLESS_FORCING_RETAINS_SECOND_ITERATION`; see the
+[dated evidence](nonlocal-nsr3b4e2d7r18r4r1-normalized-krylov-forcing-evidence-2026-08-22.md).
+The scale-defect mechanism is confirmed, but the dimensionless threshold is
+also below the measured first-recurrence ratio. Research/freeze the separate
+complete dimensionless-policy transaction next; preserve R4's hard FAIL.
