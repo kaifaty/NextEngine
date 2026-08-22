@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R12_PASS_PRIVATE_PRESSURE_STATE_CONFIRMED / B4E2D7R13_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R13_PASS_FULL_PRIVATE_PRESSURE_STATE_CONFIRMED / B4E2D7R14_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -67,6 +67,15 @@
 - **Current decision:** D7R13 is frozen. It removes the mixed D7R5 prefix,
   requires exact active repeat plus inactive confirmation and retains every
   D7R12 audit, pressure gate, holdout and rollback control.
+- **Current conclusion:** D7R13 passes reproducibly at stdout SHA
+  `514ea192...18de`, semantic result `37c0828f...ecd8` and route
+  `FULL_PRIVATE_PRESSURE_STATE_CONFIRMED`. D7R12 bytes remain exact.
+- **Full-solve fact:** the original-state active solve confirms at outer 12
+  and holds out at 13 with 19 acceptances, zero rejects and 38 HVPs. Four
+  candidate-effect signs resolve positive. The inactive solve is exactly still.
+- **Current decision:** research D7R14 as a one-nominal-Dam-frame shadow
+  mapping. Freeze state/work/error boundaries before any implementation; no
+  trajectory or timing is authorized.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1783,8 +1792,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Implement/run frozen D7R13 full private transaction; preserve D7R12 bytes,
-   complete active/inactive controls and do not run a nominal frame.
+6. Preserve D7R13 and its exact structural work baseline. Research/freeze
+   D7R14 one-nominal-Dam-frame shadow mapping without trajectory or timing.
 
 ## Reconsideration triggers
 

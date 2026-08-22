@@ -1682,3 +1682,10 @@ removes D7R12's mixed-accuracy prefix and starts from the original state. Its
 `eta=1e-10` and divided reduction for every inner, requires an exact active
 repeat and inactive transaction, retains confirmation/holdout and forces
 rollback. Implement/run only this full private transaction next.
+D7R13 passes and selects `FULL_PRIVATE_PRESSURE_STATE_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r13-full-private-transaction-evidence-2026-08-22.md).
+The original-state active solve confirms at outer 12 and holds out at 13 with
+19 acceptances, zero rejects and 38 HVPs. Four candidate-effect acceptances
+are binary128-resolved positive. The inactive solve remains exactly still.
+Research D7R14 as a one-nominal-frame shadow mapping before implementation;
+do not run a trajectory or timing lane.

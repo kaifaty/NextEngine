@@ -2,7 +2,7 @@
 
 Date: `2026-08-22`
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / NOT_RUN`
+Status: `CLOSED / PASS / FULL_PRIVATE_PRESSURE_STATE_CONFIRMED`
 
 ## Question
 
@@ -73,3 +73,10 @@ the complete original-state transaction and requires the inactive control.
 - Any other route returns to the exact first failing state under the already
   frozen arithmetic and pressure gates.
 
+## Closure
+
+D7R13 passes; see the
+[dated evidence](nonlocal-nsr3b4e2d7r13-full-private-transaction-evidence-2026-08-22.md).
+The active state confirms at outer 12 with an outer-13 holdout, and the
+inactive transaction remains exactly still. Proceed to nominal-frame mapping,
+not a trajectory or a timing run.

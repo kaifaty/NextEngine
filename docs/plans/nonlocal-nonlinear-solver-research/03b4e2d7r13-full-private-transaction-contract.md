@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R13 -- full private divided transaction contract
 
-Status: `FROZEN / NOT_RUN / PRIVATE_ONLY`
+Status: `CLOSED / PASS / FULL_PRIVATE_PRESSURE_STATE_CONFIRMED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -44,3 +44,5 @@ route-precedence mismatch is hard FAIL. PASS is one full private pressure-
 state classification only. It grants no nominal frame, trajectory, public
 state, general error bound, timing, GPU/runtime or production authority.
 
+Closure evidence:
+[NSR3-B4E2D7R13 full private divided transaction evidence](../../development/nonlocal-nsr3b4e2d7r13-full-private-transaction-evidence-2026-08-22.md).
