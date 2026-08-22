@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D5_PASS_AL_SELECTED / B4E2D6_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D5_PASS_AL_SELECTED / B4E2D6_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -506,6 +506,12 @@
 - **Next action:** research/freeze a tiny dense AL oracle with multiplier
   convergence, warm-start, inactive-state and rollback controls. No nominal
   trajectory or runtime pressure schema is authorized.
+- **Scope correction:** B4E2D6 first freezes an eight-constraint, one-primal-
+  DOF path oracle over the true B2 density kernel. This isolates multiplier
+  convergence before a complete dense vector AL oracle.
+- **Next action:** implement/run B4E2D6 with analytic density-path derivatives,
+  bracketed inner solves, cold/warm/inactive/reset/rollback controls and no
+  trajectory.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
