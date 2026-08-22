@@ -167,6 +167,7 @@ int main(int argc, char** argv) {
                          "shadow|"
                          "--nonlocal-al-sixth-trust-recurrence-replay|"
                          "--nonlocal-al-krylov-model-image-discriminator|"
+                         "--nonlocal-al-guarded-sixth-trial-shadow|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1298,6 +1299,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_krylov_model_image_discriminator_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-guarded-sixth-trial-shadow") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_guarded_sixth_trial_shadow_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
