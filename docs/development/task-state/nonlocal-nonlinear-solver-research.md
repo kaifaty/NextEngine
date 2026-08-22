@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2R_PASS / B4E2D_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2R_PASS / B4E2D_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -449,11 +449,17 @@
 - **Current conclusion:** B4E2R passes across two independent Release builds
   and fresh processes. Both emit report SHA `6f2d0ffb...40f1`; Dam step 4
   aggregate is `b8ad20e8...750c` and Hydro step 24 is `d9a113a3...3c47`.
-- **Current decision:** research and freeze a Dam-first B4E2D multi-macro
-  physical-pilot contract. Do not start the trajectory before its state
-  handoff, cumulative physics, reference tolerance and watchdog gates freeze.
-- **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
-  coupling, persistence or production work before a B4E2D contract freezes.
+- **Current decision:** B4E2D freezes a four-macro Dam-first pilot with exact
+  decoded-canonical handoff, global roots, cumulative physical budgets and
+  the independent step-four centre/q99 envelope.
+- **Architecture correction:** retain one immutable static support index across
+  all four steps, but make the certified dynamic topology cache transaction-
+  local. The reference displacement exceeds its cross-step anchor limit and
+  certificate failure has no fallback.
+- **Next action:** implement the frozen B4E2D command, build Release twice,
+  run A under the 900-second watchdog, and run B only after A fully passes.
+- **Do not run:** B4E2H or broader B4E corpus, CUDA, runtime/schema, PhysX
+  coupling, persistence or production work before B4E2D passes.
 
 ## Current selected lineage
 
