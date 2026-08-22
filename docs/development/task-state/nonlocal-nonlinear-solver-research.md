@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R18_PASS_CLASSIFIED_NONDIMENSIONAL_HVP_MISMATCH / D7R19_BLOCKED / B4E2D7R18R1_NONDIMENSIONAL_TRANSACTION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R18R1_PASS_NONDIMENSIONAL_TRANSACTION / D7R19_BLOCKED / TINY_NORMALIZED_D7R13_TRANSACTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -44,9 +44,20 @@
   reference transforms `0x3da1eed347666340` / `0x3d6cb1520bd70533`;
   reconstructed pressure becomes diagnostic while kinematic/impulse ledgers
   remain mandatory for a later nominal stage.
-- **Next action:** implement only the D7R18R1 tiny formula/reconstruction gate.
-  D7R19 remains blocked even on pass until a tiny full normalized transaction
-  reproduces D7R13 confirmation, precision audits and rollback.
+- **Current conclusion:** D7R18R1 passes in two clean builds at stdout SHA
+  `b63aa985...5fbd`, semantic result `eeb29e67...570e` and route
+  `NONDIMENSIONAL_AL_TRANSACTION_CANDIDATE`. Direct dense/sparse and both
+  cross-scale roots are exact; long-double/binary128 signs agree.
+- **Certificate fact:** dimensional reconstruction errors are `4.72e-14` and
+  `3.80e-10`, below the frozen component bounds `3.81e-10` and `2.32e-6`.
+  D7R18's mismatch is closed without relaxing its relative-error gate.
+- **Lifecycle fact:** four normalized workspaces build/release with maximum
+  live count two; 18 invalid scale/dual cases reject prework and both clean
+  binaries reproduce D7R17 exactly.
+- **Current decision:** retain the normalized representation and research one
+  tiny full normalized D7R13 transaction with confirmation, holdout,
+  accepted-sign precision and rollback. D7R19 remains blocked regardless of
+  the formula PASS.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -949,6 +960,9 @@
 | NSR3B4E2D7R5 contract | D7R outer/two-confirmation protocol with D7R4 private inner and warm holdout | implement/run private transaction only |
 | NSR3B4E2D7R5 PASS | all inner solves pass and primal is monotone, but 14 updates yield no stable pressure pair | cap-versus-nested-accuracy discriminator research only |
 | NSR3B4E2D7R6 contract | post-prefix stationarity ladder through a bounded 64-update observation horizon | implement/run private discriminator only |
+| NSR3B4E2D7R17 PASS classification | one aligned nominal substep exhausts the structural watchdog with converged inner solves | expose and reclose the missing dimensionless penalty scale only |
+| NSR3B4E2D7R18 PASS classification | explicit `kappa` isolates dimensional HVP accumulation mismatch | direct normalized transaction formulation only |
+| NSR3B4E2D7R18R1 PASS | `u=lambda/kappa`, `theta=kappa*dt^2/M` are exact across scales and reconstruction is certified | tiny full normalized D7R13 transaction research only; D7R19 blocked |
 
 Candidate solver identity remains:
 
@@ -1902,9 +1916,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R16/D7R15 exactly. Implement D7R17 with internal structural
-   budgets and separate predictor-contact, AL pressure and fixed-support
-   reaction accounting. Defer macro, trajectory and timing work.
+6. Preserve D7R18R1/D7R18/D7R17 exactly. Research and freeze one tiny full
+   normalized transaction reproducing D7R13 confirmation, holdout,
+   accepted-sign precision and rollback. Do not run D7R19, a nominal substep,
+   macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 

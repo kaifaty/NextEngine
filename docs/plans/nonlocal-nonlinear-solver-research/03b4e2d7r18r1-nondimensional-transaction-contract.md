@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R18R1 -- nondimensional AL transaction contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP`
+Status: `PASS / NONDIMENSIONAL_AL_TRANSACTION_CANDIDATE / D7R19_BLOCKED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -61,3 +61,7 @@ tiny full private normalized transaction reproducing D7R13 confirmation,
 holdout, accepted-sign precision and rollback. D7R19 remains blocked. No
 nominal solve, production scale, macro, trajectory, timing, public state,
 parallel/GPU, runtime or production authority is granted.
+
+The command passes in two clean Release builds. Exact results and the retained
+lifecycle correction are recorded in the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18r1-nondimensional-transaction-evidence-2026-08-22.md).
