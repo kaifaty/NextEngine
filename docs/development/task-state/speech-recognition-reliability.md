@@ -11,22 +11,22 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The full closure chain is real end-to-end: five public sources are hash-closed, `prepare` published a 124 357-row prepared index, one exact resident identity (GigaAM-v3) is bound, and the first real replays completed 212/212 turns with honest feature payloads.
-- **Why:** CV Scripted RU 26.0 (60 000 admitted of 176 302 validated), CV Spontaneous RU 4.0 (394 of 552; long/empty typed skips), FLEURS ru (3 690), MUSAN noise (930) and RIRS (60 038) are imported with pinned hashes; the partial recipe dry-runs with zero blockers.
-- **Next action:** Start R2 only after generating the manifest-fixed degradations and freezing replay outputs per route; first run the constant/rule/logistic baselines on the frozen train/calibration partitions.
-- **Current blocker:** None for plumbing; R2 needs the deterministic degradation generator plus scaled replay wall-time budgeting.
-- **Do not retry:** Treating microphone diagnostics as training data; inventing hashes; retrying failed replay clips to green; pooling GigaAM scores with other routes.
-- **Reconsider when:** A second route (gigastt/Voxtral) is bound for paired comparison or R2 gates need target-domain evidence.
+- **Current conclusion:** R2 data plumbing is real end-to-end: prepared index, deterministic degradations and degraded-audio replay through the bound GigaAM identity all run on actual public data with typed outcomes.
+- **Why:** `augment` generated 2 995 derivations for 500 train/calibration clips (control + ≤5 grid conditions each), and the resident replay completed 2 995/2 995 turns — control exact 91.4 %, hardest condition noise+room 84.5 %, one typed speech_but_empty.
+- **Next action:** Scale augmentation/replay to the full train/calibration partitions in background batches, then fit the constant/rule/L2-logistic baselines on the frozen outputs (§12) and report §16 metrics per condition bucket.
+- **Current blocker:** None technical; wall-clock budgeting is the only scaling constraint (~90 min per 3 000 turns unpaced).
+- **Do not retry:** Pooling GigaAM scores with other routes; tuning thresholds on held_out; treating the 92 %/89 % numbers as route quality benchmarks (CV domain proximity inflates them).
+- **Reconsider when:** Baselines are fitted and gates need held-out evaluation runs.
 
 ## Current evidence
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| `docs/development/speech-recognition-reliability-public-data-spec-2026-08-20.md` | `PASS` as approved development scope | Names the claim boundary, R0–R3 increments and evaluation gates |
-| External store `~/.cache/nextengine/speech-reliability/prepared.jsonl` | `PASS` prepare 2026-08-22 | 63 389 speech + 61 068 asset rows, splits 84 106/16 176/24 075 (train/calibration/held_out), 693 digit + 2 empty references excluded; index sha256 `53c5eb50…` |
-| `replay-runs/gigaam-first` + `gigaam-200` (external) | `PASS` first real replay 2026-08-22 | 200/200 held-out CV clips completed via resident `gigaam-pytorch/1`: exact 184 (92 %), WER mean 1.44 % / p95 14.3 %, CER mean 0.33 %, zero empty finals, zero overload/failures; features carry exact pinned identity |
-| `cargo run -p xtask -- host-check` (R0 handoff) | `PASS` on pinned Rust 1.97.1 | Localized Python-only changes re-ran focused package checks instead; rerun before any cross-cutting claim |
-| Degradation generation / learned calibration | `NOT_RUN` | No accuracy, calibration or reliability-model claim is currently allowed |
+| External store `~/.cache/nextengine/speech-reliability/prepared.jsonl` | `PASS` prepare 2026-08-22 | 63 389 speech + 61 068 asset rows, splits 84 106/16 176/24 075; index sha256 `53c5eb50…` |
+| `augmented/train-calib-500.jsonl` | `PASS` augment 2026-08-22 | 500 clips → 2 995 rows (controls + attenuation/MUSAN/RIRS/room+noise/EQ variants); codec-damage honestly capped out by the five-variant limit; sha256 `61b09777…`; determinism proven by fixture double-run |
+| `replay-runs/gigaam-200` + `gigaam-first` | `PASS` clean replay 2026-08-22 | 200/200 held-out clips, exact 184 (92 %), WER mean 1.44 %, zero empty finals |
+| `replay-runs/aug-500` | `PASS` degraded replay 2026-08-22 | 2 994 completed + 1 typed speech_but_empty; exact by condition: control 91.4 %, attenuation 91.0 %, EQ 90.2 %, MUSAN 87.1 %, room+noise 84.5 % |
+| Degradation-scale replay of full partitions / baselines / calibration | `NOT_RUN` | No learned reliability claim exists yet |
 
 ## Decisions that still constrain the work
 
