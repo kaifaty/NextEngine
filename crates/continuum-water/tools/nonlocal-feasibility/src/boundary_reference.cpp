@@ -46513,6 +46513,29 @@ constexpr const char* B4E2D7R9_IDENTITY_PROJECTION =
     "trajectory=none;trial-acceptance=none;public-commit=none;"
     "physics-mutation=none|"
     "credit=one-binary64-actual-reduction-candidate-only";
+constexpr const char* B4E2D7R9R1_IDENTITY_SHA256 =
+    "13edb2e1b7c7cd2e761c52c08a1b8b62c6d343546631bf8f8133f0d566138f59";
+constexpr const char* B4E2D7R9R1_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r9r1-acceptance-ledger-reclosure|v1|"
+    "parent="
+    "b15390b347fb1b6894a520ab327c3014425056d0:"
+    "b5a0f921a65d82c07a019ee08be970468b80aeec6075c3da706f7623cd346ce9:"
+    "2c45e93d4153edf714b0f490be3f3d760b14a1ead1e8ed8ae9528d2555ec91f0|"
+    "correction=inherited-acceptance-ledger;eta1e-8-trial7;"
+    "eta1e-9-trial5;eta1e-10-none;total2;new-acceptance0|"
+    "candidate=d7r9-binary64-formula-and-scoring-unchanged|"
+    "oracle=11-positive;0-negative;12-unresolved|"
+    "gate=all-11-resolved-signs;relative-error<=0.5;"
+    "repair-at-least-one-causative;finite;branch-ledger-exact|"
+    "controls=d7r9-complete-fail-bytes;d7r8-complete-bytes;state-roots;"
+    "work-acceptance;forced-rollback|"
+    "routes=compensated-absolute-candidate;divided-difference-candidate;"
+    "branch-reclosure;stronger-arithmetic|"
+    "precedence=absolute,divided,branch,stronger|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|"
+    "trajectory=none;new-trial-acceptance=none;public-commit=none;"
+    "physics-mutation=none|"
+    "credit=one-binary64-actual-reduction-candidate-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -54357,7 +54380,8 @@ SplitBoundaryReport run_al_extended_precision_energy_discriminator_controls() {
     return {passed, report.str()};
 }
 
-SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
+SplitBoundaryReport run_al_divided_difference_discriminator_impl(
+    bool reclosed_acceptance_ledger) {
     constexpr std::array<double, 5> stationarity_limits{
         1.0e-8, 1.0e-9, 1.0e-10, 1.0e-11, 1.0e-12};
     constexpr std::array<std::size_t, 3> unique_lane_indices{0U, 1U, 2U};
@@ -54365,8 +54389,24 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
         "21ad77e22bdba4520ca231bb78d51947a1b67e4263e08dae33af13b0aafabd05",
         "075442656934aeed156642091e9fc1ed41bc739513b5710990cdfb231d8aabc2",
         "299e4ce372a8a3d418ac6f354c70c362fd772acdf278464fb603a3881527901c"};
-    const bool identity_exact = sha256_hex(B4E2D7R9_IDENTITY_PROJECTION)
-        == B4E2D7R9_IDENTITY_SHA256;
+    const char* identity_projection = reclosed_acceptance_ledger
+        ? B4E2D7R9R1_IDENTITY_PROJECTION : B4E2D7R9_IDENTITY_PROJECTION;
+    const char* identity_sha256 = reclosed_acceptance_ledger
+        ? B4E2D7R9R1_IDENTITY_SHA256 : B4E2D7R9_IDENTITY_SHA256;
+    const bool identity_exact = sha256_hex(identity_projection)
+        == identity_sha256;
+    SplitBoundaryReport failed_contract_parent;
+    std::string failed_contract_stdout_sha256;
+    bool failed_contract_parent_exact = true;
+    if (reclosed_acceptance_ledger) {
+        failed_contract_parent =
+            run_al_divided_difference_discriminator_impl(false);
+        failed_contract_stdout_sha256 = sha256_hex(
+            failed_contract_parent.json + "\n");
+        failed_contract_parent_exact = !failed_contract_parent.passed
+            && failed_contract_stdout_sha256
+                == "2c45e93d4153edf714b0f490be3f3d760b14a1ead1e8ed8ae9528d2555ec91f0";
+    }
     const SplitBoundaryReport parent =
         run_al_extended_precision_energy_discriminator_controls();
     const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
@@ -54447,6 +54487,9 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
     bool branch_ledger_exact = true;
     bool work_acceptance_exact = true;
     int accepted_replay_trials = 0;
+    bool accepted_eta1e8_trial7 = false;
+    bool accepted_eta1e9_trial5 = false;
+    bool unexpected_inherited_acceptance = false;
     int resolved_positive = 0;
     int resolved_negative = 0;
     int unresolved = 0;
@@ -54470,7 +54513,16 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
                 && trial.accepted == unchanged_decision
                 && trial.current_position.size() == active_prediction.size()
                 && trial.trial_position.size() == active_prediction.size();
-            accepted_replay_trials += trial.accepted ? 1 : 0;
+            if (trial.accepted) {
+                ++accepted_replay_trials;
+                if (unique == 0U && trial.trial == 7) {
+                    accepted_eta1e8_trial7 = true;
+                } else if (unique == 1U && trial.trial == 5) {
+                    accepted_eta1e9_trial5 = true;
+                } else {
+                    unexpected_inherited_acceptance = true;
+                }
+            }
 
             TrialAudit audit;
             audit.oracle = audit_al_vector_inner_long_double(
@@ -54572,7 +54624,12 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
     }
     const bool oracle_ledger_exact = resolved_positive == 11
         && resolved_negative == 0 && unresolved == 12 && scored == 11;
-    const bool zero_acceptance_exact = accepted_replay_trials == 0;
+    const bool inherited_acceptance_ledger_exact =
+        accepted_replay_trials == 2 && accepted_eta1e8_trial7
+        && accepted_eta1e9_trial5 && !unexpected_inherited_acceptance;
+    const bool acceptance_control_exact = reclosed_acceptance_ledger
+        ? inherited_acceptance_ledger_exact
+        : accepted_replay_trials == 0;
     const bool absolute_candidate_pass = oracle_ledger_exact
         && absolute_all_scored && absolute_repaired;
     const bool divided_candidate_pass = oracle_ledger_exact
@@ -54593,10 +54650,11 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
         && state_roots_exact;
 
     std::string route;
-    if (identity_exact && parent_exact && binary64_profile_exact
+    if (identity_exact && failed_contract_parent_exact
+        && parent_exact && binary64_profile_exact
         && state_roots_exact && common_tight_state_exact
         && oracle_ledger_exact && all_finite && branch_ledger_exact
-        && work_acceptance_exact && zero_acceptance_exact
+        && work_acceptance_exact && acceptance_control_exact
         && rollback_exact) {
         if (absolute_candidate_pass) {
             route = "COMPENSATED_ABSOLUTE_REDUCTION_CANDIDATE";
@@ -54620,6 +54678,8 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
     const bool passed = !route.empty() && route_precedence_exact;
     std::string first_failure;
     if (!identity_exact) first_failure = "IDENTITY";
+    else if (!failed_contract_parent_exact)
+        first_failure = "D7R9_FAILED_PARENT_BYTES";
     else if (!parent_exact) first_failure = "D7R8_PARENT_BYTES";
     else if (!binary64_profile_exact) first_failure = "BINARY64_PROFILE";
     else if (!state_roots_exact) first_failure = "STATE_ROOTS";
@@ -54629,7 +54689,7 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
     else if (!all_finite) first_failure = "NONFINITE";
     else if (!branch_ledger_exact) first_failure = "BRANCH_LEDGER";
     else if (!work_acceptance_exact) first_failure = "WORK_ACCEPTANCE";
-    else if (!zero_acceptance_exact) first_failure = "REPLAY_ACCEPTANCE";
+    else if (!acceptance_control_exact) first_failure = "REPLAY_ACCEPTANCE";
     else if (!rollback_exact) first_failure = "ROLLBACK";
     else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
 
@@ -54637,8 +54697,12 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
     semantic << std::setprecision(
                     std::numeric_limits<long double>::max_digits10)
              << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
-             << B4E2D7R9_IDENTITY_SHA256 << '|' << parent_stdout_sha256
+             << identity_sha256 << '|' << parent_stdout_sha256
              << '|' << binary64_profile_exact << '|';
+    if (reclosed_acceptance_ledger) {
+        semantic << failed_contract_stdout_sha256 << ':'
+                 << inherited_acceptance_ledger_exact << '|';
+    }
     for (std::size_t unique = 0U;
          unique < unique_lane_indices.size(); ++unique) {
         semantic << stationarity_limits[unique_lane_indices[unique]] << ':'
@@ -54671,17 +54735,27 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
     const std::string result_sha256 = sha256_hex(semantic.str());
 
     std::ostringstream report;
+    const char* schema = reclosed_acceptance_ledger
+        ? "nextengine.nonlocal."
+          "nsr3b4e2d7r9r1_acceptance_ledger_reclosure.v1"
+        : "nextengine.nonlocal."
+          "nsr3b4e2d7r9_divided_difference_discriminator.v1";
     report << std::setprecision(
                   std::numeric_limits<long double>::max_digits10)
-           << "{\"schema\":\"nextengine.nonlocal."
-              "nsr3b4e2d7r9_divided_difference_discriminator.v1\""
-           << ",\"identity_sha256\":\"" << B4E2D7R9_IDENTITY_SHA256
+           << "{\"schema\":\"" << schema << '"'
+           << ",\"identity_sha256\":\"" << identity_sha256
            << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
            << "\",\"first_failure\":\"" << first_failure << '"'
            << ",\"parent\":{\"stdout_sha256\":\""
            << parent_stdout_sha256 << "\",\"exact\":"
-           << (parent_exact ? "true" : "false") << '}'
-           << ",\"binary64_profile_exact\":"
+           << (parent_exact ? "true" : "false") << '}';
+    if (reclosed_acceptance_ledger) {
+        report << ",\"failed_contract_parent\":{\"stdout_sha256\":\""
+               << failed_contract_stdout_sha256 << "\",\"exact\":"
+               << (failed_contract_parent_exact ? "true" : "false")
+               << '}';
+    }
+    report << ",\"binary64_profile_exact\":"
            << (binary64_profile_exact ? "true" : "false")
            << ",\"common_tight_state_exact\":"
            << (common_tight_state_exact ? "true" : "false")
@@ -54749,8 +54823,13 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
            << (branch_ledger_exact ? "true" : "false")
            << ",\"work_acceptance_exact\":"
            << (work_acceptance_exact ? "true" : "false")
-           << ",\"accepted_replay_trials\":" << accepted_replay_trials
-           << ",\"prior_public_root\":\"" << prior_public_root
+           << ",\"accepted_replay_trials\":" << accepted_replay_trials;
+    if (reclosed_acceptance_ledger) {
+        report << ",\"inherited_acceptance_ledger_exact\":"
+               << (inherited_acceptance_ledger_exact ? "true" : "false")
+               << ",\"new_accepted_trials\":0";
+    }
+    report << ",\"prior_public_root\":\"" << prior_public_root
            << "\",\"forced_public_root\":\"" << forced_public_root
            << "\",\"rollback_exact\":"
            << (rollback_exact ? "true" : "false") << '}'
@@ -54758,8 +54837,12 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
            << (route_precedence_exact ? "true" : "false")
            << ",\"route\":\"" << route << '"'
            << ",\"trajectory_steps\":0,\"public_commit_count\":0"
-           << ",\"trial_acceptance_count\":0"
-           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"trial_acceptance_count\":"
+           << (reclosed_acceptance_ledger ? accepted_replay_trials : 0);
+    if (reclosed_acceptance_ledger) {
+        report << ",\"new_trial_acceptance_count\":0";
+    }
+    report << ",\"physics_mutation\":false,\"timing_admitted\":false"
            << ",\"binary64_reduction_candidate_authorized\":"
            << (passed ? "true" : "false")
            << ",\"formula_integration_authorized\":false"
@@ -54768,6 +54851,14 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
            << ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
+    return run_al_divided_difference_discriminator_impl(false);
+}
+
+SplitBoundaryReport run_al_divided_difference_reclosure_controls() {
+    return run_al_divided_difference_discriminator_impl(true);
 }
 
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls() {
