@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SICD_PASS / SPLIT_INCOMING_INTEGRATION_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SII_FROZEN / SPLIT_INCOMING_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -973,10 +973,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research and freeze B4EP10SII opt-in floating integration/A-B, including
-   exact lower/own/upper fold counters and construction ownership.
-2. Implement only after the contract; require exact output before three
-   serialized balanced Release pairs against B4EP10I worker-8.
+1. Implement the frozen B4EP10SII topology-owned incoming plan and exact
+   lower/own/upper evaluation/HVP fold only in the opt-in command.
+2. Verify old-command bytes, then run one warmup each and three serialized
+   balanced Release pairs against B4EP10I worker-8.
 
 ## Reconsideration triggers
 

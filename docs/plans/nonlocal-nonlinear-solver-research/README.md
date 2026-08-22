@@ -1257,3 +1257,9 @@ All candidate incoming arrays match across 226 topologies, both corrupt
 fixtures reject and conservative combined payload is 35.6 MB. This authorizes
 only B4EP10SII floating integration/A-B contract research; no speed result
 exists yet.
+The [B4EP10SII research](../../development/nonlocal-nsr3b4ep10sii-split-incoming-integration-research-2026-08-22.md)
+selects one opt-in floating split-fold path with topology-to-tape ownership and
+the three audited construction regions left unfused. Its
+[frozen contract](03b4ep10sii-split-incoming-integration-contract.md) requires
+exact candidate work and three balanced A/B pairs before any speed credit.
+Implement and measure only this command.
