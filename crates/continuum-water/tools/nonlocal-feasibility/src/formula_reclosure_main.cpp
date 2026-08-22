@@ -122,7 +122,8 @@ int main(int argc, char** argv) {
                          "--nominal-hydro-directed-scratch-setup-timing-8|"
                          "--nominal-hydro-directed-scratch-cpu-timing-8|"
                          "--nominal-hydro-directed-scratch-evaluation-buffer-"
-                         "audit\n";
+                         "audit|"
+                         "--nominal-hydro-topology-incoming-fusion-audit\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -1005,6 +1006,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nominal-hydro-topology-incoming-fusion-audit") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_nominal_hydro_topology_incoming_fusion_audit_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -1134,7 +1142,8 @@ int main(int argc, char** argv) {
                      "--nominal-hydro-directed-scratch-setup-timing-8|"
                      "--nominal-hydro-directed-scratch-cpu-timing-8|"
                      "--nominal-hydro-directed-scratch-evaluation-buffer-"
-                     "audit\n";
+                     "audit|"
+                     "--nominal-hydro-topology-incoming-fusion-audit\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';
