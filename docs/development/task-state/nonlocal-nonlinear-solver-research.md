@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R16_PASS_NOMINAL_TRANSACTION_BACKEND / B4E2D7R17_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R16_PASS_NOMINAL_TRANSACTION_BACKEND / B4E2D7R17_FROZEN_NOMINAL_SUBSTEP_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -138,6 +138,17 @@
   substep shadow with bounded work, separate contact/pressure/support impulse
   ledger, residual, conservation, penetration, watchdog and rollback gates.
   Execute no macro, trajectory or timing lane.
+- **New worst-case constraint:** sparse Steihaug still permits `3N=18000`
+  HVPs per nominal trust step. D7R17 freezes internal pre-work caps of 16
+  outer updates, 16 inner trials, 32 HVPs per step, 512 HVPs total, 288
+  workspaces and 64 accepted precision audits.
+- **Ledger decision:** the selected confirmed state must separately account
+  gravity, predictor contact, kinematic AL pressure and fixed-support reaction.
+  The warm holdout validates but does not replace that state.
+- **Boundary decision:** final closed-box penetration above `1e-12 m` selects
+  a later projected-contact research route; D7R17 does not pre-add projection.
+- **Next action:** implement/run only the frozen D7R17 single-substep shadow,
+  one process per two clean builds. Do not run a second substep or time it.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1854,10 +1865,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R16/D7R15 exactly. Research/freeze D7R17 before executing one
-   aligned nominal Dam substep with separate predictor-contact, AL pressure
-   and fixed-support reaction accounting. Defer macro, trajectory and timing
-   work.
+6. Preserve D7R16/D7R15 exactly. Implement D7R17 with internal structural
+   budgets and separate predictor-contact, AL pressure and fixed-support
+   reaction accounting. Defer macro, trajectory and timing work.
 
 ## Reconsideration triggers
 

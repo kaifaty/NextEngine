@@ -387,6 +387,14 @@ inactive, every inner and every precision root remain exact while one static
 index serves all 100 workspaces. Research/freeze D7R17 next as exactly one
 aligned nominal substep with a separate predictor-contact/pressure/support
 impulse ledger; no macro, trajectory or timing lane is authorized.
+The [D7R17 research](../../development/nonlocal-nsr3b4e2d7r17-nominal-substep-shadow-research-2026-08-22.md)
+finds that sparse Steihaug still has a nominal worst-case limit of 18,000 HVPs
+per trust step. Its
+[frozen contract](03b4e2d7r17-nominal-substep-shadow-contract.md) therefore
+adds internal outer/inner/CG/workspace/precision budgets before running exactly
+one private aligned substep. The result must keep gravity, predictor contact,
+AL pressure and fixed-support reaction separate and must classify final box
+penetration before any projected-contact redesign.
 The [B4C1 research](../../development/nonlocal-nsr3b4c1-pressure-tape-research-2026-08-21.md)
 rejects copying the full multi-term A2 record into pressure-only support
 states. The [B4C1 contract](03b4c1-compact-pressure-tape-contract.md) instead
@@ -1748,3 +1756,6 @@ D7R16 then passes and selects `NOMINAL_TRANSACTION_BACKEND_CONFIRMED`; see the
 The complete static-bound transaction removes the hidden dense precision path,
 preserves all inherited roots and confirms the separate predictor-contact
 impulse. Research/freeze D7R17 before executing its one nominal substep.
+D7R17 is frozen with deterministic pre-work limits and two impulse-closure
+identities. Implement one private substep next; no second substep, macro,
+trajectory or timing lane is authorized.
