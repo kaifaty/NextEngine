@@ -145,6 +145,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-divided-difference-reclosure|"
                          "--nonlocal-al-divided-difference-private-inner|"
                          "--nonlocal-al-binary128-accepted-sign-oracle|"
+                         "--nonlocal-al-divided-private-outer-continuation|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1137,6 +1138,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_binary128_accepted_sign_oracle_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-divided-private-outer-continuation") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_divided_private_outer_continuation_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
