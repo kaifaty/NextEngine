@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SID_PASS / SPLIT_INCOMING_CONSTRUCTION_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SICD_FROZEN / INCOMING_CONSTRUCTION_AUDIT` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -962,10 +962,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research ownership and stable construction of the incoming CSR during the
-   current topology filter; freeze a side-by-side builder audit.
-2. Require exact incoming offsets/slots/source mapping and bounded added work
-   before any evaluation/HVP integration or A/B.
+1. Implement the frozen B4EP10SICD pair-endpoint construction audit with no
+   returned-path or timing change.
+2. Run two exact processes and regressions; freeze floating integration only
+   if all arrays, work, capacity and corruption gates pass.
 
 ## Reconsideration triggers
 

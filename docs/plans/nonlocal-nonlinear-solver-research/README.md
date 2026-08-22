@@ -1245,3 +1245,9 @@ All 226 three-part row reconstructions are exact, both corrupt fixtures reject,
 and projected visits are `1.106670x` the selected target entries with 32.1 MB
 conservative payload. This authorizes only B4EP10SIC topology-construction
 research, not a floating path or timing.
+The [B4EP10SIC research](../../development/nonlocal-nsr3b4ep10sic-incoming-construction-research-2026-08-22.md)
+selects pair-endpoint dual indexing plus support-target CSR to construct the
+incoming view without sort or atomics. Its
+[frozen B4EP10SICD contract](03b4ep10sicd-incoming-construction-audit-contract.md)
+requires exact arrays across all 226 topologies before floating integration or
+timing may be designed. Implement only this construction audit.
