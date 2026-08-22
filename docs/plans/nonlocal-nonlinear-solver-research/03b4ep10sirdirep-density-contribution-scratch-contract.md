@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREP -- density-contribution scratch contract
 
-Status: `FROZEN / IMPLEMENTATION_PENDING`
+Status: `CLOSED / FAIL / BASELINE_HEALTH_AND_CANDIDATE_STABILITY / IMPLEMENTATION_REVERTED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -71,3 +71,9 @@ baseline-health, semantic, lifetime, capacity or performance failure retains
 SIRDI and stops this buffer-initialization branch. Do not lower gates or reopen
 allocator/raw/returned-storage work. B4E2, broad corpus, runtime/GPU/schema and
 production remain blocked.
+
+The measured candidate is exact and wins all three pairs at median
+`1.194152x`, but baseline median wall is `4.893718116 s` above the frozen
+`4.72 s` health bound and candidate range ratio is `1.174767` above `1.10`.
+The implementation was reverted. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdirep-density-contribution-scratch-evidence-2026-08-22.md).

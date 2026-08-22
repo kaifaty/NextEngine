@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREP_FROZEN / IMPLEMENTATION_PENDING` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREP_FAIL / BUFFER_INIT_BRANCH_STOPPED / RESIDUAL_ROUTE_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -381,6 +381,12 @@
 - **Current decision:** B4EP10SIRDIREP freezes one ordinary high-water
   `std::vector<double>` for density contribution only, plus explicit baseline
   health before relative A/B. Implement and measure only this candidate.
+- **Negative result:** the candidate is exact and wins `3/3` at median
+  `1.194152x`, but baseline median `4.893718116 s` exceeds `4.72 s` and the
+  candidate range ratio `1.174767` exceeds `1.10`.
+- **Current decision:** close SIRDIREP FAIL and revert it. Retain exact SIRDI,
+  stop the complete evaluation-buffer initialization branch and route only
+  from unchanged SIRDIR residual evidence.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -480,6 +486,7 @@
 | NSR3B4EP10SIRDIREI contract | overwrite construction for 345,576,600 audited `double` slots; no pool/size change | implement and run frozen balanced A/B only |
 | NSR3B4EP10SIRDIREI FAIL | default SIRDI regresses `2.431x`; candidate-relative probe invalid; code reverted | ephemeral density-contribution scratch research only |
 | NSR3B4EP10SIRDIREP contract | one local pair buffer; 85.7M repeated slots -> 380,511 growth slots; baseline-health gate | implement and run balanced A/B only |
+| NSR3B4EP10SIRDIREP FAIL | exact and `3/3` faster, but baseline health and candidate stability fail; code reverted | retain SIRDI; different residual discriminator research only |
 
 Candidate solver identity remains:
 
@@ -1129,6 +1136,22 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** exact balanced A/B either selects the candidate for
   residual attribution or stops this buffer-initialization branch.
 
+### D-052 -- Reject density scratch and stop buffer initialization work
+
+- **Observation:** the candidate preserves every exact root, count and
+  lifetime invariant and wins `3/3` at median `1.194152x`, but the baseline
+  median is `4.893718116 s` versus the frozen `4.72 s` limit and candidate
+  range ratio is `1.174767` versus `1.10`.
+- **Decision:** fail the contract without rerun, revert commit `c5a9a9c` via
+  `b8a1edd`, retain SIRDI and stop the setup-buffer initialization branch.
+- **Rejected:** lowering gates, repeating the observed A/B, promoting the
+  relative win, retrying allocator/raw/returned-storage variants or combining
+  buffer work with another optimization.
+- **Remaining uncertainty:** density scratch may reduce CPU work, but this
+  experiment cannot distinguish it from code-layout and host-variance effects.
+- **Reconsider when:** a separately authorized representation/ownership
+  redesign supplies a new portability boundary and independent evidence.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1181,11 +1204,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement only the frozen density-contribution high-water vector, exact
-   counters and all-exit release guard.
-2. Verify old SIRDI byte-exact and candidate work/physics/lifetime exact.
-3. Run warmups and balanced `AB`, `BA`, `AB`; evaluate baseline health before
-   relative gates.
+1. Re-attest unchanged SIRDI timing stability before another A/B candidate.
+2. Re-evaluate SIRDIR's stable source-local/topology/target-fold residuals;
+   do not reopen setup-buffer initialization or returned-storage work.
+3. Freeze at most one different mechanical discriminator with exact rollback
+   and baseline-health gates before any implementation.
 
 ## Reconsideration triggers
 
