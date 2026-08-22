@@ -135,6 +135,7 @@ SplitBoundaryReport run_al_path_oracle_controls();
 SplitBoundaryReport run_al_dense_vector_oracle_controls();
 SplitBoundaryReport run_al_dense_vector_stable_commit_controls();
 SplitBoundaryReport run_al_inner_floor_diagnostic_controls();
+SplitBoundaryReport run_al_topology_step_discriminator_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

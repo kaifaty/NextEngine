@@ -132,6 +132,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-dense-vector-oracle|"
                          "--nonlocal-al-dense-vector-stable-commit|"
                          "--nonlocal-al-inner-floor-diagnostic|"
+                         "--nonlocal-al-topology-step-discriminator|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1042,6 +1043,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nonlocal-al-topology-step-discriminator") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_topology_step_discriminator_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (command == "--nominal-dam-first-output-preflight") {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
@@ -1231,6 +1239,7 @@ int main(int argc, char** argv) {
                      "--nonlocal-al-dense-vector-oracle|"
                      "--nonlocal-al-dense-vector-stable-commit|"
                      "--nonlocal-al-inner-floor-diagnostic|"
+                     "--nonlocal-al-topology-step-discriminator|"
                      "--nominal-dam-first-output-preflight|"
                      "--nominal-dam-reference-binary64-topology\n";
         return 2;

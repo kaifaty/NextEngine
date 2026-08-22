@@ -46281,6 +46281,32 @@ constexpr const char* B4E2D7R1_IDENTITY_PROJECTION =
     "model-or-active-set-research-otherwise|runs=2-release-builds;"
     "2-processes;byte-exact;timing=none|trajectory=none;commit=none;"
     "physics-mutation=none|credit=inner-remediation-contract-research-only";
+constexpr const char* B4E2D7R2_IDENTITY_SHA256 =
+    "7b201ab9d281f8ffa3e866e88b067682d116ef3cf38a6507da4a3e4dea99561e";
+constexpr const char* B4E2D7R2_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r2-topology-step-discriminator|v1|parent="
+    "8902a9417b2dad68c51fab118892767e2f21be5191cbea0fcbe2e87e9079d862:"
+    "3ba8ab9c999a63b72fa42ca4dad98062aea976977945fa16a60ba49bfcc6c51a:"
+    "9a9582d09897f63ed7cd9953cc2fb6153b4266813fb6797ba71a1de98140cbfe|"
+    "state=d7-prefix:"
+    "04a9c03308662d6102b165d8109b23c1b60a3145314603909b7dbfda8385d95e:"
+    "9bffc61a943f50cab449c052bd0a6791c40128e894d98d9a9589b0969dbb82c2;"
+    "post-outer9-forced-private:"
+    "31840abd2f10907491360d75d57f6ecbbe6b0cf94672fa1b703bcb5ffa9d5830|"
+    "step=first-rejected-newton;trust0=0.0125m;quarter-shrink;reject-cap=8;"
+    "no-accept|sets=sorted-active-centers;sorted-fluid-pairs;"
+    "sorted-boundary-pairs;roots;added;removed;changed-pair-detail<=2048|"
+    "horizon=0.15m;epsilon-scale=epsilon*h;report-radius-margin;"
+    "normalized-w-w1-w2;require-zero-at-h|ladder=alpha=2^-e;e=0..20;"
+    "rounded-step;coordinate-moved;live-roots-deltas;model;raw;direct;"
+    "direct-ratio|continuation=current-radial-branch-per-relation;"
+    "current-phr-branch-per-center;fixed-order-factored-difference;"
+    "diagnostic-only|routes=active-constraint-branch-first;"
+    "horizon-topology-derivative-if-continuation-admits-live-rejects;"
+    "trust-reject-policy-if-smaller-live-admits;al-hessian-model-otherwise|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|trajectory=none;"
+    "commit=none;physics-mutation=none|credit=one-selected-remediation-"
+    "research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -49012,6 +49038,493 @@ ALVectorInnerFloorTrace trace_al_vector_inner_floor(
     return result;
 }
 
+struct ALTopologyPair {
+    char kind = 'F';
+    std::size_t center = 0U;
+    std::size_t participant = 0U;
+};
+
+bool operator<(const ALTopologyPair& lhs, const ALTopologyPair& rhs) {
+    if (lhs.kind != rhs.kind) return lhs.kind < rhs.kind;
+    if (lhs.center != rhs.center) return lhs.center < rhs.center;
+    return lhs.participant < rhs.participant;
+}
+
+struct ALTopologySets {
+    std::vector<std::size_t> active;
+    std::vector<ALTopologyPair> fluid;
+    std::vector<ALTopologyPair> boundary;
+    std::string active_root;
+    std::string fluid_root;
+    std::string boundary_root;
+};
+
+std::string al_active_set_root(const std::vector<std::size_t>& values) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.nsr3b4e2d7r2-active-set|v1|"
+             << values.size();
+    for (std::size_t value : values) material << ':' << value;
+    return sha256_hex(material.str());
+}
+
+std::string al_pair_set_root(
+    const char* tag, const std::vector<ALTopologyPair>& values) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.nsr3b4e2d7r2-pair-set|v1|"
+             << tag << '|' << values.size();
+    for (const ALTopologyPair& value : values) {
+        material << ':' << value.kind << ':' << value.center
+                 << ':' << value.participant;
+    }
+    return sha256_hex(material.str());
+}
+
+ALTopologySets al_topology_sets(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& boundary,
+    const ALVectorSupport& support) {
+    ALTopologySets result;
+    for (std::size_t center = 0U;
+         center < support.active_coefficient.size(); ++center) {
+        if (support.active_coefficient[center] > 0.0) {
+            result.active.push_back(center);
+        }
+    }
+    for (std::size_t i = 0U; i < position.size(); ++i) {
+        for (std::size_t j = i + 1U; j < position.size(); ++j) {
+            if (norm(position[i] - position[j]) <= HORIZON) {
+                result.fluid.push_back({'F', i, j});
+            }
+        }
+        for (std::size_t support_index = 0U;
+             support_index < boundary.size(); ++support_index) {
+            if (norm(position[i] - boundary[support_index]) <= HORIZON) {
+                result.boundary.push_back({'B', i, support_index});
+            }
+        }
+    }
+    result.active_root = al_active_set_root(result.active);
+    result.fluid_root = al_pair_set_root("fluid", result.fluid);
+    result.boundary_root = al_pair_set_root("boundary", result.boundary);
+    return result;
+}
+
+template <typename Value>
+std::vector<Value> sorted_difference(
+    const std::vector<Value>& lhs, const std::vector<Value>& rhs) {
+    std::vector<Value> result;
+    std::set_difference(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+        std::back_inserter(result));
+    return result;
+}
+
+double al_current_radial_branch_weight(
+    double current_radius, double trial_radius) {
+    if (current_radius > HORIZON) return 0.0;
+    const double q = 2.0 * trial_radius / HORIZON;
+    const double alpha =
+        3.0 / (2.0 * PI * HORIZON * HORIZON * HORIZON);
+    double raw = 0.0;
+    if (2.0 * current_radius / HORIZON >= 1.0) {
+        const double delta = 2.0 - q;
+        raw = alpha * delta * delta * delta / 6.0;
+    } else {
+        raw = alpha * (2.0 / 3.0 - q * q + 0.5 * q * q * q);
+    }
+    return kernel_scale() * raw;
+}
+
+ALVectorSupport evaluate_al_vector_current_branch_support(
+    const std::vector<Vec3>& current_position,
+    const std::vector<Vec3>& trial_position,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    const ALVectorSupport& current_support) {
+    ALVectorSupport result;
+    const std::size_t fluid_count = current_position.size();
+    if (trial_position.size() != fluid_count
+        || multiplier.size() != fluid_count
+        || current_support.active_coefficient.size() != fluid_count) {
+        return result;
+    }
+    result.density.assign(fluid_count, MASS * weight(0.0));
+    for (std::size_t i = 0U; i < fluid_count; ++i) {
+        for (std::size_t j = i + 1U; j < fluid_count; ++j) {
+            const double current_radius = norm(
+                current_position[i] - current_position[j]);
+            const double trial_radius = norm(
+                trial_position[i] - trial_position[j]);
+            const double contribution = MASS
+                * al_current_radial_branch_weight(
+                    current_radius, trial_radius);
+            result.density[i] += contribution;
+            result.density[j] += contribution;
+        }
+        for (std::size_t support_index = 0U;
+             support_index < boundary.size(); ++support_index) {
+            const double current_radius = norm(
+                current_position[i] - boundary[support_index]);
+            const double trial_radius = norm(
+                trial_position[i] - boundary[support_index]);
+            result.density[i] += MASS
+                * al_current_radial_branch_weight(
+                    current_radius, trial_radius);
+        }
+    }
+    result.constraint.resize(fluid_count);
+    result.active_coefficient.resize(fluid_count);
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        result.constraint[center] =
+            result.density[center] / REST_DENSITY - 1.0;
+        const double shifted = multiplier[center]
+            + KAPPA * result.constraint[center];
+        const bool current_active =
+            current_support.active_coefficient[center] > 0.0;
+        const double active = current_active ? shifted : 0.0;
+        result.active_coefficient[center] = active;
+        result.energy += (
+            active * active - multiplier[center] * multiplier[center])
+            / (2.0 * KAPPA);
+        if (current_active) ++result.active_centers;
+    }
+    result.finite_values = std::isfinite(result.energy)
+        && std::all_of(result.density.begin(), result.density.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.constraint.begin(), result.constraint.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.active_coefficient.begin(),
+            result.active_coefficient.end(),
+            [](double value) { return std::isfinite(value); });
+    return result;
+}
+
+struct ALTopologyPairDetail {
+    ALTopologyPair pair;
+    bool added = false;
+    double current_radius = 0.0;
+    double trial_radius = 0.0;
+    double current_margin = 0.0;
+    double trial_margin = 0.0;
+    double current_margin_epsilon = 0.0;
+    double trial_margin_epsilon = 0.0;
+    double current_weight = 0.0;
+    double trial_weight = 0.0;
+    double current_first = 0.0;
+    double trial_first = 0.0;
+    double current_second = 0.0;
+    double trial_second = 0.0;
+};
+
+double al_topology_pair_radius(
+    const ALTopologyPair& pair,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& boundary) {
+    const Vec3 participant = pair.kind == 'F'
+        ? position[pair.participant] : boundary[pair.participant];
+    return norm(position[pair.center] - participant);
+}
+
+ALTopologyPairDetail al_topology_pair_detail(
+    const ALTopologyPair& pair,
+    bool added,
+    const std::vector<Vec3>& current_position,
+    const std::vector<Vec3>& trial_position,
+    const std::vector<Vec3>& boundary) {
+    ALTopologyPairDetail result;
+    result.pair = pair;
+    result.added = added;
+    result.current_radius = al_topology_pair_radius(
+        pair, current_position, boundary);
+    result.trial_radius = al_topology_pair_radius(
+        pair, trial_position, boundary);
+    result.current_margin = HORIZON - result.current_radius;
+    result.trial_margin = HORIZON - result.trial_radius;
+    const double epsilon_h =
+        std::numeric_limits<double>::epsilon() * HORIZON;
+    result.current_margin_epsilon = result.current_margin / epsilon_h;
+    result.trial_margin_epsilon = result.trial_margin / epsilon_h;
+    result.current_weight = weight(result.current_radius);
+    result.trial_weight = weight(result.trial_radius);
+    result.current_first = weight_gradient(result.current_radius);
+    result.trial_first = weight_gradient(result.trial_radius);
+    result.current_second = weight_second(result.current_radius);
+    result.trial_second = weight_second(result.trial_radius);
+    return result;
+}
+
+bool finite_al_topology_pair_detail(const ALTopologyPairDetail& value) {
+    return std::isfinite(value.current_radius)
+        && std::isfinite(value.trial_radius)
+        && std::isfinite(value.current_margin)
+        && std::isfinite(value.trial_margin)
+        && std::isfinite(value.current_margin_epsilon)
+        && std::isfinite(value.trial_margin_epsilon)
+        && std::isfinite(value.current_weight)
+        && std::isfinite(value.trial_weight)
+        && std::isfinite(value.current_first)
+        && std::isfinite(value.trial_first)
+        && std::isfinite(value.current_second)
+        && std::isfinite(value.trial_second);
+}
+
+struct ALTopologyAlphaRow {
+    int exponent = 0;
+    double alpha = 0.0;
+    bool coordinate_moved = false;
+    bool finite_values = false;
+    double rounded_step_norm_m = 0.0;
+    double rounded_step_norm_dx = 0.0;
+    double predicted_reduction = 0.0;
+    double raw_actual_reduction = 0.0;
+    double direct_actual_reduction = 0.0;
+    double direct_ratio = 0.0;
+    double branch_actual_reduction = 0.0;
+    double branch_ratio = 0.0;
+    ALTopologySets topology;
+    std::size_t active_added = 0U;
+    std::size_t active_removed = 0U;
+    std::size_t fluid_added = 0U;
+    std::size_t fluid_removed = 0U;
+    std::size_t boundary_added = 0U;
+    std::size_t boundary_removed = 0U;
+};
+
+struct ALTopologyStepTrace {
+    bool passed = false;
+    bool full_reproduction_exact = false;
+    bool kernel_horizon_exact = false;
+    bool set_accounting_exact = false;
+    bool all_finite = true;
+    bool ladder_exact = false;
+    bool any_coordinate_moved = false;
+    bool directional_descent = false;
+    bool rollback_exact = false;
+    int hvp_calls = 0;
+    bool negative_curvature = false;
+    int binding_shrinks = 0;
+    int missing_shrinks_after_cap = 0;
+    double step_norm_m = 0.0;
+    double step_norm_dx = 0.0;
+    double directional_reduction = 0.0;
+    ALTopologySets current_topology;
+    std::vector<std::size_t> active_added;
+    std::vector<std::size_t> active_removed;
+    std::vector<ALTopologyPair> fluid_added;
+    std::vector<ALTopologyPair> fluid_removed;
+    std::vector<ALTopologyPair> boundary_added;
+    std::vector<ALTopologyPair> boundary_removed;
+    std::vector<ALTopologyPairDetail> changed_pairs;
+    std::vector<ALTopologyAlphaRow> rows;
+    std::string selected_route;
+};
+
+ALTopologyStepTrace trace_al_topology_step(
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier) {
+    ALTopologyStepTrace result;
+    const ALVectorInnerState current = evaluate_al_vector_inner(
+        position, predicted, boundary, multiplier);
+    result.current_topology = al_topology_sets(
+        position, boundary, current.support);
+    int trust_hvp_calls = 0;
+    const std::vector<Vec3> step = al_vector_trust_step(
+        position, boundary, multiplier, current.gradient,
+        0.25 * SPACING, trust_hvp_calls, result.negative_curvature);
+    const std::vector<Vec3> image = apply_al_vector_inner_hessian(
+        position, boundary, multiplier, step);
+    result.hvp_calls = trust_hvp_calls + 1;
+    result.step_norm_m = vector_norm(step);
+    result.step_norm_dx = result.step_norm_m / SPACING;
+    const double gradient_step = flat_dot(current.gradient, step);
+    const double step_image = flat_dot(step, image);
+    result.directional_reduction = -gradient_step;
+    result.directional_descent = result.directional_reduction > 0.0;
+    double binding_radius = 0.25 * SPACING;
+    while (binding_radius > result.step_norm_m
+        && result.binding_shrinks < 128) {
+        binding_radius *= 0.25;
+        ++result.binding_shrinks;
+    }
+    result.missing_shrinks_after_cap = std::max(
+        0, result.binding_shrinks - 9);
+
+    for (int exponent = 0; exponent <= 20; ++exponent) {
+        ALTopologyAlphaRow row;
+        row.exponent = exponent;
+        row.alpha = std::ldexp(1.0, -exponent);
+        const std::vector<Vec3> trial_position = add_scaled(
+            position, step, row.alpha);
+        row.coordinate_moved = !exact_vec3_values(
+            trial_position, position);
+        row.rounded_step_norm_m = vector_difference_norm(
+            trial_position, position);
+        row.rounded_step_norm_dx = row.rounded_step_norm_m / SPACING;
+        const ALVectorInnerState trial = evaluate_al_vector_inner(
+            trial_position, predicted, boundary, multiplier);
+        const ALVectorSupport branch =
+            evaluate_al_vector_current_branch_support(
+                position, trial_position, boundary, multiplier,
+                current.support);
+        row.topology = al_topology_sets(
+            trial_position, boundary, trial.support);
+        row.active_added = sorted_difference(
+            row.topology.active, result.current_topology.active).size();
+        row.active_removed = sorted_difference(
+            result.current_topology.active, row.topology.active).size();
+        row.fluid_added = sorted_difference(
+            row.topology.fluid, result.current_topology.fluid).size();
+        row.fluid_removed = sorted_difference(
+            result.current_topology.fluid, row.topology.fluid).size();
+        row.boundary_added = sorted_difference(
+            row.topology.boundary,
+            result.current_topology.boundary).size();
+        row.boundary_removed = sorted_difference(
+            result.current_topology.boundary,
+            row.topology.boundary).size();
+        row.predicted_reduction = -row.alpha * gradient_step
+            - 0.5 * row.alpha * row.alpha * step_image;
+        row.raw_actual_reduction = current.total - trial.total;
+        row.direct_actual_reduction = al_vector_direct_actual_reduction(
+            position, trial_position, predicted,
+            current.support, trial.support);
+        row.branch_actual_reduction = al_vector_direct_actual_reduction(
+            position, trial_position, predicted,
+            current.support, branch);
+        row.direct_ratio = row.predicted_reduction > 0.0
+            ? row.direct_actual_reduction / row.predicted_reduction
+            : -std::numeric_limits<double>::infinity();
+        row.branch_ratio = row.predicted_reduction > 0.0
+            ? row.branch_actual_reduction / row.predicted_reduction
+            : -std::numeric_limits<double>::infinity();
+        row.finite_values = trial.support.finite_values
+            && branch.finite_values
+            && std::isfinite(row.alpha)
+            && std::isfinite(row.rounded_step_norm_m)
+            && std::isfinite(row.rounded_step_norm_dx)
+            && std::isfinite(row.predicted_reduction)
+            && std::isfinite(row.raw_actual_reduction)
+            && std::isfinite(row.direct_actual_reduction)
+            && std::isfinite(row.direct_ratio)
+            && std::isfinite(row.branch_actual_reduction)
+            && std::isfinite(row.branch_ratio);
+        result.all_finite = result.all_finite && row.finite_values;
+        result.any_coordinate_moved = result.any_coordinate_moved
+            || row.coordinate_moved;
+        result.rows.push_back(std::move(row));
+    }
+
+    const ALTopologyAlphaRow& full = result.rows.front();
+    result.active_added = sorted_difference(
+        full.topology.active, result.current_topology.active);
+    result.active_removed = sorted_difference(
+        result.current_topology.active, full.topology.active);
+    result.fluid_added = sorted_difference(
+        full.topology.fluid, result.current_topology.fluid);
+    result.fluid_removed = sorted_difference(
+        result.current_topology.fluid, full.topology.fluid);
+    result.boundary_added = sorted_difference(
+        full.topology.boundary, result.current_topology.boundary);
+    result.boundary_removed = sorted_difference(
+        result.current_topology.boundary, full.topology.boundary);
+    for (const ALTopologyPair& pair : result.fluid_added) {
+        result.changed_pairs.push_back(al_topology_pair_detail(
+            pair, true, position, add_scaled(position, step, 1.0), boundary));
+    }
+    for (const ALTopologyPair& pair : result.fluid_removed) {
+        result.changed_pairs.push_back(al_topology_pair_detail(
+            pair, false, position, add_scaled(position, step, 1.0), boundary));
+    }
+    for (const ALTopologyPair& pair : result.boundary_added) {
+        result.changed_pairs.push_back(al_topology_pair_detail(
+            pair, true, position, add_scaled(position, step, 1.0), boundary));
+    }
+    for (const ALTopologyPair& pair : result.boundary_removed) {
+        result.changed_pairs.push_back(al_topology_pair_detail(
+            pair, false, position, add_scaled(position, step, 1.0), boundary));
+    }
+    std::sort(result.changed_pairs.begin(), result.changed_pairs.end(),
+        [](const ALTopologyPairDetail& lhs,
+           const ALTopologyPairDetail& rhs) {
+            if (lhs.pair < rhs.pair) return true;
+            if (rhs.pair < lhs.pair) return false;
+            return lhs.added < rhs.added;
+        });
+    result.set_accounting_exact =
+        result.current_topology.active.size() - result.active_removed.size()
+                + result.active_added.size() == full.topology.active.size()
+        && result.current_topology.fluid.size() - result.fluid_removed.size()
+                + result.fluid_added.size() == full.topology.fluid.size()
+        && result.current_topology.boundary.size()
+                - result.boundary_removed.size()
+                + result.boundary_added.size()
+            == full.topology.boundary.size()
+        && result.changed_pairs.size() == result.fluid_added.size()
+                + result.fluid_removed.size()
+                + result.boundary_added.size()
+                + result.boundary_removed.size()
+        && result.changed_pairs.size() <= 2048U;
+    result.all_finite = result.all_finite
+        && std::all_of(result.changed_pairs.begin(),
+            result.changed_pairs.end(), finite_al_topology_pair_detail);
+    result.kernel_horizon_exact = binary64_bits(weight(HORIZON)) == 0U
+        && binary64_bits(weight_gradient(HORIZON)) == 0U
+        && binary64_bits(weight_second(HORIZON)) == 0U;
+    result.ladder_exact = result.rows.size() == 21U;
+    for (std::size_t index = 0U; index < result.rows.size(); ++index) {
+        result.ladder_exact = result.ladder_exact
+            && result.rows[index].exponent == static_cast<int>(index)
+            && binary64_bits(result.rows[index].alpha)
+                == binary64_bits(std::ldexp(
+                    1.0, -static_cast<int>(index)));
+    }
+    result.full_reproduction_exact = result.hvp_calls == 2
+        && !result.negative_curvature
+        && result.step_norm_dx == 4.9587280227513481e-9
+        && full.predicted_reduction == 1.3230255447006828e-15
+        && full.raw_actual_reduction == -4.5363018896793506e-16
+        && full.direct_actual_reduction == -4.528143341123291e-16;
+
+    bool active_branch = false;
+    bool horizon_branch = false;
+    bool smaller_live_admissible = false;
+    for (const ALTopologyAlphaRow& row : result.rows) {
+        if (!row.coordinate_moved) continue;
+        active_branch = active_branch || row.active_added > 0U
+            || row.active_removed > 0U;
+        horizon_branch = horizon_branch
+            || (row.predicted_reduction > 0.0
+                && row.branch_actual_reduction > 0.0
+                && row.branch_ratio >= 0.1
+                && (row.direct_actual_reduction <= 0.0
+                    || row.direct_ratio < 0.1));
+        smaller_live_admissible = smaller_live_admissible
+            || (row.exponent > 0 && row.predicted_reduction > 0.0
+                && row.direct_actual_reduction > 0.0
+                && row.direct_ratio >= 0.1);
+    }
+    const std::string candidate_route = active_branch
+        ? "ACTIVE_CONSTRAINT_BRANCH_RESEARCH_REQUIRED"
+        : (horizon_branch
+            ? "HORIZON_TOPOLOGY_DERIVATIVE_RECLOSURE_REQUIRED"
+            : (smaller_live_admissible
+                ? "TRUST_REJECT_POLICY_RECLOSURE_REQUIRED"
+                : "AL_HESSIAN_MODEL_RESEARCH_REQUIRED"));
+    const std::vector<Vec3> public_position = predicted;
+    const std::vector<double> public_multiplier(multiplier.size(), 0.0);
+    result.rollback_exact = exact_vec3_values(public_position, predicted)
+        && std::all_of(public_multiplier.begin(), public_multiplier.end(),
+            [](double value) { return binary64_bits(value) == 0U; });
+    result.passed = current.support.finite_values
+        && result.full_reproduction_exact && result.kernel_horizon_exact
+        && result.set_accounting_exact && result.all_finite
+        && result.ladder_exact && result.any_coordinate_moved
+        && result.directional_descent && result.rollback_exact;
+    if (result.passed) result.selected_route = candidate_route;
+    return result;
+}
+
 } // namespace
 
 SplitBoundaryReport run_al_dense_vector_oracle_controls() {
@@ -49897,6 +50410,247 @@ SplitBoundaryReport run_al_inner_floor_diagnostic_controls() {
            << ",\"trajectory_steps\":0,\"commit_count\":0"
            << ",\"physics_mutation\":false,\"timing_admitted\":false"
            << ",\"inner_remediation_contract_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_topology_step_discriminator_controls() {
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const bool identity_exact = sha256_hex(B4E2D7R2_IDENTITY_PROJECTION)
+        == B4E2D7R2_IDENTITY_SHA256;
+
+    const ALVectorStableSolve replay = solve_al_vector_stable(
+        fixture, active_prediction, active_prediction, zero_multiplier);
+    const std::string prefix_outer_root = sha256_hex(
+        al_vector_legacy_outer_json(replay.records, 8U));
+    const std::string prefix_state_root = al_vector_state_root(
+        "cold", replay.prefix_position, replay.prefix_multiplier);
+    const std::string failed_state_root = al_vector_stable_state_root(
+        "forced-private", replay.position, replay.multiplier);
+    const bool reproduction_exact = !replay.passed
+        && replay.failure == "INNER:REJECT_LIMIT"
+        && replay.records.size() == 10U && replay.primal_monotone
+        && prefix_outer_root
+            == "9bffc61a943f50cab449c052bd0a6791c40128e894d98d9a9589b0969dbb82c2"
+        && prefix_state_root
+            == "04a9c03308662d6102b165d8109b23c1b60a3145314603909b7dbfda8385d95e"
+        && failed_state_root
+            == "31840abd2f10907491360d75d57f6ecbbe6b0cf94672fa1b703bcb5ffa9d5830";
+
+    const ALTopologyStepTrace trace = trace_al_topology_step(
+        active_prediction, replay.position,
+        fixture.boundary, replay.multiplier);
+    const bool passed = identity_exact && reproduction_exact && trace.passed
+        && !trace.selected_route.empty();
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!reproduction_exact) first_failure = "D7R_REPRODUCTION";
+    else if (!trace.full_reproduction_exact) first_failure = "D7R1_STEP";
+    else if (!trace.kernel_horizon_exact) first_failure = "KERNEL_HORIZON";
+    else if (!trace.set_accounting_exact) first_failure = "SET_ACCOUNTING";
+    else if (!trace.all_finite) first_failure = "NONFINITE";
+    else if (!trace.ladder_exact || !trace.any_coordinate_moved)
+        first_failure = "ALPHA_LADDER";
+    else if (!trace.directional_descent) first_failure = "DIRECTION";
+    else if (!trace.rollback_exact) first_failure = "ROLLBACK";
+    else if (trace.selected_route.empty()) first_failure = "ROUTE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R2_IDENTITY_SHA256 << '|' << prefix_outer_root << ':'
+             << prefix_state_root << ':' << failed_state_root << '|'
+             << trace.current_topology.active_root << ':'
+             << trace.current_topology.fluid_root << ':'
+             << trace.current_topology.boundary_root << '|'
+             << trace.hvp_calls << ':' << trace.negative_curvature << ':'
+             << trace.step_norm_m << ':' << trace.step_norm_dx << ':'
+             << trace.directional_reduction << ':' << trace.binding_shrinks
+             << ':' << trace.missing_shrinks_after_cap << '|';
+    for (const ALTopologyPairDetail& detail : trace.changed_pairs) {
+        semantic << detail.pair.kind << ':' << detail.pair.center << ':'
+                 << detail.pair.participant << ':' << detail.added << ':'
+                 << detail.current_radius << ':' << detail.trial_radius << ':'
+                 << detail.current_margin << ':' << detail.trial_margin << ':'
+                 << detail.current_weight << ':' << detail.trial_weight << ':'
+                 << detail.current_first << ':' << detail.trial_first << ':'
+                 << detail.current_second << ':' << detail.trial_second << ';';
+    }
+    semantic << '|';
+    for (const ALTopologyAlphaRow& row : trace.rows) {
+        semantic << row.exponent << ':' << row.alpha << ':'
+                 << row.coordinate_moved << ':' << row.rounded_step_norm_m
+                 << ':' << row.predicted_reduction << ':'
+                 << row.raw_actual_reduction << ':'
+                 << row.direct_actual_reduction << ':' << row.direct_ratio
+                 << ':' << row.branch_actual_reduction << ':'
+                 << row.branch_ratio << ':' << row.topology.active_root << ':'
+                 << row.topology.fluid_root << ':'
+                 << row.topology.boundary_root << ':' << row.active_added
+                 << ':' << row.active_removed << ':' << row.fluid_added << ':'
+                 << row.fluid_removed << ':' << row.boundary_added << ':'
+                 << row.boundary_removed << ';';
+    }
+    semantic << '|' << trace.rollback_exact << ':' << trace.selected_route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_indices = [](std::ostringstream& output,
+                                   const std::vector<std::size_t>& values) {
+        output << '[';
+        for (std::size_t index = 0U; index < values.size(); ++index) {
+            if (index != 0U) output << ',';
+            output << values[index];
+        }
+        output << ']';
+    };
+    const auto append_pair_keys = [](std::ostringstream& output,
+                                     const std::vector<ALTopologyPair>& values) {
+        output << '[';
+        for (std::size_t index = 0U; index < values.size(); ++index) {
+            if (index != 0U) output << ',';
+            output << "{\"kind\":\"" << values[index].kind
+                   << "\",\"center\":" << values[index].center
+                   << ",\"participant\":"
+                   << values[index].participant << '}';
+        }
+        output << ']';
+    };
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r2_topology_step_discriminator.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R2_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"reproduction\":{\"d7_prefix_outer_root\":\""
+           << prefix_outer_root << "\",\"d7_prefix_state_root\":\""
+           << prefix_state_root << "\",\"failed_state_root\":\""
+           << failed_state_root << "\",\"parent_failure\":\""
+           << replay.failure << "\",\"parent_outer_records\":"
+           << replay.records.size() << ",\"exact\":"
+           << (reproduction_exact ? "true" : "false") << '}'
+           << ",\"kernel_horizon\":{\"radius_m\":" << HORIZON
+           << ",\"epsilon_h\":"
+           << std::numeric_limits<double>::epsilon() * HORIZON
+           << ",\"weight\":" << weight(HORIZON)
+           << ",\"first\":" << weight_gradient(HORIZON)
+           << ",\"second\":" << weight_second(HORIZON)
+           << ",\"positive_zero_exact\":"
+           << (trace.kernel_horizon_exact ? "true" : "false") << '}'
+           << ",\"step\":{\"hvp_calls\":" << trace.hvp_calls
+           << ",\"negative_curvature\":"
+           << (trace.negative_curvature ? "true" : "false")
+           << ",\"norm_m\":" << trace.step_norm_m
+           << ",\"norm_dx\":" << trace.step_norm_dx
+           << ",\"directional_reduction\":"
+           << trace.directional_reduction
+           << ",\"binding_shrinks\":" << trace.binding_shrinks
+           << ",\"missing_shrinks_after_cap\":"
+           << trace.missing_shrinks_after_cap
+           << ",\"full_reproduction_exact\":"
+           << (trace.full_reproduction_exact ? "true" : "false") << '}'
+           << ",\"current_sets\":{\"active_root\":\""
+           << trace.current_topology.active_root
+           << "\",\"active_count\":"
+           << trace.current_topology.active.size()
+           << ",\"fluid_root\":\"" << trace.current_topology.fluid_root
+           << "\",\"fluid_count\":"
+           << trace.current_topology.fluid.size()
+           << ",\"boundary_root\":\""
+           << trace.current_topology.boundary_root
+           << "\",\"boundary_count\":"
+           << trace.current_topology.boundary.size() << '}'
+           << ",\"full_set_delta\":{\"active_added\":";
+    append_indices(report, trace.active_added);
+    report << ",\"active_removed\":";
+    append_indices(report, trace.active_removed);
+    report << ",\"fluid_added\":";
+    append_pair_keys(report, trace.fluid_added);
+    report << ",\"fluid_removed\":";
+    append_pair_keys(report, trace.fluid_removed);
+    report << ",\"boundary_added\":";
+    append_pair_keys(report, trace.boundary_added);
+    report << ",\"boundary_removed\":";
+    append_pair_keys(report, trace.boundary_removed);
+    report << ",\"accounting_exact\":"
+           << (trace.set_accounting_exact ? "true" : "false") << '}'
+           << ",\"changed_pairs\":[";
+    for (std::size_t index = 0U;
+         index < trace.changed_pairs.size(); ++index) {
+        if (index != 0U) report << ',';
+        const ALTopologyPairDetail& value = trace.changed_pairs[index];
+        report << "{\"kind\":\"" << value.pair.kind
+               << "\",\"center\":" << value.pair.center
+               << ",\"participant\":" << value.pair.participant
+               << ",\"change\":\"" << (value.added ? "ADDED" : "REMOVED")
+               << "\",\"current_radius_m\":" << value.current_radius
+               << ",\"trial_radius_m\":" << value.trial_radius
+               << ",\"current_margin_m\":" << value.current_margin
+               << ",\"trial_margin_m\":" << value.trial_margin
+               << ",\"current_margin_epsilon_h\":"
+               << value.current_margin_epsilon
+               << ",\"trial_margin_epsilon_h\":"
+               << value.trial_margin_epsilon
+               << ",\"current_kernel\":[" << value.current_weight << ','
+               << value.current_first << ',' << value.current_second << ']'
+               << ",\"trial_kernel\":[" << value.trial_weight << ','
+               << value.trial_first << ',' << value.trial_second << "]}";
+    }
+    report << "],\"ladder\":[";
+    for (std::size_t index = 0U; index < trace.rows.size(); ++index) {
+        if (index != 0U) report << ',';
+        const ALTopologyAlphaRow& row = trace.rows[index];
+        report << "{\"exponent\":" << row.exponent
+               << ",\"alpha\":" << row.alpha
+               << ",\"coordinate_moved\":"
+               << (row.coordinate_moved ? "true" : "false")
+               << ",\"rounded_step_norm_m\":"
+               << row.rounded_step_norm_m
+               << ",\"rounded_step_norm_dx\":"
+               << row.rounded_step_norm_dx
+               << ",\"predicted_reduction\":"
+               << row.predicted_reduction
+               << ",\"raw_actual_reduction\":"
+               << row.raw_actual_reduction
+               << ",\"direct_actual_reduction\":"
+               << row.direct_actual_reduction
+               << ",\"direct_ratio\":" << row.direct_ratio
+               << ",\"current_branch_actual_reduction\":"
+               << row.branch_actual_reduction
+               << ",\"current_branch_ratio\":" << row.branch_ratio
+               << ",\"active_root\":\"" << row.topology.active_root
+               << "\",\"fluid_root\":\"" << row.topology.fluid_root
+               << "\",\"boundary_root\":\""
+               << row.topology.boundary_root
+               << "\",\"active_delta\":[" << row.active_added << ','
+               << row.active_removed << "],\"fluid_delta\":["
+               << row.fluid_added << ',' << row.fluid_removed
+               << "],\"boundary_delta\":[" << row.boundary_added << ','
+               << row.boundary_removed << "]}";
+    }
+    report << "],\"gates\":{\"all_finite\":"
+           << (trace.all_finite ? "true" : "false")
+           << ",\"ladder_exact\":"
+           << (trace.ladder_exact ? "true" : "false")
+           << ",\"any_coordinate_moved\":"
+           << (trace.any_coordinate_moved ? "true" : "false")
+           << ",\"directional_descent\":"
+           << (trace.directional_descent ? "true" : "false")
+           << ",\"rollback_exact\":"
+           << (trace.rollback_exact ? "true" : "false") << '}'
+           << ",\"route\":\"" << trace.selected_route << '"'
+           << ",\"trajectory_steps\":0,\"commit_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"selected_remediation_research_authorized\":"
            << (passed ? "true" : "false")
            << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
