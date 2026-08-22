@@ -42806,10 +42806,35 @@ constexpr const char* B4EP10SIR_IDENTITY_PROJECTION =
     "discriminator;else:no-optimization|reference=closed|credit=next-"
     "mechanical-research-only";
 
+constexpr const char* B4EP10SIRDIR_IDENTITY_SHA256 =
+    "e620072432ce93e98a3f58005b0bc428f8a12b975d5af34143ddde55c415b374";
+constexpr const char* B4EP10SIRDI_PARENT_IDENTITY_SHA256 =
+    "35a1d41b78d132429334a34d8c99e6d2870b2b8a68ee949beb5a3c69375dff10";
+constexpr const char* B4EP10SIRDIR_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep10sirdir-directed-scratch-residual-timing|v1|"
+    "parent=35a1d41b78d132429334a34d8c99e6d2870b2b8a68ee949beb5a3c69375dff10:"
+    "b4f847cb4f19b09e951534649515a4504bc07044a13e6c636598b33f247777e9:"
+    "1e4bedbb2c3ed7512ee0a31e879c9d7ba7887dca1fb5e833c89f0c45b108a35d|"
+    "implementation=f33bf3aa68283a4391d91c74329a8ae9349927d2|command=nominal-"
+    "hydro-directed-scratch-phase-timing-8|candidate=split-incoming+directed-"
+    "high-water-reuse|instrumentation=steady-clock;hierarchical-stage+23-"
+    "subphase+worker-active;durations-excluded|categories=topology-total;"
+    "source-local=evaluation-setup+pair+metadata+density+center+directed+hvp-"
+    "setup+compression+directed;target-fold=evaluation-target+hvp-target;"
+    "control=remainder|calls=transaction1;topology226;evaluation226;hvp459;"
+    "reuse685;regions4089;partitions261696|runs=3;fresh-processes;serialized;"
+    "affinity=0-7|gates=sirdi-result-b4f847cb4f19b09e951534649515a4504bc07044"
+    "a13e6c636598b33f247777e9;candidate-work-exact;reuse-exact;stage-component-"
+    "capacity-identities;top-level-share-range<=0.05;category-share-range<="
+    "0.05|route=orchestration-median>=0.15:persistent-region;imbalance-median"
+    ">=0.15:partition-balance;else-largest-category-share>=0.20&&lead>=1.20:"
+    "single-discriminator;else:no-optimization|reference=closed|credit=next-"
+    "mechanical-research-only";
+
 } // namespace
 
-SplitBoundaryReport
-run_nominal_hydro_split_incoming_phase_timing_controls() {
+SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
+    bool use_directed_scratch_reuse) {
     constexpr int worker_count = 8;
     omp_set_dynamic(0);
     omp_set_max_active_levels(1);
@@ -42827,8 +42852,12 @@ run_nominal_hydro_split_incoming_phase_timing_controls() {
         tagged_points(fixture.boundary), &static_work);
     const JointStaticSupportBinding binding = bind_joint_static_support_index(
         &index, index.identity_sha256);
-    const bool identity_exact = sha256_hex(B4EP10SIR_IDENTITY_PROJECTION)
-            == B4EP10SIR_IDENTITY_SHA256
+    const char* identity_projection = use_directed_scratch_reuse
+        ? B4EP10SIRDIR_IDENTITY_PROJECTION : B4EP10SIR_IDENTITY_PROJECTION;
+    const char* identity_sha256 = use_directed_scratch_reuse
+        ? B4EP10SIRDIR_IDENTITY_SHA256 : B4EP10SIR_IDENTITY_SHA256;
+    const bool identity_exact = sha256_hex(identity_projection)
+            == identity_sha256
         && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
         && scenario_root == spec.scenario_root
         && initial.frame.root_sha256
@@ -42849,7 +42878,8 @@ run_nominal_hydro_split_incoming_phase_timing_controls() {
             false, true, nullptr, nullptr, 0, 1U, true, true,
             &binding, &static_work, true, &adjacency_work, false,
             &cache, true, true, false, false, worker_count,
-            true, false, false, false, false, false, false, false, true);
+            true, false, false, false, false, false, false, false, true,
+            false, use_directed_scratch_reuse);
         add_joint_parallel_duration(
             transaction.trace.owner_parallel.phase_timing,
             transaction_start,
@@ -43025,6 +43055,37 @@ run_nominal_hydro_split_incoming_phase_timing_controls() {
     const std::string sii_result_sha256 = sha256_hex(sii_semantic.str());
     const bool sii_result_exact = sii_result_sha256
         == "f7b1542f30fef20a08da57c83bb200878cdf426d87b627445e422c9a72825fb2";
+    const JointDirectedScratchReuseTrace& reuse =
+        parallel.directed_scratch_reuse;
+    const bool reuse_exact = !use_directed_scratch_reuse
+        || (reuse.enabled && reuse.calls == 685U
+            && reuse.evaluation_calls == 226U && reuse.hvp_calls == 459U
+            && reuse.requested_full_slots == 454936226U
+            && reuse.active_write_slots == 374945086U
+            && reuse.growth_slots == 670229U
+            && reuse.maximum_slots == 670229U
+            && reuse.maximum_payload_bytes == 16085496U
+            && reuse.releases == 1U && reuse.live_buffers == 0U
+            && reuse.maximum_live_buffers == 1U && reuse.failures == 0U
+            && reuse.directed_value.empty());
+    const bool sirdi_exact = sii_exact && sii_result_exact
+        && use_directed_scratch_reuse && reuse_exact;
+    std::ostringstream sirdi_semantic;
+    sirdi_semantic
+        << (sirdi_exact ? "PASS||" : "FAIL|DIRECTED_SCRATCH_REUSE|")
+        << B4EP10SIRDI_PARENT_IDENTITY_SHA256 << '|'
+        << sii_result_sha256 << '|'
+        << reuse.calls << ':' << reuse.evaluation_calls << ':'
+        << reuse.hvp_calls << '|' << reuse.requested_full_slots << ':'
+        << reuse.active_write_slots << ':' << reuse.growth_slots << '|'
+        << reuse.maximum_slots << ':' << reuse.maximum_payload_bytes << '|'
+        << reuse.releases << ':' << reuse.live_buffers << ':'
+        << reuse.maximum_live_buffers << ':' << reuse.failures;
+    const std::string sirdi_result_sha256 = use_directed_scratch_reuse
+        ? sha256_hex(sirdi_semantic.str()) : std::string{};
+    const bool sirdi_result_exact = !use_directed_scratch_reuse
+        || sirdi_result_sha256
+            == "b4f847cb4f19b09e951534649515a4504bc07044a13e6c636598b33f247777e9";
 
     const JointParallelPhaseTimingTrace& timing = parallel.phase_timing;
     bool calls_exact = timing.enabled && timing.transaction_calls == 1U
@@ -43124,25 +43185,40 @@ run_nominal_hydro_split_incoming_phase_timing_controls() {
     const double orchestration_share = wall_capacity > 0U
         ? static_cast<double>(orchestration_capacity)
             / static_cast<double>(wall_capacity) : 0.0;
-    const bool passed = sii_exact && sii_result_exact
-        && timing_exact && category_safe;
+    const bool passed = sii_exact && sii_result_exact && reuse_exact
+        && sirdi_result_exact && timing_exact && category_safe;
     std::string failure;
     if (!sii_exact || !sii_result_exact) failure = "SII_SEMANTICS";
+    else if (!reuse_exact || !sirdi_result_exact) {
+        failure = "DIRECTED_SCRATCH_REUSE";
+    }
     else if (!timing_exact) failure = "PARALLEL_PHASE_TIMING";
     else if (!category_safe) failure = "CATEGORY_ACCOUNTING";
     std::ostringstream semantic_material;
     semantic_material << (passed ? "PASS|" : "FAIL|") << failure << '|'
-        << B4EP10SIR_IDENTITY_SHA256 << '|' << correspondence_sha256 << '|'
-        << sii_result_sha256 << '|' << timing.transaction_calls << ':'
+        << identity_sha256 << '|' << correspondence_sha256 << '|'
+        << (use_directed_scratch_reuse
+            ? sirdi_result_sha256 : sii_result_sha256)
+        << '|' << timing.transaction_calls << ':'
         << timing.topology_calls << ':' << timing.evaluation_calls << ':'
         << timing.hvp_calls << ':' << timing.executor_regions << '|'
         << calls_exact << ':' << capacity_identity << ':'
         << category_safe << ':' << timing.failures;
+    if (use_directed_scratch_reuse) {
+        semantic_material << '|' << reuse.calls << ':'
+            << reuse.requested_full_slots << ':' << reuse.active_write_slots
+            << ':' << reuse.growth_slots << ':' << reuse.releases << ':'
+            << reuse.live_buffers << ':' << reuse.failures;
+    }
+    const char* report_schema = use_directed_scratch_reuse
+        ? "nextengine.nonlocal."
+          "nsr3b4ep10sirdir_directed_scratch_residual_timing.v1"
+        : "nextengine.nonlocal."
+          "nsr3b4ep10sir_split_incoming_residual_timing.v1";
     std::ostringstream report;
     report << std::setprecision(17)
-           << "{\"schema\":\"nextengine.nonlocal."
-              "nsr3b4ep10sir_split_incoming_residual_timing.v1\""
-           << ",\"identity_sha256\":\"" << B4EP10SIR_IDENTITY_SHA256
+           << "{\"schema\":\"" << report_schema << '"'
+           << ",\"identity_sha256\":\"" << identity_sha256
            << "\",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
            << ",\"first_failure\":\"" << failure << '"'
            << ",\"correspondence_sha256\":\""
@@ -43150,8 +43226,31 @@ run_nominal_hydro_split_incoming_phase_timing_controls() {
            << ",\"b4ep10sii_result_sha256\":\""
            << sii_result_sha256 << '"'
            << ",\"b4ep10sii_result_exact\":"
-           << (sii_result_exact ? "true" : "false")
-           << ",\"roots\":{\"frame\":\"" << output.frame_root
+           << (sii_result_exact ? "true" : "false");
+    if (use_directed_scratch_reuse) {
+        report << ",\"b4ep10sirdi_result_sha256\":\""
+               << sirdi_result_sha256 << '"'
+               << ",\"b4ep10sirdi_result_exact\":"
+               << (sirdi_result_exact ? "true" : "false")
+               << ",\"reuse\":{\"calls\":" << reuse.calls
+               << ",\"evaluation_calls\":" << reuse.evaluation_calls
+               << ",\"hvp_calls\":" << reuse.hvp_calls
+               << ",\"requested_full_slots\":"
+               << reuse.requested_full_slots
+               << ",\"active_write_slots\":" << reuse.active_write_slots
+               << ",\"growth_slots\":" << reuse.growth_slots
+               << ",\"maximum_slots\":" << reuse.maximum_slots
+               << ",\"maximum_payload_bytes\":"
+               << reuse.maximum_payload_bytes
+               << ",\"releases\":" << reuse.releases
+               << ",\"live_buffers\":" << reuse.live_buffers
+               << ",\"maximum_live_buffers\":"
+               << reuse.maximum_live_buffers
+               << ",\"failures\":" << reuse.failures
+               << ",\"exact\":" << (reuse_exact ? "true" : "false")
+               << '}';
+    }
+    report << ",\"roots\":{\"frame\":\"" << output.frame_root
            << "\",\"aggregate\":\"" << output.aggregate_root
            << "\",\"trajectory\":\"" << transaction.trajectory_sha256
            << "\",\"legacy_ledger\":\""
@@ -43210,6 +43309,16 @@ run_nominal_hydro_split_incoming_phase_timing_controls() {
            << ",\"result_sha256\":\""
            << sha256_hex(semantic_material.str()) << "\"}";
     return {passed, report.str()};
+}
+
+SplitBoundaryReport
+run_nominal_hydro_split_incoming_phase_timing_controls() {
+    return run_nominal_hydro_candidate_phase_timing_controls(false);
+}
+
+SplitBoundaryReport
+run_nominal_hydro_directed_scratch_phase_timing_controls() {
+    return run_nominal_hydro_candidate_phase_timing_controls(true);
 }
 
 namespace {
