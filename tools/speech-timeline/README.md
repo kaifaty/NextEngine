@@ -656,6 +656,39 @@ check:
   --hypothesis "привет"
 ```
 
+### Importing acquired sources into source indexes
+
+After an operator downloads raw material into the explicit store (archives
+stay outside Git; record their SHA-256 alongside), three commands turn it
+into the JSONL source-index format consumed by `prepare`:
+
+```bash
+next-speech-timeline reliability-corpus import-fleurs \
+  --store $STORE --fleurs-root $STORE/raw/fleurs \
+  --out-index $STORE/indexes/fleurs-ru.jsonl --workers 12
+next-speech-timeline reliability-corpus import-musan-noise \
+  --store $STORE --noise-root $STORE/raw/musan/musan/noise \
+  --out-index $STORE/indexes/musan-noise.jsonl --workers 8
+next-speech-timeline reliability-corpus import-rirs \
+  --store $STORE --rirs-root $STORE/raw/rirs_noises/RIRS_NOISES \
+  --out-index $STORE/indexes/rirs.jsonl
+```
+
+Behavior notes:
+
+- FLEURS ships IEEE-float WAVs; every clip is converted to the store contract
+  (16 kHz mono pcm_s16le) with system ffmpeg, re-read through the standard
+  library, hashed, and capped at the 30-second utterance limit — longer clips
+  are counted under `skips.too_long`, never truncated.
+- MUSAN noise files that already match the contract are referenced in place;
+  only non-conforming ones are converted. The raw tree must live under the
+  store root.
+- RIRS_NOISES assets are referenced in place grouped by room prefix. They are
+  expected to ship contract-conforming; any drift is a typed skip, not a
+  silent conversion.
+- Index rows carry pinned SHA-256 hashes; indexes publish atomically with
+  private permissions outside this repository.
+
 ## Recognition reliability feature capture (R1)
 
 Every completed utterance now carries a bounded internal diagnostic payload at

@@ -11,10 +11,10 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R0 and R1 are implemented and verified as fail-closed tooling; no real corpus, replay or accuracy result exists yet.
-- **Why:** R1 adds O(1) transcript-revision feature accumulation in the live service path plus a typed fail-closed payload, and a single-attempt prepared-corpus replay runner over the production WebSocket path; both are proven on synthetic fixtures only.
-- **Next action:** Operator acquires public corpora externally, closes the recipe (`prepare`), then replays one exact route with `reliability-corpus replay`; R2 starts only after split-before-augmentation and train/calibration/heldout partitions exist.
-- **Current blocker:** Public corpora are not acquired or hash-closed; no resident Voxtral replay identity has been bound to a closed recipe.
+- **Current conclusion:** R0 and R1 are implemented and verified; the three non-authenticated public sources are now acquired and hash-closed in an external store, while Common Voice and the resident replay identity remain open.
+- **Why:** FLEURS ru_ru (3 690 clips), MUSAN noise (930 assets) and RIRS_NOISES (60 038 room groups) were downloaded outside Git, imported through the new fail-closed `import-*` commands into pinned source indexes, and a partial recipe dry-runs with exactly the expected blockers.
+- **Next action:** Operator acquires Common Voice RU (authenticated) and binds one exact resident ASR identity (`identity_status: closed` + artifact hash) — then `prepare` produces the first real prepared index and `replay` can run on that route.
+- **Current blocker:** Common Voice is gated behind account consent; replay identity cannot be honestly closed until the model that will be replayed is chosen (no Voxtral GGUF exists on this host; GigaAM/GigaSTT snapshots do).
 - **Do not retry:** Treating microphone diagnostics as training data; inventing hashes for unavailable corpus/model artifacts; retrying failed clips to green inside the replay runner.
 - **Reconsider when:** An exact external source snapshot and a closed resident replay identity are available for closure.
 
@@ -26,6 +26,7 @@
 | `tools/speech-timeline/src/nextengine_speech_timeline/reliability_features.py` | `PASS` in 153-test suite (40 new) | Golden churn vectors, empty/vanish/oscillation cases, clipping levels, non-finite/identity fail-closed paths, bounded memory (≈1 KiB growth over 3 700 revisions) are executable |
 | `tools/speech-timeline/src/nextengine_speech_timeline/service.py` | `PASS` websocket + unit coverage | Terminal metrics carry `recognition_reliability_features`; a 30-s-like turn with 600 revisions and 479 jobs encodes to ~12.6 KB of the 64 KB event limit; existing microphone/UI flows unchanged |
 | `tools/speech-timeline/src/nextengine_speech_timeline/corpus_replay.py` | `PASS` fixture replay suite | Planned/unclosed recipes, tampered audio and identity mismatch abort before the first clip; overload/timeout/no-speech/speech-but-empty/model-failure stay typed outcomes with one attempt each; outputs atomic `0600`, transcripts confined to external files |
+| `~/.cache/nextengine/speech-reliability/` (external) | `PASS` real import, 2026-08-22 | FLEURS ru 3 690 clips (3 >30 s skipped), MUSAN noise 930 assets, RIRS 60 038 assets (10 RVB2014 drift files rejected) are hash-closed in `indexes/*.jsonl`; archive SHA-256 in `logs/archive-sha256.txt`; partial recipe dry-run reports only the two CV sources and replay identity as blockers |
 | `cargo run -p xtask -- host-check` (R0 handoff) | `PASS` on pinned Rust 1.97.1 | Localized Python-only R1 change re-ran focused package checks instead; rerun before any cross-cutting claim |
 | External public corpus snapshot | `NOT_RUN` | No dataset-quality, coverage or calibrated reliability claim is currently allowed |
 

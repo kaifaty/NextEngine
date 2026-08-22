@@ -18,6 +18,12 @@ from .benchmark import (
     load_benchmark_wav,
     write_report,
 )
+from .corpus_import import (
+    ReliabilityImportError,
+    import_fleurs_ru,
+    import_musan_noise,
+    import_rirs,
+)
 from .corpus_replay import (
     DEFAULT_TIMEOUT_SECONDS,
     ReliabilityReplayError,
@@ -200,6 +206,34 @@ def parser() -> argparse.ArgumentParser:
         type=float,
         default=DEFAULT_TIMEOUT_SECONDS,
         help="per-clip session timeout before a typed failure",
+    )
+    import_fleurs = reliability_commands.add_parser(
+        "import-fleurs",
+        help="convert acquired FLEURS ru_ru into the store source index",
+    )
+    import_fleurs.add_argument("--store", type=Path, required=True)
+    import_fleurs.add_argument("--fleurs-root", type=Path, required=True)
+    import_fleurs.add_argument("--out-index", type=Path, required=True)
+    import_fleurs.add_argument("--workers", type=int, default=8)
+    import_musan = reliability_commands.add_parser(
+        "import-musan-noise",
+        help="index the MUSAN noise subset, converting non-conforming files",
+    )
+    import_musan.add_argument("--store", type=Path, required=True)
+    import_musan.add_argument("--noise-root", type=Path, required=True)
+    import_musan.add_argument("--out-index", type=Path, required=True)
+    import_musan.add_argument("--workers", type=int, default=8)
+    import_rirs_cmd = reliability_commands.add_parser(
+        "import-rirs",
+        help="reference contract-conforming RIRS_NOISES assets in an index",
+    )
+    import_rirs_cmd.add_argument("--store", type=Path, required=True)
+    import_rirs_cmd.add_argument("--rirs-root", type=Path, required=True)
+    import_rirs_cmd.add_argument("--out-index", type=Path, required=True)
+    import_rirs_cmd.add_argument(
+        "--include-pointsource-noises",
+        action="store_true",
+        help="also admit pointsource_noises as rir assets",
     )
     return root
 
@@ -483,6 +517,42 @@ def main(argv: Sequence[str] | None = None) -> int:
                     flush=True,
                 )
                 return 0
+            if arguments.reliability_command == "import-fleurs":
+                report = import_fleurs_ru(
+                    arguments.store,
+                    fleurs_root=arguments.fleurs_root,
+                    out_index=arguments.out_index,
+                    workers=arguments.workers,
+                )
+                print(json.dumps({"schema_version": 0, "status": "complete",
+                                  **report}, ensure_ascii=False, sort_keys=True),
+                      flush=True)
+                return 0
+            if arguments.reliability_command == "import-musan-noise":
+                report = import_musan_noise(
+                    arguments.store,
+                    noise_root=arguments.noise_root,
+                    out_index=arguments.out_index,
+                    workers=arguments.workers,
+                )
+                print(json.dumps({"schema_version": 0, "status": "complete",
+                                  **report}, ensure_ascii=False, sort_keys=True),
+                      flush=True)
+                return 0
+            if arguments.reliability_command == "import-rirs":
+                subsets = ["simulated_rirs", "real_rirs_isotropic_noises"]
+                if arguments.include_pointsource_noises:
+                    subsets.append("pointsource_noises")
+                report = import_rirs(
+                    arguments.store,
+                    rirs_root=arguments.rirs_root,
+                    out_index=arguments.out_index,
+                    subsets=tuple(subsets),
+                )
+                print(json.dumps({"schema_version": 0, "status": "complete",
+                                  **report}, ensure_ascii=False, sort_keys=True),
+                      flush=True)
+                return 0
             if arguments.reliability_command == "replay":
                 ready = load_ready_file(arguments.ready_file)
                 report = asyncio.run(
@@ -543,7 +613,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 flush=True,
             )
             return 0
-        except (ReliabilityCorpusError, ReliabilityReplayError, ClientError) as error:
+        except (
+            ReliabilityCorpusError,
+            ReliabilityReplayError,
+            ReliabilityImportError,
+            ClientError,
+        ) as error:
             print(
                 json.dumps(
                     {
