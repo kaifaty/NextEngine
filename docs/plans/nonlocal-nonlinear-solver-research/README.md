@@ -1296,3 +1296,9 @@ Directed evaluation/HVP work has median transaction share `0.389073`, range
 `0.000870`, and leads setup by `4.094282x`. Because the phase also includes
 full-buffer allocation/value-initialization, research one exact scratch-
 liveness audit before selecting arithmetic changes or buffer reuse.
+The [B4EP10SIRDA research](../../development/nonlocal-nsr3b4ep10sirda-directed-scratch-audit-research-2026-08-22.md)
+defines a write/read certificate and high-water initialization projection for
+the selected split incoming path. Its
+[frozen contract](03b4ep10sirda-directed-scratch-audit-contract.md) requires
+two exact byte-identical audit processes and both corrupt shadow negatives
+before scratch-reuse implementation research. Implement only the audit.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRD_PASS / DIRECTED_STRUCTURAL_AUDIT_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SIRDA_FROZEN / DIRECTED_SCRATCH_AUDIT_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -322,6 +322,9 @@
 - **Current decision:** research one timing-free directed scratch-liveness
   audit. Do not infer arithmetic dominance from a phase that also contains
   allocation and value-initialization.
+- **Current decision:** B4EP10SIRDA proves active-slot write-before-read,
+  inactive-slot liveness, target assignment and transaction-local high-water
+  capacity without changing the returned path. Implement/run the audit only.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -410,6 +413,7 @@
 | NSR3B4EP10SIR PASS | stable timing; source-local median `58.77%`, `2.918x` lead | one source-local discriminator research only |
 | NSR3B4EP10SIRD contract | four disjoint source-local groups from existing timers | run three exact processes; no code or speed credit |
 | NSR3B4EP10SIRD PASS | directed median `38.91%`, stable `4.094x` lead | one directed scratch-liveness audit research only |
+| NSR3B4EP10SIRDA contract | shadow slot liveness plus high-water work projection | implement/run twice only; no scratch fast path or timing |
 
 Candidate solver identity remains:
 
@@ -501,6 +505,7 @@ production authority is created by this lineage.
 | [B4EP10SIR](../nonlocal-nsr3b4ep10sir-split-incoming-residual-timing-evidence-2026-08-22.md) | source-local work is the stable leader; executor hypotheses fail | research one narrower source-local discriminator |
 | [B4EP10SIRD research](../nonlocal-nsr3b4ep10sird-source-local-discriminator-research-2026-08-22.md) | existing subphases separate directed/setup/compression/local-scalar work | execute the frozen reduction only |
 | [B4EP10SIRD](../nonlocal-nsr3b4ep10sird-source-local-discriminator-evidence-2026-08-22.md) | stable directed leader, but timer includes initialization | research an exact scratch-liveness audit |
+| [B4EP10SIRDA research](../nonlocal-nsr3b4ep10sirda-directed-scratch-audit-research-2026-08-22.md) | split incoming folds permit a complete write/read certificate | implement the frozen shadow audit only |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
