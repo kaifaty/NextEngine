@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDA_PASS / DIRECTED_SCRATCH_REUSE_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SIRDI_FROZEN / DIRECTED_SCRATCH_REUSE_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -331,6 +331,9 @@
 - **Current decision:** research one opt-in transaction-local directed scratch
   reuse path and external A/B contract. Do not fuse arithmetic or expand scope
   to compression/target buffers.
+- **Current decision:** B4EP10SIRDI owns one transaction-local high-water
+  directed buffer, releases it on every exit, and changes no compression,
+  target or arithmetic path. Implement then run the frozen balanced A/B.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -421,6 +424,7 @@
 | NSR3B4EP10SIRD PASS | directed median `38.91%`, stable `4.094x` lead | one directed scratch-liveness audit research only |
 | NSR3B4EP10SIRDA contract | shadow slot liveness plus high-water work projection | implement/run twice only; no scratch fast path or timing |
 | NSR3B4EP10SIRDA PASS | exact liveness; 454.3M repeated init slots removable | directed scratch reuse implementation/A-B research only |
+| NSR3B4EP10SIRDI contract | opt-in directed high-water buffer plus balanced A/B | implement/measure only; B4EP10SII remains rollback |
 
 Candidate solver identity remains:
 
@@ -514,6 +518,7 @@ production authority is created by this lineage.
 | [B4EP10SIRD](../nonlocal-nsr3b4ep10sird-source-local-discriminator-evidence-2026-08-22.md) | stable directed leader, but timer includes initialization | research an exact scratch-liveness audit |
 | [B4EP10SIRDA research](../nonlocal-nsr3b4ep10sirda-directed-scratch-audit-research-2026-08-22.md) | split incoming folds permit a complete write/read certificate | implement the frozen shadow audit only |
 | [B4EP10SIRDA](../nonlocal-nsr3b4ep10sirda-directed-scratch-audit-evidence-2026-08-22.md) | exact liveness and bounded high-water projection pass | research one opt-in scratch reuse path |
+| [B4EP10SIRDI research](../nonlocal-nsr3b4ep10sirdi-directed-scratch-reuse-research-2026-08-22.md) | transaction-local directed-only ownership selected | implement and execute frozen A/B only |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).

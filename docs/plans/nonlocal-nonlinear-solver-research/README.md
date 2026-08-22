@@ -1308,3 +1308,9 @@ All active-slot writes/reads are exact and a transaction-local high-water
 buffer projects only 670,229 growth slots versus 454,936,226 repeated full
 initializations. Research one opt-in directed-buffer reuse implementation/A-B
 contract; do not fuse arithmetic or extend reuse to other phases.
+The [B4EP10SIRDI research](../../development/nonlocal-nsr3b4ep10sirdi-directed-scratch-reuse-research-2026-08-22.md)
+selects one transaction-local, directed-only high-water buffer with mandatory
+release on every exit. Its
+[frozen contract](03b4ep10sirdi-directed-scratch-reuse-contract.md) requires
+exact work/lifetime counters and three balanced external A/B pairs before any
+speed credit. Implement and measure only this command.
