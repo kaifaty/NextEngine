@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / R3_R4_R5_CLOSED_ON_0E8DB75 / R2_DISPLAY_BLOCKED` |
+| Status | `ACTIVE / V11_R3_R4_R5_CLOSED_ON_4827CA1 / R2_SESSION_DISPLAY_BLOCKED` |
 | Updated | 2026-08-21 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
@@ -82,6 +82,9 @@
 | Display returns; realignment on `f3cb715` started | HDMI-A-1 became OS-visible (`1920x1080`), unblocking R2. Repo frozen at docs commit `f3cb715`, binary provenance verified (`f3cb715b6`); admission threshold raised from `35%` to `38%` desktop GPU (still strictly inside the accepted `<40%` preflight). R4 ten-run calibration plus gate completed first-attempt **`PASS`** (`final4-r4-*`); R5 ten-run calibration plus baseline published clean | R4 portion re-closed on the new commit; R5 baseline ready for its gate |
 | R5 gate attempt 1 on `f3cb715` incomplete | During a desktop-active window one fresh-process member executed the full workload with verdict **`FAIL`** and exited `PERFORMANCE_GATE_FAILED`; the parent rejected its stdout as `PERF_GATE_MEMBER_REPORT_INVALID: trailing characters at line 2 column 1`, so the batch never assembled and no aggregate verdict was published. Member metrics are not recoverable (captured stdout dropped by the parent error path); the exact log strings are preserved in `/tmp/opencode/r5-gate.log`. Root cause of the stdout pollution is unresolved | Recorded as an incomplete negative attempt under desktop-load burst, consistent with prior interrupted-attempt precedent: never rerun this attempt, but a NEW complete gate batch under sustained quiet is the documented continuation; if a cleanly assembled batch fails, that verdict is immutable and stops R7c |
 | R5 gate attempt 2 on `f3cb715` completed `WARNING` | Sustained-quiet admission (GPU `<30` for 60s) admitted a fully assembled three-member batch: **immutable** `WARNING` (`final4-r5-gate-attempt1`), solely `worker-4.physics-motor-frame` at `+205bp` with CI `[-293, +782]`; every absolute row PASS, w8 improved `-509bp/-604bp`, substep-cost flat `+12bp`. Baseline analysis: w4 between-run p95 spread is `~±10–15%` even under ADR-093 placement (morning median `2331`, members `2370–2404`); the accepted policy warns at point-estimate `>=200bp` regardless of CI while FAIL already requires CI-low `>=500bp` | Third independent event of the relative-noise class across rows; blind recollection is coin-flipping immutable artifacts, so further collection pauses pending the product-owner decision on CI-gated warning semantics |
+| ADR-094 accepted and implemented `4827ca1` | Product owner chose CI-gated warnings: warning requires change `>=200bp` AND CI95-low `>=200bp`, symmetric with FAIL; methodology advances to `nextengine-performance-v11`; failed commands emit diagnostics on stderr only, fixing the stdout pollution that discarded a failing member's metrics. Focused verdict tests encode the recorded noise shapes; host-check, clippy and `113/113` xtask tests pass; docs (README 2.62, traceability V9.1, SPEC-04/09/12, routing) updated in the same change | v10 evidence is incompatible by design; all four workloads recollected on the new commit |
+| V11 R3/R4/R5 closure on `4827ca1` | Admission-timed collection with sustained-quiet gate precondition: R4 baseline `e67316a9…4e06` / gate attempt2 `c9190cdc…8d32…` **PASS** (attempt1 was a typed environment `NOT_RUN`, retried per policy); R5 baseline `cfc427c7…453ca…` / gate `062de9fb…448b…` **PASS**; R3 baseline `8ffff7ac…453ca…` / gate `9a4b07cf…f924f…` **PASS** — all zero diagnostics on one exact clean v11 commit | The three CPU-side portions of R7c are closed under the final authority |
+| R2 blocked by desktop session presentation state | Display is OS-visible (`HDMI-1 1920x1080@199.92`), Vulkan loader and devices healthy, but every production desktop workload fails identically under both SDL video drivers: default Wayland path renders no smoke frame; forced `SDL_VIDEODRIVER=x11` renders completely (240-frame soak PASS) yet R2's declared-profile extent check fails. Root environmental factor identified: Mutter experimental features `scale-monitor-framebuffer` + `xwayland-native-scaling` are enabled in this session; the Wayland breakage appeared after the display reconnection | Engine code is unchanged and not implicated (CPU scenarios pass end to end); R2 needs either mutter feature toggle or a fresh graphical session before its ten-run baseline/gate can be collected; user processes remain untouched per instruction |
 
 ## Decisions that constrain the work
 
@@ -140,10 +143,13 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-R3/R4/R5 are closed on `0e8db75`. When the R2 physical display returns,
-collect the R2 ten-run baseline plus fixed gate on the then-current clean
-HEAD; if the commit moved since `0e8db75`, recollect the three CPU-side sets
-on that final commit first. Then close B-12 in roadmap and hand off to R7d.
+R3/R4/R5 hold hard `PASS` v11 gates on `4827ca1`. Resolve the R2 desktop
+session presentation state (toggle Mutter `xwayland-native-scaling`/
+`scale-monitor-framebuffer` by product-owner choice, or restart the graphical
+session), then collect the R2 ten-run baseline plus fixed gate on the
+then-current clean HEAD; if the commit moved, recollect the three CPU-side
+sets on that final commit first. Then close B-12 in roadmap and hand off to
+R7d.
 
 ## Do not retry
 
