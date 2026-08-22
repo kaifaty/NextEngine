@@ -1608,3 +1608,10 @@ remain below the conservative extended resolution threshold. This selects
 Research and freeze D7R9 as a replay-only computational divided-difference
 candidate that precancels common radius/kernel/density/PHR/inertia terms in
 binary64 and compares only against D7R8-resolved signs.
+The [D7R9 research](../../development/nonlocal-nsr3b4e2d7r9-divided-difference-research-2026-08-22.md)
+selects computational divided differencing plus compensated accumulation over
+wider runtime state or a noise-relaxed acceptance rule. Its
+[frozen contract](03b4e2d7r9-divided-difference-contract.md) scores only the
+eleven resolved D7R8 trials, reports the other twelve without classification,
+and compares a compensated-absolute ablation with the fully propagated
+binary64 delta. Implement/run only this replay discriminator next.

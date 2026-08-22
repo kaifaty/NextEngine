@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R8_PASS_BINARY64_ENERGY_EVALUATION / B4E2D7R9_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R8_PASS_BINARY64_ENERGY_EVALUATION / B4E2D7R9_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -18,7 +18,7 @@
   reductions, none has a resolved negative reduction and all pair-membership
   decisions agree. All five `eta=1e-10` microtrials remain below the strict
   1024-extended-ULP resolution threshold.
-- **Current decision:** research/freeze D7R9 around binary64 computational
+- **Current decision:** D7R9 is frozen around binary64 computational
   divided differencing: stable radius delta, same-segment cubic kernel delta,
   density/PHR/inertia delta propagation and compensated final reduction. It
   remains replay-only and must not accept a trial.
@@ -1722,8 +1722,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
-5. Research/freeze B4E2D7R9 over every D7R8 replay trial; admit only resolved
-   extended signs for candidate scoring and preserve zero trial acceptance.
+5. Implement/run frozen B4E2D7R9 over every D7R8 replay trial; admit only
+   resolved extended signs for candidate scoring and preserve zero trial
+   acceptance.
 
 ## Reconsideration triggers
 
