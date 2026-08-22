@@ -46712,4 +46712,183 @@ SplitBoundaryReport run_nominal_dam_first_output_controls() {
     return {passed, report.str()};
 }
 
+SplitBoundaryReport run_nominal_dam_first_output_preflight_controls() {
+    constexpr const char* identity_sha256 =
+        "2b09ce8435fc185bd91322e17f1ee34f04a3ec59dc1a47dc5bba04cef23c6641";
+    constexpr const char* identity_projection =
+        "nextengine.nonlocal.nsr3b4e2d0-preflight-observability|v1|parent="
+        "282b6ee16135d036363f1a613e4dbfa4c8d2065dfb030810050772edd1ff671e:"
+        "22aa521b3acea2b9776d8b4a9eb8ebc468fb9463:"
+        "b469c0897d9303242bdc6eda802047f4207d6d37251dd934727e45c5b8f808af|"
+        "scope=projection,scenario,initial-canonical,decoded-raw-exact,static,"
+        "pairs,evaluation,counts|trajectory=none|failure-report=total;"
+        "no-empty-root|runs=2-processes;byte-exact|route=first-mismatch-only|"
+        "timing=none|credit=b4e2d1-reclosure-research-only";
+    omp_set_dynamic(0);
+    omp_set_max_active_levels(1);
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[1];
+    SmokeFixture fixture = make_b4e2d_dam_fixture();
+    const std::vector<Vec3> raw_position = fixture.position;
+    const std::vector<Vec3> raw_velocity = fixture.velocity;
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(raw_position, raw_velocity, 0));
+    const std::string initial_aggregate_root =
+        b4e0_initial_aggregate_root(initial.frame);
+    const bool initial_canonical_exact =
+        b4e0_initial_canonical_exact(initial.frame);
+    fixture.position = decode_canonical_position(initial.frame);
+    fixture.velocity = decode_canonical_velocity(initial.frame);
+    const bool decoded_raw_exact = exact_vec3_values(
+            fixture.position, raw_position)
+        && exact_vec3_values(fixture.velocity, raw_velocity);
+    fixture.geometry_sha256 = geometry_hash(fixture);
+
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index = build_joint_static_support_index(
+        tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding = bind_joint_static_support_index(
+        &index, index.identity_sha256);
+    const JointNeighborhood neighborhood = index.passed && binding.passed
+        ? build_joint_neighborhood_with_static_support(
+            tagged_points(fixture.position), &binding, true, &static_work,
+            true, &adjacency_work)
+        : JointNeighborhood{};
+    const Evaluation evaluation = neighborhood.passed
+        ? evaluate_joint(neighborhood) : Evaluation{};
+    double initial_mechanical = evaluation.energy;
+    for (const Vec3 position : fixture.position) {
+        initial_mechanical += MASS * (-fixture.gravity.y) * position.y;
+    }
+    const std::string pair_root = neighborhood.passed
+        ? joint_pair_hash(neighborhood) : std::string{};
+
+    const bool projection_exact = sha256_hex(B4E2D_IDENTITY_PROJECTION)
+        == B4E2D_IDENTITY_SHA256;
+    const bool omp_exact = omp_get_dynamic() == 0
+        && omp_get_max_active_levels() == 1;
+    const bool scenario_exact = scenario_root == spec.scenario_root;
+    const bool aggregate_exact = initial_aggregate_root
+        == "37d83c159ff913afef290b9dc1cc7affe9f6018d726dd7b13ab9308f3bf741d3";
+    const bool static_exact = index.passed && binding.passed
+        && index.identity_sha256
+            == "a2d97ab6f26383d826366eba2a3d4392f5ef9610dda87e89509e93bd9daf61e8";
+    const bool pair_root_exact = neighborhood.passed
+        && pair_root
+            == "c330a0aecb913d92e95478dc3325f9bc326d5e8d3057485723dd62eef1493889";
+    const bool pair_counts_exact = neighborhood.passed
+        && neighborhood.pairs.size() == 335814U
+        && neighborhood.flat_directed_pair_indices.size() == 596256U
+        && neighborhood.maximum_degree == 117U;
+    const bool sample_counts_exact = fixture.position.size() == 6000U
+        && fixture.boundary.size() == 16384U;
+    const bool evaluation_exact = std::isfinite(initial_mechanical)
+        && b4e0_evaluation_finite(evaluation);
+    const bool static_work_exact = static_work.static_index_builds == 1U;
+    std::vector<std::string> mismatches;
+    const auto record = [&mismatches](bool exact, const char* name) {
+        if (!exact) {
+            mismatches.emplace_back(name);
+        }
+    };
+    record(projection_exact, "PROJECTION");
+    record(omp_exact, "OPENMP_POLICY");
+    record(scenario_exact, "SCENARIO_ROOT");
+    record(aggregate_exact, "INITIAL_AGGREGATE_ROOT");
+    record(static_exact, "STATIC_INDEX_ROOT");
+    record(pair_root_exact, "PAIR_ROOT");
+    record(pair_counts_exact, "PAIR_COUNTS");
+    record(sample_counts_exact, "SAMPLE_COUNTS");
+    record(evaluation_exact, "EVALUATION_FINITE");
+    record(static_work_exact, "STATIC_INDEX_BUILD_COUNT");
+    const bool parent_preflight_exact = mismatches.empty();
+    const bool passed = sha256_hex(identity_projection) == identity_sha256
+        && !scenario_root.empty() && initial.frame.samples.size() == 6000U
+        && static_work.static_index_builds <= 1U;
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << identity_sha256 << '|'
+             << projection_exact << ':' << omp_exact << ':' << scenario_exact
+             << ':' << aggregate_exact << ':' << initial_canonical_exact << ':'
+             << decoded_raw_exact << ':' << static_exact << ':'
+             << pair_root_exact << ':' << pair_counts_exact << ':'
+             << sample_counts_exact << ':' << evaluation_exact << ':'
+             << static_work_exact << '|';
+    for (const std::string& mismatch : mismatches) {
+        semantic << mismatch << ',';
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d0_preflight_observability.v1\""
+           << ",\"identity_sha256\":\"" << identity_sha256 << '"'
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"parent_preflight_exact\":"
+           << (parent_preflight_exact ? "true" : "false")
+           << ",\"mismatches\":[";
+    for (std::size_t mismatch = 0U; mismatch < mismatches.size(); ++mismatch) {
+        if (mismatch != 0U) {
+            report << ',';
+        }
+        report << '"' << mismatches[mismatch] << '"';
+    }
+    report << "]"
+           << ",\"facts\":{\"parent_projection_exact\":"
+           << (projection_exact ? "true" : "false")
+           << ",\"openmp_policy_exact\":"
+           << (omp_exact ? "true" : "false")
+           << ",\"scenario_root\":\"" << scenario_root
+           << "\",\"scenario_root_exact\":"
+           << (scenario_exact ? "true" : "false")
+           << ",\"initial_frame_root\":\""
+           << initial.frame.root_sha256
+           << "\",\"initial_aggregate_root\":\""
+           << initial_aggregate_root
+           << "\",\"initial_aggregate_exact\":"
+           << (aggregate_exact ? "true" : "false")
+           << ",\"initial_canonical_layout_exact\":"
+           << (initial_canonical_exact ? "true" : "false")
+           << ",\"decoded_raw_binary64_exact\":"
+           << (decoded_raw_exact ? "true" : "false")
+           << ",\"static_index_root\":\"" << index.identity_sha256
+           << "\",\"static_index_exact\":"
+           << (static_exact ? "true" : "false")
+           << ",\"pair_root\":\"" << pair_root
+           << "\",\"pair_root_exact\":"
+           << (pair_root_exact ? "true" : "false")
+           << ",\"unique_pairs\":" << neighborhood.pairs.size()
+           << ",\"directed_records\":"
+           << neighborhood.flat_directed_pair_indices.size()
+           << ",\"maximum_degree\":" << neighborhood.maximum_degree
+           << ",\"pair_counts_exact\":"
+           << (pair_counts_exact ? "true" : "false")
+           << ",\"fluid_samples\":" << fixture.position.size()
+           << ",\"support_samples\":" << fixture.boundary.size()
+           << ",\"sample_counts_exact\":"
+           << (sample_counts_exact ? "true" : "false")
+           << ",\"initial_mechanical_j\":" << initial_mechanical
+           << ",\"evaluation_finite\":"
+           << (evaluation_exact ? "true" : "false")
+           << ",\"static_index_builds\":"
+           << static_work.static_index_builds
+           << ",\"static_work_exact\":"
+           << (static_work_exact ? "true" : "false") << '}'
+           << ",\"trajectory_started\":false"
+           << ",\"trajectory_root_called\":false"
+           << ",\"timing_admitted\":false"
+           << ",\"b4e2d1_reclosure_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"b4e2d_physics_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << sha256_hex(semantic.str())
+           << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr
