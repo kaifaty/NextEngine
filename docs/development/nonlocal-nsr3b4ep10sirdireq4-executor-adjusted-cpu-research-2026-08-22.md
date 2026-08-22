@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREQ4 executor-adjusted CPU research -- 2026-08-22
 
-Status: `COMPLETE / DERIVED_METRIC_SELECTED / QUALIFICATION_NEXT`
+Status: `CLOSED / QUALIFICATION_FAIL / DEDICATED_HOST_REQUIRED`
 
 ## Question
 
@@ -81,3 +81,13 @@ gates decide whether they are bounded enough for research.
 
 No result authorizes implementation, candidate selection, Q3 rerun, wall/FPS,
 B4E2, broad corpus, runtime/GPU/schema or production work.
+
+## Closure
+
+Fresh execution preserves every exact gate, but adjusted CPU range is
+`1.0312364097`, narrowly above the frozen `1.03` limit. Q4 closes FAIL without
+rerun; see the
+[dated evidence](nonlocal-nsr3b4ep10sirdireq4-executor-adjusted-cpu-evidence-2026-08-22.md).
+
+The retrospective discriminator was useful for locating noise, but it is not
+stable enough to qualify candidate A/B on this host.

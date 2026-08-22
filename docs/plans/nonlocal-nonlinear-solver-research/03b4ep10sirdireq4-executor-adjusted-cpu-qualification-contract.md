@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREQ4 -- executor-adjusted CPU qualification contract
 
-Status: `FROZEN / EXECUTION_PENDING`
+Status: `CLOSED / FAIL / DEDICATED_HOST_REQUIRED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -64,3 +64,9 @@ gates, while reporting excluded residual separately.
 FAIL requires a dedicated/quiescent performance host before another candidate
 A/B. Neither result reopens Q3 or grants wall speed, real-time/FPS, B4E2,
 broad corpus, runtime/GPU/schema or production authority.
+
+## Closure
+
+All semantic/accounting and `O/A` gates pass, but `E` range is
+`1.0312364097` versus `1.03`. Close FAIL without rerun. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq4-executor-adjusted-cpu-evidence-2026-08-22.md).

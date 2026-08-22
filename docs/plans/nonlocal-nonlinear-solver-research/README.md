@@ -1443,3 +1443,8 @@ inside OpenMP regions but outside measured worker-active intervals. Its
 derives `E = transaction - region + active-worker` from the unchanged Q1
 command and requires three fresh stable reports. Execute only this
 qualification; it grants no implementation or wall credit.
+B4EP10SIRDIREQ4 fails; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq4-executor-adjusted-cpu-evidence-2026-08-22.md).
+Exact accounting passes, but adjusted CPU range is `1.031236x` versus the
+frozen `1.03` gate. Do not repeat or round it into PASS. A dedicated/quiescent
+performance lane is required before another CPU/wall candidate A/B.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREQ4_FROZEN / EXECUTOR_ADJUSTED_CPU_QUALIFICATION_NEXT` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREQ4_FAIL / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -437,6 +437,11 @@
 - **Current decision:** Q4 freezes a no-code qualification of this
   executor-adjusted CPU surrogate over three fresh existing Q1 commands. It
   grants no wall credit and cannot reopen Q3.
+- **Measurement result:** Q4 exact/accounting and `O/A` gates pass, but
+  adjusted CPU range is `1.031236x` versus the frozen `1.03` limit.
+- **Current decision:** close Q4 FAIL without repeat. No further CPU/wall
+  candidate A/B is admissible on this shared host; a dedicated/quiescent
+  performance lane is required. Fundamental non-speed research may continue.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -546,6 +551,7 @@
 | NSR3B4EP10SIRDIREQ3 contract | direct neighborhood publication; no SICD/fallback; paired process CPU | implement exact stage, then CPU A/B only |
 | NSR3B4EP10SIRDIREQ3 FAIL | exact path; CPU wins `1/3`, median `0.983844x`, range `1.565388`; reverted | retain SIRDI; measurement-lane qualification research only |
 | NSR3B4EP10SIRDIREQ4 contract | `E = transaction - region + active-worker`, existing exact Q1 command | execute three fresh qualification runs only |
+| NSR3B4EP10SIRDIREQ4 FAIL | exact accounting; adjusted range `1.031236x` misses `1.03` | dedicated/quiescent host before another candidate A/B |
 
 Candidate solver identity remains:
 
@@ -1332,6 +1338,18 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** Q4 passes and a distinct future candidate contract is
   researched, or Q4 fails and a dedicated host becomes available.
 
+### D-062 -- Stop shared-host performance selection
+
+- **Observation:** Q4 passes exact accounting and external CPU cross-check,
+  but adjusted range `1.031236x` exceeds its frozen `1.03` gate.
+- **Decision:** close Q4 FAIL without repeat and require a dedicated/quiescent
+  performance lane before another CPU/wall candidate A/B.
+- **Rejected:** rounding to `1.03`, using the retrospective `1.012483x`
+  window, loosening the gate after observation or substituting more structural
+  counts for measured speed.
+- **Reconsider when:** an external performance runner supplies bounded host
+  health, explicit worker placement and repeatable wall/CPU evidence.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1384,12 +1402,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Run the unchanged Q1 CPU command in exactly three fresh serialized
-   processes under affinity `0-7`, with GNU CPU cross-checks.
-2. Derive checked `outside`, `runtime residual` and executor-adjusted CPU;
-   close Q4 PASS/FAIL without dropping or repeating samples.
-3. Keep SIRDI selected and do not run Q3, a new candidate, B4E2, broad corpus,
-   runtime/GPU or production work before Q4 closes.
+1. Do not run another CPU/wall candidate A/B on this shared host.
+2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
+3. Continue only fundamental numerical/structural research without speed
+   claims, or provision and separately qualify a dedicated performance lane
+   before resuming measured optimization.
 
 ## Reconsideration triggers
 
