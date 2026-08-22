@@ -46391,6 +46391,34 @@ constexpr const char* B4E2D7R5_IDENTITY_PROJECTION =
     "runs=2-release-builds;2-processes;byte-exact;timing=none|"
     "trajectory=none;private-confirmation<=1;public-commit=none;"
     "physics-mutation=none|credit=dense-al-holdout-contract-research-only";
+constexpr const char* B4E2D7R6_IDENTITY_SHA256 =
+    "65f1a01ccc110a4e110c2e8b9907d9a29f0ecb58fd1e09a4f3b3a9af0fc5ee0a";
+constexpr const char* B4E2D7R6_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r6-cap-accuracy-discriminator|v1|parent="
+    "b9f0e532e064f2316b1f3133fdd3fb7877a7da431c1284d8233f3e3cc5be48b9:"
+    "46bfccedddada3dc38479e3f510998a7cf00fa68c04f9a37703016bd4d98398e:"
+    "7ea5489fa90346f385ce8db08dba445f2e2389e65fdf556a13a17e837ba916d7|"
+    "state=d7-prefix:"
+    "9bffc61a943f50cab449c052bd0a6791c40128e894d98d9a9589b0969dbb82c2:"
+    "04a9c03308662d6102b165d8109b23c1b60a3145314603909b7dbfda8385d95e;"
+    "d7r5-final:"
+    "1fdbcb763dedce34937c399986691469eaab55565024277ddc70f4dbf8c86546|"
+    "solver=step-norm-trust-inner-candidate;beta=1226.25;"
+    "outer=d7r-unchanged|fork=post-outer7-private|"
+    "inner-stationarity-ladder=1e-8,1e-9,1e-10,1e-11,1e-12;"
+    "only-stop-threshold-changes|outer-observation-cap=64;original-cap=14|"
+    "gates=primal1e-8,stationarity-lane-eta,complementarity1e-9,"
+    "abs-dual1e-8J,pressure8e-5Pa,position1e-8dx,lambda-nonnegative,"
+    "primal-monotone|confirmation=two-consecutive-admissible;"
+    "warm-holdout=one-private-update;same-gates|trace=all-lanes;all-outer;"
+    "inner-work;first-admissible;confirmation;holdout|controls="
+    "eta1e-8-first14-d7r5-exact;inactive;reset;forced-rollback;parent-bytes|"
+    "routes=outer-cap-sufficient;nested-accuracy-sufficient;"
+    "coupled-cap-and-accuracy-required;pressure-state-formulation-research|"
+    "precedence=outer-cap,nested-accuracy,coupled,formulation|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|"
+    "trajectory=none;public-commit=none;physics-mutation=none|"
+    "credit=accuracy-schedule-or-cap-contract-research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -49750,11 +49778,12 @@ double al_step_norm_rejected_radius(
     return 0.25 * old_radius;
 }
 
-ALStepNormInnerSolve solve_al_vector_inner_step_norm(
+ALStepNormInnerSolve solve_al_vector_inner_step_norm_eta(
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& initial,
     const std::vector<Vec3>& boundary,
-    const std::vector<double>& multiplier) {
+    const std::vector<double>& multiplier,
+    double stationarity_limit) {
     ALStepNormInnerSolve result;
     result.position = initial;
     ALVectorInnerState current = evaluate_al_vector_inner(
@@ -49767,7 +49796,7 @@ ALStepNormInnerSolve solve_al_vector_inner_step_norm(
     for (int outer = 0; outer < 64; ++outer) {
         result.final_stationarity =
             al_vector_scaled_stationarity(current.gradient);
-        if (result.final_stationarity <= 1.0e-8) {
+        if (result.final_stationarity <= stationarity_limit) {
             result.passed = true;
             result.support = std::move(current.support);
             return result;
@@ -49881,6 +49910,15 @@ ALStepNormInnerSolve solve_al_vector_inner_step_norm(
     return result;
 }
 
+ALStepNormInnerSolve solve_al_vector_inner_step_norm(
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& initial,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier) {
+    return solve_al_vector_inner_step_norm_eta(
+        predicted, initial, boundary, multiplier, 1.0e-8);
+}
+
 struct ALStepNormOuterRecord {
     ALVectorOuterRecord state;
     int inner_step_norm_updates = 0;
@@ -49937,9 +49975,10 @@ bool al_step_norm_outer_record_finite(
 }
 
 bool al_step_norm_outer_record_admissible(
-    const ALVectorOuterRecord& record) {
+    const ALVectorOuterRecord& record,
+    double stationarity_limit) {
     return record.primal <= 1.0e-8
-        && record.stationarity <= 1.0e-8
+        && record.stationarity <= stationarity_limit
         && record.complementarity <= 1.0e-9
         && record.minimum_multiplier >= 0.0
         && record.absolute_dual_change <= 1.0e-8
@@ -49947,15 +49986,28 @@ bool al_step_norm_outer_record_admissible(
         && record.position_update_dx <= 1.0e-8;
 }
 
-ALStepNormOuterUpdate al_step_norm_private_outer_update(
+ALStepNormOuterUpdate al_step_norm_private_outer_update_eta(
     const Fixture& fixture,
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& position,
     const std::vector<double>& multiplier,
-    int outer) {
+    int outer,
+    double stationarity_limit) {
     ALStepNormOuterUpdate result;
-    const ALStepNormInnerSolve inner = solve_al_vector_inner_step_norm(
-        predicted, position, fixture.boundary, multiplier);
+    const ALStepNormInnerSolve inner = solve_al_vector_inner_step_norm_eta(
+        predicted, position, fixture.boundary, multiplier,
+        stationarity_limit);
+    ALVectorOuterRecord& record = result.record.state;
+    record.outer = outer;
+    record.inner_outer_trials = static_cast<int>(inner.trials.size()) + 1;
+    record.inner_accepted_trials = inner.accepted_trials;
+    record.inner_rejected_trials = inner.rejected_trials;
+    record.inner_hvp_calls = inner.hvp_calls;
+    record.stationarity = inner.final_stationarity;
+    result.record.inner_step_norm_updates = inner.step_norm_updates;
+    result.record.inner_quarter_updates = inner.quarter_updates;
+    result.record.finite_values = inner.all_finite
+        && std::isfinite(inner.final_stationarity);
     if (!inner.passed || !inner.positive_accepted_models
         || !inner.all_finite) {
         result.failure = "INNER:" + inner.failure;
@@ -49966,12 +50018,6 @@ ALStepNormOuterUpdate al_step_norm_private_outer_update(
     result.position = inner.position;
     result.multiplier.resize(multiplier.size());
     result.support = inner.support;
-    ALVectorOuterRecord& record = result.record.state;
-    record.outer = outer;
-    record.inner_outer_trials = static_cast<int>(inner.trials.size()) + 1;
-    record.inner_accepted_trials = inner.accepted_trials;
-    record.inner_rejected_trials = inner.rejected_trials;
-    record.inner_hvp_calls = inner.hvp_calls;
     record.minimum_multiplier = std::numeric_limits<double>::infinity();
     record.position_update_dx =
         rms_difference(position, inner.position) / SPACING;
@@ -49999,9 +50045,6 @@ ALStepNormOuterUpdate al_step_norm_private_outer_update(
         record.maximum_multiplier = std::max(
             record.maximum_multiplier, result.multiplier[center]);
     }
-    record.stationarity = inner.final_stationarity;
-    result.record.inner_step_norm_updates = inner.step_norm_updates;
-    result.record.inner_quarter_updates = inner.quarter_updates;
     result.record.finite_values = inner.support.finite_values
         && al_step_norm_outer_record_finite(record)
         && std::all_of(result.position.begin(), result.position.end(),
@@ -50009,12 +50052,23 @@ ALStepNormOuterUpdate al_step_norm_private_outer_update(
         && std::all_of(result.multiplier.begin(), result.multiplier.end(),
             [](double value) { return std::isfinite(value); });
     result.record.admissible = result.record.finite_values
-        && al_step_norm_outer_record_admissible(record);
+        && al_step_norm_outer_record_admissible(
+            record, stationarity_limit);
     result.passed = result.record.finite_values;
     if (!result.passed) {
         result.failure = "OUTER_NONFINITE";
     }
     return result;
+}
+
+ALStepNormOuterUpdate al_step_norm_private_outer_update(
+    const Fixture& fixture,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& position,
+    const std::vector<double>& multiplier,
+    int outer) {
+    return al_step_norm_private_outer_update_eta(
+        fixture, predicted, position, multiplier, outer, 1.0e-8);
 }
 
 ALStepNormPrivateOuterSolve solve_al_step_norm_private_outer(
@@ -50090,6 +50144,157 @@ ALStepNormPrivateOuterSolve solve_al_step_norm_private_outer(
         && result.records.size() == static_cast<std::size_t>(maximum_outer);
     if (result.cap_exhausted) {
         result.failure = "OUTER_ITERATION_LIMIT";
+    }
+    return result;
+}
+
+struct ALCapAccuracyLane {
+    double stationarity_limit = 0.0;
+    bool all_inners_pass = true;
+    bool all_finite = true;
+    bool primal_monotone = true;
+    bool dual_feasible = true;
+    bool cap_exhausted = false;
+    bool confirmed = false;
+    bool warm_holdout_attempted = false;
+    bool warm_holdout_admissible = false;
+    std::string failure;
+    int first_admissible_index = -1;
+    int provisional_index = -1;
+    int confirmation_index = -1;
+    int private_confirmation_count = 0;
+    std::vector<Vec3> position;
+    std::vector<double> multiplier;
+    std::vector<Vec3> position_at_outer13;
+    std::vector<double> multiplier_at_outer13;
+    std::vector<ALStepNormOuterRecord> records;
+    ALStepNormOuterRecord failed_inner_work;
+    ALStepNormOuterRecord warm_holdout;
+};
+
+bool al_step_norm_outer_record_exact(
+    const ALStepNormOuterRecord& lhs,
+    const ALStepNormOuterRecord& rhs) {
+    const ALVectorOuterRecord& a = lhs.state;
+    const ALVectorOuterRecord& b = rhs.state;
+    return a.outer == b.outer
+        && a.inner_outer_trials == b.inner_outer_trials
+        && a.inner_accepted_trials == b.inner_accepted_trials
+        && a.inner_rejected_trials == b.inner_rejected_trials
+        && a.inner_hvp_calls == b.inner_hvp_calls
+        && binary64_bits(a.primal) == binary64_bits(b.primal)
+        && binary64_bits(a.scaled_dual_change)
+            == binary64_bits(b.scaled_dual_change)
+        && binary64_bits(a.stationarity) == binary64_bits(b.stationarity)
+        && binary64_bits(a.complementarity)
+            == binary64_bits(b.complementarity)
+        && binary64_bits(a.absolute_dual_change)
+            == binary64_bits(b.absolute_dual_change)
+        && binary64_bits(a.equivalent_pressure_change)
+            == binary64_bits(b.equivalent_pressure_change)
+        && binary64_bits(a.position_update_dx)
+            == binary64_bits(b.position_update_dx)
+        && binary64_bits(a.minimum_multiplier)
+            == binary64_bits(b.minimum_multiplier)
+        && binary64_bits(a.maximum_multiplier)
+            == binary64_bits(b.maximum_multiplier)
+        && lhs.inner_step_norm_updates == rhs.inner_step_norm_updates
+        && lhs.inner_quarter_updates == rhs.inner_quarter_updates
+        && lhs.finite_values == rhs.finite_values
+        && lhs.admissible == rhs.admissible;
+}
+
+ALCapAccuracyLane solve_al_cap_accuracy_lane(
+    const Fixture& fixture,
+    const std::vector<Vec3>& predicted,
+    std::vector<Vec3> position,
+    std::vector<double> multiplier,
+    const ALStepNormOuterRecord& prefix_last,
+    double stationarity_limit) {
+    constexpr int first_outer = 8;
+    constexpr int maximum_outer = 64;
+    ALCapAccuracyLane result;
+    result.stationarity_limit = stationarity_limit;
+    result.position = position;
+    result.multiplier = multiplier;
+    double previous_primal = prefix_last.state.primal;
+    bool previous_admissible = prefix_last.finite_values
+        && al_step_norm_outer_record_admissible(
+            prefix_last.state, stationarity_limit);
+    result.provisional_index = previous_admissible ? 7 : -1;
+    for (int outer = first_outer; outer < maximum_outer; ++outer) {
+        ALStepNormOuterUpdate update = al_step_norm_private_outer_update_eta(
+            fixture, predicted, position, multiplier, outer,
+            stationarity_limit);
+        if (!update.passed) {
+            result.all_inners_pass = false;
+            result.all_finite = result.all_finite && update.finite_failure;
+            result.failure = update.failure;
+            result.failed_inner_work = update.record;
+            return result;
+        }
+        const bool monotone = update.record.state.primal <= previous_primal;
+        result.primal_monotone = result.primal_monotone && monotone;
+        result.all_finite = result.all_finite
+            && update.record.finite_values;
+        result.dual_feasible = result.dual_feasible
+            && update.record.state.minimum_multiplier >= 0.0;
+        previous_primal = update.record.state.primal;
+        result.records.push_back(update.record);
+        result.position = update.position;
+        result.multiplier = update.multiplier;
+        position = std::move(update.position);
+        multiplier = std::move(update.multiplier);
+        if (outer == 13) {
+            result.position_at_outer13 = result.position;
+            result.multiplier_at_outer13 = result.multiplier;
+        }
+        const bool admissible = update.record.admissible && monotone;
+        if (admissible && result.first_admissible_index < 0) {
+            result.first_admissible_index = outer;
+        }
+        if (admissible && previous_admissible
+            && result.provisional_index == outer - 1) {
+            result.confirmed = true;
+            result.confirmation_index = outer;
+            ++result.private_confirmation_count;
+            break;
+        }
+        result.provisional_index = admissible ? outer : -1;
+        previous_admissible = admissible;
+    }
+    if (result.confirmed) {
+        if (result.confirmation_index >= maximum_outer - 1) {
+            result.failure = "HOLDOUT_OBSERVATION_CAP";
+            return result;
+        }
+        result.warm_holdout_attempted = true;
+        ALStepNormOuterUpdate holdout = al_step_norm_private_outer_update_eta(
+            fixture, predicted, result.position, result.multiplier,
+            result.confirmation_index + 1, stationarity_limit);
+        if (!holdout.passed) {
+            result.all_inners_pass = false;
+            result.all_finite = result.all_finite && holdout.finite_failure;
+            result.failure = "HOLDOUT:" + holdout.failure;
+            result.failed_inner_work = holdout.record;
+            return result;
+        }
+        result.warm_holdout = holdout.record;
+        result.all_finite = result.all_finite
+            && holdout.record.finite_values;
+        result.dual_feasible = result.dual_feasible
+            && holdout.record.state.minimum_multiplier >= 0.0;
+        result.warm_holdout_admissible = holdout.record.admissible
+            && holdout.record.state.primal <= previous_primal;
+        return result;
+    }
+    result.cap_exhausted = result.all_inners_pass && result.all_finite
+        && result.primal_monotone && result.dual_feasible
+        && result.records.size()
+            == static_cast<std::size_t>(maximum_outer - first_outer)
+        && result.records.back().state.outer == maximum_outer - 1;
+    if (result.cap_exhausted) {
+        result.failure = "OUTER_OBSERVATION_LIMIT";
     }
     return result;
 }
@@ -52092,6 +52297,403 @@ SplitBoundaryReport run_al_step_norm_private_outer_controls() {
            << ",\"physics_mutation\":false,\"timing_admitted\":false"
            << ",\"dense_al_holdout_contract_research_authorized\":"
            << (passed ? "true" : "false")
+           << ",\"public_pressure_state_authorized\":false"
+           << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_cap_accuracy_discriminator_controls() {
+    constexpr std::array<double, 5> stationarity_limits{
+        1.0e-8, 1.0e-9, 1.0e-10, 1.0e-11, 1.0e-12};
+    const bool identity_exact = sha256_hex(B4E2D7R6_IDENTITY_PROJECTION)
+        == B4E2D7R6_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_step_norm_private_outer_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "7ea5489fa90346f385ce8db08dba445f2e2389e65fdf556a13a17e837ba916d7";
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<Vec3> inactive_prediction =
+        compressed_fluid(fixture, 1.01);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALStepNormPrivateOuterSolve d7r5 =
+        solve_al_step_norm_private_outer(
+            fixture, active_prediction, active_prediction, zero_multiplier);
+
+    std::vector<ALVectorOuterRecord> legacy_records;
+    legacy_records.reserve(d7r5.records.size());
+    for (const ALStepNormOuterRecord& record : d7r5.records) {
+        legacy_records.push_back(record.state);
+    }
+    const std::string prefix_outer_root = sha256_hex(
+        al_vector_legacy_outer_json(legacy_records, 8U));
+    const std::string prefix_state_root = al_vector_state_root(
+        "cold", d7r5.prefix_position, d7r5.prefix_multiplier);
+    const bool prefix_exact = d7r5.records.size() == 14U
+        && prefix_outer_root
+            == "9bffc61a943f50cab449c052bd0a6791c40128e894d98d9a9589b0969dbb82c2"
+        && prefix_state_root
+            == "04a9c03308662d6102b165d8109b23c1b60a3145314603909b7dbfda8385d95e";
+
+    std::array<ALCapAccuracyLane, stationarity_limits.size()> lanes;
+    if (d7r5.records.size() >= 8U) {
+        for (std::size_t lane_index = 0U;
+             lane_index < lanes.size(); ++lane_index) {
+            lanes[lane_index] = solve_al_cap_accuracy_lane(
+                fixture, active_prediction, d7r5.prefix_position,
+                d7r5.prefix_multiplier, d7r5.records[7],
+                stationarity_limits[lane_index]);
+            double prior_primal = std::numeric_limits<double>::infinity();
+            for (std::size_t index = 0U; index < 8U; ++index) {
+                const ALStepNormOuterRecord& record = d7r5.records[index];
+                const bool monotone = record.state.primal <= prior_primal;
+                const bool admissible = monotone && record.finite_values
+                    && al_step_norm_outer_record_admissible(
+                        record.state, stationarity_limits[lane_index]);
+                if (admissible
+                    && (lanes[lane_index].first_admissible_index < 0
+                        || static_cast<int>(index)
+                            < lanes[lane_index].first_admissible_index)) {
+                    lanes[lane_index].first_admissible_index =
+                        static_cast<int>(index);
+                }
+                prior_primal = record.state.primal;
+            }
+        }
+    }
+
+    bool d7r5_records_exact = lanes[0].records.size() >= 6U;
+    for (std::size_t index = 0U; index < 6U && d7r5_records_exact; ++index) {
+        d7r5_records_exact = al_step_norm_outer_record_exact(
+            lanes[0].records[index], d7r5.records[index + 8U]);
+    }
+    const std::string d7r5_final_state_root =
+        lanes[0].position_at_outer13.empty()
+        ? std::string{}
+        : al_vector_stable_state_root(
+            "forced-private", lanes[0].position_at_outer13,
+            lanes[0].multiplier_at_outer13);
+    const bool d7r5_control_exact = d7r5_records_exact
+        && exact_vec3_values(
+            lanes[0].position_at_outer13, d7r5.position)
+        && exact_al_multiplier(
+            lanes[0].multiplier_at_outer13, d7r5.multiplier)
+        && d7r5_final_state_root
+            == "1fdbcb763dedce34937c399986691469eaab55565024277ddc70f4dbf8c86546";
+
+    const ALStepNormPrivateOuterSolve inactive =
+        solve_al_step_norm_private_outer(
+            fixture, inactive_prediction, inactive_prediction,
+            zero_multiplier);
+    const bool inactive_exact = inactive.confirmed
+        && inactive.warm_holdout_admissible
+        && inactive.private_confirmation_count == 1
+        && exact_vec3_values(inactive.position, inactive_prediction)
+        && exact_al_multiplier(inactive.multiplier, zero_multiplier)
+        && std::all_of(inactive.support.constraint.begin(),
+            inactive.support.constraint.end(),
+            [](double value) { return value <= 0.0; });
+    const ALStepNormInnerSolve reset = solve_al_vector_inner_step_norm_eta(
+        active_prediction, active_prediction, fixture.boundary,
+        zero_multiplier, stationarity_limits[0]);
+    double reset_primal = 0.0;
+    for (double value : reset.support.constraint) {
+        reset_primal = std::max(reset_primal, std::max(0.0, value));
+    }
+    const bool reset_exact = reset.passed && reset.all_finite
+        && reset.positive_accepted_models && reset_primal > 1.0e-8;
+    const std::vector<Vec3> public_position = active_prediction;
+    const std::vector<double> public_multiplier = zero_multiplier;
+    const std::string prior_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const std::string forced_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    bool forced_private_changed = false;
+    for (const ALCapAccuracyLane& lane : lanes) {
+        forced_private_changed = forced_private_changed
+            || (!lane.records.empty()
+                && (!exact_vec3_values(lane.position, public_position)
+                    || !exact_al_multiplier(
+                        lane.multiplier, public_multiplier)));
+    }
+    const bool rollback_exact = forced_public_root == prior_public_root
+        && exact_vec3_values(public_position, active_prediction)
+        && exact_al_multiplier(public_multiplier, zero_multiplier)
+        && forced_private_changed;
+    const bool controls_exact = inactive_exact && reset_exact
+        && rollback_exact;
+
+    bool lanes_finite = true;
+    bool lanes_monotone = true;
+    bool lanes_dual_feasible = true;
+    bool lanes_inner_exact = true;
+    bool lanes_complete = true;
+    for (const ALCapAccuracyLane& lane : lanes) {
+        lanes_finite = lanes_finite && lane.all_finite;
+        lanes_monotone = lanes_monotone && lane.primal_monotone;
+        lanes_dual_feasible = lanes_dual_feasible && lane.dual_feasible;
+        lanes_inner_exact = lanes_inner_exact && lane.all_inners_pass;
+        lanes_complete = lanes_complete
+            && (lane.cap_exhausted
+                || (lane.confirmed && lane.warm_holdout_attempted
+                    && lane.warm_holdout_admissible));
+    }
+
+    const auto confirmation_usable = [](const ALCapAccuracyLane& lane) {
+        return lane.confirmed && lane.private_confirmation_count == 1
+            && lane.confirmation_index >= 0
+            && lane.confirmation_index <= 62
+            && lane.warm_holdout_attempted
+            && lane.warm_holdout_admissible;
+    };
+    const bool outer_cap_route = confirmation_usable(lanes[0])
+        && lanes[0].confirmation_index > 13;
+    int nested_lane = -1;
+    int coupled_lane = -1;
+    for (std::size_t index = 1U; index < lanes.size(); ++index) {
+        if (!confirmation_usable(lanes[index])) {
+            continue;
+        }
+        if (lanes[index].confirmation_index <= 13 && nested_lane < 0) {
+            nested_lane = static_cast<int>(index);
+        } else if (lanes[index].confirmation_index > 13
+            && coupled_lane < 0) {
+            coupled_lane = static_cast<int>(index);
+        }
+    }
+    bool all_cap_exhausted = true;
+    bool any_confirmation = false;
+    for (const ALCapAccuracyLane& lane : lanes) {
+        all_cap_exhausted = all_cap_exhausted && lane.cap_exhausted;
+        any_confirmation = any_confirmation || lane.confirmed;
+    }
+    const bool formulation_route = all_cap_exhausted && !any_confirmation;
+
+    std::string route;
+    int selected_lane = -1;
+    if (identity_exact && parent_exact && prefix_exact
+        && d7r5_control_exact && controls_exact && lanes_finite
+        && lanes_monotone && lanes_dual_feasible && lanes_inner_exact
+        && lanes_complete) {
+        if (outer_cap_route) {
+            route = "OUTER_CAP_SUFFICIENT";
+            selected_lane = 0;
+        } else if (nested_lane >= 0) {
+            route = "NESTED_ACCURACY_SUFFICIENT";
+            selected_lane = nested_lane;
+        } else if (coupled_lane >= 0) {
+            route = "COUPLED_CAP_AND_ACCURACY_REQUIRED";
+            selected_lane = coupled_lane;
+        } else if (formulation_route) {
+            route = "PRESSURE_STATE_FORMULATION_RESEARCH";
+        }
+    }
+    const bool route_precedence_exact =
+        (outer_cap_route && route == "OUTER_CAP_SUFFICIENT")
+        || (!outer_cap_route && nested_lane >= 0
+            && route == "NESTED_ACCURACY_SUFFICIENT")
+        || (!outer_cap_route && nested_lane < 0 && coupled_lane >= 0
+            && route == "COUPLED_CAP_AND_ACCURACY_REQUIRED")
+        || (!outer_cap_route && nested_lane < 0 && coupled_lane < 0
+            && formulation_route
+            && route == "PRESSURE_STATE_FORMULATION_RESEARCH");
+    const bool passed = !route.empty() && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "PARENT_BYTES";
+    else if (!prefix_exact) first_failure = "D7_PREFIX";
+    else if (!d7r5_control_exact) first_failure = "D7R5_CONTROL";
+    else if (!controls_exact) first_failure = "CONTROLS";
+    else if (!lanes_finite) first_failure = "NONFINITE";
+    else if (!lanes_inner_exact) first_failure = "INNER_FAILURE";
+    else if (!lanes_dual_feasible) first_failure = "DUAL_FEASIBILITY";
+    else if (!lanes_monotone) first_failure = "PRIMAL_MONOTONICITY";
+    else if (!lanes_complete) first_failure = "INCOMPLETE_LANE";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+    else if (route.empty()) first_failure = "UNCLASSIFIED_RESULT";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R6_IDENTITY_SHA256 << '|' << parent_stdout_sha256
+             << '|' << prefix_outer_root << ':' << prefix_state_root << '|'
+             << d7r5_records_exact << ':' << d7r5_final_state_root << '|';
+    for (const ALCapAccuracyLane& lane : lanes) {
+        semantic << lane.stationarity_limit << ':'
+                 << lane.all_inners_pass << ':' << lane.all_finite << ':'
+                 << lane.primal_monotone << ':' << lane.dual_feasible << ':'
+                 << lane.cap_exhausted << ':' << lane.confirmed << ':'
+                 << lane.first_admissible_index << ':'
+                 << lane.confirmation_index << ':'
+                 << lane.warm_holdout_attempted << ':'
+                 << lane.warm_holdout_admissible << ':' << lane.failure
+                 << '[';
+        for (const ALStepNormOuterRecord& value : lane.records) {
+            const ALVectorOuterRecord& record = value.state;
+            semantic << record.outer << ':' << record.inner_outer_trials
+                     << ':' << record.inner_accepted_trials << ':'
+                     << record.inner_rejected_trials << ':'
+                     << record.inner_hvp_calls << ':'
+                     << value.inner_step_norm_updates << ':'
+                     << value.inner_quarter_updates << ':' << record.primal
+                     << ':' << record.scaled_dual_change << ':'
+                     << record.absolute_dual_change << ':'
+                     << record.equivalent_pressure_change << ':'
+                     << record.position_update_dx << ':'
+                     << record.stationarity << ':' << record.complementarity
+                     << ':' << record.minimum_multiplier << ':'
+                     << record.maximum_multiplier << ':' << value.admissible
+                     << ';';
+        }
+        semantic << "]!" << lane.failed_inner_work.state.outer << ':'
+                 << lane.failed_inner_work.state.inner_outer_trials << ':'
+                 << lane.failed_inner_work.state.inner_accepted_trials << ':'
+                 << lane.failed_inner_work.state.inner_rejected_trials << ':'
+                 << lane.failed_inner_work.state.inner_hvp_calls << ':'
+                 << lane.failed_inner_work.inner_step_norm_updates << ':'
+                 << lane.failed_inner_work.inner_quarter_updates << ':'
+                 << lane.failed_inner_work.state.stationarity
+                 << "{" << lane.warm_holdout.state.outer << ':'
+                 << lane.warm_holdout.state.primal << ':'
+                 << lane.warm_holdout.state.stationarity << ':'
+                 << lane.warm_holdout.admissible << "}|";
+    }
+    semantic << inactive_exact << ':' << reset_exact << ':' << reset_primal
+             << ':' << rollback_exact << '|' << selected_lane << ':'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_record = [](std::ostringstream& output,
+                                  const ALStepNormOuterRecord& value) {
+        const ALVectorOuterRecord& record = value.state;
+        output << std::setprecision(17)
+               << "{\"outer\":" << record.outer
+               << ",\"inner_outer_trials\":"
+               << record.inner_outer_trials
+               << ",\"inner_accepted_trials\":"
+               << record.inner_accepted_trials
+               << ",\"inner_rejected_trials\":"
+               << record.inner_rejected_trials
+               << ",\"inner_hvp_calls\":" << record.inner_hvp_calls
+               << ",\"inner_step_norm_updates\":"
+               << value.inner_step_norm_updates
+               << ",\"inner_quarter_updates\":"
+               << value.inner_quarter_updates
+               << ",\"primal\":" << record.primal
+               << ",\"scaled_dual_change\":"
+               << record.scaled_dual_change
+               << ",\"absolute_dual_change_j\":"
+               << record.absolute_dual_change
+               << ",\"equivalent_pressure_change_pa\":"
+               << record.equivalent_pressure_change
+               << ",\"position_update_dx\":"
+               << record.position_update_dx
+               << ",\"stationarity\":" << record.stationarity
+               << ",\"complementarity\":" << record.complementarity
+               << ",\"multiplier_range\":["
+               << record.minimum_multiplier << ','
+               << record.maximum_multiplier << ']'
+               << ",\"finite\":"
+               << (value.finite_values ? "true" : "false")
+               << ",\"admissible\":"
+               << (value.admissible ? "true" : "false") << '}';
+    };
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r6_cap_accuracy_discriminator.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R6_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"d7_prefix\":{\"record_count\":8,\"outer_root\":\""
+           << prefix_outer_root << "\",\"state_root\":\""
+           << prefix_state_root << "\",\"exact\":"
+           << (prefix_exact ? "true" : "false") << ",\"outer\":[";
+    for (std::size_t index = 0U;
+         index < std::min<std::size_t>(8U, d7r5.records.size()); ++index) {
+        if (index != 0U) report << ',';
+        append_record(report, d7r5.records[index]);
+    }
+    report << "]},\"d7r5_control\":{\"first14_exact\":"
+           << (d7r5_control_exact ? "true" : "false")
+           << ",\"final_state_root\":\"" << d7r5_final_state_root
+           << "\"},\"lanes\":[";
+    for (std::size_t lane_index = 0U;
+         lane_index < lanes.size(); ++lane_index) {
+        if (lane_index != 0U) report << ',';
+        const ALCapAccuracyLane& lane = lanes[lane_index];
+        report << "{\"eta\":" << lane.stationarity_limit
+               << ",\"failure\":\"" << lane.failure
+               << "\",\"all_inners_pass\":"
+               << (lane.all_inners_pass ? "true" : "false")
+               << ",\"all_finite\":"
+               << (lane.all_finite ? "true" : "false")
+               << ",\"primal_monotone\":"
+               << (lane.primal_monotone ? "true" : "false")
+               << ",\"dual_feasible\":"
+               << (lane.dual_feasible ? "true" : "false")
+               << ",\"cap_exhausted\":"
+               << (lane.cap_exhausted ? "true" : "false")
+               << ",\"first_admissible_index\":"
+               << lane.first_admissible_index
+               << ",\"confirmation_index\":"
+               << lane.confirmation_index
+               << ",\"private_confirmation_count\":"
+               << lane.private_confirmation_count << ",\"outer\":[";
+        for (std::size_t index = 0U;
+             index < lane.records.size(); ++index) {
+            if (index != 0U) report << ',';
+            append_record(report, lane.records[index]);
+        }
+        report << "],\"failed_inner_work\":";
+        if (!lane.all_inners_pass) {
+            append_record(report, lane.failed_inner_work);
+        } else {
+            report << "null";
+        }
+        report << ",\"warm_holdout\":{\"attempted\":"
+               << (lane.warm_holdout_attempted ? "true" : "false")
+               << ",\"admissible\":"
+               << (lane.warm_holdout_admissible ? "true" : "false")
+               << ",\"record\":";
+        if (lane.warm_holdout_attempted
+            && lane.warm_holdout.finite_values) {
+            append_record(report, lane.warm_holdout);
+        } else {
+            report << "null";
+        }
+        report << "}}";
+    }
+    report << "],\"controls\":{\"inactive_exact\":"
+           << (inactive_exact ? "true" : "false")
+           << ",\"reset_primal\":" << reset_primal
+           << ",\"reset_exact\":"
+           << (reset_exact ? "true" : "false")
+           << ",\"prior_public_root\":\"" << prior_public_root
+           << "\",\"forced_public_root\":\"" << forced_public_root
+           << "\",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false") << '}'
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"selected_lane\":" << selected_lane
+           << ",\"route\":\"" << route << '"'
+           << ",\"trajectory_steps\":0,\"public_commit_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"accuracy_or_cap_contract_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"cap_change_authorized\":false"
+           << ",\"inner_tolerance_change_authorized\":false"
            << ",\"public_pressure_state_authorized\":false"
            << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
