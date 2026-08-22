@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D6_PASS_AL_PATH / B4E2D7_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7_FAIL_PRESSURE_COMMIT / B4E2D7R_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -522,8 +522,17 @@
 - **Current decision:** B4E2D7 freezes 24 primal coordinates, eight pressure
   multipliers, analytic full-curvature AL HVP, dense derivative correspondence
   and trust/outer residual gates over the immutable B2 fixture.
-- **Next action:** implement/run B4E2D7 standalone from the penalty solver;
-  do not tune `beta` or start nominal trajectories.
+- **Negative result:** B4E2D7 derivatives, full-curvature inner solves and all
+  cold/inactive/reset/rollback controls pass. Cold primal decreases
+  monotonically to `1.67e-9`, but one further warm update changes the pressure
+  multipliers by `3.50e-7 J`, above the frozen `1e-8 J` state gate.
+- **Current decision:** preserve B4E2D7 FAIL. Its cold gate mixed
+  `delta_lambda/beta` with an absolute-joule warm correspondence gate, so it
+  admitted a pressure state before that state was stable at commit precision.
+  Do not tune `beta`, relax the warm gate or select semismooth from this result.
+- **Next action:** research/freeze B4E2D7R with one absolute multiplier-update
+  admission and a private confirmation update under a new identity. It must
+  reproduce all B4E2D7 derivative facts and the first eight cold records.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -635,6 +644,10 @@
 | NSR3B4EP10SIRDIREQ4 contract | `E = transaction - region + active-worker`, existing exact Q1 command | execute three fresh qualification runs only |
 | NSR3B4EP10SIRDIREQ4 FAIL | exact accounting; adjusted range `1.031236x` misses `1.03` | dedicated/quiescent host before another candidate A/B |
 | NSR3B4E2R PASS | exact Dam-step-4/Hydro-step-24 canonical reference slices | B4E2D Dam-first contract research only |
+| NSR3B4E2D4 PASS | converged step-two strain remains `0.0011739238` | finite penalty, not temporal admission, causes the material-gate failure |
+| NSR3B4E2D5 PASS | unilateral PHR supports hydrostatic pressure at zero compression | augmented pressure-state oracle research only |
+| NSR3B4E2D6 PASS | actual-kernel scalar path converges with exact controls | dense-vector AL oracle research only |
+| NSR3B4E2D7 FAIL | dense derivatives/inner/cold pass; committed multiplier state is not warm-stable | dimensionally consistent commit reclosure only |
 
 Candidate solver identity remains:
 
@@ -1517,8 +1530,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 1. Do not run another CPU/wall candidate A/B on this shared host.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
-4. Preserve the B4E2D4 finite-penalty result. Research B4E2D5 before changing
-   `KAPPA` or introducing pressure multipliers.
+4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
+5. Research/freeze B4E2D7R with absolute multiplier-update units and a private
+   confirmation update; do not change `beta`, formulas or start a trajectory.
 
 ## Reconsideration triggers
 

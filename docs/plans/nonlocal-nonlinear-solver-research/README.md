@@ -1462,3 +1462,18 @@ Two independent builds emit the same 1,977-byte report and executable. The
 immutable Dam-step-4 and Hydro-step-24 canonical slice roots now exist.
 Research and freeze a Dam-first B4E2D physical-pilot contract next; do not
 start either trajectory yet.
+The B4E2D pilot and D0--D3 diagnostics preserve exact decoded-reference
+topology and stop at Dam step two: converged density strain
+`0.0011747197409319732` exceeds the frozen `0.001` material limit. B4E2D4
+shows finite-penalty compressibility, not premature temporal admission.
+B4E2D5 selects unilateral PHR augmented pressure state, and B4E2D6 proves
+multiplier convergence on the true one-DOF density path.
+The full 24-coordinate
+[B4E2D7 contract](03b4e2d7-al-dense-vector-contract.md) closes every
+derivative, trust-inner and monotone cold control but fails pressure-state
+commit stability; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7-al-dense-vector-evidence-2026-08-22.md).
+Its dimensionless cold dual gate admits a state whose next absolute multiplier
+update is `3.4975e-7 J`, above `1e-8 J`. Preserve the hard FAIL and research a
+new dimensionally consistent commit/confirmation discriminator. Do not tune
+`beta`, select semismooth, start Dam/Hydro, or claim performance/production.

@@ -1,6 +1,6 @@
 # NSR3-B4E2D7 -- augmented-Lagrangian dense-vector contract
 
-Status: `FROZEN / NOT_RUN / NO_TRAJECTORY`
+Status: `FAIL / PRESSURE_STATE_UNSTABLE_AT_COMMIT / NO_TRAJECTORY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -51,3 +51,26 @@ Build Release twice and run two fresh processes without timing. Require exit
 zero, empty stderr and byte-identical stdout. PASS authorizes only a tiny
 multi-step AL transaction research/contract. It grants no nominal trajectory,
 runtime pressure schema, performance, GPU/PhysX or production authority.
+
+## Closed execution
+
+The first fresh process is a hard control failure; the required second process
+was therefore not run. All analytic/dense derivative, trust-inner, cold,
+inactive, reset, rollback and mutation controls pass. Cold primal violation
+decreases monotonically through all eight frozen updates, but the resulting
+state is not stable under one further warm update:
+
+```text
+cold final scaled dual change = 1.6669525760190926e-09
+warm absolute multiplier delta = 3.497549225794927e-07 J
+frozen warm limit             = 1.0e-08 J
+```
+
+The contract mixed a dimensionless `delta_lambda/beta` cold admission with an
+absolute-joule warm-state correspondence gate. This is
+`PRESSURE_STATE_UNSTABLE_AT_COMMIT`, not derivative, trust-region or AL
+convergence failure. Preserve this FAIL and reclose state admission under a
+new identity; do not tune `beta`, relax the warm limit or inherit PASS credit.
+
+Exact evidence:
+[B4E2D7 dense-vector evidence](../../development/nonlocal-nsr3b4e2d7-al-dense-vector-evidence-2026-08-22.md).
