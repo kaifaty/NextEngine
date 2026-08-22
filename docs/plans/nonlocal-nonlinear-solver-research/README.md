@@ -1705,3 +1705,11 @@ workspace reproduces `342502` pairs and zero active centres, replacing
 `116301000` dense candidate checks by a `339.563x` smaller structural traversal.
 Research/freeze D7R15 as one bounded nominal Dam single-frame shadow next;
 trajectory, wall timing and production promotion remain blocked.
+The [D7R15 research](../../development/nonlocal-nsr3b4e2d7r15-nominal-al-prerequisites-research-2026-08-22.md)
+finds that a direct solve would use macro `dt` inside a 78-substep schedule,
+reintroduce dense binary128 work on candidate-effect audits and repeatedly
+canonicalize fixed support. Its
+[frozen contract](03b4e2d7r15-nominal-al-prerequisites-contract.md) first
+recloses explicit `dt`, a sparse binary128 superset oracle and identity-bound
+static support while preserving D7R14 bytes. Implement/run these prerequisites
+next; the first nominal substep moves to D7R16, with no macro or timing lane.

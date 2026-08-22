@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R14_PASS_SPARSE_AL_WORKSPACE_CANDIDATE / B4E2D7R15_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R14_PASS_SPARSE_AL_WORKSPACE_CANDIDATE / B4E2D7R15_FROZEN_PREREQUISITES_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -95,9 +95,18 @@
   `611520` directed records, degree `120` and zero active pressure centres.
   Sparse traversal is `339.563x` smaller than `116301000` dense candidate
   checks per evaluation; this is not a timing claim.
-- **Next action:** research and freeze D7R15 as one bounded nominal Dam
-  single-frame shadow transaction. Predeclare resource/work, physical/error,
-  rollback and failure routes before execution; no trajectory or wall timing.
+- **New constraint:** D7R14 still hardcodes macro `dt=1/240`, while the
+  accepted Dam step-one alignment has 78 substeps (`dt` bits
+  `0x3f0c01c01c01c01c`). A direct nominal solve would use a physically
+  different inertia/stationarity scale.
+- **New constraint:** candidate-effect binary128 audit remains dense, and the
+  standalone sparse builder re-canonicalizes fixed support per workspace.
+- **Current decision:** D7R15 is frozen as three exact nominal prerequisites:
+  explicit candidate `dt`, sparse binary128 audit over a `0.04h` superset and
+  identity-bound static support. D7R14 legacy bytes must remain exact.
+- **Next action:** implement/run only D7R15. A PASS advances one aligned
+  nominal substep to D7R16; no nominal solve, macro, trajectory or wall timing
+  is authorized in D7R15.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1815,8 +1824,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R14's exact sparse AL backend and structural work baseline.
-   Research/freeze D7R15 as one bounded nominal Dam single-frame shadow
-   transaction without trajectory or wall timing.
+   Implement D7R15 explicit-dt, sparse-binary128 and static-support
+   prerequisites only; defer the aligned nominal substep to D7R16.
 
 ## Reconsideration triggers
 
