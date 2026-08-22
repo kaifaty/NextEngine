@@ -127,7 +127,5 @@ SplitBoundaryReport
 run_nominal_hydro_directed_scratch_evaluation_buffer_audit_controls();
 SplitBoundaryReport
 run_nominal_hydro_topology_incoming_fusion_audit_controls();
-SplitBoundaryReport
-run_nominal_hydro_topology_incoming_fusion_candidate_controls();
 
 } // namespace nextengine::nonlocal::fcr

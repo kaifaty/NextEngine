@@ -8846,36 +8846,6 @@ struct JointTopologyIncomingFusionAuditTrace {
     bool target_order_negative_rejected = false;
 };
 
-enum class JointTopologyIncomingFusionInjection {
-    None,
-    MissingEndpoint,
-    TargetCursor,
-};
-
-struct JointTopologyIncomingFusionCandidateTrace {
-    bool enabled = false;
-    JointTopologyIncomingFusionInjection injection =
-        JointTopologyIncomingFusionInjection::None;
-    std::size_t builds = 0U;
-    std::size_t publications = 0U;
-    std::size_t forwardings = 0U;
-    std::size_t consumptions = 0U;
-    std::size_t current_pair_visits = 0U;
-    std::size_t incoming_degree_increments = 0U;
-    std::size_t source_writes = 0U;
-    std::size_t endpoint_writes = 0U;
-    std::size_t incoming_entries = 0U;
-    std::size_t endpoint_reads = 0U;
-    std::size_t target_writes = 0U;
-    std::size_t maximum_plan_payload_bytes = 0U;
-    std::size_t maximum_scratch_payload_bytes = 0U;
-    std::size_t maximum_added_payload_bytes = 0U;
-    std::size_t order_failures = 0U;
-    std::size_t coverage_failures = 0U;
-    std::size_t ownership_failures = 0U;
-    std::size_t fallbacks = 0U;
-};
-
 struct JointParallelTrace {
     bool enabled = false;
     int requested_workers = 0;
@@ -8911,8 +8881,6 @@ struct JointParallelTrace {
     JointDirectedScratchReuseTrace directed_scratch_reuse;
     JointEvaluationBufferAuditTrace evaluation_buffer_audit;
     JointTopologyIncomingFusionAuditTrace topology_incoming_fusion_audit;
-    JointTopologyIncomingFusionCandidateTrace
-        topology_incoming_fusion_candidate;
 };
 
 struct JointParallelTimingStart {
@@ -14242,9 +14210,6 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         incoming.passed = true;
         neighborhood.incoming_plan = false;
         neighborhood.incoming_plan_payload_bytes = 0U;
-        if (parallel.topology_incoming_fusion_candidate.enabled) {
-            ++parallel.topology_incoming_fusion_candidate.consumptions;
-        }
     } else {
         JointOwnerDataflowTrace plan_trace;
         result.tape.owner_gather_plan = build_joint_owner_gather_plan(
@@ -23281,10 +23246,7 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     bool capture_evaluation_setup_timing = false,
     bool capture_evaluation_buffer_audit = false,
     bool capture_cpu_timing = false,
-    bool capture_topology_incoming_fusion_audit = false,
-    bool use_topology_incoming_fusion_candidate = false,
-    JointTopologyIncomingFusionInjection topology_fusion_injection =
-        JointTopologyIncomingFusionInjection::None) {
+    bool capture_topology_incoming_fusion_audit = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -23336,10 +23298,6 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         capture_evaluation_buffer_audit;
     result.trace.owner_parallel.topology_incoming_fusion_audit.enabled =
         capture_topology_incoming_fusion_audit;
-    result.trace.owner_parallel.topology_incoming_fusion_candidate.enabled =
-        use_topology_incoming_fusion_candidate;
-    result.trace.owner_parallel.topology_incoming_fusion_candidate.injection =
-        topology_fusion_injection;
     if (capture_evaluation_buffer_audit) {
         result.trace.owner_parallel.evaluation_buffer_audit
             .missing_write_negative_rejected =
@@ -37659,47 +37617,12 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
         owner_parallel != nullptr
             && owner_parallel->topology_incoming_fusion_audit.enabled
         ? &owner_parallel->topology_incoming_fusion_audit : nullptr;
-    JointTopologyIncomingFusionCandidateTrace* fusion_candidate =
-        owner_parallel != nullptr
-            && owner_parallel->topology_incoming_fusion_candidate.enabled
-        ? &owner_parallel->topology_incoming_fusion_candidate : nullptr;
-    const bool fusion_enabled =
-        (fusion_audit != nullptr) != (fusion_candidate != nullptr);
-    const auto record_fusion_coverage_failure = [&]() {
-        if (fusion_audit != nullptr) {
-            ++fusion_audit->coverage_mismatches;
-        }
-        if (fusion_candidate != nullptr) {
-            ++fusion_candidate->coverage_failures;
-        }
-    };
-    const auto record_fusion_order_failure = [&]() {
-        if (fusion_audit != nullptr) {
-            ++fusion_audit->order_mismatches;
-        }
-        if (fusion_candidate != nullptr) {
-            ++fusion_candidate->order_failures;
-        }
-    };
     constexpr std::uint32_t missing_slot =
         std::numeric_limits<std::uint32_t>::max();
     JointOwnerGatherPlan fused_plan;
     std::vector<std::uint32_t> incoming_degree;
     std::vector<std::uint32_t> pair_source_slot;
     std::vector<std::uint32_t> pair_participant_slot;
-    if (fusion_audit != nullptr && fusion_candidate != nullptr) {
-        record_fusion_coverage_failure();
-        result.failure = "TOPOLOGY_INCOMING_FUSION_MODE";
-        return audit;
-    }
-    if (fusion_candidate != nullptr
-        && (owner_parallel == nullptr
-            || !owner_parallel->incoming_construction_audit
-                .candidate_enabled)) {
-        ++fusion_candidate->ownership_failures;
-        result.failure = "TOPOLOGY_INCOMING_FUSION_CONSUMER_MODE";
-        return audit;
-    }
     const bool timing_enabled = owner_parallel != nullptr
         && owner_parallel->phase_timing.enabled;
     JointParallelTimingStart phase_start = timing_enabled
@@ -37807,11 +37730,11 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
         return audit;
     }
     result.pairs.resize(audit.compacted_pairs);
-    if (fusion_enabled) {
+    if (fusion_audit != nullptr) {
         if (result.fluid.size()
                 > std::numeric_limits<std::size_t>::max()
                     - result.support.size()) {
-            record_fusion_coverage_failure();
+            ++fusion_audit->coverage_mismatches;
             result.failure = "TOPOLOGY_INCOMING_FUSION_CAPACITY";
             return audit;
         }
@@ -37850,11 +37773,11 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
         } else {
             ++result.support_pairs;
         }
-        if (fusion_enabled) {
+        if (fusion_audit != nullptr) {
             if (pair.participant >= incoming_degree.size()
                 || incoming_degree[pair.participant]
                     == std::numeric_limits<std::uint32_t>::max()) {
-                record_fusion_coverage_failure();
+                ++fusion_audit->coverage_mismatches;
                 result.failure = "TOPOLOGY_INCOMING_FUSION_DEGREE";
                 return audit;
             }
@@ -37863,7 +37786,7 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
                 if (pair.fluid >= incoming_degree.size()
                     || incoming_degree[pair.fluid]
                         == std::numeric_limits<std::uint32_t>::max()) {
-                    record_fusion_coverage_failure();
+                    ++fusion_audit->coverage_mismatches;
                     result.failure = "TOPOLOGY_INCOMING_FUSION_DEGREE";
                     return audit;
                 }
@@ -37919,7 +37842,7 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
     result.flat_adjacency = true;
     result.flat_offsets.resize(result.fluid.size() + 1U);
     result.flat_directed_pair_indices.resize(directed);
-    if (fusion_enabled) {
+    if (fusion_audit != nullptr) {
         fused_plan.source_by_slot.assign(directed, missing_slot);
         fused_plan.target_offsets.resize(incoming_degree.size() + 1U);
         std::size_t incoming_output = 0U;
@@ -37930,7 +37853,7 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
             if (incoming_degree[target]
                     > std::numeric_limits<std::uint32_t>::max()
                         - incoming_output) {
-                record_fusion_coverage_failure();
+                ++fusion_audit->coverage_mismatches;
                 result.failure = "TOPOLOGY_INCOMING_FUSION_OFFSETS";
                 return audit;
             }
@@ -37939,7 +37862,7 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
         fused_plan.target_offsets[incoming_degree.size()] =
             static_cast<std::uint32_t>(incoming_output);
         if (incoming_output != directed) {
-            record_fusion_coverage_failure();
+            ++fusion_audit->coverage_mismatches;
             result.failure = "TOPOLOGY_INCOMING_FUSION_COVERAGE";
             return audit;
         }
@@ -37976,7 +37899,7 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
                         prefix[pair_index];
                     result.flat_directed_pair_indices[row_output] =
                         static_cast<std::uint32_t>(current_pair_index);
-                    if (fusion_enabled) {
+                    if (fusion_audit != nullptr) {
                         if (current_pair_index >= result.pairs.size()
                             || row_output
                                 >= fused_plan.source_by_slot.size()) {
@@ -38025,26 +37948,8 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
         result.failure = owner_parallel->failure;
         return audit;
     }
-    if (fusion_enabled) {
+    if (fusion_audit != nullptr) {
         std::vector<std::uint32_t> cursor = fused_plan.target_offsets;
-        if (fusion_candidate != nullptr
-            && fusion_candidate->injection
-                == JointTopologyIncomingFusionInjection::MissingEndpoint
-            && !pair_source_slot.empty()) {
-            pair_source_slot.front() = missing_slot;
-        }
-        if (fusion_candidate != nullptr
-            && fusion_candidate->injection
-                == JointTopologyIncomingFusionInjection::TargetCursor
-            && !result.pairs.empty()) {
-            const std::size_t target = result.pairs.front().participant;
-            if (target >= incoming_degree.size()) {
-                record_fusion_coverage_failure();
-                result.failure = "TOPOLOGY_INCOMING_FUSION_INJECTION";
-                return audit;
-            }
-            cursor[target] = fused_plan.target_offsets[target + 1U];
-        }
         std::size_t endpoint_reads = 0U;
         std::size_t target_writes = 0U;
         for (std::size_t pair_index = 0U;
@@ -38055,22 +37960,15 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
             if (source_slot == missing_slot
                 || source_slot >= fused_plan.source_by_slot.size()
                 || pair.participant >= incoming_degree.size()) {
-                record_fusion_coverage_failure();
+                ++fusion_audit->coverage_mismatches;
                 result.failure = "TOPOLOGY_INCOMING_FUSION_ENDPOINT";
                 return audit;
             }
             std::size_t target_cursor = cursor[pair.participant]++;
             if (target_cursor
                     >= fused_plan.target_offsets[pair.participant + 1U]) {
-                record_fusion_coverage_failure();
+                ++fusion_audit->coverage_mismatches;
                 result.failure = "TOPOLOGY_INCOMING_FUSION_TARGET";
-                return audit;
-            }
-            if (target_cursor > fused_plan.target_offsets[pair.participant]
-                && fused_plan.target_slots[target_cursor - 1U]
-                    >= source_slot) {
-                record_fusion_order_failure();
-                result.failure = "TOPOLOGY_INCOMING_FUSION_ORDER";
                 return audit;
             }
             fused_plan.target_slots[target_cursor] = source_slot;
@@ -38082,22 +37980,15 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
                 if (participant_slot == missing_slot
                     || participant_slot >= fused_plan.source_by_slot.size()
                     || pair.fluid >= incoming_degree.size()) {
-                    record_fusion_coverage_failure();
+                    ++fusion_audit->coverage_mismatches;
                     result.failure = "TOPOLOGY_INCOMING_FUSION_ENDPOINT";
                     return audit;
                 }
                 target_cursor = cursor[pair.fluid]++;
                 if (target_cursor
                         >= fused_plan.target_offsets[pair.fluid + 1U]) {
-                    record_fusion_coverage_failure();
+                    ++fusion_audit->coverage_mismatches;
                     result.failure = "TOPOLOGY_INCOMING_FUSION_TARGET";
-                    return audit;
-                }
-                if (target_cursor > fused_plan.target_offsets[pair.fluid]
-                    && fused_plan.target_slots[target_cursor - 1U]
-                        >= participant_slot) {
-                    record_fusion_order_failure();
-                    result.failure = "TOPOLOGY_INCOMING_FUSION_ORDER";
                     return audit;
                 }
                 fused_plan.target_slots[target_cursor] =
@@ -38105,7 +37996,7 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
                 ++endpoint_reads;
                 ++target_writes;
             } else if (pair_participant_slot[pair_index] != missing_slot) {
-                record_fusion_coverage_failure();
+                ++fusion_audit->coverage_mismatches;
                 result.failure = "TOPOLOGY_INCOMING_FUSION_ENDPOINT";
                 return audit;
             }
@@ -38114,7 +38005,7 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
              target < incoming_degree.size(); ++target) {
             if (cursor[target]
                     != fused_plan.target_offsets[target + 1U]) {
-                record_fusion_coverage_failure();
+                ++fusion_audit->coverage_mismatches;
                 result.failure = "TOPOLOGY_INCOMING_FUSION_TARGET";
                 return audit;
             }
@@ -38134,7 +38025,6 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
         std::size_t target_bytes = 0U;
         std::size_t pair_endpoint_bytes = 0U;
         std::size_t degree_cursor_bytes = 0U;
-        std::size_t audit_validation_bytes = 0U;
         bool bytes_safe = payload_bytes(
                 fused_plan.source_by_slot.size(), source_bytes)
             && payload_bytes(
@@ -38150,9 +38040,6 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
                 <= std::numeric_limits<std::size_t>::max() / 2U
             && payload_bytes(
                 2U * incoming_degree.size(), degree_cursor_bytes);
-        if (fusion_audit != nullptr) {
-            audit_validation_bytes = directed;
-        }
         std::size_t plan_payload = 0U;
         std::size_t scratch_payload = 0U;
         const auto add_bytes = [](std::size_t value, std::size_t& total) {
@@ -38168,19 +38055,28 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
             && add_bytes(target_bytes, plan_payload)
             && add_bytes(pair_endpoint_bytes, scratch_payload)
             && add_bytes(degree_cursor_bytes, scratch_payload)
-            && add_bytes(audit_validation_bytes, scratch_payload);
+            && add_bytes(directed * sizeof(std::uint8_t), scratch_payload);
         fused_plan.payload_bytes = bytes_safe ? plan_payload : 0U;
         fused_plan.passed = bytes_safe
             && endpoint_reads == directed && target_writes == directed;
-        if (fusion_audit != nullptr) {
-            fused_plan.passed = fused_plan.passed
-                && b4ep10q2_fused_plan_layout_exact(result, fused_plan);
-        }
+        fused_plan.passed = fused_plan.passed
+            && b4ep10q2_fused_plan_layout_exact(result, fused_plan);
         if (!fused_plan.passed) {
-            record_fusion_order_failure();
+            ++fusion_audit->order_mismatches;
             result.failure = "TOPOLOGY_INCOMING_FUSION_PLAN";
             return audit;
         }
+        std::size_t baseline_entries = directed;
+        bytes_safe = result.pairs.size()
+                <= std::numeric_limits<std::size_t>::max() / 2U
+            && add_bytes(2U * result.pairs.size(), baseline_entries);
+        const std::size_t target_scan = directed + result.support_pairs;
+        bytes_safe = bytes_safe
+            && target_scan >= directed
+            && target_scan
+                <= (std::numeric_limits<std::size_t>::max()
+                    - baseline_entries) / 2U
+            && add_bytes(2U * target_scan, baseline_entries);
         const auto accumulate = [&](std::size_t value,
                                     std::size_t& total) {
             if (value > std::numeric_limits<std::size_t>::max() - total) {
@@ -38189,94 +38085,37 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
             total += value;
             return true;
         };
-        if (fusion_audit != nullptr) {
-            std::size_t baseline_entries = directed;
-            bytes_safe = result.pairs.size()
-                    <= std::numeric_limits<std::size_t>::max() / 2U
-                && add_bytes(2U * result.pairs.size(), baseline_entries);
-            std::size_t target_scan = directed;
-            bytes_safe = bytes_safe
-                && add_bytes(result.support_pairs, target_scan)
-                && target_scan
-                    <= (std::numeric_limits<std::size_t>::max()
-                        - baseline_entries) / 2U
-                && add_bytes(2U * target_scan, baseline_entries)
-                && accumulate(result.pairs.size(),
-                    fusion_audit->current_pair_visits)
-                && accumulate(directed,
-                    fusion_audit->incoming_degree_increments)
-                && accumulate(directed, fusion_audit->source_writes)
-                && accumulate(directed, fusion_audit->endpoint_writes)
-                && accumulate(directed, fusion_audit->incoming_entries)
-                && accumulate(endpoint_reads, fusion_audit->endpoint_reads)
-                && accumulate(target_writes, fusion_audit->target_writes)
-                && accumulate(baseline_entries,
-                    fusion_audit->baseline_standalone_entries)
-                && accumulate(result.pairs.size(),
-                    fusion_audit->candidate_standalone_entries);
-        }
-        if (fusion_candidate != nullptr) {
-            bytes_safe = bytes_safe
-                && accumulate(result.pairs.size(),
-                    fusion_candidate->current_pair_visits)
-                && accumulate(directed,
-                    fusion_candidate->incoming_degree_increments)
-                && accumulate(directed, fusion_candidate->source_writes)
-                && accumulate(directed, fusion_candidate->endpoint_writes)
-                && accumulate(directed, fusion_candidate->incoming_entries)
-                && accumulate(endpoint_reads,
-                    fusion_candidate->endpoint_reads)
-                && accumulate(target_writes,
-                    fusion_candidate->target_writes);
-        }
+        bytes_safe = bytes_safe
+            && accumulate(result.pairs.size(),
+                fusion_audit->current_pair_visits)
+            && accumulate(directed,
+                fusion_audit->incoming_degree_increments)
+            && accumulate(directed, fusion_audit->source_writes)
+            && accumulate(directed, fusion_audit->endpoint_writes)
+            && accumulate(directed, fusion_audit->incoming_entries)
+            && accumulate(endpoint_reads, fusion_audit->endpoint_reads)
+            && accumulate(target_writes, fusion_audit->target_writes)
+            && accumulate(baseline_entries,
+                fusion_audit->baseline_standalone_entries)
+            && accumulate(result.pairs.size(),
+                fusion_audit->candidate_standalone_entries);
         if (!bytes_safe) {
-            record_fusion_coverage_failure();
+            ++fusion_audit->coverage_mismatches;
             result.failure = "TOPOLOGY_INCOMING_FUSION_ACCOUNTING";
             return audit;
         }
-        if (fusion_audit != nullptr) {
-            fusion_audit->maximum_plan_payload_bytes = std::max(
-                fusion_audit->maximum_plan_payload_bytes,
-                fused_plan.payload_bytes);
-            fusion_audit->maximum_scratch_payload_bytes = std::max(
-                fusion_audit->maximum_scratch_payload_bytes,
-                scratch_payload);
-            fusion_audit->pending_plan = std::move(fused_plan);
-            ++fusion_audit->builds;
-            ++fusion_audit->live_plans;
-            fusion_audit->maximum_live_plans = std::max(
-                fusion_audit->maximum_live_plans,
-                fusion_audit->live_plans);
-        } else {
-            std::size_t added_payload = fused_plan.payload_bytes;
-            if (scratch_payload
-                    > std::numeric_limits<std::size_t>::max()
-                        - added_payload) {
-                record_fusion_coverage_failure();
-                result.failure = "TOPOLOGY_INCOMING_FUSION_PAYLOAD";
-                return audit;
-            }
-            added_payload += scratch_payload;
-            fusion_candidate->maximum_plan_payload_bytes = std::max(
-                fusion_candidate->maximum_plan_payload_bytes,
-                fused_plan.payload_bytes);
-            fusion_candidate->maximum_scratch_payload_bytes = std::max(
-                fusion_candidate->maximum_scratch_payload_bytes,
-                scratch_payload);
-            fusion_candidate->maximum_added_payload_bytes = std::max(
-                fusion_candidate->maximum_added_payload_bytes,
-                added_payload);
-            result.incoming_plan = true;
-            result.incoming_plan_payload_bytes = fused_plan.payload_bytes;
-            result.incoming_source_by_slot = std::move(
-                fused_plan.source_by_slot);
-            result.incoming_target_offsets = std::move(
-                fused_plan.target_offsets);
-            result.incoming_target_slots = std::move(
-                fused_plan.target_slots);
-            ++fusion_candidate->builds;
-            ++fusion_candidate->publications;
-        }
+        fusion_audit->maximum_plan_payload_bytes = std::max(
+            fusion_audit->maximum_plan_payload_bytes,
+            fused_plan.payload_bytes);
+        fusion_audit->maximum_scratch_payload_bytes = std::max(
+            fusion_audit->maximum_scratch_payload_bytes,
+            scratch_payload);
+        fusion_audit->pending_plan = std::move(fused_plan);
+        ++fusion_audit->builds;
+        ++fusion_audit->live_plans;
+        fusion_audit->maximum_live_plans = std::max(
+            fusion_audit->maximum_live_plans,
+            fusion_audit->live_plans);
     }
     result.distance_tests_per_pass = superset.pairs.size();
     result.construction_distance_tests = superset.pairs.size();
@@ -38563,40 +38402,12 @@ JointNeighborhood b4ep3_cached_topology(
         && owner_parallel->incoming_construction_audit.candidate_enabled) {
         JointIncomingConstructionAuditTrace& candidate =
             owner_parallel->incoming_construction_audit;
-        JointTopologyIncomingFusionCandidateTrace& fusion_candidate =
-            owner_parallel->topology_incoming_fusion_candidate;
         const std::size_t regions_before = owner_parallel->regions;
         const std::size_t partitions_before =
             owner_parallel->logical_partitions;
-        B4EP10SICDPlanBuild built;
-        if (fusion_candidate.enabled) {
-            if (!result.incoming_plan
-                || result.incoming_source_by_slot.size()
-                    != result.flat_directed_pair_indices.size()
-                || result.incoming_target_offsets.size()
-                    != result.fluid.size() + result.support.size() + 1U
-                || result.incoming_target_offsets.empty()
-                || result.incoming_target_offsets.front() != 0U
-                || result.incoming_target_offsets.back()
-                    != result.incoming_target_slots.size()
-                || result.incoming_target_slots.size()
-                    != result.flat_directed_pair_indices.size()) {
-                ++fusion_candidate.ownership_failures;
-                ++candidate.candidate_failures;
-                owner_parallel->failed = true;
-                owner_parallel->failure =
-                    "TOPOLOGY_INCOMING_FUSION_PUBLICATION";
-                cache.failed = true;
-                cache.failure = owner_parallel->failure;
-                failure.failure = cache.failure;
-                return failure;
-            }
-            ++fusion_candidate.forwardings;
-        } else {
-            built = b4ep10sicd_build_incoming_plan(
-                result, *owner_parallel);
-        }
-        if ((!fusion_candidate.enabled && !built.plan.passed)
+        B4EP10SICDPlanBuild built = b4ep10sicd_build_incoming_plan(
+            result, *owner_parallel);
+        if (!built.plan.passed
             || owner_parallel->regions < regions_before
             || owner_parallel->logical_partitions < partitions_before) {
             ++candidate.candidate_failures;
@@ -38608,8 +38419,7 @@ JointNeighborhood b4ep3_cached_topology(
             failure.failure = cache.failure;
             return failure;
         }
-        if (!fusion_candidate.enabled
-            && owner_parallel->topology_incoming_fusion_audit.enabled
+        if (owner_parallel->topology_incoming_fusion_audit.enabled
             && !b4ep10q2_compare_and_release_fused_plan(
                 result, built, *owner_parallel)) {
             owner_parallel->failed = true;
@@ -38620,31 +38430,22 @@ JointNeighborhood b4ep3_cached_topology(
             failure.failure = cache.failure;
             return failure;
         }
-        if (!fusion_candidate.enabled) {
-            result.incoming_plan = true;
-            result.incoming_plan_payload_bytes = built.plan.payload_bytes;
-            result.incoming_source_by_slot = std::move(
-                built.plan.source_by_slot);
-            result.incoming_target_offsets = std::move(
-                built.plan.target_offsets);
-            result.incoming_target_slots = std::move(
-                built.plan.target_slots);
-        }
+        result.incoming_plan = true;
+        result.incoming_plan_payload_bytes = built.plan.payload_bytes;
+        result.incoming_source_by_slot = std::move(
+            built.plan.source_by_slot);
+        result.incoming_target_offsets = std::move(
+            built.plan.target_offsets);
+        result.incoming_target_slots = std::move(
+            built.plan.target_slots);
         ++candidate.candidate_builds;
-        candidate.directed_slots += fusion_candidate.enabled
-            ? result.incoming_source_by_slot.size() : built.directed_slots;
-        candidate.incoming_entries += fusion_candidate.enabled
-            ? result.incoming_target_slots.size() : built.incoming_entries;
-        candidate.pair_visits += fusion_candidate.enabled
-            ? result.pairs.size() : built.pair_visits;
-        candidate.support_csr_records += fusion_candidate.enabled
-            ? 0U : built.support_csr_records;
-        candidate.endpoint_writes += fusion_candidate.enabled
-            ? result.incoming_source_by_slot.size() : built.endpoint_writes;
-        candidate.target_count_visits += fusion_candidate.enabled
-            ? 0U : built.target_count_visits;
-        candidate.target_fill_visits += fusion_candidate.enabled
-            ? result.pairs.size() : built.target_fill_visits;
+        candidate.directed_slots += built.directed_slots;
+        candidate.incoming_entries += built.incoming_entries;
+        candidate.pair_visits += built.pair_visits;
+        candidate.support_csr_records += built.support_csr_records;
+        candidate.endpoint_writes += built.endpoint_writes;
+        candidate.target_count_visits += built.target_count_visits;
+        candidate.target_fill_visits += built.target_fill_visits;
         candidate.added_regions += owner_parallel->regions - regions_before;
         candidate.added_logical_partitions +=
             owner_parallel->logical_partitions - partitions_before;
@@ -38653,14 +38454,10 @@ JointNeighborhood b4ep3_cached_topology(
             result.incoming_plan_payload_bytes);
         candidate.maximum_scratch_payload_bytes = std::max(
             candidate.maximum_scratch_payload_bytes,
-            fusion_candidate.enabled
-                ? fusion_candidate.maximum_scratch_payload_bytes
-                : built.scratch_payload_bytes);
+            built.scratch_payload_bytes);
         if (result.incoming_plan_payload_bytes
                 > std::numeric_limits<std::size_t>::max()
-                    - (fusion_candidate.enabled
-                        ? fusion_candidate.maximum_scratch_payload_bytes
-                        : built.scratch_payload_bytes)) {
+                    - built.scratch_payload_bytes) {
             ++candidate.candidate_failures;
             owner_parallel->failed = true;
             owner_parallel->failure = "SPLIT_INCOMING_PAYLOAD";
@@ -38672,9 +38469,7 @@ JointNeighborhood b4ep3_cached_topology(
         owner_parallel->maximum_added_payload_bytes = std::max(
             owner_parallel->maximum_added_payload_bytes,
             result.incoming_plan_payload_bytes
-                + (fusion_candidate.enabled
-                    ? fusion_candidate.maximum_scratch_payload_bytes
-                    : built.scratch_payload_bytes));
+                + built.scratch_payload_bytes);
     }
     cache.filtered_candidate_checks += cache.superset.pairs.size();
     cache.active_pair_visits += result.pairs.size();
@@ -45561,37 +45356,11 @@ constexpr const char* B4EP10SIRDIREQ2_IDENTITY_PROJECTION =
     "none|reference=closed|credit=topology-incoming-candidate-contract-"
     "research-only";
 
-constexpr const char* B4EP10SIRDIREQ3_IDENTITY_SHA256 =
-    "e2381ed56b0c6be4ff178d49f8e2f02706648c2be2359471c037c3acfb5b6d69";
-constexpr const char* B4EP10SIRDIREQ3_IDENTITY_PROJECTION =
-    "nextengine.nonlocal.nsr3b4ep10sirdireq3-topology-incoming-fusion-"
-    "candidate|v1|parent=1b84bc737e11cd1e3469b35c604ce50ecff32e0897bcc6512"
-    "67fb0c96073273f:52c5911327c05f647b65d93efd0b21e209abb446661db0d03b54"
-    "55e80f631312:44d3279faf411ec8c0eab094cdf8a2b065f9c2327c4f2805f4a191"
-    "5834f1e521|implementation=2671e0a86f06202f70868a1db3ed5974327b89b3|"
-    "baseline=b4f847cb4f19b09e951534649515a4504bc07044a13e6c636598b33f247"
-    "777e9:539f1ec507e439adc50b14cdf5da616024e041a3131aa56a2002c40a83e4e7"
-    "e7|commands=exact:nominal-hydro-topology-incoming-fusion-candidate-8,cpu:"
-    "nominal-hydro-topology-incoming-fusion-cpu-ab-8|ownership=topology-local-"
-    "plan;neighborhood-publish;tape-consume;existing-retention;release-all-"
-    "exits|construction=metadata-degree;row-fill-source+endpoints;canonical-"
-    "pair-target-fill;no-sicd;no-fallback|work=plans226;pairs85716150;directed"
-    "150845996;regions3411;partitions218304;consumer=evaluation226,hvp459|"
-    "capacity=added<=16777216;checked|negatives=missing-endpoint,target-cursor;"
-    "reject-before-evaluation|exact=two-fresh-candidate;old-sirdi-byte-exact;"
-    "roots+counts+order|cpu=process-clock;one-warmup-each;pairs=AB,BA,AB;"
-    "affinity0-7;candidate-wins3of3;median-speedup>=1.03;paired-speedup-range"
-    "<=1.10|timing=cpu-work-only;wall-no-credit|failure=retain-sirdi|reference"
-    "=closed|credit=nominal-fused-candidate-reprofile-only";
-
 } // namespace
 
 SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls_impl(
     bool capture_evaluation_buffer_audit,
-    bool capture_topology_incoming_fusion_audit,
-    bool use_topology_incoming_fusion_candidate = false,
-    JointTopologyIncomingFusionInjection topology_fusion_injection =
-        JointTopologyIncomingFusionInjection::None) {
+    bool capture_topology_incoming_fusion_audit) {
     constexpr int worker_count = 8;
     omp_set_dynamic(0);
     omp_set_max_active_levels(1);
@@ -45609,16 +45378,12 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls_impl(
         tagged_points(fixture.boundary), &static_work);
     const JointStaticSupportBinding binding = bind_joint_static_support_index(
         &index, index.identity_sha256);
-    const char* identity_projection = use_topology_incoming_fusion_candidate
-        ? B4EP10SIRDIREQ3_IDENTITY_PROJECTION
-        : capture_topology_incoming_fusion_audit
+    const char* identity_projection = capture_topology_incoming_fusion_audit
         ? B4EP10SIRDIREQ2_IDENTITY_PROJECTION
         : capture_evaluation_buffer_audit
         ? B4EP10SIRDIREA_IDENTITY_PROJECTION
         : B4EP10SIRDI_IDENTITY_PROJECTION;
-    const char* identity_sha256 = use_topology_incoming_fusion_candidate
-        ? B4EP10SIRDIREQ3_IDENTITY_SHA256
-        : capture_topology_incoming_fusion_audit
+    const char* identity_sha256 = capture_topology_incoming_fusion_audit
         ? B4EP10SIRDIREQ2_IDENTITY_SHA256
         : capture_evaluation_buffer_audit
         ? B4EP10SIRDIREA_IDENTITY_SHA256
@@ -45647,66 +45412,7 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls_impl(
             &cache, true, true, false, false, worker_count,
             false, false, false, false, false, false, false, false, true,
             false, true, false, capture_evaluation_buffer_audit, false,
-            capture_topology_incoming_fusion_audit,
-            use_topology_incoming_fusion_candidate,
-            topology_fusion_injection);
-    }
-    if (use_topology_incoming_fusion_candidate
-        && topology_fusion_injection
-            != JointTopologyIncomingFusionInjection::None) {
-        const JointParallelTrace& negative_parallel =
-            transaction.trace.owner_parallel;
-        const JointTopologyIncomingFusionCandidateTrace& negative =
-            negative_parallel.topology_incoming_fusion_candidate;
-        const char* injection = topology_fusion_injection
-                == JointTopologyIncomingFusionInjection::MissingEndpoint
-            ? "MISSING_ENDPOINT" : "TARGET_CURSOR";
-        const bool rejected = identity_exact && parent.passed
-            && !transaction.passed && negative.enabled
-            && negative.builds == 0U && negative.publications == 0U
-            && negative.forwardings == 0U && negative.consumptions == 0U
-            && negative.coverage_failures == 1U
-            && negative.ownership_failures == 0U
-            && negative.fallbacks == 0U
-            && negative_parallel.evaluation_calls == 0U
-            && negative_parallel.hvp_calls == 0U;
-        std::ostringstream semantic;
-        semantic << (rejected ? "PASS|" : "FAIL|") << injection << '|'
-            << B4EP10SIRDIREQ3_IDENTITY_SHA256 << '|'
-            << transaction.failure << '|' << negative.builds << ':'
-            << negative.publications << ':' << negative.forwardings << ':'
-            << negative.consumptions << '|' << negative.order_failures << ':'
-            << negative.coverage_failures << ':'
-            << negative.ownership_failures << ':' << negative.fallbacks << '|'
-            << negative_parallel.evaluation_calls << ':'
-            << negative_parallel.hvp_calls;
-        std::ostringstream report;
-        report << "{\"schema\":\"nextengine.nonlocal."
-                  "nsr3b4ep10sirdireq3_fusion_negative.v1\""
-               << ",\"identity_sha256\":\""
-               << B4EP10SIRDIREQ3_IDENTITY_SHA256 << '"'
-               << ",\"status\":\"" << (rejected ? "PASS" : "FAIL")
-               << "\",\"injection\":\"" << injection << '"'
-               << ",\"transaction_failure\":\""
-               << transaction.failure << '"'
-               << ",\"builds\":" << negative.builds
-               << ",\"publications\":" << negative.publications
-               << ",\"forwardings\":" << negative.forwardings
-               << ",\"consumptions\":" << negative.consumptions
-               << ",\"order_failures\":" << negative.order_failures
-               << ",\"coverage_failures\":"
-               << negative.coverage_failures
-               << ",\"ownership_failures\":"
-               << negative.ownership_failures
-               << ",\"fallbacks\":" << negative.fallbacks
-               << ",\"evaluation_calls\":"
-               << negative_parallel.evaluation_calls
-               << ",\"hvp_calls\":" << negative_parallel.hvp_calls
-               << ",\"rejected_before_evaluation\":"
-               << (rejected ? "true" : "false")
-               << ",\"result_sha256\":\""
-               << sha256_hex(semantic.str()) << "\"}";
-        return {rejected, report.str()};
+            capture_topology_incoming_fusion_audit);
     }
     const NominalMacroOutput output = b4e1m_output(transaction);
     const double energy_creation = std::max(0.0,
@@ -45912,255 +45618,6 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls_impl(
         semantic_material.str());
     const bool sirdi_result_exact = sirdi_result_sha256
         == "b4f847cb4f19b09e951534649515a4504bc07044a13e6c636598b33f247777e9";
-    if (use_topology_incoming_fusion_candidate) {
-        const JointTopologyIncomingFusionCandidateTrace& fusion_candidate =
-            parallel.topology_incoming_fusion_candidate;
-        const bool candidate_parallel_exact = transaction.passed
-            && parallel.enabled && parallel.requested_workers == worker_count
-            && !parallel.failed && parallel.regions == 3411U
-            && parallel.logical_partitions == 218304U
-            && parallel.minimum_observed_team == worker_count
-            && parallel.maximum_observed_team == worker_count
-            && parallel.team_mismatches == 0U
-            && parallel.coverage_mismatches == 0U
-            && parallel.worker_failures == 0U
-            && parallel.topology_calls == 226U
-            && parallel.evaluation_calls == 226U
-            && parallel.evaluation_density_gathers == 150845996U
-            && parallel.evaluation_directed_values == 131987230U
-            && parallel.evaluation_target_gathers == 263974460U
-            && parallel.plan_builds == 226U && parallel.hvp_calls == 459U
-            && parallel.hvp_directed_values == 242957856U
-            && parallel.hvp_target_gathers == 485915712U;
-        const bool split_consumer_exact = candidate.candidate_enabled
-            && !candidate.enabled && candidate.candidate_builds == 226U
-            && candidate.candidate_evaluation_calls == 226U
-            && candidate.candidate_hvp_calls == 459U
-            && candidate.candidate_incoming_full_entries == 454936226U
-            && candidate.candidate_incoming_retained_entries == 374945086U
-            && candidate.candidate_own_retained_entries == 374945086U
-            && candidate.candidate_failures == 0U
-            && candidate.directed_slots == 150845996U
-            && candidate.incoming_entries == 150845996U
-            && candidate.pair_visits == 85716150U
-            && candidate.support_csr_records == 0U
-            && candidate.endpoint_writes == 150845996U
-            && candidate.target_count_visits == 0U
-            && candidate.target_fill_visits == 85716150U
-            && candidate.added_regions == 0U
-            && candidate.added_logical_partitions == 0U
-            && candidate.maximum_candidate_payload_bytes > 0U
-            && candidate.maximum_scratch_payload_bytes > 0U
-            && fusion_candidate.maximum_added_payload_bytes <= 16777216U
-            && candidate.order_mismatches == 0U
-            && candidate.coverage_mismatches == 0U
-            && candidate.fallbacks == 0U;
-        const bool fusion_candidate_exact = fusion_candidate.enabled
-            && fusion_candidate.injection
-                == JointTopologyIncomingFusionInjection::None
-            && fusion_candidate.builds == 226U
-            && fusion_candidate.publications == 226U
-            && fusion_candidate.forwardings == 226U
-            && fusion_candidate.consumptions == 226U
-            && fusion_candidate.current_pair_visits == 85716150U
-            && fusion_candidate.incoming_degree_increments == 150845996U
-            && fusion_candidate.source_writes == 150845996U
-            && fusion_candidate.endpoint_writes == 150845996U
-            && fusion_candidate.incoming_entries == 150845996U
-            && fusion_candidate.endpoint_reads == 150845996U
-            && fusion_candidate.target_writes == 150845996U
-            && fusion_candidate.maximum_plan_payload_bytes > 0U
-            && fusion_candidate.maximum_scratch_payload_bytes > 0U
-            && fusion_candidate.maximum_added_payload_bytes > 0U
-            && fusion_candidate.maximum_added_payload_bytes <= 16777216U
-            && fusion_candidate.order_failures == 0U
-            && fusion_candidate.coverage_failures == 0U
-            && fusion_candidate.ownership_failures == 0U
-            && fusion_candidate.fallbacks == 0U
-            && !parallel.topology_incoming_fusion_audit.enabled
-            && !parallel.phase_timing.enabled;
-        const bool candidate_passed = identity_exact && parent_exact
-            && transaction_exact && physics_exact && cache_exact
-            && coefficient_exact && fusion_exact && work_exact
-            && candidate_parallel_exact && split_consumer_exact
-            && fusion_candidate_exact && reuse_exact;
-        std::string failure;
-        if (!identity_exact) {
-            failure = "IDENTITY";
-        } else if (!parent_exact || !transaction_exact || !physics_exact
-            || !cache_exact || !coefficient_exact || !fusion_exact
-            || !work_exact) {
-            failure = "PHYSICS_WORK_CORRESPONDENCE";
-        } else if (!candidate_parallel_exact) {
-            failure = "PARALLEL_WORK";
-        } else if (!split_consumer_exact) {
-            failure = "SPLIT_CONSUMER";
-        } else if (!fusion_candidate_exact) {
-            failure = "FUSION_CONSTRUCTION";
-        } else if (!reuse_exact) {
-            failure = "DIRECTED_SCRATCH_REUSE";
-        }
-        std::ostringstream correspondence_material;
-        correspondence_material
-            << "nextengine.nonlocal.nsr3b4ep10sirdireq3-correspondence|v1|"
-            << output.frame_root << ':' << output.aggregate_root << '|'
-            << transaction.trajectory_sha256 << ':'
-            << transaction.legacy_ledger_sha256 << ':'
-            << transaction.policy_ledger_sha256 << '|'
-            << transaction.trace.query_chain_sha256 << '|'
-            << fusion_candidate.builds << ':'
-            << fusion_candidate.publications << ':'
-            << fusion_candidate.forwardings << ':'
-            << fusion_candidate.consumptions << '|'
-            << fusion_candidate.current_pair_visits << ':'
-            << fusion_candidate.incoming_degree_increments << ':'
-            << fusion_candidate.source_writes << ':'
-            << fusion_candidate.endpoint_writes << ':'
-            << fusion_candidate.incoming_entries << ':'
-            << fusion_candidate.endpoint_reads << ':'
-            << fusion_candidate.target_writes << '|'
-            << parallel.regions << ':' << parallel.logical_partitions << '|'
-            << candidate.candidate_evaluation_calls << ':'
-            << candidate.candidate_hvp_calls << '|'
-            << fusion_candidate.maximum_plan_payload_bytes << ':'
-            << fusion_candidate.maximum_scratch_payload_bytes << ':'
-            << fusion_candidate.maximum_added_payload_bytes;
-        const std::string candidate_correspondence_sha256 = sha256_hex(
-            correspondence_material.str());
-        std::ostringstream candidate_semantic;
-        candidate_semantic
-            << (candidate_passed ? "PASS|" : "FAIL|") << failure << '|'
-            << B4EP10SIRDIREQ3_IDENTITY_SHA256 << '|'
-            << candidate_correspondence_sha256 << '|'
-            << output.frame_root << ':' << output.aggregate_root << '|'
-            << transaction.trajectory_sha256 << ':'
-            << transaction.legacy_ledger_sha256 << ':'
-            << transaction.policy_ledger_sha256 << '|'
-            << fusion_candidate.builds << ':'
-            << fusion_candidate.publications << ':'
-            << fusion_candidate.forwardings << ':'
-            << fusion_candidate.consumptions << '|'
-            << parallel.regions << ':' << parallel.logical_partitions << '|'
-            << fusion_candidate.order_failures << ':'
-            << fusion_candidate.coverage_failures << ':'
-            << fusion_candidate.ownership_failures << ':'
-            << fusion_candidate.fallbacks;
-        std::ostringstream report;
-        report << std::setprecision(17)
-               << "{\"schema\":\"nextengine.nonlocal."
-                  "nsr3b4ep10sirdireq3_fusion_candidate_positive.v1\""
-               << ",\"identity_sha256\":\""
-               << B4EP10SIRDIREQ3_IDENTITY_SHA256
-               << "\",\"status\":\""
-               << (candidate_passed ? "PASS" : "FAIL") << '"'
-               << ",\"first_failure\":\"" << failure << '"'
-               << ",\"baseline_sirdi_result_sha256\":\""
-                  "b4f847cb4f19b09e951534649515a4504bc07044a13e6c636598b33f247777e9\""
-               << ",\"candidate_correspondence_sha256\":\""
-               << candidate_correspondence_sha256 << '"'
-               << ",\"roots\":{\"frame\":\"" << output.frame_root
-               << "\",\"aggregate\":\"" << output.aggregate_root
-               << "\",\"trajectory\":\""
-               << transaction.trajectory_sha256
-               << "\",\"legacy_ledger\":\""
-               << transaction.legacy_ledger_sha256
-               << "\",\"policy_ledger\":\""
-               << transaction.policy_ledger_sha256 << "\"}"
-               << ",\"construction\":{\"builds\":"
-               << fusion_candidate.builds
-               << ",\"publications\":"
-               << fusion_candidate.publications
-               << ",\"forwardings\":" << fusion_candidate.forwardings
-               << ",\"consumptions\":" << fusion_candidate.consumptions
-               << ",\"current_pair_visits\":"
-               << fusion_candidate.current_pair_visits
-               << ",\"incoming_degree_increments\":"
-               << fusion_candidate.incoming_degree_increments
-               << ",\"source_writes\":"
-               << fusion_candidate.source_writes
-               << ",\"endpoint_writes\":"
-               << fusion_candidate.endpoint_writes
-               << ",\"incoming_entries\":"
-               << fusion_candidate.incoming_entries
-               << ",\"endpoint_reads\":"
-               << fusion_candidate.endpoint_reads
-               << ",\"target_writes\":"
-               << fusion_candidate.target_writes
-               << ",\"maximum_plan_payload_bytes\":"
-               << fusion_candidate.maximum_plan_payload_bytes
-               << ",\"maximum_scratch_payload_bytes\":"
-               << fusion_candidate.maximum_scratch_payload_bytes
-               << ",\"maximum_added_payload_bytes\":"
-               << fusion_candidate.maximum_added_payload_bytes
-               << ",\"order_failures\":"
-               << fusion_candidate.order_failures
-               << ",\"coverage_failures\":"
-               << fusion_candidate.coverage_failures
-               << ",\"ownership_failures\":"
-               << fusion_candidate.ownership_failures
-               << ",\"fallbacks\":" << fusion_candidate.fallbacks
-               << ",\"exact\":"
-               << (fusion_candidate_exact ? "true" : "false") << '}'
-               << ",\"consumer\":{\"builds\":"
-               << candidate.candidate_builds
-               << ",\"evaluation_calls\":"
-               << candidate.candidate_evaluation_calls
-               << ",\"hvp_calls\":" << candidate.candidate_hvp_calls
-               << ",\"incoming_full_entries\":"
-               << candidate.candidate_incoming_full_entries
-               << ",\"incoming_retained_entries\":"
-               << candidate.candidate_incoming_retained_entries
-               << ",\"own_retained_entries\":"
-               << candidate.candidate_own_retained_entries
-               << ",\"failures\":" << candidate.candidate_failures
-               << ",\"directed_slots\":" << candidate.directed_slots
-               << ",\"incoming_entries\":" << candidate.incoming_entries
-               << ",\"pair_visits\":" << candidate.pair_visits
-               << ",\"support_csr_records\":"
-               << candidate.support_csr_records
-               << ",\"endpoint_writes\":" << candidate.endpoint_writes
-               << ",\"target_count_visits\":"
-               << candidate.target_count_visits
-               << ",\"target_fill_visits\":"
-               << candidate.target_fill_visits
-               << ",\"added_regions\":" << candidate.added_regions
-               << ",\"added_logical_partitions\":"
-               << candidate.added_logical_partitions
-               << ",\"maximum_plan_payload_bytes\":"
-               << candidate.maximum_candidate_payload_bytes
-               << ",\"maximum_scratch_payload_bytes\":"
-               << candidate.maximum_scratch_payload_bytes
-               << ",\"maximum_added_payload_bytes\":"
-               << fusion_candidate.maximum_added_payload_bytes
-               << ",\"maximum_parallel_combined_payload_bytes\":"
-               << parallel.maximum_added_payload_bytes
-               << ",\"order_mismatches\":"
-               << candidate.order_mismatches
-               << ",\"coverage_mismatches\":"
-               << candidate.coverage_mismatches
-               << ",\"fallbacks\":" << candidate.fallbacks
-               << ",\"exact\":"
-               << (split_consumer_exact ? "true" : "false") << '}'
-               << ",\"parallel\":{\"regions\":" << parallel.regions
-               << ",\"logical_partitions\":"
-               << parallel.logical_partitions
-               << ",\"exact\":"
-               << (candidate_parallel_exact ? "true" : "false") << '}'
-               << ",\"physics_exact\":"
-               << (physics_exact ? "true" : "false")
-               << ",\"work_exact\":"
-               << (work_exact ? "true" : "false")
-               << ",\"directed_scratch_exact\":"
-               << (reuse_exact ? "true" : "false")
-               << ",\"timing_admitted\":false"
-               << ",\"wall_speed_claim\":false"
-               << ",\"b4e2_execution_authorized\":false"
-               << ",\"runtime_authority\":false"
-               << ",\"production_authority\":false"
-               << ",\"result_sha256\":\""
-               << sha256_hex(candidate_semantic.str()) << "\"}";
-        return {candidate_passed, report.str()};
-    }
     if (capture_topology_incoming_fusion_audit) {
         const JointTopologyIncomingFusionAuditTrace& audit =
             parallel.topology_incoming_fusion_audit;
@@ -46564,59 +46021,6 @@ SplitBoundaryReport
 run_nominal_hydro_topology_incoming_fusion_audit_controls() {
     return run_nominal_hydro_directed_scratch_reuse_controls_impl(
         false, true);
-}
-
-SplitBoundaryReport
-run_nominal_hydro_topology_incoming_fusion_candidate_controls() {
-    const SplitBoundaryReport positive =
-        run_nominal_hydro_directed_scratch_reuse_controls_impl(
-            false, false, true,
-            JointTopologyIncomingFusionInjection::None);
-    const SplitBoundaryReport missing_endpoint =
-        run_nominal_hydro_directed_scratch_reuse_controls_impl(
-            false, false, true,
-            JointTopologyIncomingFusionInjection::MissingEndpoint);
-    const SplitBoundaryReport target_cursor =
-        run_nominal_hydro_directed_scratch_reuse_controls_impl(
-            false, false, true,
-            JointTopologyIncomingFusionInjection::TargetCursor);
-    const bool passed = positive.passed && missing_endpoint.passed
-        && target_cursor.passed;
-    const std::string positive_sha256 = sha256_hex(positive.json);
-    const std::string missing_endpoint_sha256 = sha256_hex(
-        missing_endpoint.json);
-    const std::string target_cursor_sha256 = sha256_hex(target_cursor.json);
-    std::ostringstream semantic;
-    semantic << (passed ? "PASS|" : "FAIL|")
-        << B4EP10SIRDIREQ3_IDENTITY_SHA256 << '|'
-        << positive_sha256 << ':' << missing_endpoint_sha256 << ':'
-        << target_cursor_sha256;
-    std::ostringstream report;
-    report << "{\"schema\":\"nextengine.nonlocal."
-              "nsr3b4ep10sirdireq3_topology_incoming_fusion_candidate.v1\""
-           << ",\"identity_sha256\":\""
-           << B4EP10SIRDIREQ3_IDENTITY_SHA256
-           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
-           << "\",\"first_failure\":\""
-           << (!positive.passed ? "POSITIVE"
-                : !missing_endpoint.passed ? "MISSING_ENDPOINT_NEGATIVE"
-                : !target_cursor.passed ? "TARGET_CURSOR_NEGATIVE" : "")
-           << "\",\"positive_sha256\":\"" << positive_sha256
-           << "\",\"missing_endpoint_sha256\":\""
-           << missing_endpoint_sha256
-           << "\",\"target_cursor_sha256\":\""
-           << target_cursor_sha256 << "\",\"positive\":"
-           << positive.json << ",\"negatives\":{\"missing_endpoint\":"
-           << missing_endpoint.json << ",\"target_cursor\":"
-           << target_cursor.json << '}'
-           << ",\"cpu_measurement_executed\":false"
-           << ",\"wall_speed_claim\":false"
-           << ",\"b4e2_execution_authorized\":false"
-           << ",\"runtime_authority\":false"
-           << ",\"production_authority\":false"
-           << ",\"result_sha256\":\""
-           << sha256_hex(semantic.str()) << "\"}";
-    return {passed, report.str()};
 }
 
 } // namespace nextengine::nonlocal::fcr
