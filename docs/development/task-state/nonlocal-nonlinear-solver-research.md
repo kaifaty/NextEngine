@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R18R4_FAIL_WORK_LIFECYCLE / NSR3B4E2D7R18R4R1_PASS_RETAINS_SECOND_ITERATION / NSR3B4E2D7R18R4R2_PASS_CONFIRMED / D7R19_FROZEN / NORMALIZED_NOMINAL_SUBSTEP_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
-| Updated | `2026-08-22` |
+| Status | `ACTIVE / NSR3B4E2D7R18R4R2_PASS_CONFIRMED / D7R19_FAIL_PRECISION_LEDGER / D7R19R1_FROZEN / TOPOLOGY_PRECISION_SHELL_REPLAY_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
 | Definition of done | NSR0--NSR6 select a production-roadmap candidate or stop at an exact reproducible boundary |
@@ -159,6 +159,24 @@
 - **Execution boundary:** retain D7R17's 16-outer/512-HVP/288-workspace/64-
   precision-audit watchdog, one identity-bound static index, exact rollback
   and route precedence. No macro, trajectory, timing or publication follows.
+- **Current conclusion:** D7R19 is a reproducible hard `PRECISION_LEDGER`
+  FAIL at stdout SHA `f5811bfc...f7bb`, semantic result
+  `bcc6f588...185b` and private root `a1030f9b...fcca1`. Two clean Release
+  binaries and reports are byte-exact; no nominal route or state is selected.
+- **Precision boundary:** three of five accepted outer-0 trials change
+  membership in the independent long-double evaluator. Repeated current/trial
+  observations total `10,989`; the three unique successive states contain
+  `3,641/2,346/1,328` mismatches. All three signs remain resolved positive and
+  each target has zero minimum horizon margin.
+- **Watchdog boundary:** the sixth trust solve selects dimensionless forcing,
+  then reaches the frozen 32-HVP cap before a completed trial. The exact
+  policy/completed-trial counts are therefore `6/5`; do not relabel the hard
+  precision failure as structural watchdog exhaustion or enlarge the cap.
+- **Current decision:** preserve D7R19 FAIL. D7R19R1 is frozen as a replay-only
+  three-trial discriminator comparing live-extended, binary64-owned and
+  horizon-canonicalized membership under a derived `64*epsilon*h` shell and
+  exact C2 `W/W'/W''` horizon closure. It cannot accept a state or rerun the
+  nominal transaction.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -1072,6 +1090,8 @@
 | NSR3B4E2D7R18R4R2 contract | explicit dimensionless forcing; dominance proof freezes 39 active / 117 total HVP before implementation | implement/run five rollback-only transactions; D7R19 execution blocked |
 | NSR3B4E2D7R18R4R2 PASS | all roots/precision exact; 57 explicit dimensionless trust solves reproduce the pre-derived 117-HVP ledger | research/freeze D7R19 one-substep contract; execution blocked |
 | NSR3B4E2D7R19 contract | same frame-zero first aligned substep with R4R2 normalized solver, corrected `M/dt` impulse reconstruction and D7R17 watchdog | implement/run one private substep only |
+| NSR3B4E2D7R19 FAIL | three accepted long-double audits change compact-support membership; hard precision gate precedes the simultaneous HVP watchdog | preserve FAIL; replay-only topology-precision shell discriminator |
+| NSR3B4E2D7R19R1 contract | three exact mismatched trials; derived C2 shell plus live/binary-owned/canonicalized extended lanes | implement/run replay only; no acceptance or nominal retry |
 
 Candidate solver identity remains:
 
@@ -2025,11 +2045,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R18R4R2/R4R1/R4/R3/R2/R1/D7R18/D7R17 and D7R13 exactly.
-   Implement/run frozen D7R19 as exactly one private aligned nominal-substep
-   rerun from frame zero with the normalized solver, explicit dimensionless
-   forcing and corrected `M/dt` impulse ledger. Do not start a second substep,
-   macro, trajectory or timing lane.
+6. Preserve D7R19 and D7R18R4R2/R4R1/R4/R3/R2/R1/D7R18/D7R17/D7R13
+   exactly. Implement/run frozen D7R19R1 over only the three exact outer-0
+   topology-mismatched accepted trials. Do not accept a replay state, change
+   the precision gate, enlarge the HVP cap, start another substep, macro,
+   trajectory or timing lane.
 
 ## Reconsideration triggers
 
