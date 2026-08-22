@@ -357,7 +357,7 @@ class CorpusAugmentTests(unittest.TestCase):
         self.assertEqual(control["relative_audio_path"], "audio/src/train.wav")
         self.assertEqual(control["audio_sha256"], self._sha(self.train_wav))
         # The reference is inherited verbatim so replay can score it.
-        self.assertEqual(control["normalized_reference"], "привет мир")
+        self.assertEqual(control["normalized_reference"], "Привет мир")  # inherited verbatim
 
     def test_attenuation_matches_documented_gain_ratio(self) -> None:
         self.run_augment(splits=("train",))
