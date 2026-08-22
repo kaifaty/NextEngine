@@ -120,6 +120,7 @@ int main(int argc, char** argv) {
                          "--nominal-hydro-directed-scratch-reuse-8|"
                          "--nominal-hydro-directed-scratch-phase-timing-8|"
                          "--nominal-hydro-directed-scratch-setup-timing-8|"
+                         "--nominal-hydro-directed-scratch-cpu-timing-8|"
                          "--nominal-hydro-directed-scratch-evaluation-buffer-"
                          "audit\n";
             return 2;
@@ -989,6 +990,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nominal-hydro-directed-scratch-cpu-timing-8") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_nominal_hydro_directed_scratch_cpu_timing_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (command
             == "--nominal-hydro-directed-scratch-evaluation-buffer-audit") {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
@@ -1124,6 +1132,7 @@ int main(int argc, char** argv) {
                      "--nominal-hydro-directed-scratch-reuse-8|"
                      "--nominal-hydro-directed-scratch-phase-timing-8|"
                      "--nominal-hydro-directed-scratch-setup-timing-8|"
+                     "--nominal-hydro-directed-scratch-cpu-timing-8|"
                      "--nominal-hydro-directed-scratch-evaluation-buffer-"
                      "audit\n";
         return 2;

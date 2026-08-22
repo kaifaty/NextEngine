@@ -20,6 +20,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <time.h>
 #include <utility>
 #include <vector>
 
@@ -8562,17 +8563,28 @@ constexpr std::size_t JOINT_PARALLEL_PHASE_COUNT =
 
 struct JointParallelPhaseTimingTrace {
     bool enabled = false;
+    bool cpu_enabled = false;
     bool evaluation_setup_detail_enabled = false;
     std::array<std::uint64_t, JOINT_PARALLEL_PHASE_COUNT> phase_ns{};
     std::array<std::size_t, JOINT_PARALLEL_PHASE_COUNT> phase_calls{};
+    std::array<std::uint64_t, JOINT_PARALLEL_PHASE_COUNT> phase_cpu_ns{};
+    std::array<std::size_t, JOINT_PARALLEL_PHASE_COUNT> phase_cpu_calls{};
     std::uint64_t transaction_total_ns = 0U;
     std::uint64_t topology_total_ns = 0U;
     std::uint64_t evaluation_total_ns = 0U;
     std::uint64_t hvp_total_ns = 0U;
+    std::uint64_t transaction_cpu_ns = 0U;
+    std::uint64_t topology_cpu_ns = 0U;
+    std::uint64_t evaluation_cpu_ns = 0U;
+    std::uint64_t hvp_cpu_ns = 0U;
     std::size_t transaction_calls = 0U;
     std::size_t topology_calls = 0U;
     std::size_t evaluation_calls = 0U;
     std::size_t hvp_calls = 0U;
+    std::size_t transaction_cpu_calls = 0U;
+    std::size_t topology_cpu_calls = 0U;
+    std::size_t evaluation_cpu_calls = 0U;
+    std::size_t hvp_cpu_calls = 0U;
     std::uint64_t evaluation_setup_validation_ns = 0U;
     std::uint64_t evaluation_setup_capacity_ns = 0U;
     std::uint64_t evaluation_setup_buffer_ns = 0U;
@@ -8583,6 +8595,16 @@ struct JointParallelPhaseTimingTrace {
     std::uint64_t executor_active_ns = 0U;
     std::uint64_t executor_max_active_ns = 0U;
     std::size_t executor_regions = 0U;
+    std::uint64_t process_clock_resolution_ns = 0U;
+    std::uint64_t thread_clock_resolution_ns = 0U;
+    std::uint64_t executor_region_process_cpu_ns = 0U;
+    std::uint64_t executor_active_thread_cpu_ns = 0U;
+    std::size_t process_phase_intervals = 0U;
+    std::size_t process_region_intervals = 0U;
+    std::size_t thread_active_intervals = 0U;
+    std::size_t process_clock_reads = 0U;
+    std::size_t thread_clock_reads = 0U;
+    std::size_t cpu_failures = 0U;
     std::size_t failures = 0U;
 };
 
@@ -8830,13 +8852,85 @@ struct JointParallelTrace {
     JointEvaluationBufferAuditTrace evaluation_buffer_audit;
 };
 
+struct JointParallelTimingStart {
+    JointPhaseClock::time_point wall{};
+    std::uint64_t process_cpu_ns = 0U;
+    bool process_cpu_valid = false;
+};
+
+bool joint_cpu_clock_ns(clockid_t clock_id, std::uint64_t& value) {
+    timespec timestamp{};
+    if (clock_gettime(clock_id, &timestamp) != 0
+        || timestamp.tv_sec < 0 || timestamp.tv_nsec < 0
+        || timestamp.tv_nsec >= 1000000000L
+        || static_cast<std::uint64_t>(timestamp.tv_sec)
+            > (std::numeric_limits<std::uint64_t>::max()
+                - static_cast<std::uint64_t>(timestamp.tv_nsec))
+                / 1000000000U) {
+        return false;
+    }
+    value = static_cast<std::uint64_t>(timestamp.tv_sec) * 1000000000U
+        + static_cast<std::uint64_t>(timestamp.tv_nsec);
+    return true;
+}
+
+bool joint_cpu_clock_resolution_ns(
+    clockid_t clock_id, std::uint64_t& value) {
+    timespec resolution{};
+    if (clock_getres(clock_id, &resolution) != 0
+        || resolution.tv_sec < 0 || resolution.tv_nsec < 0
+        || resolution.tv_nsec >= 1000000000L
+        || static_cast<std::uint64_t>(resolution.tv_sec)
+            > (std::numeric_limits<std::uint64_t>::max()
+                - static_cast<std::uint64_t>(resolution.tv_nsec))
+                / 1000000000U) {
+        return false;
+    }
+    value = static_cast<std::uint64_t>(resolution.tv_sec) * 1000000000U
+        + static_cast<std::uint64_t>(resolution.tv_nsec);
+    return value > 0U;
+}
+
+bool initialize_joint_cpu_timing(JointParallelPhaseTimingTrace& trace) {
+    trace.cpu_enabled = true;
+    const bool valid = joint_cpu_clock_resolution_ns(
+            CLOCK_PROCESS_CPUTIME_ID, trace.process_clock_resolution_ns)
+        && joint_cpu_clock_resolution_ns(
+            CLOCK_THREAD_CPUTIME_ID, trace.thread_clock_resolution_ns)
+        && trace.process_clock_resolution_ns <= 1000U
+        && trace.thread_clock_resolution_ns <= 1000U;
+    if (!valid) {
+        ++trace.cpu_failures;
+        ++trace.failures;
+    }
+    return valid;
+}
+
+JointParallelTimingStart joint_parallel_timing_start(
+    JointParallelPhaseTimingTrace& trace) {
+    JointParallelTimingStart result;
+    result.wall = JointPhaseClock::now();
+    if (trace.cpu_enabled) {
+        ++trace.process_clock_reads;
+        result.process_cpu_valid = joint_cpu_clock_ns(
+            CLOCK_PROCESS_CPUTIME_ID, result.process_cpu_ns);
+        if (!result.process_cpu_valid) {
+            ++trace.cpu_failures;
+            ++trace.failures;
+        }
+    }
+    return result;
+}
+
 bool add_joint_parallel_duration(
     JointParallelPhaseTimingTrace& trace,
-    JointPhaseClock::time_point start,
+    JointParallelTimingStart start,
     std::uint64_t& total_ns,
-    std::size_t& calls) {
+    std::size_t& calls,
+    std::uint64_t* cpu_total_ns = nullptr,
+    std::size_t* cpu_calls = nullptr) {
     const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        JointPhaseClock::now() - start).count();
+        JointPhaseClock::now() - start.wall).count();
     if (elapsed < 0
         || static_cast<std::uint64_t>(elapsed)
             > std::numeric_limits<std::uint64_t>::max() - total_ns) {
@@ -8845,17 +8939,37 @@ bool add_joint_parallel_duration(
     }
     total_ns += static_cast<std::uint64_t>(elapsed);
     ++calls;
+    if (trace.cpu_enabled) {
+        std::uint64_t end_cpu_ns = 0U;
+        ++trace.process_clock_reads;
+        const bool valid = cpu_total_ns != nullptr && cpu_calls != nullptr
+            && start.process_cpu_valid
+            && joint_cpu_clock_ns(CLOCK_PROCESS_CPUTIME_ID, end_cpu_ns)
+            && end_cpu_ns >= start.process_cpu_ns
+            && end_cpu_ns - start.process_cpu_ns
+                <= std::numeric_limits<std::uint64_t>::max()
+                    - *cpu_total_ns;
+        if (!valid) {
+            ++trace.cpu_failures;
+            ++trace.failures;
+            return false;
+        }
+        *cpu_total_ns += end_cpu_ns - start.process_cpu_ns;
+        ++*cpu_calls;
+        ++trace.process_phase_intervals;
+    }
     return true;
 }
 
 bool record_joint_parallel_phase(
     JointParallelPhaseTimingTrace& trace,
     JointParallelPhase phase,
-    JointPhaseClock::time_point start) {
+    JointParallelTimingStart start) {
     const std::size_t index = static_cast<std::size_t>(phase);
     return index < JOINT_PARALLEL_PHASE_COUNT
         && add_joint_parallel_duration(
-            trace, start, trace.phase_ns[index], trace.phase_calls[index]);
+            trace, start, trace.phase_ns[index], trace.phase_calls[index],
+            &trace.phase_cpu_ns[index], &trace.phase_cpu_calls[index]);
 }
 
 bool valid_joint_parallel_worker_count(int workers) {
@@ -8900,16 +9014,30 @@ bool joint_parallel_for(
     if (trace.phase_timing.enabled) {
         struct alignas(64) ActiveSlot {
             std::uint64_t ns = 0U;
+            std::uint64_t cpu_ns = 0U;
+            bool cpu_valid = true;
         };
         std::array<ActiveSlot, B4EP10_MAXIMUM_WORKERS> active{};
         const JointPhaseClock::time_point region_start =
             JointPhaseClock::now();
+        std::uint64_t region_process_cpu_start = 0U;
+        bool region_process_cpu_valid = true;
+        if (trace.phase_timing.cpu_enabled) {
+            ++trace.phase_timing.process_clock_reads;
+            region_process_cpu_valid = joint_cpu_clock_ns(
+                CLOCK_PROCESS_CPUTIME_ID, region_process_cpu_start);
+        }
 #pragma omp parallel num_threads(trace.requested_workers) shared(observed_team, status, visits, active)
         {
 #pragma omp single
             observed_team = omp_get_num_threads();
             const JointPhaseClock::time_point active_start =
                 JointPhaseClock::now();
+            std::uint64_t active_cpu_start = 0U;
+            const bool active_cpu_start_valid =
+                !trace.phase_timing.cpu_enabled
+                || joint_cpu_clock_ns(
+                    CLOCK_THREAD_CPUTIME_ID, active_cpu_start);
 #pragma omp for schedule(static, 1) nowait
             for (int ordinal = 0; ordinal < partition_count; ++ordinal) {
                 run_partition(ordinal);
@@ -8924,26 +9052,59 @@ bool joint_parallel_for(
                 active[static_cast<std::size_t>(omp_get_thread_num())].ns =
                     std::numeric_limits<std::uint64_t>::max();
             }
+            if (trace.phase_timing.cpu_enabled) {
+                std::uint64_t active_cpu_end = 0U;
+                ActiveSlot& slot = active[static_cast<std::size_t>(
+                    omp_get_thread_num())];
+                slot.cpu_valid = active_cpu_start_valid
+                    && joint_cpu_clock_ns(
+                        CLOCK_THREAD_CPUTIME_ID, active_cpu_end)
+                    && active_cpu_end >= active_cpu_start;
+                if (slot.cpu_valid) {
+                    slot.cpu_ns = active_cpu_end - active_cpu_start;
+                }
+            }
 #pragma omp barrier
         }
         const auto region_elapsed =
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 JointPhaseClock::now() - region_start).count();
+        std::uint64_t region_process_cpu_end = 0U;
+        if (trace.phase_timing.cpu_enabled) {
+            ++trace.phase_timing.process_clock_reads;
+            region_process_cpu_valid = region_process_cpu_valid
+                && joint_cpu_clock_ns(
+                    CLOCK_PROCESS_CPUTIME_ID, region_process_cpu_end)
+                && region_process_cpu_end >= region_process_cpu_start;
+        }
         std::uint64_t active_sum = 0U;
         std::uint64_t active_maximum = 0U;
+        std::uint64_t active_cpu_sum = 0U;
         bool timing_safe = region_elapsed >= 0;
         for (int worker = 0; timing_safe && worker < observed_team; ++worker) {
-            const std::uint64_t value =
-                active[static_cast<std::size_t>(worker)].ns;
+            const ActiveSlot& slot = active[static_cast<std::size_t>(worker)];
+            const std::uint64_t value = slot.ns;
             timing_safe = value
                 <= std::numeric_limits<std::uint64_t>::max() - active_sum;
             if (timing_safe) {
                 active_sum += value;
                 active_maximum = std::max(active_maximum, value);
             }
+            if (timing_safe && trace.phase_timing.cpu_enabled) {
+                timing_safe = slot.cpu_valid
+                    && slot.cpu_ns
+                        <= std::numeric_limits<std::uint64_t>::max()
+                            - active_cpu_sum;
+                if (timing_safe) {
+                    active_cpu_sum += slot.cpu_ns;
+                }
+            }
         }
         const std::uint64_t wall = timing_safe
             ? static_cast<std::uint64_t>(region_elapsed) : 0U;
+        const std::uint64_t region_process_cpu =
+            trace.phase_timing.cpu_enabled && region_process_cpu_valid
+            ? region_process_cpu_end - region_process_cpu_start : 0U;
         timing_safe = timing_safe && active_maximum <= wall
             && wall <= std::numeric_limits<std::uint64_t>::max()
                 - trace.phase_timing.executor_region_wall_ns
@@ -8951,7 +9112,28 @@ bool joint_parallel_for(
                 - trace.phase_timing.executor_active_ns
             && active_maximum <= std::numeric_limits<std::uint64_t>::max()
                 - trace.phase_timing.executor_max_active_ns;
+        if (trace.phase_timing.cpu_enabled) {
+            timing_safe = timing_safe && region_process_cpu_valid
+                && active_cpu_sum <= region_process_cpu
+                && region_process_cpu
+                    <= std::numeric_limits<std::uint64_t>::max()
+                        - trace.phase_timing.executor_region_process_cpu_ns
+                && active_cpu_sum
+                    <= std::numeric_limits<std::uint64_t>::max()
+                        - trace.phase_timing.executor_active_thread_cpu_ns
+                && trace.phase_timing.process_region_intervals
+                    < std::numeric_limits<std::size_t>::max()
+                && static_cast<std::size_t>(observed_team)
+                    <= std::numeric_limits<std::size_t>::max()
+                        - trace.phase_timing.thread_active_intervals
+                && 2U * static_cast<std::size_t>(observed_team)
+                    <= std::numeric_limits<std::size_t>::max()
+                        - trace.phase_timing.thread_clock_reads;
+        }
         if (!timing_safe) {
+            if (trace.phase_timing.cpu_enabled) {
+                ++trace.phase_timing.cpu_failures;
+            }
             ++trace.phase_timing.failures;
             trace.failed = true;
             trace.failure = "OWNER_PARALLEL_TIMING";
@@ -8961,6 +9143,17 @@ bool joint_parallel_for(
         trace.phase_timing.executor_active_ns += active_sum;
         trace.phase_timing.executor_max_active_ns += active_maximum;
         ++trace.phase_timing.executor_regions;
+        if (trace.phase_timing.cpu_enabled) {
+            trace.phase_timing.executor_region_process_cpu_ns +=
+                region_process_cpu;
+            trace.phase_timing.executor_active_thread_cpu_ns +=
+                active_cpu_sum;
+            ++trace.phase_timing.process_region_intervals;
+            trace.phase_timing.thread_active_intervals +=
+                static_cast<std::size_t>(observed_team);
+            trace.phase_timing.thread_clock_reads +=
+                2U * static_cast<std::size_t>(observed_team);
+        }
     } else {
 #pragma omp parallel num_threads(trace.requested_workers) shared(observed_team, status, visits)
         {
@@ -13432,18 +13625,23 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     FlatAdjacencyWorkTrace* adjacency_work,
     JointParallelTrace& parallel) {
     JointEvaluationTape result;
-    JointPhaseClock::time_point phase_start = parallel.phase_timing.enabled
-        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
-    JointPhaseClock::time_point setup_detail_start =
+    JointParallelTimingStart phase_start = parallel.phase_timing.enabled
+        ? joint_parallel_timing_start(parallel.phase_timing)
+        : JointParallelTimingStart{};
+    JointParallelTimingStart setup_detail_start =
         parallel.phase_timing.evaluation_setup_detail_enabled
-        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+        ? joint_parallel_timing_start(parallel.phase_timing)
+        : JointParallelTimingStart{};
     const auto finish_phase = [&](JointParallelPhase phase) {
         if (!parallel.phase_timing.enabled) {
             return true;
         }
         const bool recorded = record_joint_parallel_phase(
             parallel.phase_timing, phase, phase_start);
-        phase_start = JointPhaseClock::now();
+        if (phase != JointParallelPhase::EvaluationFinalize) {
+            phase_start = joint_parallel_timing_start(
+                parallel.phase_timing);
+        }
         if (!recorded) {
             parallel.failed = true;
             parallel.failure = "OWNER_EVALUATION_PHASE_TIMING";
@@ -13457,7 +13655,8 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         }
         const bool recorded = add_joint_parallel_duration(
             parallel.phase_timing, setup_detail_start, total_ns, calls);
-        setup_detail_start = JointPhaseClock::now();
+        setup_detail_start = joint_parallel_timing_start(
+            parallel.phase_timing);
         if (!recorded) {
             parallel.failed = true;
             parallel.failure = "OWNER_EVALUATION_SETUP_DETAIL_TIMING";
@@ -14756,16 +14955,20 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
         : split_incoming_candidate
             ? &tape.current_topology_gather_plan
             : &tape.owner_gather_plan;
-    JointPhaseClock::time_point phase_start =
+    JointParallelTimingStart phase_start =
         parallel != nullptr && parallel->phase_timing.enabled
-        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+        ? joint_parallel_timing_start(parallel->phase_timing)
+        : JointParallelTimingStart{};
     const auto finish_phase = [&](JointParallelPhase phase) {
         if (parallel == nullptr || !parallel->phase_timing.enabled) {
             return true;
         }
         const bool recorded = record_joint_parallel_phase(
             parallel->phase_timing, phase, phase_start);
-        phase_start = JointPhaseClock::now();
+        if (phase != JointParallelPhase::HvpFinalize) {
+            phase_start = joint_parallel_timing_start(
+                parallel->phase_timing);
+        }
         if (!recorded) {
             parallel->failed = true;
             parallel->failure = "OWNER_HVP_PHASE_TIMING";
@@ -15659,9 +15862,10 @@ JointPressureWorkspace build_joint_query_workspace(
     const JointPhaseClock::time_point topology_start =
         trace.phase_timing.enabled
         ? JointPhaseClock::now() : JointPhaseClock::time_point{};
-    const JointPhaseClock::time_point parallel_topology_start =
+    const JointParallelTimingStart parallel_topology_start =
         trace.owner_parallel.phase_timing.enabled
-        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+        ? joint_parallel_timing_start(trace.owner_parallel.phase_timing)
+        : JointParallelTimingStart{};
     if (trace.topology_cache != nullptr) {
         result.neighborhood = b4ep3_cached_topology(
             fluid, static_support, *trace.topology_cache,
@@ -15689,7 +15893,9 @@ JointPressureWorkspace build_joint_query_workspace(
         && !add_joint_parallel_duration(
             trace.owner_parallel.phase_timing, parallel_topology_start,
             trace.owner_parallel.phase_timing.topology_total_ns,
-            trace.owner_parallel.phase_timing.topology_calls)) {
+            trace.owner_parallel.phase_timing.topology_calls,
+            &trace.owner_parallel.phase_timing.topology_cpu_ns,
+            &trace.owner_parallel.phase_timing.topology_cpu_calls)) {
         result.failure = "OWNER_PARALLEL_TOPOLOGY_TIMING";
         trace.exact = false;
         return result;
@@ -15707,9 +15913,10 @@ JointPressureWorkspace build_joint_query_workspace(
             trace.exact = false;
             return result;
         }
-        const JointPhaseClock::time_point parallel_evaluation_start =
+        const JointParallelTimingStart parallel_evaluation_start =
             trace.owner_parallel.phase_timing.enabled
-            ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+            ? joint_parallel_timing_start(trace.owner_parallel.phase_timing)
+            : JointParallelTimingStart{};
         JointEvaluationTape fused = trace.owner_parallel.enabled
             ? build_joint_evaluation_tape_owner_parallel_from_flat(
                 result.neighborhood, adjacency_work,
@@ -15725,7 +15932,9 @@ JointPressureWorkspace build_joint_query_workspace(
                 trace.owner_parallel.phase_timing,
                 parallel_evaluation_start,
                 trace.owner_parallel.phase_timing.evaluation_total_ns,
-                trace.owner_parallel.phase_timing.evaluation_calls)) {
+                trace.owner_parallel.phase_timing.evaluation_calls,
+                &trace.owner_parallel.phase_timing.evaluation_cpu_ns,
+                &trace.owner_parallel.phase_timing.evaluation_cpu_calls)) {
             ++trace.fusion_mismatches;
             result.failure = "OWNER_PARALLEL_EVALUATION_TIMING";
             trace.exact = false;
@@ -15955,9 +16164,10 @@ std::vector<Vec3> smooth_hvp_joint_workspace(
     std::copy(direction.begin(), direction.end(), joint_direction.begin());
     const JointPhaseClock::time_point hvp_start = trace.phase_timing.enabled
         ? JointPhaseClock::now() : JointPhaseClock::time_point{};
-    const JointPhaseClock::time_point parallel_hvp_start =
+    const JointParallelTimingStart parallel_hvp_start =
         trace.owner_parallel.phase_timing.enabled
-        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+        ? joint_parallel_timing_start(trace.owner_parallel.phase_timing)
+        : JointParallelTimingStart{};
     std::vector<Vec3> taped;
     if (trace.owner_parallel.enabled) {
         JointOwnerHvp owner = apply_joint_pressure_tape_owner_gather(
@@ -15982,7 +16192,9 @@ std::vector<Vec3> smooth_hvp_joint_workspace(
         && !add_joint_parallel_duration(
             trace.owner_parallel.phase_timing, parallel_hvp_start,
             trace.owner_parallel.phase_timing.hvp_total_ns,
-            trace.owner_parallel.phase_timing.hvp_calls)) {
+            trace.owner_parallel.phase_timing.hvp_calls,
+            &trace.owner_parallel.phase_timing.hvp_cpu_ns,
+            &trace.owner_parallel.phase_timing.hvp_cpu_calls)) {
         trace.exact = false;
         return std::vector<Vec3>(fluid_count);
     }
@@ -16477,9 +16689,10 @@ std::vector<Vec3> pressure_hvp_joint_workspace(
     std::copy(direction.begin(), direction.end(), joint_direction.begin());
     const JointPhaseClock::time_point hvp_start = trace.phase_timing.enabled
         ? JointPhaseClock::now() : JointPhaseClock::time_point{};
-    const JointPhaseClock::time_point parallel_hvp_start =
+    const JointParallelTimingStart parallel_hvp_start =
         trace.owner_parallel.phase_timing.enabled
-        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+        ? joint_parallel_timing_start(trace.owner_parallel.phase_timing)
+        : JointParallelTimingStart{};
     std::vector<Vec3> taped;
     if (trace.owner_parallel.enabled) {
         JointOwnerHvp owner = apply_joint_pressure_tape_owner_gather(
@@ -16504,7 +16717,9 @@ std::vector<Vec3> pressure_hvp_joint_workspace(
         && !add_joint_parallel_duration(
             trace.owner_parallel.phase_timing, parallel_hvp_start,
             trace.owner_parallel.phase_timing.hvp_total_ns,
-            trace.owner_parallel.phase_timing.hvp_calls)) {
+            trace.owner_parallel.phase_timing.hvp_calls,
+            &trace.owner_parallel.phase_timing.hvp_cpu_ns,
+            &trace.owner_parallel.phase_timing.hvp_cpu_calls)) {
         trace.exact = false;
         return std::vector<Vec3>(fluid_count);
     }
@@ -22818,7 +23033,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     bool capture_directed_scratch_audit = false,
     bool use_directed_scratch_reuse = false,
     bool capture_evaluation_setup_timing = false,
-    bool capture_evaluation_buffer_audit = false) {
+    bool capture_evaluation_buffer_audit = false,
+    bool capture_cpu_timing = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -22838,6 +23054,14 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         capture_parallel_phase_timing;
     result.trace.owner_parallel.phase_timing.evaluation_setup_detail_enabled =
         capture_evaluation_setup_timing;
+    if (capture_cpu_timing
+        && !initialize_joint_cpu_timing(
+            result.trace.owner_parallel.phase_timing)) {
+        result.trace.owner_parallel.failed = true;
+        result.trace.owner_parallel.failure = "OWNER_CPU_CLOCK_RESOLUTION";
+        result.failure = result.trace.owner_parallel.failure;
+        return result;
+    }
     result.trace.owner_parallel.masked_plan_audit.enabled =
         capture_masked_plan_audit;
     result.trace.owner_parallel.masked_plan_audit.reuse_enabled =
@@ -37177,15 +37401,19 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
     JointNeighborhood& result = audit.neighborhood;
     const bool timing_enabled = owner_parallel != nullptr
         && owner_parallel->phase_timing.enabled;
-    JointPhaseClock::time_point phase_start = timing_enabled
-        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+    JointParallelTimingStart phase_start = timing_enabled
+        ? joint_parallel_timing_start(owner_parallel->phase_timing)
+        : JointParallelTimingStart{};
     const auto finish_phase = [&](JointParallelPhase phase) {
         if (!timing_enabled) {
             return true;
         }
         const bool recorded = record_joint_parallel_phase(
             owner_parallel->phase_timing, phase, phase_start);
-        phase_start = JointPhaseClock::now();
+        if (phase != JointParallelPhase::TopologyFinalize) {
+            phase_start = joint_parallel_timing_start(
+                owner_parallel->phase_timing);
+        }
         if (!recorded) {
             owner_parallel->failed = true;
             owner_parallel->failure = "OWNER_TOPOLOGY_PHASE_TIMING";
@@ -37492,10 +37720,11 @@ JointNeighborhood b4ep3_cached_topology(
     FlatAdjacencyWorkTrace* adjacency_work,
     JointOwnerDataflowTrace* owner_dataflow,
     JointParallelTrace* owner_parallel) {
-    const JointPhaseClock::time_point owner_setup_start =
+    const JointParallelTimingStart owner_setup_start =
         owner_parallel != nullptr
             && owner_parallel->phase_timing.enabled
-        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+        ? joint_parallel_timing_start(owner_parallel->phase_timing)
+        : JointParallelTimingStart{};
     JointNeighborhood failure;
     ++cache.queries;
     if (cache.failed) {
@@ -40640,6 +40869,20 @@ bool sum_parallel_phases(
     return true;
 }
 
+bool sum_parallel_cpu_phases(
+    const JointParallelPhaseTimingTrace& timing,
+    std::size_t begin,
+    std::size_t end,
+    std::uint64_t& total) {
+    total = 0U;
+    for (std::size_t index = begin; index < end; ++index) {
+        if (!add_checked_u64(timing.phase_cpu_ns[index], total)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 SplitBoundaryReport
@@ -40679,8 +40922,8 @@ run_nominal_hydro_owner_parallel_phase_timing_controls() {
             fixture, binding, static_work, adjacency_work);
     }
     if (identity_exact && parent.passed) {
-        const JointPhaseClock::time_point transaction_start =
-            JointPhaseClock::now();
+        const JointParallelTimingStart transaction_start{
+            JointPhaseClock::now()};
         transaction = run_macro_adaptive_transaction_case(
             "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
             false, true, nullptr, nullptr, 0, 1U, true, true,
@@ -40690,7 +40933,9 @@ run_nominal_hydro_owner_parallel_phase_timing_controls() {
             transaction.trace.owner_parallel.phase_timing,
             transaction_start,
             transaction.trace.owner_parallel.phase_timing.transaction_total_ns,
-            transaction.trace.owner_parallel.phase_timing.transaction_calls);
+            transaction.trace.owner_parallel.phase_timing.transaction_calls,
+            &transaction.trace.owner_parallel.phase_timing.transaction_cpu_ns,
+            &transaction.trace.owner_parallel.phase_timing.transaction_cpu_calls);
     }
     const NominalMacroOutput output = b4e1m_output(transaction);
     const double energy_creation = std::max(0.0,
@@ -43330,11 +43575,34 @@ constexpr const char* B4EP10SIRDIRE_IDENTITY_PROJECTION =
     "narrower-measurement|reference=closed|credit=one-next-mechanical-"
     "research-only";
 
+constexpr const char* B4EP10SIRDIREQ1_IDENTITY_SHA256 =
+    "6518ed9875e227f25b298eeb6fd5b3eb3708d1e7014357125a700e9c0d112964";
+constexpr const char* B4EP10SIRDIREQ1_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep10sirdireq1-cpu-time-residual|v1|parent="
+    "d22dfdad22a9a3d02dde9ec3301c1e36124c82d3a075410a0828d2d84e8ea9d6:"
+    "HOST_UNQUALIFIED:7b116eb3c4b7f9c51740c1f2a73daed573a07c7872fea80992e"
+    "096f2f95f59a3|sirdir=e620072432ce93e98a3f58005b0bc428f8a12b975d5af"
+    "34143ddde55c415b374:1f66ab3c1bffa2199759c66e6297273e4777902777cedd1634d"
+    "bad7e0895992e|implementation=b8a1eddffcf37a6281e2f67bc80e9a9ef07b2f04|"
+    "command=nominal-hydro-directed-scratch-cpu-timing-8|clocks=process:"
+    "CLOCK_PROCESS_CPUTIME_ID;worker:CLOCK_THREAD_CPUTIME_ID;resolution-ns<="
+    "1000;fail-closed|work=transaction1;topology226;evaluation226;hvp459;"
+    "phases6363;process-phase-intervals7275;process-region-intervals4089;"
+    "thread-active-intervals32712|categories=topology;target-fold;directed;"
+    "hvp-compression;other-local;stopped-evaluation-setup;control;sum-exact|"
+    "measurement=three-fresh-processes;affinity0-7;gnu-time-cross-check;wall-"
+    "no-credit|gates=exact3of3;cpu-category-range<=0.03;external-over-"
+    "internal-total-cpu-ratio=1.00..1.05;eligible-leader-share>=0.20;eligible-"
+    "lead>=1.20|routing=leader:one-structural-audit;no-leader:finer-cpu-"
+    "discriminator;clock-failure:retain-sirdi|reference=closed|authority="
+    "research-only;no-wall-speedup";
+
 } // namespace
 
 SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
     bool use_directed_scratch_reuse,
-    bool capture_evaluation_setup_timing) {
+    bool capture_evaluation_setup_timing,
+    bool capture_cpu_timing) {
     constexpr int worker_count = 8;
     omp_set_dynamic(0);
     omp_set_max_active_levels(1);
@@ -43352,12 +43620,16 @@ SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
         tagged_points(fixture.boundary), &static_work);
     const JointStaticSupportBinding binding = bind_joint_static_support_index(
         &index, index.identity_sha256);
-    const char* identity_projection = capture_evaluation_setup_timing
+    const char* identity_projection = capture_cpu_timing
+        ? B4EP10SIRDIREQ1_IDENTITY_PROJECTION
+        : capture_evaluation_setup_timing
         ? B4EP10SIRDIRE_IDENTITY_PROJECTION
         : use_directed_scratch_reuse
             ? B4EP10SIRDIR_IDENTITY_PROJECTION
             : B4EP10SIR_IDENTITY_PROJECTION;
-    const char* identity_sha256 = capture_evaluation_setup_timing
+    const char* identity_sha256 = capture_cpu_timing
+        ? B4EP10SIRDIREQ1_IDENTITY_SHA256
+        : capture_evaluation_setup_timing
         ? B4EP10SIRDIRE_IDENTITY_SHA256
         : use_directed_scratch_reuse
             ? B4EP10SIRDIR_IDENTITY_SHA256 : B4EP10SIR_IDENTITY_SHA256;
@@ -43376,8 +43648,11 @@ SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
             fixture, binding, static_work, adjacency_work);
     }
     if (identity_exact && parent.passed) {
-        const JointPhaseClock::time_point transaction_start =
-            JointPhaseClock::now();
+        JointParallelTimingStart transaction_start{JointPhaseClock::now()};
+        if (capture_cpu_timing) {
+            transaction_start.process_cpu_valid = joint_cpu_clock_ns(
+                CLOCK_PROCESS_CPUTIME_ID, transaction_start.process_cpu_ns);
+        }
         transaction = run_macro_adaptive_transaction_case(
             "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
             false, true, nullptr, nullptr, 0, 1U, true, true,
@@ -43385,12 +43660,22 @@ SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
             &cache, true, true, false, false, worker_count,
             true, false, false, false, false, false, false, false, true,
             false, use_directed_scratch_reuse,
-            capture_evaluation_setup_timing);
+            capture_evaluation_setup_timing, false, capture_cpu_timing);
+        if (capture_cpu_timing) {
+            ++transaction.trace.owner_parallel.phase_timing
+                .process_clock_reads;
+            if (!transaction_start.process_cpu_valid) {
+                ++transaction.trace.owner_parallel.phase_timing.cpu_failures;
+                ++transaction.trace.owner_parallel.phase_timing.failures;
+            }
+        }
         add_joint_parallel_duration(
             transaction.trace.owner_parallel.phase_timing,
             transaction_start,
             transaction.trace.owner_parallel.phase_timing.transaction_total_ns,
-            transaction.trace.owner_parallel.phase_timing.transaction_calls);
+            transaction.trace.owner_parallel.phase_timing.transaction_calls,
+            &transaction.trace.owner_parallel.phase_timing.transaction_cpu_ns,
+            &transaction.trace.owner_parallel.phase_timing.transaction_cpu_calls);
     }
     const NominalMacroOutput output = b4e1m_output(transaction);
     const double energy_creation = std::max(0.0,
@@ -43705,9 +43990,10 @@ SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
         << ':' << reuse.growth_slots << ':' << reuse.releases << ':'
         << reuse.live_buffers << ':' << reuse.failures;
     const std::string sirdir_result_sha256 =
-        capture_evaluation_setup_timing
+        capture_evaluation_setup_timing || capture_cpu_timing
         ? sha256_hex(sirdir_semantic.str()) : std::string{};
-    const bool sirdir_result_exact = !capture_evaluation_setup_timing
+    const bool sirdir_result_exact =
+        (!capture_evaluation_setup_timing && !capture_cpu_timing)
         || (sirdir_parent_passed && sirdir_result_sha256
             == "1f66ab3c1bffa2199759c66e6297273e4777902777cedd1634dbad7e0895992e");
     const std::size_t evaluation_setup_index =
@@ -43741,9 +44027,114 @@ SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
             && timing.evaluation_setup_buffer_ns > 0U
             && evaluation_setup_residual_ns > 0U
             && setup_segment_sum_safe);
+
+    bool cpu_calls_exact = !capture_cpu_timing;
+    std::uint64_t cpu_topology_components = 0U;
+    std::uint64_t cpu_evaluation_components = 0U;
+    std::uint64_t cpu_hvp_components = 0U;
+    bool cpu_component_sums_safe = !capture_cpu_timing;
+    std::uint64_t cpu_stage_sum = 0U;
+    bool cpu_stage_sum_safe = !capture_cpu_timing;
+    std::uint64_t cpu_source_local_ns = 0U;
+    std::uint64_t cpu_target_fold_ns = 0U;
+    std::uint64_t cpu_directed_ns = 0U;
+    std::uint64_t cpu_hvp_compression_ns = 0U;
+    std::uint64_t cpu_other_local_ns = 0U;
+    std::uint64_t cpu_stopped_setup_ns = 0U;
+    std::uint64_t cpu_control_ns = 0U;
+    bool cpu_category_safe = !capture_cpu_timing;
+    bool cpu_timing_exact = !capture_cpu_timing;
+    if (capture_cpu_timing) {
+        cpu_calls_exact = timing.cpu_enabled
+            && timing.transaction_cpu_calls == 1U
+            && timing.topology_cpu_calls == 226U
+            && timing.evaluation_cpu_calls == 226U
+            && timing.hvp_cpu_calls == 459U
+            && timing.process_phase_intervals == 7275U
+            && timing.process_region_intervals == 4089U
+            && timing.thread_active_intervals == 32712U
+            && timing.process_clock_reads == 22728U
+            && timing.thread_clock_reads == 65424U;
+        for (std::size_t phase = 0U;
+             cpu_calls_exact && phase < JOINT_PARALLEL_PHASE_COUNT; ++phase) {
+            const std::size_t expected = phase < 18U ? 226U : 459U;
+            cpu_calls_exact = timing.phase_cpu_calls[phase] == expected
+                && timing.phase_cpu_ns[phase] > 0U;
+        }
+        cpu_component_sums_safe = sum_parallel_cpu_phases(
+                timing, 0U, 9U, cpu_topology_components)
+            && sum_parallel_cpu_phases(
+                timing, 9U, 18U, cpu_evaluation_components)
+            && sum_parallel_cpu_phases(
+                timing, 18U, JOINT_PARALLEL_PHASE_COUNT,
+                cpu_hvp_components);
+        cpu_stage_sum_safe = add_checked_u64(
+                timing.topology_cpu_ns, cpu_stage_sum)
+            && add_checked_u64(timing.evaluation_cpu_ns, cpu_stage_sum)
+            && add_checked_u64(timing.hvp_cpu_ns, cpu_stage_sum);
+        bool source_safe = true;
+        for (std::size_t phase = 9U;
+             source_safe && phase < 14U; ++phase) {
+            source_safe = add_checked_u64(
+                timing.phase_cpu_ns[phase], cpu_source_local_ns);
+        }
+        source_safe = source_safe && add_checked_u64(
+            timing.phase_cpu_ns[15U], cpu_source_local_ns);
+        for (std::size_t phase = 18U;
+             source_safe && phase < 21U; ++phase) {
+            source_safe = add_checked_u64(
+                timing.phase_cpu_ns[phase], cpu_source_local_ns);
+        }
+        cpu_target_fold_ns = timing.phase_cpu_ns[16U];
+        source_safe = source_safe && add_checked_u64(
+            timing.phase_cpu_ns[21U], cpu_target_fold_ns);
+        cpu_directed_ns = timing.phase_cpu_ns[15U];
+        source_safe = source_safe && add_checked_u64(
+            timing.phase_cpu_ns[20U], cpu_directed_ns);
+        cpu_hvp_compression_ns = timing.phase_cpu_ns[19U];
+        cpu_stopped_setup_ns = timing.phase_cpu_ns[9U];
+        std::uint64_t known_local = 0U;
+        source_safe = source_safe
+            && add_checked_u64(cpu_directed_ns, known_local)
+            && add_checked_u64(cpu_hvp_compression_ns, known_local)
+            && add_checked_u64(cpu_stopped_setup_ns, known_local)
+            && known_local <= cpu_source_local_ns;
+        cpu_other_local_ns = source_safe
+            ? cpu_source_local_ns - known_local : 0U;
+        std::uint64_t cpu_category_sum = 0U;
+        cpu_category_safe = source_safe
+            && add_checked_u64(timing.topology_cpu_ns, cpu_category_sum)
+            && add_checked_u64(cpu_target_fold_ns, cpu_category_sum)
+            && add_checked_u64(cpu_directed_ns, cpu_category_sum)
+            && add_checked_u64(cpu_hvp_compression_ns, cpu_category_sum)
+            && add_checked_u64(cpu_other_local_ns, cpu_category_sum)
+            && add_checked_u64(cpu_stopped_setup_ns, cpu_category_sum)
+            && cpu_category_sum <= timing.transaction_cpu_ns;
+        cpu_control_ns = cpu_category_safe
+            ? timing.transaction_cpu_ns - cpu_category_sum : 0U;
+        cpu_category_safe = cpu_category_safe && cpu_control_ns > 0U
+            && add_checked_u64(cpu_control_ns, cpu_category_sum)
+            && cpu_category_sum == timing.transaction_cpu_ns
+            && cpu_other_local_ns > 0U;
+        cpu_timing_exact = cpu_calls_exact && cpu_component_sums_safe
+            && cpu_topology_components <= timing.topology_cpu_ns
+            && cpu_evaluation_components <= timing.evaluation_cpu_ns
+            && cpu_hvp_components <= timing.hvp_cpu_ns
+            && cpu_stage_sum_safe
+            && cpu_stage_sum <= timing.transaction_cpu_ns
+            && timing.transaction_cpu_ns > 0U
+            && timing.process_clock_resolution_ns > 0U
+            && timing.process_clock_resolution_ns <= 1000U
+            && timing.thread_clock_resolution_ns > 0U
+            && timing.thread_clock_resolution_ns <= 1000U
+            && timing.executor_active_thread_cpu_ns
+                <= timing.executor_region_process_cpu_ns
+            && timing.cpu_failures == 0U && cpu_category_safe;
+    }
     const bool passed = sii_exact && sii_result_exact && reuse_exact
         && sirdi_result_exact && sirdir_result_exact
-        && timing_exact && category_safe && setup_timing_exact;
+        && timing_exact && category_safe && setup_timing_exact
+        && cpu_timing_exact;
     std::string failure;
     if (!sii_exact || !sii_result_exact) failure = "SII_SEMANTICS";
     else if (!reuse_exact || !sirdi_result_exact) {
@@ -43753,10 +44144,11 @@ SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
     else if (!timing_exact) failure = "PARALLEL_PHASE_TIMING";
     else if (!category_safe) failure = "CATEGORY_ACCOUNTING";
     else if (!setup_timing_exact) failure = "EVALUATION_SETUP_TIMING";
+    else if (!cpu_timing_exact) failure = "CPU_TIMING";
     std::ostringstream semantic_material;
     semantic_material << (passed ? "PASS|" : "FAIL|") << failure << '|'
         << identity_sha256 << '|' << correspondence_sha256 << '|'
-        << (capture_evaluation_setup_timing
+        << (capture_evaluation_setup_timing || capture_cpu_timing
             ? sirdir_result_sha256
             : use_directed_scratch_reuse
                 ? sirdi_result_sha256 : sii_result_sha256)
@@ -43777,7 +44169,18 @@ SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
             << timing.evaluation_setup_buffer_calls << ':'
             << setup_segment_sum_safe << ':' << setup_timing_exact;
     }
-    const char* report_schema = capture_evaluation_setup_timing
+    if (capture_cpu_timing) {
+        semantic_material << '|' << timing.process_phase_intervals << ':'
+            << timing.process_region_intervals << ':'
+            << timing.thread_active_intervals << ':'
+            << timing.process_clock_reads << ':'
+            << timing.thread_clock_reads << ':' << cpu_calls_exact << ':'
+            << cpu_category_safe << ':' << timing.cpu_failures;
+    }
+    const char* report_schema = capture_cpu_timing
+        ? "nextengine.nonlocal."
+          "nsr3b4ep10sirdireq1_cpu_time_residual.v1"
+        : capture_evaluation_setup_timing
         ? "nextengine.nonlocal."
           "nsr3b4ep10sirdire_evaluation_setup_timing.v1"
         : use_directed_scratch_reuse
@@ -43820,7 +44223,7 @@ SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
                << ",\"exact\":" << (reuse_exact ? "true" : "false")
                << '}';
     }
-    if (capture_evaluation_setup_timing) {
+    if (capture_evaluation_setup_timing || capture_cpu_timing) {
         report << ",\"b4ep10sirdir_result_sha256\":\""
                << sirdir_result_sha256 << '"'
                << ",\"b4ep10sirdir_result_exact\":"
@@ -43878,6 +44281,98 @@ SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
                << ",\"exact\":"
                << (setup_timing_exact ? "true" : "false") << '}';
     }
+    if (capture_cpu_timing) {
+        const auto cpu_share = [&](std::uint64_t value) {
+            return timing.transaction_cpu_ns > 0U
+                ? static_cast<double>(value)
+                    / static_cast<double>(timing.transaction_cpu_ns)
+                : 0.0;
+        };
+        report << ",\"cpu_timing\":{\"process_clock\":"
+                  "\"CLOCK_PROCESS_CPUTIME_ID\""
+               << ",\"thread_clock\":\"CLOCK_THREAD_CPUTIME_ID\""
+               << ",\"process_resolution_ns\":"
+               << timing.process_clock_resolution_ns
+               << ",\"thread_resolution_ns\":"
+               << timing.thread_clock_resolution_ns
+               << ",\"transaction_cpu_ns\":"
+               << timing.transaction_cpu_ns
+               << ",\"topology_cpu_ns\":"
+               << timing.topology_cpu_ns
+               << ",\"evaluation_cpu_ns\":"
+               << timing.evaluation_cpu_ns
+               << ",\"hvp_cpu_ns\":" << timing.hvp_cpu_ns
+               << ",\"stage_residual_cpu_ns\":"
+               << (cpu_stage_sum_safe
+                       ? timing.transaction_cpu_ns - cpu_stage_sum : 0U)
+               << ",\"subphases\":[";
+        for (std::size_t phase = 0U;
+             phase < JOINT_PARALLEL_PHASE_COUNT; ++phase) {
+            if (phase != 0U) report << ',';
+            report << "{\"name\":\"" << B4EP10R1_PHASE_NAMES[phase]
+                   << "\",\"cpu_ns\":" << timing.phase_cpu_ns[phase]
+                   << ",\"calls\":" << timing.phase_cpu_calls[phase]
+                   << '}';
+        }
+        report << "]"
+               << ",\"categories\":{\"topology_cpu_ns\":"
+               << timing.topology_cpu_ns
+               << ",\"target_fold_cpu_ns\":" << cpu_target_fold_ns
+               << ",\"directed_cpu_ns\":" << cpu_directed_ns
+               << ",\"hvp_compression_cpu_ns\":"
+               << cpu_hvp_compression_ns
+               << ",\"other_local_cpu_ns\":" << cpu_other_local_ns
+               << ",\"stopped_evaluation_setup_cpu_ns\":"
+               << cpu_stopped_setup_ns
+               << ",\"control_cpu_ns\":" << cpu_control_ns
+               << ",\"topology_share\":"
+               << cpu_share(timing.topology_cpu_ns)
+               << ",\"target_fold_share\":"
+               << cpu_share(cpu_target_fold_ns)
+               << ",\"directed_share\":" << cpu_share(cpu_directed_ns)
+               << ",\"hvp_compression_share\":"
+               << cpu_share(cpu_hvp_compression_ns)
+               << ",\"other_local_share\":"
+               << cpu_share(cpu_other_local_ns)
+               << ",\"stopped_evaluation_setup_share\":"
+               << cpu_share(cpu_stopped_setup_ns)
+               << ",\"control_share\":" << cpu_share(cpu_control_ns)
+               << ",\"sum_exact\":"
+               << (cpu_category_safe ? "true" : "false") << '}'
+               << ",\"executor\":{\"region_process_cpu_ns\":"
+               << timing.executor_region_process_cpu_ns
+               << ",\"active_thread_cpu_ns\":"
+               << timing.executor_active_thread_cpu_ns
+               << ",\"active_le_region\":"
+               << (timing.executor_active_thread_cpu_ns
+                       <= timing.executor_region_process_cpu_ns
+                       ? "true" : "false") << '}'
+               << ",\"counts\":{\"transaction\":"
+               << timing.transaction_cpu_calls
+               << ",\"topology\":" << timing.topology_cpu_calls
+               << ",\"evaluation\":" << timing.evaluation_cpu_calls
+               << ",\"hvp\":" << timing.hvp_cpu_calls
+               << ",\"phase_intervals\":"
+               << timing.process_phase_intervals
+               << ",\"region_intervals\":"
+               << timing.process_region_intervals
+               << ",\"worker_active_intervals\":"
+               << timing.thread_active_intervals
+               << ",\"process_clock_reads\":"
+               << timing.process_clock_reads
+               << ",\"thread_clock_reads\":"
+               << timing.thread_clock_reads << '}'
+               << ",\"clock_failures\":" << timing.cpu_failures
+               << ",\"calls_exact\":"
+               << (cpu_calls_exact ? "true" : "false")
+               << ",\"component_sums_safe\":"
+               << (cpu_component_sums_safe ? "true" : "false")
+               << ",\"stage_sum_safe\":"
+               << (cpu_stage_sum_safe ? "true" : "false")
+               << ",\"exact\":"
+               << (cpu_timing_exact ? "true" : "false")
+               << ",\"durations_excluded_from_result\":true}";
+    }
     report
            << ",\"top_level_shares\":{\"topology\":"
            << share(timing.topology_total_ns)
@@ -43920,17 +44415,26 @@ SplitBoundaryReport run_nominal_hydro_candidate_phase_timing_controls(
 
 SplitBoundaryReport
 run_nominal_hydro_split_incoming_phase_timing_controls() {
-    return run_nominal_hydro_candidate_phase_timing_controls(false, false);
+    return run_nominal_hydro_candidate_phase_timing_controls(
+        false, false, false);
 }
 
 SplitBoundaryReport
 run_nominal_hydro_directed_scratch_phase_timing_controls() {
-    return run_nominal_hydro_candidate_phase_timing_controls(true, false);
+    return run_nominal_hydro_candidate_phase_timing_controls(
+        true, false, false);
 }
 
 SplitBoundaryReport
 run_nominal_hydro_directed_scratch_setup_timing_controls() {
-    return run_nominal_hydro_candidate_phase_timing_controls(true, true);
+    return run_nominal_hydro_candidate_phase_timing_controls(
+        true, true, false);
+}
+
+SplitBoundaryReport
+run_nominal_hydro_directed_scratch_cpu_timing_controls() {
+    return run_nominal_hydro_candidate_phase_timing_controls(
+        true, false, true);
 }
 
 namespace {
