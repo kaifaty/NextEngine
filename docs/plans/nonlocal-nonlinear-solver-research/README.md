@@ -1179,3 +1179,9 @@ selects a fixed masked target CSR over repeated parallel rebuild. Its
 first requires exact stable-subsequence rows for all 226 plans, bounded full
 scan expansion and a 64 MiB capacity gate. The returned solver path and
 OpenMP implementation remain unchanged during this audit.
+B4EP10PD passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10pd-masked-superset-plan-evidence-2026-08-22.md).
+One fixed 705,284-slot plan reproduces every active target row. Its projected
+full-scan ratio is `1.288507x` and conservative combined payload is 38.0 MB.
+This authorizes only B4EP10PI opt-in implementation/A-B contract research;
+no speed improvement has been measured.

@@ -1,6 +1,6 @@
 # NSR3-B4EP10PD -- masked superset owner-plan audit contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / B4EP10PI_CONTRACT_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -76,3 +76,11 @@ controlled A/B. Scan/capacity failure rejects masked reuse and routes to
 partition-local stable counting-sort research. Exactness failure preserves
 the current active-plan implementation and closes this candidate. B4E2,
 broad corpus, runtime/GPU/schema and production remain blocked.
+
+## Closure
+
+B4EP10PD passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10pd-masked-superset-plan-evidence-2026-08-22.md).
+All 226 filtered row sequences are exact. Projected scan expansion is
+`1.288507x` and conservative added payload is 38,044,404 bytes. This
+authorizes only B4EP10PI opt-in implementation/A-B contract research.
