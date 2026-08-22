@@ -46891,4 +46891,325 @@ SplitBoundaryReport run_nominal_dam_first_output_preflight_controls() {
     return {passed, report.str()};
 }
 
+namespace {
+
+constexpr const char* B4E2D2_IDENTITY_SHA256 =
+    "6ad559bfb28a79468f2810ff30615f1f1493cc13dad66f64ba4ecb0015a63e22";
+constexpr const char* B4E2D2_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d2-reference-binary64-topology|v1|parent="
+    "c3fb3522dba71768a7933c293523ebbbbaf08a0b5ee408a57b27a2300a2e22d8:"
+    "2c340f6a9cb570d57a70c3cceed9ab81d8e6a9fb11d278ec3d8d7ad2aefda9ce:"
+    "5a9d2f67550b73169c7405c1c46fb6ee5eeebeb539915d296620e1c407922c07|"
+    "selected=micrometre-division:"
+    "0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7;"
+    "addition="
+    "b7063e2b024c90acce762533ca612382321a677eee46443942e0eea1a7e28dc4|"
+    "alignment="
+    "c53a112830cb94c4139da75c2044d28f61673cb1aa05c116098967aee41f7bbe:"
+    "79a8932136a64c1cfa953caafe323cb9e860cb134c1d4dc0907be7f40891587a:"
+    "8d0a0a85adba50d4784245d460c83757bcce92841d804f4739b81faf27fd5f09:"
+    "a2d97ab6f26383d826366eba2a3d4392f5ef9610dda87e89509e93bd9daf61e8|"
+    "topology=decoded:"
+    "fb2b8f8b4c0227cf5d8a7a43ce518ed72b2e5d5cda31fb8e8c17a5727c24ba13:"
+    "342502:611520:120;addition:"
+    "c330a0aecb913d92e95478dc3325f9bc326d5e8d3057485723dd62eef1493889:"
+    "335814:596256:117|"
+    "audit=pair-delta-only-near-horizon<=64epsh;active-centers0;"
+    "pressure-energy-gradient-zero;density-finite;capacity-pairs<=960000;"
+    "degree<=160|controls=decoded-position-bit;pair-root-change|"
+    "runs=2-processes;byte-exact|trajectory=none|timing=none|"
+    "credit=b4e2d3-pilot-repair-contract-research-only";
+
+bool b4e2d2_pair_less(const JointPair& lhs, const JointPair& rhs) {
+    return lhs.fluid < rhs.fluid
+        || (lhs.fluid == rhs.fluid && lhs.participant < rhs.participant);
+}
+
+double b4e2d2_pair_radius(
+    const JointNeighborhood& neighborhood, const JointPair& pair) {
+    const Vec3 center = neighborhood.fluid[pair.fluid].position;
+    const Vec3 participant = pair.participant < neighborhood.fluid.size()
+        ? neighborhood.fluid[pair.participant].position
+        : neighborhood.support[
+            pair.participant - neighborhood.fluid.size()].position;
+    return norm(center - participant);
+}
+
+void b4e2d2_append_le_u32(std::string& output, std::uint32_t value) {
+    for (unsigned int shift = 0U; shift < 32U; shift += 8U) {
+        output.push_back(static_cast<char>(value >> shift));
+    }
+}
+
+void b4e2d2_append_le_u64(std::string& output, std::uint64_t value) {
+    for (unsigned int shift = 0U; shift < 64U; shift += 8U) {
+        output.push_back(static_cast<char>(value >> shift));
+    }
+}
+
+std::string b4e2d2_frame_zero_root(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity) {
+    constexpr char scenario[] = "CW-DAMBREAK-001";
+    if (position.size() != velocity.size()
+        || position.size() > std::numeric_limits<std::uint32_t>::max()) {
+        return {};
+    }
+    std::string bytes;
+    b4e2d2_append_le_u32(bytes, sizeof(scenario) - 1U);
+    bytes.append(scenario, sizeof(scenario) - 1U);
+    b4e2d2_append_le_u32(bytes, 0U);
+    b4e2d2_append_le_u32(
+        bytes, static_cast<std::uint32_t>(position.size()));
+    for (std::size_t sample = 0U; sample < position.size(); ++sample) {
+        b4e2d2_append_le_u32(bytes, static_cast<std::uint32_t>(sample));
+        for (const double value : {position[sample].x, position[sample].y,
+                 position[sample].z, velocity[sample].x, velocity[sample].y,
+                 velocity[sample].z}) {
+            std::uint64_t bits = 0U;
+            std::memcpy(&bits, &value, sizeof(bits));
+            b4e2d2_append_le_u64(bytes, bits);
+        }
+    }
+    std::string projection =
+        "nextengine.nonlocal.nsr3b4e2d1-frame-zero-bits.v1";
+    projection.push_back('\0');
+    projection.append(bytes);
+    return sha256_hex(projection);
+}
+
+bool b4e2d2_inactive_evaluation_exact(const Evaluation& evaluation) {
+    return b4e0_evaluation_finite(evaluation)
+        && evaluation.active_centers == 0U && evaluation.energy == 0.0
+        && std::all_of(evaluation.gradient.begin(), evaluation.gradient.end(),
+            [](const Vec3 value) {
+                return value.x == 0.0 && value.y == 0.0 && value.z == 0.0;
+            });
+}
+
+} // namespace
+
+SplitBoundaryReport
+run_nominal_dam_reference_binary64_topology_controls() {
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[1];
+    const SmokeFixture fixture = make_b4e2d_dam_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(fixture.position, fixture.velocity, 0));
+    const std::vector<Vec3> decoded_position =
+        decode_canonical_position(initial.frame);
+    const std::vector<Vec3> decoded_velocity =
+        decode_canonical_velocity(initial.frame);
+    const std::string decoded_frame_zero_root = b4e2d2_frame_zero_root(
+        decoded_position, decoded_velocity);
+    const std::string addition_frame_zero_root = b4e2d2_frame_zero_root(
+        fixture.position, fixture.velocity);
+
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace addition_adjacency;
+    FlatAdjacencyWorkTrace decoded_adjacency;
+    const JointStaticSupportIndex index = build_joint_static_support_index(
+        tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding = bind_joint_static_support_index(
+        &index, index.identity_sha256);
+    const JointNeighborhood addition = binding.passed
+        ? build_joint_neighborhood_with_static_support(
+            tagged_points(fixture.position), &binding, true, &static_work,
+            true, &addition_adjacency)
+        : JointNeighborhood{};
+    const JointNeighborhood decoded = binding.passed
+        ? build_joint_neighborhood_with_static_support(
+            tagged_points(decoded_position), &binding, true, &static_work,
+            true, &decoded_adjacency)
+        : JointNeighborhood{};
+    const Evaluation addition_evaluation = addition.passed
+        ? evaluate_joint(addition) : Evaluation{};
+    const Evaluation decoded_evaluation = decoded.passed
+        ? evaluate_joint(decoded) : Evaluation{};
+    const std::string addition_pair_root = addition.passed
+        ? joint_pair_hash(addition) : std::string{};
+    const std::string decoded_pair_root = decoded.passed
+        ? joint_pair_hash(decoded) : std::string{};
+
+    std::vector<JointPair> addition_only;
+    std::vector<JointPair> decoded_only;
+    if (addition.passed && decoded.passed) {
+        std::set_difference(addition.pairs.begin(), addition.pairs.end(),
+            decoded.pairs.begin(), decoded.pairs.end(),
+            std::back_inserter(addition_only), b4e2d2_pair_less);
+        std::set_difference(decoded.pairs.begin(), decoded.pairs.end(),
+            addition.pairs.begin(), addition.pairs.end(),
+            std::back_inserter(decoded_only), b4e2d2_pair_less);
+    }
+    double maximum_horizon_epsilon = 0.0;
+    const double horizon_epsilon =
+        std::numeric_limits<double>::epsilon() * HORIZON;
+    for (const JointPair& pair : addition_only) {
+        maximum_horizon_epsilon = std::max(maximum_horizon_epsilon,
+            std::abs(b4e2d2_pair_radius(addition, pair) - HORIZON)
+                / horizon_epsilon);
+    }
+    for (const JointPair& pair : decoded_only) {
+        maximum_horizon_epsilon = std::max(maximum_horizon_epsilon,
+            std::abs(b4e2d2_pair_radius(decoded, pair) - HORIZON)
+                / horizon_epsilon);
+    }
+    const std::size_t common_pairs = addition.pairs.size()
+        - addition_only.size();
+    const bool pair_delta_accounting = common_pairs + addition_only.size()
+            == addition.pairs.size()
+        && common_pairs + decoded_only.size() == decoded.pairs.size();
+
+    std::vector<Vec3> mutated_position = decoded_position;
+    std::uint64_t mutated_bits = 0U;
+    std::memcpy(&mutated_bits, &mutated_position.front().x,
+        sizeof(mutated_bits));
+    mutated_bits ^= 1U;
+    std::memcpy(&mutated_position.front().x, &mutated_bits,
+        sizeof(mutated_bits));
+    StaticSupportWorkTrace mutation_work;
+    FlatAdjacencyWorkTrace mutation_adjacency;
+    const JointNeighborhood mutated = binding.passed
+        ? build_joint_neighborhood_with_static_support(
+            tagged_points(mutated_position), &binding, true, &mutation_work,
+            true, &mutation_adjacency)
+        : JointNeighborhood{};
+    const std::string mutated_pair_root = mutated.passed
+        ? joint_pair_hash(mutated) : std::string{};
+    const bool mutation_rejected = mutated.passed
+        && (mutated_pair_root != decoded_pair_root
+            || mutated.pairs.size() != decoded.pairs.size()
+            || mutated.flat_directed_pair_indices.size()
+                != decoded.flat_directed_pair_indices.size());
+
+    const bool identity_exact = sha256_hex(B4E2D2_IDENTITY_PROJECTION)
+            == B4E2D2_IDENTITY_SHA256
+        && scenario_root == spec.scenario_root
+        && decoded_frame_zero_root
+            == "0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7"
+        && addition_frame_zero_root
+            == "b7063e2b024c90acce762533ca612382321a677eee46443942e0eea1a7e28dc4"
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "a2d97ab6f26383d826366eba2a3d4392f5ef9610dda87e89509e93bd9daf61e8";
+    const bool addition_exact = addition.passed
+        && addition_pair_root
+            == "c330a0aecb913d92e95478dc3325f9bc326d5e8d3057485723dd62eef1493889"
+        && addition.pairs.size() == 335814U
+        && addition.flat_directed_pair_indices.size() == 596256U
+        && addition.maximum_degree == 117U;
+    const bool decoded_exact = decoded.passed
+        && decoded_pair_root
+            == "fb2b8f8b4c0227cf5d8a7a43ce518ed72b2e5d5cda31fb8e8c17a5727c24ba13"
+        && decoded.pairs.size() == 342502U
+        && decoded.flat_directed_pair_indices.size() == 611520U
+        && decoded.maximum_degree == 120U
+        && decoded.pairs.size() <= 960000U
+        && decoded.maximum_degree <= B4C0_MAX_NEIGHBORS;
+    const bool horizon_exact = pair_delta_accounting
+        && (!addition_only.empty() || !decoded_only.empty())
+        && std::isfinite(maximum_horizon_epsilon)
+        && maximum_horizon_epsilon <= 64.0;
+    const bool evaluation_exact =
+        b4e2d2_inactive_evaluation_exact(addition_evaluation)
+        && b4e2d2_inactive_evaluation_exact(decoded_evaluation);
+    const bool passed = identity_exact && addition_exact && decoded_exact
+        && horizon_exact && evaluation_exact && mutation_rejected
+        && static_work.static_index_builds == 1U
+        && static_work.workspace_builds == 2U;
+    std::string first_failure;
+    if (!identity_exact) {
+        first_failure = "IDENTITY_ALIGNMENT";
+    } else if (!addition_exact) {
+        first_failure = "ADDITION_TOPOLOGY";
+    } else if (!decoded_exact) {
+        first_failure = "DECODED_TOPOLOGY";
+    } else if (!horizon_exact) {
+        first_failure = "PAIR_DELTA_HORIZON";
+    } else if (!evaluation_exact) {
+        first_failure = "INACTIVE_EVALUATION";
+    } else if (!mutation_rejected) {
+        first_failure = "POSITION_BIT_CONTROL";
+    } else if (static_work.static_index_builds != 1U
+        || static_work.workspace_builds != 2U) {
+        first_failure = "WORK_ACCOUNTING";
+    }
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D2_IDENTITY_SHA256 << '|' << decoded_frame_zero_root
+             << '|' << addition_frame_zero_root << '|' << decoded_pair_root
+             << '|' << addition_pair_root << '|' << common_pairs << ':'
+             << addition_only.size() << ':' << decoded_only.size() << ':'
+             << maximum_horizon_epsilon << '|'
+             << addition_evaluation.active_centers << ':'
+             << decoded_evaluation.active_centers << ':'
+             << addition_evaluation.energy << ':'
+             << decoded_evaluation.energy << '|' << mutation_rejected;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d2_reference_binary64_topology.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D2_IDENTITY_SHA256 << '"'
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"frame_zero\":{\"selected_root\":\""
+           << decoded_frame_zero_root << "\",\"addition_root\":\""
+           << addition_frame_zero_root << "\",\"selected_exact\":"
+           << (identity_exact ? "true" : "false") << '}'
+           << ",\"addition\":{\"pair_root\":\"" << addition_pair_root
+           << "\",\"pairs\":" << addition.pairs.size()
+           << ",\"directed\":"
+           << addition.flat_directed_pair_indices.size()
+           << ",\"maximum_degree\":" << addition.maximum_degree
+           << ",\"active_centers\":"
+           << addition_evaluation.active_centers
+           << ",\"pressure_energy_j\":" << addition_evaluation.energy
+           << ",\"exact\":" << (addition_exact ? "true" : "false")
+           << '}'
+           << ",\"decoded\":{\"pair_root\":\"" << decoded_pair_root
+           << "\",\"pairs\":" << decoded.pairs.size()
+           << ",\"directed\":"
+           << decoded.flat_directed_pair_indices.size()
+           << ",\"maximum_degree\":" << decoded.maximum_degree
+           << ",\"active_centers\":"
+           << decoded_evaluation.active_centers
+           << ",\"pressure_energy_j\":" << decoded_evaluation.energy
+           << ",\"exact\":" << (decoded_exact ? "true" : "false")
+           << '}'
+           << ",\"pair_delta\":{\"common\":" << common_pairs
+           << ",\"addition_only\":" << addition_only.size()
+           << ",\"decoded_only\":" << decoded_only.size()
+           << ",\"maximum_horizon_epsilon\":"
+           << maximum_horizon_epsilon
+           << ",\"accounting_exact\":"
+           << (pair_delta_accounting ? "true" : "false")
+           << ",\"exact\":" << (horizon_exact ? "true" : "false")
+           << '}'
+           << ",\"evaluation_inactive_exact\":"
+           << (evaluation_exact ? "true" : "false")
+           << ",\"position_bit_control\":{\"mutated_pair_root\":\""
+           << mutated_pair_root << "\",\"rejected\":"
+           << (mutation_rejected ? "true" : "false") << '}'
+           << ",\"work\":{\"static_index_builds\":"
+           << static_work.static_index_builds
+           << ",\"workspace_builds\":" << static_work.workspace_builds
+           << '}'
+           << ",\"trajectory_started\":false"
+           << ",\"timing_admitted\":false"
+           << ",\"speedup_claim\":false"
+           << ",\"b4e2d3_repair_contract_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"b4e2d_physics_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << sha256_hex(semantic.str())
+           << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr

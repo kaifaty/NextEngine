@@ -125,7 +125,8 @@ int main(int argc, char** argv) {
                          "audit|"
                          "--nominal-hydro-topology-incoming-fusion-audit|"
                          "--nominal-dam-first-output|"
-                         "--nominal-dam-first-output-preflight\n";
+                         "--nominal-dam-first-output-preflight|"
+                         "--nominal-dam-reference-binary64-topology\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -993,6 +994,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nominal-dam-reference-binary64-topology") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_nominal_dam_reference_binary64_topology_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (command == "--nominal-hydro-directed-scratch-phase-timing-8") {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
@@ -1161,7 +1169,8 @@ int main(int argc, char** argv) {
                      "audit|"
                      "--nominal-hydro-topology-incoming-fusion-audit|"
                      "--nominal-dam-first-output|"
-                     "--nominal-dam-first-output-preflight\n";
+                     "--nominal-dam-first-output-preflight|"
+                     "--nominal-dam-reference-binary64-topology\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';
