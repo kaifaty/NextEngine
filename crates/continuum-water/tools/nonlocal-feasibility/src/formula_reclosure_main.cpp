@@ -127,6 +127,7 @@ int main(int argc, char** argv) {
                          "--nominal-dam-first-output|"
                          "--nominal-dam-reference-first-output|"
                          "--nominal-dam-step2-strain-refinement|"
+                         "--nonlocal-pressure-state-formulation|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1003,6 +1004,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nonlocal-pressure-state-formulation") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_pressure_state_formulation_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (command == "--nominal-dam-first-output-preflight") {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
@@ -1187,6 +1195,7 @@ int main(int argc, char** argv) {
                      "--nominal-dam-first-output|"
                      "--nominal-dam-reference-first-output|"
                      "--nominal-dam-step2-strain-refinement|"
+                     "--nonlocal-pressure-state-formulation|"
                      "--nominal-dam-first-output-preflight|"
                      "--nominal-dam-reference-binary64-topology\n";
         return 2;

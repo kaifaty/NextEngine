@@ -46141,6 +46141,31 @@ constexpr const char* B4E2D4_IDENTITY_PROJECTION =
     "gate160-320|runs=2-release-builds;2-processes;byte-exact;"
     "watchdog=900s;timing=none|failure=no-tune;diagnostic-only|"
     "reference=closed|credit=redesign-route-research-only";
+constexpr const char* B4E2D5_IDENTITY_SHA256 =
+    "5e3fc734c04294bd2705ce9ad96c371bb6423523521479f71dd6fba44049b9f8";
+constexpr const char* B4E2D5_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d5-pressure-state-formulation|v1|parent="
+    "30f958a25899ba511313eb5d7d8621470a03dcb69b960af9febdb95893a97b75:"
+    "c2c9ee08717b3c790aef35810122cb8a1bf866f5b13922fcc384d822f5d0fa5f:"
+    "6dd02ec3b2fde108990e83218f09cca6e5d14fee51b3e716837f8e43e43a16b4|"
+    "profile=kappa=1226.25;rho0=1000;mass=0.125;keff=9810000;"
+    "strain320=0.0011739237712489192;strain-limit=0.001|"
+    "penalty=phi=0.5*kappa*max(c,0)^2;p=keff*c;"
+    "pressure320=11516.192195951897;head=1.1739237712489192;"
+    "minimum-kappa=1439.524024493987;"
+    "stiffness-factor=1.0834776284025984;"
+    "head-scaling=1,10,100:1,sqrt10,10|"
+    "phr=([max(0,lambda+beta*c)]^2-lambda^2)/(2*beta);"
+    "dphi/dc=max(0,lambda+beta*c);"
+    "lambda-next=max(0,lambda+beta*c);constraint=c<=0;lambda>=0;"
+    "complementarity=lambda*c=0|controls=penalty-special-case;"
+    "active-inactive-derivative;force-equivalence-at-zero-strain;"
+    "pressure-map;zero-lambda-negative;scaling|"
+    "selection=augmented-lagrangian-pressure-state;"
+    "fallback=semismooth-primal-dual-if-outer-stalls|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|"
+    "trajectory=none;physics-mutation=none|"
+    "credit=tiny-al-oracle-contract-research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -47253,6 +47278,212 @@ SplitBoundaryReport run_nominal_dam_step2_strain_refinement_controls() {
            << ",\"redesign_route_research_authorized\":"
            << (passed ? "true" : "false")
            << ",\"full_corpus_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_pressure_state_formulation_controls() {
+    constexpr double strain320 = 0.0011739237712489192;
+    constexpr double strain_limit = 1.0e-3;
+    constexpr double gravity = 9.81;
+    constexpr double derivative_step = 1.0e-7;
+    constexpr double active_compression = 2.0e-3;
+    constexpr double inactive_compression = -2.0e-3;
+    const auto penalty = [](double compression, double beta) {
+        const double active = std::max(0.0, compression);
+        return 0.5 * beta * active * active;
+    };
+    const auto phr = [](double compression, double multiplier, double beta) {
+        const double active = std::max(
+            0.0, multiplier + beta * compression);
+        return (active * active - multiplier * multiplier) / (2.0 * beta);
+    };
+    const auto phr_gradient = [](
+            double compression, double multiplier, double beta) {
+        return std::max(0.0, multiplier + beta * compression);
+    };
+
+    const double effective_bulk_modulus = KAPPA * REST_DENSITY / MASS;
+    const double pressure320 = effective_bulk_modulus * strain320;
+    const double effective_head = pressure320 / (REST_DENSITY * gravity);
+    const double penalty_ratio = strain320 / strain_limit;
+    const double minimum_kappa = KAPPA * penalty_ratio;
+    const double stiffness_factor = std::sqrt(penalty_ratio);
+    const std::array<double, 3> heads{1.0, 10.0, 100.0};
+    std::array<double, 3> head_kappa{};
+    std::array<double, 3> head_stiffness{};
+    for (std::size_t index = 0U; index < heads.size(); ++index) {
+        head_kappa[index] = MASS * gravity * heads[index] / strain_limit;
+        head_stiffness[index] = std::sqrt(head_kappa[index] / KAPPA);
+    }
+
+    const double active_penalty = penalty(active_compression, KAPPA);
+    const double active_phr_zero = phr(active_compression, 0.0, KAPPA);
+    const double inactive_penalty = penalty(inactive_compression, KAPPA);
+    const double inactive_phr_zero = phr(inactive_compression, 0.0, KAPPA);
+    const double special_case_error = relative_error(
+        active_penalty, active_phr_zero);
+
+    const double active_gradient = phr_gradient(
+        active_compression, 0.0, KAPPA);
+    const double active_gradient_fd = (
+        phr(active_compression + derivative_step, 0.0, KAPPA)
+        - phr(active_compression - derivative_step, 0.0, KAPPA))
+        / (2.0 * derivative_step);
+    const double active_derivative_error = relative_error(
+        active_gradient, active_gradient_fd);
+    const double active_curvature_fd = (
+        phr_gradient(active_compression + derivative_step, 0.0, KAPPA)
+        - phr_gradient(active_compression - derivative_step, 0.0, KAPPA))
+        / (2.0 * derivative_step);
+    const double active_curvature_error = relative_error(
+        KAPPA, active_curvature_fd);
+    const double inactive_gradient = phr_gradient(
+        inactive_compression, 0.0, KAPPA);
+    const double inactive_gradient_fd = (
+        phr(inactive_compression + derivative_step, 0.0, KAPPA)
+        - phr(inactive_compression - derivative_step, 0.0, KAPPA))
+        / (2.0 * derivative_step);
+    const double inactive_curvature_fd = (
+        phr_gradient(inactive_compression + derivative_step, 0.0, KAPPA)
+        - phr_gradient(inactive_compression - derivative_step, 0.0, KAPPA))
+        / (2.0 * derivative_step);
+
+    const double multiplier_star = KAPPA * strain320;
+    const double zero_strain_gradient = phr_gradient(
+        0.0, multiplier_star, KAPPA);
+    const double multiplier_pressure =
+        zero_strain_gradient * REST_DENSITY / MASS;
+    const double multiplier_next = phr_gradient(
+        0.0, multiplier_star, KAPPA);
+    const double complementarity = multiplier_star * 0.0;
+    const double zero_multiplier_pressure =
+        phr_gradient(0.0, 0.0, KAPPA) * REST_DENSITY / MASS;
+
+    const bool identity_exact = sha256_hex(B4E2D5_IDENTITY_PROJECTION)
+        == B4E2D5_IDENTITY_SHA256;
+    const bool profile_exact = effective_bulk_modulus == 9810000.0
+        && relative_error(pressure320, 11516.192195951897) <= 1.0e-15
+        && relative_error(effective_head, 1.1739237712489192) <= 1.0e-15
+        && relative_error(minimum_kappa, 1439.524024493987) <= 1.0e-15
+        && relative_error(stiffness_factor, 1.0834776284025984) <= 1.0e-15;
+    const bool scaling_exact = head_kappa[0] == KAPPA
+        && head_kappa[1] == 12262.5 && head_kappa[2] == 122625.0
+        && head_stiffness[0] == 1.0
+        && relative_error(head_stiffness[1], std::sqrt(10.0)) <= 1.0e-15
+        && head_stiffness[2] == 10.0;
+    const bool special_case_exact = special_case_error <= 1.0e-15
+        && inactive_penalty == 0.0 && inactive_phr_zero == 0.0;
+    const bool derivative_exact = active_derivative_error <= 1.0e-7
+        && active_curvature_error <= 1.0e-7
+        && inactive_gradient == 0.0 && inactive_gradient_fd == 0.0
+        && inactive_curvature_fd == 0.0;
+    const bool pressure_state_exact = multiplier_star > 0.0
+        && zero_strain_gradient == multiplier_star
+        && multiplier_next == multiplier_star
+        && relative_error(multiplier_pressure, pressure320) <= 1.0e-15
+        && complementarity == 0.0;
+    const bool zero_multiplier_negative = zero_multiplier_pressure == 0.0
+        && pressure320 > 0.0 && zero_multiplier_pressure != pressure320;
+    const std::array<double, 20> finite_controls{
+        effective_bulk_modulus, pressure320, effective_head,
+        penalty_ratio, minimum_kappa, stiffness_factor,
+        head_kappa[0], head_kappa[1], head_kappa[2],
+        head_stiffness[0], head_stiffness[1], head_stiffness[2],
+        active_penalty, active_phr_zero, active_gradient,
+        active_gradient_fd, active_curvature_fd, multiplier_star,
+        multiplier_pressure, zero_multiplier_pressure};
+    const bool finite_values = std::all_of(
+        finite_controls.begin(), finite_controls.end(),
+        [](double value) { return std::isfinite(value); });
+    const bool passed = identity_exact && profile_exact && scaling_exact
+        && special_case_exact && derivative_exact && pressure_state_exact
+        && zero_multiplier_negative && finite_values;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!profile_exact) first_failure = "PROFILE";
+    else if (!scaling_exact) first_failure = "SCALING";
+    else if (!special_case_exact) first_failure = "PENALTY_SPECIAL_CASE";
+    else if (!derivative_exact) first_failure = "PHR_DERIVATIVE";
+    else if (!pressure_state_exact) first_failure = "PRESSURE_STATE";
+    else if (!zero_multiplier_negative) first_failure = "ZERO_STATE_NEGATIVE";
+    else if (!finite_values) first_failure = "NONFINITE";
+    const std::string selection = passed
+        ? "AUGMENTED_LAGRANGIAN_PRESSURE_STATE" : std::string{};
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D5_IDENTITY_SHA256 << '|'
+             << effective_bulk_modulus << ':' << pressure320 << ':'
+             << effective_head << ':' << penalty_ratio << ':'
+             << minimum_kappa << ':' << stiffness_factor << '|'
+             << head_kappa[0] << ':' << head_kappa[1] << ':'
+             << head_kappa[2] << ':' << head_stiffness[0] << ':'
+             << head_stiffness[1] << ':' << head_stiffness[2] << '|'
+             << active_penalty << ':' << active_phr_zero << ':'
+             << inactive_penalty << ':' << inactive_phr_zero << ':'
+             << active_derivative_error << ':' << active_curvature_error
+             << ':' << inactive_gradient << ':' << inactive_gradient_fd
+             << ':' << inactive_curvature_fd << '|'
+             << multiplier_star << ':' << zero_strain_gradient << ':'
+             << multiplier_pressure << ':' << multiplier_next << ':'
+             << complementarity << ':' << zero_multiplier_pressure << '|'
+             << selection;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d5_pressure_state_formulation.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D5_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"profile\":{\"kappa_j\":" << KAPPA
+           << ",\"rho0_kg_m3\":" << REST_DENSITY
+           << ",\"mass_kg\":" << MASS
+           << ",\"effective_bulk_modulus_pa\":"
+           << effective_bulk_modulus
+           << ",\"strain_320\":" << strain320
+           << ",\"strain_limit\":" << strain_limit
+           << ",\"inferred_pressure_pa\":" << pressure320
+           << ",\"effective_head_m\":" << effective_head
+           << ",\"minimum_kappa_j\":" << minimum_kappa
+           << ",\"penalty_ratio\":" << penalty_ratio
+           << ",\"stiffness_factor\":" << stiffness_factor << '}'
+           << ",\"head_scaling\":[";
+    for (std::size_t index = 0U; index < heads.size(); ++index) {
+        if (index != 0U) report << ',';
+        report << "{\"head_m\":" << heads[index]
+               << ",\"kappa_j\":" << head_kappa[index]
+               << ",\"stiffness_factor\":" << head_stiffness[index]
+               << '}';
+    }
+    report << "],\"phr_controls\":{\"penalty_special_case_error\":"
+           << special_case_error
+           << ",\"active_derivative_error\":" << active_derivative_error
+           << ",\"active_curvature_error\":" << active_curvature_error
+           << ",\"inactive_gradient\":" << inactive_gradient
+           << ",\"inactive_gradient_fd\":" << inactive_gradient_fd
+           << ",\"inactive_curvature_fd\":" << inactive_curvature_fd
+           << ",\"exact\":" << (derivative_exact ? "true" : "false")
+           << "},\"pressure_state\":{\"lambda_star_j\":"
+           << multiplier_star
+           << ",\"zero_strain_gradient_j\":" << zero_strain_gradient
+           << ",\"mapped_pressure_pa\":" << multiplier_pressure
+           << ",\"lambda_next_j\":" << multiplier_next
+           << ",\"complementarity\":" << complementarity
+           << ",\"zero_lambda_pressure_pa\":" << zero_multiplier_pressure
+           << ",\"exact\":" << (pressure_state_exact ? "true" : "false")
+           << "},\"selection\":\"" << selection << '"'
+           << ",\"fallback\":\"SEMISMOOTH_PRIMAL_DUAL_IF_OUTER_STALLS\""
+           << ",\"trajectory_steps\":0,\"physics_mutated\":false"
+           << ",\"timing_admitted\":false,\"speedup_claim\":false"
+           << ",\"tiny_al_oracle_contract_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
