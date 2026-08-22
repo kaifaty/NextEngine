@@ -130,6 +130,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-pressure-state-formulation|"
                          "--nonlocal-al-path-oracle|"
                          "--nonlocal-al-dense-vector-oracle|"
+                         "--nonlocal-al-dense-vector-stable-commit|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1026,6 +1027,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nonlocal-al-dense-vector-stable-commit") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_dense_vector_stable_commit_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (command == "--nominal-dam-first-output-preflight") {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
@@ -1213,6 +1221,7 @@ int main(int argc, char** argv) {
                      "--nonlocal-pressure-state-formulation|"
                      "--nonlocal-al-path-oracle|"
                      "--nonlocal-al-dense-vector-oracle|"
+                     "--nonlocal-al-dense-vector-stable-commit|"
                      "--nominal-dam-first-output-preflight|"
                      "--nominal-dam-reference-binary64-topology\n";
         return 2;

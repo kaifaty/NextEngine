@@ -133,6 +133,7 @@ SplitBoundaryReport run_nominal_dam_step2_strain_refinement_controls();
 SplitBoundaryReport run_pressure_state_formulation_controls();
 SplitBoundaryReport run_al_path_oracle_controls();
 SplitBoundaryReport run_al_dense_vector_oracle_controls();
+SplitBoundaryReport run_al_dense_vector_stable_commit_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
