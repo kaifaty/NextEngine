@@ -1676,3 +1676,9 @@ holdout. The continuation uses four acceptances, zero rejects and eight HVPs;
 its single candidate-effect acceptance resolves positive in binary128. Freeze
 D7R13 as a full rollback-only private transaction from the original state,
 using one consistent `eta=1e-10` divided inner for every outer update.
+The [D7R13 research](../../development/nonlocal-nsr3b4e2d7r13-full-private-transaction-research-2026-08-22.md)
+removes D7R12's mixed-accuracy prefix and starts from the original state. Its
+[frozen contract](03b4e2d7r13-full-private-transaction-contract.md) uses
+`eta=1e-10` and divided reduction for every inner, requires an exact active
+repeat and inactive transaction, retains confirmation/holdout and forces
+rollback. Implement/run only this full private transaction next.

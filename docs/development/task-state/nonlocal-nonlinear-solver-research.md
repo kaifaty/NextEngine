@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R12_PASS_PRIVATE_PRESSURE_STATE_CONFIRMED / B4E2D7R13_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R12_PASS_PRIVATE_PRESSURE_STATE_CONFIRMED / B4E2D7R13_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -64,6 +64,9 @@
   binary128-resolved positive.
 - **Current decision:** freeze D7R13 as a full rollback-only private solve from
   the original state with `eta=1e-10` and divided reduction in every inner.
+- **Current decision:** D7R13 is frozen. It removes the mixed D7R5 prefix,
+  requires exact active repeat plus inactive confirmation and retains every
+  D7R12 audit, pressure gate, holdout and rollback control.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1780,9 +1783,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R12 and its parent bytes. Research/freeze D7R13 as a full
-   original-state private transaction with consistent `eta=1e-10`, complete
-   candidate-effect audit, confirmation/holdout and forced rollback.
+6. Implement/run frozen D7R13 full private transaction; preserve D7R12 bytes,
+   complete active/inactive controls and do not run a nominal frame.
 
 ## Reconsideration triggers
 
