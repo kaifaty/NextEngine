@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D6_PASS_AL_PATH / B4E2D7_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D6_PASS_AL_PATH / B4E2D7_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -519,6 +519,11 @@
 - **Next action:** research/freeze B4E2D7 as a dense-vector AL oracle with
   analytic gradient/HVP and trust-region inner solve. Keep nominal Dam and
   runtime pressure persistence blocked.
+- **Current decision:** B4E2D7 freezes 24 primal coordinates, eight pressure
+  multipliers, analytic full-curvature AL HVP, dense derivative correspondence
+  and trust/outer residual gates over the immutable B2 fixture.
+- **Next action:** implement/run B4E2D7 standalone from the penalty solver;
+  do not tune `beta` or start nominal trajectories.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
