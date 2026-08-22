@@ -168,6 +168,8 @@ SplitBoundaryReport
 run_al_normalized_nominal_substep_shadow_controls();
 SplitBoundaryReport
 run_al_topology_precision_shell_replay_controls();
+SplitBoundaryReport
+run_al_binary64_topology_nominal_substep_shadow_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

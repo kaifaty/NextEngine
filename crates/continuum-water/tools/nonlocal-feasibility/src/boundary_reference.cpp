@@ -64840,7 +64840,9 @@ LongDoubleTrialEnergyAudit audit_al_normalized_sparse_long_double(
     const std::vector<double>& u,
     double theta,
     const JointStaticSupportBinding& binding,
-    ALSparsePrecisionWorkTrace* work) {
+    ALSparsePrecisionWorkTrace* work,
+    ALPrecisionMembershipPolicy membership_policy =
+        ALPrecisionMembershipPolicy::LiveExtended) {
     if (!al_normalized_inputs_valid(theta, u)) return {};
     if (work != nullptr) ++work->long_double_audits;
     const ALBinary128PairUnion candidate_union =
@@ -64853,16 +64855,16 @@ LongDoubleTrialEnergyAudit audit_al_normalized_sparse_long_double(
     return finalize_al_long_double_trial_energy_audit(
         evaluate_al_normalized_sparse_long_double(
             current_position, predicted, u, theta, binding,
-            candidate_union, false, work),
+            candidate_union, false, work, membership_policy),
         evaluate_al_normalized_sparse_long_double(
             current_position, predicted, u, theta, binding,
-            candidate_union, true, work),
+            candidate_union, true, work, membership_policy),
         evaluate_al_normalized_sparse_long_double(
             trial_position, predicted, u, theta, binding,
-            candidate_union, false, work),
+            candidate_union, false, work, membership_policy),
         evaluate_al_normalized_sparse_long_double(
             trial_position, predicted, u, theta, binding,
-            candidate_union, true, work));
+            candidate_union, true, work, membership_policy));
 }
 
 Binary128EnergyEvaluation evaluate_al_normalized_sparse_binary128(
@@ -65052,7 +65054,9 @@ Binary128TrialEnergyAudit audit_al_normalized_sparse_binary128(
     double theta,
     const JointStaticSupportBinding& binding,
     double candidate_reduction,
-    ALSparsePrecisionWorkTrace* work) {
+    ALSparsePrecisionWorkTrace* work,
+    ALPrecisionMembershipPolicy membership_policy =
+        ALPrecisionMembershipPolicy::LiveExtended) {
     if (!al_normalized_inputs_valid(theta, u)) return {};
     if (work != nullptr) ++work->binary128_audits;
     const ALBinary128PairUnion candidate_union =
@@ -65065,16 +65069,16 @@ Binary128TrialEnergyAudit audit_al_normalized_sparse_binary128(
     return finalize_al_binary128_trial_energy_audit(
         evaluate_al_normalized_sparse_binary128(
             current_position, predicted, u, theta, binding,
-            candidate_union, false, work),
+            candidate_union, false, work, membership_policy),
         evaluate_al_normalized_sparse_binary128(
             current_position, predicted, u, theta, binding,
-            candidate_union, true, work),
+            candidate_union, true, work, membership_policy),
         evaluate_al_normalized_sparse_binary128(
             trial_position, predicted, u, theta, binding,
-            candidate_union, false, work),
+            candidate_union, false, work, membership_policy),
         evaluate_al_normalized_sparse_binary128(
             trial_position, predicted, u, theta, binding,
-            candidate_union, true, work),
+            candidate_union, true, work, membership_policy),
         candidate_reduction);
 }
 
@@ -65603,7 +65607,9 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
     bool use_precancelled_divided = false,
     ALNormalizedKrylovForcingPolicy forcing_policy =
         ALNormalizedKrylovForcingPolicy::Inherited,
-    ALNormalizedKrylovForcingTrace* forcing_trace = nullptr) {
+    ALNormalizedKrylovForcingTrace* forcing_trace = nullptr,
+    ALPrecisionMembershipPolicy precision_membership_policy =
+        ALPrecisionMembershipPolicy::LiveExtended) {
     constexpr double stationarity_limit = 1.0e-10;
     ALNormalizedPrivateInnerSolve result;
     result.position = initial;
@@ -65780,7 +65786,8 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
             const LongDoubleTrialEnergyAudit long_audit =
                 audit_al_normalized_sparse_long_double(
                     result.position, trial_position, predicted, u, theta,
-                    binding, precision_work);
+                    binding, precision_work,
+                    precision_membership_policy);
             record.long_double_audited = true;
             record.long_double_finite = long_audit.finite_values;
             record.long_double_topology_mismatch =
@@ -65809,7 +65816,9 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
             result.precision_hard_failure =
                 result.precision_hard_failure
                 || !long_audit.finite_values
-                || long_audit.topology_precision_mismatch;
+                || (long_audit.topology_precision_mismatch
+                    && precision_membership_policy
+                        != ALPrecisionMembershipPolicy::Binary64Owned);
             result.sign_contradiction = result.sign_contradiction
                 || long_audit.resolved_negative;
             if (record.candidate_effect) {
@@ -65825,7 +65834,7 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
                     audit_al_normalized_sparse_binary128(
                         result.position, trial_position, predicted, u,
                         theta, binding, record.divided_reduction,
-                        precision_work);
+                        precision_work, precision_membership_policy);
                 record.binary128_audited = true;
                 record.binary128_resolved_positive =
                     binary_audit.resolved_positive;
@@ -65845,7 +65854,9 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
                 result.precision_hard_failure =
                     result.precision_hard_failure
                     || !binary_audit.finite_values
-                    || !binary_audit.membership_exact;
+                    || (!binary_audit.membership_exact
+                        && precision_membership_policy
+                            != ALPrecisionMembershipPolicy::Binary64Owned);
                 result.sign_contradiction = result.sign_contradiction
                     || binary_audit.resolved_negative;
                 result.oracle_bound_required =
@@ -65922,7 +65933,9 @@ ALNormalizedOuterUpdate al_normalized_private_outer_update(
     bool use_precancelled_divided = false,
     ALNormalizedKrylovForcingPolicy forcing_policy =
         ALNormalizedKrylovForcingPolicy::Inherited,
-    ALNormalizedKrylovForcingTrace* forcing_trace = nullptr) {
+    ALNormalizedKrylovForcingTrace* forcing_trace = nullptr,
+    ALPrecisionMembershipPolicy precision_membership_policy =
+        ALPrecisionMembershipPolicy::LiveExtended) {
     constexpr double dual_limit = 8.154943934760449e-12;
     constexpr double complementarity_limit = 8.154943934760449e-13;
     ALNormalizedOuterUpdate result;
@@ -65931,7 +65944,8 @@ ALNormalizedOuterUpdate al_normalized_private_outer_update(
         solve_al_normalized_private_inner(
             predicted, position, u, theta, binding, work,
             precision_work, static_work, adjacency_work, budget,
-            use_precancelled_divided, forcing_policy, forcing_trace);
+            use_precancelled_divided, forcing_policy, forcing_trace,
+            precision_membership_policy);
     result.inner_root = al_normalized_private_inner_root(inner);
     result.trials = inner.trials;
     result.state.inner_trials = static_cast<int>(inner.trials.size()) + 1;
@@ -66066,7 +66080,9 @@ ALNormalizedPrivateTransaction solve_al_full_normalized_private_transaction(
     bool use_precancelled_divided = false,
     ALNormalizedKrylovForcingPolicy forcing_policy =
         ALNormalizedKrylovForcingPolicy::Inherited,
-    ALNormalizedKrylovForcingTrace* forcing_trace = nullptr) {
+    ALNormalizedKrylovForcingTrace* forcing_trace = nullptr,
+    ALPrecisionMembershipPolicy precision_membership_policy =
+        ALPrecisionMembershipPolicy::LiveExtended) {
     constexpr int maximum_outer = 64;
     ALNormalizedPrivateTransaction result;
     result.position = position;
@@ -66101,7 +66117,7 @@ ALNormalizedPrivateTransaction solve_al_full_normalized_private_transaction(
                 predicted, position, u, theta, outer, binding, work,
                 precision_work, static_work, adjacency_work, budget,
                 use_precancelled_divided, forcing_policy,
-                forcing_trace);
+                forcing_trace, precision_membership_policy);
         al_normalized_transaction_observe(result, update);
         if (!update.passed) {
             if (!update.sign_contradiction
@@ -66148,7 +66164,8 @@ ALNormalizedPrivateTransaction solve_al_full_normalized_private_transaction(
             predicted, result.position, result.u, theta,
             result.confirmation_index + 1, binding, work,
             precision_work, static_work, adjacency_work, budget,
-            use_precancelled_divided, forcing_policy, forcing_trace);
+            use_precancelled_divided, forcing_policy, forcing_trace,
+            precision_membership_policy);
         al_normalized_transaction_observe(result, result.warm_holdout);
         if (!result.warm_holdout.passed) {
             if (!result.warm_holdout.sign_contradiction
@@ -69194,16 +69211,25 @@ struct ALTopologyPrecisionReplayCapture {
     double theta = 0.0;
     std::string frame_zero_root;
     std::string transaction_root;
+    std::string d7r19_report_json;
     std::vector<Vec3> initial_position;
     std::vector<Vec3> initial_velocity;
     std::vector<Vec3> predicted_position;
     ALNormalizedPrivateTransaction transaction;
+    ALSparseWorkTrace work;
+    ALSparsePrecisionWorkTrace precision_work;
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    ALSparseStructuralBudget budget;
+    ALNormalizedKrylovForcingTrace forcing_trace;
 };
 
 } // namespace
 
 SplitBoundaryReport run_al_normalized_nominal_substep_shadow_controls_impl(
-    ALTopologyPrecisionReplayCapture* replay_capture) {
+    ALTopologyPrecisionReplayCapture* replay_capture,
+    ALPrecisionMembershipPolicy precision_membership_policy =
+        ALPrecisionMembershipPolicy::LiveExtended) {
     constexpr std::uint64_t substep_dt_bits = 0x3f0c01c01c01c01cULL;
     constexpr std::uint64_t scaled_kappa_bits = 0x415c75a640000000ULL;
     constexpr std::uint64_t theta_bits = 0x3fc5cccccccccccdULL;
@@ -69360,7 +69386,8 @@ SplitBoundaryReport run_al_normalized_nominal_substep_shadow_controls_impl(
         predicted_position, predicted_position, zero_u, theta, binding,
         &candidate.work, &candidate.precision_work,
         &candidate.static_work, &candidate.adjacency_work,
-        &candidate.budget, true, policy, &candidate.forcing_trace);
+        &candidate.budget, true, policy, &candidate.forcing_trace,
+        precision_membership_policy);
     candidate.root = al_full_normalized_private_transaction_root(
         candidate.transaction, theta);
     const ALNormalizedPrivateTransaction& transaction =
@@ -69374,6 +69401,12 @@ SplitBoundaryReport run_al_normalized_nominal_substep_shadow_controls_impl(
         replay_capture->initial_velocity = initial_velocity;
         replay_capture->predicted_position = predicted_position;
         replay_capture->transaction = transaction;
+        replay_capture->work = candidate.work;
+        replay_capture->precision_work = candidate.precision_work;
+        replay_capture->static_work = candidate.static_work;
+        replay_capture->adjacency_work = candidate.adjacency_work;
+        replay_capture->budget = candidate.budget;
+        replay_capture->forcing_trace = candidate.forcing_trace;
     }
     const bool selected_state_available = transaction.confirmed
         && transaction.warm_holdout_attempted
@@ -69576,7 +69609,21 @@ SplitBoundaryReport run_al_normalized_nominal_substep_shadow_controls_impl(
             == static_cast<std::size_t>(
                 transaction.long_double_audits
                 + transaction.binary128_audits);
-    const bool finite_exact = transaction.all_finite
+    const bool binary64_policy_structural_finite =
+        precision_membership_policy
+            == ALPrecisionMembershipPolicy::Binary64Owned
+        && failed_trust_step_in_flight
+        && std::all_of(transaction.updates.begin(),
+            transaction.updates.end(),
+            [](const ALNormalizedOuterUpdate& update) {
+                return std::all_of(update.trials.begin(),
+                    update.trials.end(),
+                    [](const ALNormalizedPrivateTrial& trial) {
+                        return trial.finite_values;
+                    });
+            });
+    const bool finite_exact =
+        (transaction.all_finite || binary64_policy_structural_finite)
         && std::all_of(final_position.begin(), final_position.end(),
             [](Vec3 value) { return finite(value); })
         && std::all_of(final_u.begin(), final_u.end(),
@@ -70140,13 +70187,15 @@ std::string al_topology_replay_state_root(
 
 } // namespace
 
-SplitBoundaryReport run_al_topology_precision_shell_replay_controls() {
+SplitBoundaryReport run_al_topology_precision_shell_replay_controls_impl(
+    ALTopologyPrecisionReplayCapture* captured_parent_out) {
     const bool identity_exact = sha256_hex(
         B4E2D7R19R1_IDENTITY_PROJECTION)
         == B4E2D7R19R1_IDENTITY_SHA256;
     ALTopologyPrecisionReplayCapture capture;
     const SplitBoundaryReport parent =
         run_al_normalized_nominal_substep_shadow_controls_impl(&capture);
+    capture.d7r19_report_json = parent.json;
     const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
     const bool parent_semantic_exact = parent.json.find(
         "\"result_sha256\":\""
@@ -70589,6 +70638,525 @@ SplitBoundaryReport run_al_topology_precision_shell_replay_controls() {
            << ",\"second_substep_executed\":false,\"macro_frames\":0"
            << ",\"trajectory_steps\":0,\"public_commit_count\":0"
            << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"runtime_wide_precision_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    if (captured_parent_out != nullptr) {
+        *captured_parent_out = capture;
+    }
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_topology_precision_shell_replay_controls() {
+    return run_al_topology_precision_shell_replay_controls_impl(nullptr);
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19R2_IDENTITY_SHA256 =
+    "21e368543acb96810ab24737ad3adc600f34775fb77bc424205ab7bc5816696d";
+constexpr const char* B4E2D7R19R2_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r19r2-binary64-topology-policy-reclosure|"
+    "v1|parent=6a67edd59db287519b22da7ce37d62ad071eb19b:"
+    "f77eb3da05b6ddb2da815a228aef1709917a4761af1eea8d1c71a3a2f2cf0aa1:"
+    "c5cc2c128104e006e491afd40b2ebb474508aa80d97a21c0750f3bec4758cd7e|"
+    "legacy=d7r19-stdoutf5811bfc7d5e986d72b9130f8e6cb90c5ae21bd347ce7f0b476c171fe8cff7bb;"
+    "semanticbcc6f588010999f23664209037a0daae961606ca29fdcc0d7a31e661902e185b|"
+    "policy=owner-binary64;predicate=norm-binary64<=h;"
+    "mask=frozen-per-current-trial-state;"
+    "extended-radius=exact-promoted-binary64-inputs;mismatch=diagnostic;"
+    "epsilon=none;hysteresis=none;canonical-coordinate=none|"
+    "certificate=r19r1-shell64epsh;c2-horizon-closure;all-lanes-positive;"
+    "candidate-error<=0.05|selected-long-roots="
+    "11f649ace70101678751f87043d1791047e05c7b72eb406d4964b96fa89dcaa2,"
+    "e889a80972764d09ccd948cc792889234df9a1f77cf3fd0a36dc84d56adc60c2,"
+    "4e48d3b67c6262287a7dcd4796faf58a087318a152fc17bed19323770a91665e|"
+    "candidate=same-frame0;dt0x3f0c01c01c01c01c;"
+    "kappa0x415c75a640000000;theta0x3fc5cccccccccccd;"
+    "binary64-trajectory-exact|work=outer1;accepted5;rejected0;"
+    "completed-hvp85;total-hvp117;dimensionless-trust6;workspaces6;"
+    "long-audits5;all-pair0;terminal-hvp-per-step32|"
+    "controls=r19r1-parent-bytes;r19-parent-bytes;policy-provenance;"
+    "binary64-trace;precision-roots;static-binding;invalid-prework;"
+    "structural-work;finite;mass;rollback|routes="
+    "normalized-nominal-structural-watchdog-exhausted;"
+    "normalized-nominal-solver-not-confirmed;"
+    "normalized-nominal-boundary-penetration;"
+    "normalized-nominal-impulse-ledger-mismatch;"
+    "normalized-nominal-substep-shadow-confirmed|"
+    "precedence=watchdog,solver,boundary,ledger,confirmed|"
+    "runs=2-clean-release-builds;1-process-each;byte-exact|"
+    "nominal-substeps=1;second-substep=none;macro=none;trajectory=none;"
+    "timing=none;public-commit=none;physics-mutation=none;"
+    "runtime-wide-precision=none|"
+    "credit=one-private-binary64-topology-policy-reclosure-only";
+
+constexpr std::array<const char*, 3U>
+    B4E2D7R19R2_SELECTED_LONG_ROOTS{
+        "11f649ace70101678751f87043d1791047e05c7b72eb406d4964b96fa89dcaa2",
+        "e889a80972764d09ccd948cc792889234df9a1f77cf3fd0a36dc84d56adc60c2",
+        "4e48d3b67c6262287a7dcd4796faf58a087318a152fc17bed19323770a91665e"};
+
+std::string al_normalized_binary64_transaction_trace_root(
+    const ALNormalizedPrivateTransaction& value) {
+    std::ostringstream projection;
+    projection << value.accepted_trials << ':' << value.rejected_trials
+               << ':' << value.hvp_calls << ':'
+               << value.candidate_effect_acceptances << '|';
+    for (const ALNormalizedOuterUpdate& update : value.updates) {
+        projection << update.state.outer << ':' << update.trials.size()
+                   << '|';
+        for (const ALNormalizedPrivateTrial& trial : update.trials) {
+            projection << trial.trial << ':' << trial.finite_values << ':'
+                       << trial.divided_repeat_exact << ':'
+                       << trial.raw_would_accept << ':'
+                       << trial.inherited_would_accept << ':'
+                       << trial.candidate_accepted << ':'
+                       << trial.candidate_effect << ':'
+                       << trial.negative_curvature << ':'
+                       << trial.hvp_calls << ':' << trial.radius_owner << ':'
+                       << binary64_bits(trial.stationarity_before) << ':'
+                       << binary64_bits(trial.radius_before) << ':'
+                       << binary64_bits(trial.radius_after) << ':'
+                       << binary64_bits(trial.step_norm) << ':'
+                       << binary64_bits(trial.predicted_reduction) << ':'
+                       << binary64_bits(trial.raw_reduction) << ':'
+                       << binary64_bits(trial.divided_reduction) << ':'
+                       << binary64_bits(trial.divided_ratio) << ':'
+                       << binary64_bits(trial.phr_reduction) << ':'
+                       << binary64_bits(trial.inertia_reduction) << ':'
+                       << al_binary64_vec3_root(trial.current_position)
+                       << ':'
+                       << al_binary64_vec3_root(trial.trial_position) << ';';
+        }
+        projection << '#';
+    }
+    return sha256_hex(projection.str());
+}
+
+bool al_normalized_candidate_work_same(
+    const ALTopologyPrecisionReplayCapture& lhs,
+    const ALTopologyPrecisionReplayCapture& rhs) {
+    return lhs.work.workspace_builds == rhs.work.workspace_builds
+        && lhs.work.workspace_releases == rhs.work.workspace_releases
+        && lhs.work.live_workspaces == rhs.work.live_workspaces
+        && lhs.work.maximum_live_workspaces
+            == rhs.work.maximum_live_workspaces
+        && lhs.work.lifecycle_underflow == rhs.work.lifecycle_underflow
+        && lhs.work.pair_visits == rhs.work.pair_visits
+        && lhs.work.all_pair_candidate_calls
+            == rhs.work.all_pair_candidate_calls
+        && lhs.precision_work.superset_builds
+            == rhs.precision_work.superset_builds
+        && lhs.precision_work.union_candidate_pairs
+            == rhs.precision_work.union_candidate_pairs
+        && lhs.precision_work.long_double_audits
+            == rhs.precision_work.long_double_audits
+        && lhs.precision_work.long_double_union_candidate_pairs
+            == rhs.precision_work.long_double_union_candidate_pairs
+        && lhs.precision_work.long_double_evaluation_pair_visits
+            == rhs.precision_work.long_double_evaluation_pair_visits
+        && lhs.precision_work.binary128_audits
+            == rhs.precision_work.binary128_audits
+        && lhs.precision_work.binary128_union_candidate_pairs
+            == rhs.precision_work.binary128_union_candidate_pairs
+        && lhs.precision_work.binary128_evaluation_pair_visits
+            == rhs.precision_work.binary128_evaluation_pair_visits
+        && lhs.precision_work.all_pair_candidate_calls
+            == rhs.precision_work.all_pair_candidate_calls
+        && lhs.static_work.static_index_builds
+            == rhs.static_work.static_index_builds
+        && lhs.static_work.support_canonicalizations
+            == rhs.static_work.support_canonicalizations
+        && lhs.static_work.workspace_builds
+            == rhs.static_work.workspace_builds
+        && lhs.adjacency_work.workspace_builds
+            == rhs.adjacency_work.workspace_builds
+        && lhs.budget.outer_updates == rhs.budget.outer_updates
+        && lhs.budget.inner_trials_in_update
+            == rhs.budget.inner_trials_in_update
+        && lhs.budget.hvp_in_trust_step
+            == rhs.budget.hvp_in_trust_step
+        && lhs.budget.total_hvp == rhs.budget.total_hvp
+        && lhs.budget.workspace_builds == rhs.budget.workspace_builds
+        && lhs.budget.precision_audits == rhs.budget.precision_audits
+        && lhs.budget.exhausted == rhs.budget.exhausted
+        && lhs.budget.failure == rhs.budget.failure
+        && lhs.forcing_trace.inherited_trust_steps
+            == rhs.forcing_trace.inherited_trust_steps
+        && lhs.forcing_trace.dimensionless_trust_steps
+            == rhs.forcing_trace.dimensionless_trust_steps;
+}
+
+} // namespace
+
+SplitBoundaryReport
+run_al_binary64_topology_nominal_substep_shadow_controls() {
+    const bool identity_exact = sha256_hex(
+        B4E2D7R19R2_IDENTITY_PROJECTION)
+        == B4E2D7R19R2_IDENTITY_SHA256;
+    ALTopologyPrecisionReplayCapture parent_capture;
+    const SplitBoundaryReport r1_parent =
+        run_al_topology_precision_shell_replay_controls_impl(
+            &parent_capture);
+    const std::string r1_stdout_sha256 = sha256_hex(
+        r1_parent.json + "\n");
+    const bool r1_semantic_exact = r1_parent.json.find(
+        "\"result_sha256\":\""
+        "c5cc2c128104e006e491afd40b2ebb474508aa80d97a21c0750f3bec4758cd7e"
+        "\"") != std::string::npos;
+    const bool r1_exact = r1_parent.passed && r1_semantic_exact
+        && r1_stdout_sha256
+            == "f77eb3da05b6ddb2da815a228aef1709917a4761af1eea8d1c71a3a2f2cf0aa1";
+    const std::string d7r19_stdout_sha256 = sha256_hex(
+        parent_capture.d7r19_report_json + "\n");
+    const bool d7r19_semantic_exact =
+        parent_capture.d7r19_report_json.find(
+            "\"result_sha256\":\""
+            "bcc6f588010999f23664209037a0daae961606ca29fdcc0d7a31e661902e185b"
+            "\"") != std::string::npos;
+    const bool d7r19_exact = d7r19_semantic_exact
+        && parent_capture.d7r19_report_json.find(
+            "\"status\":\"FAIL\"") != std::string::npos
+        && d7r19_stdout_sha256
+            == "f5811bfc7d5e986d72b9130f8e6cb90c5ae21bd347ce7f0b476c171fe8cff7bb";
+
+    constexpr ALPrecisionMembershipPolicy selected_policy =
+        ALPrecisionMembershipPolicy::Binary64Owned;
+    const bool policy_exact = std::string(
+        al_precision_membership_policy_name(selected_policy))
+        == "binary64-owned-membership";
+    ALTopologyPrecisionReplayCapture candidate_capture;
+    const SplitBoundaryReport candidate_component =
+        run_al_normalized_nominal_substep_shadow_controls_impl(
+            &candidate_capture, selected_policy);
+    const std::string candidate_stdout_sha256 = sha256_hex(
+        candidate_component.json + "\n");
+    const bool component_structural_route = candidate_component.json.find(
+        "\"route\":\""
+        "NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED\"")
+        != std::string::npos;
+    const bool component_solver_route = candidate_component.json.find(
+        "\"route\":\"NORMALIZED_NOMINAL_SOLVER_NOT_CONFIRMED\"")
+        != std::string::npos;
+    const bool component_boundary_route = candidate_component.json.find(
+        "\"route\":\"NORMALIZED_NOMINAL_BOUNDARY_PENETRATION\"")
+        != std::string::npos;
+    const bool component_ledger_route = candidate_component.json.find(
+        "\"route\":\"NORMALIZED_NOMINAL_IMPULSE_LEDGER_MISMATCH\"")
+        != std::string::npos;
+    const bool component_confirmed_route = candidate_component.json.find(
+        "\"route\":\"NORMALIZED_NOMINAL_SUBSTEP_SHADOW_CONFIRMED\"")
+        != std::string::npos;
+    const int component_route_count =
+        (component_structural_route ? 1 : 0)
+        + (component_solver_route ? 1 : 0)
+        + (component_boundary_route ? 1 : 0)
+        + (component_ledger_route ? 1 : 0)
+        + (component_confirmed_route ? 1 : 0);
+
+    const std::string parent_trace_root =
+        al_normalized_binary64_transaction_trace_root(
+            parent_capture.transaction);
+    const std::string candidate_trace_root =
+        al_normalized_binary64_transaction_trace_root(
+            candidate_capture.transaction);
+    const bool binary64_trace_exact = !parent_trace_root.empty()
+        && parent_trace_root == candidate_trace_root
+        && exact_vec3_values(parent_capture.initial_position,
+            candidate_capture.initial_position)
+        && exact_vec3_values(parent_capture.initial_velocity,
+            candidate_capture.initial_velocity)
+        && exact_vec3_values(parent_capture.predicted_position,
+            candidate_capture.predicted_position)
+        && binary64_bits(parent_capture.theta)
+            == binary64_bits(candidate_capture.theta);
+
+    bool selected_roots_exact = true;
+    bool precision_exact = !candidate_capture.transaction.precision_hard_failure
+        && !candidate_capture.transaction.sign_contradiction
+        && !candidate_capture.transaction.oracle_bound_required
+        && candidate_capture.transaction.long_double_audits == 5
+        && candidate_capture.transaction.binary128_audits == 0
+        && candidate_capture.transaction.resolved_positive == 5
+        && candidate_capture.transaction.resolved_negative == 0
+        && candidate_capture.transaction.unresolved == 0;
+    std::size_t topology_mismatch_trials = 0U;
+    std::size_t membership_mismatch_observations = 0U;
+    std::array<std::string, 3U> observed_selected_roots;
+    std::array<bool, 3U> observed_selected{};
+    for (const ALNormalizedOuterUpdate& update :
+         candidate_capture.transaction.updates) {
+        for (const ALNormalizedPrivateTrial& trial : update.trials) {
+            precision_exact = precision_exact
+                && (!trial.long_double_audited
+                    || (trial.long_double_finite
+                        && trial.long_double_resolved_positive
+                        && !trial.long_double_resolved_negative
+                        && !trial.long_double_unresolved));
+            topology_mismatch_trials +=
+                trial.long_double_topology_mismatch ? 1U : 0U;
+            membership_mismatch_observations +=
+                trial.long_double_current_membership_mismatches
+                + trial.long_double_trial_membership_mismatches;
+            if (update.state.outer == 0
+                && trial.trial >= 0 && trial.trial < 3) {
+                const std::size_t index = static_cast<std::size_t>(
+                    trial.trial);
+                observed_selected[index] = true;
+                observed_selected_roots[index] = trial.long_double_root;
+            }
+        }
+    }
+    for (std::size_t index = 0U;
+         index < observed_selected_roots.size(); ++index) {
+        selected_roots_exact = selected_roots_exact
+            && observed_selected[index]
+            && observed_selected_roots[index]
+                == B4E2D7R19R2_SELECTED_LONG_ROOTS[index];
+    }
+    precision_exact = precision_exact && selected_roots_exact
+        && topology_mismatch_trials == 3U
+        && membership_mismatch_observations == 10989U;
+
+    const bool work_correspondence_exact =
+        al_normalized_candidate_work_same(
+            parent_capture, candidate_capture);
+    const bool work_exact = work_correspondence_exact
+        && candidate_capture.budget.maximum_outer_updates == 16U
+        && candidate_capture.budget.maximum_inner_trials_per_update == 16U
+        && candidate_capture.budget.maximum_hvp_per_trust_step == 32U
+        && candidate_capture.budget.maximum_total_hvp == 512U
+        && candidate_capture.budget.maximum_workspace_builds == 288U
+        && candidate_capture.budget.maximum_precision_audits == 64U
+        && candidate_capture.budget.outer_updates == 1U
+        && candidate_capture.transaction.accepted_trials == 5
+        && candidate_capture.transaction.rejected_trials == 0
+        && candidate_capture.transaction.hvp_calls == 85
+        && candidate_capture.budget.total_hvp == 117U
+        && candidate_capture.forcing_trace.dimensionless_trust_steps == 6U
+        && candidate_capture.forcing_trace.inherited_trust_steps == 0U
+        && candidate_capture.work.workspace_builds == 6U
+        && candidate_capture.work.workspace_releases == 6U
+        && candidate_capture.work.live_workspaces == 0U
+        && candidate_capture.work.maximum_live_workspaces <= 2U
+        && !candidate_capture.work.lifecycle_underflow
+        && candidate_capture.precision_work.long_double_audits == 5U
+        && candidate_capture.precision_work.binary128_audits == 0U
+        && candidate_capture.budget.precision_audits == 5U
+        && candidate_capture.budget.exhausted
+        && candidate_capture.budget.failure
+            == "STRUCTURAL_BUDGET_HVP_PER_STEP"
+        && candidate_capture.work.all_pair_candidate_calls == 0U
+        && candidate_capture.precision_work.all_pair_candidate_calls == 0U;
+    const bool binding_exact = candidate_capture.static_work.static_index_builds
+            == 1U
+        && candidate_capture.static_work.support_canonicalizations == 1U
+        && candidate_capture.static_work.workspace_builds
+            == candidate_capture.work.workspace_builds
+        && candidate_capture.adjacency_work.workspace_builds
+            == candidate_capture.work.workspace_builds;
+    const std::string parent_state_root =
+        al_topology_replay_state_root(parent_capture);
+    const std::string candidate_state_root_before =
+        al_topology_replay_state_root(candidate_capture);
+    const std::string candidate_state_root_after =
+        al_topology_replay_state_root(candidate_capture);
+    const bool rollback_exact = candidate_state_root_before
+            == candidate_state_root_after
+        && b4e2d2_frame_zero_root(candidate_capture.initial_position,
+            candidate_capture.initial_velocity)
+            == candidate_capture.frame_zero_root
+        && parent_capture.frame_zero_root
+            == candidate_capture.frame_zero_root;
+    const bool component_exact = candidate_component.passed
+        && component_route_count == 1;
+    const bool hard_controls = identity_exact && r1_exact && d7r19_exact
+        && policy_exact && component_exact && binary64_trace_exact
+        && selected_roots_exact && precision_exact && work_exact
+        && binding_exact && rollback_exact
+        && !parent_state_root.empty();
+
+    std::string route;
+    if (hard_controls) {
+        if (component_structural_route) {
+            route = "NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED";
+        } else if (component_solver_route) {
+            route = "NORMALIZED_NOMINAL_SOLVER_NOT_CONFIRMED";
+        } else if (component_boundary_route) {
+            route = "NORMALIZED_NOMINAL_BOUNDARY_PENETRATION";
+        } else if (component_ledger_route) {
+            route = "NORMALIZED_NOMINAL_IMPULSE_LEDGER_MISMATCH";
+        } else if (component_confirmed_route) {
+            route = "NORMALIZED_NOMINAL_SUBSTEP_SHADOW_CONFIRMED";
+        }
+    }
+    const bool route_precedence_exact = component_route_count == 1
+        && ((component_structural_route
+                && route
+                    == "NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED")
+            || (component_solver_route
+                && route == "NORMALIZED_NOMINAL_SOLVER_NOT_CONFIRMED")
+            || (component_boundary_route
+                && route == "NORMALIZED_NOMINAL_BOUNDARY_PENETRATION")
+            || (component_ledger_route
+                && route
+                    == "NORMALIZED_NOMINAL_IMPULSE_LEDGER_MISMATCH")
+            || (component_confirmed_route
+                && route
+                    == "NORMALIZED_NOMINAL_SUBSTEP_SHADOW_CONFIRMED"));
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!r1_exact) first_failure = "D7R19R1_PARENT_BYTES";
+    else if (!d7r19_exact) first_failure = "D7R19_PARENT_BYTES";
+    else if (!policy_exact) first_failure = "POLICY_PROVENANCE";
+    else if (!component_exact) first_failure = "CANDIDATE_COMPONENT";
+    else if (!binary64_trace_exact) first_failure = "BINARY64_TRACE";
+    else if (!selected_roots_exact) first_failure = "PRECISION_ROOTS";
+    else if (!precision_exact) first_failure = "PRECISION_POLICY";
+    else if (!work_exact) first_failure = "STRUCTURAL_WORK";
+    else if (!binding_exact) first_failure = "STATIC_BINDING";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (parent_state_root.empty()) first_failure = "PARENT_STATE";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19R2_IDENTITY_SHA256 << '|'
+             << r1_stdout_sha256 << ':' << d7r19_stdout_sha256 << '|'
+             << candidate_stdout_sha256 << '|'
+             << parent_trace_root << ':' << candidate_trace_root << '|'
+             << candidate_capture.transaction_root << ':'
+             << candidate_capture.transaction.failure << '|'
+             << topology_mismatch_trials << ':'
+             << membership_mismatch_observations << '|';
+    for (const std::string& root : observed_selected_roots) {
+        semantic << root << ':';
+    }
+    semantic << '|' << candidate_capture.budget.outer_updates << ':'
+             << candidate_capture.transaction.accepted_trials << ':'
+             << candidate_capture.transaction.rejected_trials << ':'
+             << candidate_capture.transaction.hvp_calls << ':'
+             << candidate_capture.budget.total_hvp << ':'
+             << candidate_capture.forcing_trace.dimensionless_trust_steps
+             << ':' << candidate_capture.work.workspace_builds << ':'
+             << candidate_capture.budget.precision_audits << ':'
+             << candidate_capture.budget.failure << '|'
+             << policy_exact << ':' << precision_exact << ':'
+             << work_correspondence_exact << ':' << rollback_exact << '|'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19r2_binary64_topology_policy_reclosure.v1\""
+           << ",\"identity_sha256\":\""
+           << B4E2D7R19R2_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parents\":{\"r19r1_stdout_sha256\":\""
+           << r1_stdout_sha256 << "\",\"r19r1_semantic_exact\":"
+           << (r1_semantic_exact ? "true" : "false")
+           << ",\"r19_stdout_sha256\":\""
+           << d7r19_stdout_sha256
+           << "\",\"r19_semantic_exact\":"
+           << (d7r19_semantic_exact ? "true" : "false")
+           << ",\"exact\":"
+           << ((r1_exact && d7r19_exact) ? "true" : "false") << '}'
+           << ",\"policy\":{\"owner\":\"binary64\""
+           << ",\"predicate\":\"norm-binary64<=h\""
+           << ",\"extended_radius\":\"exact-promoted-inputs\""
+           << ",\"mismatch_diagnostic_only\":true"
+           << ",\"epsilon_added\":false,\"hysteresis_added\":false"
+           << ",\"canonical_coordinate_added\":false"
+           << ",\"runtime_wide_state_added\":false"
+           << ",\"exact\":" << (policy_exact ? "true" : "false")
+           << '}'
+           << ",\"candidate\":{\"component_stdout_sha256\":\""
+           << candidate_stdout_sha256
+           << "\",\"component_passed\":"
+           << (candidate_component.passed ? "true" : "false")
+           << ",\"transaction_root\":\""
+           << candidate_capture.transaction_root
+           << "\",\"failure\":\""
+           << candidate_capture.transaction.failure
+           << "\",\"frame_zero_root\":\""
+           << candidate_capture.frame_zero_root
+           << "\",\"parent_trace_root\":\"" << parent_trace_root
+           << "\",\"candidate_trace_root\":\""
+           << candidate_trace_root
+           << "\",\"binary64_trace_exact\":"
+           << (binary64_trace_exact ? "true" : "false") << '}'
+           << ",\"precision\":{\"long_double_audits\":"
+           << candidate_capture.transaction.long_double_audits
+           << ",\"resolved_positive\":"
+           << candidate_capture.transaction.resolved_positive
+           << ",\"resolved_negative\":"
+           << candidate_capture.transaction.resolved_negative
+           << ",\"unresolved\":"
+           << candidate_capture.transaction.unresolved
+           << ",\"topology_mismatch_trials\":"
+           << topology_mismatch_trials
+           << ",\"membership_mismatch_observations\":"
+           << membership_mismatch_observations
+           << ",\"selected_roots\":[";
+    for (std::size_t index = 0U;
+         index < observed_selected_roots.size(); ++index) {
+        if (index != 0U) report << ',';
+        report << '"' << observed_selected_roots[index] << '"';
+    }
+    report << "],\"selected_roots_exact\":"
+           << (selected_roots_exact ? "true" : "false")
+           << ",\"exact\":" << (precision_exact ? "true" : "false")
+           << '}'
+           << ",\"work\":{\"outer_updates\":"
+           << candidate_capture.budget.outer_updates
+           << ",\"accepted_trials\":"
+           << candidate_capture.transaction.accepted_trials
+           << ",\"rejected_trials\":"
+           << candidate_capture.transaction.rejected_trials
+           << ",\"completed_hvp\":"
+           << candidate_capture.transaction.hvp_calls
+           << ",\"total_hvp\":"
+           << candidate_capture.budget.total_hvp
+           << ",\"dimensionless_trust_steps\":"
+           << candidate_capture.forcing_trace.dimensionless_trust_steps
+           << ",\"inherited_trust_steps\":"
+           << candidate_capture.forcing_trace.inherited_trust_steps
+           << ",\"workspace_builds\":"
+           << candidate_capture.work.workspace_builds
+           << ",\"workspace_releases\":"
+           << candidate_capture.work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << candidate_capture.work.maximum_live_workspaces
+           << ",\"precision_audits\":"
+           << candidate_capture.budget.precision_audits
+           << ",\"hvp_per_trust_step_cap\":"
+           << candidate_capture.budget.maximum_hvp_per_trust_step
+           << ",\"budget_failure\":\""
+           << candidate_capture.budget.failure
+           << "\",\"all_pair_candidate_calls\":"
+           << candidate_capture.work.all_pair_candidate_calls
+                + candidate_capture.precision_work.all_pair_candidate_calls
+           << ",\"parent_correspondence_exact\":"
+           << (work_correspondence_exact ? "true" : "false")
+           << ",\"exact\":" << (work_exact ? "true" : "false")
+           << '}'
+           << ",\"static_binding_exact\":"
+           << (binding_exact ? "true" : "false")
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"candidate_nominal_substeps\":1"
+           << ",\"control_parent_substeps\":1"
+           << ",\"second_substep_executed\":false"
+           << ",\"macro_frames\":0,\"trajectory_steps\":0"
+           << ",\"public_commit_count\":0,\"physics_mutation\":false"
+           << ",\"timing_admitted\":false,\"speedup_claim\":false"
            << ",\"runtime_wide_precision_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
