@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREA -- evaluation buffer liveness audit contract
 
-Status: `FROZEN / IMPLEMENTATION_PENDING`
+Status: `CLOSED / PASS / EVALUATION_BUFFER_REUSE_CONTRACT_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 

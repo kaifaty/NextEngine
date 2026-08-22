@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREA_FROZEN / IMPLEMENTATION_PENDING` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREA_PASS / BUFFER_REUSE_CONTRACT_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -354,6 +354,15 @@
 - **Current decision:** B4EP10SIRDIREA freezes per-index coverage, exactly two
   returned-workspace lanes, one builder-local ephemeral lane, explicit receipt
   release and checked high-water projection. Implement/run only this audit.
+- **Current conclusion:** B4EP10SIRDIREA passes byte-identically. All seven
+  roles are fully overwritten; 226 workspace receipts peak at two live, the
+  ephemeral lane peaks at one, and both finish at zero live receipts.
+- **Performance projection:** two workspace lanes plus one ephemeral lane grow
+  22,067,592 bytes versus 2,828,746,176 repeated initialization bytes
+  (`0.007801x`). This is work projection, not speed credit.
+- **Current decision:** research/freeze one opt-in two-lane workspace plus one-
+  lane density-contribution reuse implementation/A-B contract. SIRDI remains
+  rollback until exact external A/B passes.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -449,6 +458,7 @@
 | NSR3B4EP10SIRDIR PASS | source-local `44.72%`; setup/direct work no longer has a clear leader | evaluation-setup timing discriminator research only |
 | NSR3B4EP10SIRDIRE PASS | buffer setup `89.50%`, stable `8.532x` lead | one buffer liveness/high-water audit research only |
 | NSR3B4EP10SIRDIREA contract | seven-role write coverage plus two workspace/one ephemeral lane receipts | implement/run twice only; no reuse or timing |
+| NSR3B4EP10SIRDIREA PASS | full coverage; two workspace/one ephemeral lane; projected `0.007801x` initialization bytes | buffer reuse implementation/A-B contract research only |
 
 Candidate solver identity remains:
 
@@ -1045,6 +1055,19 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** the audit proves exact write/read coverage and a bounded
   workspace release protocol for accepted, rejected and failure exits.
 
+### D-048 -- Admit two-workspace buffer reuse to contract research
+
+- **Observation:** all seven roles are fully overwritten; 226 workspace
+  receipts peak at two live and one ephemeral receipt peaks at one. Projected
+  high-water growth is 22.07 MB versus 2.829 GB repeated initialization.
+- **Decision:** research and freeze one opt-in two-lane returned-workspace pool
+  plus one transaction-local density-contribution scratch implementation/A-B
+  contract, preserving SIRDI as rollback.
+- **Rejected:** one shared returned buffer, directed-slot sizing, timing the
+  shadow audit, or changing workspace ownership and arithmetic together.
+- **Reconsider when:** the implementation preserves every receipt/root/work
+  identity and wins its predeclared balanced external A/B gates.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1097,11 +1120,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement only the frozen B4EP10SIRDIREA shadow coverage, receipt-lifetime
-   and high-water projection counters.
-2. Run both corrupt shadows and two byte-identical positive processes.
-3. Route only through the frozen coverage/lane/capacity gates; no reuse
-   candidate is yet authorized.
+1. Specify ownership transfer between two transaction-local workspace buffer
+   bundles, returned workspaces and the existing release function.
+2. Specify one independent density-contribution scratch guard and exact failure
+   cleanup without changing arithmetic or result ownership.
+3. Freeze correspondence, capacity and balanced external A/B gates before
+   implementing the opt-in reuse path.
 
 ## Reconsideration triggers
 
