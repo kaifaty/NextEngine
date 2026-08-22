@@ -64552,6 +64552,97 @@ constexpr const char* B4E2D7R18R2_IDENTITY_PROJECTION =
     "physics-mutation=none;production-scale=none|"
     "credit=one-tiny-full-normalized-private-transaction-only";
 
+enum class ALPrecisionMembershipPolicy {
+    LiveExtended,
+    Binary64Owned,
+    HorizonCanonicalizedMismatch,
+};
+
+struct ALTopologyShellLongDoubleStats {
+    std::size_t mismatches = 0U;
+    long double maximum_horizon_distance = 0.0L;
+    long double maximum_weight = 0.0L;
+    long double maximum_gradient = 0.0L;
+    long double maximum_second = 0.0L;
+    bool within_shell = true;
+    std::string projection;
+};
+
+struct ALTopologyShellBinary128Stats {
+    std::size_t mismatches = 0U;
+    Binary128 maximum_horizon_distance = static_cast<Binary128>(0.0);
+    Binary128 maximum_weight = static_cast<Binary128>(0.0);
+    Binary128 maximum_gradient = static_cast<Binary128>(0.0);
+    Binary128 maximum_second = static_cast<Binary128>(0.0);
+    bool within_shell = true;
+    std::string projection;
+};
+
+long double al_long_double_weight_gradient(long double radius) {
+    const long double horizon = static_cast<long double>(HORIZON);
+    const long double q = 2.0L * radius / horizon;
+    const long double alpha = 3.0L
+        / (2.0L * static_cast<long double>(PI)
+            * horizon * horizon * horizon);
+    if (q > 2.0L) return 0.0L;
+    const long double derivative_q = q >= 1.0L
+        ? -0.5L * alpha * (2.0L - q) * (2.0L - q)
+        : alpha * (-2.0L * q + 1.5L * q * q);
+    return static_cast<long double>(kernel_scale())
+        * derivative_q * (2.0L / horizon);
+}
+
+long double al_long_double_weight_second(long double radius) {
+    const long double horizon = static_cast<long double>(HORIZON);
+    const long double q = 2.0L * radius / horizon;
+    const long double alpha = 3.0L
+        / (2.0L * static_cast<long double>(PI)
+            * horizon * horizon * horizon);
+    if (q > 2.0L) return 0.0L;
+    const long double second_q = q >= 1.0L
+        ? alpha * (2.0L - q)
+        : alpha * (-2.0L + 3.0L * q);
+    const long double scale = 2.0L / horizon;
+    return static_cast<long double>(kernel_scale())
+        * second_q * scale * scale;
+}
+
+Binary128 al_binary128_weight_gradient(Binary128 radius) {
+    const Binary128 zero = static_cast<Binary128>(0.0);
+    const Binary128 one = static_cast<Binary128>(1.0);
+    const Binary128 two = static_cast<Binary128>(2.0);
+    const Binary128 horizon = static_cast<Binary128>(HORIZON);
+    const Binary128 q = two * radius / horizon;
+    const Binary128 alpha = static_cast<Binary128>(3.0)
+        / (two * static_cast<Binary128>(PI)
+            * horizon * horizon * horizon);
+    if (q > two) return zero;
+    const Binary128 derivative_q = q >= one
+        ? -static_cast<Binary128>(0.5) * alpha
+            * (two - q) * (two - q)
+        : alpha * (-two * q + static_cast<Binary128>(1.5) * q * q);
+    return static_cast<Binary128>(kernel_scale())
+        * derivative_q * (two / horizon);
+}
+
+Binary128 al_binary128_weight_second(Binary128 radius) {
+    const Binary128 zero = static_cast<Binary128>(0.0);
+    const Binary128 one = static_cast<Binary128>(1.0);
+    const Binary128 two = static_cast<Binary128>(2.0);
+    const Binary128 horizon = static_cast<Binary128>(HORIZON);
+    const Binary128 q = two * radius / horizon;
+    const Binary128 alpha = static_cast<Binary128>(3.0)
+        / (two * static_cast<Binary128>(PI)
+            * horizon * horizon * horizon);
+    if (q > two) return zero;
+    const Binary128 second_q = q >= one
+        ? alpha * (two - q)
+        : alpha * (-two + static_cast<Binary128>(3.0) * q);
+    const Binary128 scale = two / horizon;
+    return static_cast<Binary128>(kernel_scale())
+        * second_q * scale * scale;
+}
+
 LongDoubleEnergyEvaluation evaluate_al_normalized_sparse_long_double(
     const std::vector<Vec3>& position,
     const std::vector<Vec3>& predicted,
@@ -64560,7 +64651,10 @@ LongDoubleEnergyEvaluation evaluate_al_normalized_sparse_long_double(
     const JointStaticSupportBinding& binding,
     const ALBinary128PairUnion& candidate_union,
     bool compensated,
-    ALSparsePrecisionWorkTrace* work = nullptr) {
+    ALSparsePrecisionWorkTrace* work = nullptr,
+    ALPrecisionMembershipPolicy membership_policy =
+        ALPrecisionMembershipPolicy::LiveExtended,
+    ALTopologyShellLongDoubleStats* shell_stats = nullptr) {
     LongDoubleEnergyEvaluation result;
     if (!candidate_union.passed || !binding.passed
         || binding.index == nullptr
@@ -64636,11 +64730,58 @@ LongDoubleEnergyEvaluation evaluate_al_normalized_sparse_long_double(
             std::abs(extended_radius - horizon));
         const bool binary_member = binary_radius <= HORIZON;
         const bool extended_member = extended_radius <= horizon;
+        const bool mismatch = binary_member != extended_member;
         result.membership_mismatches +=
-            binary_member == extended_member ? 0U : 1U;
-        if (!extended_member) continue;
+            mismatch ? 1U : 0U;
+        if (mismatch && shell_stats != nullptr) {
+            const long double distance = std::abs(
+                extended_radius - horizon);
+            const long double shell_bound = 64.0L
+                * static_cast<long double>(
+                    std::numeric_limits<double>::epsilon())
+                * horizon;
+            const long double mismatch_weight = std::abs(
+                al_long_double_weight(extended_radius));
+            const long double mismatch_gradient = std::abs(
+                al_long_double_weight_gradient(extended_radius));
+            const long double mismatch_second = std::abs(
+                al_long_double_weight_second(extended_radius));
+            ++shell_stats->mismatches;
+            shell_stats->maximum_horizon_distance = std::max(
+                shell_stats->maximum_horizon_distance, distance);
+            shell_stats->maximum_weight = std::max(
+                shell_stats->maximum_weight, mismatch_weight);
+            shell_stats->maximum_gradient = std::max(
+                shell_stats->maximum_gradient, mismatch_gradient);
+            shell_stats->maximum_second = std::max(
+                shell_stats->maximum_second, mismatch_second);
+            shell_stats->within_shell = shell_stats->within_shell
+                && distance <= shell_bound;
+            std::ostringstream pair_projection;
+            pair_projection << pair.fluid << ':' << pair.participant << ':'
+                            << binary64_bits(binary_radius) << ':'
+                            << std::hexfloat << extended_radius << ':'
+                            << distance << ':' << mismatch_weight << ':'
+                            << mismatch_gradient << ':' << mismatch_second
+                            << std::defaultfloat << ':' << binary_member
+                            << ':' << extended_member << ';';
+            shell_stats->projection += pair_projection.str();
+        }
+        bool selected_member = extended_member;
+        long double selected_radius = extended_radius;
+        if (membership_policy
+            == ALPrecisionMembershipPolicy::Binary64Owned) {
+            selected_member = binary_member;
+        } else if (membership_policy
+                == ALPrecisionMembershipPolicy::
+                    HorizonCanonicalizedMismatch
+            && mismatch) {
+            selected_member = true;
+            selected_radius = horizon;
+        }
+        if (!selected_member) continue;
         const long double contribution =
-            mass * al_long_double_weight(extended_radius);
+            mass * al_long_double_weight(selected_radius);
         add_density(pair.fluid, contribution);
         if (pair.participant < count) {
             add_density(pair.participant, contribution);
@@ -64732,7 +64873,10 @@ Binary128EnergyEvaluation evaluate_al_normalized_sparse_binary128(
     const JointStaticSupportBinding& binding,
     const ALBinary128PairUnion& candidate_union,
     bool compensated,
-    ALSparsePrecisionWorkTrace* work = nullptr) {
+    ALSparsePrecisionWorkTrace* work = nullptr,
+    ALPrecisionMembershipPolicy membership_policy =
+        ALPrecisionMembershipPolicy::LiveExtended,
+    ALTopologyShellBinary128Stats* shell_stats = nullptr) {
     Binary128EnergyEvaluation result;
     if (!candidate_union.passed || !binding.passed
         || binding.index == nullptr
@@ -64798,11 +64942,58 @@ Binary128EnergyEvaluation evaluate_al_normalized_sparse_binary128(
             fluid[pair.fluid] - participant_quad);
         const bool binary_member = binary_radius <= HORIZON;
         const bool quad_member = quad_radius <= horizon;
+        const bool mismatch = binary_member != quad_member;
         result.membership_mismatches +=
-            binary_member == quad_member ? 0U : 1U;
-        if (!quad_member) continue;
+            mismatch ? 1U : 0U;
+        if (mismatch && shell_stats != nullptr) {
+            const Binary128 distance = fabsq(quad_radius - horizon);
+            const Binary128 shell_bound = static_cast<Binary128>(64.0)
+                * static_cast<Binary128>(
+                    std::numeric_limits<double>::epsilon())
+                * horizon;
+            const Binary128 mismatch_weight = fabsq(
+                al_binary128_weight(quad_radius));
+            const Binary128 mismatch_gradient = fabsq(
+                al_binary128_weight_gradient(quad_radius));
+            const Binary128 mismatch_second = fabsq(
+                al_binary128_weight_second(quad_radius));
+            ++shell_stats->mismatches;
+            shell_stats->maximum_horizon_distance = std::max(
+                shell_stats->maximum_horizon_distance, distance);
+            shell_stats->maximum_weight = std::max(
+                shell_stats->maximum_weight, mismatch_weight);
+            shell_stats->maximum_gradient = std::max(
+                shell_stats->maximum_gradient, mismatch_gradient);
+            shell_stats->maximum_second = std::max(
+                shell_stats->maximum_second, mismatch_second);
+            shell_stats->within_shell = shell_stats->within_shell
+                && distance <= shell_bound;
+            std::ostringstream pair_projection;
+            pair_projection << pair.fluid << ':' << pair.participant << ':'
+                            << binary64_bits(binary_radius) << ':'
+                            << al_binary128_hex(quad_radius) << ':'
+                            << al_binary128_hex(distance) << ':'
+                            << al_binary128_hex(mismatch_weight) << ':'
+                            << al_binary128_hex(mismatch_gradient) << ':'
+                            << al_binary128_hex(mismatch_second) << ':'
+                            << binary_member << ':' << quad_member << ';';
+            shell_stats->projection += pair_projection.str();
+        }
+        bool selected_member = quad_member;
+        Binary128 selected_radius = quad_radius;
+        if (membership_policy
+            == ALPrecisionMembershipPolicy::Binary64Owned) {
+            selected_member = binary_member;
+        } else if (membership_policy
+                == ALPrecisionMembershipPolicy::
+                    HorizonCanonicalizedMismatch
+            && mismatch) {
+            selected_member = true;
+            selected_radius = horizon;
+        }
+        if (!selected_member) continue;
         const Binary128 contribution =
-            mass * al_binary128_weight(quad_radius);
+            mass * al_binary128_weight(selected_radius);
         add_density(pair.fluid, contribution);
         if (pair.participant < count) {
             add_density(pair.participant, contribution);
@@ -68998,9 +69189,21 @@ constexpr const char* B4E2D7R19_IDENTITY_SHA256 =
 constexpr const char* B4E2D7R19_IDENTITY_PROJECTION =
     R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19-normalized-nominal-substep-shadow|v1|parent=0d537bef0e879b28bd36608e350805c564f6370b:5bb8f5abcb6abf0903c681529771ee6814b567f09d6e12f138514c3f0dab0dc3:ffcede5263bdedf21486d3068d5ded6f0d986ae2f05b437410e047535a2494d3|legacy=d7r17-stdouta2a8de930d41d8e49c255a3fcf987a8794b4da067ddadf658732946fca0ffced;d7r17-semantic1f368c86ec760a232e0314875d7f61010ecdf37f3a2b80023274855c8c71913b|alignment=frame0-0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7;dt0x3f0c01c01c01c01c;kappa0x415c75a640000000;theta0x3fc5cccccccccccd;particles6000;lower-y-clamps400;free5600|predictor=v+dt*g;box-clamp;contact-impulse-separate|solver=r4r2-normalized-static-sparse;u=lambda/kappa;u-next=max(0,u+c);pairwise-precancelled-divided;dimensionless-forcing-frozen-per-trust-solve;private-only;confirmed+warm-holdout|precision=every-accepted-normalized-long-double;candidate-effect-normalized-binary128;runtime-float128-none|required-budget=outer-updates16;inner-trials16;hvp-per-step32;hvp-total512;workspace-builds288;precision-audits64;prework-check;release-exact|ledger=gravity;predictor-contact;kinematic-pressure-m-over-dt;fixed-support-reaction-minus-m-over-dt-times-normalized-gradient;fluid-momentum-identity;pressure-support-residual|gates=finite;mass-exact;u-nonnegative;primal<=1e-8;stationarity<=1e-10;normalized-complementarity<=0x3d6cb1520bd70533;position-update<=1e-8dx;penetration<=1e-12;impulse-closure<=1e-10-scaled;all-pair-calls0;live-workspaces<=2|routes=normalized-nominal-structural-watchdog-exhausted;normalized-nominal-solver-not-confirmed;normalized-nominal-boundary-penetration;normalized-nominal-impulse-ledger-mismatch;normalized-nominal-substep-shadow-confirmed|precedence=watchdog,solver,boundary,ledger,confirmed|controls=r4r2-parent-bytes;d7r17-bytes;alignment;scaled-coefficients;static-binding;invalid-prework;structural-work;precision-ledger;policy-provenance;forced-rollback|runs=2-clean-release-builds;1-process-each;byte-exact;timing=none|trajectory=none;nominal-substeps=1;second-substep=none;macro=none;public-commit=none;physics-mutation=none;projected-contact=none;runtime-wide-precision=none|credit=one-private-normalized-nominal-substep-only)IDENTITY";
 
+struct ALTopologyPrecisionReplayCapture {
+    bool captured = false;
+    double theta = 0.0;
+    std::string frame_zero_root;
+    std::string transaction_root;
+    std::vector<Vec3> initial_position;
+    std::vector<Vec3> initial_velocity;
+    std::vector<Vec3> predicted_position;
+    ALNormalizedPrivateTransaction transaction;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_normalized_nominal_substep_shadow_controls() {
+SplitBoundaryReport run_al_normalized_nominal_substep_shadow_controls_impl(
+    ALTopologyPrecisionReplayCapture* replay_capture) {
     constexpr std::uint64_t substep_dt_bits = 0x3f0c01c01c01c01cULL;
     constexpr std::uint64_t scaled_kappa_bits = 0x415c75a640000000ULL;
     constexpr std::uint64_t theta_bits = 0x3fc5cccccccccccdULL;
@@ -69162,6 +69365,16 @@ SplitBoundaryReport run_al_normalized_nominal_substep_shadow_controls() {
         candidate.transaction, theta);
     const ALNormalizedPrivateTransaction& transaction =
         candidate.transaction;
+    if (replay_capture != nullptr) {
+        replay_capture->captured = true;
+        replay_capture->theta = theta;
+        replay_capture->frame_zero_root = frame_zero_root;
+        replay_capture->transaction_root = candidate.root;
+        replay_capture->initial_position = initial_position;
+        replay_capture->initial_velocity = initial_velocity;
+        replay_capture->predicted_position = predicted_position;
+        replay_capture->transaction = transaction;
+    }
     const bool selected_state_available = transaction.confirmed
         && transaction.warm_holdout_attempted
         && transaction.warm_holdout.passed
@@ -69687,6 +69900,695 @@ SplitBoundaryReport run_al_normalized_nominal_substep_shadow_controls() {
            << ",\"public_commit_count\":0,\"physics_mutation\":false"
            << ",\"projected_contact_added\":false"
            << ",\"timing_admitted\":false,\"speedup_claim\":false"
+           << ",\"runtime_wide_precision_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_normalized_nominal_substep_shadow_controls() {
+    return run_al_normalized_nominal_substep_shadow_controls_impl(nullptr);
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19R1_IDENTITY_SHA256 =
+    "da91f8ab89ce2d48c400ed0d2cec095827598958c7171be7e2cbd0b99b436be8";
+constexpr const char* B4E2D7R19R1_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r19r1-topology-precision-shell-replay|v1|"
+    "parent=085056d6593f3685a7d399c620a86cb560d80cb6:"
+    "f5811bfc7d5e986d72b9130f8e6cb90c5ae21bd347ce7f0b476c171fe8cff7bb:"
+    "bcc6f588010999f23664209037a0daae961606ca29fdcc0d7a31e661902e185b|"
+    "target=outer0-trials0,1,2;roots="
+    "00188e8e74bf7bc16e9be0d1b7df3a9555f23d4d22f3bad8355b0a36dd4aac02,"
+    "823812828a7386e3120762cab508b76577fae92c692a39152420ace1ff5d8f95,"
+    "7298f0f80106642c72a6912736e30b5c55e5cb0898f58f85e8146967b6fb1ded|"
+    "observed=topology-trials3;membership-observations10989;"
+    "unique-state-observations7315|min-margin0|"
+    "shell=abs-r-minus-h<=64eps-h;c2-w-w1-w2-at-h-zero|"
+    "lanes=live-extended-membership;binary64-owned-membership;"
+    "horizon-canonicalized-mismatch|"
+    "precision=long-double-naive+compensated-1024ulp;"
+    "binary128-naive+compensated-4096ulp;candidate-relative-error<=0.05|"
+    "controls=parent-bytes;exact-trial-roots;pair-union;membership-counts;"
+    "shell-bound;kernel-closure;no-acceptance;rollback;all-pair0|"
+    "routes=nonlocal-topology-mismatch;topology-mismatch-alters-sign;"
+    "topology-precision-unresolved;runtime-topology-precision-candidate|"
+    "runs=2-clean-release-builds;1-process-each;byte-exact|"
+    "nominal-substeps=0;replay-only;hvp=parent-only;public-commit=none;"
+    "physics-mutation=none;timing=none;runtime-wide-precision=none|"
+    "credit=precision-policy-discriminator-only";
+
+constexpr std::array<const char*, 3U> B4E2D7R19R1_TARGET_ROOTS{
+    "00188e8e74bf7bc16e9be0d1b7df3a9555f23d4d22f3bad8355b0a36dd4aac02",
+    "823812828a7386e3120762cab508b76577fae92c692a39152420ace1ff5d8f95",
+    "7298f0f80106642c72a6912736e30b5c55e5cb0898f58f85e8146967b6fb1ded"};
+constexpr std::array<std::size_t, 3U>
+    B4E2D7R19R1_CURRENT_MISMATCHES{3641U, 2346U, 1328U};
+constexpr std::array<std::size_t, 3U>
+    B4E2D7R19R1_TRIAL_MISMATCHES{2346U, 1328U, 0U};
+
+const char* al_precision_membership_policy_name(
+    ALPrecisionMembershipPolicy policy) {
+    switch (policy) {
+    case ALPrecisionMembershipPolicy::LiveExtended:
+        return "live-extended-membership";
+    case ALPrecisionMembershipPolicy::Binary64Owned:
+        return "binary64-owned-membership";
+    case ALPrecisionMembershipPolicy::HorizonCanonicalizedMismatch:
+        return "horizon-canonicalized-mismatch";
+    }
+    return "invalid";
+}
+
+std::string al_topology_pair_union_root(
+    const ALBinary128PairUnion& candidate_union) {
+    std::ostringstream projection;
+    projection << candidate_union.passed << ':'
+               << candidate_union.fluid_count << ':'
+               << candidate_union.support_count << '|';
+    for (const JointPair pair : candidate_union.pairs) {
+        projection << pair.fluid << ':' << pair.participant << ';';
+    }
+    return sha256_hex(projection.str());
+}
+
+struct ALTopologyPrecisionLaneReplay {
+    ALPrecisionMembershipPolicy policy =
+        ALPrecisionMembershipPolicy::LiveExtended;
+    LongDoubleTrialEnergyAudit extended;
+    Binary128TrialEnergyAudit binary128;
+    std::string extended_root;
+    std::string binary128_root;
+    std::string root;
+    int extended_sign = 0;
+    int binary128_sign = 0;
+    bool candidate_bound = false;
+};
+
+struct ALTopologyPrecisionTrialReplay {
+    int outer = -1;
+    int trial = -1;
+    double candidate_reduction = 0.0;
+    std::string parent_root;
+    std::string current_root;
+    std::string trial_root;
+    std::string union_root;
+    std::size_t union_pairs = 0U;
+    ALTopologyShellLongDoubleStats extended_current;
+    ALTopologyShellLongDoubleStats extended_trial;
+    ALTopologyShellBinary128Stats binary128_current;
+    ALTopologyShellBinary128Stats binary128_trial;
+    std::string extended_current_mismatch_root;
+    std::string extended_trial_mismatch_root;
+    std::string binary128_current_mismatch_root;
+    std::string binary128_trial_mismatch_root;
+    std::array<ALTopologyPrecisionLaneReplay, 3U> lanes;
+};
+
+ALTopologyPrecisionTrialReplay replay_al_topology_precision_trial(
+    int outer,
+    const ALNormalizedPrivateTrial& parent_trial,
+    const std::vector<Vec3>& predicted,
+    const std::vector<double>& u,
+    double theta,
+    const JointStaticSupportBinding& binding,
+    ALSparsePrecisionWorkTrace& work) {
+    ALTopologyPrecisionTrialReplay result;
+    result.outer = outer;
+    result.trial = parent_trial.trial;
+    result.candidate_reduction = parent_trial.divided_reduction;
+    result.parent_root = parent_trial.long_double_root;
+    result.current_root = al_binary64_vec3_root(
+        parent_trial.current_position);
+    result.trial_root = al_binary64_vec3_root(
+        parent_trial.trial_position);
+    const ALBinary128PairUnion candidate_union =
+        build_al_binary128_pair_union(
+            parent_trial.current_position,
+            parent_trial.trial_position, binding, &work);
+    result.union_pairs = candidate_union.pairs.size();
+    result.union_root = al_topology_pair_union_root(candidate_union);
+
+    constexpr std::array<ALPrecisionMembershipPolicy, 3U> policies{
+        ALPrecisionMembershipPolicy::LiveExtended,
+        ALPrecisionMembershipPolicy::Binary64Owned,
+        ALPrecisionMembershipPolicy::HorizonCanonicalizedMismatch};
+    for (std::size_t lane_index = 0U;
+         lane_index < result.lanes.size(); ++lane_index) {
+        ALTopologyPrecisionLaneReplay& lane = result.lanes[lane_index];
+        lane.policy = policies[lane_index];
+        ALTopologyShellLongDoubleStats* extended_current_stats =
+            lane_index == 0U ? &result.extended_current : nullptr;
+        ALTopologyShellLongDoubleStats* extended_trial_stats =
+            lane_index == 0U ? &result.extended_trial : nullptr;
+        ALTopologyShellBinary128Stats* binary128_current_stats =
+            lane_index == 0U ? &result.binary128_current : nullptr;
+        ALTopologyShellBinary128Stats* binary128_trial_stats =
+            lane_index == 0U ? &result.binary128_trial : nullptr;
+
+        ++work.long_double_audits;
+        work.long_double_union_candidate_pairs += candidate_union.pairs.size();
+        lane.extended = finalize_al_long_double_trial_energy_audit(
+            evaluate_al_normalized_sparse_long_double(
+                parent_trial.current_position, predicted, u, theta,
+                binding, candidate_union, false, &work, lane.policy,
+                extended_current_stats),
+            evaluate_al_normalized_sparse_long_double(
+                parent_trial.current_position, predicted, u, theta,
+                binding, candidate_union, true, &work, lane.policy),
+            evaluate_al_normalized_sparse_long_double(
+                parent_trial.trial_position, predicted, u, theta,
+                binding, candidate_union, false, &work, lane.policy,
+                extended_trial_stats),
+            evaluate_al_normalized_sparse_long_double(
+                parent_trial.trial_position, predicted, u, theta,
+                binding, candidate_union, true, &work, lane.policy));
+
+        ++work.binary128_audits;
+        work.binary128_union_candidate_pairs += candidate_union.pairs.size();
+        lane.binary128 = finalize_al_binary128_trial_energy_audit(
+            evaluate_al_normalized_sparse_binary128(
+                parent_trial.current_position, predicted, u, theta,
+                binding, candidate_union, false, &work, lane.policy,
+                binary128_current_stats),
+            evaluate_al_normalized_sparse_binary128(
+                parent_trial.current_position, predicted, u, theta,
+                binding, candidate_union, true, &work, lane.policy),
+            evaluate_al_normalized_sparse_binary128(
+                parent_trial.trial_position, predicted, u, theta,
+                binding, candidate_union, false, &work, lane.policy,
+                binary128_trial_stats),
+            evaluate_al_normalized_sparse_binary128(
+                parent_trial.trial_position, predicted, u, theta,
+                binding, candidate_union, true, &work, lane.policy),
+            parent_trial.divided_reduction);
+        lane.extended_root = al_normalized_long_double_trial_root(
+            lane.extended);
+        lane.binary128_root = al_binary128_audit_root(lane.binary128);
+        lane.extended_sign = lane.extended.resolved_positive ? 1
+            : (lane.extended.resolved_negative ? -1 : 0);
+        lane.binary128_sign = lane.binary128.resolved_positive ? 1
+            : (lane.binary128.resolved_negative ? -1 : 0);
+        lane.candidate_bound = lane.binary128.finite_values
+            && lane.binary128.resolved_positive
+            && lane.binary128.candidate_relative_error
+                <= static_cast<Binary128>(0.05);
+        std::ostringstream lane_projection;
+        lane_projection << al_precision_membership_policy_name(lane.policy)
+                        << '|' << lane.extended_root << '|'
+                        << lane.binary128_root << '|'
+                        << lane.extended_sign << ':'
+                        << lane.binary128_sign << ':'
+                        << lane.candidate_bound;
+        lane.root = sha256_hex(lane_projection.str());
+    }
+    result.extended_current_mismatch_root = sha256_hex(
+        result.extended_current.projection);
+    result.extended_trial_mismatch_root = sha256_hex(
+        result.extended_trial.projection);
+    result.binary128_current_mismatch_root = sha256_hex(
+        result.binary128_current.projection);
+    result.binary128_trial_mismatch_root = sha256_hex(
+        result.binary128_trial.projection);
+    return result;
+}
+
+std::string al_topology_replay_state_root(
+    const ALTopologyPrecisionReplayCapture& capture) {
+    std::ostringstream projection;
+    projection << capture.frame_zero_root << ':'
+               << capture.transaction_root << ':'
+               << al_binary64_vec3_root(capture.initial_position) << ':'
+               << al_binary64_vec3_root(capture.initial_velocity) << ':'
+               << al_binary64_vec3_root(capture.predicted_position) << '|';
+    for (const ALNormalizedOuterUpdate& update :
+         capture.transaction.updates) {
+        projection << update.state.outer << ':' << update.inner_root << '|';
+        for (const ALNormalizedPrivateTrial& trial : update.trials) {
+            projection << trial.trial << ':'
+                       << al_binary64_vec3_root(trial.current_position)
+                       << ':'
+                       << al_binary64_vec3_root(trial.trial_position)
+                       << ':' << binary64_bits(trial.divided_reduction)
+                       << ':' << trial.long_double_root << ';';
+        }
+    }
+    return sha256_hex(projection.str());
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_topology_precision_shell_replay_controls() {
+    const bool identity_exact = sha256_hex(
+        B4E2D7R19R1_IDENTITY_PROJECTION)
+        == B4E2D7R19R1_IDENTITY_SHA256;
+    ALTopologyPrecisionReplayCapture capture;
+    const SplitBoundaryReport parent =
+        run_al_normalized_nominal_substep_shadow_controls_impl(&capture);
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_semantic_exact = parent.json.find(
+        "\"result_sha256\":\""
+        "bcc6f588010999f23664209037a0daae961606ca29fdcc0d7a31e661902e185b"
+        "\"") != std::string::npos;
+    const bool parent_exact = !parent.passed && parent_semantic_exact
+        && parent_stdout_sha256
+            == "f5811bfc7d5e986d72b9130f8e6cb90c5ae21bd347ce7f0b476c171fe8cff7bb";
+    const bool capture_exact = capture.captured
+        && binary64_bits(capture.theta) == 0x3fc5cccccccccccdULL
+        && capture.frame_zero_root
+            == "0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7"
+        && capture.transaction_root
+            == "a1030f9b23abf0322c6c7acaba17da84da7861c1ac776ad78d5747b5989fcca1"
+        && capture.initial_position.size() == 6000U
+        && capture.initial_velocity.size() == 6000U
+        && capture.predicted_position.size() == 6000U
+        && capture.transaction.updates.size() == 1U
+        && capture.transaction.accepted_trials == 5
+        && capture.transaction.rejected_trials == 0
+        && capture.transaction.hvp_calls == 85
+        && capture.transaction.precision_hard_failure;
+    const std::string state_root_before =
+        al_topology_replay_state_root(capture);
+
+    const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
+    StaticSupportWorkTrace static_work;
+    const JointStaticSupportIndex static_index =
+        build_joint_static_support_index(
+            tagged_points(nominal_fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+    const std::vector<double> zero_u(capture.predicted_position.size());
+    ALSparsePrecisionWorkTrace replay_work;
+    std::array<ALTopologyPrecisionTrialReplay, 3U> trials;
+    std::array<bool, 3U> target_seen{};
+    if (capture_exact && binding.passed) {
+        for (const ALNormalizedOuterUpdate& update :
+             capture.transaction.updates) {
+            if (update.state.outer != 0) continue;
+            for (const ALNormalizedPrivateTrial& trial : update.trials) {
+                if (trial.trial < 0 || trial.trial >= 3) continue;
+                const std::size_t index = static_cast<std::size_t>(
+                    trial.trial);
+                trials[index] = replay_al_topology_precision_trial(
+                    update.state.outer, trial,
+                    capture.predicted_position, zero_u, capture.theta,
+                    binding, replay_work);
+                target_seen[index] = true;
+            }
+        }
+    }
+
+    bool targets_exact = true;
+    bool unions_exact = true;
+    std::size_t total_union_pairs = 0U;
+    std::size_t extended_membership_observations = 0U;
+    std::size_t binary128_membership_observations = 0U;
+    std::size_t extended_unique_state_observations = 0U;
+    std::size_t binary128_unique_state_observations = 0U;
+    bool extended_shell_exact = true;
+    bool binary128_shell_exact = true;
+    bool mismatch_sets_cross_precision_exact = true;
+    bool successive_state_mismatch_roots_exact = true;
+    bool sign_altered = false;
+    bool precision_unresolved = false;
+    long double maximum_extended_shell_distance = 0.0L;
+    long double maximum_extended_weight = 0.0L;
+    long double maximum_extended_gradient = 0.0L;
+    long double maximum_extended_second = 0.0L;
+    Binary128 maximum_binary128_shell_distance =
+        static_cast<Binary128>(0.0);
+    Binary128 maximum_binary128_weight = static_cast<Binary128>(0.0);
+    Binary128 maximum_binary128_gradient = static_cast<Binary128>(0.0);
+    Binary128 maximum_binary128_second = static_cast<Binary128>(0.0);
+    for (std::size_t index = 0U; index < trials.size(); ++index) {
+        const ALTopologyPrecisionTrialReplay& trial = trials[index];
+        targets_exact = targets_exact && target_seen[index]
+            && trial.outer == 0
+            && trial.trial == static_cast<int>(index)
+            && trial.parent_root == B4E2D7R19R1_TARGET_ROOTS[index]
+            && trial.extended_current.mismatches
+                == B4E2D7R19R1_CURRENT_MISMATCHES[index]
+            && trial.extended_trial.mismatches
+                == B4E2D7R19R1_TRIAL_MISMATCHES[index];
+        unions_exact = unions_exact && !trial.union_root.empty()
+            && trial.union_pairs != 0U;
+        total_union_pairs += trial.union_pairs;
+        extended_membership_observations +=
+            trial.extended_current.mismatches
+            + trial.extended_trial.mismatches;
+        binary128_membership_observations +=
+            trial.binary128_current.mismatches
+            + trial.binary128_trial.mismatches;
+        if (index == 0U) {
+            extended_unique_state_observations +=
+                trial.extended_current.mismatches;
+            binary128_unique_state_observations +=
+                trial.binary128_current.mismatches;
+        } else {
+            successive_state_mismatch_roots_exact =
+                successive_state_mismatch_roots_exact
+                && trials[index - 1U].extended_trial_mismatch_root
+                    == trial.extended_current_mismatch_root
+                && trials[index - 1U].binary128_trial_mismatch_root
+                    == trial.binary128_current_mismatch_root;
+        }
+        extended_unique_state_observations +=
+            trial.extended_trial.mismatches;
+        binary128_unique_state_observations +=
+            trial.binary128_trial.mismatches;
+        extended_shell_exact = extended_shell_exact
+            && trial.extended_current.within_shell
+            && trial.extended_trial.within_shell;
+        binary128_shell_exact = binary128_shell_exact
+            && trial.binary128_current.within_shell
+            && trial.binary128_trial.within_shell;
+        mismatch_sets_cross_precision_exact =
+            mismatch_sets_cross_precision_exact
+            && trial.extended_current.mismatches
+                == trial.binary128_current.mismatches
+            && trial.extended_trial.mismatches
+                == trial.binary128_trial.mismatches;
+        maximum_extended_shell_distance = std::max(
+            maximum_extended_shell_distance,
+            std::max(trial.extended_current.maximum_horizon_distance,
+                trial.extended_trial.maximum_horizon_distance));
+        maximum_extended_weight = std::max(maximum_extended_weight,
+            std::max(trial.extended_current.maximum_weight,
+                trial.extended_trial.maximum_weight));
+        maximum_extended_gradient = std::max(maximum_extended_gradient,
+            std::max(trial.extended_current.maximum_gradient,
+                trial.extended_trial.maximum_gradient));
+        maximum_extended_second = std::max(maximum_extended_second,
+            std::max(trial.extended_current.maximum_second,
+                trial.extended_trial.maximum_second));
+        maximum_binary128_shell_distance = std::max(
+            maximum_binary128_shell_distance,
+            std::max(trial.binary128_current.maximum_horizon_distance,
+                trial.binary128_trial.maximum_horizon_distance));
+        maximum_binary128_weight = std::max(maximum_binary128_weight,
+            std::max(trial.binary128_current.maximum_weight,
+                trial.binary128_trial.maximum_weight));
+        maximum_binary128_gradient = std::max(
+            maximum_binary128_gradient,
+            std::max(trial.binary128_current.maximum_gradient,
+                trial.binary128_trial.maximum_gradient));
+        maximum_binary128_second = std::max(maximum_binary128_second,
+            std::max(trial.binary128_current.maximum_second,
+                trial.binary128_trial.maximum_second));
+
+        const int reference_sign = trial.lanes.front().extended_sign;
+        for (const ALTopologyPrecisionLaneReplay& lane : trial.lanes) {
+            sign_altered = sign_altered
+                || lane.extended_sign != reference_sign
+                || lane.binary128_sign != reference_sign;
+            precision_unresolved = precision_unresolved
+                || lane.extended_sign == 0 || lane.binary128_sign == 0
+                || lane.extended_sign < 0 || lane.binary128_sign < 0
+                || !lane.candidate_bound;
+        }
+    }
+    const bool membership_counts_exact =
+        extended_membership_observations == 10989U
+        && extended_unique_state_observations == 7315U;
+
+    const bool binary64_kernel_closure = weight(HORIZON) == 0.0
+        && weight_gradient(HORIZON) == 0.0
+        && weight_second(HORIZON) == 0.0;
+    const long double horizon_extended =
+        static_cast<long double>(HORIZON);
+    const bool extended_kernel_closure =
+        al_long_double_weight(horizon_extended) == 0.0L
+        && al_long_double_weight_gradient(horizon_extended) == 0.0L
+        && al_long_double_weight_second(horizon_extended) == 0.0L;
+    const Binary128 horizon_binary128 = static_cast<Binary128>(HORIZON);
+    const bool binary128_kernel_closure =
+        al_binary128_weight(horizon_binary128)
+            == static_cast<Binary128>(0.0)
+        && al_binary128_weight_gradient(horizon_binary128)
+            == static_cast<Binary128>(0.0)
+        && al_binary128_weight_second(horizon_binary128)
+            == static_cast<Binary128>(0.0);
+    const bool kernel_closure_exact = binary64_kernel_closure
+        && extended_kernel_closure && binary128_kernel_closure;
+
+    const bool work_exact = replay_work.superset_builds == 6U
+        && replay_work.union_candidate_pairs == total_union_pairs
+        && replay_work.long_double_audits == 9U
+        && replay_work.binary128_audits == 9U
+        && replay_work.long_double_union_candidate_pairs
+            == 3U * total_union_pairs
+        && replay_work.binary128_union_candidate_pairs
+            == 3U * total_union_pairs
+        && replay_work.long_double_evaluation_pair_visits
+            == 12U * total_union_pairs
+        && replay_work.binary128_evaluation_pair_visits
+            == 12U * total_union_pairs
+        && replay_work.all_pair_candidate_calls == 0U
+        && static_work.static_index_builds == 1U
+        && static_work.support_canonicalizations == 1U;
+    const std::string state_root_after =
+        al_topology_replay_state_root(capture);
+    const std::string frame_zero_after = b4e2d2_frame_zero_root(
+        capture.initial_position, capture.initial_velocity);
+    const bool rollback_exact = state_root_after == state_root_before
+        && frame_zero_after == capture.frame_zero_root;
+    const bool no_acceptance = rollback_exact;
+    const bool hard_controls = identity_exact && parent_exact
+        && capture_exact && static_index.passed && binding.passed
+        && targets_exact && unions_exact && membership_counts_exact
+        && successive_state_mismatch_roots_exact && work_exact
+        && no_acceptance && rollback_exact;
+    const bool topology_local = extended_shell_exact
+        && binary128_shell_exact && kernel_closure_exact;
+    std::string route;
+    if (hard_controls) {
+        if (!topology_local) {
+            route = "NONLOCAL_TOPOLOGY_MISMATCH";
+        } else if (sign_altered) {
+            route = "TOPOLOGY_MISMATCH_ALTERS_SIGN";
+        } else if (precision_unresolved) {
+            route = "TOPOLOGY_PRECISION_UNRESOLVED";
+        } else {
+            route = "RUNTIME_TOPOLOGY_PRECISION_CANDIDATE";
+        }
+    }
+    const bool route_precedence_exact =
+        (!topology_local && route == "NONLOCAL_TOPOLOGY_MISMATCH")
+        || (topology_local && sign_altered
+            && route == "TOPOLOGY_MISMATCH_ALTERS_SIGN")
+        || (topology_local && !sign_altered && precision_unresolved
+            && route == "TOPOLOGY_PRECISION_UNRESOLVED")
+        || (topology_local && !sign_altered && !precision_unresolved
+            && route == "RUNTIME_TOPOLOGY_PRECISION_CANDIDATE");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R19_PARENT_BYTES";
+    else if (!capture_exact) first_failure = "PARENT_CAPTURE";
+    else if (!static_index.passed || !binding.passed)
+        first_failure = "STATIC_BINDING";
+    else if (!targets_exact) first_failure = "TARGET_ROOTS";
+    else if (!unions_exact) first_failure = "PAIR_UNION";
+    else if (!membership_counts_exact)
+        first_failure = "MEMBERSHIP_COUNTS";
+    else if (!successive_state_mismatch_roots_exact)
+        first_failure = "SUCCESSIVE_STATE_ROOTS";
+    else if (!work_exact) first_failure = "STRUCTURAL_WORK";
+    else if (!no_acceptance) first_failure = "REPLAY_ACCEPTANCE";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<long double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19R1_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << ':' << parent_semantic_exact << '|'
+             << capture.frame_zero_root << ':'
+             << capture.transaction_root << '|'
+             << extended_membership_observations << ':'
+             << extended_unique_state_observations << ':'
+             << binary128_membership_observations << ':'
+             << binary128_unique_state_observations << '|'
+             << maximum_extended_shell_distance << ':'
+             << maximum_extended_weight << ':'
+             << maximum_extended_gradient << ':'
+             << maximum_extended_second << '|'
+             << al_binary128_hex(maximum_binary128_shell_distance) << ':'
+             << al_binary128_hex(maximum_binary128_weight) << ':'
+             << al_binary128_hex(maximum_binary128_gradient) << ':'
+             << al_binary128_hex(maximum_binary128_second) << '|'
+             << topology_local << ':' << sign_altered << ':'
+             << precision_unresolved << '|';
+    for (const ALTopologyPrecisionTrialReplay& trial : trials) {
+        semantic << trial.parent_root << ':' << trial.union_root << ':'
+                 << trial.union_pairs << '|';
+        for (const ALTopologyPrecisionLaneReplay& lane : trial.lanes) {
+            semantic << lane.root << ':';
+        }
+    }
+    semantic << '|' << replay_work.superset_builds << ':'
+             << replay_work.union_candidate_pairs << ':'
+             << replay_work.long_double_evaluation_pair_visits << ':'
+             << replay_work.binary128_evaluation_pair_visits << ':'
+             << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<long double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19r1_topology_precision_shell_replay.v1\""
+           << ",\"identity_sha256\":\""
+           << B4E2D7R19R1_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"semantic_exact\":"
+           << (parent_semantic_exact ? "true" : "false")
+           << ",\"hard_failure_preserved\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"transaction_root\":\""
+           << capture.transaction_root
+           << "\",\"completed_hvp\":"
+           << capture.transaction.hvp_calls
+           << ",\"total_budget_hvp\":117}"
+           << ",\"targets\":[";
+    for (std::size_t index = 0U; index < trials.size(); ++index) {
+        if (index != 0U) report << ',';
+        const ALTopologyPrecisionTrialReplay& trial = trials[index];
+        report << "{\"outer\":" << trial.outer
+               << ",\"trial\":" << trial.trial
+               << ",\"parent_long_double_root\":\""
+               << trial.parent_root
+               << "\",\"current_state_root\":\""
+               << trial.current_root
+               << "\",\"trial_state_root\":\""
+               << trial.trial_root
+               << "\",\"candidate_reduction\":"
+               << trial.candidate_reduction
+               << ",\"union_pairs\":" << trial.union_pairs
+               << ",\"union_root\":\"" << trial.union_root
+               << "\",\"mismatch\":{\"extended_current\":"
+               << trial.extended_current.mismatches
+               << ",\"extended_trial\":"
+               << trial.extended_trial.mismatches
+               << ",\"binary128_current\":"
+               << trial.binary128_current.mismatches
+               << ",\"binary128_trial\":"
+               << trial.binary128_trial.mismatches
+               << ",\"extended_current_root\":\""
+               << trial.extended_current_mismatch_root
+               << "\",\"extended_trial_root\":\""
+               << trial.extended_trial_mismatch_root
+               << "\",\"binary128_current_root\":\""
+               << trial.binary128_current_mismatch_root
+               << "\",\"binary128_trial_root\":\""
+               << trial.binary128_trial_mismatch_root
+               << "\"},\"lanes\":[";
+        for (std::size_t lane_index = 0U;
+             lane_index < trial.lanes.size(); ++lane_index) {
+            if (lane_index != 0U) report << ',';
+            const ALTopologyPrecisionLaneReplay& lane =
+                trial.lanes[lane_index];
+            report << "{\"policy\":\""
+                   << al_precision_membership_policy_name(lane.policy)
+                   << "\",\"root\":\"" << lane.root
+                   << "\",\"long_double_root\":\""
+                   << lane.extended_root
+                   << "\",\"binary128_root\":\""
+                   << lane.binary128_root
+                   << "\",\"long_double_sign\":"
+                   << lane.extended_sign
+                   << ",\"binary128_sign\":"
+                   << lane.binary128_sign
+                   << ",\"candidate_relative_error\":\""
+                   << al_binary128_hex(
+                        lane.binary128.candidate_relative_error)
+                   << "\",\"candidate_bound\":"
+                   << (lane.candidate_bound ? "true" : "false") << '}';
+        }
+        report << "]}";
+    }
+    report << "]"
+           << ",\"shell\":{\"bound_multiple_binary64_epsilon\":64,"
+              "\"extended_observations\":"
+           << extended_membership_observations
+           << ",\"extended_unique_state_observations\":"
+           << extended_unique_state_observations
+           << ",\"binary128_observations\":"
+           << binary128_membership_observations
+           << ",\"binary128_unique_state_observations\":"
+           << binary128_unique_state_observations
+           << ",\"maximum_extended_distance\":"
+           << maximum_extended_shell_distance
+           << ",\"maximum_extended_weight\":"
+           << maximum_extended_weight
+           << ",\"maximum_extended_gradient\":"
+           << maximum_extended_gradient
+           << ",\"maximum_extended_second\":"
+           << maximum_extended_second
+           << ",\"maximum_binary128_distance\":\""
+           << al_binary128_hex(maximum_binary128_shell_distance)
+           << "\",\"maximum_binary128_weight\":\""
+           << al_binary128_hex(maximum_binary128_weight)
+           << "\",\"maximum_binary128_gradient\":\""
+           << al_binary128_hex(maximum_binary128_gradient)
+           << "\",\"maximum_binary128_second\":\""
+           << al_binary128_hex(maximum_binary128_second)
+           << "\",\"extended_within\":"
+           << (extended_shell_exact ? "true" : "false")
+           << ",\"binary128_within\":"
+           << (binary128_shell_exact ? "true" : "false")
+           << ",\"cross_precision_mismatch_counts_exact\":"
+           << (mismatch_sets_cross_precision_exact ? "true" : "false")
+           << ",\"successive_state_roots_exact\":"
+           << (successive_state_mismatch_roots_exact ? "true" : "false")
+           << '}'
+           << ",\"kernel_closure\":{\"binary64\":"
+           << (binary64_kernel_closure ? "true" : "false")
+           << ",\"long_double\":"
+           << (extended_kernel_closure ? "true" : "false")
+           << ",\"binary128\":"
+           << (binary128_kernel_closure ? "true" : "false")
+           << ",\"exact\":"
+           << (kernel_closure_exact ? "true" : "false") << '}'
+           << ",\"classification\":{\"topology_local\":"
+           << (topology_local ? "true" : "false")
+           << ",\"sign_altered\":"
+           << (sign_altered ? "true" : "false")
+           << ",\"precision_unresolved\":"
+           << (precision_unresolved ? "true" : "false") << '}'
+           << ",\"work\":{\"superset_builds\":"
+           << replay_work.superset_builds
+           << ",\"union_candidate_pairs\":"
+           << replay_work.union_candidate_pairs
+           << ",\"long_double_audits\":"
+           << replay_work.long_double_audits
+           << ",\"binary128_audits\":"
+           << replay_work.binary128_audits
+           << ",\"long_double_pair_visits\":"
+           << replay_work.long_double_evaluation_pair_visits
+           << ",\"binary128_pair_visits\":"
+           << replay_work.binary128_evaluation_pair_visits
+           << ",\"replay_hvp\":0,\"all_pair_candidate_calls\":"
+           << replay_work.all_pair_candidate_calls
+           << ",\"exact\":" << (work_exact ? "true" : "false")
+           << '}'
+           << ",\"no_acceptance\":"
+           << (no_acceptance ? "true" : "false")
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"nominal_substeps\":0,\"replay_only\":true"
+           << ",\"second_substep_executed\":false,\"macro_frames\":0"
+           << ",\"trajectory_steps\":0,\"public_commit_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
            << ",\"runtime_wide_precision_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
