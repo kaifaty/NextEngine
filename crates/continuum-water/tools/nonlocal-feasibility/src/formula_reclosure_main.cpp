@@ -111,7 +111,8 @@ int main(int argc, char** argv) {
                          "--nominal-hydro-owner-parallel-8|"
                          "--nominal-hydro-owner-parallel-16|"
                          "--nominal-hydro-owner-parallel-phase-timing-8|"
-                         "--nominal-hydro-masked-superset-plan-audit\n";
+                         "--nominal-hydro-masked-superset-plan-audit|"
+                         "--nominal-hydro-masked-superset-plan-8\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -895,6 +896,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nominal-hydro-masked-superset-plan-8") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_nominal_hydro_masked_superset_plan_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -1009,7 +1017,8 @@ int main(int argc, char** argv) {
                      "--nominal-hydro-owner-parallel-8|"
                      "--nominal-hydro-owner-parallel-16|"
                      "--nominal-hydro-owner-parallel-phase-timing-8|"
-                     "--nominal-hydro-masked-superset-plan-audit\n";
+                     "--nominal-hydro-masked-superset-plan-audit|"
+                     "--nominal-hydro-masked-superset-plan-8\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';
