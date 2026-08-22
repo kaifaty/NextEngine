@@ -1,6 +1,6 @@
 # NSR3-B4EP10CTD -- current-topology reverse-plan audit contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / FAIL_SCAN / FULL_CURRENT_PLAN_REJECTED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -63,3 +63,11 @@ PASS authorizes only separately frozen current-topology construction-dataflow
 research. Failure retains B4EP10I and both previous plan candidates as
 negative evidence. B4E2, broad corpus, runtime/GPU/schema and production
 remain blocked.
+
+## Closure
+
+B4EP10CTD fails the frozen scan gate; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10ctd-current-topology-plan-evidence-2026-08-22.md).
+Every structural and capacity condition passes, but ratio
+`1.2133409477461454x` exceeds `1.20x`. Construction implementation is not
+authorized; split self/incoming research is allowed next.

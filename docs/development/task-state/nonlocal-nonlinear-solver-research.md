@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10CTD_FROZEN / CURRENT_TOPOLOGY_PLAN_AUDIT` |
+| Status | `ACTIVE / NSR3B4EP10CTD_FAIL_SCAN / SPLIT_INCOMING_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -892,6 +892,16 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   returning immediately to generic persistent-team work after B4EP10R1 found
   low orchestration cost on the selected path.
 
+### D-043 -- Reject full current plan; split self from incoming
+
+- **Observation:** the current-topology full plan is exact and bounded, but
+  scans `1.213341x` the retained work, narrowly failing its `1.20x` gate.
+- **Decision:** exploit the source CSR for self contributions and retain only
+  participant/incoming reverse entries. Exact counts project `1.106670x`
+  visits before implementation; audit the three-part fold order next.
+- **Rejected:** relaxing the scan gate after observing the result or proceeding
+  directly to topology construction based on a near miss.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -940,10 +950,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen B4EP10CTD side-by-side audit without changing the
-   returned evaluation or HVP path.
-2. Run two exact processes and regressions; research topology-compaction
-   construction only if order, scan, capacity and negative gates all pass.
+1. Research and freeze a split incoming-plan audit that reconstructs each
+   active target row as lower incoming, own source row and upper incoming.
+2. Prove exact slot order, projected evaluation/HVP work and capacity before
+   designing topology-compaction construction or a floating candidate path.
 
 ## Reconsideration triggers
 
