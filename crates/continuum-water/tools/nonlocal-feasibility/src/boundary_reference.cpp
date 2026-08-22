@@ -67799,4 +67799,611 @@ run_al_full_normalized_precancelled_private_transaction_controls() {
     return {passed, report.str()};
 }
 
+namespace {
+
+constexpr const char* B4E2D7R18R4R1_IDENTITY_SHA256 =
+    "e8ed1ecc5bec03ca592c6d59f50d3b940b1ae58e0fb889d20b4c656008745df2";
+constexpr const char* B4E2D7R18R4R1_IDENTITY_PROJECTION =
+    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r18r4r1-normalized-krylov-forcing-replay|v1|parent=8becfe9e5b22af468fbc4f22873eff8b558d0115:32e4369a19564c769148c9d0bc534bce8f0d22dac4a0eeb085aa191a46dc38c6:91b311aa592a9d5e8f6845c80d98abec98329c1a00c1eb80b559a2d77c1d49e0|legacy=d7r18r4-complete-bytes;d7r18r3-stdoute0b36e34a047de1d8bb1435fa6f68cf5a53ab8a4260a95719775c03e4608d3e5|fixture=corner-box-2x2x2;active-compressed0.99;initial-equals-prediction|profiles=reference-dt0x3f71111111111111-kappa0x4093290000000000;aligned-dt0x3f0c01c01c01c01c-kappa0x415c75a640000000;theta0x3fc5cccccccccccd;alpha0x3f223456789abcdf;derived-prework|target=active-root-9a3a57e7fcb29700c72c710936ef02ea7459cf2470b7d59ca663605df00c5ee9;outer11;trial0;stationarity0x3de517c90da7b861;step0x3d8feecfa8d474e2;predicted0x3b47d038719e0000;divided0x3b47d08b70000000;inherited-hvp3;d7r13-hvp2|replay=outer10-u;target-current-position;one-static-normalized-workspace;first-steihaug-hvp+residual-recurrence-only|forcing=q=norm-r1/norm-r0;inherited=min(0.5,sqrt(norm-r0));mapped-dimensional=min(0.5,sqrt(norm-r0/alpha));dimensionless-sigma=max-particle-gradient-norm/dx;dimensionless=min(0.5,sqrt(sigma));fixed0.5-observable|resolution=abs(q-eta-dimensionless)>=4096-binary64-ulp-of-max-magnitude|correspondence=inherited-fails;mapped-dimensional-passes;reference-repeat-byte-exact;reference-aligned-byte-exact|controls=r4-parent-bytes;target-anchors;static-binding;invalid-prework;work=active-replay-unchanged+candidate-workspaces2+hvp2;workspace-live<=1;all-pair0;forced-rollback|routes=krylov-forcing-mechanism-contradiction;krylov-forcing-bound-required;dimensionless-forcing-retains-second-iteration;dimensionless-forcing-restores-d7r13-work|precedence=contradiction,bound,retains,restores|runs=2-clean-release-builds;1-process-each;byte-exact;timing=none|candidate-acceptances=0;candidate-outer-updates=0;changed-policy-full-transactions=0;trajectory=none;nominal-substeps=0;macro=none;public-commit=none;physics-mutation=none;production-scale=none|credit=one-replay-only-normalized-krylov-forcing-discriminator)IDENTITY";
+
+struct ALNormalizedKrylovReplay {
+    bool input_valid = false;
+    bool workspace_passed = false;
+    bool hvp_passed = false;
+    bool positive_curvature = false;
+    bool interior_first_step = false;
+    bool finite_values = false;
+    bool inherited_stops = false;
+    bool mapped_dimensional_stops = false;
+    bool dimensionless_stops = false;
+    std::size_t hvp_calls = 0U;
+    double residual0_norm = 0.0;
+    double residual1_norm = 0.0;
+    double residual_ratio = 0.0;
+    double curvature = 0.0;
+    double step_coefficient = 0.0;
+    double first_step_norm = 0.0;
+    double sigma = 0.0;
+    double eta_inherited = 0.0;
+    double eta_mapped_dimensional = 0.0;
+    double eta_dimensionless = 0.0;
+    double eta_fixed = 0.5;
+    double dimensionless_difference = 0.0;
+    double dimensionless_ulp = 0.0;
+    double dimensionless_ulp_ratio = 0.0;
+    bool dimensionless_resolved = false;
+    std::string root;
+};
+
+std::string al_normalized_krylov_replay_root(
+    const ALNormalizedKrylovReplay& value) {
+    std::ostringstream projection;
+    projection << value.input_valid << ':' << value.workspace_passed << ':'
+               << value.hvp_passed << ':' << value.positive_curvature << ':'
+               << value.interior_first_step << ':' << value.finite_values
+               << ':' << value.inherited_stops << ':'
+               << value.mapped_dimensional_stops << ':'
+               << value.dimensionless_stops << ':'
+               << value.dimensionless_resolved << ':' << value.hvp_calls
+               << '|' << binary64_bits(value.residual0_norm) << ':'
+               << binary64_bits(value.residual1_norm) << ':'
+               << binary64_bits(value.residual_ratio) << ':'
+               << binary64_bits(value.curvature) << ':'
+               << binary64_bits(value.step_coefficient) << ':'
+               << binary64_bits(value.first_step_norm) << ':'
+               << binary64_bits(value.sigma) << ':'
+               << binary64_bits(value.eta_inherited) << ':'
+               << binary64_bits(value.eta_mapped_dimensional) << ':'
+               << binary64_bits(value.eta_dimensionless) << ':'
+               << binary64_bits(value.eta_fixed) << ':'
+               << binary64_bits(value.dimensionless_difference) << ':'
+               << binary64_bits(value.dimensionless_ulp) << ':'
+               << binary64_bits(value.dimensionless_ulp_ratio);
+    return sha256_hex(projection.str());
+}
+
+ALNormalizedKrylovReplay replay_al_normalized_first_krylov_recurrence(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<double>& u,
+    double theta,
+    double objective_scale,
+    double trust_radius,
+    const JointStaticSupportBinding& binding,
+    ALSparseWorkTrace* work,
+    StaticSupportWorkTrace* static_work,
+    FlatAdjacencyWorkTrace* adjacency_work) {
+    ALNormalizedKrylovReplay result;
+    result.input_valid = !position.empty()
+        && position.size() == predicted.size()
+        && position.size() == u.size()
+        && al_normalized_inputs_valid(theta, u)
+        && std::isfinite(objective_scale) && objective_scale > 0.0
+        && std::isfinite(trust_radius) && trust_radius > 0.0
+        && binding.passed && binding.index != nullptr
+        && binding.index->identity_sha256
+            == binding.expected_identity_sha256;
+    if (!result.input_valid) {
+        result.root = al_normalized_krylov_replay_root(result);
+        return result;
+    }
+
+    ALNormalizedSparseInnerState current =
+        evaluate_al_normalized_sparse_inner(
+            position, predicted, binding, u, theta, work,
+            static_work, adjacency_work);
+    result.workspace_passed = current.workspace.passed
+        && current.inner.passed;
+    if (!result.workspace_passed) {
+        release_al_normalized_workspace(current.workspace, work);
+        result.root = al_normalized_krylov_replay_root(result);
+        return result;
+    }
+
+    const std::vector<Vec3>& residual0 = current.inner.gradient;
+    std::vector<Vec3> direction = residual0;
+    for (Vec3& value : direction) value = -value;
+    const double residual0_squared = flat_dot(residual0, residual0);
+    result.residual0_norm = std::sqrt(residual0_squared);
+    const ALNormalizedHvp image =
+        apply_al_normalized_sparse_hessian(current.workspace, direction);
+    ++result.hvp_calls;
+    result.hvp_passed = image.passed;
+    if (image.passed) {
+        result.curvature = flat_dot(direction, image.value);
+        result.positive_curvature = std::isfinite(result.curvature)
+            && result.curvature > 0.0;
+    }
+    if (result.positive_curvature && residual0_squared > 0.0) {
+        result.step_coefficient = residual0_squared / result.curvature;
+        const std::vector<Vec3> first_step = add_scaled(
+            std::vector<Vec3>(direction.size()), direction,
+            result.step_coefficient);
+        result.first_step_norm = vector_norm(first_step);
+        result.interior_first_step = result.first_step_norm < trust_radius;
+        std::vector<Vec3> residual1 = residual0;
+        for (std::size_t index = 0U; index < residual1.size(); ++index) {
+            residual1[index] += result.step_coefficient
+                * image.value[index];
+        }
+        result.residual1_norm = vector_norm(residual1);
+        result.residual_ratio = result.residual1_norm
+            / result.residual0_norm;
+        result.sigma = al_normalized_stationarity(residual0);
+        result.eta_inherited = std::min(
+            0.5, std::sqrt(result.residual0_norm));
+        result.eta_mapped_dimensional = std::min(
+            0.5, std::sqrt(result.residual0_norm / objective_scale));
+        result.eta_dimensionless = std::min(
+            0.5, std::sqrt(result.sigma));
+        result.inherited_stops = result.residual_ratio
+            <= result.eta_inherited;
+        result.mapped_dimensional_stops = result.residual_ratio
+            <= result.eta_mapped_dimensional;
+        result.dimensionless_stops = result.residual_ratio
+            <= result.eta_dimensionless;
+        result.dimensionless_difference = std::abs(
+            result.residual_ratio - result.eta_dimensionless);
+        const double maximum_magnitude = std::max(
+            std::abs(result.residual_ratio),
+            std::abs(result.eta_dimensionless));
+        result.dimensionless_ulp = std::nextafter(
+            maximum_magnitude,
+            std::numeric_limits<double>::infinity())
+            - maximum_magnitude;
+        result.dimensionless_ulp_ratio = result.dimensionless_difference
+            / result.dimensionless_ulp;
+        result.finite_values = result.interior_first_step
+            && std::isfinite(result.residual0_norm)
+            && std::isfinite(result.residual1_norm)
+            && std::isfinite(result.residual_ratio)
+            && std::isfinite(result.curvature)
+            && std::isfinite(result.step_coefficient)
+            && std::isfinite(result.first_step_norm)
+            && std::isfinite(result.sigma)
+            && std::isfinite(result.eta_inherited)
+            && std::isfinite(result.eta_mapped_dimensional)
+            && std::isfinite(result.eta_dimensionless)
+            && std::isfinite(result.dimensionless_difference)
+            && std::isfinite(result.dimensionless_ulp)
+            && result.dimensionless_ulp > 0.0
+            && std::isfinite(result.dimensionless_ulp_ratio);
+        result.dimensionless_resolved = result.finite_values
+            && result.dimensionless_difference
+                >= 4096.0 * result.dimensionless_ulp;
+    }
+    release_al_normalized_workspace(current.workspace, work);
+    result.root = al_normalized_krylov_replay_root(result);
+    return result;
+}
+
+} // namespace
+
+SplitBoundaryReport
+run_al_normalized_krylov_forcing_replay_controls() {
+    constexpr std::uint64_t reference_dt_bits = 0x3f71111111111111ULL;
+    constexpr std::uint64_t reference_kappa_bits = 0x4093290000000000ULL;
+    constexpr std::uint64_t aligned_dt_bits = 0x3f0c01c01c01c01cULL;
+    constexpr std::uint64_t aligned_kappa_bits = 0x415c75a640000000ULL;
+    constexpr std::uint64_t theta_bits = 0x3fc5cccccccccccdULL;
+    constexpr std::uint64_t objective_scale_bits = 0x3f223456789abcdfULL;
+    constexpr std::uint64_t stationarity_bits = 0x3de517c90da7b861ULL;
+    constexpr std::uint64_t step_norm_bits = 0x3d8feecfa8d474e2ULL;
+    constexpr std::uint64_t predicted_bits = 0x3b47d038719e0000ULL;
+    constexpr std::uint64_t divided_bits = 0x3b47d08b70000000ULL;
+    constexpr double aligned_kappa = 7460505.0;
+    constexpr const char* active_root_expected =
+        "9a3a57e7fcb29700c72c710936ef02ea7459cf2470b7d59ca663605df00c5ee9";
+
+    const bool identity_exact = sha256_hex(
+        B4E2D7R18R4R1_IDENTITY_PROJECTION)
+        == B4E2D7R18R4R1_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_full_normalized_precancelled_private_transaction_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_semantic_exact = parent.json.find(
+        "\"result_sha256\":\"91b311aa592a9d5e8f6845c80d98abec98329c1a00c1eb80b559a2d77c1d49e0\"")
+        != std::string::npos;
+    const bool parent_exact = !parent.passed && parent_semantic_exact
+        && parent_stdout_sha256
+            == "32e4369a19564c769148c9d0bc534bce8f0d22dac4a0eeb085aa191a46dc38c6";
+
+    const double reference_dt = TIME_STEP;
+    const double aligned_dt = TIME_STEP / 78.0;
+    const double reference_theta = al_normalized_theta(
+        reference_dt, KAPPA);
+    const double aligned_theta = al_normalized_theta(
+        aligned_dt, aligned_kappa);
+    const double objective_scale =
+        reference_dt * reference_dt / MASS;
+    const bool profile_exact = binary64_bits(reference_dt)
+            == reference_dt_bits
+        && binary64_bits(KAPPA) == reference_kappa_bits
+        && binary64_bits(aligned_dt) == aligned_dt_bits
+        && binary64_bits(aligned_kappa) == aligned_kappa_bits
+        && binary64_bits(reference_theta) == theta_bits
+        && binary64_bits(aligned_theta) == theta_bits
+        && binary64_bits(objective_scale) == objective_scale_bits;
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<double> zero_u(fixture.fluid.size());
+    const std::string active_before =
+        al_binary64_vec3_root(active_prediction);
+    std::ostringstream zero_before_projection;
+    for (double value : zero_u) {
+        zero_before_projection << binary64_bits(value) << ':';
+    }
+    const std::string zero_before = sha256_hex(
+        zero_before_projection.str());
+
+    StaticSupportWorkTrace index_work;
+    const JointStaticSupportIndex static_index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &index_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+    const ALNormalizedTransactionRun active_replay =
+        run_al_normalized_transaction(
+            active_prediction, active_prediction, zero_u,
+            reference_theta, binding, true);
+    const bool active_replay_exact = active_replay.root
+            == active_root_expected
+        && active_replay.transaction.confirmed
+        && active_replay.transaction.provisional_index == 11
+        && active_replay.transaction.confirmation_index == 12
+        && active_replay.transaction.warm_holdout_attempted
+        && active_replay.transaction.warm_holdout.state.outer == 13
+        && active_replay.transaction.accepted_trials == 19
+        && active_replay.transaction.rejected_trials == 0
+        && active_replay.transaction.hvp_calls == 39
+        && active_replay.budget.outer_updates == 14U
+        && active_replay.budget.total_hvp == 39U
+        && al_normalized_run_work_exact(active_replay);
+
+    const ALNormalizedOuterUpdate* outer10 = nullptr;
+    const ALNormalizedOuterUpdate* outer11 = nullptr;
+    for (const ALNormalizedOuterUpdate& update :
+         active_replay.transaction.updates) {
+        if (update.state.outer == 10) outer10 = &update;
+        if (update.state.outer == 11) outer11 = &update;
+    }
+    const ALNormalizedPrivateTrial* target = nullptr;
+    if (outer11 != nullptr && !outer11->trials.empty()
+        && outer11->trials.front().trial == 0) {
+        target = &outer11->trials.front();
+    }
+    const bool target_anchors_exact = outer10 != nullptr
+        && outer10->passed && outer11 != nullptr && outer11->passed
+        && target != nullptr && target->hvp_calls == 3
+        && binary64_bits(target->stationarity_before)
+            == stationarity_bits
+        && binary64_bits(target->step_norm) == step_norm_bits
+        && binary64_bits(target->predicted_reduction) == predicted_bits
+        && binary64_bits(target->divided_reduction) == divided_bits
+        && al_binary64_vec3_root(target->current_position)
+            == al_binary64_vec3_root(outer10->position);
+
+    ALSparseWorkTrace candidate_work;
+    StaticSupportWorkTrace candidate_static_work;
+    FlatAdjacencyWorkTrace candidate_adjacency_work;
+    ALNormalizedKrylovReplay reference;
+    ALNormalizedKrylovReplay aligned;
+    if (target_anchors_exact) {
+        reference = replay_al_normalized_first_krylov_recurrence(
+            target->current_position, active_prediction, outer10->u,
+            reference_theta, objective_scale, target->radius_before,
+            binding, &candidate_work, &candidate_static_work,
+            &candidate_adjacency_work);
+        aligned = replay_al_normalized_first_krylov_recurrence(
+            target->current_position, active_prediction, outer10->u,
+            aligned_theta, objective_scale, target->radius_before,
+            binding, &candidate_work, &candidate_static_work,
+            &candidate_adjacency_work);
+    }
+    const std::string reference_repeat_root =
+        al_normalized_krylov_replay_root(reference);
+    const bool reference_repeat_exact = reference.root
+        == reference_repeat_root;
+    const bool cross_profile_exact = reference.root == aligned.root;
+    const bool diagnostic_constructed = reference.input_valid
+        && reference.workspace_passed && reference.hvp_passed
+        && reference.positive_curvature && reference.interior_first_step
+        && reference.hvp_calls == 1U && aligned.input_valid
+        && aligned.workspace_passed && aligned.hvp_passed
+        && aligned.positive_curvature && aligned.interior_first_step
+        && aligned.hvp_calls == 1U
+        && binary64_bits(reference.sigma) == stationarity_bits;
+    const bool mechanism_correspondence = diagnostic_constructed
+        && !reference.inherited_stops
+        && reference.mapped_dimensional_stops
+        && !aligned.inherited_stops
+        && aligned.mapped_dimensional_stops;
+    const bool dimensionless_resolved =
+        reference.dimensionless_resolved
+        && aligned.dimensionless_resolved;
+
+    ALSparseWorkTrace invalid_work;
+    StaticSupportWorkTrace invalid_static_work;
+    FlatAdjacencyWorkTrace invalid_adjacency_work;
+    const std::vector<double> target_u = outer10 != nullptr
+        ? outer10->u : zero_u;
+    const std::vector<Vec3> target_position = target != nullptr
+        ? target->current_position : active_prediction;
+    const double target_radius = target != nullptr
+        ? target->radius_before : 0.25 * SPACING;
+    std::vector<double> nonfinite_u = target_u;
+    if (!nonfinite_u.empty()) {
+        nonfinite_u.front() = std::numeric_limits<double>::infinity();
+    }
+    JointStaticSupportBinding invalid_binding = binding;
+    invalid_binding.expected_identity_sha256.push_back('0');
+    std::vector<Vec3> invalid_prediction = active_prediction;
+    if (!invalid_prediction.empty()) invalid_prediction.pop_back();
+    const std::array<ALNormalizedKrylovReplay, 4U> invalid{
+        replay_al_normalized_first_krylov_recurrence(
+            target_position, active_prediction, target_u,
+            std::numeric_limits<double>::quiet_NaN(), objective_scale,
+            target_radius, binding, &invalid_work, &invalid_static_work,
+            &invalid_adjacency_work),
+        replay_al_normalized_first_krylov_recurrence(
+            target_position, active_prediction, nonfinite_u,
+            reference_theta, objective_scale, target_radius, binding,
+            &invalid_work, &invalid_static_work,
+            &invalid_adjacency_work),
+        replay_al_normalized_first_krylov_recurrence(
+            target_position, active_prediction, target_u,
+            reference_theta, objective_scale, target_radius,
+            invalid_binding, &invalid_work, &invalid_static_work,
+            &invalid_adjacency_work),
+        replay_al_normalized_first_krylov_recurrence(
+            target_position, invalid_prediction, target_u,
+            reference_theta, objective_scale, target_radius, binding,
+            &invalid_work, &invalid_static_work,
+            &invalid_adjacency_work)};
+    bool invalid_prework_exact = true;
+    for (const ALNormalizedKrylovReplay& value : invalid) {
+        invalid_prework_exact = invalid_prework_exact
+            && !value.input_valid && !value.workspace_passed
+            && !value.hvp_passed && value.hvp_calls == 0U;
+    }
+    invalid_prework_exact = invalid_prework_exact
+        && invalid_work.workspace_builds == 0U
+        && invalid_work.workspace_releases == 0U
+        && invalid_work.pair_visits == 0U
+        && invalid_work.all_pair_candidate_calls == 0U
+        && invalid_static_work.workspace_builds == 0U
+        && invalid_adjacency_work.workspace_builds == 0U;
+
+    const bool candidate_work_exact =
+        candidate_work.workspace_builds == 2U
+        && candidate_work.workspace_releases == 2U
+        && candidate_work.live_workspaces == 0U
+        && candidate_work.maximum_live_workspaces == 1U
+        && !candidate_work.lifecycle_underflow
+        && candidate_work.all_pair_candidate_calls == 0U
+        && reference.hvp_calls + aligned.hvp_calls == 2U
+        && candidate_static_work.workspace_builds == 2U
+        && candidate_adjacency_work.workspace_builds == 2U;
+    std::ostringstream zero_after_projection;
+    for (double value : zero_u) {
+        zero_after_projection << binary64_bits(value) << ':';
+    }
+    const bool rollback_exact = active_before
+            == al_binary64_vec3_root(active_prediction)
+        && zero_before == sha256_hex(zero_after_projection.str())
+        && target_anchors_exact
+        && al_binary64_vec3_root(target->current_position)
+            == al_binary64_vec3_root(target_position)
+        && outer10->u == target_u;
+
+    const bool hard_controls = identity_exact && parent_exact
+        && profile_exact && static_index.passed && binding.passed
+        && index_work.static_index_builds == 1U
+        && index_work.support_canonicalizations == 1U
+        && active_replay_exact && target_anchors_exact
+        && diagnostic_constructed && reference_repeat_exact
+        && cross_profile_exact && invalid_prework_exact
+        && candidate_work_exact && rollback_exact;
+    std::string route;
+    if (hard_controls) {
+        if (!mechanism_correspondence) {
+            route = "KRYLOV_FORCING_MECHANISM_CONTRADICTION";
+        } else if (!dimensionless_resolved) {
+            route = "KRYLOV_FORCING_BOUND_REQUIRED";
+        } else if (!reference.dimensionless_stops) {
+            route = "DIMENSIONLESS_FORCING_RETAINS_SECOND_ITERATION";
+        } else {
+            route = "DIMENSIONLESS_FORCING_RESTORES_D7R13_WORK";
+        }
+    }
+    const bool route_precedence_exact =
+        (!mechanism_correspondence
+            && route == "KRYLOV_FORCING_MECHANISM_CONTRADICTION")
+        || (mechanism_correspondence && !dimensionless_resolved
+            && route == "KRYLOV_FORCING_BOUND_REQUIRED")
+        || (mechanism_correspondence && dimensionless_resolved
+            && !reference.dimensionless_stops
+            && route
+                == "DIMENSIONLESS_FORCING_RETAINS_SECOND_ITERATION")
+        || (mechanism_correspondence && dimensionless_resolved
+            && reference.dimensionless_stops
+            && route == "DIMENSIONLESS_FORCING_RESTORES_D7R13_WORK");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R18R4_PARENT_BYTES";
+    else if (!profile_exact) first_failure = "PROFILE_DERIVATION";
+    else if (!static_index.passed || !binding.passed
+        || index_work.static_index_builds != 1U
+        || index_work.support_canonicalizations != 1U)
+        first_failure = "STATIC_BINDING";
+    else if (!active_replay_exact) first_failure = "ACTIVE_REPLAY";
+    else if (!target_anchors_exact) first_failure = "TARGET_ANCHORS";
+    else if (!diagnostic_constructed) first_failure = "FIRST_RECURRENCE";
+    else if (!reference_repeat_exact) first_failure = "REFERENCE_REPEAT";
+    else if (!cross_profile_exact) first_failure = "CROSS_PROFILE_ROOT";
+    else if (!invalid_prework_exact) first_failure = "INVALID_PREWORK";
+    else if (!candidate_work_exact) first_failure = "WORK_LIFECYCLE";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R18R4R1_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << ':' << parent_semantic_exact << '|'
+             << active_replay.root << ':' << target_anchors_exact << '|'
+             << reference.root << ':' << reference_repeat_root << ':'
+             << aligned.root << '|' << reference.residual0_norm << ':'
+             << reference.residual1_norm << ':'
+             << reference.residual_ratio << ':'
+             << reference.eta_inherited << ':'
+             << reference.eta_mapped_dimensional << ':'
+             << reference.eta_dimensionless << ':'
+             << reference.dimensionless_ulp_ratio << '|'
+             << mechanism_correspondence << ':'
+             << dimensionless_resolved << ':'
+             << reference.dimensionless_stops << '|'
+             << candidate_work.workspace_builds << ':'
+             << candidate_work.workspace_releases << ':'
+             << candidate_work.maximum_live_workspaces << ':'
+             << reference.hvp_calls + aligned.hvp_calls << '|'
+             << invalid_prework_exact << ':' << rollback_exact << '|'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_diagnostic = [](
+        std::ostringstream& report, const char* name,
+        const ALNormalizedKrylovReplay& value) {
+        report << '"' << name << "\":{\"root\":\"" << value.root
+               << "\",\"residual0_norm\":" << value.residual0_norm
+               << ",\"residual1_norm\":" << value.residual1_norm
+               << ",\"q\":" << value.residual_ratio
+               << ",\"curvature\":" << value.curvature
+               << ",\"step_coefficient\":" << value.step_coefficient
+               << ",\"first_step_norm\":" << value.first_step_norm
+               << ",\"sigma\":" << value.sigma
+               << ",\"eta_inherited\":" << value.eta_inherited
+               << ",\"eta_mapped_dimensional\":"
+               << value.eta_mapped_dimensional
+               << ",\"eta_dimensionless\":"
+               << value.eta_dimensionless
+               << ",\"eta_fixed\":" << value.eta_fixed
+               << ",\"inherited_stops\":"
+               << (value.inherited_stops ? "true" : "false")
+               << ",\"mapped_dimensional_stops\":"
+               << (value.mapped_dimensional_stops ? "true" : "false")
+               << ",\"dimensionless_stops\":"
+               << (value.dimensionless_stops ? "true" : "false")
+               << ",\"dimensionless_difference\":"
+               << value.dimensionless_difference
+               << ",\"dimensionless_ulp\":"
+               << value.dimensionless_ulp
+               << ",\"dimensionless_ulp_ratio\":"
+               << value.dimensionless_ulp_ratio
+               << ",\"dimensionless_resolved\":"
+               << (value.dimensionless_resolved ? "true" : "false")
+               << ",\"hvp\":" << value.hvp_calls << '}';
+    };
+
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r18r4r1_normalized_krylov_forcing_replay.v1\""
+           << ",\"identity_sha256\":\""
+           << B4E2D7R18R4R1_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"r4_stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"r4_result_exact\":"
+           << (parent_semantic_exact ? "true" : "false")
+           << ",\"r4_hard_fail_preserved\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"profiles\":{\"reference_dt_bits\":\"0x"
+           << std::hex << binary64_bits(reference_dt)
+           << "\",\"reference_kappa_bits\":\"0x"
+           << binary64_bits(KAPPA)
+           << "\",\"aligned_dt_bits\":\"0x"
+           << binary64_bits(aligned_dt)
+           << "\",\"aligned_kappa_bits\":\"0x"
+           << binary64_bits(aligned_kappa)
+           << "\",\"theta_bits\":\"0x"
+           << binary64_bits(reference_theta)
+           << "\",\"objective_scale_bits\":\"0x"
+           << binary64_bits(objective_scale) << std::dec
+           << "\",\"exact\":" << (profile_exact ? "true" : "false")
+           << '}'
+           << ",\"target\":{\"active_root\":\""
+           << active_replay.root << "\",\"outer\":11,\"trial\":0"
+           << ",\"stationarity\":"
+           << (target != nullptr ? target->stationarity_before : 0.0)
+           << ",\"step_norm\":"
+           << (target != nullptr ? target->step_norm : 0.0)
+           << ",\"predicted_reduction\":"
+           << (target != nullptr ? target->predicted_reduction : 0.0)
+           << ",\"divided_reduction\":"
+           << (target != nullptr ? target->divided_reduction : 0.0)
+           << ",\"inherited_hvp\":"
+           << (target != nullptr ? target->hvp_calls : 0)
+           << ",\"d7r13_hvp\":2,\"anchors_exact\":"
+           << (target_anchors_exact ? "true" : "false") << "},\"diagnostics\":{";
+    append_diagnostic(report, "reference", reference);
+    report << ',';
+    append_diagnostic(report, "aligned", aligned);
+    report << "},\"correspondence\":{\"mechanism_exact\":"
+           << (mechanism_correspondence ? "true" : "false")
+           << ",\"reference_repeat_exact\":"
+           << (reference_repeat_exact ? "true" : "false")
+           << ",\"cross_profile_exact\":"
+           << (cross_profile_exact ? "true" : "false")
+           << ",\"dimensionless_resolved\":"
+           << (dimensionless_resolved ? "true" : "false") << '}'
+           << ",\"work\":{\"unchanged_active_outer\":"
+           << active_replay.budget.outer_updates
+           << ",\"unchanged_active_trials\":"
+           << al_normalized_transaction_trial_count(
+                  active_replay.transaction)
+           << ",\"unchanged_active_hvp\":"
+           << active_replay.budget.total_hvp
+           << ",\"candidate_workspaces\":"
+           << candidate_work.workspace_builds
+           << ",\"candidate_workspace_releases\":"
+           << candidate_work.workspace_releases
+           << ",\"candidate_hvp\":"
+           << reference.hvp_calls + aligned.hvp_calls
+           << ",\"maximum_live\":"
+           << candidate_work.maximum_live_workspaces
+           << ",\"all_pair_candidate_calls\":"
+           << candidate_work.all_pair_candidate_calls
+           << ",\"exact\":"
+           << (candidate_work_exact ? "true" : "false") << '}'
+           << ",\"invalid\":{\"cases\":4,\"rejected_prework\":"
+           << (invalid_prework_exact ? "true" : "false") << '}'
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"candidate_acceptances\":0"
+           << ",\"candidate_outer_updates\":0"
+           << ",\"changed_policy_full_transactions\":0"
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"complete_changed_policy_transaction_research_authorized\":"
+           << (passed && dimensionless_resolved
+                ? "true" : "false")
+           << ",\"complete_changed_policy_transaction_execution_authorized\":false"
+           << ",\"d7r19_authorized\":false,\"nominal_substeps\":0"
+           << ",\"macro_frames\":0,\"trajectory_steps\":0"
+           << ",\"public_commit_count\":0,\"physics_mutation\":false"
+           << ",\"timing_admitted\":false,\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr

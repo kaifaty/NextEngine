@@ -160,6 +160,8 @@ SplitBoundaryReport
 run_al_normalized_divided_precancellation_replay_controls();
 SplitBoundaryReport
 run_al_full_normalized_precancelled_private_transaction_controls();
+SplitBoundaryReport
+run_al_normalized_krylov_forcing_replay_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

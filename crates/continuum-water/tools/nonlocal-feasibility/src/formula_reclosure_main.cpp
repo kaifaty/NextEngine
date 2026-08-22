@@ -158,6 +158,7 @@ int main(int argc, char** argv) {
                          "replay|"
                          "--nonlocal-al-full-normalized-precancelled-private-"
                          "transaction|"
+                         "--nonlocal-al-normalized-krylov-forcing-replay|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1232,6 +1233,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_full_normalized_precancelled_private_transaction_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-normalized-krylov-forcing-replay") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_normalized_krylov_forcing_replay_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
