@@ -1185,3 +1185,9 @@ One fixed 705,284-slot plan reproduces every active target row. Its projected
 full-scan ratio is `1.288507x` and conservative combined payload is 38.0 MB.
 This authorizes only B4EP10PI opt-in implementation/A-B contract research;
 no speed improvement has been measured.
+The [B4EP10PI research](../../development/nonlocal-nsr3b4ep10pi-masked-plan-implementation-research-2026-08-22.md)
+selects cache-owned fixed plan plus workspace-owned mapping with the canonical
+energy fold unchanged. Its
+[frozen contract](03b4ep10pi-masked-superset-plan-implementation-contract.md)
+requires exact candidate work and three balanced external A/B pairs before
+any speed credit.

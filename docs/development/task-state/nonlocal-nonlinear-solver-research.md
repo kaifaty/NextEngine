@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10PD_PASS / B4EP10PI_CONTRACT_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10PI_FROZEN / MASKED_PLAN_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -278,8 +278,9 @@
   705,284-slot plan reproduces all 226 active row sets; full-scan expansion is
   `1.288507x`, conservative added payload 38,044,404 bytes and both corrupt
   structure negatives reject.
-- **Current decision:** research and freeze B4EP10PI opt-in implementation/A-B.
-  The audit alone provides no speed credit.
+- **Current decision:** B4EP10PI keeps the fixed plan cache-owned, mapping
+  workspace-owned and canonical energy fold unchanged. It must eliminate all
+  226 active plan builds and pass three balanced external A/B pairs.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -356,6 +357,7 @@
 | NSR3B4EP10R1 PASS | orchestration 1.11%, imbalance 6.55%; evaluation leads `1.916851x` | B4EP10P evaluation-plan architecture research only |
 | NSR3B4EP10PD contract | one masked superset target CSR versus 226 active plans | structural/capacity audit only; no timing or fast path |
 | NSR3B4EP10PD PASS | exact stable rows; `1.288507x` scan, 38.0 MB conservative peak | B4EP10PI implementation/A-B contract research only |
+| NSR3B4EP10PI contract | opt-in cache-plan gather and three balanced A/B pairs | implement/time only; old path remains rollback |
 
 Candidate solver identity remains:
 
@@ -434,6 +436,7 @@ production authority is created by this lineage.
 | [B4EP10R1](../nonlocal-nsr3b4ep10r1-internal-parallel-timing-evidence-2026-08-22.md) | stable evaluation-plan leader; region and balance hypotheses rejected | research one exact plan architecture before implementation |
 | [B4EP10P research](../nonlocal-nsr3b4ep10p-masked-superset-plan-research-2026-08-22.md) | stable superset subsequence can remove repeated transpose construction | run structural/scan/capacity audit before fast path |
 | [B4EP10PD](../nonlocal-nsr3b4ep10pd-masked-superset-plan-evidence-2026-08-22.md) | all active target rows exactly filter one fixed plan within gates | freeze opt-in implementation/A-B before speed claim |
+| [B4EP10PI research](../nonlocal-nsr3b4ep10pi-masked-plan-implementation-research-2026-08-22.md) | cache/workspace lifetime and exact masked gather selected | implement candidate then run frozen external A/B |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -891,10 +894,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research and freeze B4EP10PI opt-in masked-plan implementation/A-B with
-   exact active-plan oracle, balanced serialized timing and rollback gates.
-2. Implement only after freeze; do not infer production readiness from a
-   nominal one-macro result.
+1. Implement the frozen B4EP10PI candidate without changing old commands or
+   the canonical energy fold.
+2. Run exact regressions and three serialized balanced A/B pairs; route only
+   if every functional, speed, stability, RSS and rollback gate passes.
 
 ## Reconsideration triggers
 
