@@ -1167,3 +1167,9 @@ intervals. Its
 [frozen contract](03b4ep10r1-internal-parallel-timing-contract.md) separates
 active, imbalance and orchestration capacity across the exact 3,411 regions
 and keeps all old commands on the uninstrumented branch.
+B4EP10R1 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10r1-internal-parallel-timing-evidence-2026-08-22.md).
+Executor orchestration and imbalance stay far below their routing thresholds.
+Evaluation is the stable 54.63% leader and exceeds HVP by `1.916851x`; its
+serial owner-plan/energy-fold subphase takes 42.33% of evaluation. Only
+B4EP10P plan-architecture research is authorized next.

@@ -1,6 +1,6 @@
 # NSR3-B4EP10R1 -- internal parallel phase-timing contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / B4EP10P_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -72,3 +72,12 @@ Route by median values:
 PASS authorizes only the routed research/design. These instrumented durations
 are not throughput or speedup evidence. Failure preserves B4EP10S/B4EP10I.
 B4E2, broad corpus, runtime/GPU/schema and production remain blocked.
+
+## Closure
+
+B4EP10R1 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10r1-internal-parallel-timing-evidence-2026-08-22.md).
+Executor orchestration and imbalance medians are only 1.11% and 6.55%.
+Evaluation instead leads HVP by `1.916851x`, and `evaluation_plan` consumes
+42.33% of evaluation. This authorizes only B4EP10P architecture research for
+the active owner-plan/energy-fold subphase.
