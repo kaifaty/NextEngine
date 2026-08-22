@@ -45,6 +45,27 @@ constexpr std::string_view IDENTITY_PROJECTION =
     "position-um,q99-synthetic,file-final-byte|runs=2-builds;2-processes;"
     "byte-exact|trajectory=none|timing=none|"
     "credit=b4e2d-contract-research-only";
+constexpr std::string_view INITIAL_SCHEMA =
+    "nextengine.nonlocal.nsr3b4e2d1-frame-zero-binary64.v1";
+constexpr std::string_view INITIAL_IDENTITY =
+    "c3fb3522dba71768a7933c293523ebbbbaf08a0b5ee408a57b27a2300a2e22d8";
+constexpr std::string_view INITIAL_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d1-frame-zero-binary64|v1|"
+    "parent=2b09ce8435fc185bd91322e17f1ee34f04a3ec59dc1a47dc5bba04cef23c6641:"
+    "ee0c8d94799420a112103917252a4bc0e3b31a62bc652c7ebda7e03ccf23845f:"
+    "be8e9ecf9bc35204ed422ecdb35032e5dabaa3688e5b7f788826d78ef0626d4e|"
+    "reference="
+    "681e6e2aab130e0a461dadf575caac754b0931668027db911512a1edac2cccf3:"
+    "8ca3498dbc04556bf86f32a8cab55eccee92ff201aecb737d8ac2760c64504c6:"
+    "a0b030805034538420e0a5d90390f7117e645119013e9223ff1b334564cbcc13|"
+    "slice=dam;frame0;step0;stable-id6000;position+velocity-u64bits|"
+    "parser=standalone-cxx17;openat-nofollow;full-hash-before-parse;"
+    "frame0-only|candidates=micrometre-division,addition-lattice;"
+    "velocity-zero;ids-iy-iz-ix|comparison=external-root-equals-exactly-one-"
+    "candidate;vector-mismatch-counts|controls=serialized-position-bit,"
+    "candidate-position-bit,id-swap|runs=2-builds;2-processes;byte-exact|"
+    "trajectory=none|timing=none|"
+    "credit=b4e2d2-topology-reclosure-research-only";
 constexpr std::string_view PROFILE =
     "ba34b4e3b12986ebc831320d6811551d5311a6774a64f079aabe3a5eaa6bb746";
 constexpr std::string_view R1D_PROFILE_PROJECTION =
@@ -313,6 +334,19 @@ struct FileResult {
     bool position_mutation_rejected = false;
     std::string observed_sha256;
     SliceValue slice;
+};
+
+struct RawBitSample {
+    std::uint32_t id = 0U;
+    std::array<std::uint64_t, 3> position{};
+    std::array<std::uint64_t, 3> velocity{};
+};
+
+struct InitialBinary64Result {
+    bool passed = false;
+    std::string failure;
+    std::string observed_sha256;
+    std::vector<RawBitSample> samples;
 };
 
 #if defined(__SIZEOF_INT128__)
@@ -588,6 +622,128 @@ bool stable_ids_exact(const std::vector<CanonicalSample>& samples) {
     return true;
 }
 
+bool raw_stable_ids_exact(const std::vector<RawBitSample>& samples) {
+    for (std::size_t index = 0U; index < samples.size(); ++index) {
+        if (samples[index].id != index) {
+            return false;
+        }
+    }
+    return samples.size() == SAMPLE_COUNT;
+}
+
+double double_from_bits(std::uint64_t bits) {
+    double value = 0.0;
+    std::memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+std::uint64_t double_bits(double value) {
+    std::uint64_t bits = 0U;
+    std::memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
+std::string raw_bit_root(const std::vector<RawBitSample>& samples) {
+    std::string bytes;
+    bytes.reserve(16U + samples.size() * 52U);
+    constexpr std::string_view scenario = "CW-DAMBREAK-001";
+    append_u32(bytes, static_cast<std::uint32_t>(scenario.size()));
+    bytes.append(scenario);
+    append_u32(bytes, 0U);
+    append_u32(bytes, static_cast<std::uint32_t>(samples.size()));
+    for (const RawBitSample& sample : samples) {
+        append_u32(bytes, sample.id);
+        for (const std::uint64_t bits : sample.position) {
+            append_u64(bytes, bits);
+        }
+        for (const std::uint64_t bits : sample.velocity) {
+            append_u64(bytes, bits);
+        }
+    }
+    return domain_hash(
+        "nextengine.nonlocal.nsr3b4e2d1-frame-zero-bits.v1", bytes);
+}
+
+std::vector<RawBitSample> candidate_initial_bits(bool decoded) {
+    std::vector<RawBitSample> result;
+    result.reserve(SAMPLE_COUNT);
+    for (std::uint32_t iy = 0U; iy < 15U; ++iy) {
+        for (std::uint32_t iz = 0U; iz < 20U; ++iz) {
+            for (std::uint32_t ix = 0U; ix < 20U; ++ix) {
+                RawBitSample sample;
+                sample.id = ((iy * 20U) + iz) * 20U + ix;
+                const std::array<std::uint32_t, 3> coordinate{ix, iy, iz};
+                for (std::size_t axis = 0U; axis < 3U; ++axis) {
+                    const double position = decoded
+                        ? static_cast<double>(25000U
+                            + 50000U * coordinate[axis]) / 1000000.0
+                        : 0.025
+                            + static_cast<double>(coordinate[axis]) * 0.05;
+                    sample.position[axis] = double_bits(position);
+                    sample.velocity[axis] = double_bits(0.0);
+                }
+                result.push_back(sample);
+            }
+        }
+    }
+    return result;
+}
+
+std::size_t matching_position_vectors(
+    const std::vector<RawBitSample>& lhs,
+    const std::vector<RawBitSample>& rhs) {
+    if (lhs.size() != rhs.size()) {
+        return 0U;
+    }
+    std::size_t matches = 0U;
+    for (std::size_t index = 0U; index < lhs.size(); ++index) {
+        matches += lhs[index].position == rhs[index].position ? 1U : 0U;
+    }
+    return matches;
+}
+
+std::vector<RawBitSample> parse_initial_raw_bits(
+    Parser& parser, const ReferenceSpec& spec) {
+    const std::size_t begin = parser.cursor();
+    if (parser.u32() != 0U || parser.u32() != 0U
+        || parser.u32() != 0U || parser.u32() != 0U
+        || parser.u64() != 0U || parser.u64() != 0U
+        || parser.u64() != 0U || parser.u64() != 0U
+        || parser.u64() != 0U) {
+        throw std::runtime_error("INITIAL_DIAGNOSTICS_MISMATCH");
+    }
+    for (std::size_t feature = 0U; feature < FEATURE_COUNT; ++feature) {
+        if (parser.u32() != 0U) {
+            throw std::runtime_error("INITIAL_FEATURE_MISMATCH");
+        }
+    }
+    std::vector<RawBitSample> result;
+    result.reserve(SAMPLE_COUNT);
+    for (std::uint32_t id = 0U; id < SAMPLE_COUNT; ++id) {
+        RawBitSample sample;
+        sample.id = parser.u32();
+        for (std::uint64_t& bits : sample.position) {
+            bits = parser.u64();
+            if (!std::isfinite(double_from_bits(bits))) {
+                throw std::runtime_error("NONFINITE_INITIAL_POSITION");
+            }
+        }
+        for (std::uint64_t& bits : sample.velocity) {
+            bits = parser.u64();
+            if (!std::isfinite(double_from_bits(bits))) {
+                throw std::runtime_error("NONFINITE_INITIAL_VELOCITY");
+            }
+        }
+        result.push_back(sample);
+    }
+    if (parser.cursor() - begin != FRAME_BYTES
+        || !raw_stable_ids_exact(result)
+        || spec.scenario != "CW-DAMBREAK-001") {
+        throw std::runtime_error("INITIAL_RAW_LAYOUT_MISMATCH");
+    }
+    return result;
+}
+
 std::string expected_manifest(const ReferenceSpec& spec) {
     std::string result(R1D_PROFILE_PROJECTION);
     result.push_back('\n');
@@ -752,6 +908,111 @@ FileResult inspect_file(int root_descriptor, const ReferenceSpec& spec) {
     return result;
 }
 
+InitialBinary64Result inspect_initial_binary64(
+    int root_descriptor, const ReferenceSpec& spec) {
+    InitialBinary64Result result;
+    Descriptor profile(::openat(root_descriptor, std::string(PROFILE).c_str(),
+        O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+    if (!profile) {
+        result.failure = "PROFILE_OPEN_REJECTED";
+        return result;
+    }
+    Descriptor scenario(::openat(profile.get(),
+        std::string(spec.scenario).c_str(),
+        O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+    if (!scenario) {
+        result.failure = "SCENARIO_OPEN_REJECTED";
+        return result;
+    }
+    const std::string filename = std::string(spec.file_sha256) + ".cwrefv2";
+    Descriptor file(::openat(scenario.get(), filename.c_str(),
+        O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+    if (!file) {
+        result.failure = errno == ELOOP
+            ? "SYMLINK_REJECTED" : "FILE_OPEN_REJECTED";
+        return result;
+    }
+    struct stat before {};
+    if (::fstat(file.get(), &before) != 0 || !S_ISREG(before.st_mode)) {
+        result.failure = "FILE_TYPE_REJECTED";
+        return result;
+    }
+    if (before.st_size < 0
+        || static_cast<std::uintmax_t>(before.st_size) != spec.bytes
+        || static_cast<std::uintmax_t>(before.st_size) > MAXIMUM_BYTES) {
+        result.failure = "FILE_SIZE_REJECTED";
+        return result;
+    }
+    std::vector<std::uint8_t> bytes(spec.bytes);
+    std::size_t offset = 0U;
+    while (offset < bytes.size()) {
+        const ssize_t count = ::read(
+            file.get(), bytes.data() + offset, bytes.size() - offset);
+        if (count < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            result.failure = "READ_FAILED";
+            return result;
+        }
+        if (count == 0) {
+            result.failure = "TRUNCATED_DURING_READ";
+            return result;
+        }
+        offset += static_cast<std::size_t>(count);
+    }
+    std::uint8_t trailing = 0U;
+    const ssize_t trailing_count = ::read(file.get(), &trailing, 1U);
+    struct stat after {};
+    if (trailing_count != 0 || ::fstat(file.get(), &after) != 0
+        || !same_stat(before, after)) {
+        result.failure = "FILE_CHANGED_DURING_READ";
+        return result;
+    }
+    result.observed_sha256 = bytes_hash(bytes);
+    if (result.observed_sha256 != spec.file_sha256) {
+        result.failure = "COMPLETE_FILE_HASH_MISMATCH";
+        return result;
+    }
+    try {
+        Parser parser(bytes);
+        if (parser.raw(MAGIC.size()) != MAGIC) {
+            throw std::runtime_error("MAGIC_MISMATCH");
+        }
+        const std::uint32_t manifest_bytes = parser.u32();
+        const std::string expected = expected_manifest(spec);
+        if (manifest_bytes != expected.size()
+            || parser.raw(manifest_bytes) != expected
+            || parser.u32() != SAMPLE_COUNT || parser.u32() != spec.frames
+            || bytes.size() != 12U + expected.size() + 8U
+                + FRAME_BYTES * spec.frames) {
+            throw std::runtime_error("MANIFEST_LAYOUT_MISMATCH");
+        }
+        result.samples = parse_initial_raw_bits(parser, spec);
+        result.passed = raw_stable_ids_exact(result.samples);
+        if (!result.passed) {
+            result.failure = "INITIAL_SAMPLE_IDENTITY";
+        }
+    } catch (const std::exception& error) {
+        result.failure = error.what();
+    }
+    return result;
+}
+
+SliceRun initial_failure_report(std::string_view failure) {
+    std::ostringstream output;
+    output << "schema=" << INITIAL_SCHEMA << '\n'
+           << "identity=" << INITIAL_IDENTITY << '\n'
+           << "status=FAIL\n"
+           << "first_failure=" << failure << '\n'
+           << "trajectory_started=false\n"
+           << "timing_admitted=false\n"
+           << "b4e2d2_topology_reclosure_research_authorized=false\n"
+           << "runtime_authority=false\n"
+           << "production_authority=false\n";
+    return {false, output.str()};
+}
+
 void append_triplet(
     std::ostringstream& output,
     const std::array<std::int64_t, 3>& values) {
@@ -887,6 +1148,127 @@ SliceRun run_first_output(std::string_view artifact_root) {
            << "b4e2d_contract_research_authorized=" << passed << '\n'
            << "hydro_trajectory_authorized=false\n"
            << "broad_corpus_authorized=false\n"
+           << "runtime_authority=false\n"
+           << "production_authority=false\n"
+           << "result_sha256=" << result_sha256 << '\n';
+    return {passed, report.str()};
+}
+
+SliceRun run_initial_binary64(std::string_view artifact_root) {
+    if (nextengine::nonlocal::sha256_hex(INITIAL_IDENTITY_PROJECTION)
+        != INITIAL_IDENTITY) {
+        return initial_failure_report("IDENTITY_MISMATCH");
+    }
+    if (artifact_root.empty() || artifact_root.front() != '/') {
+        return initial_failure_report("ABSOLUTE_ROOT_REQUIRED");
+    }
+    if (artifact_root == "/tmp"
+        || artifact_root.substr(0U, 5U) == "/tmp/") {
+        return initial_failure_report("TMP_ROOT_REJECTED");
+    }
+    if (std::fesetround(FE_TONEAREST) != 0
+        || std::fegetround() != FE_TONEAREST) {
+        return initial_failure_report("ROUNDING_ENVIRONMENT");
+    }
+    Descriptor root = open_absolute_directory(artifact_root);
+    if (!root) {
+        return initial_failure_report("ROOT_OPEN_REJECTED");
+    }
+    const InitialBinary64Result external = inspect_initial_binary64(
+        root.get(), REFERENCES[0]);
+    if (!external.passed) {
+        return initial_failure_report(
+            std::string("CW-DAMBREAK-001:") + external.failure);
+    }
+    const std::vector<RawBitSample> decoded = candidate_initial_bits(true);
+    const std::vector<RawBitSample> addition = candidate_initial_bits(false);
+    const std::string external_root = raw_bit_root(external.samples);
+    const std::string decoded_root = raw_bit_root(decoded);
+    const std::string addition_root = raw_bit_root(addition);
+    const bool decoded_selected = external_root == decoded_root
+        && external_root != addition_root;
+    const bool addition_selected = external_root == addition_root
+        && external_root != decoded_root;
+    const bool exactly_one_selected = decoded_selected != addition_selected;
+    const std::size_t decoded_matching_vectors = matching_position_vectors(
+        external.samples, decoded);
+    const std::size_t addition_matching_vectors = matching_position_vectors(
+        external.samples, addition);
+    const bool velocity_positive_zero = std::all_of(
+        external.samples.begin(), external.samples.end(),
+        [](const RawBitSample& sample) {
+            return sample.velocity == std::array<std::uint64_t, 3>{0U, 0U, 0U};
+        });
+
+    std::vector<RawBitSample> serialized_mutation = external.samples;
+    serialized_mutation.front().position[0] ^= 1U;
+    const bool serialized_mutation_rejected =
+        raw_bit_root(serialized_mutation) != external_root;
+    std::vector<RawBitSample> candidate_mutation = decoded;
+    candidate_mutation.front().position[0] ^= 1U;
+    const bool candidate_mutation_rejected =
+        raw_bit_root(candidate_mutation) != decoded_root;
+    std::vector<RawBitSample> id_mutation = external.samples;
+    std::swap(id_mutation[0].id, id_mutation[1].id);
+    const bool id_mutation_rejected = !raw_stable_ids_exact(id_mutation)
+        && raw_bit_root(id_mutation) != external_root;
+    const bool controls_exact = serialized_mutation_rejected
+        && candidate_mutation_rejected && id_mutation_rejected;
+    const bool passed = exactly_one_selected && controls_exact
+        && velocity_positive_zero && raw_stable_ids_exact(external.samples)
+        && decoded.size() == SAMPLE_COUNT && addition.size() == SAMPLE_COUNT;
+    std::string first_failure;
+    if (!exactly_one_selected) {
+        first_failure = "CANDIDATE_SELECTION";
+    } else if (!velocity_positive_zero) {
+        first_failure = "INITIAL_VELOCITY_BITS";
+    } else if (!controls_exact) {
+        first_failure = "MUTATION_CONTROL";
+    }
+    const char* selected = decoded_selected
+        ? "MICROMETRE_DIVISION" : addition_selected
+        ? "ADDITION_LATTICE" : "NONE";
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << INITIAL_IDENTITY << '|' << external.observed_sha256 << '|'
+             << external_root << '|' << decoded_root << '|' << addition_root
+             << '|' << selected << '|' << decoded_matching_vectors << ':'
+             << addition_matching_vectors << ':' << velocity_positive_zero
+             << '|' << serialized_mutation_rejected << ':'
+             << candidate_mutation_rejected << ':' << id_mutation_rejected;
+    const std::string result_sha256 =
+        nextengine::nonlocal::sha256_hex(semantic.str());
+    std::ostringstream report;
+    report << std::boolalpha
+           << "schema=" << INITIAL_SCHEMA << '\n'
+           << "identity=" << INITIAL_IDENTITY << '\n'
+           << "status=" << (passed ? "PASS" : "FAIL") << '\n'
+           << "first_failure=" << first_failure << '\n'
+           << "file_sha256=" << external.observed_sha256 << '\n'
+           << "sample_count=" << external.samples.size() << '\n'
+           << "external_raw_bit_root=" << external_root << '\n'
+           << "micrometre_division_root=" << decoded_root << '\n'
+           << "addition_lattice_root=" << addition_root << '\n'
+           << "micrometre_division_matching_vectors="
+           << decoded_matching_vectors << '\n'
+           << "addition_lattice_matching_vectors="
+           << addition_matching_vectors << '\n'
+           << "velocity_positive_zero=" << velocity_positive_zero << '\n'
+           << "selected_representation=" << selected << '\n'
+           << "exactly_one_candidate_selected=" << exactly_one_selected
+           << '\n'
+           << "serialized_position_bit_control="
+           << serialized_mutation_rejected << '\n'
+           << "candidate_position_bit_control="
+           << candidate_mutation_rejected << '\n'
+           << "id_swap_control=" << id_mutation_rejected << '\n'
+           << "trajectory_started=false\n"
+           << "timing_admitted=false\n"
+           << "speedup_claim=false\n"
+           << "b4e2d2_topology_reclosure_research_authorized="
+           << passed << '\n'
+           << "b4e2d_physics_authorized=false\n"
            << "runtime_authority=false\n"
            << "production_authority=false\n"
            << "result_sha256=" << result_sha256 << '\n';

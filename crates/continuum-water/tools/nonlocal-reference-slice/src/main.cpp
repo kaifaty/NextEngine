@@ -9,10 +9,12 @@ int main(int argc, char** argv) {
     if (argc == 3
         && std::string_view(argv[1]) == "--first-output") {
         run = run_first_output(argv[2]);
+    } else if (argc == 3
+        && std::string_view(argv[1]) == "--initial-binary64") {
+        run = run_initial_binary64(argv[2]);
     } else {
         run = reject_unknown_argument();
     }
     std::cout << run.report;
     return run.passed ? 0 : 1;
 }
-
