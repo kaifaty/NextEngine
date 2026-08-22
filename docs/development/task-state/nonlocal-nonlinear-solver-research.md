@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREQ1_PASS / TOPOLOGY_STRUCTURAL_AUDIT_RESEARCH_NEXT` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREQ2_FROZEN / TOPOLOGY_INCOMING_FUSION_AUDIT_IMPLEMENTATION_NEXT` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -409,6 +409,12 @@
 - **Current decision:** topology is the eligible leader at median `0.301239`
   and `1.629380x` over target fold. Research and freeze one timing-free
   topology structural audit; do not implement a topology change yet.
+- **Research result:** the accepted incoming builder performs 665,142,896
+  standalone entry visits and 678 regions after topology already owns the
+  needed pair order, row counts and slots.
+- **Current decision:** B4EP10SIRDIREQ2 freezes one shadow fusion audit. It
+  piggybacks degree/source/endpoint data on existing topology passes and uses
+  one 85,716,150-pair canonical fill; implement the audit, not the fast path.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -513,6 +519,7 @@
 | NSR3B4EP10SIRDIREQ HOST_UNQUALIFIED | accepted median `4.801273 s` misses health; current/accepted wall/CPU `0.977/0.982` | no source bisection or short-margin wall A/B |
 | NSR3B4EP10SIRDIREQ1 contract | process/thread CPU clocks over exact SIRDIR hierarchy | implement/run three only; no wall or speed credit |
 | NSR3B4EP10SIRDIREQ1 PASS | topology median `30.12%`, stable `1.629x` lead; CPU cross-check `1.0075` | one timing-free topology structural audit research only |
+| NSR3B4EP10SIRDIREQ2 contract | topology metadata/row-fill piggyback plus one canonical pair fill | implement/run shadow audit twice; no timing or fast path |
 
 Candidate solver identity remains:
 
@@ -1229,6 +1236,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   directly implementing a presumed topology optimization, or promoting this
   research command toward production.
 
+### D-057 -- Audit topology/incoming construction fusion
+
+- **Observation:** split-incoming construction performs 665,142,896 standalone
+  entry visits and 678 regions after topology has already established active
+  pair identity, endpoint order, degrees and directed rows.
+- **Decision:** shadow incoming degree during metadata, source/endpoints during
+  row fill, and fill exact target rows with one canonical 85,716,150-pair
+  pass. Compare all 226 plans byte for byte without timing.
+- **Rejected:** masked superset, partitioned active and full-current plans are
+  already negative evidence; current-active topology caching lacks a horizon-
+  margin certificate and cannot be inferred from stable pair counts.
+- **Reconsider when:** the audit passes every order/lifetime/capacity gate and
+  a separate candidate implementation/measurement contract is frozen.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1281,12 +1302,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Inspect the exact topology path and partition its 30.12% CPU leader into
-   structural work counts without adding timing or changing execution.
-2. Research alternatives, select one falsifiable topology redundancy/lifetime
-   hypothesis and freeze its audit contract before code.
-3. Run only that timing-free audit. Final wall A/B remains blocked pending a
-   qualified host window.
+1. Implement the frozen audit-only shadow fused plan without changing SIRDI.
+2. Verify exact counts, plan bytes, corruption negatives and old SIRDI output,
+   then run exactly two fresh audit processes.
+3. Close the hypothesis PASS/FAIL. Even PASS authorizes only separate
+   candidate-contract research; wall A/B remains blocked pending a qualified
+   host window.
 
 ## Reconsideration triggers
 
