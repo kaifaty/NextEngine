@@ -1,6 +1,6 @@
 # NSR3-B4EP10SID -- split self/incoming plan audit contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / B4EP10SIC_CONSTRUCTION_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 

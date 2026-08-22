@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SID_FROZEN / SPLIT_INCOMING_AUDIT` |
+| Status | `ACTIVE / NSR3B4EP10SID_PASS / SPLIT_INCOMING_CONSTRUCTION_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -902,6 +902,18 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** relaxing the scan gate after observing the result or proceeding
   directly to topology construction based on a near miss.
 
+### D-044 -- Admit split incoming view to construction research
+
+- **Observation:** all 226 three-part reconstructions are exact; projected
+  visits are `1.106670x`, both corruption fixtures reject and conservative
+  payload is 32.1 MB.
+- **Decision:** research a deterministic topology-compaction builder that
+  emits one participant slot per directed source slot without active-set or
+  floating work.
+- **Rejected:** timing the audit's full side-by-side plan, integrating the
+  floating fold before construction correspondence, or claiming the work
+  proxy as speedup.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -950,10 +962,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen B4EP10SID structural audit with no returned-path
-   change and no timing.
-2. Run two exact processes and regressions; design topology construction only
-   if sequence, exact work, capacity and both corrupt fixtures pass.
+1. Research ownership and stable construction of the incoming CSR during the
+   current topology filter; freeze a side-by-side builder audit.
+2. Require exact incoming offsets/slots/source mapping and bounded added work
+   before any evaluation/HVP integration or A/B.
 
 ## Reconsideration triggers
 
