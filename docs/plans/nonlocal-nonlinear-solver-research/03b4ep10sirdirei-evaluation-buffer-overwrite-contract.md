@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREI -- evaluation buffer overwrite contract
 
-Status: `FROZEN / IMPLEMENTATION_PENDING`
+Status: `CLOSED / FAIL / DEFAULT_PATH_REGRESSION / IMPLEMENTATION_REVERTED`
 
 Identity projection (exact bytes, no final LF):
 

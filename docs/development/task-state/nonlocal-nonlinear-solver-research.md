@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREI_FROZEN / IMPLEMENTATION_PENDING` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREI_FAIL / EPHEMERAL_SCRATCH_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -370,6 +370,14 @@
 - **Current decision:** B4EP10SIRDIREI freezes candidate-only overwrite
   construction for six audited `double` roles, leaving gradient, sizes,
   ownership and arithmetic unchanged. Implement then run the balanced A/B.
+- **Negative result:** the stateful allocator implementation keeps bytes exact
+  but changes libstdc++ to elementwise construction. Unchanged SIRDI regresses
+  4.290 -> 10.43 s (`2.431x`); candidate 9.63 s is not admissible speed credit.
+- **Current decision:** close SIRDIREI FAIL and revert it before commit. Do not
+  run balanced A/B against a corrupted baseline or widen into raw storage.
+- **Current decision:** research only one transaction-local high-water reuse
+  path for builder-local density contribution. It changes no returned vector
+  size, workspace ownership or arithmetic.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -467,6 +475,7 @@
 | NSR3B4EP10SIRDIREA contract | seven-role write coverage plus two workspace/one ephemeral lane receipts | implement/run twice only; no reuse or timing |
 | NSR3B4EP10SIRDIREA PASS | full coverage; two workspace/one ephemeral lane; projected `0.007801x` initialization bytes | buffer reuse implementation/A-B contract research only |
 | NSR3B4EP10SIRDIREI contract | overwrite construction for 345,576,600 audited `double` slots; no pool/size change | implement and run frozen balanced A/B only |
+| NSR3B4EP10SIRDIREI FAIL | default SIRDI regresses `2.431x`; candidate-relative probe invalid; code reverted | ephemeral density-contribution scratch research only |
 
 Candidate solver identity remains:
 
@@ -1090,6 +1099,18 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** exact A/B passes and candidate-specific reprofiling still
   identifies allocation/lifetime work as a bounded leader.
 
+### D-050 -- Reject user-allocator overwrite before A/B
+
+- **Observation:** semantic correspondence passes, but the custom allocator
+  forces per-element construction and regresses unchanged SIRDI from 4.290 to
+  10.43 s. Candidate 9.63 s is relative to this corrupted baseline.
+- **Decision:** fail and revert SIRDIREI before commit/A-B. Preserve SIRDI and
+  narrow research to the builder-local density-contribution scratch lane.
+- **Rejected:** promoting the apparent `1.083x` probe win, comparing regressed
+  A/B paths, or replacing returned storage with raw memory after this failure.
+- **Reconsider when:** a separately frozen representation redesign has broader
+  ownership/portability authority; this performance lineage does not.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1142,11 +1163,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement only the frozen stateful allocator mode and six-role candidate
-   counters; default allocator behavior must preserve every old command.
-2. Prove old SIRDI byte-exact and candidate semantics/counters exact.
-3. Run the frozen warmups and balanced `AB`, `BA`, `AB` external pairs; route
-   only through the predeclared gates.
+1. Research a transaction-local high-water `std::vector<double>` used only for
+   density contribution; keep its logical size at high-water internally and
+   index only the current pair extent.
+2. Freeze exact acquire/release/growth/work and balanced A/B gates before code.
+3. Preserve every returned workspace vector and SIRDI as the immutable
+   baseline; do not reopen allocator/raw-storage work.
 
 ## Reconsideration triggers
 
