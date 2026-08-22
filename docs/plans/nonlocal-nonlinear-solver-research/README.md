@@ -1558,3 +1558,10 @@ The exact failed state converges privately in two trials and four HVPs with
 unchanged raw acceptance and exact fallback. Research/freeze B4E2D7R5 next to
 integrate only this inner candidate into D7R's complete private AL and
 two-confirmation protocol. No public state or trajectory is authorized.
+The [B4E2D7R5 research](../../development/nonlocal-nsr3b4e2d7r5-private-outer-integration-research-2026-08-22.md)
+retains every D7R dimensional gate and the 14-update cap, adds one warm
+holdout, and publishes no state. Its
+[frozen contract](03b4e2d7r5-private-outer-integration-contract.md) classifies
+confirmation, improving cap exhaustion or inner-policy insufficiency.
+Implement/run only this private transaction next; nominal trajectories remain
+blocked for every outcome.
