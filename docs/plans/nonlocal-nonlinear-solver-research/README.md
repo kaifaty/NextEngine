@@ -1320,3 +1320,10 @@ The candidate is exact, wins all three pairs and reduces median wall from
 5.514 to 4.290 s (`1.284223x`) while median total CPU falls to `0.784012x`
 baseline and RSS rises only 496 KiB. Select it for nominal research, keep both
 rollbacks, and reprofile the exact candidate before another optimization.
+The [B4EP10SIRDIR research](../../development/nonlocal-nsr3b4ep10sirdir-directed-scratch-residual-research-2026-08-22.md)
+selects the existing hierarchical stage/subphase and worker-active timers over
+the exact scratch-reuse command. Its
+[frozen contract](03b4ep10sirdir-directed-scratch-residual-timing-contract.md)
+requires three fresh exact processes, stable disjoint category shares and the
+same predeclared leader rule before another change. Implement and measure only
+this timing command.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDI_PASS / CANDIDATE_RESIDUAL_ATTRIBUTION_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIR_FROZEN / IMPLEMENTATION_PENDING` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -1066,10 +1066,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement only the frozen B4EP10SIR timing command over unchanged
-   B4EP10SII execution.
-2. Run three exact fresh processes and route only from stable category and
-   executor-capacity evidence.
+1. Implement only the frozen B4EP10SIRDIR timing command over unchanged
+   B4EP10SIRDI execution.
+2. Run three exact fresh processes and route only from stable category,
+   scratch-lifetime and executor-capacity evidence.
 
 ## Reconsideration triggers
 
