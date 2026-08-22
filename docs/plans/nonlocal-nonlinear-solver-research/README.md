@@ -1346,3 +1346,10 @@ Buffer preparation is the stable leader at 89.50% of `evaluation_setup`,
 leading validation by `8.531659x`; all setup-share ranges remain below 0.009.
 Research one timing-free write-before-read, ownership-lifetime and high-water
 audit before designing any evaluation-buffer reuse.
+The [B4EP10SIRDIREA research](../../development/nonlocal-nsr3b4ep10sirdirea-evaluation-buffer-liveness-research-2026-08-22.md)
+separates six returned workspace buffers from one builder-local ephemeral
+buffer. Its
+[frozen contract](03b4ep10sirdirea-evaluation-buffer-liveness-audit-contract.md)
+requires exact per-index write coverage, two workspace-lane receipts, one
+ephemeral lane and bounded high-water projection. Implement and run only the
+timing-free audit; no reuse path is authorized yet.

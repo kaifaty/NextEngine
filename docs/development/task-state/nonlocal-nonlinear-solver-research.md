@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIRE_PASS / BUFFER_LIVENESS_AUDIT_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREA_FROZEN / IMPLEMENTATION_PENDING` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -351,6 +351,9 @@
 - **Current decision:** research one timing-free write-before-read,
   ownership-lifetime and high-water audit for the seven evaluation buffers.
   Do not implement reuse or remove initialization from timing alone.
+- **Current decision:** B4EP10SIRDIREA freezes per-index coverage, exactly two
+  returned-workspace lanes, one builder-local ephemeral lane, explicit receipt
+  release and checked high-water projection. Implement/run only this audit.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -445,6 +448,7 @@
 | NSR3B4EP10SIRDI PASS | exact candidate; median `1.284223x`, CPU `0.784x` | candidate residual attribution research only |
 | NSR3B4EP10SIRDIR PASS | source-local `44.72%`; setup/direct work no longer has a clear leader | evaluation-setup timing discriminator research only |
 | NSR3B4EP10SIRDIRE PASS | buffer setup `89.50%`, stable `8.532x` lead | one buffer liveness/high-water audit research only |
+| NSR3B4EP10SIRDIREA contract | seven-role write coverage plus two workspace/one ephemeral lane receipts | implement/run twice only; no reuse or timing |
 
 Candidate solver identity remains:
 
@@ -1093,12 +1097,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Inspect the seven `evaluation_setup` buffers and freeze exact per-buffer
-   write-before-read, lifetime and ownership events.
-2. Derive maximum simultaneous live workspaces and the minimum safe high-water
-   buffer count without changing the returned solver path.
-3. Implement only the resulting timing-free audit; no reuse candidate is yet
-   authorized.
+1. Implement only the frozen B4EP10SIRDIREA shadow coverage, receipt-lifetime
+   and high-water projection counters.
+2. Run both corrupt shadows and two byte-identical positive processes.
+3. Route only through the frozen coverage/lane/capacity gates; no reuse
+   candidate is yet authorized.
 
 ## Reconsideration triggers
 
