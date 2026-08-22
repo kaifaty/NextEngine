@@ -48788,6 +48788,231 @@ std::vector<Vec3> apply_al_vector_hessian(
     return result;
 }
 
+struct ALSparseWorkTrace {
+    std::size_t workspace_builds = 0U;
+    std::size_t workspace_releases = 0U;
+    std::size_t live_workspaces = 0U;
+    std::size_t maximum_live_workspaces = 0U;
+    std::size_t pair_visits = 0U;
+    std::size_t divided_union_visits = 0U;
+    std::size_t current_members = 0U;
+    std::size_t trial_members = 0U;
+    std::size_t all_pair_candidate_calls = 0U;
+    bool lifecycle_underflow = false;
+};
+
+struct ALSparseWorkspace {
+    bool passed = false;
+    std::string failure;
+    JointNeighborhood neighborhood;
+    ALVectorSupport support;
+    std::vector<double> radius;
+    std::vector<double> weight_first;
+    std::vector<double> weight_second_value;
+    std::size_t payload_bytes = 0U;
+};
+
+ALSparseWorkspace build_al_sparse_workspace(
+    const std::vector<Vec3>& fluid,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    ALSparseWorkTrace* work = nullptr) {
+    ALSparseWorkspace result;
+    if (work != nullptr) {
+        ++work->workspace_builds;
+        ++work->live_workspaces;
+        work->maximum_live_workspaces = std::max(
+            work->maximum_live_workspaces, work->live_workspaces);
+    }
+    result.neighborhood = build_joint_neighborhood(
+        tagged_points(fluid), tagged_points(boundary), true,
+        nullptr, true);
+    if (!result.neighborhood.passed
+        || multiplier.size() != fluid.size()) {
+        result.failure = result.neighborhood.passed
+            ? "AL_SPARSE_MULTIPLIER_SIZE"
+            : result.neighborhood.failure;
+        return result;
+    }
+    const std::size_t fluid_count = fluid.size();
+    const std::size_t total_count = fluid_count + boundary.size();
+    result.support.gradient.resize(total_count);
+    result.support.density.assign(fluid_count, MASS * weight(0.0));
+    result.radius.resize(result.neighborhood.pairs.size());
+    result.weight_first.resize(result.neighborhood.pairs.size());
+    result.weight_second_value.resize(result.neighborhood.pairs.size());
+    for (std::size_t pair_index = 0U;
+         pair_index < result.neighborhood.pairs.size(); ++pair_index) {
+        const JointPair pair = result.neighborhood.pairs[pair_index];
+        const double radius = norm(
+            result.neighborhood.fluid[pair.fluid].position
+            - joint_position(result.neighborhood, pair.participant));
+        result.radius[pair_index] = radius;
+        result.weight_first[pair_index] = weight_gradient(radius);
+        result.weight_second_value[pair_index] = weight_second(radius);
+        const double contribution = MASS * weight(radius);
+        result.support.density[pair.fluid] += contribution;
+        if (pair.participant < fluid_count) {
+            result.support.density[pair.participant] += contribution;
+            ++result.support.fluid_pairs;
+        } else {
+            ++result.support.boundary_pairs;
+        }
+        if (work != nullptr) {
+            ++work->pair_visits;
+        }
+    }
+    result.support.constraint.resize(fluid_count);
+    result.support.active_coefficient.resize(fluid_count);
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const double constraint =
+            result.support.density[center] / REST_DENSITY - 1.0;
+        const double active = std::max(
+            0.0, multiplier[center] + KAPPA * constraint);
+        result.support.constraint[center] = constraint;
+        result.support.active_coefficient[center] = active;
+        result.support.energy += (
+            active * active - multiplier[center] * multiplier[center])
+            / (2.0 * KAPPA);
+        if (active <= 0.0) {
+            continue;
+        }
+        ++result.support.active_centers;
+        const double scale = active * MASS / REST_DENSITY;
+        const std::size_t begin = result.neighborhood.flat_offsets[center];
+        const std::size_t end =
+            result.neighborhood.flat_offsets[center + 1U];
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                result.neighborhood.flat_directed_pair_indices[slot];
+            const std::size_t participant = joint_pair_participant(
+                result.neighborhood,
+                result.neighborhood.pairs[pair_index], center);
+            const Vec3 displacement =
+                result.neighborhood.fluid[center].position
+                - joint_position(result.neighborhood, participant);
+            const double radius = result.radius[pair_index];
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 pair = scale * result.weight_first[pair_index]
+                * (displacement / radius);
+            result.support.gradient[center] += pair;
+            result.support.gradient[participant] += -pair;
+        }
+    }
+    result.support.finite_values = std::isfinite(result.support.energy)
+        && std::all_of(result.support.density.begin(),
+            result.support.density.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.support.constraint.begin(),
+            result.support.constraint.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.support.active_coefficient.begin(),
+            result.support.active_coefficient.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.support.gradient.begin(),
+            result.support.gradient.end(),
+            [](Vec3 value) { return finite(value); });
+    result.payload_bytes = result.neighborhood.pairs.size()
+            * sizeof(JointPair)
+        + result.neighborhood.flat_offsets.size()
+            * sizeof(std::uint32_t)
+        + result.neighborhood.flat_directed_pair_indices.size()
+            * sizeof(std::uint32_t)
+        + (result.radius.size() + result.weight_first.size()
+            + result.weight_second_value.size()) * sizeof(double)
+        + (result.support.density.size()
+            + result.support.constraint.size()
+            + result.support.active_coefficient.size()) * sizeof(double)
+        + result.support.gradient.size() * sizeof(Vec3);
+    result.passed = result.support.finite_values;
+    if (!result.passed) {
+        result.failure = "AL_SPARSE_NONFINITE";
+    }
+    return result;
+}
+
+void release_al_sparse_workspace(
+    ALSparseWorkspace& workspace, ALSparseWorkTrace* work) {
+    workspace = ALSparseWorkspace{};
+    if (work != nullptr) {
+        ++work->workspace_releases;
+        if (work->live_workspaces == 0U) {
+            work->lifecycle_underflow = true;
+        } else {
+            --work->live_workspaces;
+        }
+    }
+}
+
+std::vector<Vec3> apply_al_sparse_hessian(
+    const ALSparseWorkspace& workspace,
+    const std::vector<Vec3>& direction) {
+    const JointNeighborhood& neighborhood = workspace.neighborhood;
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    const std::size_t total_count =
+        fluid_count + neighborhood.support.size();
+    if (!workspace.passed || direction.size() != total_count) {
+        throw std::invalid_argument("AL sparse HVP source mismatch");
+    }
+    std::vector<Vec3> result(total_count);
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const double active =
+            workspace.support.active_coefficient[center];
+        if (active <= 0.0) {
+            continue;
+        }
+        double constraint_direction = 0.0;
+        const std::size_t begin = neighborhood.flat_offsets[center];
+        const std::size_t end = neighborhood.flat_offsets[center + 1U];
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                neighborhood.flat_directed_pair_indices[slot];
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, neighborhood.pairs[pair_index], center);
+            const double radius = workspace.radius[pair_index];
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 displacement = neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * workspace.weight_first[pair_index]
+                * (displacement / radius);
+            constraint_direction += dot(
+                jacobian, direction[center] - direction[participant]);
+        }
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                neighborhood.flat_directed_pair_indices[slot];
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, neighborhood.pairs[pair_index], center);
+            const double radius = workspace.radius[pair_index];
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 displacement = neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const Vec3 normal = displacement / radius;
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * workspace.weight_first[pair_index] * normal;
+            const Vec3 relative =
+                direction[center] - direction[participant];
+            const Vec3 curvature = MASS / REST_DENSITY
+                * radial_hessian_product(normal,
+                    workspace.weight_second_value[pair_index],
+                    workspace.weight_first[pair_index] / radius,
+                    relative);
+            const Vec3 pair = KAPPA * constraint_direction * jacobian
+                + active * curvature;
+            result[center] += pair;
+            result[participant] += -pair;
+        }
+    }
+    return result;
+}
+
 ALVectorInnerState evaluate_al_vector_inner(
     const std::vector<Vec3>& position,
     const std::vector<Vec3>& predicted,
@@ -48823,6 +49048,112 @@ std::vector<Vec3> apply_al_vector_inner_hessian(
         result[index] += inertia_scale * direction[index];
     }
     return result;
+}
+
+struct ALSparseInnerState {
+    bool passed = false;
+    double total = 0.0;
+    std::vector<Vec3> gradient;
+    ALSparseWorkspace workspace;
+};
+
+ALSparseInnerState evaluate_al_sparse_inner(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    ALSparseWorkTrace* work) {
+    ALSparseInnerState result;
+    if (position.size() != predicted.size()) {
+        return result;
+    }
+    result.workspace = build_al_sparse_workspace(
+        position, boundary, multiplier, work);
+    if (!result.workspace.passed) {
+        return result;
+    }
+    result.total = result.workspace.support.energy;
+    result.gradient = fluid_part(
+        result.workspace.support.gradient, position.size());
+    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    for (std::size_t index = 0U; index < position.size(); ++index) {
+        const Vec3 displacement = position[index] - predicted[index];
+        result.total += 0.5 * inertia_scale * norm_squared(displacement);
+        result.gradient[index] += inertia_scale * displacement;
+    }
+    result.passed = std::isfinite(result.total)
+        && std::all_of(result.gradient.begin(), result.gradient.end(),
+            [](Vec3 value) { return finite(value); });
+    return result;
+}
+
+std::vector<Vec3> apply_al_sparse_inner_hessian(
+    const ALSparseWorkspace& workspace,
+    const std::vector<Vec3>& direction) {
+    std::vector<Vec3> joint(
+        direction.size() + workspace.neighborhood.support.size());
+    std::copy(direction.begin(), direction.end(), joint.begin());
+    std::vector<Vec3> result = fluid_part(
+        apply_al_sparse_hessian(workspace, joint), direction.size());
+    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    for (std::size_t index = 0U; index < result.size(); ++index) {
+        result[index] += inertia_scale * direction[index];
+    }
+    return result;
+}
+
+std::vector<Vec3> al_sparse_trust_step(
+    const ALSparseWorkspace& workspace,
+    const std::vector<Vec3>& gradient,
+    double radius,
+    int& hvp_calls,
+    bool& negative_curvature) {
+    std::vector<Vec3> point(gradient.size());
+    std::vector<Vec3> residual = gradient;
+    std::vector<Vec3> direction = gradient;
+    for (Vec3& value : direction) value = -value;
+    double residual_squared = flat_dot(residual, residual);
+    const double initial_residual = std::sqrt(residual_squared);
+    for (std::size_t iteration = 0U;
+         iteration < 3U * gradient.size(); ++iteration) {
+        const std::vector<Vec3> image =
+            apply_al_sparse_inner_hessian(workspace, direction);
+        ++hvp_calls;
+        const double curvature = flat_dot(direction, image);
+        if (!std::isfinite(curvature) || curvature <= 0.0) {
+            negative_curvature = true;
+            return add_scaled(point, direction,
+                trust_boundary_tau(point, direction, radius));
+        }
+        const double alpha = residual_squared / curvature;
+        const std::vector<Vec3> candidate =
+            add_scaled(point, direction, alpha);
+        if (vector_norm(candidate) >= radius) {
+            return add_scaled(point, direction,
+                trust_boundary_tau(point, direction, radius));
+        }
+        point = candidate;
+        std::vector<Vec3> next_residual = residual;
+        for (std::size_t index = 0U;
+             index < next_residual.size(); ++index) {
+            next_residual[index] += alpha * image[index];
+        }
+        const double next_squared = flat_dot(next_residual, next_residual);
+        if (std::sqrt(next_squared)
+            <= std::min(0.5, std::sqrt(initial_residual))
+                * initial_residual) {
+            return point;
+        }
+        const double beta = next_squared / residual_squared;
+        for (std::size_t index = 0U;
+             index < direction.size(); ++index) {
+            direction[index] = -next_residual[index]
+                + beta * direction[index];
+        }
+        residual = std::move(next_residual);
+        residual_squared = next_squared;
+    }
+    return point;
 }
 
 std::vector<Vec3> al_vector_trust_step(
@@ -51338,6 +51669,162 @@ Binary64DividedDifference evaluate_al_vector_inner_divided_difference(
     return result;
 }
 
+bool al_joint_pair_less(const JointPair& lhs, const JointPair& rhs) {
+    return lhs.fluid < rhs.fluid
+        || (lhs.fluid == rhs.fluid
+            && lhs.participant < rhs.participant);
+}
+
+Binary64DividedDifference evaluate_al_sparse_inner_divided_difference(
+    const ALSparseWorkspace& current,
+    const ALSparseWorkspace& trial,
+    const std::vector<Vec3>& predicted,
+    const std::vector<double>& multiplier,
+    ALSparseWorkTrace* work = nullptr) {
+    Binary64DividedDifference result;
+    const std::size_t count = current.neighborhood.fluid.size();
+    if (!current.passed || !trial.passed
+        || trial.neighborhood.fluid.size() != count
+        || current.neighborhood.support.size()
+            != trial.neighborhood.support.size()
+        || predicted.size() != count || multiplier.size() != count
+        || !exact_joint_points(current.neighborhood.support,
+            trial.neighborhood.support)) {
+        return result;
+    }
+    std::vector<Vec3> step(count);
+    for (std::size_t center = 0U; center < count; ++center) {
+        step[center] = trial.neighborhood.fluid[center].position
+            - current.neighborhood.fluid[center].position;
+    }
+    std::vector<Binary64CompensatedAccumulator> current_density(count);
+    std::vector<Binary64CompensatedAccumulator> density_delta(count);
+    for (Binary64CompensatedAccumulator& value : current_density) {
+        value.add(MASS * weight(0.0));
+    }
+    const std::vector<JointPair>& current_pairs =
+        current.neighborhood.pairs;
+    const std::vector<JointPair>& trial_pairs = trial.neighborhood.pairs;
+    std::size_t current_index = 0U;
+    std::size_t trial_index = 0U;
+    bool pair_finite = true;
+    while (current_index < current_pairs.size()
+        || trial_index < trial_pairs.size()) {
+        const bool have_current = current_index < current_pairs.size();
+        const bool have_trial = trial_index < trial_pairs.size();
+        const bool current_before = have_current
+            && (!have_trial || al_joint_pair_less(
+                current_pairs[current_index], trial_pairs[trial_index]));
+        const bool trial_before = have_trial
+            && (!have_current || al_joint_pair_less(
+                trial_pairs[trial_index], current_pairs[current_index]));
+        const bool current_member = have_current && !trial_before;
+        const bool trial_member = have_trial && !current_before;
+        const JointPair pair = current_before
+            ? current_pairs[current_index]
+            : trial_pairs[trial_index];
+        if (current_member) {
+            ++current_index;
+        }
+        if (trial_member) {
+            ++trial_index;
+        }
+        if (work != nullptr) {
+            ++work->divided_union_visits;
+            work->current_members += current_member ? 1U : 0U;
+            work->trial_members += trial_member ? 1U : 0U;
+        }
+        const bool symmetric = pair.participant < count;
+        const std::size_t other = symmetric ? pair.participant : 0U;
+        const std::size_t support_index = symmetric
+            ? 0U : pair.participant - count;
+        const Vec3 current_other = symmetric
+            ? current.neighborhood.fluid[other].position
+            : current.neighborhood.support[support_index].position;
+        const Vec3 trial_other = symmetric
+            ? trial.neighborhood.fluid[other].position
+            : trial.neighborhood.support[support_index].position;
+        const Vec3 current_displacement =
+            current.neighborhood.fluid[pair.fluid].position
+            - current_other;
+        const Vec3 trial_displacement =
+            trial.neighborhood.fluid[pair.fluid].position - trial_other;
+        const Vec3 pair_step = symmetric
+            ? step[pair.fluid] - step[other] : step[pair.fluid];
+        const double current_radius = norm(current_displacement);
+        if (current_member) {
+            const double contribution = MASS * weight(current_radius);
+            current_density[pair.fluid].add(contribution);
+            if (symmetric) {
+                current_density[other].add(contribution);
+            }
+        }
+        const Binary64KernelDelta delta = al_binary64_kernel_delta(
+            current_displacement, trial_displacement, pair_step);
+        pair_finite = pair_finite && delta.finite_values;
+        const double contribution = MASS * delta.value;
+        density_delta[pair.fluid].add(contribution);
+        if (symmetric) {
+            density_delta[other].add(contribution);
+        }
+        result.support_crossings += current_member != trial_member ? 1U : 0U;
+        result.kernel_segment_crossings +=
+            delta.current_segment != delta.trial_segment ? 1U : 0U;
+    }
+    Binary64CompensatedAccumulator phr_reduction;
+    Binary64CompensatedAccumulator inertia_reduction;
+    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    for (std::size_t center = 0U; center < count; ++center) {
+        const double current_constraint =
+            current_density[center].value() / REST_DENSITY - 1.0;
+        const double constraint_delta =
+            density_delta[center].value() / REST_DENSITY;
+        const double current_unclamped = multiplier[center]
+            + KAPPA * current_constraint;
+        const double active_delta = KAPPA * constraint_delta;
+        const double trial_unclamped = current_unclamped + active_delta;
+        const bool current_active = current_unclamped > 0.0;
+        const bool trial_active = trial_unclamped > 0.0;
+        result.phr_branch_crossings +=
+            current_active != trial_active ? 1U : 0U;
+        double active_square_delta = 0.0;
+        if (current_active && trial_active) {
+            active_square_delta = active_delta
+                * (2.0 * current_unclamped + active_delta);
+        } else if (current_active) {
+            active_square_delta = -current_unclamped * current_unclamped;
+        } else if (trial_active) {
+            active_square_delta = trial_unclamped * trial_unclamped;
+        }
+        phr_reduction.add(-active_square_delta / (2.0 * KAPPA));
+        const Vec3 displacement =
+            current.neighborhood.fluid[center].position
+            - predicted[center];
+        const double norm_squared_delta =
+            al_binary64_squared_norm_delta(displacement, step[center]);
+        inertia_reduction.add(-0.5 * inertia_scale * norm_squared_delta);
+    }
+    result.phr_reduction = phr_reduction.value();
+    result.inertia_reduction = inertia_reduction.value();
+    Binary64CompensatedAccumulator reduction;
+    reduction.add(result.phr_reduction);
+    reduction.add(result.inertia_reduction);
+    result.reduction = reduction.value();
+    result.finite_values = pair_finite
+        && std::isfinite(result.reduction)
+        && std::isfinite(result.phr_reduction)
+        && std::isfinite(result.inertia_reduction)
+        && std::all_of(current_density.begin(), current_density.end(),
+            [](const Binary64CompensatedAccumulator& value) {
+                return std::isfinite(value.value());
+            })
+        && std::all_of(density_delta.begin(), density_delta.end(),
+            [](const Binary64CompensatedAccumulator& value) {
+                return std::isfinite(value.value());
+            });
+    return result;
+}
+
 bool al_binary64_divided_difference_exact(
     const Binary64DividedDifference& lhs,
     const Binary64DividedDifference& rhs) {
@@ -51581,6 +52068,191 @@ ALDividedPrivateInnerSolve solve_al_divided_private_inner(
         }
     }
     result.failure = "OUTER_LIMIT";
+    return result;
+}
+
+ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& initial,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    double stationarity_limit,
+    ALSparseWorkTrace* work) {
+    ALDividedPrivateInnerSolve result;
+    result.position = initial;
+    ALSparseInnerState current = evaluate_al_sparse_inner(
+        result.position, predicted, boundary, multiplier, work);
+    if (!current.passed) {
+        result.all_finite = false;
+        result.failure = "INITIAL_NONFINITE";
+        release_al_sparse_workspace(current.workspace, work);
+        return result;
+    }
+    double trust_radius = 0.25 * SPACING;
+    for (int trial_index = 0; trial_index < 64; ++trial_index) {
+        result.final_stationarity =
+            al_vector_scaled_stationarity(current.gradient);
+        if (result.final_stationarity <= stationarity_limit) {
+            result.passed = true;
+            release_al_sparse_workspace(current.workspace, work);
+            return result;
+        }
+        ALDividedPrivateInnerTrial record;
+        record.trial = trial_index;
+        record.current_position = result.position;
+        record.stationarity_before = result.final_stationarity;
+        record.radius_before = trust_radius;
+        int hvp_calls = 0;
+        const std::vector<Vec3> step = al_sparse_trust_step(
+            current.workspace, current.gradient, trust_radius,
+            hvp_calls, record.negative_curvature);
+        const std::vector<Vec3> image = apply_al_sparse_inner_hessian(
+            current.workspace, step);
+        ++hvp_calls;
+        record.hvp_calls = hvp_calls;
+        result.hvp_calls += hvp_calls;
+        record.step_norm = vector_norm(step);
+        const double gradient_step = flat_dot(current.gradient, step);
+        record.predicted_reduction = -gradient_step
+            - 0.5 * flat_dot(step, image);
+        const std::vector<Vec3> trial_position = add_scaled(
+            result.position, step, 1.0);
+        record.trial_position = trial_position;
+        ALSparseInnerState trial = evaluate_al_sparse_inner(
+            trial_position, predicted, boundary, multiplier, work);
+        record.raw_reduction = current.total - trial.total;
+        record.direct_reduction = al_vector_direct_actual_reduction(
+            result.position, trial_position, predicted,
+            current.workspace.support, trial.workspace.support);
+        const Binary64DividedDifference divided =
+            evaluate_al_sparse_inner_divided_difference(
+                current.workspace, trial.workspace, predicted,
+                multiplier, work);
+        const Binary64DividedDifference divided_repeat =
+            evaluate_al_sparse_inner_divided_difference(
+                current.workspace, trial.workspace, predicted,
+                multiplier, nullptr);
+        record.divided_repeat_exact =
+            al_binary64_divided_difference_exact(divided, divided_repeat);
+        result.divided_repeat_exact = result.divided_repeat_exact
+            && record.divided_repeat_exact;
+        record.divided_reduction = divided.reduction;
+        record.phr_reduction = divided.phr_reduction;
+        record.inertia_reduction = divided.inertia_reduction;
+        record.support_crossings = divided.support_crossings;
+        record.kernel_segment_crossings =
+            divided.kernel_segment_crossings;
+        record.phr_branch_crossings = divided.phr_branch_crossings;
+        record.divided_ratio = record.predicted_reduction > 0.0
+            ? record.divided_reduction / record.predicted_reduction
+            : -std::numeric_limits<double>::infinity();
+        const double raw_ratio = record.predicted_reduction > 0.0
+            ? record.raw_reduction / record.predicted_reduction
+            : -std::numeric_limits<double>::infinity();
+        record.raw_would_accept = trial.passed
+            && record.predicted_reduction > 0.0
+            && record.raw_reduction > 0.0 && raw_ratio >= 0.1;
+        record.candidate_accepted = trial.passed
+            && divided.finite_values && record.divided_repeat_exact
+            && record.predicted_reduction > 0.0
+            && record.divided_reduction > 0.0
+            && record.divided_ratio >= 0.1;
+        record.candidate_effect = record.candidate_accepted
+            && !record.raw_would_accept;
+        result.candidate_effect = result.candidate_effect
+            || record.candidate_effect;
+        record.finite_values = trial.passed
+            && divided.finite_values
+            && std::isfinite(record.stationarity_before)
+            && std::isfinite(record.radius_before)
+            && std::isfinite(record.step_norm)
+            && std::isfinite(record.predicted_reduction)
+            && std::isfinite(record.raw_reduction)
+            && std::isfinite(record.direct_reduction)
+            && std::isfinite(record.divided_reduction)
+            && std::isfinite(record.divided_ratio)
+            && std::isfinite(record.phr_reduction)
+            && std::isfinite(record.inertia_reduction);
+        result.all_finite = result.all_finite && record.finite_values;
+        if (record.candidate_accepted) {
+            ALStepNormInnerTrial oracle_input;
+            oracle_input.current_position = result.position;
+            oracle_input.trial_position = trial_position;
+            const LongDoubleTrialEnergyAudit oracle =
+                audit_al_vector_inner_long_double(
+                    oracle_input, predicted, boundary, multiplier);
+            record.oracle_audited = true;
+            record.oracle_resolved = oracle.resolved;
+            record.oracle_resolved_positive = oracle.resolved_positive;
+            record.oracle_resolved_negative = oracle.resolved_negative;
+            record.oracle_reduction = oracle.compensated_reduction;
+            record.oracle_ulp_ratio = oracle.compensated_ulp_ratio;
+            result.all_finite = result.all_finite && oracle.finite_values;
+            if (oracle.resolved_positive) {
+                ++result.resolved_positive_acceptances;
+            } else if (oracle.resolved_negative) {
+                ++result.resolved_negative_acceptances;
+            } else {
+                ++result.unresolved_acceptances;
+            }
+        }
+        if (record.divided_ratio < 0.25) {
+            bool used_step_norm = false;
+            bool invalid_interpolation = false;
+            const bool interior = !record.candidate_accepted
+                && record.step_norm < 0.9 * trust_radius;
+            trust_radius = al_step_norm_rejected_radius(
+                trust_radius, record.step_norm, gradient_step,
+                record.divided_reduction, interior,
+                used_step_norm, invalid_interpolation);
+            if (used_step_norm) {
+                record.radius_owner = "STEP_NORM";
+                ++result.step_norm_updates;
+            } else {
+                record.radius_owner = "QUARTER";
+                ++result.quarter_updates;
+            }
+            result.invalid_interpolation_owned =
+                result.invalid_interpolation_owned
+                || (invalid_interpolation && used_step_norm);
+        } else if (record.divided_ratio > 0.75
+            && record.step_norm >= 0.9 * trust_radius) {
+            trust_radius = std::min(
+                2.0 * trust_radius, 2.0 * SPACING);
+            record.radius_owner = "NONE";
+        } else {
+            record.radius_owner = "NONE";
+        }
+        record.radius_after = trust_radius;
+        if (record.candidate_accepted) {
+            ++result.accepted_trials;
+            result.positive_accepted_models =
+                result.positive_accepted_models
+                && record.predicted_reduction > 0.0
+                && record.divided_reduction > 0.0
+                && record.divided_ratio >= 0.1;
+            result.position = trial_position;
+            release_al_sparse_workspace(current.workspace, work);
+            current = std::move(trial);
+        } else {
+            ++result.rejected_trials;
+            release_al_sparse_workspace(trial.workspace, work);
+            if (result.rejected_trials > 8) {
+                result.failure = "REJECT_LIMIT";
+                result.trials.push_back(std::move(record));
+                release_al_sparse_workspace(current.workspace, work);
+                return result;
+            }
+        }
+        result.trials.push_back(std::move(record));
+        if (trust_radius < 1.0e-14) {
+            result.failure = "MINIMUM_TRUST_RADIUS";
+            release_al_sparse_workspace(current.workspace, work);
+            return result;
+        }
+    }
+    result.failure = "OUTER_LIMIT";
+    release_al_sparse_workspace(current.workspace, work);
     return result;
 }
 
@@ -52124,6 +52796,129 @@ ALDividedOuterUpdate al_divided_private_outer_update(
     return result;
 }
 
+ALDividedOuterUpdate al_sparse_divided_private_outer_update(
+    const Fixture& fixture,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& position,
+    const std::vector<double>& multiplier,
+    int outer,
+    double stationarity_limit,
+    ALSparseWorkTrace* work) {
+    ALDividedOuterUpdate result;
+    const ALDividedPrivateInnerSolve inner =
+        solve_al_sparse_divided_private_inner(
+            predicted, position, fixture.boundary, multiplier,
+            stationarity_limit, work);
+    result.inner_root = al_divided_private_inner_root(inner);
+    result.trials = inner.trials;
+    ALVectorOuterRecord& record = result.record.state;
+    record.outer = outer;
+    record.inner_outer_trials = static_cast<int>(inner.trials.size()) + 1;
+    record.inner_accepted_trials = inner.accepted_trials;
+    record.inner_rejected_trials = inner.rejected_trials;
+    record.inner_hvp_calls = inner.hvp_calls;
+    record.stationarity = inner.final_stationarity;
+    result.record.inner_step_norm_updates = inner.step_norm_updates;
+    result.record.inner_quarter_updates = inner.quarter_updates;
+    result.record.finite_values = inner.all_finite
+        && std::isfinite(inner.final_stationarity);
+    for (const ALDividedPrivateInnerTrial& trial : inner.trials) {
+        if (!trial.candidate_effect) {
+            continue;
+        }
+        result.candidate_audits.push_back(
+            audit_al_vector_inner_binary128(
+                trial.current_position, trial.trial_position,
+                predicted, fixture.boundary, multiplier,
+                trial.divided_reduction));
+        const Binary128TrialEnergyAudit& audit =
+            result.candidate_audits.back();
+        result.candidate_audit_roots.push_back(
+            al_binary128_audit_root(audit));
+        result.record.finite_values = result.record.finite_values
+            && audit.finite_values;
+        result.audit_hard_failure = result.audit_hard_failure
+            || !audit.finite_values || !audit.membership_exact;
+        result.sign_contradiction = result.sign_contradiction
+            || audit.resolved_negative;
+        result.oracle_bound_required = result.oracle_bound_required
+            || (!audit.resolved_negative
+                && (!audit.resolved_positive || !audit.candidate_pass));
+    }
+    if (result.audit_hard_failure) {
+        result.failure = "BINARY128_AUDIT_HARD_FAILURE";
+        result.finite_failure = false;
+        return result;
+    }
+    if (result.sign_contradiction) {
+        result.failure = "BINARY128_SIGN_CONTRADICTION";
+        result.finite_failure = true;
+        return result;
+    }
+    if (result.oracle_bound_required) {
+        result.failure = "ORACLE_OR_REDUCTION_BOUND_REQUIRED";
+        result.finite_failure = true;
+        return result;
+    }
+    if (!inner.passed || !inner.positive_accepted_models
+        || !inner.all_finite) {
+        result.failure = "INNER:" + inner.failure;
+        result.finite_failure = inner.all_finite
+            && inner.failure != "INITIAL_NONFINITE";
+        return result;
+    }
+
+    ALSparseInnerState inner_state = evaluate_al_sparse_inner(
+        inner.position, predicted, fixture.boundary, multiplier, work);
+    result.position = inner.position;
+    result.multiplier.resize(multiplier.size());
+    result.support = inner_state.workspace.support;
+    record.minimum_multiplier = std::numeric_limits<double>::infinity();
+    record.position_update_dx =
+        rms_difference(position, inner.position) / SPACING;
+    for (std::size_t center = 0U;
+         center < multiplier.size(); ++center) {
+        result.multiplier[center] = std::max(0.0,
+            multiplier[center]
+                + KAPPA * inner_state.workspace.support.constraint[center]);
+        const double absolute_change = std::abs(
+            result.multiplier[center] - multiplier[center]);
+        record.primal = std::max(record.primal,
+            std::max(0.0,
+                inner_state.workspace.support.constraint[center]));
+        record.scaled_dual_change = std::max(
+            record.scaled_dual_change, absolute_change / KAPPA);
+        record.absolute_dual_change = std::max(
+            record.absolute_dual_change, absolute_change);
+        record.equivalent_pressure_change = std::max(
+            record.equivalent_pressure_change,
+            absolute_change * REST_DENSITY / MASS);
+        record.complementarity = std::max(record.complementarity,
+            std::abs(result.multiplier[center]
+                * inner_state.workspace.support.constraint[center]));
+        record.minimum_multiplier = std::min(
+            record.minimum_multiplier, result.multiplier[center]);
+        record.maximum_multiplier = std::max(
+            record.maximum_multiplier, result.multiplier[center]);
+    }
+    result.record.finite_values = result.record.finite_values
+        && inner_state.passed
+        && al_step_norm_outer_record_finite(record)
+        && std::all_of(result.position.begin(), result.position.end(),
+            [](Vec3 value) { return finite(value); })
+        && std::all_of(result.multiplier.begin(), result.multiplier.end(),
+            [](double value) { return std::isfinite(value); });
+    result.record.admissible = result.record.finite_values
+        && al_step_norm_outer_record_admissible(
+            record, stationarity_limit);
+    result.passed = result.record.finite_values;
+    if (!result.passed) {
+        result.failure = "OUTER_NONFINITE";
+    }
+    release_al_sparse_workspace(inner_state.workspace, work);
+    return result;
+}
+
 struct ALDividedOuterContinuation {
     bool all_inners_pass = true;
     bool all_finite = true;
@@ -52343,6 +53138,100 @@ ALDividedOuterContinuation solve_al_divided_full_private_transaction(
         result.warm_holdout = al_divided_private_outer_update(
             fixture, predicted, result.position, result.multiplier,
             result.confirmation_index + 1, stationarity_limit);
+        al_divided_outer_observe_update(result, result.warm_holdout);
+        if (!result.warm_holdout.passed) {
+            if (!result.warm_holdout.sign_contradiction
+                && !result.warm_holdout.oracle_bound_required
+                && !result.warm_holdout.audit_hard_failure) {
+                result.all_inners_pass = false;
+            }
+            result.failure = "HOLDOUT:" + result.warm_holdout.failure;
+            return result;
+        }
+        result.all_finite = result.all_finite
+            && result.warm_holdout.record.finite_values;
+        result.dual_feasible = result.dual_feasible
+            && result.warm_holdout.record.state.minimum_multiplier >= 0.0;
+        result.warm_holdout_admissible =
+            result.warm_holdout.record.admissible
+            && result.warm_holdout.record.state.primal <= previous_primal;
+        if (!result.warm_holdout_admissible) {
+            result.failure = "HOLDOUT_NOT_ADMISSIBLE";
+        }
+        return result;
+    }
+    result.cap_exhausted = result.all_inners_pass && result.all_finite
+        && result.updates.size() == static_cast<std::size_t>(maximum_outer)
+        && !result.updates.empty()
+        && result.updates.back().record.state.outer == maximum_outer - 1;
+    if (result.cap_exhausted) {
+        result.failure = "OUTER_OBSERVATION_LIMIT";
+    }
+    return result;
+}
+
+ALDividedOuterContinuation solve_al_sparse_divided_full_private_transaction(
+    const Fixture& fixture,
+    const std::vector<Vec3>& predicted,
+    std::vector<Vec3> position,
+    std::vector<double> multiplier,
+    ALSparseWorkTrace* work) {
+    constexpr double stationarity_limit = 1.0e-10;
+    constexpr int maximum_outer = 64;
+    ALDividedOuterContinuation result;
+    result.position = position;
+    result.multiplier = multiplier;
+    double previous_primal = std::numeric_limits<double>::infinity();
+    bool previous_admissible = false;
+    for (int outer = 0; outer < maximum_outer; ++outer) {
+        ALDividedOuterUpdate update =
+            al_sparse_divided_private_outer_update(
+                fixture, predicted, position, multiplier, outer,
+                stationarity_limit, work);
+        al_divided_outer_observe_update(result, update);
+        if (!update.passed) {
+            if (!update.sign_contradiction
+                && !update.oracle_bound_required
+                && !update.audit_hard_failure) {
+                result.all_inners_pass = false;
+            }
+            result.failure = update.failure;
+            result.updates.push_back(std::move(update));
+            return result;
+        }
+        const bool monotone =
+            update.record.state.primal <= previous_primal;
+        result.primal_monotone = result.primal_monotone && monotone;
+        result.dual_feasible = result.dual_feasible
+            && update.record.state.minimum_multiplier >= 0.0;
+        previous_primal = update.record.state.primal;
+        result.position = update.position;
+        result.multiplier = update.multiplier;
+        position = update.position;
+        multiplier = update.multiplier;
+        const bool admissible = update.record.admissible && monotone;
+        if (admissible && previous_admissible
+            && result.provisional_index == outer - 1) {
+            result.confirmed = true;
+            result.confirmation_index = outer;
+            ++result.private_confirmation_count;
+        }
+        result.updates.push_back(std::move(update));
+        if (result.confirmed) {
+            break;
+        }
+        result.provisional_index = admissible ? outer : -1;
+        previous_admissible = admissible;
+    }
+    if (result.confirmed) {
+        if (result.confirmation_index >= maximum_outer - 1) {
+            result.failure = "HOLDOUT_OBSERVATION_CAP";
+            return result;
+        }
+        result.warm_holdout_attempted = true;
+        result.warm_holdout = al_sparse_divided_private_outer_update(
+            fixture, predicted, result.position, result.multiplier,
+            result.confirmation_index + 1, stationarity_limit, work);
         al_divided_outer_observe_update(result, result.warm_holdout);
         if (!result.warm_holdout.passed) {
             if (!result.warm_holdout.sign_contradiction
@@ -58198,6 +59087,476 @@ run_nominal_dam_reference_binary64_topology_controls() {
            << ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << sha256_hex(semantic.str())
            << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R14_IDENTITY_SHA256 =
+    "dab6f6033218d09b94bb07531f9039aa48c2cfce2178303237e947806d6d27c1";
+constexpr const char* B4E2D7R14_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r14-sparse-al-workspace-equivalence|v2|"
+    "parent=bb5d6f5d9371636e71accefb6af70b0918597622:"
+    "37c0828f6f3621f87560aa447aa0ad5f4a7391f9f6134bad46b6f13858b3ecd8:"
+    "514ea1925a85d398a948a2dcbc319689116114a02335a599e51d6703202c18de|"
+    "nominal-parent=343f6c424b43bccba57eb59e192fd545c968ab382e6abd539ce748c686e86a3d:"
+    "4805530ed85d6a6b1f05ca855c8661fe036b16e8201fcbf745864de9e78d1be1|"
+    "tiny=active-root:4d6b8c58c2db672bea5fcae0a4d5fb077cc8587398540128bcb09b6a75400ef8;"
+    "inactive-root:6df37c6ae522de96d3a300abefcbf035af55e04d9f6d7bf77b6cedbea5f1ab1e|"
+    "representation=joint-neighborhood;canonical-sorted-pairs;csr;"
+    "al-tape=radius,wprime,wsecond,constraint,active-coefficient|"
+    "divided=sorted-current-trial-pair-union;two-pointer;current-member-bit;"
+    "trial-member-bit;canonical-order|oracle=tiny-dense-evaluation,gradient,"
+    "hvp,divided,full-transaction;binary64-bit-exact|nominal="
+    "reference-frame-report:5a9d2f67550b73169c7405c1c46fb6ee5eeebeb539915d296620e1c407922c07;"
+    "decoded-frame-zero:0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7;"
+    "pair-root:fb2b8f8b4c0227cf5d8a7a43ce518ed72b2e5d5cda31fb8e8c17a5727c24ba13;"
+    "pairs342502;directed611520;degree120;active0|work="
+    "dense-candidate-checks116301000;sparse-pair-visits342502;"
+    "all-pair-candidate-calls0;workspace-live<=2|controls="
+    "d7r13-complete-bytes;nominal-topology-complete-bytes;tiny-active-inactive;"
+    "pair-union-crossing;workspace-lifecycle;forced-rollback|routes="
+    "al-sparse-evaluation-mismatch;al-sparse-hvp-mismatch;"
+    "al-sparse-divided-mismatch;sparse-al-workspace-candidate|precedence="
+    "evaluation,hvp,divided,candidate|runs=2-release-builds;2-processes;"
+    "byte-exact;timing=none|nominal-solve=none;trajectory=none;"
+    "public-commit=none;physics-mutation=none|credit="
+    "one-sparse-al-structural-backend-candidate-only";
+
+bool al_sparse_double_vector_exact(
+    const std::vector<double>& lhs, const std::vector<double>& rhs) {
+    if (lhs.size() != rhs.size()) {
+        return false;
+    }
+    for (std::size_t index = 0U; index < lhs.size(); ++index) {
+        if (binary64_bits(lhs[index]) != binary64_bits(rhs[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool al_sparse_support_exact(
+    const ALVectorSupport& dense, const ALVectorSupport& sparse) {
+    return dense.finite_values == sparse.finite_values
+        && binary64_bits(dense.energy) == binary64_bits(sparse.energy)
+        && al_sparse_double_vector_exact(dense.density, sparse.density)
+        && al_sparse_double_vector_exact(
+            dense.constraint, sparse.constraint)
+        && al_sparse_double_vector_exact(
+            dense.active_coefficient, sparse.active_coefficient)
+        && exact_vec3_values(dense.gradient, sparse.gradient)
+        && dense.active_centers == sparse.active_centers
+        && dense.fluid_pairs == sparse.fluid_pairs
+        && dense.boundary_pairs == sparse.boundary_pairs;
+}
+
+struct ALSparseDividedAudit {
+    bool exact = true;
+    std::size_t trials = 0U;
+    std::size_t support_crossings = 0U;
+    std::size_t kernel_segment_crossings = 0U;
+    std::size_t phr_branch_crossings = 0U;
+};
+
+void audit_al_sparse_update_divided(
+    const ALDividedOuterUpdate& update,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    ALSparseWorkTrace& work,
+    ALSparseDividedAudit& audit) {
+    for (const ALDividedPrivateInnerTrial& record : update.trials) {
+        ALSparseWorkspace current = build_al_sparse_workspace(
+            record.current_position, boundary, multiplier, &work);
+        ALSparseWorkspace trial = build_al_sparse_workspace(
+            record.trial_position, boundary, multiplier, &work);
+        const Binary64DividedDifference dense =
+            evaluate_al_vector_inner_divided_difference(
+                record.current_position, record.trial_position,
+                predicted, boundary, multiplier);
+        const Binary64DividedDifference sparse =
+            evaluate_al_sparse_inner_divided_difference(
+                current, trial, predicted, multiplier, &work);
+        audit.exact = audit.exact
+            && al_binary64_divided_difference_exact(dense, sparse);
+        ++audit.trials;
+        audit.support_crossings += sparse.support_crossings;
+        audit.kernel_segment_crossings +=
+            sparse.kernel_segment_crossings;
+        audit.phr_branch_crossings += sparse.phr_branch_crossings;
+        release_al_sparse_workspace(current, &work);
+        release_al_sparse_workspace(trial, &work);
+    }
+}
+
+ALSparseDividedAudit audit_al_sparse_transaction_divided(
+    const ALDividedOuterContinuation& transaction,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    std::vector<double> multiplier,
+    ALSparseWorkTrace& work) {
+    ALSparseDividedAudit result;
+    for (const ALDividedOuterUpdate& update : transaction.updates) {
+        audit_al_sparse_update_divided(
+            update, predicted, boundary, multiplier, work, result);
+        if (update.passed) {
+            multiplier = update.multiplier;
+        }
+    }
+    if (transaction.warm_holdout_attempted) {
+        audit_al_sparse_update_divided(transaction.warm_holdout,
+            predicted, boundary, multiplier, work, result);
+    }
+    return result;
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_sparse_workspace_equivalence_controls() {
+    const bool identity_exact = sha256_hex(
+        B4E2D7R14_IDENTITY_PROJECTION) == B4E2D7R14_IDENTITY_SHA256;
+    const SplitBoundaryReport d7r13 =
+        run_al_divided_full_private_transaction_controls();
+    const std::string d7r13_stdout_sha256 = sha256_hex(d7r13.json + "\n");
+    const bool d7r13_parent_exact = d7r13.passed
+        && d7r13_stdout_sha256
+            == "514ea1925a85d398a948a2dcbc319689116114a02335a599e51d6703202c18de";
+    const SplitBoundaryReport nominal_parent =
+        run_nominal_dam_reference_binary64_topology_controls();
+    const std::string nominal_parent_stdout_sha256 =
+        sha256_hex(nominal_parent.json + "\n");
+    const bool nominal_parent_exact = nominal_parent.passed
+        && nominal_parent_stdout_sha256
+            == "343f6c424b43bccba57eb59e192fd545c968ab382e6abd539ce748c686e86a3d"
+        && nominal_parent.json.find(
+            "4805530ed85d6a6b1f05ca855c8661fe036b16e8201fcbf745864de9e78d1be1")
+            != std::string::npos;
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<Vec3> inactive_prediction =
+        compressed_fluid(fixture, 1.01);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALVectorSupport active_dense = evaluate_al_vector_support(
+        active_prediction, fixture.boundary, zero_multiplier);
+    const ALVectorSupport inactive_dense = evaluate_al_vector_support(
+        inactive_prediction, fixture.boundary, zero_multiplier);
+    ALSparseWorkTrace tiny_work;
+    ALSparseWorkspace active_sparse = build_al_sparse_workspace(
+        active_prediction, fixture.boundary, zero_multiplier, &tiny_work);
+    ALSparseWorkspace inactive_sparse = build_al_sparse_workspace(
+        inactive_prediction, fixture.boundary, zero_multiplier, &tiny_work);
+    const bool active_evaluation_exact = active_sparse.passed
+        && al_sparse_support_exact(active_dense, active_sparse.support);
+    const bool inactive_evaluation_exact = inactive_sparse.passed
+        && al_sparse_support_exact(inactive_dense, inactive_sparse.support);
+    const bool evaluation_exact =
+        active_evaluation_exact && inactive_evaluation_exact;
+
+    std::vector<Vec3> direction(
+        active_prediction.size() + fixture.boundary.size());
+    for (std::size_t index = 0U; index < direction.size(); ++index) {
+        const double scale = static_cast<double>(index + 1U) * 0.000125;
+        direction[index] = {scale, -2.0 * scale, 0.5 * scale};
+    }
+    const std::vector<Vec3> active_dense_hvp = apply_al_vector_hessian(
+        active_prediction, fixture.boundary, zero_multiplier, direction);
+    const std::vector<Vec3> active_sparse_hvp = active_sparse.passed
+        ? apply_al_sparse_hessian(active_sparse, direction)
+        : std::vector<Vec3>{};
+    const std::vector<Vec3> inactive_dense_hvp = apply_al_vector_hessian(
+        inactive_prediction, fixture.boundary, zero_multiplier, direction);
+    const std::vector<Vec3> inactive_sparse_hvp = inactive_sparse.passed
+        ? apply_al_sparse_hessian(inactive_sparse, direction)
+        : std::vector<Vec3>{};
+    const bool hvp_exact = exact_vec3_values(
+            active_dense_hvp, active_sparse_hvp)
+        && exact_vec3_values(inactive_dense_hvp, inactive_sparse_hvp);
+    release_al_sparse_workspace(active_sparse, &tiny_work);
+    release_al_sparse_workspace(inactive_sparse, &tiny_work);
+
+    const ALDividedOuterContinuation dense_active =
+        solve_al_divided_full_private_transaction(
+            fixture, active_prediction, active_prediction,
+            zero_multiplier);
+    const ALDividedOuterContinuation dense_inactive =
+        solve_al_divided_full_private_transaction(
+            fixture, inactive_prediction, inactive_prediction,
+            zero_multiplier);
+    const std::string dense_active_root =
+        al_divided_outer_continuation_root(dense_active);
+    const std::string dense_inactive_root =
+        al_divided_outer_continuation_root(dense_inactive);
+    const bool dense_roots_exact =
+        dense_active_root
+            == "4d6b8c58c2db672bea5fcae0a4d5fb077cc8587398540128bcb09b6a75400ef8"
+        && dense_inactive_root
+            == "6df37c6ae522de96d3a300abefcbf035af55e04d9f6d7bf77b6cedbea5f1ab1e";
+    const ALSparseDividedAudit active_divided =
+        audit_al_sparse_transaction_divided(
+            dense_active, active_prediction, fixture.boundary,
+            zero_multiplier, tiny_work);
+    const ALSparseDividedAudit inactive_divided =
+        audit_al_sparse_transaction_divided(
+            dense_inactive, inactive_prediction, fixture.boundary,
+            zero_multiplier, tiny_work);
+
+    const std::vector<Vec3> crossing_current{
+        {0.0, 0.0, 0.0},
+        {HORIZON, 0.0, 0.0}};
+    const std::vector<Vec3> crossing_trial{
+        {0.0, 0.0, 0.0},
+        {std::nextafter(HORIZON,
+            std::numeric_limits<double>::infinity()), 0.0, 0.0}};
+    const std::vector<double> crossing_multiplier(2U);
+    ALSparseWorkspace crossing_current_sparse = build_al_sparse_workspace(
+        crossing_current, {}, crossing_multiplier, &tiny_work);
+    ALSparseWorkspace crossing_trial_sparse = build_al_sparse_workspace(
+        crossing_trial, {}, crossing_multiplier, &tiny_work);
+    const Binary64DividedDifference crossing_dense =
+        evaluate_al_vector_inner_divided_difference(
+            crossing_current, crossing_trial, crossing_current, {},
+            crossing_multiplier);
+    const Binary64DividedDifference crossing_sparse =
+        evaluate_al_sparse_inner_divided_difference(
+            crossing_current_sparse, crossing_trial_sparse,
+            crossing_current, crossing_multiplier, &tiny_work);
+    const bool crossing_exact =
+        al_binary64_divided_difference_exact(
+            crossing_dense, crossing_sparse)
+        && crossing_sparse.support_crossings == 1U
+        && tiny_work.current_members > tiny_work.trial_members;
+    release_al_sparse_workspace(crossing_current_sparse, &tiny_work);
+    release_al_sparse_workspace(crossing_trial_sparse, &tiny_work);
+
+    const ALDividedOuterContinuation sparse_active =
+        solve_al_sparse_divided_full_private_transaction(
+            fixture, active_prediction, active_prediction,
+            zero_multiplier, &tiny_work);
+    const ALDividedOuterContinuation sparse_active_repeat =
+        solve_al_sparse_divided_full_private_transaction(
+            fixture, active_prediction, active_prediction,
+            zero_multiplier, &tiny_work);
+    const ALDividedOuterContinuation sparse_inactive =
+        solve_al_sparse_divided_full_private_transaction(
+            fixture, inactive_prediction, inactive_prediction,
+            zero_multiplier, &tiny_work);
+    const std::string sparse_active_root =
+        al_divided_outer_continuation_root(sparse_active);
+    const std::string sparse_active_repeat_root =
+        al_divided_outer_continuation_root(sparse_active_repeat);
+    const std::string sparse_inactive_root =
+        al_divided_outer_continuation_root(sparse_inactive);
+    const bool transaction_exact = dense_roots_exact
+        && sparse_active_root == dense_active_root
+        && sparse_active_repeat_root == dense_active_root
+        && sparse_inactive_root == dense_inactive_root;
+    const bool divided_exact = active_divided.exact
+        && inactive_divided.exact && crossing_exact && transaction_exact;
+
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[1];
+    const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult nominal_initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(nominal_fixture.position,
+                nominal_fixture.velocity, 0));
+    const std::vector<Vec3> nominal_position =
+        decode_canonical_position(nominal_initial.frame);
+    const std::vector<Vec3> nominal_velocity =
+        decode_canonical_velocity(nominal_initial.frame);
+    const std::string nominal_frame_zero_root = b4e2d2_frame_zero_root(
+        nominal_position, nominal_velocity);
+    const std::vector<double> nominal_multiplier(nominal_position.size());
+    ALSparseWorkTrace nominal_work;
+    ALSparseWorkspace nominal_workspace = build_al_sparse_workspace(
+        nominal_position, nominal_fixture.boundary,
+        nominal_multiplier, &nominal_work);
+    const std::string nominal_pair_root = nominal_workspace.passed
+        ? joint_pair_hash(nominal_workspace.neighborhood) : std::string{};
+    const std::size_t nominal_pairs =
+        nominal_workspace.neighborhood.pairs.size();
+    const std::size_t nominal_directed =
+        nominal_workspace.neighborhood.flat_directed_pair_indices.size();
+    const std::size_t nominal_degree =
+        nominal_workspace.neighborhood.maximum_degree;
+    const std::size_t nominal_active =
+        nominal_workspace.support.active_centers;
+    const std::size_t dense_candidate_checks =
+        nominal_position.size() * (nominal_position.size() - 1U) / 2U
+        + nominal_position.size() * nominal_fixture.boundary.size();
+    const bool nominal_exact = nominal_workspace.passed
+        && nominal_frame_zero_root
+            == "0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7"
+        && nominal_pair_root
+            == "fb2b8f8b4c0227cf5d8a7a43ce518ed72b2e5d5cda31fb8e8c17a5727c24ba13"
+        && nominal_pairs == 342502U && nominal_directed == 611520U
+        && nominal_degree == 120U && nominal_active == 0U
+        && dense_candidate_checks == 116301000U
+        && nominal_work.pair_visits == 342502U
+        && nominal_work.all_pair_candidate_calls == 0U;
+    release_al_sparse_workspace(nominal_workspace, &nominal_work);
+
+    ALSparseWorkTrace lifecycle_negative;
+    ALSparseWorkspace empty_workspace;
+    release_al_sparse_workspace(empty_workspace, &lifecycle_negative);
+    const bool forced_lifecycle_rejected =
+        lifecycle_negative.lifecycle_underflow;
+    const bool lifecycle_exact = tiny_work.workspace_builds
+            == tiny_work.workspace_releases
+        && tiny_work.live_workspaces == 0U
+        && tiny_work.maximum_live_workspaces <= 2U
+        && tiny_work.all_pair_candidate_calls == 0U
+        && !tiny_work.lifecycle_underflow
+        && nominal_work.workspace_builds == nominal_work.workspace_releases
+        && nominal_work.live_workspaces == 0U
+        && nominal_work.maximum_live_workspaces <= 1U
+        && !nominal_work.lifecycle_underflow
+        && forced_lifecycle_rejected;
+    const std::string prior_active_root = al_vector_stable_state_root(
+        "d7r14-public-active", active_prediction, zero_multiplier);
+    const std::string forced_active_root = al_vector_stable_state_root(
+        "d7r14-public-active", active_prediction, zero_multiplier);
+    const std::string prior_inactive_root = al_vector_stable_state_root(
+        "d7r14-public-inactive", inactive_prediction, zero_multiplier);
+    const std::string forced_inactive_root = al_vector_stable_state_root(
+        "d7r14-public-inactive", inactive_prediction, zero_multiplier);
+    const bool rollback_exact = prior_active_root == forced_active_root
+        && prior_inactive_root == forced_inactive_root;
+
+    const bool hard_controls = identity_exact && d7r13_parent_exact
+        && nominal_parent_exact && dense_roots_exact && nominal_exact
+        && lifecycle_exact && rollback_exact;
+    std::string route;
+    if (hard_controls) {
+        if (!evaluation_exact) {
+            route = "AL_SPARSE_EVALUATION_MISMATCH";
+        } else if (!hvp_exact) {
+            route = "AL_SPARSE_HVP_MISMATCH";
+        } else if (!divided_exact) {
+            route = "AL_SPARSE_DIVIDED_MISMATCH";
+        } else {
+            route = "SPARSE_AL_WORKSPACE_CANDIDATE";
+        }
+    }
+    const bool route_precedence_exact =
+        (!evaluation_exact && route == "AL_SPARSE_EVALUATION_MISMATCH")
+        || (evaluation_exact && !hvp_exact
+            && route == "AL_SPARSE_HVP_MISMATCH")
+        || (evaluation_exact && hvp_exact && !divided_exact
+            && route == "AL_SPARSE_DIVIDED_MISMATCH")
+        || (evaluation_exact && hvp_exact && divided_exact
+            && route == "SPARSE_AL_WORKSPACE_CANDIDATE");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!d7r13_parent_exact) first_failure = "D7R13_PARENT_BYTES";
+    else if (!nominal_parent_exact)
+        first_failure = "NOMINAL_PARENT_BYTES";
+    else if (!dense_roots_exact) first_failure = "DENSE_TINY_ROOTS";
+    else if (!nominal_exact) first_failure = "NOMINAL_TOPOLOGY";
+    else if (!lifecycle_exact) first_failure = "WORKSPACE_LIFECYCLE";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R14_IDENTITY_SHA256 << '|'
+             << d7r13_stdout_sha256 << ':'
+             << nominal_parent_stdout_sha256 << '|'
+             << evaluation_exact << ':' << hvp_exact << ':'
+             << divided_exact << ':' << transaction_exact << '|'
+             << dense_active_root << ':' << sparse_active_root << ':'
+             << sparse_inactive_root << '|'
+             << active_divided.trials << ':' << inactive_divided.trials
+             << ':' << crossing_sparse.support_crossings << '|'
+             << nominal_frame_zero_root << ':' << nominal_pair_root << ':'
+             << nominal_pairs << ':' << nominal_directed << ':'
+             << nominal_degree << ':' << nominal_active << '|'
+             << dense_candidate_checks << ':'
+             << nominal_work.pair_visits << ':'
+             << tiny_work.maximum_live_workspaces << '|'
+             << lifecycle_exact << ':' << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r14_sparse_al_workspace_equivalence.v2\""
+           << ",\"identity_sha256\":\"" << B4E2D7R14_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parents\":{\"d7r13_stdout_sha256\":\""
+           << d7r13_stdout_sha256 << "\",\"d7r13_exact\":"
+           << (d7r13_parent_exact ? "true" : "false")
+           << ",\"nominal_stdout_sha256\":\""
+           << nominal_parent_stdout_sha256
+           << "\",\"nominal_exact\":"
+           << (nominal_parent_exact ? "true" : "false") << '}'
+           << ",\"tiny\":{\"active_evaluation_exact\":"
+           << (active_evaluation_exact ? "true" : "false")
+           << ",\"inactive_evaluation_exact\":"
+           << (inactive_evaluation_exact ? "true" : "false")
+           << ",\"hvp_exact\":" << (hvp_exact ? "true" : "false")
+           << ",\"divided_exact\":"
+           << (divided_exact ? "true" : "false")
+           << ",\"transaction_exact\":"
+           << (transaction_exact ? "true" : "false")
+           << ",\"active_dense_root\":\"" << dense_active_root
+           << "\",\"active_sparse_root\":\"" << sparse_active_root
+           << "\",\"active_sparse_repeat_root\":\""
+           << sparse_active_repeat_root
+           << "\",\"inactive_sparse_root\":\""
+           << sparse_inactive_root << "\",\"audited_trials\":"
+           << active_divided.trials + inactive_divided.trials
+           << ",\"support_crossings\":"
+           << active_divided.support_crossings
+                + inactive_divided.support_crossings
+                + crossing_sparse.support_crossings
+           << ",\"explicit_pair_crossing_exact\":"
+           << (crossing_exact ? "true" : "false") << '}'
+           << ",\"nominal_frame_zero\":{\"reference_frame_report_"
+              "sha256\":\""
+           << "5a9d2f67550b73169c7405c1c46fb6ee5eeebeb539915d296620e1c407922c07"
+           << "\",\"raw_bit_root\":\"" << nominal_frame_zero_root
+           << "\",\"pair_root\":\"" << nominal_pair_root
+           << "\",\"pairs\":" << nominal_pairs
+           << ",\"directed\":" << nominal_directed
+           << ",\"maximum_degree\":" << nominal_degree
+           << ",\"active_centers\":" << nominal_active
+           << ",\"exact\":" << (nominal_exact ? "true" : "false")
+           << '}'
+           << ",\"work\":{\"dense_candidate_checks\":"
+           << dense_candidate_checks << ",\"nominal_sparse_pair_visits\":"
+           << nominal_work.pair_visits
+           << ",\"all_pair_candidate_calls\":"
+           << tiny_work.all_pair_candidate_calls
+                + nominal_work.all_pair_candidate_calls
+           << ",\"workspace_builds\":" << tiny_work.workspace_builds
+           << ",\"workspace_releases\":"
+           << tiny_work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << tiny_work.maximum_live_workspaces
+           << ",\"lifecycle_exact\":"
+           << (lifecycle_exact ? "true" : "false") << '}'
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"trajectory_steps\":0,\"nominal_solve_steps\":0"
+           << ",\"public_commit_count\":0,\"physics_mutation\":false"
+           << ",\"timing_admitted\":false,\"speedup_claim\":false"
+           << ",\"sparse_al_workspace_authorized\":"
+           << (passed && route == "SPARSE_AL_WORKSPACE_CANDIDATE"
+                   ? "true" : "false")
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
     return {passed, report.str()};
 }
 
