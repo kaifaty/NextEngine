@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R13_PASS_FULL_PRIVATE_PRESSURE_STATE_CONFIRMED / B4E2D7R14_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R13_PASS_FULL_PRIVATE_PRESSURE_STATE_CONFIRMED / B4E2D7R14_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -73,9 +73,14 @@
 - **Full-solve fact:** the original-state active solve confirms at outer 12
   and holds out at 13 with 19 acceptances, zero rejects and 38 HVPs. Four
   candidate-effect signs resolve positive. The inactive solve is exactly still.
-- **Current decision:** research D7R14 as a one-nominal-Dam-frame shadow
-  mapping. Freeze state/work/error boundaries before any implementation; no
-  trajectory or timing is authorized.
+- **Current decision:** D7R14 is frozen as sparse AL workspace equivalence,
+  before a nominal solve. The dense tiny path would inspect `116,301,000`
+  candidate interactions per evaluation versus `342,502` selected nominal
+  pairs (`339.563x` structural gap).
+- **Next action:** implement a separate AL coefficient tape, exact sparse
+  evaluation/HVP and a sorted current/trial pair-union divided reduction.
+  Reproduce D7R13 exactly, then build only the decoded nominal frame-zero
+  topology. No nominal solve, trajectory or wall timing is authorized.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.

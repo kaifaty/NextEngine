@@ -1689,3 +1689,11 @@ The original-state active solve confirms at outer 12 and holds out at 13 with
 are binary128-resolved positive. The inactive solve remains exactly still.
 Research D7R14 as a one-nominal-frame shadow mapping before implementation;
 do not run a trajectory or timing lane.
+The [D7R14 research](../../development/nonlocal-nsr3b4e2d7r14-sparse-al-workspace-research-2026-08-22.md)
+shows that directly applying the dense tiny solver would inspect `116,301,000`
+candidate interactions per evaluation while the selected decoded Dam topology
+contains only `342,502` canonical pairs, a `339.563x` structural-work gap. Its
+[frozen contract](03b4e2d7r14-sparse-al-workspace-contract.md) therefore first
+requires a separate sparse AL tape and an exact sorted current/trial pair-union
+reduction. Implement/run this tiny equivalence and nominal frame-zero topology
+gate next; no nominal solve, trajectory or timing is authorized.
