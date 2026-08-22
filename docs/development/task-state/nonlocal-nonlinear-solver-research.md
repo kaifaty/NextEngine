@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R3_PASS_FORCING_CONVERGED_33 / D7R19R4_PASS_RESIDUAL_MODEL_IMAGE / D7R19R5_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R4_PASS_RESIDUAL_MODEL_IMAGE / D7R19R5_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -254,6 +254,11 @@
   Research/freeze a sixth-trial-only shadow with one guarded recurrence grace
   HVP; retain a direct model HVP as oracle, evaluate divided/precision/
   acceptance/radius correspondence, and do not commit or continue state.
+- **D7R19R5 frozen guard:** after 32 finite positive-curvature interior HVPs,
+  admit one and only one recurrence HVP when residual ratio is in
+  `(eta,1.25*eta]` and the last eight next-residual ratios strictly decrease.
+  HVP 33 must converge; residual-derived predicted bits must equal the direct
+  oracle before one shadow trial is classified.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2123,7 +2128,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R4/R3/R2/R1, D7R19 and all preceding normalized parents
-   exactly. Research/freeze D7R19R5 over only the sixth trial: one guarded
+   exactly. Implement frozen D7R19R5 over only the sixth trial: one guarded
    recurrence grace HVP, residual-derived model image and direct oracle
    correspondence. Evaluate but do not commit acceptance/radius/state. Do not
    start another substep, macro, trajectory or timing lane.
