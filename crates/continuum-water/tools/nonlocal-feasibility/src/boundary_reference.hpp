@@ -146,6 +146,7 @@ SplitBoundaryReport run_al_extended_precision_energy_discriminator_controls();
 SplitBoundaryReport run_al_divided_difference_discriminator_controls();
 SplitBoundaryReport run_al_divided_difference_reclosure_controls();
 SplitBoundaryReport run_al_divided_difference_private_inner_controls();
+SplitBoundaryReport run_al_binary128_accepted_sign_oracle_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

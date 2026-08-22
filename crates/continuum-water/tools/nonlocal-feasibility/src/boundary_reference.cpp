@@ -18,6 +18,7 @@
 #include <limits>
 #include <numeric>
 #include <omp.h>
+#include <quadmath.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -46568,6 +46569,37 @@ constexpr const char* B4E2D7R10_IDENTITY_PROJECTION =
     "outer-updates=none;trajectory=none;public-commit=none;"
     "physics-mutation=none|"
     "credit=one-private-inner-integration-classification-only";
+constexpr const char* B4E2D7R11_IDENTITY_SHA256 =
+    "7d7a65dc2523b353d53b3ceb21b56c461b30e0b3455dc9eabd7842a4b76da809";
+constexpr const char* B4E2D7R11_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r11-binary128-accepted-sign-oracle|v1|"
+    "parent="
+    "43de2d5c58242a7bbf5a0d721e3ad17a51293e98:"
+    "48b498487db1265d28123dc2ae2edca92a66bddc2cee7714b3f6ffb77216e77f:"
+    "ee7b1d4eb0b5eb37334415fa38a1ee2c2a716fa9ab5b628985e7fed06c1c710d|"
+    "accepted=eta1e-8:trial0:"
+    "0fea41f73c2c7260bd0b79d2a03e6b8d2a5a0f658d738e39866a7bdc45866647;"
+    "eta1e-9:trial0:"
+    "aed7362e7135fa622044dec448a0797bacfbd0fcbc4625731c5153a88e4beebb;"
+    "eta1e-10:trial0:"
+    "29d636a21d2c2a71ed6d0114d7d1ea743b2acfbfd3ba6b42746f3118f9d9b5ff|"
+    "profile=linux-x86-64;gcc-float128;sizeof-float12816;flt-radix2;"
+    "flt128-mant-dig113;libquadmath|"
+    "oracle=independent-binary128-radius,kernel,density,phr,inertia;"
+    "exact-promoted-binary64-inputs-and-kernel-scale;"
+    "fixed-order-and-compensated|"
+    "resolved=agree-sign-and-abs-reduction>=4096-binary128-total-ulp|"
+    "gate=3-resolved-positive;0-negative;0-unresolved;"
+    "divided-relative-error<=0.05;pair-membership-exact|"
+    "controls=d7r10-complete-bytes;accepted-pair-roots;work-acceptance;"
+    "forced-rollback|"
+    "routes=binary128-sign-contradiction;offline-sign-certificate;"
+    "stronger-oracle-required|"
+    "precedence=contradiction,certificate,stronger|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|"
+    "runtime-float128=none;outer-updates=none;trajectory=none;"
+    "public-commit=none;physics-mutation=none|"
+    "credit=one-offline-accepted-sign-certificate-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -51287,6 +51319,8 @@ struct ALDividedPrivateInnerTrial {
     std::size_t phr_branch_crossings = 0U;
     long double oracle_reduction = 0.0L;
     long double oracle_ulp_ratio = 0.0L;
+    std::vector<Vec3> current_position;
+    std::vector<Vec3> trial_position;
 };
 
 struct ALDividedPrivateInnerSolve {
@@ -51335,6 +51369,7 @@ ALDividedPrivateInnerSolve solve_al_divided_private_inner(
         }
         ALDividedPrivateInnerTrial record;
         record.trial = trial_index;
+        record.current_position = result.position;
         record.stationarity_before = result.final_stationarity;
         record.radius_before = trust_radius;
         int hvp_calls = 0;
@@ -51352,6 +51387,7 @@ ALDividedPrivateInnerSolve solve_al_divided_private_inner(
             - 0.5 * flat_dot(step, image);
         const std::vector<Vec3> trial_position = add_scaled(
             result.position, step, 1.0);
+        record.trial_position = trial_position;
         ALVectorInnerState trial = evaluate_al_vector_inner(
             trial_position, predicted, boundary, multiplier);
         record.raw_reduction = current.total - trial.total;
@@ -51532,6 +51568,360 @@ std::string al_divided_private_inner_root(
                    << trial.oracle_ulp_ratio << ';';
     }
     return sha256_hex(projection.str());
+}
+
+__extension__ typedef __float128 Binary128;
+
+struct Binary128Accumulator {
+    Binary128 sum = static_cast<Binary128>(0.0);
+    Binary128 correction = static_cast<Binary128>(0.0);
+
+    void add(Binary128 value) {
+        const Binary128 next = sum + value;
+        correction += fabsq(sum) >= fabsq(value)
+            ? (sum - next) + value
+            : (value - next) + sum;
+        sum = next;
+    }
+
+    Binary128 value() const {
+        return sum + correction;
+    }
+};
+
+struct Binary128Vec3 {
+    Binary128 x = static_cast<Binary128>(0.0);
+    Binary128 y = static_cast<Binary128>(0.0);
+    Binary128 z = static_cast<Binary128>(0.0);
+};
+
+Binary128Vec3 al_binary128_vec3(Vec3 value) {
+    return {static_cast<Binary128>(value.x),
+        static_cast<Binary128>(value.y),
+        static_cast<Binary128>(value.z)};
+}
+
+Binary128Vec3 operator-(Binary128Vec3 lhs, Binary128Vec3 rhs) {
+    return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
+}
+
+Binary128 al_binary128_norm(Binary128Vec3 value) {
+    return sqrtq(value.x * value.x + value.y * value.y
+        + value.z * value.z);
+}
+
+Binary128 al_binary128_weight(Binary128 radius) {
+    const Binary128 two = static_cast<Binary128>(2.0);
+    const Binary128 horizon = static_cast<Binary128>(HORIZON);
+    const Binary128 q = two * radius / horizon;
+    const Binary128 alpha = static_cast<Binary128>(3.0)
+        / (two * static_cast<Binary128>(PI)
+            * horizon * horizon * horizon);
+    Binary128 raw = static_cast<Binary128>(0.0);
+    if (q > two) {
+        raw = static_cast<Binary128>(0.0);
+    } else if (q >= static_cast<Binary128>(1.0)) {
+        const Binary128 delta = two - q;
+        raw = alpha * delta * delta * delta
+            / static_cast<Binary128>(6.0);
+    } else {
+        raw = alpha * (static_cast<Binary128>(2.0)
+                / static_cast<Binary128>(3.0)
+            - q * q + static_cast<Binary128>(0.5) * q * q * q);
+    }
+    return static_cast<Binary128>(kernel_scale()) * raw;
+}
+
+struct Binary128EnergyEvaluation {
+    bool finite_values = false;
+    Binary128 total = static_cast<Binary128>(0.0);
+    Binary128 phr = static_cast<Binary128>(0.0);
+    Binary128 inertia = static_cast<Binary128>(0.0);
+    std::size_t fluid_pairs = 0U;
+    std::size_t boundary_pairs = 0U;
+    std::size_t membership_mismatches = 0U;
+};
+
+Binary128EnergyEvaluation evaluate_al_vector_inner_binary128(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    bool compensated) {
+    Binary128EnergyEvaluation result;
+    if (position.size() != predicted.size()
+        || position.size() != multiplier.size()) {
+        return result;
+    }
+    const std::size_t count = position.size();
+    std::vector<Binary128Vec3> fluid(count);
+    std::vector<Binary128Vec3> predicted_quad(count);
+    std::vector<Binary128Vec3> support(boundary.size());
+    std::transform(position.begin(), position.end(), fluid.begin(),
+        al_binary128_vec3);
+    std::transform(predicted.begin(), predicted.end(),
+        predicted_quad.begin(), al_binary128_vec3);
+    std::transform(boundary.begin(), boundary.end(), support.begin(),
+        al_binary128_vec3);
+    const Binary128 mass = static_cast<Binary128>(MASS);
+    const Binary128 rest_density = static_cast<Binary128>(REST_DENSITY);
+    const Binary128 kappa = static_cast<Binary128>(KAPPA);
+    const Binary128 horizon = static_cast<Binary128>(HORIZON);
+    std::vector<Binary128> density(
+        count, mass * al_binary128_weight(static_cast<Binary128>(0.0)));
+    std::vector<Binary128> density_correction(
+        count, static_cast<Binary128>(0.0));
+    const auto add_density = [&](std::size_t center, Binary128 value) {
+        if (!compensated) {
+            density[center] += value;
+            return;
+        }
+        const Binary128 adjusted = value - density_correction[center];
+        const Binary128 next = density[center] + adjusted;
+        density_correction[center] =
+            (next - density[center]) - adjusted;
+        density[center] = next;
+    };
+    const auto member = [&](double binary_radius, Binary128 quad_radius) {
+        const bool binary_member = binary_radius <= HORIZON;
+        const bool quad_member = quad_radius <= horizon;
+        result.membership_mismatches +=
+            binary_member == quad_member ? 0U : 1U;
+        return quad_member;
+    };
+    for (std::size_t i = 0U; i < count; ++i) {
+        for (std::size_t j = i + 1U; j < count; ++j) {
+            const double binary_radius = norm(position[i] - position[j]);
+            const Binary128 quad_radius = al_binary128_norm(
+                fluid[i] - fluid[j]);
+            if (member(binary_radius, quad_radius)) {
+                const Binary128 contribution = mass
+                    * al_binary128_weight(quad_radius);
+                add_density(i, contribution);
+                add_density(j, contribution);
+                ++result.fluid_pairs;
+            }
+        }
+        for (std::size_t index = 0U; index < support.size(); ++index) {
+            const double binary_radius = norm(
+                position[i] - boundary[index]);
+            const Binary128 quad_radius = al_binary128_norm(
+                fluid[i] - support[index]);
+            if (member(binary_radius, quad_radius)) {
+                add_density(i, mass * al_binary128_weight(quad_radius));
+                ++result.boundary_pairs;
+            }
+        }
+    }
+    Binary128Accumulator phr_compensated;
+    Binary128Accumulator inertia_compensated;
+    Binary128 phr_naive = static_cast<Binary128>(0.0);
+    Binary128 inertia_naive = static_cast<Binary128>(0.0);
+    const Binary128 time_step = static_cast<Binary128>(TIME_STEP);
+    const Binary128 inertia_scale = mass / (time_step * time_step);
+    for (std::size_t center = 0U; center < count; ++center) {
+        const Binary128 constraint =
+            density[center] / rest_density - static_cast<Binary128>(1.0);
+        const Binary128 lambda =
+            static_cast<Binary128>(multiplier[center]);
+        const Binary128 unclamped = lambda + kappa * constraint;
+        const Binary128 active = std::max(
+            static_cast<Binary128>(0.0), unclamped);
+        const Binary128 phr_term =
+            (active * active - lambda * lambda)
+            / (static_cast<Binary128>(2.0) * kappa);
+        const Binary128Vec3 displacement =
+            fluid[center] - predicted_quad[center];
+        const Binary128 inertia_term = static_cast<Binary128>(0.5)
+            * inertia_scale * (displacement.x * displacement.x
+                + displacement.y * displacement.y
+                + displacement.z * displacement.z);
+        if (compensated) {
+            phr_compensated.add(phr_term);
+            inertia_compensated.add(inertia_term);
+        } else {
+            phr_naive += phr_term;
+            inertia_naive += inertia_term;
+        }
+    }
+    result.phr = compensated ? phr_compensated.value() : phr_naive;
+    result.inertia = compensated
+        ? inertia_compensated.value() : inertia_naive;
+    if (compensated) {
+        Binary128Accumulator total;
+        total.add(result.phr);
+        total.add(result.inertia);
+        result.total = total.value();
+    } else {
+        result.total = result.phr + result.inertia;
+    }
+    result.finite_values = finiteq(result.total) != 0
+        && finiteq(result.phr) != 0 && finiteq(result.inertia) != 0;
+    return result;
+}
+
+struct Binary128TrialEnergyAudit {
+    Binary128EnergyEvaluation current_naive;
+    Binary128EnergyEvaluation current_compensated;
+    Binary128EnergyEvaluation trial_naive;
+    Binary128EnergyEvaluation trial_compensated;
+    bool finite_values = false;
+    bool sign_agrees = false;
+    bool resolved = false;
+    bool resolved_positive = false;
+    bool resolved_negative = false;
+    bool membership_exact = false;
+    bool candidate_pass = false;
+    Binary128 naive_reduction = static_cast<Binary128>(0.0);
+    Binary128 compensated_reduction = static_cast<Binary128>(0.0);
+    Binary128 ulp = static_cast<Binary128>(0.0);
+    Binary128 naive_ulp_ratio = static_cast<Binary128>(0.0);
+    Binary128 compensated_ulp_ratio = static_cast<Binary128>(0.0);
+    Binary128 candidate_relative_error = static_cast<Binary128>(0.0);
+};
+
+Binary128TrialEnergyAudit audit_al_vector_inner_binary128(
+    const std::vector<Vec3>& current_position,
+    const std::vector<Vec3>& trial_position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    double candidate_reduction) {
+    Binary128TrialEnergyAudit result;
+    result.current_naive = evaluate_al_vector_inner_binary128(
+        current_position, predicted, boundary, multiplier, false);
+    result.current_compensated = evaluate_al_vector_inner_binary128(
+        current_position, predicted, boundary, multiplier, true);
+    result.trial_naive = evaluate_al_vector_inner_binary128(
+        trial_position, predicted, boundary, multiplier, false);
+    result.trial_compensated = evaluate_al_vector_inner_binary128(
+        trial_position, predicted, boundary, multiplier, true);
+    result.naive_reduction = result.current_naive.total
+        - result.trial_naive.total;
+    result.compensated_reduction = result.current_compensated.total
+        - result.trial_compensated.total;
+    const Binary128 upward = static_cast<Binary128>(
+        std::numeric_limits<double>::max());
+    result.ulp = std::max(
+        nextafterq(result.current_compensated.total, upward)
+            - result.current_compensated.total,
+        nextafterq(result.trial_compensated.total, upward)
+            - result.trial_compensated.total);
+    result.naive_ulp_ratio = result.ulp > static_cast<Binary128>(0.0)
+        ? result.naive_reduction / result.ulp
+        : static_cast<Binary128>(0.0);
+    result.compensated_ulp_ratio = result.ulp > static_cast<Binary128>(0.0)
+        ? result.compensated_reduction / result.ulp
+        : static_cast<Binary128>(0.0);
+    result.sign_agrees =
+        (result.naive_reduction > static_cast<Binary128>(0.0)
+            && result.compensated_reduction > static_cast<Binary128>(0.0))
+        || (result.naive_reduction < static_cast<Binary128>(0.0)
+            && result.compensated_reduction < static_cast<Binary128>(0.0));
+    const Binary128 resolution = static_cast<Binary128>(4096.0) * result.ulp;
+    result.resolved = result.sign_agrees
+        && fabsq(result.naive_reduction) >= resolution
+        && fabsq(result.compensated_reduction) >= resolution;
+    result.resolved_positive = result.resolved
+        && result.compensated_reduction > static_cast<Binary128>(0.0);
+    result.resolved_negative = result.resolved
+        && result.compensated_reduction < static_cast<Binary128>(0.0);
+    result.membership_exact =
+        result.current_naive.membership_mismatches == 0U
+        && result.current_compensated.membership_mismatches == 0U
+        && result.trial_naive.membership_mismatches == 0U
+        && result.trial_compensated.membership_mismatches == 0U;
+    result.candidate_relative_error =
+        fabsq(static_cast<Binary128>(candidate_reduction)
+            - result.compensated_reduction)
+        / fabsq(result.compensated_reduction);
+    result.candidate_pass = result.resolved_positive
+        && result.candidate_relative_error <= static_cast<Binary128>(0.05);
+    result.finite_values = result.current_naive.finite_values
+        && result.current_compensated.finite_values
+        && result.trial_naive.finite_values
+        && result.trial_compensated.finite_values
+        && finiteq(result.naive_reduction) != 0
+        && finiteq(result.compensated_reduction) != 0
+        && finiteq(result.ulp) != 0
+        && finiteq(result.naive_ulp_ratio) != 0
+        && finiteq(result.compensated_ulp_ratio) != 0
+        && finiteq(result.candidate_relative_error) != 0;
+    return result;
+}
+
+std::string al_binary128_text(Binary128 value) {
+    std::array<char, 128> buffer{};
+    const int count = quadmath_snprintf(
+        buffer.data(), buffer.size(), "%.36Qe", value);
+    if (count < 0 || static_cast<std::size_t>(count) >= buffer.size()) {
+        throw std::runtime_error("binary128 formatting failed");
+    }
+    return std::string(buffer.data(), static_cast<std::size_t>(count));
+}
+
+std::string al_binary128_hex(Binary128 value) {
+    std::array<char, 128> buffer{};
+    const int count = quadmath_snprintf(
+        buffer.data(), buffer.size(), "%Qa", value);
+    if (count < 0 || static_cast<std::size_t>(count) >= buffer.size()) {
+        throw std::runtime_error("binary128 hex formatting failed");
+    }
+    return std::string(buffer.data(), static_cast<std::size_t>(count));
+}
+
+std::string al_binary128_audit_root(
+    const Binary128TrialEnergyAudit& value) {
+    std::ostringstream projection;
+    projection << value.finite_values << ':' << value.sign_agrees << ':'
+               << value.resolved << ':' << value.resolved_positive << ':'
+               << value.resolved_negative << ':' << value.membership_exact
+               << ':' << value.candidate_pass << '|'
+               << al_binary128_hex(value.current_naive.total) << ':'
+               << al_binary128_hex(value.current_compensated.total) << ':'
+               << al_binary128_hex(value.trial_naive.total) << ':'
+               << al_binary128_hex(value.trial_compensated.total) << ':'
+               << al_binary128_hex(value.naive_reduction) << ':'
+               << al_binary128_hex(value.compensated_reduction) << ':'
+               << al_binary128_hex(value.ulp) << ':'
+               << al_binary128_hex(value.naive_ulp_ratio) << ':'
+               << al_binary128_hex(value.compensated_ulp_ratio) << ':'
+               << al_binary128_hex(value.candidate_relative_error) << '|'
+               << value.current_naive.fluid_pairs << ':'
+               << value.current_naive.boundary_pairs << ':'
+               << value.current_naive.membership_mismatches << ':'
+               << value.current_compensated.fluid_pairs << ':'
+               << value.current_compensated.boundary_pairs << ':'
+               << value.current_compensated.membership_mismatches << ':'
+               << value.trial_naive.fluid_pairs << ':'
+               << value.trial_naive.boundary_pairs << ':'
+               << value.trial_naive.membership_mismatches << ':'
+               << value.trial_compensated.fluid_pairs << ':'
+               << value.trial_compensated.boundary_pairs << ':'
+               << value.trial_compensated.membership_mismatches;
+    return sha256_hex(projection.str());
+}
+
+bool al_binary128_roundtrip_exact(const std::vector<Vec3>& values) {
+    return std::all_of(values.begin(), values.end(), [](Vec3 value) {
+        return binary64_bits(static_cast<double>(
+                   static_cast<Binary128>(value.x)))
+                == binary64_bits(value.x)
+            && binary64_bits(static_cast<double>(
+                   static_cast<Binary128>(value.y)))
+                == binary64_bits(value.y)
+            && binary64_bits(static_cast<double>(
+                   static_cast<Binary128>(value.z)))
+                == binary64_bits(value.z);
+    });
+}
+
+bool al_binary128_roundtrip_exact(const std::vector<double>& values) {
+    return std::all_of(values.begin(), values.end(), [](double value) {
+        return binary64_bits(static_cast<double>(
+                   static_cast<Binary128>(value)))
+            == binary64_bits(value);
+    });
 }
 
 } // namespace
@@ -55528,6 +55918,342 @@ SplitBoundaryReport run_al_divided_difference_private_inner_controls() {
            << ",\"timing_admitted\":false"
            << ",\"private_inner_integration_authorized\":"
            << (passed ? "true" : "false")
+           << ",\"outer_integration_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_binary128_accepted_sign_oracle_controls() {
+    const bool identity_exact = sha256_hex(B4E2D7R11_IDENTITY_PROJECTION)
+        == B4E2D7R11_IDENTITY_SHA256;
+#if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) \
+    && defined(__SIZEOF_FLOAT128__)
+    constexpr bool frozen_platform = true;
+#else
+    constexpr bool frozen_platform = false;
+#endif
+    const bool binary128_profile_exact = frozen_platform
+        && sizeof(Binary128) == 16U && FLT_RADIX == 2
+        && FLT128_MANT_DIG == 113;
+    if (!binary128_profile_exact) {
+        std::ostringstream report;
+        report << "{\"schema\":\"nextengine.nonlocal."
+                  "nsr3b4e2d7r11_binary128_accepted_sign_oracle.v1\""
+               << ",\"identity_sha256\":\""
+               << B4E2D7R11_IDENTITY_SHA256
+               << "\",\"status\":\"FAIL\""
+               << ",\"first_failure\":\"BINARY128_PROFILE\""
+               << ",\"identity_exact\":"
+               << (identity_exact ? "true" : "false")
+               << ",\"binary128_profile_exact\":false"
+               << ",\"route\":\"\",\"trajectory_steps\":0"
+               << ",\"outer_update_count\":0"
+               << ",\"public_commit_count\":0"
+               << ",\"physics_mutation\":false"
+               << ",\"timing_admitted\":false"
+               << ",\"runtime_binary128_authorized\":false"
+               << ",\"outer_integration_authorized\":false"
+               << ",\"runtime_authority\":false"
+               << ",\"production_authority\":false}";
+        return {false, report.str()};
+    }
+
+    constexpr std::array<double, 3> stationarity_limits{
+        1.0e-8, 1.0e-9, 1.0e-10};
+    constexpr std::array<const char*, 3> expected_solve_roots{
+        "0fea41f73c2c7260bd0b79d2a03e6b8d2a5a0f658d738e39866a7bdc45866647",
+        "aed7362e7135fa622044dec448a0797bacfbd0fcbc4625731c5153a88e4beebb",
+        "29d636a21d2c2a71ed6d0114d7d1ea743b2acfbfd3ba6b42746f3118f9d9b5ff"};
+    const SplitBoundaryReport parent =
+        run_al_divided_difference_private_inner_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "ee7b1d4eb0b5eb37334415fa38a1ee2c2a716fa9ab5b628985e7fed06c1c710d";
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALStepNormPrivateOuterSolve d7r5 =
+        solve_al_step_norm_private_outer(
+            fixture, active_prediction, active_prediction, zero_multiplier);
+    std::array<ALCapAccuracyLane, stationarity_limits.size()> lanes;
+    if (d7r5.records.size() >= 8U) {
+        for (std::size_t index = 0U; index < lanes.size(); ++index) {
+            lanes[index] = solve_al_cap_accuracy_lane(
+                fixture, active_prediction, d7r5.prefix_position,
+                d7r5.prefix_multiplier, d7r5.records[7],
+                stationarity_limits[index]);
+        }
+    }
+    std::array<ALDividedPrivateInnerSolve, stationarity_limits.size()> solves;
+    std::array<std::string, stationarity_limits.size()> solve_roots;
+    std::array<Binary128TrialEnergyAudit, stationarity_limits.size()> audits;
+    std::array<std::string, stationarity_limits.size()> audit_roots;
+    bool accepted_pair_roots_exact = true;
+    bool work_acceptance_exact = true;
+    bool formula_inputs_exact = al_binary128_roundtrip_exact(
+            active_prediction)
+        && al_binary128_roundtrip_exact(fixture.boundary)
+        && al_binary128_roundtrip_exact(zero_multiplier)
+        && al_binary128_roundtrip_exact(std::vector<double>{
+            PI, REST_DENSITY, SPACING, HORIZON, MASS, KAPPA,
+            TIME_STEP, kernel_scale()});
+    bool audit_repeat_exact = true;
+    bool all_finite = true;
+    bool pair_membership_exact = true;
+    bool candidate_errors_pass = true;
+    int resolved_positive = 0;
+    int resolved_negative = 0;
+    int unresolved = 0;
+    for (std::size_t index = 0U; index < solves.size(); ++index) {
+        solves[index] = solve_al_divided_private_inner(
+            active_prediction, lanes[index].position, fixture.boundary,
+            lanes[index].multiplier, stationarity_limits[index]);
+        solve_roots[index] = al_divided_private_inner_root(solves[index]);
+        accepted_pair_roots_exact = accepted_pair_roots_exact
+            && solve_roots[index] == expected_solve_roots[index];
+        work_acceptance_exact = work_acceptance_exact
+            && solves[index].passed && solves[index].all_finite
+            && solves[index].positive_accepted_models
+            && solves[index].candidate_effect
+            && solves[index].accepted_trials == 1
+            && solves[index].rejected_trials == 0
+            && solves[index].hvp_calls == 2
+            && solves[index].trials.size() == 1U;
+        if (solves[index].trials.size() != 1U) {
+            all_finite = false;
+            pair_membership_exact = false;
+            candidate_errors_pass = false;
+            continue;
+        }
+        const ALDividedPrivateInnerTrial& trial = solves[index].trials[0];
+        work_acceptance_exact = work_acceptance_exact
+            && trial.trial == 0 && trial.candidate_accepted
+            && trial.candidate_effect && !trial.raw_would_accept
+            && trial.divided_repeat_exact && trial.hvp_calls == 2
+            && trial.current_position.size() == active_prediction.size()
+            && trial.trial_position.size() == active_prediction.size();
+        formula_inputs_exact = formula_inputs_exact
+            && al_binary128_roundtrip_exact(lanes[index].multiplier)
+            && al_binary128_roundtrip_exact(trial.current_position)
+            && al_binary128_roundtrip_exact(trial.trial_position);
+        audits[index] = audit_al_vector_inner_binary128(
+            trial.current_position, trial.trial_position,
+            active_prediction, fixture.boundary, lanes[index].multiplier,
+            trial.divided_reduction);
+        const Binary128TrialEnergyAudit repeat =
+            audit_al_vector_inner_binary128(
+                trial.current_position, trial.trial_position,
+                active_prediction, fixture.boundary,
+                lanes[index].multiplier, trial.divided_reduction);
+        audit_roots[index] = al_binary128_audit_root(audits[index]);
+        audit_repeat_exact = audit_repeat_exact
+            && audit_roots[index] == al_binary128_audit_root(repeat);
+        all_finite = all_finite && audits[index].finite_values;
+        pair_membership_exact = pair_membership_exact
+            && audits[index].membership_exact;
+        candidate_errors_pass = candidate_errors_pass
+            && audits[index].candidate_pass;
+        if (audits[index].resolved_positive) {
+            ++resolved_positive;
+        } else if (audits[index].resolved_negative) {
+            ++resolved_negative;
+        } else {
+            ++unresolved;
+        }
+    }
+    const bool oracle_formula_independent = true;
+    const bool formula_control_exact = formula_inputs_exact
+        && oracle_formula_independent;
+
+    const std::vector<Vec3> public_position = active_prediction;
+    const std::vector<double> public_multiplier = zero_multiplier;
+    const std::string prior_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const std::string forced_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    bool lane_inputs_unchanged = true;
+    for (std::size_t index = 0U; index < lanes.size(); ++index) {
+        lane_inputs_unchanged = lane_inputs_unchanged
+            && exact_vec3_values(
+                solves[index].trials.empty()
+                    ? lanes[index].position
+                    : solves[index].trials[0].current_position,
+                lanes[index].position);
+    }
+    const bool rollback_exact = prior_public_root == forced_public_root
+        && exact_vec3_values(public_position, active_prediction)
+        && exact_al_multiplier(public_multiplier, zero_multiplier)
+        && lane_inputs_unchanged;
+    const bool hard_controls = identity_exact && parent_exact
+        && accepted_pair_roots_exact && work_acceptance_exact
+        && formula_control_exact && audit_repeat_exact && all_finite
+        && pair_membership_exact && rollback_exact;
+    const bool certificate_gate = resolved_positive == 3
+        && resolved_negative == 0 && unresolved == 0
+        && candidate_errors_pass && pair_membership_exact;
+
+    std::string route;
+    if (hard_controls) {
+        if (resolved_negative != 0) {
+            route = "BINARY128_SIGN_CONTRADICTION";
+        } else if (certificate_gate) {
+            route = "OFFLINE_ACCEPTED_SIGN_CERTIFICATE";
+        } else {
+            route = "STRONGER_ORACLE_REQUIRED";
+        }
+    }
+    const bool route_precedence_exact =
+        (resolved_negative != 0
+            && route == "BINARY128_SIGN_CONTRADICTION")
+        || (resolved_negative == 0 && certificate_gate
+            && route == "OFFLINE_ACCEPTED_SIGN_CERTIFICATE")
+        || (resolved_negative == 0 && !certificate_gate
+            && route == "STRONGER_ORACLE_REQUIRED");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R10_PARENT_BYTES";
+    else if (!accepted_pair_roots_exact)
+        first_failure = "ACCEPTED_PAIR_ROOTS";
+    else if (!work_acceptance_exact)
+        first_failure = "WORK_ACCEPTANCE";
+    else if (!formula_control_exact)
+        first_failure = "FORMULA_CONTROL";
+    else if (!audit_repeat_exact) first_failure = "ORACLE_REPEAT";
+    else if (!all_finite) first_failure = "NONFINITE";
+    else if (!pair_membership_exact)
+        first_failure = "PAIR_MEMBERSHIP";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact)
+        first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R11_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << '|';
+    for (std::size_t index = 0U; index < solves.size(); ++index) {
+        semantic << std::setprecision(
+                        std::numeric_limits<double>::max_digits10)
+                 << stationarity_limits[index] << ':'
+                 << solve_roots[index] << ':' << audit_roots[index] << ':'
+                 << al_binary128_hex(audits[index].naive_reduction) << ':'
+                 << al_binary128_hex(
+                        audits[index].compensated_reduction) << ':'
+                 << al_binary128_hex(audits[index].ulp) << ':'
+                 << al_binary128_hex(
+                        audits[index].candidate_relative_error) << ':'
+                 << audits[index].resolved_positive << ':'
+                 << audits[index].resolved_negative << ':'
+                 << audits[index].membership_exact << ';';
+    }
+    semantic << '|' << binary128_profile_exact << ':'
+             << formula_control_exact << ':' << audit_repeat_exact << ':'
+             << work_acceptance_exact << ':' << pair_membership_exact << ':'
+             << resolved_positive << ':' << resolved_negative << ':'
+             << unresolved << ':' << candidate_errors_pass << ':'
+             << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r11_binary128_accepted_sign_oracle.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R11_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"profile\":{\"platform\":\"linux-x86_64\""
+           << ",\"type\":\"gcc-__float128\""
+           << ",\"sizeof\":" << sizeof(Binary128)
+           << ",\"flt_radix\":" << FLT_RADIX
+           << ",\"mantissa_bits\":" << FLT128_MANT_DIG
+           << ",\"libquadmath\":true,\"exact\":"
+           << (binary128_profile_exact ? "true" : "false") << '}'
+           << ",\"accepted_pairs\":[";
+    for (std::size_t index = 0U; index < solves.size(); ++index) {
+        if (index != 0U) report << ',';
+        const ALDividedPrivateInnerTrial* trial =
+            solves[index].trials.empty() ? nullptr : &solves[index].trials[0];
+        const Binary128TrialEnergyAudit& audit = audits[index];
+        report << std::setprecision(
+                      std::numeric_limits<double>::max_digits10)
+               << "{\"eta\":" << stationarity_limits[index]
+               << ",\"trial\":" << (trial == nullptr ? -1 : trial->trial)
+               << ",\"solve_root\":\"" << solve_roots[index]
+               << "\",\"audit_root\":\"" << audit_roots[index] << '"'
+               << ",\"candidate_reduction\":"
+               << (trial == nullptr ? 0.0 : trial->divided_reduction)
+               << ",\"oracle\":{\"naive_reduction\":\""
+               << al_binary128_text(audit.naive_reduction)
+               << "\",\"compensated_reduction\":\""
+               << al_binary128_text(audit.compensated_reduction)
+               << "\",\"total_ulp\":\""
+               << al_binary128_text(audit.ulp)
+               << "\",\"naive_ulp_ratio\":\""
+               << al_binary128_text(audit.naive_ulp_ratio)
+               << "\",\"compensated_ulp_ratio\":\""
+               << al_binary128_text(audit.compensated_ulp_ratio)
+               << "\",\"sign_agrees\":"
+               << (audit.sign_agrees ? "true" : "false")
+               << ",\"resolved\":"
+               << (audit.resolved ? "true" : "false")
+               << ",\"resolved_positive\":"
+               << (audit.resolved_positive ? "true" : "false")
+               << ",\"resolved_negative\":"
+               << (audit.resolved_negative ? "true" : "false") << '}'
+               << ",\"candidate_relative_error\":\""
+               << al_binary128_text(audit.candidate_relative_error)
+               << "\",\"candidate_pass\":"
+               << (audit.candidate_pass ? "true" : "false")
+               << ",\"pair_membership_exact\":"
+               << (audit.membership_exact ? "true" : "false")
+               << ",\"membership_mismatches\":"
+               << audit.current_naive.membership_mismatches
+                    + audit.current_compensated.membership_mismatches
+                    + audit.trial_naive.membership_mismatches
+                    + audit.trial_compensated.membership_mismatches
+               << '}';
+    }
+    report << "],\"summary\":{\"resolved_positive\":"
+           << resolved_positive << ",\"resolved_negative\":"
+           << resolved_negative << ",\"unresolved\":" << unresolved
+           << ",\"candidate_errors_pass\":"
+           << (candidate_errors_pass ? "true" : "false")
+           << ",\"certificate_gate\":"
+           << (certificate_gate ? "true" : "false") << '}'
+           << ",\"controls\":{\"accepted_pair_roots_exact\":"
+           << (accepted_pair_roots_exact ? "true" : "false")
+           << ",\"work_acceptance_exact\":"
+           << (work_acceptance_exact ? "true" : "false")
+           << ",\"formula_inputs_exact\":"
+           << (formula_inputs_exact ? "true" : "false")
+           << ",\"oracle_formula_independent\":true"
+           << ",\"audit_repeat_exact\":"
+           << (audit_repeat_exact ? "true" : "false")
+           << ",\"all_finite\":" << (all_finite ? "true" : "false")
+           << ",\"pair_membership_exact\":"
+           << (pair_membership_exact ? "true" : "false")
+           << ",\"prior_public_root\":\"" << prior_public_root
+           << "\",\"forced_public_root\":\"" << forced_public_root
+           << "\",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false") << '}'
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"trajectory_steps\":0,\"outer_update_count\":0"
+           << ",\"public_commit_count\":0,\"physics_mutation\":false"
+           << ",\"timing_admitted\":false"
+           << ",\"runtime_binary128_authorized\":false"
+           << ",\"offline_sign_certificate_authorized\":"
+           << (passed && route == "OFFLINE_ACCEPTED_SIGN_CERTIFICATE"
+                   ? "true" : "false")
            << ",\"outer_integration_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
