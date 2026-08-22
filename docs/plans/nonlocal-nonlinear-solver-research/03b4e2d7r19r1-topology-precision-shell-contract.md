@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R1 -- topology-precision shell replay contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / REPLAY_ONLY`
+Status: `EXECUTED / PASS / RUNTIME_TOPOLOGY_PRECISION_CANDIDATE / REPLAY_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -50,3 +50,13 @@ This contract grants one precision-policy discriminator only. It does not
 change D7R19, select a full precision policy, increase its watchdog, rerun the
 nominal transaction, authorize wider runtime precision or create production
 authority.
+
+## Result
+
+The discriminator passes reproducibly and selects
+`RUNTIME_TOPOLOGY_PRECISION_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r19r1-topology-precision-shell-evidence-2026-08-23.md).
+All observed mismatches are inside the shell, all observed mismatch kernel
+values/derivatives are zero, every lane remains resolved positive and replay
+HVP work is zero. This result authorizes research/freeze of a separate
+binary64-owned precision-topology reclosure only.
