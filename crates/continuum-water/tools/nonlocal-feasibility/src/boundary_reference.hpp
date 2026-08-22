@@ -103,5 +103,7 @@ SplitBoundaryReport
 run_nominal_hydro_partitioned_active_plan_audit_controls();
 SplitBoundaryReport
 run_nominal_hydro_partitioned_active_plan_controls();
+SplitBoundaryReport
+run_nominal_hydro_current_topology_plan_audit_controls();
 
 } // namespace nextengine::nonlocal::fcr

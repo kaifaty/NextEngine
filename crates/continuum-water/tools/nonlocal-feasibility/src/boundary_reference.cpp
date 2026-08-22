@@ -8389,6 +8389,7 @@ struct JointPressureTape {
     std::vector<double> hvp_gradient;
     std::vector<double> hvp_second;
     JointOwnerGatherPlan owner_gather_plan;
+    JointOwnerGatherPlan current_topology_gather_plan;
     const JointOwnerGatherPlan* masked_superset_gather_plan = nullptr;
     bool masked_superset_plan_validated = false;
     std::size_t active_centers = 0;
@@ -8621,6 +8622,23 @@ struct JointPartitionedActivePlanAuditTrace {
     bool partition_base_negative_rejected = false;
 };
 
+struct JointCurrentTopologyPlanAuditTrace {
+    bool enabled = false;
+    std::size_t plan_audits = 0U;
+    std::size_t evaluation_calls = 0U;
+    std::size_t evaluation_full_entries = 0U;
+    std::size_t evaluation_retained_entries = 0U;
+    std::size_t hvp_calls = 0U;
+    std::size_t hvp_full_entries = 0U;
+    std::size_t hvp_retained_entries = 0U;
+    std::size_t maximum_full_plan_payload_bytes = 0U;
+    std::size_t order_mismatches = 0U;
+    std::size_t coverage_mismatches = 0U;
+    std::size_t fallbacks = 0U;
+    bool source_negative_rejected = false;
+    bool target_negative_rejected = false;
+};
+
 struct JointParallelTrace {
     bool enabled = false;
     int requested_workers = 0;
@@ -8649,6 +8667,7 @@ struct JointParallelTrace {
     JointParallelPhaseTimingTrace phase_timing;
     JointMaskedSupersetPlanAuditTrace masked_plan_audit;
     JointPartitionedActivePlanAuditTrace partitioned_plan_audit;
+    JointCurrentTopologyPlanAuditTrace current_topology_plan_audit;
 };
 
 bool add_joint_parallel_duration(
@@ -11548,6 +11567,129 @@ bool b4ep10pd_audit_masked_plan(
     return true;
 }
 
+bool b4ep10ctd_current_plan_sequence_exact(
+    const JointOwnerGatherPlan& full,
+    const JointOwnerGatherPlan& active,
+    const std::vector<double>& compression,
+    std::size_t& full_entries,
+    std::size_t& retained_entries) {
+    full_entries = 0U;
+    retained_entries = 0U;
+    if (!full.passed || !active.passed
+        || full.source_by_slot != active.source_by_slot
+        || full.target_offsets.size() != active.target_offsets.size()
+        || full.target_offsets.empty() || active.target_offsets.empty()
+        || full.target_offsets.front() != 0U
+        || active.target_offsets.front() != 0U
+        || full.target_offsets.back() != full.target_slots.size()
+        || active.target_offsets.back() != active.target_slots.size()) {
+        return false;
+    }
+    for (std::size_t target = 0U;
+         target + 1U < full.target_offsets.size(); ++target) {
+        const std::size_t full_begin = full.target_offsets[target];
+        const std::size_t full_end = full.target_offsets[target + 1U];
+        const std::size_t active_begin = active.target_offsets[target];
+        const std::size_t active_end = active.target_offsets[target + 1U];
+        if (full_end < full_begin || full_end > full.target_slots.size()
+            || active_end < active_begin
+            || active_end > active.target_slots.size()) {
+            return false;
+        }
+        std::size_t active_entry = active_begin;
+        std::size_t previous = 0U;
+        bool have_previous = false;
+        for (std::size_t entry = full_begin; entry < full_end; ++entry) {
+            const std::size_t slot = full.target_slots[entry];
+            if (slot >= full.source_by_slot.size()
+                || (have_previous && slot <= previous)) {
+                return false;
+            }
+            const std::size_t source = full.source_by_slot[slot];
+            if (source >= compression.size()) {
+                return false;
+            }
+            if (compression[source] > 0.0) {
+                if (active_entry >= active_end
+                    || active.target_slots[active_entry] != slot) {
+                    return false;
+                }
+                ++active_entry;
+                ++retained_entries;
+            }
+            previous = slot;
+            have_previous = true;
+            ++full_entries;
+        }
+        if (active_entry != active_end) {
+            return false;
+        }
+    }
+    return retained_entries == active.target_slots.size();
+}
+
+bool b4ep10ctd_audit_current_topology_plan(
+    const JointNeighborhood& neighborhood,
+    const std::vector<double>& compression,
+    const JointOwnerGatherPlan& active_plan,
+    JointOwnerGatherPlan& full_plan,
+    JointParallelTrace& parallel) {
+    JointCurrentTopologyPlanAuditTrace& audit =
+        parallel.current_topology_plan_audit;
+    std::vector<double> sentinel(compression.size(), 1.0);
+    JointOwnerDataflowTrace plan_trace;
+    JointOwnerGatherPlan candidate = build_joint_owner_gather_plan(
+        neighborhood, sentinel, plan_trace);
+    std::size_t full_entries = 0U;
+    std::size_t retained_entries = 0U;
+    if (!candidate.passed
+        || !b4ep10ctd_current_plan_sequence_exact(
+            candidate, active_plan, compression,
+            full_entries, retained_entries)) {
+        ++audit.order_mismatches;
+        return false;
+    }
+    if (full_entries != candidate.target_slots.size()
+        || retained_entries != active_plan.target_slots.size()) {
+        ++audit.coverage_mismatches;
+        return false;
+    }
+    if (audit.plan_audits == 0U) {
+        JointOwnerGatherPlan wrong_source = candidate;
+        if (!wrong_source.source_by_slot.empty()) {
+            wrong_source.source_by_slot.front() =
+                static_cast<std::uint32_t>(compression.size());
+            std::size_t ignored_full = 0U;
+            std::size_t ignored_retained = 0U;
+            audit.source_negative_rejected =
+                !b4ep10ctd_current_plan_sequence_exact(
+                    wrong_source, active_plan, compression,
+                    ignored_full, ignored_retained);
+        }
+        JointOwnerGatherPlan wrong_target = candidate;
+        if (!wrong_target.target_slots.empty()) {
+            wrong_target.target_slots.front() =
+                static_cast<std::uint32_t>(
+                    wrong_target.source_by_slot.size());
+            std::size_t ignored_full = 0U;
+            std::size_t ignored_retained = 0U;
+            audit.target_negative_rejected =
+                !b4ep10ctd_current_plan_sequence_exact(
+                    wrong_target, active_plan, compression,
+                    ignored_full, ignored_retained);
+        }
+    }
+    ++audit.plan_audits;
+    ++audit.evaluation_calls;
+    audit.evaluation_full_entries += full_entries;
+    audit.evaluation_retained_entries += retained_entries;
+    audit.maximum_full_plan_payload_bytes = std::max(
+        audit.maximum_full_plan_payload_bytes,
+        candidate.payload_bytes);
+    full_plan = std::move(candidate);
+    return true;
+}
+
 enum class B4EP10PCDInjection {
     None,
     LocalCount,
@@ -12301,6 +12443,17 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
                 result.tape.owner_gather_plan, parallel)) {
             parallel.failed = true;
             parallel.failure = "PARTITIONED_ACTIVE_PLAN_AUDIT";
+            result.failure = parallel.failure;
+            return result;
+        }
+        if (parallel.current_topology_plan_audit.enabled
+            && !b4ep10ctd_audit_current_topology_plan(
+                neighborhood, result.tape.compression,
+                result.tape.owner_gather_plan,
+                result.tape.current_topology_gather_plan,
+                parallel)) {
+            parallel.failed = true;
+            parallel.failure = "CURRENT_TOPOLOGY_PLAN_AUDIT";
             result.failure = parallel.failure;
             return result;
         }
@@ -13148,6 +13301,32 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
             ++reuse.hvp_reuse_calls;
             reuse.hvp_full_entries_scanned += plan.target_slots.size();
             reuse.hvp_retained_entries += owner.target_gathers;
+        }
+        if (parallel->current_topology_plan_audit.enabled) {
+            JointCurrentTopologyPlanAuditTrace& audit =
+                parallel->current_topology_plan_audit;
+            const JointOwnerGatherPlan& full =
+                tape.current_topology_gather_plan;
+            if (!full.passed
+                || full.source_by_slot.size() != directed
+                || full.target_offsets.size() != total + 1U
+                || full.target_offsets.empty()
+                || full.target_offsets.back() != full.target_slots.size()
+                || full.target_slots.size()
+                    > std::numeric_limits<std::size_t>::max()
+                        - audit.hvp_full_entries
+                || owner.target_gathers
+                    > std::numeric_limits<std::size_t>::max()
+                        - audit.hvp_retained_entries) {
+                ++audit.coverage_mismatches;
+                parallel->failed = true;
+                parallel->failure = "CURRENT_TOPOLOGY_PLAN_HVP";
+                owner.failure = parallel->failure;
+                return owner;
+            }
+            ++audit.hvp_calls;
+            audit.hvp_full_entries += full.target_slots.size();
+            audit.hvp_retained_entries += owner.target_gathers;
         }
         ++parallel->hvp_calls;
         parallel->hvp_directed_values += owner.directed_values;
@@ -20714,7 +20893,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     bool capture_masked_plan_audit = false,
     bool use_masked_plan_reuse = false,
     bool capture_partitioned_plan_audit = false,
-    bool use_partitioned_active_plan = false) {
+    bool use_partitioned_active_plan = false,
+    bool capture_current_topology_plan_audit = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -20740,6 +20920,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         capture_partitioned_plan_audit;
     result.trace.owner_parallel.partitioned_plan_audit.candidate_enabled =
         use_partitioned_active_plan;
+    result.trace.owner_parallel.current_topology_plan_audit.enabled =
+        capture_current_topology_plan_audit;
     struct TopologyCachePointerReset {
         JointQueryTrace& trace;
         ~TopologyCachePointerReset() {
@@ -40021,6 +40203,239 @@ run_nominal_hydro_partitioned_active_plan_audit_controls() {
            << ",\"work_exact\":" << (work_exact ? "true" : "false")
            << ",\"timing_admitted\":false"
            << ",\"b4ep10pci_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(semantic_material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4EP10CTD_IDENTITY_SHA256 =
+    "d5d457d09b116496185e8eb11f97f80e27959757b22e6de5b674b12437ca7259";
+constexpr const char* B4EP10CTD_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep10ctd-current-topology-plan-audit|v1|parent="
+    "5c96bd69d2a370a080482bb3284d44ee46a832aec3e551ddf0f6d517283a1943:"
+    "42794aa55ca69ea7431324fb0a1a17457a025c3040591f9abaeb3f7e3ce3410a:"
+    "3774b48864dcd9a23c6dcd78b386606096ded9bebeb590a256a44916fe4f5a90|"
+    "implementation=6d1652f60ca6955e4389f9b2955927b004541e93|command=nominal-hydro-"
+    "current-topology-plan-audit|baseline=serial-active-plan|candidate=current-"
+    "topology-full-plan;compression-sentinel-positive|relation=source-by-slot-"
+    "exact;active-target-row-stable-subsequence|audit=evaluation226;hvp459;"
+    "plans226|work=current-full-scans-measured;retained749890172;ratio<=1.20|"
+    "capacity=combined-added<=67108864|negatives=source;target|runs=2;stdout-"
+    "byte-exact;stderr-empty|timing=none;old-commands-exact|reference=closed|"
+    "credit=b4ep10ct-construction-research-only";
+
+} // namespace
+
+SplitBoundaryReport
+run_nominal_hydro_current_topology_plan_audit_controls() {
+    constexpr int worker_count = 8;
+    omp_set_dynamic(0);
+    omp_set_max_active_levels(1);
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index = build_joint_static_support_index(
+        tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding = bind_joint_static_support_index(
+        &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP10CTD_IDENTITY_PROJECTION)
+            == B4EP10CTD_IDENTITY_SHA256
+        && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && index.passed && binding.passed;
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    JointTopologySupersetCache cache;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true, true, false, false, worker_count,
+            false, false, false, false, false, true);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const bool parent_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0;
+    const bool transaction_exact = b4ep1_queries_work_only_exact(
+            transaction.trace)
+        && transaction.trace.query_chain_sha256
+            == "6a220a4e6f4d6d06ab54fe043a9ddf49606aae40e598e43f1c331c78b7802991";
+    const bool physics_exact = b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical;
+    const bool cache_exact = transaction.passed && !cache.failed
+        && cache.queries == 226U && cache.rebuilds == 1U
+        && cache.reuses == 225U && cache.certificate_passes == 225U
+        && cache.certificate_failures == 0U
+        && cache.active_pair_visits == 85716150U;
+    const bool work_exact = transaction.passed
+        && transaction.trace.total_pairs == 85716150U
+        && transaction.trace.total_directed == 150845996U
+        && transaction.trace.total_active_directed == 131987230U
+        && transaction.trace.total_fluid_centers == 1356000U
+        && transaction.trace.coefficient_hvp_lookups == 971831424U
+        && transaction.trace.fused_workspace_builds == 226U
+        && transaction.trace.fusion_mismatches == 0U
+        && transaction.trace.coefficient_mismatches == 0U;
+    const JointParallelTrace& parallel = transaction.trace.owner_parallel;
+    const bool parallel_exact = transaction.passed && parallel.enabled
+        && parallel.requested_workers == worker_count && !parallel.failed
+        && parallel.regions == 3411U
+        && parallel.logical_partitions == 218304U
+        && parallel.minimum_observed_team == worker_count
+        && parallel.maximum_observed_team == worker_count
+        && parallel.team_mismatches == 0U
+        && parallel.coverage_mismatches == 0U
+        && parallel.worker_failures == 0U
+        && parallel.topology_calls == 226U
+        && parallel.evaluation_calls == 226U
+        && parallel.evaluation_density_gathers == 150845996U
+        && parallel.evaluation_directed_values == 131987230U
+        && parallel.evaluation_target_gathers == 263974460U
+        && parallel.plan_builds == 226U && parallel.hvp_calls == 459U
+        && parallel.hvp_directed_values == 242957856U
+        && parallel.hvp_target_gathers == 485915712U;
+    const JointCurrentTopologyPlanAuditTrace& audit =
+        parallel.current_topology_plan_audit;
+    std::size_t full_entries = 0U;
+    std::size_t retained_entries = 0U;
+    std::size_t combined_payload = 0U;
+    const bool sums_safe = b4ep10pd_checked_add(
+            audit.evaluation_full_entries, audit.hvp_full_entries,
+            full_entries)
+        && b4ep10pd_checked_add(
+            audit.evaluation_retained_entries,
+            audit.hvp_retained_entries, retained_entries)
+        && b4ep10pd_checked_add(
+            audit.maximum_full_plan_payload_bytes,
+            parallel.maximum_added_payload_bytes, combined_payload);
+    const double scan_ratio = retained_entries == 0U
+        ? std::numeric_limits<double>::infinity()
+        : static_cast<double>(full_entries)
+            / static_cast<double>(retained_entries);
+    const bool audit_exact = audit.enabled && audit.plan_audits == 226U
+        && audit.evaluation_calls == 226U && audit.hvp_calls == 459U
+        && audit.evaluation_full_entries == 301691992U
+        && audit.evaluation_retained_entries == 263974460U
+        && audit.hvp_retained_entries == 485915712U
+        && retained_entries == 749890172U
+        && full_entries >= retained_entries
+        && std::isfinite(scan_ratio) && scan_ratio <= 1.20
+        && audit.maximum_full_plan_payload_bytes > 0U
+        && combined_payload <= 67108864U
+        && audit.order_mismatches == 0U
+        && audit.coverage_mismatches == 0U && audit.fallbacks == 0U
+        && audit.source_negative_rejected
+        && audit.target_negative_rejected && sums_safe;
+    const bool passed = identity_exact && parent_exact && transaction_exact
+        && physics_exact && cache_exact && work_exact
+        && parallel_exact && audit_exact;
+    std::string failure;
+    if (!identity_exact) failure = "IDENTITY";
+    else if (!parent_exact) failure = "PARENT";
+    else if (!transaction_exact) failure = "TRANSACTION";
+    else if (!physics_exact) failure = "PHYSICS";
+    else if (!cache_exact) failure = "CACHE";
+    else if (!work_exact) failure = "WORK";
+    else if (!parallel_exact) failure = "OWNER_PARALLEL";
+    else if (!audit_exact) failure = "CURRENT_TOPOLOGY_PLAN_AUDIT";
+    std::ostringstream correspondence_material;
+    correspondence_material
+        << "nextengine.nonlocal.nsr3b4ep10ctd-correspondence|v1|"
+        << output.frame_root << ':' << output.aggregate_root << '|'
+        << transaction.trajectory_sha256 << ':'
+        << transaction.legacy_ledger_sha256 << ':'
+        << transaction.policy_ledger_sha256 << '|'
+        << transaction.trace.query_chain_sha256 << '|'
+        << audit.plan_audits << ':' << audit.evaluation_calls << ':'
+        << audit.hvp_calls << '|' << audit.evaluation_full_entries << ':'
+        << audit.hvp_full_entries << ':' << retained_entries << '|'
+        << audit.maximum_full_plan_payload_bytes << ':' << combined_payload
+        << '|' << audit.source_negative_rejected << ':'
+        << audit.target_negative_rejected;
+    const std::string correspondence_sha256 = sha256_hex(
+        correspondence_material.str());
+    std::ostringstream semantic_material;
+    semantic_material << (passed ? "PASS|" : "FAIL|") << failure << '|'
+        << B4EP10CTD_IDENTITY_SHA256 << '|' << correspondence_sha256 << '|'
+        << full_entries << ':' << retained_entries << '|' << scan_ratio << '|'
+        << audit.order_mismatches << ':' << audit.coverage_mismatches << ':'
+        << audit.fallbacks;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep10ctd_current_topology_plan_audit.v1\""
+           << ",\"identity_sha256\":\"" << B4EP10CTD_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false")
+           << ",\"correspondence_sha256\":\""
+           << correspondence_sha256 << '"'
+           << ",\"roots\":{\"frame\":\"" << output.frame_root
+           << "\",\"aggregate\":\"" << output.aggregate_root
+           << "\",\"trajectory\":\"" << transaction.trajectory_sha256
+           << "\",\"legacy_ledger\":\""
+           << transaction.legacy_ledger_sha256
+           << "\",\"policy_ledger\":\""
+           << transaction.policy_ledger_sha256 << "\"}"
+           << ",\"audit\":{\"plans\":" << audit.plan_audits
+           << ",\"evaluation_calls\":" << audit.evaluation_calls
+           << ",\"hvp_calls\":" << audit.hvp_calls
+           << ",\"evaluation_full_entries\":"
+           << audit.evaluation_full_entries
+           << ",\"evaluation_retained_entries\":"
+           << audit.evaluation_retained_entries
+           << ",\"hvp_full_entries\":" << audit.hvp_full_entries
+           << ",\"hvp_retained_entries\":"
+           << audit.hvp_retained_entries
+           << ",\"full_entries\":" << full_entries
+           << ",\"retained_entries\":" << retained_entries
+           << ",\"scan_ratio\":" << scan_ratio
+           << ",\"full_plan_payload_bytes\":"
+           << audit.maximum_full_plan_payload_bytes
+           << ",\"combined_payload_bytes\":" << combined_payload
+           << ",\"order_mismatches\":" << audit.order_mismatches
+           << ",\"coverage_mismatches\":"
+           << audit.coverage_mismatches
+           << ",\"fallbacks\":" << audit.fallbacks
+           << ",\"source_negative_rejected\":"
+           << (audit.source_negative_rejected ? "true" : "false")
+           << ",\"target_negative_rejected\":"
+           << (audit.target_negative_rejected ? "true" : "false")
+           << ",\"exact\":" << (audit_exact ? "true" : "false")
+           << '}'
+           << ",\"physics_exact\":"
+           << (physics_exact ? "true" : "false")
+           << ",\"work_exact\":" << (work_exact ? "true" : "false")
+           << ",\"timing_admitted\":false"
+           << ",\"b4ep10ct_construction_research_authorized\":"
            << (passed ? "true" : "false")
            << ",\"b4e2_execution_authorized\":false"
            << ",\"runtime_authority\":false"
