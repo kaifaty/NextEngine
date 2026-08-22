@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREQ3 -- topology/incoming fusion candidate contract
 
-Status: `FROZEN / IMPLEMENTATION_PENDING`
+Status: `CLOSED / FAIL / CPU_GATE / REVERTED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -82,3 +82,10 @@ FPS, real-time or production claim from this stage.
 No result authorizes default/runtime/GPU/schema integration, B4E2, broad
 corpus, multi-macro, 50k-particle or production use. A separately qualified
 wall-throughput window and later production-roadmap gates remain required.
+
+## Closure
+
+Exact stage passes twice, but the one admitted CPU experiment wins `1/3` with
+median paired speedup `0.983844x` and paired range ratio `1.565388`. The
+candidate and CPU harness are reverted; SIRDI remains selected. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq3-topology-incoming-fusion-candidate-evidence-2026-08-22.md).

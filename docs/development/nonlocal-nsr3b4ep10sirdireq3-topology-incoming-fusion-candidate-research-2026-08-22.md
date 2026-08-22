@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREQ3 topology/incoming fusion candidate research -- 2026-08-22
 
-Status: `COMPLETE / DIRECT_NEIGHBORHOOD_PUBLICATION_SELECTED / IMPLEMENTATION_NEXT`
+Status: `CLOSED / EXACT_PASS / CPU_GATE_FAIL / CANDIDATE_REVERTED`
 
 ## Question
 
@@ -82,3 +82,15 @@ Freeze B4EP10SIRDIREQ3 as an opt-in direct-publication implementation plus a
 separate CPU-work A/B command. Do not enable the path by default, reuse the Q2
 shadow as real storage, change the target fold, run B4E2/broad corpus or claim
 wall speed.
+
+## Closure
+
+The implementation passes every exact, ownership, negative and capacity gate,
+but the frozen CPU experiment wins only `1/3`, has median paired speedup
+`0.983844x` and paired range ratio `1.565388`. Q3 therefore closes FAIL and the
+candidate is reverted. See the
+[dated evidence](nonlocal-nsr3b4ep10sirdireq3-topology-incoming-fusion-candidate-evidence-2026-08-22.md).
+
+The result does not disprove the construction theorem. It disproves selection
+under this contract and confirms that structural entry ratios are not speed
+ratios on the current shared host.

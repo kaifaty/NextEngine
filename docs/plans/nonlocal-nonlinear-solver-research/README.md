@@ -1430,3 +1430,9 @@ path, not the Q2 audit trace. Its
 [frozen contract](03b4ep10sirdireq3-topology-incoming-fusion-candidate-contract.md)
 requires two exact candidate processes before one balanced process-CPU A/B.
 Implement only these opt-in commands; CPU evidence cannot claim wall speed.
+B4EP10SIRDIREQ3 fails and is reverted; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq3-topology-incoming-fusion-candidate-evidence-2026-08-22.md).
+The fast path is exact and removes 678 regions, but wins only `1/3` CPU pairs;
+median paired speedup is `0.983844x` and range ratio is `1.565388`. Retain
+SIRDI. Qualify a less interference-sensitive measurement lane before another
+performance implementation; do not rerun Q3.

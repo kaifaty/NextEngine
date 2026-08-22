@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREQ3_FROZEN / FUSED_PLAN_CANDIDATE_IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREQ3_FAIL_REVERTED / PERFORMANCE_LANE_QUALIFICATION_RESEARCH_NEXT` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -426,6 +426,11 @@
 - **Current decision:** implement two opt-in Q3 commands. First require two
   exact candidate processes; only then run one balanced process-CPU A/B with
   no wall-speed credit.
+- **Measurement result:** Q3 exact passes twice, but CPU A/B wins only `1/3`;
+  median paired speedup is `0.983844x` and paired range ratio `1.565388`.
+- **Current decision:** close Q3 FAIL and revert the candidate/harness. Retain
+  SIRDI and Q2 structural evidence. Research measurement-lane qualification
+  before another performance implementation; do not rerun Q3.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -533,6 +538,7 @@
 | NSR3B4EP10SIRDIREQ2 contract | topology metadata/row-fill piggyback plus one canonical pair fill | implement/run shadow audit twice; no timing or fast path |
 | NSR3B4EP10SIRDIREQ2 PASS | all 226 plans exact; standalone work `0.128869x`; zero added regions | fused-plan consumer implementation-contract research only |
 | NSR3B4EP10SIRDIREQ3 contract | direct neighborhood publication; no SICD/fallback; paired process CPU | implement exact stage, then CPU A/B only |
+| NSR3B4EP10SIRDIREQ3 FAIL | exact path; CPU wins `1/3`, median `0.983844x`, range `1.565388`; reverted | retain SIRDI; measurement-lane qualification research only |
 
 Candidate solver identity remains:
 
@@ -1292,6 +1298,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** the frozen exact and CPU gates select or reject the
   candidate without weakening thresholds.
 
+### D-060 -- Reject fused candidate under unstable CPU evidence
+
+- **Observation:** exactness and structural reduction pass, but the candidate
+  wins only one CPU pair. Baseline/candidate samples span 30--39 s, median
+  paired speedup is `0.983844x` and range ratio is `1.565388`.
+- **Decision:** close Q3 FAIL without rerun, revert commits `237fc12` and
+  `517c9ad`, retain SIRDI and preserve Q2 only as structural evidence.
+- **Rejected:** median-of-path reinterpretation after observation, lowering
+  the 1.03/1.10 gates, translating `0.128869x` entries to solver speed or
+  keeping an unselected dormant fast path.
+- **Reconsider when:** a new, separately frozen measurement lane can bound
+  worker wait/spin and shared memory/frequency interference. It must not reuse
+  Q3 as an unrecorded rerun.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1344,12 +1364,13 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the Q3 direct-publication candidate and its two fail-closed
-   injections without changing SIRDI.
-2. Run two fresh duration-free candidate processes and the old SIRDI
-   regression; stop on any mismatch.
-3. Only after exact PASS, execute the single frozen paired process-CPU A/B and
-   close/select without wall-speed credit.
+1. Research why whole-process CPU remains unstable despite affinity and exact
+   paths, separating worker useful time, OpenMP wait/spin and external memory/
+   frequency interference.
+2. Design and freeze a measurement-lane qualification boundary before any new
+   performance implementation or candidate A/B.
+3. Keep SIRDI selected and do not rerun Q3, B4E2, broad corpus, runtime/GPU or
+   production work.
 
 ## Reconsideration triggers
 
