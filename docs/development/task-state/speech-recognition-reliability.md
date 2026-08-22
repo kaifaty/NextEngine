@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R0 and R1 are implemented and verified; the three non-authenticated public sources are now acquired and hash-closed in an external store, while Common Voice and the resident replay identity remain open.
-- **Why:** FLEURS ru_ru (3 690 clips), MUSAN noise (930 assets) and RIRS_NOISES (60 038 room groups) were downloaded outside Git, imported through the new fail-closed `import-*` commands into pinned source indexes, and a partial recipe dry-runs with exactly the expected blockers.
-- **Next action:** Operator acquires Common Voice RU (authenticated) and binds one exact resident ASR identity (`identity_status: closed` + artifact hash) — then `prepare` produces the first real prepared index and `replay` can run on that route.
-- **Current blocker:** Common Voice is gated behind account consent; replay identity cannot be honestly closed until the model that will be replayed is chosen (no Voxtral GGUF exists on this host; GigaAM/GigaSTT snapshots do).
-- **Do not retry:** Treating microphone diagnostics as training data; inventing hashes for unavailable corpus/model artifacts; retrying failed clips to green inside the replay runner.
-- **Reconsider when:** An exact external source snapshot and a closed resident replay identity are available for closure.
+- **Current conclusion:** All five public sources are acquired and hash-closed in the external store; the only remaining closure blocker is binding one exact resident replay identity.
+- **Why:** CV Scripted RU 26.0 (60 000 clips admitted of 176 302 validated, file-order cap), CV Spontaneous RU 4.0 (394 of 552; long/empty typed skips), FLEURS ru (3 690), MUSAN noise (930) and RIRS (60 038) are imported into pinned `indexes/*.jsonl`; the partial recipe dry-runs with exactly one blocker left.
+- **Next action:** Choose and bind the replay route (GigaAM-v3 snapshot or gigastt bundle exist locally; no Voxtral GGUF), set `identity_status: closed` with the artifact hash, then run `prepare` and the first real single-route `replay`.
+- **Current blocker:** Replay identity decision — the spec's primary Voxtral route has no local GGUF/transcribe.cpp on this host.
+- **Do not retry:** Treating microphone diagnostics as training data; inventing hashes for unavailable artifacts; retrying failed replay clips to green.
+- **Reconsider when:** A closed resident replay identity is bound and prepared index exists.
 
 ## Current evidence
 

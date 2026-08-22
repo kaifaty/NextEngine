@@ -48,7 +48,7 @@ from .reliability import (
 
 
 IMPORT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
-RAW_WAV_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.wav$")
+RAW_WAV_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.(wav|mp3)$")
 CONTRACT_SAMPLE_RATE_HZ = 16_000
 MAX_INDEX_ROWS = 100_000
 SKIP_SAMPLE_LIMIT = 10
@@ -64,12 +64,13 @@ class _SkipLog:
     invalid_wav: list[str] = field(default_factory=list)
     bad_name: list[str] = field(default_factory=list)
     missing_file: list[str] = field(default_factory=list)
+    counts: dict[str, int] = field(default_factory=dict)
 
     def add(self, reason: str, label: str) -> None:
         bucket = getattr(self, reason)
         if len(bucket) < SKIP_SAMPLE_LIMIT:
             bucket.append(label)
-        setattr(self, reason, bucket)
+        self.counts[reason] = self.counts.get(reason, 0) + 1
 
     def payload(self) -> dict[str, object]:
         return {
@@ -77,6 +78,7 @@ class _SkipLog:
             "invalid_wav": self.invalid_wav,
             "bad_name": self.bad_name,
             "missing_file": self.missing_file,
+            "counts": dict(sorted(self.counts.items())),
         }
 
 
@@ -400,6 +402,180 @@ def import_musan_noise(
         "role": "noise",
         "rows_written": len(rows),
         "converted_files": len(conversions),
+        "skips": skips.payload(),
+        "out_index_sha256": digest,
+    }
+
+
+
+
+def import_common_voice(
+    store: Path,
+    *,
+    cv_root: Path,
+    out_index: Path,
+    kind: str,
+    max_rows: int,
+    max_samples: int = MAX_AUDIO_SAMPLES,
+    workers: int = 8,
+) -> dict[str, object]:
+    """Import a Common Voice release into a bounded speech source index.
+
+    ``kind="scripted"`` reads headerless ``validated.tsv`` (``client_id``,
+    ``path``, ``sentence``) over ``clips/``; ``kind="spontaneous"`` reads
+    ``ss-corpus-<locale>.tsv`` over ``audios/``.  Clips are admitted in file
+    order up to ``max_rows`` — one documented deterministic selection — and
+    every admitted clip is converted to the store contract before hashing.
+    Real ``client_id`` speakers are preserved so prepare can split by
+    speaker without cross-split leakage.
+    """
+
+    if kind not in {"scripted", "spontaneous"}:
+        raise ReliabilityImportError("kind must be scripted or spontaneous")
+    if max_rows <= 0:
+        raise ReliabilityImportError("max_rows must be positive")
+    store_root = _external_directory(store, "corpus store")
+    root = cv_root.expanduser().resolve()
+    if not root.is_dir():
+        raise ReliabilityImportError(f"Common Voice root does not exist: {root}")
+    source_id = (
+        "common-voice-scripted-ru-26"
+        if kind == "scripted"
+        else "common-voice-spontaneous-ru-4"
+    )
+    audio_dir = root / ("clips" if kind == "scripted" else "audios")
+    if kind == "scripted":
+        tsv_path = root / "validated.tsv"
+
+        def parse(line: str) -> tuple[str, str, str] | None:
+            # CV 17 used client_id|path|sentence; release 26 inserts
+            # sentence_id and adds trailing metadata columns.
+            columns = line.split("\t")
+            if len(columns) < 4 or columns[0] == "client_id":
+                return None
+            return columns[0], columns[1], columns[3]
+
+    else:
+        matches = sorted(root.glob("ss-corpus-*.tsv"))
+        if len(matches) != 1:
+            raise ReliabilityImportError(
+                f"expected exactly one ss-corpus TSV under {root}"
+            )
+        tsv_path = matches[0]
+
+        def parse(line: str) -> tuple[str, str, str] | None:
+            columns = line.split("\t")
+            if len(columns) < 7 or columns[0] == "client_id":
+                return None
+            return columns[0], columns[2], columns[6]
+
+    if not tsv_path.is_file():
+        raise ReliabilityImportError(f"missing Common Voice transcript file: {tsv_path}")
+    if not audio_dir.is_dir():
+        raise ReliabilityImportError(f"missing Common Voice audio directory: {audio_dir}")
+
+    rows: list[dict[str, object]] = []
+    skips = _SkipLog()
+    conversions: list[tuple[Path, Path]] = []
+    plan: list[tuple[str, str, str, str]] = []
+    seen_ids: set[str] = set()
+    available = 0
+    with tsv_path.open(encoding="utf-8") as stream:
+        for raw_line in stream:
+            line = raw_line.rstrip("\n")
+            if not line.strip():
+                continue
+            if len(plan) >= max_rows:
+                continue
+            parsed = parse(line)
+            if parsed is None:
+                continue
+            available += 1
+            client_id, filename, transcript = parsed
+            transcript = transcript.strip()
+            label = f"{source_id}:{filename}"
+            try:
+                _validate_raw_name(filename, label)
+                clip_id = _stable_id(f"cv-{kind}-{Path(filename).stem}", label)
+                if client_id.strip():
+                    # Release 26 ships long SHA-256 client identifiers; fold
+                    # them into a bounded stable group id without embedding
+                    # the raw value in the index.
+                    speaker_digest = hashlib.sha256(
+                        f"cv-speaker-v0\0{client_id}".encode("utf-8")
+                    ).hexdigest()[:32]
+                    speaker_id = f"cv-{kind}-spk-{speaker_digest}"
+                else:
+                    speaker_id = "cv-unattributed"
+            except ReliabilityImportError:
+                skips.add("bad_name", label)
+                continue
+            if clip_id in seen_ids:
+                raise ReliabilityImportError(f"duplicate clip id: {clip_id}")
+            seen_ids.add(clip_id)
+            source_path = audio_dir / filename
+            if not source_path.is_file():
+                skips.add("missing_file", label)
+                continue
+            destination = (
+                store_root / "audio" / f"cv-{kind}" / f"{Path(filename).stem}.wav"
+            )
+            plan.append((label, transcript, clip_id, speaker_id))
+            conversions.append((source_path, destination))
+    if not plan:
+        raise ReliabilityImportError(
+            "no Common Voice rows were admitted; refusing to publish an empty index"
+        )
+    _convert_worker(conversions, workers)
+    for label, transcript, clip_id, speaker_id in plan:
+        filename = label.split(":", 1)[1]
+        destination = (
+            store_root / "audio" / f"cv-{kind}" / f"{Path(filename).stem}.wav"
+        )
+        relative = _resolve_store_relative(
+            store_root,
+            destination.relative_to(store_root).as_posix(),
+            label,
+        )
+        try:
+            probe = _probe_wav(destination)
+        except ReliabilityImportError:
+            skips.add("invalid_wav", label)
+            continue
+        if probe.samples > max_samples:
+            skips.add("too_long", label)
+            continue
+        if not transcript:
+            skips.add("bad_name", f"{label}:empty-transcript")
+            continue
+        rows.append(
+            {
+                "schema_version": 0,
+                "clip_id": clip_id,
+                "speaker_id": speaker_id,
+                "relative_audio_path": relative,
+                "audio_sha256": f"sha256:{_sha256_file(destination)}",
+                "samples": probe.samples,
+                "sample_rate_hz": 16_000,
+                "channels": 1,
+                "encoding": "pcm_s16le_wav",
+                "transcript": transcript[:4_096],
+                "source_id": source_id,
+            }
+        )
+    if len(rows) > MAX_INDEX_ROWS:
+        raise ReliabilityImportError("Common Voice index exceeds the bounded row count")
+    destination_index = out_index.expanduser().resolve()
+    destination_index.parent.mkdir(parents=True, exist_ok=True)
+    digest = _write_index(destination_index, rows)
+    return {
+        "schema_version": 0,
+        "kind": "nextengine.speech-reliability.import-report",
+        "source_id": source_id,
+        "role": "speech",
+        "rows_written": len(rows),
+        "converted_files": len(conversions),
+        "selected_of_available": f"{len(plan)}/{available}",
         "skips": skips.payload(),
         "out_index_sha256": digest,
     }

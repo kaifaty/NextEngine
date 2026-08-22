@@ -20,6 +20,7 @@ from .benchmark import (
 )
 from .corpus_import import (
     ReliabilityImportError,
+    import_common_voice,
     import_fleurs_ru,
     import_musan_noise,
     import_rirs,
@@ -235,6 +236,26 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="also admit pointsource_noises as rir assets",
     )
+    import_cv = reliability_commands.add_parser(
+        "import-common-voice",
+        help="convert a Common Voice release into a bounded speech index",
+    )
+    import_cv.add_argument("--store", type=Path, required=True)
+    import_cv.add_argument("--cv-root", type=Path, required=True)
+    import_cv.add_argument("--out-index", type=Path, required=True)
+    import_cv.add_argument(
+        "--kind",
+        choices=("scripted", "spontaneous"),
+        required=True,
+        help="scripted reads validated.tsv over clips/, spontaneous reads ss-corpus TSV",
+    )
+    import_cv.add_argument(
+        "--max-rows",
+        type=int,
+        default=60_000,
+        help="deterministic file-order admission cap (default: 60000)",
+    )
+    import_cv.add_argument("--workers", type=int, default=12)
     return root
 
 
@@ -533,6 +554,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                     arguments.store,
                     noise_root=arguments.noise_root,
                     out_index=arguments.out_index,
+                    workers=arguments.workers,
+                )
+                print(json.dumps({"schema_version": 0, "status": "complete",
+                                  **report}, ensure_ascii=False, sort_keys=True),
+                      flush=True)
+                return 0
+            if arguments.reliability_command == "import-common-voice":
+                report = import_common_voice(
+                    arguments.store,
+                    cv_root=arguments.cv_root,
+                    out_index=arguments.out_index,
+                    kind=arguments.kind,
+                    max_rows=arguments.max_rows,
                     workers=arguments.workers,
                 )
                 print(json.dumps({"schema_version": 0, "status": "complete",

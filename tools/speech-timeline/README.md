@@ -689,6 +689,26 @@ Behavior notes:
 - Index rows carry pinned SHA-256 hashes; indexes publish atomically with
   private permissions outside this repository.
 
+Common Voice releases are imported with one bounded command per release:
+
+```bash
+next-speech-timeline reliability-corpus import-common-voice \
+  --store $STORE --cv-root $STORE/raw/common-voice/scripted/extracted/cv-corpus-26.0-2026-06-12/ru \
+  --out-index $STORE/indexes/cv-scripted.jsonl --kind scripted \
+  --max-rows 60000 --workers 12
+```
+
+- ``--kind scripted`` parses the headerless-style ``validated.tsv`` of
+  release 26 (``client_id | path | sentence_id | sentence | …``) over
+  ``clips/*.mp3``; ``--kind spontaneous`` parses the single
+  ``ss-corpus-<locale>.tsv`` over ``audios/``.
+- Admission takes the first ``--max-rows`` rows in file order — a
+  documented deterministic selection — converts every clip from MP3 to the
+  store contract with ffmpeg, and skips typed buckets for clips over 30 s,
+  empty transcripts or missing audio (counts included in the report).
+- Long SHA-256 ``client_id`` speakers are folded into bounded stable group
+  ids so ``prepare`` can split by speaker without leaking raw identifiers.
+
 ## Recognition reliability feature capture (R1)
 
 Every completed utterance now carries a bounded internal diagnostic payload at
