@@ -8736,22 +8736,6 @@ struct JointDirectedScratchReuseTrace {
     std::size_t failures = 0U;
 };
 
-struct JointDensityContributionReuseTrace {
-    bool enabled = false;
-    std::vector<double> values;
-    std::size_t calls = 0U;
-    std::size_t evaluation_calls = 0U;
-    std::size_t requested_full_slots = 0U;
-    std::size_t active_write_slots = 0U;
-    std::size_t growth_slots = 0U;
-    std::size_t maximum_slots = 0U;
-    std::size_t maximum_payload_bytes = 0U;
-    std::size_t releases = 0U;
-    std::size_t live_buffers = 0U;
-    std::size_t maximum_live_buffers = 0U;
-    std::size_t failures = 0U;
-};
-
 enum class JointEvaluationBufferRole : std::size_t {
     Gradient,
     Density,
@@ -8843,7 +8827,6 @@ struct JointParallelTrace {
     JointIncomingConstructionAuditTrace incoming_construction_audit;
     JointDirectedScratchAuditTrace directed_scratch_audit;
     JointDirectedScratchReuseTrace directed_scratch_reuse;
-    JointDensityContributionReuseTrace density_contribution_reuse;
     JointEvaluationBufferAuditTrace evaluation_buffer_audit;
 };
 
@@ -13177,59 +13160,6 @@ struct B4EP10SIRDIReleaseGuard {
     }
 };
 
-std::vector<double>* b4ep10sirdirep_acquire_density_contribution(
-    JointDensityContributionReuseTrace& reuse,
-    std::size_t pair_count) {
-    if (!reuse.enabled
-        || pair_count > std::numeric_limits<std::size_t>::max()
-            - reuse.requested_full_slots
-        || pair_count > std::numeric_limits<std::size_t>::max()
-            - reuse.active_write_slots
-        || pair_count > std::numeric_limits<std::size_t>::max()
-                / sizeof(double)) {
-        ++reuse.failures;
-        return nullptr;
-    }
-    reuse.requested_full_slots += pair_count;
-    reuse.active_write_slots += pair_count;
-    if (reuse.values.size() < pair_count) {
-        const std::size_t growth = pair_count - reuse.values.size();
-        if (growth > std::numeric_limits<std::size_t>::max()
-                - reuse.growth_slots) {
-            ++reuse.failures;
-            return nullptr;
-        }
-        reuse.values.resize(pair_count);
-        reuse.growth_slots += growth;
-    }
-    reuse.maximum_slots = std::max(reuse.maximum_slots, pair_count);
-    reuse.maximum_payload_bytes = std::max(
-        reuse.maximum_payload_bytes, pair_count * sizeof(double));
-    if (reuse.live_buffers == 0U) {
-        reuse.live_buffers = 1U;
-        reuse.maximum_live_buffers = std::max(
-            reuse.maximum_live_buffers, reuse.live_buffers);
-    }
-    ++reuse.calls;
-    ++reuse.evaluation_calls;
-    return &reuse.values;
-}
-
-struct B4EP10SIRDIREPReleaseGuard {
-    JointDensityContributionReuseTrace& reuse;
-
-    ~B4EP10SIRDIREPReleaseGuard() {
-        if (!reuse.enabled) {
-            return;
-        }
-        if (!reuse.values.empty()) {
-            std::vector<double>().swap(reuse.values);
-            ++reuse.releases;
-        }
-        reuse.live_buffers = 0U;
-    }
-};
-
 bool b4ep10sirdirea_add_bytes(
     std::size_t slots, std::size_t element_bytes, std::size_t& total) {
     if (element_bytes != 0U
@@ -13562,17 +13492,6 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         result.failure = parallel.failure;
         return result;
     }
-    if (parallel.density_contribution_reuse.enabled
-        && (!parallel.incoming_construction_audit.candidate_enabled
-            || !parallel.directed_scratch_reuse.enabled
-            || parallel.evaluation_buffer_audit.enabled
-            || parallel.phase_timing.enabled)) {
-        ++parallel.density_contribution_reuse.failures;
-        parallel.failed = true;
-        parallel.failure = "DENSITY_CONTRIBUTION_REUSE_MODE";
-        result.failure = parallel.failure;
-        return result;
-    }
     for (std::size_t center = 0U; center < fluid_count; ++center) {
         const std::size_t begin = neighborhood.flat_offsets[center];
         const std::size_t end = neighborhood.flat_offsets[center + 1U];
@@ -13627,24 +13546,7 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     result.tape.compression.resize(fluid_count);
     result.tape.hvp_gradient.resize(pair_count);
     result.tape.hvp_second.resize(pair_count);
-    std::vector<double> owned_density_contribution;
-    std::vector<double>* density_contribution_pointer = nullptr;
-    if (parallel.density_contribution_reuse.enabled) {
-        density_contribution_pointer =
-            b4ep10sirdirep_acquire_density_contribution(
-                parallel.density_contribution_reuse, pair_count);
-        if (density_contribution_pointer == nullptr) {
-            parallel.failed = true;
-            parallel.failure = "DENSITY_CONTRIBUTION_REUSE_CAPACITY";
-            result.failure = parallel.failure;
-            return result;
-        }
-    } else {
-        owned_density_contribution.resize(pair_count);
-        density_contribution_pointer = &owned_density_contribution;
-    }
-    std::vector<double>& density_contribution =
-        *density_contribution_pointer;
+    std::vector<double> density_contribution(pair_count);
     B4EP10SIRDIREACallAudit buffer_audit;
     B4EP10SIRDIREAEphemeralGuard ephemeral_guard{
         parallel.evaluation_buffer_audit};
@@ -14377,7 +14279,7 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         }
     }
     const std::size_t scratch_payload_bytes =
-        pair_count * sizeof(double)
+        density_contribution.size() * sizeof(double)
         + center_energy.size() * sizeof(double)
         + directed * sizeof(Vec3);
     ++parallel.evaluation_calls;
@@ -22916,8 +22818,7 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     bool capture_directed_scratch_audit = false,
     bool use_directed_scratch_reuse = false,
     bool capture_evaluation_setup_timing = false,
-    bool capture_evaluation_buffer_audit = false,
-    bool use_density_contribution_reuse = false) {
+    bool capture_evaluation_buffer_audit = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -22959,8 +22860,6 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         use_directed_scratch_reuse;
     result.trace.owner_parallel.evaluation_buffer_audit.enabled =
         capture_evaluation_buffer_audit;
-    result.trace.owner_parallel.density_contribution_reuse.enabled =
-        use_density_contribution_reuse;
     if (capture_evaluation_buffer_audit) {
         result.trace.owner_parallel.evaluation_buffer_audit
             .missing_write_negative_rejected =
@@ -22971,8 +22870,6 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     }
     B4EP10SIRDIReleaseGuard directed_scratch_release{
         result.trace.owner_parallel.directed_scratch_reuse};
-    B4EP10SIRDIREPReleaseGuard density_contribution_release{
-        result.trace.owner_parallel.density_contribution_reuse};
     struct TopologyCachePointerReset {
         JointQueryTrace& trace;
         ~TopologyCachePointerReset() {
@@ -44431,34 +44328,10 @@ constexpr const char* B4EP10SIRDIREA_IDENTITY_PROJECTION =
     "0.02:reuse-contract-research;else:stop|reference=closed|credit="
     "evaluation-buffer-reuse-implementation-contract-research-only";
 
-constexpr const char* B4EP10SIRDIREP_IDENTITY_SHA256 =
-    "9b5d3f045adae33600fc21f604c657409247062acca49e8806892a0ce38e8d74";
-constexpr const char* B4EP10SIRDIREP_IDENTITY_PROJECTION =
-    "nextengine.nonlocal.nsr3b4ep10sirdirep-density-contribution-scratch|v1|"
-    "parent=dfc1bb3d154f9e406c89d0fde2304983c837d9f27d43888be542f6e0e5697e1d:"
-    "a60d07709cd12449feb6fc58c519387841edb68be29dd7493e8dc242d9f4c556:"
-    "b4f847cb4f19b09e951534649515a4504bc07044a13e6c636598b33f247777e9|"
-    "negative=96a22c8e733cfd334db50bd4cace64cbdf6e49ad53e544aa50c6b461f68b8f99:"
-    "default-path-regression|implementation=ecc9ab903b9919099d855a531b304506a4161184|"
-    "commands=baseline:nominal-hydro-directed-scratch-reuse-8,candidate:"
-    "nominal-hydro-directed-scratch-density-contribution-reuse-8|ownership="
-    "transaction-local;parallel-trace-adjacent;one-f64-vector;release-all-"
-    "exits|scope=density-contribution-only;returned-workspaces+gradient+tape+"
-    "directed-unchanged|work=calls226;full-init85716150;growth380511;writes"
-    "85716150;payload3044088|semantics=sirdirea-liveness;pair-order-exact;"
-    "density-fold-exact;roots-exact;old-command-exact|capacity=8388608;fail-"
-    "closed|timing=external-monotonic+gnu-time;one-warmup-each;three-pairs="
-    "AB,BA,AB;serialized;affinity=0-7|gates=baseline-median-ns<=4720000000;"
-    "baseline-range-ratio<=1.10;candidate-exact-3of3;wins3of3;median-paired-"
-    "speedup>=1.02;candidate-range-ratio<=1.10;rss-delta-kib<=8192;median-"
-    "total-cpu-ratio<=1.02|failure=retain-sirdi|reference=closed|credit="
-    "candidate-residual-attribution-research-only";
-
 } // namespace
 
 SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls_impl(
-    bool capture_evaluation_buffer_audit,
-    bool use_density_contribution_reuse) {
+    bool capture_evaluation_buffer_audit) {
     constexpr int worker_count = 8;
     omp_set_dynamic(0);
     omp_set_max_active_levels(1);
@@ -44476,19 +44349,13 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls_impl(
         tagged_points(fixture.boundary), &static_work);
     const JointStaticSupportBinding binding = bind_joint_static_support_index(
         &index, index.identity_sha256);
-    const char* identity_projection = use_density_contribution_reuse
-        ? B4EP10SIRDIREP_IDENTITY_PROJECTION
-        : capture_evaluation_buffer_audit
-            ? B4EP10SIRDIREA_IDENTITY_PROJECTION
-            : B4EP10SIRDI_IDENTITY_PROJECTION;
-    const char* identity_sha256 = use_density_contribution_reuse
-        ? B4EP10SIRDIREP_IDENTITY_SHA256
-        : capture_evaluation_buffer_audit
-            ? B4EP10SIRDIREA_IDENTITY_SHA256
-            : B4EP10SIRDI_IDENTITY_SHA256;
-    const bool identity_exact = !(capture_evaluation_buffer_audit
-            && use_density_contribution_reuse)
-        && sha256_hex(identity_projection)
+    const char* identity_projection = capture_evaluation_buffer_audit
+        ? B4EP10SIRDIREA_IDENTITY_PROJECTION
+        : B4EP10SIRDI_IDENTITY_PROJECTION;
+    const char* identity_sha256 = capture_evaluation_buffer_audit
+        ? B4EP10SIRDIREA_IDENTITY_SHA256
+        : B4EP10SIRDI_IDENTITY_SHA256;
+    const bool identity_exact = sha256_hex(identity_projection)
             == identity_sha256
         && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
         && scenario_root == spec.scenario_root
@@ -44511,8 +44378,7 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls_impl(
             &binding, &static_work, true, &adjacency_work, false,
             &cache, true, true, false, false, worker_count,
             false, false, false, false, false, false, false, false, true,
-            false, true, false, capture_evaluation_buffer_audit,
-            use_density_contribution_reuse);
+            false, true, false, capture_evaluation_buffer_audit);
     }
     const NominalMacroOutput output = b4e1m_output(transaction);
     const double energy_creation = std::max(0.0,
@@ -44891,103 +44757,6 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls_impl(
                << sha256_hex(audit_semantic.str()) << "\"}";
         return {passed, report.str()};
     }
-    if (use_density_contribution_reuse) {
-        const JointDensityContributionReuseTrace& density_reuse =
-            parallel.density_contribution_reuse;
-        const bool density_reuse_exact = density_reuse.enabled
-            && density_reuse.calls == 226U
-            && density_reuse.evaluation_calls == 226U
-            && density_reuse.requested_full_slots == 85716150U
-            && density_reuse.active_write_slots == 85716150U
-            && density_reuse.growth_slots == 380511U
-            && density_reuse.maximum_slots == 380511U
-            && density_reuse.maximum_payload_bytes == 3044088U
-            && density_reuse.maximum_payload_bytes <= 8388608U
-            && density_reuse.releases == 1U
-            && density_reuse.live_buffers == 0U
-            && density_reuse.maximum_live_buffers == 1U
-            && density_reuse.failures == 0U
-            && density_reuse.values.empty()
-            && !parallel.phase_timing.enabled
-            && !parallel.evaluation_buffer_audit.enabled;
-        const bool passed = sirdi_passed && sirdi_result_exact
-            && density_reuse_exact;
-        std::string failure;
-        if (!sirdi_passed || !sirdi_result_exact) {
-            failure = "SIRDI_SEMANTICS";
-        } else if (!density_reuse_exact) {
-            failure = "DENSITY_CONTRIBUTION_REUSE";
-        }
-        std::ostringstream candidate_semantic;
-        candidate_semantic << (passed ? "PASS|" : "FAIL|") << failure
-            << '|' << B4EP10SIRDIREP_IDENTITY_SHA256 << '|'
-            << sirdi_result_sha256 << '|'
-            << density_reuse.calls << ':'
-            << density_reuse.evaluation_calls << '|'
-            << density_reuse.requested_full_slots << ':'
-            << density_reuse.active_write_slots << ':'
-            << density_reuse.growth_slots << '|'
-            << density_reuse.maximum_slots << ':'
-            << density_reuse.maximum_payload_bytes << '|'
-            << density_reuse.releases << ':'
-            << density_reuse.live_buffers << ':'
-            << density_reuse.maximum_live_buffers << ':'
-            << density_reuse.failures;
-        std::ostringstream report;
-        report << "{\"schema\":\"nextengine.nonlocal."
-                  "nsr3b4ep10sirdirep_density_contribution_reuse.v1\""
-               << ",\"identity_sha256\":\""
-               << B4EP10SIRDIREP_IDENTITY_SHA256
-               << "\",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
-               << ",\"first_failure\":\"" << failure << '"'
-               << ",\"b4ep10sirdirea_result_sha256\":\""
-                  "a60d07709cd12449feb6fc58c519387841edb68be29dd7493e8dc242d9f4c556\""
-               << ",\"b4ep10sirdi_result_sha256\":\""
-               << sirdi_result_sha256 << '"'
-               << ",\"b4ep10sirdi_result_exact\":"
-               << (sirdi_result_exact ? "true" : "false")
-               << ",\"b4ep10sii_result_sha256\":\""
-               << sii_result_sha256 << '"'
-               << ",\"correspondence_sha256\":\""
-               << correspondence_sha256 << '"'
-               << ",\"roots\":{\"frame\":\"" << output.frame_root
-               << "\",\"aggregate\":\"" << output.aggregate_root
-               << "\",\"trajectory\":\""
-               << transaction.trajectory_sha256
-               << "\",\"legacy_ledger\":\""
-               << transaction.legacy_ledger_sha256
-               << "\",\"policy_ledger\":\""
-               << transaction.policy_ledger_sha256 << "\"}"
-               << ",\"density_contribution_reuse\":{\"calls\":"
-               << density_reuse.calls
-               << ",\"evaluation_calls\":"
-               << density_reuse.evaluation_calls
-               << ",\"requested_full_slots\":"
-               << density_reuse.requested_full_slots
-               << ",\"active_write_slots\":"
-               << density_reuse.active_write_slots
-               << ",\"growth_slots\":" << density_reuse.growth_slots
-               << ",\"maximum_slots\":" << density_reuse.maximum_slots
-               << ",\"maximum_payload_bytes\":"
-               << density_reuse.maximum_payload_bytes
-               << ",\"releases\":" << density_reuse.releases
-               << ",\"live_buffers\":" << density_reuse.live_buffers
-               << ",\"maximum_live_buffers\":"
-               << density_reuse.maximum_live_buffers
-               << ",\"failures\":" << density_reuse.failures
-               << ",\"exact\":"
-               << (density_reuse_exact ? "true" : "false") << '}'
-               << ",\"timing_admitted\":false"
-               << ",\"speedup_claim\":false"
-               << ",\"external_ab_authorized\":"
-               << (passed ? "true" : "false")
-               << ",\"b4e2_execution_authorized\":false"
-               << ",\"runtime_authority\":false"
-               << ",\"production_authority\":false"
-               << ",\"result_sha256\":\""
-               << sha256_hex(candidate_semantic.str()) << "\"}";
-        return {passed, report.str()};
-    }
     const bool passed = sirdi_passed;
     const std::string& failure = sirdi_failure;
     std::ostringstream report;
@@ -45034,20 +44803,12 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls_impl(
 }
 
 SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls() {
-    return run_nominal_hydro_directed_scratch_reuse_controls_impl(
-        false, false);
+    return run_nominal_hydro_directed_scratch_reuse_controls_impl(false);
 }
 
 SplitBoundaryReport
 run_nominal_hydro_directed_scratch_evaluation_buffer_audit_controls() {
-    return run_nominal_hydro_directed_scratch_reuse_controls_impl(
-        true, false);
-}
-
-SplitBoundaryReport
-run_nominal_hydro_directed_scratch_density_contribution_reuse_controls() {
-    return run_nominal_hydro_directed_scratch_reuse_controls_impl(
-        false, true);
+    return run_nominal_hydro_directed_scratch_reuse_controls_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr
