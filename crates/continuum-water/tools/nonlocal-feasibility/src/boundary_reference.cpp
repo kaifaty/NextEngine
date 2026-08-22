@@ -46536,6 +46536,38 @@ constexpr const char* B4E2D7R9R1_IDENTITY_PROJECTION =
     "trajectory=none;new-trial-acceptance=none;public-commit=none;"
     "physics-mutation=none|"
     "credit=one-binary64-actual-reduction-candidate-only";
+constexpr const char* B4E2D7R10_IDENTITY_SHA256 =
+    "438994d226709b3a75d7ca0abfa7b2f4aee2d4e2328e14499362b82248136d5c";
+constexpr const char* B4E2D7R10_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r10-private-divided-inner|v1|parent="
+    "1193920362d57931c518afabb73cc0fb31b466eb:"
+    "5866926c59596624bfea7341d2c3d45eef4bc15ecb149f5c7e6ac0bbea5dd0a7:"
+    "2f9a935e4a8f24bc60b8b146424d73c98b5d8dc47756bcf6a70b367f03f47e64|"
+    "states=eta1e-8:"
+    "21ad77e22bdba4520ca231bb78d51947a1b67e4263e08dae33af13b0aafabd05;"
+    "eta1e-9:"
+    "075442656934aeed156642091e9fc1ed41bc739513b5710990cdfb231d8aabc2;"
+    "eta1e-10:"
+    "299e4ce372a8a3d418ac6f354c70c362fd772acdf278464fb603a3881527901c|"
+    "solver=d7r4-step-norm-trust;"
+    "limits=64-trials,8-rejects,min-radius1e-14;"
+    "initial-radius=0.25dx;hvp-and-model-unchanged|"
+    "change=divided-actual-for-ratio,acceptance,"
+    "rejected-radius-interpolation;thresholds=0.1,0.25,0.75;"
+    "radius-bounds-unchanged|"
+    "audit=every-trial-binary64-repeat;"
+    "every-candidate-accept-long-double-sign;"
+    "resolved=1024-extended-ulp;no-resolved-negative-accept|"
+    "effect=at-least-one-parent-raw-reject-candidate-accept|"
+    "routes=resolved-sign-contradiction;precision-certificate-required;"
+    "private-inner-convergence-candidate;inner-policy-still-insufficient|"
+    "precedence=contradiction,certificate,convergence,insufficient|"
+    "controls=d7r9r1-complete-bytes;d7r9-fail-bytes;state-roots;"
+    "common-tight-state;forced-rollback|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|"
+    "outer-updates=none;trajectory=none;public-commit=none;"
+    "physics-mutation=none|"
+    "credit=one-private-inner-integration-classification-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -51225,6 +51257,283 @@ bool al_binary64_divided_difference_exact(
         && lhs.phr_branch_crossings == rhs.phr_branch_crossings;
 }
 
+struct ALDividedPrivateInnerTrial {
+    int trial = 0;
+    bool finite_values = false;
+    bool divided_repeat_exact = false;
+    bool raw_would_accept = false;
+    bool candidate_accepted = false;
+    bool candidate_effect = false;
+    bool negative_curvature = false;
+    bool oracle_audited = false;
+    bool oracle_resolved = false;
+    bool oracle_resolved_positive = false;
+    bool oracle_resolved_negative = false;
+    int hvp_calls = 0;
+    std::string radius_owner;
+    double stationarity_before = 0.0;
+    double radius_before = 0.0;
+    double radius_after = 0.0;
+    double step_norm = 0.0;
+    double predicted_reduction = 0.0;
+    double raw_reduction = 0.0;
+    double direct_reduction = 0.0;
+    double divided_reduction = 0.0;
+    double divided_ratio = 0.0;
+    double phr_reduction = 0.0;
+    double inertia_reduction = 0.0;
+    std::size_t support_crossings = 0U;
+    std::size_t kernel_segment_crossings = 0U;
+    std::size_t phr_branch_crossings = 0U;
+    long double oracle_reduction = 0.0L;
+    long double oracle_ulp_ratio = 0.0L;
+};
+
+struct ALDividedPrivateInnerSolve {
+    bool passed = false;
+    bool all_finite = true;
+    bool divided_repeat_exact = true;
+    bool positive_accepted_models = true;
+    bool invalid_interpolation_owned = false;
+    bool candidate_effect = false;
+    std::string failure;
+    int accepted_trials = 0;
+    int rejected_trials = 0;
+    int hvp_calls = 0;
+    int step_norm_updates = 0;
+    int quarter_updates = 0;
+    int resolved_positive_acceptances = 0;
+    int resolved_negative_acceptances = 0;
+    int unresolved_acceptances = 0;
+    double final_stationarity = 0.0;
+    std::vector<Vec3> position;
+    std::vector<ALDividedPrivateInnerTrial> trials;
+};
+
+ALDividedPrivateInnerSolve solve_al_divided_private_inner(
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& initial,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    double stationarity_limit) {
+    ALDividedPrivateInnerSolve result;
+    result.position = initial;
+    ALVectorInnerState current = evaluate_al_vector_inner(
+        result.position, predicted, boundary, multiplier);
+    if (!current.support.finite_values) {
+        result.all_finite = false;
+        result.failure = "INITIAL_NONFINITE";
+        return result;
+    }
+    double trust_radius = 0.25 * SPACING;
+    for (int trial_index = 0; trial_index < 64; ++trial_index) {
+        result.final_stationarity =
+            al_vector_scaled_stationarity(current.gradient);
+        if (result.final_stationarity <= stationarity_limit) {
+            result.passed = true;
+            return result;
+        }
+        ALDividedPrivateInnerTrial record;
+        record.trial = trial_index;
+        record.stationarity_before = result.final_stationarity;
+        record.radius_before = trust_radius;
+        int hvp_calls = 0;
+        const std::vector<Vec3> step = al_vector_trust_step(
+            result.position, boundary, multiplier, current.gradient,
+            trust_radius, hvp_calls, record.negative_curvature);
+        const std::vector<Vec3> image = apply_al_vector_inner_hessian(
+            result.position, boundary, multiplier, step);
+        ++hvp_calls;
+        record.hvp_calls = hvp_calls;
+        result.hvp_calls += hvp_calls;
+        record.step_norm = vector_norm(step);
+        const double gradient_step = flat_dot(current.gradient, step);
+        record.predicted_reduction = -gradient_step
+            - 0.5 * flat_dot(step, image);
+        const std::vector<Vec3> trial_position = add_scaled(
+            result.position, step, 1.0);
+        ALVectorInnerState trial = evaluate_al_vector_inner(
+            trial_position, predicted, boundary, multiplier);
+        record.raw_reduction = current.total - trial.total;
+        record.direct_reduction = al_vector_direct_actual_reduction(
+            result.position, trial_position, predicted,
+            current.support, trial.support);
+        const Binary64DividedDifference divided =
+            evaluate_al_vector_inner_divided_difference(
+                result.position, trial_position, predicted,
+                boundary, multiplier);
+        const Binary64DividedDifference divided_repeat =
+            evaluate_al_vector_inner_divided_difference(
+                result.position, trial_position, predicted,
+                boundary, multiplier);
+        record.divided_repeat_exact =
+            al_binary64_divided_difference_exact(divided, divided_repeat);
+        result.divided_repeat_exact = result.divided_repeat_exact
+            && record.divided_repeat_exact;
+        record.divided_reduction = divided.reduction;
+        record.phr_reduction = divided.phr_reduction;
+        record.inertia_reduction = divided.inertia_reduction;
+        record.support_crossings = divided.support_crossings;
+        record.kernel_segment_crossings =
+            divided.kernel_segment_crossings;
+        record.phr_branch_crossings = divided.phr_branch_crossings;
+        record.divided_ratio = record.predicted_reduction > 0.0
+            ? record.divided_reduction / record.predicted_reduction
+            : -std::numeric_limits<double>::infinity();
+        const double raw_ratio = record.predicted_reduction > 0.0
+            ? record.raw_reduction / record.predicted_reduction
+            : -std::numeric_limits<double>::infinity();
+        record.raw_would_accept = trial.support.finite_values
+            && record.predicted_reduction > 0.0
+            && record.raw_reduction > 0.0 && raw_ratio >= 0.1;
+        record.candidate_accepted = trial.support.finite_values
+            && divided.finite_values && record.divided_repeat_exact
+            && record.predicted_reduction > 0.0
+            && record.divided_reduction > 0.0
+            && record.divided_ratio >= 0.1;
+        record.candidate_effect = record.candidate_accepted
+            && !record.raw_would_accept;
+        result.candidate_effect = result.candidate_effect
+            || record.candidate_effect;
+        record.finite_values = trial.support.finite_values
+            && divided.finite_values
+            && std::isfinite(record.stationarity_before)
+            && std::isfinite(record.radius_before)
+            && std::isfinite(record.step_norm)
+            && std::isfinite(record.predicted_reduction)
+            && std::isfinite(record.raw_reduction)
+            && std::isfinite(record.direct_reduction)
+            && std::isfinite(record.divided_reduction)
+            && std::isfinite(record.divided_ratio)
+            && std::isfinite(record.phr_reduction)
+            && std::isfinite(record.inertia_reduction);
+        result.all_finite = result.all_finite && record.finite_values;
+        if (record.candidate_accepted) {
+            ALStepNormInnerTrial oracle_input;
+            oracle_input.current_position = result.position;
+            oracle_input.trial_position = trial_position;
+            const LongDoubleTrialEnergyAudit oracle =
+                audit_al_vector_inner_long_double(
+                    oracle_input, predicted, boundary, multiplier);
+            record.oracle_audited = true;
+            record.oracle_resolved = oracle.resolved;
+            record.oracle_resolved_positive = oracle.resolved_positive;
+            record.oracle_resolved_negative = oracle.resolved_negative;
+            record.oracle_reduction = oracle.compensated_reduction;
+            record.oracle_ulp_ratio = oracle.compensated_ulp_ratio;
+            result.all_finite = result.all_finite && oracle.finite_values;
+            if (oracle.resolved_positive) {
+                ++result.resolved_positive_acceptances;
+            } else if (oracle.resolved_negative) {
+                ++result.resolved_negative_acceptances;
+            } else {
+                ++result.unresolved_acceptances;
+            }
+        }
+        if (record.divided_ratio < 0.25) {
+            bool used_step_norm = false;
+            bool invalid_interpolation = false;
+            const bool interior = !record.candidate_accepted
+                && record.step_norm < 0.9 * trust_radius;
+            trust_radius = al_step_norm_rejected_radius(
+                trust_radius, record.step_norm, gradient_step,
+                record.divided_reduction, interior,
+                used_step_norm, invalid_interpolation);
+            if (used_step_norm) {
+                record.radius_owner = "STEP_NORM";
+                ++result.step_norm_updates;
+            } else {
+                record.radius_owner = "QUARTER";
+                ++result.quarter_updates;
+            }
+            result.invalid_interpolation_owned =
+                result.invalid_interpolation_owned
+                || (invalid_interpolation && used_step_norm);
+        } else if (record.divided_ratio > 0.75
+            && record.step_norm >= 0.9 * trust_radius) {
+            trust_radius = std::min(
+                2.0 * trust_radius, 2.0 * SPACING);
+            record.radius_owner = "NONE";
+        } else {
+            record.radius_owner = "NONE";
+        }
+        record.radius_after = trust_radius;
+        if (record.candidate_accepted) {
+            ++result.accepted_trials;
+            result.positive_accepted_models =
+                result.positive_accepted_models
+                && record.predicted_reduction > 0.0
+                && record.divided_reduction > 0.0
+                && record.divided_ratio >= 0.1;
+            result.position = trial_position;
+            current = std::move(trial);
+        } else {
+            ++result.rejected_trials;
+            if (result.rejected_trials > 8) {
+                result.failure = "REJECT_LIMIT";
+                result.trials.push_back(std::move(record));
+                return result;
+            }
+        }
+        result.trials.push_back(std::move(record));
+        if (trust_radius < 1.0e-14) {
+            result.failure = "MINIMUM_TRUST_RADIUS";
+            return result;
+        }
+    }
+    result.failure = "OUTER_LIMIT";
+    return result;
+}
+
+std::string al_divided_private_inner_root(
+    const ALDividedPrivateInnerSolve& value) {
+    std::ostringstream projection;
+    projection << std::setprecision(
+                      std::numeric_limits<long double>::max_digits10)
+               << value.passed << ':' << value.all_finite << ':'
+               << value.divided_repeat_exact << ':'
+               << value.positive_accepted_models << ':'
+               << value.invalid_interpolation_owned << ':'
+               << value.candidate_effect << ':' << value.failure << ':'
+               << value.accepted_trials << ':' << value.rejected_trials
+               << ':' << value.hvp_calls << ':'
+               << value.step_norm_updates << ':' << value.quarter_updates
+               << ':' << value.resolved_positive_acceptances << ':'
+               << value.resolved_negative_acceptances << ':'
+               << value.unresolved_acceptances << ':'
+               << value.final_stationarity << '|';
+    for (Vec3 position : value.position) {
+        projection << position.x << ':' << position.y << ':' << position.z
+                   << ';';
+    }
+    projection << '|';
+    for (const ALDividedPrivateInnerTrial& trial : value.trials) {
+        projection << trial.trial << ':' << trial.finite_values << ':'
+                   << trial.divided_repeat_exact << ':'
+                   << trial.raw_would_accept << ':'
+                   << trial.candidate_accepted << ':'
+                   << trial.candidate_effect << ':'
+                   << trial.negative_curvature << ':'
+                   << trial.oracle_audited << ':' << trial.oracle_resolved
+                   << ':' << trial.oracle_resolved_positive << ':'
+                   << trial.oracle_resolved_negative << ':'
+                   << trial.hvp_calls << ':' << trial.radius_owner << ':'
+                   << trial.stationarity_before << ':' << trial.radius_before
+                   << ':' << trial.radius_after << ':' << trial.step_norm
+                   << ':' << trial.predicted_reduction << ':'
+                   << trial.raw_reduction << ':' << trial.direct_reduction
+                   << ':' << trial.divided_reduction << ':'
+                   << trial.divided_ratio << ':' << trial.phr_reduction << ':'
+                   << trial.inertia_reduction << ':'
+                   << trial.support_crossings << ':'
+                   << trial.kernel_segment_crossings << ':'
+                   << trial.phr_branch_crossings << ':'
+                   << trial.oracle_reduction << ':'
+                   << trial.oracle_ulp_ratio << ';';
+    }
+    return sha256_hex(projection.str());
+}
+
 } // namespace
 
 SplitBoundaryReport run_al_dense_vector_oracle_controls() {
@@ -54859,6 +55168,371 @@ SplitBoundaryReport run_al_divided_difference_discriminator_controls() {
 
 SplitBoundaryReport run_al_divided_difference_reclosure_controls() {
     return run_al_divided_difference_discriminator_impl(true);
+}
+
+SplitBoundaryReport run_al_divided_difference_private_inner_controls() {
+    constexpr std::array<double, 5> stationarity_limits{
+        1.0e-8, 1.0e-9, 1.0e-10, 1.0e-11, 1.0e-12};
+    constexpr std::array<std::size_t, 3> unique_lane_indices{0U, 1U, 2U};
+    constexpr std::array<const char*, 3> expected_state_roots{
+        "21ad77e22bdba4520ca231bb78d51947a1b67e4263e08dae33af13b0aafabd05",
+        "075442656934aeed156642091e9fc1ed41bc739513b5710990cdfb231d8aabc2",
+        "299e4ce372a8a3d418ac6f354c70c362fd772acdf278464fb603a3881527901c"};
+    const bool identity_exact = sha256_hex(B4E2D7R10_IDENTITY_PROJECTION)
+        == B4E2D7R10_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_divided_difference_reclosure_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "2f9a935e4a8f24bc60b8b146424d73c98b5d8dc47756bcf6a70b367f03f47e64";
+    const SplitBoundaryReport failed_parent =
+        run_al_divided_difference_discriminator_controls();
+    const std::string failed_parent_stdout_sha256 = sha256_hex(
+        failed_parent.json + "\n");
+    const bool failed_parent_exact = !failed_parent.passed
+        && failed_parent_stdout_sha256
+            == "2c45e93d4153edf714b0f490be3f3d760b14a1ead1e8ed8ae9528d2555ec91f0";
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALStepNormPrivateOuterSolve d7r5 =
+        solve_al_step_norm_private_outer(
+            fixture, active_prediction, active_prediction, zero_multiplier);
+    std::array<ALCapAccuracyLane, stationarity_limits.size()> lanes;
+    if (d7r5.records.size() >= 8U) {
+        for (std::size_t index = 0U; index < lanes.size(); ++index) {
+            lanes[index] = solve_al_cap_accuracy_lane(
+                fixture, active_prediction, d7r5.prefix_position,
+                d7r5.prefix_multiplier, d7r5.records[7],
+                stationarity_limits[index]);
+        }
+    }
+    std::array<std::string, unique_lane_indices.size()> state_roots;
+    bool state_roots_exact = true;
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        const ALCapAccuracyLane& lane = lanes[unique_lane_indices[unique]];
+        state_roots[unique] = al_vector_stable_state_root(
+            unique == 0U ? "d7r7-pre-failure-eta1e-8"
+                : (unique == 1U ? "d7r7-pre-failure-eta1e-9"
+                    : "d7r7-pre-failure-eta1e-10"),
+            lane.position, lane.multiplier);
+        state_roots_exact = state_roots_exact
+            && state_roots[unique] == expected_state_roots[unique];
+    }
+    const bool common_tight_state_exact = exact_vec3_values(
+            lanes[2].position, lanes[3].position)
+        && exact_vec3_values(lanes[2].position, lanes[4].position)
+        && exact_al_multiplier(lanes[2].multiplier, lanes[3].multiplier)
+        && exact_al_multiplier(lanes[2].multiplier, lanes[4].multiplier)
+        && lanes[2].failed_inner_trials.size()
+            == lanes[3].failed_inner_trials.size()
+        && lanes[2].failed_inner_trials.size()
+            == lanes[4].failed_inner_trials.size();
+
+    std::array<ALDividedPrivateInnerSolve, unique_lane_indices.size()> solves;
+    std::array<std::string, unique_lane_indices.size()> solve_roots;
+    bool repeat_exact = true;
+    bool all_finite = true;
+    bool policy_exact = true;
+    bool candidate_effect = false;
+    bool accepted_sign_ledger_exact = true;
+    bool all_converged = true;
+    int accepted_trials = 0;
+    int rejected_trials = 0;
+    int hvp_calls = 0;
+    int resolved_positive_acceptances = 0;
+    int resolved_negative_acceptances = 0;
+    int unresolved_acceptances = 0;
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        const std::size_t lane_index = unique_lane_indices[unique];
+        const ALCapAccuracyLane& lane = lanes[lane_index];
+        solves[unique] = solve_al_divided_private_inner(
+            active_prediction, lane.position, fixture.boundary,
+            lane.multiplier, stationarity_limits[lane_index]);
+        const ALDividedPrivateInnerSolve repeat =
+            solve_al_divided_private_inner(
+                active_prediction, lane.position, fixture.boundary,
+                lane.multiplier, stationarity_limits[lane_index]);
+        solve_roots[unique] = al_divided_private_inner_root(solves[unique]);
+        repeat_exact = repeat_exact
+            && solve_roots[unique] == al_divided_private_inner_root(repeat);
+        all_finite = all_finite && solves[unique].all_finite;
+        policy_exact = policy_exact
+            && solves[unique].divided_repeat_exact
+            && solves[unique].positive_accepted_models
+            && !solves[unique].invalid_interpolation_owned
+            && solves[unique].trials.size() <= 64U
+            && solves[unique].rejected_trials <= 9;
+        candidate_effect = candidate_effect || solves[unique].candidate_effect;
+        all_converged = all_converged && solves[unique].passed;
+        accepted_trials += solves[unique].accepted_trials;
+        rejected_trials += solves[unique].rejected_trials;
+        hvp_calls += solves[unique].hvp_calls;
+        resolved_positive_acceptances +=
+            solves[unique].resolved_positive_acceptances;
+        resolved_negative_acceptances +=
+            solves[unique].resolved_negative_acceptances;
+        unresolved_acceptances += solves[unique].unresolved_acceptances;
+        int audited_acceptances = 0;
+        for (const ALDividedPrivateInnerTrial& trial : solves[unique].trials) {
+            if (trial.candidate_accepted) {
+                ++audited_acceptances;
+                accepted_sign_ledger_exact = accepted_sign_ledger_exact
+                    && trial.oracle_audited
+                    && (trial.oracle_resolved_positive
+                        || trial.oracle_resolved_negative
+                        || !trial.oracle_resolved);
+            } else {
+                accepted_sign_ledger_exact = accepted_sign_ledger_exact
+                    && !trial.oracle_audited;
+            }
+        }
+        accepted_sign_ledger_exact = accepted_sign_ledger_exact
+            && audited_acceptances == solves[unique].accepted_trials
+            && solves[unique].resolved_positive_acceptances
+                + solves[unique].resolved_negative_acceptances
+                + solves[unique].unresolved_acceptances
+                == solves[unique].accepted_trials;
+    }
+    const bool model_hvp_radius_policy_exact = policy_exact
+        && 0.25 * SPACING > 1.0e-14 && 2.0 * SPACING > 0.25 * SPACING;
+
+    const std::vector<Vec3> public_position = active_prediction;
+    const std::vector<double> public_multiplier = zero_multiplier;
+    const std::string prior_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const std::string forced_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    bool input_states_unchanged = true;
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        const ALCapAccuracyLane& lane = lanes[unique_lane_indices[unique]];
+        input_states_unchanged = input_states_unchanged
+            && al_vector_stable_state_root(
+                unique == 0U ? "d7r7-pre-failure-eta1e-8"
+                    : (unique == 1U ? "d7r7-pre-failure-eta1e-9"
+                        : "d7r7-pre-failure-eta1e-10"),
+                lane.position, lane.multiplier) == state_roots[unique];
+    }
+    const bool rollback_exact = prior_public_root == forced_public_root
+        && exact_vec3_values(public_position, active_prediction)
+        && exact_al_multiplier(public_multiplier, zero_multiplier)
+        && input_states_unchanged;
+
+    std::string route;
+    if (identity_exact && parent_exact && failed_parent_exact
+        && state_roots_exact && common_tight_state_exact
+        && repeat_exact && all_finite && model_hvp_radius_policy_exact
+        && candidate_effect && accepted_sign_ledger_exact
+        && rollback_exact) {
+        if (resolved_negative_acceptances != 0) {
+            route = "RESOLVED_SIGN_CONTRADICTION";
+        } else if (all_converged && unresolved_acceptances != 0) {
+            route = "PRECISION_CERTIFICATE_REQUIRED";
+        } else if (all_converged) {
+            route = "PRIVATE_INNER_CONVERGENCE_CANDIDATE";
+        } else {
+            route = "INNER_POLICY_STILL_INSUFFICIENT";
+        }
+    }
+    const bool route_precedence_exact =
+        (resolved_negative_acceptances != 0
+            && route == "RESOLVED_SIGN_CONTRADICTION")
+        || (resolved_negative_acceptances == 0 && all_converged
+            && unresolved_acceptances != 0
+            && route == "PRECISION_CERTIFICATE_REQUIRED")
+        || (resolved_negative_acceptances == 0 && all_converged
+            && unresolved_acceptances == 0
+            && route == "PRIVATE_INNER_CONVERGENCE_CANDIDATE")
+        || (resolved_negative_acceptances == 0 && !all_converged
+            && route == "INNER_POLICY_STILL_INSUFFICIENT");
+    const bool passed = !route.empty() && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R9R1_PARENT_BYTES";
+    else if (!failed_parent_exact) first_failure = "D7R9_FAIL_BYTES";
+    else if (!state_roots_exact) first_failure = "STATE_ROOTS";
+    else if (!common_tight_state_exact)
+        first_failure = "COMMON_TIGHT_STATE";
+    else if (!repeat_exact) first_failure = "PRIVATE_REPEAT";
+    else if (!all_finite) first_failure = "NONFINITE";
+    else if (!model_hvp_radius_policy_exact)
+        first_failure = "MODEL_HVP_RADIUS_POLICY";
+    else if (!candidate_effect) first_failure = "CANDIDATE_EFFECT";
+    else if (!accepted_sign_ledger_exact)
+        first_failure = "ACCEPTED_SIGN_LEDGER";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<long double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R10_IDENTITY_SHA256 << '|' << parent_stdout_sha256
+             << ':' << failed_parent_stdout_sha256 << '|';
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        semantic << stationarity_limits[unique_lane_indices[unique]] << ':'
+                 << state_roots[unique] << ':' << solve_roots[unique] << '[';
+        for (const ALDividedPrivateInnerTrial& trial : solves[unique].trials) {
+            semantic << trial.trial << ':' << trial.finite_values << ':'
+                     << trial.divided_repeat_exact << ':'
+                     << trial.raw_would_accept << ':'
+                     << trial.candidate_accepted << ':'
+                     << trial.candidate_effect << ':'
+                     << trial.negative_curvature << ':'
+                     << trial.oracle_audited << ':'
+                     << trial.oracle_resolved << ':'
+                     << trial.oracle_resolved_positive << ':'
+                     << trial.oracle_resolved_negative << ':'
+                     << trial.hvp_calls << ':' << trial.radius_owner << ':'
+                     << trial.stationarity_before << ':'
+                     << trial.radius_before << ':' << trial.radius_after << ':'
+                     << trial.step_norm << ':' << trial.predicted_reduction
+                     << ':' << trial.raw_reduction << ':'
+                     << trial.direct_reduction << ':'
+                     << trial.divided_reduction << ':' << trial.divided_ratio
+                     << ':' << trial.phr_reduction << ':'
+                     << trial.inertia_reduction << ':'
+                     << trial.support_crossings << ':'
+                     << trial.kernel_segment_crossings << ':'
+                     << trial.phr_branch_crossings << ':'
+                     << trial.oracle_reduction << ':'
+                     << trial.oracle_ulp_ratio << ';';
+        }
+        semantic << "]|";
+    }
+    semantic << all_converged << ':' << accepted_trials << ':'
+             << rejected_trials << ':' << hvp_calls << ':'
+             << resolved_positive_acceptances << ':'
+             << resolved_negative_acceptances << ':'
+             << unresolved_acceptances << ':' << candidate_effect << ':'
+             << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<long double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r10_private_divided_inner.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R10_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"failed_parent\":{\"stdout_sha256\":\""
+           << failed_parent_stdout_sha256 << "\",\"exact\":"
+           << (failed_parent_exact ? "true" : "false") << '}'
+           << ",\"common_tight_state_exact\":"
+           << (common_tight_state_exact ? "true" : "false")
+           << ",\"lanes\":[";
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        if (unique != 0U) report << ',';
+        const std::size_t lane_index = unique_lane_indices[unique];
+        const ALDividedPrivateInnerSolve& solve = solves[unique];
+        report << "{\"eta\":" << stationarity_limits[lane_index]
+               << ",\"input_state_root\":\"" << state_roots[unique]
+               << "\",\"solve_root\":\"" << solve_roots[unique]
+               << "\",\"status\":\"" << (solve.passed ? "PASS" : "FAIL")
+               << "\",\"failure\":\"" << solve.failure << '"'
+               << ",\"final_stationarity\":" << solve.final_stationarity
+               << ",\"accepted\":" << solve.accepted_trials
+               << ",\"rejected\":" << solve.rejected_trials
+               << ",\"hvp_calls\":" << solve.hvp_calls
+               << ",\"resolved_positive_acceptances\":"
+               << solve.resolved_positive_acceptances
+               << ",\"resolved_negative_acceptances\":"
+               << solve.resolved_negative_acceptances
+               << ",\"unresolved_acceptances\":"
+               << solve.unresolved_acceptances
+               << ",\"candidate_effect\":"
+               << (solve.candidate_effect ? "true" : "false")
+               << ",\"trials\":[";
+        for (std::size_t index = 0U; index < solve.trials.size(); ++index) {
+            if (index != 0U) report << ',';
+            const ALDividedPrivateInnerTrial& trial = solve.trials[index];
+            report << "{\"trial\":" << trial.trial
+                   << ",\"stationarity_before\":"
+                   << trial.stationarity_before
+                   << ",\"radius_before\":" << trial.radius_before
+                   << ",\"radius_after\":" << trial.radius_after
+                   << ",\"radius_owner\":\"" << trial.radius_owner << '"'
+                   << ",\"step_norm\":" << trial.step_norm
+                   << ",\"predicted\":" << trial.predicted_reduction
+                   << ",\"raw\":" << trial.raw_reduction
+                   << ",\"direct\":" << trial.direct_reduction
+                   << ",\"divided\":" << trial.divided_reduction
+                   << ",\"divided_ratio\":" << trial.divided_ratio
+                   << ",\"raw_would_accept\":"
+                   << (trial.raw_would_accept ? "true" : "false")
+                   << ",\"candidate_accepted\":"
+                   << (trial.candidate_accepted ? "true" : "false")
+                   << ",\"candidate_effect\":"
+                   << (trial.candidate_effect ? "true" : "false")
+                   << ",\"support_crossings\":"
+                   << trial.support_crossings
+                   << ",\"kernel_segment_crossings\":"
+                   << trial.kernel_segment_crossings
+                   << ",\"phr_branch_crossings\":"
+                   << trial.phr_branch_crossings
+                   << ",\"oracle\":{\"audited\":"
+                   << (trial.oracle_audited ? "true" : "false")
+                   << ",\"resolved\":"
+                   << (trial.oracle_resolved ? "true" : "false")
+                   << ",\"resolved_positive\":"
+                   << (trial.oracle_resolved_positive ? "true" : "false")
+                   << ",\"resolved_negative\":"
+                   << (trial.oracle_resolved_negative ? "true" : "false")
+                   << ",\"reduction\":" << trial.oracle_reduction
+                   << ",\"ulp_ratio\":" << trial.oracle_ulp_ratio << "}}";
+        }
+        report << "]}";
+    }
+    report << "],\"summary\":{\"all_converged\":"
+           << (all_converged ? "true" : "false")
+           << ",\"accepted_trials\":" << accepted_trials
+           << ",\"rejected_trials\":" << rejected_trials
+           << ",\"hvp_calls\":" << hvp_calls
+           << ",\"resolved_positive_acceptances\":"
+           << resolved_positive_acceptances
+           << ",\"resolved_negative_acceptances\":"
+           << resolved_negative_acceptances
+           << ",\"unresolved_acceptances\":"
+           << unresolved_acceptances
+           << ",\"candidate_effect\":"
+           << (candidate_effect ? "true" : "false") << '}'
+           << ",\"controls\":{\"repeat_exact\":"
+           << (repeat_exact ? "true" : "false")
+           << ",\"all_finite\":" << (all_finite ? "true" : "false")
+           << ",\"model_hvp_radius_policy_exact\":"
+           << (model_hvp_radius_policy_exact ? "true" : "false")
+           << ",\"accepted_sign_ledger_exact\":"
+           << (accepted_sign_ledger_exact ? "true" : "false")
+           << ",\"prior_public_root\":\"" << prior_public_root
+           << "\",\"forced_public_root\":\"" << forced_public_root
+           << "\",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false") << '}'
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"outer_update_count\":0,\"trajectory_steps\":0"
+           << ",\"public_commit_count\":0,\"physics_mutation\":false"
+           << ",\"timing_admitted\":false"
+           << ",\"private_inner_integration_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"outer_integration_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
 }
 
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls() {
