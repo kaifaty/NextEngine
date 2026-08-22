@@ -46324,6 +46324,28 @@ constexpr const char* B4E2D7R2R_IDENTITY_PROJECTION =
     "expected-not-forced=trust-reject-policy-reclosure|"
     "runs=2-release-builds;2-processes;byte-exact;timing=none|trajectory=none;"
     "commit=none;physics-mutation=none|credit=selected-route-research-only";
+constexpr const char* B4E2D7R3_IDENTITY_SHA256 =
+    "eac500f20a578a6aac8d091476c86a43a9d7e7ef72e0b96cb61ea9b58049c604";
+constexpr const char* B4E2D7R3_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r3-globalization-policy-discriminator|v1|"
+    "parent="
+    "034d39324962a5552d5a87d3cb5759e18961401fc87cd9b49e4581e4414b45d0:"
+    "238dca8baa3434b284acaf88dac3f0279312bee1aad312bf4f559d7064f33a06:"
+    "36a6c45b08e595818a4ce86a7bde3d88d3a923f250e0ed9d859973aeb083786e|"
+    "state=post-outer9-forced-private:"
+    "31840abd2f10907491360d75d57f6ecbbe6b0cf94672fa1b703bcb5ffa9d5830|"
+    "base=first-rejected-newton;direct-actual;ratio-gate=0.1;no-accept|"
+    "backtrack=alpha=2^-e,e=0..6;reuse-direction;first-admissible|"
+    "step-trust=alpha-hat=-gts/(2*((ftrial-fcurrent)-gts));"
+    "delta=min(max(alpha-hat,0.25)*norm-step,0.5*delta-old);"
+    "one-steihaug-recompute|legacy=quarter-radius-to-first-binding;"
+    "one-recompute;report-repeated-work|stability=active-root;fluid-root;"
+    "boundary-root|routes=step-norm-aware-trust-selected;"
+    "hybrid-backtrack-selected;legacy-binding-policy-research;"
+    "steihaug-fallback-research|runs=2-release-builds;2-processes;"
+    "byte-exact;timing=none|trajectory=none;commit=none;"
+    "physics-mutation=none|"
+    "credit=one-policy-implementation-contract-research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -49548,6 +49570,74 @@ ALTopologyStepTrace trace_al_topology_step(
     return result;
 }
 
+struct ALGlobalizationProposal {
+    bool finite_values = false;
+    bool negative_curvature = false;
+    bool boundary_limited = false;
+    bool topology_exact = false;
+    bool admitted = false;
+    int hvp_calls = 0;
+    double radius = 0.0;
+    double step_norm = 0.0;
+    double predicted_reduction = 0.0;
+    double raw_actual_reduction = 0.0;
+    double direct_actual_reduction = 0.0;
+    double direct_ratio = 0.0;
+    ALTopologySets topology;
+};
+
+ALGlobalizationProposal evaluate_al_globalization_proposal(
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    const ALVectorInnerState& current,
+    const ALTopologySets& current_topology,
+    double radius) {
+    ALGlobalizationProposal result;
+    result.radius = radius;
+    int hvp_calls = 0;
+    const std::vector<Vec3> step = al_vector_trust_step(
+        position, boundary, multiplier, current.gradient,
+        radius, hvp_calls, result.negative_curvature);
+    const std::vector<Vec3> image = apply_al_vector_inner_hessian(
+        position, boundary, multiplier, step);
+    result.hvp_calls = hvp_calls + 1;
+    result.step_norm = vector_norm(step);
+    result.boundary_limited = std::abs(result.step_norm - radius)
+        / std::max(radius, 1.0e-30) <= 1.0e-12;
+    const std::vector<Vec3> trial_position = add_scaled(
+        position, step, 1.0);
+    const ALVectorInnerState trial = evaluate_al_vector_inner(
+        trial_position, predicted, boundary, multiplier);
+    result.topology = al_topology_sets(
+        trial_position, boundary, trial.support);
+    result.topology_exact = result.topology.active_root
+            == current_topology.active_root
+        && result.topology.fluid_root == current_topology.fluid_root
+        && result.topology.boundary_root == current_topology.boundary_root;
+    result.predicted_reduction = -flat_dot(current.gradient, step)
+        - 0.5 * flat_dot(step, image);
+    result.raw_actual_reduction = current.total - trial.total;
+    result.direct_actual_reduction = al_vector_direct_actual_reduction(
+        position, trial_position, predicted,
+        current.support, trial.support);
+    result.direct_ratio = result.predicted_reduction > 0.0
+        ? result.direct_actual_reduction / result.predicted_reduction
+        : -std::numeric_limits<double>::infinity();
+    result.finite_values = trial.support.finite_values
+        && std::isfinite(result.radius) && std::isfinite(result.step_norm)
+        && std::isfinite(result.predicted_reduction)
+        && std::isfinite(result.raw_actual_reduction)
+        && std::isfinite(result.direct_actual_reduction)
+        && std::isfinite(result.direct_ratio);
+    result.admitted = result.finite_values && result.topology_exact
+        && result.predicted_reduction > 0.0
+        && result.direct_actual_reduction > 0.0
+        && result.direct_ratio >= 0.1;
+    return result;
+}
+
 } // namespace
 
 SplitBoundaryReport run_al_dense_vector_oracle_controls() {
@@ -50832,6 +50922,255 @@ run_al_topology_step_signed_zero_reclosure_controls() {
            << ",\"trust_policy_research_authorized\":"
            << (passed ? "true" : "false")
            << ",\"trust_policy_implementation_authorized\":false"
+           << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_globalization_policy_discriminator_controls() {
+    const bool identity_exact = sha256_hex(B4E2D7R3_IDENTITY_PROJECTION)
+        == B4E2D7R3_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_topology_step_signed_zero_reclosure_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "36a6c45b08e595818a4ce86a7bde3d88d3a923f250e0ed9d859973aeb083786e";
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> predicted = compressed_fluid(fixture, 0.99);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALVectorStableSolve replay = solve_al_vector_stable(
+        fixture, predicted, predicted, zero_multiplier);
+    const std::string failed_state_root = al_vector_stable_state_root(
+        "forced-private", replay.position, replay.multiplier);
+    const bool replay_exact = !replay.passed
+        && replay.failure == "INNER:REJECT_LIMIT"
+        && failed_state_root
+            == "31840abd2f10907491360d75d57f6ecbbe6b0cf94672fa1b703bcb5ffa9d5830";
+    const ALVectorInnerState current = evaluate_al_vector_inner(
+        replay.position, predicted, fixture.boundary, replay.multiplier);
+    const ALTopologySets current_topology = al_topology_sets(
+        replay.position, fixture.boundary, current.support);
+    int base_hvp_calls = 0;
+    bool base_negative_curvature = false;
+    const double old_radius = 0.25 * SPACING;
+    const std::vector<Vec3> base_step = al_vector_trust_step(
+        replay.position, fixture.boundary, replay.multiplier,
+        current.gradient, old_radius, base_hvp_calls,
+        base_negative_curvature);
+    const std::vector<Vec3> base_image = apply_al_vector_inner_hessian(
+        replay.position, fixture.boundary, replay.multiplier, base_step);
+    ++base_hvp_calls;
+    const std::vector<Vec3> base_trial_position = add_scaled(
+        replay.position, base_step, 1.0);
+    const ALVectorInnerState base_trial = evaluate_al_vector_inner(
+        base_trial_position, predicted, fixture.boundary, replay.multiplier);
+    const double gradient_step = flat_dot(current.gradient, base_step);
+    const double base_predicted = -gradient_step
+        - 0.5 * flat_dot(base_step, base_image);
+    const double base_raw = current.total - base_trial.total;
+    const double base_direct = al_vector_direct_actual_reduction(
+        replay.position, base_trial_position, predicted,
+        current.support, base_trial.support);
+    const double base_norm = vector_norm(base_step);
+    const bool base_exact = base_hvp_calls == 2
+        && !base_negative_curvature
+        && base_norm / SPACING == 4.9587280227513481e-9
+        && base_predicted == 1.3230255447006828e-15
+        && base_raw == -4.5363018896793506e-16
+        && base_direct == -4.528143341123291e-16;
+
+    const ALTopologyStepTrace ladder = trace_al_topology_step(
+        predicted, replay.position, fixture.boundary, replay.multiplier);
+    int backtrack_exponent = -1;
+    for (std::size_t index = 0U;
+         index < ladder.rows.size() && index <= 6U; ++index) {
+        const ALTopologyAlphaRow& row = ladder.rows[index];
+        const bool topology_exact = row.topology.active_root
+                == current_topology.active_root
+            && row.topology.fluid_root == current_topology.fluid_root
+            && row.topology.boundary_root == current_topology.boundary_root;
+        if (backtrack_exponent < 0 && row.coordinate_moved
+            && topology_exact && row.predicted_reduction > 0.0
+            && row.direct_actual_reduction > 0.0
+            && row.direct_ratio >= 0.1) {
+            backtrack_exponent = row.exponent;
+        }
+    }
+    const bool backtrack_admitted = backtrack_exponent >= 0;
+
+    const double interpolation_numerator = -gradient_step;
+    const double interpolation_denominator = 2.0
+        * ((-base_direct) - gradient_step);
+    const double alpha_hat = interpolation_numerator
+        / interpolation_denominator;
+    const double step_radius = std::min(
+        std::max(alpha_hat, 0.25) * base_norm, 0.5 * old_radius);
+    const ALGlobalizationProposal step_trust =
+        evaluate_al_globalization_proposal(
+            predicted, replay.position, fixture.boundary,
+            replay.multiplier, current, current_topology, step_radius);
+    const bool step_trust_selected = std::isfinite(alpha_hat)
+        && alpha_hat > 0.0 && step_radius > 0.0
+        && step_radius < base_norm && step_trust.boundary_limited
+        && step_trust.admitted && step_trust.hvp_calls <= 2;
+
+    double legacy_radius = old_radius;
+    int legacy_shrinks = 0;
+    while (legacy_radius > base_norm && legacy_shrinks < 128) {
+        legacy_radius *= 0.25;
+        ++legacy_shrinks;
+    }
+    const ALGlobalizationProposal legacy =
+        evaluate_al_globalization_proposal(
+            predicted, replay.position, fixture.boundary,
+            replay.multiplier, current, current_topology, legacy_radius);
+    const bool legacy_admitted = legacy_shrinks == 13
+        && legacy.boundary_limited && legacy.admitted;
+
+    const std::string candidate_route = step_trust_selected
+        ? "STEP_NORM_AWARE_TRUST_SELECTED"
+        : (backtrack_admitted ? "HYBRID_BACKTRACK_SELECTED"
+            : (legacy_admitted ? "LEGACY_BINDING_POLICY_RESEARCH"
+                : "STEIHAUG_FALLBACK_RESEARCH"));
+    const bool finite_values = current.support.finite_values
+        && std::isfinite(interpolation_numerator)
+        && std::isfinite(interpolation_denominator)
+        && interpolation_denominator > 0.0 && std::isfinite(alpha_hat)
+        && std::isfinite(step_radius) && step_trust.finite_values
+        && legacy.finite_values;
+    const bool rollback_exact = exact_vec3_values(predicted,
+            compressed_fluid(fixture, 0.99))
+        && std::all_of(zero_multiplier.begin(), zero_multiplier.end(),
+            [](double value) { return binary64_bits(value) == 0U; });
+    const bool passed = identity_exact && parent_exact && replay_exact
+        && base_exact && ladder.ladder_exact && finite_values
+        && rollback_exact && !candidate_route.empty();
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "PARENT";
+    else if (!replay_exact) first_failure = "REPLAY";
+    else if (!base_exact) first_failure = "BASE_STEP";
+    else if (!ladder.ladder_exact) first_failure = "BACKTRACK_LADDER";
+    else if (!finite_values) first_failure = "NONFINITE";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    const std::string route = passed ? candidate_route : std::string{};
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R3_IDENTITY_SHA256 << '|' << parent_stdout_sha256
+             << '|' << failed_state_root << '|' << gradient_step << ':'
+             << base_norm << ':' << base_predicted << ':' << base_raw << ':'
+             << base_direct << '|' << backtrack_exponent << '|'
+             << interpolation_numerator << ':' << interpolation_denominator
+             << ':' << alpha_hat << ':' << step_radius << '|'
+             << step_trust.hvp_calls << ':' << step_trust.step_norm << ':'
+             << step_trust.predicted_reduction << ':'
+             << step_trust.raw_actual_reduction << ':'
+             << step_trust.direct_actual_reduction << ':'
+             << step_trust.direct_ratio << ':' << step_trust.boundary_limited
+             << ':' << step_trust.topology_exact << '|'
+             << legacy_shrinks << ':' << legacy_radius << ':'
+             << legacy.hvp_calls << ':' << legacy.step_norm << ':'
+             << legacy.predicted_reduction << ':'
+             << legacy.direct_actual_reduction << ':' << legacy.direct_ratio
+             << ':' << legacy.boundary_limited << ':'
+             << legacy.topology_exact << '|' << rollback_exact << ':' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_proposal = [](std::ostringstream& output,
+                                    const ALGlobalizationProposal& value) {
+        output << std::setprecision(17)
+               << "{\"radius_m\":" << value.radius
+               << ",\"step_norm_m\":" << value.step_norm
+               << ",\"hvp_calls\":" << value.hvp_calls
+               << ",\"negative_curvature\":"
+               << (value.negative_curvature ? "true" : "false")
+               << ",\"boundary_limited\":"
+               << (value.boundary_limited ? "true" : "false")
+               << ",\"predicted_reduction\":"
+               << value.predicted_reduction
+               << ",\"raw_actual_reduction\":"
+               << value.raw_actual_reduction
+               << ",\"direct_actual_reduction\":"
+               << value.direct_actual_reduction
+               << ",\"direct_ratio\":" << value.direct_ratio
+               << ",\"topology_exact\":"
+               << (value.topology_exact ? "true" : "false")
+               << ",\"admitted\":"
+               << (value.admitted ? "true" : "false") << '}';
+    };
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r3_globalization_policy.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R3_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"base\":{\"state_root\":\"" << failed_state_root
+           << "\",\"gradient_step\":" << gradient_step
+           << ",\"step_norm_m\":" << base_norm
+           << ",\"predicted_reduction\":" << base_predicted
+           << ",\"raw_actual_reduction\":" << base_raw
+           << ",\"direct_actual_reduction\":" << base_direct
+           << ",\"hvp_calls\":" << base_hvp_calls
+           << ",\"exact\":" << (base_exact ? "true" : "false") << '}'
+           << ",\"backtrack\":{\"first_admitted_exponent\":"
+           << backtrack_exponent << ",\"rows\":[";
+    for (std::size_t index = 0U;
+         index < ladder.rows.size() && index <= 6U; ++index) {
+        if (index != 0U) report << ',';
+        const ALTopologyAlphaRow& row = ladder.rows[index];
+        const bool topology_exact = row.topology.active_root
+                == current_topology.active_root
+            && row.topology.fluid_root == current_topology.fluid_root
+            && row.topology.boundary_root == current_topology.boundary_root;
+        report << "{\"exponent\":" << row.exponent
+               << ",\"alpha\":" << row.alpha
+               << ",\"step_norm_m\":" << row.rounded_step_norm_m
+               << ",\"coordinate_moved\":"
+               << (row.coordinate_moved ? "true" : "false")
+               << ",\"predicted_reduction\":"
+               << row.predicted_reduction
+               << ",\"raw_actual_reduction\":"
+               << row.raw_actual_reduction
+               << ",\"direct_actual_reduction\":"
+               << row.direct_actual_reduction
+               << ",\"direct_ratio\":" << row.direct_ratio
+               << ",\"topology_exact\":"
+               << (topology_exact ? "true" : "false") << '}';
+    }
+    report << "]},\"step_norm_trust\":{\"interpolation_numerator\":"
+           << interpolation_numerator
+           << ",\"interpolation_denominator\":"
+           << interpolation_denominator << ",\"alpha_hat\":" << alpha_hat
+           << ",\"radius_to_rejected_norm\":"
+           << step_radius / base_norm << ",\"proposal\":";
+    append_proposal(report, step_trust);
+    report << "},\"legacy_first_binding\":{\"shrinks\":"
+           << legacy_shrinks << ",\"repeated_proposals_before_binding\":"
+           << legacy_shrinks
+           << ",\"repeated_hvp_before_binding\":"
+           << 2 * legacy_shrinks
+           << ",\"repeated_objectives_before_binding\":"
+           << legacy_shrinks << ",\"proposal\":";
+    append_proposal(report, legacy);
+    report << "},\"route\":\"" << route << '"'
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"trajectory_steps\":0,\"commit_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"policy_contract_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"policy_implementation_authorized\":false"
            << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
