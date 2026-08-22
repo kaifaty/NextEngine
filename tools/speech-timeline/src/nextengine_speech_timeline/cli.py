@@ -18,6 +18,7 @@ from .benchmark import (
     load_benchmark_wav,
     write_report,
 )
+from .corpus_augment import ReliabilityAugmentError, augment_corpus
 from .corpus_import import (
     ReliabilityImportError,
     import_common_voice,
@@ -256,6 +257,24 @@ def parser() -> argparse.ArgumentParser:
         help="deterministic file-order admission cap (default: 60000)",
     )
     import_cv.add_argument("--workers", type=int, default=12)
+    augment_cmd = reliability_commands.add_parser(
+        "augment",
+        help="generate deterministic degradations for a prepared index",
+    )
+    augment_cmd.add_argument("--manifest", type=Path, required=True)
+    augment_cmd.add_argument("--store", type=Path, required=True)
+    augment_cmd.add_argument("--prepared-index", type=Path, required=True)
+    augment_cmd.add_argument("--out-index", type=Path, required=True)
+    augment_cmd.add_argument(
+        "--split",
+        action="append",
+        choices=("train", "calibration", "held_out"),
+        dest="splits",
+        help="restrict generation to a split; repeatable (default: all)",
+    )
+    augment_cmd.add_argument(
+        "--limit", type=int, help="deterministic file-order clip cap"
+    )
     return root
 
 
@@ -579,6 +598,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                                   **report}, ensure_ascii=False, sort_keys=True),
                       flush=True)
                 return 0
+            if arguments.reliability_command == "augment":
+                report = augment_corpus(
+                    arguments.store,
+                    manifest_path=arguments.manifest,
+                    prepared_index_path=arguments.prepared_index,
+                    out_index=arguments.out_index,
+                    splits=(
+                        tuple(arguments.splits) if arguments.splits else None
+                    ),
+                    limit=arguments.limit,
+                )
+                print(json.dumps({"schema_version": 0, "status": "complete",
+                                  **report}, ensure_ascii=False, sort_keys=True),
+                      flush=True)
+                return 0
             if arguments.reliability_command == "import-rirs":
                 subsets = ["simulated_rirs", "real_rirs_isotropic_noises"]
                 if arguments.include_pointsource_noises:
@@ -657,6 +691,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ReliabilityCorpusError,
             ReliabilityReplayError,
             ReliabilityImportError,
+            ReliabilityAugmentError,
             ClientError,
         ) as error:
             print(

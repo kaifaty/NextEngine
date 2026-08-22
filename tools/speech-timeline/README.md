@@ -125,8 +125,10 @@ Phase 1 doesn't fabricate word timestamps, so emotional tags aren't attached
 to individual words in this view. The final tagged-text form is a later derived
 consumer view.
 
-The profile is strict schema version 1 and contains three required objects plus
-optional ASR/preprocessing branches:
+The profile is strict schema version 1 and requires the `emotion` plus
+`service` objects; the `voxtral` branch itself is optional — when it is
+absent, exactly one of the configured ASR branches (`gigaam` / `gigastt` /
+`nemotron`) must back `default_asr_model`:
 
 - `voxtral`: exact GGUF path, byte size, `sha256:` digest, `transcribe.cpp`
   root/library/revision, backend, model delay, and partial-decode interval
@@ -708,6 +710,31 @@ next-speech-timeline reliability-corpus import-common-voice \
   empty transcripts or missing audio (counts included in the report).
 - Long SHA-256 ``client_id`` speakers are folded into bounded stable group
   ids so ``prepare`` can split by speaker without leaking raw identifiers.
+
+### Deterministic degradations
+
+`reliability-corpus augment` implements the §9 grid over a prepared index:
+every selected clip gets one unchanged control reference plus up to
+``max_variants_per_clip`` derived conditions (attenuation, additive MUSAN
+noise at pinned SNR, RIRS room response with wet-mix permyriad, combined
+room+noise, brickwall band EQ, peak-scale clipping with seeded 20 ms frame
+loss).  All math runs in float64 on a [-1, 1) domain with a single pinned
+round-and-clamp int16 conversion; noise/RIR pools are drawn only from asset
+rows whose split equals the parent's, derivatives inherit that split and
+copy the parent reference verbatim, and every derivation record carries the
+subseed, transform order, picked parameters and both audio hashes.
+
+```bash
+next-speech-timeline reliability-corpus augment \
+  --manifest $STORE/partial-public-safe.recipe.json \
+  --store $STORE --prepared-index $STORE/prepared.jsonl \
+  --out-index $STORE/augmented/train-calib.jsonl \
+  --split train --split calibration --limit 500
+```
+
+The output is a replay-compatible speech index, so the same
+``reliability-corpus replay`` command scores it against any bound route;
+identical inputs reproduce identical bytes by construction.
 
 ## Recognition reliability feature capture (R1)
 
