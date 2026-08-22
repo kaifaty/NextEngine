@@ -1209,3 +1209,9 @@ All 226 stable partitioned transposes reproduce the serial active plans
 exactly, both corrupt fixtures reject, and conservative combined payload is
 37.3 MB. This authorizes only B4EP10PCI candidate-path/A-B contract research;
 the audit itself carries no timing credit.
+The [B4EP10PCI research](../../development/nonlocal-nsr3b4ep10pci-partitioned-plan-implementation-research-2026-08-22.md)
+selects one opt-in replacement of serial active-plan construction while
+retaining compact rows and canonical floating folds. Its
+[frozen contract](03b4ep10pci-partitioned-active-plan-implementation-contract.md)
+requires exact candidate work and three balanced external A/B pairs before
+any speed credit. Implement and measure only this command.

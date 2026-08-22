@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10PCD_PASS / B4EP10PCI_CONTRACT_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10PCI_FROZEN / PARTITIONED_PLAN_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -929,9 +929,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research and freeze the B4EP10PCI opt-in candidate-path/A-B contract.
-2. Replace serial active-plan construction only inside that command, preserve
-   exact work and run balanced serialized Release pairs against B4EP10I-8.
+1. Implement the frozen B4EP10PCI opt-in candidate command without constructing
+   the serial or masked plans.
+2. Verify exact work and old-command bytes, then run one warmup each and three
+   serialized balanced Release pairs against B4EP10I worker-8.
 
 ## Reconsideration triggers
 
