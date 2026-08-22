@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2R_PASS / B4E2D_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D_FAIL_NO_TRAJECTORY / B4E2D0_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -456,10 +456,16 @@
   all four steps, but make the certified dynamic topology cache transaction-
   local. The reference displacement exceeds its cross-step anchor limit and
   certificate failure has no fallback.
-- **Next action:** implement the frozen B4E2D command, build Release twice,
-  run A under the 900-second watchdog, and run B only after A fully passes.
-- **Do not run:** B4E2H or broader B4E corpus, CUDA, runtime/schema, PhysX
-  coupling, persistence or production work before B4E2D passes.
+- **Negative result:** B4E2D process A exits before the trajectory because one
+  alignment predicate is false, then its failure report calls trajectory-root
+  on an empty prefix and throws. Stdout is empty, stderr SHA is
+  `b469c089...08af`; process B was not run.
+- **Current decision:** B4E2D0 freezes a no-trajectory observability command
+  that publishes every preflight predicate and cannot call empty-prefix roots.
+- **Next action:** implement and run B4E2D0 twice, then freeze only the first
+  exact mismatch reclosure. Do not rerun the physical B4E2D command yet.
+- **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
+  coupling, persistence or production work before a preflight reclosure.
 
 ## Current selected lineage
 
