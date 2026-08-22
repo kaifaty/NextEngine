@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R18_PASS_CLASSIFIED_NONDIMENSIONAL_HVP_MISMATCH / D7R19_BLOCKED / B4E2D7R18R1_NONDIMENSIONAL_TRANSACTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R18_PASS_CLASSIFIED_NONDIMENSIONAL_HVP_MISMATCH / D7R19_BLOCKED / B4E2D7R18R1_NONDIMENSIONAL_TRANSACTION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -37,9 +37,16 @@
   `u_next=max(0,u+c)` and `theta=kappa*dt^2/M` is bit-exact across reference
   and aligned profiles. Raw absolute-`lambda` gates cannot be inherited over
   a `6084x` `kappa` scale.
-- **Next action:** research/freeze D7R18R1 as a directly nondimensional sparse
-  AL energy/gradient/HVP/divided/dual representation plus invariant admission
-  mapping. No nominal solve; D7R19 remains blocked.
+- **Current decision:** D7R18R1 is frozen as a complete normalized transaction
+  identity: `u=lambda/kappa`, `theta=kappa*dt^2/M`, direct normalized
+  energy/gradient/HVP/divided/precision and `u_next=max(0,u+c)`.
+- **Admission decision:** normalized dual/complementarity limits are the exact
+  reference transforms `0x3da1eed347666340` / `0x3d6cb1520bd70533`;
+  reconstructed pressure becomes diagnostic while kinematic/impulse ledgers
+  remain mandatory for a later nominal stage.
+- **Next action:** implement only the D7R18R1 tiny formula/reconstruction gate.
+  D7R19 remains blocked even on pass until a tiny full normalized transaction
+  reproduces D7R13 confirmation, precision audits and rollback.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route

@@ -1780,3 +1780,11 @@ oracles scale within the frozen limit, but dimensional HVP accumulation reaches
 `7.51e-14` against `1.42e-14`. Preserve the gate. Research/freeze a directly
 nondimensional `u=lambda/kappa`, `theta=kappa*dt^2/M` transaction and
 representation-invariant admission next; do not run D7R19 yet.
+The [D7R18R1 research](../../development/nonlocal-nsr3b4e2d7r18r1-nondimensional-transaction-research-2026-08-22.md)
+derives a complete normalized identity with `u=lambda/kappa` and
+`theta=kappa*dt^2/M`, not an HVP-only patch. Its
+[frozen contract](03b4e2d7r18r1-nondimensional-transaction-contract.md)
+requires byte-exact cross-scale normalized roots plus a componentwise absolute
+forward certificate against the dimensional HVP. Implement this tiny
+formulation gate next; even a pass authorizes only a tiny private transaction,
+not a nominal retry.
