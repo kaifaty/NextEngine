@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIR_FROZEN / IMPLEMENTATION_PENDING` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIR_PASS / EVALUATION_SETUP_DISCRIMINATOR_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -340,6 +340,11 @@
 - **Current decision:** select directed scratch reuse for nominal research,
   retain B4EP10SII/B4EP10I as rollbacks, and remeasure the candidate residual
   before changing compression, target buffers or arithmetic.
+- **Current conclusion:** B4EP10SIRDIR passes three exact processes.
+  Source-local remains the stable leader at `0.447174`, but directed and setup
+  are now close; executor orchestration/imbalance remain below `0.15`.
+- **Current decision:** split `evaluation_setup` validation, capacity/control
+  and buffer preparation with timing only before changing ownership or code.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -432,6 +437,7 @@
 | NSR3B4EP10SIRDA PASS | exact liveness; 454.3M repeated init slots removable | directed scratch reuse implementation/A-B research only |
 | NSR3B4EP10SIRDI contract | opt-in directed high-water buffer plus balanced A/B | implement/measure only; B4EP10SII remains rollback |
 | NSR3B4EP10SIRDI PASS | exact candidate; median `1.284223x`, CPU `0.784x` | candidate residual attribution research only |
+| NSR3B4EP10SIRDIR PASS | source-local `44.72%`; setup/direct work no longer has a clear leader | evaluation-setup timing discriminator research only |
 
 Candidate solver identity remains:
 
@@ -1066,10 +1072,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement only the frozen B4EP10SIRDIR timing command over unchanged
-   B4EP10SIRDI execution.
-2. Run three exact fresh processes and route only from stable category,
-   scratch-lifetime and executor-capacity evidence.
+1. Research and freeze one B4EP10SIRDIRE setup discriminator over unchanged
+   B4EP10SIRDIR execution.
+2. Separate validation, capacity/control and buffer preparation; do not skip
+   initialization or add a certificate before the timing route is closed.
 
 ## Reconsideration triggers
 

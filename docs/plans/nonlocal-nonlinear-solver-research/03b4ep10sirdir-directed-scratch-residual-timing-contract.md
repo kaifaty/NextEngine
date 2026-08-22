@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIR -- directed scratch residual timing contract
 
-Status: `FROZEN / IMPLEMENTATION_PENDING`
+Status: `CLOSED / PASS / EVALUATION_SETUP_DISCRIMINATOR_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
