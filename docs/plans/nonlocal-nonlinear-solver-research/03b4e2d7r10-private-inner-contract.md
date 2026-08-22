@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R10 -- private divided-reduction inner contract
 
-Status: `FROZEN / NOT_RUN / PRIVATE_INTEGRATION_ONLY`
+Status: `CLOSED / PASS / PRECISION_CERTIFICATE_REQUIRED / PRIVATE_INTEGRATION_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -49,4 +49,15 @@ PASS is private classification only. It grants no outer AL integration,
 unresolved production acceptance, cap/tolerance, pressure gate, `beta`,
 kernel, state precision, trajectory, performance, GPU/runtime or production
 authority.
+
+## Closed result
+
+Two clean Release builds/processes reproduce stdout SHA
+`ee7b1d4eb0b5eb37334415fa38a1ee2c2a716fa9ab5b628985e7fed06c1c710d`
+and semantic result
+`48b498487db1265d28123dc2ae2edca92a66bddc2cee7714b3f6ffb77216e77f`.
+All three inners converge in one accepted trial and two HVPs with no rejects.
+Two accepted signs are resolved positive, none negative and the tight sign is
+unresolved. Select `PRECISION_CERTIFICATE_REQUIRED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r10-private-inner-evidence-2026-08-22.md).
 

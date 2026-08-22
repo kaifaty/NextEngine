@@ -1640,3 +1640,10 @@ inners. Its [frozen contract](03b4e2d7r10-private-inner-contract.md) audits
 every candidate acceptance with the D7R8 oracle and separates convergence
 from unresolved sign certification, resolved contradiction and remaining
 policy failure. Implement/run only this private stage next.
+D7R10 passes and selects `PRECISION_CERTIFICATE_REQUIRED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r10-private-inner-evidence-2026-08-22.md).
+Each failed state now reaches about `1e-14` stationarity with one divided-
+reduction acceptance, zero rejects and two HVPs. The `1e-8/1e-9` accepted
+signs are resolved positive; the tight sign has no contradiction but remains
+below the frozen long-double resolution threshold. Freeze a three-pair
+binary128 offline oracle next. Outer integration remains blocked.
