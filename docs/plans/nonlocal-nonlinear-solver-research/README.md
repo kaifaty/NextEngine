@@ -1547,3 +1547,8 @@ two HVPs with direct/model ratio `0.73044`; backtrack succeeds but remains the
 fallback, while legacy needs 13 repeated rejects. Research/freeze a new tiny-
 inner implementation contract next. Keep raw acceptance and every old command
 unchanged; outer AL integration remains blocked.
+The [B4E2D7R4 research](../../development/nonlocal-nsr3b4e2d7r4-step-norm-inner-research-2026-08-22.md)
+freezes the selected update behind a separate private-inner candidate. Its
+[contract](03b4e2d7r4-step-norm-inner-contract.md) keeps raw admission, exact
+fallback and the original reject/work caps. Implement/run only this failed-
+state inner replay next; multiplier and outer state must remain untouched.
