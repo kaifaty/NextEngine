@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10PCD_FROZEN / PARTITIONED_PLAN_AUDIT_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP10PCD_PASS / B4EP10PCI_CONTRACT_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -869,6 +869,18 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** lowering the predeclared 5% gate after seeing the result or
   hiding added scan work behind the 3.6% aggregate-median wall change.
 
+### D-041 -- Admit partitioned transpose to candidate-path A/B
+
+- **Observation:** all 226 stable partitioned plans reproduce the serial
+  active-plan arrays exactly; both corruption fixtures reject and conservative
+  combined storage is 37.3 MB.
+- **Decision:** freeze one opt-in implementation that replaces, rather than
+  duplicates, serial plan construction and measure it in balanced Release
+  pairs against B4EP10I worker-8.
+- **Rejected:** using the side-by-side audit duration as performance evidence,
+  changing the canonical energy fold, or promoting the builder to a default
+  or runtime path before exact A/B gates pass.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -917,10 +929,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen B4EP10PCD side-by-side builder audit with five
-   isolated parallel phases and no returned-path change.
-2. Run two exact processes and regressions; freeze candidate integration only
-   after every plan/capacity/negative gate passes.
+1. Research and freeze the B4EP10PCI opt-in candidate-path/A-B contract.
+2. Replace serial active-plan construction only inside that command, preserve
+   exact work and run balanced serialized Release pairs against B4EP10I-8.
 
 ## Reconsideration triggers
 

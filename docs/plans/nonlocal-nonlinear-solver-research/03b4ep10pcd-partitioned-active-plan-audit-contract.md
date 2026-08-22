@@ -1,6 +1,6 @@
 # NSR3-B4EP10PCD -- partitioned active-plan audit contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / B4EP10PCI_CONTRACT_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
