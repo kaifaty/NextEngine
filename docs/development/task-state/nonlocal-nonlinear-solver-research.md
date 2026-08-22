@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D1_PASS / B4E2D2_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D2_PASS / B4E2D3_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -470,11 +470,13 @@
   root `0d567ba5...74d7` equals micrometre division for all 6,000 vectors and
   differs from addition root `b7063e2b...8dc4`; old first-output bytes remain
   exact.
-- **Current decision:** B4E2D2 freezes decoded topology facts and an explicit
-  audit that every pair-set delta lies only at the compact-support horizon and
-  carries no active initial pressure term.
-- **Next action:** implement/run B4E2D2 twice without a trajectory, then freeze
-  a safe B4E2D pilot repair using the selected topology identity.
+- **Current conclusion:** B4E2D2 passes twice. Addition/decoded share 315,522
+  pairs with `20,292/26,980` one-sided pairs, all within five epsilons of the
+  horizon; both initial pressure evaluations are exactly inactive.
+- **Current decision:** B4E2D3 freezes a new pilot identity using external
+  frame-zero bits, decoded topology facts and safe empty-prefix reporting.
+- **Next action:** implement B4E2D3, build Release twice, run A under the
+  watchdog, and run B only if A passes every physical/reference gate.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 

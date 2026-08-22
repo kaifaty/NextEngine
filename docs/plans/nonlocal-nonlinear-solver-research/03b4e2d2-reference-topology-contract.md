@@ -1,6 +1,6 @@
 # NSR3-B4E2D2 -- reference-binary64 topology contract
 
-Status: `FROZEN / NOT_RUN / NO_TRAJECTORY`
+Status: `FROZEN / PASS / DECODED_TOPOLOGY / NO_TRAJECTORY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -40,3 +40,5 @@ PASS authorizes only B4E2D3 pilot repair contract research: safe empty-prefix
 failure reporting plus decoded-frame-zero topology expectations. No physical
 rerun occurs until B4E2D3 freezes.
 
+B4E2D2 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d2-reference-topology-evidence-2026-08-22.md).
