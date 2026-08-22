@@ -19,6 +19,10 @@ from .benchmark import (
     write_report,
 )
 from .corpus_augment import ReliabilityAugmentError, augment_corpus
+from .corpus_baselines import (
+    ReliabilityBaselineError,
+    fit_baselines,
+)
 from .corpus_import import (
     ReliabilityImportError,
     import_common_voice,
@@ -275,6 +279,24 @@ def parser() -> argparse.ArgumentParser:
     augment_cmd.add_argument(
         "--limit", type=int, help="deterministic file-order clip cap"
     )
+    augment_cmd.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="file-order start index for batched generation (default: 0)",
+    )
+    baselines_cmd = reliability_commands.add_parser(
+        "baselines",
+        help="fit constant/rule/logistic baselines from replay outputs",
+    )
+    baselines_cmd.add_argument(
+        "--results",
+        action="append",
+        type=Path,
+        required=True,
+        help="replay results.jsonl; repeatable (max 16)",
+    )
+    baselines_cmd.add_argument("--out-dir", type=Path, required=True)
     return root
 
 
@@ -598,6 +620,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                                   **report}, ensure_ascii=False, sort_keys=True),
                       flush=True)
                 return 0
+            if arguments.reliability_command == "baselines":
+                report = fit_baselines(
+                    list(arguments.results),
+                    out_dir=arguments.out_dir,
+                )
+                print(json.dumps({"schema_version": 0, "status": "complete",
+                                  **report}, ensure_ascii=False, sort_keys=True),
+                      flush=True)
+                return 0
             if arguments.reliability_command == "augment":
                 report = augment_corpus(
                     arguments.store,
@@ -608,6 +639,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         tuple(arguments.splits) if arguments.splits else None
                     ),
                     limit=arguments.limit,
+                    offset=arguments.offset,
                 )
                 print(json.dumps({"schema_version": 0, "status": "complete",
                                   **report}, ensure_ascii=False, sort_keys=True),
@@ -692,6 +724,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ReliabilityReplayError,
             ReliabilityImportError,
             ReliabilityAugmentError,
+            ReliabilityBaselineError,
             ClientError,
         ) as error:
             print(

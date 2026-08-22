@@ -427,6 +427,7 @@ def augment_corpus(
     out_index: Path,
     splits: tuple[str, ...] | None = None,
     limit: int | None = None,
+    offset: int = 0,
 ) -> dict[str, object]:
     """Generate control references plus bounded derived conditions."""
 
@@ -459,6 +460,9 @@ def augment_corpus(
         for row in speech_rows
         if splits is None or row["split"] in splits
     ]
+    if offset < 0:
+        raise ReliabilityAugmentError("offset must be non-negative")
+    selected = selected[offset:]
     if limit is not None:
         if limit <= 0:
             raise ReliabilityAugmentError("limit must be positive")
@@ -586,6 +590,7 @@ def augment_corpus(
         "pcm16_profile": PCM16_PROFILE,
         "prepared_index_sha256": _prepared_hash_unused,
         "clips_selected": len(selected),
+        "selection_offset": offset,
         "rows_written": len(out_rows),
         "derived_files": emitted_files,
         "counts_by_split_kind": dict(sorted(kind_counts.items())),
