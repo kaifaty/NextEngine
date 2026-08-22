@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10CTD_FAIL_SCAN / SPLIT_INCOMING_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SID_FROZEN / SPLIT_INCOMING_AUDIT` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -950,10 +950,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research and freeze a split incoming-plan audit that reconstructs each
-   active target row as lower incoming, own source row and upper incoming.
-2. Prove exact slot order, projected evaluation/HVP work and capacity before
-   designing topology-compaction construction or a floating candidate path.
+1. Implement the frozen B4EP10SID structural audit with no returned-path
+   change and no timing.
+2. Run two exact processes and regressions; design topology construction only
+   if sequence, exact work, capacity and both corrupt fixtures pass.
 
 ## Reconsideration triggers
 

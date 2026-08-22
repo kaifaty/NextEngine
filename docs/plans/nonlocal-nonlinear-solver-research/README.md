@@ -1232,3 +1232,10 @@ B4EP10CTD fails the scan gate; see the
 Its exact `1.213341x` full-plan ratio exceeds `1.20x`, so topology construction
 is not authorized. The evidence exposes a smaller split self/incoming view
 with derived `1.106670x` visits; audit its exact fold order next.
+The [B4EP10SI research](../../development/nonlocal-nsr3b4ep10si-split-incoming-plan-research-2026-08-22.md)
+uses source rows for self contributions and retains only participant/incoming
+reverse entries. Its
+[frozen B4EP10SID contract](03b4ep10sid-split-incoming-plan-audit-contract.md)
+requires exact three-part target-row reconstruction and the derived
+`1.106670x` work before any topology builder is designed. Implement only the
+audit.
