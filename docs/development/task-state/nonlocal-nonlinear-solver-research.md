@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D3_FAIL_STEP2_STRAIN / B4E2D4_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D4_PASS_FINITE_PENALTY / B4E2D5_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -486,6 +486,13 @@
   80/160/320 step-two lanes. Existing 160/320 state convergence and a
   predeclared `5e-5` peak-strain delta route controller admission, finite
   penalty compressibility or unresolved temporal error.
+- **Current conclusion:** B4E2D4 passes twice byte-identically and selects
+  `FINITE_PENALTY_COMPRESSIBILITY`. Private strain converges from
+  `0.0011740875` at 80 to `0.0011739238` at 320; the 160/320 delta is only
+  `5.67e-8`. Publication adds `6.32e-7` but is not the cause.
+- **Next action:** research a formulation discriminator comparing the minimum
+  sufficient bulk-penalty increase and its stiffness cost with constrained or
+  augmented-Lagrangian incompressibility. Do not alter the adaptive controller.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -1479,8 +1486,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 1. Do not run another CPU/wall candidate A/B on this shared host.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
-4. Freeze and run only the B4E2D4 fixed-refinement discriminator; do not tune
-   the controller or penalty model before its route is known.
+4. Preserve the B4E2D4 finite-penalty result. Research B4E2D5 before changing
+   `KAPPA` or introducing pressure multipliers.
 
 ## Reconsideration triggers
 

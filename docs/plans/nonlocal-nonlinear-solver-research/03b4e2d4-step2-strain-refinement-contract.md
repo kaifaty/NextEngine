@@ -1,6 +1,6 @@
 # NSR3-B4E2D4 -- Dam step-two strain-refinement contract
 
-Status: `FROZEN / NOT_RUN / DIAGNOSTIC_ONLY`
+Status: `PASS / FINITE_PENALTY_COMPRESSIBILITY / DIAGNOSTIC_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -43,3 +43,12 @@ require exit zero, empty stderr and byte-identical stdout. A
 PASS authorizes only research/contract design for the selected route. It
 grants no solver correction, new physical tolerance, full Dam/Hydro corpus,
 performance, GPU, runtime/schema, PhysX or production authority.
+
+## Closed execution
+
+Both clean Release processes pass with empty stderr and byte-identical stdout.
+The 160/320 state gate passes, their peak-strain delta is
+`5.671504377247061e-08`, and the 320-substep peak remains
+`0.0011739237712489192`. The selected route is therefore
+`FINITE_PENALTY_COMPRESSIBILITY`. Exact evidence is recorded in
+[the B4E2D4 evidence](../../development/nonlocal-nsr3b4e2d4-step2-strain-refinement-evidence-2026-08-22.md).
