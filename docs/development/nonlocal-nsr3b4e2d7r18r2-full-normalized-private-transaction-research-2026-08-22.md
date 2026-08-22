@@ -2,7 +2,7 @@
 
 Date: `2026-08-22`
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FREEZE_NEXT`
+Status: `CLOSED / PASS / NORMALIZED_INNER_POLICY_STILL_INSUFFICIENT`
 
 ## Question
 
@@ -136,3 +136,12 @@ A PASS may authorize research/freeze of D7R19, one aligned nominal Dam substep
 under the normalized representation. It does not itself authorize that run,
 another substep, a macro, trajectory, timing, public state or production use.
 
+## Closure
+
+R2 executes reproducibly and classifies the active path at outer `1` as
+`MINIMUM_TRUST_RADIUS`; see the
+[dated evidence](nonlocal-nsr3b4e2d7r18r2-full-normalized-private-transaction-evidence-2026-08-22.md).
+Reference/aligned roots are exact, but the normalized divided reduction loses
+the positive outer-1/trial-2 signal by roughly three orders of magnitude.
+Research a replay-only normalized precancellation discriminator next. Do not
+retry the full transaction unchanged.

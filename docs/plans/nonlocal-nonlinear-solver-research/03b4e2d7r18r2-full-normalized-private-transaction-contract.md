@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R18R2 -- full normalized private transaction contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / D7R19_BLOCKED`
+Status: `CLOSED / PASS / NORMALIZED_INNER_POLICY_STILL_INSUFFICIENT / D7R19_BLOCKED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -61,3 +61,6 @@ D7R19 as one bounded aligned nominal Dam substep under the normalized
 representation. It grants no execution authority for D7R19, another substep,
 macro, trajectory, timing, public state, parallel/GPU, runtime or production
 path.
+
+The command closes with the classified inner-policy route. See the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18r2-full-normalized-private-transaction-evidence-2026-08-22.md).
