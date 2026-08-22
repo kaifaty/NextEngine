@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10PI_PERF_FAIL / PARALLEL_ACTIVE_PLAN_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10PCD_FROZEN / PARTITIONED_PLAN_AUDIT_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -286,6 +286,11 @@
   median user CPU rises from 37.31 to 39.27 s due to full masked scans.
 - **Current decision:** retain B4EP10I active plans. Research deterministic
   parallel construction of only the active transpose; do not relax the gate.
+- **Research conclusion:** use stable counting-sort/CSR transpose with 64
+  fixed contiguous source partitions, target-owned integer prefix/base work
+  and no atomics. The bounded matrix is 3,026,944 bytes.
+- **Current decision:** B4EP10PCD builds the partitioned plan beside all 226
+  serial plans, compares all arrays byte-exactly and admits no timing.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -364,6 +369,7 @@
 | NSR3B4EP10PD PASS | exact stable rows; `1.288507x` scan, 38.0 MB conservative peak | B4EP10PI implementation/A-B contract research only |
 | NSR3B4EP10PI contract | opt-in cache-plan gather and three balanced A/B pairs | implement/time only; old path remains rollback |
 | NSR3B4EP10PI FAIL | exact and `3/3` faster, but median only `1.030796x` | retain B4EP10I; parallel active-plan research only |
+| NSR3B4EP10PCD contract | stable 64-partition active CSR transpose audit | implement/compare only; no fast path or timing |
 
 Candidate solver identity remains:
 
@@ -444,6 +450,7 @@ production authority is created by this lineage.
 | [B4EP10PD](../nonlocal-nsr3b4ep10pd-masked-superset-plan-evidence-2026-08-22.md) | all active target rows exactly filter one fixed plan within gates | freeze opt-in implementation/A-B before speed claim |
 | [B4EP10PI research](../nonlocal-nsr3b4ep10pi-masked-plan-implementation-research-2026-08-22.md) | cache/workspace lifetime and exact masked gather selected | implement candidate then run frozen external A/B |
 | [B4EP10PI](../nonlocal-nsr3b4ep10pi-masked-plan-evidence-2026-08-22.md) | exact masked reuse misses frozen speed gate and raises CPU work | retain active plan; research deterministic parallel rebuild |
+| [B4EP10PC research](../nonlocal-nsr3b4ep10pc-partitioned-active-plan-research-2026-08-22.md) | stable partition-local histogram preserves canonical source order | run builder audit before candidate integration |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -910,10 +917,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research deterministic parallel active-plan construction using fixed
-   logical partitions and stable counting-sort/CSR transpose techniques.
-2. Freeze a structural/capacity discriminator before another fast path; keep
-   B4EP10PI as negative evidence and B4EP10I as selected execution.
+1. Implement the frozen B4EP10PCD side-by-side builder audit with five
+   isolated parallel phases and no returned-path change.
+2. Run two exact processes and regressions; freeze candidate integration only
+   after every plan/capacity/negative gate passes.
 
 ## Reconsideration triggers
 

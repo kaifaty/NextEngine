@@ -1197,3 +1197,9 @@ It is physically exact, wins `3/3`, lowers RSS and has stable wall, but median
 paired speedup is only `1.030796x` versus the frozen `1.05x`. The extra masked
 scan raises CPU work; B4EP10I's active plan remains selected and parallel
 active-plan construction is the next research direction.
+The [B4EP10PC research](../../development/nonlocal-nsr3b4ep10pc-partitioned-active-plan-research-2026-08-22.md)
+selects a stable counting-sort/CSR transpose with 64 fixed logical source
+partitions. Its
+[frozen B4EP10PCD contract](03b4ep10pcd-partitioned-active-plan-audit-contract.md)
+compares all three plan arrays across all 226 states before the parallel
+builder may enter a candidate solver path.
