@@ -8397,6 +8397,7 @@ struct JointPressureTape {
     JointOwnerGatherPlan current_topology_gather_plan;
     const JointOwnerGatherPlan* masked_superset_gather_plan = nullptr;
     bool masked_superset_plan_validated = false;
+    bool directed_scratch_liveness_validated = false;
     std::size_t active_centers = 0;
     std::size_t active_directed = 0;
     std::size_t payload_bytes = 0;
@@ -8689,6 +8690,28 @@ struct JointIncomingConstructionAuditTrace {
     bool support_cursor_negative_rejected = false;
 };
 
+struct JointDirectedScratchAuditTrace {
+    bool enabled = false;
+    std::size_t plan_audits = 0U;
+    std::size_t evaluation_calls = 0U;
+    std::size_t hvp_calls = 0U;
+    std::size_t evaluation_full_initialization_slots = 0U;
+    std::size_t hvp_full_initialization_slots = 0U;
+    std::size_t full_initialization_slots = 0U;
+    std::size_t active_write_slots = 0U;
+    std::size_t target_read_slots = 0U;
+    std::size_t high_water_growth_slots = 0U;
+    std::size_t eliminated_initialization_slots = 0U;
+    std::size_t high_water_directed_slots = 0U;
+    std::size_t current_depth = 0U;
+    std::size_t maximum_depth = 0U;
+    std::size_t maximum_audit_payload_bytes = 0U;
+    std::size_t maximum_projected_payload_bytes = 0U;
+    std::size_t failures = 0U;
+    bool missing_write_negative_rejected = false;
+    bool duplicate_read_negative_rejected = false;
+};
+
 struct JointParallelTrace {
     bool enabled = false;
     int requested_workers = 0;
@@ -8720,6 +8743,7 @@ struct JointParallelTrace {
     JointCurrentTopologyPlanAuditTrace current_topology_plan_audit;
     JointSplitIncomingPlanAuditTrace split_incoming_plan_audit;
     JointIncomingConstructionAuditTrace incoming_construction_audit;
+    JointDirectedScratchAuditTrace directed_scratch_audit;
 };
 
 bool add_joint_parallel_duration(
@@ -12791,6 +12815,205 @@ JointOwnerEvaluation evaluate_joint_owner_gather(
     return result;
 }
 
+enum class B4EP10SIRDAInjection {
+    None,
+    MissingWrite,
+    DuplicateRead,
+};
+
+struct B4EP10SIRDALiveness {
+    bool passed = false;
+    std::string failure;
+    std::size_t directed_slots = 0U;
+    std::size_t active_write_slots = 0U;
+    std::size_t target_read_slots = 0U;
+    std::size_t assigned_targets = 0U;
+    std::size_t payload_bytes = 0U;
+};
+
+B4EP10SIRDALiveness b4ep10sirda_audit_liveness(
+    const JointNeighborhood& neighborhood,
+    const JointPressureTape& tape,
+    B4EP10SIRDAInjection injection = B4EP10SIRDAInjection::None) {
+    B4EP10SIRDALiveness result;
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    const std::size_t total = fluid_count + neighborhood.support.size();
+    const std::size_t directed = neighborhood.flat_directed_pair_indices.size();
+    const JointOwnerGatherPlan& plan = tape.current_topology_gather_plan;
+    result.directed_slots = directed;
+    if (!plan.passed || tape.compression.size() != fluid_count
+        || neighborhood.flat_offsets.size() != fluid_count + 1U
+        || plan.source_by_slot.size() != directed
+        || plan.target_offsets.size() != total + 1U
+        || plan.target_offsets.empty() || plan.target_offsets.front() != 0U
+        || plan.target_offsets.back() != plan.target_slots.size()
+        || plan.target_slots.size() != directed
+        || directed > std::numeric_limits<std::size_t>::max() / 2U) {
+        result.failure = "DIRECTED_SCRATCH_SOURCE";
+        return result;
+    }
+    std::vector<std::uint8_t> written(directed);
+    std::vector<std::uint8_t> reads(directed);
+    result.payload_bytes = 2U * directed;
+    std::size_t first_active = directed;
+    bool missing_write_injected = false;
+    for (std::size_t source = 0U; source < fluid_count; ++source) {
+        const std::size_t begin = neighborhood.flat_offsets[source];
+        const std::size_t end = neighborhood.flat_offsets[source + 1U];
+        if (end < begin || end > directed) {
+            result.failure = "DIRECTED_SCRATCH_SOURCE_ROW";
+            return result;
+        }
+        if (tape.compression[source] <= 0.0) {
+            continue;
+        }
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            ++result.active_write_slots;
+            first_active = std::min(first_active, slot);
+            if (injection == B4EP10SIRDAInjection::MissingWrite
+                && !missing_write_injected) {
+                missing_write_injected = true;
+                continue;
+            }
+            if (written[slot] != 0U) {
+                result.failure = "DIRECTED_SCRATCH_WRITE_COVERAGE";
+                return result;
+            }
+            written[slot] = 1U;
+        }
+    }
+    const auto record_read = [&](std::size_t slot) {
+        if (slot >= directed || written[slot] != 1U
+            || reads[slot] == std::numeric_limits<std::uint8_t>::max()) {
+            return false;
+        }
+        ++reads[slot];
+        ++result.target_read_slots;
+        return true;
+    };
+    for (std::size_t target = 0U; target < total; ++target) {
+        const std::size_t own_begin = target < fluid_count
+            ? neighborhood.flat_offsets[target] : directed;
+        const std::size_t own_end = target < fluid_count
+            ? neighborhood.flat_offsets[target + 1U] : directed;
+        std::size_t entry = plan.target_offsets[target];
+        const std::size_t entry_end = plan.target_offsets[target + 1U];
+        for (; entry < entry_end; ++entry) {
+            const std::size_t slot = plan.target_slots[entry];
+            if (slot >= own_begin) {
+                break;
+            }
+            if (slot >= directed) {
+                result.failure = "DIRECTED_SCRATCH_TARGET_SLOT";
+                return result;
+            }
+            const std::size_t source = plan.source_by_slot[slot];
+            if (source >= fluid_count || source == target) {
+                result.failure = "DIRECTED_SCRATCH_TARGET_SOURCE";
+                return result;
+            }
+            if (tape.compression[source] > 0.0 && !record_read(slot)) {
+                result.failure = "DIRECTED_SCRATCH_READ_BEFORE_WRITE";
+                return result;
+            }
+        }
+        if (target < fluid_count && tape.compression[target] > 0.0) {
+            for (std::size_t slot = own_begin; slot < own_end; ++slot) {
+                if (!record_read(slot)) {
+                    result.failure = "DIRECTED_SCRATCH_READ_BEFORE_WRITE";
+                    return result;
+                }
+            }
+        }
+        for (; entry < entry_end; ++entry) {
+            const std::size_t slot = plan.target_slots[entry];
+            if (slot < own_end || slot >= directed) {
+                result.failure = "DIRECTED_SCRATCH_TARGET_ORDER";
+                return result;
+            }
+            const std::size_t source = plan.source_by_slot[slot];
+            if (source >= fluid_count || source == target) {
+                result.failure = "DIRECTED_SCRATCH_TARGET_SOURCE";
+                return result;
+            }
+            if (tape.compression[source] > 0.0 && !record_read(slot)) {
+                result.failure = "DIRECTED_SCRATCH_READ_BEFORE_WRITE";
+                return result;
+            }
+        }
+        ++result.assigned_targets;
+    }
+    if (injection == B4EP10SIRDAInjection::DuplicateRead
+        && first_active < directed) {
+        ++reads[first_active];
+        ++result.target_read_slots;
+    }
+    for (std::size_t slot = 0U; slot < directed; ++slot) {
+        if ((written[slot] == 1U && reads[slot] != 2U)
+            || (written[slot] == 0U && reads[slot] != 0U)) {
+            result.failure = "DIRECTED_SCRATCH_READ_COVERAGE";
+            return result;
+        }
+    }
+    if (result.assigned_targets != total
+        || result.active_write_slots != tape.active_directed
+        || result.target_read_slots != 2U * tape.active_directed) {
+        result.failure = "DIRECTED_SCRATCH_ACCOUNTING";
+        return result;
+    }
+    result.passed = true;
+    return result;
+}
+
+bool b4ep10sirda_record_call(
+    JointDirectedScratchAuditTrace& audit,
+    std::size_t directed,
+    std::size_t active,
+    bool hvp) {
+    const auto checked_add = [](std::size_t value, std::size_t& total) {
+        if (value > std::numeric_limits<std::size_t>::max() - total) {
+            return false;
+        }
+        total += value;
+        return true;
+    };
+    if (active > directed
+        || active > std::numeric_limits<std::size_t>::max() / 2U) {
+        ++audit.failures;
+        return false;
+    }
+    std::size_t& phase_full = hvp
+        ? audit.hvp_full_initialization_slots
+        : audit.evaluation_full_initialization_slots;
+    const std::size_t growth = directed > audit.high_water_directed_slots
+        ? directed - audit.high_water_directed_slots : 0U;
+    if (!checked_add(directed, phase_full)
+        || !checked_add(directed, audit.full_initialization_slots)
+        || !checked_add(active, audit.active_write_slots)
+        || !checked_add(2U * active, audit.target_read_slots)
+        || !checked_add(growth, audit.high_water_growth_slots)) {
+        ++audit.failures;
+        return false;
+    }
+    audit.high_water_directed_slots = std::max(
+        audit.high_water_directed_slots, directed);
+    audit.eliminated_initialization_slots =
+        audit.full_initialization_slots - audit.high_water_growth_slots;
+    if (audit.high_water_directed_slots
+            > std::numeric_limits<std::size_t>::max() / sizeof(Vec3)) {
+        ++audit.failures;
+        return false;
+    }
+    audit.maximum_projected_payload_bytes =
+        audit.high_water_directed_slots * sizeof(Vec3);
+    if (hvp) {
+        ++audit.hvp_calls;
+    } else {
+        ++audit.evaluation_calls;
+    }
+    return true;
+}
+
 JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     JointNeighborhood& neighborhood,
     FlatAdjacencyWorkTrace* adjacency_work,
@@ -13136,6 +13359,52 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         result.failure = parallel.failure;
         return result;
     }
+    B4EP10SIRDALiveness directed_scratch_liveness;
+    if (parallel.directed_scratch_audit.enabled) {
+        JointDirectedScratchAuditTrace& audit =
+            parallel.directed_scratch_audit;
+        if (!split_incoming_candidate) {
+            ++audit.failures;
+            parallel.failed = true;
+            parallel.failure = "DIRECTED_SCRATCH_PLAN_MODE";
+            result.failure = parallel.failure;
+            return result;
+        }
+        if (!audit.missing_write_negative_rejected) {
+            const B4EP10SIRDALiveness negative =
+                b4ep10sirda_audit_liveness(
+                    neighborhood, result.tape,
+                    B4EP10SIRDAInjection::MissingWrite);
+            audit.missing_write_negative_rejected = !negative.passed
+                && negative.failure
+                    == "DIRECTED_SCRATCH_READ_BEFORE_WRITE";
+        }
+        if (!audit.duplicate_read_negative_rejected) {
+            const B4EP10SIRDALiveness negative =
+                b4ep10sirda_audit_liveness(
+                    neighborhood, result.tape,
+                    B4EP10SIRDAInjection::DuplicateRead);
+            audit.duplicate_read_negative_rejected = !negative.passed
+                && negative.failure == "DIRECTED_SCRATCH_READ_COVERAGE";
+        }
+        directed_scratch_liveness = b4ep10sirda_audit_liveness(
+            neighborhood, result.tape);
+        if (!audit.missing_write_negative_rejected
+            || !audit.duplicate_read_negative_rejected
+            || !directed_scratch_liveness.passed) {
+            ++audit.failures;
+            parallel.failed = true;
+            parallel.failure = "DIRECTED_SCRATCH_LIVENESS:"
+                + directed_scratch_liveness.failure;
+            result.failure = parallel.failure;
+            return result;
+        }
+        ++audit.plan_audits;
+        audit.maximum_audit_payload_bytes = std::max(
+            audit.maximum_audit_payload_bytes,
+            directed_scratch_liveness.payload_bytes);
+        result.tape.directed_scratch_liveness_validated = true;
+    }
     std::vector<Vec3> directed_value(directed);
     const auto fill_directed = [&](std::size_t begin,
                                    std::size_t end, int) {
@@ -13451,6 +13720,24 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     if (!finish_phase(JointParallelPhase::EvaluationTarget)) {
         result.failure = parallel.failure;
         return result;
+    }
+    if (parallel.directed_scratch_audit.enabled) {
+        JointDirectedScratchAuditTrace& audit =
+            parallel.directed_scratch_audit;
+        if (!result.tape.directed_scratch_liveness_validated
+            || directed_scratch_liveness.directed_slots != directed
+            || directed_scratch_liveness.active_write_slots
+                != result.tape.active_directed
+            || directed_scratch_liveness.target_read_slots
+                != 2U * result.tape.active_directed
+            || !b4ep10sirda_record_call(
+                audit, directed, result.tape.active_directed, false)) {
+            ++audit.failures;
+            parallel.failed = true;
+            parallel.failure = "DIRECTED_SCRATCH_EVALUATION_ACCOUNTING";
+            result.failure = parallel.failure;
+            return result;
+        }
     }
     const std::size_t scratch_payload_bytes =
         density_contribution.size() * sizeof(double)
@@ -13875,6 +14162,38 @@ struct JointOwnerHvp {
     std::size_t scratch_payload_bytes = 0U;
 };
 
+struct B4EP10SIRDADepthGuard {
+    JointDirectedScratchAuditTrace* audit = nullptr;
+    bool valid = true;
+
+    explicit B4EP10SIRDADepthGuard(
+        JointDirectedScratchAuditTrace* candidate) : audit(candidate) {
+        if (audit == nullptr || !audit->enabled) {
+            return;
+        }
+        if (audit->current_depth
+                == std::numeric_limits<std::size_t>::max()) {
+            ++audit->failures;
+            valid = false;
+            return;
+        }
+        ++audit->current_depth;
+        audit->maximum_depth = std::max(
+            audit->maximum_depth, audit->current_depth);
+        if (audit->current_depth != 1U) {
+            ++audit->failures;
+            valid = false;
+        }
+    }
+
+    ~B4EP10SIRDADepthGuard() {
+        if (audit != nullptr && audit->enabled
+            && audit->current_depth > 0U) {
+            --audit->current_depth;
+        }
+    }
+};
+
 JointOwnerHvp apply_joint_pressure_tape_owner_gather(
     const JointNeighborhood& neighborhood,
     const JointPressureTape& tape,
@@ -13888,6 +14207,11 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
         && parallel->masked_plan_audit.reuse_enabled;
     const bool split_incoming_candidate = parallel != nullptr
         && parallel->incoming_construction_audit.candidate_enabled;
+    JointDirectedScratchAuditTrace* directed_scratch_audit =
+        parallel != nullptr && parallel->directed_scratch_audit.enabled
+        ? &parallel->directed_scratch_audit : nullptr;
+    B4EP10SIRDADepthGuard directed_scratch_depth(
+        directed_scratch_audit);
     const JointOwnerGatherPlan* selected_plan = masked_reuse
         ? tape.masked_superset_gather_plan
         : split_incoming_candidate
@@ -13911,6 +14235,16 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
     };
     if (masked_reuse && split_incoming_candidate) {
         owner.failure = "OWNER_HVP_PLAN_MODE";
+        return owner;
+    }
+    if (!directed_scratch_depth.valid
+        || (directed_scratch_audit != nullptr
+            && (!split_incoming_candidate
+                || !tape.directed_scratch_liveness_validated))) {
+        if (directed_scratch_audit != nullptr) {
+            ++directed_scratch_audit->failures;
+        }
+        owner.failure = "DIRECTED_SCRATCH_HVP_SOURCE";
         return owner;
     }
     if (!tape.passed || selected_plan == nullptr
@@ -14217,6 +14551,13 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
     owner.scratch_payload_bytes =
         compression_direction.size() * sizeof(double)
         + directed_value.size() * sizeof(Vec3);
+    if (directed_scratch_audit != nullptr
+        && !b4ep10sirda_record_call(
+            *directed_scratch_audit, directed,
+            tape.active_directed, true)) {
+        owner.failure = "DIRECTED_SCRATCH_HVP_ACCOUNTING";
+        return owner;
+    }
     if (parallel != nullptr) {
         if (masked_reuse) {
             JointMaskedSupersetPlanAuditTrace& reuse =
@@ -21886,7 +22227,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     bool capture_current_topology_plan_audit = false,
     bool capture_split_incoming_plan_audit = false,
     bool capture_incoming_construction_audit = false,
-    bool use_split_incoming_plan = false) {
+    bool use_split_incoming_plan = false,
+    bool capture_directed_scratch_audit = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -21920,6 +22262,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         capture_incoming_construction_audit;
     result.trace.owner_parallel.incoming_construction_audit.candidate_enabled =
         use_split_incoming_plan;
+    result.trace.owner_parallel.directed_scratch_audit.enabled =
+        capture_directed_scratch_audit;
     struct TopologyCachePointerReset {
         JointQueryTrace& trace;
         ~TopologyCachePointerReset() {
@@ -42731,6 +43075,355 @@ run_nominal_hydro_split_incoming_phase_timing_controls() {
            << (capacity_identity ? "true" : "false") << '}'
            << ",\"timing_exact\":" << (timing_exact ? "true" : "false")
            << ",\"durations_excluded_from_result\":true"
+           << ",\"speedup_claim\":false"
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(semantic_material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4EP10SIRDA_IDENTITY_SHA256 =
+    "4ae408eb091ee617fa74325a8a2b53652407dd80ba07533b0e6fc8e190c95743";
+constexpr const char* B4EP10SIRDA_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep10sirda-directed-scratch-audit|v1|parent="
+    "809807a71e2aafa46758b8635d0ba3f366ef4caee40787282fb287dba3b1eaa4:"
+    "fdccbf3bcbd0ee23eb702aac04c7237f0a16dec5ac74feb01807689808c965f0:"
+    "62a2205d6ff010ab65d7730c41479305ec2ec15a5dd45c248ccec38e25d10aa3|"
+    "implementation=4946af8abc21320685ed0294045df6692fb92ff3|command=nominal-"
+    "hydro-directed-scratch-audit|candidate=unchanged-split-incoming-return;"
+    "shadow-liveness-only|proof=active-source-slot-written-once;active-slot-"
+    "read-twice;inactive-slot-unread;all-targets-assigned;source-endpoint-"
+    "valid;sequential-depth1|work=full-init-slots;active-write-slots;high-"
+    "water-growth-slots;eliminated-init-slots|calls=plan226;evaluation226;"
+    "hvp459|capacity=audit<=67108864;projected-reuse<=67108864|gates=two-"
+    "fresh-processes;stdout-byte-exact;sii-result-f7b1542f30fef20a08da57c83"
+    "bb200878cdf426d87b627445e422c9a72825fb2;reuse/full<=0.01;failures0|"
+    "negatives=missing-write;duplicate-read|timing=none|reference=closed|"
+    "credit=scratch-reuse-implementation-contract-research-only";
+
+} // namespace
+
+SplitBoundaryReport run_nominal_hydro_directed_scratch_audit_controls() {
+    constexpr int worker_count = 8;
+    omp_set_dynamic(0);
+    omp_set_max_active_levels(1);
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index = build_joint_static_support_index(
+        tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding = bind_joint_static_support_index(
+        &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP10SIRDA_IDENTITY_PROJECTION)
+            == B4EP10SIRDA_IDENTITY_SHA256
+        && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297";
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    JointTopologySupersetCache cache;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true, true, false, false, worker_count,
+            false, false, false, false, false, false, false, false, true,
+            true);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const double energy_allowance = 0.01 * std::max({
+        std::abs(parent.initial_mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * (-fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    const double candidate_active_ratio = b4ep3i_candidate_active_ratio(cache);
+    const bool parent_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0;
+    const bool transaction_exact = b4ep1_queries_work_only_exact(
+            transaction.trace)
+        && transaction.trace.query_chain_sha256
+            == "6a220a4e6f4d6d06ab54fe043a9ddf49606aae40e598e43f1c331c78b7802991";
+    const bool physics_exact = b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical
+        && energy_creation <= energy_allowance;
+    const bool cache_exact = transaction.passed && !cache.failed
+        && cache.queries == 226U && cache.rebuilds == 1U
+        && cache.reuses == 225U && cache.certificate_passes == 225U
+        && cache.certificate_failures == 0U && cache.fallback_builds == 0U
+        && cache.maximum_candidate_degree == 122U
+        && cache.active_pair_visits == 85716150U
+        && std::isfinite(candidate_active_ratio)
+        && candidate_active_ratio <= 1.25;
+    const bool coefficient_exact = transaction.passed
+        && transaction.trace.coefficient_tape_builds == 226U
+        && transaction.trace.coefficient_pairs == 85716150U
+        && transaction.trace.coefficient_kernel_evaluations == 171432300U
+        && transaction.trace.coefficient_hvp_lookups == 971831424U
+        && transaction.trace.coefficient_mismatches == 0U
+        && transaction.trace.coefficient_fallbacks == 0U;
+    const bool fusion_exact = transaction.passed
+        && transaction.trace.fused_workspace_builds == 226U
+        && transaction.trace.fused_pair_visits == 85716150U
+        && transaction.trace.fused_active_directed_visits == 131987230U
+        && transaction.trace.fused_center_visits == 1356000U
+        && transaction.trace.fusion_mismatches == 0U
+        && transaction.trace.fusion_fallbacks == 0U;
+    const bool work_exact = transaction.passed
+        && transaction.trace.total_pairs == 85716150U
+        && transaction.trace.total_directed == 150845996U
+        && transaction.trace.total_active_directed == 131987230U
+        && transaction.trace.total_fluid_centers == 1356000U
+        && static_work.static_index_builds == 1U
+        && static_work.workspace_builds == 227U
+        && adjacency_work.workspace_builds == 227U
+        && adjacency_work.flat_offset_records == 1362227U
+        && adjacency_work.flat_pair_index_records == 151461068U
+        && adjacency_work.csr_ownership_transfers == 227U
+        && transaction.retention.transfers == 42
+        && transaction.retention.reads == 42
+        && transaction.retention.releases == 42
+        && transaction.retention.live_retained == 0
+        && transaction.trace.live_workspaces == 0;
+    const JointParallelTrace& parallel = transaction.trace.owner_parallel;
+    const bool parallel_exact = transaction.passed && parallel.enabled
+        && parallel.requested_workers == worker_count && !parallel.failed
+        && parallel.regions == 4089U
+        && parallel.logical_partitions == 261696U
+        && parallel.minimum_observed_team == worker_count
+        && parallel.maximum_observed_team == worker_count
+        && parallel.team_mismatches == 0U
+        && parallel.coverage_mismatches == 0U
+        && parallel.worker_failures == 0U
+        && parallel.topology_calls == 226U
+        && parallel.evaluation_calls == 226U
+        && parallel.evaluation_density_gathers == 150845996U
+        && parallel.evaluation_directed_values == 131987230U
+        && parallel.evaluation_target_gathers == 263974460U
+        && parallel.plan_builds == 226U && parallel.hvp_calls == 459U
+        && parallel.hvp_directed_values == 242957856U
+        && parallel.hvp_target_gathers == 485915712U;
+    const JointIncomingConstructionAuditTrace& candidate =
+        parallel.incoming_construction_audit;
+    const bool candidate_exact = candidate.candidate_enabled
+        && !candidate.enabled && candidate.candidate_builds == 226U
+        && candidate.candidate_evaluation_calls == 226U
+        && candidate.candidate_hvp_calls == 459U
+        && candidate.candidate_incoming_full_entries == 454936226U
+        && candidate.candidate_incoming_retained_entries == 374945086U
+        && candidate.candidate_own_retained_entries == 374945086U
+        && candidate.candidate_failures == 0U
+        && candidate.plan_audits == 0U
+        && candidate.directed_slots == 150845996U
+        && candidate.incoming_entries == 150845996U
+        && candidate.endpoint_writes == 150845996U
+        && candidate.pair_visits == 171432300U
+        && candidate.support_csr_records > 0U
+        && candidate.target_count_visits == 171432300U
+        && candidate.target_fill_visits == 171432300U
+        && candidate.added_regions == 678U
+        && candidate.added_logical_partitions == 43392U
+        && candidate.maximum_candidate_payload_bytes > 0U
+        && candidate.maximum_scratch_payload_bytes > 0U
+        && parallel.maximum_added_payload_bytes <= 67108864U
+        && candidate.order_mismatches == 0U
+        && candidate.coverage_mismatches == 0U
+        && candidate.fallbacks == 0U;
+
+    const std::string base_work_receipt = b4ep5_work_receipt(
+        parent, index, transaction, static_work, adjacency_work,
+        cache, candidate_active_ratio);
+    std::ostringstream work_material;
+    work_material << "nextengine.nonlocal.nsr3b4ep7i-work|v1|"
+                  << base_work_receipt << '|'
+                  << transaction.trace.fused_workspace_builds << ':'
+                  << transaction.trace.fused_pair_visits << ':'
+                  << transaction.trace.fused_active_directed_visits << ':'
+                  << transaction.trace.fused_center_visits << ':'
+                  << transaction.trace.fused_radius_evaluations << ':'
+                  << transaction.trace.fused_gradient_evaluations << ':'
+                  << transaction.trace.fused_second_evaluations << ':'
+                  << transaction.trace.fused_compression_evaluations;
+    const std::string work_receipt = sha256_hex(work_material.str());
+    std::ostringstream correspondence_material;
+    correspondence_material
+        << "nextengine.nonlocal.nsr3b4ep10sii-correspondence|v1|"
+        << output.frame_root << ':' << output.aggregate_root << '|'
+        << transaction.trajectory_sha256 << ':'
+        << transaction.legacy_ledger_sha256 << ':'
+        << transaction.policy_ledger_sha256 << '|'
+        << transaction.trace.query_chain_sha256 << '|'
+        << base_work_receipt << ':' << work_receipt << '|'
+        << candidate.candidate_builds << ':'
+        << candidate.candidate_evaluation_calls << ':'
+        << candidate.candidate_hvp_calls << '|'
+        << candidate.candidate_incoming_full_entries << ':'
+        << candidate.candidate_incoming_retained_entries << ':'
+        << candidate.candidate_own_retained_entries << '|'
+        << candidate.directed_slots << ':' << candidate.incoming_entries
+        << ':' << candidate.pair_visits << ':'
+        << candidate.support_csr_records << ':' << candidate.endpoint_writes
+        << '|' << candidate.target_count_visits << ':'
+        << candidate.target_fill_visits << '|'
+        << candidate.added_regions << ':'
+        << candidate.added_logical_partitions << '|'
+        << candidate.maximum_candidate_payload_bytes << ':'
+        << candidate.maximum_scratch_payload_bytes << ':'
+        << parallel.maximum_added_payload_bytes << '|'
+        << parent_exact << ':' << transaction_exact << ':' << physics_exact
+        << ':' << cache_exact << ':' << coefficient_exact << ':'
+        << fusion_exact << ':' << work_exact << ':' << parallel_exact << ':'
+        << candidate_exact;
+    const std::string correspondence_sha256 = sha256_hex(
+        correspondence_material.str());
+    const bool sii_exact = identity_exact && parent_exact
+        && transaction_exact && physics_exact && cache_exact
+        && coefficient_exact && fusion_exact && work_exact
+        && parallel_exact && candidate_exact
+        && correspondence_sha256
+            == "1e4bedbb2c3ed7512ee0a31e879c9d7ba7887dca1fb5e833c89f0c45b108a35d";
+    std::ostringstream sii_semantic;
+    sii_semantic << (sii_exact ? "PASS||" : "FAIL|SII_SEMANTICS|")
+        << B4EP10SII_IDENTITY_SHA256 << '|' << correspondence_sha256 << '|'
+        << parallel.regions << ':' << parallel.logical_partitions << '|'
+        << candidate.candidate_builds << ':'
+        << candidate.candidate_evaluation_calls << ':'
+        << candidate.candidate_hvp_calls << '|'
+        << candidate.candidate_incoming_full_entries << ':'
+        << candidate.candidate_incoming_retained_entries << ':'
+        << candidate.candidate_own_retained_entries << '|'
+        << parallel.maximum_added_payload_bytes << '|'
+        << candidate.candidate_failures << ':' << candidate.order_mismatches
+        << ':' << candidate.coverage_mismatches << ':' << candidate.fallbacks;
+    const std::string sii_result_sha256 = sha256_hex(sii_semantic.str());
+    const bool sii_result_exact = sii_result_sha256
+        == "f7b1542f30fef20a08da57c83bb200878cdf426d87b627445e422c9a72825fb2";
+
+    const JointDirectedScratchAuditTrace& audit =
+        parallel.directed_scratch_audit;
+    std::size_t phase_full = audit.evaluation_full_initialization_slots;
+    const bool phase_sum_safe = audit.hvp_full_initialization_slots
+        <= std::numeric_limits<std::size_t>::max() - phase_full;
+    if (phase_sum_safe) {
+        phase_full += audit.hvp_full_initialization_slots;
+    }
+    const double reuse_ratio = audit.full_initialization_slots > 0U
+        ? static_cast<double>(audit.high_water_growth_slots)
+            / static_cast<double>(audit.full_initialization_slots)
+        : std::numeric_limits<double>::infinity();
+    const bool audit_exact = audit.enabled && audit.plan_audits == 226U
+        && audit.evaluation_calls == 226U && audit.hvp_calls == 459U
+        && audit.evaluation_full_initialization_slots == 150845996U
+        && audit.hvp_full_initialization_slots >= 242957856U
+        && phase_sum_safe && phase_full == audit.full_initialization_slots
+        && audit.active_write_slots == 374945086U
+        && audit.target_read_slots == 749890172U
+        && audit.high_water_growth_slots == audit.high_water_directed_slots
+        && audit.high_water_growth_slots <= audit.full_initialization_slots
+        && audit.eliminated_initialization_slots
+            == audit.full_initialization_slots
+                - audit.high_water_growth_slots
+        && audit.current_depth == 0U && audit.maximum_depth == 1U
+        && audit.maximum_audit_payload_bytes <= 67108864U
+        && audit.maximum_projected_payload_bytes <= 67108864U
+        && audit.maximum_projected_payload_bytes
+            == audit.high_water_directed_slots * sizeof(Vec3)
+        && std::isfinite(reuse_ratio) && reuse_ratio <= 0.01
+        && audit.failures == 0U
+        && audit.missing_write_negative_rejected
+        && audit.duplicate_read_negative_rejected;
+    const bool passed = sii_exact && sii_result_exact && audit_exact;
+    std::string failure;
+    if (!sii_exact || !sii_result_exact) failure = "SII_SEMANTICS";
+    else if (!audit_exact) failure = "DIRECTED_SCRATCH_AUDIT";
+    std::ostringstream semantic_material;
+    semantic_material << (passed ? "PASS|" : "FAIL|") << failure << '|'
+        << B4EP10SIRDA_IDENTITY_SHA256 << '|' << sii_result_sha256 << '|'
+        << audit.plan_audits << ':' << audit.evaluation_calls << ':'
+        << audit.hvp_calls << '|' << audit.full_initialization_slots << ':'
+        << audit.active_write_slots << ':' << audit.target_read_slots << '|'
+        << audit.high_water_growth_slots << ':'
+        << audit.eliminated_initialization_slots << '|'
+        << audit.maximum_audit_payload_bytes << ':'
+        << audit.maximum_projected_payload_bytes << '|'
+        << audit.missing_write_negative_rejected << ':'
+        << audit.duplicate_read_negative_rejected << ':' << audit.failures;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep10sirda_directed_scratch_audit.v1\""
+           << ",\"identity_sha256\":\"" << B4EP10SIRDA_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"b4ep10sii_result_sha256\":\""
+           << sii_result_sha256 << '"'
+           << ",\"correspondence_sha256\":\""
+           << correspondence_sha256 << '"'
+           << ",\"roots\":{\"frame\":\"" << output.frame_root
+           << "\",\"aggregate\":\"" << output.aggregate_root
+           << "\",\"trajectory\":\"" << transaction.trajectory_sha256
+           << "\",\"legacy_ledger\":\""
+           << transaction.legacy_ledger_sha256
+           << "\",\"policy_ledger\":\""
+           << transaction.policy_ledger_sha256 << "\"}"
+           << ",\"audit\":{\"plan_audits\":" << audit.plan_audits
+           << ",\"evaluation_calls\":" << audit.evaluation_calls
+           << ",\"hvp_calls\":" << audit.hvp_calls
+           << ",\"evaluation_full_initialization_slots\":"
+           << audit.evaluation_full_initialization_slots
+           << ",\"hvp_full_initialization_slots\":"
+           << audit.hvp_full_initialization_slots
+           << ",\"full_initialization_slots\":"
+           << audit.full_initialization_slots
+           << ",\"active_write_slots\":" << audit.active_write_slots
+           << ",\"target_read_slots\":" << audit.target_read_slots
+           << ",\"high_water_directed_slots\":"
+           << audit.high_water_directed_slots
+           << ",\"high_water_growth_slots\":"
+           << audit.high_water_growth_slots
+           << ",\"eliminated_initialization_slots\":"
+           << audit.eliminated_initialization_slots
+           << ",\"reuse_to_full_ratio\":" << reuse_ratio
+           << ",\"maximum_depth\":" << audit.maximum_depth
+           << ",\"current_depth\":" << audit.current_depth
+           << ",\"maximum_audit_payload_bytes\":"
+           << audit.maximum_audit_payload_bytes
+           << ",\"maximum_projected_payload_bytes\":"
+           << audit.maximum_projected_payload_bytes
+           << ",\"missing_write_negative_rejected\":"
+           << (audit.missing_write_negative_rejected ? "true" : "false")
+           << ",\"duplicate_read_negative_rejected\":"
+           << (audit.duplicate_read_negative_rejected ? "true" : "false")
+           << ",\"failures\":" << audit.failures
+           << ",\"exact\":" << (audit_exact ? "true" : "false") << '}'
+           << ",\"timing_admitted\":false"
            << ",\"speedup_claim\":false"
            << ",\"b4e2_execution_authorized\":false"
            << ",\"runtime_authority\":false"
