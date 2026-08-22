@@ -159,7 +159,10 @@ pub(super) fn relative_verdict(
         || (change_basis_points >= 500 && confidence_interval[0] >= 500)
     {
         PerformanceVerdict::Fail
-    } else if change_basis_points >= 200 {
+    } else if change_basis_points >= 200 && confidence_interval[0] >= 200 {
+        // ADR-094: warnings are confidence-gated like failures, so
+        // order-statistic noise with intervals spanning zero cannot produce
+        // immutable blocking evidence.
         PerformanceVerdict::Warning
     } else if absolute == PerformanceVerdict::Pass {
         PerformanceVerdict::Pass

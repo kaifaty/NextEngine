@@ -95,7 +95,10 @@ fn main() {
             diagnostic_code(&error),
             next_application::DiagnosticContextV1::message(&error),
         );
-        println!("{}", report.to_json().expect("diagnostic serializes"));
+        // Diagnostics stay on stderr so a failed command's stdout remains a
+        // single machine-readable channel; gate-member parents parse it even
+        // when the nested verdict is FAIL.
+        eprintln!("{}", report.to_json().expect("diagnostic serializes"));
         std::process::exit(1);
     }
 }

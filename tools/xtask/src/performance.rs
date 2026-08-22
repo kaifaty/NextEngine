@@ -27,7 +27,7 @@ mod tests;
 
 pub const PERFORMANCE_RUN_SCHEMA_VERSION: u32 = 6;
 pub const PERFORMANCE_BASELINE_SCHEMA_VERSION: u32 = 6;
-pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v10";
+pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v11";
 pub const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v6.json";
 pub const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v6.json";
 pub const PERFORMANCE_REPORT_TEMP_FILE_NAME: &str = ".performance-report-v6.json.tmp";

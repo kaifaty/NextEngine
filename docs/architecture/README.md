@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.61 |
+| Версия | 2.62 |
 | Последняя проверка | 2026-08-21 |
-| Заменяет | INDEX-001 2.60; adds ADR-093 deterministic R5 worker placement |
+| Заменяет | INDEX-001 2.61; adds ADR-094 confidence-gated relative warnings |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -297,6 +297,7 @@ traceability — навигационная карта, не admission authority
 | ADR-091 | [Linux release performance authority](adr/091-linux-release-performance-authority.md) | Accepted exact Ryzen 9 3950X/RTX 3080 Linux release profile, canonical R2–R5 budgets and ten-run/fixed-three-run evidence policy |
 | ADR-092 | [Dimensional relative performance comparison](adr/092-dimensional-relative-performance-comparison.md) | Accepted Performance V6/methodology v10 direct-relative and normalized-ratio absolute-only comparison classes |
 | ADR-093 | [Deterministic R5 worker placement](adr/093-deterministic-r5-worker-placement.md) | Accepted deterministic physical-core placement for the `r5-physics-16` workload through one reviewed `next_cpu_affinity` boundary; workload identity advances to v3 |
+| ADR-094 | [Confidence-gated relative warnings](adr/094-confidence-gated-relative-warnings.md) | Accepted CI95-lower-bound gating for relative warnings under methodology v11 with stderr-only failure diagnostics |
 
 ## Proposed tracks
 

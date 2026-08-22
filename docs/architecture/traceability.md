@@ -17,7 +17,8 @@
 | Дополнительные зависимости V8.8 | [ADR-091](adr/091-linux-release-performance-authority.md) |
 | Дополнительные зависимости V8.9 | [ADR-092](adr/092-dimensional-relative-performance-comparison.md) |
 | Дополнительные зависимости V9.0 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
-| Заменяет | TRACE-001 8.9; maps deterministic R5 worker placement under Performance V6/methodology v10 |
+| Дополнительные зависимости V9.1 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
+| Заменяет | TRACE-001 9.0; maps confidence-gated relative warnings under Performance V6/methodology v11 |
 
 ## Назначение
 
@@ -116,6 +117,10 @@ one reviewed `next_cpu_affinity` unsafe boundary. Placement failures fail
 closed before timing; authoritative roots stay byte-exact across worker
 counts, and the workload preimage advances to
 `r5-physics-16.v3`, making earlier R5 baselines incompatible.
+ADR-094 gates relative warnings on the bootstrap lower bound (`>=200bp`
+change and `>=200bp` CI95 low) exactly like failures, advances methodology
+to v11 and keeps failed-command diagnostics on stderr so gate members always
+aggregate.
 
 ## REQ/FAIL identifiers
 

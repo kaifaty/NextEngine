@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.9 |
+| Версия | 2.10 |
 | Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-091](adr/091-linux-release-performance-authority.md) |
 | Дополнительные зависимости V2.9 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
-| Заменяет | SPEC-04 2.8; adds deterministic R5 worker placement for the Linux hard-performance workload under ADR-093 |
+| Дополнительные зависимости V2.10 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
+| Заменяет | SPEC-04 2.9; adopts confidence-gated relative warnings under methodology v11 |
 
 ## Technical authority boundary
 

@@ -107,7 +107,7 @@ fn schema_round_trip_rejects_unknown_fields() {
     assert_eq!(run.schema_version, 6);
     assert_eq!(
         run.methodology.methodology_version,
-        "nextengine-performance-v10"
+        "nextengine-performance-v11"
     );
     assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v6.json");
     assert_eq!(
@@ -156,6 +156,7 @@ fn schema_round_trip_rejects_unknown_fields() {
         "nextengine-performance-v7",
         "nextengine-performance-v8",
         "nextengine-performance-v9",
+        "nextengine-performance-v10",
     ] {
         let mut prior_methodology: PerformanceRunV6 =
             serde_json::from_slice(&json).expect("decode current fixture");
@@ -438,6 +439,20 @@ fn relative_policy_distinguishes_noise_warning_and_failure() {
         relative_verdict(PerformanceVerdict::ReportOnly, 199, [100, 250]),
         PerformanceVerdict::ReportOnly
     );
+    // The recorded `f3cb715` w4 warning shape: point estimate above the line
+    // with an interval spanning zero must not produce blocking evidence.
+    assert_eq!(
+        relative_verdict(PerformanceVerdict::ReportOnly, 205, [-293, 782]),
+        PerformanceVerdict::ReportOnly
+    );
+    assert_eq!(
+        relative_verdict(PerformanceVerdict::ReportOnly, 300, [199, 400]),
+        PerformanceVerdict::ReportOnly
+    );
+    assert_eq!(
+        relative_verdict(PerformanceVerdict::ReportOnly, 200, [200, 210]),
+        PerformanceVerdict::Warning
+    );
     assert_eq!(
         relative_verdict(PerformanceVerdict::ReportOnly, 300, [200, 400]),
         PerformanceVerdict::Warning
@@ -445,6 +460,12 @@ fn relative_policy_distinguishes_noise_warning_and_failure() {
     assert_eq!(
         relative_verdict(PerformanceVerdict::ReportOnly, 550, [510, 600]),
         PerformanceVerdict::Fail
+    );
+    // A large point estimate whose lower bound misses the failure threshold
+    // still warns.
+    assert_eq!(
+        relative_verdict(PerformanceVerdict::ReportOnly, 550, [499, 600]),
+        PerformanceVerdict::Warning
     );
 }
 
@@ -608,10 +629,10 @@ fn baseline_requires_ten_clean_compatible_runs() {
 }
 
 #[test]
-fn v9_baseline_is_rejected_by_a_v10_gate() {
+fn prior_baseline_is_rejected_by_the_current_gate() {
     let runs = vec![clean_r3_calibration_report(); 10];
     let mut baseline = PerformanceBaselineV6::from_runs(&runs).expect("baseline");
-    baseline.methodology_version = "nextengine-performance-v9".to_owned();
+    baseline.methodology_version = "nextengine-performance-v10".to_owned();
 
     let mut candidate = runs[0].clone();
     candidate.mode = PerformanceModeV1::Gate;
@@ -632,7 +653,7 @@ fn v9_baseline_is_rejected_by_a_v10_gate() {
     ];
 
     let diagnostics = compare_metrics_to_baseline(&mut candidate, &baseline)
-        .expect_err("a v9 baseline cannot be relabelled as v10 gate authority");
+        .expect_err("a v10 baseline cannot be relabelled as current-gate authority");
     assert!(
         diagnostics.contains(&"PERF_BASELINE_METHODOLOGY_MISMATCH".to_owned()),
         "expected methodology mismatch, found {diagnostics:?}"
