@@ -52,7 +52,9 @@ REPORT_KIND = "nextengine.speech-reliability.replay-report"
 TRACE_KIND = "speech-reliability.transcript-revision-trace-v0"
 
 MAX_PREPARED_INDEX_BYTES = 256 * 1024 * 1024
-MAX_REPLAY_ROWS = 10_000
+# Streaming per-turn design keeps memory bounded (~1 KiB per row dict);
+# the cap guards runaway selections, not hard memory.
+MAX_REPLAY_ROWS = 50_000
 MAX_TRACE_REVISIONS_PER_UTTERANCE = 512
 DEFAULT_TIMEOUT_SECONDS = 120.0
 
