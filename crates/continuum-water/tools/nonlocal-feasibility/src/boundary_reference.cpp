@@ -49782,12 +49782,13 @@ SplitBoundaryReport run_al_inner_floor_diagnostic_controls() {
             : (trace.passed ? "MODEL_OR_ACTIVE_SET_RESEARCH_REQUIRED"
                 : std::string{}));
     const bool passed = identity_exact && reproduction_exact
-        && rollback_exact && !route.empty();
+        && rollback_exact && trace.all_topology_exact && !route.empty();
     std::string first_failure;
     if (!identity_exact) first_failure = "IDENTITY";
     else if (!reproduction_exact) first_failure = "D7R_REPRODUCTION";
     else if (!rollback_exact) first_failure = "ROLLBACK";
     else if (!trace.passed) first_failure = "INNER_TRACE";
+    else if (!trace.all_topology_exact) first_failure = "TOPOLOGY_GATE";
     else if (route.empty()) first_failure = "ROUTE";
 
     std::ostringstream semantic;
