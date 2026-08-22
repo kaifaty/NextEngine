@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R17 -- nominal substep shadow contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP`
+Status: `CLOSED / PASS_CLASSIFICATION / NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED / SOLVER_NOT_CONFIRMED / SHARED_HOST_PERFORMANCE_STOP`
 
 Identity projection (exact bytes, no final LF):
 
@@ -43,6 +43,11 @@ Identity, parent bytes, alignment, non-finite state, mass, lifecycle,
 all-pair-call, rollback, build/process repeat or route-precedence mismatch is
 hard FAIL.
 
-A confirmed shadow authorizes research/freeze of one next performance stage.
+The executed shadow exhausts the outer-update watchdog with one accepted
+trial and two HVPs per outer update. Inner stationarity is already far inside
+its gate while primal progress remains slow. This authorizes only an
+explicit-`kappa` and dimensionless `dt`--`kappa` scaling prerequisite before
+another nominal solve; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r17-nominal-substep-shadow-evidence-2026-08-22.md).
 It grants no macro, trajectory, public state, projected-contact redesign,
 runtime integration, parallel/GPU path or production authority.

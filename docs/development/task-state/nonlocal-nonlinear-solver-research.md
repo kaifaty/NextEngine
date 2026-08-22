@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R16_PASS_NOMINAL_TRANSACTION_BACKEND / B4E2D7R17_FROZEN_NOMINAL_SUBSTEP_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R17_PASS_CLASSIFIED_STRUCTURAL_WATCHDOG / NOMINAL_SOLVER_NOT_CONFIRMED / B4E2D7R18_KAPPA_SCALING_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -10,6 +10,22 @@
 | Authority | Working context only; Accepted architecture, SPEC-38/ADR-076/ADR-081 and frozen stage contracts outrank this file |
 
 ## Resume in 60 seconds
+
+- **Current conclusion:** D7R17 reproducibly selects
+  `NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED` at stdout SHA
+  `a2a8de93...fced` and semantic result `1f368c86...913b`. This is a
+  successful fail-closed classification, not a nominal solver pass.
+- **Mechanism fact:** all 16 outer updates use one accepted trial, zero rejects
+  and two HVPs. Stationarity ends at `1.493e-12`, while primal violation moves
+  only from `2.332e-7` to `2.285e-7`; outer multiplier evolution, not the inner
+  trust solve, is the observed bottleneck.
+- **Scale hypothesis:** aligned `dt=dt_ref/78` strengthens inertia curvature by
+  `6084x`, while `kappa=1226.25` remained constant. Preserving the reference
+  dimensionless AL/inertia ratio would use `kappa=7,460,505` at this substep.
+- **Next action:** research/freeze D7R18 as explicit-`kappa` propagation plus
+  a dimensionless scaling prerequisite. Preserve all legacy bytes and run no
+  nominal solve; a separate later discriminator may test the scaled nominal
+  lane.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route

@@ -1756,6 +1756,13 @@ D7R16 then passes and selects `NOMINAL_TRANSACTION_BACKEND_CONFIRMED`; see the
 The complete static-bound transaction removes the hidden dense precision path,
 preserves all inherited roots and confirms the separate predictor-contact
 impulse. Research/freeze D7R17 before executing its one nominal substep.
-D7R17 is frozen with deterministic pre-work limits and two impulse-closure
-identities. Implement one private substep next; no second substep, macro,
-trajectory or timing lane is authorized.
+D7R17 then classifies the first aligned private substep as
+`NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r17-nominal-substep-shadow-evidence-2026-08-22.md).
+Every outer update needs one accepted trial and two HVPs, and final
+stationarity is already `1.49e-12`, but primal violation falls only from
+`2.332e-7` to `2.285e-7` across the 16-update cap. No state is selected.
+Research/freeze an explicit-`kappa` and dimensionless `dt`--`kappa` scaling
+prerequisite next, preserving legacy bytes and running no nominal solve. Do
+not increase the outer cap, weaken gates or run a second substep, macro,
+trajectory or timing lane.
