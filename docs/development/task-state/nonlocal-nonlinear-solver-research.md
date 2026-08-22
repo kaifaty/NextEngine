@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R18R3_PASS_PRECANCELLATION_CANDIDATE / NSR3B4E2D7R18R4_FROZEN / D7R19_BLOCKED / FULL_NORMALIZED_PRECANCELLED_TRANSACTION_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R18R4_FAIL_WORK_LIFECYCLE / D7R19_BLOCKED / NORMALIZED_KRYLOV_FORCING_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -98,6 +98,18 @@
   `0/1/2` inactive semantics, exact per-run `19/0/38` active work and
   reference/aligned roots. Every acceptance rejected by raw or R2 arithmetic
   requires direct binary128 certification.
+- **Current conclusion:** D7R18R4 reproducibly fails only `WORK_LIFECYCLE` at
+  stdout SHA `32e4369a...38c6` and semantic result `91b311aa...49e0`. All
+  `11/12/13`, `0/1/2`, cross-profile and precision facts pass, but active work
+  is `19/0/39`, not the frozen `19/0/38`.
+- **Mechanism hypothesis:** the sole extra HVP is outer 11/trial 0. The
+  inherited Steihaug forcing `sqrt(||r0||)*||r0||` scales as
+  `alpha^(3/2)` when the objective/residual scales by `alpha`; normalized
+  `alpha=1/7200` therefore makes it about `84.85x` stricter relative to the
+  dimensional D7R13 solve.
+- **Current decision:** preserve the R4 hard FAIL. Do not change 114 HVP to
+  117 post hoc. Research/freeze a replay-only dimensionless Krylov-forcing
+  discriminator at the exact outer-11/trial-0 boundary; D7R19 remains blocked.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -1005,7 +1017,7 @@
 | NSR3B4E2D7R18R1 PASS | `u=lambda/kappa`, `theta=kappa*dt^2/M` are exact across scales and reconstruction is certified | tiny full normalized D7R13 transaction research only; D7R19 blocked |
 | NSR3B4E2D7R18R2 PASS classification | cross-scale full transaction roots are exact; active inner stalls at outer 1 after normalized reduction loses a positive `3.16e-22` signal | replay-only normalized precancellation research; D7R19 blocked |
 | NSR3B4E2D7R18R3 PASS | exact outer-1/trial-2 replay restores the positive signal within `1.18e-5` of binary128 | full normalized precancelled transaction research only; D7R19 blocked |
-| NSR3B4E2D7R18R4 frozen | five complete normalized private transactions substitute only the certified R3 numerator | implement/run R4 only; D7R19 blocked |
+| NSR3B4E2D7R18R4 FAIL | confirmation and precision pass, but normalized active work uses 39 rather than frozen 38 HVP | replay-only dimensionless Krylov-forcing research; D7R19 blocked |
 
 Candidate solver identity remains:
 
@@ -1959,9 +1971,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R18R3/R2/R1/D7R18/D7R17 and D7R13 exactly. Implement/run only
-   the frozen D7R18R4 complete normalized private transaction. Do not run
-   D7R19 or start a nominal substep, macro, trajectory or timing lane.
+6. Preserve D7R18R4/R3/R2/R1/D7R18/D7R17 and D7R13 exactly. Research/freeze
+   one replay-only dimensionless Krylov-forcing discriminator at R4 outer
+   11/trial 0. Do not relax the R4 work gate, run D7R19, or start a nominal
+   substep, macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 

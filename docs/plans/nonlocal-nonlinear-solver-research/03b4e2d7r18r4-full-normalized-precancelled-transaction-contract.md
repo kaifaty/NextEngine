@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R18R4 -- full normalized precancelled transaction contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / D7R19_BLOCKED`
+Status: `CLOSED / FAIL / WORK_LIFECYCLE / D7R19_BLOCKED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -58,3 +58,6 @@ Only `FULL_NORMALIZED_PRECANCELLED_PRIVATE_STATE_CONFIRMED` may authorize
 research/freeze of D7R19. It grants no execution authority for D7R19, another
 substep, macro, trajectory, timing, public state, runtime binary128,
 GPU/runtime or production use.
+
+The command closes at the frozen exact-work hard control. See the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18r4-full-normalized-precancelled-transaction-evidence-2026-08-22.md).

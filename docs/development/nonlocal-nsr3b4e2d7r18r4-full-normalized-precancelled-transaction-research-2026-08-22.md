@@ -2,7 +2,7 @@
 
 Date: `2026-08-22`
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_NEXT`
+Status: `CLOSED / FAIL / WORK_LIFECYCLE / NORMALIZED_KRYLOV_FORCING_RESEARCH_REQUIRED`
 
 ## Question
 
@@ -117,3 +117,12 @@ Freeze R4 as a separate five-transaction private command. Only a confirmed
 route may authorize research/freeze of D7R19 as one aligned nominal Dam
 substep. It does not authorize D7R19 execution, another substep, a macro,
 trajectory, timing, public state, GPU/runtime integration or production use.
+
+## Closure
+
+R4 fails only the frozen exact-HVP work control; see the
+[dated evidence](nonlocal-nsr3b4e2d7r18r4-full-normalized-precancelled-transaction-evidence-2026-08-22.md).
+All expected confirmation, precision and cross-profile facts pass, but outer
+`11`, trial `0` needs one additional Krylov HVP per active run. Research the
+scale dependence of the inherited Steihaug forcing term next. Do not relax the
+R4 work expectation.
