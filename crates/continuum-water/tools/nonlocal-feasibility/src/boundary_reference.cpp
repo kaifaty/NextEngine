@@ -41087,7 +41087,9 @@ run_nominal_hydro_partitioned_active_plan_audit_controls() {
         && scenario_root == spec.scenario_root
         && initial.frame.root_sha256
             == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
-        && index.passed && binding.passed;
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297";
     NominalMacroParent parent;
     MacroAdaptiveTransactionCase transaction;
     JointTopologySupersetCache cache;
@@ -41107,6 +41109,12 @@ run_nominal_hydro_partitioned_active_plan_audit_controls() {
     const double energy_creation = std::max(0.0,
         transaction.accepted_private.maximum_mechanical_energy
             - parent.initial_mechanical);
+    const double energy_allowance = 0.01 * std::max({
+        std::abs(parent.initial_mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * (-fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
     const bool parent_exact = parent.passed
         && parent.workspace_state_hashes == 1
         && parent.workspace_state_hashes_skipped == 0;
@@ -41118,7 +41126,8 @@ run_nominal_hydro_partitioned_active_plan_audit_controls() {
             transaction, output, energy_creation)
         && b4e1m_levels_exact(transaction)
         && transaction.accepted_private.maximum_mechanical_energy
-            == parent.initial_mechanical;
+            == parent.initial_mechanical
+        && energy_creation <= energy_allowance;
     const bool cache_exact = transaction.passed && !cache.failed
         && cache.queries == 226U && cache.rebuilds == 1U
         && cache.reuses == 225U && cache.certificate_passes == 225U
@@ -42293,6 +42302,436 @@ run_nominal_hydro_split_incoming_plan_controls() {
            << ",\"speedup_claim\":false"
            << ",\"b4ep10sii_ab_authorized\":"
            << (passed ? "true" : "false")
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(semantic_material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4EP10SIR_IDENTITY_SHA256 =
+    "4bd4879fc96f602a3988a9e35fcc184e091509a600bf09dabfe32310e2cec731";
+constexpr const char* B4EP10SIR_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep10sir-split-incoming-residual-timing|v1|"
+    "parent=9a496e6129ce4669af31aa056446f3743404bfe38ebf458edff1f6cb7b816774:"
+    "5c8ca71e2c6d7ebe77e3868b9077254694a6ac640300755d9ba06e293ff168cd:"
+    "a296ee658196958c69b54421a8a29813b7ce6928f154a215989f5d7f7630560b|"
+    "implementation=e7dec71bee66a72a497ef02315688995b675e345|command=nominal-hydro-"
+    "split-incoming-phase-timing-8|instrumentation=steady-clock;hierarchical-"
+    "stage+23-subphase+worker-active;durations-excluded|categories=topology-"
+    "total;source-local=evaluation-setup+pair+metadata+density+center+directed"
+    "+hvp-setup+compression+directed;target-fold=evaluation-target+hvp-target;"
+    "control=remainder|calls=transaction1;topology226;evaluation226;hvp459;"
+    "regions4089;partitions261696|runs=3;fresh-processes;serialized;affinity="
+    "0-7|gates=semantic-result-f7b1542f30fef20a08da57c83bb200878cdf426d87b627"
+    "445e422c9a72825fb2;candidate-work-exact;stage-component-capacity-identities;"
+    "top-level-share-range<=0.05;category-share-range<=0.05|route="
+    "orchestration-median>=0.15:persistent-region;imbalance-median>=0.15:"
+    "partition-balance;else-largest-category-share>=0.20&&lead>=1.20:single-"
+    "discriminator;else:no-optimization|reference=closed|credit=next-"
+    "mechanical-research-only";
+
+} // namespace
+
+SplitBoundaryReport
+run_nominal_hydro_split_incoming_phase_timing_controls() {
+    constexpr int worker_count = 8;
+    omp_set_dynamic(0);
+    omp_set_max_active_levels(1);
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index = build_joint_static_support_index(
+        tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding = bind_joint_static_support_index(
+        &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP10SIR_IDENTITY_PROJECTION)
+            == B4EP10SIR_IDENTITY_SHA256
+        && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && index.passed && binding.passed;
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    JointTopologySupersetCache cache;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        const JointPhaseClock::time_point transaction_start =
+            JointPhaseClock::now();
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true, true, false, false, worker_count,
+            true, false, false, false, false, false, false, false, true);
+        add_joint_parallel_duration(
+            transaction.trace.owner_parallel.phase_timing,
+            transaction_start,
+            transaction.trace.owner_parallel.phase_timing.transaction_total_ns,
+            transaction.trace.owner_parallel.phase_timing.transaction_calls);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const double candidate_active_ratio = b4ep3i_candidate_active_ratio(cache);
+    const bool parent_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0;
+    const bool transaction_exact = b4ep1_queries_work_only_exact(
+            transaction.trace)
+        && transaction.trace.query_chain_sha256
+            == "6a220a4e6f4d6d06ab54fe043a9ddf49606aae40e598e43f1c331c78b7802991";
+    const bool physics_exact = b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical;
+    const bool cache_exact = transaction.passed && !cache.failed
+        && cache.queries == 226U && cache.rebuilds == 1U
+        && cache.reuses == 225U && cache.certificate_passes == 225U
+        && cache.certificate_failures == 0U && cache.fallback_builds == 0U
+        && cache.maximum_candidate_degree == 122U
+        && cache.active_pair_visits == 85716150U
+        && std::isfinite(candidate_active_ratio)
+        && candidate_active_ratio <= 1.25;
+    const bool coefficient_exact = transaction.passed
+        && transaction.trace.coefficient_tape_builds == 226U
+        && transaction.trace.coefficient_pairs == 85716150U
+        && transaction.trace.coefficient_kernel_evaluations == 171432300U
+        && transaction.trace.coefficient_hvp_lookups == 971831424U
+        && transaction.trace.coefficient_mismatches == 0U
+        && transaction.trace.coefficient_fallbacks == 0U;
+    const bool fusion_exact = transaction.passed
+        && transaction.trace.fused_workspace_builds == 226U
+        && transaction.trace.fused_pair_visits == 85716150U
+        && transaction.trace.fused_active_directed_visits == 131987230U
+        && transaction.trace.fused_center_visits == 1356000U
+        && transaction.trace.fusion_mismatches == 0U
+        && transaction.trace.fusion_fallbacks == 0U;
+    const bool work_exact = transaction.passed
+        && transaction.trace.total_pairs == 85716150U
+        && transaction.trace.total_directed == 150845996U
+        && transaction.trace.total_active_directed == 131987230U
+        && transaction.trace.total_fluid_centers == 1356000U
+        && static_work.static_index_builds == 1U
+        && static_work.workspace_builds == 227U
+        && adjacency_work.workspace_builds == 227U
+        && adjacency_work.flat_offset_records == 1362227U
+        && adjacency_work.flat_pair_index_records == 151461068U
+        && adjacency_work.csr_ownership_transfers == 227U
+        && transaction.retention.transfers == 42
+        && transaction.retention.reads == 42
+        && transaction.retention.releases == 42
+        && transaction.retention.live_retained == 0
+        && transaction.trace.live_workspaces == 0;
+    const JointParallelTrace& parallel = transaction.trace.owner_parallel;
+    const bool parallel_exact = transaction.passed && parallel.enabled
+        && parallel.requested_workers == worker_count && !parallel.failed
+        && parallel.regions == 4089U
+        && parallel.logical_partitions == 261696U
+        && parallel.minimum_observed_team == worker_count
+        && parallel.maximum_observed_team == worker_count
+        && parallel.team_mismatches == 0U
+        && parallel.coverage_mismatches == 0U
+        && parallel.worker_failures == 0U
+        && parallel.topology_calls == 226U
+        && parallel.evaluation_calls == 226U
+        && parallel.evaluation_density_gathers == 150845996U
+        && parallel.evaluation_directed_values == 131987230U
+        && parallel.evaluation_target_gathers == 263974460U
+        && parallel.plan_builds == 226U && parallel.hvp_calls == 459U
+        && parallel.hvp_directed_values == 242957856U
+        && parallel.hvp_target_gathers == 485915712U;
+    const JointIncomingConstructionAuditTrace& candidate =
+        parallel.incoming_construction_audit;
+    const bool candidate_exact = candidate.candidate_enabled
+        && !candidate.enabled && candidate.candidate_builds == 226U
+        && candidate.candidate_evaluation_calls == 226U
+        && candidate.candidate_hvp_calls == 459U
+        && candidate.candidate_incoming_full_entries == 454936226U
+        && candidate.candidate_incoming_retained_entries == 374945086U
+        && candidate.candidate_own_retained_entries == 374945086U
+        && candidate.candidate_failures == 0U
+        && candidate.plan_audits == 0U
+        && candidate.directed_slots == 150845996U
+        && candidate.incoming_entries == 150845996U
+        && candidate.pair_visits == 171432300U
+        && candidate.support_csr_records > 0U
+        && candidate.endpoint_writes == 150845996U
+        && candidate.target_count_visits == 171432300U
+        && candidate.target_fill_visits == 171432300U
+        && candidate.added_regions == 678U
+        && candidate.added_logical_partitions == 43392U
+        && candidate.maximum_candidate_payload_bytes > 0U
+        && candidate.maximum_scratch_payload_bytes > 0U
+        && parallel.maximum_added_payload_bytes <= 67108864U
+        && candidate.order_mismatches == 0U
+        && candidate.coverage_mismatches == 0U
+        && candidate.fallbacks == 0U;
+
+    const std::string base_work_receipt = b4ep5_work_receipt(
+        parent, index, transaction, static_work, adjacency_work,
+        cache, candidate_active_ratio);
+    std::ostringstream work_material;
+    work_material << "nextengine.nonlocal.nsr3b4ep7i-work|v1|"
+                  << base_work_receipt << '|'
+                  << transaction.trace.fused_workspace_builds << ':'
+                  << transaction.trace.fused_pair_visits << ':'
+                  << transaction.trace.fused_active_directed_visits << ':'
+                  << transaction.trace.fused_center_visits << ':'
+                  << transaction.trace.fused_radius_evaluations << ':'
+                  << transaction.trace.fused_gradient_evaluations << ':'
+                  << transaction.trace.fused_second_evaluations << ':'
+                  << transaction.trace.fused_compression_evaluations;
+    const std::string work_receipt = sha256_hex(work_material.str());
+    std::ostringstream correspondence_material;
+    correspondence_material
+        << "nextengine.nonlocal.nsr3b4ep10sii-correspondence|v1|"
+        << output.frame_root << ':' << output.aggregate_root << '|'
+        << transaction.trajectory_sha256 << ':'
+        << transaction.legacy_ledger_sha256 << ':'
+        << transaction.policy_ledger_sha256 << '|'
+        << transaction.trace.query_chain_sha256 << '|'
+        << base_work_receipt << ':' << work_receipt << '|'
+        << candidate.candidate_builds << ':'
+        << candidate.candidate_evaluation_calls << ':'
+        << candidate.candidate_hvp_calls << '|'
+        << candidate.candidate_incoming_full_entries << ':'
+        << candidate.candidate_incoming_retained_entries << ':'
+        << candidate.candidate_own_retained_entries << '|'
+        << candidate.directed_slots << ':' << candidate.incoming_entries
+        << ':' << candidate.pair_visits << ':'
+        << candidate.support_csr_records << ':' << candidate.endpoint_writes
+        << '|' << candidate.target_count_visits << ':'
+        << candidate.target_fill_visits << '|'
+        << candidate.added_regions << ':'
+        << candidate.added_logical_partitions << '|'
+        << candidate.maximum_candidate_payload_bytes << ':'
+        << candidate.maximum_scratch_payload_bytes << ':'
+        << parallel.maximum_added_payload_bytes << '|'
+        << parent_exact << ':' << transaction_exact << ':' << physics_exact
+        << ':' << cache_exact << ':' << coefficient_exact << ':'
+        << fusion_exact << ':' << work_exact << ':' << parallel_exact << ':'
+        << candidate_exact;
+    const std::string correspondence_sha256 = sha256_hex(
+        correspondence_material.str());
+    const bool sii_exact = identity_exact && parent_exact
+        && transaction_exact && physics_exact && cache_exact
+        && coefficient_exact && fusion_exact && work_exact
+        && parallel_exact && candidate_exact
+        && correspondence_sha256
+            == "1e4bedbb2c3ed7512ee0a31e879c9d7ba7887dca1fb5e833c89f0c45b108a35d";
+    std::ostringstream sii_semantic;
+    sii_semantic << (sii_exact ? "PASS||" : "FAIL|SII_SEMANTICS|")
+        << B4EP10SII_IDENTITY_SHA256 << '|' << correspondence_sha256 << '|'
+        << parallel.regions << ':' << parallel.logical_partitions << '|'
+        << candidate.candidate_builds << ':'
+        << candidate.candidate_evaluation_calls << ':'
+        << candidate.candidate_hvp_calls << '|'
+        << candidate.candidate_incoming_full_entries << ':'
+        << candidate.candidate_incoming_retained_entries << ':'
+        << candidate.candidate_own_retained_entries << '|'
+        << parallel.maximum_added_payload_bytes << '|'
+        << candidate.candidate_failures << ':' << candidate.order_mismatches
+        << ':' << candidate.coverage_mismatches << ':'
+        << candidate.fallbacks;
+    const std::string sii_result_sha256 = sha256_hex(sii_semantic.str());
+    const bool sii_result_exact = sii_result_sha256
+        == "f7b1542f30fef20a08da57c83bb200878cdf426d87b627445e422c9a72825fb2";
+
+    const JointParallelPhaseTimingTrace& timing = parallel.phase_timing;
+    bool calls_exact = timing.enabled && timing.transaction_calls == 1U
+        && timing.topology_calls == 226U
+        && timing.evaluation_calls == 226U && timing.hvp_calls == 459U
+        && timing.executor_regions == 4089U;
+    for (std::size_t phase = 0U;
+         calls_exact && phase < JOINT_PARALLEL_PHASE_COUNT; ++phase) {
+        const std::size_t expected = phase < 18U ? 226U : 459U;
+        calls_exact = timing.phase_calls[phase] == expected
+            && timing.phase_ns[phase] > 0U;
+    }
+    std::uint64_t topology_components = 0U;
+    std::uint64_t evaluation_components = 0U;
+    std::uint64_t hvp_components = 0U;
+    const bool component_sums_safe = sum_parallel_phases(
+            timing, 0U, 9U, topology_components)
+        && sum_parallel_phases(timing, 9U, 18U, evaluation_components)
+        && sum_parallel_phases(
+            timing, 18U, JOINT_PARALLEL_PHASE_COUNT, hvp_components);
+    std::uint64_t stage_sum = 0U;
+    const bool stage_sum_safe = add_checked_u64(
+            timing.topology_total_ns, stage_sum)
+        && add_checked_u64(timing.evaluation_total_ns, stage_sum)
+        && add_checked_u64(timing.hvp_total_ns, stage_sum);
+    const bool capacity_multiply_safe =
+        timing.executor_region_wall_ns
+            <= std::numeric_limits<std::uint64_t>::max() / worker_count
+        && timing.executor_max_active_ns
+            <= std::numeric_limits<std::uint64_t>::max() / worker_count;
+    const std::uint64_t wall_capacity = capacity_multiply_safe
+        ? worker_count * timing.executor_region_wall_ns : 0U;
+    const std::uint64_t maximum_capacity = capacity_multiply_safe
+        ? worker_count * timing.executor_max_active_ns : 0U;
+    const bool capacity_ordered = capacity_multiply_safe
+        && timing.executor_active_ns <= maximum_capacity
+        && maximum_capacity <= wall_capacity;
+    const std::uint64_t imbalance_capacity = capacity_ordered
+        ? maximum_capacity - timing.executor_active_ns : 0U;
+    const std::uint64_t orchestration_capacity = capacity_ordered
+        ? wall_capacity - maximum_capacity : 0U;
+    std::uint64_t reconstructed_capacity = timing.executor_active_ns;
+    const bool capacity_identity = capacity_ordered
+        && add_checked_u64(imbalance_capacity, reconstructed_capacity)
+        && add_checked_u64(orchestration_capacity, reconstructed_capacity)
+        && reconstructed_capacity == wall_capacity;
+    const bool timing_exact = calls_exact && component_sums_safe
+        && topology_components <= timing.topology_total_ns
+        && evaluation_components <= timing.evaluation_total_ns
+        && hvp_components <= timing.hvp_total_ns
+        && stage_sum_safe && stage_sum <= timing.transaction_total_ns
+        && timing.transaction_total_ns > 0U && capacity_identity
+        && timing.failures == 0U;
+
+    std::uint64_t source_local_ns = 0U;
+    bool category_safe = true;
+    for (std::size_t phase = 9U; category_safe && phase < 14U; ++phase) {
+        category_safe = add_checked_u64(
+            timing.phase_ns[phase], source_local_ns);
+    }
+    category_safe = category_safe
+        && add_checked_u64(timing.phase_ns[15U], source_local_ns);
+    for (std::size_t phase = 18U; category_safe && phase < 21U; ++phase) {
+        category_safe = add_checked_u64(
+            timing.phase_ns[phase], source_local_ns);
+    }
+    std::uint64_t target_fold_ns = timing.phase_ns[16U];
+    category_safe = category_safe
+        && add_checked_u64(timing.phase_ns[21U], target_fold_ns);
+    std::uint64_t category_sum = 0U;
+    category_safe = category_safe
+        && add_checked_u64(timing.topology_total_ns, category_sum)
+        && add_checked_u64(source_local_ns, category_sum)
+        && add_checked_u64(target_fold_ns, category_sum)
+        && category_sum <= timing.transaction_total_ns;
+    const std::uint64_t control_ns = category_safe
+        ? timing.transaction_total_ns - category_sum : 0U;
+    category_safe = category_safe && control_ns > 0U
+        && add_checked_u64(control_ns, category_sum)
+        && category_sum == timing.transaction_total_ns
+        && source_local_ns > 0U && target_fold_ns > 0U;
+    const double transaction_ns = static_cast<double>(
+        timing.transaction_total_ns);
+    const auto share = [&](std::uint64_t value) {
+        return timing.transaction_total_ns > 0U
+            ? static_cast<double>(value) / transaction_ns : 0.0;
+    };
+    const std::uint64_t residual_ns = stage_sum_safe
+            && stage_sum <= timing.transaction_total_ns
+        ? timing.transaction_total_ns - stage_sum : 0U;
+    const double active_share = wall_capacity > 0U
+        ? static_cast<double>(timing.executor_active_ns)
+            / static_cast<double>(wall_capacity) : 0.0;
+    const double imbalance_share = wall_capacity > 0U
+        ? static_cast<double>(imbalance_capacity)
+            / static_cast<double>(wall_capacity) : 0.0;
+    const double orchestration_share = wall_capacity > 0U
+        ? static_cast<double>(orchestration_capacity)
+            / static_cast<double>(wall_capacity) : 0.0;
+    const bool passed = sii_exact && sii_result_exact
+        && timing_exact && category_safe;
+    std::string failure;
+    if (!sii_exact || !sii_result_exact) failure = "SII_SEMANTICS";
+    else if (!timing_exact) failure = "PARALLEL_PHASE_TIMING";
+    else if (!category_safe) failure = "CATEGORY_ACCOUNTING";
+    std::ostringstream semantic_material;
+    semantic_material << (passed ? "PASS|" : "FAIL|") << failure << '|'
+        << B4EP10SIR_IDENTITY_SHA256 << '|' << correspondence_sha256 << '|'
+        << sii_result_sha256 << '|' << timing.transaction_calls << ':'
+        << timing.topology_calls << ':' << timing.evaluation_calls << ':'
+        << timing.hvp_calls << ':' << timing.executor_regions << '|'
+        << calls_exact << ':' << capacity_identity << ':'
+        << category_safe << ':' << timing.failures;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep10sir_split_incoming_residual_timing.v1\""
+           << ",\"identity_sha256\":\"" << B4EP10SIR_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"correspondence_sha256\":\""
+           << correspondence_sha256 << '"'
+           << ",\"b4ep10sii_result_sha256\":\""
+           << sii_result_sha256 << '"'
+           << ",\"b4ep10sii_result_exact\":"
+           << (sii_result_exact ? "true" : "false")
+           << ",\"roots\":{\"frame\":\"" << output.frame_root
+           << "\",\"aggregate\":\"" << output.aggregate_root
+           << "\",\"trajectory\":\"" << transaction.trajectory_sha256
+           << "\",\"legacy_ledger\":\""
+           << transaction.legacy_ledger_sha256
+           << "\",\"policy_ledger\":\""
+           << transaction.policy_ledger_sha256 << "\"}"
+           << ",\"phase_timing\":{\"transaction_total_ns\":"
+           << timing.transaction_total_ns
+           << ",\"topology_total_ns\":" << timing.topology_total_ns
+           << ",\"evaluation_total_ns\":" << timing.evaluation_total_ns
+           << ",\"hvp_total_ns\":" << timing.hvp_total_ns
+           << ",\"residual_ns\":" << residual_ns
+           << ",\"subphases\":[";
+    for (std::size_t phase = 0U;
+         phase < JOINT_PARALLEL_PHASE_COUNT; ++phase) {
+        if (phase != 0U) report << ',';
+        report << "{\"name\":\"" << B4EP10R1_PHASE_NAMES[phase]
+               << "\",\"ns\":" << timing.phase_ns[phase]
+               << ",\"calls\":" << timing.phase_calls[phase] << '}';
+    }
+    report << "]}"
+           << ",\"top_level_shares\":{\"topology\":"
+           << share(timing.topology_total_ns)
+           << ",\"evaluation\":" << share(timing.evaluation_total_ns)
+           << ",\"hvp\":" << share(timing.hvp_total_ns)
+           << ",\"residual\":" << share(residual_ns) << '}'
+           << ",\"categories\":{\"topology_ns\":"
+           << timing.topology_total_ns
+           << ",\"source_local_ns\":" << source_local_ns
+           << ",\"target_fold_ns\":" << target_fold_ns
+           << ",\"control_ns\":" << control_ns
+           << ",\"topology_share\":" << share(timing.topology_total_ns)
+           << ",\"source_local_share\":" << share(source_local_ns)
+           << ",\"target_fold_share\":" << share(target_fold_ns)
+           << ",\"control_share\":" << share(control_ns)
+           << ",\"sum_exact\":" << (category_safe ? "true" : "false")
+           << '}'
+           << ",\"executor_capacity\":{\"regions\":"
+           << timing.executor_regions
+           << ",\"logical_partitions\":" << parallel.logical_partitions
+           << ",\"wall_capacity_ns\":" << wall_capacity
+           << ",\"active_ns\":" << timing.executor_active_ns
+           << ",\"imbalance_ns\":" << imbalance_capacity
+           << ",\"orchestration_ns\":" << orchestration_capacity
+           << ",\"active_share\":" << active_share
+           << ",\"imbalance_share\":" << imbalance_share
+           << ",\"orchestration_share\":" << orchestration_share
+           << ",\"identity_exact\":"
+           << (capacity_identity ? "true" : "false") << '}'
+           << ",\"timing_exact\":" << (timing_exact ? "true" : "false")
+           << ",\"durations_excluded_from_result\":true"
+           << ",\"speedup_claim\":false"
            << ",\"b4e2_execution_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
