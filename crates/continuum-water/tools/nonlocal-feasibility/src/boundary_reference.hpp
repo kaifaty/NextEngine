@@ -150,6 +150,7 @@ SplitBoundaryReport run_al_binary128_accepted_sign_oracle_controls();
 SplitBoundaryReport run_al_divided_private_outer_continuation_controls();
 SplitBoundaryReport run_al_divided_full_private_transaction_controls();
 SplitBoundaryReport run_al_sparse_workspace_equivalence_controls();
+SplitBoundaryReport run_al_nominal_prerequisites_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

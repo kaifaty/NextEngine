@@ -48812,9 +48812,8 @@ struct ALSparseWorkspace {
     std::size_t payload_bytes = 0U;
 };
 
-ALSparseWorkspace build_al_sparse_workspace(
-    const std::vector<Vec3>& fluid,
-    const std::vector<Vec3>& boundary,
+ALSparseWorkspace build_al_sparse_workspace_from_neighborhood(
+    JointNeighborhood neighborhood,
     const std::vector<double>& multiplier,
     ALSparseWorkTrace* work = nullptr) {
     ALSparseWorkspace result;
@@ -48824,18 +48823,17 @@ ALSparseWorkspace build_al_sparse_workspace(
         work->maximum_live_workspaces = std::max(
             work->maximum_live_workspaces, work->live_workspaces);
     }
-    result.neighborhood = build_joint_neighborhood(
-        tagged_points(fluid), tagged_points(boundary), true,
-        nullptr, true);
+    result.neighborhood = std::move(neighborhood);
     if (!result.neighborhood.passed
-        || multiplier.size() != fluid.size()) {
+        || multiplier.size() != result.neighborhood.fluid.size()) {
         result.failure = result.neighborhood.passed
             ? "AL_SPARSE_MULTIPLIER_SIZE"
             : result.neighborhood.failure;
         return result;
     }
-    const std::size_t fluid_count = fluid.size();
-    const std::size_t total_count = fluid_count + boundary.size();
+    const std::size_t fluid_count = result.neighborhood.fluid.size();
+    const std::size_t total_count = fluid_count
+        + result.neighborhood.support.size();
     result.support.gradient.resize(total_count);
     result.support.density.assign(fluid_count, MASS * weight(0.0));
     result.radius.resize(result.neighborhood.pairs.size());
@@ -48933,6 +48931,31 @@ ALSparseWorkspace build_al_sparse_workspace(
     return result;
 }
 
+ALSparseWorkspace build_al_sparse_workspace(
+    const std::vector<Vec3>& fluid,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    ALSparseWorkTrace* work = nullptr) {
+    return build_al_sparse_workspace_from_neighborhood(
+        build_joint_neighborhood(
+            tagged_points(fluid), tagged_points(boundary), true,
+            nullptr, true), multiplier, work);
+}
+
+[[maybe_unused]] ALSparseWorkspace
+build_al_sparse_workspace_with_static_support(
+    const std::vector<Vec3>& fluid,
+    const JointStaticSupportBinding& binding,
+    const std::vector<double>& multiplier,
+    ALSparseWorkTrace* work = nullptr,
+    StaticSupportWorkTrace* static_work = nullptr,
+    FlatAdjacencyWorkTrace* adjacency_work = nullptr) {
+    return build_al_sparse_workspace_from_neighborhood(
+        build_joint_neighborhood_with_static_support(
+            tagged_points(fluid), &binding, true, static_work, true,
+            adjacency_work), multiplier, work);
+}
+
 void release_al_sparse_workspace(
     ALSparseWorkspace& workspace, ALSparseWorkTrace* work) {
     workspace = ALSparseWorkspace{};
@@ -49017,14 +49040,19 @@ ALVectorInnerState evaluate_al_vector_inner(
     const std::vector<Vec3>& position,
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& boundary,
-    const std::vector<double>& multiplier) {
+    const std::vector<double>& multiplier,
+    double time_step = TIME_STEP) {
     ALVectorInnerState result;
+    if (position.size() != predicted.size()
+        || !std::isfinite(time_step) || time_step <= 0.0) {
+        return result;
+    }
     result.support = evaluate_al_vector_support(
         position, boundary, multiplier);
     result.total = result.support.energy;
     result.gradient = fluid_part(
         result.support.gradient, position.size());
-    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    const double inertia_scale = MASS / (time_step * time_step);
     for (std::size_t index = 0U; index < position.size(); ++index) {
         const Vec3 displacement = position[index] - predicted[index];
         result.total += 0.5 * inertia_scale * norm_squared(displacement);
@@ -49037,13 +49065,17 @@ std::vector<Vec3> apply_al_vector_inner_hessian(
     const std::vector<Vec3>& position,
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
-    const std::vector<Vec3>& direction) {
+    const std::vector<Vec3>& direction,
+    double time_step = TIME_STEP) {
+    if (!std::isfinite(time_step) || time_step <= 0.0) {
+        throw std::invalid_argument("AL dense HVP time step");
+    }
     std::vector<Vec3> joint(direction.size() + boundary.size());
     std::copy(direction.begin(), direction.end(), joint.begin());
     std::vector<Vec3> result = fluid_part(
         apply_al_vector_hessian(
             position, boundary, multiplier, joint), position.size());
-    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    const double inertia_scale = MASS / (time_step * time_step);
     for (std::size_t index = 0U; index < result.size(); ++index) {
         result[index] += inertia_scale * direction[index];
     }
@@ -49062,9 +49094,11 @@ ALSparseInnerState evaluate_al_sparse_inner(
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
+    double time_step,
     ALSparseWorkTrace* work) {
     ALSparseInnerState result;
-    if (position.size() != predicted.size()) {
+    if (position.size() != predicted.size()
+        || !std::isfinite(time_step) || time_step <= 0.0) {
         return result;
     }
     result.workspace = build_al_sparse_workspace(
@@ -49075,7 +49109,7 @@ ALSparseInnerState evaluate_al_sparse_inner(
     result.total = result.workspace.support.energy;
     result.gradient = fluid_part(
         result.workspace.support.gradient, position.size());
-    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    const double inertia_scale = MASS / (time_step * time_step);
     for (std::size_t index = 0U; index < position.size(); ++index) {
         const Vec3 displacement = position[index] - predicted[index];
         result.total += 0.5 * inertia_scale * norm_squared(displacement);
@@ -49089,13 +49123,17 @@ ALSparseInnerState evaluate_al_sparse_inner(
 
 std::vector<Vec3> apply_al_sparse_inner_hessian(
     const ALSparseWorkspace& workspace,
-    const std::vector<Vec3>& direction) {
+    const std::vector<Vec3>& direction,
+    double time_step) {
+    if (!std::isfinite(time_step) || time_step <= 0.0) {
+        throw std::invalid_argument("AL sparse HVP time step");
+    }
     std::vector<Vec3> joint(
         direction.size() + workspace.neighborhood.support.size());
     std::copy(direction.begin(), direction.end(), joint.begin());
     std::vector<Vec3> result = fluid_part(
         apply_al_sparse_hessian(workspace, joint), direction.size());
-    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    const double inertia_scale = MASS / (time_step * time_step);
     for (std::size_t index = 0U; index < result.size(); ++index) {
         result[index] += inertia_scale * direction[index];
     }
@@ -49106,6 +49144,7 @@ std::vector<Vec3> al_sparse_trust_step(
     const ALSparseWorkspace& workspace,
     const std::vector<Vec3>& gradient,
     double radius,
+    double time_step,
     int& hvp_calls,
     bool& negative_curvature) {
     std::vector<Vec3> point(gradient.size());
@@ -49117,7 +49156,8 @@ std::vector<Vec3> al_sparse_trust_step(
     for (std::size_t iteration = 0U;
          iteration < 3U * gradient.size(); ++iteration) {
         const std::vector<Vec3> image =
-            apply_al_sparse_inner_hessian(workspace, direction);
+            apply_al_sparse_inner_hessian(
+                workspace, direction, time_step);
         ++hvp_calls;
         const double curvature = flat_dot(direction, image);
         if (!std::isfinite(curvature) || curvature <= 0.0) {
@@ -49214,12 +49254,28 @@ std::vector<Vec3> al_vector_trust_step(
 }
 
 double al_vector_scaled_stationarity(
-    const std::vector<Vec3>& gradient) {
+    const std::vector<Vec3>& gradient,
+    double time_step = TIME_STEP) {
+    if (!std::isfinite(time_step) || time_step <= 0.0) {
+        return std::numeric_limits<double>::infinity();
+    }
     double maximum = 0.0;
     for (Vec3 value : gradient) {
         maximum = std::max(maximum, norm(value));
     }
-    return TIME_STEP * TIME_STEP / MASS * maximum / SPACING;
+    return time_step * time_step / MASS * maximum / SPACING;
+}
+
+double al_sparse_scaled_stationarity(
+    const std::vector<Vec3>& gradient, double time_step) {
+    if (!std::isfinite(time_step) || time_step <= 0.0) {
+        return std::numeric_limits<double>::infinity();
+    }
+    double maximum = 0.0;
+    for (Vec3 value : gradient) {
+        maximum = std::max(maximum, norm(value));
+    }
+    return time_step * time_step / MASS * maximum / SPACING;
 }
 
 ALVectorInnerSolve solve_al_vector_inner(
@@ -49573,20 +49629,22 @@ struct ALVectorInnerFloorTrace {
     std::vector<ALVectorInnerFloorTrial> trials;
 };
 
-double al_vector_direct_actual_reduction(
+double al_vector_direct_actual_reduction_dt(
     const std::vector<Vec3>& current_position,
     const std::vector<Vec3>& trial_position,
     const std::vector<Vec3>& predicted,
     const ALVectorSupport& current_support,
-    const ALVectorSupport& trial_support) {
+    const ALVectorSupport& trial_support,
+    double time_step) {
     if (current_position.size() != trial_position.size()
         || current_position.size() != predicted.size()
         || current_support.active_coefficient.size()
-            != trial_support.active_coefficient.size()) {
+            != trial_support.active_coefficient.size()
+        || !std::isfinite(time_step) || time_step <= 0.0) {
         return std::numeric_limits<double>::quiet_NaN();
     }
     double delta = 0.0;
-    const double inertia_scale = MASS / (2.0 * TIME_STEP * TIME_STEP);
+    const double inertia_scale = MASS / (2.0 * time_step * time_step);
     for (std::size_t index = 0U;
          index < current_position.size(); ++index) {
         const Vec3 step = trial_position[index] - current_position[index];
@@ -49602,6 +49660,17 @@ double al_vector_direct_actual_reduction(
         delta += (trial - current) * (trial + current) / (2.0 * KAPPA);
     }
     return -delta;
+}
+
+double al_vector_direct_actual_reduction(
+    const std::vector<Vec3>& current_position,
+    const std::vector<Vec3>& trial_position,
+    const std::vector<Vec3>& predicted,
+    const ALVectorSupport& current_support,
+    const ALVectorSupport& trial_support) {
+    return al_vector_direct_actual_reduction_dt(
+        current_position, trial_position, predicted,
+        current_support, trial_support, TIME_STEP);
 }
 
 ALVectorInnerFloorTrace trace_al_vector_inner_floor(
@@ -51158,10 +51227,12 @@ LongDoubleEnergyEvaluation evaluate_al_vector_inner_long_double(
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
-    bool compensated) {
+    bool compensated,
+    double time_step = TIME_STEP) {
     LongDoubleEnergyEvaluation result;
     if (position.size() != predicted.size()
-        || position.size() != multiplier.size()) {
+        || position.size() != multiplier.size()
+        || !std::isfinite(time_step) || time_step <= 0.0) {
         return result;
     }
     const std::size_t count = position.size();
@@ -51238,8 +51309,8 @@ LongDoubleEnergyEvaluation evaluate_al_vector_inner_long_double(
     long double phr_naive = 0.0L;
     long double inertia_naive = 0.0L;
     const long double inertia_scale = mass
-        / (static_cast<long double>(TIME_STEP)
-            * static_cast<long double>(TIME_STEP));
+        / (static_cast<long double>(time_step)
+            * static_cast<long double>(time_step));
     for (std::size_t center = 0U; center < count; ++center) {
         const long double constraint =
             density[center] / rest_density - 1.0L;
@@ -51303,16 +51374,21 @@ LongDoubleTrialEnergyAudit audit_al_vector_inner_long_double(
     const ALStepNormInnerTrial& trial,
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& boundary,
-    const std::vector<double>& multiplier) {
+    const std::vector<double>& multiplier,
+    double time_step = TIME_STEP) {
     LongDoubleTrialEnergyAudit result;
     result.current_naive = evaluate_al_vector_inner_long_double(
-        trial.current_position, predicted, boundary, multiplier, false);
+        trial.current_position, predicted, boundary, multiplier,
+        false, time_step);
     result.current_compensated = evaluate_al_vector_inner_long_double(
-        trial.current_position, predicted, boundary, multiplier, true);
+        trial.current_position, predicted, boundary, multiplier,
+        true, time_step);
     result.trial_naive = evaluate_al_vector_inner_long_double(
-        trial.trial_position, predicted, boundary, multiplier, false);
+        trial.trial_position, predicted, boundary, multiplier,
+        false, time_step);
     result.trial_compensated = evaluate_al_vector_inner_long_double(
-        trial.trial_position, predicted, boundary, multiplier, true);
+        trial.trial_position, predicted, boundary, multiplier,
+        true, time_step);
     result.naive_reduction = result.current_naive.total
         - result.trial_naive.total;
     result.compensated_reduction = result.current_compensated.total
@@ -51555,11 +51631,13 @@ Binary64DividedDifference evaluate_al_vector_inner_divided_difference(
     const std::vector<Vec3>& trial_position,
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& boundary,
-    const std::vector<double>& multiplier) {
+    const std::vector<double>& multiplier,
+    double time_step = TIME_STEP) {
     Binary64DividedDifference result;
     if (current_position.size() != trial_position.size()
         || current_position.size() != predicted.size()
-        || current_position.size() != multiplier.size()) {
+        || current_position.size() != multiplier.size()
+        || !std::isfinite(time_step) || time_step <= 0.0) {
         return result;
     }
     const std::size_t count = current_position.size();
@@ -51618,7 +51696,7 @@ Binary64DividedDifference evaluate_al_vector_inner_divided_difference(
     }
     Binary64CompensatedAccumulator phr_reduction;
     Binary64CompensatedAccumulator inertia_reduction;
-    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    const double inertia_scale = MASS / (time_step * time_step);
     for (std::size_t center = 0U; center < count; ++center) {
         const double current_constraint =
             current_density[center].value() / REST_DENSITY - 1.0;
@@ -51680,6 +51758,7 @@ Binary64DividedDifference evaluate_al_sparse_inner_divided_difference(
     const ALSparseWorkspace& trial,
     const std::vector<Vec3>& predicted,
     const std::vector<double>& multiplier,
+    double time_step,
     ALSparseWorkTrace* work = nullptr) {
     Binary64DividedDifference result;
     const std::size_t count = current.neighborhood.fluid.size();
@@ -51688,6 +51767,7 @@ Binary64DividedDifference evaluate_al_sparse_inner_divided_difference(
         || current.neighborhood.support.size()
             != trial.neighborhood.support.size()
         || predicted.size() != count || multiplier.size() != count
+        || !std::isfinite(time_step) || time_step <= 0.0
         || !exact_joint_points(current.neighborhood.support,
             trial.neighborhood.support)) {
         return result;
@@ -51773,7 +51853,7 @@ Binary64DividedDifference evaluate_al_sparse_inner_divided_difference(
     }
     Binary64CompensatedAccumulator phr_reduction;
     Binary64CompensatedAccumulator inertia_reduction;
-    const double inertia_scale = MASS / (TIME_STEP * TIME_STEP);
+    const double inertia_scale = MASS / (time_step * time_step);
     for (std::size_t center = 0U; center < count; ++center) {
         const double current_constraint =
             current_density[center].value() / REST_DENSITY - 1.0;
@@ -52077,11 +52157,13 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
     double stationarity_limit,
+    double time_step,
     ALSparseWorkTrace* work) {
     ALDividedPrivateInnerSolve result;
     result.position = initial;
     ALSparseInnerState current = evaluate_al_sparse_inner(
-        result.position, predicted, boundary, multiplier, work);
+        result.position, predicted, boundary, multiplier,
+        time_step, work);
     if (!current.passed) {
         result.all_finite = false;
         result.failure = "INITIAL_NONFINITE";
@@ -52091,7 +52173,7 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
     double trust_radius = 0.25 * SPACING;
     for (int trial_index = 0; trial_index < 64; ++trial_index) {
         result.final_stationarity =
-            al_vector_scaled_stationarity(current.gradient);
+            al_sparse_scaled_stationarity(current.gradient, time_step);
         if (result.final_stationarity <= stationarity_limit) {
             result.passed = true;
             release_al_sparse_workspace(current.workspace, work);
@@ -52105,9 +52187,9 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
         int hvp_calls = 0;
         const std::vector<Vec3> step = al_sparse_trust_step(
             current.workspace, current.gradient, trust_radius,
-            hvp_calls, record.negative_curvature);
+            time_step, hvp_calls, record.negative_curvature);
         const std::vector<Vec3> image = apply_al_sparse_inner_hessian(
-            current.workspace, step);
+            current.workspace, step, time_step);
         ++hvp_calls;
         record.hvp_calls = hvp_calls;
         result.hvp_calls += hvp_calls;
@@ -52119,19 +52201,21 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
             result.position, step, 1.0);
         record.trial_position = trial_position;
         ALSparseInnerState trial = evaluate_al_sparse_inner(
-            trial_position, predicted, boundary, multiplier, work);
+            trial_position, predicted, boundary, multiplier,
+            time_step, work);
         record.raw_reduction = current.total - trial.total;
-        record.direct_reduction = al_vector_direct_actual_reduction(
+        record.direct_reduction = al_vector_direct_actual_reduction_dt(
             result.position, trial_position, predicted,
-            current.workspace.support, trial.workspace.support);
+            current.workspace.support, trial.workspace.support,
+            time_step);
         const Binary64DividedDifference divided =
             evaluate_al_sparse_inner_divided_difference(
                 current.workspace, trial.workspace, predicted,
-                multiplier, work);
+                multiplier, time_step, work);
         const Binary64DividedDifference divided_repeat =
             evaluate_al_sparse_inner_divided_difference(
                 current.workspace, trial.workspace, predicted,
-                multiplier, nullptr);
+                multiplier, time_step, nullptr);
         record.divided_repeat_exact =
             al_binary64_divided_difference_exact(divided, divided_repeat);
         result.divided_repeat_exact = result.divided_repeat_exact
@@ -52180,7 +52264,8 @@ ALDividedPrivateInnerSolve solve_al_sparse_divided_private_inner(
             oracle_input.trial_position = trial_position;
             const LongDoubleTrialEnergyAudit oracle =
                 audit_al_vector_inner_long_double(
-                    oracle_input, predicted, boundary, multiplier);
+                    oracle_input, predicted, boundary, multiplier,
+                    time_step);
             record.oracle_audited = true;
             record.oracle_resolved = oracle.resolved;
             record.oracle_resolved_positive = oracle.resolved_positive;
@@ -52382,10 +52467,12 @@ Binary128EnergyEvaluation evaluate_al_vector_inner_binary128(
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
-    bool compensated) {
+    bool compensated,
+    double time_step = TIME_STEP) {
     Binary128EnergyEvaluation result;
     if (position.size() != predicted.size()
-        || position.size() != multiplier.size()) {
+        || position.size() != multiplier.size()
+        || !std::isfinite(time_step) || time_step <= 0.0) {
         return result;
     }
     const std::size_t count = position.size();
@@ -52452,8 +52539,9 @@ Binary128EnergyEvaluation evaluate_al_vector_inner_binary128(
     Binary128Accumulator inertia_compensated;
     Binary128 phr_naive = static_cast<Binary128>(0.0);
     Binary128 inertia_naive = static_cast<Binary128>(0.0);
-    const Binary128 time_step = static_cast<Binary128>(TIME_STEP);
-    const Binary128 inertia_scale = mass / (time_step * time_step);
+    const Binary128 time_step_quad = static_cast<Binary128>(time_step);
+    const Binary128 inertia_scale = mass
+        / (time_step_quad * time_step_quad);
     for (std::size_t center = 0U; center < count; ++center) {
         const Binary128 constraint =
             density[center] / rest_density - static_cast<Binary128>(1.0);
@@ -52515,22 +52603,260 @@ struct Binary128TrialEnergyAudit {
     Binary128 candidate_relative_error = static_cast<Binary128>(0.0);
 };
 
-Binary128TrialEnergyAudit audit_al_vector_inner_binary128(
+struct ALSparseBinary128WorkTrace {
+    std::size_t superset_builds = 0U;
+    std::size_t union_candidate_pairs = 0U;
+    std::size_t evaluation_pair_visits = 0U;
+    std::size_t all_pair_candidate_calls = 0U;
+};
+
+struct ALBinary128PairUnion {
+    bool passed = false;
+    std::string failure;
+    std::size_t fluid_count = 0U;
+    std::size_t support_count = 0U;
+    std::vector<JointPair> pairs;
+};
+
+ALBinary128PairUnion build_al_binary128_pair_union(
     const std::vector<Vec3>& current_position,
     const std::vector<Vec3>& trial_position,
+    const JointStaticSupportBinding& binding,
+    ALSparseBinary128WorkTrace* work = nullptr) {
+    ALBinary128PairUnion result;
+    if (current_position.size() != trial_position.size()
+        || !binding.passed || binding.index == nullptr
+        || binding.index->identity_sha256
+            != binding.expected_identity_sha256) {
+        result.failure = "AL_BINARY128_UNION_SOURCE";
+        return result;
+    }
+    const JointNeighborhood current = b4ep3_build_superset(
+        tagged_points(current_position), binding);
+    const JointNeighborhood trial = b4ep3_build_superset(
+        tagged_points(trial_position), binding);
+    if (work != nullptr) {
+        work->superset_builds += 2U;
+    }
+    if (!current.passed || !trial.passed
+        || current.fluid.size() != trial.fluid.size()
+        || current.support.size() != trial.support.size()) {
+        result.failure = !current.passed
+            ? current.failure
+            : (!trial.passed ? trial.failure
+                : "AL_BINARY128_UNION_LAYOUT");
+        return result;
+    }
+    for (std::size_t index = 0U; index < current.fluid.size(); ++index) {
+        if (current.fluid[index].id != trial.fluid[index].id) {
+            result.failure = "AL_BINARY128_UNION_FLUID_IDENTITY";
+            return result;
+        }
+    }
+    for (std::size_t index = 0U; index < current.support.size(); ++index) {
+        if (current.support[index].id != trial.support[index].id
+            || binary64_bits(current.support[index].position.x)
+                != binary64_bits(trial.support[index].position.x)
+            || binary64_bits(current.support[index].position.y)
+                != binary64_bits(trial.support[index].position.y)
+            || binary64_bits(current.support[index].position.z)
+                != binary64_bits(trial.support[index].position.z)) {
+            result.failure = "AL_BINARY128_UNION_SUPPORT_IDENTITY";
+            return result;
+        }
+    }
+    result.fluid_count = current.fluid.size();
+    result.support_count = current.support.size();
+    if (current.pairs.size() > std::numeric_limits<std::size_t>::max()
+            - trial.pairs.size()) {
+        result.failure = "AL_BINARY128_UNION_CAPACITY";
+        return result;
+    }
+    result.pairs.reserve(current.pairs.size() + trial.pairs.size());
+    std::size_t current_index = 0U;
+    std::size_t trial_index = 0U;
+    while (current_index < current.pairs.size()
+        || trial_index < trial.pairs.size()) {
+        if (trial_index == trial.pairs.size()
+            || (current_index < current.pairs.size()
+                && al_joint_pair_less(current.pairs[current_index],
+                    trial.pairs[trial_index]))) {
+            result.pairs.push_back(current.pairs[current_index++]);
+        } else if (current_index == current.pairs.size()
+            || al_joint_pair_less(trial.pairs[trial_index],
+                current.pairs[current_index])) {
+            result.pairs.push_back(trial.pairs[trial_index++]);
+        } else {
+            result.pairs.push_back(current.pairs[current_index]);
+            ++current_index;
+            ++trial_index;
+        }
+    }
+    if (!std::is_sorted(result.pairs.begin(), result.pairs.end(),
+            al_joint_pair_less)
+        || std::adjacent_find(result.pairs.begin(), result.pairs.end())
+            != result.pairs.end()) {
+        result.failure = "AL_BINARY128_UNION_ORDER";
+        return result;
+    }
+    if (work != nullptr) {
+        work->union_candidate_pairs += result.pairs.size();
+    }
+    result.passed = true;
+    return result;
+}
+
+Binary128EnergyEvaluation evaluate_al_sparse_inner_binary128(
+    const std::vector<Vec3>& position,
     const std::vector<Vec3>& predicted,
-    const std::vector<Vec3>& boundary,
     const std::vector<double>& multiplier,
+    const JointStaticSupportBinding& binding,
+    const ALBinary128PairUnion& candidate_union,
+    bool compensated,
+    double time_step,
+    ALSparseBinary128WorkTrace* work = nullptr) {
+    Binary128EnergyEvaluation result;
+    if (!candidate_union.passed || !binding.passed
+        || binding.index == nullptr
+        || binding.index->identity_sha256
+            != binding.expected_identity_sha256
+        || position.size() != predicted.size()
+        || position.size() != multiplier.size()
+        || position.size() != candidate_union.fluid_count
+        || binding.index->support.size()
+            != candidate_union.support_count
+        || !std::isfinite(time_step) || time_step <= 0.0) {
+        return result;
+    }
+    const std::size_t count = position.size();
+    std::vector<Binary128Vec3> fluid(count);
+    std::vector<Binary128Vec3> predicted_quad(count);
+    std::vector<Binary128Vec3> support(binding.index->support.size());
+    std::transform(position.begin(), position.end(), fluid.begin(),
+        al_binary128_vec3);
+    std::transform(predicted.begin(), predicted.end(),
+        predicted_quad.begin(), al_binary128_vec3);
+    std::transform(binding.index->support.begin(),
+        binding.index->support.end(), support.begin(),
+        [](const JointPoint& point) {
+            return al_binary128_vec3(point.position);
+        });
+    const Binary128 mass = static_cast<Binary128>(MASS);
+    const Binary128 rest_density = static_cast<Binary128>(REST_DENSITY);
+    const Binary128 kappa = static_cast<Binary128>(KAPPA);
+    const Binary128 horizon = static_cast<Binary128>(HORIZON);
+    std::vector<Binary128> density(
+        count, mass * al_binary128_weight(static_cast<Binary128>(0.0)));
+    std::vector<Binary128> density_correction(
+        count, static_cast<Binary128>(0.0));
+    const auto add_density = [&](std::size_t center, Binary128 value) {
+        if (!compensated) {
+            density[center] += value;
+            return;
+        }
+        const Binary128 adjusted = value - density_correction[center];
+        const Binary128 next = density[center] + adjusted;
+        density_correction[center] =
+            (next - density[center]) - adjusted;
+        density[center] = next;
+    };
+    for (const JointPair pair : candidate_union.pairs) {
+        if (work != nullptr) {
+            ++work->evaluation_pair_visits;
+        }
+        if (pair.fluid >= count
+            || pair.participant >= count + support.size()
+            || (pair.participant < count
+                && pair.participant <= pair.fluid)) {
+            return Binary128EnergyEvaluation{};
+        }
+        const Vec3 participant = pair.participant < count
+            ? position[pair.participant]
+            : binding.index->support[
+                pair.participant - count].position;
+        const Binary128Vec3 participant_quad = pair.participant < count
+            ? fluid[pair.participant]
+            : support[pair.participant - count];
+        const double binary_radius = norm(
+            position[pair.fluid] - participant);
+        const Binary128 quad_radius = al_binary128_norm(
+            fluid[pair.fluid] - participant_quad);
+        const bool binary_member = binary_radius <= HORIZON;
+        const bool quad_member = quad_radius <= horizon;
+        result.membership_mismatches +=
+            binary_member == quad_member ? 0U : 1U;
+        if (!quad_member) {
+            continue;
+        }
+        const Binary128 contribution = mass
+            * al_binary128_weight(quad_radius);
+        add_density(pair.fluid, contribution);
+        if (pair.participant < count) {
+            add_density(pair.participant, contribution);
+            ++result.fluid_pairs;
+        } else {
+            ++result.boundary_pairs;
+        }
+    }
+    Binary128Accumulator phr_compensated;
+    Binary128Accumulator inertia_compensated;
+    Binary128 phr_naive = static_cast<Binary128>(0.0);
+    Binary128 inertia_naive = static_cast<Binary128>(0.0);
+    const Binary128 time_step_quad = static_cast<Binary128>(time_step);
+    const Binary128 inertia_scale = mass
+        / (time_step_quad * time_step_quad);
+    for (std::size_t center = 0U; center < count; ++center) {
+        const Binary128 constraint = density[center] / rest_density
+            - static_cast<Binary128>(1.0);
+        const Binary128 lambda =
+            static_cast<Binary128>(multiplier[center]);
+        const Binary128 active = std::max(
+            static_cast<Binary128>(0.0),
+            lambda + kappa * constraint);
+        const Binary128 phr_term =
+            (active * active - lambda * lambda)
+            / (static_cast<Binary128>(2.0) * kappa);
+        const Binary128Vec3 displacement =
+            fluid[center] - predicted_quad[center];
+        const Binary128 inertia_term = static_cast<Binary128>(0.5)
+            * inertia_scale * (displacement.x * displacement.x
+                + displacement.y * displacement.y
+                + displacement.z * displacement.z);
+        if (compensated) {
+            phr_compensated.add(phr_term);
+            inertia_compensated.add(inertia_term);
+        } else {
+            phr_naive += phr_term;
+            inertia_naive += inertia_term;
+        }
+    }
+    result.phr = compensated ? phr_compensated.value() : phr_naive;
+    result.inertia = compensated
+        ? inertia_compensated.value() : inertia_naive;
+    if (compensated) {
+        Binary128Accumulator total;
+        total.add(result.phr);
+        total.add(result.inertia);
+        result.total = total.value();
+    } else {
+        result.total = result.phr + result.inertia;
+    }
+    result.finite_values = finiteq(result.total) != 0
+        && finiteq(result.phr) != 0 && finiteq(result.inertia) != 0;
+    return result;
+}
+
+Binary128TrialEnergyAudit finalize_al_binary128_trial_energy_audit(
+    Binary128EnergyEvaluation current_naive,
+    Binary128EnergyEvaluation current_compensated,
+    Binary128EnergyEvaluation trial_naive,
+    Binary128EnergyEvaluation trial_compensated,
     double candidate_reduction) {
     Binary128TrialEnergyAudit result;
-    result.current_naive = evaluate_al_vector_inner_binary128(
-        current_position, predicted, boundary, multiplier, false);
-    result.current_compensated = evaluate_al_vector_inner_binary128(
-        current_position, predicted, boundary, multiplier, true);
-    result.trial_naive = evaluate_al_vector_inner_binary128(
-        trial_position, predicted, boundary, multiplier, false);
-    result.trial_compensated = evaluate_al_vector_inner_binary128(
-        trial_position, predicted, boundary, multiplier, true);
+    result.current_naive = std::move(current_naive);
+    result.current_compensated = std::move(current_compensated);
+    result.trial_naive = std::move(trial_naive);
+    result.trial_compensated = std::move(trial_compensated);
     result.naive_reduction = result.current_naive.total
         - result.trial_naive.total;
     result.compensated_reduction = result.current_compensated.total
@@ -52545,15 +52871,19 @@ Binary128TrialEnergyAudit audit_al_vector_inner_binary128(
     result.naive_ulp_ratio = result.ulp > static_cast<Binary128>(0.0)
         ? result.naive_reduction / result.ulp
         : static_cast<Binary128>(0.0);
-    result.compensated_ulp_ratio = result.ulp > static_cast<Binary128>(0.0)
+    result.compensated_ulp_ratio =
+        result.ulp > static_cast<Binary128>(0.0)
         ? result.compensated_reduction / result.ulp
         : static_cast<Binary128>(0.0);
     result.sign_agrees =
         (result.naive_reduction > static_cast<Binary128>(0.0)
-            && result.compensated_reduction > static_cast<Binary128>(0.0))
+            && result.compensated_reduction
+                > static_cast<Binary128>(0.0))
         || (result.naive_reduction < static_cast<Binary128>(0.0)
-            && result.compensated_reduction < static_cast<Binary128>(0.0));
-    const Binary128 resolution = static_cast<Binary128>(4096.0) * result.ulp;
+            && result.compensated_reduction
+                < static_cast<Binary128>(0.0));
+    const Binary128 resolution =
+        static_cast<Binary128>(4096.0) * result.ulp;
     result.resolved = result.sign_agrees
         && fabsq(result.naive_reduction) >= resolution
         && fabsq(result.compensated_reduction) >= resolution;
@@ -52583,6 +52913,71 @@ Binary128TrialEnergyAudit audit_al_vector_inner_binary128(
         && finiteq(result.compensated_ulp_ratio) != 0
         && finiteq(result.candidate_relative_error) != 0;
     return result;
+}
+
+Binary128TrialEnergyAudit audit_al_vector_inner_binary128(
+    const std::vector<Vec3>& current_position,
+    const std::vector<Vec3>& trial_position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    double candidate_reduction,
+    double time_step = TIME_STEP) {
+    Binary128EnergyEvaluation current_naive =
+        evaluate_al_vector_inner_binary128(
+        current_position, predicted, boundary, multiplier,
+        false, time_step);
+    Binary128EnergyEvaluation current_compensated =
+        evaluate_al_vector_inner_binary128(
+        current_position, predicted, boundary, multiplier,
+        true, time_step);
+    Binary128EnergyEvaluation trial_naive =
+        evaluate_al_vector_inner_binary128(
+        trial_position, predicted, boundary, multiplier,
+        false, time_step);
+    Binary128EnergyEvaluation trial_compensated =
+        evaluate_al_vector_inner_binary128(
+        trial_position, predicted, boundary, multiplier,
+        true, time_step);
+    return finalize_al_binary128_trial_energy_audit(
+        std::move(current_naive), std::move(current_compensated),
+        std::move(trial_naive), std::move(trial_compensated),
+        candidate_reduction);
+}
+
+[[maybe_unused]] Binary128TrialEnergyAudit
+audit_al_sparse_inner_binary128(
+    const std::vector<Vec3>& current_position,
+    const std::vector<Vec3>& trial_position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<double>& multiplier,
+    const JointStaticSupportBinding& binding,
+    double candidate_reduction,
+    double time_step,
+    ALSparseBinary128WorkTrace* work = nullptr) {
+    const ALBinary128PairUnion candidate_union =
+        build_al_binary128_pair_union(
+            current_position, trial_position, binding, work);
+    Binary128EnergyEvaluation current_naive =
+        evaluate_al_sparse_inner_binary128(
+            current_position, predicted, multiplier, binding,
+            candidate_union, false, time_step, work);
+    Binary128EnergyEvaluation current_compensated =
+        evaluate_al_sparse_inner_binary128(
+            current_position, predicted, multiplier, binding,
+            candidate_union, true, time_step, work);
+    Binary128EnergyEvaluation trial_naive =
+        evaluate_al_sparse_inner_binary128(
+            trial_position, predicted, multiplier, binding,
+            candidate_union, false, time_step, work);
+    Binary128EnergyEvaluation trial_compensated =
+        evaluate_al_sparse_inner_binary128(
+            trial_position, predicted, multiplier, binding,
+            candidate_union, true, time_step, work);
+    return finalize_al_binary128_trial_energy_audit(
+        std::move(current_naive), std::move(current_compensated),
+        std::move(trial_naive), std::move(trial_compensated),
+        candidate_reduction);
 }
 
 std::string al_binary128_text(Binary128 value) {
@@ -52803,12 +53198,13 @@ ALDividedOuterUpdate al_sparse_divided_private_outer_update(
     const std::vector<double>& multiplier,
     int outer,
     double stationarity_limit,
+    double time_step,
     ALSparseWorkTrace* work) {
     ALDividedOuterUpdate result;
     const ALDividedPrivateInnerSolve inner =
         solve_al_sparse_divided_private_inner(
             predicted, position, fixture.boundary, multiplier,
-            stationarity_limit, work);
+            stationarity_limit, time_step, work);
     result.inner_root = al_divided_private_inner_root(inner);
     result.trials = inner.trials;
     ALVectorOuterRecord& record = result.record.state;
@@ -52830,7 +53226,7 @@ ALDividedOuterUpdate al_sparse_divided_private_outer_update(
             audit_al_vector_inner_binary128(
                 trial.current_position, trial.trial_position,
                 predicted, fixture.boundary, multiplier,
-                trial.divided_reduction));
+                trial.divided_reduction, time_step));
         const Binary128TrialEnergyAudit& audit =
             result.candidate_audits.back();
         result.candidate_audit_roots.push_back(
@@ -52869,7 +53265,8 @@ ALDividedOuterUpdate al_sparse_divided_private_outer_update(
     }
 
     ALSparseInnerState inner_state = evaluate_al_sparse_inner(
-        inner.position, predicted, fixture.boundary, multiplier, work);
+        inner.position, predicted, fixture.boundary, multiplier,
+        time_step, work);
     result.position = inner.position;
     result.multiplier.resize(multiplier.size());
     result.support = inner_state.workspace.support;
@@ -53175,6 +53572,7 @@ ALDividedOuterContinuation solve_al_sparse_divided_full_private_transaction(
     const std::vector<Vec3>& predicted,
     std::vector<Vec3> position,
     std::vector<double> multiplier,
+    double time_step,
     ALSparseWorkTrace* work) {
     constexpr double stationarity_limit = 1.0e-10;
     constexpr int maximum_outer = 64;
@@ -53187,7 +53585,7 @@ ALDividedOuterContinuation solve_al_sparse_divided_full_private_transaction(
         ALDividedOuterUpdate update =
             al_sparse_divided_private_outer_update(
                 fixture, predicted, position, multiplier, outer,
-                stationarity_limit, work);
+                stationarity_limit, time_step, work);
         al_divided_outer_observe_update(result, update);
         if (!update.passed) {
             if (!update.sign_contradiction
@@ -53231,7 +53629,8 @@ ALDividedOuterContinuation solve_al_sparse_divided_full_private_transaction(
         result.warm_holdout_attempted = true;
         result.warm_holdout = al_sparse_divided_private_outer_update(
             fixture, predicted, result.position, result.multiplier,
-            result.confirmation_index + 1, stationarity_limit, work);
+            result.confirmation_index + 1, stationarity_limit,
+            time_step, work);
         al_divided_outer_observe_update(result, result.warm_holdout);
         if (!result.warm_holdout.passed) {
             if (!result.warm_holdout.sign_contradiction
@@ -59177,7 +59576,8 @@ void audit_al_sparse_update_divided(
                 predicted, boundary, multiplier);
         const Binary64DividedDifference sparse =
             evaluate_al_sparse_inner_divided_difference(
-                current, trial, predicted, multiplier, &work);
+                current, trial, predicted, multiplier,
+                TIME_STEP, &work);
         audit.exact = audit.exact
             && al_binary64_divided_difference_exact(dense, sparse);
         ++audit.trials;
@@ -59323,7 +59723,8 @@ SplitBoundaryReport run_al_sparse_workspace_equivalence_controls() {
     const Binary64DividedDifference crossing_sparse =
         evaluate_al_sparse_inner_divided_difference(
             crossing_current_sparse, crossing_trial_sparse,
-            crossing_current, crossing_multiplier, &tiny_work);
+            crossing_current, crossing_multiplier,
+            TIME_STEP, &tiny_work);
     const bool crossing_exact =
         al_binary64_divided_difference_exact(
             crossing_dense, crossing_sparse)
@@ -59335,15 +59736,15 @@ SplitBoundaryReport run_al_sparse_workspace_equivalence_controls() {
     const ALDividedOuterContinuation sparse_active =
         solve_al_sparse_divided_full_private_transaction(
             fixture, active_prediction, active_prediction,
-            zero_multiplier, &tiny_work);
+            zero_multiplier, TIME_STEP, &tiny_work);
     const ALDividedOuterContinuation sparse_active_repeat =
         solve_al_sparse_divided_full_private_transaction(
             fixture, active_prediction, active_prediction,
-            zero_multiplier, &tiny_work);
+            zero_multiplier, TIME_STEP, &tiny_work);
     const ALDividedOuterContinuation sparse_inactive =
         solve_al_sparse_divided_full_private_transaction(
             fixture, inactive_prediction, inactive_prediction,
-            zero_multiplier, &tiny_work);
+            zero_multiplier, TIME_STEP, &tiny_work);
     const std::string sparse_active_root =
         al_divided_outer_continuation_root(sparse_active);
     const std::string sparse_active_repeat_root =
@@ -59553,6 +59954,631 @@ SplitBoundaryReport run_al_sparse_workspace_equivalence_controls() {
            << ",\"timing_admitted\":false,\"speedup_claim\":false"
            << ",\"sparse_al_workspace_authorized\":"
            << (passed && route == "SPARSE_AL_WORKSPACE_CANDIDATE"
+                   ? "true" : "false")
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R15_IDENTITY_SHA256 =
+    "1ddc90c68e9113a8fc161a42670e0e35527f2aa2194baf71c93d97d10c113dd3";
+constexpr const char* B4E2D7R15_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r15-nominal-al-prerequisites|v1|"
+    "parent=a3ad06cda68b832ba21d6ab3b0315607089a1888:"
+    "b9b37dad69dd48066eec693cb327001efe5121111aaf60b5b8888a78e0559e61:"
+    "88d83b6ec6e659f405595b22e13df363bef2ae4c1f99e4838b54f06a585ad1d3|"
+    "legacy=d7r14-complete-bytes;"
+    "active-root4d6b8c58c2db672bea5fcae0a4d5fb077cc8587398540128bcb09b6a75400ef8;"
+    "inactive-root6df37c6ae522de96d3a300abefcbf035af55e04d9f6d7bf77b6cedbea5f1ab1e|"
+    "dt=explicit-positive-binary64;legacy=0x3f71111111111111;"
+    "dam-step1-alignment-substeps78;substep=0x3f0c01c01c01c01c;"
+    "thread=inertia,gradient,hvp,stationarity,direct,divided,long-double,binary128|"
+    "support=joint-static-support-index;binding-identity;flat-csr;canonical-pairs;"
+    "no-support-recanonicalization-per-workspace|"
+    "audit=sparse-binary128;superset-skin0.04h;current-trial-union;"
+    "binary128-membership-recomputed;runtime-state-binary64|"
+    "audit-roots=3f6b74612d212d48ee40ba1bc2fffd27a23a20cc1d2c390cf2e1b59194a4a8fc,"
+    "a11e56103bc1ea0b3a88b4b82354a0e66240db3e9057f98a1a0f987951cfe0aa,"
+    "e06edef57dda0cf7cabc75de35365ea57432f19d4706879fc7086afb40865e51,"
+    "b0db278089eb109d19879de3433fb2d69c6160f755fee572f75fdda86c584312|"
+    "oracle=legacy-transaction-bit-exact;substep-dense-sparse-evaluation-gradient-"
+    "hvp-divided;four-binary128-audits-exact;active-inactive;forced-dt-mutation;"
+    "support-binding-mutation;lifecycle|nominal=decoded-frame-zero"
+    "0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7;"
+    "pair-rootfb2b8f8b4c0227cf5d8a7a43ce518ed72b2e5d5cda31fb8e8c17a5727c24ba13;"
+    "workspace-only;solve-none|work=all-pair-candidate-calls0;workspace-live<=2;"
+    "static-index-builds1;timing=none|routes=explicit-dt-mismatch;"
+    "sparse-binary128-mismatch;static-support-binding-mismatch;"
+    "nominal-al-prerequisites-confirmed|precedence=dt,binary128,support,confirmed|"
+    "runs=2-release-builds;2-processes;byte-exact|trajectory=none;"
+    "nominal-solve=none;public-commit=none;physics-mutation=none;"
+    "runtime-binary128=none|credit=one-nominal-al-prerequisite-set-only";
+
+bool al_sparse_inner_exact(
+    const ALVectorInnerState& dense,
+    const ALSparseInnerState& sparse) {
+    return sparse.passed
+        && binary64_bits(dense.total) == binary64_bits(sparse.total)
+        && exact_vec3_values(dense.gradient, sparse.gradient)
+        && al_sparse_support_exact(
+            dense.support, sparse.workspace.support);
+}
+
+bool al_sparse_work_lifecycle_exact(const ALSparseWorkTrace& work) {
+    return work.workspace_builds == work.workspace_releases
+        && work.live_workspaces == 0U
+        && work.maximum_live_workspaces <= 2U
+        && work.all_pair_candidate_calls == 0U
+        && !work.lifecycle_underflow;
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_nominal_prerequisites_controls() {
+    constexpr std::uint64_t legacy_dt_bits = 0x3f71111111111111ULL;
+    constexpr std::uint64_t substep_dt_bits = 0x3f0c01c01c01c01cULL;
+    constexpr std::array<const char*, 4U> expected_audit_roots{
+        "3f6b74612d212d48ee40ba1bc2fffd27a23a20cc1d2c390cf2e1b59194a4a8fc",
+        "a11e56103bc1ea0b3a88b4b82354a0e66240db3e9057f98a1a0f987951cfe0aa",
+        "e06edef57dda0cf7cabc75de35365ea57432f19d4706879fc7086afb40865e51",
+        "b0db278089eb109d19879de3433fb2d69c6160f755fee572f75fdda86c584312"};
+    const bool identity_exact = sha256_hex(
+        B4E2D7R15_IDENTITY_PROJECTION) == B4E2D7R15_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_sparse_workspace_equivalence_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(
+        parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "88d83b6ec6e659f405595b22e13df363bef2ae4c1f99e4838b54f06a585ad1d3";
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<Vec3> inactive_prediction =
+        compressed_fluid(fixture, 1.01);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    ALSparseWorkTrace legacy_work;
+    const ALDividedOuterContinuation legacy_active =
+        solve_al_sparse_divided_full_private_transaction(
+            fixture, active_prediction, active_prediction,
+            zero_multiplier, TIME_STEP, &legacy_work);
+    const ALDividedOuterContinuation legacy_inactive =
+        solve_al_sparse_divided_full_private_transaction(
+            fixture, inactive_prediction, inactive_prediction,
+            zero_multiplier, TIME_STEP, &legacy_work);
+    const std::string legacy_active_root =
+        al_divided_outer_continuation_root(legacy_active);
+    const std::string legacy_inactive_root =
+        al_divided_outer_continuation_root(legacy_inactive);
+    const bool legacy_exact =
+        legacy_active_root
+            == "4d6b8c58c2db672bea5fcae0a4d5fb077cc8587398540128bcb09b6a75400ef8"
+        && legacy_inactive_root
+            == "6df37c6ae522de96d3a300abefcbf035af55e04d9f6d7bf77b6cedbea5f1ab1e";
+
+    const double substep_dt = TIME_STEP / 78.0;
+    const double mutated_dt = 2.0 * substep_dt;
+    const bool dt_bits_exact = binary64_bits(TIME_STEP) == legacy_dt_bits
+        && binary64_bits(substep_dt) == substep_dt_bits
+        && std::isfinite(mutated_dt) && mutated_dt > substep_dt;
+    std::vector<Vec3> predicted = active_prediction;
+    std::vector<Vec3> trial_position = active_prediction;
+    std::vector<Vec3> direction(active_prediction.size());
+    for (std::size_t index = 0U; index < active_prediction.size(); ++index) {
+        const double scale = static_cast<double>(index + 1U);
+        predicted[index].x += scale * 1.0e-5;
+        predicted[index].y -= scale * 0.5e-5;
+        predicted[index].z += scale * 0.25e-5;
+        trial_position[index].x -= scale * 0.2e-5;
+        trial_position[index].y += scale * 0.1e-5;
+        trial_position[index].z -= scale * 0.05e-5;
+        direction[index] = {
+            scale * 0.000125,
+            -scale * 0.00025,
+            scale * 0.0000625};
+    }
+    const ALVectorInnerState dense_current = evaluate_al_vector_inner(
+        active_prediction, predicted, fixture.boundary,
+        zero_multiplier, substep_dt);
+    const ALVectorInnerState dense_trial = evaluate_al_vector_inner(
+        trial_position, predicted, fixture.boundary,
+        zero_multiplier, substep_dt);
+    ALSparseWorkTrace explicit_work;
+    ALSparseInnerState sparse_current = evaluate_al_sparse_inner(
+        active_prediction, predicted, fixture.boundary,
+        zero_multiplier, substep_dt, &explicit_work);
+    ALSparseInnerState sparse_trial = evaluate_al_sparse_inner(
+        trial_position, predicted, fixture.boundary,
+        zero_multiplier, substep_dt, &explicit_work);
+    const bool evaluation_gradient_exact =
+        al_sparse_inner_exact(dense_current, sparse_current)
+        && al_sparse_inner_exact(dense_trial, sparse_trial);
+    const std::vector<Vec3> dense_hvp = apply_al_vector_inner_hessian(
+        active_prediction, fixture.boundary, zero_multiplier,
+        direction, substep_dt);
+    const std::vector<Vec3> sparse_hvp = sparse_current.passed
+        ? apply_al_sparse_inner_hessian(
+            sparse_current.workspace, direction, substep_dt)
+        : std::vector<Vec3>{};
+    const bool hvp_exact = exact_vec3_values(dense_hvp, sparse_hvp);
+    const Binary64DividedDifference dense_divided =
+        evaluate_al_vector_inner_divided_difference(
+            active_prediction, trial_position, predicted,
+            fixture.boundary, zero_multiplier, substep_dt);
+    const Binary64DividedDifference sparse_divided =
+        evaluate_al_sparse_inner_divided_difference(
+            sparse_current.workspace, sparse_trial.workspace,
+            predicted, zero_multiplier, substep_dt, &explicit_work);
+    const bool divided_exact = al_binary64_divided_difference_exact(
+        dense_divided, sparse_divided);
+    const double dense_stationarity = al_vector_scaled_stationarity(
+        dense_current.gradient, substep_dt);
+    const double sparse_stationarity = al_sparse_scaled_stationarity(
+        sparse_current.gradient, substep_dt);
+    const bool stationarity_exact = binary64_bits(dense_stationarity)
+        == binary64_bits(sparse_stationarity);
+    const double dense_direct = al_vector_direct_actual_reduction_dt(
+        active_prediction, trial_position, predicted,
+        dense_current.support, dense_trial.support, substep_dt);
+    const double sparse_direct = al_vector_direct_actual_reduction_dt(
+        active_prediction, trial_position, predicted,
+        sparse_current.workspace.support, sparse_trial.workspace.support,
+        substep_dt);
+    const bool direct_exact = binary64_bits(dense_direct)
+        == binary64_bits(sparse_direct);
+    const LongDoubleEnergyEvaluation long_double_substep =
+        evaluate_al_vector_inner_long_double(
+            trial_position, predicted, fixture.boundary,
+            zero_multiplier, true, substep_dt);
+    const LongDoubleEnergyEvaluation long_double_legacy =
+        evaluate_al_vector_inner_long_double(
+            trial_position, predicted, fixture.boundary,
+            zero_multiplier, true, TIME_STEP);
+    const Binary128EnergyEvaluation binary128_substep =
+        evaluate_al_vector_inner_binary128(
+            trial_position, predicted, fixture.boundary,
+            zero_multiplier, true, substep_dt);
+    const Binary128EnergyEvaluation binary128_legacy =
+        evaluate_al_vector_inner_binary128(
+            trial_position, predicted, fixture.boundary,
+            zero_multiplier, true, TIME_STEP);
+    const bool precision_dt_exact = long_double_substep.finite_values
+        && long_double_legacy.finite_values
+        && binary128_substep.finite_values
+        && binary128_legacy.finite_values
+        && long_double_substep.inertia != long_double_legacy.inertia
+        && binary128_substep.inertia != binary128_legacy.inertia;
+    const ALVectorInnerState mutated_dense = evaluate_al_vector_inner(
+        trial_position, predicted, fixture.boundary,
+        zero_multiplier, mutated_dt);
+    const Binary64DividedDifference mutated_divided =
+        evaluate_al_vector_inner_divided_difference(
+            active_prediction, trial_position, predicted,
+            fixture.boundary, zero_multiplier, mutated_dt);
+    const double mutated_direct = al_vector_direct_actual_reduction_dt(
+        active_prediction, trial_position, predicted,
+        dense_current.support, dense_trial.support, mutated_dt);
+    const std::vector<Vec3> mutated_hvp = apply_al_vector_inner_hessian(
+        active_prediction, fixture.boundary, zero_multiplier,
+        direction, mutated_dt);
+    const bool forced_dt_mutation_observed =
+        binary64_bits(mutated_dense.total)
+            != binary64_bits(dense_trial.total)
+        && binary64_bits(mutated_divided.reduction)
+            != binary64_bits(dense_divided.reduction)
+        && binary64_bits(mutated_direct) != binary64_bits(dense_direct)
+        && !exact_vec3_values(mutated_hvp, dense_hvp);
+    bool dense_hvp_invalid_rejected = false;
+    bool sparse_hvp_invalid_rejected = false;
+    try {
+        static_cast<void>(apply_al_vector_inner_hessian(
+            active_prediction, fixture.boundary, zero_multiplier,
+            direction, 0.0));
+    } catch (const std::invalid_argument&) {
+        dense_hvp_invalid_rejected = true;
+    }
+    try {
+        static_cast<void>(apply_al_sparse_inner_hessian(
+            sparse_current.workspace, direction, 0.0));
+    } catch (const std::invalid_argument&) {
+        sparse_hvp_invalid_rejected = true;
+    }
+    const ALVectorInnerState invalid_dense = evaluate_al_vector_inner(
+        active_prediction, predicted, fixture.boundary,
+        zero_multiplier, 0.0);
+    ALSparseInnerState invalid_sparse = evaluate_al_sparse_inner(
+        active_prediction, predicted, fixture.boundary,
+        zero_multiplier, 0.0, &explicit_work);
+    const Binary64DividedDifference invalid_divided =
+        evaluate_al_vector_inner_divided_difference(
+            active_prediction, trial_position, predicted,
+            fixture.boundary, zero_multiplier, 0.0);
+    const LongDoubleEnergyEvaluation invalid_long_double =
+        evaluate_al_vector_inner_long_double(
+            trial_position, predicted, fixture.boundary,
+            zero_multiplier, true, 0.0);
+    const Binary128EnergyEvaluation invalid_binary128 =
+        evaluate_al_vector_inner_binary128(
+            trial_position, predicted, fixture.boundary,
+            zero_multiplier, true, 0.0);
+    const bool invalid_dt_rejected =
+        !invalid_dense.support.finite_values && !invalid_sparse.passed
+        && !invalid_divided.finite_values
+        && !invalid_long_double.finite_values
+        && !invalid_binary128.finite_values
+        && !std::isfinite(al_vector_direct_actual_reduction_dt(
+            active_prediction, trial_position, predicted,
+            dense_current.support, dense_trial.support, 0.0))
+        && !std::isfinite(al_vector_scaled_stationarity(
+            dense_current.gradient, 0.0))
+        && dense_hvp_invalid_rejected && sparse_hvp_invalid_rejected;
+
+    StaticSupportWorkTrace tiny_static_work;
+    FlatAdjacencyWorkTrace tiny_adjacency_work;
+    const JointStaticSupportIndex tiny_index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &tiny_static_work);
+    const JointStaticSupportBinding tiny_binding =
+        bind_joint_static_support_index(
+            &tiny_index, tiny_index.identity_sha256);
+    ALSparseWorkTrace static_al_work;
+    ALSparseWorkspace bound_active =
+        build_al_sparse_workspace_with_static_support(
+            active_prediction, tiny_binding, zero_multiplier,
+            &static_al_work, &tiny_static_work, &tiny_adjacency_work);
+    ALSparseWorkspace regular_active = build_al_sparse_workspace(
+        active_prediction, fixture.boundary, zero_multiplier,
+        &static_al_work);
+    const bool active_static_exact = tiny_index.passed
+        && tiny_binding.passed && bound_active.passed
+        && regular_active.passed
+        && joint_pair_hash(bound_active.neighborhood)
+            == joint_pair_hash(regular_active.neighborhood)
+        && al_sparse_support_exact(
+            bound_active.support, regular_active.support);
+    release_al_sparse_workspace(bound_active, &static_al_work);
+    release_al_sparse_workspace(regular_active, &static_al_work);
+    ALSparseWorkspace bound_inactive =
+        build_al_sparse_workspace_with_static_support(
+            inactive_prediction, tiny_binding, zero_multiplier,
+            &static_al_work, &tiny_static_work, &tiny_adjacency_work);
+    ALSparseWorkspace regular_inactive = build_al_sparse_workspace(
+        inactive_prediction, fixture.boundary, zero_multiplier,
+        &static_al_work);
+    const bool inactive_static_exact = bound_inactive.passed
+        && regular_inactive.passed
+        && joint_pair_hash(bound_inactive.neighborhood)
+            == joint_pair_hash(regular_inactive.neighborhood)
+        && al_sparse_support_exact(
+            bound_inactive.support, regular_inactive.support);
+    release_al_sparse_workspace(bound_inactive, &static_al_work);
+    release_al_sparse_workspace(regular_inactive, &static_al_work);
+    const bool tiny_static_exact =
+        active_static_exact && inactive_static_exact;
+    std::string mutated_identity = tiny_index.identity_sha256;
+    mutated_identity.front() = mutated_identity.front() == '0' ? '1' : '0';
+    const JointStaticSupportBinding mutated_binding =
+        bind_joint_static_support_index(&tiny_index, mutated_identity);
+    ALSparseWorkspace rejected_workspace =
+        build_al_sparse_workspace_with_static_support(
+            active_prediction, mutated_binding, zero_multiplier,
+            &static_al_work, &tiny_static_work, &tiny_adjacency_work);
+    const bool binding_mutation_rejected = !mutated_binding.passed
+        && !rejected_workspace.passed
+        && rejected_workspace.failure == "STATIC_SUPPORT_INDEX_IDENTITY";
+    release_al_sparse_workspace(rejected_workspace, &static_al_work);
+
+    ALSparseBinary128WorkTrace audit_work;
+    std::array<std::string, 4U> sparse_audit_roots;
+    std::size_t sparse_audit_count = 0U;
+    bool sparse_audits_exact = true;
+    std::vector<double> audit_multiplier = zero_multiplier;
+    const auto audit_update = [&](const ALDividedOuterUpdate& update) {
+        std::size_t dense_audit_index = 0U;
+        for (const ALDividedPrivateInnerTrial& trial : update.trials) {
+            if (!trial.candidate_effect) {
+                continue;
+            }
+            const Binary128TrialEnergyAudit sparse_audit =
+                audit_al_sparse_inner_binary128(
+                    trial.current_position, trial.trial_position,
+                    active_prediction, audit_multiplier, tiny_binding,
+                    trial.divided_reduction, TIME_STEP, &audit_work);
+            const std::string sparse_root =
+                al_binary128_audit_root(sparse_audit);
+            sparse_audits_exact = sparse_audits_exact
+                && dense_audit_index < update.candidate_audit_roots.size()
+                && sparse_audit.finite_values
+                && sparse_audit.membership_exact
+                && sparse_root
+                    == update.candidate_audit_roots[dense_audit_index]
+                && sparse_audit_count < expected_audit_roots.size()
+                && sparse_root
+                    == expected_audit_roots[sparse_audit_count];
+            if (sparse_audit_count < sparse_audit_roots.size()) {
+                sparse_audit_roots[sparse_audit_count] = sparse_root;
+            }
+            ++sparse_audit_count;
+            ++dense_audit_index;
+        }
+        sparse_audits_exact = sparse_audits_exact
+            && dense_audit_index == update.candidate_audit_roots.size();
+    };
+    for (const ALDividedOuterUpdate& update : legacy_active.updates) {
+        audit_update(update);
+        if (update.passed) {
+            audit_multiplier = update.multiplier;
+        }
+    }
+    if (legacy_active.warm_holdout_attempted) {
+        audit_update(legacy_active.warm_holdout);
+    }
+    sparse_audits_exact = sparse_audits_exact
+        && sparse_audit_count == expected_audit_roots.size()
+        && audit_work.superset_builds == 2U * sparse_audit_count
+        && audit_work.union_candidate_pairs > 0U
+        && audit_work.evaluation_pair_visits
+            >= 4U * audit_work.union_candidate_pairs
+        && audit_work.all_pair_candidate_calls == 0U;
+    const Binary128TrialEnergyAudit dense_substep_audit =
+        audit_al_vector_inner_binary128(
+            active_prediction, trial_position, predicted,
+            fixture.boundary, zero_multiplier,
+            dense_divided.reduction, substep_dt);
+    const Binary128TrialEnergyAudit sparse_substep_audit =
+        audit_al_sparse_inner_binary128(
+            active_prediction, trial_position, predicted,
+            zero_multiplier, tiny_binding, dense_divided.reduction,
+            substep_dt, &audit_work);
+    const bool substep_binary128_exact =
+        al_binary128_audit_root(dense_substep_audit)
+            == al_binary128_audit_root(sparse_substep_audit)
+        && dense_substep_audit.membership_exact
+        && sparse_substep_audit.membership_exact;
+
+    const NominalAlignmentSpec& nominal_spec = B4E0_SCENARIOS[1];
+    const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
+    const std::string nominal_scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(nominal_spec, false));
+    const balanced_canonical::PublishResult nominal_initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, nominal_scenario_root, 0U,
+            canonical_float_samples(nominal_fixture.position,
+                nominal_fixture.velocity, 0));
+    const std::vector<Vec3> nominal_position =
+        decode_canonical_position(nominal_initial.frame);
+    const std::vector<Vec3> nominal_velocity =
+        decode_canonical_velocity(nominal_initial.frame);
+    const std::string nominal_frame_zero_root = b4e2d2_frame_zero_root(
+        nominal_position, nominal_velocity);
+    StaticSupportWorkTrace nominal_static_work;
+    FlatAdjacencyWorkTrace nominal_adjacency_work;
+    const JointStaticSupportIndex nominal_index =
+        build_joint_static_support_index(
+            tagged_points(nominal_fixture.boundary),
+            &nominal_static_work);
+    const JointStaticSupportBinding nominal_binding =
+        bind_joint_static_support_index(
+            &nominal_index, nominal_index.identity_sha256);
+    const std::vector<double> nominal_multiplier(nominal_position.size());
+    ALSparseWorkTrace nominal_al_work;
+    ALSparseWorkspace nominal_workspace =
+        build_al_sparse_workspace_with_static_support(
+            nominal_position, nominal_binding, nominal_multiplier,
+            &nominal_al_work, &nominal_static_work,
+            &nominal_adjacency_work);
+    const std::string nominal_pair_root = nominal_workspace.passed
+        ? joint_pair_hash(nominal_workspace.neighborhood) : std::string{};
+    const bool nominal_workspace_exact = nominal_index.passed
+        && nominal_binding.passed && nominal_workspace.passed
+        && nominal_scenario_root == nominal_spec.scenario_root
+        && nominal_frame_zero_root
+            == "0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7"
+        && nominal_index.identity_sha256
+            == "a2d97ab6f26383d826366eba2a3d4392f5ef9610dda87e89509e93bd9daf61e8"
+        && nominal_pair_root
+            == "fb2b8f8b4c0227cf5d8a7a43ce518ed72b2e5d5cda31fb8e8c17a5727c24ba13"
+        && nominal_workspace.neighborhood.pairs.size() == 342502U
+        && nominal_workspace.neighborhood.flat_directed_pair_indices.size()
+            == 611520U
+        && nominal_workspace.neighborhood.maximum_degree == 120U
+        && nominal_workspace.support.active_centers == 0U
+        && nominal_static_work.static_index_builds == 1U
+        && nominal_static_work.support_canonicalizations == 1U
+        && nominal_static_work.workspace_builds == 1U;
+    const std::size_t nominal_pairs =
+        nominal_workspace.neighborhood.pairs.size();
+    const std::size_t nominal_directed =
+        nominal_workspace.neighborhood.flat_directed_pair_indices.size();
+    const std::size_t nominal_degree =
+        nominal_workspace.neighborhood.maximum_degree;
+    const std::size_t nominal_active =
+        nominal_workspace.support.active_centers;
+    release_al_sparse_workspace(nominal_workspace, &nominal_al_work);
+
+    release_al_sparse_workspace(
+        sparse_current.workspace, &explicit_work);
+    release_al_sparse_workspace(
+        sparse_trial.workspace, &explicit_work);
+    const bool lifecycle_exact =
+        al_sparse_work_lifecycle_exact(legacy_work)
+        && al_sparse_work_lifecycle_exact(explicit_work)
+        && al_sparse_work_lifecycle_exact(static_al_work)
+        && al_sparse_work_lifecycle_exact(nominal_al_work);
+    const std::string prior_root = al_vector_stable_state_root(
+        "d7r15-public-active", active_prediction, zero_multiplier);
+    const std::string forced_root = al_vector_stable_state_root(
+        "d7r15-public-active", active_prediction, zero_multiplier);
+    const bool rollback_exact = prior_root == forced_root;
+    const bool explicit_dt_exact = dt_bits_exact
+        && evaluation_gradient_exact && hvp_exact && divided_exact
+        && stationarity_exact && direct_exact && precision_dt_exact
+        && forced_dt_mutation_observed;
+    const bool sparse_binary128_exact = sparse_audits_exact
+        && substep_binary128_exact;
+    const bool static_support_exact = tiny_static_exact
+        && binding_mutation_rejected && nominal_workspace_exact
+        && tiny_static_work.static_index_builds == 1U
+        && tiny_static_work.support_canonicalizations == 1U;
+    const bool hard_controls = identity_exact && parent_exact
+        && legacy_exact && invalid_dt_rejected
+        && binding_mutation_rejected && lifecycle_exact
+        && rollback_exact && nominal_workspace_exact
+        && audit_work.all_pair_candidate_calls == 0U;
+    std::string route;
+    if (hard_controls) {
+        if (!explicit_dt_exact) {
+            route = "EXPLICIT_DT_MISMATCH";
+        } else if (!sparse_binary128_exact) {
+            route = "SPARSE_BINARY128_MISMATCH";
+        } else if (!static_support_exact) {
+            route = "STATIC_SUPPORT_BINDING_MISMATCH";
+        } else {
+            route = "NOMINAL_AL_PREREQUISITES_CONFIRMED";
+        }
+    }
+    const bool route_precedence_exact =
+        (!explicit_dt_exact && route == "EXPLICIT_DT_MISMATCH")
+        || (explicit_dt_exact && !sparse_binary128_exact
+            && route == "SPARSE_BINARY128_MISMATCH")
+        || (explicit_dt_exact && sparse_binary128_exact
+            && !static_support_exact
+            && route == "STATIC_SUPPORT_BINDING_MISMATCH")
+        || (explicit_dt_exact && sparse_binary128_exact
+            && static_support_exact
+            && route == "NOMINAL_AL_PREREQUISITES_CONFIRMED");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R14_PARENT_BYTES";
+    else if (!legacy_exact) first_failure = "LEGACY_TRANSACTIONS";
+    else if (!invalid_dt_rejected) first_failure = "INVALID_DT";
+    else if (!binding_mutation_rejected)
+        first_failure = "BINDING_MUTATION";
+    else if (!lifecycle_exact) first_failure = "WORKSPACE_LIFECYCLE";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!nominal_workspace_exact)
+        first_failure = "NOMINAL_WORKSPACE";
+    else if (audit_work.all_pair_candidate_calls != 0U)
+        first_failure = "ALL_PAIR_CANDIDATE_CALL";
+    else if (!route_precedence_exact)
+        first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R15_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << '|'
+             << legacy_active_root << ':' << legacy_inactive_root << '|'
+             << explicit_dt_exact << ':' << sparse_binary128_exact << ':'
+             << static_support_exact << ':' << invalid_dt_rejected << ':'
+             << lifecycle_exact << ':' << rollback_exact << '|'
+             << binary64_bits(TIME_STEP) << ':'
+             << binary64_bits(substep_dt) << ':'
+             << binary64_bits(mutated_dt) << '|';
+    for (const std::string& root : sparse_audit_roots) {
+        semantic << root << ':';
+    }
+    semantic << '|' << nominal_frame_zero_root << ':'
+             << nominal_pair_root << '|'
+             << audit_work.superset_builds << ':'
+             << audit_work.union_candidate_pairs << ':'
+             << audit_work.evaluation_pair_visits << '|'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r15_nominal_al_prerequisites.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R15_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"d7r14_stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"legacy\":{\"active_root\":\""
+           << legacy_active_root << "\",\"inactive_root\":\""
+           << legacy_inactive_root << "\",\"exact\":"
+           << (legacy_exact ? "true" : "false") << '}'
+           << ",\"explicit_dt\":{\"legacy_bits\":\"0x" << std::hex
+           << binary64_bits(TIME_STEP) << "\",\"substep_bits\":\"0x"
+           << binary64_bits(substep_dt) << "\",\"mutated_bits\":\"0x"
+           << binary64_bits(mutated_dt) << std::dec
+           << "\",\"evaluation_gradient_exact\":"
+           << (evaluation_gradient_exact ? "true" : "false")
+           << ",\"hvp_exact\":" << (hvp_exact ? "true" : "false")
+           << ",\"stationarity_exact\":"
+           << (stationarity_exact ? "true" : "false")
+           << ",\"direct_exact\":" << (direct_exact ? "true" : "false")
+           << ",\"divided_exact\":"
+           << (divided_exact ? "true" : "false")
+           << ",\"precision_dt_exact\":"
+           << (precision_dt_exact ? "true" : "false")
+           << ",\"forced_mutation_observed\":"
+           << (forced_dt_mutation_observed ? "true" : "false")
+           << ",\"invalid_rejected\":"
+           << (invalid_dt_rejected ? "true" : "false")
+           << ",\"exact\":" << (explicit_dt_exact ? "true" : "false")
+           << '}'
+           << ",\"sparse_binary128\":{\"roots\":[";
+    for (std::size_t index = 0U; index < sparse_audit_roots.size(); ++index) {
+        if (index != 0U) report << ',';
+        report << '"' << sparse_audit_roots[index] << '"';
+    }
+    report << "],\"audit_count\":" << sparse_audit_count
+           << ",\"superset_builds\":" << audit_work.superset_builds
+           << ",\"union_candidate_pairs\":"
+           << audit_work.union_candidate_pairs
+           << ",\"evaluation_pair_visits\":"
+           << audit_work.evaluation_pair_visits
+           << ",\"substep_exact\":"
+           << (substep_binary128_exact ? "true" : "false")
+           << ",\"exact\":"
+           << (sparse_binary128_exact ? "true" : "false") << '}'
+           << ",\"static_support\":{\"tiny_exact\":"
+           << (tiny_static_exact ? "true" : "false")
+           << ",\"binding_mutation_rejected\":"
+           << (binding_mutation_rejected ? "true" : "false")
+           << ",\"tiny_static_index_builds\":"
+           << tiny_static_work.static_index_builds
+           << ",\"nominal_static_index_builds\":"
+           << nominal_static_work.static_index_builds
+           << ",\"exact\":"
+           << (static_support_exact ? "true" : "false") << '}'
+           << ",\"nominal_workspace\":{\"frame_zero_root\":\""
+           << nominal_frame_zero_root << "\",\"pair_root\":\""
+           << nominal_pair_root << "\",\"pairs\":"
+           << nominal_pairs << ",\"directed\":" << nominal_directed
+           << ",\"maximum_degree\":" << nominal_degree
+           << ",\"active_centers\":" << nominal_active
+           << ",\"exact\":"
+           << (nominal_workspace_exact ? "true" : "false") << '}'
+           << ",\"work\":{\"all_pair_candidate_calls\":"
+           << audit_work.all_pair_candidate_calls
+           << ",\"maximum_live_workspaces\":"
+           << std::max({legacy_work.maximum_live_workspaces,
+                explicit_work.maximum_live_workspaces,
+                static_al_work.maximum_live_workspaces,
+                nominal_al_work.maximum_live_workspaces})
+           << ",\"lifecycle_exact\":"
+           << (lifecycle_exact ? "true" : "false") << '}'
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"trajectory_steps\":0,\"nominal_solve_steps\":0"
+           << ",\"public_commit_count\":0,\"physics_mutation\":false"
+           << ",\"timing_admitted\":false,\"speedup_claim\":false"
+           << ",\"runtime_binary128_authorized\":false"
+           << ",\"nominal_al_prerequisites_authorized\":"
+           << (passed && route == "NOMINAL_AL_PREREQUISITES_CONFIRMED"
                    ? "true" : "false")
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
