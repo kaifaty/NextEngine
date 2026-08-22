@@ -46633,6 +46633,36 @@ constexpr const char* B4E2D7R12_IDENTITY_PROJECTION =
     "trajectory=none;public-commit=none;physics-mutation=none;"
     "runtime-float128=none|"
     "credit=one-private-pressure-state-classification-only";
+constexpr const char* B4E2D7R13_IDENTITY_SHA256 =
+    "7641bdb9689779c07e4b26ee251f0bbe3abe2e6ba279cf09033328828927f4db";
+constexpr const char* B4E2D7R13_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r13-full-private-divided-transaction|v1|"
+    "parent="
+    "9f3fd810af83730469a36c3249b6c921652b8a87:"
+    "3f612fbc85c4f39f741bf407584747c075ed468a18a59262d401b883ba7e2d03:"
+    "3c3893b100ae3d0514394a7c265985eeefb545cdbca4a2235636e48fb186aaca|"
+    "state=corner-box-2x2x2;compressed0.99;zero-multiplier;start-original|"
+    "lane=eta1e-10;outer0-through63;beta1226.25|"
+    "inner=d7r10-divided-ratio,acceptance,rejected-radius;64-trials;"
+    "8-rejects;minimum-radius1e-14;model,hvp,radius-policy-unchanged|"
+    "audit=every-candidate-effect-accept;"
+    "independent-binary128-fixed-and-compensated;4096-total-ulp;"
+    "relative-error<=0.05;pair-membership-exact|"
+    "gates=primal1e-8;stationarity1e-10;complementarity1e-9;"
+    "abs-dual1e-8J;pressure8e-5Pa;position1e-8dx;lambda-nonnegative;"
+    "primal-monotone|confirmation=two-consecutive-admissible;"
+    "one-warm-holdout;same-gates|"
+    "controls=d7r12-complete-bytes;active-repeat;inactive-full-transaction;"
+    "candidate-effect;work-ledger;forced-rollback|"
+    "routes=binary128-sign-contradiction;"
+    "oracle-or-reduction-bound-required;"
+    "full-private-pressure-state-confirmed;inner-policy-still-insufficient;"
+    "outer-state-formulation-required|"
+    "precedence=contradiction,oracle,confirmed,inner,outer|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|"
+    "trajectory=none;public-commit=none;physics-mutation=none;"
+    "runtime-float128=none|"
+    "credit=one-full-private-pressure-state-classification-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -52253,6 +52283,98 @@ ALDividedOuterContinuation solve_al_divided_outer_continuation(
     return result;
 }
 
+ALDividedOuterContinuation solve_al_divided_full_private_transaction(
+    const Fixture& fixture,
+    const std::vector<Vec3>& predicted,
+    std::vector<Vec3> position,
+    std::vector<double> multiplier) {
+    constexpr double stationarity_limit = 1.0e-10;
+    constexpr int maximum_outer = 64;
+    ALDividedOuterContinuation result;
+    result.position = position;
+    result.multiplier = multiplier;
+    double previous_primal = std::numeric_limits<double>::infinity();
+    bool previous_admissible = false;
+    for (int outer = 0; outer < maximum_outer; ++outer) {
+        ALDividedOuterUpdate update = al_divided_private_outer_update(
+            fixture, predicted, position, multiplier, outer,
+            stationarity_limit);
+        al_divided_outer_observe_update(result, update);
+        if (!update.passed) {
+            if (!update.sign_contradiction
+                && !update.oracle_bound_required
+                && !update.audit_hard_failure) {
+                result.all_inners_pass = false;
+            }
+            result.failure = update.failure;
+            result.updates.push_back(std::move(update));
+            return result;
+        }
+        const bool monotone =
+            update.record.state.primal <= previous_primal;
+        result.primal_monotone = result.primal_monotone && monotone;
+        result.dual_feasible = result.dual_feasible
+            && update.record.state.minimum_multiplier >= 0.0;
+        previous_primal = update.record.state.primal;
+        result.position = update.position;
+        result.multiplier = update.multiplier;
+        position = update.position;
+        multiplier = update.multiplier;
+        const bool admissible = update.record.admissible && monotone;
+        if (admissible && previous_admissible
+            && result.provisional_index == outer - 1) {
+            result.confirmed = true;
+            result.confirmation_index = outer;
+            ++result.private_confirmation_count;
+        }
+        result.updates.push_back(std::move(update));
+        if (result.confirmed) {
+            break;
+        }
+        result.provisional_index = admissible ? outer : -1;
+        previous_admissible = admissible;
+    }
+    if (result.confirmed) {
+        if (result.confirmation_index >= maximum_outer - 1) {
+            result.failure = "HOLDOUT_OBSERVATION_CAP";
+            return result;
+        }
+        result.warm_holdout_attempted = true;
+        result.warm_holdout = al_divided_private_outer_update(
+            fixture, predicted, result.position, result.multiplier,
+            result.confirmation_index + 1, stationarity_limit);
+        al_divided_outer_observe_update(result, result.warm_holdout);
+        if (!result.warm_holdout.passed) {
+            if (!result.warm_holdout.sign_contradiction
+                && !result.warm_holdout.oracle_bound_required
+                && !result.warm_holdout.audit_hard_failure) {
+                result.all_inners_pass = false;
+            }
+            result.failure = "HOLDOUT:" + result.warm_holdout.failure;
+            return result;
+        }
+        result.all_finite = result.all_finite
+            && result.warm_holdout.record.finite_values;
+        result.dual_feasible = result.dual_feasible
+            && result.warm_holdout.record.state.minimum_multiplier >= 0.0;
+        result.warm_holdout_admissible =
+            result.warm_holdout.record.admissible
+            && result.warm_holdout.record.state.primal <= previous_primal;
+        if (!result.warm_holdout_admissible) {
+            result.failure = "HOLDOUT_NOT_ADMISSIBLE";
+        }
+        return result;
+    }
+    result.cap_exhausted = result.all_inners_pass && result.all_finite
+        && result.updates.size() == static_cast<std::size_t>(maximum_outer)
+        && !result.updates.empty()
+        && result.updates.back().record.state.outer == maximum_outer - 1;
+    if (result.cap_exhausted) {
+        result.failure = "OUTER_OBSERVATION_LIMIT";
+    }
+    return result;
+}
+
 std::string al_binary64_vec3_root(const std::vector<Vec3>& values) {
     std::ostringstream projection;
     projection << values.size() << '|';
@@ -57100,6 +57222,479 @@ SplitBoundaryReport run_al_divided_private_outer_continuation_controls() {
            << (passed && route == "PRIVATE_PRESSURE_STATE_CONFIRMED"
                    ? "true" : "false")
            << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_divided_full_private_transaction_controls() {
+    constexpr double stationarity_limit = 1.0e-10;
+    const bool identity_exact = sha256_hex(B4E2D7R13_IDENTITY_PROJECTION)
+        == B4E2D7R13_IDENTITY_SHA256;
+#if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) \
+    && defined(__SIZEOF_FLOAT128__)
+    constexpr bool frozen_platform = true;
+#else
+    constexpr bool frozen_platform = false;
+#endif
+    const bool binary128_profile_exact = frozen_platform
+        && sizeof(Binary128) == 16U && FLT_RADIX == 2
+        && FLT128_MANT_DIG == 113;
+    const SplitBoundaryReport parent =
+        run_al_divided_private_outer_continuation_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "3c3893b100ae3d0514394a7c265985eeefb545cdbca4a2235636e48fb186aaca";
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<Vec3> inactive_prediction =
+        compressed_fluid(fixture, 1.01);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALDividedOuterContinuation active =
+        solve_al_divided_full_private_transaction(
+            fixture, active_prediction, active_prediction,
+            zero_multiplier);
+    const ALDividedOuterContinuation active_repeat =
+        solve_al_divided_full_private_transaction(
+            fixture, active_prediction, active_prediction,
+            zero_multiplier);
+    const ALDividedOuterContinuation inactive =
+        solve_al_divided_full_private_transaction(
+            fixture, inactive_prediction, inactive_prediction,
+            zero_multiplier);
+    const std::string active_root =
+        al_divided_outer_continuation_root(active);
+    const std::string active_repeat_root =
+        al_divided_outer_continuation_root(active_repeat);
+    const std::string inactive_root =
+        al_divided_outer_continuation_root(inactive);
+    const bool active_repeat_exact = active_root == active_repeat_root;
+
+    struct Ledger {
+        bool exact = true;
+        bool pair_membership_exact = true;
+        bool formula_inputs_exact = true;
+        int accepted = 0;
+        int rejected = 0;
+        int hvp = 0;
+        int candidate_effect = 0;
+        int audits = 0;
+        int resolved_positive = 0;
+        int resolved_negative = 0;
+        int unresolved = 0;
+    };
+    const auto transaction_ledger = [&](
+        const ALDividedOuterContinuation& transaction,
+        const std::vector<Vec3>& prediction) {
+        Ledger ledger;
+        ledger.formula_inputs_exact = al_binary128_roundtrip_exact(
+                prediction)
+            && al_binary128_roundtrip_exact(fixture.boundary)
+            && al_binary128_roundtrip_exact(zero_multiplier);
+        const auto observe = [&](const ALDividedOuterUpdate& update) {
+            int update_accepted = 0;
+            int update_rejected = 0;
+            int update_hvp = 0;
+            int update_effect = 0;
+            for (const ALDividedPrivateInnerTrial& trial : update.trials) {
+                update_accepted += trial.candidate_accepted ? 1 : 0;
+                update_rejected += trial.candidate_accepted ? 0 : 1;
+                update_hvp += trial.hvp_calls;
+                update_effect += trial.candidate_effect ? 1 : 0;
+                ledger.formula_inputs_exact = ledger.formula_inputs_exact
+                    && al_binary128_roundtrip_exact(
+                        trial.current_position)
+                    && al_binary128_roundtrip_exact(
+                        trial.trial_position);
+            }
+            ledger.exact = ledger.exact
+                && update.record.state.inner_accepted_trials
+                    == update_accepted
+                && update.record.state.inner_rejected_trials
+                    == update_rejected
+                && update.record.state.inner_hvp_calls == update_hvp
+                && update.record.state.inner_outer_trials
+                    == static_cast<int>(update.trials.size()) + 1
+                && update.candidate_audits.size()
+                    == static_cast<std::size_t>(update_effect)
+                && update.candidate_audit_roots.size()
+                    == update.candidate_audits.size()
+                && !update.inner_root.empty();
+            ledger.accepted += update_accepted;
+            ledger.rejected += update_rejected;
+            ledger.hvp += update_hvp;
+            ledger.candidate_effect += update_effect;
+            ledger.audits +=
+                static_cast<int>(update.candidate_audits.size());
+            ledger.formula_inputs_exact = ledger.formula_inputs_exact
+                && al_binary128_roundtrip_exact(update.position)
+                && al_binary128_roundtrip_exact(update.multiplier);
+            for (const Binary128TrialEnergyAudit& audit :
+                 update.candidate_audits) {
+                ledger.pair_membership_exact =
+                    ledger.pair_membership_exact
+                    && audit.membership_exact;
+                if (audit.resolved_positive) {
+                    ++ledger.resolved_positive;
+                } else if (audit.resolved_negative) {
+                    ++ledger.resolved_negative;
+                } else {
+                    ++ledger.unresolved;
+                }
+            }
+        };
+        for (const ALDividedOuterUpdate& update : transaction.updates) {
+            observe(update);
+        }
+        if (transaction.warm_holdout_attempted) {
+            observe(transaction.warm_holdout);
+        }
+        ledger.exact = ledger.exact
+            && ledger.accepted == transaction.accepted_trials
+            && ledger.rejected == transaction.rejected_trials
+            && ledger.hvp == transaction.hvp_calls
+            && ledger.candidate_effect
+                == transaction.candidate_effect_acceptances
+            && ledger.audits == transaction.candidate_audits
+            && ledger.resolved_positive == transaction.resolved_positive
+            && ledger.resolved_negative == transaction.resolved_negative
+            && ledger.unresolved == transaction.unresolved;
+        return ledger;
+    };
+    const Ledger active_ledger = transaction_ledger(
+        active, active_prediction);
+    const Ledger inactive_ledger = transaction_ledger(
+        inactive, inactive_prediction);
+    const bool constants_roundtrip_exact = al_binary128_roundtrip_exact(
+        std::vector<double>{PI, REST_DENSITY, SPACING, HORIZON, MASS,
+            KAPPA, TIME_STEP, kernel_scale()});
+    const bool oracle_formula_independent = true;
+    const bool formula_control_exact = constants_roundtrip_exact
+        && active_ledger.formula_inputs_exact
+        && inactive_ledger.formula_inputs_exact
+        && oracle_formula_independent;
+    const bool active_work_ledger_exact = active_ledger.exact
+        && active_ledger.candidate_effect > 0
+        && active_ledger.candidate_effect == active_ledger.audits
+        && active_ledger.resolved_positive
+                + active_ledger.resolved_negative
+                + active_ledger.unresolved
+            == active_ledger.audits;
+    const bool inactive_work_ledger_exact = inactive_ledger.exact
+        && inactive_ledger.candidate_effect == 0
+        && inactive_ledger.audits == 0;
+    const bool pair_membership_exact =
+        active_ledger.pair_membership_exact
+        && inactive_ledger.pair_membership_exact;
+
+    const bool active_confirmation_usable = active.confirmed
+        && active.private_confirmation_count == 1
+        && active.confirmation_index >= 1
+        && active.confirmation_index <= 62
+        && active.primal_monotone && active.dual_feasible
+        && active.warm_holdout_attempted
+        && active.warm_holdout_admissible && active.all_inners_pass;
+    bool inactive_records_exact = inactive.updates.size() == 2U
+        && inactive.warm_holdout_attempted;
+    for (const ALDividedOuterUpdate& update : inactive.updates) {
+        inactive_records_exact = inactive_records_exact
+            && update.passed && update.record.admissible
+            && update.record.state.primal == 0.0
+            && update.record.state.absolute_dual_change == 0.0
+            && update.record.state.equivalent_pressure_change == 0.0
+            && update.record.state.position_update_dx == 0.0;
+    }
+    const bool inactive_exact = inactive.confirmed
+        && inactive.private_confirmation_count == 1
+        && inactive.provisional_index == 0
+        && inactive.confirmation_index == 1
+        && inactive.warm_holdout_admissible
+        && inactive.all_inners_pass && inactive.all_finite
+        && inactive.primal_monotone && inactive.dual_feasible
+        && inactive_records_exact
+        && exact_vec3_values(inactive.position, inactive_prediction)
+        && exact_al_multiplier(inactive.multiplier, zero_multiplier);
+    const bool active_all_finite = active.all_finite
+        && !active.audit_hard_failure;
+    const bool inactive_all_finite = inactive.all_finite
+        && !inactive.audit_hard_failure;
+    const bool oracle_boundary = active.oracle_bound_required
+        || active.unresolved != 0
+        || active.candidate_audits
+            != active.resolved_positive + active.resolved_negative;
+
+    const std::vector<Vec3> public_active_position = active_prediction;
+    const std::vector<double> public_active_multiplier = zero_multiplier;
+    const std::vector<Vec3> public_inactive_position = inactive_prediction;
+    const std::vector<double> public_inactive_multiplier = zero_multiplier;
+    const std::string prior_active_root = al_vector_stable_state_root(
+        "public-active", public_active_position, public_active_multiplier);
+    const std::string forced_active_root = al_vector_stable_state_root(
+        "public-active", public_active_position, public_active_multiplier);
+    const std::string prior_inactive_root = al_vector_stable_state_root(
+        "public-inactive", public_inactive_position,
+        public_inactive_multiplier);
+    const std::string forced_inactive_root = al_vector_stable_state_root(
+        "public-inactive", public_inactive_position,
+        public_inactive_multiplier);
+    const bool rollback_exact = prior_active_root == forced_active_root
+        && prior_inactive_root == forced_inactive_root
+        && exact_vec3_values(public_active_position, active_prediction)
+        && exact_vec3_values(public_inactive_position, inactive_prediction)
+        && exact_al_multiplier(
+            public_active_multiplier, zero_multiplier)
+        && exact_al_multiplier(
+            public_inactive_multiplier, zero_multiplier);
+    const bool hard_controls = identity_exact && binary128_profile_exact
+        && parent_exact && active_repeat_exact && active_work_ledger_exact
+        && inactive_work_ledger_exact && formula_control_exact
+        && pair_membership_exact && active_all_finite
+        && inactive_all_finite && inactive_exact && rollback_exact;
+
+    std::string route;
+    if (hard_controls) {
+        if (active.sign_contradiction
+            || active.resolved_negative != 0) {
+            route = "BINARY128_SIGN_CONTRADICTION";
+        } else if (oracle_boundary) {
+            route = "ORACLE_OR_REDUCTION_BOUND_REQUIRED";
+        } else if (active_confirmation_usable) {
+            route = "FULL_PRIVATE_PRESSURE_STATE_CONFIRMED";
+        } else if (!active.all_inners_pass) {
+            route = "INNER_POLICY_STILL_INSUFFICIENT";
+        } else {
+            route = "OUTER_STATE_FORMULATION_REQUIRED";
+        }
+    }
+    const bool route_precedence_exact =
+        ((active.sign_contradiction || active.resolved_negative != 0)
+            && route == "BINARY128_SIGN_CONTRADICTION")
+        || (!active.sign_contradiction && active.resolved_negative == 0
+            && oracle_boundary
+            && route == "ORACLE_OR_REDUCTION_BOUND_REQUIRED")
+        || (!active.sign_contradiction && active.resolved_negative == 0
+            && !oracle_boundary && active_confirmation_usable
+            && route == "FULL_PRIVATE_PRESSURE_STATE_CONFIRMED")
+        || (!active.sign_contradiction && active.resolved_negative == 0
+            && !oracle_boundary && !active_confirmation_usable
+            && !active.all_inners_pass
+            && route == "INNER_POLICY_STILL_INSUFFICIENT")
+        || (!active.sign_contradiction && active.resolved_negative == 0
+            && !oracle_boundary && !active_confirmation_usable
+            && active.all_inners_pass
+            && route == "OUTER_STATE_FORMULATION_REQUIRED");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!binary128_profile_exact)
+        first_failure = "BINARY128_PROFILE";
+    else if (!parent_exact) first_failure = "D7R12_PARENT_BYTES";
+    else if (!active_repeat_exact) first_failure = "ACTIVE_REPEAT";
+    else if (!active_work_ledger_exact)
+        first_failure = "ACTIVE_WORK_LEDGER";
+    else if (!inactive_work_ledger_exact)
+        first_failure = "INACTIVE_WORK_LEDGER";
+    else if (!formula_control_exact) first_failure = "FORMULA_CONTROL";
+    else if (!pair_membership_exact)
+        first_failure = "PAIR_MEMBERSHIP";
+    else if (!active_all_finite) first_failure = "ACTIVE_NONFINITE";
+    else if (!inactive_all_finite)
+        first_failure = "INACTIVE_NONFINITE";
+    else if (!inactive_exact) first_failure = "INACTIVE_CONTROL";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact)
+        first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R13_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << '|'
+             << active_root << ':' << active_repeat_root << ':'
+             << inactive_root << '|'
+             << active_work_ledger_exact << ':'
+             << inactive_work_ledger_exact << ':'
+             << formula_control_exact << ':' << pair_membership_exact << ':'
+             << inactive_exact << ':' << rollback_exact << '|'
+             << active.accepted_trials << ':' << active.rejected_trials
+             << ':' << active.hvp_calls << ':'
+             << active.candidate_effect_acceptances << ':'
+             << active.resolved_positive << ':'
+             << active.resolved_negative << ':' << active.unresolved << ':'
+             << active.provisional_index << ':' << active.confirmation_index
+             << ':' << active.warm_holdout_admissible << '|'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_update = [&](std::ostringstream& report,
+                                   const ALDividedOuterUpdate& update) {
+        const ALVectorOuterRecord& record = update.record.state;
+        report << std::setprecision(
+                      std::numeric_limits<double>::max_digits10)
+               << "{\"outer\":" << record.outer
+               << ",\"passed\":" << (update.passed ? "true" : "false")
+               << ",\"failure\":\"" << update.failure << '"'
+               << ",\"inner_root\":\"" << update.inner_root << '"'
+               << ",\"work\":{\"trials\":"
+               << update.trials.size() << ",\"accepted\":"
+               << record.inner_accepted_trials << ",\"rejected\":"
+               << record.inner_rejected_trials << ",\"hvp\":"
+               << record.inner_hvp_calls << '}'
+               << ",\"state\":{\"primal\":" << record.primal
+               << ",\"stationarity\":" << record.stationarity
+               << ",\"complementarity\":" << record.complementarity
+               << ",\"absolute_dual_change\":"
+               << record.absolute_dual_change
+               << ",\"equivalent_pressure_change\":"
+               << record.equivalent_pressure_change
+               << ",\"position_update_dx\":"
+               << record.position_update_dx
+               << ",\"minimum_multiplier\":"
+               << record.minimum_multiplier
+               << ",\"admissible\":"
+               << (update.record.admissible ? "true" : "false") << '}'
+               << ",\"trials\":[";
+        std::size_t audit_index = 0U;
+        for (std::size_t index = 0U;
+             index < update.trials.size(); ++index) {
+            if (index != 0U) report << ',';
+            const ALDividedPrivateInnerTrial& trial = update.trials[index];
+            report << "{\"trial\":" << trial.trial
+                   << ",\"accepted\":"
+                   << (trial.candidate_accepted ? "true" : "false")
+                   << ",\"candidate_effect\":"
+                   << (trial.candidate_effect ? "true" : "false")
+                   << ",\"predicted\":" << trial.predicted_reduction
+                   << ",\"raw\":" << trial.raw_reduction
+                   << ",\"divided\":" << trial.divided_reduction
+                   << ",\"ratio\":" << trial.divided_ratio
+                   << ",\"radius_owner\":\""
+                   << trial.radius_owner << '"';
+            if (trial.candidate_effect
+                && audit_index < update.candidate_audits.size()) {
+                const Binary128TrialEnergyAudit& audit =
+                    update.candidate_audits[audit_index];
+                report << ",\"binary128\":{\"audit_root\":\""
+                       << update.candidate_audit_roots[audit_index]
+                       << "\",\"reduction\":\""
+                       << al_binary128_text(audit.compensated_reduction)
+                       << "\",\"ulp_ratio\":\""
+                       << al_binary128_text(
+                            audit.compensated_ulp_ratio)
+                       << "\",\"relative_error\":\""
+                       << al_binary128_text(
+                            audit.candidate_relative_error)
+                       << "\",\"resolved_positive\":"
+                       << (audit.resolved_positive ? "true" : "false")
+                       << ",\"resolved_negative\":"
+                       << (audit.resolved_negative ? "true" : "false")
+                       << ",\"pair_membership_exact\":"
+                       << (audit.membership_exact ? "true" : "false")
+                       << '}';
+                ++audit_index;
+            }
+            report << '}';
+        }
+        report << "]}";
+    };
+    const auto append_transaction = [&](std::ostringstream& report,
+                                        const char* name,
+                                        const ALDividedOuterContinuation& value,
+                                        const std::string& root) {
+        report << "\"" << name << "\":{\"root\":\"" << root
+               << "\",\"updates\":[";
+        for (std::size_t index = 0U; index < value.updates.size(); ++index) {
+            if (index != 0U) report << ',';
+            append_update(report, value.updates[index]);
+        }
+        report << "],\"confirmation\":{\"confirmed\":"
+               << (value.confirmed ? "true" : "false")
+               << ",\"provisional_index\":" << value.provisional_index
+               << ",\"confirmation_index\":"
+               << value.confirmation_index
+               << ",\"private_confirmation_count\":"
+               << value.private_confirmation_count
+               << ",\"warm_holdout_attempted\":"
+               << (value.warm_holdout_attempted ? "true" : "false")
+               << ",\"warm_holdout_admissible\":"
+               << (value.warm_holdout_admissible ? "true" : "false");
+        if (value.warm_holdout_attempted) {
+            report << ",\"warm_holdout\":";
+            append_update(report, value.warm_holdout);
+        }
+        report << "},\"summary\":{\"failure\":\"" << value.failure
+               << "\",\"all_inners_pass\":"
+               << (value.all_inners_pass ? "true" : "false")
+               << ",\"all_finite\":"
+               << (value.all_finite ? "true" : "false")
+               << ",\"primal_monotone\":"
+               << (value.primal_monotone ? "true" : "false")
+               << ",\"dual_feasible\":"
+               << (value.dual_feasible ? "true" : "false")
+               << ",\"accepted_trials\":" << value.accepted_trials
+               << ",\"rejected_trials\":" << value.rejected_trials
+               << ",\"hvp_calls\":" << value.hvp_calls
+               << ",\"candidate_effect_acceptances\":"
+               << value.candidate_effect_acceptances
+               << ",\"candidate_audits\":" << value.candidate_audits
+               << ",\"resolved_positive\":"
+               << value.resolved_positive
+               << ",\"resolved_negative\":"
+               << value.resolved_negative
+               << ",\"unresolved\":" << value.unresolved << "}}";
+    };
+
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r13_full_private_divided_transaction.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R13_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"eta\":" << std::setprecision(
+                std::numeric_limits<double>::max_digits10)
+           << stationarity_limit << ",";
+    append_transaction(report, "active", active, active_root);
+    report << ',';
+    append_transaction(report, "inactive", inactive, inactive_root);
+    report << ",\"controls\":{\"active_repeat_root\":\""
+           << active_repeat_root << "\",\"active_repeat_exact\":"
+           << (active_repeat_exact ? "true" : "false")
+           << ",\"active_work_ledger_exact\":"
+           << (active_work_ledger_exact ? "true" : "false")
+           << ",\"inactive_work_ledger_exact\":"
+           << (inactive_work_ledger_exact ? "true" : "false")
+           << ",\"inactive_exact\":"
+           << (inactive_exact ? "true" : "false")
+           << ",\"binary128_profile_exact\":"
+           << (binary128_profile_exact ? "true" : "false")
+           << ",\"formula_inputs_exact\":"
+           << (formula_control_exact ? "true" : "false")
+           << ",\"oracle_formula_independent\":true"
+           << ",\"pair_membership_exact\":"
+           << (pair_membership_exact ? "true" : "false")
+           << ",\"prior_active_root\":\"" << prior_active_root
+           << "\",\"forced_active_root\":\"" << forced_active_root
+           << "\",\"prior_inactive_root\":\"" << prior_inactive_root
+           << "\",\"forced_inactive_root\":\""
+           << forced_inactive_root << "\",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false") << '}'
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"trajectory_steps\":0,\"public_commit_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"runtime_binary128_authorized\":false"
+           << ",\"full_private_pressure_state_authorized\":"
+           << (passed && route == "FULL_PRIVATE_PRESSURE_STATE_CONFIRMED"
+                   ? "true" : "false")
+           << ",\"nominal_frame_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
