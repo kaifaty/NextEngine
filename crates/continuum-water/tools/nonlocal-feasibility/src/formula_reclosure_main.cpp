@@ -154,6 +154,8 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-kappa-scaling-prerequisites|"
                          "--nonlocal-al-nondimensional-transaction|"
                          "--nonlocal-al-full-normalized-private-transaction|"
+                         "--nonlocal-al-normalized-divided-precancellation-"
+                         "replay|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1211,6 +1213,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_full_normalized_private_transaction_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-normalized-divided-precancellation-replay") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_normalized_divided_precancellation_replay_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
