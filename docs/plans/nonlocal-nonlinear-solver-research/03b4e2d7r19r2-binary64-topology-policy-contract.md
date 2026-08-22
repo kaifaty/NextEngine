@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R2 -- binary64 topology-policy reclosure contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / ONE PRIVATE SUBSTEP`
+Status: `EXECUTED / PASS / NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED / NO STATE`
 
 Identity projection (exact bytes, no final LF):
 
@@ -67,3 +67,13 @@ physical objective, claim performance or create production authority.
 
 A structural-watchdog route authorizes only research/freeze of a bounded
 conditioning/Krylov discriminator at the exact failed sixth trust solve.
+
+## Result
+
+The policy reclosure passes reproducibly and selects
+`NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r19r2-binary64-topology-policy-evidence-2026-08-23.md).
+The parent/candidate binary64 trace roots are exact, all five precision audits
+are resolved positive, and the candidate reaches the unchanged in-flight
+`32`-HVP cap after five accepted trials. Research/freeze D7R19R3 next; no cap
+change or additional nominal substep is authorized.

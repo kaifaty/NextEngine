@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R18R4R2_PASS_CONFIRMED / D7R19_FAIL_PRECISION_LEDGER / D7R19R1_PASS_RUNTIME_TOPOLOGY_PRECISION_CANDIDATE / D7R19R2_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R1_PASS_RUNTIME_TOPOLOGY_PRECISION_CANDIDATE / D7R19R2_PASS_STRUCTURAL_WATCHDOG / D7R19R3_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -205,6 +205,22 @@
   changes only the wider-precision branch mask, requires exact D7R19 binary64
   trajectory/work and retains the terminal 32-HVP cap. Implement exactly this
   one candidate substep next.
+- **Current conclusion:** D7R19R2 passes in two clean Release builds at stdout
+  SHA `3dad8890...7ba0`, semantic result `f806858b...9c95` and route
+  `NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED`. D7R19R1 and D7R19
+  bytes remain exact.
+- **Policy fact:** parent/candidate binary64 trial traces share root
+  `6e7a3021...9343`. All five long-double audits resolve positive under
+  binary64-owned membership, including the three R1-selected roots; no solver
+  arithmetic, acceptance or work counter changes.
+- **Structural fact:** five completed trials consume 85 HVPs. The sixth trust
+  solve consumes another exact 32 HVPs and fails in flight at
+  `STRUCTURAL_BUDGET_HVP_PER_STEP`, giving 117 total HVPs, six dimensionless
+  forcing selections and no sixth trial record.
+- **Current decision:** preserve the 32-HVP cap. Research/freeze D7R19R3 as a
+  replay-only recurrence/conditioning diagnostic from the fifth accepted
+  state. It may continue under a separate offline cap but cannot form or
+  accept a trial, mutate R2 or run another nominal substep.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2073,11 +2089,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R1, D7R19 and D7R18R4R2/R4R1/R4/R3/R2/R1/D7R18/D7R17/D7R13
-   exactly. Implement/run frozen D7R19R2 as one separate binary64-owned
-   audit-topology reclosure of the same first nominal substep. Do not add
-   runtime binary128, enlarge the HVP cap, start another substep, macro,
-   trajectory or timing lane.
+6. Preserve D7R19R2/R1, D7R19 and all preceding normalized parents exactly.
+   Research/freeze D7R19R3 over only the failed sixth trust solve. Reproduce
+   its first 32 HVP recurrence, then classify a separately capped offline
+   continuation without forming a trial. Do not enlarge the R2 cap, start
+   another substep, macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 
