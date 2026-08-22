@@ -125,6 +125,7 @@ int main(int argc, char** argv) {
                          "audit|"
                          "--nominal-hydro-topology-incoming-fusion-audit|"
                          "--nominal-dam-first-output|"
+                         "--nominal-dam-reference-first-output|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -987,6 +988,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nominal-dam-reference-first-output") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_nominal_dam_reference_first_output_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (command == "--nominal-dam-first-output-preflight") {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
@@ -1169,6 +1177,7 @@ int main(int argc, char** argv) {
                      "audit|"
                      "--nominal-hydro-topology-incoming-fusion-audit|"
                      "--nominal-dam-first-output|"
+                     "--nominal-dam-reference-first-output|"
                      "--nominal-dam-first-output-preflight|"
                      "--nominal-dam-reference-binary64-topology\n";
         return 2;
