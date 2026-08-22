@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R4_PASS_RESIDUAL_MODEL_IMAGE / D7R19R5_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R4_PASS_RESIDUAL_MODEL_IMAGE / D7R19R5_PASS_SIXTH_TRIAL_ACCEPTANCE / D7R19R6_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -259,6 +259,15 @@
   `(eta,1.25*eta]` and the last eight next-residual ratios strictly decrease.
   HVP 33 must converge; residual-derived predicted bits must equal the direct
   oracle before one shadow trial is classified.
+- **D7R19R5 result:** PASS and
+  `SIXTH_TRIAL_RESIDUAL_MODEL_ACCEPTANCE_CANDIDATE`. Divided/predicted ratio is
+  `0.999999308792273`, long-double sign resolves positive, topology mismatch
+  is absent and radius stays exact. Candidate model HVP work is zero.
+- **Current decision:** research/freeze D7R19R6 as one full private first-
+  substep transaction. Preserve direct model HVPs for ordinary solves; permit
+  residual-derived completion only on the guarded 33rd recurrence HVP. Bind
+  the exact first five R2 trials and exact R5 sixth trial before classifying
+  later work. No public state commit.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2127,11 +2136,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R4/R3/R2/R1, D7R19 and all preceding normalized parents
-   exactly. Implement frozen D7R19R5 over only the sixth trial: one guarded
-   recurrence grace HVP, residual-derived model image and direct oracle
-   correspondence. Evaluate but do not commit acceptance/radius/state. Do not
-   start another substep, macro, trajectory or timing lane.
+6. Preserve D7R19R5/R4/R3/R2/R1, D7R19 and all preceding normalized parents
+   exactly. Research/freeze D7R19R6 as one full private first-substep
+   transaction with guarded residual completion only at eligible HVP 33.
+   Preserve ordinary direct-model solves and bind the first six trials. Do not
+   publicly commit state or start another substep, macro, trajectory or timing
+   lane.
 
 ## Reconsideration triggers
 

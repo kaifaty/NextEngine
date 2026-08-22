@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R5 -- guarded sixth-trial shadow contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / ONE SHADOW TRIAL`
+Status: `EXECUTED / PASS / SIXTH_TRIAL_RESIDUAL_MODEL_ACCEPTANCE_CANDIDATE / SHADOW ONLY / NO STATE`
 
 Identity projection (exact bytes, no final LF):
 
@@ -72,3 +72,12 @@ This contract grants one shadow sixth-trial classification. It does not grant
 a production cap change, transaction mutation/continuation, state commit,
 another candidate nominal substep, macro, trajectory, timing, performance
 claim or runtime/production authority.
+
+## Result
+
+The shadow passes reproducibly and selects
+`SIXTH_TRIAL_RESIDUAL_MODEL_ACCEPTANCE_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r19r5-guarded-sixth-trial-evidence-2026-08-23.md).
+The divided ratio is `0.9999993088`, long-double sign resolves positive and the
+radius remains exact. Research/freeze a separate full private first-substep
+transaction candidate next; this shadow itself commits and continues nothing.
