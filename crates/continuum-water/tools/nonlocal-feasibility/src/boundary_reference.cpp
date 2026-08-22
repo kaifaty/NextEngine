@@ -46108,6 +46108,39 @@ constexpr const char* B4E2D3_IDENTITY_PROJECTION =
     "timing=none|failure=safe-empty-prefix-report;stop-first;"
     "no-second-after-physical-fail|reference=closed|"
     "credit=b4e2h-contract-research-only";
+constexpr const char* B4E2D4_IDENTITY_SHA256 =
+    "30f958a25899ba511313eb5d7d8621470a03dcb69b960af9febdb95893a97b75";
+constexpr const char* B4E2D4_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d4-step2-strain-refinement|v1|parent="
+    "38da5cf5d6409d15ce1cf0221f0ead6b4054b3cbb9f456c9636c6191d92696f3:"
+    "a126e8a12f2473f2ff8b8329d6453b504ced47481018c3fe63d9a5e64c749039:"
+    "8619688fd9b810c5e46cc74a7e1e9603d0571641013289baadd76fe68356b410|"
+    "alignment="
+    "0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7:"
+    "fb2b8f8b4c0227cf5d8a7a43ce518ed72b2e5d5cda31fb8e8c17a5727c24ba13:"
+    "c9afea4e49863db57b4099e3dee5d56d8d3b6ca9bcb03ba100e5870c46e29477:"
+    "f1598838ff82272113fd9746683d1d857d81f692997a57a22b82151216efdda4:"
+    "59f17359b06f9d428409399aa7a7acf03f0be56dc2fbdf67ad5f98a8a3e7f2b6:"
+    "c045627c6abe5ab8bb003fca68796bb06f2b84f14ad8e6be33c4ccdf6ea74c48|"
+    "solver="
+    "35a1d41b78d132429334a34d8c99e6d2870b2b8a68ee949beb5a3c69375dff10:"
+    "b4f847cb4f19b09e951534649515a4504bc07044a13e6c636598b33f247777e9:"
+    "e713a61649fc230b189fca9eda3628b69f9369c706df35f0a2b080a4bd189a70|"
+    "experiment=dam-step2-from-committed-step1;adaptive-40-80-reproduced;"
+    "fixed-private=80-reuse,160,320;dt=1/240;workers8;work-only;"
+    "static-index-once;flat-csr;topology-cache-lane;coefficient-cache;"
+    "fused-tape;split-incoming;directed-scratch-lane|"
+    "physics=unchanged;kappa-unchanged;tolerances-unchanged;"
+    "strain-limit=0.001;numeric-run-gates-unchanged|"
+    "classification=publication-admission-missing-if-private80<=0.001-and-"
+    "decoded80>0.001;resolved-if-gate160-320-and-abs-strain-delta<=0.00005;"
+    "adaptive-admission-missing-if-resolved-and-private320<=0.001;"
+    "finite-penalty-compressibility-if-resolved-and-private320>0.001;"
+    "temporal-unresolved-otherwise|observables=state-root;substeps;work;"
+    "private-strain;decoded-strain;penetration;kkt;closure;gate80-160;"
+    "gate160-320|runs=2-release-builds;2-processes;byte-exact;"
+    "watchdog=900s;timing=none|failure=no-tune;diagnostic-only|"
+    "reference=closed|credit=redesign-route-research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -46154,6 +46187,21 @@ struct B4E2DStep {
     double strict_residual = 0.0;
     double support_reaction_closure = 0.0;
     B4E2DOutput output;
+};
+
+struct B4E2D4FixedLane {
+    bool passed = false;
+    bool work_exact = false;
+    bool cache_exact = false;
+    std::string failure;
+    std::string state_root;
+    SmokeRun run;
+    std::size_t queries = 0U;
+    std::size_t cache_rebuilds = 0U;
+    std::size_t cache_reuses = 0U;
+    std::size_t cache_certificate_passes = 0U;
+    std::size_t scratch_calls = 0U;
+    std::size_t scratch_releases = 0U;
 };
 
 SmokeFixture make_b4e2d_dam_fixture() {
@@ -46267,6 +46315,106 @@ bool b4e2d_cache_exact(const JointTopologySupersetCache& cache) {
         && cache.certificate_passes == cache.reuses
         && cache.certificate_failures == 0U && cache.fallback_builds == 0U
         && cache.superset.passed && cache.maximum_candidate_degree <= 160U;
+}
+
+bool b4e2d4_fixed_trace_exact(const JointQueryTrace& trace) {
+    const JointParallelTrace& parallel = trace.owner_parallel;
+    const JointDirectedScratchReuseTrace& scratch =
+        parallel.directed_scratch_reuse;
+    return trace.workspace_evidence_policy
+            == JointWorkspaceEvidencePolicy::WorkOnly
+        && trace.workspace_state_hashes == 0
+        && trace.workspace_state_hashes_skipped == trace.neighborhood_builds
+        && trace.neighborhood_builds > 0
+        && trace.queries.size()
+            == static_cast<std::size_t>(trace.neighborhood_builds)
+        && std::all_of(trace.queries.begin(), trace.queries.end(),
+            [](const JointQueryMetric& query) {
+                return query.state_sha256.empty();
+            })
+        && trace.coefficient_tape_builds
+            == static_cast<std::size_t>(trace.neighborhood_builds)
+        && trace.coefficient_mismatches == 0U
+        && trace.coefficient_fallbacks == 0U
+        && trace.fused_workspace_builds
+            == static_cast<std::size_t>(trace.neighborhood_builds)
+        && trace.fusion_mismatches == 0U && trace.fusion_fallbacks == 0U
+        && trace.exact && trace.work_reduced
+        && trace.candidate_all_pair_evaluations == 0
+        && trace.candidate_all_pair_hvps == 0
+        && trace.live_workspaces == 0 && trace.maximum_live_workspaces <= 2
+        && parallel.enabled && !parallel.failed
+        && parallel.requested_workers == 8
+        && parallel.minimum_observed_team == 8
+        && parallel.maximum_observed_team == 8
+        && parallel.team_mismatches == 0U
+        && parallel.coverage_mismatches == 0U
+        && parallel.worker_failures == 0U && parallel.regions > 0U
+        && parallel.incoming_construction_audit.candidate_enabled
+        && parallel.incoming_construction_audit.candidate_failures == 0U
+        && parallel.incoming_construction_audit.fallbacks == 0U
+        && scratch.enabled && scratch.calls > 0U
+        && scratch.calls == scratch.evaluation_calls + scratch.hvp_calls
+        && scratch.releases == 1U && scratch.live_buffers == 0U
+        && scratch.maximum_live_buffers == 1U && scratch.failures == 0U;
+}
+
+B4E2D4FixedLane run_b4e2d4_fixed_lane(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& start_position,
+    const std::vector<Vec3>& start_velocity,
+    int substeps,
+    const JointStaticSupportBinding& binding,
+    StaticSupportWorkTrace& static_work,
+    FlatAdjacencyWorkTrace& adjacency_work) {
+    B4E2D4FixedLane result;
+    JointQueryTrace trace;
+    JointTopologySupersetCache cache;
+    trace.record_queries = true;
+    trace.workspace_evidence_policy = JointWorkspaceEvidencePolicy::WorkOnly;
+    trace.topology_cache = &cache;
+    trace.cache_hvp_coefficients = true;
+    trace.fuse_evaluation_tape = true;
+    trace.owner_parallel.enabled = true;
+    trace.owner_parallel.requested_workers = 8;
+    trace.owner_parallel.incoming_construction_audit.candidate_enabled = true;
+    trace.owner_parallel.directed_scratch_reuse.enabled = true;
+    {
+        B4EP10SIRDIReleaseGuard directed_scratch_release{
+            trace.owner_parallel.directed_scratch_reuse};
+        result.run = run_b4b1_interval_joint(
+            fixture, start_position, start_velocity, substeps,
+            SMOKE_FRAME_TIME, SMOKE_FRAME_TIME, trace, nullptr,
+            &binding, &static_work, true, &adjacency_work);
+    }
+    trace.topology_cache = nullptr;
+    result.queries = cache.queries;
+    result.cache_rebuilds = cache.rebuilds;
+    result.cache_reuses = cache.reuses;
+    result.cache_certificate_passes = cache.certificate_passes;
+    result.scratch_calls =
+        trace.owner_parallel.directed_scratch_reuse.calls;
+    result.scratch_releases =
+        trace.owner_parallel.directed_scratch_reuse.releases;
+    result.work_exact = b4e2d4_fixed_trace_exact(trace);
+    result.cache_exact = b4e2d_cache_exact(cache);
+    result.state_root = b4e2d2_frame_zero_root(
+        result.run.position, result.run.velocity);
+    result.passed = result.run.passed && result.run.substeps == substeps
+        && result.run.completed_substeps == substeps
+        && result.run.attempted_substeps == substeps
+        && result.work_exact && result.cache_exact
+        && !result.state_root.empty();
+    if (!result.run.passed) {
+        result.failure = result.run.failure;
+    } else if (!result.work_exact) {
+        result.failure = "WORK_OWNERSHIP";
+    } else if (!result.cache_exact) {
+        result.failure = "TOPOLOGY_CACHE";
+    } else if (!result.passed) {
+        result.failure = "FIXED_LANE_GATE";
+    }
+    return result;
 }
 
 double b4e2d_rmse(const std::vector<double>& values) {
@@ -46792,6 +46940,323 @@ SplitBoundaryReport run_nominal_dam_first_output_controls() {
 
 SplitBoundaryReport run_nominal_dam_reference_first_output_controls() {
     return run_nominal_dam_first_output_impl(true);
+}
+
+SplitBoundaryReport run_nominal_dam_step2_strain_refinement_controls() {
+    constexpr int worker_count = 8;
+    constexpr double strain_limit = 1.0e-3;
+    constexpr double resolved_strain_delta = 5.0e-5;
+    omp_set_dynamic(0);
+    omp_set_max_active_levels(1);
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[1];
+    SmokeFixture fixture = make_b4e2d_dam_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(fixture.position, fixture.velocity, 0));
+    fixture.position = decode_canonical_position(initial.frame);
+    fixture.velocity = decode_canonical_velocity(initial.frame);
+    fixture.geometry_sha256 = geometry_hash(fixture);
+
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index = build_joint_static_support_index(
+        tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding = bind_joint_static_support_index(
+        &index, index.identity_sha256);
+    const JointNeighborhood initial_neighborhood =
+        index.passed && binding.passed
+        ? build_joint_neighborhood_with_static_support(
+            tagged_points(fixture.position), &binding, true, &static_work,
+            true, &adjacency_work)
+        : JointNeighborhood{};
+    const std::string initial_pair_root = initial_neighborhood.passed
+        ? joint_pair_hash(initial_neighborhood) : std::string{};
+    const std::string initial_binary64_root = b4e2d2_frame_zero_root(
+        fixture.position, fixture.velocity);
+    const bool identity_exact = sha256_hex(B4E2D4_IDENTITY_PROJECTION)
+            == B4E2D4_IDENTITY_SHA256
+        && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
+        && scenario_root == spec.scenario_root
+        && initial_binary64_root
+            == "0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7"
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "a2d97ab6f26383d826366eba2a3d4392f5ef9610dda87e89509e93bd9daf61e8"
+        && initial_neighborhood.passed
+        && initial_pair_root
+            == "fb2b8f8b4c0227cf5d8a7a43ce518ed72b2e5d5cda31fb8e8c17a5727c24ba13"
+        && initial_neighborhood.pairs.size() == 342502U
+        && initial_neighborhood.flat_directed_pair_indices.size() == 611520U
+        && initial_neighborhood.maximum_degree == 120U
+        && static_work.static_index_builds == 1U;
+
+    const auto run_adaptive = [&](std::string name,
+            const std::vector<Vec3>& position,
+            const std::vector<Vec3>& velocity,
+            int frame_index, std::uint32_t step,
+            JointTopologySupersetCache& cache) {
+        return run_macro_adaptive_transaction_case(
+            std::move(name), fixture, scenario_root, false, true,
+            &position, &velocity, frame_index, step, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true, true, false, false, worker_count,
+            false, false, false, false, false, false, false, false, true,
+            false, true, false, false, false, false);
+    };
+
+    MacroAdaptiveTransactionCase step1;
+    JointTopologySupersetCache step1_cache;
+    if (identity_exact) {
+        step1 = run_adaptive(
+            "b4e2d4-dam-step-1", fixture.position, fixture.velocity,
+            0, 1U, step1_cache);
+    }
+    const B4E2DOutput step1_output = b4e2d_output(step1, 1U);
+    const double step1_reported_strain = step1.passed
+        ? std::max(step1.accepted_private.maximum_positive_density_strain,
+            step1.decoded_aggregate.maximum_positive_strain) : 0.0;
+    const bool step1_exact = identity_exact && step1.passed
+        && b4e2d_work_only_exact(step1) && b4e2d_cache_exact(step1_cache)
+        && step1.initial_substeps == 39 && step1.selected_level == 1
+        && step1.accepted_substeps == 78
+        && step1.attempted_substeps == 117
+        && step1_reported_strain == 0.0004576940766030102
+        && step1_output.passed
+        && step1_output.frame_root
+            == "c9afea4e49863db57b4099e3dee5d56d8d3b6ca9bcb03ba100e5870c46e29477"
+        && step1_output.aggregate_root
+            == "f1598838ff82272113fd9746683d1d857d81f692997a57a22b82151216efdda4";
+
+    MacroAdaptiveTransactionCase step2;
+    JointTopologySupersetCache step2_cache;
+    if (step1_exact) {
+        step2 = run_adaptive(
+            "b4e2d4-dam-step-2", step1.committed_position,
+            step1.committed_velocity, 1, 2U, step2_cache);
+    }
+    const B4E2DOutput step2_output = b4e2d_output(step2, 2U);
+    const double private80_strain = step2.passed
+        ? step2.accepted_private.maximum_positive_density_strain : 0.0;
+    const double decoded80_strain = step2.passed
+        ? step2.decoded_aggregate.maximum_positive_strain : 0.0;
+    const double step2_reported_strain = std::max(
+        private80_strain, decoded80_strain);
+    const bool step2_exact = step1_exact && step2.passed
+        && b4e2d_work_only_exact(step2) && b4e2d_cache_exact(step2_cache)
+        && step2.initial_substeps == 40 && step2.selected_level == 1
+        && step2.accepted_substeps == 80
+        && step2.attempted_substeps == 120
+        && step2_reported_strain == 0.0011747197409319732
+        && step2_output.passed
+        && step2_output.frame_root
+            == "59f17359b06f9d428409399aa7a7acf03f0be56dc2fbdf67ad5f98a8a3e7f2b6"
+        && step2_output.aggregate_root
+            == "c045627c6abe5ab8bb003fca68796bb06f2b84f14ad8e6be33c4ccdf6ea74c48";
+
+    B4E2D4FixedLane lane160;
+    B4E2D4FixedLane lane320;
+    if (step2_exact) {
+        lane160 = run_b4e2d4_fixed_lane(
+            fixture, step1.committed_position, step1.committed_velocity,
+            160, binding, static_work, adjacency_work);
+    }
+    if (lane160.passed) {
+        lane320 = run_b4e2d4_fixed_lane(
+            fixture, step1.committed_position, step1.committed_velocity,
+            320, binding, static_work, adjacency_work);
+    }
+    const std::string lane80_state_root = step2_exact
+        ? b4e2d2_frame_zero_root(
+            step2.accepted_private.position, step2.accepted_private.velocity)
+        : std::string{};
+    const SmokeGate gate80_160 = lane160.passed
+        ? smoke_gate(step2.accepted_private, lane160.run) : SmokeGate{};
+    const SmokeGate gate160_320 = lane320.passed
+        ? smoke_gate(lane160.run, lane320.run) : SmokeGate{};
+    const double strain_delta160_320 = lane320.passed
+        ? std::abs(lane320.run.maximum_positive_density_strain
+            - lane160.run.maximum_positive_density_strain)
+        : std::numeric_limits<double>::infinity();
+    const bool temporally_resolved = lane320.passed
+        && gate160_320.passed
+        && strain_delta160_320 <= resolved_strain_delta;
+    std::string route;
+    if (lane320.passed) {
+        if (private80_strain <= strain_limit
+            && decoded80_strain > strain_limit) {
+            route = "PUBLICATION_STRAIN_ADMISSION_MISSING";
+        } else if (temporally_resolved
+            && lane320.run.maximum_positive_density_strain <= strain_limit) {
+            route = "ADAPTIVE_DENSITY_ADMISSION_MISSING";
+        } else if (temporally_resolved) {
+            route = "FINITE_PENALTY_COMPRESSIBILITY";
+        } else {
+            route = "TEMPORAL_UNRESOLVED";
+        }
+    }
+
+    std::string first_failure;
+    if (!identity_exact) {
+        first_failure = "IDENTITY_ALIGNMENT";
+    } else if (!step1_exact) {
+        first_failure = "STEP_1_REPRODUCTION";
+    } else if (!step2_exact) {
+        first_failure = "STEP_2_REPRODUCTION";
+    } else if (!lane160.passed) {
+        first_failure = "FIXED_160:" + lane160.failure;
+    } else if (!lane320.passed) {
+        first_failure = "FIXED_320:" + lane320.failure;
+    } else if (route.empty()) {
+        first_failure = "CLASSIFICATION";
+    }
+    const bool passed = first_failure.empty();
+
+    const auto append_gate = [](std::ostringstream& output,
+            const SmokeGate& gate) {
+        output << std::setprecision(17)
+               << "{\"passed\":" << (gate.passed ? "true" : "false")
+               << ",\"normalized_position_error\":"
+               << gate.normalized_position_error
+               << ",\"normalized_velocity_error\":"
+               << gate.normalized_velocity_error
+               << ",\"relative_kinetic_error\":"
+               << gate.relative_kinetic_error
+               << ",\"contact_time_error_s\":"
+               << gate.contact_time_error << '}';
+    };
+    const auto append_fixed_lane = [](std::ostringstream& output,
+            const B4E2D4FixedLane& lane) {
+        output << std::setprecision(17)
+               << "{\"substeps\":" << lane.run.substeps
+               << ",\"status\":\"" << (lane.passed ? "PASS" : "FAIL")
+               << "\",\"failure\":\"" << lane.failure
+               << "\",\"state_root\":\"" << lane.state_root
+               << "\",\"completed_substeps\":"
+               << lane.run.completed_substeps
+               << ",\"outer_trials\":" << lane.run.outer_trials
+               << ",\"hvp_calls\":" << lane.run.hvp_calls
+               << ",\"queries\":" << lane.queries
+               << ",\"cache\":{\"rebuilds\":" << lane.cache_rebuilds
+               << ",\"reuses\":" << lane.cache_reuses
+               << ",\"certificate_passes\":"
+               << lane.cache_certificate_passes << "}"
+               << ",\"directed_scratch\":{\"calls\":"
+               << lane.scratch_calls << ",\"releases\":"
+               << lane.scratch_releases << "}"
+               << ",\"maximum_private_density_strain\":"
+               << lane.run.maximum_positive_density_strain
+               << ",\"maximum_penetration_m\":"
+               << lane.run.maximum_penetration
+               << ",\"maximum_kkt_residual\":"
+               << lane.run.maximum_ledger_residual
+               << ",\"support_reaction_closure\":"
+               << lane.run.maximum_support_reaction_closure
+               << ",\"work_exact\":"
+               << (lane.work_exact ? "true" : "false")
+               << ",\"cache_exact\":"
+               << (lane.cache_exact ? "true" : "false") << '}';
+    };
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D4_IDENTITY_SHA256 << '|' << scenario_root << '|'
+             << initial_binary64_root << ':' << initial_pair_root << '|'
+             << step1_output.frame_root << ':' << step1_output.aggregate_root
+             << ':' << step1_reported_strain << '|'
+             << step2_output.frame_root << ':' << step2_output.aggregate_root
+             << ':' << private80_strain << ':' << decoded80_strain << '|'
+             << lane80_state_root << ':' << step2.accepted_substeps << ':'
+             << step2.accepted_private.outer_trials << ':'
+             << step2.accepted_private.hvp_calls << '|'
+             << lane160.state_root << ':' << lane160.run.substeps << ':'
+             << lane160.run.outer_trials << ':' << lane160.run.hvp_calls << ':'
+             << lane160.run.maximum_positive_density_strain << ':'
+             << lane160.run.maximum_penetration << ':'
+             << lane160.run.maximum_ledger_residual << ':'
+             << lane160.run.maximum_support_reaction_closure << '|'
+             << lane320.state_root << ':' << lane320.run.substeps << ':'
+             << lane320.run.outer_trials << ':' << lane320.run.hvp_calls << ':'
+             << lane320.run.maximum_positive_density_strain << ':'
+             << lane320.run.maximum_penetration << ':'
+             << lane320.run.maximum_ledger_residual << ':'
+             << lane320.run.maximum_support_reaction_closure << '|'
+             << gate80_160.passed << ':'
+             << gate80_160.normalized_position_error << ':'
+             << gate80_160.normalized_velocity_error << '|'
+             << gate160_320.passed << ':'
+             << gate160_320.normalized_position_error << ':'
+             << gate160_320.normalized_velocity_error << ':'
+             << strain_delta160_320 << ':' << temporally_resolved << '|'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d4_step2_strain_refinement.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D4_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure
+           << "\",\"alignment\":{\"scenario_root\":\""
+           << scenario_root << "\",\"initial_binary64_root\":\""
+           << initial_binary64_root << "\",\"initial_pair_root\":\""
+           << initial_pair_root << "\",\"identity_exact\":"
+           << (identity_exact ? "true" : "false") << '}'
+           << ",\"reproduction\":{\"step1_exact\":"
+           << (step1_exact ? "true" : "false")
+           << ",\"step1_frame_root\":\"" << step1_output.frame_root
+           << "\",\"step1_aggregate_root\":\""
+           << step1_output.aggregate_root
+           << "\",\"step1_reported_strain\":"
+           << step1_reported_strain
+           << ",\"step2_exact\":" << (step2_exact ? "true" : "false")
+           << ",\"step2_frame_root\":\"" << step2_output.frame_root
+           << "\",\"step2_aggregate_root\":\""
+           << step2_output.aggregate_root
+           << "\",\"step2_private_peak_strain\":" << private80_strain
+           << ",\"step2_decoded_strain\":" << decoded80_strain
+           << ",\"step2_reported_strain\":" << step2_reported_strain
+           << "},\"lanes\":[{\"substeps\":80,\"status\":\""
+           << (step2_exact ? "PASS" : "FAIL")
+           << "\",\"source\":\"adaptive-accepted-private\""
+           << ",\"state_root\":\"" << lane80_state_root
+           << "\",\"outer_trials\":"
+           << step2.accepted_private.outer_trials
+           << ",\"hvp_calls\":" << step2.accepted_private.hvp_calls
+           << ",\"maximum_private_density_strain\":" << private80_strain
+           << ",\"maximum_penetration_m\":"
+           << step2.accepted_private.maximum_penetration
+           << ",\"maximum_kkt_residual\":"
+           << step2.accepted_private.maximum_ledger_residual
+           << ",\"support_reaction_closure\":"
+           << step2.accepted_private.maximum_support_reaction_closure << "},";
+    append_fixed_lane(report, lane160);
+    report << ',';
+    append_fixed_lane(report, lane320);
+    report << "],\"gates\":{\"80_160\":";
+    append_gate(report, gate80_160);
+    report << ",\"160_320\":";
+    append_gate(report, gate160_320);
+    report << ",\"strain_delta_160_320\":" << strain_delta160_320
+           << ",\"resolved_strain_delta_limit\":"
+           << resolved_strain_delta
+           << ",\"temporally_resolved\":"
+           << (temporally_resolved ? "true" : "false")
+           << "},\"route\":\"" << route << '"'
+           << ",\"physics_changed\":false,\"kappa_changed\":false"
+           << ",\"tolerances_changed\":false,\"timing_admitted\":false"
+           << ",\"speedup_claim\":false"
+           << ",\"redesign_route_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"full_corpus_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
 }
 
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls() {

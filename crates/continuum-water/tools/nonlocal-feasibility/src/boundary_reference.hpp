@@ -129,6 +129,7 @@ SplitBoundaryReport
 run_nominal_hydro_topology_incoming_fusion_audit_controls();
 SplitBoundaryReport run_nominal_dam_first_output_controls();
 SplitBoundaryReport run_nominal_dam_reference_first_output_controls();
+SplitBoundaryReport run_nominal_dam_step2_strain_refinement_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
