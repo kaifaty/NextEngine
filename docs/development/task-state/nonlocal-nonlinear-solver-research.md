@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7_FAIL_PRESSURE_COMMIT / B4E2D7R_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R_FAIL_INNER_FLOOR / B4E2D7R1_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -536,8 +536,15 @@
 - **Current decision:** B4E2D7R freezes `<=1e-8 J` absolute multiplier and
   `<=1e-8 dx` position-update admission, followed by one complete private
   confirmation update. Only the confirmed state may commit; total cap is 14.
-- **Next action:** implement/run B4E2D7R standalone, preserving D7 command
-  bytes and exact first-eight roots. No trajectory or beta change is allowed.
+- **Negative result:** B4E2D7R reproduces the D7 prefix exactly and keeps the
+  primal sequence monotone, but outer 9 accepts a zero-work inner result at
+  stationarity `5.24e-9 <= 1e-8`, then changes `lambda` by `3.50e-7 J` again.
+  The following inner solve reaches `REJECT_LIMIT`; zero state commits.
+- **Current decision:** preserve B4E2D7R FAIL as `INNER_ACCURACY_FLOOR`. Do
+  not lower the tolerance or increase the outer cap without resolving whether
+  raw objective subtraction can represent the required correction.
+- **Next action:** research/freeze a replay-only B4E2D7R1 observability oracle
+  over the exact post-outer-9 state and failed trust trials.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -654,6 +661,7 @@
 | NSR3B4E2D6 PASS | actual-kernel scalar path converges with exact controls | dense-vector AL oracle research only |
 | NSR3B4E2D7 FAIL | dense derivatives/inner/cold pass; committed multiplier state is not warm-stable | dimensionally consistent commit reclosure only |
 | NSR3B4E2D7R contract | absolute pressure-state admission plus private confirmation | implement/run tiny dense oracle only |
+| NSR3B4E2D7R FAIL | D7 prefix exact; fixed inner accuracy alternates zero-work admission and reject limit | inner-floor observability research only |
 
 Candidate solver identity remains:
 

@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R -- dimensionally stable AL commit contract
 
-Status: `FROZEN / NOT_RUN / NO_TRAJECTORY`
+Status: `FAIL / INNER_ACCURACY_FLOOR / NO_COMMIT / NO_TRAJECTORY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -61,3 +61,20 @@ Build Release twice and run two fresh processes without timing. Require
 identical executables, exit zero, empty stderr and byte-identical stdout. No
 nominal trajectory, runtime pressure schema/persistence, performance,
 GPU/PhysX or production authority is granted.
+
+## Closed execution
+
+The first clean-build process is a hard failure, so process B is correctly not
+run. The D7 prefix, derivatives, monotonic primal sequence and rollback remain
+exact. Outer 9 exits its inner solve immediately at scaled stationarity
+`5.240599038808141e-9 <= 1e-8`, moves position by exactly zero, then performs
+another `3.497549225794927e-7 J` PHR multiplier update. The next inner solve
+cannot admit a correction and reaches its unchanged reject limit.
+
+No state commits. This is `INNER_ACCURACY_FLOOR`, not cap exhaustion and not a
+semismooth selection. Preserve the FAIL; a new observability identity must
+expose the rejected trial/model/energy-resolution sequence before changing
+the inner tolerance or merit arithmetic.
+
+Exact evidence:
+[B4E2D7R stable-commit evidence](../../development/nonlocal-nsr3b4e2d7r-al-stable-commit-evidence-2026-08-22.md).
