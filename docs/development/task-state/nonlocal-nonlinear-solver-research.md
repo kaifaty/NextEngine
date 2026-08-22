@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D3_FAIL_STEP2_STRAIN / B4E2D4_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D3_FAIL_STEP2_STRAIN / B4E2D4_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -482,6 +482,10 @@
   state. Do not change `KAPPA`, tolerances, formulas or physical gates.
 - **Next action:** distinguish premature temporal admission from converged
   finite-penalty compressibility before any controller or model redesign.
+- **Current decision:** B4E2D4 freezes exact reproduction plus private fixed
+  80/160/320 step-two lanes. Existing 160/320 state convergence and a
+  predeclared `5e-5` peak-strain delta route controller admission, finite
+  penalty compressibility or unresolved temporal error.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
