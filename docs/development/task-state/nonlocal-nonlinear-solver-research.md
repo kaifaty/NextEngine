@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREQ4_FAIL / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2R_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -442,8 +442,12 @@
 - **Current decision:** close Q4 FAIL without repeat. No further CPU/wall
   candidate A/B is admissible on this shared host; a dedicated/quiescent
   performance lane is required. Fundamental non-speed research may continue.
-- **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
-  persistence or production work.
+- **Current decision:** separate reference extraction from physical execution.
+  B4E2R freezes a standalone timing-free Dam-step-4/Hydro-step-24 slice
+  extractor with complete-hash admission, canonical micrometre aggregates and
+  mutation controls. It runs no Nonlocal trajectory.
+- **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
+  coupling, persistence or production work before B4E2R passes.
 
 ## Current selected lineage
 
@@ -1350,6 +1354,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** an external performance runner supplies bounded host
   health, explicit worker placement and repeatable wall/CPU evidence.
 
+### D-063 -- Extract immutable first-output references before physics
+
+- **Observation:** R1E fully attests the payloads, but the old B4E2 outline
+  would first parse those files inside the same stage that advances four or
+  twenty-four nonlinear macros.
+- **Decision:** freeze a separate standalone B4E2R extractor for Dam step 4
+  and Hydro step 24. Require complete hashes, exact layout, stable IDs,
+  ties-to-even micrometre aggregates and two-build byte equality before any
+  candidate trajectory.
+- **Rejected:** embedding hand-copied q99 values, modifying the frozen R1E
+  reader, decoding references after trajectory start or using shared-host
+  elapsed time as speed credit.
+- **Reconsider when:** B4E2R passes and its immutable slice roots can become
+  the parent of a separately frozen Dam-first physical pilot.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1404,9 +1423,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
-3. Continue only fundamental numerical/structural research without speed
-   claims, or provision and separately qualify a dedicated performance lane
-   before resuming measured optimization.
+3. Implement and run the frozen standalone B4E2R reference-slice extractor;
+   it must not start a Nonlocal trajectory or emit timing evidence.
+4. Only after B4E2R PASS, research a separate Dam-first B4E2D physical pilot.
 
 ## Reconsideration triggers
 
