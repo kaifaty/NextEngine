@@ -11,24 +11,22 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** All five public sources are acquired and hash-closed in the external store; the only remaining closure blocker is binding one exact resident replay identity.
-- **Why:** CV Scripted RU 26.0 (60 000 clips admitted of 176 302 validated, file-order cap), CV Spontaneous RU 4.0 (394 of 552; long/empty typed skips), FLEURS ru (3 690), MUSAN noise (930) and RIRS (60 038) are imported into pinned `indexes/*.jsonl`; the partial recipe dry-runs with exactly one blocker left.
-- **Next action:** Choose and bind the replay route (GigaAM-v3 snapshot or gigastt bundle exist locally; no Voxtral GGUF), set `identity_status: closed` with the artifact hash, then run `prepare` and the first real single-route `replay`.
-- **Current blocker:** Replay identity decision — the spec's primary Voxtral route has no local GGUF/transcribe.cpp on this host.
-- **Do not retry:** Treating microphone diagnostics as training data; inventing hashes for unavailable artifacts; retrying failed replay clips to green.
-- **Reconsider when:** A closed resident replay identity is bound and prepared index exists.
+- **Current conclusion:** The full closure chain is real end-to-end: five public sources are hash-closed, `prepare` published a 124 357-row prepared index, one exact resident identity (GigaAM-v3) is bound, and the first real replays completed 212/212 turns with honest feature payloads.
+- **Why:** CV Scripted RU 26.0 (60 000 admitted of 176 302 validated), CV Spontaneous RU 4.0 (394 of 552; long/empty typed skips), FLEURS ru (3 690), MUSAN noise (930) and RIRS (60 038) are imported with pinned hashes; the partial recipe dry-runs with zero blockers.
+- **Next action:** Start R2 only after generating the manifest-fixed degradations and freezing replay outputs per route; first run the constant/rule/logistic baselines on the frozen train/calibration partitions.
+- **Current blocker:** None for plumbing; R2 needs the deterministic degradation generator plus scaled replay wall-time budgeting.
+- **Do not retry:** Treating microphone diagnostics as training data; inventing hashes; retrying failed replay clips to green; pooling GigaAM scores with other routes.
+- **Reconsider when:** A second route (gigastt/Voxtral) is bound for paired comparison or R2 gates need target-domain evidence.
 
 ## Current evidence
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
 | `docs/development/speech-recognition-reliability-public-data-spec-2026-08-20.md` | `PASS` as approved development scope | Names the claim boundary, R0–R3 increments and evaluation gates |
-| `tools/speech-timeline/src/nextengine_speech_timeline/reliability_features.py` | `PASS` in 153-test suite (40 new) | Golden churn vectors, empty/vanish/oscillation cases, clipping levels, non-finite/identity fail-closed paths, bounded memory (≈1 KiB growth over 3 700 revisions) are executable |
-| `tools/speech-timeline/src/nextengine_speech_timeline/service.py` | `PASS` websocket + unit coverage | Terminal metrics carry `recognition_reliability_features`; a 30-s-like turn with 600 revisions and 479 jobs encodes to ~12.6 KB of the 64 KB event limit; existing microphone/UI flows unchanged |
-| `tools/speech-timeline/src/nextengine_speech_timeline/corpus_replay.py` | `PASS` fixture replay suite | Planned/unclosed recipes, tampered audio and identity mismatch abort before the first clip; overload/timeout/no-speech/speech-but-empty/model-failure stay typed outcomes with one attempt each; outputs atomic `0600`, transcripts confined to external files |
-| `~/.cache/nextengine/speech-reliability/` (external) | `PASS` real import, 2026-08-22 | FLEURS ru 3 690 clips (3 >30 s skipped), MUSAN noise 930 assets, RIRS 60 038 assets (10 RVB2014 drift files rejected) are hash-closed in `indexes/*.jsonl`; archive SHA-256 in `logs/archive-sha256.txt`; partial recipe dry-run reports only the two CV sources and replay identity as blockers |
-| `cargo run -p xtask -- host-check` (R0 handoff) | `PASS` on pinned Rust 1.97.1 | Localized Python-only R1 change re-ran focused package checks instead; rerun before any cross-cutting claim |
-| External public corpus snapshot | `NOT_RUN` | No dataset-quality, coverage or calibrated reliability claim is currently allowed |
+| External store `~/.cache/nextengine/speech-reliability/prepared.jsonl` | `PASS` prepare 2026-08-22 | 63 389 speech + 61 068 asset rows, splits 84 106/16 176/24 075 (train/calibration/held_out), 693 digit + 2 empty references excluded; index sha256 `53c5eb50…` |
+| `replay-runs/gigaam-first` + `gigaam-200` (external) | `PASS` first real replay 2026-08-22 | 200/200 held-out CV clips completed via resident `gigaam-pytorch/1`: exact 184 (92 %), WER mean 1.44 % / p95 14.3 %, CER mean 0.33 %, zero empty finals, zero overload/failures; features carry exact pinned identity |
+| `cargo run -p xtask -- host-check` (R0 handoff) | `PASS` on pinned Rust 1.97.1 | Localized Python-only changes re-ran focused package checks instead; rerun before any cross-cutting claim |
+| Degradation generation / learned calibration | `NOT_RUN` | No accuracy, calibration or reliability-model claim is currently allowed |
 
 ## Decisions that still constrain the work
 
