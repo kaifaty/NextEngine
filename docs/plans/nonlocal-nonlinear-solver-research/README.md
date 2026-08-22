@@ -1334,3 +1334,9 @@ no longer dominates after scratch reuse. `evaluation_setup` is the largest
 individual source-local subphase at 14.58%; research a timing-only split of
 validation, capacity/control and buffer preparation before changing any of
 them.
+The [B4EP10SIRDIRE research](../../development/nonlocal-nsr3b4ep10sirdire-evaluation-setup-research-2026-08-22.md)
+identifies three distinct setup hypotheses. Its
+[frozen contract](03b4ep10sirdire-evaluation-setup-timing-contract.md) adds
+only nested validation/capacity/buffer timers, requires three exact fresh
+processes and routes at most one later structural audit. Implement and measure
+only this command.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIR_PASS / EVALUATION_SETUP_DISCRIMINATOR_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIRE_FROZEN / IMPLEMENTATION_PENDING` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -1072,10 +1072,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research and freeze one B4EP10SIRDIRE setup discriminator over unchanged
+1. Implement only the frozen B4EP10SIRDIRE nested setup timers over unchanged
    B4EP10SIRDIR execution.
-2. Separate validation, capacity/control and buffer preparation; do not skip
-   initialization or add a certificate before the timing route is closed.
+2. Run three exact fresh processes and route only through the frozen setup
+   share/leader rule.
 
 ## Reconsideration triggers
 
