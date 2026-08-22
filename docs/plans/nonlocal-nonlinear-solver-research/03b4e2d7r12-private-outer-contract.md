@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R12 -- private divided outer continuation contract
 
-Status: `FROZEN / NOT_RUN / PRIVATE_ONLY`
+Status: `CLOSED / PASS / PRIVATE_PRESSURE_STATE_CONFIRMED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -47,3 +47,5 @@ mismatch is hard FAIL. PASS is one private pressure-state classification only.
 It grants no trajectory, public state, general error bound, cap/tolerance,
 runtime binary128, performance, GPU/runtime or production authority.
 
+Closure evidence:
+[NSR3-B4E2D7R12 private divided outer continuation evidence](../../development/nonlocal-nsr3b4e2d7r12-private-outer-evidence-2026-08-22.md).

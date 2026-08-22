@@ -1669,3 +1669,10 @@ floor. The [frozen contract](03b4e2d7r12-private-outer-contract.md) preserves
 all pressure gates, audits every candidate-effect acceptance in binary128,
 requires two consecutive admissible states plus a holdout and forces rollback.
 Implement/run only this private continuation next.
+D7R12 passes and selects `PRIVATE_PRESSURE_STATE_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r12-private-outer-evidence-2026-08-22.md).
+Outer 11/12 pass the unchanged confirmation gate and outer 13 passes the same
+holdout. The continuation uses four acceptances, zero rejects and eight HVPs;
+its single candidate-effect acceptance resolves positive in binary128. Freeze
+D7R13 as a full rollback-only private transaction from the original state,
+using one consistent `eta=1e-10` divided inner for every outer update.

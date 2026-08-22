@@ -2,7 +2,7 @@
 
 Date: `2026-08-22`
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / NOT_RUN`
+Status: `CLOSED / PASS / PRIVATE_PRESSURE_STATE_CONFIRMED`
 
 ## Question
 
@@ -101,3 +101,10 @@ or wall-clock A/B on the shared host.
 - A sign or error-bound route stops outer integration and strengthens the
   arithmetic certificate only for the newly accepted pairs.
 
+## Closure
+
+D7R12 passes; see the
+[dated evidence](nonlocal-nsr3b4e2d7r12-private-outer-evidence-2026-08-22.md).
+Outer 11/12 satisfy the unchanged two-state gate and outer 13 is an admissible
+holdout. Proceed to a separately frozen full private transaction from the
+original state; do not promote the prefix-only result.
