@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDI -- directed scratch reuse implementation/A-B contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / CANDIDATE_RESIDUAL_ATTRIBUTION_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
