@@ -1359,3 +1359,11 @@ All seven roles are fully overwritten; exact lifetime requires two returned
 workspace lanes and one ephemeral lane. Projected growth is 22.07 MB versus
 2.829 GB repeated initialization (`0.007801x`). Research and freeze one opt-in
 reuse implementation/A-B contract; retain SIRDI as rollback.
+The [B4EP10SIRDIREI research](../../development/nonlocal-nsr3b4ep10sirdirei-evaluation-buffer-overwrite-research-2026-08-22.md)
+finds that an ordinary vector pool cannot realize the high-water projection
+without repeated resize initialization or a wider logical-size redesign. Its
+[frozen contract](03b4ep10sirdirei-evaluation-buffer-overwrite-contract.md)
+instead selects candidate-only overwrite construction for the six fully
+covered `double` roles, removing 97.73% of measured initialization bytes while
+leaving sizes, ownership and `Vec3` unchanged. Implement and run only this
+opt-in candidate and its frozen balanced A/B.

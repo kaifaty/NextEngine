@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREA_PASS / BUFFER_REUSE_CONTRACT_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREI_FROZEN / IMPLEMENTATION_PENDING` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -363,6 +363,13 @@
 - **Current decision:** research/freeze one opt-in two-lane workspace plus one-
   lane density-contribution reuse implementation/A-B contract. SIRDI remains
   rollback until exact external A/B passes.
+- **Design correction:** an ordinary vector pool cannot preserve the audit's
+  high-water initialization projection when pair `.size()` shrinks and grows;
+  keeping high-water size would change tape semantics. Do not implement that
+  pool in this bounded candidate.
+- **Current decision:** B4EP10SIRDIREI freezes candidate-only overwrite
+  construction for six audited `double` roles, leaving gradient, sizes,
+  ownership and arithmetic unchanged. Implement then run the balanced A/B.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -459,6 +466,7 @@
 | NSR3B4EP10SIRDIRE PASS | buffer setup `89.50%`, stable `8.532x` lead | one buffer liveness/high-water audit research only |
 | NSR3B4EP10SIRDIREA contract | seven-role write coverage plus two workspace/one ephemeral lane receipts | implement/run twice only; no reuse or timing |
 | NSR3B4EP10SIRDIREA PASS | full coverage; two workspace/one ephemeral lane; projected `0.007801x` initialization bytes | buffer reuse implementation/A-B contract research only |
+| NSR3B4EP10SIRDIREI contract | overwrite construction for 345,576,600 audited `double` slots; no pool/size change | implement and run frozen balanced A/B only |
 
 Candidate solver identity remains:
 
@@ -1068,6 +1076,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** the implementation preserves every receipt/root/work
   identity and wins its predeclared balanced external A/B gates.
 
+### D-049 -- Replace direct pool candidate with overwrite construction
+
+- **Observation:** pair extent varies (average 379,275, maximum 380,511).
+  Ordinary vector shrink/regrow reintroduces value initialization; retaining
+  high-water `.size()` changes published tape semantics.
+- **Decision:** first test a candidate-only C++17 allocator mode that omits
+  redundant value assignment for six fully overwritten `double` roles. This
+  covers 2,764,612,800 of 2,828,746,176 measured initialization bytes without
+  changing size, capacity, ownership or arithmetic.
+- **Rejected:** indexing beyond vector size, raw storage, span conversion, or
+  combining allocator and pool changes in one A/B.
+- **Reconsider when:** exact A/B passes and candidate-specific reprofiling still
+  identifies allocation/lifetime work as a bounded leader.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1120,12 +1142,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Specify ownership transfer between two transaction-local workspace buffer
-   bundles, returned workspaces and the existing release function.
-2. Specify one independent density-contribution scratch guard and exact failure
-   cleanup without changing arithmetic or result ownership.
-3. Freeze correspondence, capacity and balanced external A/B gates before
-   implementing the opt-in reuse path.
+1. Implement only the frozen stateful allocator mode and six-role candidate
+   counters; default allocator behavior must preserve every old command.
+2. Prove old SIRDI byte-exact and candidate semantics/counters exact.
+3. Run the frozen warmups and balanced `AB`, `BA`, `AB` external pairs; route
+   only through the predeclared gates.
 
 ## Reconsideration triggers
 
