@@ -2,7 +2,7 @@
 
 Date: `2026-08-22`
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / NOT_RUN`
+Status: `CLOSED / PASS / PRECISION_CERTIFICATE_REQUIRED`
 
 ## Question
 
@@ -90,3 +90,9 @@ authorizes no outer update.
 - A remaining policy failure is diagnosed from its first exact new state.
 - A resolved contradiction stops this candidate.
 
+## Closure
+
+D7R10 passes; see the
+[dated evidence](nonlocal-nsr3b4e2d7r10-private-inner-evidence-2026-08-22.md).
+All three inners converge, while one accepted sign requires the D7R11 offline
+certificate completed by the subsequent stage.

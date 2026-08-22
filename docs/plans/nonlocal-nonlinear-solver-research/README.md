@@ -1662,3 +1662,10 @@ reduction error is `3.23e-5`. Runtime wider precision is not selected. Research
 and freeze D7R12 as a rollback-only complete private-outer integration that
 preserves the pressure-state confirmation gate and audits every new
 candidate-created acceptance before any trajectory or public state exists.
+The [D7R12 research](../../development/nonlocal-nsr3b4e2d7r12-private-outer-research-2026-08-22.md)
+selects only the exact D7R5 post-outer-7 `eta=1e-10` continuation: it is the
+nearest pressure-state boundary and its next inner is an exact repaired D7R10
+floor. The [frozen contract](03b4e2d7r12-private-outer-contract.md) preserves
+all pressure gates, audits every candidate-effect acceptance in binary128,
+requires two consecutive admissible states plus a holdout and forces rollback.
+Implement/run only this private continuation next.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R11_PASS_OFFLINE_SIGN_CERTIFICATE / B4E2D7R12_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R11_PASS_OFFLINE_SIGN_CERTIFICATE / B4E2D7R12_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -51,6 +51,10 @@
   D7R12 as complete rollback-only private-outer integration with an offline
   audit of every candidate-created acceptance and the unchanged pressure-state
   confirmation gate.
+- **Current decision:** D7R12 is frozen over the exact D7R5 post-outer-7
+  `eta=1e-10` continuation through at most outer 63. It preserves all inner
+  mechanics except the selected divided numerator and every pressure-state
+  gate, requires a same-gate holdout and rolls all state back.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1767,9 +1771,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Research/freeze D7R12 complete private-outer integration. Preserve the
-   pressure-state confirmation gate, audit every new candidate-created
-   acceptance and force rollback; do not run a trajectory.
+6. Implement/run frozen D7R12 private outer continuation; preserve D7R11 and
+   D7R5 bytes, audit every candidate-effect acceptance and do not run a
+   trajectory.
 
 ## Reconsideration triggers
 
