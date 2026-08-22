@@ -367,6 +367,18 @@ to `0.665x` all-pairs for P1 and `0.237x` for P2; see the
 This selects `JOINT_PRESSURE_NEIGHBORHOOD_CANDIDATE` and authorizes only B4C1
 compact CSR/pressure-tape design. No solver substitution or nominal run is
 authorized.
+Researching D7R16 finds one remaining hidden dense path before a nominal
+solve: every accepted sparse inner trial still performs four full
+long-double evaluations, or `465204000` candidate checks per acceptance at
+nominal Dam scale. The
+[D7R16 research](../../development/nonlocal-nsr3b4e2d7r16-sparse-precision-transaction-research-2026-08-22.md)
+also finds that D7R15's static-support and sparse-binary128 helpers are not yet
+wired into the real transaction, and that the aligned predictor clamps exactly
+400 bottom particles whose contact impulse must remain separate from pressure.
+The [frozen contract](03b4e2d7r16-sparse-precision-transaction-contract.md)
+therefore integrates sparse long-double, static binding and sparse binary128
+through the complete tiny transaction first. Implement/run D7R16 next; the
+first aligned nominal substep moves to D7R17.
 The [B4C1 research](../../development/nonlocal-nsr3b4c1-pressure-tape-research-2026-08-21.md)
 rejects copying the full multi-term A2 record into pressure-only support
 states. The [B4C1 contract](03b4c1-compact-pressure-tape-contract.md) instead
@@ -1718,6 +1730,8 @@ D7R15 passes and selects `NOMINAL_AL_PREREQUISITES_CONFIRMED`; see the
 The aligned substep `dt` is exact through every candidate formula, all four
 D7R13 binary128 roots reproduce through a sparse current/trial superset union,
 and one identity-bound nominal static index reconstructs `342502` pairs with
-zero active centres. D7R14/D7R13 bytes remain exact. Research/freeze D7R16 as
-one aligned nominal substep shadow next; no macro, trajectory or timing lane is
-authorized.
+zero active centres. D7R14/D7R13 bytes remain exact. D7R16 research then finds
+the remaining dense long-double accepted-trial audit and the missing
+transaction integration of D7R15's proof helpers. Implement the frozen D7R16
+sparse precision transaction next; defer the first aligned nominal substep to
+D7R17 and run no macro, trajectory or timing lane.
