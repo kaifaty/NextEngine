@@ -46307,6 +46307,23 @@ constexpr const char* B4E2D7R2_IDENTITY_PROJECTION =
     "runs=2-release-builds;2-processes;byte-exact;timing=none|trajectory=none;"
     "commit=none;physics-mutation=none|credit=one-selected-remediation-"
     "research-only";
+constexpr const char* B4E2D7R2R_IDENTITY_SHA256 =
+    "034d39324962a5552d5a87d3cb5759e18961401fc87cd9b49e4581e4414b45d0";
+constexpr const char* B4E2D7R2R_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r2r-signed-zero-reclosure|v1|parent="
+    "7b201ab9d281f8ffa3e866e88b067682d116ef3cf38a6507da4a3e4dea99561e:"
+    "efd1f8d003a66a4c76544a17697c99c74232257ac2fde56caee520b6115904b3:"
+    "f6b18542b1a25a548a11925552f014148152c817c8de557a86f9e97f4c628bcb|"
+    "kernel-horizon=numeric-zero;bits=0,9223372036854775808,0;"
+    "publish-signbits;no-canonicalization|trace=unchanged-d7r2-internal;"
+    "parent-report-byte-exact;full-step-exact;"
+    "sets=active8,fluid28,boundary800;"
+    "full-delta=active0-0,fluid0-0,boundary72-120;"
+    "alpha-half=topology-stable,predicted-positive,direct-positive,ratio>=0.1|"
+    "route-precedence=unchanged-d7r2;"
+    "expected-not-forced=trust-reject-policy-reclosure|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|trajectory=none;"
+    "commit=none;physics-mutation=none|credit=selected-route-research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -49293,6 +49310,7 @@ struct ALTopologyStepTrace {
     bool passed = false;
     bool full_reproduction_exact = false;
     bool kernel_horizon_exact = false;
+    bool kernel_horizon_numerical_zero = false;
     bool set_accounting_exact = false;
     bool all_finite = true;
     bool ladder_exact = false;
@@ -49315,6 +49333,7 @@ struct ALTopologyStepTrace {
     std::vector<ALTopologyPair> boundary_removed;
     std::vector<ALTopologyPairDetail> changed_pairs;
     std::vector<ALTopologyAlphaRow> rows;
+    std::string candidate_route;
     std::string selected_route;
 };
 
@@ -49471,6 +49490,9 @@ ALTopologyStepTrace trace_al_topology_step(
     result.kernel_horizon_exact = binary64_bits(weight(HORIZON)) == 0U
         && binary64_bits(weight_gradient(HORIZON)) == 0U
         && binary64_bits(weight_second(HORIZON)) == 0U;
+    result.kernel_horizon_numerical_zero = weight(HORIZON) == 0.0
+        && weight_gradient(HORIZON) == 0.0
+        && weight_second(HORIZON) == 0.0;
     result.ladder_exact = result.rows.size() == 21U;
     for (std::size_t index = 0U; index < result.rows.size(); ++index) {
         result.ladder_exact = result.ladder_exact
@@ -49511,6 +49533,7 @@ ALTopologyStepTrace trace_al_topology_step(
             : (smaller_live_admissible
                 ? "TRUST_REJECT_POLICY_RECLOSURE_REQUIRED"
                 : "AL_HESSIAN_MODEL_RESEARCH_REQUIRED"));
+    result.candidate_route = candidate_route;
     const std::vector<Vec3> public_position = predicted;
     const std::vector<double> public_multiplier(multiplier.size(), 0.0);
     result.rollback_exact = exact_vec3_values(public_position, predicted)
@@ -50652,6 +50675,163 @@ SplitBoundaryReport run_al_topology_step_discriminator_controls() {
            << ",\"physics_mutation\":false,\"timing_admitted\":false"
            << ",\"selected_remediation_research_authorized\":"
            << (passed ? "true" : "false")
+           << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport
+run_al_topology_step_signed_zero_reclosure_controls() {
+    const bool identity_exact = sha256_hex(B4E2D7R2R_IDENTITY_PROJECTION)
+        == B4E2D7R2R_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_topology_step_discriminator_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = !parent.passed
+        && parent_stdout_sha256
+            == "f6b18542b1a25a548a11925552f014148152c817c8de557a86f9e97f4c628bcb";
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALVectorStableSolve replay = solve_al_vector_stable(
+        fixture, active_prediction, active_prediction, zero_multiplier);
+    const ALTopologyStepTrace trace = trace_al_topology_step(
+        active_prediction, replay.position,
+        fixture.boundary, replay.multiplier);
+
+    const std::uint64_t weight_bits = binary64_bits(weight(HORIZON));
+    const std::uint64_t first_bits =
+        binary64_bits(weight_gradient(HORIZON));
+    const std::uint64_t second_bits = binary64_bits(weight_second(HORIZON));
+    const bool signed_zero_exact = trace.kernel_horizon_numerical_zero
+        && weight_bits == 0U
+        && first_bits == UINT64_C(9223372036854775808)
+        && second_bits == 0U;
+    const bool prior_gates_exact = trace.full_reproduction_exact
+        && trace.set_accounting_exact && trace.all_finite
+        && trace.ladder_exact && trace.any_coordinate_moved
+        && trace.directional_descent && trace.rollback_exact;
+    const bool current_sets_exact =
+        trace.current_topology.active.size() == 8U
+        && trace.current_topology.fluid.size() == 28U
+        && trace.current_topology.boundary.size() == 800U;
+    const bool full_delta_exact = trace.active_added.empty()
+        && trace.active_removed.empty() && trace.fluid_added.empty()
+        && trace.fluid_removed.empty()
+        && trace.boundary_added.size() == 72U
+        && trace.boundary_removed.size() == 120U;
+    const ALTopologyAlphaRow& half = trace.rows.size() > 1U
+        ? trace.rows[1] : ALTopologyAlphaRow{};
+    const bool half_exact = trace.rows.size() > 1U && half.exponent == 1
+        && half.coordinate_moved && half.active_added == 0U
+        && half.active_removed == 0U && half.fluid_added == 0U
+        && half.fluid_removed == 0U && half.boundary_added == 0U
+        && half.boundary_removed == 0U
+        && half.predicted_reduction > 0.0
+        && half.direct_actual_reduction > 0.0
+        && half.direct_ratio >= 0.1;
+    const bool route_exact = trace.candidate_route
+        == "TRUST_REJECT_POLICY_RECLOSURE_REQUIRED";
+    const bool passed = identity_exact && parent_exact && signed_zero_exact
+        && prior_gates_exact && current_sets_exact && full_delta_exact
+        && half_exact && route_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "PARENT_REPORT";
+    else if (!signed_zero_exact) first_failure = "SIGNED_ZERO";
+    else if (!prior_gates_exact) first_failure = "D7R2_TRACE";
+    else if (!current_sets_exact) first_failure = "CURRENT_SETS";
+    else if (!full_delta_exact) first_failure = "FULL_DELTA";
+    else if (!half_exact) first_failure = "HALF_STEP";
+    else if (!route_exact) first_failure = "ROUTE";
+    const std::string route = passed ? trace.candidate_route : std::string{};
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R2R_IDENTITY_SHA256 << '|' << parent_stdout_sha256
+             << '|' << weight_bits << ':' << first_bits << ':' << second_bits
+             << ':' << trace.kernel_horizon_numerical_zero << '|'
+             << trace.current_topology.active.size() << ':'
+             << trace.current_topology.fluid.size() << ':'
+             << trace.current_topology.boundary.size() << '|'
+             << trace.active_added.size() << ':'
+             << trace.active_removed.size() << ':'
+             << trace.fluid_added.size() << ':'
+             << trace.fluid_removed.size() << ':'
+             << trace.boundary_added.size() << ':'
+             << trace.boundary_removed.size() << '|'
+             << half.predicted_reduction << ':'
+             << half.raw_actual_reduction << ':'
+             << half.direct_actual_reduction << ':' << half.direct_ratio
+             << ':' << half.branch_actual_reduction << '|'
+             << trace.binding_shrinks << ':'
+             << trace.missing_shrinks_after_cap << '|'
+             << trace.rollback_exact << ':' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r2r_signed_zero_reclosure.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R2R_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"failed\":"
+           << (!parent.passed ? "true" : "false")
+           << ",\"exact\":" << (parent_exact ? "true" : "false") << '}'
+           << ",\"kernel_horizon\":{\"values\":[" << weight(HORIZON)
+           << ',' << weight_gradient(HORIZON) << ',' << weight_second(HORIZON)
+           << "],\"bits\":[" << weight_bits << ',' << first_bits << ','
+           << second_bits << "],\"signbits\":["
+           << (std::signbit(weight(HORIZON)) ? "true" : "false") << ','
+           << (std::signbit(weight_gradient(HORIZON)) ? "true" : "false")
+           << ',' << (std::signbit(weight_second(HORIZON)) ? "true" : "false")
+           << "],\"numerical_zero\":"
+           << (trace.kernel_horizon_numerical_zero ? "true" : "false")
+           << ",\"exact\":" << (signed_zero_exact ? "true" : "false")
+           << '}'
+           << ",\"trace\":{\"prior_gates_exact\":"
+           << (prior_gates_exact ? "true" : "false")
+           << ",\"current_counts\":["
+           << trace.current_topology.active.size() << ','
+           << trace.current_topology.fluid.size() << ','
+           << trace.current_topology.boundary.size()
+           << "],\"full_delta\":{\"active\":["
+           << trace.active_added.size() << ',' << trace.active_removed.size()
+           << "],\"fluid\":[" << trace.fluid_added.size() << ','
+           << trace.fluid_removed.size() << "],\"boundary\":["
+           << trace.boundary_added.size() << ','
+           << trace.boundary_removed.size() << "]}"
+           << ",\"binding_shrinks\":" << trace.binding_shrinks
+           << ",\"missing_shrinks_after_cap\":"
+           << trace.missing_shrinks_after_cap << '}'
+           << ",\"half_step\":{\"exponent\":" << half.exponent
+           << ",\"coordinate_moved\":"
+           << (half.coordinate_moved ? "true" : "false")
+           << ",\"predicted_reduction\":" << half.predicted_reduction
+           << ",\"raw_actual_reduction\":" << half.raw_actual_reduction
+           << ",\"direct_actual_reduction\":"
+           << half.direct_actual_reduction
+           << ",\"direct_ratio\":" << half.direct_ratio
+           << ",\"current_branch_actual_reduction\":"
+           << half.branch_actual_reduction
+           << ",\"topology_stable\":"
+           << (half_exact ? "true" : "false") << '}'
+           << ",\"route\":\"" << route << '"'
+           << ",\"rollback_exact\":"
+           << (trace.rollback_exact ? "true" : "false")
+           << ",\"trajectory_steps\":0,\"commit_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"trust_policy_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"trust_policy_implementation_authorized\":false"
            << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
