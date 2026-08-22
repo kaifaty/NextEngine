@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cfloat>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -46446,6 +46447,36 @@ constexpr const char* B4E2D7R7_IDENTITY_PROJECTION =
     "runs=2-release-builds;2-processes;byte-exact;timing=none|"
     "trajectory=none;public-commit=none;physics-mutation=none|"
     "credit=one-failure-mechanism-research-only";
+constexpr const char* B4E2D7R8_IDENTITY_SHA256 =
+    "be70da6bc83bc2ca3d0659984452225ee0493a8efd81c59e8aff18a6ec826495";
+constexpr const char* B4E2D7R8_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r8-extended-precision-energy-"
+    "discriminator|v1|parent="
+    "f29336079dcb1a54db81fe5c8913130c3cbf72c272336c80fcad6d02c68eb47e:"
+    "a29e3f7921f35065b3bcac1ebbf7f6b1d25422e059b4287d3b7a31cf76865588:"
+    "3615964074fd477ab384f5710b274d8da4f4d1c77fd3f11ecb08a45eec0039ff|"
+    "states=eta1e-8:"
+    "21ad77e22bdba4520ca231bb78d51947a1b67e4263e08dae33af13b0aafabd05;"
+    "eta1e-9:"
+    "075442656934aeed156642091e9fc1ed41bc739513b5710990cdfb231d8aabc2;"
+    "eta1e-10:"
+    "299e4ce372a8a3d418ac6f354c70c362fd772acdf278464fb603a3881527901c|"
+    "profile=linux-x86_64;flt-radix2;sizeof-long-double16;ldbl-mant-dig64|"
+    "formula=independent-long-double-radius,kernel,density,phr,inertia;"
+    "binary64-inputs-and-kernel-scale-promoted-exact|"
+    "sum=fixed-order-and-compensated;"
+    "resolved=agree-sign-and-abs-reduction>=1024-extended-total-ulp|"
+    "trace=all-three-unique-failures;all-trials;total,phr,inertia;"
+    "naive,compensated;ulp-ratios;binary64-extended-pair-membership;"
+    "h-half-margin;h-margin;parent-model,raw,direct|"
+    "controls=d7r7-complete-bytes;state-roots;common-tight-state;"
+    "formula-independence;forced-rollback|"
+    "routes=representation-topology-precision;binary64-energy-evaluation;"
+    "analytic-gradient-hvp-reclosure;stronger-precision-required|"
+    "precedence=topology,energy,derivative,stronger|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|"
+    "trajectory=none;trial-acceptance=none;public-commit=none;"
+    "physics-mutation=none|credit=one-local-numerical-remedy-research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -49766,6 +49797,8 @@ struct ALStepNormInnerTrial {
     double trial_phr_margin = 0.0;
     double current_horizon_margin = 0.0;
     double trial_horizon_margin = 0.0;
+    std::vector<Vec3> current_position;
+    std::vector<Vec3> trial_position;
     ALTopologySets current_topology;
     ALTopologySets topology;
 };
@@ -49884,6 +49917,7 @@ ALStepNormInnerSolve solve_al_vector_inner_step_norm_eta(
         const ALTopologySets current_topology = al_topology_sets(
             result.position, boundary, current.support);
         record.current_topology = current_topology;
+        record.current_position = result.position;
         record.current_total = current.total;
         record.current_total_ulp = al_binary64_ulp(current.total);
         record.current_phr_margin = al_minimum_phr_margin(
@@ -49906,6 +49940,7 @@ ALStepNormInnerSolve solve_al_vector_inner_step_norm_eta(
             - 0.5 * flat_dot(step, image);
         const std::vector<Vec3> trial_position = add_scaled(
             result.position, step, 1.0);
+        record.trial_position = trial_position;
         ALVectorInnerState trial = evaluate_al_vector_inner(
             trial_position, predicted, boundary, multiplier);
         record.trial_total = trial.total;
@@ -50363,6 +50398,8 @@ bool al_step_norm_inner_trial_exact(
             == binary64_bits(rhs.current_horizon_margin)
         && binary64_bits(lhs.trial_horizon_margin)
             == binary64_bits(rhs.trial_horizon_margin)
+        && exact_vec3_values(lhs.current_position, rhs.current_position)
+        && exact_vec3_values(lhs.trial_position, rhs.trial_position)
         && lhs.current_topology.active_root
             == rhs.current_topology.active_root
         && lhs.current_topology.fluid_root
@@ -50530,6 +50567,277 @@ ALCapAccuracyLane solve_al_cap_accuracy_lane(
     if (result.cap_exhausted) {
         result.failure = "OUTER_OBSERVATION_LIMIT";
     }
+    return result;
+}
+
+struct LongDoubleAccumulator {
+    long double sum = 0.0L;
+    long double correction = 0.0L;
+
+    void add(long double value) {
+        const long double adjusted = value - correction;
+        const long double next = sum + adjusted;
+        correction = (next - sum) - adjusted;
+        sum = next;
+    }
+};
+
+struct LongDoubleVec3 {
+    long double x = 0.0L;
+    long double y = 0.0L;
+    long double z = 0.0L;
+};
+
+LongDoubleVec3 al_long_double_vec3(Vec3 value) {
+    return {static_cast<long double>(value.x),
+        static_cast<long double>(value.y),
+        static_cast<long double>(value.z)};
+}
+
+LongDoubleVec3 operator-(LongDoubleVec3 lhs, LongDoubleVec3 rhs) {
+    return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
+}
+
+long double al_long_double_norm(LongDoubleVec3 value) {
+    return std::sqrt(
+        value.x * value.x + value.y * value.y + value.z * value.z);
+}
+
+long double al_long_double_weight(long double radius) {
+    const long double horizon = static_cast<long double>(HORIZON);
+    const long double q = 2.0L * radius / horizon;
+    const long double alpha = 3.0L
+        / (2.0L * static_cast<long double>(PI)
+            * horizon * horizon * horizon);
+    long double raw = 0.0L;
+    if (q > 2.0L) {
+        raw = 0.0L;
+    } else if (q >= 1.0L) {
+        const long double delta = 2.0L - q;
+        raw = alpha * delta * delta * delta / 6.0L;
+    } else {
+        raw = alpha * (2.0L / 3.0L - q * q
+            + 0.5L * q * q * q);
+    }
+    return static_cast<long double>(kernel_scale()) * raw;
+}
+
+struct LongDoubleEnergyEvaluation {
+    bool finite_values = false;
+    long double total = 0.0L;
+    long double phr = 0.0L;
+    long double inertia = 0.0L;
+    std::size_t fluid_pairs = 0U;
+    std::size_t boundary_pairs = 0U;
+    std::size_t membership_mismatches = 0U;
+    long double minimum_half_horizon_margin =
+        std::numeric_limits<long double>::infinity();
+    long double minimum_horizon_margin =
+        std::numeric_limits<long double>::infinity();
+};
+
+LongDoubleEnergyEvaluation evaluate_al_vector_inner_long_double(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier,
+    bool compensated) {
+    LongDoubleEnergyEvaluation result;
+    if (position.size() != predicted.size()
+        || position.size() != multiplier.size()) {
+        return result;
+    }
+    const std::size_t count = position.size();
+    std::vector<LongDoubleVec3> fluid(count);
+    std::vector<LongDoubleVec3> predicted_extended(count);
+    std::vector<LongDoubleVec3> support(boundary.size());
+    std::transform(position.begin(), position.end(), fluid.begin(),
+        al_long_double_vec3);
+    std::transform(predicted.begin(), predicted.end(),
+        predicted_extended.begin(), al_long_double_vec3);
+    std::transform(boundary.begin(), boundary.end(), support.begin(),
+        al_long_double_vec3);
+    const long double mass = static_cast<long double>(MASS);
+    const long double rest_density =
+        static_cast<long double>(REST_DENSITY);
+    const long double kappa = static_cast<long double>(KAPPA);
+    const long double horizon = static_cast<long double>(HORIZON);
+    const long double half_horizon = 0.5L * horizon;
+    std::vector<long double> density(
+        count, mass * al_long_double_weight(0.0L));
+    std::vector<long double> density_correction(count, 0.0L);
+    const auto add_density = [&](std::size_t center, long double value) {
+        if (!compensated) {
+            density[center] += value;
+            return;
+        }
+        const long double adjusted = value - density_correction[center];
+        const long double next = density[center] + adjusted;
+        density_correction[center] =
+            (next - density[center]) - adjusted;
+        density[center] = next;
+    };
+    const auto observe_radius = [&](double binary_radius,
+                                    long double extended_radius) {
+        result.minimum_half_horizon_margin = std::min(
+            result.minimum_half_horizon_margin,
+            std::abs(extended_radius - half_horizon));
+        result.minimum_horizon_margin = std::min(
+            result.minimum_horizon_margin,
+            std::abs(extended_radius - horizon));
+        const bool binary_member = binary_radius <= HORIZON;
+        const bool extended_member = extended_radius <= horizon;
+        result.membership_mismatches +=
+            binary_member == extended_member ? 0U : 1U;
+        return extended_member;
+    };
+    for (std::size_t i = 0U; i < count; ++i) {
+        for (std::size_t j = i + 1U; j < count; ++j) {
+            const double binary_radius = norm(position[i] - position[j]);
+            const long double extended_radius = al_long_double_norm(
+                fluid[i] - fluid[j]);
+            if (observe_radius(binary_radius, extended_radius)) {
+                const long double contribution = mass
+                    * al_long_double_weight(extended_radius);
+                add_density(i, contribution);
+                add_density(j, contribution);
+                ++result.fluid_pairs;
+            }
+        }
+        for (std::size_t index = 0U; index < support.size(); ++index) {
+            const double binary_radius = norm(
+                position[i] - boundary[index]);
+            const long double extended_radius = al_long_double_norm(
+                fluid[i] - support[index]);
+            if (observe_radius(binary_radius, extended_radius)) {
+                add_density(i,
+                    mass * al_long_double_weight(extended_radius));
+                ++result.boundary_pairs;
+            }
+        }
+    }
+    LongDoubleAccumulator phr_compensated;
+    LongDoubleAccumulator inertia_compensated;
+    long double phr_naive = 0.0L;
+    long double inertia_naive = 0.0L;
+    const long double inertia_scale = mass
+        / (static_cast<long double>(TIME_STEP)
+            * static_cast<long double>(TIME_STEP));
+    for (std::size_t center = 0U; center < count; ++center) {
+        const long double constraint =
+            density[center] / rest_density - 1.0L;
+        const long double lambda =
+            static_cast<long double>(multiplier[center]);
+        const long double active = std::max(
+            0.0L, lambda + kappa * constraint);
+        const long double phr_term =
+            (active * active - lambda * lambda) / (2.0L * kappa);
+        const LongDoubleVec3 displacement =
+            fluid[center] - predicted_extended[center];
+        const long double inertia_term = 0.5L * inertia_scale
+            * (displacement.x * displacement.x
+                + displacement.y * displacement.y
+                + displacement.z * displacement.z);
+        if (compensated) {
+            phr_compensated.add(phr_term);
+            inertia_compensated.add(inertia_term);
+        } else {
+            phr_naive += phr_term;
+            inertia_naive += inertia_term;
+        }
+    }
+    result.phr = compensated ? phr_compensated.sum : phr_naive;
+    result.inertia = compensated
+        ? inertia_compensated.sum : inertia_naive;
+    if (compensated) {
+        LongDoubleAccumulator total;
+        total.add(result.phr);
+        total.add(result.inertia);
+        result.total = total.sum;
+    } else {
+        result.total = result.phr + result.inertia;
+    }
+    result.finite_values = std::isfinite(result.total)
+        && std::isfinite(result.phr) && std::isfinite(result.inertia)
+        && std::isfinite(result.minimum_half_horizon_margin)
+        && std::isfinite(result.minimum_horizon_margin);
+    return result;
+}
+
+struct LongDoubleTrialEnergyAudit {
+    LongDoubleEnergyEvaluation current_naive;
+    LongDoubleEnergyEvaluation current_compensated;
+    LongDoubleEnergyEvaluation trial_naive;
+    LongDoubleEnergyEvaluation trial_compensated;
+    long double naive_reduction = 0.0L;
+    long double compensated_reduction = 0.0L;
+    long double extended_ulp = 0.0L;
+    long double naive_ulp_ratio = 0.0L;
+    long double compensated_ulp_ratio = 0.0L;
+    bool finite_values = false;
+    bool sign_agrees = false;
+    bool resolved = false;
+    bool resolved_positive = false;
+    bool resolved_negative = false;
+    bool topology_precision_mismatch = false;
+};
+
+LongDoubleTrialEnergyAudit audit_al_vector_inner_long_double(
+    const ALStepNormInnerTrial& trial,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& multiplier) {
+    LongDoubleTrialEnergyAudit result;
+    result.current_naive = evaluate_al_vector_inner_long_double(
+        trial.current_position, predicted, boundary, multiplier, false);
+    result.current_compensated = evaluate_al_vector_inner_long_double(
+        trial.current_position, predicted, boundary, multiplier, true);
+    result.trial_naive = evaluate_al_vector_inner_long_double(
+        trial.trial_position, predicted, boundary, multiplier, false);
+    result.trial_compensated = evaluate_al_vector_inner_long_double(
+        trial.trial_position, predicted, boundary, multiplier, true);
+    result.naive_reduction = result.current_naive.total
+        - result.trial_naive.total;
+    result.compensated_reduction = result.current_compensated.total
+        - result.trial_compensated.total;
+    result.extended_ulp = std::max(
+        std::nextafter(result.current_compensated.total,
+            std::numeric_limits<long double>::infinity())
+            - result.current_compensated.total,
+        std::nextafter(result.trial_compensated.total,
+            std::numeric_limits<long double>::infinity())
+            - result.trial_compensated.total);
+    result.naive_ulp_ratio = result.extended_ulp > 0.0L
+        ? result.naive_reduction / result.extended_ulp : 0.0L;
+    result.compensated_ulp_ratio = result.extended_ulp > 0.0L
+        ? result.compensated_reduction / result.extended_ulp : 0.0L;
+    result.sign_agrees =
+        (result.naive_reduction > 0.0L
+            && result.compensated_reduction > 0.0L)
+        || (result.naive_reduction < 0.0L
+            && result.compensated_reduction < 0.0L);
+    const long double resolution = 1024.0L * result.extended_ulp;
+    result.resolved = result.sign_agrees
+        && std::abs(result.naive_reduction) >= resolution
+        && std::abs(result.compensated_reduction) >= resolution;
+    result.resolved_positive = result.resolved
+        && result.compensated_reduction > 0.0L;
+    result.resolved_negative = result.resolved
+        && result.compensated_reduction < 0.0L;
+    result.topology_precision_mismatch =
+        result.current_naive.membership_mismatches != 0U
+        || result.current_compensated.membership_mismatches != 0U
+        || result.trial_naive.membership_mismatches != 0U
+        || result.trial_compensated.membership_mismatches != 0U;
+    result.finite_values = result.current_naive.finite_values
+        && result.current_compensated.finite_values
+        && result.trial_naive.finite_values
+        && result.trial_compensated.finite_values
+        && std::isfinite(result.naive_reduction)
+        && std::isfinite(result.compensated_reduction)
+        && std::isfinite(result.extended_ulp)
+        && std::isfinite(result.naive_ulp_ratio)
+        && std::isfinite(result.compensated_ulp_ratio);
     return result;
 }
 
@@ -53330,6 +53638,357 @@ SplitBoundaryReport run_al_inner_floor_mechanism_discriminator_controls() {
            << ",\"trial_acceptance_authorized\":false"
            << ",\"cap_or_tolerance_change_authorized\":false"
            << ",\"solver_family_change_authorized\":false"
+           << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_extended_precision_energy_discriminator_controls() {
+    constexpr std::array<double, 5> stationarity_limits{
+        1.0e-8, 1.0e-9, 1.0e-10, 1.0e-11, 1.0e-12};
+    constexpr std::array<std::size_t, 3> unique_lane_indices{0U, 1U, 2U};
+    constexpr std::array<const char*, 3> expected_state_roots{
+        "21ad77e22bdba4520ca231bb78d51947a1b67e4263e08dae33af13b0aafabd05",
+        "075442656934aeed156642091e9fc1ed41bc739513b5710990cdfb231d8aabc2",
+        "299e4ce372a8a3d418ac6f354c70c362fd772acdf278464fb603a3881527901c"};
+    const bool identity_exact = sha256_hex(B4E2D7R8_IDENTITY_PROJECTION)
+        == B4E2D7R8_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_inner_floor_mechanism_discriminator_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "3615964074fd477ab384f5710b274d8da4f4d1c77fd3f11ecb08a45eec0039ff";
+#if defined(__linux__) && defined(__x86_64__)
+    constexpr bool platform_exact = true;
+#else
+    constexpr bool platform_exact = false;
+#endif
+    const bool precision_profile_exact = platform_exact && FLT_RADIX == 2
+        && sizeof(long double) == 16U && LDBL_MANT_DIG == 64;
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALStepNormPrivateOuterSolve d7r5 =
+        solve_al_step_norm_private_outer(
+            fixture, active_prediction, active_prediction, zero_multiplier);
+    std::array<ALCapAccuracyLane, stationarity_limits.size()> lanes;
+    if (d7r5.records.size() >= 8U) {
+        for (std::size_t index = 0U; index < lanes.size(); ++index) {
+            lanes[index] = solve_al_cap_accuracy_lane(
+                fixture, active_prediction, d7r5.prefix_position,
+                d7r5.prefix_multiplier, d7r5.records[7],
+                stationarity_limits[index]);
+        }
+    }
+    std::array<std::string, unique_lane_indices.size()> state_roots;
+    bool state_roots_exact = true;
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        const ALCapAccuracyLane& lane = lanes[unique_lane_indices[unique]];
+        state_roots[unique] = al_vector_stable_state_root(
+            unique == 0U ? "d7r7-pre-failure-eta1e-8"
+                : (unique == 1U ? "d7r7-pre-failure-eta1e-9"
+                    : "d7r7-pre-failure-eta1e-10"),
+            lane.position, lane.multiplier);
+        state_roots_exact = state_roots_exact
+            && state_roots[unique] == expected_state_roots[unique];
+    }
+    const auto trial_vectors_exact = [](const ALCapAccuracyLane& lhs,
+                                        const ALCapAccuracyLane& rhs) {
+        if (!exact_vec3_values(lhs.position, rhs.position)
+            || !exact_al_multiplier(lhs.multiplier, rhs.multiplier)
+            || lhs.failed_inner_trials.size()
+                != rhs.failed_inner_trials.size()) {
+            return false;
+        }
+        for (std::size_t index = 0U;
+             index < lhs.failed_inner_trials.size(); ++index) {
+            if (!al_step_norm_inner_trial_exact(
+                    lhs.failed_inner_trials[index],
+                    rhs.failed_inner_trials[index])) {
+                return false;
+            }
+        }
+        return true;
+    };
+    const bool common_tight_state_exact = trial_vectors_exact(
+            lanes[2], lanes[3])
+        && trial_vectors_exact(lanes[2], lanes[4]);
+    const bool formula_input_roundtrip_exact =
+        static_cast<double>(static_cast<long double>(PI)) == PI
+        && static_cast<double>(static_cast<long double>(REST_DENSITY))
+            == REST_DENSITY
+        && static_cast<double>(static_cast<long double>(MASS)) == MASS
+        && static_cast<double>(static_cast<long double>(KAPPA)) == KAPPA
+        && static_cast<double>(static_cast<long double>(HORIZON)) == HORIZON
+        && static_cast<double>(static_cast<long double>(TIME_STEP))
+            == TIME_STEP
+        && static_cast<double>(static_cast<long double>(kernel_scale()))
+            == kernel_scale();
+
+    std::array<std::vector<LongDoubleTrialEnergyAudit>,
+        unique_lane_indices.size()> audits;
+    bool all_extended_finite = true;
+    bool work_acceptance_exact = true;
+    bool topology_precision_cause = false;
+    bool binary64_energy_cause = false;
+    bool derivative_cause = false;
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        const ALCapAccuracyLane& lane = lanes[unique_lane_indices[unique]];
+        audits[unique].reserve(lane.failed_inner_trials.size());
+        for (const ALStepNormInnerTrial& trial : lane.failed_inner_trials) {
+            const bool unchanged_decision = trial.finite_values
+                && trial.predicted_reduction > 0.0
+                && trial.raw_actual_reduction > 0.0
+                && trial.raw_ratio >= 0.1;
+            work_acceptance_exact = work_acceptance_exact
+                && trial.accepted == unchanged_decision
+                && trial.current_position.size() == active_prediction.size()
+                && trial.trial_position.size() == active_prediction.size();
+            LongDoubleTrialEnergyAudit audit =
+                audit_al_vector_inner_long_double(
+                    trial, active_prediction, fixture.boundary,
+                    lane.multiplier);
+            all_extended_finite = all_extended_finite
+                && audit.finite_values;
+            const bool causative_parent_trial =
+                trial.predicted_reduction > 0.0
+                && trial.direct_actual_reduction < 0.0;
+            topology_precision_cause = topology_precision_cause
+                || (causative_parent_trial
+                    && audit.topology_precision_mismatch);
+            binary64_energy_cause = binary64_energy_cause
+                || (causative_parent_trial
+                    && !audit.topology_precision_mismatch
+                    && audit.resolved_positive);
+            derivative_cause = derivative_cause
+                || (causative_parent_trial
+                    && !audit.topology_precision_mismatch
+                    && audit.resolved_negative);
+            audits[unique].push_back(std::move(audit));
+        }
+    }
+    const bool formula_independence_exact = precision_profile_exact
+        && formula_input_roundtrip_exact && all_extended_finite
+        && std::all_of(audits.begin(), audits.end(),
+            [](const std::vector<LongDoubleTrialEnergyAudit>& values) {
+                return !values.empty();
+            });
+
+    const std::vector<Vec3> public_position = active_prediction;
+    const std::vector<double> public_multiplier = zero_multiplier;
+    const std::string prior_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const std::string forced_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const bool rollback_exact = prior_public_root == forced_public_root
+        && exact_vec3_values(public_position, active_prediction)
+        && exact_al_multiplier(public_multiplier, zero_multiplier)
+        && state_roots_exact;
+
+    std::string route;
+    if (identity_exact && parent_exact && precision_profile_exact
+        && state_roots_exact && common_tight_state_exact
+        && formula_independence_exact && work_acceptance_exact
+        && rollback_exact) {
+        if (topology_precision_cause) {
+            route = "REPRESENTATION_TOPOLOGY_PRECISION_RESEARCH";
+        } else if (binary64_energy_cause) {
+            route = "BINARY64_ENERGY_EVALUATION_RESEARCH";
+        } else if (derivative_cause) {
+            route = "ANALYTIC_GRADIENT_HVP_RECLOSURE";
+        } else {
+            route = "STRONGER_PRECISION_REQUIRED";
+        }
+    }
+    const bool route_precedence_exact =
+        (topology_precision_cause
+            && route == "REPRESENTATION_TOPOLOGY_PRECISION_RESEARCH")
+        || (!topology_precision_cause && binary64_energy_cause
+            && route == "BINARY64_ENERGY_EVALUATION_RESEARCH")
+        || (!topology_precision_cause && !binary64_energy_cause
+            && derivative_cause
+            && route == "ANALYTIC_GRADIENT_HVP_RECLOSURE")
+        || (!topology_precision_cause && !binary64_energy_cause
+            && !derivative_cause
+            && route == "STRONGER_PRECISION_REQUIRED");
+    const bool passed = !route.empty() && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R7_PARENT_BYTES";
+    else if (!precision_profile_exact) first_failure = "PRECISION_PROFILE";
+    else if (!state_roots_exact) first_failure = "STATE_ROOTS";
+    else if (!common_tight_state_exact) first_failure = "COMMON_TIGHT_STATE";
+    else if (!formula_input_roundtrip_exact)
+        first_failure = "FORMULA_INPUT_PROMOTION";
+    else if (!all_extended_finite) first_failure = "NONFINITE_EXTENDED";
+    else if (!formula_independence_exact)
+        first_failure = "FORMULA_INDEPENDENCE";
+    else if (!work_acceptance_exact) first_failure = "WORK_ACCEPTANCE";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<long double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R8_IDENTITY_SHA256 << '|' << parent_stdout_sha256
+             << '|' << precision_profile_exact << ':' << FLT_RADIX << ':'
+             << sizeof(long double) << ':' << LDBL_MANT_DIG << '|';
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        semantic << stationarity_limits[unique_lane_indices[unique]] << ':'
+                 << state_roots[unique] << '[';
+        const ALCapAccuracyLane& lane = lanes[unique_lane_indices[unique]];
+        for (std::size_t index = 0U; index < audits[unique].size(); ++index) {
+            const ALStepNormInnerTrial& trial = lane.failed_inner_trials[index];
+            const LongDoubleTrialEnergyAudit& audit = audits[unique][index];
+            semantic << trial.trial << ':' << trial.predicted_reduction << ':'
+                     << trial.raw_actual_reduction << ':'
+                     << trial.direct_actual_reduction << ':'
+                     << audit.naive_reduction << ':'
+                     << audit.compensated_reduction << ':'
+                     << audit.extended_ulp << ':' << audit.naive_ulp_ratio
+                     << ':' << audit.compensated_ulp_ratio << ':'
+                     << audit.sign_agrees << ':' << audit.resolved << ':'
+                     << audit.resolved_positive << ':'
+                     << audit.resolved_negative << ':'
+                     << audit.topology_precision_mismatch << ':'
+                     << audit.current_compensated.fluid_pairs << ':'
+                     << audit.current_compensated.boundary_pairs << ':'
+                     << audit.trial_compensated.fluid_pairs << ':'
+                     << audit.trial_compensated.boundary_pairs << ':'
+                     << audit.current_compensated.minimum_half_horizon_margin
+                     << ':'
+                     << audit.trial_compensated.minimum_half_horizon_margin
+                     << ':' << audit.current_compensated.minimum_horizon_margin
+                     << ':' << audit.trial_compensated.minimum_horizon_margin
+                     << ';';
+        }
+        semantic << "]|";
+    }
+    semantic << topology_precision_cause << ':' << binary64_energy_cause
+             << ':' << derivative_cause << ':' << rollback_exact << '|'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_evaluation = [](std::ostringstream& output,
+            const LongDoubleEnergyEvaluation& value) {
+        output << std::setprecision(
+                      std::numeric_limits<long double>::max_digits10)
+               << "{\"total\":" << value.total
+               << ",\"phr\":" << value.phr
+               << ",\"inertia\":" << value.inertia
+               << ",\"fluid_pairs\":" << value.fluid_pairs
+               << ",\"boundary_pairs\":" << value.boundary_pairs
+               << ",\"membership_mismatches\":"
+               << value.membership_mismatches
+               << ",\"minimum_half_horizon_margin\":"
+               << value.minimum_half_horizon_margin
+               << ",\"minimum_horizon_margin\":"
+               << value.minimum_horizon_margin << '}';
+    };
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<long double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r8_extended_precision_energy_discriminator.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R8_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"profile\":{\"linux_x86_64\":"
+           << (platform_exact ? "true" : "false")
+           << ",\"flt_radix\":" << FLT_RADIX
+           << ",\"sizeof_long_double\":" << sizeof(long double)
+           << ",\"ldbl_mant_dig\":" << LDBL_MANT_DIG
+           << ",\"exact\":"
+           << (precision_profile_exact ? "true" : "false") << '}'
+           << ",\"formula_input_roundtrip_exact\":"
+           << (formula_input_roundtrip_exact ? "true" : "false")
+           << ",\"common_tight_state_exact\":"
+           << (common_tight_state_exact ? "true" : "false")
+           << ",\"replays\":[";
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        if (unique != 0U) report << ',';
+        const std::size_t lane_index = unique_lane_indices[unique];
+        const ALCapAccuracyLane& lane = lanes[lane_index];
+        report << "{\"eta\":" << stationarity_limits[lane_index]
+               << ",\"state_root\":\"" << state_roots[unique]
+               << "\",\"trials\":[";
+        for (std::size_t index = 0U; index < audits[unique].size(); ++index) {
+            if (index != 0U) report << ',';
+            const ALStepNormInnerTrial& trial = lane.failed_inner_trials[index];
+            const LongDoubleTrialEnergyAudit& audit = audits[unique][index];
+            report << "{\"trial\":" << trial.trial
+                   << ",\"parent\":{\"predicted\":"
+                   << trial.predicted_reduction << ",\"raw_actual\":"
+                   << trial.raw_actual_reduction
+                   << ",\"direct_actual\":"
+                   << trial.direct_actual_reduction
+                   << ",\"would_accept\":"
+                   << (trial.accepted ? "true" : "false") << '}'
+                   << ",\"current_naive\":";
+            append_evaluation(report, audit.current_naive);
+            report << ",\"current_compensated\":";
+            append_evaluation(report, audit.current_compensated);
+            report << ",\"trial_naive\":";
+            append_evaluation(report, audit.trial_naive);
+            report << ",\"trial_compensated\":";
+            append_evaluation(report, audit.trial_compensated);
+            report << ",\"naive_reduction\":" << audit.naive_reduction
+                   << ",\"compensated_reduction\":"
+                   << audit.compensated_reduction
+                   << ",\"extended_ulp\":" << audit.extended_ulp
+                   << ",\"naive_ulp_ratio\":" << audit.naive_ulp_ratio
+                   << ",\"compensated_ulp_ratio\":"
+                   << audit.compensated_ulp_ratio
+                   << ",\"sign_agrees\":"
+                   << (audit.sign_agrees ? "true" : "false")
+                   << ",\"resolved\":"
+                   << (audit.resolved ? "true" : "false")
+                   << ",\"resolved_positive\":"
+                   << (audit.resolved_positive ? "true" : "false")
+                   << ",\"resolved_negative\":"
+                   << (audit.resolved_negative ? "true" : "false")
+                   << ",\"topology_precision_mismatch\":"
+                   << (audit.topology_precision_mismatch
+                        ? "true" : "false") << '}';
+        }
+        report << "]}";
+    }
+    report << "],\"classification\":{\"topology_precision_cause\":"
+           << (topology_precision_cause ? "true" : "false")
+           << ",\"binary64_energy_cause\":"
+           << (binary64_energy_cause ? "true" : "false")
+           << ",\"derivative_cause\":"
+           << (derivative_cause ? "true" : "false") << '}'
+           << ",\"controls\":{\"work_acceptance_exact\":"
+           << (work_acceptance_exact ? "true" : "false")
+           << ",\"prior_public_root\":\"" << prior_public_root
+           << "\",\"forced_public_root\":\"" << forced_public_root
+           << "\",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false") << '}'
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"trajectory_steps\":0,\"public_commit_count\":0"
+           << ",\"trial_acceptance_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"local_numerical_remedy_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"long_double_production_authorized\":false"
+           << ",\"formula_change_authorized\":false"
            << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"

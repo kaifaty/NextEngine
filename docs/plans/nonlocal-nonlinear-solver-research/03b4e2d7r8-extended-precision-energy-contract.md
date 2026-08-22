@@ -40,8 +40,9 @@ Add `--nonlocal-al-extended-precision-energy-discriminator`. It must:
    exact but the preceding sign tests are unresolved.
 
 Parent, profile, state-root, formula independence, nonfinite extended value,
-sum disagreement, work/acceptance, rollback or route-precedence mismatch is
-hard FAIL. PASS is diagnostic classification only. It grants no long-double
+work/acceptance, rollback or route-precedence mismatch is hard FAIL. Naive and
+compensated sign disagreement is unresolved and routes only to stronger
+precision. PASS is diagnostic classification only. It grants no long-double
 production path, kernel/formula change, trial acceptance, cap/tolerance,
 pressure gate, `beta`, solver-family, trajectory, performance, runtime,
 GPU/PhysX or production authority.
