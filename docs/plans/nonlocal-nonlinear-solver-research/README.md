@@ -1633,3 +1633,10 @@ most `3.99153%` relative error; compensated absolute totals pass only `2/11`.
 Freeze a bounded D7R10 private-inner integration next. It must audit every
 candidate-created acceptance, distinguish unresolved extended signs from
 resolved contradiction and roll every state back.
+The [D7R10 research](../../development/nonlocal-nsr3b4e2d7r10-private-inner-research-2026-08-22.md)
+retains every D7R4 trust/model/HVP/work limit and changes only actual ratio,
+acceptance and rejected-radius interpolation inside three rollback-only
+inners. Its [frozen contract](03b4e2d7r10-private-inner-contract.md) audits
+every candidate acceptance with the D7R8 oracle and separates convergence
+from unresolved sign certification, resolved contradiction and remaining
+policy failure. Implement/run only this private stage next.

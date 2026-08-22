@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R9R1_PASS_DIVIDED_DIFFERENCE / B4E2D7R10_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R9R1_PASS_DIVIDED_DIFFERENCE / B4E2D7R10_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -31,7 +31,7 @@
 - **Accuracy fact:** propagated binary64 differences pass `11/11` resolved
   signs with at most `3.99153%` relative error. Compensated independent totals
   pass only `2/11`. The inherited/new acceptance ledger is exact at `2/0`.
-- **Current decision:** research/freeze D7R10 as a three-state private-inner
+- **Current decision:** D7R10 is frozen as a three-state private-inner
   integration. Candidate actual reductions may change only private trust
   decisions; every new acceptance needs extended sign observability and all
   state must roll back.
@@ -1749,9 +1749,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
-5. Research/freeze B4E2D7R10 private-inner integration over the three exact
-   failed states; distinguish convergence, unresolved accepted signs,
-   resolved contradiction and remaining policy failure.
+5. Implement/run frozen B4E2D7R10 private-inner integration over the three
+   exact failed states; preserve every input and rollback control.
 
 ## Reconsideration triggers
 
