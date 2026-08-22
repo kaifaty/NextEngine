@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREP_FAIL / BUFFER_INIT_BRANCH_STOPPED / RESIDUAL_ROUTE_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREQ_FROZEN / DEFAULT_PATH_DRIFT_QUALIFICATION_PENDING` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -387,6 +387,12 @@
 - **Current decision:** close SIRDIREP FAIL and revert it. Retain exact SIRDI,
   stop the complete evaluation-buffer initialization branch and route only
   from unchanged SIRDIR residual evidence.
+- **New uncertainty:** accepted SIRDI used 31.58 s median total CPU, while the
+  later exact default uses about 36 s. Three dormant instrumentation/audit
+  additions may have changed default-path cost despite byte-exact output.
+- **Current decision:** B4EP10SIRDIREQ freezes independent accepted/current
+  source builds and balanced same-command qualification. Do not optimize a
+  residual until code drift is confirmed or rejected.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -487,6 +493,7 @@
 | NSR3B4EP10SIRDIREI FAIL | default SIRDI regresses `2.431x`; candidate-relative probe invalid; code reverted | ephemeral density-contribution scratch research only |
 | NSR3B4EP10SIRDIREP contract | one local pair buffer; 85.7M repeated slots -> 380,511 growth slots; baseline-health gate | implement and run balanced A/B only |
 | NSR3B4EP10SIRDIREP FAIL | exact and `3/3` faster, but baseline health and candidate stability fail; code reverted | retain SIRDI; different residual discriminator research only |
+| NSR3B4EP10SIRDIREQ contract | accepted `f33bf3a` versus reverted `b8a1edd`, same exact SIRDI command | build and run balanced qualification only; no speed credit |
 
 Candidate solver identity remains:
 
@@ -1152,6 +1159,19 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** a separately authorized representation/ownership
   redesign supplies a new portability boundary and independent evidence.
 
+### D-053 -- Qualify default-path source drift before residual work
+
+- **Observation:** the accepted SIRDI checkpoint measured 31.58 s median
+  total CPU, while later exact default measurements are about 36 s after 999
+  added source lines across residual timing, setup timing and liveness audit.
+- **Decision:** compare independent `f33bf3a` and `b8a1edd` Release builds of
+  the identical SIRDI command in frozen balanced pairs.
+- **Rejected:** assuming host noise, assuming dormant code is free, selecting
+  topology from a possibly regressed baseline or rerunning SIRDIREP.
+- **Decision criterion:** healthy/stable accepted timing plus at least 1.05
+  wall slowdown and total-CPU ratio confirms drift; failed health gates route
+  to host qualification; both ratios below 1.05 return to topology research.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1204,11 +1224,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Re-attest unchanged SIRDI timing stability before another A/B candidate.
-2. Re-evaluate SIRDIR's stable source-local/topology/target-fold residuals;
-   do not reopen setup-buffer initialization or returned-storage work.
-3. Freeze at most one different mechanical discriminator with exact rollback
-   and baseline-health gates before any implementation.
+1. Build untouched accepted `f33bf3a` and current `b8a1edd` sources outside
+   the active worktree; verify named source and build hashes.
+2. Run the frozen warmups and balanced SIRDIREQ `AB`, `BA`, `AB` pairs.
+3. Route to source-delta isolation, host qualification or topology research
+   exactly from the frozen wall/CPU health gates.
 
 ## Reconsideration triggers
 
