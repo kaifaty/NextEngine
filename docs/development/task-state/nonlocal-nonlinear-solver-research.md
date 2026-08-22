@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R2_PASS_STRUCTURAL_WATCHDOG / D7R19R3_PASS_FORCING_CONVERGED_33 / D7R19R4_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R3_PASS_FORCING_CONVERGED_33 / D7R19R4_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -241,6 +241,11 @@
   accumulated Krylov `H(step)` image checked by one direct oracle HVP. Do not
   select a cap policy or form the sixth trial before that correspondence is
   proven.
+- **D7R19R4 research conclusion:** compare one direct `H(step)` oracle against
+  both `sum(alpha*H(d))` and the cheaper residual-derived `r_final-g` image.
+  Require `1e-10` relative/scaled image, quadratic and predicted-reduction
+  bounds with positive signs. Prefer residual-derived, then accumulated, then
+  retain the direct HVP.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2110,10 +2115,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research/freeze D7R19R4 over only the exact sixth solve. Compare bounded
-   recurrence grace plus direct `H(step)` with a Krylov-accumulated model image
-   under one direct oracle HVP. Do not select a cap policy, form a trial, start
-   another substep, macro, trajectory or timing lane.
+   Implement frozen D7R19R4 over only the exact sixth solve. Compare direct,
+   accumulated and residual-derived model images under one oracle HVP. Do not
+   select recurrence grace, form a trial, start another substep, macro,
+   trajectory or timing lane.
 
 ## Reconsideration triggers
 
