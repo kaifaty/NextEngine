@@ -1773,3 +1773,10 @@ the aligned `dt/78` candidate is exactly `kappa*6084 = 7460505`. Its
 requires explicit `kappa` through every sparse/precision/outer path plus a
 tiny normalized oracle. Implement this prerequisite next without a nominal
 solve; D7R19 remains blocked until it passes.
+D7R18 then classifies `DT_KAPPA_NONDIMENSIONAL_MISMATCH`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18-kappa-scaling-prerequisites-evidence-2026-08-22.md).
+Energy, active state, gradient, divided reduction and both extended-precision
+oracles scale within the frozen limit, but dimensional HVP accumulation reaches
+`7.51e-14` against `1.42e-14`. Preserve the gate. Research/freeze a directly
+nondimensional `u=lambda/kappa`, `theta=kappa*dt^2/M` transaction and
+representation-invariant admission next; do not run D7R19 yet.

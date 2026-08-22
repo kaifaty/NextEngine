@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R17_PASS_CLASSIFIED_STRUCTURAL_WATCHDOG / NOMINAL_SOLVER_NOT_CONFIRMED / B4E2D7R18_KAPPA_SCALING_PREREQUISITE_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R18_PASS_CLASSIFIED_NONDIMENSIONAL_HVP_MISMATCH / D7R19_BLOCKED / B4E2D7R18R1_NONDIMENSIONAL_TRANSACTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -26,9 +26,20 @@
   `{dt,kappa}` propagation plus a tiny dimensionless scaling oracle. The exact
   aligned candidate is `kappa=7,460,505`, and both profiles have identical
   binary64 `kappa*dt^2=0x3f95cccccccccccd`.
-- **Next action:** implement D7R18 without a nominal solve, retain D7R16 bytes,
-  directly regress D7R17 once per clean build and reject invalid scale before
-  work. D7R19 scaled nominal execution remains blocked until D7R18 passes.
+- **Current conclusion:** D7R18 reproducibly selects
+  `DT_KAPPA_NONDIMENSIONAL_MISMATCH` at stdout SHA `0267e094...b925` and
+  semantic result `871e1ca5...9084`. D7R16 and two clean D7R17 regressions
+  remain exact.
+- **Mechanism fact:** every non-HVP scaling control closes at `0--3.18e-15`;
+  dimensional HVP accumulation alone reaches `7.513e-14` against the frozen
+  `1.421e-14` limit. Do not relax it.
+- **Representation fact:** `u=lambda/kappa` gives
+  `u_next=max(0,u+c)` and `theta=kappa*dt^2/M` is bit-exact across reference
+  and aligned profiles. Raw absolute-`lambda` gates cannot be inherited over
+  a `6084x` `kappa` scale.
+- **Next action:** research/freeze D7R18R1 as a directly nondimensional sparse
+  AL energy/gradient/HVP/divided/dual representation plus invariant admission
+  mapping. No nominal solve; D7R19 remains blocked.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route

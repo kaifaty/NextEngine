@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R18 -- kappa scaling prerequisites contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP`
+Status: `CLOSED / PASS_CLASSIFICATION / DT_KAPPA_NONDIMENSIONAL_MISMATCH / D7R19_BLOCKED / SHARED_HOST_PERFORMANCE_STOP`
 
 Identity projection (exact bytes, no final LF):
 
@@ -55,8 +55,10 @@ Identity, D7R16 parent bytes, clean D7R17 regression, non-finite output,
 lifecycle, all-pair-call, rollback, process repeat or route-precedence
 mismatch is hard FAIL.
 
-A pass authorizes research/freeze of D7R19: one scaled private nominal substep
-under D7R17's unchanged structural, solver, boundary, ledger and rollback
-gates. It does not select a production `kappa` and grants no second substep,
-macro, trajectory, timing, public state, runtime, parallel/GPU or production
-authority.
+The executed prerequisite preserves every dense/sparse and precision pair but
+misses the frozen normalized HVP limit: `7.51298e-14` versus
+`1.42109e-14`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18-kappa-scaling-prerequisites-evidence-2026-08-22.md).
+D7R19 remains blocked. Research a directly nondimensional
+`u=lambda/kappa`, `theta=kappa*dt^2/M` transaction next; do not weaken the HVP
+gate or inherit raw absolute-`lambda` admission across the scale change.
