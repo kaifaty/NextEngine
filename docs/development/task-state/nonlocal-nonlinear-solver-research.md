@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R1_FAIL_TOPOLOGY_GATE / B4E2D7R2_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R1_FAIL_TOPOLOGY_GATE / B4E2D7R2_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -562,6 +562,12 @@
   inspect compact-support horizon margins, scan a fixed alpha ladder and
   compare live- versus fixed-current-topology objective differences. Do not
   alter tolerance, beta, formula, trust policy or state.
+- **Current decision:** B4E2D7R2 freezes exact active/fluid/boundary set roots,
+  changed-pair horizon/kernel detail, a `2^0..2^-20` ladder and continuation
+  of the current radial/PHR branches. Route precedence separates active PHR,
+  horizon branch, smaller admissible step and residual Hessian-model causes.
+- **Next action:** implement/run B4E2D7R2 twice without accepting a trial.
+  Preserve D7/D7R/D7R1 bytes and keep the shared-host performance stop.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -681,6 +687,7 @@
 | NSR3B4E2D7R FAIL | D7 prefix exact; fixed inner accuracy alternates zero-work admission and reject limit | inner-floor observability research only |
 | NSR3B4E2D7R1 contract | failed-inner trust trace plus direct energy-difference discriminator | implement/run replay-only diagnostic |
 | NSR3B4E2D7R1 FAIL | direct and raw differences agree on ascent; every trial violates frozen topology gate | preserve FAIL; topology/step discriminator research only |
+| NSR3B4E2D7R2 contract | exact set deltas, horizon branch continuation and fixed alpha ladder | implement/run replay-only discriminator |
 
 Candidate solver identity remains:
 

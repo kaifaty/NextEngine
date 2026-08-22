@@ -1508,3 +1508,10 @@ Preserve the FAIL and research/freeze one replay-only B4E2D7R2 discriminator
 that identifies the exact topology delta and scans step scale under both live
 and fixed-current topology. No formula, beta, tolerance, policy or state
 change is authorized.
+The [B4E2D7R2 research](../../development/nonlocal-nsr3b4e2d7r2-topology-step-research-2026-08-22.md)
+shows why pair membership alone is insufficient for the C2 compact-support
+kernel. Its
+[frozen contract](03b4e2d7r2-topology-step-discriminator-contract.md)
+adds exact set/horizon detail, a `2^0..2^-20` scale ladder and continuation of
+the current radial/PHR branches. Implement/run only this replay command next;
+route precedence is frozen and no trial may be accepted.
