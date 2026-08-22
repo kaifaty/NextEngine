@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R8 -- extended-precision energy discriminator contract
 
-Status: `FROZEN / NOT_RUN / PRIVATE_DIAGNOSTIC_ONLY`
+Status: `CLOSED / PASS / BINARY64_ENERGY_EVALUATION_RESEARCH / PRIVATE_DIAGNOSTIC_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -46,3 +46,14 @@ precision. PASS is diagnostic classification only. It grants no long-double
 production path, kernel/formula change, trial acceptance, cap/tolerance,
 pressure gate, `beta`, solver-family, trajectory, performance, runtime,
 GPU/PhysX or production authority.
+
+## Closed result
+
+Two clean Release builds and processes reproduce stdout SHA
+`42ce10541b29dd03b589e1e8699436e65cb5a794a45b8644fc040990dd4648b1`
+and semantic result
+`dbdfcf009a44ddaf36cd643d750a0859f93678904a27668a020de9c21a245cac`.
+The `1e-8/1e-9` replays contain `7/4` resolved-positive trials, no replay
+contains a resolved-negative trial, and pair membership always agrees.
+Select `BINARY64_ENERGY_EVALUATION_RESEARCH`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r8-extended-precision-energy-evidence-2026-08-22.md).

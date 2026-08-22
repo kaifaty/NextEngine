@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R7_PASS_MODEL_DERIVATIVE_RECLOSURE / B4E2D7R8_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R8_PASS_BINARY64_ENERGY_EVALUATION / B4E2D7R9_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,17 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** D7R7 passes reproducibly at stdout SHA
-  `36159640...39ff`, semantic result `a29e3f79...5588` and route
-  `TRUST_MODEL_OR_DERIVATIVE_RECLOSURE`. D7R5/D7R6 remain exact.
-- **Mechanism fact:** no PHR active root changes. The tight `eta=1e-10`
-  failure keeps all pair roots exact; its positive models are below one
-  total-energy ULP while raw and direct actual reductions both show ascent of
-  `1446--4435` ULPs.
-- **Current decision:** D7R8 independently recomputes radius/kernel/density/
-  PHR/inertia in the frozen Linux x86-64 64-mantissa-bit long-double profile.
-  It separates topology representation, binary64 energy evaluation and local
-  analytic derivative causes without accepting a trial.
+- **Current conclusion:** D7R8 passes reproducibly at stdout SHA
+  `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
+  `BINARY64_ENERGY_EVALUATION_RESEARCH`. D7R5--D7R7 remain exact.
+- **Mechanism fact:** `11/23` failed trials have resolved positive extended
+  reductions, none has a resolved negative reduction and all pair-membership
+  decisions agree. All five `eta=1e-10` microtrials remain below the strict
+  1024-extended-ULP resolution threshold.
+- **Current decision:** research/freeze D7R9 around binary64 computational
+  divided differencing: stable radius delta, same-segment cubic kernel delta,
+  density/PHR/inertia delta propagation and compensated final reduction. It
+  remains replay-only and must not accept a trial.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1646,6 +1646,26 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** D7R8 routes exact evidence to topology precision,
   binary64 evaluation, analytic derivative reclosure or a stronger oracle.
 
+### D-067 -- Precancellation before wider production precision
+
+- **Observation:** D7R8 independently recomputes the exact replay inputs and
+  finds resolved descent for eleven trials that the binary64 direct formula
+  calls ascent. No extended trial resolves as ascent and pair membership is
+  identical. The tightest trials remain unresolved even in 64-bit-mantissa
+  long double.
+- **Decision:** retain binary64 state and research computational divided
+  differencing of the actual energy reduction. Propagate current-to-trial
+  deltas through squared norms, square roots, piecewise cubic kernel, density
+  and squared PHR terms, with compensated accumulation and explicit branch
+  handling. Compare only where D7R8 provides a resolved oracle.
+- **Rejected:** making long double a runtime/GPU requirement, accepting the
+  model prediction as actual reduction, treating unresolved tight trials as
+  descent, loosening the trust or pressure gates, or rewriting derivatives
+  before the energy-difference candidate is tested.
+- **Reconsider when:** D7R9 either matches every resolved extended sign with a
+  bounded error or identifies the first operation/branch that still requires
+  stronger arithmetic.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1702,8 +1722,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
-5. Implement/run frozen B4E2D7R8 over every D7R7 failed trial; preserve all
-   binary64 work/acceptance facts and publish only extended-precision signs.
+5. Research/freeze B4E2D7R9 over every D7R8 replay trial; admit only resolved
+   extended signs for candidate scoring and preserve zero trial acceptance.
 
 ## Reconsideration triggers
 
