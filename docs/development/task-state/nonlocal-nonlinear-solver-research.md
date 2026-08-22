@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREQ1_FROZEN / CPU_TIME_ATTRIBUTION_IMPLEMENTATION_PENDING` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREQ1_PASS / TOPOLOGY_STRUCTURAL_AUDIT_RESEARCH_NEXT` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -403,6 +403,12 @@
   existing disjoint phases and thread CPU clocks for all worker-active
   intervals. Implement/run only this timing command; exclude stopped
   evaluation setup from routing.
+- **Measurement result:** Q1 passes `3/3`; all CPU-share ranges are within
+  `0.03`, GNU/internal CPU ratio median is `1.007535`, and exact result is
+  `e5ddff76...14f`.
+- **Current decision:** topology is the eligible leader at median `0.301239`
+  and `1.629380x` over target fold. Research and freeze one timing-free
+  topology structural audit; do not implement a topology change yet.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -506,6 +512,7 @@
 | NSR3B4EP10SIRDIREQ contract | accepted `f33bf3a` versus reverted `b8a1edd`, same exact SIRDI command | build and run balanced qualification only; no speed credit |
 | NSR3B4EP10SIRDIREQ HOST_UNQUALIFIED | accepted median `4.801273 s` misses health; current/accepted wall/CPU `0.977/0.982` | no source bisection or short-margin wall A/B |
 | NSR3B4EP10SIRDIREQ1 contract | process/thread CPU clocks over exact SIRDIR hierarchy | implement/run three only; no wall or speed credit |
+| NSR3B4EP10SIRDIREQ1 PASS | topology median `30.12%`, stable `1.629x` lead; CPU cross-check `1.0075` | one timing-free topology structural audit research only |
 
 Candidate solver identity remains:
 
@@ -1210,6 +1217,18 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   unrelated process affinity/priorities, interpreting CPU time as frame latency
   or allowing stopped evaluation setup to select another buffer experiment.
 
+### D-056 -- Route the stable CPU leader to topology structure
+
+- **Observation:** Q1 passes all exact gates in three fresh processes;
+  topology has median share `0.301239`, every share range is at most
+  `0.024734`, and external/internal CPU ratio median is `1.007535`.
+- **Decision:** authorize exactly one timing-free topology structural audit.
+  It may prove redundant work or ownership but cannot change code or claim
+  speed until a separate contract is frozen.
+- **Rejected:** another buffer experiment, using the noisy wall values,
+  directly implementing a presumed topology optimization, or promoting this
+  research command toward production.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1262,12 +1281,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen process/thread clock trace and fail-closed checked
-   accounting without changing existing command bytes.
-2. Verify SIRDI/SIRDIR exact, then run three fresh CPU-timing processes and the
-   GNU total-CPU cross-check.
-3. Select at most one timing-free structural audit from the eligible CPU
-   leader; final wall A/B remains blocked pending a qualified host window.
+1. Inspect the exact topology path and partition its 30.12% CPU leader into
+   structural work counts without adding timing or changing execution.
+2. Research alternatives, select one falsifiable topology redundancy/lifetime
+   hypothesis and freeze its audit contract before code.
+3. Run only that timing-free audit. Final wall A/B remains blocked pending a
+   qualified host window.
 
 ## Reconsideration triggers
 

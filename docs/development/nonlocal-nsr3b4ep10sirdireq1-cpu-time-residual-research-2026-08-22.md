@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREQ1 CPU-time residual research -- 2026-08-22
 
-Status: `COMPLETE / PREEMPTION_RESISTANT_ATTRIBUTION_SELECTED`
+Status: `COMPLETE / PASS / TOPOLOGY_STRUCTURAL_AUDIT_SELECTED`
 
 ## Question
 
@@ -68,3 +68,8 @@ small positive remainder covers command/report work outside the transaction.
 Freeze B4EP10SIRDIREQ1 as CPU attribution only. It may select one timing-free
 structural audit, never an implementation or a wall-speed claim. SIRDI remains
 selected; B4E2, broad corpus, runtime/GPU/schema and production stay blocked.
+
+The frozen execution passes `3/3`. Topology owns median process-CPU share
+`0.301239`, leads the next eligible category by `1.629380x`, and therefore
+selects exactly one topology structural audit; see the
+[dated evidence](nonlocal-nsr3b4ep10sirdireq1-cpu-time-residual-evidence-2026-08-22.md).

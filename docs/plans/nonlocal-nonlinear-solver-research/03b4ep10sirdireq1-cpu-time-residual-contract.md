@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREQ1 -- CPU-time residual attribution contract
 
-Status: `FROZEN / IMPLEMENTATION_PENDING`
+Status: `COMPLETE / PASS / TOPOLOGY_STRUCTURAL_AUDIT_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -67,3 +67,11 @@ failure retains SIRDI without an optimization route.
 
 No result is wall throughput, B4E2, broad corpus, runtime/GPU/schema or
 production evidence.
+
+## Closure
+
+The command passes `3/3` with exact semantic result `e5ddff76...14f`, all
+category-share ranges at most `0.024734` and median GNU/internal CPU ratio
+`1.007535`. Topology has median share `0.301239` and leads target fold by
+`1.629380x`, authorizing one timing-free topology structural audit. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq1-cpu-time-residual-evidence-2026-08-22.md).
