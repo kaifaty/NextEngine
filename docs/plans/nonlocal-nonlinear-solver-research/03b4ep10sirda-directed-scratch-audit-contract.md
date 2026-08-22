@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDA -- directed scratch-liveness audit contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / DIRECTED_SCRATCH_REUSE_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 

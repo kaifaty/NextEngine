@@ -1302,3 +1302,9 @@ the selected split incoming path. Its
 [frozen contract](03b4ep10sirda-directed-scratch-audit-contract.md) requires
 two exact byte-identical audit processes and both corrupt shadow negatives
 before scratch-reuse implementation research. Implement only the audit.
+B4EP10SIRDA passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirda-directed-scratch-audit-evidence-2026-08-22.md).
+All active-slot writes/reads are exact and a transaction-local high-water
+buffer projects only 670,229 growth slots versus 454,936,226 repeated full
+initializations. Research one opt-in directed-buffer reuse implementation/A-B
+contract; do not fuse arithmetic or extend reuse to other phases.

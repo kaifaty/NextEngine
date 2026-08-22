@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDA_FROZEN / DIRECTED_SCRATCH_AUDIT_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP10SIRDA_PASS / DIRECTED_SCRATCH_REUSE_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -325,6 +325,12 @@
 - **Current decision:** B4EP10SIRDA proves active-slot write-before-read,
   inactive-slot liveness, target assignment and transaction-local high-water
   capacity without changing the returned path. Implement/run the audit only.
+- **Current conclusion:** B4EP10SIRDA passes byte-identically. A full 454.9M
+  slot initialization stream reduces structurally to 670,229 high-water growth
+  slots (`0.001473x`); all 374.9M active writes have exactly two valid reads.
+- **Current decision:** research one opt-in transaction-local directed scratch
+  reuse path and external A/B contract. Do not fuse arithmetic or expand scope
+  to compression/target buffers.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -414,6 +420,7 @@
 | NSR3B4EP10SIRD contract | four disjoint source-local groups from existing timers | run three exact processes; no code or speed credit |
 | NSR3B4EP10SIRD PASS | directed median `38.91%`, stable `4.094x` lead | one directed scratch-liveness audit research only |
 | NSR3B4EP10SIRDA contract | shadow slot liveness plus high-water work projection | implement/run twice only; no scratch fast path or timing |
+| NSR3B4EP10SIRDA PASS | exact liveness; 454.3M repeated init slots removable | directed scratch reuse implementation/A-B research only |
 
 Candidate solver identity remains:
 
@@ -506,6 +513,7 @@ production authority is created by this lineage.
 | [B4EP10SIRD research](../nonlocal-nsr3b4ep10sird-source-local-discriminator-research-2026-08-22.md) | existing subphases separate directed/setup/compression/local-scalar work | execute the frozen reduction only |
 | [B4EP10SIRD](../nonlocal-nsr3b4ep10sird-source-local-discriminator-evidence-2026-08-22.md) | stable directed leader, but timer includes initialization | research an exact scratch-liveness audit |
 | [B4EP10SIRDA research](../nonlocal-nsr3b4ep10sirda-directed-scratch-audit-research-2026-08-22.md) | split incoming folds permit a complete write/read certificate | implement the frozen shadow audit only |
+| [B4EP10SIRDA](../nonlocal-nsr3b4ep10sirda-directed-scratch-audit-evidence-2026-08-22.md) | exact liveness and bounded high-water projection pass | research one opt-in scratch reuse path |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
