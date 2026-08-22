@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10PCI_FAIL_PERFORMANCE / CURRENT_TOPOLOGY_PLAN_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10CTD_FROZEN / CURRENT_TOPOLOGY_PLAN_AUDIT` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -940,10 +940,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Audit whether a compression-independent reverse plan over each current
-   topology is an exact ordered superset of every active evaluation/HVP gather.
-2. Freeze its construction ownership, scan expansion, capacity and negative
-   gates before any candidate implementation or timing.
+1. Implement the frozen B4EP10CTD side-by-side audit without changing the
+   returned evaluation or HVP path.
+2. Run two exact processes and regressions; research topology-compaction
+   construction only if order, scan, capacity and negative gates all pass.
 
 ## Reconsideration triggers
 

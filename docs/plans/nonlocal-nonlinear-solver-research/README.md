@@ -1221,3 +1221,9 @@ It is exact, wins `3/3` and is stable, but median paired speedup is only
 `1.033650x` while user and system CPU increase. Keep it as negative evidence,
 retain B4EP10I, and research a compression-independent current-topology
 reverse plan before another implementation.
+The [B4EP10CT research](../../development/nonlocal-nsr3b4ep10ct-current-topology-plan-research-2026-08-22.md)
+selects a reverse plan over the already filtered topology, with compression
+applied only as a stable gather mask. Its
+[frozen B4EP10CTD contract](03b4ep10ctd-current-topology-plan-audit-contract.md)
+first measures exact evaluation/HVP scan expansion and capacity while the
+returned path remains unchanged. Implement only this audit.
