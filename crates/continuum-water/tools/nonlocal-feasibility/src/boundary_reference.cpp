@@ -62960,4 +62960,1551 @@ SplitBoundaryReport run_al_kappa_scaling_prerequisites_controls() {
     return {passed, report.str()};
 }
 
+namespace {
+
+constexpr const char* B4E2D7R18R1_IDENTITY_SHA256 =
+    "ff63c33a7f8a2058c4e8a3df3f87d106df26416ffa1728cfbb48382450eebdee";
+constexpr const char* B4E2D7R18R1_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r18r1-nondimensional-al-transaction|v1|"
+    "parent=0b649563729757fce9ffe7df15e664516031511b:"
+    "871e1ca5b84968261aaa33bca78d5deab92562e2279dadbe1d5e311be0d19084:"
+    "0267e094641aaddd9b604a71b527db976aaa699f51dacd558624512bd3b1b925|"
+    "variables=u=lambda/kappa;theta=kappa*dt2/M;"
+    "theta0x3fc5cccccccccccd;u-next=max(0,u+c)|"
+    "objective=0.5*norm2(y-yhat)+0.5*theta*sum(max(0,u+c)^2-u^2)|"
+    "gradient=displacement+theta*sum(max(0,u+c)*J)|"
+    "hvp=I+theta*sum((Jp)J+max(0,u+c)Hc);"
+    "direct-normalized;no-postscale|"
+    "divided=direct-normalized-phr+inertia;"
+    "long-double+binary128-normalized|"
+    "reconstruction=dimensional-reference+scaled;"
+    "componentwise-absolute-bound=gamma(96*max-degree+256)*"
+    "sum-absolute-terms;observed<=bound|"
+    "oracle=d7r18-tiny-active;same-position+prediction+direction+u;"
+    "reference+substep-theta-exact;normalized-dense-sparse-exact;"
+    "cross-profile-byte-exact;dimensional-reconstruction-certified|"
+    "admission=primal1e-8;stationarity1e-10;"
+    "dual-u<=0x3da1eed347666340;"
+    "complementarity-u<=0x3d6cb1520bd70533;position-dx1e-8;"
+    "kinematic+impulse-ledger-retained;equivalent-pressure-diagnostic-only|"
+    "invalid=dt,kappa,theta,u-nonfinite-reject-prework;"
+    "one-ulp-theta-mutation|legacy=d7r18-complete-bytes;"
+    "d7r17-clean-regression|work=no-nominal-solve;no-outer-transaction;"
+    "all-pair0;workspace-live<=2;timing=none|"
+    "routes=normalized-formula-mismatch;"
+    "normalized-reconstruction-bound-mismatch;"
+    "normalized-dual-admission-mismatch;"
+    "nondimensional-al-transaction-candidate|"
+    "precedence=formula,reconstruction,admission,candidate|"
+    "runs=2-clean-release-builds;1-process-each;byte-exact|"
+    "trajectory=none;nominal-substeps=0;macro=none;public-commit=none;"
+    "physics-mutation=none;production-scale=none|"
+    "credit=nondimensional-private-transaction-formulation-only";
+
+struct ALNormalizedSupport {
+    bool finite_values = false;
+    double energy = 0.0;
+    std::vector<double> density;
+    std::vector<double> constraint;
+    std::vector<double> active_u;
+    std::vector<Vec3> gradient;
+    std::size_t active_centers = 0U;
+    std::size_t fluid_pairs = 0U;
+    std::size_t boundary_pairs = 0U;
+};
+
+struct ALNormalizedInner {
+    bool passed = false;
+    double total = 0.0;
+    double inertia = 0.0;
+    std::vector<Vec3> gradient;
+    ALNormalizedSupport support;
+};
+
+struct ALNormalizedWorkspace {
+    bool passed = false;
+    std::string failure;
+    double theta = 0.0;
+    JointNeighborhood neighborhood;
+    ALNormalizedSupport support;
+    std::vector<double> radius;
+    std::vector<double> weight_first;
+    std::vector<double> weight_second_value;
+};
+
+struct ALNormalizedHvp {
+    bool passed = false;
+    std::vector<Vec3> value;
+    std::vector<Vec3> absolute_term_sum;
+};
+
+struct ALNormalizedDivided {
+    bool finite_values = false;
+    double reduction = 0.0;
+    double phr_reduction = 0.0;
+    double inertia_reduction = 0.0;
+};
+
+struct ALNormalizedLongDoubleAudit {
+    bool finite_values = false;
+    bool membership_exact = false;
+    long double current_total = 0.0L;
+    long double trial_total = 0.0L;
+    long double reduction = 0.0L;
+    std::size_t fluid_pairs = 0U;
+    std::size_t boundary_pairs = 0U;
+};
+
+struct ALNormalizedBinary128Audit {
+    bool finite_values = false;
+    bool membership_exact = false;
+    Binary128 current_total = static_cast<Binary128>(0.0);
+    Binary128 trial_total = static_cast<Binary128>(0.0);
+    Binary128 reduction = static_cast<Binary128>(0.0);
+    std::size_t fluid_pairs = 0U;
+    std::size_t boundary_pairs = 0U;
+};
+
+bool al_normalized_inputs_valid(
+    double theta, const std::vector<double>& u) {
+    return std::isfinite(theta) && theta > 0.0
+        && std::all_of(u.begin(), u.end(), [](double value) {
+            return std::isfinite(value);
+        });
+}
+
+double al_normalized_theta(double time_step, double kappa) {
+    if (!std::isfinite(time_step) || time_step <= 0.0
+        || !std::isfinite(kappa) || kappa <= 0.0) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    return kappa * time_step * time_step / MASS;
+}
+
+Vec3 al_component_abs(Vec3 value) {
+    return {std::abs(value.x), std::abs(value.y), std::abs(value.z)};
+}
+
+ALNormalizedSupport evaluate_al_normalized_dense_support(
+    const std::vector<Vec3>& fluid,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& u,
+    double theta) {
+    ALNormalizedSupport result;
+    const std::size_t count = fluid.size();
+    if (u.size() != count || !al_normalized_inputs_valid(theta, u)) {
+        return result;
+    }
+    result.density.assign(count, MASS * weight(0.0));
+    result.gradient.resize(count + boundary.size());
+    for (std::size_t i = 0U; i < count; ++i) {
+        for (std::size_t j = i + 1U; j < count; ++j) {
+            const double radius = norm(fluid[i] - fluid[j]);
+            if (radius <= HORIZON) {
+                const double contribution = MASS * weight(radius);
+                result.density[i] += contribution;
+                result.density[j] += contribution;
+                ++result.fluid_pairs;
+            }
+        }
+        for (std::size_t support = 0U;
+             support < boundary.size(); ++support) {
+            const double radius = norm(fluid[i] - boundary[support]);
+            if (radius <= HORIZON) {
+                result.density[i] += MASS * weight(radius);
+                ++result.boundary_pairs;
+            }
+        }
+    }
+    result.constraint.resize(count);
+    result.active_u.resize(count);
+    for (std::size_t center = 0U; center < count; ++center) {
+        const double constraint =
+            result.density[center] / REST_DENSITY - 1.0;
+        const double active = std::max(0.0, u[center] + constraint);
+        result.constraint[center] = constraint;
+        result.active_u[center] = active;
+        result.energy += 0.5 * theta
+            * (active * active - u[center] * u[center]);
+        if (active <= 0.0) continue;
+        ++result.active_centers;
+        const double scale = theta * active * MASS / REST_DENSITY;
+        const auto accumulate = [&](std::size_t participant,
+                                     Vec3 displacement) {
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius > HORIZON) return;
+            const Vec3 pair = scale * weight_gradient(radius)
+                * (displacement / radius);
+            result.gradient[center] += pair;
+            result.gradient[participant] += -pair;
+        };
+        for (std::size_t neighbor = 0U; neighbor < count; ++neighbor) {
+            if (neighbor != center) {
+                accumulate(neighbor, fluid[center] - fluid[neighbor]);
+            }
+        }
+        for (std::size_t support = 0U;
+             support < boundary.size(); ++support) {
+            accumulate(count + support,
+                fluid[center] - boundary[support]);
+        }
+    }
+    result.finite_values = std::isfinite(result.energy)
+        && std::all_of(result.density.begin(), result.density.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.constraint.begin(), result.constraint.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.active_u.begin(), result.active_u.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.gradient.begin(), result.gradient.end(),
+            [](Vec3 value) { return finite(value); });
+    return result;
+}
+
+ALNormalizedWorkspace build_al_normalized_sparse_workspace(
+    const std::vector<Vec3>& fluid,
+    const JointStaticSupportBinding& binding,
+    const std::vector<double>& u,
+    double theta,
+    ALSparseWorkTrace* work,
+    StaticSupportWorkTrace* static_work,
+    FlatAdjacencyWorkTrace* adjacency_work) {
+    ALNormalizedWorkspace result;
+    if (!al_normalized_inputs_valid(theta, u)) {
+        result.failure = "AL_NORMALIZED_INPUT_INVALID";
+        return result;
+    }
+    if (work != nullptr) {
+        ++work->workspace_builds;
+        ++work->live_workspaces;
+        work->maximum_live_workspaces = std::max(
+            work->maximum_live_workspaces, work->live_workspaces);
+    }
+    result.theta = theta;
+    result.neighborhood = build_joint_neighborhood_with_static_support(
+        tagged_points(fluid), &binding, true, static_work, true,
+        adjacency_work);
+    if (!result.neighborhood.passed
+        || u.size() != result.neighborhood.fluid.size()) {
+        result.failure = result.neighborhood.passed
+            ? "AL_NORMALIZED_DUAL_SIZE" : result.neighborhood.failure;
+        return result;
+    }
+    const std::size_t count = result.neighborhood.fluid.size();
+    result.support.density.assign(count, MASS * weight(0.0));
+    result.support.gradient.resize(
+        count + result.neighborhood.support.size());
+    result.radius.resize(result.neighborhood.pairs.size());
+    result.weight_first.resize(result.neighborhood.pairs.size());
+    result.weight_second_value.resize(result.neighborhood.pairs.size());
+    for (std::size_t pair_index = 0U;
+         pair_index < result.neighborhood.pairs.size(); ++pair_index) {
+        const JointPair pair = result.neighborhood.pairs[pair_index];
+        const double radius = norm(
+            result.neighborhood.fluid[pair.fluid].position
+            - joint_position(result.neighborhood, pair.participant));
+        result.radius[pair_index] = radius;
+        result.weight_first[pair_index] = weight_gradient(radius);
+        result.weight_second_value[pair_index] = weight_second(radius);
+        const double contribution = MASS * weight(radius);
+        result.support.density[pair.fluid] += contribution;
+        if (pair.participant < count) {
+            result.support.density[pair.participant] += contribution;
+            ++result.support.fluid_pairs;
+        } else {
+            ++result.support.boundary_pairs;
+        }
+        if (work != nullptr) ++work->pair_visits;
+    }
+    result.support.constraint.resize(count);
+    result.support.active_u.resize(count);
+    for (std::size_t center = 0U; center < count; ++center) {
+        const double constraint =
+            result.support.density[center] / REST_DENSITY - 1.0;
+        const double active = std::max(0.0, u[center] + constraint);
+        result.support.constraint[center] = constraint;
+        result.support.active_u[center] = active;
+        result.support.energy += 0.5 * theta
+            * (active * active - u[center] * u[center]);
+        if (active <= 0.0) continue;
+        ++result.support.active_centers;
+        const double scale = theta * active * MASS / REST_DENSITY;
+        const std::size_t begin = result.neighborhood.flat_offsets[center];
+        const std::size_t end =
+            result.neighborhood.flat_offsets[center + 1U];
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                result.neighborhood.flat_directed_pair_indices[slot];
+            const std::size_t participant = joint_pair_participant(
+                result.neighborhood,
+                result.neighborhood.pairs[pair_index], center);
+            const double radius = result.radius[pair_index];
+            if (radius <= 1.0e-15 || radius > HORIZON) continue;
+            const Vec3 displacement =
+                result.neighborhood.fluid[center].position
+                - joint_position(result.neighborhood, participant);
+            const Vec3 pair = scale * result.weight_first[pair_index]
+                * (displacement / radius);
+            result.support.gradient[center] += pair;
+            result.support.gradient[participant] += -pair;
+        }
+    }
+    result.support.finite_values = std::isfinite(result.support.energy)
+        && std::all_of(result.support.density.begin(),
+            result.support.density.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.support.constraint.begin(),
+            result.support.constraint.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.support.active_u.begin(),
+            result.support.active_u.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.support.gradient.begin(),
+            result.support.gradient.end(),
+            [](Vec3 value) { return finite(value); });
+    result.passed = result.support.finite_values;
+    if (!result.passed) result.failure = "AL_NORMALIZED_NONFINITE";
+    return result;
+}
+
+void release_al_normalized_workspace(
+    ALNormalizedWorkspace& workspace, ALSparseWorkTrace* work) {
+    workspace = {};
+    if (work != nullptr) {
+        ++work->workspace_releases;
+        if (work->live_workspaces == 0U) {
+            work->lifecycle_underflow = true;
+        } else {
+            --work->live_workspaces;
+        }
+    }
+}
+
+ALNormalizedInner evaluate_al_normalized_inner(
+    ALNormalizedSupport support,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& predicted) {
+    ALNormalizedInner result;
+    result.support = std::move(support);
+    if (!result.support.finite_values
+        || position.size() != predicted.size()) {
+        return result;
+    }
+    result.gradient = fluid_part(result.support.gradient, position.size());
+    result.total = result.support.energy;
+    for (std::size_t index = 0U; index < position.size(); ++index) {
+        const Vec3 displacement = position[index] - predicted[index];
+        const double term = 0.5 * norm_squared(displacement);
+        result.inertia += term;
+        result.total += term;
+        result.gradient[index] += displacement;
+    }
+    result.passed = std::isfinite(result.total)
+        && std::isfinite(result.inertia)
+        && std::all_of(result.gradient.begin(), result.gradient.end(),
+            [](Vec3 value) { return finite(value); });
+    return result;
+}
+
+ALNormalizedHvp apply_al_normalized_dense_hessian(
+    const std::vector<Vec3>& fluid,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& u,
+    double theta,
+    const std::vector<Vec3>& direction) {
+    ALNormalizedHvp result;
+    const std::size_t count = fluid.size();
+    if (direction.size() != count || u.size() != count
+        || !al_normalized_inputs_valid(theta, u)) {
+        return result;
+    }
+    const ALNormalizedSupport support =
+        evaluate_al_normalized_dense_support(fluid, boundary, u, theta);
+    if (!support.finite_values) return result;
+    result.value = direction;
+    result.absolute_term_sum.resize(count);
+    for (std::size_t index = 0U; index < count; ++index) {
+        result.absolute_term_sum[index] = al_component_abs(direction[index]);
+    }
+    for (std::size_t center = 0U; center < count; ++center) {
+        const double active = support.active_u[center];
+        if (active <= 0.0) continue;
+        double constraint_direction = 0.0;
+        const auto fold = [&](Vec3 displacement, Vec3 relative) {
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius > HORIZON) return;
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * weight_gradient(radius) * (displacement / radius);
+            constraint_direction += dot(jacobian, relative);
+        };
+        for (std::size_t neighbor = 0U; neighbor < count; ++neighbor) {
+            if (neighbor != center) {
+                fold(fluid[center] - fluid[neighbor],
+                    direction[center] - direction[neighbor]);
+            }
+        }
+        for (Vec3 point : boundary) {
+            fold(fluid[center] - point, direction[center]);
+        }
+        const auto accumulate = [&](std::size_t participant,
+                                     Vec3 displacement,
+                                     Vec3 relative,
+                                     bool participant_is_fluid) {
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius > HORIZON) return;
+            const Vec3 normal = displacement / radius;
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * weight_gradient(radius) * normal;
+            const Vec3 curvature = MASS / REST_DENSITY
+                * radial_hessian_product(normal, weight_second(radius),
+                    weight_gradient(radius) / radius, relative);
+            const Vec3 pair = theta * constraint_direction * jacobian
+                + theta * active * curvature;
+            result.value[center] += pair;
+            result.absolute_term_sum[center] += al_component_abs(pair);
+            if (participant_is_fluid) {
+                result.value[participant] += -pair;
+                result.absolute_term_sum[participant] +=
+                    al_component_abs(pair);
+            }
+        };
+        for (std::size_t neighbor = 0U; neighbor < count; ++neighbor) {
+            if (neighbor != center) {
+                accumulate(neighbor, fluid[center] - fluid[neighbor],
+                    direction[center] - direction[neighbor], true);
+            }
+        }
+        for (Vec3 point : boundary) {
+            accumulate(0U, fluid[center] - point,
+                direction[center], false);
+        }
+    }
+    result.passed = std::all_of(result.value.begin(), result.value.end(),
+        [](Vec3 value) { return finite(value); });
+    return result;
+}
+
+ALNormalizedHvp apply_al_normalized_sparse_hessian(
+    const ALNormalizedWorkspace& workspace,
+    const std::vector<Vec3>& direction) {
+    ALNormalizedHvp result;
+    const std::size_t count = workspace.neighborhood.fluid.size();
+    if (!workspace.passed || direction.size() != count) return result;
+    result.value = direction;
+    result.absolute_term_sum.resize(count);
+    for (std::size_t index = 0U; index < count; ++index) {
+        result.absolute_term_sum[index] = al_component_abs(direction[index]);
+    }
+    for (std::size_t center = 0U; center < count; ++center) {
+        const double active = workspace.support.active_u[center];
+        if (active <= 0.0) continue;
+        double constraint_direction = 0.0;
+        const std::size_t begin = workspace.neighborhood.flat_offsets[center];
+        const std::size_t end =
+            workspace.neighborhood.flat_offsets[center + 1U];
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                workspace.neighborhood.flat_directed_pair_indices[slot];
+            const std::size_t participant = joint_pair_participant(
+                workspace.neighborhood,
+                workspace.neighborhood.pairs[pair_index], center);
+            const double radius = workspace.radius[pair_index];
+            if (radius <= 1.0e-15 || radius > HORIZON) continue;
+            const Vec3 displacement =
+                workspace.neighborhood.fluid[center].position
+                - joint_position(workspace.neighborhood, participant);
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * workspace.weight_first[pair_index]
+                * (displacement / radius);
+            const Vec3 relative = participant < count
+                ? direction[center] - direction[participant]
+                : direction[center];
+            constraint_direction += dot(jacobian, relative);
+        }
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                workspace.neighborhood.flat_directed_pair_indices[slot];
+            const std::size_t participant = joint_pair_participant(
+                workspace.neighborhood,
+                workspace.neighborhood.pairs[pair_index], center);
+            const double radius = workspace.radius[pair_index];
+            if (radius <= 1.0e-15 || radius > HORIZON) continue;
+            const Vec3 displacement =
+                workspace.neighborhood.fluid[center].position
+                - joint_position(workspace.neighborhood, participant);
+            const Vec3 normal = displacement / radius;
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * workspace.weight_first[pair_index] * normal;
+            const Vec3 relative = participant < count
+                ? direction[center] - direction[participant]
+                : direction[center];
+            const Vec3 curvature = MASS / REST_DENSITY
+                * radial_hessian_product(normal,
+                    workspace.weight_second_value[pair_index],
+                    workspace.weight_first[pair_index] / radius,
+                    relative);
+            const Vec3 pair = workspace.theta
+                    * constraint_direction * jacobian
+                + workspace.theta * active * curvature;
+            result.value[center] += pair;
+            result.absolute_term_sum[center] += al_component_abs(pair);
+            if (participant < count) {
+                result.value[participant] += -pair;
+                result.absolute_term_sum[participant] +=
+                    al_component_abs(pair);
+            }
+        }
+    }
+    result.passed = std::all_of(result.value.begin(), result.value.end(),
+        [](Vec3 value) { return finite(value); });
+    return result;
+}
+
+ALNormalizedDivided evaluate_al_normalized_divided(
+    const ALNormalizedInner& current,
+    const ALNormalizedInner& trial,
+    const std::vector<Vec3>& current_position,
+    const std::vector<Vec3>& trial_position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<double>& u,
+    double theta) {
+    ALNormalizedDivided result;
+    if (!current.passed || !trial.passed
+        || current_position.size() != trial_position.size()
+        || current_position.size() != predicted.size()
+        || current_position.size() != u.size()
+        || !al_normalized_inputs_valid(theta, u)) {
+        return result;
+    }
+    Binary64CompensatedAccumulator phr;
+    Binary64CompensatedAccumulator inertia;
+    for (std::size_t center = 0U; center < u.size(); ++center) {
+        const double current_unclamped = u[center]
+            + current.support.constraint[center];
+        const double trial_unclamped = u[center]
+            + trial.support.constraint[center];
+        const double current_active = std::max(0.0, current_unclamped);
+        const double trial_active = std::max(0.0, trial_unclamped);
+        const double active_delta = trial_active - current_active;
+        phr.add(-0.5 * theta * active_delta
+            * (trial_active + current_active));
+        const Vec3 step = trial_position[center]
+            - current_position[center];
+        const Vec3 displacement = current_position[center]
+            - predicted[center];
+        inertia.add(-0.5 * al_binary64_squared_norm_delta(
+            displacement, step));
+    }
+    result.phr_reduction = phr.value();
+    result.inertia_reduction = inertia.value();
+    Binary64CompensatedAccumulator total;
+    total.add(result.phr_reduction);
+    total.add(result.inertia_reduction);
+    result.reduction = total.value();
+    result.finite_values = std::isfinite(result.reduction)
+        && std::isfinite(result.phr_reduction)
+        && std::isfinite(result.inertia_reduction);
+    return result;
+}
+
+ALNormalizedLongDoubleAudit audit_al_normalized_long_double(
+    const std::vector<Vec3>& current_position,
+    const std::vector<Vec3>& trial_position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& u,
+    double theta) {
+    ALNormalizedLongDoubleAudit result;
+    if (current_position.size() != trial_position.size()
+        || current_position.size() != predicted.size()
+        || current_position.size() != u.size()
+        || !al_normalized_inputs_valid(theta, u)) {
+        return result;
+    }
+    const std::size_t count = current_position.size();
+    const long double mass = static_cast<long double>(MASS);
+    const long double rest_density =
+        static_cast<long double>(REST_DENSITY);
+    const long double horizon = static_cast<long double>(HORIZON);
+    const long double theta_extended = static_cast<long double>(theta);
+    const auto evaluate = [&](const std::vector<Vec3>& binary_position,
+                              std::size_t& fluid_pairs,
+                              std::size_t& boundary_pairs,
+                              bool& membership_exact) {
+        std::vector<LongDoubleVec3> position(count);
+        std::vector<LongDoubleVec3> predicted_extended(count);
+        std::vector<LongDoubleVec3> support(boundary.size());
+        std::transform(binary_position.begin(), binary_position.end(),
+            position.begin(), al_long_double_vec3);
+        std::transform(predicted.begin(), predicted.end(),
+            predicted_extended.begin(), al_long_double_vec3);
+        std::transform(boundary.begin(), boundary.end(), support.begin(),
+            al_long_double_vec3);
+        std::vector<long double> density(
+            count, mass * al_long_double_weight(0.0L));
+        std::vector<LongDoubleAccumulator> density_accumulator(count);
+        for (std::size_t center = 0U; center < count; ++center) {
+            density_accumulator[center].sum = density[center];
+        }
+        const auto add_density = [&](std::size_t center,
+                                     long double contribution) {
+            density_accumulator[center].add(contribution);
+            density[center] = density_accumulator[center].sum;
+        };
+        for (std::size_t i = 0U; i < count; ++i) {
+            for (std::size_t j = i + 1U; j < count; ++j) {
+                const double binary_radius = norm(
+                    binary_position[i] - binary_position[j]);
+                const long double radius = al_long_double_norm(
+                    position[i] - position[j]);
+                const bool binary_member = binary_radius <= HORIZON;
+                const bool extended_member = radius <= horizon;
+                membership_exact = membership_exact
+                    && binary_member == extended_member;
+                if (extended_member) {
+                    const long double contribution =
+                        mass * al_long_double_weight(radius);
+                    add_density(i, contribution);
+                    add_density(j, contribution);
+                    ++fluid_pairs;
+                }
+            }
+            for (std::size_t support_index = 0U;
+                 support_index < support.size(); ++support_index) {
+                const double binary_radius = norm(
+                    binary_position[i] - boundary[support_index]);
+                const long double radius = al_long_double_norm(
+                    position[i] - support[support_index]);
+                const bool binary_member = binary_radius <= HORIZON;
+                const bool extended_member = radius <= horizon;
+                membership_exact = membership_exact
+                    && binary_member == extended_member;
+                if (extended_member) {
+                    add_density(i,
+                        mass * al_long_double_weight(radius));
+                    ++boundary_pairs;
+                }
+            }
+        }
+        LongDoubleAccumulator total;
+        for (std::size_t center = 0U; center < count; ++center) {
+            const long double constraint =
+                density[center] / rest_density - 1.0L;
+            const long double dual = static_cast<long double>(u[center]);
+            const long double active = std::max(
+                0.0L, dual + constraint);
+            total.add(0.5L * theta_extended
+                * (active * active - dual * dual));
+            const LongDoubleVec3 displacement =
+                position[center] - predicted_extended[center];
+            total.add(0.5L * (displacement.x * displacement.x
+                + displacement.y * displacement.y
+                + displacement.z * displacement.z));
+        }
+        return total.sum;
+    };
+    bool current_membership = true;
+    bool trial_membership = true;
+    std::size_t current_fluid_pairs = 0U;
+    std::size_t current_boundary_pairs = 0U;
+    std::size_t trial_fluid_pairs = 0U;
+    std::size_t trial_boundary_pairs = 0U;
+    result.current_total = evaluate(current_position,
+        current_fluid_pairs, current_boundary_pairs, current_membership);
+    result.trial_total = evaluate(trial_position,
+        trial_fluid_pairs, trial_boundary_pairs, trial_membership);
+    result.reduction = result.current_total - result.trial_total;
+    result.fluid_pairs = current_fluid_pairs + trial_fluid_pairs;
+    result.boundary_pairs = current_boundary_pairs + trial_boundary_pairs;
+    result.membership_exact = current_membership && trial_membership;
+    result.finite_values = std::isfinite(result.current_total)
+        && std::isfinite(result.trial_total)
+        && std::isfinite(result.reduction);
+    return result;
+}
+
+ALNormalizedBinary128Audit audit_al_normalized_binary128(
+    const std::vector<Vec3>& current_position,
+    const std::vector<Vec3>& trial_position,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& boundary,
+    const std::vector<double>& u,
+    double theta) {
+    ALNormalizedBinary128Audit result;
+    if (current_position.size() != trial_position.size()
+        || current_position.size() != predicted.size()
+        || current_position.size() != u.size()
+        || !al_normalized_inputs_valid(theta, u)) {
+        return result;
+    }
+    const std::size_t count = current_position.size();
+    const Binary128 mass = static_cast<Binary128>(MASS);
+    const Binary128 rest_density = static_cast<Binary128>(REST_DENSITY);
+    const Binary128 horizon = static_cast<Binary128>(HORIZON);
+    const Binary128 theta_quad = static_cast<Binary128>(theta);
+    const auto evaluate = [&](const std::vector<Vec3>& binary_position,
+                              std::size_t& fluid_pairs,
+                              std::size_t& boundary_pairs,
+                              bool& membership_exact) {
+        std::vector<Binary128Vec3> position(count);
+        std::vector<Binary128Vec3> predicted_quad(count);
+        std::vector<Binary128Vec3> support(boundary.size());
+        std::transform(binary_position.begin(), binary_position.end(),
+            position.begin(), al_binary128_vec3);
+        std::transform(predicted.begin(), predicted.end(),
+            predicted_quad.begin(), al_binary128_vec3);
+        std::transform(boundary.begin(), boundary.end(), support.begin(),
+            al_binary128_vec3);
+        std::vector<Binary128> density(count,
+            mass * al_binary128_weight(static_cast<Binary128>(0.0)));
+        std::vector<Binary128Accumulator> density_accumulator(count);
+        for (std::size_t center = 0U; center < count; ++center) {
+            density_accumulator[center].sum = density[center];
+        }
+        const auto add_density = [&](std::size_t center,
+                                     Binary128 contribution) {
+            density_accumulator[center].add(contribution);
+            density[center] = density_accumulator[center].value();
+        };
+        for (std::size_t i = 0U; i < count; ++i) {
+            for (std::size_t j = i + 1U; j < count; ++j) {
+                const double binary_radius = norm(
+                    binary_position[i] - binary_position[j]);
+                const Binary128 radius = al_binary128_norm(
+                    position[i] - position[j]);
+                const bool binary_member = binary_radius <= HORIZON;
+                const bool quad_member = radius <= horizon;
+                membership_exact = membership_exact
+                    && binary_member == quad_member;
+                if (quad_member) {
+                    const Binary128 contribution =
+                        mass * al_binary128_weight(radius);
+                    add_density(i, contribution);
+                    add_density(j, contribution);
+                    ++fluid_pairs;
+                }
+            }
+            for (std::size_t support_index = 0U;
+                 support_index < support.size(); ++support_index) {
+                const double binary_radius = norm(
+                    binary_position[i] - boundary[support_index]);
+                const Binary128 radius = al_binary128_norm(
+                    position[i] - support[support_index]);
+                const bool binary_member = binary_radius <= HORIZON;
+                const bool quad_member = radius <= horizon;
+                membership_exact = membership_exact
+                    && binary_member == quad_member;
+                if (quad_member) {
+                    add_density(i, mass * al_binary128_weight(radius));
+                    ++boundary_pairs;
+                }
+            }
+        }
+        Binary128Accumulator total;
+        for (std::size_t center = 0U; center < count; ++center) {
+            const Binary128 constraint = density[center] / rest_density
+                - static_cast<Binary128>(1.0);
+            const Binary128 dual = static_cast<Binary128>(u[center]);
+            const Binary128 active = std::max(
+                static_cast<Binary128>(0.0), dual + constraint);
+            total.add(static_cast<Binary128>(0.5) * theta_quad
+                * (active * active - dual * dual));
+            const Binary128Vec3 displacement =
+                position[center] - predicted_quad[center];
+            total.add(static_cast<Binary128>(0.5)
+                * (displacement.x * displacement.x
+                    + displacement.y * displacement.y
+                    + displacement.z * displacement.z));
+        }
+        return total.value();
+    };
+    bool current_membership = true;
+    bool trial_membership = true;
+    std::size_t current_fluid_pairs = 0U;
+    std::size_t current_boundary_pairs = 0U;
+    std::size_t trial_fluid_pairs = 0U;
+    std::size_t trial_boundary_pairs = 0U;
+    result.current_total = evaluate(current_position,
+        current_fluid_pairs, current_boundary_pairs, current_membership);
+    result.trial_total = evaluate(trial_position,
+        trial_fluid_pairs, trial_boundary_pairs, trial_membership);
+    result.reduction = result.current_total - result.trial_total;
+    result.fluid_pairs = current_fluid_pairs + trial_fluid_pairs;
+    result.boundary_pairs = current_boundary_pairs + trial_boundary_pairs;
+    result.membership_exact = current_membership && trial_membership;
+    result.finite_values = finiteq(result.current_total) != 0
+        && finiteq(result.trial_total) != 0
+        && finiteq(result.reduction) != 0;
+    return result;
+}
+
+std::string al_normalized_long_double_root(
+    const ALNormalizedLongDoubleAudit& audit) {
+    std::ostringstream projection;
+    projection << audit.finite_values << ':' << audit.membership_exact
+               << ':' << std::hexfloat << audit.current_total << ':'
+               << audit.trial_total << ':' << audit.reduction << ':'
+               << std::defaultfloat << audit.fluid_pairs << ':'
+               << audit.boundary_pairs;
+    return sha256_hex(projection.str());
+}
+
+std::string al_normalized_binary128_root(
+    const ALNormalizedBinary128Audit& audit) {
+    std::ostringstream projection;
+    projection << audit.finite_values << ':' << audit.membership_exact
+               << ':' << al_binary128_hex(audit.current_total) << ':'
+               << al_binary128_hex(audit.trial_total) << ':'
+               << al_binary128_hex(audit.reduction) << ':'
+               << audit.fluid_pairs << ':' << audit.boundary_pairs;
+    return sha256_hex(projection.str());
+}
+
+bool al_normalized_support_exact(
+    const ALNormalizedSupport& lhs, const ALNormalizedSupport& rhs) {
+    return lhs.finite_values == rhs.finite_values
+        && binary64_bits(lhs.energy) == binary64_bits(rhs.energy)
+        && al_sparse_double_vector_exact(lhs.density, rhs.density)
+        && al_sparse_double_vector_exact(lhs.constraint, rhs.constraint)
+        && al_sparse_double_vector_exact(lhs.active_u, rhs.active_u)
+        && exact_vec3_values(lhs.gradient, rhs.gradient)
+        && lhs.active_centers == rhs.active_centers
+        && lhs.fluid_pairs == rhs.fluid_pairs
+        && lhs.boundary_pairs == rhs.boundary_pairs;
+}
+
+bool al_normalized_inner_exact(
+    const ALNormalizedInner& lhs, const ALNormalizedInner& rhs) {
+    return lhs.passed == rhs.passed
+        && binary64_bits(lhs.total) == binary64_bits(rhs.total)
+        && binary64_bits(lhs.inertia) == binary64_bits(rhs.inertia)
+        && exact_vec3_values(lhs.gradient, rhs.gradient)
+        && al_normalized_support_exact(lhs.support, rhs.support);
+}
+
+bool al_normalized_hvp_exact(
+    const ALNormalizedHvp& lhs, const ALNormalizedHvp& rhs) {
+    return lhs.passed == rhs.passed
+        && exact_vec3_values(lhs.value, rhs.value)
+        && exact_vec3_values(lhs.absolute_term_sum,
+            rhs.absolute_term_sum);
+}
+
+bool al_normalized_divided_exact(
+    const ALNormalizedDivided& lhs, const ALNormalizedDivided& rhs) {
+    return lhs.finite_values == rhs.finite_values
+        && binary64_bits(lhs.reduction) == binary64_bits(rhs.reduction)
+        && binary64_bits(lhs.phr_reduction)
+            == binary64_bits(rhs.phr_reduction)
+        && binary64_bits(lhs.inertia_reduction)
+            == binary64_bits(rhs.inertia_reduction);
+}
+
+std::string al_normalized_root(
+    const ALNormalizedInner& inner,
+    const ALNormalizedHvp& hvp,
+    const ALNormalizedDivided& divided,
+    double theta,
+    const std::vector<double>& u) {
+    std::ostringstream projection;
+    projection << binary64_bits(theta) << ':' << inner.passed << ':'
+               << binary64_bits(inner.total) << ':'
+               << binary64_bits(inner.inertia) << ':'
+               << binary64_bits(inner.support.energy) << ':'
+               << inner.support.active_centers << '|';
+    for (double value : u) projection << binary64_bits(value) << ':';
+    for (double value : inner.support.constraint) {
+        projection << binary64_bits(value) << ':';
+    }
+    for (double value : inner.support.active_u) {
+        projection << binary64_bits(value) << ':';
+    }
+    for (Vec3 value : inner.gradient) {
+        projection << binary64_bits(value.x) << ':'
+                   << binary64_bits(value.y) << ':'
+                   << binary64_bits(value.z) << ':';
+    }
+    for (Vec3 value : hvp.value) {
+        projection << binary64_bits(value.x) << ':'
+                   << binary64_bits(value.y) << ':'
+                   << binary64_bits(value.z) << ':';
+    }
+    projection << binary64_bits(divided.reduction) << ':'
+               << binary64_bits(divided.phr_reduction) << ':'
+               << binary64_bits(divided.inertia_reduction);
+    return sha256_hex(projection.str());
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_nondimensional_transaction_controls() {
+    constexpr std::uint64_t reference_dt_bits = 0x3f71111111111111ULL;
+    constexpr std::uint64_t reference_kappa_bits = 0x4093290000000000ULL;
+    constexpr std::uint64_t substep_dt_bits = 0x3f0c01c01c01c01cULL;
+    constexpr std::uint64_t substep_kappa_bits = 0x415c75a640000000ULL;
+    constexpr std::uint64_t theta_bits = 0x3fc5cccccccccccdULL;
+    constexpr std::uint64_t dual_limit_bits = 0x3da1eed347666340ULL;
+    constexpr std::uint64_t complementarity_limit_bits =
+        0x3d6cb1520bd70533ULL;
+    constexpr double scale_ratio = 78.0;
+    constexpr double scale_factor = 6084.0;
+    constexpr double scaled_kappa = 7460505.0;
+    constexpr double primal_limit = 1.0e-8;
+    constexpr double stationarity_limit = 1.0e-10;
+    constexpr double position_limit = 1.0e-8;
+
+    const bool identity_exact = sha256_hex(
+        B4E2D7R18R1_IDENTITY_PROJECTION)
+        == B4E2D7R18R1_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_kappa_scaling_prerequisites_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "0267e094641aaddd9b604a71b527db976aaa699f51dacd558624512bd3b1b925";
+
+    const double reference_dt = TIME_STEP;
+    const double substep_dt = TIME_STEP / scale_ratio;
+    const double reference_theta = al_normalized_theta(reference_dt, KAPPA);
+    const double substep_theta = al_normalized_theta(
+        substep_dt, scaled_kappa);
+    const double dual_limit = 1.0e-8 / KAPPA;
+    const double complementarity_limit = 1.0e-9 / KAPPA;
+    const bool coefficient_exact = binary64_bits(reference_dt)
+            == reference_dt_bits
+        && binary64_bits(KAPPA) == reference_kappa_bits
+        && binary64_bits(substep_dt) == substep_dt_bits
+        && binary64_bits(scaled_kappa) == substep_kappa_bits
+        && scale_ratio * scale_ratio == scale_factor
+        && binary64_bits(reference_theta) == theta_bits
+        && binary64_bits(substep_theta) == theta_bits
+        && binary64_bits(dual_limit) == dual_limit_bits
+        && binary64_bits(complementarity_limit)
+            == complementarity_limit_bits;
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> position = compressed_fluid(fixture, 0.99);
+    std::vector<Vec3> predicted = position;
+    std::vector<Vec3> trial_position = position;
+    std::vector<Vec3> direction(position.size());
+    std::vector<double> u(position.size());
+    for (std::size_t index = 0U; index < position.size(); ++index) {
+        const double value = static_cast<double>(index + 1U);
+        predicted[index].x += value * 1.0e-5;
+        predicted[index].y -= value * 0.5e-5;
+        predicted[index].z += value * 0.25e-5;
+        trial_position[index].x -= value * 0.2e-5;
+        trial_position[index].y += value * 0.1e-5;
+        trial_position[index].z -= value * 0.05e-5;
+        direction[index] = {
+            value * 0.000125,
+            -value * 0.00025,
+            value * 0.0000625};
+        u[index] = value * 1.0e-5;
+    }
+    const std::string position_root_before =
+        al_binary64_vec3_root(position);
+    const std::string predicted_root_before =
+        al_binary64_vec3_root(predicted);
+    const std::string trial_root_before =
+        al_binary64_vec3_root(trial_position);
+
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex static_index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+    ALSparseWorkTrace work;
+
+    struct NormalizedProfile {
+        ALNormalizedInner dense_current;
+        ALNormalizedInner dense_trial;
+        ALNormalizedInner sparse_current;
+        ALNormalizedInner sparse_trial;
+        ALNormalizedWorkspace current_workspace;
+        ALNormalizedWorkspace trial_workspace;
+        ALNormalizedHvp dense_hvp;
+        ALNormalizedHvp sparse_hvp;
+        ALNormalizedDivided dense_divided;
+        ALNormalizedDivided sparse_divided;
+        ALNormalizedLongDoubleAudit long_double;
+        ALNormalizedBinary128Audit binary128;
+        std::string dense_root;
+        std::string sparse_root;
+        std::string long_double_root;
+        std::string binary128_root;
+        bool dense_sparse_exact = false;
+    };
+    const auto evaluate_profile = [&](double theta) {
+        NormalizedProfile result;
+        result.dense_current = evaluate_al_normalized_inner(
+            evaluate_al_normalized_dense_support(
+                position, fixture.boundary, u, theta),
+            position, predicted);
+        result.dense_trial = evaluate_al_normalized_inner(
+            evaluate_al_normalized_dense_support(
+                trial_position, fixture.boundary, u, theta),
+            trial_position, predicted);
+        result.current_workspace = build_al_normalized_sparse_workspace(
+            position, binding, u, theta, &work,
+            &static_work, &adjacency_work);
+        result.trial_workspace = build_al_normalized_sparse_workspace(
+            trial_position, binding, u, theta, &work,
+            &static_work, &adjacency_work);
+        result.sparse_current = evaluate_al_normalized_inner(
+            result.current_workspace.support, position, predicted);
+        result.sparse_trial = evaluate_al_normalized_inner(
+            result.trial_workspace.support, trial_position, predicted);
+        result.dense_hvp = apply_al_normalized_dense_hessian(
+            position, fixture.boundary, u, theta, direction);
+        result.sparse_hvp = apply_al_normalized_sparse_hessian(
+            result.current_workspace, direction);
+        result.dense_divided = evaluate_al_normalized_divided(
+            result.dense_current, result.dense_trial,
+            position, trial_position, predicted, u, theta);
+        result.sparse_divided = evaluate_al_normalized_divided(
+            result.sparse_current, result.sparse_trial,
+            position, trial_position, predicted, u, theta);
+        result.long_double = audit_al_normalized_long_double(
+            position, trial_position, predicted, fixture.boundary,
+            u, theta);
+        result.binary128 = audit_al_normalized_binary128(
+            position, trial_position, predicted, fixture.boundary,
+            u, theta);
+        result.dense_root = al_normalized_root(
+            result.dense_current, result.dense_hvp,
+            result.dense_divided, theta, u);
+        result.sparse_root = al_normalized_root(
+            result.sparse_current, result.sparse_hvp,
+            result.sparse_divided, theta, u);
+        result.long_double_root = al_normalized_long_double_root(
+            result.long_double);
+        result.binary128_root = al_normalized_binary128_root(
+            result.binary128);
+        result.dense_sparse_exact = result.current_workspace.passed
+            && result.trial_workspace.passed
+            && al_normalized_inner_exact(
+                result.dense_current, result.sparse_current)
+            && al_normalized_inner_exact(
+                result.dense_trial, result.sparse_trial)
+            && al_normalized_hvp_exact(
+                result.dense_hvp, result.sparse_hvp)
+            && al_normalized_divided_exact(
+                result.dense_divided, result.sparse_divided)
+            && result.dense_root == result.sparse_root
+            && binary64_bits(result.current_workspace.theta)
+                == binary64_bits(theta)
+            && binary64_bits(result.trial_workspace.theta)
+                == binary64_bits(theta);
+        return result;
+    };
+
+    NormalizedProfile reference = evaluate_profile(reference_theta);
+    const std::size_t reference_maximum_degree =
+        reference.current_workspace.neighborhood.maximum_degree;
+    release_al_normalized_workspace(
+        reference.current_workspace, &work);
+    release_al_normalized_workspace(
+        reference.trial_workspace, &work);
+    NormalizedProfile substep = evaluate_profile(substep_theta);
+    const std::size_t maximum_degree = std::max(
+        reference_maximum_degree,
+        substep.current_workspace.neighborhood.maximum_degree);
+    const bool cross_profile_exact =
+        al_normalized_inner_exact(
+            reference.dense_current, substep.dense_current)
+        && al_normalized_inner_exact(
+            reference.dense_trial, substep.dense_trial)
+        && al_normalized_hvp_exact(
+            reference.dense_hvp, substep.dense_hvp)
+        && al_normalized_divided_exact(
+            reference.dense_divided, substep.dense_divided)
+        && reference.dense_root == substep.dense_root
+        && reference.long_double_root == substep.long_double_root
+        && reference.binary128_root == substep.binary128_root;
+    const int binary64_reduction_sign =
+        (reference.dense_divided.reduction > 0.0)
+        - (reference.dense_divided.reduction < 0.0);
+    const int long_double_reduction_sign =
+        (reference.long_double.reduction > 0.0L)
+        - (reference.long_double.reduction < 0.0L);
+    const int binary128_reduction_sign =
+        (reference.binary128.reduction > static_cast<Binary128>(0.0))
+        - (reference.binary128.reduction < static_cast<Binary128>(0.0));
+    const bool precision_exact = reference.long_double.finite_values
+        && reference.long_double.membership_exact
+        && substep.long_double.finite_values
+        && substep.long_double.membership_exact
+        && reference.binary128.finite_values
+        && reference.binary128.membership_exact
+        && substep.binary128.finite_values
+        && substep.binary128.membership_exact
+        && binary64_reduction_sign != 0
+        && binary64_reduction_sign == long_double_reduction_sign
+        && binary64_reduction_sign == binary128_reduction_sign;
+
+    struct ReconstructionCertificate {
+        double maximum_error = 0.0;
+        double maximum_bound = 0.0;
+        double minimum_margin = std::numeric_limits<double>::infinity();
+        bool passed = true;
+    };
+    const std::size_t operation_count = 96U * maximum_degree + 256U;
+    const double epsilon = std::numeric_limits<double>::epsilon();
+    const double gamma = static_cast<double>(operation_count) * epsilon
+        / (1.0 - static_cast<double>(operation_count) * epsilon);
+    const auto reconstruct = [&](double time_step, double kappa,
+                                 const ALNormalizedHvp& normalized) {
+        ReconstructionCertificate result;
+        std::vector<double> multiplier(u.size());
+        for (std::size_t index = 0U; index < u.size(); ++index) {
+            multiplier[index] = kappa * u[index];
+        }
+        const std::vector<Vec3> dimensional =
+            apply_al_vector_inner_hessian(
+                position, fixture.boundary, multiplier,
+                direction, time_step, kappa);
+        const double inertia_scale = MASS / (time_step * time_step);
+        for (std::size_t index = 0U; index < dimensional.size(); ++index) {
+            const std::array<double, 3U> observed{
+                dimensional[index].x, dimensional[index].y,
+                dimensional[index].z};
+            const std::array<double, 3U> reconstructed{
+                inertia_scale * normalized.value[index].x,
+                inertia_scale * normalized.value[index].y,
+                inertia_scale * normalized.value[index].z};
+            const std::array<double, 3U> absolute_sum{
+                inertia_scale * normalized.absolute_term_sum[index].x,
+                inertia_scale * normalized.absolute_term_sum[index].y,
+                inertia_scale * normalized.absolute_term_sum[index].z};
+            for (std::size_t axis = 0U; axis < 3U; ++axis) {
+                const double error = std::abs(
+                    observed[axis] - reconstructed[axis]);
+                const double bound = gamma * absolute_sum[axis];
+                result.maximum_error = std::max(
+                    result.maximum_error, error);
+                result.maximum_bound = std::max(
+                    result.maximum_bound, bound);
+                result.minimum_margin = std::min(
+                    result.minimum_margin, bound - error);
+                result.passed = result.passed
+                    && std::isfinite(error) && std::isfinite(bound)
+                    && error <= bound;
+            }
+        }
+        return result;
+    };
+    const ReconstructionCertificate reference_reconstruction = reconstruct(
+        reference_dt, KAPPA, reference.dense_hvp);
+    const ReconstructionCertificate substep_reconstruction = reconstruct(
+        substep_dt, scaled_kappa, substep.dense_hvp);
+    const bool reconstruction_exact = operation_count
+            == 96U * maximum_degree + 256U
+        && std::isfinite(gamma) && gamma > 0.0
+        && reference_reconstruction.passed
+        && substep_reconstruction.passed;
+
+    struct Admission {
+        double primal = 0.0;
+        double stationarity = 0.0;
+        double dual_change = 0.0;
+        double complementarity = 0.0;
+        double position_state = 0.0;
+        std::vector<double> u_next;
+        bool admitted = false;
+    };
+    const auto admission = [&](const ALNormalizedInner& inner) {
+        Admission result;
+        result.u_next.resize(u.size());
+        double position_sum = 0.0;
+        for (std::size_t index = 0U; index < u.size(); ++index) {
+            const double constraint = inner.support.constraint[index];
+            result.u_next[index] = std::max(0.0, u[index] + constraint);
+            result.primal = std::max(
+                result.primal, std::max(0.0, constraint));
+            result.stationarity = std::max(
+                result.stationarity, norm(inner.gradient[index]) / SPACING);
+            result.dual_change = std::max(result.dual_change,
+                std::abs(result.u_next[index] - u[index]));
+            result.complementarity = std::max(result.complementarity,
+                std::abs(result.u_next[index] * constraint));
+            position_sum += norm_squared(
+                trial_position[index] - position[index]);
+        }
+        result.position_state = std::sqrt(
+            position_sum / static_cast<double>(u.size())) / SPACING;
+        result.admitted = result.primal <= primal_limit
+            && result.stationarity <= stationarity_limit
+            && result.dual_change <= dual_limit
+            && result.complementarity <= complementarity_limit
+            && result.position_state <= position_limit;
+        return result;
+    };
+    const Admission reference_admission = admission(reference.dense_current);
+    const Admission substep_admission = admission(substep.dense_current);
+    double reference_mapping_error = 0.0;
+    double reference_pressure_change = 0.0;
+    double substep_pressure_change = 0.0;
+    double reference_raw_complementarity = 0.0;
+    for (std::size_t index = 0U; index < u.size(); ++index) {
+        const double constraint =
+            reference.dense_current.support.constraint[index];
+        const double reference_multiplier = KAPPA * u[index];
+        const double reference_next = al_sparse_multiplier_update(
+            reference_multiplier, constraint, KAPPA);
+        const double mapped = reference_next / KAPPA;
+        reference_mapping_error = std::max(reference_mapping_error,
+            std::abs(mapped - reference_admission.u_next[index]));
+        reference_pressure_change = std::max(reference_pressure_change,
+            std::abs(reference_next - reference_multiplier));
+        reference_raw_complementarity = std::max(
+            reference_raw_complementarity,
+            std::abs(reference_next * constraint));
+        const double substep_multiplier = scaled_kappa * u[index];
+        const double substep_next = al_sparse_multiplier_update(
+            substep_multiplier, constraint, scaled_kappa);
+        substep_pressure_change = std::max(substep_pressure_change,
+            std::abs(substep_next - substep_multiplier));
+    }
+    const bool reference_legacy_mapping =
+        (reference_pressure_change <= 1.0e-8)
+            == (reference_admission.dual_change <= dual_limit)
+        && (reference_raw_complementarity <= 1.0e-9)
+            == (reference_admission.complementarity
+                <= complementarity_limit)
+        && reference_mapping_error <= 64.0 * epsilon;
+    const bool admission_exact = reference_legacy_mapping
+        && al_sparse_double_vector_exact(
+            reference_admission.u_next, substep_admission.u_next)
+        && binary64_bits(reference_admission.primal)
+            == binary64_bits(substep_admission.primal)
+        && binary64_bits(reference_admission.stationarity)
+            == binary64_bits(substep_admission.stationarity)
+        && binary64_bits(reference_admission.dual_change)
+            == binary64_bits(substep_admission.dual_change)
+        && binary64_bits(reference_admission.complementarity)
+            == binary64_bits(substep_admission.complementarity)
+        && binary64_bits(reference_admission.position_state)
+            == binary64_bits(substep_admission.position_state)
+        && reference_admission.admitted == substep_admission.admitted;
+
+    const double mutated_theta = std::nextafter(
+        reference_theta, std::numeric_limits<double>::infinity());
+    const ALNormalizedInner mutated_current = evaluate_al_normalized_inner(
+        evaluate_al_normalized_dense_support(
+            position, fixture.boundary, u, mutated_theta),
+        position, predicted);
+    const ALNormalizedInner mutated_trial = evaluate_al_normalized_inner(
+        evaluate_al_normalized_dense_support(
+            trial_position, fixture.boundary, u, mutated_theta),
+        trial_position, predicted);
+    const ALNormalizedHvp mutated_hvp =
+        apply_al_normalized_dense_hessian(
+            position, fixture.boundary, u, mutated_theta, direction);
+    const ALNormalizedDivided mutated_divided =
+        evaluate_al_normalized_divided(
+            mutated_current, mutated_trial, position, trial_position,
+            predicted, u, mutated_theta);
+    const std::string mutated_root = al_normalized_root(
+        mutated_current, mutated_hvp, mutated_divided, mutated_theta, u);
+    const bool mutation_sensitive = binary64_bits(mutated_theta)
+            == theta_bits + 1U
+        && mutated_root != reference.dense_root;
+
+    std::size_t invalid_cases = 0U;
+    bool invalid_prework_exact = true;
+    const std::array<double, 5U> invalid_scales{
+        0.0, -1.0, std::numeric_limits<double>::quiet_NaN(),
+        std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity()};
+    for (double invalid : invalid_scales) {
+        ++invalid_cases;
+        invalid_prework_exact = invalid_prework_exact
+            && std::isnan(al_normalized_theta(invalid, KAPPA));
+        ++invalid_cases;
+        invalid_prework_exact = invalid_prework_exact
+            && std::isnan(al_normalized_theta(reference_dt, invalid));
+    }
+    for (double invalid : invalid_scales) {
+        ALSparseWorkTrace invalid_work;
+        StaticSupportWorkTrace invalid_static_work;
+        FlatAdjacencyWorkTrace invalid_adjacency_work;
+        ALNormalizedWorkspace invalid_workspace =
+            build_al_normalized_sparse_workspace(
+                position, binding, u, invalid, &invalid_work,
+                &invalid_static_work, &invalid_adjacency_work);
+        const ALNormalizedSupport invalid_dense =
+            evaluate_al_normalized_dense_support(
+                position, fixture.boundary, u, invalid);
+        const ALNormalizedHvp invalid_hvp =
+            apply_al_normalized_dense_hessian(
+                position, fixture.boundary, u, invalid, direction);
+        const ALNormalizedLongDoubleAudit invalid_long =
+            audit_al_normalized_long_double(
+                position, trial_position, predicted,
+                fixture.boundary, u, invalid);
+        const ALNormalizedBinary128Audit invalid_quad =
+            audit_al_normalized_binary128(
+                position, trial_position, predicted,
+                fixture.boundary, u, invalid);
+        invalid_prework_exact = invalid_prework_exact
+            && !invalid_workspace.passed
+            && invalid_workspace.failure == "AL_NORMALIZED_INPUT_INVALID"
+            && !invalid_dense.finite_values && !invalid_hvp.passed
+            && !invalid_long.finite_values && !invalid_quad.finite_values
+            && invalid_work.workspace_builds == 0U
+            && invalid_work.pair_visits == 0U
+            && invalid_static_work.workspace_builds == 0U
+            && invalid_adjacency_work.workspace_builds == 0U;
+        ++invalid_cases;
+    }
+    for (double invalid : std::array<double, 3U>{
+             std::numeric_limits<double>::quiet_NaN(),
+             std::numeric_limits<double>::infinity(),
+             -std::numeric_limits<double>::infinity()}) {
+        std::vector<double> invalid_u = u;
+        invalid_u[0] = invalid;
+        ALSparseWorkTrace invalid_work;
+        StaticSupportWorkTrace invalid_static_work;
+        FlatAdjacencyWorkTrace invalid_adjacency_work;
+        ALNormalizedWorkspace invalid_workspace =
+            build_al_normalized_sparse_workspace(
+                position, binding, invalid_u, reference_theta,
+                &invalid_work, &invalid_static_work,
+                &invalid_adjacency_work);
+        invalid_prework_exact = invalid_prework_exact
+            && !invalid_workspace.passed
+            && invalid_workspace.failure == "AL_NORMALIZED_INPUT_INVALID"
+            && invalid_work.workspace_builds == 0U
+            && invalid_work.pair_visits == 0U
+            && invalid_static_work.workspace_builds == 0U
+            && invalid_adjacency_work.workspace_builds == 0U;
+        ++invalid_cases;
+    }
+
+    release_al_normalized_workspace(
+        substep.current_workspace, &work);
+    release_al_normalized_workspace(
+        substep.trial_workspace, &work);
+    const bool lifecycle_exact = work.workspace_builds
+            == work.workspace_releases
+        && work.workspace_builds == 4U
+        && work.live_workspaces == 0U
+        && work.maximum_live_workspaces <= 2U
+        && !work.lifecycle_underflow
+        && work.all_pair_candidate_calls == 0U
+        && static_work.static_index_builds == 1U
+        && static_work.support_canonicalizations == 1U
+        && static_work.workspace_builds == work.workspace_builds
+        && adjacency_work.workspace_builds == work.workspace_builds;
+    const bool rollback_exact = position_root_before
+            == al_binary64_vec3_root(position)
+        && predicted_root_before == al_binary64_vec3_root(predicted)
+        && trial_root_before == al_binary64_vec3_root(trial_position);
+    const bool finite_exact = reference.dense_current.passed
+        && reference.dense_trial.passed && reference.dense_hvp.passed
+        && reference.dense_divided.finite_values
+        && substep.dense_current.passed && substep.dense_trial.passed
+        && substep.dense_hvp.passed
+        && substep.dense_divided.finite_values
+        && std::isfinite(reference_mapping_error)
+        && std::isfinite(reference_pressure_change)
+        && std::isfinite(substep_pressure_change);
+    const bool formula_exact = coefficient_exact
+        && reference.dense_sparse_exact && substep.dense_sparse_exact
+        && cross_profile_exact && precision_exact && mutation_sensitive;
+    const bool hard_controls = identity_exact && parent_exact
+        && static_index.passed && binding.passed
+        && invalid_prework_exact && invalid_cases == 18U
+        && lifecycle_exact && rollback_exact && finite_exact;
+    std::string route;
+    if (hard_controls) {
+        if (!formula_exact) {
+            route = "NORMALIZED_FORMULA_MISMATCH";
+        } else if (!reconstruction_exact) {
+            route = "NORMALIZED_RECONSTRUCTION_BOUND_MISMATCH";
+        } else if (!admission_exact) {
+            route = "NORMALIZED_DUAL_ADMISSION_MISMATCH";
+        } else {
+            route = "NONDIMENSIONAL_AL_TRANSACTION_CANDIDATE";
+        }
+    }
+    const bool route_precedence_exact =
+        (!formula_exact && route == "NORMALIZED_FORMULA_MISMATCH")
+        || (formula_exact && !reconstruction_exact
+            && route == "NORMALIZED_RECONSTRUCTION_BOUND_MISMATCH")
+        || (formula_exact && reconstruction_exact && !admission_exact
+            && route == "NORMALIZED_DUAL_ADMISSION_MISMATCH")
+        || (formula_exact && reconstruction_exact && admission_exact
+            && route == "NONDIMENSIONAL_AL_TRANSACTION_CANDIDATE");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R18_PARENT_BYTES";
+    else if (!static_index.passed || !binding.passed)
+        first_failure = "STATIC_BINDING";
+    else if (!invalid_prework_exact || invalid_cases != 18U)
+        first_failure = "INVALID_PREWORK";
+    else if (!lifecycle_exact) first_failure = "LIFECYCLE";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!finite_exact) first_failure = "NONFINITE";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<long double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R18R1_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << '|' << coefficient_exact << ':'
+             << binary64_bits(reference_theta) << ':'
+             << reference.dense_sparse_exact << ':'
+             << substep.dense_sparse_exact << ':' << cross_profile_exact
+             << ':' << precision_exact << ':' << mutation_sensitive << '|'
+             << maximum_degree << ':' << operation_count << ':' << gamma
+             << ':' << reference_reconstruction.maximum_error << ':'
+             << reference_reconstruction.maximum_bound << ':'
+             << substep_reconstruction.maximum_error << ':'
+             << substep_reconstruction.maximum_bound << '|'
+             << reference_admission.primal << ':'
+             << reference_admission.stationarity << ':'
+             << reference_admission.dual_change << ':'
+             << reference_admission.complementarity << ':'
+             << reference_admission.position_state << ':'
+             << reference_mapping_error << ':' << admission_exact << '|'
+             << invalid_cases << ':' << invalid_prework_exact << ':'
+             << work.workspace_builds << ':' << work.workspace_releases
+             << ':' << work.maximum_live_workspaces << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<long double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r18r1_nondimensional_al_transaction.v1\""
+           << ",\"identity_sha256\":\""
+           << B4E2D7R18R1_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"d7r18_stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"scale\":{\"dt_ref_bits\":\"0x" << std::hex
+           << binary64_bits(reference_dt)
+           << "\",\"kappa_ref_bits\":\"0x"
+           << binary64_bits(KAPPA)
+           << "\",\"dt_sub_bits\":\"0x"
+           << binary64_bits(substep_dt)
+           << "\",\"kappa_sub_bits\":\"0x"
+           << binary64_bits(scaled_kappa)
+           << "\",\"theta_bits\":\"0x"
+           << binary64_bits(reference_theta) << std::dec
+           << "\",\"exact\":"
+           << (coefficient_exact ? "true" : "false") << '}'
+           << ",\"formula\":{\"reference_dense_sparse_exact\":"
+           << (reference.dense_sparse_exact ? "true" : "false")
+           << ",\"substep_dense_sparse_exact\":"
+           << (substep.dense_sparse_exact ? "true" : "false")
+           << ",\"cross_profile_exact\":"
+           << (cross_profile_exact ? "true" : "false")
+           << ",\"normalized_root\":\"" << reference.dense_root
+           << "\",\"long_double_root\":\""
+           << reference.long_double_root
+           << "\",\"binary128_root\":\""
+           << reference.binary128_root
+           << "\",\"reduction_signs\":["
+           << binary64_reduction_sign << ',' << long_double_reduction_sign
+           << ',' << binary128_reduction_sign
+           << "],\"precision_exact\":"
+           << (precision_exact ? "true" : "false")
+           << ",\"mutated_theta_bits\":\"0x" << std::hex
+           << binary64_bits(mutated_theta) << std::dec
+           << "\",\"mutated_root\":\"" << mutated_root
+           << "\",\"mutation_sensitive\":"
+           << (mutation_sensitive ? "true" : "false")
+           << ",\"exact\":" << (formula_exact ? "true" : "false")
+           << '}'
+           << ",\"reconstruction\":{\"maximum_degree\":"
+           << maximum_degree << ",\"operation_count\":"
+           << operation_count << ",\"gamma\":" << gamma
+           << ",\"reference\":{\"maximum_error\":"
+           << reference_reconstruction.maximum_error
+           << ",\"maximum_bound\":"
+           << reference_reconstruction.maximum_bound
+           << ",\"minimum_margin\":"
+           << reference_reconstruction.minimum_margin
+           << ",\"passed\":"
+           << (reference_reconstruction.passed ? "true" : "false")
+           << "},\"substep\":{\"maximum_error\":"
+           << substep_reconstruction.maximum_error
+           << ",\"maximum_bound\":"
+           << substep_reconstruction.maximum_bound
+           << ",\"minimum_margin\":"
+           << substep_reconstruction.minimum_margin
+           << ",\"passed\":"
+           << (substep_reconstruction.passed ? "true" : "false")
+           << "},\"exact\":"
+           << (reconstruction_exact ? "true" : "false") << '}'
+           << ",\"admission\":{\"primal\":"
+           << reference_admission.primal
+           << ",\"stationarity\":"
+           << reference_admission.stationarity
+           << ",\"dual_change\":"
+           << reference_admission.dual_change
+           << ",\"complementarity\":"
+           << reference_admission.complementarity
+           << ",\"position_state\":"
+           << reference_admission.position_state
+           << ",\"dual_limit_bits\":\"0x" << std::hex
+           << binary64_bits(dual_limit)
+           << "\",\"complementarity_limit_bits\":\"0x"
+           << binary64_bits(complementarity_limit) << std::dec
+           << "\",\"reference_mapping_error\":"
+           << reference_mapping_error
+           << ",\"reference_pressure_change\":"
+           << reference_pressure_change
+           << ",\"substep_pressure_change_diagnostic\":"
+           << substep_pressure_change
+           << ",\"reference_legacy_mapping\":"
+           << (reference_legacy_mapping ? "true" : "false")
+           << ",\"cross_profile_exact\":"
+           << (admission_exact ? "true" : "false")
+           << ",\"equivalent_pressure_diagnostic_only\":true"
+           << ",\"later_kinematic_impulse_ledger_required\":true}"
+           << ",\"invalid\":{\"cases\":" << invalid_cases
+           << ",\"rejected_before_work\":"
+           << (invalid_prework_exact ? "true" : "false") << '}'
+           << ",\"work\":{\"workspace_builds\":"
+           << work.workspace_builds << ",\"workspace_releases\":"
+           << work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << work.maximum_live_workspaces
+           << ",\"long_double_audits\":2"
+           << ",\"binary128_audits\":2"
+           << ",\"all_pair_candidate_calls\":"
+           << work.all_pair_candidate_calls
+           << ",\"lifecycle_exact\":"
+           << (lifecycle_exact ? "true" : "false") << '}'
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"tiny_private_transaction_research_authorized\":"
+           << (route == "NONDIMENSIONAL_AL_TRANSACTION_CANDIDATE"
+                   ? "true" : "false")
+           << ",\"d7r19_authorized\":false"
+           << ",\"nominal_substeps\":0,\"outer_transactions\":0"
+           << ",\"macro_frames\":0,\"trajectory_steps\":0"
+           << ",\"public_commit_count\":0,\"physics_mutation\":false"
+           << ",\"timing_admitted\":false,\"speedup_claim\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr

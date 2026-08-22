@@ -154,6 +154,7 @@ SplitBoundaryReport run_al_nominal_prerequisites_controls();
 SplitBoundaryReport run_al_sparse_precision_transaction_controls();
 SplitBoundaryReport run_al_nominal_substep_shadow_controls();
 SplitBoundaryReport run_al_kappa_scaling_prerequisites_controls();
+SplitBoundaryReport run_al_nondimensional_transaction_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
