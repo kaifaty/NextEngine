@@ -925,6 +925,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nominal-hydro-split-incoming-plan-audit") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_nominal_hydro_split_incoming_plan_audit_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -1043,7 +1050,8 @@ int main(int argc, char** argv) {
                      "--nominal-hydro-masked-superset-plan-8|"
                      "--nominal-hydro-partitioned-active-plan-audit|"
                      "--nominal-hydro-partitioned-active-plan-8|"
-                     "--nominal-hydro-current-topology-plan-audit\n";
+                     "--nominal-hydro-current-topology-plan-audit|"
+                     "--nominal-hydro-split-incoming-plan-audit\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';
