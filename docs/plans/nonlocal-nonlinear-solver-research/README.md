@@ -1587,3 +1587,14 @@ and [frozen contract](03b4e2d7r7-inner-floor-mechanism-contract.md) select a
 replay-only mechanism discriminator over the three unique failures. Implement
 only its trial/ULP/topology trace next; no acceptance, penalty, solver-family,
 trajectory or production change is authorized.
+D7R7 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r7-inner-floor-mechanism-evidence-2026-08-22.md).
+No PHR active root changes. The tight failure keeps every pair root exact, yet
+its positive sub-ULP models oppose raw and factored/direct ascent of more than
+one thousand total-energy ULPs. This selects
+`TRUST_MODEL_OR_DERIVATIVE_RECLOSURE`, not a merit-policy change. The
+[D7R8 research](../../development/nonlocal-nsr3b4e2d7r8-extended-precision-energy-research-2026-08-22.md)
+and [frozen contract](03b4e2d7r8-extended-precision-energy-contract.md) first
+require an independent Linux x86-64 long-double energy/sign audit over every
+failed trial. Implement only that oracle next; it cannot accept a trial or
+select a production precision/formula.

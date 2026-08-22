@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R7 -- inner-floor mechanism discriminator contract
 
-Status: `FROZEN / NOT_RUN / PRIVATE_DIAGNOSTIC_ONLY`
+Status: `CLOSED / PASS / TRUST_MODEL_OR_DERIVATIVE_RECLOSURE / PRIVATE_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
