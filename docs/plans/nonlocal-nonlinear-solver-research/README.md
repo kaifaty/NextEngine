@@ -1515,3 +1515,9 @@ kernel. Its
 adds exact set/horizon detail, a `2^0..2^-20` scale ladder and continuation of
 the current radial/PHR branches. Implement/run only this replay command next;
 route precedence is frozen and no trial may be accepted.
+B4E2D7R2 fails only its positive-zero horizon bit gate; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r2-topology-step-evidence-2026-08-22.md).
+The implementation yields `W'(h)=-0.0`, which is numerically zero but not the
+required positive-zero bit pattern. Preserve the FAIL. Research/freeze one
+narrow signed-zero reclosure that changes no kernel or route precedence and
+keeps the complete D7R2 report byte-exact.

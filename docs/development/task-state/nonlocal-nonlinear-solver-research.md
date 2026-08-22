@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R1_FAIL_TOPOLOGY_GATE / B4E2D7R2_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R2_FAIL_SIGNED_ZERO / B4E2D7R2R_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -568,6 +568,14 @@
   horizon branch, smaller admissible step and residual Hessian-model causes.
 - **Next action:** implement/run B4E2D7R2 twice without accepting a trial.
   Preserve D7/D7R/D7R1 bytes and keep the shared-host performance stop.
+- **Negative result:** B4E2D7R2 reproduces every parent and numerical trace,
+  but the frozen horizon gate requires positive-zero bits while `W'(h)` is
+  IEEE `-0.0`. It fails closed before route selection.
+- **Diagnostic observation:** active/fluid sets remain stable. The full step
+  changes `72/120` boundary pairs, but current-branch and live energy agree;
+  the topology-stable half step has direct ratio `1.3285` and clear descent.
+- **Next action:** freeze a narrow D7R2R signed-zero reclosure that records the
+  bits, accepts numerical zero of either sign and preserves all D7R2 bytes.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -688,6 +696,7 @@
 | NSR3B4E2D7R1 contract | failed-inner trust trace plus direct energy-difference discriminator | implement/run replay-only diagnostic |
 | NSR3B4E2D7R1 FAIL | direct and raw differences agree on ascent; every trial violates frozen topology gate | preserve FAIL; topology/step discriminator research only |
 | NSR3B4E2D7R2 contract | exact set deltas, horizon branch continuation and fixed alpha ladder | implement/run replay-only discriminator |
+| NSR3B4E2D7R2 FAIL | `W'(h)=-0.0` violates the frozen positive-zero bit gate | signed-zero contract reclosure only |
 
 Candidate solver identity remains:
 

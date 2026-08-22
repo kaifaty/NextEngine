@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R2 -- topology/step discriminator contract
 
-Status: `FROZEN / NOT_RUN / REPLAY_ONLY`
+Status: `FAIL / KERNEL_HORIZON_SIGNED_ZERO / REPLAY_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
