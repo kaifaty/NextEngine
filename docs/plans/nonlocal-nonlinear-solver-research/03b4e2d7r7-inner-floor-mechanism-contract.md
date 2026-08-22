@@ -5,11 +5,11 @@ Status: `FROZEN / NOT_RUN / PRIVATE_DIAGNOSTIC_ONLY`
 Identity projection (exact bytes, no final LF):
 
 ```text
-nextengine.nonlocal.nsr3b4e2d7r7-inner-floor-mechanism-discriminator|v1|parent=65f1a01ccc110a4e110c2e8b9907d9a29f0ecb58fd1e09a4f3b3a9af0fc5ee0a:9e93beb38632b10d9a7a1b8473edcb65d7d5ed672d268597071aa5bbbda00dfa:6979ebf9f0b88fb57cbcbbaed6721951cb7fa05acb8f7d4b8c39962f257b9f6f|replay=post-d7-prefix;eta1e-8-fail-outer58;eta1e-9-fail-outer13;eta1e-10-fail-outer11;eta1e-11-and-1e-12-common-state-exact|solver=step-norm-trust-inner-unchanged;beta=1226.25;raw-admission-unchanged;no-acceptance-change|trace=all-failed-inner-trials;state-root;trust-radius;step-norm;radius-owner;hvp;negative-curvature;gradient-step;predicted;raw-actual;direct-actual;raw-ratio;direct-ratio;current-trial-ulp;reduction-ulp-ratios;active-root;fluid-root;boundary-root;phr-margin;horizon-margin;would-accept|controls=d7r6-complete-bytes;three-pre-failure-state-roots;common-tight-state;inactive;reset;forced-rollback|routes=common-phr-kink;common-binary64-merit-floor;mixed-active-and-merit;trust-model-or-derivative-reclosure|precedence=phr,merit,mixed,model|runs=2-release-builds;2-processes;byte-exact;timing=none|trajectory=none;public-commit=none;physics-mutation=none|credit=one-failure-mechanism-research-only
+nextengine.nonlocal.nsr3b4e2d7r7-inner-floor-mechanism-discriminator|v1|parent=65f1a01ccc110a4e110c2e8b9907d9a29f0ecb58fd1e09a4f3b3a9af0fc5ee0a:9e93beb38632b10d9a7a1b8473edcb65d7d5ed672d268597071aa5bbbda00dfa:6979ebf9f0b88fb57cbcbbaed6721951cb7fa05acb8f7d4b8c39962f257b9f6f|replay=post-d7-prefix;eta1e-8-fail-outer58;eta1e-9-fail-outer13;eta1e-10-fail-outer11;eta1e-11-and-1e-12-common-state-exact|solver=step-norm-trust-inner-unchanged;beta=1226.25;raw-admission-unchanged;no-acceptance-change|trace=all-failed-inner-trials;state-root;trust-radius;step-norm;radius-owner;hvp;negative-curvature;gradient-step;predicted;raw-actual;direct-actual;raw-ratio;direct-ratio;current-trial-ulp;reduction-ulp-ratios;active-root;fluid-root;boundary-root;phr-margin;horizon-margin;would-accept;merit-floor-bound=8*max-current-trial-ulp|controls=d7r6-complete-bytes;three-pre-failure-state-roots;common-tight-state;inactive;reset;forced-rollback|routes=common-phr-kink;common-binary64-merit-floor;mixed-active-and-merit;trust-model-or-derivative-reclosure|precedence=phr,merit,mixed,model|runs=2-release-builds;2-processes;byte-exact;timing=none|trajectory=none;public-commit=none;physics-mutation=none|credit=one-failure-mechanism-research-only
 ```
 
 Identity SHA-256:
-`28411f5db1d81589c6ca8a80bf004ed5da53adefa27c65db172c3b065bbf5aa6`.
+`f29336079dcb1a54db81fe5c8913130c3cbf72c272336c80fcad6d02c68eb47e`.
 
 ## Required command
 
@@ -22,7 +22,12 @@ Add `--nonlocal-al-inner-floor-mechanism-discriminator`. It must:
    raw admission, reject cap and minimum trust radius;
 4. emit all trace values listed in the identity projection;
 5. compare raw subtraction with fixed-order factored/direct reduction and an
-   explicit binary64 ULP scale without using either to accept a trial;
+   explicit binary64 ULP scale without using either to accept a trial. The
+   frozen unresolved-merit bound is
+   `8 * max(ulp(current_total), ulp(trial_total))`; a trial is merit-floor
+   evidence only when topology is exact, model/direct reductions are
+   positive, raw admission rejects, and both actual reductions have magnitude
+   no greater than that bound;
 6. compare exact active and compact-support pair roots at every proposal;
 7. retain inactive/reset/forced rollback and zero public commits;
 8. emit exactly one route under the frozen precedence.

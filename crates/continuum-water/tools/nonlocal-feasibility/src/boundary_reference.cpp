@@ -46419,6 +46419,33 @@ constexpr const char* B4E2D7R6_IDENTITY_PROJECTION =
     "runs=2-release-builds;2-processes;byte-exact;timing=none|"
     "trajectory=none;public-commit=none;physics-mutation=none|"
     "credit=accuracy-schedule-or-cap-contract-research-only";
+constexpr const char* B4E2D7R7_IDENTITY_SHA256 =
+    "f29336079dcb1a54db81fe5c8913130c3cbf72c272336c80fcad6d02c68eb47e";
+constexpr const char* B4E2D7R7_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r7-inner-floor-mechanism-"
+    "discriminator|v1|parent="
+    "65f1a01ccc110a4e110c2e8b9907d9a29f0ecb58fd1e09a4f3b3a9af0fc5ee0a:"
+    "9e93beb38632b10d9a7a1b8473edcb65d7d5ed672d268597071aa5bbbda00dfa:"
+    "6979ebf9f0b88fb57cbcbbaed6721951cb7fa05acb8f7d4b8c39962f257b9f6f|"
+    "replay=post-d7-prefix;eta1e-8-fail-outer58;"
+    "eta1e-9-fail-outer13;eta1e-10-fail-outer11;"
+    "eta1e-11-and-1e-12-common-state-exact|"
+    "solver=step-norm-trust-inner-unchanged;beta=1226.25;"
+    "raw-admission-unchanged;no-acceptance-change|"
+    "trace=all-failed-inner-trials;state-root;trust-radius;step-norm;"
+    "radius-owner;hvp;negative-curvature;gradient-step;predicted;raw-actual;"
+    "direct-actual;raw-ratio;direct-ratio;current-trial-ulp;"
+    "reduction-ulp-ratios;active-root;fluid-root;boundary-root;phr-margin;"
+    "horizon-margin;would-accept;"
+    "merit-floor-bound=8*max-current-trial-ulp|"
+    "controls=d7r6-complete-bytes;three-pre-failure-state-roots;"
+    "common-tight-state;inactive;reset;forced-rollback|"
+    "routes=common-phr-kink;common-binary64-merit-floor;"
+    "mixed-active-and-merit;trust-model-or-derivative-reclosure|"
+    "precedence=phr,merit,mixed,model|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|"
+    "trajectory=none;public-commit=none;physics-mutation=none|"
+    "credit=one-failure-mechanism-research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -49723,11 +49750,23 @@ struct ALStepNormInnerTrial {
     double radius_before = 0.0;
     double radius_after = 0.0;
     double step_norm = 0.0;
+    double gradient_step = 0.0;
     double predicted_reduction = 0.0;
     double raw_actual_reduction = 0.0;
     double direct_actual_reduction = 0.0;
     double raw_ratio = 0.0;
     double direct_ratio = 0.0;
+    double current_total = 0.0;
+    double trial_total = 0.0;
+    double current_total_ulp = 0.0;
+    double trial_total_ulp = 0.0;
+    double raw_ulp_ratio = 0.0;
+    double direct_ulp_ratio = 0.0;
+    double current_phr_margin = 0.0;
+    double trial_phr_margin = 0.0;
+    double current_horizon_margin = 0.0;
+    double trial_horizon_margin = 0.0;
+    ALTopologySets current_topology;
     ALTopologySets topology;
 };
 
@@ -49778,6 +49817,43 @@ double al_step_norm_rejected_radius(
     return 0.25 * old_radius;
 }
 
+double al_minimum_phr_margin(
+    const ALVectorSupport& support,
+    const std::vector<double>& multiplier) {
+    double result = std::numeric_limits<double>::infinity();
+    if (support.constraint.size() != multiplier.size()) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    for (std::size_t center = 0U; center < multiplier.size(); ++center) {
+        result = std::min(result, std::abs(
+            multiplier[center] + KAPPA * support.constraint[center]));
+    }
+    return result;
+}
+
+double al_minimum_horizon_margin(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& boundary) {
+    double result = std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0U; i < position.size(); ++i) {
+        for (std::size_t j = i + 1U; j < position.size(); ++j) {
+            result = std::min(result,
+                std::abs(norm(position[i] - position[j]) - HORIZON));
+        }
+        for (Vec3 support : boundary) {
+            result = std::min(result,
+                std::abs(norm(position[i] - support) - HORIZON));
+        }
+    }
+    return result;
+}
+
+double al_binary64_ulp(double value) {
+    return std::nextafter(
+            value, std::numeric_limits<double>::infinity())
+        - value;
+}
+
 ALStepNormInnerSolve solve_al_vector_inner_step_norm_eta(
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& initial,
@@ -49807,6 +49883,13 @@ ALStepNormInnerSolve solve_al_vector_inner_step_norm_eta(
         record.radius_before = trust_radius;
         const ALTopologySets current_topology = al_topology_sets(
             result.position, boundary, current.support);
+        record.current_topology = current_topology;
+        record.current_total = current.total;
+        record.current_total_ulp = al_binary64_ulp(current.total);
+        record.current_phr_margin = al_minimum_phr_margin(
+            current.support, multiplier);
+        record.current_horizon_margin = al_minimum_horizon_margin(
+            result.position, boundary);
         int hvp_calls = 0;
         const std::vector<Vec3> step = al_vector_trust_step(
             result.position, boundary, multiplier, current.gradient,
@@ -49818,12 +49901,19 @@ ALStepNormInnerSolve solve_al_vector_inner_step_norm_eta(
         result.hvp_calls += hvp_calls;
         record.step_norm = vector_norm(step);
         const double gradient_step = flat_dot(current.gradient, step);
+        record.gradient_step = gradient_step;
         record.predicted_reduction = -gradient_step
             - 0.5 * flat_dot(step, image);
         const std::vector<Vec3> trial_position = add_scaled(
             result.position, step, 1.0);
         ALVectorInnerState trial = evaluate_al_vector_inner(
             trial_position, predicted, boundary, multiplier);
+        record.trial_total = trial.total;
+        record.trial_total_ulp = al_binary64_ulp(trial.total);
+        record.trial_phr_margin = al_minimum_phr_margin(
+            trial.support, multiplier);
+        record.trial_horizon_margin = al_minimum_horizon_margin(
+            trial_position, boundary);
         record.topology = al_topology_sets(
             trial_position, boundary, trial.support);
         record.topology_exact = record.topology.active_root
@@ -49841,6 +49931,14 @@ ALStepNormInnerSolve solve_al_vector_inner_step_norm_eta(
         record.direct_ratio = record.predicted_reduction > 0.0
             ? record.direct_actual_reduction / record.predicted_reduction
             : -std::numeric_limits<double>::infinity();
+        const double ulp_scale = std::max(
+            record.current_total_ulp, record.trial_total_ulp);
+        record.raw_ulp_ratio = ulp_scale > 0.0
+            ? record.raw_actual_reduction / ulp_scale
+            : std::numeric_limits<double>::infinity();
+        record.direct_ulp_ratio = ulp_scale > 0.0
+            ? record.direct_actual_reduction / ulp_scale
+            : std::numeric_limits<double>::infinity();
         record.accepted = trial.support.finite_values
             && record.predicted_reduction > 0.0
             && record.raw_actual_reduction > 0.0
@@ -49853,7 +49951,17 @@ ALStepNormInnerSolve solve_al_vector_inner_step_norm_eta(
             && std::isfinite(record.raw_actual_reduction)
             && std::isfinite(record.direct_actual_reduction)
             && std::isfinite(record.raw_ratio)
-            && std::isfinite(record.direct_ratio);
+            && std::isfinite(record.direct_ratio)
+            && std::isfinite(record.current_total)
+            && std::isfinite(record.trial_total)
+            && std::isfinite(record.current_total_ulp)
+            && std::isfinite(record.trial_total_ulp)
+            && std::isfinite(record.raw_ulp_ratio)
+            && std::isfinite(record.direct_ulp_ratio)
+            && std::isfinite(record.current_phr_margin)
+            && std::isfinite(record.trial_phr_margin)
+            && std::isfinite(record.current_horizon_margin)
+            && std::isfinite(record.trial_horizon_margin);
         result.all_finite = result.all_finite && record.finite_values;
         if (record.raw_ratio < 0.25) {
             bool used_step_norm = false;
@@ -49935,6 +50043,7 @@ struct ALStepNormOuterUpdate {
     std::vector<double> multiplier;
     ALVectorSupport support;
     ALStepNormOuterRecord record;
+    std::vector<ALStepNormInnerTrial> failed_inner_trials;
 };
 
 struct ALStepNormPrivateOuterSolve {
@@ -50013,6 +50122,7 @@ ALStepNormOuterUpdate al_step_norm_private_outer_update_eta(
         result.failure = "INNER:" + inner.failure;
         result.finite_failure = inner.all_finite
             && inner.failure != "INITIAL_NONFINITE";
+        result.failed_inner_trials = inner.trials;
         return result;
     }
     result.position = inner.position;
@@ -50169,6 +50279,7 @@ struct ALCapAccuracyLane {
     std::vector<double> multiplier_at_outer13;
     std::vector<ALStepNormOuterRecord> records;
     ALStepNormOuterRecord failed_inner_work;
+    std::vector<ALStepNormInnerTrial> failed_inner_trials;
     ALStepNormOuterRecord warm_holdout;
 };
 
@@ -50204,6 +50315,127 @@ bool al_step_norm_outer_record_exact(
         && lhs.admissible == rhs.admissible;
 }
 
+bool al_step_norm_inner_trial_exact(
+    const ALStepNormInnerTrial& lhs,
+    const ALStepNormInnerTrial& rhs) {
+    return lhs.trial == rhs.trial
+        && lhs.hvp_calls == rhs.hvp_calls
+        && lhs.negative_curvature == rhs.negative_curvature
+        && lhs.accepted == rhs.accepted
+        && lhs.finite_values == rhs.finite_values
+        && lhs.topology_exact == rhs.topology_exact
+        && lhs.radius_owner == rhs.radius_owner
+        && binary64_bits(lhs.stationarity_before)
+            == binary64_bits(rhs.stationarity_before)
+        && binary64_bits(lhs.radius_before)
+            == binary64_bits(rhs.radius_before)
+        && binary64_bits(lhs.radius_after)
+            == binary64_bits(rhs.radius_after)
+        && binary64_bits(lhs.step_norm) == binary64_bits(rhs.step_norm)
+        && binary64_bits(lhs.gradient_step)
+            == binary64_bits(rhs.gradient_step)
+        && binary64_bits(lhs.predicted_reduction)
+            == binary64_bits(rhs.predicted_reduction)
+        && binary64_bits(lhs.raw_actual_reduction)
+            == binary64_bits(rhs.raw_actual_reduction)
+        && binary64_bits(lhs.direct_actual_reduction)
+            == binary64_bits(rhs.direct_actual_reduction)
+        && binary64_bits(lhs.raw_ratio) == binary64_bits(rhs.raw_ratio)
+        && binary64_bits(lhs.direct_ratio)
+            == binary64_bits(rhs.direct_ratio)
+        && binary64_bits(lhs.current_total)
+            == binary64_bits(rhs.current_total)
+        && binary64_bits(lhs.trial_total)
+            == binary64_bits(rhs.trial_total)
+        && binary64_bits(lhs.current_total_ulp)
+            == binary64_bits(rhs.current_total_ulp)
+        && binary64_bits(lhs.trial_total_ulp)
+            == binary64_bits(rhs.trial_total_ulp)
+        && binary64_bits(lhs.raw_ulp_ratio)
+            == binary64_bits(rhs.raw_ulp_ratio)
+        && binary64_bits(lhs.direct_ulp_ratio)
+            == binary64_bits(rhs.direct_ulp_ratio)
+        && binary64_bits(lhs.current_phr_margin)
+            == binary64_bits(rhs.current_phr_margin)
+        && binary64_bits(lhs.trial_phr_margin)
+            == binary64_bits(rhs.trial_phr_margin)
+        && binary64_bits(lhs.current_horizon_margin)
+            == binary64_bits(rhs.current_horizon_margin)
+        && binary64_bits(lhs.trial_horizon_margin)
+            == binary64_bits(rhs.trial_horizon_margin)
+        && lhs.current_topology.active_root
+            == rhs.current_topology.active_root
+        && lhs.current_topology.fluid_root
+            == rhs.current_topology.fluid_root
+        && lhs.current_topology.boundary_root
+            == rhs.current_topology.boundary_root
+        && lhs.topology.active_root == rhs.topology.active_root
+        && lhs.topology.fluid_root == rhs.topology.fluid_root
+        && lhs.topology.boundary_root == rhs.topology.boundary_root;
+}
+
+struct ALInnerFloorMechanismSummary {
+    bool all_finite = true;
+    bool all_topology_stable = true;
+    bool all_pair_topology_stable = true;
+    bool any_active_change = false;
+    bool any_pair_change = false;
+    bool any_model_direct_conflict = false;
+    int accepted_trials = 0;
+    int rejected_trials = 0;
+    int merit_floor_trials = 0;
+    double minimum_phr_margin = std::numeric_limits<double>::infinity();
+    double minimum_horizon_margin = std::numeric_limits<double>::infinity();
+};
+
+ALInnerFloorMechanismSummary al_inner_floor_mechanism_summary(
+    const std::vector<ALStepNormInnerTrial>& trials) {
+    ALInnerFloorMechanismSummary result;
+    for (const ALStepNormInnerTrial& trial : trials) {
+        const bool active_stable = trial.current_topology.active_root
+            == trial.topology.active_root;
+        const bool fluid_stable = trial.current_topology.fluid_root
+            == trial.topology.fluid_root;
+        const bool boundary_stable = trial.current_topology.boundary_root
+            == trial.topology.boundary_root;
+        const bool pair_stable = fluid_stable && boundary_stable;
+        result.all_finite = result.all_finite && trial.finite_values;
+        result.all_topology_stable = result.all_topology_stable
+            && active_stable && pair_stable;
+        result.all_pair_topology_stable =
+            result.all_pair_topology_stable && pair_stable;
+        result.any_active_change = result.any_active_change
+            || !active_stable;
+        result.any_pair_change = result.any_pair_change || !pair_stable;
+        result.accepted_trials += trial.accepted ? 1 : 0;
+        result.rejected_trials += trial.accepted ? 0 : 1;
+        result.minimum_phr_margin = std::min(result.minimum_phr_margin,
+            std::min(trial.current_phr_margin, trial.trial_phr_margin));
+        result.minimum_horizon_margin = std::min(
+            result.minimum_horizon_margin,
+            std::min(trial.current_horizon_margin,
+                trial.trial_horizon_margin));
+        const double merit_floor_bound = 8.0 * std::max(
+            trial.current_total_ulp, trial.trial_total_ulp);
+        const bool merit_floor = active_stable && pair_stable
+            && trial.predicted_reduction > 0.0
+            && trial.direct_actual_reduction > 0.0
+            && !trial.accepted
+            && std::abs(trial.raw_actual_reduction) <= merit_floor_bound
+            && std::abs(trial.direct_actual_reduction)
+                <= merit_floor_bound;
+        result.merit_floor_trials += merit_floor ? 1 : 0;
+        const bool model_direct_conflict = active_stable && pair_stable
+            && ((trial.predicted_reduction > merit_floor_bound
+                    && trial.direct_actual_reduction < -merit_floor_bound)
+                || (trial.predicted_reduction < -merit_floor_bound
+                    && trial.direct_actual_reduction > merit_floor_bound));
+        result.any_model_direct_conflict = result.any_model_direct_conflict
+            || model_direct_conflict;
+    }
+    return result;
+}
+
 ALCapAccuracyLane solve_al_cap_accuracy_lane(
     const Fixture& fixture,
     const std::vector<Vec3>& predicted,
@@ -50231,6 +50463,7 @@ ALCapAccuracyLane solve_al_cap_accuracy_lane(
             result.all_finite = result.all_finite && update.finite_failure;
             result.failure = update.failure;
             result.failed_inner_work = update.record;
+            result.failed_inner_trials = update.failed_inner_trials;
             return result;
         }
         const bool monotone = update.record.state.primal <= previous_primal;
@@ -50277,6 +50510,7 @@ ALCapAccuracyLane solve_al_cap_accuracy_lane(
             result.all_finite = result.all_finite && holdout.finite_failure;
             result.failure = "HOLDOUT:" + holdout.failure;
             result.failed_inner_work = holdout.record;
+            result.failed_inner_trials = holdout.failed_inner_trials;
             return result;
         }
         result.warm_holdout = holdout.record;
@@ -52695,6 +52929,407 @@ SplitBoundaryReport run_al_cap_accuracy_discriminator_controls() {
            << ",\"cap_change_authorized\":false"
            << ",\"inner_tolerance_change_authorized\":false"
            << ",\"public_pressure_state_authorized\":false"
+           << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_inner_floor_mechanism_discriminator_controls() {
+    constexpr std::array<double, 5> stationarity_limits{
+        1.0e-8, 1.0e-9, 1.0e-10, 1.0e-11, 1.0e-12};
+    constexpr std::array<std::size_t, 3> unique_lane_indices{0U, 1U, 2U};
+    const bool identity_exact = sha256_hex(B4E2D7R7_IDENTITY_PROJECTION)
+        == B4E2D7R7_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_cap_accuracy_discriminator_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = !parent.passed
+        && parent_stdout_sha256
+            == "6979ebf9f0b88fb57cbcbbaed6721951cb7fa05acb8f7d4b8c39962f257b9f6f";
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<Vec3> inactive_prediction =
+        compressed_fluid(fixture, 1.01);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALStepNormPrivateOuterSolve d7r5 =
+        solve_al_step_norm_private_outer(
+            fixture, active_prediction, active_prediction, zero_multiplier);
+    std::array<ALCapAccuracyLane, stationarity_limits.size()> lanes;
+    if (d7r5.records.size() >= 8U) {
+        for (std::size_t index = 0U; index < lanes.size(); ++index) {
+            lanes[index] = solve_al_cap_accuracy_lane(
+                fixture, active_prediction, d7r5.prefix_position,
+                d7r5.prefix_multiplier, d7r5.records[7],
+                stationarity_limits[index]);
+        }
+    }
+
+    const auto failed_work_exact = [](const ALCapAccuracyLane& lane,
+            const char* failure, std::size_t completed, int failed_outer,
+            int outer_trials, int accepted, int rejected, int hvp,
+            int step_norm_updates, int quarter_updates,
+            double stationarity) {
+        const ALVectorOuterRecord& work = lane.failed_inner_work.state;
+        return !lane.all_inners_pass && lane.all_finite
+            && lane.failure == failure && lane.records.size() == completed
+            && work.outer == failed_outer
+            && work.inner_outer_trials == outer_trials
+            && work.inner_accepted_trials == accepted
+            && work.inner_rejected_trials == rejected
+            && work.inner_hvp_calls == hvp
+            && lane.failed_inner_work.inner_step_norm_updates
+                == step_norm_updates
+            && lane.failed_inner_work.inner_quarter_updates == quarter_updates
+            && binary64_bits(work.stationarity)
+                == binary64_bits(stationarity)
+            && lane.failed_inner_trials.size()
+                == static_cast<std::size_t>(accepted + rejected);
+    };
+    const bool eta1e8_replay_exact = failed_work_exact(
+        lanes[0], "INNER:REJECT_LIMIT", 50U, 58, 11, 1, 9, 20, 1, 8,
+        1.1975523969668175e-8);
+    const bool eta1e9_replay_exact = failed_work_exact(
+        lanes[1], "INNER:MINIMUM_TRUST_RADIUS", 5U, 13, 9, 1, 7, 16,
+        1, 6, 1.1785409868777534e-9);
+    const bool eta1e10_replay_exact = failed_work_exact(
+        lanes[2], "INNER:MINIMUM_TRUST_RADIUS", 3U, 11, 6, 0, 5, 10,
+        1, 4, 1.534119330122981e-10);
+    const bool three_state_reproduction_exact = eta1e8_replay_exact
+        && eta1e9_replay_exact && eta1e10_replay_exact;
+
+    const auto lane_exact = [](const ALCapAccuracyLane& lhs,
+                               const ALCapAccuracyLane& rhs) {
+        if (!exact_vec3_values(lhs.position, rhs.position)
+            || !exact_al_multiplier(lhs.multiplier, rhs.multiplier)
+            || lhs.failure != rhs.failure
+            || lhs.records.size() != rhs.records.size()
+            || lhs.failed_inner_trials.size()
+                != rhs.failed_inner_trials.size()
+            || !al_step_norm_outer_record_exact(
+                lhs.failed_inner_work, rhs.failed_inner_work)) {
+            return false;
+        }
+        for (std::size_t index = 0U; index < lhs.records.size(); ++index) {
+            if (!al_step_norm_outer_record_exact(
+                    lhs.records[index], rhs.records[index])) {
+                return false;
+            }
+        }
+        for (std::size_t index = 0U;
+             index < lhs.failed_inner_trials.size(); ++index) {
+            if (!al_step_norm_inner_trial_exact(
+                    lhs.failed_inner_trials[index],
+                    rhs.failed_inner_trials[index])) {
+                return false;
+            }
+        }
+        return true;
+    };
+    const bool common_tight_state_exact = lane_exact(lanes[2], lanes[3])
+        && lane_exact(lanes[2], lanes[4]);
+
+    std::array<std::string, unique_lane_indices.size()> state_roots;
+    std::array<ALInnerFloorMechanismSummary,
+        unique_lane_indices.size()> mechanisms;
+    bool trace_finite = true;
+    bool raw_admission_unchanged = true;
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        const ALCapAccuracyLane& lane = lanes[unique_lane_indices[unique]];
+        state_roots[unique] = al_vector_stable_state_root(
+            unique == 0U ? "d7r7-pre-failure-eta1e-8"
+                : (unique == 1U ? "d7r7-pre-failure-eta1e-9"
+                    : "d7r7-pre-failure-eta1e-10"),
+            lane.position, lane.multiplier);
+        mechanisms[unique] = al_inner_floor_mechanism_summary(
+            lane.failed_inner_trials);
+        trace_finite = trace_finite && mechanisms[unique].all_finite
+            && !lane.failed_inner_trials.empty();
+        for (const ALStepNormInnerTrial& trial : lane.failed_inner_trials) {
+            const bool unchanged_decision = trial.finite_values
+                && trial.predicted_reduction > 0.0
+                && trial.raw_actual_reduction > 0.0
+                && trial.raw_ratio >= 0.1;
+            raw_admission_unchanged = raw_admission_unchanged
+                && trial.accepted == unchanged_decision;
+        }
+    }
+    const bool state_roots_distinct = state_roots[0] != state_roots[1]
+        && state_roots[0] != state_roots[2]
+        && state_roots[1] != state_roots[2];
+
+    bool all_phr = true;
+    bool all_merit = true;
+    bool any_phr = false;
+    bool any_merit = false;
+    for (const ALInnerFloorMechanismSummary& mechanism : mechanisms) {
+        const bool phr = mechanism.any_active_change
+            && mechanism.all_pair_topology_stable;
+        const bool merit = mechanism.all_topology_stable
+            && mechanism.merit_floor_trials > 0;
+        all_phr = all_phr && phr;
+        all_merit = all_merit && merit;
+        any_phr = any_phr || phr;
+        any_merit = any_merit || merit;
+    }
+
+    const ALStepNormPrivateOuterSolve inactive =
+        solve_al_step_norm_private_outer(
+            fixture, inactive_prediction, inactive_prediction,
+            zero_multiplier);
+    const bool inactive_exact = inactive.confirmed
+        && inactive.warm_holdout_admissible
+        && inactive.private_confirmation_count == 1
+        && exact_vec3_values(inactive.position, inactive_prediction)
+        && exact_al_multiplier(inactive.multiplier, zero_multiplier);
+    const ALStepNormInnerSolve reset = solve_al_vector_inner_step_norm_eta(
+        active_prediction, active_prediction, fixture.boundary,
+        zero_multiplier, 1.0e-8);
+    double reset_primal = 0.0;
+    for (double value : reset.support.constraint) {
+        reset_primal = std::max(reset_primal, std::max(0.0, value));
+    }
+    const bool reset_exact = reset.passed && reset.all_finite
+        && reset_primal > 1.0e-8;
+    const std::vector<Vec3> public_position = active_prediction;
+    const std::vector<double> public_multiplier = zero_multiplier;
+    const std::string prior_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const std::string forced_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const bool rollback_exact = prior_public_root == forced_public_root
+        && exact_vec3_values(public_position, active_prediction)
+        && exact_al_multiplier(public_multiplier, zero_multiplier)
+        && state_roots_distinct;
+    const bool controls_exact = inactive_exact && reset_exact
+        && rollback_exact;
+
+    std::string route;
+    if (identity_exact && parent_exact && three_state_reproduction_exact
+        && common_tight_state_exact && trace_finite
+        && raw_admission_unchanged && controls_exact) {
+        if (all_phr && !all_merit) {
+            route = "COMMON_PHR_KINK_RESEARCH";
+        } else if (!all_phr && all_merit) {
+            route = "COMMON_BINARY64_MERIT_FLOOR_RESEARCH";
+        } else if (any_phr && any_merit) {
+            route = "MIXED_ACTIVE_AND_MERIT_RESEARCH";
+        } else {
+            route = "TRUST_MODEL_OR_DERIVATIVE_RECLOSURE";
+        }
+    }
+    const bool route_precedence_exact =
+        (all_phr && !all_merit && route == "COMMON_PHR_KINK_RESEARCH")
+        || (!all_phr && all_merit
+            && route == "COMMON_BINARY64_MERIT_FLOOR_RESEARCH")
+        || (!all_phr && !all_merit && any_phr && any_merit
+            && route == "MIXED_ACTIVE_AND_MERIT_RESEARCH")
+        || (!all_phr && !all_merit && !(any_phr && any_merit)
+            && route == "TRUST_MODEL_OR_DERIVATIVE_RECLOSURE");
+    const bool passed = !route.empty() && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R6_PARENT_BYTES";
+    else if (!three_state_reproduction_exact)
+        first_failure = "PRE_FAILURE_STATE_REPRODUCTION";
+    else if (!common_tight_state_exact)
+        first_failure = "COMMON_TIGHT_STATE";
+    else if (!trace_finite) first_failure = "NONFINITE_TRACE";
+    else if (!raw_admission_unchanged)
+        first_failure = "RAW_ADMISSION_CHANGED";
+    else if (!controls_exact) first_failure = "CONTROLS";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R7_IDENTITY_SHA256 << '|' << parent_stdout_sha256
+             << '|' << common_tight_state_exact << '|';
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        const ALCapAccuracyLane& lane = lanes[unique_lane_indices[unique]];
+        const ALInnerFloorMechanismSummary& mechanism = mechanisms[unique];
+        semantic << stationarity_limits[unique_lane_indices[unique]] << ':'
+                 << state_roots[unique] << ':' << lane.failure << ':'
+                 << mechanism.all_topology_stable << ':'
+                 << mechanism.all_pair_topology_stable << ':'
+                 << mechanism.any_active_change << ':'
+                 << mechanism.any_pair_change << ':'
+                 << mechanism.merit_floor_trials << ':'
+                 << mechanism.any_model_direct_conflict << '[';
+        for (const ALStepNormInnerTrial& trial : lane.failed_inner_trials) {
+            semantic << trial.trial << ':' << trial.hvp_calls << ':'
+                     << trial.negative_curvature << ':' << trial.accepted
+                     << ':' << trial.radius_owner << ':'
+                     << trial.stationarity_before << ':'
+                     << trial.radius_before << ':' << trial.radius_after
+                     << ':' << trial.step_norm << ':' << trial.gradient_step
+                     << ':' << trial.predicted_reduction << ':'
+                     << trial.raw_actual_reduction << ':'
+                     << trial.direct_actual_reduction << ':'
+                     << trial.raw_ratio << ':' << trial.direct_ratio << ':'
+                     << trial.current_total_ulp << ':'
+                     << trial.trial_total_ulp << ':' << trial.raw_ulp_ratio
+                     << ':' << trial.direct_ulp_ratio << ':'
+                     << trial.current_topology.active_root << ':'
+                     << trial.topology.active_root << ':'
+                     << trial.current_topology.fluid_root << ':'
+                     << trial.topology.fluid_root << ':'
+                     << trial.current_topology.boundary_root << ':'
+                     << trial.topology.boundary_root << ':'
+                     << trial.current_phr_margin << ':'
+                     << trial.trial_phr_margin << ':'
+                     << trial.current_horizon_margin << ':'
+                     << trial.trial_horizon_margin << ';';
+        }
+        semantic << "]|";
+    }
+    semantic << inactive_exact << ':' << reset_exact << ':' << reset_primal
+             << ':' << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_trial = [](std::ostringstream& output,
+                                 const ALStepNormInnerTrial& trial) {
+        const double merit_floor_bound = 8.0 * std::max(
+            trial.current_total_ulp, trial.trial_total_ulp);
+        const bool merit_floor = trial.topology_exact
+            && trial.predicted_reduction > 0.0
+            && trial.direct_actual_reduction > 0.0
+            && !trial.accepted
+            && std::abs(trial.raw_actual_reduction) <= merit_floor_bound
+            && std::abs(trial.direct_actual_reduction)
+                <= merit_floor_bound;
+        output << std::setprecision(17)
+               << "{\"trial\":" << trial.trial
+               << ",\"hvp_calls\":" << trial.hvp_calls
+               << ",\"negative_curvature\":"
+               << (trial.negative_curvature ? "true" : "false")
+               << ",\"stationarity_before\":"
+               << trial.stationarity_before
+               << ",\"trust_radius_before\":" << trial.radius_before
+               << ",\"trust_radius_after\":" << trial.radius_after
+               << ",\"step_norm\":" << trial.step_norm
+               << ",\"step_norm_dx\":" << trial.step_norm / SPACING
+               << ",\"radius_owner\":\"" << trial.radius_owner << '"'
+               << ",\"gradient_step\":" << trial.gradient_step
+               << ",\"predicted_reduction\":"
+               << trial.predicted_reduction
+               << ",\"raw_actual_reduction\":"
+               << trial.raw_actual_reduction
+               << ",\"direct_actual_reduction\":"
+               << trial.direct_actual_reduction
+               << ",\"raw_ratio\":" << trial.raw_ratio
+               << ",\"direct_ratio\":" << trial.direct_ratio
+               << ",\"current_total\":" << trial.current_total
+               << ",\"trial_total\":" << trial.trial_total
+               << ",\"current_total_ulp\":"
+               << trial.current_total_ulp
+               << ",\"trial_total_ulp\":" << trial.trial_total_ulp
+               << ",\"raw_ulp_ratio\":" << trial.raw_ulp_ratio
+               << ",\"direct_ulp_ratio\":" << trial.direct_ulp_ratio
+               << ",\"merit_floor_bound\":" << merit_floor_bound
+               << ",\"merit_floor\":"
+               << (merit_floor ? "true" : "false")
+               << ",\"topology_exact\":"
+               << (trial.topology_exact ? "true" : "false")
+               << ",\"topology\":{\"current_active\":\""
+               << trial.current_topology.active_root
+               << "\",\"trial_active\":\""
+               << trial.topology.active_root
+               << "\",\"current_fluid\":\""
+               << trial.current_topology.fluid_root
+               << "\",\"trial_fluid\":\""
+               << trial.topology.fluid_root
+               << "\",\"current_boundary\":\""
+               << trial.current_topology.boundary_root
+               << "\",\"trial_boundary\":\""
+               << trial.topology.boundary_root << "\"}"
+               << ",\"phr_margin\":{\"current\":"
+               << trial.current_phr_margin << ",\"trial\":"
+               << trial.trial_phr_margin << '}'
+               << ",\"horizon_margin\":{\"current\":"
+               << trial.current_horizon_margin << ",\"trial\":"
+               << trial.trial_horizon_margin << '}'
+               << ",\"would_accept\":"
+               << (trial.accepted ? "true" : "false") << '}';
+    };
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r7_inner_floor_mechanism_discriminator.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R7_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"expected_fail_exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"common_tight_state_exact\":"
+           << (common_tight_state_exact ? "true" : "false")
+           << ",\"replays\":[";
+    for (std::size_t unique = 0U;
+         unique < unique_lane_indices.size(); ++unique) {
+        if (unique != 0U) report << ',';
+        const std::size_t lane_index = unique_lane_indices[unique];
+        const ALCapAccuracyLane& lane = lanes[lane_index];
+        const ALInnerFloorMechanismSummary& mechanism = mechanisms[unique];
+        report << "{\"eta\":" << stationarity_limits[lane_index]
+               << ",\"state_root\":\"" << state_roots[unique]
+               << "\",\"failure\":\"" << lane.failure
+               << "\",\"failed_outer\":"
+               << lane.failed_inner_work.state.outer
+               << ",\"reproduction_exact\":"
+               << ((unique == 0U ? eta1e8_replay_exact
+                    : (unique == 1U ? eta1e9_replay_exact
+                        : eta1e10_replay_exact)) ? "true" : "false")
+               << ",\"mechanism\":{\"all_topology_stable\":"
+               << (mechanism.all_topology_stable ? "true" : "false")
+               << ",\"all_pair_topology_stable\":"
+               << (mechanism.all_pair_topology_stable ? "true" : "false")
+               << ",\"any_active_change\":"
+               << (mechanism.any_active_change ? "true" : "false")
+               << ",\"any_pair_change\":"
+               << (mechanism.any_pair_change ? "true" : "false")
+               << ",\"merit_floor_trials\":"
+               << mechanism.merit_floor_trials
+               << ",\"model_direct_conflict\":"
+               << (mechanism.any_model_direct_conflict ? "true" : "false")
+               << ",\"minimum_phr_margin\":"
+               << mechanism.minimum_phr_margin
+               << ",\"minimum_horizon_margin\":"
+               << mechanism.minimum_horizon_margin << "},\"trials\":[";
+        for (std::size_t index = 0U;
+             index < lane.failed_inner_trials.size(); ++index) {
+            if (index != 0U) report << ',';
+            append_trial(report, lane.failed_inner_trials[index]);
+        }
+        report << "]}";
+    }
+    report << "],\"controls\":{\"inactive_exact\":"
+           << (inactive_exact ? "true" : "false")
+           << ",\"reset_primal\":" << reset_primal
+           << ",\"reset_exact\":"
+           << (reset_exact ? "true" : "false")
+           << ",\"prior_public_root\":\"" << prior_public_root
+           << "\",\"forced_public_root\":\"" << forced_public_root
+           << "\",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false") << '}'
+           << ",\"raw_admission_unchanged\":"
+           << (raw_admission_unchanged ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"trajectory_steps\":0,\"public_commit_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"failure_mechanism_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"trial_acceptance_authorized\":false"
+           << ",\"cap_or_tolerance_change_authorized\":false"
+           << ",\"solver_family_change_authorized\":false"
            << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"

@@ -138,6 +138,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-step-norm-trust-inner|"
                          "--nonlocal-al-step-norm-private-outer|"
                          "--nonlocal-al-cap-accuracy-discriminator|"
+                         "--nonlocal-al-inner-floor-mechanism-discriminator|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1088,6 +1089,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_cap_accuracy_discriminator_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-inner-floor-mechanism-discriminator") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_inner_floor_mechanism_discriminator_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
