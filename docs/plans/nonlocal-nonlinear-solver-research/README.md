@@ -1647,3 +1647,10 @@ reduction acceptance, zero rejects and two HVPs. The `1e-8/1e-9` accepted
 signs are resolved positive; the tight sign has no contradiction but remains
 below the frozen long-double resolution threshold. Freeze a three-pair
 binary128 offline oracle next. Outer integration remains blocked.
+The [D7R11 research](../../development/nonlocal-nsr3b4e2d7r11-binary128-oracle-research-2026-08-22.md)
+selects a frozen GCC/libquadmath IEEE binary128 evaluator for exactly the three
+D7R10 acceptances. Its
+[contract](03b4e2d7r11-binary128-oracle-contract.md) requires fixed and
+compensated 113-bit signs above 4096 binary128 ULPs, exact pair membership and
+at most 5% candidate error. It explicitly grants no runtime wider precision.
+Implement/run only this offline oracle next.

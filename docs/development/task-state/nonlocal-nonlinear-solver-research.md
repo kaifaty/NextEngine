@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R10_PASS_PRECISION_CERTIFICATE_REQUIRED / B4E2D7R11_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R10_PASS_PRECISION_CERTIFICATE_REQUIRED / B4E2D7R11_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -39,7 +39,7 @@
 - **Precision fact:** two accepted signs are resolved positive, none negative;
   the tight `+2.834613e-19` divided reduction is only `468` long-double ULPs
   under the independent evaluator and remains unresolved.
-- **Current decision:** research/freeze an offline binary128 oracle over only
+- **Current decision:** D7R11 is frozen as an offline binary128 oracle over only
   the three accepted pairs. It cannot select runtime `__float128` state.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
@@ -1755,8 +1755,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
-5. Research/freeze D7R11 binary128 accepted-sign oracle; preserve D7R10 bytes
-   and prohibit outer integration for every result.
+5. Implement/run frozen D7R11 binary128 accepted-sign oracle; preserve D7R10
+   bytes and prohibit outer integration for every result.
 
 ## Reconsideration triggers
 
