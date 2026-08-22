@@ -40,7 +40,7 @@ For the frozen eight-particle fixture:
 ```text
 ||g||_2 <= sqrt(8) * max_i ||g_i||
 sigma0 = max_i ||g_i|| / dx
-dx * sqrt(8) = 0.2262741699796952 < 1
+dx * sqrt(8) = 0.14142135623730953 < 1
 therefore sigma0 >= ||g||_2
 therefore eta_dimensionless >= eta_inherited.
 ```
@@ -121,4 +121,3 @@ Freeze R4R2 as five complete rollback-only transactions whose only solver
 change from R4 is explicit dimensionless Krylov forcing. A confirmed result
 may authorize research and contract design for D7R19; it does not authorize a
 nominal substep or production integration.
-
