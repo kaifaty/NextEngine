@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R2_FAIL_SIGNED_ZERO / B4E2D7R2R_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R2R_PASS_TRUST_RECLOSURE / B4E2D7R3_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -582,6 +582,13 @@
   half-step row before applying the original route precedence.
 - **Next action:** implement/run B4E2D7R2R twice. No kernel canonicalization,
   trust-policy implementation or trajectory is authorized.
+- **Current conclusion:** B4E2D7R2R passes twice byte-identically. Exact signed
+  zero closes the representation mistake; the topology-stable half step has
+  direct/model ratio `1.3285` and selects
+  `TRUST_REJECT_POLICY_RECLOSURE_REQUIRED`.
+- **Next action:** research/freeze B4E2D7R3 comparing backtrack reuse, a
+  rejected-step-norm radius update plus Steihaug recompute and first-binding
+  legacy continuation. Do not install a policy yet.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -704,6 +711,7 @@
 | NSR3B4E2D7R2 contract | exact set deltas, horizon branch continuation and fixed alpha ladder | implement/run replay-only discriminator |
 | NSR3B4E2D7R2 FAIL | `W'(h)=-0.0` violates the frozen positive-zero bit gate | signed-zero contract reclosure only |
 | NSR3B4E2D7R2R contract | numerical-zero gate with exact signed bits over unchanged D7R2 | implement/run reclosure only |
+| NSR3B4E2D7R2R PASS | full step too large; topology-stable half step descends with ratio `1.3285` | trust/globalization discriminator research only |
 
 Candidate solver identity remains:
 

@@ -1527,3 +1527,10 @@ Its [frozen contract](03b4e2d7r2r-signed-zero-reclosure-contract.md) requires
 the unchanged complete D7R2 report and half-step facts before route selection.
 Implement/run only this narrow reclosure next; do not canonicalize the kernel
 or implement the anticipated trust-policy route.
+B4E2D7R2R passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r2r-signed-zero-reclosure-evidence-2026-08-22.md).
+The unchanged signed-zero kernel is valid, current-branch continuation rules
+out horizon crossing, and the topology-stable half step descends with ratio
+`1.3285`. Research/freeze one B4E2D7R3 globalization discriminator comparing
+backtrack reuse, step-norm-aware trust recomputation and the legacy first-bind
+continuation. No solver-policy implementation is authorized yet.

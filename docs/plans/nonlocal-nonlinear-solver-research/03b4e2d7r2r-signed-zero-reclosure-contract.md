@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R2R -- signed-zero reclosure contract
 
-Status: `FROZEN / NOT_RUN / REPLAY_ONLY`
+Status: `PASS / TRUST_REJECT_POLICY_RECLOSURE_REQUIRED / REPLAY_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
