@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SICD_FROZEN / INCOMING_CONSTRUCTION_AUDIT` |
+| Status | `ACTIVE / NSR3B4EP10SICD_PASS / SPLIT_INCOMING_INTEGRATION_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -914,6 +914,17 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   floating fold before construction correspondence, or claiming the work
   proxy as speedup.
 
+### D-045 -- Admit pair-endpoint builder to integration research
+
+- **Observation:** all 226 incoming plans match byte-for-byte; pair endpoint
+  and support cursor corruptions reject, with 35.6 MB conservative payload.
+- **Decision:** freeze one opt-in floating split-fold implementation and
+  balanced A/B against B4EP10I, preserving the exact construction and target
+  fold order.
+- **Rejected:** timing the side-by-side audit, enabling the path by default,
+  or fusing construction phases before the isolated implementation has exact
+  correspondence.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -962,10 +973,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen B4EP10SICD pair-endpoint construction audit with no
-   returned-path or timing change.
-2. Run two exact processes and regressions; freeze floating integration only
-   if all arrays, work, capacity and corruption gates pass.
+1. Research and freeze B4EP10SII opt-in floating integration/A-B, including
+   exact lower/own/upper fold counters and construction ownership.
+2. Implement only after the contract; require exact output before three
+   serialized balanced Release pairs against B4EP10I worker-8.
 
 ## Reconsideration triggers
 

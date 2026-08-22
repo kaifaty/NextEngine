@@ -1,6 +1,6 @@
 # NSR3-B4EP10SICD -- incoming-plan construction audit contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / B4EP10SII_INTEGRATION_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
