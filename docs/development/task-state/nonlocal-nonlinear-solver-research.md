@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R3_PASS_FORCING_CONVERGED_33 / D7R19R4_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R3_PASS_FORCING_CONVERGED_33 / D7R19R4_PASS_RESIDUAL_MODEL_IMAGE / D7R19R5_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -246,6 +246,14 @@
   Require `1e-10` relative/scaled image, quadratic and predicted-reduction
   bounds with positive signs. Prefer residual-derived, then accumulated, then
   retain the direct HVP.
+- **D7R19R4 result:** PASS and `KRYLOV_MODEL_IMAGE_RESIDUAL_CANDIDATE`.
+  Residual/direct `step.H(step)` and predicted reduction are bit-exact; image
+  L2 error is `1.24e-15` and maximum scaled component error `1.58e-13`.
+  New work is one oracle HVP and one workspace, with zero trial formation.
+- **Current decision:** carry only residual-derived `H(step)` into D7R19R5.
+  Research/freeze a sixth-trial-only shadow with one guarded recurrence grace
+  HVP; retain a direct model HVP as oracle, evaluate divided/precision/
+  acceptance/radius correspondence, and do not commit or continue state.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2114,11 +2122,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement frozen D7R19R4 over only the exact sixth solve. Compare direct,
-   accumulated and residual-derived model images under one oracle HVP. Do not
-   select recurrence grace, form a trial, start another substep, macro,
-   trajectory or timing lane.
+6. Preserve D7R19R4/R3/R2/R1, D7R19 and all preceding normalized parents
+   exactly. Research/freeze D7R19R5 over only the sixth trial: one guarded
+   recurrence grace HVP, residual-derived model image and direct oracle
+   correspondence. Evaluate but do not commit acceptance/radius/state. Do not
+   start another substep, macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 

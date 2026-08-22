@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R4 -- Krylov model-image discriminator contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / REPLAY ONLY`
+Status: `EXECUTED / PASS / KRYLOV_MODEL_IMAGE_RESIDUAL_CANDIDATE / REPLAY ONLY / NO TRIAL`
 
 Identity projection (exact bytes, no final LF):
 
@@ -85,3 +85,13 @@ This contract grants one replay-only model-image discriminator. It does not
 authorize recurrence grace, production cap changes, trial formation or
 acceptance, a full transaction, another candidate nominal substep, timing,
 performance claims, public state mutation or runtime/production authority.
+
+## Result
+
+The discriminator passes reproducibly and selects
+`KRYLOV_MODEL_IMAGE_RESIDUAL_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r19r4-krylov-model-image-evidence-2026-08-23.md).
+Residual-derived and direct model quadratic/predicted scalars are bit-exact;
+the image L2 error is `1.24e-15`. Research/freeze a sixth-trial-only guarded
+recurrence-grace reclosure next. This result itself grants no grace, trial or
+production authority.
