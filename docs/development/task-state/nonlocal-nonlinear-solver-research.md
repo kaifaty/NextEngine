@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7_FAIL_PRESSURE_COMMIT / B4E2D7R_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7_FAIL_PRESSURE_COMMIT / B4E2D7R_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -533,6 +533,11 @@
 - **Next action:** research/freeze B4E2D7R with one absolute multiplier-update
   admission and a private confirmation update under a new identity. It must
   reproduce all B4E2D7 derivative facts and the first eight cold records.
+- **Current decision:** B4E2D7R freezes `<=1e-8 J` absolute multiplier and
+  `<=1e-8 dx` position-update admission, followed by one complete private
+  confirmation update. Only the confirmed state may commit; total cap is 14.
+- **Next action:** implement/run B4E2D7R standalone, preserving D7 command
+  bytes and exact first-eight roots. No trajectory or beta change is allowed.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -648,6 +653,7 @@
 | NSR3B4E2D5 PASS | unilateral PHR supports hydrostatic pressure at zero compression | augmented pressure-state oracle research only |
 | NSR3B4E2D6 PASS | actual-kernel scalar path converges with exact controls | dense-vector AL oracle research only |
 | NSR3B4E2D7 FAIL | dense derivatives/inner/cold pass; committed multiplier state is not warm-stable | dimensionally consistent commit reclosure only |
+| NSR3B4E2D7R contract | absolute pressure-state admission plus private confirmation | implement/run tiny dense oracle only |
 
 Candidate solver identity remains:
 
