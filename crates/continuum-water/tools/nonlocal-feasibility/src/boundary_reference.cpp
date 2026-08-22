@@ -8736,6 +8736,64 @@ struct JointDirectedScratchReuseTrace {
     std::size_t failures = 0U;
 };
 
+enum class JointEvaluationBufferRole : std::size_t {
+    Gradient,
+    Density,
+    Radius,
+    Compression,
+    HvpGradient,
+    HvpSecond,
+    DensityContribution,
+    Count,
+};
+
+constexpr std::size_t JOINT_EVALUATION_BUFFER_ROLE_COUNT =
+    static_cast<std::size_t>(JointEvaluationBufferRole::Count);
+constexpr std::size_t JOINT_EVALUATION_RETAINED_BUFFER_COUNT = 6U;
+constexpr std::size_t JOINT_EVALUATION_WORKSPACE_LANES = 2U;
+constexpr std::size_t JOINT_EVALUATION_NO_LANE =
+    std::numeric_limits<std::size_t>::max();
+constexpr std::array<std::size_t, JOINT_EVALUATION_BUFFER_ROLE_COUNT>
+    JOINT_EVALUATION_BUFFER_ELEMENT_BYTES{
+        sizeof(Vec3), sizeof(double), sizeof(double), sizeof(double),
+        sizeof(double), sizeof(double), sizeof(double),
+    };
+
+struct JointEvaluationBufferAuditTrace {
+    bool enabled = false;
+    std::size_t calls = 0U;
+    std::array<std::size_t, JOINT_EVALUATION_BUFFER_ROLE_COUNT>
+        requested_slots{};
+    std::array<std::size_t, JOINT_EVALUATION_BUFFER_ROLE_COUNT>
+        written_slots{};
+    std::array<std::size_t, JOINT_EVALUATION_BUFFER_ROLE_COUNT>
+        maximum_slots{};
+    std::size_t density_contribution_reads = 0U;
+    std::size_t density_reads = 0U;
+    std::size_t repeated_initialization_bytes = 0U;
+    std::size_t projected_growth_bytes = 0U;
+    std::size_t maximum_projected_capacity_bytes = 0U;
+    std::size_t maximum_shadow_payload_bytes = 0U;
+    std::size_t workspace_acquires = 0U;
+    std::size_t workspace_releases = 0U;
+    std::size_t workspace_live = 0U;
+    std::size_t maximum_workspace_live = 0U;
+    std::array<bool, JOINT_EVALUATION_WORKSPACE_LANES>
+        workspace_lane_live{};
+    std::array<std::array<std::size_t,
+        JOINT_EVALUATION_RETAINED_BUFFER_COUNT>,
+        JOINT_EVALUATION_WORKSPACE_LANES> workspace_lane_capacity{};
+    std::size_t ephemeral_acquires = 0U;
+    std::size_t ephemeral_releases = 0U;
+    std::size_t ephemeral_live = 0U;
+    std::size_t maximum_ephemeral_live = 0U;
+    std::size_t ephemeral_capacity = 0U;
+    std::size_t unknown_or_duplicate_releases = 0U;
+    std::size_t failures = 0U;
+    bool missing_write_negative_rejected = false;
+    bool duplicate_release_negative_rejected = false;
+};
+
 struct JointParallelTrace {
     bool enabled = false;
     int requested_workers = 0;
@@ -8769,6 +8827,7 @@ struct JointParallelTrace {
     JointIncomingConstructionAuditTrace incoming_construction_audit;
     JointDirectedScratchAuditTrace directed_scratch_audit;
     JointDirectedScratchReuseTrace directed_scratch_reuse;
+    JointEvaluationBufferAuditTrace evaluation_buffer_audit;
 };
 
 bool add_joint_parallel_duration(
@@ -9035,6 +9094,8 @@ struct JointPressureWorkspace {
     Evaluation evaluation;
     JointPressureTape tape;
     std::string state_sha256;
+    std::size_t evaluation_buffer_audit_lane =
+        JOINT_EVALUATION_NO_LANE;
 };
 
 struct JointQueryCase {
@@ -13099,6 +13160,273 @@ struct B4EP10SIRDIReleaseGuard {
     }
 };
 
+bool b4ep10sirdirea_add_bytes(
+    std::size_t slots, std::size_t element_bytes, std::size_t& total) {
+    if (element_bytes != 0U
+        && slots > std::numeric_limits<std::size_t>::max() / element_bytes) {
+        return false;
+    }
+    const std::size_t bytes = slots * element_bytes;
+    if (bytes > std::numeric_limits<std::size_t>::max() - total) {
+        return false;
+    }
+    total += bytes;
+    return true;
+}
+
+bool b4ep10sirdirea_update_projected_capacity(
+    JointEvaluationBufferAuditTrace& trace) {
+    std::size_t capacity_bytes = 0U;
+    for (std::size_t lane = 0U;
+         lane < trace.workspace_lane_capacity.size(); ++lane) {
+        for (std::size_t role = 0U;
+             role < JOINT_EVALUATION_RETAINED_BUFFER_COUNT; ++role) {
+            if (!b4ep10sirdirea_add_bytes(
+                    trace.workspace_lane_capacity[lane][role],
+                    JOINT_EVALUATION_BUFFER_ELEMENT_BYTES[role],
+                    capacity_bytes)) {
+                ++trace.failures;
+                return false;
+            }
+        }
+    }
+    if (!b4ep10sirdirea_add_bytes(
+            trace.ephemeral_capacity, sizeof(double), capacity_bytes)) {
+        ++trace.failures;
+        return false;
+    }
+    trace.maximum_projected_capacity_bytes = std::max(
+        trace.maximum_projected_capacity_bytes, capacity_bytes);
+    return true;
+}
+
+bool b4ep10sirdirea_acquire_ephemeral(
+    JointEvaluationBufferAuditTrace& trace, std::size_t pair_count) {
+    if (!trace.enabled) {
+        return true;
+    }
+    if (trace.ephemeral_live != 0U) {
+        ++trace.failures;
+        return false;
+    }
+    ++trace.ephemeral_acquires;
+    ++trace.ephemeral_live;
+    trace.maximum_ephemeral_live = std::max(
+        trace.maximum_ephemeral_live, trace.ephemeral_live);
+    if (pair_count > trace.ephemeral_capacity) {
+        const std::size_t growth = pair_count - trace.ephemeral_capacity;
+        if (!b4ep10sirdirea_add_bytes(
+                growth, sizeof(double), trace.projected_growth_bytes)) {
+            ++trace.failures;
+            return false;
+        }
+        trace.ephemeral_capacity = pair_count;
+    }
+    return b4ep10sirdirea_update_projected_capacity(trace);
+}
+
+bool b4ep10sirdirea_release_ephemeral(
+    JointEvaluationBufferAuditTrace& trace) {
+    if (!trace.enabled) {
+        return true;
+    }
+    if (trace.ephemeral_live != 1U) {
+        ++trace.unknown_or_duplicate_releases;
+        ++trace.failures;
+        return false;
+    }
+    --trace.ephemeral_live;
+    ++trace.ephemeral_releases;
+    return true;
+}
+
+struct B4EP10SIRDIREAEphemeralGuard {
+    JointEvaluationBufferAuditTrace& trace;
+    bool acquired = false;
+
+    ~B4EP10SIRDIREAEphemeralGuard() {
+        if (acquired) {
+            static_cast<void>(b4ep10sirdirea_release_ephemeral(trace));
+        }
+    }
+};
+
+struct B4EP10SIRDIREACallAudit {
+    JointEvaluationBufferAuditTrace* trace = nullptr;
+    std::array<std::vector<std::uint8_t>,
+        JOINT_EVALUATION_BUFFER_ROLE_COUNT> written;
+
+    bool begin(
+        JointEvaluationBufferAuditTrace& candidate,
+        const std::array<std::size_t,
+            JOINT_EVALUATION_BUFFER_ROLE_COUNT>& slots) {
+        if (!candidate.enabled) {
+            return true;
+        }
+        trace = &candidate;
+        std::size_t shadow_payload = 0U;
+        for (std::size_t role = 0U; role < slots.size(); ++role) {
+            if (slots[role]
+                    > std::numeric_limits<std::size_t>::max()
+                        - candidate.requested_slots[role]
+                || !b4ep10sirdirea_add_bytes(
+                    slots[role], JOINT_EVALUATION_BUFFER_ELEMENT_BYTES[role],
+                    candidate.repeated_initialization_bytes)
+                || slots[role]
+                    > std::numeric_limits<std::size_t>::max()
+                        - shadow_payload) {
+                ++candidate.failures;
+                return false;
+            }
+            candidate.requested_slots[role] += slots[role];
+            candidate.maximum_slots[role] = std::max(
+                candidate.maximum_slots[role], slots[role]);
+            shadow_payload += slots[role];
+            written[role].resize(slots[role]);
+        }
+        candidate.maximum_shadow_payload_bytes = std::max(
+            candidate.maximum_shadow_payload_bytes, shadow_payload);
+        return true;
+    }
+
+    bool record_write(JointEvaluationBufferRole role, std::size_t index) {
+        if (trace == nullptr) {
+            return true;
+        }
+        const std::size_t role_index = static_cast<std::size_t>(role);
+        if (role_index >= written.size()
+            || index >= written[role_index].size()) {
+            return false;
+        }
+        written[role_index][index] = 1U;
+        return true;
+    }
+
+    bool written_before_read(
+        JointEvaluationBufferRole role, std::size_t index) const {
+        if (trace == nullptr) {
+            return true;
+        }
+        const std::size_t role_index = static_cast<std::size_t>(role);
+        return role_index < written.size()
+            && index < written[role_index].size()
+            && written[role_index][index] == 1U;
+    }
+
+    bool finish(
+        std::size_t density_contribution_reads,
+        std::size_t density_reads) {
+        if (trace == nullptr) {
+            return true;
+        }
+        for (std::size_t role = 0U; role < written.size(); ++role) {
+            const std::size_t count = static_cast<std::size_t>(std::count(
+                written[role].begin(), written[role].end(),
+                static_cast<std::uint8_t>(1U)));
+            if (count != written[role].size()
+                || count > std::numeric_limits<std::size_t>::max()
+                    - trace->written_slots[role]) {
+                ++trace->failures;
+                return false;
+            }
+            trace->written_slots[role] += count;
+        }
+        if (density_contribution_reads
+                > std::numeric_limits<std::size_t>::max()
+                    - trace->density_contribution_reads
+            || density_reads > std::numeric_limits<std::size_t>::max()
+                    - trace->density_reads) {
+            ++trace->failures;
+            return false;
+        }
+        trace->density_contribution_reads += density_contribution_reads;
+        trace->density_reads += density_reads;
+        ++trace->calls;
+        return true;
+    }
+};
+
+std::size_t b4ep10sirdirea_acquire_workspace(
+    JointEvaluationBufferAuditTrace& trace,
+    const std::array<std::size_t,
+        JOINT_EVALUATION_RETAINED_BUFFER_COUNT>& slots) {
+    if (!trace.enabled) {
+        return JOINT_EVALUATION_NO_LANE;
+    }
+    std::size_t lane = JOINT_EVALUATION_NO_LANE;
+    for (std::size_t candidate = 0U;
+         candidate < trace.workspace_lane_live.size(); ++candidate) {
+        if (!trace.workspace_lane_live[candidate]) {
+            lane = candidate;
+            break;
+        }
+    }
+    if (lane == JOINT_EVALUATION_NO_LANE) {
+        ++trace.failures;
+        return lane;
+    }
+    trace.workspace_lane_live[lane] = true;
+    ++trace.workspace_acquires;
+    ++trace.workspace_live;
+    trace.maximum_workspace_live = std::max(
+        trace.maximum_workspace_live, trace.workspace_live);
+    for (std::size_t role = 0U; role < slots.size(); ++role) {
+        std::size_t& capacity = trace.workspace_lane_capacity[lane][role];
+        if (slots[role] > capacity) {
+            const std::size_t growth = slots[role] - capacity;
+            if (!b4ep10sirdirea_add_bytes(
+                    growth, JOINT_EVALUATION_BUFFER_ELEMENT_BYTES[role],
+                    trace.projected_growth_bytes)) {
+                trace.workspace_lane_live[lane] = false;
+                --trace.workspace_live;
+                ++trace.failures;
+                return JOINT_EVALUATION_NO_LANE;
+            }
+            capacity = slots[role];
+        }
+    }
+    if (!b4ep10sirdirea_update_projected_capacity(trace)) {
+        trace.workspace_lane_live[lane] = false;
+        --trace.workspace_live;
+        return JOINT_EVALUATION_NO_LANE;
+    }
+    return lane;
+}
+
+bool b4ep10sirdirea_release_workspace(
+    JointEvaluationBufferAuditTrace& trace, std::size_t lane) {
+    if (!trace.enabled) {
+        return true;
+    }
+    if (lane >= trace.workspace_lane_live.size()
+        || !trace.workspace_lane_live[lane]
+        || trace.workspace_live == 0U) {
+        ++trace.unknown_or_duplicate_releases;
+        ++trace.failures;
+        return false;
+    }
+    trace.workspace_lane_live[lane] = false;
+    --trace.workspace_live;
+    ++trace.workspace_releases;
+    return true;
+}
+
+bool b4ep10sirdirea_missing_write_negative() {
+    std::array<std::uint8_t, 2U> written{1U, 0U};
+    return std::count(written.begin(), written.end(),
+        static_cast<std::uint8_t>(1U)) != 2;
+}
+
+bool b4ep10sirdirea_duplicate_release_negative() {
+    JointEvaluationBufferAuditTrace trace;
+    trace.enabled = true;
+    trace.workspace_lane_live[0] = true;
+    trace.workspace_live = 1U;
+    return b4ep10sirdirea_release_workspace(trace, 0U)
+        && !b4ep10sirdirea_release_workspace(trace, 0U)
+        && trace.unknown_or_duplicate_releases == 1U;
+}
+
 JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     JointNeighborhood& neighborhood,
     FlatAdjacencyWorkTrace* adjacency_work,
@@ -13154,6 +13482,16 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     const std::size_t directed =
         neighborhood.flat_directed_pair_indices.size();
     const std::size_t pair_count = neighborhood.pairs.size();
+    if (parallel.evaluation_buffer_audit.enabled
+        && (!parallel.incoming_construction_audit.candidate_enabled
+            || !parallel.directed_scratch_reuse.enabled
+            || parallel.phase_timing.enabled)) {
+        ++parallel.evaluation_buffer_audit.failures;
+        parallel.failed = true;
+        parallel.failure = "EVALUATION_BUFFER_AUDIT_MODE";
+        result.failure = parallel.failure;
+        return result;
+    }
     for (std::size_t center = 0U; center < fluid_count; ++center) {
         const std::size_t begin = neighborhood.flat_offsets[center];
         const std::size_t end = neighborhood.flat_offsets[center + 1U];
@@ -13209,6 +13547,24 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     result.tape.hvp_gradient.resize(pair_count);
     result.tape.hvp_second.resize(pair_count);
     std::vector<double> density_contribution(pair_count);
+    B4EP10SIRDIREACallAudit buffer_audit;
+    B4EP10SIRDIREAEphemeralGuard ephemeral_guard{
+        parallel.evaluation_buffer_audit};
+    const std::array<std::size_t, JOINT_EVALUATION_BUFFER_ROLE_COUNT>
+        buffer_slots{
+            total, fluid_count, pair_count, fluid_count,
+            pair_count, pair_count, pair_count,
+        };
+    if (!buffer_audit.begin(
+            parallel.evaluation_buffer_audit, buffer_slots)
+        || !b4ep10sirdirea_acquire_ephemeral(
+            parallel.evaluation_buffer_audit, pair_count)) {
+        parallel.failed = true;
+        parallel.failure = "EVALUATION_BUFFER_AUDIT_CAPACITY";
+        result.failure = parallel.failure;
+        return result;
+    }
+    ephemeral_guard.acquired = parallel.evaluation_buffer_audit.enabled;
     if (!finish_setup_detail(
             parallel.phase_timing.evaluation_setup_buffer_ns,
             parallel.phase_timing.evaluation_setup_buffer_calls)) {
@@ -13231,6 +13587,17 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
             result.tape.hvp_gradient[pair_index] =
                 weight_gradient(radius);
             result.tape.hvp_second[pair_index] = weight_second(radius);
+            if (!buffer_audit.record_write(
+                    JointEvaluationBufferRole::Radius, pair_index)
+                || !buffer_audit.record_write(
+                    JointEvaluationBufferRole::DensityContribution,
+                    pair_index)
+                || !buffer_audit.record_write(
+                    JointEvaluationBufferRole::HvpGradient, pair_index)
+                || !buffer_audit.record_write(
+                    JointEvaluationBufferRole::HvpSecond, pair_index)) {
+                return false;
+            }
         }
         return true;
     };
@@ -13258,10 +13625,20 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
             double density = MASS * weight(0.0);
             for (std::size_t slot = neighborhood.flat_offsets[center];
                  slot < neighborhood.flat_offsets[center + 1U]; ++slot) {
-                density += density_contribution[
-                    neighborhood.flat_directed_pair_indices[slot]];
+                const std::size_t pair_index =
+                    neighborhood.flat_directed_pair_indices[slot];
+                if (!buffer_audit.written_before_read(
+                        JointEvaluationBufferRole::DensityContribution,
+                        pair_index)) {
+                    return false;
+                }
+                density += density_contribution[pair_index];
             }
             result.evaluation.density[center] = density;
+            if (!buffer_audit.record_write(
+                    JointEvaluationBufferRole::Density, center)) {
+                return false;
+            }
         }
         return true;
     };
@@ -13276,9 +13653,17 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     std::vector<double> center_energy(fluid_count);
     const auto fill_centers = [&](std::size_t begin, std::size_t end, int) {
         for (std::size_t center = begin; center < end; ++center) {
+            if (!buffer_audit.written_before_read(
+                    JointEvaluationBufferRole::Density, center)) {
+                return false;
+            }
             const double compression =
                 result.evaluation.density[center] / REST_DENSITY - 1.0;
             result.tape.compression[center] = compression;
+            if (!buffer_audit.record_write(
+                    JointEvaluationBufferRole::Compression, center)) {
+                return false;
+            }
             if (compression > 0.0) {
                 center_energy[center] =
                     0.5 * KAPPA * compression * compression;
@@ -13656,6 +14041,10 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
                     }
                 }
                 result.evaluation.gradient[target] = value;
+                if (!buffer_audit.record_write(
+                        JointEvaluationBufferRole::Gradient, target)) {
+                    return false;
+                }
             }
             const std::size_t partition =
                 static_cast<std::size_t>(ordinal);
@@ -13862,6 +14251,12 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         plan_payload_bytes = result.tape.owner_gather_plan.payload_bytes;
     }
     if (!finish_phase(JointParallelPhase::EvaluationTarget)) {
+        result.failure = parallel.failure;
+        return result;
+    }
+    if (!buffer_audit.finish(directed, fluid_count)) {
+        parallel.failed = true;
+        parallel.failure = "EVALUATION_BUFFER_AUDIT_COVERAGE";
         result.failure = parallel.failure;
         return result;
     }
@@ -15449,6 +15844,27 @@ JointPressureWorkspace build_joint_query_workspace(
     if (trial) {
         ++trace.trial_workspace_builds;
     }
+    if (trace.owner_parallel.evaluation_buffer_audit.enabled) {
+        const std::array<std::size_t,
+            JOINT_EVALUATION_RETAINED_BUFFER_COUNT> buffer_slots{
+                result.evaluation.gradient.size(),
+                result.evaluation.density.size(),
+                result.tape.radius.size(),
+                result.tape.compression.size(),
+                result.tape.hvp_gradient.size(),
+                result.tape.hvp_second.size(),
+            };
+        result.evaluation_buffer_audit_lane =
+            b4ep10sirdirea_acquire_workspace(
+                trace.owner_parallel.evaluation_buffer_audit,
+                buffer_slots);
+        if (result.evaluation_buffer_audit_lane
+                == JOINT_EVALUATION_NO_LANE) {
+            trace.exact = false;
+            result.failure = "EVALUATION_BUFFER_AUDIT_ACQUIRE";
+            return result;
+        }
+    }
     ++trace.live_workspaces;
     trace.maximum_live_workspaces = std::max(
         trace.maximum_live_workspaces, trace.live_workspaces);
@@ -15463,6 +15879,12 @@ void release_joint_query_workspace(
     JointPressureWorkspace& workspace,
     JointQueryTrace& trace) {
     if (workspace.passed) {
+        if (trace.owner_parallel.evaluation_buffer_audit.enabled
+            && !b4ep10sirdirea_release_workspace(
+                trace.owner_parallel.evaluation_buffer_audit,
+                workspace.evaluation_buffer_audit_lane)) {
+            trace.exact = false;
+        }
         --trace.live_workspaces;
     }
     workspace = JointPressureWorkspace{};
@@ -22395,7 +22817,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     bool use_split_incoming_plan = false,
     bool capture_directed_scratch_audit = false,
     bool use_directed_scratch_reuse = false,
-    bool capture_evaluation_setup_timing = false) {
+    bool capture_evaluation_setup_timing = false,
+    bool capture_evaluation_buffer_audit = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -22435,6 +22858,16 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         capture_directed_scratch_audit;
     result.trace.owner_parallel.directed_scratch_reuse.enabled =
         use_directed_scratch_reuse;
+    result.trace.owner_parallel.evaluation_buffer_audit.enabled =
+        capture_evaluation_buffer_audit;
+    if (capture_evaluation_buffer_audit) {
+        result.trace.owner_parallel.evaluation_buffer_audit
+            .missing_write_negative_rejected =
+                b4ep10sirdirea_missing_write_negative();
+        result.trace.owner_parallel.evaluation_buffer_audit
+            .duplicate_release_negative_rejected =
+                b4ep10sirdirea_duplicate_release_negative();
+    }
     B4EP10SIRDIReleaseGuard directed_scratch_release{
         result.trace.owner_parallel.directed_scratch_reuse};
     struct TopologyCachePointerReset {
@@ -43872,9 +44305,33 @@ constexpr const char* B4EP10SIRDI_IDENTITY_PROJECTION =
     "failure=retain-b4ep10sii|reference=closed|credit=candidate-residual-"
     "attribution-research-only";
 
+constexpr const char* B4EP10SIRDIREA_IDENTITY_SHA256 =
+    "dfc1bb3d154f9e406c89d0fde2304983c837d9f27d43888be542f6e0e5697e1d";
+constexpr const char* B4EP10SIRDIREA_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep10sirdirea-evaluation-buffer-audit|v1|"
+    "parent=a018e4d47080b76bb56166a5a6a7c5ba892e23687249cb519956951248ca3974:"
+    "f445395e1443d71f30827c3ea7372ad1bc2d066d96b7c859ed6be862675118a6:"
+    "b4f847cb4f19b09e951534649515a4504bc07044a13e6c636598b33f247777e9|"
+    "implementation=7f5bc93d118f0dab33e62d3584c9362b1e2f2ce0|command=nominal-"
+    "hydro-directed-scratch-evaluation-buffer-audit|candidate=unchanged-"
+    "sirdi-return;shadow-only|buffers=gradient:total:vec3;density:fluid:f64;"
+    "radius:pair:f64;compression:fluid:f64;hvp-gradient:pair:f64;hvp-second:"
+    "pair:f64;density-contribution:pair:f64|proof=full-write-before-"
+    "publication;density-contribution-read-after-write;density-read-after-"
+    "write;workspace-acquire-release-exact;ephemeral-acquire-release-exact|"
+    "projection=two-workspace-lanes;one-ephemeral-lane;per-role-high-water-"
+    "growth|calls=evaluation226;retention42;workspace-acquire226;workspace-"
+    "release226|max-live=workspace2;ephemeral1|runs=2;fresh-processes;stdout-"
+    "byte-exact|capacity=audit-shadow<=8388608;projected-pool<=67108864|"
+    "negatives=missing-write;duplicate-release|timing=none|route=full-"
+    "coverage&&workspace-max2&&ephemeral-max1&&projected-growth/repeated<="
+    "0.02:reuse-contract-research;else:stop|reference=closed|credit="
+    "evaluation-buffer-reuse-implementation-contract-research-only";
+
 } // namespace
 
-SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls() {
+SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls_impl(
+    bool capture_evaluation_buffer_audit) {
     constexpr int worker_count = 8;
     omp_set_dynamic(0);
     omp_set_max_active_levels(1);
@@ -43892,8 +44349,14 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls() {
         tagged_points(fixture.boundary), &static_work);
     const JointStaticSupportBinding binding = bind_joint_static_support_index(
         &index, index.identity_sha256);
-    const bool identity_exact = sha256_hex(B4EP10SIRDI_IDENTITY_PROJECTION)
-            == B4EP10SIRDI_IDENTITY_SHA256
+    const char* identity_projection = capture_evaluation_buffer_audit
+        ? B4EP10SIRDIREA_IDENTITY_PROJECTION
+        : B4EP10SIRDI_IDENTITY_PROJECTION;
+    const char* identity_sha256 = capture_evaluation_buffer_audit
+        ? B4EP10SIRDIREA_IDENTITY_SHA256
+        : B4EP10SIRDI_IDENTITY_SHA256;
+    const bool identity_exact = sha256_hex(identity_projection)
+            == identity_sha256
         && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
         && scenario_root == spec.scenario_root
         && initial.frame.root_sha256
@@ -43915,7 +44378,7 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls() {
             &binding, &static_work, true, &adjacency_work, false,
             &cache, true, true, false, false, worker_count,
             false, false, false, false, false, false, false, false, true,
-            false, true);
+            false, true, false, capture_evaluation_buffer_audit);
     }
     const NominalMacroOutput output = b4e1m_output(transaction);
     const double energy_creation = std::max(0.0,
@@ -44100,12 +44563,16 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls() {
     const std::string sii_result_sha256 = sha256_hex(sii_semantic.str());
     const bool sii_result_exact = sii_result_sha256
         == "f7b1542f30fef20a08da57c83bb200878cdf426d87b627445e422c9a72825fb2";
-    const bool passed = sii_exact && sii_result_exact && reuse_exact;
-    std::string failure;
-    if (!sii_exact || !sii_result_exact) failure = "SII_SEMANTICS";
-    else if (!reuse_exact) failure = "DIRECTED_SCRATCH_REUSE";
+    const bool sirdi_passed = sii_exact && sii_result_exact && reuse_exact;
+    std::string sirdi_failure;
+    if (!sii_exact || !sii_result_exact) {
+        sirdi_failure = "SII_SEMANTICS";
+    } else if (!reuse_exact) {
+        sirdi_failure = "DIRECTED_SCRATCH_REUSE";
+    }
     std::ostringstream semantic_material;
-    semantic_material << (passed ? "PASS|" : "FAIL|") << failure << '|'
+    semantic_material << (sirdi_passed ? "PASS|" : "FAIL|")
+        << sirdi_failure << '|'
         << B4EP10SIRDI_IDENTITY_SHA256 << '|' << sii_result_sha256 << '|'
         << reuse.calls << ':' << reuse.evaluation_calls << ':'
         << reuse.hvp_calls << '|' << reuse.requested_full_slots << ':'
@@ -44113,6 +44580,185 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls() {
         << reuse.maximum_slots << ':' << reuse.maximum_payload_bytes << '|'
         << reuse.releases << ':' << reuse.live_buffers << ':'
         << reuse.maximum_live_buffers << ':' << reuse.failures;
+    const std::string sirdi_result_sha256 = sha256_hex(
+        semantic_material.str());
+    const bool sirdi_result_exact = sirdi_result_sha256
+        == "b4f847cb4f19b09e951534649515a4504bc07044a13e6c636598b33f247777e9";
+    if (capture_evaluation_buffer_audit) {
+        const JointEvaluationBufferAuditTrace& audit =
+            parallel.evaluation_buffer_audit;
+        bool role_coverage_exact = true;
+        for (std::size_t role = 0U;
+             role < JOINT_EVALUATION_BUFFER_ROLE_COUNT; ++role) {
+            role_coverage_exact = role_coverage_exact
+                && audit.requested_slots[role] > 0U
+                && audit.written_slots[role]
+                    == audit.requested_slots[role]
+                && audit.maximum_slots[role] > 0U;
+        }
+        const bool ratio_safe = audit.repeated_initialization_bytes > 0U
+            && audit.projected_growth_bytes
+                <= std::numeric_limits<std::size_t>::max() / 100U
+            && audit.repeated_initialization_bytes
+                <= std::numeric_limits<std::size_t>::max() / 2U
+            && 100U * audit.projected_growth_bytes
+                <= 2U * audit.repeated_initialization_bytes;
+        const bool workspace_exact = audit.workspace_acquires == 226U
+            && audit.workspace_releases == 226U
+            && audit.workspace_live == 0U
+            && audit.maximum_workspace_live == 2U
+            && std::none_of(
+                audit.workspace_lane_live.begin(),
+                audit.workspace_lane_live.end(),
+                [](bool live) { return live; })
+            && transaction.trace.maximum_live_workspaces == 2
+            && transaction.trace.live_workspaces == 0;
+        const bool ephemeral_exact = audit.ephemeral_acquires == 226U
+            && audit.ephemeral_releases == 226U
+            && audit.ephemeral_live == 0U
+            && audit.maximum_ephemeral_live == 1U;
+        const bool audit_exact = audit.enabled && audit.calls == 226U
+            && role_coverage_exact
+            && audit.density_contribution_reads == 150845996U
+            && audit.density_reads == 1356000U
+            && workspace_exact && ephemeral_exact && ratio_safe
+            && audit.maximum_shadow_payload_bytes <= 8388608U
+            && audit.maximum_projected_capacity_bytes <= 67108864U
+            && audit.unknown_or_duplicate_releases == 0U
+            && audit.failures == 0U
+            && audit.missing_write_negative_rejected
+            && audit.duplicate_release_negative_rejected
+            && !parallel.phase_timing.enabled;
+        const bool passed = sirdi_passed && sirdi_result_exact
+            && audit_exact;
+        std::string failure;
+        if (!sirdi_passed || !sirdi_result_exact) {
+            failure = "SIRDI_SEMANTICS";
+        } else if (!audit_exact) {
+            failure = "EVALUATION_BUFFER_AUDIT";
+        }
+        std::ostringstream audit_semantic;
+        audit_semantic << (passed ? "PASS|" : "FAIL|") << failure << '|'
+            << B4EP10SIRDIREA_IDENTITY_SHA256 << '|'
+            << sirdi_result_sha256 << '|' << audit.calls << '|';
+        for (std::size_t role = 0U;
+             role < JOINT_EVALUATION_BUFFER_ROLE_COUNT; ++role) {
+            audit_semantic << audit.requested_slots[role] << ':'
+                << audit.written_slots[role] << ':'
+                << audit.maximum_slots[role] << '|';
+        }
+        audit_semantic << audit.density_contribution_reads << ':'
+            << audit.density_reads << '|'
+            << audit.workspace_acquires << ':' << audit.workspace_releases
+            << ':' << audit.maximum_workspace_live << ':'
+            << audit.workspace_live << '|'
+            << audit.ephemeral_acquires << ':' << audit.ephemeral_releases
+            << ':' << audit.maximum_ephemeral_live << ':'
+            << audit.ephemeral_live << '|'
+            << audit.repeated_initialization_bytes << ':'
+            << audit.projected_growth_bytes << ':'
+            << audit.maximum_projected_capacity_bytes << ':'
+            << audit.maximum_shadow_payload_bytes << '|'
+            << audit.missing_write_negative_rejected << ':'
+            << audit.duplicate_release_negative_rejected << ':'
+            << audit.unknown_or_duplicate_releases << ':' << audit.failures;
+        const double growth_ratio = audit.repeated_initialization_bytes == 0U
+            ? std::numeric_limits<double>::infinity()
+            : static_cast<double>(audit.projected_growth_bytes)
+                / static_cast<double>(audit.repeated_initialization_bytes);
+        constexpr std::array<const char*,
+            JOINT_EVALUATION_BUFFER_ROLE_COUNT> role_names{
+                "gradient", "density", "radius", "compression",
+                "hvp_gradient", "hvp_second", "density_contribution",
+            };
+        std::ostringstream report;
+        report << std::setprecision(17)
+               << "{\"schema\":\"nextengine.nonlocal."
+                  "nsr3b4ep10sirdirea_evaluation_buffer_audit.v1\""
+               << ",\"identity_sha256\":\""
+               << B4EP10SIRDIREA_IDENTITY_SHA256
+               << "\",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+               << ",\"first_failure\":\"" << failure << '"'
+               << ",\"b4ep10sirdi_result_sha256\":\""
+               << sirdi_result_sha256 << '"'
+               << ",\"b4ep10sirdi_result_exact\":"
+               << (sirdi_result_exact ? "true" : "false")
+               << ",\"b4ep10sii_result_sha256\":\""
+               << sii_result_sha256 << '"'
+               << ",\"correspondence_sha256\":\""
+               << correspondence_sha256 << '"'
+               << ",\"roots\":{\"frame\":\"" << output.frame_root
+               << "\",\"aggregate\":\"" << output.aggregate_root
+               << "\",\"trajectory\":\""
+               << transaction.trajectory_sha256
+               << "\",\"legacy_ledger\":\""
+               << transaction.legacy_ledger_sha256
+               << "\",\"policy_ledger\":\""
+               << transaction.policy_ledger_sha256 << "\"}"
+               << ",\"buffers\":[";
+        for (std::size_t role = 0U; role < role_names.size(); ++role) {
+            if (role != 0U) {
+                report << ',';
+            }
+            report << "{\"name\":\"" << role_names[role]
+                   << "\",\"requested_slots\":"
+                   << audit.requested_slots[role]
+                   << ",\"written_slots\":"
+                   << audit.written_slots[role]
+                   << ",\"maximum_slots\":"
+                   << audit.maximum_slots[role]
+                   << ",\"element_bytes\":"
+                   << JOINT_EVALUATION_BUFFER_ELEMENT_BYTES[role]
+                   << '}';
+        }
+        report << "]"
+               << ",\"reads\":{\"density_contribution\":"
+               << audit.density_contribution_reads
+               << ",\"density\":" << audit.density_reads << '}'
+               << ",\"workspace_lifetime\":{\"acquires\":"
+               << audit.workspace_acquires
+               << ",\"releases\":" << audit.workspace_releases
+               << ",\"maximum_live\":" << audit.maximum_workspace_live
+               << ",\"final_live\":" << audit.workspace_live
+               << ",\"exact\":"
+               << (workspace_exact ? "true" : "false") << '}'
+               << ",\"ephemeral_lifetime\":{\"acquires\":"
+               << audit.ephemeral_acquires
+               << ",\"releases\":" << audit.ephemeral_releases
+               << ",\"maximum_live\":" << audit.maximum_ephemeral_live
+               << ",\"final_live\":" << audit.ephemeral_live
+               << ",\"exact\":"
+               << (ephemeral_exact ? "true" : "false") << '}'
+               << ",\"projection\":{\"repeated_initialization_bytes\":"
+               << audit.repeated_initialization_bytes
+               << ",\"growth_bytes\":" << audit.projected_growth_bytes
+               << ",\"growth_to_repeated_ratio\":" << growth_ratio
+               << ",\"maximum_capacity_bytes\":"
+               << audit.maximum_projected_capacity_bytes
+               << ",\"maximum_shadow_payload_bytes\":"
+               << audit.maximum_shadow_payload_bytes
+               << ",\"ratio_safe\":"
+               << (ratio_safe ? "true" : "false") << '}'
+               << ",\"negatives\":{\"missing_write_rejected\":"
+               << (audit.missing_write_negative_rejected ? "true" : "false")
+               << ",\"duplicate_release_rejected\":"
+               << (audit.duplicate_release_negative_rejected
+                    ? "true" : "false") << '}'
+               << ",\"failures\":" << audit.failures
+               << ",\"exact\":" << (audit_exact ? "true" : "false")
+               << ",\"timing_admitted\":false"
+               << ",\"speedup_claim\":false"
+               << ",\"evaluation_buffer_reuse_contract_research_authorized\":"
+               << (passed ? "true" : "false")
+               << ",\"b4e2_execution_authorized\":false"
+               << ",\"runtime_authority\":false"
+               << ",\"production_authority\":false"
+               << ",\"result_sha256\":\""
+               << sha256_hex(audit_semantic.str()) << "\"}";
+        return {passed, report.str()};
+    }
+    const bool passed = sirdi_passed;
+    const std::string& failure = sirdi_failure;
     std::ostringstream report;
     report << "{\"schema\":\"nextengine.nonlocal."
               "nsr3b4ep10sirdi_directed_scratch_reuse.v1\""
@@ -44152,8 +44798,17 @@ SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls() {
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
            << ",\"result_sha256\":\""
-           << sha256_hex(semantic_material.str()) << "\"}";
+           << sirdi_result_sha256 << "\"}";
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_nominal_hydro_directed_scratch_reuse_controls() {
+    return run_nominal_hydro_directed_scratch_reuse_controls_impl(false);
+}
+
+SplitBoundaryReport
+run_nominal_hydro_directed_scratch_evaluation_buffer_audit_controls() {
+    return run_nominal_hydro_directed_scratch_reuse_controls_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr
