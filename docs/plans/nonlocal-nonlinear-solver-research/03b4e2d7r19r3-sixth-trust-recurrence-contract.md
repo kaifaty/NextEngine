@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R3 -- sixth trust-solve recurrence replay contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / REPLAY ONLY`
+Status: `EXECUTED / PASS / SIXTH_TRUST_FORCING_CONVERGED / REPLAY ONLY / NO STATE`
 
 Identity projection (exact bytes, no final LF):
 
@@ -90,3 +90,14 @@ trust solve. It does not authorize a production cap change, preconditioner,
 trial formation/acceptance, another candidate nominal substep, macro,
 trajectory, timing, public state mutation, performance claim or
 runtime/production authority.
+
+## Result
+
+The replay passes reproducibly and selects
+`SIXTH_TRUST_FORCING_CONVERGED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r19r3-sixth-trust-recurrence-evidence-2026-08-23.md).
+The live/offline first-32 projections are exact, and HVP 33 crosses the frozen
+forcing threshold with positive curvature, negligible recurrence error and a
+moderate `36.13` Ritz condition estimate. Research/freeze a separate
+recurrence-versus-model-HVP cap-policy discriminator next; no cap change or
+trial authority is inherited from this replay.

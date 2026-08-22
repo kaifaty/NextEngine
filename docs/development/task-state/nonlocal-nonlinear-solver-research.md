@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R2_PASS_STRUCTURAL_WATCHDOG / D7R19R3_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R2_PASS_STRUCTURAL_WATCHDOG / D7R19R3_PASS_FORCING_CONVERGED_33 / D7R19R4_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -229,6 +229,18 @@
 - **D7R19R3 frozen routes:** nonfinite, negative curvature, trust boundary,
   forcing convergence or offline-cap exhaustion. The route classifies one
   solve and cannot change the R2 cap or authorize a preconditioner by itself.
+- **D7R19R3 result:** PASS and `SIXTH_TRUST_FORCING_CONVERGED`. The exact live
+  and offline first-32 roots match; HVP 33 reduces the residual ratio from
+  `3.02723280342496e-5` to `2.22605555078985e-5`, below frozen
+  `eta=2.51880524249163e-5`.
+- **Mechanism:** all curvatures are positive, point/radius is only
+  `6.87e-9`, recurrence errors remain about `1e-14`, and the Ritz condition
+  estimate is `36.13`. Reject a preconditioner for this exact barrier.
+- **Current decision:** research/freeze D7R19R4 as a replay-only comparison of
+  bounded recurrence grace plus the existing direct model HVP against an
+  accumulated Krylov `H(step)` image checked by one direct oracle HVP. Do not
+  select a cap policy or form the sixth trial before that correspondence is
+  proven.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2097,11 +2109,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement frozen D7R19R3 over only the failed sixth trust solve. Reproduce
-   its live first-32 HVP recurrence exactly and classify one separately capped
-   128-HVP offline continuation without forming a trial. Do not enlarge the
-   R2 cap, start another substep, macro, trajectory or timing lane.
+6. Preserve D7R19R3/R2/R1, D7R19 and all preceding normalized parents exactly.
+   Research/freeze D7R19R4 over only the exact sixth solve. Compare bounded
+   recurrence grace plus direct `H(step)` with a Krylov-accumulated model image
+   under one direct oracle HVP. Do not select a cap policy, form a trial, start
+   another substep, macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 
