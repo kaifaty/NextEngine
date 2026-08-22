@@ -81,6 +81,10 @@
   evaluation/HVP and a sorted current/trial pair-union divided reduction.
   Reproduce D7R13 exactly, then build only the decoded nominal frame-zero
   topology. No nominal solve, trajectory or wall timing is authorized.
+- **Contract correction:** D7R14 v2 distinguishes D1 complete report SHA
+  `5a9d2f67...c07` from the decoded frame-zero raw-bit root
+  `0d567ba5...4d7`; v1's label was false, but its bytes and all solver/topology
+  requirements remain unchanged.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.

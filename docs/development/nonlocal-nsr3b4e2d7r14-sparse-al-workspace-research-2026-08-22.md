@@ -4,6 +4,11 @@ Date: `2026-08-22`
 
 Status: `FROZEN / IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP`
 
+Contract reclosure: `v2` corrects one pre-implementation label. The value
+`5a9d2f67...c07` is D1's complete reference-frame report SHA, while the
+decoded frame-zero raw-bit root is `0d567ba5...4d7`. Both bytes are retained;
+no topology, formula, route or permitted execution changes.
+
 ## Question
 
 Can the D7R13 full private augmented-Lagrangian transaction be expressed over
@@ -101,4 +106,3 @@ A passing sparse reclosure authorizes D7R15 to design a bounded nominal
 single-frame shadow solve over the selected topology/cache/owner-gather path.
 Only that later stage may measure solver work at nominal scale, subject to the
 shared-host performance stop.
-
