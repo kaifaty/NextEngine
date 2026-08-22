@@ -115,5 +115,7 @@ SplitBoundaryReport
 run_nominal_hydro_split_incoming_phase_timing_controls();
 SplitBoundaryReport
 run_nominal_hydro_directed_scratch_audit_controls();
+SplitBoundaryReport
+run_nominal_hydro_directed_scratch_reuse_controls();
 
 } // namespace nextengine::nonlocal::fcr
