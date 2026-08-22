@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIRE -- evaluation setup timing contract
 
-Status: `FROZEN / IMPLEMENTATION_PENDING`
+Status: `CLOSED / PASS / BUFFER_LIVENESS_AUDIT_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 

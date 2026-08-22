@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIRE_FROZEN / IMPLEMENTATION_PENDING` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIRE_PASS / BUFFER_LIVENESS_AUDIT_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -345,6 +345,12 @@
   are now close; executor orchestration/imbalance remain below `0.15`.
 - **Current decision:** split `evaluation_setup` validation, capacity/control
   and buffer preparation with timing only before changing ownership or code.
+- **Current conclusion:** B4EP10SIRDIRE passes three exact processes. Buffer
+  preparation has median setup share `0.894957`, leads validation by
+  `8.531659x`, and every setup-share range is below `0.009`.
+- **Current decision:** research one timing-free write-before-read,
+  ownership-lifetime and high-water audit for the seven evaluation buffers.
+  Do not implement reuse or remove initialization from timing alone.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -438,6 +444,7 @@
 | NSR3B4EP10SIRDI contract | opt-in directed high-water buffer plus balanced A/B | implement/measure only; B4EP10SII remains rollback |
 | NSR3B4EP10SIRDI PASS | exact candidate; median `1.284223x`, CPU `0.784x` | candidate residual attribution research only |
 | NSR3B4EP10SIRDIR PASS | source-local `44.72%`; setup/direct work no longer has a clear leader | evaluation-setup timing discriminator research only |
+| NSR3B4EP10SIRDIRE PASS | buffer setup `89.50%`, stable `8.532x` lead | one buffer liveness/high-water audit research only |
 
 Candidate solver identity remains:
 
@@ -1020,6 +1027,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** candidate-specific timing identifies one bounded leader
   and the next exact mechanical discriminator is frozen.
 
+### D-047 -- Select evaluation-buffer structural audit
+
+- **Observation:** three exact timing processes put buffer preparation at
+  median `89.50%` of `evaluation_setup`, `8.531659x` above validation, with
+  every setup-share range below `0.009`.
+- **Decision:** freeze one timing-free per-buffer write-before-read,
+  ownership-lifetime and simultaneous-live high-water audit before designing
+  reuse.
+- **Rejected:** removing value initialization from timing alone, assuming one
+  scratch bundle is sufficient, or extending the earlier directed-scratch
+  lifetime proof to returned evaluation/tape storage.
+- **Reconsider when:** the audit proves exact write/read coverage and a bounded
+  workspace release protocol for accepted, rejected and failure exits.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1072,10 +1093,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement only the frozen B4EP10SIRDIRE nested setup timers over unchanged
-   B4EP10SIRDIR execution.
-2. Run three exact fresh processes and route only through the frozen setup
-   share/leader rule.
+1. Inspect the seven `evaluation_setup` buffers and freeze exact per-buffer
+   write-before-read, lifetime and ownership events.
+2. Derive maximum simultaneous live workspaces and the minimum safe high-water
+   buffer count without changing the returned solver path.
+3. Implement only the resulting timing-free audit; no reuse candidate is yet
+   authorized.
 
 ## Reconsideration triggers
 
