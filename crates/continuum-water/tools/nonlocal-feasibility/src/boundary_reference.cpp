@@ -46166,6 +46166,34 @@ constexpr const char* B4E2D5_IDENTITY_PROJECTION =
     "runs=2-release-builds;2-processes;byte-exact;timing=none|"
     "trajectory=none;physics-mutation=none|"
     "credit=tiny-al-oracle-contract-research-only";
+constexpr const char* B4E2D6_IDENTITY_SHA256 =
+    "997212cb24fdda96c43a3cfba516f42c62617550e22ed61924855a3442f1d16b";
+constexpr const char* B4E2D6_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d6-al-path-oracle|v1|parent="
+    "5e3fc734c04294bd2705ce9ad96c371bb6423523521479f71dd6fba44049b9f8:"
+    "1e7f856f35c4f684fae49487cd7419325ffee4ae500974e152346c006348cee8:"
+    "f21020e2497befb6b843eff930b1874978346510371405c238c0a27851783ed8|"
+    "fixture=nsr3b2-corner-box-2x2x2:"
+    "80a01b2ed0cf844841da322233b121b33e273c71eace8682795d0cad4e1dfb80:"
+    "8:176:828;rest-error<=3e-15;"
+    "q0.01-compression=0.002362375096118585..0.002362375096119|"
+    "identity=nuv-al-pressure-r0|path=q;"
+    "position=center+(1-q)*(x-center);base=0.5*(q-qstar)^2;"
+    "qstar=0.01-active,-0.01-inactive;constraint=rho/rho0-1<=0;"
+    "lambda8>=0;beta=1226.25|derivatives=analytic-density-first-second;"
+    "central-h=2e-7;relative<=1e-7;topology-stable|"
+    "inner=safeguarded-bisection;range=-0.02..0.02;iterations<=128;"
+    "gradient<=1e-10|outer=phr-update;iterations<=8;primal<=1e-10;"
+    "dual-change/beta<=1e-10;stationarity<=1e-10;"
+    "complementarity<=1e-10;q-abs<=1e-9;dual-feasible;"
+    "primal-monotone|controls=cold;warm<=2;"
+    "q-lambda-correspondence<=1e-9;inactive-exact;"
+    "zero-lambda-reset-positive;forced-rollback-exact;"
+    "multiplier-mutation-sensitive|route=al-path-viable-if-converged;"
+    "semismooth-primal-dual-required-if-inner-exact-and-monotone-cap-"
+    "exhausted;fail-otherwise|runs=2-release-builds;2-processes;byte-exact;"
+    "timing=none|trajectory=none;nominal=none|"
+    "credit=dense-al-oracle-contract-research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -47482,6 +47510,563 @@ SplitBoundaryReport run_pressure_state_formulation_controls() {
            << ",\"trajectory_steps\":0,\"physics_mutated\":false"
            << ",\"timing_admitted\":false,\"speedup_claim\":false"
            << ",\"tiny_al_oracle_contract_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+struct ALPathState {
+    bool finite_values = false;
+    double q = 0.0;
+    std::vector<double> constraint;
+    std::vector<double> first;
+    std::vector<double> second;
+    std::size_t pairs = 0U;
+};
+
+struct ALPathInnerState {
+    ALPathState path;
+    double energy = 0.0;
+    double gradient = 0.0;
+    double hessian = 0.0;
+};
+
+struct ALPathInnerSolve {
+    bool passed = false;
+    std::string failure;
+    int iterations = 0;
+    double low_gradient = 0.0;
+    double high_gradient = 0.0;
+    ALPathInnerState state;
+};
+
+struct ALPathOuterRecord {
+    int outer = 0;
+    int inner_iterations = 0;
+    double q = 0.0;
+    double inner_gradient = 0.0;
+    double primal = 0.0;
+    double scaled_dual_change = 0.0;
+    double stationarity = 0.0;
+    double complementarity = 0.0;
+    double minimum_multiplier = 0.0;
+    double maximum_multiplier = 0.0;
+};
+
+struct ALPathOuterSolve {
+    bool passed = false;
+    bool inner_exact = true;
+    bool primal_monotone = true;
+    bool cap_exhausted = false;
+    std::string failure;
+    double q = 0.0;
+    std::vector<double> multiplier;
+    ALPathState path;
+    std::vector<ALPathOuterRecord> records;
+};
+
+ALPathState evaluate_al_path(const Fixture& fixture, double q) {
+    ALPathState result;
+    result.q = q;
+    const std::size_t fluid_count = fixture.fluid.size();
+    result.constraint.resize(fluid_count);
+    result.first.resize(fluid_count);
+    result.second.resize(fluid_count);
+    const Vec3 center{
+        0.5 * static_cast<double>(fixture.cells[0]) * SPACING,
+        0.5 * static_cast<double>(fixture.cells[1]) * SPACING,
+        0.5 * static_cast<double>(fixture.cells[2]) * SPACING,
+    };
+    const std::vector<Vec3> fluid = compressed_fluid(fixture, 1.0 - q);
+    const Evaluation topology = evaluate(fluid, fixture.boundary);
+    result.pairs = topology.fluid_pairs + topology.boundary_pairs;
+    for (std::size_t particle = 0U; particle < fluid_count; ++particle) {
+        double density = MASS * weight(0.0);
+        double density_first = 0.0;
+        double density_second = 0.0;
+        const auto accumulate = [&](Vec3 displacement, Vec3 derivative) {
+            const double radius = norm(displacement);
+            if (radius > HORIZON) {
+                return;
+            }
+            density += MASS * weight(radius);
+            if (radius <= 1.0e-15) {
+                return;
+            }
+            const double radius_first = dot(
+                displacement, derivative) / radius;
+            const double radius_second = (
+                norm_squared(derivative)
+                    - radius_first * radius_first) / radius;
+            density_first += MASS * weight_gradient(radius) * radius_first;
+            density_second += MASS * (
+                weight_second(radius) * radius_first * radius_first
+                + weight_gradient(radius) * radius_second);
+        };
+        for (std::size_t neighbor = 0U;
+             neighbor < fluid_count; ++neighbor) {
+            if (neighbor == particle) {
+                continue;
+            }
+            const Vec3 reference =
+                fixture.fluid[particle] - fixture.fluid[neighbor];
+            accumulate(fluid[particle] - fluid[neighbor], -1.0 * reference);
+        }
+        const Vec3 particle_direction =
+            -1.0 * (fixture.fluid[particle] - center);
+        for (Vec3 support : fixture.boundary) {
+            accumulate(fluid[particle] - support, particle_direction);
+        }
+        result.constraint[particle] = density / REST_DENSITY - 1.0;
+        result.first[particle] = density_first / REST_DENSITY;
+        result.second[particle] = density_second / REST_DENSITY;
+    }
+    result.finite_values = std::isfinite(q)
+        && std::all_of(result.constraint.begin(), result.constraint.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.first.begin(), result.first.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::all_of(result.second.begin(), result.second.end(),
+            [](double value) { return std::isfinite(value); });
+    return result;
+}
+
+ALPathInnerState evaluate_al_path_inner(
+    const Fixture& fixture,
+    double q,
+    double q_star,
+    const std::vector<double>& multiplier) {
+    ALPathInnerState result;
+    result.path = evaluate_al_path(fixture, q);
+    if (multiplier.size() != result.path.constraint.size()) {
+        return result;
+    }
+    const double base = q - q_star;
+    result.energy = 0.5 * base * base;
+    result.gradient = base;
+    result.hessian = 1.0;
+    for (std::size_t center = 0U;
+         center < multiplier.size(); ++center) {
+        const double shifted = multiplier[center]
+            + KAPPA * result.path.constraint[center];
+        const double active = std::max(0.0, shifted);
+        result.energy += (
+            active * active - multiplier[center] * multiplier[center])
+            / (2.0 * KAPPA);
+        if (active <= 0.0) {
+            continue;
+        }
+        result.gradient += active * result.path.first[center];
+        result.hessian += KAPPA * result.path.first[center]
+                * result.path.first[center]
+            + active * result.path.second[center];
+    }
+    return result;
+}
+
+ALPathInnerSolve solve_al_path_inner(
+    const Fixture& fixture,
+    double q_star,
+    const std::vector<double>& multiplier) {
+    constexpr double low_bound = -0.02;
+    constexpr double high_bound = 0.02;
+    constexpr int maximum_iterations = 128;
+    constexpr double gradient_limit = 1.0e-10;
+    ALPathInnerSolve result;
+    ALPathInnerState low = evaluate_al_path_inner(
+        fixture, low_bound, q_star, multiplier);
+    ALPathInnerState high = evaluate_al_path_inner(
+        fixture, high_bound, q_star, multiplier);
+    result.low_gradient = low.gradient;
+    result.high_gradient = high.gradient;
+    if (!low.path.finite_values || !high.path.finite_values
+        || !std::isfinite(low.gradient) || !std::isfinite(high.gradient)
+        || low.gradient > 0.0 || high.gradient < 0.0) {
+        result.failure = "ROOT_BRACKET";
+        return result;
+    }
+    double low_q = low_bound;
+    double high_q = high_bound;
+    for (int iteration = 0; iteration < maximum_iterations; ++iteration) {
+        const double q = 0.5 * (low_q + high_q);
+        result.state = evaluate_al_path_inner(
+            fixture, q, q_star, multiplier);
+        result.iterations = iteration + 1;
+        if (!result.state.path.finite_values
+            || !std::isfinite(result.state.energy)
+            || !std::isfinite(result.state.gradient)
+            || !std::isfinite(result.state.hessian)) {
+            result.failure = "NONFINITE";
+            return result;
+        }
+        if (std::abs(result.state.gradient) <= gradient_limit) {
+            result.passed = true;
+            return result;
+        }
+        if (result.state.gradient > 0.0) {
+            high_q = q;
+        } else {
+            low_q = q;
+        }
+    }
+    result.failure = "INNER_ITERATION_LIMIT";
+    return result;
+}
+
+ALPathOuterSolve solve_al_path_outer(
+    const Fixture& fixture,
+    double q_star,
+    std::vector<double> multiplier,
+    int maximum_outer) {
+    ALPathOuterSolve result;
+    result.multiplier = multiplier;
+    double previous_primal = std::numeric_limits<double>::infinity();
+    for (int outer = 0; outer < maximum_outer; ++outer) {
+        const ALPathInnerSolve inner = solve_al_path_inner(
+            fixture, q_star, multiplier);
+        if (!inner.passed) {
+            result.inner_exact = false;
+            result.failure = "INNER:" + inner.failure;
+            return result;
+        }
+        std::vector<double> next(multiplier.size());
+        ALPathOuterRecord record;
+        record.outer = outer;
+        record.inner_iterations = inner.iterations;
+        record.q = inner.state.path.q;
+        record.inner_gradient = std::abs(inner.state.gradient);
+        record.minimum_multiplier = std::numeric_limits<double>::infinity();
+        for (std::size_t center = 0U;
+             center < multiplier.size(); ++center) {
+            next[center] = std::max(0.0,
+                multiplier[center]
+                    + KAPPA * inner.state.path.constraint[center]);
+            record.primal = std::max(record.primal,
+                std::max(0.0, inner.state.path.constraint[center]));
+            record.scaled_dual_change = std::max(
+                record.scaled_dual_change,
+                std::abs(next[center] - multiplier[center]) / KAPPA);
+            record.complementarity = std::max(record.complementarity,
+                std::abs(next[center]
+                    * inner.state.path.constraint[center]));
+            record.minimum_multiplier = std::min(
+                record.minimum_multiplier, next[center]);
+            record.maximum_multiplier = std::max(
+                record.maximum_multiplier, next[center]);
+        }
+        record.stationarity = record.inner_gradient;
+        result.primal_monotone = result.primal_monotone
+            && record.primal <= previous_primal;
+        previous_primal = record.primal;
+        result.records.push_back(record);
+        result.q = inner.state.path.q;
+        result.path = inner.state.path;
+        result.multiplier = next;
+        multiplier = std::move(next);
+        const bool active_q_exact = q_star <= 0.0
+            || std::abs(result.q) <= 1.0e-9;
+        if (record.primal <= 1.0e-10
+            && record.scaled_dual_change <= 1.0e-10
+            && record.stationarity <= 1.0e-10
+            && record.complementarity <= 1.0e-10
+            && record.minimum_multiplier >= 0.0
+            && active_q_exact) {
+            result.passed = true;
+            return result;
+        }
+    }
+    result.cap_exhausted = result.inner_exact && result.primal_monotone;
+    result.failure = "OUTER_ITERATION_LIMIT";
+    return result;
+}
+
+std::string al_path_state_root(
+    const std::string& tag,
+    double q,
+    const std::vector<double>& multiplier) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.nsr3b4e2d6-state|v1|" << tag << '|'
+             << binary64_bits(q) << '|' << multiplier.size();
+    for (double value : multiplier) {
+        material << ':' << binary64_bits(value);
+    }
+    return sha256_hex(material.str());
+}
+
+bool exact_al_multiplier(
+    const std::vector<double>& lhs,
+    const std::vector<double>& rhs) {
+    if (lhs.size() != rhs.size()) {
+        return false;
+    }
+    for (std::size_t index = 0U; index < lhs.size(); ++index) {
+        if (binary64_bits(lhs[index]) != binary64_bits(rhs[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_path_oracle_controls() {
+    constexpr double derivative_step = 2.0e-7;
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const Evaluation rest = evaluate(fixture.fluid, fixture.boundary);
+    const std::vector<Vec3> compressed = compressed_fluid(fixture, 0.99);
+    const Evaluation active = evaluate(compressed, fixture.boundary);
+    double rest_error = 0.0;
+    for (double density : rest.density) {
+        rest_error = std::max(rest_error,
+            std::abs(density / REST_DENSITY - 1.0));
+    }
+    const auto active_bounds = std::minmax_element(
+        active.density.begin(), active.density.end());
+    const double active_minimum =
+        *active_bounds.first / REST_DENSITY - 1.0;
+    const double active_maximum =
+        *active_bounds.second / REST_DENSITY - 1.0;
+    const bool identity_exact = sha256_hex(B4E2D6_IDENTITY_PROJECTION)
+        == B4E2D6_IDENTITY_SHA256;
+    const bool fixture_exact = fixture.fluid.size() == 8U
+        && fixture.boundary.size() == 176U
+        && active.fluid_pairs + active.boundary_pairs == 828U
+        && rest_error <= 3.0e-15 && active.active_centers == 8U
+        && active_minimum == 1.0023623750961186 - 1.0
+        && active_maximum == 1.002362375096119 - 1.0;
+
+    const ALPathState center = evaluate_al_path(fixture, 0.01);
+    const ALPathState plus = evaluate_al_path(
+        fixture, 0.01 + derivative_step);
+    const ALPathState minus = evaluate_al_path(
+        fixture, 0.01 - derivative_step);
+    double first_error = 0.0;
+    double second_error = 0.0;
+    for (std::size_t index = 0U;
+         index < center.constraint.size(); ++index) {
+        const double first_fd = (
+            plus.constraint[index] - minus.constraint[index])
+            / (2.0 * derivative_step);
+        const double second_fd = (
+            plus.first[index] - minus.first[index])
+            / (2.0 * derivative_step);
+        first_error = std::max(first_error,
+            relative_error(center.first[index], first_fd));
+        second_error = std::max(second_error,
+            relative_error(center.second[index], second_fd));
+    }
+    const bool derivative_exact = center.finite_values
+        && plus.finite_values && minus.finite_values
+        && center.pairs == 828U && plus.pairs == center.pairs
+        && minus.pairs == center.pairs
+        && first_error <= 1.0e-7 && second_error <= 1.0e-7;
+
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALPathOuterSolve cold = solve_al_path_outer(
+        fixture, 0.01, zero_multiplier, 8);
+    const ALPathOuterSolve warm = cold.passed
+        ? solve_al_path_outer(fixture, 0.01, cold.multiplier, 2)
+        : ALPathOuterSolve{};
+    double warm_multiplier_difference = 0.0;
+    if (cold.multiplier.size() == warm.multiplier.size()) {
+        for (std::size_t index = 0U;
+             index < cold.multiplier.size(); ++index) {
+            warm_multiplier_difference = std::max(
+                warm_multiplier_difference,
+                std::abs(cold.multiplier[index] - warm.multiplier[index]));
+        }
+    } else {
+        warm_multiplier_difference =
+            std::numeric_limits<double>::infinity();
+    }
+    const bool warm_exact = cold.passed && warm.passed
+        && warm.records.size() <= 2U
+        && std::abs(cold.q - warm.q) <= 1.0e-9
+        && warm_multiplier_difference <= 1.0e-9;
+
+    const ALPathOuterSolve inactive = solve_al_path_outer(
+        fixture, -0.01, zero_multiplier, 2);
+    const bool inactive_exact = inactive.passed
+        && std::abs(inactive.q + 0.01) <= 1.0e-10
+        && std::all_of(inactive.path.constraint.begin(),
+            inactive.path.constraint.end(),
+            [](double value) { return value <= 0.0; })
+        && std::all_of(inactive.multiplier.begin(),
+            inactive.multiplier.end(),
+            [](double value) { return value == 0.0; });
+
+    const ALPathInnerSolve reset = solve_al_path_inner(
+        fixture, 0.01, zero_multiplier);
+    double reset_primal = 0.0;
+    if (reset.passed) {
+        for (double value : reset.state.path.constraint) {
+            reset_primal = std::max(reset_primal, std::max(0.0, value));
+        }
+    }
+    const bool reset_negative = reset.passed
+        && reset.state.path.q > 1.0e-8 && reset_primal > 1.0e-8;
+
+    const ALPathOuterSolve private_forced = solve_al_path_outer(
+        fixture, 0.01, zero_multiplier, 1);
+    const double public_q = 0.0;
+    const std::vector<double> public_multiplier = zero_multiplier;
+    const bool rollback_exact = binary64_bits(public_q) == binary64_bits(0.0)
+        && exact_al_multiplier(public_multiplier, zero_multiplier)
+        && !private_forced.records.empty()
+        && (binary64_bits(private_forced.q) != binary64_bits(public_q)
+            || !exact_al_multiplier(
+                private_forced.multiplier, public_multiplier));
+
+    std::vector<double> mutated_multiplier = cold.passed
+        ? cold.multiplier : zero_multiplier;
+    if (!mutated_multiplier.empty()) {
+        mutated_multiplier.front() = std::nextafter(
+            mutated_multiplier.front(),
+            std::numeric_limits<double>::infinity());
+    }
+    const ALPathInnerSolve mutation_control = solve_al_path_inner(
+        fixture, 0.01, cold.passed ? cold.multiplier : zero_multiplier);
+    const ALPathInnerSolve mutation_inner = solve_al_path_inner(
+        fixture, 0.01, mutated_multiplier);
+    const std::string cold_root = al_path_state_root(
+        "cold", cold.q, cold.multiplier);
+    const std::string warm_root = al_path_state_root(
+        "warm", warm.q, warm.multiplier);
+    const std::string inactive_root = al_path_state_root(
+        "inactive", inactive.q, inactive.multiplier);
+    const std::string mutation_root = al_path_state_root(
+        "mutation", mutation_inner.state.path.q, mutated_multiplier);
+    const std::string mutation_control_root = al_path_state_root(
+        "mutation", mutation_control.state.path.q,
+        cold.passed ? cold.multiplier : zero_multiplier);
+    const bool mutation_sensitive = mutation_control.passed
+        && mutation_inner.passed
+        && mutation_root != mutation_control_root;
+
+    const bool al_path_viable = cold.passed && cold.primal_monotone
+        && warm_exact && inactive_exact && reset_negative
+        && rollback_exact && mutation_sensitive;
+    const bool fallback_selected = !cold.passed && cold.inner_exact
+        && cold.primal_monotone && cold.cap_exhausted
+        && inactive_exact && reset_negative && rollback_exact
+        && mutation_sensitive;
+    const std::string route = al_path_viable ? "AL_PATH_VIABLE"
+        : (fallback_selected
+            ? "SEMISMOOTH_PRIMAL_DUAL_REQUIRED" : std::string{});
+    const bool passed = identity_exact && fixture_exact && derivative_exact
+        && !route.empty();
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!fixture_exact) first_failure = "FIXTURE";
+    else if (!derivative_exact) first_failure = "DERIVATIVE";
+    else if (route.empty()) first_failure = "AL_PATH_CONTROLS";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D6_IDENTITY_SHA256 << '|'
+             << fixture.fluid.size() << ':' << fixture.boundary.size() << ':'
+             << active.fluid_pairs + active.boundary_pairs << ':'
+             << rest.fluid_pairs + rest.boundary_pairs << ':' << rest_error
+             << ':' << active_minimum << ':' << active_maximum << '|'
+             << first_error << ':' << second_error << '|'
+             << cold.passed << ':' << cold.records.size() << ':' << cold.q
+             << ':' << cold_root << ':' << cold.primal_monotone << '|'
+             << warm.passed << ':' << warm.records.size() << ':' << warm.q
+             << ':' << warm_multiplier_difference << ':' << warm_root << '|'
+             << inactive.passed << ':' << inactive.q << ':'
+             << inactive_root << '|' << reset.passed << ':'
+             << reset.state.path.q << ':' << reset_primal << '|'
+             << rollback_exact << ':' << mutation_sensitive << ':'
+             << mutation_root << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_outer = [](std::ostringstream& output,
+            const ALPathOuterSolve& solve) {
+        output << "[";
+        for (std::size_t index = 0U; index < solve.records.size(); ++index) {
+            if (index != 0U) output << ',';
+            const ALPathOuterRecord& record = solve.records[index];
+            output << std::setprecision(17)
+                   << "{\"outer\":" << record.outer
+                   << ",\"inner_iterations\":"
+                   << record.inner_iterations
+                   << ",\"q\":" << record.q
+                   << ",\"inner_gradient\":" << record.inner_gradient
+                   << ",\"primal\":" << record.primal
+                   << ",\"scaled_dual_change\":"
+                   << record.scaled_dual_change
+                   << ",\"stationarity\":" << record.stationarity
+                   << ",\"complementarity\":"
+                   << record.complementarity
+                   << ",\"multiplier_range\":["
+                   << record.minimum_multiplier << ','
+                   << record.maximum_multiplier << "]}";
+        }
+        output << ']';
+    };
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d6_al_path_oracle.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D6_IDENTITY_SHA256
+           << "\",\"solver_identity\":\"nuv-al-pressure-r0\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"fixture\":{\"fluid_samples\":"
+           << fixture.fluid.size() << ",\"support_samples\":"
+           << fixture.boundary.size() << ",\"q001_pairs\":"
+           << active.fluid_pairs + active.boundary_pairs
+           << ",\"rest_pairs\":"
+           << rest.fluid_pairs + rest.boundary_pairs
+           << ",\"rest_error\":" << rest_error
+           << ",\"q001_compression_range\":[" << active_minimum << ','
+           << active_maximum << "],\"exact\":"
+           << (fixture_exact ? "true" : "false") << '}'
+           << ",\"derivatives\":{\"first_relative_error\":"
+           << first_error << ",\"second_relative_error\":"
+           << second_error << ",\"topology_stable\":"
+           << (center.pairs == plus.pairs && center.pairs == minus.pairs
+                   ? "true" : "false")
+           << ",\"exact\":" << (derivative_exact ? "true" : "false")
+           << "},\"cold\":{\"status\":\""
+           << (cold.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << cold.failure
+           << "\",\"q\":" << cold.q << ",\"state_root\":\""
+           << cold_root << "\",\"primal_monotone\":"
+           << (cold.primal_monotone ? "true" : "false")
+           << ",\"outer\":";
+    append_outer(report, cold);
+    report << "},\"warm\":{\"status\":\""
+           << (warm.passed ? "PASS" : "FAIL")
+           << "\",\"q\":" << warm.q << ",\"state_root\":\""
+           << warm_root << "\",\"multiplier_max_difference\":"
+           << warm_multiplier_difference << ",\"exact\":"
+           << (warm_exact ? "true" : "false") << ",\"outer\":";
+    append_outer(report, warm);
+    report << "},\"inactive\":{\"status\":\""
+           << (inactive.passed ? "PASS" : "FAIL")
+           << "\",\"q\":" << inactive.q << ",\"state_root\":\""
+           << inactive_root << "\",\"exact\":"
+           << (inactive_exact ? "true" : "false") << '}'
+           << ",\"reset_negative\":{\"q\":" << reset.state.path.q
+           << ",\"primal\":" << reset_primal << ",\"exact\":"
+           << (reset_negative ? "true" : "false") << '}'
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"mutation\":{\"root\":\"" << mutation_root
+           << "\",\"control_root\":\"" << mutation_control_root
+           << "\",\"sensitive\":"
+           << (mutation_sensitive ? "true" : "false") << '}'
+           << ",\"route\":\"" << route << '"'
+           << ",\"trajectory_steps\":0,\"timing_admitted\":false"
+           << ",\"dense_al_oracle_contract_research_authorized\":"
            << (passed ? "true" : "false")
            << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
