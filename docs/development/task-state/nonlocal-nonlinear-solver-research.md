@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R18R4R2_PASS_CONFIRMED / D7R19_FAIL_PRECISION_LEDGER / D7R19R1_PASS_RUNTIME_TOPOLOGY_PRECISION_CANDIDATE / D7R19R2_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R18R4R2_PASS_CONFIRMED / D7R19_FAIL_PRECISION_LEDGER / D7R19R1_PASS_RUNTIME_TOPOLOGY_PRECISION_CANDIDATE / D7R19R2_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -198,6 +198,13 @@
   solver-visible delta is binary64-owned audit topology. Retain the exact
   binary64 candidate path and the 32-HVP per-trust-step watchdog; do not assume
   the eventual structural route in advance.
+- **Current decision:** the
+  [D7R19R2 research](../nonlocal-nsr3b4e2d7r19r2-binary64-topology-policy-research-2026-08-23.md)
+  selects binary64-owned audit membership. Its
+  [frozen contract](../../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r2-binary64-topology-policy-contract.md)
+  changes only the wider-precision branch mask, requires exact D7R19 binary64
+  trajectory/work and retains the terminal 32-HVP cap. Implement exactly this
+  one candidate substep next.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2067,10 +2074,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R1, D7R19 and D7R18R4R2/R4R1/R4/R3/R2/R1/D7R18/D7R17/D7R13
-   exactly. Research/freeze D7R19R2 as a separate binary64-owned audit-topology
-   reclosure of the same first nominal substep. Do not add runtime binary128,
-   enlarge the HVP cap, start another substep, macro, trajectory or timing
-   lane.
+   exactly. Implement/run frozen D7R19R2 as one separate binary64-owned
+   audit-topology reclosure of the same first nominal substep. Do not add
+   runtime binary128, enlarge the HVP cap, start another substep, macro,
+   trajectory or timing lane.
 
 ## Reconsideration triggers
 
