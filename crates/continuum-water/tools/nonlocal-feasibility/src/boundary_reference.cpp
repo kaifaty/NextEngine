@@ -46367,6 +46367,30 @@ constexpr const char* B4E2D7R4_IDENTITY_PROJECTION =
     "2-processes;byte-exact;timing=none|trajectory=none;outer-updates=none;"
     "commit=none;physics-mutation=none|"
     "credit=outer-integration-contract-research-only";
+constexpr const char* B4E2D7R5_IDENTITY_SHA256 =
+    "b9f0e532e064f2316b1f3133fdd3fb7877a7da431c1284d8233f3e3cc5be48b9";
+constexpr const char* B4E2D7R5_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r5-private-outer-al-integration|v1|"
+    "parent="
+    "3d7bf83ce177ccd2161dada39caa48c6172277ab5c37f0c2e3c6036676d4d96a:"
+    "77f7afc7e9a936ba19e183da07175b64e20beb8f3db939f868d0a578b3ffa289:"
+    "975da3f5adc13bba6c5fec3cfe08f0bc395f8fac58882b841ba5026774d6e886|"
+    "solver=step-norm-trust-inner-candidate;outer=d7r-unchanged|"
+    "prefix=first8-root:"
+    "9bffc61a943f50cab449c052bd0a6791c40128e894d98d9a9589b0969dbb82c2;"
+    "state:"
+    "04a9c03308662d6102b165d8109b23c1b60a3145314603909b7dbfda8385d95e|"
+    "outer-cap=14;beta=1226.25;gates=primal1e-8,stationarity1e-8,"
+    "complementarity1e-9,abs-dual1e-8J,pressure8e-5Pa,position1e-8dx,"
+    "lambda-nonnegative,primal-monotone|"
+    "confirmation=two-consecutive-admissible;"
+    "warm-holdout=one-private-update;same-gates|"
+    "controls=inactive;reset;forced-rollback;parent-bytes|"
+    "routes=pressure-state-confirmation-candidate;"
+    "outer-cap-or-nested-accuracy-research;inner-policy-insufficient|"
+    "runs=2-release-builds;2-processes;byte-exact;timing=none|"
+    "trajectory=none;private-confirmation<=1;public-commit=none;"
+    "physics-mutation=none|credit=dense-al-holdout-contract-research-only";
 
 std::string b4e2d2_frame_zero_root(
     const std::vector<Vec3>& position,
@@ -49857,6 +49881,219 @@ ALStepNormInnerSolve solve_al_vector_inner_step_norm(
     return result;
 }
 
+struct ALStepNormOuterRecord {
+    ALVectorOuterRecord state;
+    int inner_step_norm_updates = 0;
+    int inner_quarter_updates = 0;
+    bool finite_values = false;
+    bool admissible = false;
+};
+
+struct ALStepNormOuterUpdate {
+    bool passed = false;
+    bool finite_failure = false;
+    std::string failure;
+    std::vector<Vec3> position;
+    std::vector<double> multiplier;
+    ALVectorSupport support;
+    ALStepNormOuterRecord record;
+};
+
+struct ALStepNormPrivateOuterSolve {
+    bool all_inners_pass = true;
+    bool all_finite = true;
+    bool primal_monotone = true;
+    bool cap_exhausted = false;
+    bool confirmed = false;
+    bool warm_holdout_attempted = false;
+    bool warm_holdout_admissible = false;
+    bool finite_inner_failure = false;
+    std::string failure;
+    int provisional_index = -1;
+    int confirmation_index = -1;
+    int private_confirmation_count = 0;
+    std::vector<Vec3> position;
+    std::vector<double> multiplier;
+    std::vector<Vec3> prefix_position;
+    std::vector<double> prefix_multiplier;
+    std::vector<Vec3> confirmed_position;
+    std::vector<double> confirmed_multiplier;
+    ALVectorSupport support;
+    std::vector<ALStepNormOuterRecord> records;
+    ALStepNormOuterRecord warm_holdout;
+};
+
+bool al_step_norm_outer_record_finite(
+    const ALVectorOuterRecord& record) {
+    return std::isfinite(record.primal)
+        && std::isfinite(record.scaled_dual_change)
+        && std::isfinite(record.stationarity)
+        && std::isfinite(record.complementarity)
+        && std::isfinite(record.absolute_dual_change)
+        && std::isfinite(record.equivalent_pressure_change)
+        && std::isfinite(record.position_update_dx)
+        && std::isfinite(record.minimum_multiplier)
+        && std::isfinite(record.maximum_multiplier);
+}
+
+bool al_step_norm_outer_record_admissible(
+    const ALVectorOuterRecord& record) {
+    return record.primal <= 1.0e-8
+        && record.stationarity <= 1.0e-8
+        && record.complementarity <= 1.0e-9
+        && record.minimum_multiplier >= 0.0
+        && record.absolute_dual_change <= 1.0e-8
+        && record.equivalent_pressure_change <= 8.0e-5
+        && record.position_update_dx <= 1.0e-8;
+}
+
+ALStepNormOuterUpdate al_step_norm_private_outer_update(
+    const Fixture& fixture,
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& position,
+    const std::vector<double>& multiplier,
+    int outer) {
+    ALStepNormOuterUpdate result;
+    const ALStepNormInnerSolve inner = solve_al_vector_inner_step_norm(
+        predicted, position, fixture.boundary, multiplier);
+    if (!inner.passed || !inner.positive_accepted_models
+        || !inner.all_finite) {
+        result.failure = "INNER:" + inner.failure;
+        result.finite_failure = inner.all_finite
+            && inner.failure != "INITIAL_NONFINITE";
+        return result;
+    }
+    result.position = inner.position;
+    result.multiplier.resize(multiplier.size());
+    result.support = inner.support;
+    ALVectorOuterRecord& record = result.record.state;
+    record.outer = outer;
+    record.inner_outer_trials = static_cast<int>(inner.trials.size()) + 1;
+    record.inner_accepted_trials = inner.accepted_trials;
+    record.inner_rejected_trials = inner.rejected_trials;
+    record.inner_hvp_calls = inner.hvp_calls;
+    record.minimum_multiplier = std::numeric_limits<double>::infinity();
+    record.position_update_dx =
+        rms_difference(position, inner.position) / SPACING;
+    for (std::size_t center = 0U;
+         center < multiplier.size(); ++center) {
+        result.multiplier[center] = std::max(0.0,
+            multiplier[center]
+                + KAPPA * inner.support.constraint[center]);
+        const double absolute_change = std::abs(
+            result.multiplier[center] - multiplier[center]);
+        record.primal = std::max(record.primal,
+            std::max(0.0, inner.support.constraint[center]));
+        record.scaled_dual_change = std::max(
+            record.scaled_dual_change, absolute_change / KAPPA);
+        record.absolute_dual_change = std::max(
+            record.absolute_dual_change, absolute_change);
+        record.equivalent_pressure_change = std::max(
+            record.equivalent_pressure_change,
+            absolute_change * REST_DENSITY / MASS);
+        record.complementarity = std::max(record.complementarity,
+            std::abs(result.multiplier[center]
+                * inner.support.constraint[center]));
+        record.minimum_multiplier = std::min(
+            record.minimum_multiplier, result.multiplier[center]);
+        record.maximum_multiplier = std::max(
+            record.maximum_multiplier, result.multiplier[center]);
+    }
+    record.stationarity = inner.final_stationarity;
+    result.record.inner_step_norm_updates = inner.step_norm_updates;
+    result.record.inner_quarter_updates = inner.quarter_updates;
+    result.record.finite_values = inner.support.finite_values
+        && al_step_norm_outer_record_finite(record)
+        && std::all_of(result.position.begin(), result.position.end(),
+            [](Vec3 value) { return finite(value); })
+        && std::all_of(result.multiplier.begin(), result.multiplier.end(),
+            [](double value) { return std::isfinite(value); });
+    result.record.admissible = result.record.finite_values
+        && al_step_norm_outer_record_admissible(record);
+    result.passed = result.record.finite_values;
+    if (!result.passed) {
+        result.failure = "OUTER_NONFINITE";
+    }
+    return result;
+}
+
+ALStepNormPrivateOuterSolve solve_al_step_norm_private_outer(
+    const Fixture& fixture,
+    const std::vector<Vec3>& predicted,
+    std::vector<Vec3> position,
+    std::vector<double> multiplier) {
+    constexpr int maximum_outer = 14;
+    ALStepNormPrivateOuterSolve result;
+    result.position = position;
+    result.multiplier = multiplier;
+    double previous_primal = std::numeric_limits<double>::infinity();
+    bool previous_admissible = false;
+    for (int outer = 0; outer < maximum_outer; ++outer) {
+        ALStepNormOuterUpdate update = al_step_norm_private_outer_update(
+            fixture, predicted, position, multiplier, outer);
+        if (!update.passed) {
+            result.all_inners_pass = false;
+            result.all_finite = result.all_finite && update.finite_failure;
+            result.finite_inner_failure = update.finite_failure;
+            result.failure = update.failure;
+            return result;
+        }
+        const bool monotone =
+            update.record.state.primal <= previous_primal;
+        result.primal_monotone = result.primal_monotone && monotone;
+        result.all_finite = result.all_finite
+            && update.record.finite_values;
+        previous_primal = update.record.state.primal;
+        result.records.push_back(update.record);
+        result.position = update.position;
+        result.multiplier = update.multiplier;
+        result.support = update.support;
+        position = std::move(update.position);
+        multiplier = std::move(update.multiplier);
+        if (outer == 7) {
+            result.prefix_position = result.position;
+            result.prefix_multiplier = result.multiplier;
+        }
+        const bool admissible = update.record.admissible && monotone;
+        if (admissible && previous_admissible
+            && result.provisional_index == outer - 1) {
+            result.confirmed = true;
+            result.confirmation_index = outer;
+            ++result.private_confirmation_count;
+            result.confirmed_position = result.position;
+            result.confirmed_multiplier = result.multiplier;
+            break;
+        }
+        result.provisional_index = admissible ? outer : -1;
+        previous_admissible = admissible;
+    }
+    if (result.confirmed) {
+        result.warm_holdout_attempted = true;
+        ALStepNormOuterUpdate holdout = al_step_norm_private_outer_update(
+            fixture, predicted, result.confirmed_position,
+            result.confirmed_multiplier, result.confirmation_index + 1);
+        if (holdout.passed) {
+            result.warm_holdout = holdout.record;
+            result.warm_holdout_admissible = holdout.record.admissible
+                && holdout.record.state.primal
+                    <= result.records.back().state.primal;
+        } else {
+            result.all_inners_pass = false;
+            result.all_finite = result.all_finite && holdout.finite_failure;
+            result.finite_inner_failure = holdout.finite_failure;
+            result.failure = "HOLDOUT:" + holdout.failure;
+        }
+        return result;
+    }
+    result.cap_exhausted = result.all_inners_pass
+        && result.all_finite && result.primal_monotone
+        && result.records.size() == static_cast<std::size_t>(maximum_outer);
+    if (result.cap_exhausted) {
+        result.failure = "OUTER_ITERATION_LIMIT";
+    }
+    return result;
+}
+
 } // namespace
 
 SplitBoundaryReport run_al_dense_vector_oracle_controls() {
@@ -51576,6 +51813,286 @@ SplitBoundaryReport run_al_step_norm_trust_inner_controls() {
            << ",\"outer_integration_contract_research_authorized\":"
            << (passed ? "true" : "false")
            << ",\"outer_integration_authorized\":false"
+           << ",\"nominal_trajectory_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_step_norm_private_outer_controls() {
+    const bool identity_exact = sha256_hex(B4E2D7R5_IDENTITY_PROJECTION)
+        == B4E2D7R5_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_step_norm_trust_inner_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "975da3f5adc13bba6c5fec3cfe08f0bc395f8fac58882b841ba5026774d6e886";
+
+    const Fixture fixture = make_box_fixture(
+        "corner-box-2x2x2", {2, 2, 2}, 2);
+    const std::vector<Vec3> active_prediction =
+        compressed_fluid(fixture, 0.99);
+    const std::vector<Vec3> inactive_prediction =
+        compressed_fluid(fixture, 1.01);
+    const std::vector<double> zero_multiplier(fixture.fluid.size());
+    const ALStepNormPrivateOuterSolve candidate =
+        solve_al_step_norm_private_outer(
+            fixture, active_prediction, active_prediction, zero_multiplier);
+
+    std::vector<ALVectorOuterRecord> legacy_records;
+    legacy_records.reserve(candidate.records.size());
+    for (const ALStepNormOuterRecord& record : candidate.records) {
+        legacy_records.push_back(record.state);
+    }
+    const std::string prefix_outer_root = sha256_hex(
+        al_vector_legacy_outer_json(legacy_records, 8U));
+    const std::string prefix_state_root = al_vector_state_root(
+        "cold", candidate.prefix_position, candidate.prefix_multiplier);
+    const bool prefix_exact = candidate.records.size() >= 8U
+        && prefix_outer_root
+            == "9bffc61a943f50cab449c052bd0a6791c40128e894d98d9a9589b0969dbb82c2"
+        && prefix_state_root
+            == "04a9c03308662d6102b165d8109b23c1b60a3145314603909b7dbfda8385d95e";
+
+    const auto record_admissible = [&candidate](int index) {
+        return index >= 0
+            && static_cast<std::size_t>(index) < candidate.records.size()
+            && candidate.records[static_cast<std::size_t>(index)].admissible;
+    };
+    const bool confirmation_pair_exact = candidate.confirmed
+        && candidate.provisional_index >= 0
+        && candidate.confirmation_index == candidate.provisional_index + 1
+        && record_admissible(candidate.provisional_index)
+        && record_admissible(candidate.confirmation_index);
+    const bool warm_holdout_exact = candidate.warm_holdout_attempted
+        && candidate.warm_holdout.finite_values
+        && candidate.warm_holdout.admissible
+        && candidate.warm_holdout_admissible;
+    bool lambda_feasible = true;
+    bool records_finite = true;
+    for (const ALStepNormOuterRecord& record : candidate.records) {
+        lambda_feasible = lambda_feasible
+            && record.state.minimum_multiplier >= 0.0;
+        records_finite = records_finite && record.finite_values;
+    }
+    const bool transaction_exact = candidate.all_finite
+        && candidate.primal_monotone && lambda_feasible && records_finite;
+    const bool last_three_nonincreasing = candidate.records.size() >= 3U
+        && candidate.records[candidate.records.size() - 2U].state.primal
+            <= candidate.records[candidate.records.size() - 3U].state.primal
+        && candidate.records[candidate.records.size() - 1U].state.primal
+            <= candidate.records[candidate.records.size() - 2U].state.primal;
+
+    const ALStepNormPrivateOuterSolve inactive =
+        solve_al_step_norm_private_outer(
+            fixture, inactive_prediction, inactive_prediction,
+            zero_multiplier);
+    const bool inactive_exact = inactive.confirmed
+        && inactive.warm_holdout_admissible
+        && inactive.private_confirmation_count == 1
+        && exact_vec3_values(inactive.position, inactive_prediction)
+        && exact_al_multiplier(inactive.multiplier, zero_multiplier)
+        && std::all_of(inactive.support.constraint.begin(),
+            inactive.support.constraint.end(),
+            [](double value) { return value <= 0.0; });
+    const ALStepNormInnerSolve reset = solve_al_vector_inner_step_norm(
+        active_prediction, active_prediction,
+        fixture.boundary, zero_multiplier);
+    double reset_primal = 0.0;
+    for (double value : reset.support.constraint) {
+        reset_primal = std::max(reset_primal, std::max(0.0, value));
+    }
+    const bool reset_exact = reset.passed && reset.all_finite
+        && reset.positive_accepted_models && reset_primal > 1.0e-8;
+    const std::vector<Vec3> public_position = active_prediction;
+    const std::vector<double> public_multiplier = zero_multiplier;
+    const std::string prior_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const std::string forced_public_root = al_vector_stable_state_root(
+        "public-prior", public_position, public_multiplier);
+    const std::string forced_private_root = al_vector_stable_state_root(
+        "forced-private", candidate.position, candidate.multiplier);
+    const bool forced_private_changed = !candidate.records.empty()
+        && (!exact_vec3_values(candidate.position, public_position)
+            || !exact_al_multiplier(
+                candidate.multiplier, public_multiplier));
+    const bool rollback_exact = forced_public_root == prior_public_root
+        && exact_vec3_values(public_position, active_prediction)
+        && exact_al_multiplier(public_multiplier, zero_multiplier)
+        && forced_private_changed;
+    const bool controls_exact = inactive_exact && reset_exact
+        && rollback_exact;
+
+    const bool confirmation_route = transaction_exact
+        && candidate.all_inners_pass && confirmation_pair_exact
+        && warm_holdout_exact && candidate.private_confirmation_count == 1;
+    const bool cap_route = transaction_exact
+        && candidate.all_inners_pass && candidate.cap_exhausted
+        && !candidate.confirmed && candidate.private_confirmation_count == 0
+        && candidate.records.size() == 14U && last_three_nonincreasing;
+    const bool inner_route = transaction_exact
+        && !candidate.all_inners_pass && candidate.finite_inner_failure
+        && candidate.records.size() >= 8U
+        && candidate.private_confirmation_count <= 1;
+    std::string route;
+    if (identity_exact && parent_exact && prefix_exact && controls_exact) {
+        if (confirmation_route) {
+            route = "PRESSURE_STATE_CONFIRMATION_CANDIDATE";
+        } else if (cap_route) {
+            route = "OUTER_CAP_OR_NESTED_ACCURACY_RESEARCH";
+        } else if (inner_route) {
+            route = "INNER_POLICY_INSUFFICIENT";
+        }
+    }
+    const bool passed = !route.empty();
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "PARENT_BYTES";
+    else if (!prefix_exact) first_failure = "D7_PREFIX";
+    else if (!controls_exact) first_failure = "CONTROLS";
+    else if (!candidate.all_finite || !records_finite)
+        first_failure = "NONFINITE";
+    else if (!candidate.primal_monotone) first_failure = "PRIMAL_MONOTONICITY";
+    else if (!lambda_feasible) first_failure = "DUAL_FEASIBILITY";
+    else if (route.empty()) first_failure = "UNCLASSIFIED_OUTER_RESULT";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R5_IDENTITY_SHA256 << '|' << parent_stdout_sha256
+             << '|' << prefix_outer_root << ':' << prefix_state_root << '|'
+             << candidate.all_inners_pass << ':' << candidate.all_finite << ':'
+             << candidate.primal_monotone << ':' << candidate.cap_exhausted
+             << ':' << candidate.confirmed << ':'
+             << candidate.private_confirmation_count << ':'
+             << candidate.provisional_index << ':'
+             << candidate.confirmation_index << ':'
+             << candidate.failure << '|';
+    for (const ALStepNormOuterRecord& value : candidate.records) {
+        const ALVectorOuterRecord& record = value.state;
+        semantic << record.outer << ':' << record.inner_outer_trials << ':'
+                 << record.inner_accepted_trials << ':'
+                 << record.inner_rejected_trials << ':'
+                 << record.inner_hvp_calls << ':'
+                 << value.inner_step_norm_updates << ':'
+                 << value.inner_quarter_updates << ':' << record.primal << ':'
+                 << record.scaled_dual_change << ':'
+                 << record.absolute_dual_change << ':'
+                 << record.equivalent_pressure_change << ':'
+                 << record.position_update_dx << ':' << record.stationarity
+                 << ':' << record.complementarity << ':'
+                 << record.minimum_multiplier << ':'
+                 << record.maximum_multiplier << ':' << value.admissible
+                 << ';';
+    }
+    semantic << '|' << candidate.warm_holdout_attempted << ':'
+             << candidate.warm_holdout_admissible << ':'
+             << inactive_exact << ':' << reset_exact << ':' << reset_primal
+             << ':' << rollback_exact << ':' << forced_private_root << '|'
+             << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_record = [](std::ostringstream& output,
+                                  const ALStepNormOuterRecord& value) {
+        const ALVectorOuterRecord& record = value.state;
+        output << std::setprecision(17)
+               << "{\"outer\":" << record.outer
+               << ",\"inner_outer_trials\":"
+               << record.inner_outer_trials
+               << ",\"inner_accepted_trials\":"
+               << record.inner_accepted_trials
+               << ",\"inner_rejected_trials\":"
+               << record.inner_rejected_trials
+               << ",\"inner_hvp_calls\":" << record.inner_hvp_calls
+               << ",\"inner_step_norm_updates\":"
+               << value.inner_step_norm_updates
+               << ",\"inner_quarter_updates\":"
+               << value.inner_quarter_updates
+               << ",\"primal\":" << record.primal
+               << ",\"scaled_dual_change\":"
+               << record.scaled_dual_change
+               << ",\"absolute_dual_change_j\":"
+               << record.absolute_dual_change
+               << ",\"equivalent_pressure_change_pa\":"
+               << record.equivalent_pressure_change
+               << ",\"position_update_dx\":"
+               << record.position_update_dx
+               << ",\"stationarity\":" << record.stationarity
+               << ",\"complementarity\":" << record.complementarity
+               << ",\"multiplier_range\":["
+               << record.minimum_multiplier << ','
+               << record.maximum_multiplier << ']'
+               << ",\"finite\":"
+               << (value.finite_values ? "true" : "false")
+               << ",\"admissible\":"
+               << (value.admissible ? "true" : "false") << '}';
+    };
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r5_private_outer_al_integration.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R5_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"exact\":"
+           << (parent_exact ? "true" : "false") << '}'
+           << ",\"d7_prefix\":{\"record_count\":8"
+           << ",\"outer_root\":\"" << prefix_outer_root
+           << "\",\"state_root\":\"" << prefix_state_root
+           << "\",\"exact\":" << (prefix_exact ? "true" : "false")
+           << "},\"candidate\":{\"failure\":\"" << candidate.failure
+           << "\",\"all_inners_pass\":"
+           << (candidate.all_inners_pass ? "true" : "false")
+           << ",\"all_finite\":"
+           << (candidate.all_finite ? "true" : "false")
+           << ",\"primal_monotone\":"
+           << (candidate.primal_monotone ? "true" : "false")
+           << ",\"cap_exhausted\":"
+           << (candidate.cap_exhausted ? "true" : "false")
+           << ",\"provisional_index\":" << candidate.provisional_index
+           << ",\"confirmation_index\":" << candidate.confirmation_index
+           << ",\"private_confirmation_count\":"
+           << candidate.private_confirmation_count
+           << ",\"outer\":[";
+    for (std::size_t index = 0U; index < candidate.records.size(); ++index) {
+        if (index != 0U) report << ',';
+        append_record(report, candidate.records[index]);
+    }
+    report << "]},\"warm_holdout\":{\"attempted\":"
+           << (candidate.warm_holdout_attempted ? "true" : "false")
+           << ",\"admissible\":"
+           << (candidate.warm_holdout_admissible ? "true" : "false")
+           << ",\"record\":";
+    if (candidate.warm_holdout_attempted
+        && candidate.warm_holdout.finite_values) {
+        append_record(report, candidate.warm_holdout);
+    } else {
+        report << "null";
+    }
+    report << "},\"controls\":{\"inactive_exact\":"
+           << (inactive_exact ? "true" : "false")
+           << ",\"reset_primal\":" << reset_primal
+           << ",\"reset_exact\":"
+           << (reset_exact ? "true" : "false")
+           << ",\"prior_public_root\":\"" << prior_public_root
+           << "\",\"forced_public_root\":\"" << forced_public_root
+           << "\",\"forced_private_root\":\"" << forced_private_root
+           << "\",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false") << '}'
+           << ",\"last_three_nonincreasing\":"
+           << (last_three_nonincreasing ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"outer_updates\":" << candidate.records.size()
+           << ",\"warm_holdout_updates\":"
+           << (candidate.warm_holdout_attempted ? 1 : 0)
+           << ",\"trajectory_steps\":0,\"public_commit_count\":0"
+           << ",\"physics_mutation\":false,\"timing_admitted\":false"
+           << ",\"dense_al_holdout_contract_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"public_pressure_state_authorized\":false"
            << ",\"nominal_trajectory_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"

@@ -136,6 +136,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-topology-step-signed-zero-reclosure|"
                          "--nonlocal-al-globalization-policy-discriminator|"
                          "--nonlocal-al-step-norm-trust-inner|"
+                         "--nonlocal-al-step-norm-private-outer|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1072,6 +1073,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_step_norm_trust_inner_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-step-norm-private-outer") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_step_norm_private_outer_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

@@ -139,6 +139,7 @@ SplitBoundaryReport run_al_topology_step_discriminator_controls();
 SplitBoundaryReport run_al_topology_step_signed_zero_reclosure_controls();
 SplitBoundaryReport run_al_globalization_policy_discriminator_controls();
 SplitBoundaryReport run_al_step_norm_trust_inner_controls();
+SplitBoundaryReport run_al_step_norm_private_outer_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
