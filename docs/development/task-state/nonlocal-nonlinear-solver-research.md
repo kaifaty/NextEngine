@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SII_FROZEN / SPLIT_INCOMING_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP10SII_PASS / RESIDUAL_TIMING_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -291,6 +291,18 @@
   and no atomics. The bounded matrix is 3,026,944 bytes.
 - **Current decision:** B4EP10PCD builds the partitioned plan beside all 226
   serial plans, compares all arrays byte-exactly and admits no timing.
+- **Negative result:** B4EP10PCI is exact and wins all three pairs, but its
+  `1.033650x` median speedup misses the frozen `1.05x` gate while CPU rises.
+- **Negative result:** the exact full current-topology plan scans `1.213341x`
+  retained work and misses its frozen `1.20x` structural gate.
+- **Current conclusion:** split self/incoming reconstruction and the
+  pair-endpoint incoming builder both pass exact audits over all 226 plans.
+- **Current conclusion:** B4EP10SII preserves all physics/work roots, wins
+  `3/3` A/B pairs and passes narrowly at `1.052521x` median speedup. Median
+  wall falls 5.820 -> 5.537 s and RSS falls 4,852 KiB, while total CPU rises.
+- **Current decision:** select split incoming only for the nominal research
+  path, retain B4EP10I as rollback and remeasure the candidate residual before
+  another code change.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -370,6 +382,12 @@
 | NSR3B4EP10PI contract | opt-in cache-plan gather and three balanced A/B pairs | implement/time only; old path remains rollback |
 | NSR3B4EP10PI FAIL | exact and `3/3` faster, but median only `1.030796x` | retain B4EP10I; parallel active-plan research only |
 | NSR3B4EP10PCD contract | stable 64-partition active CSR transpose audit | implement/compare only; no fast path or timing |
+| NSR3B4EP10PCD PASS | exact active transpose across all plans | B4EP10PCI opt-in A/B only |
+| NSR3B4EP10PCI FAIL | exact, but median `1.033650x` misses speed gate | retain B4EP10I; current-topology representation research only |
+| NSR3B4EP10CTD FAIL | exact full current plan scans `1.213341x` | split self/incoming audit only |
+| NSR3B4EP10SID PASS | exact lower/own/upper fold at `1.106670x` projected visits | incoming construction audit only |
+| NSR3B4EP10SICD PASS | exact pair-endpoint incoming builder | B4EP10SII opt-in integration/A-B only |
+| NSR3B4EP10SII PASS | exact candidate; median `1.052521x`, RSS `-4,852 KiB` | candidate residual timing research only |
 
 Candidate solver identity remains:
 
@@ -451,6 +469,12 @@ production authority is created by this lineage.
 | [B4EP10PI research](../nonlocal-nsr3b4ep10pi-masked-plan-implementation-research-2026-08-22.md) | cache/workspace lifetime and exact masked gather selected | implement candidate then run frozen external A/B |
 | [B4EP10PI](../nonlocal-nsr3b4ep10pi-masked-plan-evidence-2026-08-22.md) | exact masked reuse misses frozen speed gate and raises CPU work | retain active plan; research deterministic parallel rebuild |
 | [B4EP10PC research](../nonlocal-nsr3b4ep10pc-partitioned-active-plan-research-2026-08-22.md) | stable partition-local histogram preserves canonical source order | run builder audit before candidate integration |
+| [B4EP10PCD](../nonlocal-nsr3b4ep10pcd-partitioned-active-plan-evidence-2026-08-22.md) | exact stable parallel transpose | freeze opt-in replacement/A-B only |
+| [B4EP10PCI](../nonlocal-nsr3b4ep10pci-partitioned-plan-evidence-2026-08-22.md) | exact candidate misses 5% speed gate | preserve negative; do not lower gate |
+| [B4EP10CTD](../nonlocal-nsr3b4ep10ctd-current-topology-plan-evidence-2026-08-22.md) | exact full reverse plan misses scan gate | split self from incoming before construction |
+| [B4EP10SID](../nonlocal-nsr3b4ep10sid-split-incoming-plan-evidence-2026-08-22.md) | exact three-part fold and bounded visit ratio | prove independent incoming construction |
+| [B4EP10SICD](../nonlocal-nsr3b4ep10sicd-incoming-construction-evidence-2026-08-22.md) | exact pair-endpoint construction | integrate opt-in floating path and A/B |
+| [B4EP10SII](../nonlocal-nsr3b4ep10sii-split-incoming-plan-evidence-2026-08-22.md) | exact and narrowly passes frozen speed gate | retain for research; profile candidate residual next |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -925,6 +949,19 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   or fusing construction phases before the isolated implementation has exact
   correspondence.
 
+### D-046 -- Select split incoming for residual research
+
+- **Observation:** the integrated candidate is bit-exact, wins all three
+  balanced pairs and reaches `1.052521x` median paired speedup with stable wall
+  and lower RSS. User/system CPU still rise.
+- **Decision:** retain the split incoming representation for the nominal
+  8-worker research path, keep B4EP10I as rollback and remeasure candidate
+  subphases before another optimization.
+- **Rejected:** production/default promotion from one nominal macro, lowering
+  earlier gates, or immediately fusing construction without attribution.
+- **Reconsider when:** candidate-specific timing identifies one bounded leader
+  and the next exact mechanical discriminator is frozen.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -959,6 +996,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - B4EP10R1 measures stable internal shares without PC sampling. Evaluation is
   54.63% of transaction and its owner-plan/energy fold is the 42.33% leading
   subphase; orchestration and imbalance are only 1.11% and 6.55%.
+- B4EP10SII is exact and wins `3/3`: median wall changes from 5.819690664 s
+  to 5.536671494 s (`1.052521x`) and median RSS changes from 96,560 to
+  91,708 KiB. Median user/system CPU rise to 39.36/1.15 s, so the path still
+  needs residual attribution.
 
 ## Required context
 
@@ -973,10 +1014,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen B4EP10SII topology-owned incoming plan and exact
-   lower/own/upper evaluation/HVP fold only in the opt-in command.
-2. Verify old-command bytes, then run one warmup each and three serialized
-   balanced Release pairs against B4EP10I worker-8.
+1. Research and freeze one B4EP10SIR candidate-specific internal timing
+   contract over the unchanged split incoming command.
+2. Measure three exact fresh processes and route only from stable topology,
+   evaluation, HVP, target-fold and executor-capacity evidence.
 
 ## Reconsideration triggers
 
