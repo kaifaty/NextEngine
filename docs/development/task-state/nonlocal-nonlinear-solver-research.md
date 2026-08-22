@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R17_PASS_CLASSIFIED_STRUCTURAL_WATCHDOG / NOMINAL_SOLVER_NOT_CONFIRMED / B4E2D7R18_KAPPA_SCALING_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R17_PASS_CLASSIFIED_STRUCTURAL_WATCHDOG / NOMINAL_SOLVER_NOT_CONFIRMED / B4E2D7R18_KAPPA_SCALING_PREREQUISITE_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -22,10 +22,13 @@
 - **Scale hypothesis:** aligned `dt=dt_ref/78` strengthens inertia curvature by
   `6084x`, while `kappa=1226.25` remained constant. Preserving the reference
   dimensionless AL/inertia ratio would use `kappa=7,460,505` at this substep.
-- **Next action:** research/freeze D7R18 as explicit-`kappa` propagation plus
-  a dimensionless scaling prerequisite. Preserve all legacy bytes and run no
-  nominal solve; a separate later discriminator may test the scaled nominal
-  lane.
+- **Current decision:** D7R18 is frozen as explicit finite-positive
+  `{dt,kappa}` propagation plus a tiny dimensionless scaling oracle. The exact
+  aligned candidate is `kappa=7,460,505`, and both profiles have identical
+  binary64 `kappa*dt^2=0x3f95cccccccccccd`.
+- **Next action:** implement D7R18 without a nominal solve, retain D7R16 bytes,
+  directly regress D7R17 once per clean build and reject invalid scale before
+  work. D7R19 scaled nominal execution remains blocked until D7R18 passes.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route

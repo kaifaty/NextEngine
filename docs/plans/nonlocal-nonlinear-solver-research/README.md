@@ -1766,3 +1766,10 @@ Research/freeze an explicit-`kappa` and dimensionless `dt`--`kappa` scaling
 prerequisite next, preserving legacy bytes and running no nominal solve. Do
 not increase the outer cap, weaken gates or run a second substep, macro,
 trajectory or timing lane.
+The [D7R18 research](../../development/nonlocal-nsr3b4e2d7r18-kappa-scaling-prerequisites-research-2026-08-22.md)
+derives the missing scale: fixed geometry requires invariant `kappa*dt^2`, so
+the aligned `dt/78` candidate is exactly `kappa*6084 = 7460505`. Its
+[frozen contract](03b4e2d7r18-kappa-scaling-prerequisites-contract.md) first
+requires explicit `kappa` through every sparse/precision/outer path plus a
+tiny normalized oracle. Implement this prerequisite next without a nominal
+solve; D7R19 remains blocked until it passes.
