@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R4_PASS_INNER_CANDIDATE / B4E2D7R5_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R5_PASS_CAP_ACCURACY_RESEARCH / B4E2D7R6_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -618,6 +618,19 @@
   inner-policy insufficiency without publishing state.
 - **Next action:** implement/run B4E2D7R5 twice. Nominal trajectories remain
   blocked regardless of its route.
+- **Current conclusion:** B4E2D7R5 passes twice byte-identically. All 14 inner
+  solves pass, the D7 prefix is exact and primal remains monotone, but no
+  update meets the absolute dual/pressure gates. The selected route is
+  `OUTER_CAP_OR_NESTED_ACCURACY_RESEARCH`; zero states commit.
+- **Diagnostic boundary:** outer 10 is still `10.22x` above the absolute
+  pressure-state update gate. Outer 13 reaches zero positive primal violation
+  but applies a corrective dual update `48.42x` above the same gate.
+- **Current decision:** B4E2D7R6 forks after the exact post-outer-7 state and
+  observes `eta={1e-8..1e-12}` through outer index 63. It changes only the
+  inner stop threshold and separates cap-only, accuracy-only, coupled and
+  formulation outcomes.
+- **Next action:** implement/run B4E2D7R6 twice. No lane may publish state or
+  authorize a cap/tolerance change directly.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -746,6 +759,8 @@
 | NSR3B4E2D7R4 contract | separate step-norm-aware private inner with raw acceptance | implement/run inner replay only |
 | NSR3B4E2D7R4 PASS | exact failed inner converges in two trials/four HVPs with unchanged raw gate | full private outer-integration contract research only |
 | NSR3B4E2D7R5 contract | D7R outer/two-confirmation protocol with D7R4 private inner and warm holdout | implement/run private transaction only |
+| NSR3B4E2D7R5 PASS | all inner solves pass and primal is monotone, but 14 updates yield no stable pressure pair | cap-versus-nested-accuracy discriminator research only |
+| NSR3B4E2D7R6 contract | post-prefix stationarity ladder through a bounded 64-update observation horizon | implement/run private discriminator only |
 
 Candidate solver identity remains:
 
@@ -1629,8 +1644,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
-5. Research/freeze B4E2D7R with absolute multiplier-update units and a private
-   confirmation update; do not change `beta`, formulas or start a trajectory.
+5. Implement/run frozen B4E2D7R6 from the exact post-outer-7 fork; change only
+   the private inner stationarity stop and do not select a cap/tolerance or
+   start a trajectory.
 
 ## Reconsideration triggers
 

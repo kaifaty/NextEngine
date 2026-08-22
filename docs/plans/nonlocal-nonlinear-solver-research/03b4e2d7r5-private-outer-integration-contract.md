@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R5 -- private outer-AL integration contract
 
-Status: `FROZEN / NOT_RUN / PRIVATE_TRANSACTION_ONLY`
+Status: `EXECUTED / PASS / OUTER_CAP_OR_NESTED_ACCURACY_RESEARCH`
 
 Identity projection (exact bytes, no final LF):
 
@@ -44,3 +44,12 @@ Prefix, gate, nonfinite, rollback, parent-byte or control mismatch is hard FAIL
 with no route. PASS classifies the private outer transaction. It grants no
 public pressure state, trajectory, coefficient/tolerance/cap change,
 performance, runtime, GPU/PhysX or production authority.
+
+## Executed outcome
+
+The command passes twice byte-identically and selects
+`OUTER_CAP_OR_NESTED_ACCURACY_RESEARCH`. All 14 inner solves pass, primal is
+monotone and the exact D7 prefix is preserved, but no outer update satisfies
+the absolute dual/pressure gates. No confirmation, holdout or public commit
+occurs. See the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r5-private-outer-integration-evidence-2026-08-22.md).

@@ -1565,3 +1565,14 @@ holdout, and publishes no state. Its
 confirmation, improving cap exhaustion or inner-policy insufficiency.
 Implement/run only this private transaction next; nominal trajectories remain
 blocked for every outcome.
+B4E2D7R5 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r5-private-outer-integration-evidence-2026-08-22.md).
+The candidate repairs every inner failure and exhausts 14 monotone finite
+outer updates, but fixed `1e-8` inner stationarity does not yield two absolute
+pressure-state admissions. No state commits. The
+[B4E2D7R6 research](../../development/nonlocal-nsr3b4e2d7r6-cap-accuracy-discriminator-research-2026-08-22.md)
+derives the common dual/pressure bound and freezes five post-prefix accuracy
+lanes through a bounded 64-update observation horizon. Its
+[contract](03b4e2d7r6-cap-accuracy-discriminator-contract.md) separates
+cap-only, accuracy-only, coupled and formulation outcomes. Implement/run only
+this private discriminator next; it cannot itself change a cap or tolerance.
