@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D_FAIL_NO_TRAJECTORY / B4E2D0_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D0_PASS / B4E2D1_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -460,10 +460,18 @@
   alignment predicate is false, then its failure report calls trajectory-root
   on an empty prefix and throws. Stdout is empty, stderr SHA is
   `b469c089...08af`; process B was not run.
-- **Current decision:** B4E2D0 freezes a no-trajectory observability command
-  that publishes every preflight predicate and cannot call empty-prefix roots.
-- **Next action:** implement and run B4E2D0 twice, then freeze only the first
-  exact mismatch reclosure. Do not rerun the physical B4E2D command yet.
+- **Current conclusion:** B4E2D0 passes twice byte-identically and isolates
+  only pair root/count drift: decoded frame zero has `342502/611520/120`
+  versus raw-lattice B4E0 `335814/596256/117`.
+- **Binary64 diagnostic:** all 6,000 external Dam frame-zero positions match
+  integer-micrometre decode bit-for-bit, while only 384 also match the current
+  addition-built lattice. Horizon-boundary pairs expose the one-ulp change.
+- **Current decision:** B4E2D1 freezes an independent standalone external
+  frame-zero raw-bit root and exact comparison with micrometre-division versus
+  addition-built candidate states.
+- **Next action:** implement/run B4E2D1 across two Release builds/processes,
+  preserving the old first-output report bytes, then freeze the selected
+  topology-alignment repair.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 

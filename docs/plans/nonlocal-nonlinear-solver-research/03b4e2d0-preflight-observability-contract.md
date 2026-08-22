@@ -1,6 +1,6 @@
 # NSR3-B4E2D0 -- Dam preflight observability contract
 
-Status: `FROZEN / NOT_RUN / NO_TRAJECTORY`
+Status: `FROZEN / PASS / PAIR_IDENTITY_MISMATCH / NO_TRAJECTORY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -42,3 +42,9 @@ the first observed mismatch. It cannot resume the four-step pilot, change a
 physical coefficient/tolerance, or authorize Hydro/full corpus/runtime/GPU/
 production work.
 
+B4E2D0 passes twice byte-identically and isolates the pair root/counts after
+frame-zero decode; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d0-preflight-observability-evidence-2026-08-22.md).
+Because the external payload appears to select the decoded binary64 state,
+B4E2D1 must bind that external raw-bit fact independently before topology is
+reclosed.
