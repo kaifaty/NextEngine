@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREI_FAIL / EPHEMERAL_SCRATCH_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREP_FROZEN / IMPLEMENTATION_PENDING` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -378,6 +378,9 @@
 - **Current decision:** research only one transaction-local high-water reuse
   path for builder-local density contribution. It changes no returned vector
   size, workspace ownership or arithmetic.
+- **Current decision:** B4EP10SIRDIREP freezes one ordinary high-water
+  `std::vector<double>` for density contribution only, plus explicit baseline
+  health before relative A/B. Implement and measure only this candidate.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -476,6 +479,7 @@
 | NSR3B4EP10SIRDIREA PASS | full coverage; two workspace/one ephemeral lane; projected `0.007801x` initialization bytes | buffer reuse implementation/A-B contract research only |
 | NSR3B4EP10SIRDIREI contract | overwrite construction for 345,576,600 audited `double` slots; no pool/size change | implement and run frozen balanced A/B only |
 | NSR3B4EP10SIRDIREI FAIL | default SIRDI regresses `2.431x`; candidate-relative probe invalid; code reverted | ephemeral density-contribution scratch research only |
+| NSR3B4EP10SIRDIREP contract | one local pair buffer; 85.7M repeated slots -> 380,511 growth slots; baseline-health gate | implement and run balanced A/B only |
 
 Candidate solver identity remains:
 
@@ -1111,6 +1115,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** a separately frozen representation redesign has broader
   ownership/portability authority; this performance lineage does not.
 
+### D-051 -- Admit local density scratch with baseline health
+
+- **Observation:** density contribution is builder-local, fully overwritten
+  and has exactly one live lane. Its 85,716,150 repeated slots project to only
+  380,511 high-water growth slots without changing returned storage.
+- **Decision:** freeze one transaction-local standard-vector reuse candidate
+  and require the SIRDI baseline itself to remain within 4.72 s median before
+  any relative A/B gate is considered.
+- **Rejected:** shared allocator/type changes, returned-workspace pooling,
+  comparing against a degraded baseline, or a 5% gate inconsistent with this
+  isolated role's measured upper contribution.
+- **Reconsider when:** exact balanced A/B either selects the candidate for
+  residual attribution or stops this buffer-initialization branch.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1163,12 +1181,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research a transaction-local high-water `std::vector<double>` used only for
-   density contribution; keep its logical size at high-water internally and
-   index only the current pair extent.
-2. Freeze exact acquire/release/growth/work and balanced A/B gates before code.
-3. Preserve every returned workspace vector and SIRDI as the immutable
-   baseline; do not reopen allocator/raw-storage work.
+1. Implement only the frozen density-contribution high-water vector, exact
+   counters and all-exit release guard.
+2. Verify old SIRDI byte-exact and candidate work/physics/lifetime exact.
+3. Run warmups and balanced `AB`, `BA`, `AB`; evaluate baseline health before
+   relative gates.
 
 ## Reconsideration triggers
 

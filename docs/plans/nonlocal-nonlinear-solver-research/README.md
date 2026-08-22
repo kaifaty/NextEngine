@@ -1374,3 +1374,9 @@ The user-allocator type makes unchanged SIRDI take 10.43 s versus its accepted
 therefore invalid. The implementation was reverted. Retain SIRDI and research
 only the builder-local density-contribution scratch lane, with no returned-
 workspace representation change.
+The [B4EP10SIRDIREP research](../../development/nonlocal-nsr3b4ep10sirdirep-density-contribution-scratch-research-2026-08-22.md)
+selects the one builder-local pair buffer proven safe by SIRDIREA. Its
+[frozen contract](03b4ep10sirdirep-density-contribution-scratch-contract.md)
+keeps a transaction-local standard vector at high-water, changes no returned
+storage and adds explicit baseline-health gates before relative A/B. Implement
+and measure only this opt-in candidate.
