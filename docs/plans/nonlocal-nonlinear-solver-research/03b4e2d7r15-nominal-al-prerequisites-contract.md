@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R15 -- nominal AL prerequisites contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP`
+Status: `PASS / NOMINAL_AL_PREREQUISITES_CONFIRMED / SHARED_HOST_PERFORMANCE_STOP`
 
 Identity projection (exact bytes, no final LF):
 
@@ -50,3 +50,5 @@ Confirmation grants one nominal AL prerequisite set only. It grants no
 nominal solve, macro/trajectory, wall timing, runtime binary128, parallel/GPU
 path, public state, physics mutation or production authority.
 
+Execution is closed by the
+[NSR3-B4E2D7R15 evidence](../../development/nonlocal-nsr3b4e2d7r15-nominal-al-prerequisites-evidence-2026-08-22.md).

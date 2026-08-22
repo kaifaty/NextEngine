@@ -2,7 +2,7 @@
 
 Date: `2026-08-22`
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP`
+Status: `RESULT_CLOSED / PASS / SHARED_HOST_PERFORMANCE_STOP`
 
 ## Question
 
@@ -115,3 +115,10 @@ A PASS authorizes D7R16 to freeze one aligned nominal Dam substep shadow with
 predeclared nonlinear work, residual, conservation, rollback and watchdog
 gates. It still does not authorize a macro trajectory or production path.
 
+## Result
+
+D7R15 passes as `NOMINAL_AL_PREREQUISITES_CONFIRMED`; see the
+[dated evidence](nonlocal-nsr3b4e2d7r15-nominal-al-prerequisites-evidence-2026-08-22.md).
+The explicit aligned `dt`, four sparse binary128 audit roots and identity-bound
+static support are exact. Research/freeze D7R16 before executing one nominal
+substep.

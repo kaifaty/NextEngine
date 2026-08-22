@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R14_PASS_SPARSE_AL_WORKSPACE_CANDIDATE / B4E2D7R15_FROZEN_PREREQUISITES_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R15_PASS_NOMINAL_AL_PREREQUISITES / B4E2D7R16_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -104,9 +104,19 @@
 - **Current decision:** D7R15 is frozen as three exact nominal prerequisites:
   explicit candidate `dt`, sparse binary128 audit over a `0.04h` superset and
   identity-bound static support. D7R14 legacy bytes must remain exact.
-- **Next action:** implement/run only D7R15. A PASS advances one aligned
-  nominal substep to D7R16; no nominal solve, macro, trajectory or wall timing
-  is authorized in D7R15.
+- **Current conclusion:** D7R15 passes reproducibly at stdout SHA
+  `dda8399f...f5cf`, semantic result `a207d671...2858` and route
+  `NOMINAL_AL_PREREQUISITES_CONFIRMED`. D7R14 and D7R13 bytes remain exact.
+- **Prerequisite fact:** aligned `dt=1/(240*78)` is exact through evaluation,
+  gradient, HVP, stationarity and reductions; all four D7R13 audit roots
+  reproduce through a sparse binary128 union with zero all-pair calls.
+- **Nominal structural fact:** one identity-bound static support index builds
+  the decoded frame-zero workspace at `342502/611520/120` pairs/directed/degree
+  and zero active centres. Maximum live workspaces is two; no solve ran.
+- **Next action:** research/freeze D7R16 as exactly one aligned nominal Dam
+  substep shadow with bounded nonlinear work, residual, conservation,
+  watchdog and rollback gates. Do not execute a macro, trajectory or timing
+  lane.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1823,9 +1833,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R14's exact sparse AL backend and structural work baseline.
-   Implement D7R15 explicit-dt, sparse-binary128 and static-support
-   prerequisites only; defer the aligned nominal substep to D7R16.
+6. Preserve D7R15's exact explicit-dt, sparse-binary128 and identity-bound
+   static-support prerequisites. Research/freeze D7R16 before executing one
+   aligned nominal substep; defer macro, trajectory and timing work.
 
 ## Reconsideration triggers
 

@@ -1713,3 +1713,11 @@ canonicalize fixed support. Its
 recloses explicit `dt`, a sparse binary128 superset oracle and identity-bound
 static support while preserving D7R14 bytes. Implement/run these prerequisites
 next; the first nominal substep moves to D7R16, with no macro or timing lane.
+D7R15 passes and selects `NOMINAL_AL_PREREQUISITES_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r15-nominal-al-prerequisites-evidence-2026-08-22.md).
+The aligned substep `dt` is exact through every candidate formula, all four
+D7R13 binary128 roots reproduce through a sparse current/trial superset union,
+and one identity-bound nominal static index reconstructs `342502` pairs with
+zero active centres. D7R14/D7R13 bytes remain exact. Research/freeze D7R16 as
+one aligned nominal substep shadow next; no macro, trajectory or timing lane is
+authorized.
