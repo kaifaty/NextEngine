@@ -1,6 +1,6 @@
 # NSR3-B4E2D3 -- repaired Dam reference-binary64 first-output contract
 
-Status: `FROZEN / NOT_RUN / DAM_STEP_4 / RESEARCH_ONLY`
+Status: `FAIL / STEP_2_STRAIN / DAM_STEP_4 / RESEARCH_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -41,3 +41,16 @@ alignment above. PASS authorizes only B4E2H Hydro-first research/contract
 design. It grants no full-corpus, speed, runtime/GPU/schema/PhysX or production
 authority.
 
+## Closed execution
+
+Process A exits one with empty stderr and a deterministic 4,189-byte failure
+report. Step one commits exactly, but step two reaches
+`maximum_positive_density_strain = 0.0011747197409319732`, above the frozen
+`0.001` physical limit, despite passing its nonlinear, KKT, penetration,
+support-closure, ownership and publication gates. Per this contract, process B
+was not run. The exact evidence is recorded in
+[the B4E2D3 evidence](../../development/nonlocal-nsr3b4e2d3-dam-reference-first-output-evidence-2026-08-22.md).
+
+This FAIL authorizes only a separately frozen fixed-refinement discriminator
+from the exact committed step-one state. It does not authorize changing
+`KAPPA`, tolerances, physical limits, formulas or the adaptive controller.

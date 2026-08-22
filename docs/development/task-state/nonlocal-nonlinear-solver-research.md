@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D2_PASS / B4E2D3_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D3_FAIL_STEP2_STRAIN / B4E2D4_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -473,10 +473,15 @@
 - **Current conclusion:** B4E2D2 passes twice. Addition/decoded share 315,522
   pairs with `20,292/26,980` one-sided pairs, all within five epsilons of the
   horizon; both initial pressure evaluations are exactly inactive.
-- **Current decision:** B4E2D3 freezes a new pilot identity using external
-  frame-zero bits, decoded topology facts and safe empty-prefix reporting.
-- **Next action:** implement B4E2D3, build Release twice, run A under the
-  watchdog, and run B only if A passes every physical/reference gate.
+- **Negative result:** B4E2D3 step one commits exactly. Step two solves and
+  publishes at 80 accepted substeps, but maximum positive density strain is
+  `0.0011747197409319732`, above the frozen `0.001` material gate. Its KKT,
+  penetration, closure and work gates pass. Process B was correctly skipped.
+- **Current decision:** preserve B4E2D3 FAIL. Research and freeze a fixed
+  80/160/320-substep step-two discriminator from the exact committed step-one
+  state. Do not change `KAPPA`, tolerances, formulas or physical gates.
+- **Next action:** distinguish premature temporal admission from converged
+  finite-penalty compressibility before any controller or model redesign.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -1469,9 +1474,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
 2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
-3. Research and freeze a separate Dam-first B4E2D physical-pilot contract.
-4. Do not implement or run its four macros until state handoff, cumulative
-   physics, reference tolerance, ownership and watchdog gates are frozen.
+3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
+4. Freeze and run only the B4E2D4 fixed-refinement discriminator; do not tune
+   the controller or penalty model before its route is known.
 
 ## Reconsideration triggers
 
