@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10R1_PASS / B4EP10P_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10PD_FROZEN / MASKED_PLAN_AUDIT_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -269,8 +269,14 @@
   orchestration/imbalance shares are only 1.11%/6.55%, while evaluation leads
   HVP by `1.916851x`; `evaluation_plan` is 42.33% of evaluation.
 - **Current decision:** research one B4EP10P architecture for the active
-  owner-plan plus canonical energy-fold subphase. No optimization is yet
-  selected or authorized for implementation.
+  owner-plan plus canonical energy-fold subphase.
+- **Research conclusion:** repeated plan construction performs at least
+  546.8M record visits versus 1.356M centre energy-fold visits. The existing
+  225-reuse Verlet superset can own one fixed target CSR if stable active-mask
+  filtering reproduces every current target row exactly.
+- **Current decision:** B4EP10PD audits all 226 row sequences, full-scan
+  expansion, 64 MiB capacity and corrupt mapping/target negatives. Returned
+  physics and OpenMP stay unchanged; no fast path is authorized yet.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -345,6 +351,7 @@
 | NSR3B4EP10R FAIL | exact target, unreliable collection-interval warning | preserve B4EP10S; internal parallel phase timing research only |
 | NSR3B4EP10R1 contract | opt-in hierarchical stages plus worker active intervals | implement/run three only; duration has no speed credit |
 | NSR3B4EP10R1 PASS | orchestration 1.11%, imbalance 6.55%; evaluation leads `1.916851x` | B4EP10P evaluation-plan architecture research only |
+| NSR3B4EP10PD contract | one masked superset target CSR versus 226 active plans | structural/capacity audit only; no timing or fast path |
 
 Candidate solver identity remains:
 
@@ -421,6 +428,7 @@ production authority is created by this lineage.
 | [B4EP10R](../nonlocal-nsr3b4ep10r-selected8-profile-evidence-2026-08-22.md) | target exact but PC samples marked unreliable | discard attribution; design internal timing |
 | [B4EP10R1 research](../nonlocal-nsr3b4ep10r1-internal-parallel-timing-research-2026-08-22.md) | active/imbalance/orchestration timing selected | implement isolated command and run three exact processes |
 | [B4EP10R1](../nonlocal-nsr3b4ep10r1-internal-parallel-timing-evidence-2026-08-22.md) | stable evaluation-plan leader; region and balance hypotheses rejected | research one exact plan architecture before implementation |
+| [B4EP10P research](../nonlocal-nsr3b4ep10p-masked-superset-plan-research-2026-08-22.md) | stable superset subsequence can remove repeated transpose construction | run structural/scan/capacity audit before fast path |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -811,6 +819,16 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** routing from unreliable gprofng samples, optimizing OpenMP
   barriers, or treating instrumented durations as a speed result.
 
+### D-038 -- Audit one masked superset transpose
+
+- **Observation:** the cache already has one certified superset and 225
+  reuses; current active rows preserve its order. Rebuilding the active plan
+  visits at least 546.8M records versus 1.356M energy-fold centres.
+- **Decision:** audit a fixed superset target CSR filtered by current slot and
+  compression masks before implementing it.
+- **Rejected:** repeated parallel rebuild as the first choice, atomic scatter,
+  or assuming the pair-superset ratio bounds target-gather bandwidth.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -859,10 +877,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research B4EP10P owner-plan construction and exact order-preserving reuse
-   or transpose options against the current active-plan semantics.
-2. Freeze one bounded discriminator or implementation contract before code;
-   do not infer throughput or production readiness from B4EP10R1 timing.
+1. Implement the frozen B4EP10PD structural audit without changing returned
+   physics, timers or old OpenMP paths.
+2. Run two exact processes and route only after stable-row, scan-expansion and
+   capacity gates; do not infer speed or production readiness.
 
 ## Reconsideration triggers
 
