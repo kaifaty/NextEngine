@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D5_PASS_AL_SELECTED / B4E2D6_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D6_PASS_AL_PATH / B4E2D7_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -512,6 +512,13 @@
 - **Next action:** implement/run B4E2D6 with analytic density-path derivatives,
   bracketed inner solves, cold/warm/inactive/reset/rollback controls and no
   trajectory.
+- **Current conclusion:** B4E2D6 passes twice byte-identically and selects
+  `AL_PATH_VIABLE`. Cold start reaches `1.58e-11` primal violation in three
+  outer updates; warm start needs one. Inactive, reset, rollback and mutation
+  controls pass over the true eight-centre density path.
+- **Next action:** research/freeze B4E2D7 as a dense-vector AL oracle with
+  analytic gradient/HVP and trust-region inner solve. Keep nominal Dam and
+  runtime pressure persistence blocked.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 

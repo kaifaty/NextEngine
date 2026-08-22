@@ -1,6 +1,6 @@
 # NSR3-B4E2D6 -- augmented-Lagrangian path-oracle contract
 
-Status: `FROZEN / NOT_RUN / NO_TRAJECTORY`
+Status: `PASS / AL_PATH_VIABLE / NO_TRAJECTORY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -52,3 +52,10 @@ zero, empty stderr and byte-identical stdout. PASS authorizes only dense-vector
 AL oracle research/contract design. It grants no complete solver, nominal
 trajectory, persistent pressure schema, performance, GPU/runtime/PhysX or
 production authority.
+
+## Closed execution
+
+Both clean Release processes pass with empty stderr and byte-identical stdout.
+Cold start converges in three outer updates and warm start in one; the selected
+route is `AL_PATH_VIABLE`. Exact evidence is recorded in
+[the B4E2D6 evidence](../../development/nonlocal-nsr3b4e2d6-al-path-oracle-evidence-2026-08-22.md).
