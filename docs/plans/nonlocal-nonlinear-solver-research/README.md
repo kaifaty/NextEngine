@@ -1534,3 +1534,9 @@ out horizon crossing, and the topology-stable half step descends with ratio
 `1.3285`. Research/freeze one B4E2D7R3 globalization discriminator comparing
 backtrack reuse, step-norm-aware trust recomputation and the legacy first-bind
 continuation. No solver-policy implementation is authorized yet.
+The [B4E2D7R3 research](../../development/nonlocal-nsr3b4e2d7r3-globalization-policy-research-2026-08-22.md)
+grounds the candidates in step-norm-aware trust updates and hybrid rejected-
+direction line search. Its
+[frozen contract](03b4e2d7r3-globalization-policy-contract.md) compares three
+exact replay lanes with fixed precedence. Implement/run only this discriminator
+next; no candidate may update state.

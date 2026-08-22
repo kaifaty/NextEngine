@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R2R_PASS_TRUST_RECLOSURE / B4E2D7R3_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R2R_PASS_TRUST_RECLOSURE / B4E2D7R3_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -589,6 +589,12 @@
 - **Next action:** research/freeze B4E2D7R3 comparing backtrack reuse, a
   rejected-step-norm radius update plus Steihaug recompute and first-binding
   legacy continuation. Do not install a policy yet.
+- **Current decision:** B4E2D7R3 freezes three replay lanes. Its preferred
+  candidate uses the common rejected-step interpolation/radius rule and one
+  unchanged Steihaug recompute; backtrack reuse and legacy first binding are
+  explicit fallbacks with fixed selection precedence.
+- **Next action:** implement/run B4E2D7R3 twice with zero accepted/public
+  steps. Preserve every parent command and shared-host performance stop.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -712,6 +718,7 @@
 | NSR3B4E2D7R2 FAIL | `W'(h)=-0.0` violates the frozen positive-zero bit gate | signed-zero contract reclosure only |
 | NSR3B4E2D7R2R contract | numerical-zero gate with exact signed bits over unchanged D7R2 | implement/run reclosure only |
 | NSR3B4E2D7R2R PASS | full step too large; topology-stable half step descends with ratio `1.3285` | trust/globalization discriminator research only |
+| NSR3B4E2D7R3 contract | backtrack versus step-norm trust versus legacy first binding | implement/run replay-only policy discriminator |
 
 Candidate solver identity remains:
 
