@@ -8655,6 +8655,27 @@ struct JointSplitIncomingPlanAuditTrace {
     bool incoming_target_negative_rejected = false;
 };
 
+struct JointIncomingConstructionAuditTrace {
+    bool enabled = false;
+    std::size_t plan_audits = 0U;
+    std::size_t directed_slots = 0U;
+    std::size_t incoming_entries = 0U;
+    std::size_t pair_visits = 0U;
+    std::size_t support_csr_records = 0U;
+    std::size_t endpoint_writes = 0U;
+    std::size_t target_count_visits = 0U;
+    std::size_t target_fill_visits = 0U;
+    std::size_t added_regions = 0U;
+    std::size_t added_logical_partitions = 0U;
+    std::size_t maximum_candidate_payload_bytes = 0U;
+    std::size_t maximum_scratch_payload_bytes = 0U;
+    std::size_t order_mismatches = 0U;
+    std::size_t coverage_mismatches = 0U;
+    std::size_t fallbacks = 0U;
+    bool pair_endpoint_negative_rejected = false;
+    bool support_cursor_negative_rejected = false;
+};
+
 struct JointParallelTrace {
     bool enabled = false;
     int requested_workers = 0;
@@ -8685,6 +8706,7 @@ struct JointParallelTrace {
     JointPartitionedActivePlanAuditTrace partitioned_plan_audit;
     JointCurrentTopologyPlanAuditTrace current_topology_plan_audit;
     JointSplitIncomingPlanAuditTrace split_incoming_plan_audit;
+    JointIncomingConstructionAuditTrace incoming_construction_audit;
 };
 
 bool add_joint_parallel_duration(
@@ -11897,6 +11919,385 @@ bool b4ep10sid_audit_split_incoming_plan(
     return true;
 }
 
+JointOwnerGatherPlan b4ep10sid_incoming_oracle(
+    const JointOwnerGatherPlan& full) {
+    JointOwnerGatherPlan result;
+    if (!full.passed || full.target_offsets.empty()
+        || full.target_offsets.front() != 0U
+        || full.target_offsets.back() != full.target_slots.size()) {
+        result.failure = "INCOMING_ORACLE_SOURCE";
+        return result;
+    }
+    const std::size_t total = full.target_offsets.size() - 1U;
+    result.source_by_slot = full.source_by_slot;
+    result.target_offsets.resize(total + 1U);
+    std::size_t output = 0U;
+    for (std::size_t target = 0U; target < total; ++target) {
+        result.target_offsets[target] = static_cast<std::uint32_t>(output);
+        for (std::size_t entry = full.target_offsets[target];
+             entry < full.target_offsets[target + 1U]; ++entry) {
+            const std::size_t slot = full.target_slots[entry];
+            if (slot >= full.source_by_slot.size()) {
+                result.failure = "INCOMING_ORACLE_SLOT";
+                return result;
+            }
+            if (full.source_by_slot[slot] != target) {
+                result.target_slots.push_back(static_cast<std::uint32_t>(slot));
+                ++output;
+            }
+        }
+    }
+    result.target_offsets[total] = static_cast<std::uint32_t>(output);
+    if (output != full.source_by_slot.size()) {
+        result.failure = "INCOMING_ORACLE_COVERAGE";
+        return result;
+    }
+    result.payload_bytes = result.source_by_slot.size()
+            * sizeof(std::uint32_t)
+        + result.target_offsets.size() * sizeof(std::uint32_t)
+        + result.target_slots.size() * sizeof(std::uint32_t);
+    result.passed = true;
+    return result;
+}
+
+enum class B4EP10SICDInjection {
+    None,
+    PairEndpoint,
+    SupportCursor,
+};
+
+struct B4EP10SICDPlanBuild {
+    JointOwnerGatherPlan plan;
+    std::size_t directed_slots = 0U;
+    std::size_t incoming_entries = 0U;
+    std::size_t pair_visits = 0U;
+    std::size_t support_csr_records = 0U;
+    std::size_t endpoint_writes = 0U;
+    std::size_t target_count_visits = 0U;
+    std::size_t target_fill_visits = 0U;
+    std::size_t scratch_payload_bytes = 0U;
+};
+
+B4EP10SICDPlanBuild b4ep10sicd_build_incoming_plan(
+    const JointNeighborhood& neighborhood,
+    JointParallelTrace& parallel,
+    B4EP10SICDInjection injection = B4EP10SICDInjection::None) {
+    B4EP10SICDPlanBuild result;
+    JointOwnerGatherPlan& plan = result.plan;
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    if (fluid_count > std::numeric_limits<std::size_t>::max()
+            - neighborhood.support.size()) {
+        plan.failure = "INCOMING_CONSTRUCTION_CAPACITY";
+        return result;
+    }
+    const std::size_t total = fluid_count + neighborhood.support.size();
+    const std::size_t pair_count = neighborhood.pairs.size();
+    const std::size_t directed =
+        neighborhood.flat_directed_pair_indices.size();
+    constexpr std::uint32_t missing =
+        std::numeric_limits<std::uint32_t>::max();
+    if (!neighborhood.passed || !neighborhood.flat_adjacency
+        || neighborhood.flat_offsets.size() != fluid_count + 1U
+        || directed > std::numeric_limits<std::uint32_t>::max()
+        || pair_count > std::numeric_limits<std::uint32_t>::max()
+        || total >= std::numeric_limits<std::uint32_t>::max()) {
+        plan.failure = "INCOMING_CONSTRUCTION_SOURCE";
+        return result;
+    }
+    result.directed_slots = directed;
+    plan.source_by_slot.resize(directed);
+    std::vector<std::uint32_t> pair_source_slot(pair_count, missing);
+    std::vector<std::uint32_t> pair_participant_slot(pair_count, missing);
+    const auto source_map = [&](std::size_t begin,
+                                std::size_t end, int) {
+        for (std::size_t source = begin; source < end; ++source) {
+            const std::size_t row_begin = neighborhood.flat_offsets[source];
+            const std::size_t row_end = neighborhood.flat_offsets[source + 1U];
+            if (row_end < row_begin || row_end > directed) {
+                return false;
+            }
+            for (std::size_t slot = row_begin; slot < row_end; ++slot) {
+                const std::size_t pair_index =
+                    neighborhood.flat_directed_pair_indices[slot];
+                if (pair_index >= pair_count) {
+                    return false;
+                }
+                plan.source_by_slot[slot] =
+                    static_cast<std::uint32_t>(source);
+                const JointPair pair = neighborhood.pairs[pair_index];
+                if (pair.fluid == source) {
+                    pair_source_slot[pair_index] =
+                        static_cast<std::uint32_t>(slot);
+                } else if (pair.participant == source
+                    && pair.participant < fluid_count) {
+                    pair_participant_slot[pair_index] =
+                        static_cast<std::uint32_t>(slot);
+                } else {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+    if (!joint_parallel_for(fluid_count, parallel, source_map)) {
+        plan.failure = parallel.failure;
+        return result;
+    }
+    result.endpoint_writes = directed;
+    if (injection == B4EP10SICDInjection::PairEndpoint
+        && !pair_source_slot.empty()) {
+        pair_source_slot.front() = static_cast<std::uint32_t>(directed);
+    }
+
+    const std::size_t support_count = neighborhood.support.size();
+    std::vector<std::uint32_t> support_offsets(support_count + 1U);
+    for (const JointPair pair : neighborhood.pairs) {
+        ++result.pair_visits;
+        if (pair.participant >= fluid_count) {
+            const std::size_t support = pair.participant - fluid_count;
+            if (support >= support_count
+                || support_offsets[support + 1U]
+                    == std::numeric_limits<std::uint32_t>::max()) {
+                plan.failure = "INCOMING_CONSTRUCTION_SUPPORT";
+                return result;
+            }
+            ++support_offsets[support + 1U];
+            ++result.support_csr_records;
+        }
+    }
+    for (std::size_t support = 0U; support < support_count; ++support) {
+        if (support_offsets[support]
+                > std::numeric_limits<std::uint32_t>::max()
+                    - support_offsets[support + 1U]) {
+            plan.failure = "INCOMING_CONSTRUCTION_SUPPORT";
+            return result;
+        }
+        support_offsets[support + 1U] += support_offsets[support];
+    }
+    std::vector<std::uint32_t> support_pair_indices(
+        result.support_csr_records);
+    std::vector<std::uint32_t> support_cursor = support_offsets;
+    for (std::size_t pair_index = 0U; pair_index < pair_count; ++pair_index) {
+        ++result.pair_visits;
+        const JointPair pair = neighborhood.pairs[pair_index];
+        if (pair.participant >= fluid_count) {
+            const std::size_t support = pair.participant - fluid_count;
+            const std::size_t cursor = support_cursor[support]++;
+            if (cursor >= support_pair_indices.size()) {
+                plan.failure = "INCOMING_CONSTRUCTION_SUPPORT";
+                return result;
+            }
+            support_pair_indices[cursor] =
+                static_cast<std::uint32_t>(pair_index);
+        }
+    }
+    if (injection == B4EP10SICDInjection::SupportCursor
+        && !support_pair_indices.empty()) {
+        support_pair_indices.front() = static_cast<std::uint32_t>(pair_count);
+    }
+
+    std::vector<std::uint32_t> incoming_degree(total);
+    const auto target_count = [&](std::size_t begin,
+                                  std::size_t end, int) {
+        for (std::size_t target = begin; target < end; ++target) {
+            std::size_t degree = 0U;
+            if (target < fluid_count) {
+                for (std::size_t slot = neighborhood.flat_offsets[target];
+                     slot < neighborhood.flat_offsets[target + 1U]; ++slot) {
+                    const std::size_t pair_index =
+                        neighborhood.flat_directed_pair_indices[slot];
+                    if (pair_index >= pair_count) {
+                        return false;
+                    }
+                    const std::size_t participant = joint_pair_participant(
+                        neighborhood, neighborhood.pairs[pair_index], target);
+                    degree += participant < fluid_count ? 1U : 0U;
+                }
+            } else {
+                const std::size_t support = target - fluid_count;
+                degree = support_offsets[support + 1U]
+                    - support_offsets[support];
+            }
+            if (degree > std::numeric_limits<std::uint32_t>::max()) {
+                return false;
+            }
+            incoming_degree[target] = static_cast<std::uint32_t>(degree);
+        }
+        return true;
+    };
+    if (!joint_parallel_for(total, parallel, target_count)) {
+        plan.failure = parallel.failure;
+        return result;
+    }
+    result.target_count_visits = directed + result.support_csr_records;
+    plan.target_offsets.resize(total + 1U);
+    std::size_t offset = 0U;
+    for (std::size_t target = 0U; target < total; ++target) {
+        plan.target_offsets[target] = static_cast<std::uint32_t>(offset);
+        if (incoming_degree[target]
+                > std::numeric_limits<std::uint32_t>::max() - offset) {
+            plan.failure = "INCOMING_CONSTRUCTION_CAPACITY";
+            return result;
+        }
+        offset += incoming_degree[target];
+    }
+    plan.target_offsets[total] = static_cast<std::uint32_t>(offset);
+    if (offset != directed) {
+        plan.failure = "INCOMING_CONSTRUCTION_COVERAGE";
+        return result;
+    }
+    result.incoming_entries = offset;
+    plan.target_slots.resize(offset);
+    const auto target_fill = [&](std::size_t begin,
+                                 std::size_t end, int) {
+        for (std::size_t target = begin; target < end; ++target) {
+            std::size_t cursor = plan.target_offsets[target];
+            const std::size_t row_end = plan.target_offsets[target + 1U];
+            if (target < fluid_count) {
+                for (std::size_t slot = neighborhood.flat_offsets[target];
+                     slot < neighborhood.flat_offsets[target + 1U]; ++slot) {
+                    const std::size_t pair_index =
+                        neighborhood.flat_directed_pair_indices[slot];
+                    if (pair_index >= pair_count) {
+                        return false;
+                    }
+                    const JointPair pair = neighborhood.pairs[pair_index];
+                    if (pair.participant >= fluid_count) {
+                        continue;
+                    }
+                    const std::uint32_t incoming = pair.fluid == target
+                        ? pair_participant_slot[pair_index]
+                        : pair_source_slot[pair_index];
+                    if (incoming == missing || incoming >= directed
+                        || cursor >= row_end) {
+                        return false;
+                    }
+                    plan.target_slots[cursor++] = incoming;
+                }
+            } else {
+                const std::size_t support = target - fluid_count;
+                for (std::size_t entry = support_offsets[support];
+                     entry < support_offsets[support + 1U]; ++entry) {
+                    const std::size_t pair_index = support_pair_indices[entry];
+                    if (pair_index >= pair_count) {
+                        return false;
+                    }
+                    const std::uint32_t incoming =
+                        pair_source_slot[pair_index];
+                    if (incoming == missing || incoming >= directed
+                        || cursor >= row_end) {
+                        return false;
+                    }
+                    plan.target_slots[cursor++] = incoming;
+                }
+            }
+            if (cursor != row_end) {
+                return false;
+            }
+            std::size_t previous = 0U;
+            bool have_previous = false;
+            for (std::size_t entry = plan.target_offsets[target];
+                 entry < row_end; ++entry) {
+                const std::size_t slot = plan.target_slots[entry];
+                if (slot >= directed || (have_previous && slot <= previous)
+                    || plan.source_by_slot[slot] == target) {
+                    return false;
+                }
+                previous = slot;
+                have_previous = true;
+            }
+        }
+        return true;
+    };
+    if (!joint_parallel_for(total, parallel, target_fill)) {
+        plan.failure = injection == B4EP10SICDInjection::PairEndpoint
+            ? "INCOMING_CONSTRUCTION_PAIR_ENDPOINT"
+            : injection == B4EP10SICDInjection::SupportCursor
+                ? "INCOMING_CONSTRUCTION_SUPPORT_CURSOR"
+                : parallel.failure;
+        return result;
+    }
+    result.target_fill_visits = directed + result.support_csr_records;
+    plan.payload_bytes = plan.source_by_slot.size() * sizeof(std::uint32_t)
+        + plan.target_offsets.size() * sizeof(std::uint32_t)
+        + plan.target_slots.size() * sizeof(std::uint32_t);
+    result.scratch_payload_bytes =
+        2U * pair_count * sizeof(std::uint32_t)
+        + support_offsets.size() * sizeof(std::uint32_t)
+        + support_pair_indices.size() * sizeof(std::uint32_t)
+        + support_cursor.size() * sizeof(std::uint32_t)
+        + incoming_degree.size() * sizeof(std::uint32_t);
+    plan.passed = true;
+    return result;
+}
+
+bool b4ep10sicd_audit_incoming_construction(
+    const JointNeighborhood& neighborhood,
+    JointParallelTrace& parallel) {
+    JointIncomingConstructionAuditTrace& audit =
+        parallel.incoming_construction_audit;
+    std::vector<double> sentinel(neighborhood.fluid.size(), 1.0);
+    JointOwnerDataflowTrace oracle_trace;
+    const JointOwnerGatherPlan full = build_joint_owner_gather_plan(
+        neighborhood, sentinel, oracle_trace);
+    const JointOwnerGatherPlan oracle = b4ep10sid_incoming_oracle(full);
+    const std::size_t regions_before = parallel.regions;
+    const std::size_t partitions_before = parallel.logical_partitions;
+    const B4EP10SICDPlanBuild candidate =
+        b4ep10sicd_build_incoming_plan(neighborhood, parallel);
+    if (!oracle.passed || !candidate.plan.passed
+        || candidate.plan.source_by_slot != oracle.source_by_slot
+        || candidate.plan.target_offsets != oracle.target_offsets
+        || candidate.plan.target_slots != oracle.target_slots
+        || candidate.plan.payload_bytes != oracle.payload_bytes) {
+        ++audit.order_mismatches;
+        return false;
+    }
+    if (parallel.regions < regions_before
+        || parallel.logical_partitions < partitions_before) {
+        ++audit.coverage_mismatches;
+        return false;
+    }
+    if (audit.plan_audits == 0U) {
+        JointParallelTrace endpoint_negative;
+        endpoint_negative.enabled = true;
+        endpoint_negative.requested_workers = parallel.requested_workers;
+        const B4EP10SICDPlanBuild wrong_endpoint =
+            b4ep10sicd_build_incoming_plan(
+                neighborhood, endpoint_negative,
+                B4EP10SICDInjection::PairEndpoint);
+        audit.pair_endpoint_negative_rejected =
+            !wrong_endpoint.plan.passed;
+        JointParallelTrace cursor_negative;
+        cursor_negative.enabled = true;
+        cursor_negative.requested_workers = parallel.requested_workers;
+        const B4EP10SICDPlanBuild wrong_cursor =
+            b4ep10sicd_build_incoming_plan(
+                neighborhood, cursor_negative,
+                B4EP10SICDInjection::SupportCursor);
+        audit.support_cursor_negative_rejected =
+            !wrong_cursor.plan.passed;
+    }
+    ++audit.plan_audits;
+    audit.directed_slots += candidate.directed_slots;
+    audit.incoming_entries += candidate.incoming_entries;
+    audit.pair_visits += candidate.pair_visits;
+    audit.support_csr_records += candidate.support_csr_records;
+    audit.endpoint_writes += candidate.endpoint_writes;
+    audit.target_count_visits += candidate.target_count_visits;
+    audit.target_fill_visits += candidate.target_fill_visits;
+    audit.added_regions += parallel.regions - regions_before;
+    audit.added_logical_partitions +=
+        parallel.logical_partitions - partitions_before;
+    audit.maximum_candidate_payload_bytes = std::max(
+        audit.maximum_candidate_payload_bytes,
+        candidate.plan.payload_bytes);
+    audit.maximum_scratch_payload_bytes = std::max(
+        audit.maximum_scratch_payload_bytes,
+        candidate.scratch_payload_bytes);
+    return true;
+}
+
 enum class B4EP10PCDInjection {
     None,
     LocalCount,
@@ -12672,6 +13073,14 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
                 parallel)) {
             parallel.failed = true;
             parallel.failure = "SPLIT_INCOMING_PLAN_AUDIT";
+            result.failure = parallel.failure;
+            return result;
+        }
+        if (parallel.incoming_construction_audit.enabled
+            && !b4ep10sicd_audit_incoming_construction(
+                neighborhood, parallel)) {
+            parallel.failed = true;
+            parallel.failure = "INCOMING_CONSTRUCTION_AUDIT";
             result.failure = parallel.failure;
             return result;
         }
@@ -21141,7 +21550,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     bool capture_partitioned_plan_audit = false,
     bool use_partitioned_active_plan = false,
     bool capture_current_topology_plan_audit = false,
-    bool capture_split_incoming_plan_audit = false) {
+    bool capture_split_incoming_plan_audit = false,
+    bool capture_incoming_construction_audit = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -21171,6 +21581,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         capture_current_topology_plan_audit;
     result.trace.owner_parallel.split_incoming_plan_audit.enabled =
         capture_split_incoming_plan_audit;
+    result.trace.owner_parallel.incoming_construction_audit.enabled =
+        capture_incoming_construction_audit;
     struct TopologyCachePointerReset {
         JointQueryTrace& trace;
         ~TopologyCachePointerReset() {
@@ -40921,6 +41333,241 @@ run_nominal_hydro_split_incoming_plan_audit_controls() {
            << ",\"work_exact\":" << (work_exact ? "true" : "false")
            << ",\"timing_admitted\":false"
            << ",\"b4ep10sic_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(semantic_material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4EP10SICD_IDENTITY_SHA256 =
+    "64dba1abc15451b19874df204411a88f34c99f60ca6f7ec296663708bc853267";
+constexpr const char* B4EP10SICD_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep10sicd-incoming-construction-audit|v1|parent="
+    "5b730b2e84676f8b47aa6b16ca2e519ae8b7dff43e935a1fc2ba642bed976b4c:"
+    "a1fbe1e255ca3b95c97c4b446c0f750448faf82b1bb9a461f2acfd35882188c0:"
+    "34a15ad1d08d86f736328b4b701b1518315396eec1cbd49e64c9278c14c36bbf|"
+    "implementation=d5aa920a237618e2e9b0c2e47ebedd4623198f43|command=nominal-hydro-"
+    "incoming-construction-audit|candidate=source-slot+pair-endpoints;fluid-"
+    "target-own-row;support-target-pair-csr|phases=parallel-source-map,parallel-"
+    "target-count,serial-offset-prefix,parallel-target-fill-validate|order="
+    "neighbor-source-ascending;support-pair-global-order|audit=plans226;"
+    "directed150845996;incoming150845996;arrays-byte-exact|executor=additional-"
+    "regions678;additional-logical-partitions43392;workers8|capacity=combined-"
+    "added<=67108864|negatives=pair-endpoint;support-cursor|runs=2;stdout-byte-"
+    "exact;stderr-empty|timing=none;old-commands-exact|reference=closed|credit="
+    "b4ep10sii-integration-contract-only";
+
+} // namespace
+
+SplitBoundaryReport
+run_nominal_hydro_incoming_construction_audit_controls() {
+    constexpr int worker_count = 8;
+    omp_set_dynamic(0);
+    omp_set_max_active_levels(1);
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index = build_joint_static_support_index(
+        tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding = bind_joint_static_support_index(
+        &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP10SICD_IDENTITY_PROJECTION)
+            == B4EP10SICD_IDENTITY_SHA256
+        && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && index.passed && binding.passed;
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    JointTopologySupersetCache cache;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true, true, false, false, worker_count,
+            false, false, false, false, false, false, false, true);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const bool parent_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0;
+    const bool transaction_exact = b4ep1_queries_work_only_exact(
+            transaction.trace)
+        && transaction.trace.query_chain_sha256
+            == "6a220a4e6f4d6d06ab54fe043a9ddf49606aae40e598e43f1c331c78b7802991";
+    const bool physics_exact = b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical;
+    const bool cache_exact = transaction.passed && !cache.failed
+        && cache.queries == 226U && cache.rebuilds == 1U
+        && cache.reuses == 225U && cache.certificate_passes == 225U
+        && cache.certificate_failures == 0U
+        && cache.active_pair_visits == 85716150U;
+    const bool work_exact = transaction.passed
+        && transaction.trace.total_pairs == 85716150U
+        && transaction.trace.total_directed == 150845996U
+        && transaction.trace.total_active_directed == 131987230U
+        && transaction.trace.total_fluid_centers == 1356000U
+        && transaction.trace.coefficient_hvp_lookups == 971831424U
+        && transaction.trace.fused_workspace_builds == 226U
+        && transaction.trace.fusion_mismatches == 0U
+        && transaction.trace.coefficient_mismatches == 0U;
+    const JointParallelTrace& parallel = transaction.trace.owner_parallel;
+    const bool parallel_exact = transaction.passed && parallel.enabled
+        && parallel.requested_workers == worker_count && !parallel.failed
+        && parallel.regions == 4089U
+        && parallel.logical_partitions == 261696U
+        && parallel.minimum_observed_team == worker_count
+        && parallel.maximum_observed_team == worker_count
+        && parallel.team_mismatches == 0U
+        && parallel.coverage_mismatches == 0U
+        && parallel.worker_failures == 0U
+        && parallel.topology_calls == 226U
+        && parallel.evaluation_calls == 226U
+        && parallel.evaluation_density_gathers == 150845996U
+        && parallel.evaluation_directed_values == 131987230U
+        && parallel.evaluation_target_gathers == 263974460U
+        && parallel.plan_builds == 226U && parallel.hvp_calls == 459U
+        && parallel.hvp_directed_values == 242957856U
+        && parallel.hvp_target_gathers == 485915712U;
+    const JointIncomingConstructionAuditTrace& audit =
+        parallel.incoming_construction_audit;
+    std::size_t combined_payload = 0U;
+    std::size_t candidate_and_scratch = 0U;
+    const bool payload_safe = b4ep10pd_checked_add(
+            audit.maximum_candidate_payload_bytes,
+            audit.maximum_scratch_payload_bytes, candidate_and_scratch)
+        && b4ep10pd_checked_add(
+            candidate_and_scratch, parallel.maximum_added_payload_bytes,
+            combined_payload);
+    const bool audit_exact = audit.enabled && audit.plan_audits == 226U
+        && audit.directed_slots == 150845996U
+        && audit.incoming_entries == 150845996U
+        && audit.endpoint_writes == 150845996U
+        && audit.pair_visits == 2U * transaction.trace.total_pairs
+        && audit.support_csr_records > 0U
+        && audit.target_count_visits
+            == audit.directed_slots + audit.support_csr_records
+        && audit.target_fill_visits == audit.target_count_visits
+        && audit.added_regions == 678U
+        && audit.added_logical_partitions == 43392U
+        && audit.maximum_candidate_payload_bytes > 0U
+        && audit.maximum_scratch_payload_bytes > 0U
+        && combined_payload <= 67108864U
+        && audit.order_mismatches == 0U
+        && audit.coverage_mismatches == 0U && audit.fallbacks == 0U
+        && audit.pair_endpoint_negative_rejected
+        && audit.support_cursor_negative_rejected && payload_safe;
+    const bool passed = identity_exact && parent_exact && transaction_exact
+        && physics_exact && cache_exact && work_exact
+        && parallel_exact && audit_exact;
+    std::string failure;
+    if (!identity_exact) failure = "IDENTITY";
+    else if (!parent_exact) failure = "PARENT";
+    else if (!transaction_exact) failure = "TRANSACTION";
+    else if (!physics_exact) failure = "PHYSICS";
+    else if (!cache_exact) failure = "CACHE";
+    else if (!work_exact) failure = "WORK";
+    else if (!parallel_exact) failure = "OWNER_PARALLEL";
+    else if (!audit_exact) failure = "INCOMING_CONSTRUCTION_AUDIT";
+    std::ostringstream correspondence_material;
+    correspondence_material
+        << "nextengine.nonlocal.nsr3b4ep10sicd-correspondence|v1|"
+        << output.frame_root << ':' << output.aggregate_root << '|'
+        << transaction.trajectory_sha256 << ':'
+        << transaction.legacy_ledger_sha256 << ':'
+        << transaction.policy_ledger_sha256 << '|'
+        << transaction.trace.query_chain_sha256 << '|'
+        << audit.plan_audits << ':' << audit.directed_slots << ':'
+        << audit.incoming_entries << '|' << audit.pair_visits << ':'
+        << audit.support_csr_records << ':' << audit.endpoint_writes << '|'
+        << audit.target_count_visits << ':' << audit.target_fill_visits << '|'
+        << audit.added_regions << ':' << audit.added_logical_partitions << '|'
+        << audit.maximum_candidate_payload_bytes << ':'
+        << audit.maximum_scratch_payload_bytes << ':' << combined_payload
+        << '|' << audit.pair_endpoint_negative_rejected << ':'
+        << audit.support_cursor_negative_rejected;
+    const std::string correspondence_sha256 = sha256_hex(
+        correspondence_material.str());
+    std::ostringstream semantic_material;
+    semantic_material << (passed ? "PASS|" : "FAIL|") << failure << '|'
+        << B4EP10SICD_IDENTITY_SHA256 << '|' << correspondence_sha256 << '|'
+        << audit.plan_audits << ':' << audit.directed_slots << ':'
+        << audit.incoming_entries << '|' << combined_payload << '|'
+        << audit.order_mismatches << ':' << audit.coverage_mismatches << ':'
+        << audit.fallbacks;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep10sicd_incoming_construction_audit.v1\""
+           << ",\"identity_sha256\":\"" << B4EP10SICD_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false")
+           << ",\"correspondence_sha256\":\""
+           << correspondence_sha256 << '"'
+           << ",\"roots\":{\"frame\":\"" << output.frame_root
+           << "\",\"aggregate\":\"" << output.aggregate_root
+           << "\",\"trajectory\":\"" << transaction.trajectory_sha256
+           << "\",\"legacy_ledger\":\""
+           << transaction.legacy_ledger_sha256
+           << "\",\"policy_ledger\":\""
+           << transaction.policy_ledger_sha256 << "\"}"
+           << ",\"audit\":{\"plans\":" << audit.plan_audits
+           << ",\"directed_slots\":" << audit.directed_slots
+           << ",\"incoming_entries\":" << audit.incoming_entries
+           << ",\"pair_visits\":" << audit.pair_visits
+           << ",\"support_csr_records\":" << audit.support_csr_records
+           << ",\"endpoint_writes\":" << audit.endpoint_writes
+           << ",\"target_count_visits\":" << audit.target_count_visits
+           << ",\"target_fill_visits\":" << audit.target_fill_visits
+           << ",\"added_regions\":" << audit.added_regions
+           << ",\"added_logical_partitions\":"
+           << audit.added_logical_partitions
+           << ",\"candidate_payload_bytes\":"
+           << audit.maximum_candidate_payload_bytes
+           << ",\"scratch_payload_bytes\":"
+           << audit.maximum_scratch_payload_bytes
+           << ",\"combined_payload_bytes\":" << combined_payload
+           << ",\"order_mismatches\":" << audit.order_mismatches
+           << ",\"coverage_mismatches\":"
+           << audit.coverage_mismatches
+           << ",\"fallbacks\":" << audit.fallbacks
+           << ",\"pair_endpoint_negative_rejected\":"
+           << (audit.pair_endpoint_negative_rejected ? "true" : "false")
+           << ",\"support_cursor_negative_rejected\":"
+           << (audit.support_cursor_negative_rejected ? "true" : "false")
+           << ",\"exact\":" << (audit_exact ? "true" : "false")
+           << '}'
+           << ",\"physics_exact\":"
+           << (physics_exact ? "true" : "false")
+           << ",\"work_exact\":" << (work_exact ? "true" : "false")
+           << ",\"timing_admitted\":false"
+           << ",\"b4ep10sii_research_authorized\":"
            << (passed ? "true" : "false")
            << ",\"b4e2_execution_authorized\":false"
            << ",\"runtime_authority\":false"
