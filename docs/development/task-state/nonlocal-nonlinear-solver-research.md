@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREQ2_PASS / FUSED_PLAN_CANDIDATE_CONTRACT_RESEARCH_NEXT` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREQ3_FROZEN / FUSED_PLAN_CANDIDATE_IMPLEMENTATION_NEXT` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -421,6 +421,11 @@
 - **Current decision:** research and freeze one separate opt-in fused-plan
   consumer contract. Preserve SIRDI and do not use unqualified wall timing as
   speed evidence.
+- **Research result:** Q3 selects direct publication through the existing
+  neighborhood-to-tape path; the audit trace is not a production data owner.
+- **Current decision:** implement two opt-in Q3 commands. First require two
+  exact candidate processes; only then run one balanced process-CPU A/B with
+  no wall-speed credit.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -527,6 +532,7 @@
 | NSR3B4EP10SIRDIREQ1 PASS | topology median `30.12%`, stable `1.629x` lead; CPU cross-check `1.0075` | one timing-free topology structural audit research only |
 | NSR3B4EP10SIRDIREQ2 contract | topology metadata/row-fill piggyback plus one canonical pair fill | implement/run shadow audit twice; no timing or fast path |
 | NSR3B4EP10SIRDIREQ2 PASS | all 226 plans exact; standalone work `0.128869x`; zero added regions | fused-plan consumer implementation-contract research only |
+| NSR3B4EP10SIRDIREQ3 contract | direct neighborhood publication; no SICD/fallback; paired process CPU | implement exact stage, then CPU A/B only |
 
 Candidate solver identity remains:
 
@@ -1272,6 +1278,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   failure rollback and a measurement route that does not overclaim wall
   throughput.
 
+### D-059 -- Select direct publication and paired process CPU
+
+- **Observation:** `JointNeighborhood` already owns the accepted SICD arrays
+  until the unchanged evaluation path moves them into the pressure tape.
+- **Decision:** publish the fused plan through that existing boundary, skip
+  SICD only under an opt-in flag and fail closed without fallback. Prove two
+  candidate processes exact before one `CLOCK_PROCESS_CPUTIME_ID` A/B with
+  warmups and `AB,BA,AB` pairs.
+- **Rejected:** making the Q2 audit trace a real owner, rebuilding inside
+  evaluation, caching active plans, parallel target fill in the same change or
+  treating process CPU as frame latency.
+- **Reconsider when:** the frozen exact and CPU gates select or reject the
+  candidate without weakening thresholds.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1324,12 +1344,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research the minimal opt-in fused-plan consumer and its rollback/lifetime
-   boundary without changing SIRDI.
-2. Freeze exact semantic, structural, capacity and measurement gates before
-   implementing the candidate.
-3. Keep wall speed credit blocked until an independently qualified host window
-   exists; structural and CPU evidence may only route subsequent research.
+1. Implement the Q3 direct-publication candidate and its two fail-closed
+   injections without changing SIRDI.
+2. Run two fresh duration-free candidate processes and the old SIRDI
+   regression; stop on any mismatch.
+3. Only after exact PASS, execute the single frozen paired process-CPU A/B and
+   close/select without wall-speed credit.
 
 ## Reconsideration triggers
 

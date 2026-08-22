@@ -1424,3 +1424,9 @@ Both reports are byte-identical, all 226 plans match exactly, standalone work
 falls to `0.128869x`, no parallel region is added and the combined payload is
 21,758,020 bytes. Research and freeze one separate opt-in fused-plan consumer
 contract; do not enable it or claim wall speed on the unqualified host.
+The [B4EP10SIRDIREQ3 research](../../development/nonlocal-nsr3b4ep10sirdireq3-topology-incoming-fusion-candidate-research-2026-08-22.md)
+selects direct publication through the existing neighborhood-to-tape ownership
+path, not the Q2 audit trace. Its
+[frozen contract](03b4ep10sirdireq3-topology-incoming-fusion-candidate-contract.md)
+requires two exact candidate processes before one balanced process-CPU A/B.
+Implement only these opt-in commands; CPU evidence cannot claim wall speed.
