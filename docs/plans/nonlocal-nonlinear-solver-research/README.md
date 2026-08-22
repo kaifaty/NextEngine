@@ -1697,3 +1697,11 @@ contains only `342,502` canonical pairs, a `339.563x` structural-work gap. Its
 requires a separate sparse AL tape and an exact sorted current/trial pair-union
 reduction. Implement/run this tiny equivalence and nominal frame-zero topology
 gate next; no nominal solve, trajectory or timing is authorized.
+D7R14 passes and selects `SPARSE_AL_WORKSPACE_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r14-sparse-al-workspace-evidence-2026-08-22.md).
+Evaluation, gradient, HVP, all 19 D7R13 divided trials, one explicit support
+crossing and both full transactions are binary64 exact. The nominal decoded
+workspace reproduces `342502` pairs and zero active centres, replacing
+`116301000` dense candidate checks by a `339.563x` smaller structural traversal.
+Research/freeze D7R15 as one bounded nominal Dam single-frame shadow next;
+trajectory, wall timing and production promotion remain blocked.

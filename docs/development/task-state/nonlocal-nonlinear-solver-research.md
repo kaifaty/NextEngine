@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R13_PASS_FULL_PRIVATE_PRESSURE_STATE_CONFIRMED / B4E2D7R14_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R14_PASS_SPARSE_AL_WORKSPACE_CANDIDATE / B4E2D7R15_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -85,6 +85,19 @@
   `5a9d2f67...c07` from the decoded frame-zero raw-bit root
   `0d567ba5...4d7`; v1's label was false, but its bytes and all solver/topology
   requirements remain unchanged.
+- **Current conclusion:** D7R14 passes reproducibly at stdout SHA
+  `88d83b6e...d1d3`, semantic result `b9b37dad...9e61` and route
+  `SPARSE_AL_WORKSPACE_CANDIDATE`. D7R13 and D2 bytes remain exact.
+- **Sparse fact:** evaluation, HVP, all `19` inherited divided trials, an
+  explicit support crossing and active/inactive full transaction roots are
+  binary64 exact. Workspace lifecycle is `142/142`, maximum live `2`.
+- **Nominal structural fact:** decoded Dam frame zero has `342502` pairs,
+  `611520` directed records, degree `120` and zero active pressure centres.
+  Sparse traversal is `339.563x` smaller than `116301000` dense candidate
+  checks per evaluation; this is not a timing claim.
+- **Next action:** research and freeze D7R15 as one bounded nominal Dam
+  single-frame shadow transaction. Predeclare resource/work, physical/error,
+  rollback and failure routes before execution; no trajectory or wall timing.
 - **Current conclusion:** D7R6 is a reproducible hard FAIL at stdout SHA
   `6979ebf9...9f6f` and semantic result `9e93beb3...0dfa`. D7--D7R5 remain
   byte-exact, controls pass and public commit count is zero.
@@ -1801,8 +1814,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R13 and its exact structural work baseline. Research/freeze
-   D7R14 one-nominal-Dam-frame shadow mapping without trajectory or timing.
+6. Preserve D7R14's exact sparse AL backend and structural work baseline.
+   Research/freeze D7R15 as one bounded nominal Dam single-frame shadow
+   transaction without trajectory or wall timing.
 
 ## Reconsideration triggers
 

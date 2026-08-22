@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R14 -- sparse AL workspace equivalence contract
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP`
+Status: `CLOSED / PASS / SPARSE_AL_WORKSPACE_CANDIDATE`
 
 Identity projection (exact bytes, no final LF):
 
@@ -49,3 +49,6 @@ research PASS classifications only when all hard controls pass.
 Candidate PASS grants one sparse AL structural backend only. It grants no
 nominal solve, trajectory, wall timing, GPU/runtime, public state, physics
 mutation or production authority.
+
+Closure evidence:
+[NSR3-B4E2D7R14 sparse AL workspace evidence](../../development/nonlocal-nsr3b4e2d7r14-sparse-al-workspace-evidence-2026-08-22.md).

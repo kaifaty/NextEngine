@@ -2,7 +2,7 @@
 
 Date: `2026-08-22`
 
-Status: `FROZEN / IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP`
+Status: `CLOSED / PASS / SPARSE_AL_WORKSPACE_CANDIDATE`
 
 Contract reclosure: `v2` corrects one pre-implementation label. The value
 `5a9d2f67...c07` is D1's complete reference-frame report SHA, while the
@@ -106,3 +106,12 @@ A passing sparse reclosure authorizes D7R15 to design a bounded nominal
 single-frame shadow solve over the selected topology/cache/owner-gather path.
 Only that later stage may measure solver work at nominal scale, subject to the
 shared-host performance stop.
+
+## Closure
+
+D7R14 passes; see the
+[dated evidence](nonlocal-nsr3b4e2d7r14-sparse-al-workspace-evidence-2026-08-22.md).
+All tiny evaluation/HVP/divided/transaction outputs are bit-exact, including
+one explicit support crossing. The nominal frame-zero workspace reproduces
+`342502` pairs with zero active pressure centres. Proceed to D7R15 contract
+research, not directly to a trajectory or production claim.
