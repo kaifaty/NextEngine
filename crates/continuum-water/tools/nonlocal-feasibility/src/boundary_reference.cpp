@@ -64941,6 +64941,12 @@ struct ALNormalizedPrivateTrial {
     std::vector<Vec3> current_position;
     std::vector<Vec3> trial_position;
     bool long_double_audited = false;
+    bool long_double_finite = false;
+    bool long_double_topology_mismatch = false;
+    std::size_t long_double_current_membership_mismatches = 0U;
+    std::size_t long_double_trial_membership_mismatches = 0U;
+    long double long_double_current_minimum_horizon_margin = 0.0L;
+    long double long_double_trial_minimum_horizon_margin = 0.0L;
     bool long_double_resolved_positive = false;
     bool long_double_resolved_negative = false;
     bool long_double_unresolved = false;
@@ -65585,6 +65591,17 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
                     result.position, trial_position, predicted, u, theta,
                     binding, precision_work);
             record.long_double_audited = true;
+            record.long_double_finite = long_audit.finite_values;
+            record.long_double_topology_mismatch =
+                long_audit.topology_precision_mismatch;
+            record.long_double_current_membership_mismatches =
+                long_audit.current_naive.membership_mismatches;
+            record.long_double_trial_membership_mismatches =
+                long_audit.trial_naive.membership_mismatches;
+            record.long_double_current_minimum_horizon_margin =
+                long_audit.current_naive.minimum_horizon_margin;
+            record.long_double_trial_minimum_horizon_margin =
+                long_audit.trial_naive.minimum_horizon_margin;
             record.long_double_resolved_positive =
                 long_audit.resolved_positive;
             record.long_double_resolved_negative =
@@ -68968,6 +68985,709 @@ run_al_full_normalized_dimensionless_forcing_private_transaction_controls() {
            << ",\"trajectory_steps\":0,\"public_commit_count\":0"
            << ",\"physics_mutation\":false,\"timing_admitted\":false"
            << ",\"runtime_binary128_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19_IDENTITY_SHA256 =
+    "fa4302fb35a93bb8cbc6372f3358d787493e2276df1739a30a39c9ce5c9a080e";
+constexpr const char* B4E2D7R19_IDENTITY_PROJECTION =
+    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19-normalized-nominal-substep-shadow|v1|parent=0d537bef0e879b28bd36608e350805c564f6370b:5bb8f5abcb6abf0903c681529771ee6814b567f09d6e12f138514c3f0dab0dc3:ffcede5263bdedf21486d3068d5ded6f0d986ae2f05b437410e047535a2494d3|legacy=d7r17-stdouta2a8de930d41d8e49c255a3fcf987a8794b4da067ddadf658732946fca0ffced;d7r17-semantic1f368c86ec760a232e0314875d7f61010ecdf37f3a2b80023274855c8c71913b|alignment=frame0-0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7;dt0x3f0c01c01c01c01c;kappa0x415c75a640000000;theta0x3fc5cccccccccccd;particles6000;lower-y-clamps400;free5600|predictor=v+dt*g;box-clamp;contact-impulse-separate|solver=r4r2-normalized-static-sparse;u=lambda/kappa;u-next=max(0,u+c);pairwise-precancelled-divided;dimensionless-forcing-frozen-per-trust-solve;private-only;confirmed+warm-holdout|precision=every-accepted-normalized-long-double;candidate-effect-normalized-binary128;runtime-float128-none|required-budget=outer-updates16;inner-trials16;hvp-per-step32;hvp-total512;workspace-builds288;precision-audits64;prework-check;release-exact|ledger=gravity;predictor-contact;kinematic-pressure-m-over-dt;fixed-support-reaction-minus-m-over-dt-times-normalized-gradient;fluid-momentum-identity;pressure-support-residual|gates=finite;mass-exact;u-nonnegative;primal<=1e-8;stationarity<=1e-10;normalized-complementarity<=0x3d6cb1520bd70533;position-update<=1e-8dx;penetration<=1e-12;impulse-closure<=1e-10-scaled;all-pair-calls0;live-workspaces<=2|routes=normalized-nominal-structural-watchdog-exhausted;normalized-nominal-solver-not-confirmed;normalized-nominal-boundary-penetration;normalized-nominal-impulse-ledger-mismatch;normalized-nominal-substep-shadow-confirmed|precedence=watchdog,solver,boundary,ledger,confirmed|controls=r4r2-parent-bytes;d7r17-bytes;alignment;scaled-coefficients;static-binding;invalid-prework;structural-work;precision-ledger;policy-provenance;forced-rollback|runs=2-clean-release-builds;1-process-each;byte-exact;timing=none|trajectory=none;nominal-substeps=1;second-substep=none;macro=none;public-commit=none;physics-mutation=none;projected-contact=none;runtime-wide-precision=none|credit=one-private-normalized-nominal-substep-only)IDENTITY";
+
+} // namespace
+
+SplitBoundaryReport run_al_normalized_nominal_substep_shadow_controls() {
+    constexpr std::uint64_t substep_dt_bits = 0x3f0c01c01c01c01cULL;
+    constexpr std::uint64_t scaled_kappa_bits = 0x415c75a640000000ULL;
+    constexpr std::uint64_t theta_bits = 0x3fc5cccccccccccdULL;
+    constexpr double scaled_kappa = 7460505.0;
+    const bool identity_exact = sha256_hex(
+        B4E2D7R19_IDENTITY_PROJECTION) == B4E2D7R19_IDENTITY_SHA256;
+    const SplitBoundaryReport parent =
+        run_al_full_normalized_dimensionless_forcing_private_transaction_controls();
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_exact = parent.passed
+        && parent_stdout_sha256
+            == "5bb8f5abcb6abf0903c681529771ee6814b567f09d6e12f138514c3f0dab0dc3";
+    const SplitBoundaryReport d7r17_regression =
+        run_al_nominal_substep_shadow_controls();
+    const std::string d7r17_stdout_sha256 = sha256_hex(
+        d7r17_regression.json + "\n");
+    const bool d7r17_exact = d7r17_regression.passed
+        && d7r17_stdout_sha256
+            == "a2a8de930d41d8e49c255a3fcf987a8794b4da067ddadf658732946fca0ffced"
+        && d7r17_regression.json.find(
+            "\"result_sha256\":\"1f368c86ec760a232e0314875d7f61010ecdf37f3a2b80023274855c8c71913b\"")
+            != std::string::npos;
+
+    const NominalAlignmentSpec& nominal_spec = B4E0_SCENARIOS[1];
+    const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(nominal_spec, false));
+    const balanced_canonical::PublishResult nominal_initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(nominal_fixture.position,
+                nominal_fixture.velocity, 0));
+    const std::vector<Vec3> initial_position =
+        decode_canonical_position(nominal_initial.frame);
+    const std::vector<Vec3> initial_velocity =
+        decode_canonical_velocity(nominal_initial.frame);
+    const std::string frame_zero_root = b4e2d2_frame_zero_root(
+        initial_position, initial_velocity);
+    const double time_step = TIME_STEP / 78.0;
+    const double theta = al_normalized_theta(time_step, scaled_kappa);
+    std::vector<Vec3> free_displacement(initial_position.size());
+    for (std::size_t index = 0U; index < initial_position.size(); ++index) {
+        free_displacement[index] = time_step
+            * (initial_velocity[index]
+                + time_step * nominal_fixture.gravity);
+    }
+    const std::vector<Vec3> predictor_displacement =
+        clamp_box_displacement(
+            nominal_fixture, initial_position, free_displacement);
+    const std::vector<Vec3> predicted_position =
+        materialize_displacement(initial_position, predictor_displacement);
+    std::size_t lower_y_clamped = 0U;
+    std::size_t free_samples = 0U;
+    std::size_t other_clamped = 0U;
+    for (std::size_t index = 0U; index < initial_position.size(); ++index) {
+        const bool x_same = binary64_bits(predictor_displacement[index].x)
+            == binary64_bits(free_displacement[index].x);
+        const bool y_same = binary64_bits(predictor_displacement[index].y)
+            == binary64_bits(free_displacement[index].y);
+        const bool z_same = binary64_bits(predictor_displacement[index].z)
+            == binary64_bits(free_displacement[index].z);
+        if (x_same && y_same && z_same) {
+            ++free_samples;
+        } else if (x_same && !y_same && z_same
+            && initial_position[index].y
+                == nominal_fixture.contact_low.y) {
+            ++lower_y_clamped;
+        } else {
+            ++other_clamped;
+        }
+    }
+    const bool alignment_exact = scenario_root == nominal_spec.scenario_root
+        && frame_zero_root
+            == "0d567ba5512ba237a48e5e0b828a670a398f1bf23a35ac269729cad535f374d7"
+        && binary64_bits(time_step) == substep_dt_bits
+        && binary64_bits(scaled_kappa) == scaled_kappa_bits
+        && binary64_bits(theta) == theta_bits
+        && initial_position.size() == 6000U
+        && initial_velocity.size() == initial_position.size()
+        && lower_y_clamped == 400U && free_samples == 5600U
+        && other_clamped == 0U;
+
+    ALNormalizedTransactionRun candidate;
+    candidate.budget.maximum_outer_updates = 16U;
+    candidate.budget.maximum_inner_trials_per_update = 16U;
+    candidate.budget.maximum_hvp_per_trust_step = 32U;
+    candidate.budget.maximum_total_hvp = 512U;
+    candidate.budget.maximum_workspace_builds = 288U;
+    candidate.budget.maximum_precision_audits = 64U;
+    const JointStaticSupportIndex static_index =
+        build_joint_static_support_index(
+            tagged_points(nominal_fixture.boundary),
+            &candidate.static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+    const std::vector<double> zero_u(initial_position.size());
+    constexpr ALNormalizedKrylovForcingPolicy policy =
+        ALNormalizedKrylovForcingPolicy::DimensionlessStationarity;
+
+    const auto invalid_run = [&](double invalid_theta,
+                                 std::vector<double> invalid_u,
+                                 JointStaticSupportBinding invalid_binding,
+                                 bool invalid_budget_value) {
+        ALNormalizedTransactionRun result;
+        result.budget.maximum_outer_updates =
+            invalid_budget_value ? 0U : 16U;
+        result.budget.maximum_inner_trials_per_update = 16U;
+        result.budget.maximum_hvp_per_trust_step = 32U;
+        result.budget.maximum_total_hvp = 512U;
+        result.budget.maximum_workspace_builds = 288U;
+        result.budget.maximum_precision_audits = 64U;
+        result.transaction = solve_al_full_normalized_private_transaction(
+            predicted_position, predicted_position,
+            std::move(invalid_u), invalid_theta, invalid_binding,
+            &result.work, &result.precision_work, &result.static_work,
+            &result.adjacency_work, &result.budget, true, policy,
+            &result.forcing_trace);
+        result.root = al_full_normalized_private_transaction_root(
+            result.transaction, invalid_theta);
+        return result;
+    };
+    const ALNormalizedTransactionRun invalid_theta = invalid_run(
+        std::numeric_limits<double>::quiet_NaN(), zero_u,
+        binding, false);
+    std::vector<double> nonfinite_u = zero_u;
+    nonfinite_u.front() = std::numeric_limits<double>::infinity();
+    const ALNormalizedTransactionRun invalid_u = invalid_run(
+        theta, std::move(nonfinite_u), binding, false);
+    JointStaticSupportBinding invalid_binding = binding;
+    invalid_binding.expected_identity_sha256.push_back('0');
+    const ALNormalizedTransactionRun invalid_identity = invalid_run(
+        theta, zero_u, invalid_binding, false);
+    const ALNormalizedTransactionRun invalid_budget = invalid_run(
+        theta, zero_u, binding, true);
+    const std::array<const ALNormalizedTransactionRun*, 4U> invalid_runs{
+        &invalid_theta, &invalid_u, &invalid_identity, &invalid_budget};
+    bool invalid_prework_exact = true;
+    for (const ALNormalizedTransactionRun* run : invalid_runs) {
+        invalid_prework_exact = invalid_prework_exact
+            && !run->transaction.all_finite
+            && run->transaction.failure == "NORMALIZED_PREWORK_INVALID"
+            && run->work.workspace_builds == 0U
+            && run->work.pair_visits == 0U
+            && run->precision_work.long_double_audits == 0U
+            && run->precision_work.binary128_audits == 0U
+            && run->budget.outer_updates == 0U
+            && run->budget.total_hvp == 0U
+            && run->forcing_trace.dimensionless_trust_steps == 0U
+            && run->forcing_trace.inherited_trust_steps == 0U;
+    }
+
+    candidate.transaction = solve_al_full_normalized_private_transaction(
+        predicted_position, predicted_position, zero_u, theta, binding,
+        &candidate.work, &candidate.precision_work,
+        &candidate.static_work, &candidate.adjacency_work,
+        &candidate.budget, true, policy, &candidate.forcing_trace);
+    candidate.root = al_full_normalized_private_transaction_root(
+        candidate.transaction, theta);
+    const ALNormalizedPrivateTransaction& transaction =
+        candidate.transaction;
+    const bool selected_state_available = transaction.confirmed
+        && transaction.warm_holdout_attempted
+        && transaction.warm_holdout.passed
+        && transaction.warm_holdout_admissible
+        && !transaction.updates.empty();
+    const ALNormalizedOuterUpdate* observed_update =
+        !transaction.updates.empty()
+            ? &transaction.updates.back() : nullptr;
+    const ALNormalizedOuterUpdate* selected_update =
+        selected_state_available ? &transaction.updates.back() : nullptr;
+    const ALNormalizedOuterState* observed_state =
+        observed_update != nullptr ? &observed_update->state : nullptr;
+    const ALNormalizedOuterState* selected_state =
+        selected_update != nullptr ? &selected_update->state : nullptr;
+    const std::vector<Vec3>& final_position = selected_state_available
+        ? transaction.position : predicted_position;
+    const std::vector<double>& final_u = selected_state_available
+        ? transaction.u : zero_u;
+
+    double minimum_density = std::numeric_limits<double>::infinity();
+    double maximum_density = -std::numeric_limits<double>::infinity();
+    double maximum_penetration = 0.0;
+    if (observed_update != nullptr && observed_update->passed) {
+        for (double density : observed_update->support.density) {
+            minimum_density = std::min(minimum_density, density);
+            maximum_density = std::max(maximum_density, density);
+        }
+        for (Vec3 position : transaction.position) {
+            for (int axis = 0; axis < 3; ++axis) {
+                maximum_penetration = std::max(maximum_penetration,
+                    component(nominal_fixture.contact_low, axis)
+                        - component(position, axis));
+                maximum_penetration = std::max(maximum_penetration,
+                    component(position, axis)
+                        - component(nominal_fixture.contact_high, axis));
+            }
+        }
+        maximum_penetration = std::max(0.0, maximum_penetration);
+    } else {
+        minimum_density = 0.0;
+        maximum_density = 0.0;
+    }
+
+    using Impulse = std::array<long double, 3U>;
+    Impulse gravity_impulse{};
+    Impulse contact_impulse{};
+    Impulse pressure_impulse{};
+    Impulse fluid_momentum_change{};
+    Impulse pressure_from_gradient{};
+    Impulse support_reaction{};
+    const auto add = [](Impulse& target, Vec3 value, long double scale) {
+        target[0] += scale * static_cast<long double>(value.x);
+        target[1] += scale * static_cast<long double>(value.y);
+        target[2] += scale * static_cast<long double>(value.z);
+    };
+    for (std::size_t index = 0U;
+         index < initial_position.size(); ++index) {
+        const Vec3 free_velocity = initial_velocity[index]
+            + time_step * nominal_fixture.gravity;
+        const Vec3 predictor_velocity =
+            predictor_displacement[index] / time_step;
+        add(gravity_impulse, nominal_fixture.gravity,
+            static_cast<long double>(MASS * time_step));
+        add(contact_impulse, predictor_velocity - free_velocity,
+            static_cast<long double>(MASS));
+    }
+    const long double normalized_impulse_scale =
+        static_cast<long double>(MASS / time_step);
+    if (selected_update != nullptr) {
+        for (std::size_t index = 0U;
+             index < initial_position.size(); ++index) {
+            const Vec3 predictor_velocity =
+                predictor_displacement[index] / time_step;
+            const Vec3 correction_displacement =
+                final_position[index] - predicted_position[index];
+            const Vec3 correction_velocity =
+                correction_displacement / time_step;
+            const Vec3 final_velocity = predictor_velocity
+                + correction_velocity;
+            add(pressure_impulse, correction_displacement,
+                normalized_impulse_scale);
+            add(fluid_momentum_change,
+                final_velocity - initial_velocity[index],
+                static_cast<long double>(MASS));
+            add(pressure_from_gradient,
+                selected_update->support.gradient[index],
+                -normalized_impulse_scale);
+        }
+        for (std::size_t index = initial_position.size();
+             index < selected_update->support.gradient.size(); ++index) {
+            add(support_reaction,
+                selected_update->support.gradient[index],
+                -normalized_impulse_scale);
+        }
+    }
+    Impulse fluid_ledger_residual{};
+    Impulse pressure_support_residual{};
+    Impulse gradient_pair_residual{};
+    Impulse kinematic_stationarity_residual{};
+    if (selected_update != nullptr) {
+        for (std::size_t axis = 0U; axis < 3U; ++axis) {
+            fluid_ledger_residual[axis] = fluid_momentum_change[axis]
+                - gravity_impulse[axis] - contact_impulse[axis]
+                - pressure_impulse[axis];
+            pressure_support_residual[axis] = pressure_impulse[axis]
+                + support_reaction[axis];
+            gradient_pair_residual[axis] = pressure_from_gradient[axis]
+                + support_reaction[axis];
+            kinematic_stationarity_residual[axis] = pressure_impulse[axis]
+                - pressure_from_gradient[axis];
+        }
+    }
+    const auto maximum_absolute = [](const Impulse& value) {
+        return std::max({std::abs(value[0]), std::abs(value[1]),
+            std::abs(value[2])});
+    };
+    const double total_mass =
+        static_cast<double>(initial_position.size()) * MASS;
+    const long double impulse_denominator = static_cast<long double>(
+        total_mass * SPACING / time_step);
+    const auto scaled_residual = [&](const Impulse& value) {
+        return impulse_denominator > 0.0L
+            ? maximum_absolute(value) / impulse_denominator : 0.0L;
+    };
+    const long double fluid_ledger_scaled =
+        scaled_residual(fluid_ledger_residual);
+    const long double pressure_support_scaled =
+        scaled_residual(pressure_support_residual);
+    const long double gradient_pair_scaled =
+        scaled_residual(gradient_pair_residual);
+    const long double stationarity_impulse_scaled =
+        scaled_residual(kinematic_stationarity_residual);
+
+    const bool budget_shape_exact =
+        candidate.budget.maximum_outer_updates == 16U
+        && candidate.budget.maximum_inner_trials_per_update == 16U
+        && candidate.budget.maximum_hvp_per_trust_step == 32U
+        && candidate.budget.maximum_total_hvp == 512U
+        && candidate.budget.maximum_workspace_builds == 288U
+        && candidate.budget.maximum_precision_audits == 64U;
+    const bool lifecycle_exact = candidate.work.workspace_builds
+            == candidate.work.workspace_releases
+        && candidate.work.live_workspaces == 0U
+        && candidate.work.maximum_live_workspaces <= 2U
+        && !candidate.work.lifecycle_underflow
+        && candidate.budget.workspace_builds
+            == candidate.work.workspace_builds
+        && candidate.static_work.static_index_builds == 1U
+        && candidate.static_work.support_canonicalizations == 1U
+        && candidate.static_work.workspace_builds
+            == candidate.work.workspace_builds
+        && candidate.adjacency_work.workspace_builds
+            == candidate.work.workspace_builds
+        && candidate.work.all_pair_candidate_calls == 0U
+        && candidate.precision_work.all_pair_candidate_calls == 0U;
+    const bool failed_trust_step_in_flight = candidate.budget.exhausted
+        && candidate.budget.failure == "STRUCTURAL_BUDGET_HVP_PER_STEP";
+    const bool policy_exact =
+        candidate.forcing_trace.inherited_trust_steps == 0U
+        && candidate.forcing_trace.dimensionless_trust_steps
+            == static_cast<std::size_t>(
+                transaction.accepted_trials
+                + transaction.rejected_trials
+                + (failed_trust_step_in_flight ? 1 : 0));
+    std::size_t long_double_nonfinite = 0U;
+    std::size_t long_double_topology_mismatches = 0U;
+    std::size_t long_double_membership_mismatches = 0U;
+    const auto observe_precision = [&](const ALNormalizedOuterUpdate& update) {
+        for (const ALNormalizedPrivateTrial& trial : update.trials) {
+            long_double_nonfinite += trial.long_double_audited
+                    && !trial.long_double_finite ? 1U : 0U;
+            long_double_topology_mismatches +=
+                trial.long_double_topology_mismatch ? 1U : 0U;
+            long_double_membership_mismatches +=
+                trial.long_double_current_membership_mismatches
+                + trial.long_double_trial_membership_mismatches;
+        }
+    };
+    for (const ALNormalizedOuterUpdate& update : transaction.updates) {
+        observe_precision(update);
+    }
+    if (transaction.warm_holdout_attempted) {
+        observe_precision(transaction.warm_holdout);
+    }
+    const bool precision_exact = !transaction.precision_hard_failure
+        && !transaction.sign_contradiction
+        && !transaction.oracle_bound_required
+        && transaction.resolved_negative == 0
+        && transaction.binary128_resolved_negative == 0
+        && transaction.long_double_audits
+            == transaction.accepted_trials
+        && transaction.binary128_audits
+            == transaction.candidate_effect_acceptances
+        && candidate.precision_work.long_double_audits
+            == static_cast<std::size_t>(transaction.long_double_audits)
+        && candidate.precision_work.binary128_audits
+            == static_cast<std::size_t>(transaction.binary128_audits)
+        && candidate.budget.precision_audits
+            == static_cast<std::size_t>(
+                transaction.long_double_audits
+                + transaction.binary128_audits);
+    const bool finite_exact = transaction.all_finite
+        && std::all_of(final_position.begin(), final_position.end(),
+            [](Vec3 value) { return finite(value); })
+        && std::all_of(final_u.begin(), final_u.end(),
+            [](double value) { return std::isfinite(value); })
+        && (observed_update == nullptr
+            || (std::isfinite(minimum_density)
+                && std::isfinite(maximum_density)
+                && std::isfinite(maximum_penetration)
+                && std::isfinite(
+                    static_cast<double>(fluid_ledger_scaled))
+                && std::isfinite(
+                    static_cast<double>(pressure_support_scaled))));
+    const bool mass_exact = binary64_bits(total_mass)
+        == binary64_bits(750.0);
+    const bool solver_confirmed = selected_state_available
+        && transaction.all_inners_pass && transaction.all_finite
+        && transaction.primal_monotone && transaction.dual_feasible
+        && transaction.confirmation_count == 1
+        && !transaction.precision_hard_failure
+        && !transaction.sign_contradiction
+        && !transaction.oracle_bound_required
+        && selected_state != nullptr && selected_update->passed
+        && selected_state->admissible
+        && selected_state->primal <= 1.0e-8
+        && selected_state->stationarity <= 1.0e-10
+        && selected_state->complementarity
+            <= 8.154943934760449e-13
+        && selected_state->position_update_dx <= 1.0e-8
+        && selected_state->minimum_u >= 0.0;
+    const bool boundary_exact = solver_confirmed
+        && maximum_penetration <= 1.0e-12;
+    const bool ledger_exact = boundary_exact
+        && fluid_ledger_scaled <= 1.0e-10L
+        && pressure_support_scaled <= 1.0e-10L
+        && gradient_pair_scaled <= 1.0e-10L
+        && stationarity_impulse_scaled <= 1.0e-10L;
+    const std::string private_state_root = solver_confirmed
+        ? al_vector_stable_state_root(
+            "d7r19-private-normalized-nominal",
+            final_position, final_u)
+        : std::string{};
+    const std::string frame_zero_after_root = b4e2d2_frame_zero_root(
+        initial_position, initial_velocity);
+    const bool rollback_exact = frame_zero_after_root == frame_zero_root;
+    const bool hard_controls = identity_exact && parent_exact && d7r17_exact
+        && alignment_exact && invalid_prework_exact && budget_shape_exact
+        && lifecycle_exact && policy_exact && precision_exact
+        && finite_exact && mass_exact && rollback_exact
+        && static_index.passed && binding.passed;
+    std::string route;
+    if (hard_controls) {
+        if (candidate.budget.exhausted) {
+            route = "NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED";
+        } else if (!solver_confirmed) {
+            route = "NORMALIZED_NOMINAL_SOLVER_NOT_CONFIRMED";
+        } else if (!boundary_exact) {
+            route = "NORMALIZED_NOMINAL_BOUNDARY_PENETRATION";
+        } else if (!ledger_exact) {
+            route = "NORMALIZED_NOMINAL_IMPULSE_LEDGER_MISMATCH";
+        } else {
+            route = "NORMALIZED_NOMINAL_SUBSTEP_SHADOW_CONFIRMED";
+        }
+    }
+    const bool route_precedence_exact =
+        (candidate.budget.exhausted
+            && route
+                == "NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED")
+        || (!candidate.budget.exhausted && !solver_confirmed
+            && route == "NORMALIZED_NOMINAL_SOLVER_NOT_CONFIRMED")
+        || (!candidate.budget.exhausted && solver_confirmed
+            && !boundary_exact
+            && route == "NORMALIZED_NOMINAL_BOUNDARY_PENETRATION")
+        || (!candidate.budget.exhausted && solver_confirmed
+            && boundary_exact && !ledger_exact
+            && route == "NORMALIZED_NOMINAL_IMPULSE_LEDGER_MISMATCH")
+        || (!candidate.budget.exhausted && solver_confirmed
+            && boundary_exact && ledger_exact
+            && route == "NORMALIZED_NOMINAL_SUBSTEP_SHADOW_CONFIRMED");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R18R4R2_PARENT_BYTES";
+    else if (!d7r17_exact) first_failure = "D7R17_REGRESSION";
+    else if (!alignment_exact) first_failure = "ALIGNMENT_SCALING";
+    else if (!invalid_prework_exact) first_failure = "INVALID_PREWORK";
+    else if (!budget_shape_exact) first_failure = "BUDGET_SHAPE";
+    else if (!lifecycle_exact) first_failure = "LIFECYCLE";
+    else if (!policy_exact) first_failure = "FORCING_POLICY";
+    else if (!precision_exact) first_failure = "PRECISION_LEDGER";
+    else if (!finite_exact) first_failure = "NONFINITE";
+    else if (!mass_exact) first_failure = "MASS";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!static_index.passed || !binding.passed)
+        first_failure = "STATIC_BINDING";
+    else if (!route_precedence_exact)
+        first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<long double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << ':' << d7r17_stdout_sha256 << '|'
+             << frame_zero_root << ':' << binary64_bits(time_step) << ':'
+             << binary64_bits(scaled_kappa) << ':' << binary64_bits(theta)
+             << ':' << lower_y_clamped << ':' << free_samples << '|'
+             << candidate.budget.exhausted << ':'
+             << candidate.budget.failure << ':'
+             << candidate.budget.outer_updates << ':'
+             << candidate.budget.total_hvp << ':'
+             << candidate.budget.workspace_builds << ':'
+             << candidate.budget.precision_audits << '|'
+             << candidate.forcing_trace.dimensionless_trust_steps << ':'
+             << candidate.forcing_trace.inherited_trust_steps << '|'
+             << long_double_topology_mismatches << ':'
+             << long_double_membership_mismatches << '|'
+             << transaction.confirmed << ':'
+             << transaction.confirmation_index << ':'
+             << transaction.warm_holdout_admissible << ':'
+             << transaction.failure << '|' << candidate.root << ':'
+             << private_state_root << ':' << minimum_density << ':'
+             << maximum_density << ':' << maximum_penetration << '|'
+             << fluid_ledger_scaled << ':' << pressure_support_scaled << ':'
+             << gradient_pair_scaled << ':'
+             << stationarity_impulse_scaled << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_impulse = [](std::ostringstream& output,
+                                   const Impulse& value) {
+        output << '[' << value[0] << ',' << value[1] << ','
+               << value[2] << ']';
+    };
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<long double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19_normalized_nominal_substep_shadow.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R19_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parents\":{\"r4r2_stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"d7r17_stdout_sha256\":\""
+           << d7r17_stdout_sha256 << "\",\"exact\":"
+           << ((parent_exact && d7r17_exact) ? "true" : "false") << '}'
+           << ",\"alignment\":{\"frame_zero_root\":\""
+           << frame_zero_root << "\",\"dt_bits\":\"0x" << std::hex
+           << binary64_bits(time_step)
+           << "\",\"kappa_bits\":\"0x"
+           << binary64_bits(scaled_kappa)
+           << "\",\"theta_bits\":\"0x" << binary64_bits(theta)
+           << std::dec << "\",\"particles\":"
+           << initial_position.size()
+           << ",\"lower_y_clamped\":" << lower_y_clamped
+           << ",\"free_samples\":" << free_samples
+           << ",\"exact\":" << (alignment_exact ? "true" : "false")
+           << '}'
+           << ",\"budget\":{\"limits\":{\"outer_updates\":16,"
+              "\"inner_trials_per_update\":16,\"hvp_per_trust_step\":32,"
+              "\"total_hvp\":512,\"workspace_builds\":288,"
+              "\"precision_audits\":64},\"used\":{\"outer_updates\":"
+           << candidate.budget.outer_updates
+           << ",\"inner_trials\":"
+           << transaction.accepted_trials + transaction.rejected_trials
+           << ",\"total_hvp\":" << candidate.budget.total_hvp
+           << ",\"workspace_builds\":"
+           << candidate.budget.workspace_builds
+           << ",\"precision_audits\":"
+           << candidate.budget.precision_audits
+           << "},\"exhausted\":"
+           << (candidate.budget.exhausted ? "true" : "false")
+           << ",\"failure\":\"" << candidate.budget.failure
+           << "\",\"invalid_rejected_before_work\":"
+           << (invalid_prework_exact ? "true" : "false") << '}'
+           << ",\"solver\":{\"transaction_root\":\""
+           << candidate.root << "\",\"confirmed\":"
+           << (transaction.confirmed ? "true" : "false")
+           << ",\"provisional_index\":"
+           << transaction.provisional_index
+           << ",\"confirmation_index\":"
+           << transaction.confirmation_index
+           << ",\"warm_holdout_attempted\":"
+           << (transaction.warm_holdout_attempted ? "true" : "false")
+           << ",\"warm_holdout_admissible\":"
+           << (transaction.warm_holdout_admissible ? "true" : "false")
+           << ",\"failure\":\"" << transaction.failure
+           << "\",\"accepted_trials\":"
+           << transaction.accepted_trials
+           << ",\"rejected_trials\":"
+           << transaction.rejected_trials
+           << ",\"hvp_calls\":" << transaction.hvp_calls
+           << ",\"dimensionless_trust_steps\":"
+           << candidate.forcing_trace.dimensionless_trust_steps
+           << ",\"inherited_trust_steps\":"
+           << candidate.forcing_trace.inherited_trust_steps
+           << ",\"long_double_audits\":"
+           << transaction.long_double_audits
+           << ",\"binary128_audits\":"
+           << transaction.binary128_audits
+           << ",\"precision_hard_failure\":"
+           << (transaction.precision_hard_failure ? "true" : "false")
+           << ",\"long_double_nonfinite\":"
+           << long_double_nonfinite
+           << ",\"long_double_topology_mismatches\":"
+           << long_double_topology_mismatches
+           << ",\"long_double_membership_mismatches\":"
+           << long_double_membership_mismatches
+           << ",\"long_double_topology_mismatch_trials\":[";
+    bool first_topology_mismatch = true;
+    for (const ALNormalizedOuterUpdate& update : transaction.updates) {
+        for (const ALNormalizedPrivateTrial& trial : update.trials) {
+            if (!trial.long_double_topology_mismatch) continue;
+            if (!first_topology_mismatch) report << ',';
+            first_topology_mismatch = false;
+            report << "{\"outer\":" << update.state.outer
+                   << ",\"trial\":" << trial.trial
+                   << ",\"long_double_root\":\""
+                   << trial.long_double_root
+                   << "\",\"current_membership_mismatches\":"
+                   << trial.long_double_current_membership_mismatches
+                   << ",\"trial_membership_mismatches\":"
+                   << trial.long_double_trial_membership_mismatches
+                   << ",\"current_minimum_horizon_margin\":"
+                   << trial.long_double_current_minimum_horizon_margin
+                   << ",\"trial_minimum_horizon_margin\":"
+                   << trial.long_double_trial_minimum_horizon_margin
+                   << ",\"resolved_positive\":"
+                   << (trial.long_double_resolved_positive
+                           ? "true" : "false")
+                   << ",\"resolved_negative\":"
+                   << (trial.long_double_resolved_negative
+                           ? "true" : "false")
+                   << '}';
+        }
+    }
+    report << ']'
+           << ",\"private_state_root\":\""
+           << private_state_root << '"';
+    if (observed_state != nullptr) {
+        report << ",\"observed_outer\":" << observed_state->outer
+               << ",\"primal\":" << observed_state->primal
+               << ",\"stationarity\":" << observed_state->stationarity
+               << ",\"complementarity\":"
+               << observed_state->complementarity
+               << ",\"dual_change_u\":"
+               << observed_state->dual_change
+               << ",\"position_update_dx\":"
+               << observed_state->position_update_dx
+               << ",\"minimum_u\":" << observed_state->minimum_u
+               << ",\"maximum_u\":" << observed_state->maximum_u
+               << ",\"observed_admissible\":"
+               << (observed_state->admissible ? "true" : "false");
+    }
+    report << ",\"selected\":"
+           << (solver_confirmed ? "true" : "false")
+           << ",\"outer_records\":[";
+    for (std::size_t index = 0U; index < transaction.updates.size(); ++index) {
+        if (index != 0U) report << ',';
+        const ALNormalizedOuterState& state =
+            transaction.updates[index].state;
+        report << "{\"outer\":" << state.outer
+               << ",\"primal\":" << state.primal
+               << ",\"stationarity\":" << state.stationarity
+               << ",\"complementarity\":" << state.complementarity
+               << ",\"dual_change_u\":" << state.dual_change
+               << ",\"position_update_dx\":"
+               << state.position_update_dx
+               << ",\"minimum_u\":" << state.minimum_u
+               << ",\"maximum_u\":" << state.maximum_u
+               << ",\"admissible\":"
+               << (state.admissible ? "true" : "false") << '}';
+    }
+    report << "]}"
+           << ",\"physics\":{\"mass_kg\":" << total_mass
+           << ",\"observed_only\":"
+           << (solver_confirmed ? "false" : "true")
+           << ",\"ledger_available\":"
+           << (selected_update != nullptr ? "true" : "false")
+           << ",\"minimum_density\":" << minimum_density
+           << ",\"maximum_density\":" << maximum_density
+           << ",\"maximum_penetration_m\":" << maximum_penetration
+           << ",\"normalized_impulse_scale_m_over_dt\":"
+           << normalized_impulse_scale
+           << ",\"gravity_impulse_ns\":";
+    append_impulse(report, gravity_impulse);
+    report << ",\"predictor_contact_impulse_ns\":";
+    append_impulse(report, contact_impulse);
+    report << ",\"kinematic_pressure_impulse_ns\":";
+    append_impulse(report, pressure_impulse);
+    report << ",\"fixed_support_reaction_ns\":";
+    append_impulse(report, support_reaction);
+    report << ",\"fluid_momentum_change_ns\":";
+    append_impulse(report, fluid_momentum_change);
+    report << ",\"fluid_ledger_scaled\":" << fluid_ledger_scaled
+           << ",\"pressure_support_scaled\":"
+           << pressure_support_scaled
+           << ",\"gradient_pair_scaled\":" << gradient_pair_scaled
+           << ",\"stationarity_impulse_scaled\":"
+           << stationarity_impulse_scaled
+           << ",\"boundary_exact\":"
+           << (boundary_exact ? "true" : "false")
+           << ",\"ledger_exact\":"
+           << (ledger_exact ? "true" : "false") << '}'
+           << ",\"work\":{\"workspace_builds\":"
+           << candidate.work.workspace_builds
+           << ",\"workspace_releases\":"
+           << candidate.work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << candidate.work.maximum_live_workspaces
+           << ",\"all_pair_candidate_calls\":"
+           << candidate.work.all_pair_candidate_calls
+                + candidate.precision_work.all_pair_candidate_calls
+           << ",\"lifecycle_exact\":"
+           << (lifecycle_exact ? "true" : "false") << '}'
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"nominal_substeps\":1,\"second_substep_executed\":false"
+           << ",\"macro_frames\":0,\"trajectory_steps\":0"
+           << ",\"public_commit_count\":0,\"physics_mutation\":false"
+           << ",\"projected_contact_added\":false"
+           << ",\"timing_admitted\":false,\"speedup_claim\":false"
+           << ",\"runtime_wide_precision_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
