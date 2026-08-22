@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R4_PASS_RESIDUAL_MODEL_IMAGE / D7R19R5_PASS_SIXTH_TRIAL_ACCEPTANCE / D7R19R6_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R5_PASS_SIXTH_TRIAL_ACCEPTANCE / D7R19R6_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -268,6 +268,11 @@
   residual-derived completion only on the guarded 33rd recurrence HVP. Bind
   the exact first five R2 trials and exact R5 sixth trial before classifying
   later work. No public state commit.
+- **D7R19R6 integration rule:** absolute per-step capacity is 33, but HVP 33
+  remains predicate-gated. Ordinary solves converging within 32 retain their
+  direct model HVP; only a solve that uses guarded HVP 33 may use the
+  residual-derived model. Total/outer/trial/workspace/precision caps remain
+  unchanged.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2137,7 +2142,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R5/R4/R3/R2/R1, D7R19 and all preceding normalized parents
-   exactly. Research/freeze D7R19R6 as one full private first-substep
+   exactly. Implement frozen D7R19R6 as one full private first-substep
    transaction with guarded residual completion only at eligible HVP 33.
    Preserve ordinary direct-model solves and bind the first six trials. Do not
    publicly commit state or start another substep, macro, trajectory or timing
