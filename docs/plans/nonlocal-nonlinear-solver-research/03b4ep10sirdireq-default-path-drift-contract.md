@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREQ -- default-path drift qualification contract
 
-Status: `FROZEN / EXECUTION_PENDING`
+Status: `CLOSED / HOST_UNQUALIFIED / NO_SOURCE_DRIFT_CLAIM`
 
 Identity projection (exact bytes, no final LF):
 
@@ -60,3 +60,10 @@ ratio no more than 1.10.
 
 No branch grants speed credit or changes selected SIRDI. B4E2, broad corpus,
 runtime/GPU/schema and production remain blocked.
+
+Execution preserves both source outputs exactly and both range gates pass, but
+the accepted-source median is `4.801272953 s`, above the frozen `4.72 s`
+health bound. The contract therefore closes `HOST_UNQUALIFIED`; the observed
+current/accepted wall and total-CPU ratios `0.977436/0.982361` grant no source
+attribution. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq-default-path-drift-evidence-2026-08-22.md).

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREQ_FROZEN / DEFAULT_PATH_DRIFT_QUALIFICATION_PENDING` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREQ_HOST_UNQUALIFIED / CPU_TIME_ATTRIBUTION_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -393,6 +393,12 @@
 - **Current decision:** B4EP10SIRDIREQ freezes independent accepted/current
   source builds and balanced same-command qualification. Do not optimize a
   residual until code drift is confirmed or rejected.
+- **Qualification result:** both checkpoints are exact and current is not
+  slower in paired wall/CPU ratios, but accepted median `4.801272953 s`
+  exceeds its `4.72 s` host-health gate.
+- **Current decision:** do not source-bisect or run short-margin wall A/B on
+  this shared desktop host. Research an opt-in process/thread CPU-time residual
+  attribution lane; it may route structural work but grants no wall credit.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -494,6 +500,7 @@
 | NSR3B4EP10SIRDIREP contract | one local pair buffer; 85.7M repeated slots -> 380,511 growth slots; baseline-health gate | implement and run balanced A/B only |
 | NSR3B4EP10SIRDIREP FAIL | exact and `3/3` faster, but baseline health and candidate stability fail; code reverted | retain SIRDI; different residual discriminator research only |
 | NSR3B4EP10SIRDIREQ contract | accepted `f33bf3a` versus reverted `b8a1edd`, same exact SIRDI command | build and run balanced qualification only; no speed credit |
+| NSR3B4EP10SIRDIREQ HOST_UNQUALIFIED | accepted median `4.801273 s` misses health; current/accepted wall/CPU `0.977/0.982` | no source bisection or short-margin wall A/B |
 
 Candidate solver identity remains:
 
@@ -1172,6 +1179,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   wall slowdown and total-CPU ratio confirms drift; failed health gates route
   to host qualification; both ratios below 1.05 return to topology research.
 
+### D-054 -- Reject source attribution on an unqualified host
+
+- **Observation:** both builds are exact and stable, and current/accepted wall
+  and total-CPU ratios are `0.977436/0.982361`; accepted median nevertheless
+  misses the absolute host gate at `4.801272953 s`.
+- **Decision:** close `HOST_UNQUALIFIED`, retain SIRDI and do not bisect the
+  999-line source delta. Replace preemption-sensitive wall attribution with one
+  opt-in process/thread CPU-time discriminator before structural routing.
+- **Rejected:** treating current's apparent 2% win as speed credit, relaxing
+  4.72 s after observation, rerunning until quiet or modifying unrelated user
+  processes/host policy.
+- **Reconsider when:** an independently admitted quiet wall window passes the
+  original health boundary.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1224,11 +1245,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Build untouched accepted `f33bf3a` and current `b8a1edd` sources outside
-   the active worktree; verify named source and build hashes.
-2. Run the frozen warmups and balanced SIRDIREQ `AB`, `BA`, `AB` pairs.
-3. Route to source-delta isolation, host qualification or topology research
-   exactly from the frozen wall/CPU health gates.
+1. Research process-wide and per-worker thread CPU clocks against the existing
+   disjoint SIRDIR phase hierarchy; change no physics or wall claim.
+2. Freeze one exact opt-in CPU-time residual discriminator if all phase sums
+   and worker ownership can be checked without timing affecting semantics.
+3. Use only its stable CPU shares to select a structural audit; final wall A/B
+   remains blocked until a quiet host window passes the original health gate.
 
 ## Reconsideration triggers
 
