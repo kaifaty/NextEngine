@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E2D7R_FAIL_INNER_FLOOR / B4E2D7R1_RESEARCH / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / NSR3B4E2D7R_FAIL_INNER_FLOOR / B4E2D7R1_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -545,6 +545,12 @@
   raw objective subtraction can represent the required correction.
 - **Next action:** research/freeze a replay-only B4E2D7R1 observability oracle
   over the exact post-outer-9 state and failed trust trials.
+- **Current decision:** B4E2D7R1 freezes the unchanged failed inner replay and
+  a factored per-term objective-difference diagnostic. It routes nested
+  accuracy plus merit reclosure, accuracy schedule only or model/active-set
+  research; it cannot accept a trial.
+- **Next action:** implement/run B4E2D7R1 twice. Preserve D7/D7R bytes and all
+  public state; no tolerance, beta or formula change is authorized.
 - **Do not run:** B4E2D/H or broader B4E corpus, CUDA, runtime/schema, PhysX
   coupling, persistence or production work before a preflight reclosure.
 
@@ -662,6 +668,7 @@
 | NSR3B4E2D7 FAIL | dense derivatives/inner/cold pass; committed multiplier state is not warm-stable | dimensionally consistent commit reclosure only |
 | NSR3B4E2D7R contract | absolute pressure-state admission plus private confirmation | implement/run tiny dense oracle only |
 | NSR3B4E2D7R FAIL | D7 prefix exact; fixed inner accuracy alternates zero-work admission and reject limit | inner-floor observability research only |
+| NSR3B4E2D7R1 contract | failed-inner trust trace plus direct energy-difference discriminator | implement/run replay-only diagnostic |
 
 Candidate solver identity remains:
 
