@@ -8600,6 +8600,25 @@ struct JointMaskedSupersetPlanAuditTrace {
     std::size_t reuse_failures = 0U;
 };
 
+struct JointPartitionedActivePlanAuditTrace {
+    bool enabled = false;
+    std::size_t plan_audits = 0U;
+    std::size_t directed_slots = 0U;
+    std::size_t active_directed_slots = 0U;
+    std::size_t target_entries = 0U;
+    std::size_t added_regions = 0U;
+    std::size_t added_logical_partitions = 0U;
+    std::size_t maximum_matrix_payload_bytes = 0U;
+    std::size_t maximum_candidate_plan_payload_bytes = 0U;
+    std::size_t maximum_combined_payload_bytes = 0U;
+    std::size_t plan_mismatches = 0U;
+    std::size_t order_mismatches = 0U;
+    std::size_t coverage_mismatches = 0U;
+    std::size_t fallbacks = 0U;
+    bool local_count_negative_rejected = false;
+    bool partition_base_negative_rejected = false;
+};
+
 struct JointParallelTrace {
     bool enabled = false;
     int requested_workers = 0;
@@ -8627,6 +8646,7 @@ struct JointParallelTrace {
     std::size_t maximum_added_payload_bytes = 0U;
     JointParallelPhaseTimingTrace phase_timing;
     JointMaskedSupersetPlanAuditTrace masked_plan_audit;
+    JointPartitionedActivePlanAuditTrace partitioned_plan_audit;
 };
 
 bool add_joint_parallel_duration(
@@ -11526,6 +11546,359 @@ bool b4ep10pd_audit_masked_plan(
     return true;
 }
 
+enum class B4EP10PCDInjection {
+    None,
+    LocalCount,
+    PartitionBase,
+};
+
+struct B4EP10PCDPlanBuild {
+    JointOwnerGatherPlan plan;
+    std::size_t directed_slots = 0U;
+    std::size_t active_directed_slots = 0U;
+    std::size_t target_entries = 0U;
+    std::size_t matrix_payload_bytes = 0U;
+};
+
+B4EP10PCDPlanBuild b4ep10pcd_build_partitioned_active_plan(
+    const JointNeighborhood& neighborhood,
+    const std::vector<double>& compression,
+    JointParallelTrace& parallel,
+    B4EP10PCDInjection injection = B4EP10PCDInjection::None) {
+    B4EP10PCDPlanBuild result;
+    JointOwnerGatherPlan& plan = result.plan;
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    if (fluid_count > std::numeric_limits<std::size_t>::max()
+            - neighborhood.support.size()) {
+        plan.failure = "PARTITIONED_PLAN_CAPACITY";
+        return result;
+    }
+    const std::size_t total = fluid_count + neighborhood.support.size();
+    const std::size_t directed =
+        neighborhood.flat_directed_pair_indices.size();
+    result.directed_slots = directed;
+    if (!neighborhood.passed || !neighborhood.flat_adjacency
+        || compression.size() != fluid_count || fluid_count == 0U
+        || total >= std::numeric_limits<std::uint32_t>::max()
+        || directed > std::numeric_limits<std::uint32_t>::max()
+        || neighborhood.flat_offsets.size() != fluid_count + 1U
+        || neighborhood.flat_offsets.empty()
+        || neighborhood.flat_offsets.front() != 0U
+        || neighborhood.flat_offsets.back() != directed
+        || total > std::numeric_limits<std::size_t>::max()
+            / static_cast<std::size_t>(B4EP10_LOGICAL_PARTITIONS)
+        || total * static_cast<std::size_t>(B4EP10_LOGICAL_PARTITIONS)
+            > std::numeric_limits<std::size_t>::max()
+                / sizeof(std::uint32_t)) {
+        plan.failure = "PARTITIONED_PLAN_SOURCE";
+        return result;
+    }
+    const std::size_t matrix_records = total
+        * static_cast<std::size_t>(B4EP10_LOGICAL_PARTITIONS);
+    result.matrix_payload_bytes = matrix_records * sizeof(std::uint32_t);
+    std::vector<std::uint32_t> matrix(matrix_records);
+    plan.source_by_slot.resize(directed);
+    std::array<std::size_t, B4EP10_LOGICAL_PARTITIONS> active_counts{};
+    const auto count_sources = [&](std::size_t begin,
+                                   std::size_t end, int ordinal) {
+        const std::size_t partition = static_cast<std::size_t>(ordinal);
+        const std::size_t row = partition * total;
+        std::size_t active = 0U;
+        for (std::size_t source = begin; source < end; ++source) {
+            const std::size_t slot_begin = neighborhood.flat_offsets[source];
+            const std::size_t slot_end =
+                neighborhood.flat_offsets[source + 1U];
+            if (slot_end < slot_begin || slot_end > directed) {
+                return false;
+            }
+            for (std::size_t slot = slot_begin; slot < slot_end; ++slot) {
+                plan.source_by_slot[slot] =
+                    static_cast<std::uint32_t>(source);
+                if (compression[source] <= 0.0) {
+                    continue;
+                }
+                const std::size_t pair_index =
+                    neighborhood.flat_directed_pair_indices[slot];
+                if (pair_index >= neighborhood.pairs.size()) {
+                    return false;
+                }
+                const std::size_t participant = joint_pair_participant(
+                    neighborhood, neighborhood.pairs[pair_index], source);
+                if (participant >= total || participant == source
+                    || matrix[row + source]
+                        == std::numeric_limits<std::uint32_t>::max()
+                    || matrix[row + participant]
+                        == std::numeric_limits<std::uint32_t>::max()
+                    || active == std::numeric_limits<std::size_t>::max()) {
+                    return false;
+                }
+                ++matrix[row + source];
+                ++matrix[row + participant];
+                ++active;
+            }
+        }
+        active_counts[partition] = active;
+        return true;
+    };
+    if (!joint_parallel_for(fluid_count, parallel, count_sources)) {
+        plan.failure = parallel.failure;
+        return result;
+    }
+    result.active_directed_slots = 0U;
+    for (const std::size_t value : active_counts) {
+        if (value > std::numeric_limits<std::size_t>::max()
+                - result.active_directed_slots) {
+            plan.failure = "PARTITIONED_PLAN_CAPACITY";
+            return result;
+        }
+        result.active_directed_slots += value;
+    }
+    if (injection == B4EP10PCDInjection::LocalCount) {
+        if (matrix.front() == std::numeric_limits<std::uint32_t>::max()) {
+            plan.failure = "PARTITIONED_PLAN_LOCAL_COUNT";
+            return result;
+        }
+        ++matrix.front();
+    }
+
+    std::vector<std::uint32_t> target_degree(total);
+    const auto total_targets = [&](std::size_t begin,
+                                   std::size_t end, int) {
+        for (std::size_t target = begin; target < end; ++target) {
+            std::size_t degree = 0U;
+            for (std::size_t partition = 0U;
+                 partition < static_cast<std::size_t>(
+                     B4EP10_LOGICAL_PARTITIONS); ++partition) {
+                const std::size_t value = matrix[partition * total + target];
+                if (degree > std::numeric_limits<std::uint32_t>::max()
+                    || value > std::numeric_limits<std::uint32_t>::max()
+                        - degree) {
+                    return false;
+                }
+                degree += value;
+            }
+            target_degree[target] = static_cast<std::uint32_t>(degree);
+        }
+        return true;
+    };
+    if (!joint_parallel_for(total, parallel, total_targets)) {
+        plan.failure = parallel.failure;
+        return result;
+    }
+    std::size_t target_entries = 0U;
+    for (const std::uint32_t degree : target_degree) {
+        if (target_entries > std::numeric_limits<std::uint32_t>::max()
+                - degree) {
+            plan.failure = "PARTITIONED_PLAN_CAPACITY";
+            return result;
+        }
+        target_entries += degree;
+    }
+    if (result.active_directed_slots
+            > std::numeric_limits<std::size_t>::max() / 2U
+        || target_entries != 2U * result.active_directed_slots
+        || target_entries > std::numeric_limits<std::uint32_t>::max()) {
+        plan.failure = injection == B4EP10PCDInjection::LocalCount
+            ? "PARTITIONED_PLAN_LOCAL_COUNT"
+            : "PARTITIONED_PLAN_COVERAGE";
+        return result;
+    }
+    result.target_entries = target_entries;
+    plan.target_offsets.resize(total + 1U);
+    plan.target_slots.resize(target_entries);
+    std::size_t offset = 0U;
+    for (std::size_t target = 0U; target < total; ++target) {
+        plan.target_offsets[target] = static_cast<std::uint32_t>(offset);
+        offset += target_degree[target];
+    }
+    plan.target_offsets[total] = static_cast<std::uint32_t>(offset);
+
+    const auto partition_bases = [&](std::size_t begin,
+                                     std::size_t end, int) {
+        for (std::size_t target = begin; target < end; ++target) {
+            std::size_t cursor = plan.target_offsets[target];
+            for (std::size_t partition = 0U;
+                 partition < static_cast<std::size_t>(
+                     B4EP10_LOGICAL_PARTITIONS); ++partition) {
+                const std::size_t index = partition * total + target;
+                const std::uint32_t count = matrix[index];
+                if (injection == B4EP10PCDInjection::PartitionBase
+                    && target == 0U && partition == 0U) {
+                    return false;
+                }
+                matrix[index] = static_cast<std::uint32_t>(cursor);
+                cursor += count;
+            }
+            if (cursor != plan.target_offsets[target + 1U]) {
+                return false;
+            }
+        }
+        return true;
+    };
+    if (!joint_parallel_for(total, parallel, partition_bases)) {
+        plan.failure = injection == B4EP10PCDInjection::PartitionBase
+            ? "PARTITIONED_PLAN_PARTITION_BASE" : parallel.failure;
+        return result;
+    }
+
+    const auto stable_fill = [&](std::size_t begin,
+                                 std::size_t end, int ordinal) {
+        const std::size_t partition = static_cast<std::size_t>(ordinal);
+        const std::size_t row = partition * total;
+        for (std::size_t source = begin; source < end; ++source) {
+            if (compression[source] <= 0.0) {
+                continue;
+            }
+            for (std::size_t slot = neighborhood.flat_offsets[source];
+                 slot < neighborhood.flat_offsets[source + 1U]; ++slot) {
+                const std::size_t pair_index =
+                    neighborhood.flat_directed_pair_indices[slot];
+                const std::size_t participant = joint_pair_participant(
+                    neighborhood, neighborhood.pairs[pair_index], source);
+                std::uint32_t& source_cursor = matrix[row + source];
+                std::uint32_t& participant_cursor =
+                    matrix[row + participant];
+                if (source_cursor >= plan.target_offsets[source + 1U]
+                    || participant_cursor
+                        >= plan.target_offsets[participant + 1U]) {
+                    return false;
+                }
+                plan.target_slots[source_cursor++] =
+                    static_cast<std::uint32_t>(slot);
+                plan.target_slots[participant_cursor++] =
+                    static_cast<std::uint32_t>(slot);
+            }
+        }
+        return true;
+    };
+    if (!joint_parallel_for(fluid_count, parallel, stable_fill)) {
+        plan.failure = parallel.failure;
+        return result;
+    }
+
+    const auto validate_targets = [&](std::size_t begin,
+                                      std::size_t end, int) {
+        for (std::size_t target = begin; target < end; ++target) {
+            std::size_t previous = 0U;
+            bool have_previous = false;
+            for (std::size_t entry = plan.target_offsets[target];
+                 entry < plan.target_offsets[target + 1U]; ++entry) {
+                const std::size_t slot = plan.target_slots[entry];
+                if (slot >= directed || (have_previous && slot <= previous)) {
+                    return false;
+                }
+                const std::size_t source = plan.source_by_slot[slot];
+                const std::size_t pair_index =
+                    neighborhood.flat_directed_pair_indices[slot];
+                const std::size_t participant = joint_pair_participant(
+                    neighborhood, neighborhood.pairs[pair_index], source);
+                if (target != source && target != participant) {
+                    return false;
+                }
+                previous = slot;
+                have_previous = true;
+            }
+        }
+        return true;
+    };
+    if (!joint_parallel_for(total, parallel, validate_targets)) {
+        plan.failure = parallel.failure;
+        return result;
+    }
+    const std::size_t source_bytes = plan.source_by_slot.size()
+        * sizeof(std::uint32_t);
+    const std::size_t offset_bytes = plan.target_offsets.size()
+        * sizeof(std::uint32_t);
+    const std::size_t target_bytes = plan.target_slots.size()
+        * sizeof(std::uint32_t);
+    if (source_bytes > std::numeric_limits<std::size_t>::max()
+            - offset_bytes
+        || source_bytes + offset_bytes
+            > std::numeric_limits<std::size_t>::max() - target_bytes) {
+        plan.failure = "PARTITIONED_PLAN_PAYLOAD";
+        return result;
+    }
+    plan.payload_bytes = source_bytes + offset_bytes + target_bytes;
+    plan.passed = true;
+    return result;
+}
+
+bool b4ep10pcd_audit_partitioned_active_plan(
+    const JointNeighborhood& neighborhood,
+    const std::vector<double>& compression,
+    const JointOwnerGatherPlan& serial_plan,
+    JointParallelTrace& parallel) {
+    JointPartitionedActivePlanAuditTrace& audit =
+        parallel.partitioned_plan_audit;
+    const std::size_t regions_before = parallel.regions;
+    const std::size_t partitions_before = parallel.logical_partitions;
+    const B4EP10PCDPlanBuild candidate =
+        b4ep10pcd_build_partitioned_active_plan(
+            neighborhood, compression, parallel);
+    if (!candidate.plan.passed
+        || candidate.plan.source_by_slot != serial_plan.source_by_slot
+        || candidate.plan.target_offsets != serial_plan.target_offsets
+        || candidate.plan.target_slots != serial_plan.target_slots
+        || candidate.plan.payload_bytes != serial_plan.payload_bytes) {
+        ++audit.plan_mismatches;
+        return false;
+    }
+    if (parallel.regions < regions_before
+        || parallel.logical_partitions < partitions_before) {
+        ++audit.coverage_mismatches;
+        return false;
+    }
+    audit.added_regions += parallel.regions - regions_before;
+    audit.added_logical_partitions +=
+        parallel.logical_partitions - partitions_before;
+    audit.directed_slots += candidate.directed_slots;
+    audit.active_directed_slots += candidate.active_directed_slots;
+    audit.target_entries += candidate.target_entries;
+    audit.maximum_matrix_payload_bytes = std::max(
+        audit.maximum_matrix_payload_bytes,
+        candidate.matrix_payload_bytes);
+    audit.maximum_candidate_plan_payload_bytes = std::max(
+        audit.maximum_candidate_plan_payload_bytes,
+        candidate.plan.payload_bytes);
+    if (candidate.plan.payload_bytes
+            > std::numeric_limits<std::size_t>::max()
+                - candidate.matrix_payload_bytes
+        || serial_plan.payload_bytes
+            > std::numeric_limits<std::size_t>::max()
+                - candidate.plan.payload_bytes
+                - candidate.matrix_payload_bytes) {
+        ++audit.coverage_mismatches;
+        return false;
+    }
+    audit.maximum_combined_payload_bytes = std::max(
+        audit.maximum_combined_payload_bytes,
+        serial_plan.payload_bytes + candidate.plan.payload_bytes
+            + candidate.matrix_payload_bytes);
+    if (audit.plan_audits == 0U) {
+        JointParallelTrace count_negative;
+        count_negative.enabled = true;
+        count_negative.requested_workers = parallel.requested_workers;
+        const B4EP10PCDPlanBuild wrong_count =
+            b4ep10pcd_build_partitioned_active_plan(
+                neighborhood, compression, count_negative,
+                B4EP10PCDInjection::LocalCount);
+        audit.local_count_negative_rejected = !wrong_count.plan.passed
+            && wrong_count.plan.failure == "PARTITIONED_PLAN_LOCAL_COUNT";
+        JointParallelTrace base_negative;
+        base_negative.enabled = true;
+        base_negative.requested_workers = parallel.requested_workers;
+        const B4EP10PCDPlanBuild wrong_base =
+            b4ep10pcd_build_partitioned_active_plan(
+                neighborhood, compression, base_negative,
+                B4EP10PCDInjection::PartitionBase);
+        audit.partition_base_negative_rejected = !wrong_base.plan.passed
+            && wrong_base.plan.failure
+                == "PARTITIONED_PLAN_PARTITION_BASE";
+    }
+    ++audit.plan_audits;
+    return true;
+}
+
 struct JointOwnerEvaluation {
     bool passed = false;
     std::string failure;
@@ -11860,6 +12233,15 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
                 result.tape.owner_gather_plan, parallel)) {
             parallel.failed = true;
             parallel.failure = "MASKED_SUPERSET_PLAN_AUDIT";
+            result.failure = parallel.failure;
+            return result;
+        }
+        if (parallel.partitioned_plan_audit.enabled
+            && !b4ep10pcd_audit_partitioned_active_plan(
+                neighborhood, result.tape.compression,
+                result.tape.owner_gather_plan, parallel)) {
+            parallel.failed = true;
+            parallel.failure = "PARTITIONED_ACTIVE_PLAN_AUDIT";
             result.failure = parallel.failure;
             return result;
         }
@@ -20271,7 +20653,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     int owner_parallel_workers = 0,
     bool capture_parallel_phase_timing = false,
     bool capture_masked_plan_audit = false,
-    bool use_masked_plan_reuse = false) {
+    bool use_masked_plan_reuse = false,
+    bool capture_partitioned_plan_audit = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -20293,6 +20676,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         capture_masked_plan_audit;
     result.trace.owner_parallel.masked_plan_audit.reuse_enabled =
         use_masked_plan_reuse;
+    result.trace.owner_parallel.partitioned_plan_audit.enabled =
+        capture_partitioned_plan_audit;
     struct TopologyCachePointerReset {
         JointQueryTrace& trace;
         ~TopologyCachePointerReset() {
@@ -39039,6 +39424,241 @@ run_nominal_hydro_masked_superset_plan_controls() {
            << ",\"timing_admitted\":false"
            << ",\"speedup_claim\":false"
            << ",\"b4ep10pi_ab_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(semantic_material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4EP10PCD_IDENTITY_SHA256 =
+    "c6d14dd53d1669d2f370e057288567a284e7fde762a787f09d705ac0e45f5c06";
+constexpr const char* B4EP10PCD_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep10pcd-partitioned-active-plan-audit|v1|"
+    "parent=45dcdee2ce3b5aee7b6f324abc68d9de392c6493a33c4a9d577d9013ca5e197b:"
+    "15d3ceb70c6c33d6069bdec1cf1cf25e7d780e90450bf215844b9a13349eadaa:"
+    "82be83e5131ae5eb3c49a687a764c851f79a81c107417922fd7285e35a986ce1:"
+    "c9b664a3f57864d8916f6db40f233e2019e0c83c9ef80e089fa6212d14b078ce|"
+    "implementation=b55b0dc7594057323d766b22b626ecde3e464e29|command=nominal-"
+    "hydro-partitioned-active-plan-audit|baseline=serial-active-plan|"
+    "algorithm=stable-counting-sort;source-partitions64;partition-major-u32-"
+    "matrix|phases=parallel-count-source,parallel-target-total,serial-offset-"
+    "prefix,parallel-partition-base,parallel-stable-fill,parallel-validate|"
+    "order=partition-ordinal-then-source-center-then-slot|audit=plans226;"
+    "source-by-slot,target-offsets,target-slots,payload-byte-exact|work="
+    "directed150845996;active131987230;target263974460|executor=additional-"
+    "regions1130;additional-logical-partitions72320;workers8|capacity=matrix"
+    "<=3026944;combined-added<=67108864|negatives=local-count;partition-base|"
+    "runs=2;stdout-byte-exact;stderr-empty|timing=none;old-commands-exact|"
+    "reference=closed|credit=b4ep10pci-implementation-contract-only";
+
+} // namespace
+
+SplitBoundaryReport
+run_nominal_hydro_partitioned_active_plan_audit_controls() {
+    constexpr int worker_count = 8;
+    omp_set_dynamic(0);
+    omp_set_max_active_levels(1);
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index = build_joint_static_support_index(
+        tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding = bind_joint_static_support_index(
+        &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP10PCD_IDENTITY_PROJECTION)
+            == B4EP10PCD_IDENTITY_SHA256
+        && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && index.passed && binding.passed;
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    JointTopologySupersetCache cache;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true, true, false, false, worker_count,
+            false, false, false, true);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const bool parent_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0;
+    const bool transaction_exact = b4ep1_queries_work_only_exact(
+            transaction.trace)
+        && transaction.trace.query_chain_sha256
+            == "6a220a4e6f4d6d06ab54fe043a9ddf49606aae40e598e43f1c331c78b7802991";
+    const bool physics_exact = b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical;
+    const bool cache_exact = transaction.passed && !cache.failed
+        && cache.queries == 226U && cache.rebuilds == 1U
+        && cache.reuses == 225U && cache.certificate_passes == 225U
+        && cache.certificate_failures == 0U
+        && cache.active_pair_visits == 85716150U;
+    const bool work_exact = transaction.passed
+        && transaction.trace.total_pairs == 85716150U
+        && transaction.trace.total_directed == 150845996U
+        && transaction.trace.total_active_directed == 131987230U
+        && transaction.trace.total_fluid_centers == 1356000U
+        && transaction.trace.coefficient_hvp_lookups == 971831424U
+        && transaction.trace.fused_workspace_builds == 226U
+        && transaction.trace.fusion_mismatches == 0U
+        && transaction.trace.coefficient_mismatches == 0U;
+    const JointParallelTrace& parallel = transaction.trace.owner_parallel;
+    const bool parallel_exact = transaction.passed && parallel.enabled
+        && parallel.requested_workers == worker_count && !parallel.failed
+        && parallel.regions == 4541U
+        && parallel.logical_partitions == 290624U
+        && parallel.minimum_observed_team == worker_count
+        && parallel.maximum_observed_team == worker_count
+        && parallel.team_mismatches == 0U
+        && parallel.coverage_mismatches == 0U
+        && parallel.worker_failures == 0U
+        && parallel.topology_calls == 226U
+        && parallel.evaluation_calls == 226U
+        && parallel.evaluation_density_gathers == 150845996U
+        && parallel.evaluation_directed_values == 131987230U
+        && parallel.evaluation_target_gathers == 263974460U
+        && parallel.plan_builds == 226U && parallel.hvp_calls == 459U
+        && parallel.hvp_directed_values == 242957856U
+        && parallel.hvp_target_gathers == 485915712U;
+    const JointPartitionedActivePlanAuditTrace& audit =
+        parallel.partitioned_plan_audit;
+    std::size_t conservative_payload = 0U;
+    const bool payload_safe = b4ep10pd_checked_add(
+            audit.maximum_matrix_payload_bytes,
+            audit.maximum_candidate_plan_payload_bytes,
+            conservative_payload)
+        && b4ep10pd_checked_add(
+            conservative_payload, parallel.maximum_added_payload_bytes,
+            conservative_payload);
+    const bool audit_exact = audit.enabled && audit.plan_audits == 226U
+        && audit.directed_slots == 150845996U
+        && audit.active_directed_slots == 131987230U
+        && audit.target_entries == 263974460U
+        && audit.added_regions == 1130U
+        && audit.added_logical_partitions == 72320U
+        && audit.maximum_matrix_payload_bytes == 3026944U
+        && audit.maximum_candidate_plan_payload_bytes > 0U
+        && audit.maximum_combined_payload_bytes <= 67108864U
+        && audit.plan_mismatches == 0U && audit.order_mismatches == 0U
+        && audit.coverage_mismatches == 0U && audit.fallbacks == 0U
+        && audit.local_count_negative_rejected
+        && audit.partition_base_negative_rejected
+        && payload_safe && conservative_payload <= 67108864U;
+    const bool passed = identity_exact && parent_exact && transaction_exact
+        && physics_exact && cache_exact && work_exact
+        && parallel_exact && audit_exact;
+    std::string failure;
+    if (!identity_exact) failure = "IDENTITY";
+    else if (!parent_exact) failure = "PARENT";
+    else if (!transaction_exact) failure = "TRANSACTION";
+    else if (!physics_exact) failure = "PHYSICS";
+    else if (!cache_exact) failure = "CACHE";
+    else if (!work_exact) failure = "WORK";
+    else if (!parallel_exact) failure = "OWNER_PARALLEL";
+    else if (!audit_exact) failure = "PARTITIONED_PLAN_AUDIT";
+    std::ostringstream correspondence_material;
+    correspondence_material
+        << "nextengine.nonlocal.nsr3b4ep10pcd-correspondence|v1|"
+        << output.frame_root << ':' << output.aggregate_root << '|'
+        << transaction.trajectory_sha256 << ':'
+        << transaction.legacy_ledger_sha256 << ':'
+        << transaction.policy_ledger_sha256 << '|'
+        << transaction.trace.query_chain_sha256 << '|'
+        << audit.plan_audits << ':' << audit.directed_slots << ':'
+        << audit.active_directed_slots << ':' << audit.target_entries << '|'
+        << audit.added_regions << ':' << audit.added_logical_partitions << '|'
+        << audit.maximum_matrix_payload_bytes << ':'
+        << audit.maximum_candidate_plan_payload_bytes << ':'
+        << conservative_payload << '|'
+        << audit.local_count_negative_rejected << ':'
+        << audit.partition_base_negative_rejected;
+    const std::string correspondence_sha256 = sha256_hex(
+        correspondence_material.str());
+    std::ostringstream semantic_material;
+    semantic_material << (passed ? "PASS|" : "FAIL|") << failure << '|'
+        << B4EP10PCD_IDENTITY_SHA256 << '|' << correspondence_sha256 << '|'
+        << parallel.regions << ':' << parallel.logical_partitions << '|'
+        << audit.plan_mismatches << ':' << audit.order_mismatches << ':'
+        << audit.coverage_mismatches << ':' << audit.fallbacks;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep10pcd_partitioned_active_plan_audit.v1\""
+           << ",\"identity_sha256\":\"" << B4EP10PCD_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false")
+           << ",\"correspondence_sha256\":\""
+           << correspondence_sha256 << '"'
+           << ",\"roots\":{\"frame\":\"" << output.frame_root
+           << "\",\"aggregate\":\"" << output.aggregate_root
+           << "\",\"trajectory\":\"" << transaction.trajectory_sha256
+           << "\",\"legacy_ledger\":\""
+           << transaction.legacy_ledger_sha256
+           << "\",\"policy_ledger\":\""
+           << transaction.policy_ledger_sha256 << "\"}"
+           << ",\"audit\":{\"plans\":" << audit.plan_audits
+           << ",\"directed_slots\":" << audit.directed_slots
+           << ",\"active_directed_slots\":"
+           << audit.active_directed_slots
+           << ",\"target_entries\":" << audit.target_entries
+           << ",\"added_regions\":" << audit.added_regions
+           << ",\"added_logical_partitions\":"
+           << audit.added_logical_partitions
+           << ",\"matrix_payload_bytes\":"
+           << audit.maximum_matrix_payload_bytes
+           << ",\"candidate_plan_payload_bytes\":"
+           << audit.maximum_candidate_plan_payload_bytes
+           << ",\"conservative_payload_bytes\":"
+           << conservative_payload
+           << ",\"plan_mismatches\":" << audit.plan_mismatches
+           << ",\"order_mismatches\":" << audit.order_mismatches
+           << ",\"coverage_mismatches\":"
+           << audit.coverage_mismatches
+           << ",\"fallbacks\":" << audit.fallbacks
+           << ",\"local_count_negative_rejected\":"
+           << (audit.local_count_negative_rejected ? "true" : "false")
+           << ",\"partition_base_negative_rejected\":"
+           << (audit.partition_base_negative_rejected ? "true" : "false")
+           << ",\"exact\":" << (audit_exact ? "true" : "false")
+           << '}'
+           << ",\"parallel\":{\"regions\":" << parallel.regions
+           << ",\"logical_partitions\":" << parallel.logical_partitions
+           << ",\"exact\":" << (parallel_exact ? "true" : "false")
+           << '}'
+           << ",\"physics_exact\":"
+           << (physics_exact ? "true" : "false")
+           << ",\"work_exact\":" << (work_exact ? "true" : "false")
+           << ",\"timing_admitted\":false"
+           << ",\"b4ep10pci_authorized\":"
            << (passed ? "true" : "false")
            << ",\"b4e2_execution_authorized\":false"
            << ",\"runtime_authority\":false"
