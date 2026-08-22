@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREQ2_FROZEN / TOPOLOGY_INCOMING_FUSION_AUDIT_IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREQ2_PASS / FUSED_PLAN_CANDIDATE_CONTRACT_RESEARCH_NEXT` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -415,6 +415,12 @@
 - **Current decision:** B4EP10SIRDIREQ2 freezes one shadow fusion audit. It
   piggybacks degree/source/endpoint data on existing topology passes and uses
   one 85,716,150-pair canonical fill; implement the audit, not the fast path.
+- **Measurement result:** Q2 passes `2/2` byte-identically. All 226 plans are
+  exact, standalone work ratio is `0.12886877468807845`, added regions are
+  zero and combined payload is 21,758,020 bytes.
+- **Current decision:** research and freeze one separate opt-in fused-plan
+  consumer contract. Preserve SIRDI and do not use unqualified wall timing as
+  speed evidence.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -520,6 +526,7 @@
 | NSR3B4EP10SIRDIREQ1 contract | process/thread CPU clocks over exact SIRDIR hierarchy | implement/run three only; no wall or speed credit |
 | NSR3B4EP10SIRDIREQ1 PASS | topology median `30.12%`, stable `1.629x` lead; CPU cross-check `1.0075` | one timing-free topology structural audit research only |
 | NSR3B4EP10SIRDIREQ2 contract | topology metadata/row-fill piggyback plus one canonical pair fill | implement/run shadow audit twice; no timing or fast path |
+| NSR3B4EP10SIRDIREQ2 PASS | all 226 plans exact; standalone work `0.128869x`; zero added regions | fused-plan consumer implementation-contract research only |
 
 Candidate solver identity remains:
 
@@ -1250,6 +1257,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** the audit passes every order/lifetime/capacity gate and
   a separate candidate implementation/measurement contract is frozen.
 
+### D-058 -- Admit fused-plan consumer contract research
+
+- **Observation:** both audit reports are byte-identical; all 226 shadow plans
+  match SICD exactly, every corruption/lifetime gate passes, standalone work
+  falls from 665,142,896 entries to 85,716,150 and no region is added.
+- **Decision:** research and freeze one opt-in candidate that publishes the
+  fused plan directly and skips the redundant SICD builder. Preserve SIRDI as
+  rollback and require exact roots, plans, ownership and work accounting.
+- **Rejected:** enabling the candidate directly from audit evidence, claiming
+  `7.76x` solver or frame speed from the structural ratio, or running a
+  short-margin wall A/B on the currently unqualified shared host.
+- **Reconsider when:** a separate frozen contract defines candidate lifetime,
+  failure rollback and a measurement route that does not overclaim wall
+  throughput.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1302,12 +1324,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen audit-only shadow fused plan without changing SIRDI.
-2. Verify exact counts, plan bytes, corruption negatives and old SIRDI output,
-   then run exactly two fresh audit processes.
-3. Close the hypothesis PASS/FAIL. Even PASS authorizes only separate
-   candidate-contract research; wall A/B remains blocked pending a qualified
-   host window.
+1. Research the minimal opt-in fused-plan consumer and its rollback/lifetime
+   boundary without changing SIRDI.
+2. Freeze exact semantic, structural, capacity and measurement gates before
+   implementing the candidate.
+3. Keep wall speed credit blocked until an independently qualified host window
+   exists; structural and CPU evidence may only route subsequent research.
 
 ## Reconsideration triggers
 

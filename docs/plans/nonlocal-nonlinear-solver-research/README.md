@@ -1418,3 +1418,9 @@ and row-fill passes. Its
 requires a byte-exact shadow plan while reducing standalone structural scans
 from 665,142,896 entries to one 85,716,150-pair pass. Implement and run only
 this timing-free audit.
+B4EP10SIRDIREQ2 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq2-topology-incoming-fusion-evidence-2026-08-22.md).
+Both reports are byte-identical, all 226 plans match exactly, standalone work
+falls to `0.128869x`, no parallel region is added and the combined payload is
+21,758,020 bytes. Research and freeze one separate opt-in fused-plan consumer
+contract; do not enable it or claim wall speed on the unqualified host.

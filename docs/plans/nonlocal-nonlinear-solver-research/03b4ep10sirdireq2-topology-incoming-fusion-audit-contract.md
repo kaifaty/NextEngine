@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREQ2 -- topology/incoming fusion audit contract
 
-Status: `FROZEN / IMPLEMENTATION_PENDING`
+Status: `CLOSED / PASS`
 
 Identity projection (exact bytes, no final LF):
 
@@ -62,3 +62,10 @@ that implementation directly.
 
 No result grants wall speed, B4E2, broad corpus, runtime/GPU/schema or
 production authority.
+
+## Closure
+
+The implementation at `b07d543e89242c3325a7c7d75617ac97c57b050a`
+passes both fresh processes byte-identically. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq2-topology-incoming-fusion-evidence-2026-08-22.md).
+Only separate candidate-contract research is authorized next.

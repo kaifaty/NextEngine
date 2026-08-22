@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRDIREQ2 topology/incoming fusion research -- 2026-08-22
 
-Status: `COMPLETE / FUSION_AUDIT_SELECTED / IMPLEMENTATION_NEXT`
+Status: `CLOSED / AUDIT_PASS / CANDIDATE_CONTRACT_RESEARCH_AUTHORIZED`
 
 ## Question
 
@@ -82,3 +82,14 @@ record duration.
 PASS may authorize only research and freezing of a separate opt-in candidate
 implementation contract. It grants no implementation, wall speed, B4E2,
 broad-corpus, runtime/GPU/schema or production authority.
+
+## Closure
+
+The audit passes in both frozen fresh processes. All 226 shadow plans are
+byte-exact, the standalone ratio is `0.12886877468807845`, no parallel region
+is added and every corruption/lifetime/capacity gate passes. See the
+[dated evidence](nonlocal-nsr3b4ep10sirdireq2-topology-incoming-fusion-evidence-2026-08-22.md).
+
+The next admitted action is research and freezing of a separate opt-in
+candidate implementation contract. The audit itself remains shadow-only and
+grants no speed or production claim.
