@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R1_PASS_RUNTIME_TOPOLOGY_PRECISION_CANDIDATE / D7R19R2_PASS_STRUCTURAL_WATCHDOG / D7R19R3_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R2_PASS_STRUCTURAL_WATCHDOG / D7R19R3_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -221,6 +221,14 @@
   replay-only recurrence/conditioning diagnostic from the fifth accepted
   state. It may continue under a separate offline cap but cannot form or
   accept a trial, mutate R2 or run another nominal substep.
+- **D7R19R3 research conclusion:** attach a passive trace sink to the exact
+  failed solve and require an independent offline continuation to reproduce
+  its first 32 iteration projections exactly. Continue only that frozen
+  recurrence to at most 128 HVPs; record residual, curvature, trust-boundary,
+  orthogonality/conjugacy and CG-derived Ritz diagnostics with no extra HVP.
+- **D7R19R3 frozen routes:** nonfinite, negative curvature, trust boundary,
+  forcing convergence or offline-cap exhaustion. The route classifies one
+  solve and cannot change the R2 cap or authorize a preconditioner by itself.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2090,10 +2098,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research/freeze D7R19R3 over only the failed sixth trust solve. Reproduce
-   its first 32 HVP recurrence, then classify a separately capped offline
-   continuation without forming a trial. Do not enlarge the R2 cap, start
-   another substep, macro, trajectory or timing lane.
+   Implement frozen D7R19R3 over only the failed sixth trust solve. Reproduce
+   its live first-32 HVP recurrence exactly and classify one separately capped
+   128-HVP offline continuation without forming a trial. Do not enlarge the
+   R2 cap, start another substep, macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 
