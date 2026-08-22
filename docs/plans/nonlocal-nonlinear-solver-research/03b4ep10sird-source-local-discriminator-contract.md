@@ -1,6 +1,6 @@
 # NSR3-B4EP10SIRD -- source-local discriminator contract
 
-Status: `FROZEN / EXECUTION_AUTHORIZED`
+Status: `CLOSED / PASS / DIRECTED_STRUCTURAL_AUDIT_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 

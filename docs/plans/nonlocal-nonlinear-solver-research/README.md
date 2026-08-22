@@ -1290,3 +1290,9 @@ and local-scalar groups. Its
 [frozen contract](03b4ep10sird-source-local-discriminator-contract.md)
 requires three fresh exact processes and a stable `1.20x` leader before one
 structural audit can be selected. Execute only this reduction; change no code.
+B4EP10SIRD passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sird-source-local-discriminator-evidence-2026-08-22.md).
+Directed evaluation/HVP work has median transaction share `0.389073`, range
+`0.000870`, and leads setup by `4.094282x`. Because the phase also includes
+full-buffer allocation/value-initialization, research one exact scratch-
+liveness audit before selecting arithmetic changes or buffer reuse.

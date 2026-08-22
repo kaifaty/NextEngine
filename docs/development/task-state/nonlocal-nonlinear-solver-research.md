@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRD_FROZEN / SOURCE_LOCAL_DISCRIMINATOR_EXECUTION` |
+| Status | `ACTIVE / NSR3B4EP10SIRD_PASS / DIRECTED_STRUCTURAL_AUDIT_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -316,6 +316,12 @@
 - **Current decision:** B4EP10SIRD reuses the unchanged timing command and
   reduces source-local into directed, setup, compression and local-scalar
   groups. Execute three fresh processes; no implementation change is allowed.
+- **Current conclusion:** B4EP10SIRD passes. Directed evaluation/HVP work has
+  median transaction share `0.389073`, range `0.000870`, and leads setup by
+  `4.094282x`.
+- **Current decision:** research one timing-free directed scratch-liveness
+  audit. Do not infer arithmetic dominance from a phase that also contains
+  allocation and value-initialization.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -403,6 +409,7 @@
 | NSR3B4EP10SII PASS | exact candidate; median `1.052521x`, RSS `-4,852 KiB` | candidate residual timing research only |
 | NSR3B4EP10SIR PASS | stable timing; source-local median `58.77%`, `2.918x` lead | one source-local discriminator research only |
 | NSR3B4EP10SIRD contract | four disjoint source-local groups from existing timers | run three exact processes; no code or speed credit |
+| NSR3B4EP10SIRD PASS | directed median `38.91%`, stable `4.094x` lead | one directed scratch-liveness audit research only |
 
 Candidate solver identity remains:
 
@@ -493,6 +500,7 @@ production authority is created by this lineage.
 | [B4EP10SIR research](../nonlocal-nsr3b4ep10sir-split-incoming-residual-research-2026-08-22.md) | existing timers can isolate four architecture categories | implement/run frozen timing command only |
 | [B4EP10SIR](../nonlocal-nsr3b4ep10sir-split-incoming-residual-timing-evidence-2026-08-22.md) | source-local work is the stable leader; executor hypotheses fail | research one narrower source-local discriminator |
 | [B4EP10SIRD research](../nonlocal-nsr3b4ep10sird-source-local-discriminator-research-2026-08-22.md) | existing subphases separate directed/setup/compression/local-scalar work | execute the frozen reduction only |
+| [B4EP10SIRD](../nonlocal-nsr3b4ep10sird-source-local-discriminator-evidence-2026-08-22.md) | stable directed leader, but timer includes initialization | research an exact scratch-liveness audit |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
