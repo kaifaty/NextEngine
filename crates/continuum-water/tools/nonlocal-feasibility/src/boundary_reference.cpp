@@ -46023,4 +46023,693 @@ run_nominal_hydro_topology_incoming_fusion_audit_controls() {
         false, true);
 }
 
+namespace {
+
+constexpr const char* B4E2D_IDENTITY_SHA256 =
+    "282b6ee16135d036363f1a613e4dbfa4c8d2065dfb030810050772edd1ff671e";
+constexpr const char* B4E2D_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d-dam-first-output|v1|parent="
+    "681e6e2aab130e0a461dadf575caac754b0931668027db911512a1edac2cccf3:"
+    "8ca3498dbc04556bf86f32a8cab55eccee92ff201aecb737d8ac2760c64504c6:"
+    "b8ad20e889d519cc6fdc0a5bbdb228369eb426451ed27ed93058107b9587750c|"
+    "alignment="
+    "c53a112830cb94c4139da75c2044d28f61673cb1aa05c116098967aee41f7bbe:"
+    "79a8932136a64c1cfa953caafe323cb9e860cb134c1d4dc0907be7f40891587a:"
+    "8d0a0a85adba50d4784245d460c83757bcce92841d804f4739b81faf27fd5f09:"
+    "a2d97ab6f26383d826366eba2a3d4392f5ef9610dda87e89509e93bd9daf61e8:"
+    "c330a0aecb913d92e95478dc3325f9bc326d5e8d3057485723dd62eef1493889:"
+    "37d83c159ff913afef290b9dc1cc7affe9f6018d726dd7b13ab9308f3bf741d3|"
+    "solver="
+    "35a1d41b78d132429334a34d8c99e6d2870b2b8a68ee949beb5a3c69375dff10:"
+    "b4f847cb4f19b09e951534649515a4504bc07044a13e6c636598b33f247777e9|"
+    "publication="
+    "e713a61649fc230b189fca9eda3628b69f9369c706df35f0a2b080a4bd189a70|"
+    "trajectory=dam;steps1..4;dt=1/240;workers8;work-only;"
+    "static-index-once;flat-csr;topology-cache-transaction;coefficient-cache;"
+    "fused-tape;split-incoming;directed-scratch-transaction|"
+    "state=decoded-canonical-handoff;fine-only;commit-prefix-then-global-roots;"
+    "failure-preserves-prefix;no-retry-tune|"
+    "temporal=embedded-adjacent;initial-spectrum-each-step;accepted<=192;"
+    "attempted-level<=768|"
+    "physics=strain<=0.001;penetration<=0.0025;kkt-ledger<=1e-9;"
+    "strict-finite;support-closure<=1e-10;pressure-abs<=0.01-energy;"
+    "mechanical-abs<=0.01-energy;creation<=0.01-energy+mechanical-abs;"
+    "publication-impulse-balanced-bound;no-all-pairs;live0|"
+    "reference=count6000;mass750;step4;"
+    "position=3029244660,2280395480,2999999999;"
+    "velocity=1856527209,1616954663,-4;q99=992829,740902;"
+    "center-normalization=4,1,1;front-normalization=4;"
+    "height-normalization=1;rmse<=0.05;max<=0.10|"
+    "runs=first-pass-then-second;2-release-builds;byte-exact;watchdog=900s;"
+    "timing=none|failure=stop-first;no-second-after-physical-fail|"
+    "reference=closed|credit=b4e2h-contract-research-only";
+
+constexpr std::array<std::int64_t, 3> B4E2D_REFERENCE_POSITION_SUM{
+    3029244660LL, 2280395480LL, 2999999999LL};
+constexpr std::array<std::int64_t, 3> B4E2D_REFERENCE_VELOCITY_SUM{
+    1856527209LL, 1616954663LL, -4LL};
+constexpr std::array<std::int64_t, 2> B4E2D_REFERENCE_Q99{
+    992829LL, 740902LL};
+
+struct B4E2DOutput {
+    bool passed = false;
+    std::string frame_root;
+    std::string aggregate_root;
+    std::array<std::int64_t, 3> position_sum{};
+    std::array<std::int64_t, 3> velocity_sum{};
+    std::array<std::int64_t, 2> q99{};
+};
+
+struct B4E2DStep {
+    bool passed = false;
+    std::string failure;
+    std::uint32_t step = 0U;
+    int initial_substeps = 0;
+    int selected_level = -1;
+    int accepted_substeps = 0;
+    int attempted_substeps = 0;
+    int discarded_substeps = 0;
+    int outer_trials = 0;
+    int rejected_trials = 0;
+    int nonlinear_hvp_calls = 0;
+    int spectral_hvp_calls = 0;
+    std::size_t queries = 0U;
+    std::size_t cache_rebuilds = 0U;
+    std::size_t cache_reuses = 0U;
+    std::size_t cache_certificate_passes = 0U;
+    std::size_t scratch_calls = 0U;
+    std::size_t scratch_releases = 0U;
+    double maximum_positive_strain = 0.0;
+    double maximum_penetration = 0.0;
+    double maximum_kkt_residual = 0.0;
+    double strict_residual = 0.0;
+    double support_reaction_closure = 0.0;
+    B4E2DOutput output;
+};
+
+SmokeFixture make_b4e2d_dam_fixture() {
+    SmokeFixture result;
+    result.name = "b4e2d-nominal-dam-step4";
+    result.position = b4e0_nominal_fluid();
+    result.velocity.resize(result.position.size());
+    result.boundary = make_box_owned_shell({80, 20, 20}, 2);
+    result.closed_box_contact = true;
+    result.contact_low = {RADIUS, RADIUS, RADIUS};
+    result.contact_high = {
+        4.0 - RADIUS, 1.0 - RADIUS, 1.0 - RADIUS};
+    result.macro_frames = 4;
+    result.maximum_participants =
+        result.position.size() + result.boundary.size();
+    result.maximum_pairs = B4C0_MAX_NEIGHBORS * result.position.size();
+    result.geometry_sha256 = geometry_hash(result);
+    return result;
+}
+
+B4E2DOutput b4e2d_output(
+    const MacroAdaptiveTransactionCase& transaction,
+    std::uint32_t expected_step) {
+    B4E2DOutput result;
+    if (transaction.committed_frames.size() != 1U) {
+        return result;
+    }
+    const canonical::Frame& frame = transaction.committed_frames.front();
+    if (frame.step != expected_step || frame.samples.size() != 6000U) {
+        return result;
+    }
+    std::vector<std::int64_t> x;
+    std::vector<std::int64_t> y;
+    x.reserve(frame.samples.size());
+    y.reserve(frame.samples.size());
+    bool ids_exact = true;
+    for (std::size_t index = 0U; index < frame.samples.size(); ++index) {
+        const canonical::Sample& sample = frame.samples[index];
+        ids_exact = ids_exact && sample.sample_id == index;
+        for (std::size_t axis = 0U; axis < 3U; ++axis) {
+            result.position_sum[axis] += sample.position_um[axis];
+            result.velocity_sum[axis] += sample.velocity_um_s[axis];
+        }
+        x.push_back(sample.position_um[0]);
+        y.push_back(sample.position_um[1]);
+    }
+    std::sort(x.begin(), x.end());
+    std::sort(y.begin(), y.end());
+    result.q99 = {x[5939U], y[5939U]};
+    result.frame_root = frame.root_sha256;
+    std::ostringstream material;
+    material << "nextengine.nonlocal.nsr3b4e2d-output.v1|"
+             << expected_step << '|' << frame.root_sha256 << '|'
+             << result.position_sum[0] << ':' << result.position_sum[1]
+             << ':' << result.position_sum[2] << '|'
+             << result.velocity_sum[0] << ':' << result.velocity_sum[1]
+             << ':' << result.velocity_sum[2] << '|'
+             << result.q99[0] << ':' << result.q99[1];
+    result.aggregate_root = sha256_hex(material.str());
+    result.passed = ids_exact && transaction.decoded_aggregate.finite_values
+        && !result.frame_root.empty();
+    return result;
+}
+
+bool b4e2d_work_only_exact(const MacroAdaptiveTransactionCase& transaction) {
+    const JointQueryTrace& trace = transaction.trace;
+    const JointParallelTrace& parallel = trace.owner_parallel;
+    const JointDirectedScratchReuseTrace& scratch =
+        parallel.directed_scratch_reuse;
+    return trace.workspace_evidence_policy
+            == JointWorkspaceEvidencePolicy::WorkOnly
+        && trace.workspace_state_hashes == 0
+        && trace.workspace_state_hashes_skipped == trace.neighborhood_builds
+        && trace.neighborhood_builds > 0
+        && trace.queries.size()
+            == static_cast<std::size_t>(trace.neighborhood_builds)
+        && std::all_of(trace.queries.begin(), trace.queries.end(),
+            [](const JointQueryMetric& query) {
+                return query.state_sha256.empty();
+            })
+        && trace.coefficient_tape_builds
+            == static_cast<std::size_t>(trace.neighborhood_builds)
+        && trace.coefficient_mismatches == 0U
+        && trace.coefficient_fallbacks == 0U
+        && trace.fused_workspace_builds
+            == static_cast<std::size_t>(trace.neighborhood_builds)
+        && trace.fusion_mismatches == 0U && trace.fusion_fallbacks == 0U
+        && trace.exact && trace.work_reduced
+        && trace.candidate_all_pair_evaluations == 0
+        && trace.candidate_all_pair_hvps == 0
+        && trace.live_workspaces == 0 && trace.maximum_live_workspaces <= 2
+        && parallel.enabled && !parallel.failed
+        && parallel.requested_workers == 8
+        && parallel.minimum_observed_team == 8
+        && parallel.maximum_observed_team == 8
+        && parallel.team_mismatches == 0U
+        && parallel.coverage_mismatches == 0U
+        && parallel.worker_failures == 0U && parallel.regions > 0U
+        && parallel.incoming_construction_audit.candidate_enabled
+        && parallel.incoming_construction_audit.candidate_failures == 0U
+        && parallel.incoming_construction_audit.fallbacks == 0U
+        && scratch.enabled && scratch.calls > 0U
+        && scratch.calls == scratch.evaluation_calls + scratch.hvp_calls
+        && scratch.releases == 1U && scratch.live_buffers == 0U
+        && scratch.maximum_live_buffers == 1U && scratch.failures == 0U;
+}
+
+bool b4e2d_cache_exact(const JointTopologySupersetCache& cache) {
+    return !cache.failed && cache.queries > 1U && cache.rebuilds == 1U
+        && cache.reuses + 1U == cache.queries
+        && cache.certificate_passes == cache.reuses
+        && cache.certificate_failures == 0U && cache.fallback_builds == 0U
+        && cache.superset.passed && cache.maximum_candidate_degree <= 160U;
+}
+
+double b4e2d_rmse(const std::vector<double>& values) {
+    double squared = 0.0;
+    for (const double value : values) {
+        squared += value * value;
+    }
+    return std::sqrt(squared / static_cast<double>(values.size()));
+}
+
+double b4e2d_maximum(const std::vector<double>& values) {
+    return *std::max_element(values.begin(), values.end());
+}
+
+void append_b4e2d_step(std::ostringstream& report, const B4E2DStep& step) {
+    report << std::setprecision(17)
+           << "{\"step\":" << step.step
+           << ",\"status\":\"" << (step.passed ? "PASS" : "FAIL") << '"'
+           << ",\"failure\":\"" << step.failure << '"'
+           << ",\"initial_substeps\":" << step.initial_substeps
+           << ",\"selected_level\":" << step.selected_level
+           << ",\"accepted_substeps\":" << step.accepted_substeps
+           << ",\"attempted_substeps\":" << step.attempted_substeps
+           << ",\"discarded_substeps\":" << step.discarded_substeps
+           << ",\"outer_trials\":" << step.outer_trials
+           << ",\"rejected_trials\":" << step.rejected_trials
+           << ",\"nonlinear_hvp_calls\":" << step.nonlinear_hvp_calls
+           << ",\"spectral_hvp_calls\":" << step.spectral_hvp_calls
+           << ",\"queries\":" << step.queries
+           << ",\"cache\":{\"rebuilds\":" << step.cache_rebuilds
+           << ",\"reuses\":" << step.cache_reuses
+           << ",\"certificate_passes\":"
+           << step.cache_certificate_passes << '}'
+           << ",\"directed_scratch\":{\"calls\":"
+           << step.scratch_calls << ",\"releases\":"
+           << step.scratch_releases << '}'
+           << ",\"maximum_positive_density_strain\":"
+           << step.maximum_positive_strain
+           << ",\"maximum_penetration_m\":" << step.maximum_penetration
+           << ",\"maximum_kkt_residual\":" << step.maximum_kkt_residual
+           << ",\"strict_residual\":" << step.strict_residual
+           << ",\"support_reaction_closure\":"
+           << step.support_reaction_closure
+           << ",\"frame_root\":\"" << step.output.frame_root
+           << "\",\"aggregate_root\":\"" << step.output.aggregate_root
+           << "\"}";
+}
+
+} // namespace
+
+SplitBoundaryReport run_nominal_dam_first_output_controls() {
+    constexpr int worker_count = 8;
+    omp_set_dynamic(0);
+    omp_set_max_active_levels(1);
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[1];
+    SmokeFixture fixture = make_b4e2d_dam_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(fixture.position, fixture.velocity, 0));
+    const std::string initial_aggregate_root =
+        b4e0_initial_aggregate_root(initial.frame);
+    fixture.position = decode_canonical_position(initial.frame);
+    fixture.velocity = decode_canonical_velocity(initial.frame);
+    fixture.geometry_sha256 = geometry_hash(fixture);
+
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index = build_joint_static_support_index(
+        tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding = bind_joint_static_support_index(
+        &index, index.identity_sha256);
+    const JointNeighborhood initial_neighborhood =
+        index.passed && binding.passed
+        ? build_joint_neighborhood_with_static_support(
+            tagged_points(fixture.position), &binding, true, &static_work,
+            true, &adjacency_work)
+        : JointNeighborhood{};
+    const Evaluation initial_evaluation = initial_neighborhood.passed
+        ? evaluate_joint(initial_neighborhood) : Evaluation{};
+    double initial_mechanical = initial_evaluation.energy;
+    for (const Vec3 position : fixture.position) {
+        initial_mechanical += MASS * (-fixture.gravity.y) * position.y;
+    }
+    const std::string initial_pair_root = initial_neighborhood.passed
+        ? joint_pair_hash(initial_neighborhood) : std::string{};
+    const bool identity_exact = sha256_hex(B4E2D_IDENTITY_PROJECTION)
+            == B4E2D_IDENTITY_SHA256
+        && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
+        && scenario_root == spec.scenario_root
+        && initial_aggregate_root
+            == "37d83c159ff913afef290b9dc1cc7affe9f6018d726dd7b13ab9308f3bf741d3"
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "a2d97ab6f26383d826366eba2a3d4392f5ef9610dda87e89509e93bd9daf61e8"
+        && initial_neighborhood.passed
+        && initial_pair_root
+            == "c330a0aecb913d92e95478dc3325f9bc326d5e8d3057485723dd62eef1493889"
+        && initial_neighborhood.pairs.size() == 335814U
+        && initial_neighborhood.flat_directed_pair_indices.size() == 596256U
+        && initial_neighborhood.maximum_degree == 117U
+        && fixture.position.size() == 6000U
+        && fixture.boundary.size() == 16384U
+        && std::isfinite(initial_mechanical)
+        && b4e0_evaluation_finite(initial_evaluation)
+        && static_work.static_index_builds == 1U;
+
+    std::string first_failure;
+    if (!identity_exact) {
+        first_failure = "IDENTITY_ALIGNMENT";
+    }
+    std::vector<Vec3> position = fixture.position;
+    std::vector<Vec3> velocity = fixture.velocity;
+    std::vector<canonical::Frame> frames;
+    std::vector<CanonicalPublicationLedgerEntry> ledgers;
+    std::vector<B4E2DStep> steps;
+    int accepted_substeps = 0;
+    int attempted_substeps = 0;
+    int discarded_substeps = 0;
+    int outer_trials = 0;
+    int rejected_trials = 0;
+    int nonlinear_hvp_calls = 0;
+    int spectral_hvp_calls = 0;
+    double maximum_positive_strain = 0.0;
+    double maximum_penetration = 0.0;
+    double maximum_kkt_residual = 0.0;
+    double maximum_strict_residual = 0.0;
+    double maximum_support_reaction_closure = 0.0;
+    double maximum_mechanical = initial_mechanical;
+    double cumulative_pressure_delta = 0.0;
+    double cumulative_mechanical_delta = 0.0;
+    Vec3 cumulative_publication_impulse;
+    bool state_handoff_exact = identity_exact;
+    bool work_exact = identity_exact;
+    bool transaction_physics_exact = identity_exact;
+
+    for (std::uint32_t step = 1U;
+         first_failure.empty() && step <= 4U; ++step) {
+        const std::vector<Vec3> expected_position = step == 1U
+            ? decode_canonical_position(initial.frame)
+            : decode_canonical_position(frames.back());
+        const std::vector<Vec3> expected_velocity = step == 1U
+            ? decode_canonical_velocity(initial.frame)
+            : decode_canonical_velocity(frames.back());
+        const bool handoff = exact_vec3_values(position, expected_position)
+            && exact_vec3_values(velocity, expected_velocity);
+        state_handoff_exact = state_handoff_exact && handoff;
+        if (!handoff) {
+            first_failure = "STEP_" + std::to_string(step)
+                + ":STATE_HANDOFF";
+            break;
+        }
+
+        JointTopologySupersetCache cache;
+        MacroAdaptiveTransactionCase transaction =
+            run_macro_adaptive_transaction_case(
+                "b4e2d-dam-step-" + std::to_string(step), fixture,
+                scenario_root, false, true, &position, &velocity,
+                static_cast<int>(step - 1U), step, true, true,
+                &binding, &static_work, true, &adjacency_work, false,
+                &cache, true, true, false, false, worker_count,
+                false, false, false, false, false, false, false, false, true,
+                false, true, false, false, false, false);
+        B4E2DStep step_report;
+        step_report.step = step;
+        step_report.initial_substeps = transaction.initial_substeps;
+        step_report.selected_level = transaction.selected_level;
+        step_report.accepted_substeps = transaction.accepted_substeps;
+        step_report.attempted_substeps = transaction.attempted_substeps;
+        step_report.discarded_substeps = transaction.discarded_substeps;
+        step_report.outer_trials = transaction.outer_trials;
+        step_report.rejected_trials = transaction.rejected_trials;
+        step_report.nonlinear_hvp_calls = transaction.nonlinear_hvp_calls;
+        step_report.spectral_hvp_calls = transaction.spectral_hvp_calls;
+        step_report.queries = cache.queries;
+        step_report.cache_rebuilds = cache.rebuilds;
+        step_report.cache_reuses = cache.reuses;
+        step_report.cache_certificate_passes = cache.certificate_passes;
+        step_report.scratch_calls = transaction.trace.owner_parallel
+            .directed_scratch_reuse.calls;
+        step_report.scratch_releases = transaction.trace.owner_parallel
+            .directed_scratch_reuse.releases;
+        step_report.output = b4e2d_output(transaction, step);
+        if (transaction.passed && !transaction.committed_ledger.empty()) {
+            const SmokeRun& accepted = transaction.accepted_private;
+            const CanonicalPublicationLedgerEntry& ledger =
+                transaction.committed_ledger.front();
+            step_report.maximum_positive_strain = std::max(
+                accepted.maximum_positive_density_strain,
+                transaction.decoded_aggregate.maximum_positive_strain);
+            step_report.maximum_penetration = std::max(
+                accepted.maximum_penetration,
+                transaction.maximum_decoded_penetration);
+            step_report.maximum_kkt_residual = std::max(
+                accepted.maximum_ledger_residual,
+                ledger.compensated_kkt_residual);
+            step_report.strict_residual = ledger.compensated_ledger_residual;
+            step_report.support_reaction_closure =
+                accepted.maximum_support_reaction_closure;
+        }
+        const bool cache_exact = b4e2d_cache_exact(cache);
+        const bool step_work_exact = b4e2d_work_only_exact(transaction)
+            && cache_exact
+            && transaction.retention.transfers == transaction.retention.reads
+            && transaction.retention.reads == transaction.retention.releases
+            && transaction.retention.live_retained == 0
+            && transaction.retention.maximum_live_retained <= 1;
+        const bool step_physics_exact = transaction.passed
+            && step_report.output.passed
+            && transaction.fine_only_commit
+            && transaction.accepted_substeps <= 192
+            && transaction.maximum_attempted_level_substeps <= 768
+            && step_report.maximum_positive_strain <= 1.0e-3
+            && step_report.maximum_penetration <= 0.0025
+            && step_report.maximum_kkt_residual <= 1.0e-9
+            && std::isfinite(step_report.strict_residual)
+            && step_report.support_reaction_closure <= 1.0e-10;
+        step_report.passed = step_work_exact && step_physics_exact;
+        if (!transaction.passed) {
+            step_report.failure = transaction.failure;
+        } else if (!cache_exact) {
+            step_report.failure = "TOPOLOGY_CACHE";
+        } else if (!step_work_exact) {
+            step_report.failure = "WORK_OWNERSHIP";
+        } else if (!step_physics_exact) {
+            step_report.failure = "STEP_PHYSICS";
+        }
+        steps.push_back(step_report);
+        work_exact = work_exact && step_work_exact;
+        transaction_physics_exact = transaction_physics_exact
+            && step_physics_exact;
+        if (!step_report.passed) {
+            first_failure = "STEP_" + std::to_string(step) + ':'
+                + step_report.failure;
+            break;
+        }
+
+        const SmokeRun& accepted = transaction.accepted_private;
+        const CanonicalPublicationLedgerEntry& ledger =
+            transaction.committed_ledger.front();
+        accepted_substeps += transaction.accepted_substeps;
+        attempted_substeps += transaction.attempted_substeps;
+        discarded_substeps += transaction.discarded_substeps;
+        outer_trials += transaction.outer_trials;
+        rejected_trials += transaction.rejected_trials;
+        nonlinear_hvp_calls += transaction.nonlinear_hvp_calls;
+        spectral_hvp_calls += transaction.spectral_hvp_calls;
+        maximum_positive_strain = std::max(
+            maximum_positive_strain, step_report.maximum_positive_strain);
+        maximum_penetration = std::max(
+            maximum_penetration, step_report.maximum_penetration);
+        maximum_kkt_residual = std::max(
+            maximum_kkt_residual, step_report.maximum_kkt_residual);
+        maximum_strict_residual = std::max(
+            maximum_strict_residual, step_report.strict_residual);
+        maximum_support_reaction_closure = std::max(
+            maximum_support_reaction_closure,
+            step_report.support_reaction_closure);
+        maximum_mechanical = std::max({maximum_mechanical,
+            accepted.maximum_mechanical_energy,
+            transaction.decoded_aggregate.mechanical});
+        cumulative_pressure_delta += std::abs(ledger.pressure_delta);
+        cumulative_mechanical_delta += std::abs(ledger.mechanical_delta);
+        cumulative_publication_impulse += ledger.direct_impulse;
+        position = transaction.committed_position;
+        velocity = transaction.committed_velocity;
+        frames.push_back(transaction.committed_frames.front());
+        ledgers.push_back(ledger);
+    }
+
+    const bool prefix_complete = frames.size() == 4U
+        && ledgers.size() == frames.size() && steps.size() == 4U;
+    bool global_steps_exact = prefix_complete;
+    for (std::size_t index_value = 0U;
+         index_value < frames.size(); ++index_value) {
+        global_steps_exact = global_steps_exact
+            && frames[index_value].step == index_value + 1U;
+    }
+    const bool final_decode_exact = prefix_complete
+        && exact_vec3_values(position, decode_canonical_position(frames.back()))
+        && exact_vec3_values(velocity, decode_canonical_velocity(frames.back()));
+    const std::string trajectory_root = canonical::trajectory_root(
+        B4C3P_PROFILE_SHA256, scenario_root, canonical_frame_roots(frames));
+    const std::string legacy_ledger_root = publication_ledger_hash(ledgers);
+    const std::string policy_ledger_root = macro_policy_ledger_hash(ledgers);
+    const bool roots_exact = trajectory_root == canonical::trajectory_root(
+            B4C3P_PROFILE_SHA256, scenario_root,
+            canonical_frame_roots(frames))
+        && legacy_ledger_root == publication_ledger_hash(ledgers)
+        && policy_ledger_root == macro_policy_ledger_hash(ledgers);
+    const bool accounting_exact = attempted_substeps
+        == accepted_substeps + discarded_substeps;
+    const double energy_scale = std::max({std::abs(initial_mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * std::abs(fixture.gravity.y) * SPACING,
+        1.0e-12});
+    const double energy_creation = std::max(
+        0.0, maximum_mechanical - initial_mechanical);
+    const double energy_creation_limit =
+        0.01 * energy_scale + cumulative_mechanical_delta;
+    const double impulse_limit = static_cast<double>(ledgers.size())
+            * MASS * std::sqrt(3.0) * 0.5e-6
+        + gamma_factor(32U + 3U * ledgers.size())
+            * std::max(norm(cumulative_publication_impulse), 1.0e-30);
+    const bool cumulative_physics_exact = prefix_complete
+        && maximum_positive_strain <= 1.0e-3
+        && maximum_penetration <= 0.0025
+        && maximum_kkt_residual <= 1.0e-9
+        && std::isfinite(maximum_strict_residual)
+        && maximum_support_reaction_closure <= 1.0e-10
+        && cumulative_pressure_delta <= 0.01 * energy_scale
+        && cumulative_mechanical_delta <= 0.01 * energy_scale
+        && energy_creation <= energy_creation_limit
+        && norm(cumulative_publication_impulse) <= impulse_limit
+        && accounting_exact;
+
+    const B4E2DOutput final_output = prefix_complete
+        ? steps.back().output : B4E2DOutput{};
+    std::vector<double> center_errors;
+    std::vector<double> q99_errors;
+    if (final_output.passed) {
+        constexpr std::array<double, 3> center_denominator{
+            6000.0 * 4000000.0,
+            6000.0 * 1000000.0,
+            6000.0 * 1000000.0};
+        for (std::size_t axis = 0U; axis < 3U; ++axis) {
+            center_errors.push_back(std::abs(
+                static_cast<double>(final_output.position_sum[axis]
+                    - B4E2D_REFERENCE_POSITION_SUM[axis]))
+                / center_denominator[axis]);
+        }
+        q99_errors.push_back(std::abs(
+            static_cast<double>(final_output.q99[0]
+                - B4E2D_REFERENCE_Q99[0])) / 4000000.0);
+        q99_errors.push_back(std::abs(
+            static_cast<double>(final_output.q99[1]
+                - B4E2D_REFERENCE_Q99[1])) / 1000000.0);
+    }
+    const double center_rmse = center_errors.empty()
+        ? std::numeric_limits<double>::infinity()
+        : b4e2d_rmse(center_errors);
+    const double center_maximum = center_errors.empty()
+        ? std::numeric_limits<double>::infinity()
+        : b4e2d_maximum(center_errors);
+    const double q99_rmse = q99_errors.empty()
+        ? std::numeric_limits<double>::infinity()
+        : b4e2d_rmse(q99_errors);
+    const double q99_maximum = q99_errors.empty()
+        ? std::numeric_limits<double>::infinity()
+        : b4e2d_maximum(q99_errors);
+    const bool reference_exact = final_output.passed
+        && center_rmse <= 0.05 && center_maximum <= 0.10
+        && q99_rmse <= 0.05 && q99_maximum <= 0.10;
+    if (first_failure.empty() && !cumulative_physics_exact) {
+        first_failure = "CUMULATIVE_PHYSICS";
+    }
+    if (first_failure.empty() && !reference_exact) {
+        first_failure = "REFERENCE_ENVELOPE";
+    }
+    const bool passed = first_failure.empty() && identity_exact
+        && state_handoff_exact && transaction_physics_exact && work_exact
+        && global_steps_exact && final_decode_exact && roots_exact
+        && cumulative_physics_exact && reference_exact;
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D_IDENTITY_SHA256 << '|' << scenario_root << '|'
+             << initial_pair_root << '|' << initial_aggregate_root << '|'
+             << trajectory_root << '|' << legacy_ledger_root << '|'
+             << policy_ledger_root << '|';
+    for (const B4E2DStep& step : steps) {
+        semantic << step.step << ':' << step.passed << ':'
+                 << step.initial_substeps << ':' << step.selected_level << ':'
+                 << step.accepted_substeps << ':' << step.attempted_substeps
+                 << ':' << step.output.frame_root << ':'
+                 << step.output.aggregate_root << '|';
+    }
+    semantic << maximum_positive_strain << ':' << maximum_penetration << ':'
+             << maximum_kkt_residual << ':' << maximum_strict_residual << ':'
+             << maximum_support_reaction_closure << '|'
+             << cumulative_pressure_delta << ':'
+             << cumulative_mechanical_delta << ':' << energy_creation << ':'
+             << norm(cumulative_publication_impulse) << '|'
+             << center_rmse << ':' << center_maximum << ':' << q99_rmse << ':'
+             << q99_maximum;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d_dam_first_output.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D_IDENTITY_SHA256 << '"'
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"alignment\":{\"scenario_root\":\"" << scenario_root
+           << "\",\"static_index_root\":\"" << index.identity_sha256
+           << "\",\"initial_pair_root\":\"" << initial_pair_root
+           << "\",\"initial_aggregate_root\":\""
+           << initial_aggregate_root
+           << "\",\"fluid_samples\":" << fixture.position.size()
+           << ",\"support_samples\":" << fixture.boundary.size()
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false") << '}'
+           << ",\"steps\":[";
+    for (std::size_t index_value = 0U;
+         index_value < steps.size(); ++index_value) {
+        if (index_value != 0U) {
+            report << ',';
+        }
+        append_b4e2d_step(report, steps[index_value]);
+    }
+    report << "]"
+           << ",\"work\":{\"static_index_builds\":"
+           << static_work.static_index_builds
+           << ",\"workspace_builds\":" << static_work.workspace_builds
+           << ",\"accepted_substeps\":" << accepted_substeps
+           << ",\"attempted_substeps\":" << attempted_substeps
+           << ",\"discarded_substeps\":" << discarded_substeps
+           << ",\"outer_trials\":" << outer_trials
+           << ",\"rejected_trials\":" << rejected_trials
+           << ",\"nonlinear_hvp_calls\":" << nonlinear_hvp_calls
+           << ",\"spectral_hvp_calls\":" << spectral_hvp_calls
+           << ",\"exact\":" << (work_exact ? "true" : "false") << '}'
+           << ",\"roots\":{\"trajectory\":\"" << trajectory_root
+           << "\",\"legacy_ledger\":\"" << legacy_ledger_root
+           << "\",\"policy_ledger\":\"" << policy_ledger_root
+           << "\",\"exact\":" << (roots_exact ? "true" : "false")
+           << '}'
+           << ",\"cumulative_physics\":{\"maximum_positive_density_strain\":"
+           << maximum_positive_strain
+           << ",\"maximum_penetration_m\":" << maximum_penetration
+           << ",\"maximum_kkt_residual\":" << maximum_kkt_residual
+           << ",\"maximum_strict_residual\":" << maximum_strict_residual
+           << ",\"maximum_support_reaction_closure\":"
+           << maximum_support_reaction_closure
+           << ",\"energy_scale_j\":" << energy_scale
+           << ",\"cumulative_absolute_pressure_delta_j\":"
+           << cumulative_pressure_delta
+           << ",\"cumulative_absolute_mechanical_delta_j\":"
+           << cumulative_mechanical_delta
+           << ",\"energy_creation_j\":" << energy_creation
+           << ",\"energy_creation_limit_j\":" << energy_creation_limit
+           << ",\"publication_impulse_norm_kg_m_s\":"
+           << norm(cumulative_publication_impulse)
+           << ",\"publication_impulse_limit_kg_m_s\":" << impulse_limit
+           << ",\"exact\":"
+           << (cumulative_physics_exact ? "true" : "false") << '}'
+           << ",\"first_output\":{\"step\":4,\"sample_count\":6000,"
+              "\"mass_kg\":750,\"candidate_position_sum_um\":["
+           << final_output.position_sum[0] << ','
+           << final_output.position_sum[1] << ','
+           << final_output.position_sum[2]
+           << "],\"reference_position_sum_um\":["
+           << B4E2D_REFERENCE_POSITION_SUM[0] << ','
+           << B4E2D_REFERENCE_POSITION_SUM[1] << ','
+           << B4E2D_REFERENCE_POSITION_SUM[2]
+           << "],\"candidate_velocity_sum_um_s\":["
+           << final_output.velocity_sum[0] << ','
+           << final_output.velocity_sum[1] << ','
+           << final_output.velocity_sum[2]
+           << "],\"reference_velocity_sum_um_s\":["
+           << B4E2D_REFERENCE_VELOCITY_SUM[0] << ','
+           << B4E2D_REFERENCE_VELOCITY_SUM[1] << ','
+           << B4E2D_REFERENCE_VELOCITY_SUM[2]
+           << "],\"candidate_q99_position_um\":[" << final_output.q99[0]
+           << ',' << final_output.q99[1]
+           << "],\"reference_q99_position_um\":["
+           << B4E2D_REFERENCE_Q99[0] << ',' << B4E2D_REFERENCE_Q99[1]
+           << "],\"center_normalized_rmse\":" << center_rmse
+           << ",\"center_normalized_maximum\":" << center_maximum
+           << ",\"q99_normalized_rmse\":" << q99_rmse
+           << ",\"q99_normalized_maximum\":" << q99_maximum
+           << ",\"exact\":" << (reference_exact ? "true" : "false")
+           << '}'
+           << ",\"state_handoff_exact\":"
+           << (state_handoff_exact ? "true" : "false")
+           << ",\"global_steps_exact\":"
+           << (global_steps_exact ? "true" : "false")
+           << ",\"final_decode_exact\":"
+           << (final_decode_exact ? "true" : "false")
+           << ",\"watchdog_seconds\":900,\"timing_admitted\":false"
+           << ",\"speedup_claim\":false"
+           << ",\"b4e2h_contract_research_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"full_corpus_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << sha256_hex(semantic.str())
+           << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr
