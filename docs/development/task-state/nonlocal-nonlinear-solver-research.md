@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10SIRDIREQ_HOST_UNQUALIFIED / CPU_TIME_ATTRIBUTION_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10SIRDIREQ1_FROZEN / CPU_TIME_ATTRIBUTION_IMPLEMENTATION_PENDING` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -399,6 +399,10 @@
 - **Current decision:** do not source-bisect or run short-margin wall A/B on
   this shared desktop host. Research an opt-in process/thread CPU-time residual
   attribution lane; it may route structural work but grants no wall credit.
+- **Current decision:** B4EP10SIRDIREQ1 freezes process CPU clocks for the
+  existing disjoint phases and thread CPU clocks for all worker-active
+  intervals. Implement/run only this timing command; exclude stopped
+  evaluation setup from routing.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -501,6 +505,7 @@
 | NSR3B4EP10SIRDIREP FAIL | exact and `3/3` faster, but baseline health and candidate stability fail; code reverted | retain SIRDI; different residual discriminator research only |
 | NSR3B4EP10SIRDIREQ contract | accepted `f33bf3a` versus reverted `b8a1edd`, same exact SIRDI command | build and run balanced qualification only; no speed credit |
 | NSR3B4EP10SIRDIREQ HOST_UNQUALIFIED | accepted median `4.801273 s` misses health; current/accepted wall/CPU `0.977/0.982` | no source bisection or short-margin wall A/B |
+| NSR3B4EP10SIRDIREQ1 contract | process/thread CPU clocks over exact SIRDIR hierarchy | implement/run three only; no wall or speed credit |
 
 Candidate solver identity remains:
 
@@ -1193,6 +1198,18 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** an independently admitted quiet wall window passes the
   original health boundary.
 
+### D-055 -- Replace residual wall attribution with CPU clocks
+
+- **Observation:** Linux process CPU time covers all process threads and
+  thread CPU time covers one worker while excluding external descheduling;
+  both clocks report 1 ns resolution on the active host.
+- **Decision:** add one opt-in exact CPU trace over 7,275 phase/total, 4,089
+  region and 32,712 worker intervals. Route only from stable disjoint CPU
+  shares and retain wall throughput as unqualified.
+- **Rejected:** using process total CPU without phase attribution, modifying
+  unrelated process affinity/priorities, interpreting CPU time as frame latency
+  or allowing stopped evaluation setup to select another buffer experiment.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -1245,12 +1262,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research process-wide and per-worker thread CPU clocks against the existing
-   disjoint SIRDIR phase hierarchy; change no physics or wall claim.
-2. Freeze one exact opt-in CPU-time residual discriminator if all phase sums
-   and worker ownership can be checked without timing affecting semantics.
-3. Use only its stable CPU shares to select a structural audit; final wall A/B
-   remains blocked until a quiet host window passes the original health gate.
+1. Implement the frozen process/thread clock trace and fail-closed checked
+   accounting without changing existing command bytes.
+2. Verify SIRDI/SIRDIR exact, then run three fresh CPU-timing processes and the
+   GNU total-CPU cross-check.
+3. Select at most one timing-free structural audit from the eligible CPU
+   leader; final wall A/B remains blocked pending a qualified host window.
 
 ## Reconsideration triggers
 
