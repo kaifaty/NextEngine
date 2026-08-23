@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R10_PASS_SAFE_PROGRESSING / D7R19R11_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R11_PASS_FORCING_CONVERGED_24 / D7R19R12_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -373,6 +373,19 @@
   then run unchanged dimensionless-forcing Steihaug to at most 128 HVPs.
   Expose recurrence/Ritz diagnostics; use no preconditioner, model, trial,
   precision audit or transaction continuation.
+- **D7R19R11 result:** PASS and `TOTAL_BUDGET_OFFLINE_FORCING_CONVERGED` at
+  stdout SHA `bd05f7ac...8efe` and semantic result `be9cc63d...05ef`. R10 and
+  all transitive parents remain exact.
+- **Completion fact:** the first-14 prefix root is exact and unchanged
+  Steihaug converges on HVP 24 at residual `0.847833*eta`. The missing live
+  tail is ten recurrence HVPs, not 24 new HVPs.
+- **Conditioning fact:** all 24 iterations remain finite, positive and
+  interior; Ritz condition is `26.6716` and recurrence diagnostics remain
+  near `1e-14`. A preconditioner is not justified for this boundary.
+- **Current decision:** research/freeze D7R19R12 as one shadow atomic
+  completion: exact ten-HVP post-boundary debt, one ordinary direct model HVP,
+  one divided/precision/acceptance/radius classification, no commit or later
+  transaction work. Do not change the live cap yet.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2274,14 +2287,13 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19 and all preceding
-   normalized parents exactly. Implement the frozen D7R19R11 offline-only
-   replay of boundary root `002f3b63...50df` and recurrence root
-   `a900c945...974c`. Reproduce the first 14 iterations exactly and continue
-   only the same recurrence to at most 128 HVPs. Do not form a model/trial,
+6. Preserve D7R19R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19 and all
+   preceding normalized parents exactly. Research/freeze D7R19R12 as one
+   shadow atomic completion of outer 5/trial 1: exact first-14 prefix, ten
+   post-boundary recurrence HVPs, one ordinary direct model HVP and one
+   divided/precision/acceptance/radius classification. Do not commit or
    continue the transaction, raise the live cap, change production policy,
-   publicly commit state or start a second substep, macro, trajectory or
-   timing lane.
+   start another solve/substep/macro/trajectory or run timing.
 
 ## Reconsideration triggers
 
