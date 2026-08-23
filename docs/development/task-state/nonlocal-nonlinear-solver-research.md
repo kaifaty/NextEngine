@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R11_PASS_FORCING_CONVERGED_24 / D7R19R12_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R11_PASS_FORCING_CONVERGED_24 / D7R19R12_CONTRACT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -382,7 +382,7 @@
 - **Conditioning fact:** all 24 iterations remain finite, positive and
   interior; Ritz condition is `26.6716` and recurrence diagnostics remain
   near `1e-14`. A preconditioner is not justified for this boundary.
-- **Current decision:** research/freeze D7R19R12 as one shadow atomic
+- **Current decision:** implement the frozen D7R19R12 shadow atomic
   completion: exact ten-HVP post-boundary debt, one ordinary direct model HVP,
   one divided/precision/acceptance/radius classification, no commit or later
   transaction work. Do not change the live cap yet.
@@ -2288,7 +2288,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19 and all
-   preceding normalized parents exactly. Research/freeze D7R19R12 as one
+   preceding normalized parents exactly. Implement frozen D7R19R12 as one
    shadow atomic completion of outer 5/trial 1: exact first-14 prefix, ten
    post-boundary recurrence HVPs, one ordinary direct model HVP and one
    divided/precision/acceptance/radius classification. Do not commit or
