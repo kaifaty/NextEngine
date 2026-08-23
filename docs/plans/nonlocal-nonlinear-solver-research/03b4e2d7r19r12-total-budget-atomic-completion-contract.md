@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R12 -- total-budget atomic completion contract
 
-Status: `FROZEN / IMPLEMENTATION NEXT / SHADOW ONLY`
+Status: `FROZEN / PASS ACCEPTANCE CANDIDATE / SHADOW ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -66,3 +66,6 @@ This contract grants one rollback-only shadow completion classification. It
 does not authorize a live cap or restart-policy change, transaction
 continuation, state commit, another solve/substep, timing, performance claim,
 runtime policy or production authority.
+
+Closed by the
+[D7R19R12 atomic-completion evidence](../../development/nonlocal-nsr3b4e2d7r19r12-total-budget-atomic-completion-evidence-2026-08-23.md).

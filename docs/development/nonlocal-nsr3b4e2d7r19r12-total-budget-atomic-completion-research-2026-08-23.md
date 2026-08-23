@@ -2,7 +2,7 @@
 
 Date: `2026-08-23`
 
-Status: `RESEARCH COMPLETE / CONTRACT FREEZE NEXT / SHADOW ONLY`
+Status: `COMPLETE / PASS ACCEPTANCE CANDIDATE / SHADOW ONLY`
 
 ## Question
 
@@ -123,3 +123,5 @@ only research and freezing of a later soft-cap/completion-reserve policy.
 
 The selected experiment is frozen by the
 [D7R19R12 atomic-completion contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r12-total-budget-atomic-completion-contract.md).
+Its reproducible result is recorded in the
+[D7R19R12 evidence](nonlocal-nsr3b4e2d7r19r12-total-budget-atomic-completion-evidence-2026-08-23.md).
