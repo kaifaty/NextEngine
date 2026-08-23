@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R14 -- soft-cap suspension contract
 
-Status: `FROZEN / IMPLEMENTATION NEXT / PROJECTION ONLY`
+Status: `FROZEN / PASS OUTER BOUNDARY SUSPENDED / SHADOW ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -52,3 +52,6 @@ repeat mismatch is hard FAIL.
 This contract grants one report-only policy/token projection. It does not
 authorize budget-code mutation, resume, outer 6, state commit, timing, runtime
 policy or production authority.
+
+Closed by the
+[D7R19R14 soft-cap suspension evidence](../../development/nonlocal-nsr3b4e2d7r19r14-soft-cap-suspension-evidence-2026-08-24.md).

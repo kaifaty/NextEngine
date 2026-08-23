@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / CONTRACT FREEZE NEXT / PROJECTION ONLY`
+Status: `RESEARCH COMPLETE / PROJECTION PASS / TOKEN VALIDATION NEXT`
 
 ## Question and budget audit
 
@@ -77,3 +77,6 @@ runtime/production readiness.
 
 The policy projection is frozen by the
 [D7R19R14 soft-cap suspension contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r14-soft-cap-suspension-contract.md).
+
+The projection passes with the evidence recorded in the
+[D7R19R14 soft-cap suspension evidence](nonlocal-nsr3b4e2d7r19r14-soft-cap-suspension-evidence-2026-08-24.md).

@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R13_PASS_OUTER_COMPLETE_NOT_ADMISSIBLE / D7R19R14_CONTRACT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
-| Updated | `2026-08-23` |
+| Status | `ACTIVE / D7R19R14_PASS_OUTER_BOUNDARY_SUSPENDED / D7R19R15_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
 | Definition of done | NSR0--NSR6 select a production-roadmap candidate or stop at an exact reproducible boundary |
@@ -404,9 +404,22 @@
   The already-admitted target trial starts at `498`, owns the existing
   34-HVP allowance through dynamic ceiling `532`, finishes at `523`, then
   denies outer 6 and emits a versioned outer-boundary continuation candidate.
-- **Current decision:** implement only the zero-work D7R19R14 policy/token
+- **R14 execution decision:** implement only the zero-work D7R19R14 policy/token
   projection. Do not mutate budget code, execute resume/outer 6 or raise the
   live cap.
+- **D7R19R14 result:** PASS and `SOFT_CAP_OUTER_BOUNDARY_SUSPENDED` at stdout
+  SHA `16b357b1...b4625` and semantic result `34fdc84c...08751`. Two clean
+  Release builds are byte-exact and all transitive parents remain exact.
+- **Suspension fact:** the trial starts at total `498`, is bounded by its
+  existing dynamic ceiling `532`, completes at `523`, and leaves nine HVPs of
+  its allowance unused. Outer 6 is denied; no allowance is transferred.
+- **Token fact:** the private version-1 outer-boundary token has root
+  `c06dbfee...8b5` and binds exact position, dual, predicted/static identity,
+  next outer, previous convergence state and both HVP ledgers. Projection adds
+  zero work and executes no resume.
+- **Current decision:** research/freeze D7R19R15 as prework token validation
+  with deterministic negative controls. It may classify admission only; no
+  resume, outer 6 or live budget-code change is authorized.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2308,12 +2321,13 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19 and
-   all preceding normalized parents exactly. Implement only the frozen
-   D7R19R14 zero-work soft-cap policy/token projection. Do not mutate budget
-   code, execute resume/outer 6, admit another trial/solve, commit public
-   state, raise the live cap, change production policy, start another
-   substep/macro/trajectory or run timing.
+6. Preserve D7R19R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19
+   and all preceding normalized parents exactly. Research/freeze only
+   D7R19R15 prework validation and negative controls for the versioned R14
+   continuation-token candidate. Do not mutate budget code, execute resume or
+   outer 6, admit another trial/solve, commit public state, raise the live cap,
+   change production policy, start another substep/macro/trajectory or run
+   timing.
 
 ## Reconsideration triggers
 
