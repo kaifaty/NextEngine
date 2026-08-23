@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R13 -- post-acceptance boundary contract
 
-Status: `FROZEN / IMPLEMENTATION NEXT / SHADOW ONLY`
+Status: `FROZEN / PASS OUTER COMPLETE NOT ADMISSIBLE / SHADOW ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -62,3 +62,6 @@ This contract grants one rollback-only post-acceptance boundary
 classification. It does not authorize a soft/live cap change, checkpoint ABI,
 state commit, another trust solve/trial, later outer/transaction work, timing,
 runtime policy or production authority.
+
+Closed by the
+[D7R19R13 post-acceptance boundary evidence](../../development/nonlocal-nsr3b4e2d7r19r13-post-acceptance-boundary-evidence-2026-08-24.md).

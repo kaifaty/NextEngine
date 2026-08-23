@@ -2,7 +2,7 @@
 
 Date: `2026-08-23`
 
-Status: `RESEARCH COMPLETE / CONTRACT FREEZE NEXT / SHADOW ONLY`
+Status: `COMPLETE / PASS OUTER BOUNDARY / SHADOW ONLY`
 
 ## Question
 
@@ -96,3 +96,5 @@ runtime policy or production use.
 
 The selected discriminator is frozen by the
 [D7R19R13 post-acceptance boundary contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r13-post-acceptance-boundary-contract.md).
+Its reproducible result is recorded in the
+[D7R19R13 evidence](nonlocal-nsr3b4e2d7r19r13-post-acceptance-boundary-evidence-2026-08-24.md).

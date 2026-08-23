@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R12_PASS_ACCEPTANCE_CANDIDATE / D7R19R13_CONTRACT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R13_PASS_OUTER_COMPLETE_NOT_ADMISSIBLE / D7R19R14_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -390,10 +390,20 @@
   direct-model HVP, projecting total `523`. `rho=1.0000000141`; raw,
   inherited and precancelled decisions all accept; long double resolves
   positive, binary128 is unnecessary and radius is unchanged.
-- **Current decision:** implement frozen D7R19R13 as a rollback-only
-  post-acceptance boundary discriminator. Determine whether R12's accepted
-  trial completes the inner/outer boundary without admitting another solve.
-  Do not change the live cap yet.
+- **D7R19R13 result:** PASS and
+  `POST_ACCEPTANCE_OUTER_COMPLETE_NOT_ADMISSIBLE` at stdout SHA
+  `0f248c45...f57f9` and semantic result `3a60f64e...e5e57`. R12 and all
+  transitive parents remain exact.
+- **Boundary fact:** accepted-state stationarity is `3.1346e-13`, so inner
+  completes without another trust solve. Outer 5 rebuilds exactly with zero
+  HVP and decreases primal `2.99137e-8 -> 2.63135e-8`.
+- **Admission fact:** outer 5 is complete but not yet admissible; primal,
+  dual change and position update remain above their limits. This is a safe
+  resumable outer boundary, not convergence or failure.
+- **Current decision:** research/freeze D7R19R14 as a bounded soft-cap
+  admission and outer-boundary suspension policy. Do not implement or raise
+  the live cap until reserve, ownership, accounting and resume semantics are
+  frozen.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2295,14 +2305,14 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19 and all
-   preceding normalized parents exactly. Implement frozen D7R19R13 as one
-   rollback-only post-acceptance boundary discriminator over the exact R12
-   trial. Classify accepted-trial stationarity and whether the existing
-   inner/outer update can finish without a new trust solve. Do not admit
-   another trial/solve, commit or continue later transaction work, raise the
-   live cap, change production policy, start another substep/macro/trajectory
-   or run timing.
+6. Preserve D7R19R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19 and
+   all preceding normalized parents exactly. Research/freeze D7R19R14 as a
+   bounded soft-cap admission and outer-boundary suspension policy. Freeze the
+   soft admission point, atomic reserve, state ownership, exact accounting,
+   stop status and resume semantics before implementation. Do not continue
+   outer 6, admit another trial/solve, commit public state, raise the live cap,
+   change production policy, start another substep/macro/trajectory or run
+   timing.
 
 ## Reconsideration triggers
 
