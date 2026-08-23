@@ -173,6 +173,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-tiered-grace-model-image-"
                          "discriminator|"
                          "--nonlocal-al-tiered-grace-private-transaction|"
+                         "--nonlocal-al-total-hvp-boundary-diagnostic|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1344,6 +1345,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_tiered_grace_private_transaction_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-total-hvp-boundary-diagnostic") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_total_hvp_boundary_diagnostic_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
