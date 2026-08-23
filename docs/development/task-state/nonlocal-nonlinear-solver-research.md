@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R14_PASS_OUTER_BOUNDARY_SUSPENDED / D7R19R15_CONTRACT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R15_PASS_V1_RESOURCE_LEDGER_COLLISION / D7R19R16_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -428,6 +428,15 @@
 - **Current decision:** freeze R15 as a zero-work v1 completeness
   discriminator. Prove bound-field sensitivity and fixed resource/policy
   twins before designing v2. Do not call v1 resumable.
+- **D7R19R15 result:** PASS and `TOKEN_V1_RESOURCE_LEDGER_COLLISION` at
+  stdout SHA `257244d4...b81b4` and semantic result `ed209bfa...2f0bf`.
+  R14 bytes and all transitive parents remain exact.
+- **Completeness fact:** all 16 bound-field mutations change v1 root, but a
+  locally-valid resource twin and an alternate completion-policy twin retain
+  token root `c06dbfee...8b5` while changing their complete context roots.
+- **Disposition:** v1 is not resumable. Preserve R14 suspension, reject its v1
+  token as authority and research/freeze a canonical v2 envelope with full
+  ledgers, policy/history/payload identity and stale/duplicate controls.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2330,11 +2339,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19
-   and all preceding normalized parents exactly. Implement only the frozen
-   D7R19R15 zero-work v1 token-completeness discriminator. Do not mutate
-   budget code, execute resume or outer 6, admit another trial/solve, commit
-   public state, raise the live cap, change production policy, start another
-   substep/macro/trajectory or run timing.
+   and all preceding normalized parents exactly. Research/freeze only
+   D7R19R16 canonical v2 continuation-envelope validation and negative
+   controls. Do not mutate budget code, execute resume or outer 6, admit
+   another trial/solve, commit public state, raise the live cap, change
+   production policy, start another substep/macro/trajectory or run timing.
 
 ## Reconsideration triggers
 

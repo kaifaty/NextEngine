@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / CONTRACT FROZEN / V1 ADEQUACY ONLY`
+Status: `RESEARCH COMPLETE / V1 INCOMPLETE / V2 RESEARCH NEXT`
 
 ## Question
 
@@ -122,3 +122,6 @@ readiness.
 
 The executable discriminator is frozen by the
 [D7R19R15 token-completeness contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r15-token-completeness-contract.md).
+
+The discriminator confirms the resource and policy projection collisions in
+the [D7R19R15 evidence](nonlocal-nsr3b4e2d7r19r15-token-completeness-evidence-2026-08-24.md).

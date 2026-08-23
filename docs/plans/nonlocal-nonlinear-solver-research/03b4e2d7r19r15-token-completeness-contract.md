@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R15 -- continuation-token completeness contract
 
-Status: `FROZEN / IMPLEMENTATION NEXT / V1 ADEQUACY ONLY`
+Status: `FROZEN / PASS V1 RESOURCE LEDGER COLLISION / V1 NOT RESUMABLE`
 
 Identity projection (exact bytes, no final LF):
 
@@ -57,3 +57,6 @@ This contract grants one report-only v1 projection-completeness
 classification. A PASS on the discriminator does not make v1 resumable. It
 does not authorize v2 validation, resume, outer 6, budget-code mutation,
 public serialization, timing, runtime policy or production authority.
+
+Closed by the
+[D7R19R15 token-completeness evidence](../../development/nonlocal-nsr3b4e2d7r19r15-token-completeness-evidence-2026-08-24.md).
