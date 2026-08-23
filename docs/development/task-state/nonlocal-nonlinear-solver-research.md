@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R6_PASS_LATER_GUARD_DENIED / D7R19R7_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R6_PASS_LATER_GUARD_DENIED / D7R19R7_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -288,6 +288,13 @@
   and freeze D7R19R7 as a replay-only diagnostic of the first later denied
   solve. Identify the failed clause and offline convergence behavior before
   considering any policy change. Do not continue the transaction.
+- **D7R19R7 frozen design:** reproduce R6 exactly, capture the first later
+  denial passively, expose every guard clause and replay only that recurrence
+  under the existing offline cap of 128 HVPs. First-32 iteration projections
+  must be exact before later diagnostics count.
+- **Scope boundary:** R7 consumes one offline workspace and at most 128
+  diagnostic HVPs. It cannot form a model/trial, audit precision, continue the
+  transaction, change guard/cap policy or run another substep/timing lane.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2175,11 +2182,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R6/R5/R4/R3/R2/R1, D7R19 and all preceding normalized
-   parents exactly. Research/freeze D7R19R7 as one replay-only diagnostic of
-   R6's first later `GUARDED_HVP_DENIED` solve. It may capture the live
-   first-32 prefix and continue only that recurrence offline; it may not form
-   a trial, continue the transaction, change any cap/policy, publicly commit
-   state or start another substep, macro, trajectory or timing lane.
+   parents exactly. Implement frozen D7R19R7 as one replay-only diagnostic of
+   R6's first later `GUARDED_HVP_DENIED` solve. Capture the live first-32
+   prefix passively and continue only that recurrence offline to at most 128
+   HVPs. Do not form a trial, continue the transaction, change any cap/policy,
+   publicly commit state or start another substep, macro, trajectory or timing
+   lane.
 
 ## Reconsideration triggers
 
