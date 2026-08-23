@@ -78757,6 +78757,14 @@ struct ALContinuationPolicyIdentity {
     std::string completion;
 };
 
+struct ALTokenCompletenessCapture {
+    bool captured = false;
+    ALSoftCapSuspensionCapture r14;
+    ALContinuationResourceLedger baseline;
+    ALContinuationPolicyIdentity policy;
+    std::string baseline_context_root;
+};
+
 bool al_continuation_resource_ledger_locally_valid(
     const ALContinuationResourceLedger& ledger,
     const ALSoftCapContinuationTokenV1& token) {
@@ -78811,7 +78819,8 @@ void al_mutate_digest(std::string& digest) {
 
 } // namespace
 
-SplitBoundaryReport run_al_token_completeness_controls() {
+SplitBoundaryReport run_al_token_completeness_controls_impl(
+    ALTokenCompletenessCapture* capture_out) {
     const bool identity_exact = sha256_hex(B4E2D7R19R15_IDENTITY_PROJECTION)
         == B4E2D7R19R15_IDENTITY_SHA256;
 
@@ -79179,6 +79188,803 @@ SplitBoundaryReport run_al_token_completeness_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    if (capture_out != nullptr) {
+        capture_out->captured = passed;
+        capture_out->r14 = std::move(capture);
+        capture_out->baseline = baseline;
+        capture_out->policy = baseline_policy;
+        capture_out->baseline_context_root = baseline_context_root;
+    }
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19R16_IDENTITY_SHA256 =
+    "700629514111fa5630d4463abadaedaa55709704fb588cb6db9d748e91badec2";
+constexpr const char* B4E2D7R19R16_IDENTITY_PROJECTION =
+    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19r16-v2-envelope|v1|parent=108a14bf:257244d44f3ec4460889968221cf95f0f4ca72090ec6406c7b7349a0710b81b4:ed209bfa1c6a52411aef21b9f5036fabe46baf68bd2acf95e3b46a424782f0bf|legacy=r14-stdout16b357b173d5c36f123dbbad31cca0c777229ff38772d3847a85357c9a0b4625|target=v2-root069f8bdddfaeed4d09156f4577f9922d4f606f0c2aaee3e27ff5a66c2915b8f9;magic-NEALCTN2;schema2;body524;total540;flags13;particles6000;outer6;provisional-1;primal0x3e5c40ff44000000;theta0x3fc5cccccccccccd|roots=source-c06dbfeeac346d4413d114082d18b4e4725edfac81896ed72cbabfacf3f188b5;position-58dadefd7426e9f80188b694557a02efcaf005dd67abfff5e337b90f214be5a8;dual-f4279bde29358f65b17b15ad7456e8c5743b44ec99fd3612d78cb5f905b00aca;outer-5dd9a07d60cbfe851bdc4c383944a1eb8042f178a821f4a546da33101dd0a19a;predicted-36112dde1e0b274c5b9216f4818b82977a0c80dc257478c111b0f0a9390d2d7e;static-a2d97ab6f26383d826366eba2a3d4392f5ef9610dda87e89509e93bd9daf61e8;formula-676900335dcf77e2f8536e69e92597d608baf1bb7c4e514cfe071070e6c88895;solver-193016ce6c55a4b3052d3c980a38364de72cc9b168653bcb7e3a5b9790347697;completion-c6bb447392499aad19c49b69857d43b061c73c9468fe64d097a98ce5ecf99034;history-9754a0bb714011fe4eb637060c6c1eee930e7eb4a1c7db991f664ae40011af7b|limits=16,16,34,512,288,64,8704|used=6,2,25,0,523,523,33,21,504,19,2,21,0|encoding=fixed-order;little-endian;binary64-bits;raw-digests;no-padding;exact-flags|owner=expected-root;expected-epoch;consumed;read-only|controls=valid;bad-magic;bad-schema;bad-length;truncated;bad-flags;token-root;owner-root;duplicate;stale;position;dual;particle-count;outer-context;predicted;theta;static;formula;solver;completion;limit;used;cumulative-invariant;history|routes=token-v2-canonical-rejected;token-v2-integrity-rejected;token-v2-owner-rejected;token-v2-duplicate-rejected;token-v2-stale-epoch-rejected;token-v2-payload-rejected;token-v2-context-rejected;token-v2-policy-rejected;token-v2-resource-rejected;token-v2-history-rejected;token-v2-validation-candidate|precedence=canonical,integrity,owner,duplicate,stale,payload,context,policy,resource,history,candidate|runs=2-clean-release-builds;1-process-each;byte-exact|work=control-parent-substeps1;new-workspaces0;new-hvp0;new-model0;new-trial0;new-precision0;new-outer0;encoding-and-hash-only|owner-consume=none;epoch-transition=none;resume=none;outer6=none;second-solve=none;second-substep=none;macro=none;trajectory=none;timing=none;public-schema=none;public-commit=none;physics-mutation=none;live-budget-code-change=none;production-policy-change=none|credit=one-private-v2-envelope-validation-candidate-only)IDENTITY";
+
+constexpr std::size_t AL_V2_ROOT_COUNT = 10U;
+constexpr std::size_t AL_V2_LIMIT_COUNT = 7U;
+constexpr std::size_t AL_V2_USED_COUNT = 13U;
+constexpr std::size_t AL_V2_BODY_BYTES = 524U;
+constexpr std::size_t AL_V2_ENVELOPE_BYTES = 540U;
+constexpr std::uint32_t AL_V2_FLAGS = 13U;
+
+enum ALV2RootIndex : std::size_t {
+    AL_V2_SOURCE_ROOT = 0U,
+    AL_V2_POSITION_ROOT = 1U,
+    AL_V2_DUAL_ROOT = 2U,
+    AL_V2_OUTER_ROOT = 3U,
+    AL_V2_PREDICTED_ROOT = 4U,
+    AL_V2_STATIC_ROOT = 5U,
+    AL_V2_FORMULA_ROOT = 6U,
+    AL_V2_SOLVER_ROOT = 7U,
+    AL_V2_COMPLETION_ROOT = 8U,
+    AL_V2_HISTORY_ROOT = 9U,
+};
+
+enum ALV2LimitIndex : std::size_t {
+    AL_V2_LIMIT_OUTER = 0U,
+    AL_V2_LIMIT_INNER = 1U,
+    AL_V2_LIMIT_TRIAL_HVP = 2U,
+    AL_V2_LIMIT_SOFT_HVP = 3U,
+    AL_V2_LIMIT_WORKSPACES = 4U,
+    AL_V2_LIMIT_PRECISION = 5U,
+    AL_V2_LIMIT_CUMULATIVE_HVP = 6U,
+};
+
+enum ALV2UsedIndex : std::size_t {
+    AL_V2_USED_OUTER = 0U,
+    AL_V2_USED_INNER = 1U,
+    AL_V2_USED_LAST_TRIAL_HVP = 2U,
+    AL_V2_USED_EPOCH = 3U,
+    AL_V2_USED_SLICE_HVP = 4U,
+    AL_V2_USED_CUMULATIVE_HVP = 5U,
+    AL_V2_USED_WORKSPACES = 6U,
+    AL_V2_USED_PRECISION = 7U,
+    AL_V2_USED_RECURRENCE_HVP = 8U,
+    AL_V2_USED_DIRECT_MODEL_HVP = 9U,
+    AL_V2_USED_RESIDUAL_MODELS = 10U,
+    AL_V2_USED_ACCEPTED = 11U,
+    AL_V2_USED_REJECTED = 12U,
+};
+
+struct ALContinuationEnvelopeV2 {
+    std::uint32_t flags = 0U;
+    std::uint64_t next_outer = 0U;
+    std::int64_t provisional_index = 0;
+    std::uint64_t previous_primal_bits = 0U;
+    std::uint64_t theta_bits = 0U;
+    std::uint64_t particle_count = 0U;
+    std::array<std::string, AL_V2_ROOT_COUNT> roots;
+    std::array<std::uint64_t, AL_V2_LIMIT_COUNT> limits{};
+    std::array<std::uint64_t, AL_V2_USED_COUNT> used{};
+};
+
+struct ALContinuationOwnerV2 {
+    std::string expected_token_root;
+    std::uint64_t expected_budget_epoch = 0U;
+    bool consumed = false;
+};
+
+struct ALV2ValidationResult {
+    std::string route;
+    std::string token_root;
+};
+
+struct ALV2CaseRecord {
+    std::string name;
+    std::string expected;
+    std::string observed;
+    bool passed = false;
+};
+
+void al_append_u32_le(std::string& bytes, std::uint32_t value) {
+    for (unsigned shift = 0U; shift < 32U; shift += 8U) {
+        bytes.push_back(static_cast<char>((value >> shift) & 0xffU));
+    }
+}
+
+void al_append_u64_le(std::string& bytes, std::uint64_t value) {
+    for (unsigned shift = 0U; shift < 64U; shift += 8U) {
+        bytes.push_back(static_cast<char>((value >> shift) & 0xffU));
+    }
+}
+
+int al_hex_nibble(char value) {
+    if (value >= '0' && value <= '9') return value - '0';
+    if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+    return -1;
+}
+
+bool al_append_digest_bytes(std::string& bytes, const std::string& digest) {
+    if (digest.size() != 64U) return false;
+    for (std::size_t index = 0U; index < digest.size(); index += 2U) {
+        const int high = al_hex_nibble(digest[index]);
+        const int low = al_hex_nibble(digest[index + 1U]);
+        if (high < 0 || low < 0) return false;
+        bytes.push_back(static_cast<char>((high << 4) | low));
+    }
+    return true;
+}
+
+bool al_read_u32_le(
+    const std::string& bytes, std::size_t& offset, std::uint32_t& value) {
+    if (offset > bytes.size() || bytes.size() - offset < 4U) return false;
+    value = 0U;
+    for (unsigned index = 0U; index < 4U; ++index) {
+        value |= static_cast<std::uint32_t>(
+            static_cast<unsigned char>(bytes[offset + index]))
+            << (8U * index);
+    }
+    offset += 4U;
+    return true;
+}
+
+bool al_read_u64_le(
+    const std::string& bytes, std::size_t& offset, std::uint64_t& value) {
+    if (offset > bytes.size() || bytes.size() - offset < 8U) return false;
+    value = 0U;
+    for (unsigned index = 0U; index < 8U; ++index) {
+        value |= static_cast<std::uint64_t>(
+            static_cast<unsigned char>(bytes[offset + index]))
+            << (8U * index);
+    }
+    offset += 8U;
+    return true;
+}
+
+bool al_read_digest_hex(
+    const std::string& bytes, std::size_t& offset, std::string& digest) {
+    static constexpr char HEX[] = "0123456789abcdef";
+    if (offset > bytes.size() || bytes.size() - offset < 32U) return false;
+    digest.clear();
+    digest.reserve(64U);
+    for (std::size_t index = 0U; index < 32U; ++index) {
+        const unsigned char value = static_cast<unsigned char>(
+            bytes[offset + index]);
+        digest.push_back(HEX[value >> 4U]);
+        digest.push_back(HEX[value & 0x0fU]);
+    }
+    offset += 32U;
+    return true;
+}
+
+bool al_encode_continuation_v2(
+    const ALContinuationEnvelopeV2& envelope, std::string& bytes) {
+    std::string body;
+    body.reserve(AL_V2_BODY_BYTES);
+    al_append_u32_le(body, envelope.flags);
+    al_append_u64_le(body, envelope.next_outer);
+    al_append_u64_le(
+        body, static_cast<std::uint64_t>(envelope.provisional_index));
+    al_append_u64_le(body, envelope.previous_primal_bits);
+    al_append_u64_le(body, envelope.theta_bits);
+    al_append_u64_le(body, envelope.particle_count);
+    for (const std::string& root : envelope.roots) {
+        if (!al_append_digest_bytes(body, root)) return false;
+    }
+    for (std::uint64_t limit : envelope.limits) {
+        al_append_u64_le(body, limit);
+    }
+    for (std::uint64_t used : envelope.used) {
+        al_append_u64_le(body, used);
+    }
+    if (body.size() != AL_V2_BODY_BYTES) return false;
+    bytes.assign("NEALCTN2", 8U);
+    al_append_u32_le(bytes, 2U);
+    al_append_u32_le(bytes, static_cast<std::uint32_t>(body.size()));
+    bytes += body;
+    return bytes.size() == AL_V2_ENVELOPE_BYTES;
+}
+
+bool al_decode_continuation_v2(
+    const std::string& bytes, ALContinuationEnvelopeV2& envelope) {
+    if (bytes.size() != AL_V2_ENVELOPE_BYTES
+        || bytes.compare(0U, 8U, "NEALCTN2") != 0) {
+        return false;
+    }
+    std::size_t offset = 8U;
+    std::uint32_t schema = 0U;
+    std::uint32_t body_bytes = 0U;
+    if (!al_read_u32_le(bytes, offset, schema)
+        || !al_read_u32_le(bytes, offset, body_bytes)
+        || schema != 2U || body_bytes != AL_V2_BODY_BYTES
+        || bytes.size() - offset != body_bytes
+        || !al_read_u32_le(bytes, offset, envelope.flags)
+        || envelope.flags != AL_V2_FLAGS
+        || !al_read_u64_le(bytes, offset, envelope.next_outer)) {
+        return false;
+    }
+    std::uint64_t provisional_bits = 0U;
+    if (!al_read_u64_le(bytes, offset, provisional_bits)
+        || (provisional_bits > static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max())
+            && provisional_bits != std::numeric_limits<std::uint64_t>::max())) {
+        return false;
+    }
+    envelope.provisional_index = provisional_bits
+            == std::numeric_limits<std::uint64_t>::max()
+        ? -1 : static_cast<std::int64_t>(provisional_bits);
+    if (!al_read_u64_le(bytes, offset, envelope.previous_primal_bits)
+        || !al_read_u64_le(bytes, offset, envelope.theta_bits)
+        || !al_read_u64_le(bytes, offset, envelope.particle_count)) {
+        return false;
+    }
+    for (std::string& root : envelope.roots) {
+        if (!al_read_digest_hex(bytes, offset, root)) return false;
+    }
+    for (std::uint64_t& limit : envelope.limits) {
+        if (!al_read_u64_le(bytes, offset, limit)) return false;
+    }
+    for (std::uint64_t& used : envelope.used) {
+        if (!al_read_u64_le(bytes, offset, used)) return false;
+    }
+    if (offset != bytes.size()) return false;
+    std::string reencoded;
+    return al_encode_continuation_v2(envelope, reencoded)
+        && reencoded == bytes;
+}
+
+bool al_continuation_v2_exact(
+    const ALContinuationEnvelopeV2& lhs,
+    const ALContinuationEnvelopeV2& rhs) {
+    return lhs.flags == rhs.flags && lhs.next_outer == rhs.next_outer
+        && lhs.provisional_index == rhs.provisional_index
+        && lhs.previous_primal_bits == rhs.previous_primal_bits
+        && lhs.theta_bits == rhs.theta_bits
+        && lhs.particle_count == rhs.particle_count
+        && lhs.roots == rhs.roots && lhs.limits == rhs.limits
+        && lhs.used == rhs.used;
+}
+
+std::string al_continuation_v2_history_root(
+    const std::string& parent_transaction_root,
+    const ALContinuationEnvelopeV2& envelope) {
+    std::ostringstream projection;
+    projection << "nextengine.nonlocal.al-continuation-history|v1|"
+               << parent_transaction_root << '|'
+               << envelope.roots[AL_V2_POSITION_ROOT] << '|'
+               << envelope.roots[AL_V2_OUTER_ROOT] << '|'
+               << envelope.used[AL_V2_USED_OUTER] << ':'
+               << envelope.used[AL_V2_USED_ACCEPTED] << ':'
+               << envelope.used[AL_V2_USED_REJECTED] << ':'
+               << envelope.used[AL_V2_USED_RECURRENCE_HVP] << ':'
+               << envelope.used[AL_V2_USED_DIRECT_MODEL_HVP] << ':'
+               << envelope.used[AL_V2_USED_RESIDUAL_MODELS] << ':'
+               << envelope.used[AL_V2_USED_WORKSPACES] << ':'
+               << envelope.used[AL_V2_USED_PRECISION] << ':'
+               << envelope.used[AL_V2_USED_CUMULATIVE_HVP];
+    return sha256_hex(projection.str());
+}
+
+bool al_continuation_v2_resource_valid(
+    const ALContinuationEnvelopeV2& value,
+    const ALContinuationEnvelopeV2& expected) {
+    const auto& limits = value.limits;
+    const auto& used = value.used;
+    const bool multiplication_safe = limits[AL_V2_LIMIT_INNER] > 0U
+        && limits[AL_V2_LIMIT_OUTER]
+            <= std::numeric_limits<std::uint64_t>::max()
+                / limits[AL_V2_LIMIT_INNER]
+        && limits[AL_V2_LIMIT_TRIAL_HVP] > 0U
+        && limits[AL_V2_LIMIT_OUTER] * limits[AL_V2_LIMIT_INNER]
+            <= std::numeric_limits<std::uint64_t>::max()
+                / limits[AL_V2_LIMIT_TRIAL_HVP];
+    const std::uint64_t derived_cumulative = multiplication_safe
+        ? limits[AL_V2_LIMIT_OUTER] * limits[AL_V2_LIMIT_INNER]
+            * limits[AL_V2_LIMIT_TRIAL_HVP]
+        : 0U;
+    return value.limits == expected.limits && value.used == expected.used
+        && multiplication_safe
+        && derived_cumulative == limits[AL_V2_LIMIT_CUMULATIVE_HVP]
+        && used[AL_V2_USED_OUTER] <= limits[AL_V2_LIMIT_OUTER]
+        && used[AL_V2_USED_INNER] <= limits[AL_V2_LIMIT_INNER]
+        && used[AL_V2_USED_LAST_TRIAL_HVP]
+            <= limits[AL_V2_LIMIT_TRIAL_HVP]
+        && used[AL_V2_USED_SLICE_HVP]
+            <= limits[AL_V2_LIMIT_SOFT_HVP]
+                + limits[AL_V2_LIMIT_TRIAL_HVP]
+        && used[AL_V2_USED_SLICE_HVP]
+            <= used[AL_V2_USED_CUMULATIVE_HVP]
+        && used[AL_V2_USED_CUMULATIVE_HVP]
+            <= limits[AL_V2_LIMIT_CUMULATIVE_HVP]
+        && used[AL_V2_USED_WORKSPACES]
+            <= limits[AL_V2_LIMIT_WORKSPACES]
+        && used[AL_V2_USED_PRECISION]
+            <= limits[AL_V2_LIMIT_PRECISION]
+        && used[AL_V2_USED_RECURRENCE_HVP]
+                + used[AL_V2_USED_DIRECT_MODEL_HVP]
+            == used[AL_V2_USED_CUMULATIVE_HVP]
+        && used[AL_V2_USED_RESIDUAL_MODELS]
+            <= used[AL_V2_USED_ACCEPTED]
+        && value.next_outer == used[AL_V2_USED_OUTER];
+}
+
+ALV2ValidationResult al_validate_continuation_v2(
+    const std::string& bytes,
+    const std::string& claimed_root,
+    const ALContinuationOwnerV2& owner,
+    const ALContinuationEnvelopeV2& expected,
+    const std::vector<Vec3>& position_payload,
+    const std::vector<double>& dual_payload,
+    const std::string& parent_transaction_root) {
+    ALContinuationEnvelopeV2 value;
+    if (!al_decode_continuation_v2(bytes, value)) {
+        return {"TOKEN_V2_CANONICAL_REJECTED", {}};
+    }
+    const std::string token_root = sha256_hex(bytes);
+    if (token_root != claimed_root) {
+        return {"TOKEN_V2_INTEGRITY_REJECTED", token_root};
+    }
+    if (owner.expected_token_root != token_root) {
+        return {"TOKEN_V2_OWNER_REJECTED", token_root};
+    }
+    if (owner.consumed) {
+        return {"TOKEN_V2_DUPLICATE_REJECTED", token_root};
+    }
+    if (owner.expected_budget_epoch != value.used[AL_V2_USED_EPOCH]) {
+        return {"TOKEN_V2_STALE_EPOCH_REJECTED", token_root};
+    }
+    if (value.particle_count != expected.particle_count
+        || value.particle_count != position_payload.size()
+        || value.particle_count != dual_payload.size()
+        || value.roots[AL_V2_POSITION_ROOT]
+            != al_binary64_vec3_root(position_payload)
+        || value.roots[AL_V2_DUAL_ROOT] != al_r10_dual_root(dual_payload)) {
+        return {"TOKEN_V2_PAYLOAD_REJECTED", token_root};
+    }
+    if (value.flags != expected.flags
+        || value.next_outer != expected.next_outer
+        || value.provisional_index != expected.provisional_index
+        || value.previous_primal_bits != expected.previous_primal_bits
+        || value.theta_bits != expected.theta_bits
+        || value.roots[AL_V2_SOURCE_ROOT]
+            != expected.roots[AL_V2_SOURCE_ROOT]
+        || value.roots[AL_V2_OUTER_ROOT]
+            != expected.roots[AL_V2_OUTER_ROOT]
+        || value.roots[AL_V2_PREDICTED_ROOT]
+            != expected.roots[AL_V2_PREDICTED_ROOT]
+        || value.roots[AL_V2_STATIC_ROOT]
+            != expected.roots[AL_V2_STATIC_ROOT]) {
+        return {"TOKEN_V2_CONTEXT_REJECTED", token_root};
+    }
+    if (value.roots[AL_V2_FORMULA_ROOT]
+            != expected.roots[AL_V2_FORMULA_ROOT]
+        || value.roots[AL_V2_SOLVER_ROOT]
+            != expected.roots[AL_V2_SOLVER_ROOT]
+        || value.roots[AL_V2_COMPLETION_ROOT]
+            != expected.roots[AL_V2_COMPLETION_ROOT]) {
+        return {"TOKEN_V2_POLICY_REJECTED", token_root};
+    }
+    if (!al_continuation_v2_resource_valid(value, expected)) {
+        return {"TOKEN_V2_RESOURCE_REJECTED", token_root};
+    }
+    if (value.roots[AL_V2_HISTORY_ROOT]
+            != al_continuation_v2_history_root(
+                parent_transaction_root, value)
+        || value.roots[AL_V2_HISTORY_ROOT]
+            != expected.roots[AL_V2_HISTORY_ROOT]) {
+        return {"TOKEN_V2_HISTORY_REJECTED", token_root};
+    }
+    return {"TOKEN_V2_VALIDATION_CANDIDATE", token_root};
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_v2_envelope_validation_controls() {
+    const bool identity_exact = sha256_hex(B4E2D7R19R16_IDENTITY_PROJECTION)
+        == B4E2D7R19R16_IDENTITY_SHA256;
+
+    ALTokenCompletenessCapture capture;
+    const SplitBoundaryReport r15_parent =
+        run_al_token_completeness_controls_impl(&capture);
+    const std::string r15_stdout_sha256 = sha256_hex(r15_parent.json + "\n");
+    const bool r15_semantic_exact = r15_parent.json.find(
+        "\"result_sha256\":\""
+        "ed209bfa1c6a52411aef21b9f5036fabe46baf68bd2acf95e3b46a424782f0bf"
+        "\"") != std::string::npos;
+    const bool parents_retained = r15_parent.json.find(
+        "16b357b173d5c36f123dbbad31cca0c777229ff38772d3847a85357c9a0b4625")
+            != std::string::npos
+        && r15_parent.json.find(
+            "\"transitive_parents_retained\":true") != std::string::npos;
+    const bool parent_exact = r15_parent.passed && capture.captured
+        && r15_semantic_exact && parents_retained
+        && r15_stdout_sha256
+            == "257244d44f3ec4460889968221cf95f0f4ca72090ec6406c7b7349a0710b81b4";
+
+    const ALSoftCapSuspensionCapture& r14 = capture.r14;
+    const ALNormalizedTotalHvpBoundaryCapture& boundary =
+        r14.r13.r12.r11.r10.total_hvp_boundary;
+    const ALNormalizedTrustCompletionTrace& completion =
+        r14.r13.r12.r11.r10.completion_trace;
+    const std::vector<Vec3>& position = r14.r13.r12.trial_position;
+    const std::vector<double>& dual = r14.r13.outer_u;
+    const std::string parent_transaction_root =
+        r14.r13.r12.r11.r10.candidate.root;
+
+    ALContinuationEnvelopeV2 baseline;
+    baseline.flags = AL_V2_FLAGS;
+    baseline.next_outer = r14.token.next_outer;
+    baseline.provisional_index = r14.token.provisional_index;
+    baseline.previous_primal_bits = r14.token.previous_primal_bits;
+    baseline.theta_bits = r14.token.theta_bits;
+    baseline.particle_count = position.size();
+    baseline.roots[AL_V2_SOURCE_ROOT] = r14.token_root;
+    baseline.roots[AL_V2_POSITION_ROOT] = al_binary64_vec3_root(position);
+    baseline.roots[AL_V2_DUAL_ROOT] = al_r10_dual_root(dual);
+    baseline.roots[AL_V2_OUTER_ROOT] = r14.r13.outer_state_root;
+    baseline.roots[AL_V2_PREDICTED_ROOT] = al_binary64_vec3_root(
+        boundary.predicted_position);
+    baseline.roots[AL_V2_STATIC_ROOT] = boundary.static_identity_sha256;
+    baseline.roots[AL_V2_FORMULA_ROOT] = sha256_hex(capture.policy.formula);
+    baseline.roots[AL_V2_SOLVER_ROOT] = sha256_hex(capture.policy.solver);
+    baseline.roots[AL_V2_COMPLETION_ROOT] = sha256_hex(
+        capture.policy.completion);
+    baseline.limits = {
+        capture.baseline.maximum_outer_updates,
+        capture.baseline.maximum_inner_trials_per_update,
+        capture.baseline.maximum_hvp_per_trial,
+        capture.baseline.soft_hvp_per_epoch,
+        capture.baseline.maximum_workspace_builds,
+        capture.baseline.maximum_precision_audits,
+        capture.baseline.maximum_outer_updates
+            * capture.baseline.maximum_inner_trials_per_update
+            * capture.baseline.maximum_hvp_per_trial};
+    baseline.used = {
+        capture.baseline.outer_updates,
+        capture.baseline.inner_trials_in_update,
+        capture.baseline.last_trial_hvp,
+        r14.token.budget_epoch,
+        capture.baseline.slice_hvp,
+        capture.baseline.cumulative_hvp,
+        capture.baseline.workspace_builds,
+        capture.baseline.precision_audits,
+        completion.recurrence_hvp + 10U,
+        completion.direct_model_hvp + 1U,
+        completion.residual_model_uses,
+        capture.baseline.accepted_trials,
+        capture.baseline.rejected_trials};
+    baseline.roots[AL_V2_HISTORY_ROOT] = al_continuation_v2_history_root(
+        parent_transaction_root, baseline);
+
+    const bool fields_exact = baseline.flags == 13U
+        && baseline.next_outer == 6U && baseline.provisional_index == -1
+        && baseline.previous_primal_bits == 0x3e5c40ff44000000ULL
+        && baseline.theta_bits == 0x3fc5cccccccccccdULL
+        && baseline.particle_count == 6000U
+        && baseline.roots[AL_V2_SOURCE_ROOT]
+            == "c06dbfeeac346d4413d114082d18b4e4725edfac81896ed72cbabfacf3f188b5"
+        && baseline.roots[AL_V2_POSITION_ROOT]
+            == "58dadefd7426e9f80188b694557a02efcaf005dd67abfff5e337b90f214be5a8"
+        && baseline.roots[AL_V2_DUAL_ROOT]
+            == "f4279bde29358f65b17b15ad7456e8c5743b44ec99fd3612d78cb5f905b00aca"
+        && baseline.roots[AL_V2_OUTER_ROOT]
+            == "5dd9a07d60cbfe851bdc4c383944a1eb8042f178a821f4a546da33101dd0a19a"
+        && baseline.roots[AL_V2_PREDICTED_ROOT]
+            == "36112dde1e0b274c5b9216f4818b82977a0c80dc257478c111b0f0a9390d2d7e"
+        && baseline.roots[AL_V2_STATIC_ROOT]
+            == "a2d97ab6f26383d826366eba2a3d4392f5ef9610dda87e89509e93bd9daf61e8"
+        && baseline.roots[AL_V2_FORMULA_ROOT]
+            == "676900335dcf77e2f8536e69e92597d608baf1bb7c4e514cfe071070e6c88895"
+        && baseline.roots[AL_V2_SOLVER_ROOT]
+            == "193016ce6c55a4b3052d3c980a38364de72cc9b168653bcb7e3a5b9790347697"
+        && baseline.roots[AL_V2_COMPLETION_ROOT]
+            == "c6bb447392499aad19c49b69857d43b061c73c9468fe64d097a98ce5ecf99034"
+        && baseline.roots[AL_V2_HISTORY_ROOT]
+            == "9754a0bb714011fe4eb637060c6c1eee930e7eb4a1c7db991f664ae40011af7b"
+        && baseline.limits == std::array<std::uint64_t, AL_V2_LIMIT_COUNT>{
+            16U, 16U, 34U, 512U, 288U, 64U, 8704U}
+        && baseline.used == std::array<std::uint64_t, AL_V2_USED_COUNT>{
+            6U, 2U, 25U, 0U, 523U, 523U, 33U, 21U,
+            504U, 19U, 2U, 21U, 0U};
+
+    std::string baseline_bytes;
+    const bool encoded = al_encode_continuation_v2(
+        baseline, baseline_bytes);
+    const std::string baseline_root = encoded
+        ? sha256_hex(baseline_bytes) : std::string{};
+    ALContinuationEnvelopeV2 decoded;
+    const bool roundtrip_exact = encoded
+        && baseline_bytes.size() == AL_V2_ENVELOPE_BYTES
+        && al_decode_continuation_v2(baseline_bytes, decoded)
+        && al_continuation_v2_exact(decoded, baseline);
+    const bool target_root_exact = baseline_root
+        == "069f8bdddfaeed4d09156f4577f9922d4f606f0c2aaee3e27ff5a66c2915b8f9";
+
+    const ALContinuationOwnerV2 baseline_owner{
+        baseline_root, baseline.used[AL_V2_USED_EPOCH], false};
+    std::vector<ALV2CaseRecord> cases;
+    std::ostringstream case_projection;
+    const auto observe_case = [&](const std::string& name,
+                                  const std::string& expected_route,
+                                  const std::string& bytes,
+                                  const std::string& claimed_root,
+                                  const ALContinuationOwnerV2& owner,
+                                  const std::vector<Vec3>& case_position,
+                                  const std::vector<double>& case_dual) {
+        const ALV2ValidationResult result = al_validate_continuation_v2(
+            bytes, claimed_root, owner, baseline, case_position, case_dual,
+            parent_transaction_root);
+        ALV2CaseRecord record;
+        record.name = name;
+        record.expected = expected_route;
+        record.observed = result.route;
+        record.passed = record.expected == record.observed;
+        case_projection << record.name << ':' << record.expected << ':'
+                        << record.observed << ':' << record.passed << '|';
+        cases.push_back(std::move(record));
+    };
+    observe_case("valid", "TOKEN_V2_VALIDATION_CANDIDATE",
+        baseline_bytes, baseline_root, baseline_owner, position, dual);
+
+    std::string bad_magic = baseline_bytes;
+    bad_magic[0] ^= 1;
+    observe_case("bad-magic", "TOKEN_V2_CANONICAL_REJECTED",
+        bad_magic, sha256_hex(bad_magic),
+        {sha256_hex(bad_magic), 0U, false}, position, dual);
+    std::string bad_schema = baseline_bytes;
+    bad_schema[8] = 3;
+    observe_case("bad-schema", "TOKEN_V2_CANONICAL_REJECTED",
+        bad_schema, sha256_hex(bad_schema),
+        {sha256_hex(bad_schema), 0U, false}, position, dual);
+    std::string bad_length = baseline_bytes;
+    bad_length[12] ^= 1;
+    observe_case("bad-length", "TOKEN_V2_CANONICAL_REJECTED",
+        bad_length, sha256_hex(bad_length),
+        {sha256_hex(bad_length), 0U, false}, position, dual);
+    std::string truncated = baseline_bytes;
+    truncated.pop_back();
+    observe_case("truncated", "TOKEN_V2_CANONICAL_REJECTED",
+        truncated, sha256_hex(truncated),
+        {sha256_hex(truncated), 0U, false}, position, dual);
+    ALContinuationEnvelopeV2 mutated = baseline;
+    mutated.flags |= 16U;
+    std::string mutated_bytes;
+    const bool bad_flags_encoded = al_encode_continuation_v2(
+        mutated, mutated_bytes);
+    observe_case("bad-flags", "TOKEN_V2_CANONICAL_REJECTED",
+        mutated_bytes, sha256_hex(mutated_bytes),
+        {sha256_hex(mutated_bytes), 0U, false}, position, dual);
+
+    std::string wrong_claimed_root = baseline_root;
+    al_mutate_digest(wrong_claimed_root);
+    observe_case("token-root", "TOKEN_V2_INTEGRITY_REJECTED",
+        baseline_bytes, wrong_claimed_root, baseline_owner, position, dual);
+    ALContinuationOwnerV2 wrong_owner = baseline_owner;
+    al_mutate_digest(wrong_owner.expected_token_root);
+    observe_case("owner-root", "TOKEN_V2_OWNER_REJECTED",
+        baseline_bytes, baseline_root, wrong_owner, position, dual);
+    ALContinuationOwnerV2 duplicate_owner = baseline_owner;
+    duplicate_owner.consumed = true;
+    observe_case("duplicate", "TOKEN_V2_DUPLICATE_REJECTED",
+        baseline_bytes, baseline_root, duplicate_owner, position, dual);
+    ALContinuationOwnerV2 stale_owner = baseline_owner;
+    stale_owner.expected_budget_epoch = 1U;
+    observe_case("stale", "TOKEN_V2_STALE_EPOCH_REJECTED",
+        baseline_bytes, baseline_root, stale_owner, position, dual);
+
+    std::vector<Vec3> bad_position = position;
+    bad_position.front().x = std::nextafter(
+        bad_position.front().x, std::numeric_limits<double>::infinity());
+    observe_case("position", "TOKEN_V2_PAYLOAD_REJECTED",
+        baseline_bytes, baseline_root, baseline_owner, bad_position, dual);
+    std::vector<double> bad_dual = dual;
+    bad_dual.front() = std::nextafter(
+        bad_dual.front(), std::numeric_limits<double>::infinity());
+    observe_case("dual", "TOKEN_V2_PAYLOAD_REJECTED",
+        baseline_bytes, baseline_root, baseline_owner, position, bad_dual);
+
+    const auto observe_mutated_envelope = [&] (
+        const std::string& name, const std::string& expected_route,
+        const ALContinuationEnvelopeV2& value) {
+        std::string bytes;
+        const bool value_encoded = al_encode_continuation_v2(value, bytes);
+        const std::string root = value_encoded
+            ? sha256_hex(bytes) : std::string{};
+        observe_case(name, expected_route, bytes, root,
+            {root, value.used[AL_V2_USED_EPOCH], false}, position, dual);
+        return value_encoded;
+    };
+    mutated = baseline;
+    ++mutated.particle_count;
+    const bool particle_encoded = observe_mutated_envelope(
+        "particle-count", "TOKEN_V2_PAYLOAD_REJECTED", mutated);
+    mutated = baseline;
+    ++mutated.next_outer;
+    const bool outer_encoded = observe_mutated_envelope(
+        "outer-context", "TOKEN_V2_CONTEXT_REJECTED", mutated);
+    mutated = baseline;
+    al_mutate_digest(mutated.roots[AL_V2_PREDICTED_ROOT]);
+    const bool predicted_encoded = observe_mutated_envelope(
+        "predicted", "TOKEN_V2_CONTEXT_REJECTED", mutated);
+    mutated = baseline;
+    mutated.theta_bits ^= 1U;
+    const bool theta_encoded = observe_mutated_envelope(
+        "theta", "TOKEN_V2_CONTEXT_REJECTED", mutated);
+    mutated = baseline;
+    al_mutate_digest(mutated.roots[AL_V2_STATIC_ROOT]);
+    const bool static_encoded = observe_mutated_envelope(
+        "static", "TOKEN_V2_CONTEXT_REJECTED", mutated);
+    mutated = baseline;
+    al_mutate_digest(mutated.roots[AL_V2_FORMULA_ROOT]);
+    const bool formula_encoded = observe_mutated_envelope(
+        "formula", "TOKEN_V2_POLICY_REJECTED", mutated);
+    mutated = baseline;
+    al_mutate_digest(mutated.roots[AL_V2_SOLVER_ROOT]);
+    const bool solver_encoded = observe_mutated_envelope(
+        "solver", "TOKEN_V2_POLICY_REJECTED", mutated);
+    mutated = baseline;
+    al_mutate_digest(mutated.roots[AL_V2_COMPLETION_ROOT]);
+    const bool completion_encoded = observe_mutated_envelope(
+        "completion", "TOKEN_V2_POLICY_REJECTED", mutated);
+    mutated = baseline;
+    ++mutated.limits[AL_V2_LIMIT_OUTER];
+    const bool limit_encoded = observe_mutated_envelope(
+        "limit", "TOKEN_V2_RESOURCE_REJECTED", mutated);
+    mutated = baseline;
+    --mutated.used[AL_V2_USED_WORKSPACES];
+    const bool used_encoded = observe_mutated_envelope(
+        "used", "TOKEN_V2_RESOURCE_REJECTED", mutated);
+    mutated = baseline;
+    mutated.used[AL_V2_USED_CUMULATIVE_HVP] = 522U;
+    const bool cumulative_encoded = observe_mutated_envelope(
+        "cumulative-invariant", "TOKEN_V2_RESOURCE_REJECTED", mutated);
+    mutated = baseline;
+    al_mutate_digest(mutated.roots[AL_V2_HISTORY_ROOT]);
+    const bool history_encoded = observe_mutated_envelope(
+        "history", "TOKEN_V2_HISTORY_REJECTED", mutated);
+
+    const bool all_case_encodes = bad_flags_encoded && particle_encoded
+        && outer_encoded && predicted_encoded && theta_encoded
+        && static_encoded && formula_encoded && solver_encoded
+        && completion_encoded && limit_encoded && used_encoded
+        && cumulative_encoded && history_encoded;
+    const bool cases_exact = cases.size() == 24U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const ALV2CaseRecord& value) { return value.passed; });
+    std::array<std::size_t, 11U> route_counts{};
+    const auto route_index = [](const std::string& route) {
+        if (route == "TOKEN_V2_CANONICAL_REJECTED") return 0U;
+        if (route == "TOKEN_V2_INTEGRITY_REJECTED") return 1U;
+        if (route == "TOKEN_V2_OWNER_REJECTED") return 2U;
+        if (route == "TOKEN_V2_DUPLICATE_REJECTED") return 3U;
+        if (route == "TOKEN_V2_STALE_EPOCH_REJECTED") return 4U;
+        if (route == "TOKEN_V2_PAYLOAD_REJECTED") return 5U;
+        if (route == "TOKEN_V2_CONTEXT_REJECTED") return 6U;
+        if (route == "TOKEN_V2_POLICY_REJECTED") return 7U;
+        if (route == "TOKEN_V2_RESOURCE_REJECTED") return 8U;
+        if (route == "TOKEN_V2_HISTORY_REJECTED") return 9U;
+        return 10U;
+    };
+    for (const ALV2CaseRecord& value : cases) {
+        ++route_counts[route_index(value.observed)];
+    }
+    const bool route_counts_exact = route_counts
+        == std::array<std::size_t, 11U>{
+            5U, 1U, 1U, 1U, 1U, 3U, 4U, 3U, 3U, 1U, 1U};
+    const std::string case_root = sha256_hex(case_projection.str());
+    const bool rollback_exact = parent_exact && fields_exact
+        && al_binary64_vec3_root(position)
+            == baseline.roots[AL_V2_POSITION_ROOT]
+        && al_r10_dual_root(dual) == baseline.roots[AL_V2_DUAL_ROOT]
+        && !baseline_owner.consumed
+        && baseline_owner.expected_budget_epoch == 0U
+        && boundary.budget.total_hvp == 512U
+        && boundary.budget.workspace_builds == 31U
+        && boundary.budget.precision_audits == 20U
+        && boundary.budget.exhausted;
+    const bool passed = identity_exact && parent_exact && fields_exact
+        && encoded && target_root_exact && roundtrip_exact
+        && all_case_encodes && cases_exact && route_counts_exact
+        && rollback_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R19R15_PARENT_BYTES";
+    else if (!fields_exact) first_failure = "FIELD_DERIVATION";
+    else if (!encoded) first_failure = "ENCODE";
+    else if (!target_root_exact) first_failure = "TARGET_ROOT";
+    else if (!roundtrip_exact) first_failure = "ROUNDTRIP";
+    else if (!all_case_encodes) first_failure = "NEGATIVE_ENCODE";
+    else if (!cases_exact) first_failure = "NEGATIVE_ROUTE";
+    else if (!route_counts_exact) first_failure = "ROUTE_COUNTS";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    const std::string route = passed
+        ? "TOKEN_V2_VALIDATION_CANDIDATE" : std::string{};
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19R16_IDENTITY_SHA256 << '|'
+             << r15_stdout_sha256 << ':' << r15_semantic_exact << ':'
+             << parents_retained << '|' << baseline_bytes.size() << ':'
+             << baseline_root << ':' << roundtrip_exact << '|'
+             << baseline.roots[AL_V2_HISTORY_ROOT] << ':'
+             << fields_exact << '|' << cases.size() << ':' << case_root << ':'
+             << cases_exact << ':' << route_counts_exact << '|'
+             << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19r16_v2_envelope.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R19R16_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"r15_stdout_sha256\":\""
+           << r15_stdout_sha256 << "\",\"r15_semantic_exact\":"
+           << (r15_semantic_exact ? "true" : "false")
+           << ",\"transitive_parents_retained\":"
+           << (parents_retained ? "true" : "false")
+           << ",\"exact\":" << (parent_exact ? "true" : "false")
+           << "},\"canonical\":{\"body_bytes\":" << AL_V2_BODY_BYTES
+           << ",\"envelope_bytes\":" << baseline_bytes.size()
+           << ",\"token_root\":\"" << baseline_root
+           << "\",\"target_root_exact\":"
+           << (target_root_exact ? "true" : "false")
+           << ",\"roundtrip_exact\":"
+           << (roundtrip_exact ? "true" : "false")
+           << "},\"fields\":{\"flags\":" << baseline.flags
+           << ",\"next_outer\":" << baseline.next_outer
+           << ",\"provisional_index\":" << baseline.provisional_index
+           << ",\"previous_primal_bits\":\"0x" << std::hex
+           << baseline.previous_primal_bits << "\",\"theta_bits\":\"0x"
+           << baseline.theta_bits << std::dec
+           << "\",\"particle_count\":" << baseline.particle_count
+           << ",\"formula_root\":\""
+           << baseline.roots[AL_V2_FORMULA_ROOT]
+           << "\",\"solver_root\":\""
+           << baseline.roots[AL_V2_SOLVER_ROOT]
+           << "\",\"completion_root\":\""
+           << baseline.roots[AL_V2_COMPLETION_ROOT]
+           << "\",\"history_root\":\""
+           << baseline.roots[AL_V2_HISTORY_ROOT]
+           << "\",\"exact\":" << (fields_exact ? "true" : "false")
+           << "},\"owner\":{\"expected_root_exact\":true,"
+              "\"expected_epoch\":0,\"consumed\":false,"
+              "\"read_only\":true}"
+           << ",\"corpus\":{\"cases\":" << cases.size()
+           << ",\"case_root\":\"" << case_root
+           << "\",\"all_exact\":" << (cases_exact ? "true" : "false")
+           << ",\"route_counts\":[";
+    for (std::size_t index = 0U; index < route_counts.size(); ++index) {
+        if (index != 0U) report << ',';
+        report << route_counts[index];
+    }
+    report << "],\"route_counts_exact\":"
+           << (route_counts_exact ? "true" : "false")
+           << ",\"records\":[";
+    for (std::size_t index = 0U; index < cases.size(); ++index) {
+        if (index != 0U) report << ',';
+        report << "{\"name\":\"" << cases[index].name
+               << "\",\"expected\":\"" << cases[index].expected
+               << "\",\"observed\":\"" << cases[index].observed
+               << "\",\"passed\":"
+               << (cases[index].passed ? "true" : "false") << '}';
+    }
+    report << "]},\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"control_parent_substeps\":1"
+              ",\"encoding_and_hash_only\":true"
+              ",\"new_workspaces\":0,\"new_hvp\":0"
+              ",\"new_model_hvp\":0,\"new_trials\":0"
+              ",\"new_precision_audits\":0,\"new_outer_updates\":0"
+              ",\"owner_consumed\":false,\"epoch_transitioned\":false"
+              ",\"resume_executed\":false,\"outer6_executed\":false"
+              ",\"second_solve_executed\":false"
+              ",\"second_substep_executed\":false"
+              ",\"macro_frames\":0,\"trajectory_steps\":0"
+              ",\"public_schema_created\":false"
+              ",\"public_commit_count\":0,\"physics_mutation\":false"
+              ",\"live_budget_code_changed\":false"
+              ",\"production_policy_changed\":false"
+              ",\"timing_admitted\":false,\"speedup_claim\":false"
+              ",\"runtime_authority\":false"
+              ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
     return {passed, report.str()};
 }
 
@@ -79204,6 +80010,10 @@ SplitBoundaryReport run_al_post_acceptance_boundary_controls() {
 
 SplitBoundaryReport run_al_soft_cap_suspension_projection_controls() {
     return run_al_soft_cap_suspension_projection_controls_impl(nullptr);
+}
+
+SplitBoundaryReport run_al_token_completeness_controls() {
+    return run_al_token_completeness_controls_impl(nullptr);
 }
 
 SplitBoundaryReport run_al_guarded_residual_private_transaction_controls() {
