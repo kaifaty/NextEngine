@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R13_PASS_OUTER_COMPLETE_NOT_ADMISSIBLE / D7R19R14_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R13_PASS_OUTER_COMPLETE_NOT_ADMISSIBLE / D7R19R14_CONTRACT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -400,10 +400,13 @@
 - **Admission fact:** outer 5 is complete but not yet admissible; primal,
   dual change and position update remain above their limits. This is a safe
   resumable outer boundary, not convergence or failure.
-- **Current decision:** research/freeze D7R19R14 as a bounded soft-cap
-  admission and outer-boundary suspension policy. Do not implement or raise
-  the live cap until reserve, ownership, accounting and resume semantics are
-  frozen.
+- **D7R19R14 frozen design:** treat `512` as a trial-admission soft boundary.
+  The already-admitted target trial starts at `498`, owns the existing
+  34-HVP allowance through dynamic ceiling `532`, finishes at `523`, then
+  denies outer 6 and emits a versioned outer-boundary continuation candidate.
+- **Current decision:** implement only the zero-work D7R19R14 policy/token
+  projection. Do not mutate budget code, execute resume/outer 6 or raise the
+  live cap.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2306,13 +2309,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19 and
-   all preceding normalized parents exactly. Research/freeze D7R19R14 as a
-   bounded soft-cap admission and outer-boundary suspension policy. Freeze the
-   soft admission point, atomic reserve, state ownership, exact accounting,
-   stop status and resume semantics before implementation. Do not continue
-   outer 6, admit another trial/solve, commit public state, raise the live cap,
-   change production policy, start another substep/macro/trajectory or run
-   timing.
+   all preceding normalized parents exactly. Implement only the frozen
+   D7R19R14 zero-work soft-cap policy/token projection. Do not mutate budget
+   code, execute resume/outer 6, admit another trial/solve, commit public
+   state, raise the live cap, change production policy, start another
+   substep/macro/trajectory or run timing.
 
 ## Reconsideration triggers
 
