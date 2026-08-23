@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R5_PASS_SIXTH_TRIAL_ACCEPTANCE / D7R19R6_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R6_PASS_LATER_GUARD_DENIED / D7R19R7_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -273,6 +273,21 @@
   direct model HVP; only a solve that uses guarded HVP 33 may use the
   residual-derived model. Total/outer/trial/workspace/precision caps remain
   unchanged.
+- **D7R19R6 result:** PASS and
+  `NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED` at stdout SHA
+  `67dfb678...611c`, semantic result `a2687bac...5811` and private transaction
+  root `bf4e9dad...cc5d`. R5 and R2 parent bytes remain exact.
+- **Integration fact:** trials `0..4` are exact to R2 and trial `5` is exact
+  to R5. It consumes 33 recurrence HVPs, zero model HVPs and is accepted.
+  The transaction then reaches nine accepted trials and outer update two.
+- **New boundary:** a later solve makes the second guard attempt after 32
+  recurrence HVPs, fails the frozen predicate, receives no HVP 33 and forms no
+  trial. Total work is 219 recurrence plus eight direct-model HVPs, 12 exact
+  workspace builds/releases and nine positive long-double audits.
+- **Current decision:** preserve the guard and R6 structural route. Research
+  and freeze D7R19R7 as a replay-only diagnostic of the first later denied
+  solve. Identify the failed clause and offline convergence behavior before
+  considering any policy change. Do not continue the transaction.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2083,6 +2098,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** D7R9R1 reproduces complete failed-parent bytes and
   selects one route with exact inherited/new ownership.
 
+### D-069 -- Diagnose the later guard denial before policy changes
+
+- **Observation:** R6 reproduces the first six frozen trials exactly and then
+  continues to nine accepted trials. A second solve reaches the 32-HVP base
+  boundary, but the frozen guard denies HVP 33; total work stops at 227 HVPs
+  with exact lifecycle, precision and rollback evidence.
+- **Decision:** keep the narrow guard unchanged. Capture the denied solve's
+  live prefix passively and replay only that recurrence offline under a fixed
+  diagnostic cap, recording the individual guard clauses and convergence/
+  curvature/conditioning evidence.
+- **Rejected:** widening the ratio interval, dropping the last-eight trend,
+  granting HVP 33 globally, applying residual-model completion to ordinary
+  solves, continuing the transaction or interpreting structural work as a
+  speed result.
+- **Reconsider when:** D7R19R7 proves the exact denial mechanism and whether a
+  bounded continuation converges without negative curvature or trust-boundary
+  contact.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2141,12 +2174,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R5/R4/R3/R2/R1, D7R19 and all preceding normalized parents
-   exactly. Implement frozen D7R19R6 as one full private first-substep
-   transaction with guarded residual completion only at eligible HVP 33.
-   Preserve ordinary direct-model solves and bind the first six trials. Do not
-   publicly commit state or start another substep, macro, trajectory or timing
-   lane.
+6. Preserve D7R19R6/R5/R4/R3/R2/R1, D7R19 and all preceding normalized
+   parents exactly. Research/freeze D7R19R7 as one replay-only diagnostic of
+   R6's first later `GUARDED_HVP_DENIED` solve. It may capture the live
+   first-32 prefix and continue only that recurrence offline; it may not form
+   a trial, continue the transaction, change any cap/policy, publicly commit
+   state or start another substep, macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 
