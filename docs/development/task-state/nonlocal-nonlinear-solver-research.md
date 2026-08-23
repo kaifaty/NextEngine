@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R6_PASS_LATER_GUARD_DENIED / D7R19R7_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R7_PASS_FORCING_CONVERGED_34 / D7R19R8_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -295,6 +295,22 @@
 - **Scope boundary:** R7 consumes one offline workspace and at most 128
   diagnostic HVPs. It cannot form a model/trial, audit precision, continue the
   transaction, change guard/cap policy or run another substep/timing lane.
+- **D7R19R7 result:** PASS and
+  `SECOND_GUARD_OFFLINE_FORCING_CONVERGED` at stdout SHA
+  `db0e5e73...fcdb` and semantic result `c8f350b9...6c79`. The passive target
+  is outer 1/trial 3/solve 9 with exact live/offline first-32 prefix root
+  `adf2edcc...5d08`.
+- **Denial fact:** prefix, curvature, interior and last-eight trend all pass.
+  Only the upper ratio clause fails: `r32=1.891245*eta`. HVP 33 remains above
+  forcing at `1.294362*eta`; HVP 34 converges at `0.933412*eta`.
+- **Conditioning fact:** all 34 curvatures are positive, recurrence diagnostics
+  stay near floating error and the Ritz condition estimate is `35.8055`.
+  Reject a preconditioner and an unconditional one-HVP grace for this barrier.
+- **Current decision:** research D7R19R8 as a replay-only two-boundary
+  progress-envelope and residual-model discriminator. It must retain the
+  original one-HVP completion, justify any second grace HVP from state known
+  after HVP 33, and compare `r_final-g` with a direct oracle at HVP 34 before
+  any trial or transaction integration is considered.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2123,6 +2139,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   bounded continuation converges without negative curvature or trust-boundary
   contact.
 
+### D-070 -- Research progress-certified two-stage grace
+
+- **Observation:** the later recurrence is safe and monotone but needs two
+  extra HVPs: `r32/r0=1.891 eta`, `r33/r0=1.294 eta`, and only HVP 34 reaches
+  `0.933 eta`. Condition estimate `35.81` does not justify preconditioning.
+- **Decision:** keep the live R6 guard/cap unchanged and research a replay-only
+  two-stage certificate over both known boundaries. A second grace HVP must
+  be authorized from finite progress observed after HVP 33, and its residual-
+  derived model image must pass one direct `H(step)` oracle.
+- **Rejected:** global cap 34, unconditional two-HVP grace, reusing residual
+  model without a new oracle, forming the later trial, continuing the full
+  transaction or claiming performance.
+- **Reconsider when:** R8 selects or rejects an online-computable envelope and
+  proves model-image correspondence at the 34-HVP solution.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2181,13 +2212,13 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R6/R5/R4/R3/R2/R1, D7R19 and all preceding normalized
-   parents exactly. Implement frozen D7R19R7 as one replay-only diagnostic of
-   R6's first later `GUARDED_HVP_DENIED` solve. Capture the live first-32
-   prefix passively and continue only that recurrence offline to at most 128
-   HVPs. Do not form a trial, continue the transaction, change any cap/policy,
-   publicly commit state or start another substep, macro, trajectory or timing
-   lane.
+6. Preserve D7R19R7/R6/R5/R4/R3/R2/R1, D7R19 and all preceding normalized
+   parents exactly. Research/freeze D7R19R8 as a replay-only discriminator
+   over the original one-HVP boundary and the later two-HVP boundary. Require
+   online-computable progress gates and one direct model-image oracle at the
+   34-HVP solution. Do not form a trial, continue the transaction, change the
+   live cap/policy, publicly commit state or start another substep, macro,
+   trajectory or timing lane.
 
 ## Reconsideration triggers
 
