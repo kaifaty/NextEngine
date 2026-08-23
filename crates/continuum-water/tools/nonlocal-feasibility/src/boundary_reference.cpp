@@ -65356,6 +65356,8 @@ enum class ALNormalizedTrustCompletionPolicy {
     GuardedResidualModel,
 };
 
+struct ALNormalizedGuardDeniedCapture;
+
 struct ALNormalizedTrustCompletionTrace {
     std::size_t direct_policy_trust_steps = 0U;
     std::size_t guarded_policy_trust_steps = 0U;
@@ -65367,6 +65369,8 @@ struct ALNormalizedTrustCompletionTrace {
     std::size_t guard_hvp = 0U;
     std::size_t guard_converged = 0U;
     std::size_t guard_denied = 0U;
+    int current_outer = -1;
+    ALNormalizedGuardDeniedCapture* denied_capture = nullptr;
 };
 
 struct ALNormalizedTrustCompletionOutcome {
@@ -65374,6 +65378,27 @@ struct ALNormalizedTrustCompletionOutcome {
     bool guard_eligible = false;
     bool guard_used = false;
     ALNormalizedTrustRecurrence recurrence;
+};
+
+struct ALNormalizedGuardDeniedCapture {
+    bool captured = false;
+    int outer = -1;
+    int trial = -1;
+    std::size_t solve_index = 0U;
+    std::size_t guard_convergences_before = 0U;
+    double theta = 0.0;
+    double radius = 0.0;
+    std::string static_identity_sha256;
+    std::vector<Vec3> predicted_position;
+    std::vector<Vec3> current_position;
+    std::vector<Vec3> gradient;
+    std::vector<double> u;
+    ALNormalizedTrustRecurrence recurrence;
+    ALSparseStructuralBudget budget;
+    ALSparseWorkTrace work;
+    ALSparsePrecisionWorkTrace precision_work;
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
 };
 
 bool al_guarded_residual_grace_eligible(
@@ -65443,12 +65468,17 @@ std::vector<Vec3> al_normalized_trust_step(
     }
     if (completion_policy
         == ALNormalizedTrustCompletionPolicy::GuardedResidualModel) {
+        std::size_t guarded_solve_index = 0U;
         if (completion_trace != nullptr) {
+            guarded_solve_index =
+                completion_trace->guarded_policy_trust_steps;
             ++completion_trace->guarded_policy_trust_steps;
         }
         if (completion_outcome != nullptr) {
             *completion_outcome = ALNormalizedTrustCompletionOutcome{};
             completion_outcome->recurrence.captured = true;
+            completion_outcome->recurrence.solve_index =
+                guarded_solve_index;
             completion_outcome->recurrence.radius = radius;
             recurrence = &completion_outcome->recurrence;
         }
@@ -66046,6 +66076,36 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
         record.guarded_completion_eligible =
             completion_outcome.guard_eligible;
         record.guarded_completion_used = completion_outcome.guard_used;
+        if (completion_trace != nullptr
+            && completion_trace->denied_capture != nullptr
+            && !completion_trace->denied_capture->captured
+            && completion_outcome.guard_attempted
+            && !completion_outcome.guard_eligible
+            && completion_trace->guard_converged == 1U) {
+            ALNormalizedGuardDeniedCapture& capture =
+                *completion_trace->denied_capture;
+            capture.captured = true;
+            capture.outer = completion_trace->current_outer;
+            capture.trial = trial_index;
+            capture.solve_index =
+                completion_outcome.recurrence.solve_index;
+            capture.guard_convergences_before =
+                completion_trace->guard_converged;
+            capture.theta = theta;
+            capture.radius = trust_radius;
+            capture.static_identity_sha256 =
+                binding.expected_identity_sha256;
+            capture.predicted_position = predicted;
+            capture.current_position = result.position;
+            capture.gradient = current.inner.gradient;
+            capture.u = u;
+            capture.recurrence = completion_outcome.recurrence;
+            capture.budget = *budget;
+            capture.work = *work;
+            capture.precision_work = *precision_work;
+            capture.static_work = *static_work;
+            capture.adjacency_work = *adjacency_work;
+        }
         if (budget->exhausted || step.size() != result.position.size()) {
             result.hvp_calls += hvp_calls;
             result.failure = budget->exhausted
@@ -66352,6 +66412,9 @@ ALNormalizedOuterUpdate al_normalized_private_outer_update(
     constexpr double complementarity_limit = 8.154943934760449e-13;
     ALNormalizedOuterUpdate result;
     result.state.outer = outer;
+    if (completion_trace != nullptr) {
+        completion_trace->current_outer = outer;
+    }
     const ALNormalizedPrivateInnerSolve inner =
         solve_al_normalized_private_inner(
             predicted, position, u, theta, binding, work,
@@ -73239,7 +73302,9 @@ bool al_normalized_private_trial_legacy_exact(
 
 } // namespace
 
-SplitBoundaryReport run_al_guarded_residual_private_transaction_controls() {
+SplitBoundaryReport
+run_al_guarded_residual_private_transaction_controls_impl(
+    ALNormalizedGuardDeniedCapture* denied_capture_out) {
     constexpr double time_step = TIME_STEP / 78.0;
     const bool identity_exact = sha256_hex(B4E2D7R19R6_IDENTITY_PROJECTION)
         == B4E2D7R19R6_IDENTITY_SHA256;
@@ -73277,6 +73342,7 @@ SplitBoundaryReport run_al_guarded_residual_private_transaction_controls() {
     const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
     ALNormalizedTransactionRun candidate;
     ALNormalizedTrustCompletionTrace completion_trace;
+    completion_trace.denied_capture = denied_capture_out;
     candidate.budget.maximum_outer_updates = 16U;
     candidate.budget.maximum_inner_trials_per_update = 16U;
     candidate.budget.maximum_hvp_per_trust_step = 33U;
@@ -73927,6 +73993,555 @@ SplitBoundaryReport run_al_guarded_residual_private_transaction_controls() {
               ",\"runtime_authority\":false,\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
     return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19R7_IDENTITY_SHA256 =
+    "0f92e0253718b41fdfdc4de703ab0d276801fa350368c077e989f5860ee26dd5";
+constexpr const char* B4E2D7R19R7_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r19r7-second-guard-boundary-replay|v1|"
+    "parent=4534ba1939f73d78e183d23239f6621761d79493:"
+    "67dfb6781a5840e228b63f3524bf4999ca6d1d9b650f8c461117575a8172611c:"
+    "a2687bac0ba18b58ca4903047de6645c389174512452dad82c5e0d46320f5811|"
+    "legacy=r5-stdout"
+    "fe0a75877bf539e37e11955f25cebb05821dcbacf7cb50eb120913367f664294;"
+    "r2-stdout"
+    "3dad88903f5f619d540587e805b35d63e2ef8c848e53e1ab87786c9e90587ba0|"
+    "target=transaction-"
+    "bf4e9dad4b6b8690905d07b3609dc6f0483205276b199ebcc3a354ff5a09cc5d;"
+    "outer2;accepted9;rejected0;total-hvp227;"
+    "failure-structural-budget-guarded-hvp-denied;"
+    "first-later-denial-after-one-guard-convergence|"
+    "capture=passive;predicted-current-u-theta-radius-gradient;"
+    "outer-trial-solve-identity;first32-iterations;pre-denial-work|"
+    "guard=prefix-finite-positive-interior;ratio-after32>eta;"
+    "ratio-after32<=1.25eta;last8-next-ratios-strictly-decrease;"
+    "clauses-separate;live-decision-unchanged|"
+    "offline=same-steihaug;dimensionless-forcing;binary64-topology;"
+    "no-preconditioner;first32-exact;cap128;no-model;no-trial;"
+    "no-acceptance;no-precision|"
+    "diagnostics=residual;curvature;boundary;orthogonality;conjugacy;ritz|"
+    "controls=r19r6-parent-bytes;r19r5+r19r2-retained;target-state;"
+    "capture-no-work;guard-decomposition;live-prefix-offline-exact;"
+    "static-binding;finite;work;all-pair0;rollback|"
+    "routes=second-guard-offline-nonfinite;"
+    "second-guard-offline-negative-curvature;"
+    "second-guard-offline-boundary;second-guard-offline-forcing-converged;"
+    "second-guard-offline-cap-exhausted|"
+    "precedence=nonfinite,negative,boundary,converged,cap|"
+    "runs=2-clean-release-builds;1-process-each;byte-exact|"
+    "work=control-parent-substeps1;candidate-substeps0;offline-hvp<=128;"
+    "workspace1;precision0;trial0;acceptance0|"
+    "second-substep=none;macro=none;trajectory=none;timing=none;"
+    "public-commit=none;physics-mutation=none;guard-change=none;"
+    "production-cap-change=none|"
+    "credit=one-replay-only-later-guard-denial-diagnostic";
+
+std::string al_guard_denied_capture_root(
+    const ALNormalizedGuardDeniedCapture& value) {
+    if (!value.captured) return {};
+    std::ostringstream projection;
+    projection << value.outer << ':' << value.trial << ':'
+               << value.solve_index << ':'
+               << value.guard_convergences_before << ':'
+               << binary64_bits(value.theta) << ':'
+               << binary64_bits(value.radius) << ':'
+               << value.static_identity_sha256 << '|'
+               << al_binary64_vec3_root(value.predicted_position) << ':'
+               << al_binary64_vec3_root(value.current_position) << ':'
+               << al_binary64_vec3_root(value.gradient) << '|';
+    for (double dual : value.u) {
+        projection << binary64_bits(dual) << ';';
+    }
+    projection << '|' << value.budget.outer_updates << ':'
+               << value.budget.inner_trials_in_update << ':'
+               << value.budget.hvp_in_trust_step << ':'
+               << value.budget.total_hvp << ':'
+               << value.budget.workspace_builds << ':'
+               << value.budget.precision_audits << ':'
+               << value.budget.exhausted << ':' << value.budget.failure << '|'
+               << value.work.workspace_builds << ':'
+               << value.work.workspace_releases << ':'
+               << value.work.live_workspaces << ':'
+               << value.precision_work.long_double_audits << ':'
+               << value.precision_work.binary128_audits << '|'
+               << al_normalized_trust_prefix_root(value.recurrence, 32U);
+    return sha256_hex(projection.str());
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_second_guard_boundary_replay_controls() {
+    constexpr std::size_t live_prefix_hvp = 32U;
+    constexpr std::size_t offline_hvp_cap = 128U;
+    const bool identity_exact = sha256_hex(B4E2D7R19R7_IDENTITY_PROJECTION)
+        == B4E2D7R19R7_IDENTITY_SHA256;
+
+    ALNormalizedGuardDeniedCapture capture;
+    const SplitBoundaryReport parent =
+        run_al_guarded_residual_private_transaction_controls_impl(&capture);
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_semantic_exact = parent.json.find(
+        "\"result_sha256\":\""
+        "a2687bac0ba18b58ca4903047de6645c389174512452dad82c5e0d46320f5811"
+        "\"") != std::string::npos;
+    const bool r5_retained = parent.json.find(
+        "fe0a75877bf539e37e11955f25cebb05821dcbacf7cb50eb120913367f664294")
+        != std::string::npos;
+    const bool r2_retained = parent.json.find(
+        "3dad88903f5f619d540587e805b35d63e2ef8c848e53e1ab87786c9e90587ba0")
+        != std::string::npos;
+    const bool parent_target_retained = parent.json.find(
+        "bf4e9dad4b6b8690905d07b3609dc6f0483205276b199ebcc3a354ff5a09cc5d")
+        != std::string::npos
+        && parent.json.find("\"outer\":2") != std::string::npos
+        && parent.json.find("\"accepted_trials\":9") != std::string::npos
+        && parent.json.find("\"rejected_trials\":0") != std::string::npos
+        && parent.json.find("\"total_hvp\":227") != std::string::npos
+        && parent.json.find(
+            "STRUCTURAL_BUDGET_GUARDED_HVP_DENIED") != std::string::npos;
+    const bool parent_exact = parent.passed && parent_semantic_exact
+        && r5_retained && r2_retained && parent_target_retained
+        && parent_stdout_sha256
+            == "67dfb6781a5840e228b63f3524bf4999ca6d1d9b650f8c461117575a8172611c";
+
+    const ALNormalizedTrustRecurrence& live = capture.recurrence;
+    const std::string capture_root = al_guard_denied_capture_root(capture);
+    const std::string current_root =
+        al_binary64_vec3_root(capture.current_position);
+    const std::string predicted_root =
+        al_binary64_vec3_root(capture.predicted_position);
+    const std::string gradient_root =
+        al_binary64_vec3_root(capture.gradient);
+    const std::string live_prefix_root =
+        al_normalized_trust_prefix_root(live, live_prefix_hvp);
+    const std::string live_trace_root =
+        al_normalized_trust_trace_root(live);
+
+    bool prefix_safe = capture.captured
+        && live.iterations.size() == live_prefix_hvp;
+    for (const ALNormalizedTrustRecurrenceIteration& iteration :
+         live.iterations) {
+        prefix_safe = prefix_safe && iteration.hvp_passed
+            && iteration.finite_values && iteration.positive_curvature
+            && !iteration.boundary
+            && std::isfinite(iteration.candidate_norm)
+            && iteration.candidate_norm < live.radius;
+    }
+    const double ratio_after_32 = live.iterations.size() >= live_prefix_hvp
+        ? live.iterations[live_prefix_hvp - 1U].next_residual_ratio : 0.0;
+    const bool ratio_not_converged = std::isfinite(ratio_after_32)
+        && ratio_after_32 > live.forcing_eta;
+    const bool ratio_within_window = std::isfinite(ratio_after_32)
+        && ratio_after_32 <= 1.25 * live.forcing_eta;
+    bool trailing_decrease = live.iterations.size() >= live_prefix_hvp;
+    if (trailing_decrease) {
+        constexpr std::size_t trailing_count = 8U;
+        const std::size_t first = live_prefix_hvp - trailing_count;
+        for (std::size_t index = first + 1U;
+             index < live_prefix_hvp; ++index) {
+            trailing_decrease = trailing_decrease
+                && live.iterations[index].next_residual_ratio
+                    < live.iterations[index - 1U].next_residual_ratio;
+        }
+    }
+    std::string denial_clause;
+    if (!ratio_within_window && !trailing_decrease) {
+        denial_clause = "RATIO_ABOVE_WINDOW_AND_TRAILING_TREND";
+    } else if (!ratio_within_window) {
+        denial_clause = "RATIO_ABOVE_WINDOW";
+    } else if (!trailing_decrease) {
+        denial_clause = "TRAILING_TREND";
+    }
+    const bool live_denial_exact = prefix_safe && ratio_not_converged
+        && (!ratio_within_window || !trailing_decrease)
+        && !denial_clause.empty();
+    const bool target_exact = capture.captured
+        && capture.outer == 1 && capture.trial == 3
+        && capture.solve_index == 9U
+        && capture.guard_convergences_before == 1U
+        && capture.budget.outer_updates == 2U
+        && capture.budget.inner_trials_in_update == 4U
+        && capture.budget.hvp_in_trust_step == 32U
+        && capture.budget.total_hvp == 227U
+        && capture.budget.workspace_builds == 12U
+        && capture.budget.precision_audits == 9U
+        && capture.budget.exhausted
+        && capture.budget.failure
+            == "STRUCTURAL_BUDGET_GUARDED_HVP_DENIED"
+        && capture.work.workspace_builds == 12U
+        && capture.work.workspace_releases == 11U
+        && capture.work.live_workspaces == 1U
+        && capture.precision_work.long_double_audits == 9U
+        && capture.precision_work.binary128_audits == 0U
+        && live.captured && live.solve_index == capture.solve_index
+        && live.hvp_calls == live_prefix_hvp
+        && live.iterations.size() == live_prefix_hvp
+        && live.termination == "GUARDED_HVP_DENIED"
+        && binary64_bits(live.radius) == binary64_bits(capture.radius)
+        && !capture_root.empty() && !current_root.empty()
+        && !predicted_root.empty() && !gradient_root.empty()
+        && !live_prefix_root.empty() && !live_trace_root.empty()
+        && live_denial_exact;
+
+    const std::string capture_root_before = capture_root;
+    ALSparseWorkTrace offline_work;
+    StaticSupportWorkTrace offline_static_work;
+    FlatAdjacencyWorkTrace offline_adjacency_work;
+    const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
+    const JointStaticSupportIndex offline_index =
+        build_joint_static_support_index(
+            tagged_points(nominal_fixture.boundary),
+            &offline_static_work);
+    const JointStaticSupportBinding offline_binding =
+        bind_joint_static_support_index(
+            &offline_index, offline_index.identity_sha256);
+    ALNormalizedSparseInnerState offline_state =
+        evaluate_al_normalized_sparse_inner(
+            capture.current_position, capture.predicted_position,
+            offline_binding, capture.u, capture.theta, &offline_work,
+            &offline_static_work, &offline_adjacency_work);
+    const bool gradient_exact = offline_state.inner.passed
+        && exact_vec3_values(offline_state.inner.gradient, capture.gradient);
+
+    ALSparseStructuralBudget offline_budget;
+    offline_budget.maximum_outer_updates = 1U;
+    offline_budget.maximum_inner_trials_per_update = 1U;
+    offline_budget.maximum_hvp_per_trust_step = offline_hvp_cap;
+    offline_budget.maximum_total_hvp = offline_hvp_cap;
+    offline_budget.maximum_workspace_builds = 1U;
+    offline_budget.maximum_precision_audits = 1U;
+    const bool offline_trial_started =
+        al_sparse_budget_begin_inner_trial(&offline_budget);
+    ALNormalizedKrylovForcingTrace offline_forcing_trace;
+    ALNormalizedTrustRecurrenceSink offline_sink;
+    offline_sink.target_solve_index = 0U;
+    int offline_hvp_calls = 0;
+    bool offline_negative_curvature = false;
+    std::vector<Vec3> offline_step;
+    if (gradient_exact && offline_trial_started) {
+        offline_step = al_normalized_trust_step(
+            offline_state.workspace, offline_state.inner.gradient,
+            capture.radius, offline_hvp_calls,
+            offline_negative_curvature, &offline_budget,
+            ALNormalizedKrylovForcingPolicy::DimensionlessStationarity,
+            &offline_forcing_trace, &offline_sink);
+    }
+    release_al_normalized_workspace(
+        offline_state.workspace, &offline_work);
+
+    const ALNormalizedTrustRecurrence& offline = offline_sink.target;
+    const std::string offline_prefix_root =
+        al_normalized_trust_prefix_root(offline, live_prefix_hvp);
+    const std::string offline_trace_root =
+        al_normalized_trust_trace_root(offline);
+    const std::string offline_step_root =
+        al_binary64_vec3_root(offline_step);
+    const bool prefix_exact = target_exact
+        && offline.iterations.size() >= live_prefix_hvp
+        && live_prefix_root == offline_prefix_root;
+    const ALNormalizedRitzEstimate ritz =
+        al_normalized_ritz_estimate(offline);
+
+    double final_residual_ratio = 0.0;
+    double minimum_residual_ratio = std::numeric_limits<double>::infinity();
+    double maximum_residual_orthogonality = 0.0;
+    double maximum_adjacent_a_conjugacy = 0.0;
+    for (const ALNormalizedTrustRecurrenceIteration& iteration :
+         offline.iterations) {
+        const double observed_ratio = iteration.beta_available
+            ? iteration.next_residual_ratio : iteration.residual_ratio;
+        if (std::isfinite(observed_ratio)) {
+            final_residual_ratio = observed_ratio;
+            minimum_residual_ratio = std::min(
+                minimum_residual_ratio, observed_ratio);
+        }
+        if (iteration.residual_orthogonality_available) {
+            maximum_residual_orthogonality = std::max(
+                maximum_residual_orthogonality,
+                iteration.residual_orthogonality);
+        }
+        if (iteration.adjacent_a_conjugacy_available) {
+            maximum_adjacent_a_conjugacy = std::max(
+                maximum_adjacent_a_conjugacy,
+                iteration.adjacent_a_conjugacy);
+        }
+    }
+    if (!std::isfinite(minimum_residual_ratio)) {
+        minimum_residual_ratio = 0.0;
+    }
+
+    const bool offline_trace_exact = offline.captured
+        && offline.solve_index == 0U
+        && offline_sink.next_solve_index == 1U
+        && offline.hvp_calls
+            == static_cast<std::size_t>(offline_hvp_calls)
+        && offline.hvp_calls == offline.iterations.size()
+        && offline.hvp_calls >= live_prefix_hvp
+        && offline.hvp_calls <= offline_hvp_cap
+        && binary64_bits(offline.radius) == binary64_bits(live.radius)
+        && binary64_bits(offline.forcing_eta)
+            == binary64_bits(live.forcing_eta)
+        && binary64_bits(offline.initial_residual)
+            == binary64_bits(live.initial_residual)
+        && al_normalized_trace_finite_before_terminal(offline)
+        && !offline_trace_root.empty();
+    const bool work_exact = offline_work.workspace_builds == 1U
+        && offline_work.workspace_releases == 1U
+        && offline_work.live_workspaces == 0U
+        && offline_work.maximum_live_workspaces <= 1U
+        && !offline_work.lifecycle_underflow
+        && offline_work.all_pair_candidate_calls == 0U
+        && offline_static_work.static_index_builds == 1U
+        && offline_static_work.support_canonicalizations == 1U
+        && offline_static_work.workspace_builds == 1U
+        && offline_adjacency_work.workspace_builds == 1U
+        && offline_budget.total_hvp == offline.hvp_calls
+        && offline_budget.hvp_in_trust_step == offline.hvp_calls
+        && offline_budget.workspace_builds == 0U
+        && offline_budget.precision_audits == 0U
+        && offline_forcing_trace.dimensionless_trust_steps == 1U
+        && offline_forcing_trace.inherited_trust_steps == 0U;
+    const bool static_binding_exact = offline_index.passed
+        && offline_binding.passed && offline_binding.index == &offline_index
+        && offline_binding.expected_identity_sha256
+            == offline_index.identity_sha256
+        && offline_index.identity_sha256
+            == capture.static_identity_sha256;
+    const bool finite_exact = offline_state.inner.passed && gradient_exact
+        && std::isfinite(ratio_after_32)
+        && std::isfinite(final_residual_ratio)
+        && std::isfinite(minimum_residual_ratio)
+        && std::isfinite(maximum_residual_orthogonality)
+        && std::isfinite(maximum_adjacent_a_conjugacy)
+        && ritz.passed;
+    const bool rollback_exact = capture_root_before
+            == al_guard_denied_capture_root(capture)
+        && al_binary64_vec3_root(capture.current_position) == current_root
+        && al_binary64_vec3_root(capture.predicted_position) == predicted_root
+        && al_binary64_vec3_root(capture.gradient) == gradient_root;
+
+    const bool terminal_nonfinite = offline.termination == "NONFINITE";
+    const bool terminal_negative =
+        offline.termination == "NEGATIVE_CURVATURE";
+    const bool terminal_boundary = offline.termination == "BOUNDARY";
+    const bool terminal_converged =
+        offline.termination == "FORCING_CONVERGED";
+    const bool terminal_cap = offline.termination == "BUDGET"
+        && offline_budget.exhausted
+        && offline_budget.failure == "STRUCTURAL_BUDGET_HVP_PER_STEP"
+        && offline.hvp_calls == offline_hvp_cap;
+    const int terminal_count = (terminal_nonfinite ? 1 : 0)
+        + (terminal_negative ? 1 : 0) + (terminal_boundary ? 1 : 0)
+        + (terminal_converged ? 1 : 0) + (terminal_cap ? 1 : 0);
+    const bool hard_controls = identity_exact && parent_exact && target_exact
+        && prefix_exact && offline_trace_exact && work_exact
+        && static_binding_exact && finite_exact && rollback_exact
+        && terminal_count == 1;
+
+    std::string route;
+    if (hard_controls) {
+        if (terminal_nonfinite) route = "SECOND_GUARD_OFFLINE_NONFINITE";
+        else if (terminal_negative)
+            route = "SECOND_GUARD_OFFLINE_NEGATIVE_CURVATURE";
+        else if (terminal_boundary)
+            route = "SECOND_GUARD_OFFLINE_BOUNDARY";
+        else if (terminal_converged)
+            route = "SECOND_GUARD_OFFLINE_FORCING_CONVERGED";
+        else if (terminal_cap)
+            route = "SECOND_GUARD_OFFLINE_CAP_EXHAUSTED";
+    }
+    const bool route_precedence_exact = terminal_count == 1
+        && ((terminal_nonfinite
+                && route == "SECOND_GUARD_OFFLINE_NONFINITE")
+            || (!terminal_nonfinite && terminal_negative
+                && route == "SECOND_GUARD_OFFLINE_NEGATIVE_CURVATURE")
+            || (!terminal_nonfinite && !terminal_negative
+                && terminal_boundary
+                && route == "SECOND_GUARD_OFFLINE_BOUNDARY")
+            || (!terminal_nonfinite && !terminal_negative
+                && !terminal_boundary && terminal_converged
+                && route == "SECOND_GUARD_OFFLINE_FORCING_CONVERGED")
+            || (!terminal_nonfinite && !terminal_negative
+                && !terminal_boundary && !terminal_converged && terminal_cap
+                && route == "SECOND_GUARD_OFFLINE_CAP_EXHAUSTED"));
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R19R6_PARENT_BYTES";
+    else if (!target_exact) first_failure = "TARGET_CAPTURE";
+    else if (!prefix_exact) first_failure = "LIVE_OFFLINE_PREFIX";
+    else if (!offline_trace_exact) first_failure = "OFFLINE_TRACE";
+    else if (!work_exact) first_failure = "WORK";
+    else if (!static_binding_exact) first_failure = "STATIC_BINDING";
+    else if (!finite_exact) first_failure = "FINITE";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (terminal_count != 1) first_failure = "TERMINATION";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19R7_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << ':' << parent_semantic_exact << ':'
+             << r5_retained << ':' << r2_retained << '|'
+             << capture_root << ':' << capture.outer << ':' << capture.trial
+             << ':' << capture.solve_index << ':' << current_root << ':'
+             << predicted_root << ':' << gradient_root << '|'
+             << live_prefix_root << ':' << offline_prefix_root << ':'
+             << live_trace_root << ':' << offline_trace_root << '|'
+             << prefix_safe << ':' << ratio_not_converged << ':'
+             << ratio_within_window << ':' << trailing_decrease << ':'
+             << binary64_bits(ratio_after_32) << ':'
+             << binary64_bits(live.forcing_eta) << ':' << denial_clause << '|'
+             << offline.hvp_calls << ':' << offline.termination << ':'
+             << binary64_bits(final_residual_ratio) << ':'
+             << binary64_bits(minimum_residual_ratio) << ':'
+             << binary64_bits(maximum_residual_orthogonality) << ':'
+             << binary64_bits(maximum_adjacent_a_conjugacy) << ':'
+             << offline_step_root << '|'
+             << ritz.dimension << ':' << binary64_bits(ritz.minimum) << ':'
+             << binary64_bits(ritz.maximum) << ':'
+             << binary64_bits(ritz.condition) << '|'
+             << work_exact << ':' << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_bits = [](std::ostringstream& output, double value) {
+        output << "\"0x" << std::hex << binary64_bits(value)
+               << std::dec << '"';
+    };
+    std::ostringstream report;
+    report << std::setprecision(std::numeric_limits<double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19r7_second_guard_boundary_replay.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R19R7_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"semantic_exact\":"
+           << (parent_semantic_exact ? "true" : "false")
+           << ",\"r5_retained\":" << (r5_retained ? "true" : "false")
+           << ",\"r2_retained\":" << (r2_retained ? "true" : "false")
+           << ",\"target_retained\":"
+           << (parent_target_retained ? "true" : "false")
+           << ",\"exact\":" << (parent_exact ? "true" : "false") << '}'
+           << ",\"target\":{\"capture_root\":\"" << capture_root
+           << "\",\"outer\":" << capture.outer
+           << ",\"trial\":" << capture.trial
+           << ",\"solve_index\":" << capture.solve_index
+           << ",\"guard_convergences_before\":"
+           << capture.guard_convergences_before
+           << ",\"current_root\":\"" << current_root
+           << "\",\"predicted_root\":\"" << predicted_root
+           << "\",\"gradient_root\":\"" << gradient_root
+           << "\",\"radius_bits\":";
+    append_bits(report, capture.radius);
+    report << ",\"total_hvp\":" << capture.budget.total_hvp
+           << ",\"workspace_builds\":" << capture.budget.workspace_builds
+           << ",\"precision_audits\":" << capture.budget.precision_audits
+           << ",\"exact\":" << (target_exact ? "true" : "false") << '}'
+           << ",\"guard\":{\"base_hvp\":32,\"ratio_after_32_bits\":";
+    append_bits(report, ratio_after_32);
+    report << ",\"eta_bits\":";
+    append_bits(report, live.forcing_eta);
+    report << ",\"upper_factor\":1.25,\"prefix_safe\":"
+           << (prefix_safe ? "true" : "false")
+           << ",\"ratio_not_converged\":"
+           << (ratio_not_converged ? "true" : "false")
+           << ",\"ratio_within_window\":"
+           << (ratio_within_window ? "true" : "false")
+           << ",\"trailing_count\":8,\"trailing_strictly_decreasing\":"
+           << (trailing_decrease ? "true" : "false")
+           << ",\"denial_clause\":\"" << denial_clause
+           << "\",\"live_denial_exact\":"
+           << (live_denial_exact ? "true" : "false") << '}'
+           << ",\"prefix\":{\"live_root\":\"" << live_prefix_root
+           << "\",\"offline_root\":\"" << offline_prefix_root
+           << "\",\"live_trace_root\":\"" << live_trace_root
+           << "\",\"exact\":" << (prefix_exact ? "true" : "false") << '}'
+           << ",\"offline\":{\"hvp_calls\":" << offline.hvp_calls
+           << ",\"cap\":128,\"termination\":\"" << offline.termination
+           << "\",\"trace_root\":\"" << offline_trace_root
+           << "\",\"step_root\":\"" << offline_step_root
+           << "\",\"final_residual_ratio_bits\":";
+    append_bits(report, final_residual_ratio);
+    report << ",\"minimum_residual_ratio_bits\":";
+    append_bits(report, minimum_residual_ratio);
+    report << ",\"maximum_residual_orthogonality_bits\":";
+    append_bits(report, maximum_residual_orthogonality);
+    report << ",\"maximum_adjacent_a_conjugacy_bits\":";
+    append_bits(report, maximum_adjacent_a_conjugacy);
+    report << ",\"ritz\":{\"dimension\":" << ritz.dimension
+           << ",\"minimum_bits\":";
+    append_bits(report, ritz.minimum);
+    report << ",\"maximum_bits\":";
+    append_bits(report, ritz.maximum);
+    report << ",\"condition_bits\":";
+    append_bits(report, ritz.condition);
+    report << ",\"passed\":" << (ritz.passed ? "true" : "false")
+           << "},\"iterations\":[";
+    for (std::size_t index = 0U; index < offline.iterations.size(); ++index) {
+        if (index != 0U) report << ',';
+        const ALNormalizedTrustRecurrenceIteration& iteration =
+            offline.iterations[index];
+        report << "{\"iteration\":" << iteration.iteration
+               << ",\"finite\":"
+               << (iteration.finite_values ? "true" : "false")
+               << ",\"positive_curvature\":"
+               << (iteration.positive_curvature ? "true" : "false")
+               << ",\"boundary\":"
+               << (iteration.boundary ? "true" : "false")
+               << ",\"forcing_converged\":"
+               << (iteration.forcing_converged ? "true" : "false")
+               << ",\"point_root\":\"" << iteration.point_root
+               << "\",\"residual_root\":\"" << iteration.residual_root
+               << "\",\"direction_root\":\"" << iteration.direction_root
+               << "\",\"hvp_root\":\"" << iteration.hvp_root
+               << "\",\"next_residual_ratio_bits\":";
+        append_bits(report, iteration.next_residual_ratio);
+        report << ",\"curvature_bits\":";
+        append_bits(report, iteration.curvature);
+        report << ",\"residual_orthogonality_bits\":";
+        append_bits(report, iteration.residual_orthogonality);
+        report << ",\"adjacent_a_conjugacy_bits\":";
+        append_bits(report, iteration.adjacent_a_conjugacy);
+        report << '}';
+    }
+    report << "]},\"work\":{\"offline_hvp\":" << offline.hvp_calls
+           << ",\"workspace_builds\":" << offline_work.workspace_builds
+           << ",\"workspace_releases\":" << offline_work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << offline_work.maximum_live_workspaces
+           << ",\"model_hvp\":0,\"precision_audits\":0,"
+              "\"trials_formed\":0,\"acceptances\":0,"
+              "\"all_pair_candidate_calls\":"
+           << offline_work.all_pair_candidate_calls
+           << ",\"exact\":" << (work_exact ? "true" : "false") << '}'
+           << ",\"gradient_exact\":"
+           << (gradient_exact ? "true" : "false")
+           << ",\"static_binding_exact\":"
+           << (static_binding_exact ? "true" : "false")
+           << ",\"finite_exact\":" << (finite_exact ? "true" : "false")
+           << ",\"rollback_exact\":" << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"control_parent_substeps\":1"
+              ",\"candidate_nominal_substeps\":0"
+              ",\"transaction_continuation\":false"
+              ",\"second_substep_executed\":false"
+              ",\"macro_frames\":0,\"trajectory_steps\":0"
+              ",\"public_commit_count\":0,\"physics_mutation\":false"
+              ",\"guard_changed\":false,\"production_cap_changed\":false"
+              ",\"preconditioner_tested\":false"
+              ",\"timing_admitted\":false,\"speedup_claim\":false"
+              ",\"runtime_authority\":false,\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_guarded_residual_private_transaction_controls() {
+    return run_al_guarded_residual_private_transaction_controls_impl(nullptr);
 }
 
 } // namespace nextengine::nonlocal::fcr
