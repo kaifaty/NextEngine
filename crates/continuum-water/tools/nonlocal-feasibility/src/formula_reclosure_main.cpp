@@ -178,6 +178,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-total-budget-atomic-completion|"
                          "--nonlocal-al-post-acceptance-boundary|"
                          "--nonlocal-al-soft-cap-suspension-projection|"
+                         "--nonlocal-al-token-completeness|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1389,6 +1390,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_soft_cap_suspension_projection_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-token-completeness") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_token_completeness_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

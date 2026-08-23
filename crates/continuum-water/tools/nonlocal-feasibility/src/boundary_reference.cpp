@@ -78419,9 +78419,57 @@ constexpr const char* B4E2D7R19R14_IDENTITY_SHA256 =
 constexpr const char* B4E2D7R19R14_IDENTITY_PROJECTION =
     R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19r14-soft-cap-suspension|v1|parent=dfa474f2:0f248c4506303055cbf7a967dd1328a36d8628341a04b6861aec210af17f57f9:3a60f64ee09a85b4ea892f12341ff3b8c4e7dcb63bbe4eb4cbebd99c237e5e57|legacy=r12-stdoute57ba96aca2c3114ea2c9c10fa2728d8c91dd7ac7969010f381a245219175cee;r11-stdoutbd05f7ac3ca76425dbfda1e43882f48adcb4c83addf1fe4ddeaacd37ca8a8efe;r10-stdout15719465931a21421e094abde1200d685bee44e4b112dc314d5857f863074953;r9-stdoutf1cb461d270e1642e9c0220c60fc59c64cb5bb69039f293ed8e9eade7f6ed1f0|target=outer5-complete;state-5dd9a07d60cbfe851bdc4c383944a1eb8042f178a821f4a546da33101dd0a19a;dual-f4279bde29358f65b17b15ad7456e8c5743b44ec99fd3612d78cb5f905b00aca;trial-start498;soft512;trial-allowance34;dynamic-ceiling532;actual-trial25;completed523|admission=trial-start-only-below-soft;admitted-trial-owns-existing-hard-allowance;outer6-denied-at-or-above-soft|suspension=explicit-not-converged-not-failed;next-outer6;private-position-dual;previous-primal-admissibility-provisional;predicted-theta-static;budget-epoch-and-cumulative-ledger;versioned-root|unsupported=over-cap-inner-requires-another-trial-fail-closed|controls=r19r13-parent-bytes;transitive-parents-retained;exact-accounting;reserve-bound;outer-boundary-state;token-fields;token-root;rollback;zero-new-work|routes=soft-cap-projection-invalid;soft-cap-atomic-reserve-exceeded;soft-cap-inner-suspension-unsupported;soft-cap-outer-boundary-incomplete;soft-cap-outer-boundary-suspended|precedence=invalid,reserve,inner,outer,suspended|runs=2-clean-release-builds;1-process-each;byte-exact|work=control-parent-substeps1;new-workspaces0;new-hvp0;new-model0;new-trial0;new-precision0;new-outer0|resume-executed=none;outer6=none;second-solve=none;second-substep=none;macro=none;trajectory=none;timing=none;public-commit=none;physics-mutation=none;live-budget-code-change=none;production-policy-change=none|credit=one-soft-cap-suspension-policy-projection-only)IDENTITY";
 
+struct ALSoftCapContinuationTokenV1 {
+    std::size_t schema_version = 1U;
+    std::size_t next_outer = 0U;
+    std::string position_root;
+    std::string dual_root;
+    std::uint64_t previous_primal_bits = 0U;
+    bool previous_admissible = false;
+    int provisional_index = -1;
+    std::string predicted_root;
+    std::uint64_t theta_bits = 0U;
+    std::string static_identity;
+    std::size_t budget_epoch = 0U;
+    std::size_t slice_hvp = 0U;
+    std::size_t cumulative_hvp = 0U;
+    std::size_t soft_limit = 0U;
+    std::size_t trial_allowance = 0U;
+    std::string outer_state_root;
+};
+
+std::string al_soft_cap_token_v1_projection(
+    const ALSoftCapContinuationTokenV1& token) {
+    std::ostringstream projection;
+    projection << "nextengine.nonlocal.al-outer-continuation|v"
+               << token.schema_version << '|'
+               << token.next_outer << ':' << token.position_root << ':'
+               << token.dual_root << ':' << token.previous_primal_bits << ':'
+               << token.previous_admissible << ':'
+               << token.provisional_index << '|' << token.predicted_root
+               << ':' << token.theta_bits << ':' << token.static_identity
+               << '|' << token.budget_epoch << ':' << token.slice_hvp << ':'
+               << token.cumulative_hvp << ':' << token.soft_limit << ':'
+               << token.trial_allowance << '|' << token.outer_state_root;
+    return projection.str();
+}
+
+struct ALSoftCapSuspensionCapture {
+    bool captured = false;
+    ALNormalizedPostAcceptanceBoundaryCapture r13;
+    ALSoftCapContinuationTokenV1 token;
+    std::string token_projection;
+    std::string token_root;
+    std::size_t trial_start_total = 0U;
+    std::size_t actual_trial_hvp = 0U;
+    std::size_t dynamic_ceiling = 0U;
+    std::size_t completed_total = 0U;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_soft_cap_suspension_projection_controls() {
+SplitBoundaryReport run_al_soft_cap_suspension_projection_controls_impl(
+    ALSoftCapSuspensionCapture* capture_out) {
     constexpr std::size_t soft_limit = 512U;
     constexpr std::size_t trial_allowance = 34U;
     constexpr std::size_t next_outer = 6U;
@@ -78497,21 +78545,29 @@ SplitBoundaryReport run_al_soft_cap_suspension_projection_controls() {
         && !outer_incomplete && outer6_denied;
     const int provisional_index = capture.outer_state.admissible ? 5 : -1;
     const bool previous_admissible = capture.outer_state.admissible;
-    std::ostringstream token_projection;
+    ALSoftCapContinuationTokenV1 token;
+    std::string token_projection;
     if (suspended) {
-        token_projection
-            << "nextengine.nonlocal.al-outer-continuation|v1|"
-            << next_outer << ':' << position_root << ':' << dual_root << ':'
-            << binary64_bits(capture.outer_state.primal) << ':'
-            << previous_admissible << ':' << provisional_index << '|'
-            << predicted_root << ':' << binary64_bits(live_capture.theta)
-            << ':' << live_capture.static_identity_sha256 << '|'
-            << 0U << ':' << completed_total << ':' << completed_total << ':'
-            << soft_limit << ':' << trial_allowance << '|'
-            << capture.outer_state_root;
+        token.next_outer = next_outer;
+        token.position_root = position_root;
+        token.dual_root = dual_root;
+        token.previous_primal_bits = binary64_bits(
+            capture.outer_state.primal);
+        token.previous_admissible = previous_admissible;
+        token.provisional_index = provisional_index;
+        token.predicted_root = predicted_root;
+        token.theta_bits = binary64_bits(live_capture.theta);
+        token.static_identity = live_capture.static_identity_sha256;
+        token.budget_epoch = 0U;
+        token.slice_hvp = completed_total;
+        token.cumulative_hvp = completed_total;
+        token.soft_limit = soft_limit;
+        token.trial_allowance = trial_allowance;
+        token.outer_state_root = capture.outer_state_root;
+        token_projection = al_soft_cap_token_v1_projection(token);
     }
     const std::string token_root = suspended
-        ? sha256_hex(token_projection.str()) : std::string{};
+        ? sha256_hex(token_projection) : std::string{};
     const bool token_exact = !suspended
         || (next_outer == 6U && !position_root.empty() && !dual_root.empty()
             && !predicted_root.empty() && !token_root.empty()
@@ -78656,6 +78712,473 @@ SplitBoundaryReport run_al_soft_cap_suspension_projection_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    if (capture_out != nullptr) {
+        capture_out->captured = passed && suspended;
+        capture_out->r13 = std::move(capture);
+        capture_out->token = std::move(token);
+        capture_out->token_projection = std::move(token_projection);
+        capture_out->token_root = token_root;
+        capture_out->trial_start_total = trial_start_total;
+        capture_out->actual_trial_hvp = actual_trial_hvp;
+        capture_out->dynamic_ceiling = dynamic_ceiling;
+        capture_out->completed_total = completed_total;
+    }
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19R15_IDENTITY_SHA256 =
+    "4431b8854b5b1734fce5340587fee30bfa082d1952352bdad7db146e14e2e00f";
+constexpr const char* B4E2D7R19R15_IDENTITY_PROJECTION =
+    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19r15-token-completeness|v1|parent=57b14538:16b357b173d5c36f123dbbad31cca0c777229ff38772d3847a85357c9a0b4625:34fdc84cb5bddcc89337f7b1cc961cbc18f5d5eda7cfe008ac6ae0af89d08751|legacy=r13-stdout0f248c4506303055cbf7a967dd1328a36d8628341a04b6861aec210af17f57f9|target=r14-token-c06dbfeeac346d4413d114082d18b4e4725edfac81896ed72cbabfacf3f188b5;schema1;outer6;completed523|baseline=limits-16,16,34,512soft,288,64;used-outer6,inner2,last-trial25,slice523,cumulative523,workspaces33,precision21,accepted21,rejected0;epoch0|bound-controls=schema,next-outer,position,dual,previous-primal,admissibility,provisional,predicted,theta,static,epoch,slice,cumulative,soft,trial-allowance,outer-state|unbound-controls=outer-inner-workspace-precision-limits;outer-inner-workspace-precision-used;accepted-rejected-history;formula-solver-completion-policy|twins=resource-used-minus-one-and-outer-cap-plus-one;completion-policy-alternate;both-locally-valid;v1-root-equal|routes=token-completeness-parent-invalid;token-completeness-state-binding-invalid;token-v1-resource-ledger-collision;token-v1-policy-identity-collision;token-v1-complete|precedence=parent,state,resource,policy,complete|runs=2-clean-release-builds;1-process-each;byte-exact|work=control-parent-substeps1;new-workspaces0;new-hvp0;new-model0;new-trial0;new-precision0;new-outer0;hash-projections-only|resume=none;outer6=none;second-solve=none;second-substep=none;macro=none;trajectory=none;timing=none;public-schema=none;public-commit=none;physics-mutation=none;live-budget-code-change=none;production-policy-change=none|credit=one-v1-token-projection-completeness-classification-only)IDENTITY";
+
+struct ALContinuationResourceLedger {
+    std::size_t maximum_outer_updates = 0U;
+    std::size_t maximum_inner_trials_per_update = 0U;
+    std::size_t maximum_hvp_per_trial = 0U;
+    std::size_t soft_hvp_per_epoch = 0U;
+    std::size_t maximum_workspace_builds = 0U;
+    std::size_t maximum_precision_audits = 0U;
+    std::size_t outer_updates = 0U;
+    std::size_t inner_trials_in_update = 0U;
+    std::size_t last_trial_hvp = 0U;
+    std::size_t slice_hvp = 0U;
+    std::size_t cumulative_hvp = 0U;
+    std::size_t workspace_builds = 0U;
+    std::size_t precision_audits = 0U;
+    std::size_t accepted_trials = 0U;
+    std::size_t rejected_trials = 0U;
+};
+
+struct ALContinuationPolicyIdentity {
+    std::string formula;
+    std::string solver;
+    std::string completion;
+};
+
+bool al_continuation_resource_ledger_locally_valid(
+    const ALContinuationResourceLedger& ledger,
+    const ALSoftCapContinuationTokenV1& token) {
+    return ledger.maximum_outer_updates > 0U
+        && ledger.maximum_inner_trials_per_update > 0U
+        && ledger.maximum_hvp_per_trial > 0U
+        && ledger.soft_hvp_per_epoch > 0U
+        && ledger.maximum_workspace_builds > 0U
+        && ledger.maximum_precision_audits > 0U
+        && ledger.outer_updates <= ledger.maximum_outer_updates
+        && ledger.inner_trials_in_update
+            <= ledger.maximum_inner_trials_per_update
+        && ledger.last_trial_hvp <= ledger.maximum_hvp_per_trial
+        && ledger.slice_hvp
+            <= ledger.soft_hvp_per_epoch + ledger.maximum_hvp_per_trial
+        && ledger.cumulative_hvp >= ledger.slice_hvp
+        && ledger.workspace_builds <= ledger.maximum_workspace_builds
+        && ledger.precision_audits <= ledger.maximum_precision_audits
+        && token.next_outer == ledger.outer_updates
+        && token.slice_hvp == ledger.slice_hvp
+        && token.cumulative_hvp == ledger.cumulative_hvp
+        && token.soft_limit == ledger.soft_hvp_per_epoch
+        && token.trial_allowance == ledger.maximum_hvp_per_trial;
+}
+
+std::string al_continuation_context_root(
+    const ALSoftCapContinuationTokenV1& token,
+    const ALContinuationResourceLedger& ledger,
+    const ALContinuationPolicyIdentity& policy) {
+    std::ostringstream projection;
+    projection << sha256_hex(al_soft_cap_token_v1_projection(token)) << '|'
+               << ledger.maximum_outer_updates << ':'
+               << ledger.maximum_inner_trials_per_update << ':'
+               << ledger.maximum_hvp_per_trial << ':'
+               << ledger.soft_hvp_per_epoch << ':'
+               << ledger.maximum_workspace_builds << ':'
+               << ledger.maximum_precision_audits << '|'
+               << ledger.outer_updates << ':'
+               << ledger.inner_trials_in_update << ':'
+               << ledger.last_trial_hvp << ':' << ledger.slice_hvp << ':'
+               << ledger.cumulative_hvp << ':' << ledger.workspace_builds
+               << ':' << ledger.precision_audits << ':'
+               << ledger.accepted_trials << ':' << ledger.rejected_trials
+               << '|' << policy.formula << ':' << policy.solver << ':'
+               << policy.completion;
+    return sha256_hex(projection.str());
+}
+
+void al_mutate_digest(std::string& digest) {
+    if (!digest.empty()) digest.front() = digest.front() == '0' ? '1' : '0';
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_token_completeness_controls() {
+    const bool identity_exact = sha256_hex(B4E2D7R19R15_IDENTITY_PROJECTION)
+        == B4E2D7R19R15_IDENTITY_SHA256;
+
+    ALSoftCapSuspensionCapture capture;
+    const SplitBoundaryReport r14_parent =
+        run_al_soft_cap_suspension_projection_controls_impl(&capture);
+    const std::string r14_stdout_sha256 = sha256_hex(r14_parent.json + "\n");
+    const bool r14_semantic_exact = r14_parent.json.find(
+        "\"result_sha256\":\""
+        "34fdc84cb5bddcc89337f7b1cc961cbc18f5d5eda7cfe008ac6ae0af89d08751"
+        "\"") != std::string::npos;
+    const bool parents_retained = r14_parent.json.find(
+        "0f248c4506303055cbf7a967dd1328a36d8628341a04b6861aec210af17f57f9")
+            != std::string::npos
+        && r14_parent.json.find(
+            "\"transitive_parents_retained\":true") != std::string::npos;
+    const bool parent_exact = r14_parent.passed && capture.captured
+        && r14_semantic_exact && parents_retained
+        && r14_stdout_sha256
+            == "16b357b173d5c36f123dbbad31cca0c777229ff38772d3847a85357c9a0b4625";
+
+    const std::string reconstructed_projection =
+        al_soft_cap_token_v1_projection(capture.token);
+    const std::string reconstructed_root =
+        sha256_hex(reconstructed_projection);
+    const bool token_reconstructed = capture.captured
+        && reconstructed_projection == capture.token_projection
+        && reconstructed_root == capture.token_root
+        && reconstructed_root
+            == "c06dbfeeac346d4413d114082d18b4e4725edfac81896ed72cbabfacf3f188b5";
+
+    std::size_t bound_mutations = 0U;
+    std::size_t bound_root_changes = 0U;
+    std::ostringstream mutation_projection;
+    const auto observe_mutation = [&](const char* name,
+                                      ALSoftCapContinuationTokenV1 value) {
+        ++bound_mutations;
+        const std::string root = sha256_hex(
+            al_soft_cap_token_v1_projection(value));
+        const bool changed = root != reconstructed_root;
+        bound_root_changes += changed ? 1U : 0U;
+        mutation_projection << name << ':' << root << ':' << changed << '|';
+    };
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        ++value.schema_version;
+        observe_mutation("schema", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        ++value.next_outer;
+        observe_mutation("next-outer", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        al_mutate_digest(value.position_root);
+        observe_mutation("position", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        al_mutate_digest(value.dual_root);
+        observe_mutation("dual", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        value.previous_primal_bits ^= 1U;
+        observe_mutation("previous-primal", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        value.previous_admissible = !value.previous_admissible;
+        observe_mutation("admissibility", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        ++value.provisional_index;
+        observe_mutation("provisional", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        al_mutate_digest(value.predicted_root);
+        observe_mutation("predicted", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        value.theta_bits ^= 1U;
+        observe_mutation("theta", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        al_mutate_digest(value.static_identity);
+        observe_mutation("static", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        ++value.budget_epoch;
+        observe_mutation("epoch", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        ++value.slice_hvp;
+        observe_mutation("slice", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        ++value.cumulative_hvp;
+        observe_mutation("cumulative", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        ++value.soft_limit;
+        observe_mutation("soft-limit", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        ++value.trial_allowance;
+        observe_mutation("trial-allowance", std::move(value));
+    }
+    {
+        ALSoftCapContinuationTokenV1 value = capture.token;
+        al_mutate_digest(value.outer_state_root);
+        observe_mutation("outer-state", std::move(value));
+    }
+    const std::string bound_mutation_root = sha256_hex(
+        mutation_projection.str());
+    const bool bound_field_sensitivity = bound_mutations == 16U
+        && bound_root_changes == bound_mutations;
+
+    const ALNormalizedTotalHvpBoundaryCapture& boundary =
+        capture.r13.r12.r11.r10.total_hvp_boundary;
+    const ALNormalizedPrivateTransaction& parent_transaction =
+        capture.r13.r12.r11.r10.candidate.transaction;
+    ALContinuationResourceLedger baseline;
+    baseline.maximum_outer_updates = boundary.budget.maximum_outer_updates;
+    baseline.maximum_inner_trials_per_update =
+        boundary.budget.maximum_inner_trials_per_update;
+    baseline.maximum_hvp_per_trial =
+        boundary.budget.maximum_hvp_per_trust_step;
+    baseline.soft_hvp_per_epoch = boundary.budget.maximum_total_hvp;
+    baseline.maximum_workspace_builds =
+        boundary.budget.maximum_workspace_builds;
+    baseline.maximum_precision_audits =
+        boundary.budget.maximum_precision_audits;
+    baseline.outer_updates = boundary.budget.outer_updates;
+    baseline.inner_trials_in_update =
+        boundary.budget.inner_trials_in_update;
+    baseline.last_trial_hvp = capture.actual_trial_hvp;
+    baseline.slice_hvp = capture.completed_total;
+    baseline.cumulative_hvp = capture.completed_total;
+    baseline.workspace_builds = boundary.budget.workspace_builds + 2U;
+    baseline.precision_audits = boundary.budget.precision_audits + 1U;
+    baseline.accepted_trials = parent_transaction.accepted_trials + 1U;
+    baseline.rejected_trials = parent_transaction.rejected_trials;
+    const bool baseline_ledger_exact =
+        baseline.maximum_outer_updates == 16U
+        && baseline.maximum_inner_trials_per_update == 16U
+        && baseline.maximum_hvp_per_trial == 34U
+        && baseline.soft_hvp_per_epoch == 512U
+        && baseline.maximum_workspace_builds == 288U
+        && baseline.maximum_precision_audits == 64U
+        && baseline.outer_updates == 6U
+        && baseline.inner_trials_in_update == 2U
+        && baseline.last_trial_hvp == 25U
+        && baseline.slice_hvp == 523U
+        && baseline.cumulative_hvp == 523U
+        && baseline.workspace_builds == 33U
+        && baseline.precision_audits == 21U
+        && baseline.accepted_trials == 21U
+        && baseline.rejected_trials == 0U
+        && al_continuation_resource_ledger_locally_valid(
+            baseline, capture.token);
+
+    const ALContinuationPolicyIdentity baseline_policy{
+        "nuv-variational-fcr2+split-static-boundary-r0",
+        "nuv-newton-krylov-r0+outer-state-hessian-tape-v1",
+        "tiered-grace-residual-model-v1"};
+    const std::string baseline_context_root = al_continuation_context_root(
+        capture.token, baseline, baseline_policy);
+
+    ALContinuationResourceLedger resource_twin = baseline;
+    --resource_twin.workspace_builds;
+    --resource_twin.precision_audits;
+    --resource_twin.accepted_trials;
+    ++resource_twin.maximum_outer_updates;
+    const bool resource_twin_valid =
+        al_continuation_resource_ledger_locally_valid(
+            resource_twin, capture.token);
+    const std::string resource_twin_token_root = sha256_hex(
+        al_soft_cap_token_v1_projection(capture.token));
+    const std::string resource_twin_context_root =
+        al_continuation_context_root(
+            capture.token, resource_twin, baseline_policy);
+    const bool resource_collision = baseline_ledger_exact
+        && resource_twin_valid
+        && resource_twin_token_root == reconstructed_root
+        && resource_twin_context_root != baseline_context_root;
+
+    ALContinuationPolicyIdentity policy_twin = baseline_policy;
+    policy_twin.completion = "direct-model-hvp-v1";
+    const std::string policy_twin_token_root = sha256_hex(
+        al_soft_cap_token_v1_projection(capture.token));
+    const std::string policy_twin_context_root = al_continuation_context_root(
+        capture.token, baseline, policy_twin);
+    const bool policy_collision = policy_twin.completion
+            != baseline_policy.completion
+        && policy_twin_token_root == reconstructed_root
+        && policy_twin_context_root != baseline_context_root;
+
+    const bool state_binding_invalid = !token_reconstructed
+        || !bound_field_sensitivity;
+    const bool rollback_exact = token_reconstructed
+        && al_binary64_vec3_root(capture.r13.r12.trial_position)
+            == capture.token.position_root
+        && al_r10_dual_root(capture.r13.outer_u)
+            == capture.token.dual_root
+        && al_binary64_vec3_root(boundary.predicted_position)
+            == capture.token.predicted_root
+        && al_r13_outer_state_root(
+            capture.r13.outer_state, capture.r13.r12.trial_position,
+            capture.r13.outer_u) == capture.token.outer_state_root
+        && boundary.budget.total_hvp == 512U
+        && boundary.budget.workspace_builds == 31U
+        && boundary.budget.precision_audits == 20U
+        && boundary.budget.exhausted
+        && boundary.budget.failure == "STRUCTURAL_BUDGET_TOTAL_HVP";
+    const bool hard_controls = identity_exact && parent_exact
+        && baseline_ledger_exact && resource_twin_valid && rollback_exact;
+
+    std::string route;
+    if (!parent_exact) route = "TOKEN_COMPLETENESS_PARENT_INVALID";
+    else if (state_binding_invalid) {
+        route = "TOKEN_COMPLETENESS_STATE_BINDING_INVALID";
+    } else if (resource_collision) {
+        route = "TOKEN_V1_RESOURCE_LEDGER_COLLISION";
+    } else if (policy_collision) {
+        route = "TOKEN_V1_POLICY_IDENTITY_COLLISION";
+    } else {
+        route = "TOKEN_V1_COMPLETE";
+    }
+    const bool route_precedence_exact =
+        ((!parent_exact
+             && route == "TOKEN_COMPLETENESS_PARENT_INVALID")
+         || (parent_exact && state_binding_invalid
+             && route == "TOKEN_COMPLETENESS_STATE_BINDING_INVALID")
+         || (parent_exact && !state_binding_invalid && resource_collision
+             && route == "TOKEN_V1_RESOURCE_LEDGER_COLLISION")
+         || (parent_exact && !state_binding_invalid && !resource_collision
+             && policy_collision
+             && route == "TOKEN_V1_POLICY_IDENTITY_COLLISION")
+         || (parent_exact && !state_binding_invalid && !resource_collision
+             && !policy_collision && route == "TOKEN_V1_COMPLETE"));
+    const bool passed = hard_controls && bound_field_sensitivity
+        && resource_collision && policy_collision && route_precedence_exact
+        && route == "TOKEN_V1_RESOURCE_LEDGER_COLLISION";
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R19R14_PARENT_BYTES";
+    else if (!token_reconstructed) first_failure = "TOKEN_RECONSTRUCTION";
+    else if (!bound_field_sensitivity) first_failure = "BOUND_SENSITIVITY";
+    else if (!baseline_ledger_exact) first_failure = "LEDGER_DERIVATION";
+    else if (!resource_twin_valid) first_failure = "RESOURCE_TWIN_INVALID";
+    else if (!resource_collision) first_failure = "RESOURCE_COLLISION";
+    else if (!policy_collision) first_failure = "POLICY_COLLISION";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19R15_IDENTITY_SHA256 << '|'
+             << r14_stdout_sha256 << ':' << r14_semantic_exact << ':'
+             << parents_retained << '|' << reconstructed_root << ':'
+             << bound_mutations << ':' << bound_root_changes << ':'
+             << bound_mutation_root << '|' << baseline_context_root << ':'
+             << resource_twin_context_root << ':'
+             << policy_twin_context_root << '|'
+             << resource_collision << ':' << policy_collision << ':'
+             << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19r15_token_completeness.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R19R15_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"r14_stdout_sha256\":\""
+           << r14_stdout_sha256 << "\",\"r14_semantic_exact\":"
+           << (r14_semantic_exact ? "true" : "false")
+           << ",\"transitive_parents_retained\":"
+           << (parents_retained ? "true" : "false")
+           << ",\"exact\":" << (parent_exact ? "true" : "false")
+           << "},\"v1\":{\"token_root\":\"" << reconstructed_root
+           << "\",\"reconstructed\":"
+           << (token_reconstructed ? "true" : "false")
+           << ",\"bound_mutations\":" << bound_mutations
+           << ",\"bound_root_changes\":" << bound_root_changes
+           << ",\"bound_mutation_root\":\"" << bound_mutation_root
+           << "\",\"bound_field_sensitivity\":"
+           << (bound_field_sensitivity ? "true" : "false")
+           << "},\"baseline\":{\"limits\":{\"outer\":"
+           << baseline.maximum_outer_updates << ",\"inner\":"
+           << baseline.maximum_inner_trials_per_update
+           << ",\"hvp_per_trial\":" << baseline.maximum_hvp_per_trial
+           << ",\"soft_hvp\":" << baseline.soft_hvp_per_epoch
+           << ",\"workspaces\":" << baseline.maximum_workspace_builds
+           << ",\"precision\":" << baseline.maximum_precision_audits
+           << "},\"used\":{\"outer\":" << baseline.outer_updates
+           << ",\"inner\":" << baseline.inner_trials_in_update
+           << ",\"last_trial_hvp\":" << baseline.last_trial_hvp
+           << ",\"slice_hvp\":" << baseline.slice_hvp
+           << ",\"cumulative_hvp\":" << baseline.cumulative_hvp
+           << ",\"workspaces\":" << baseline.workspace_builds
+           << ",\"precision\":" << baseline.precision_audits
+           << ",\"accepted\":" << baseline.accepted_trials
+           << ",\"rejected\":" << baseline.rejected_trials
+           << "},\"context_root\":\"" << baseline_context_root
+           << "\",\"exact\":"
+           << (baseline_ledger_exact ? "true" : "false")
+           << "},\"resource_twin\":{\"workspaces\":"
+           << resource_twin.workspace_builds << ",\"precision\":"
+           << resource_twin.precision_audits << ",\"accepted\":"
+           << resource_twin.accepted_trials << ",\"outer_limit\":"
+           << resource_twin.maximum_outer_updates
+           << ",\"locally_valid\":"
+           << (resource_twin_valid ? "true" : "false")
+           << ",\"token_root_equal\":"
+           << (resource_twin_token_root == reconstructed_root
+                   ? "true" : "false")
+           << ",\"context_root\":\"" << resource_twin_context_root
+           << "\",\"context_root_distinct\":"
+           << (resource_twin_context_root != baseline_context_root
+                   ? "true" : "false")
+           << "},\"policy_twin\":{\"baseline\":\""
+           << baseline_policy.completion << "\",\"alternate\":\""
+           << policy_twin.completion << "\",\"token_root_equal\":"
+           << (policy_twin_token_root == reconstructed_root
+                   ? "true" : "false")
+           << ",\"context_root\":\"" << policy_twin_context_root
+           << "\",\"context_root_distinct\":"
+           << (policy_twin_context_root != baseline_context_root
+                   ? "true" : "false")
+           << "},\"resource_collision\":"
+           << (resource_collision ? "true" : "false")
+           << ",\"policy_collision\":"
+           << (policy_collision ? "true" : "false")
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"control_parent_substeps\":1"
+              ",\"hash_projections_only\":true"
+              ",\"new_workspaces\":0,\"new_hvp\":0"
+              ",\"new_model_hvp\":0,\"new_trials\":0"
+              ",\"new_precision_audits\":0,\"new_outer_updates\":0"
+              ",\"resume_executed\":false,\"outer6_executed\":false"
+              ",\"second_solve_executed\":false"
+              ",\"second_substep_executed\":false"
+              ",\"macro_frames\":0,\"trajectory_steps\":0"
+              ",\"public_schema_created\":false"
+              ",\"public_commit_count\":0,\"physics_mutation\":false"
+              ",\"live_budget_code_changed\":false"
+              ",\"production_policy_changed\":false"
+              ",\"timing_admitted\":false,\"speedup_claim\":false"
+              ",\"runtime_authority\":false"
+              ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
     return {passed, report.str()};
 }
 
@@ -78677,6 +79200,10 @@ SplitBoundaryReport run_al_total_budget_atomic_completion_controls() {
 
 SplitBoundaryReport run_al_post_acceptance_boundary_controls() {
     return run_al_post_acceptance_boundary_controls_impl(nullptr);
+}
+
+SplitBoundaryReport run_al_soft_cap_suspension_projection_controls() {
+    return run_al_soft_cap_suspension_projection_controls_impl(nullptr);
 }
 
 SplitBoundaryReport run_al_guarded_residual_private_transaction_controls() {
