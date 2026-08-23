@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R7_PASS_FORCING_CONVERGED_34 / D7R19R8_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R8_PASS_RESIDUAL_MODEL_CANDIDATE / D7R19R9_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -313,6 +313,19 @@
 - **Model boundary:** R8 must compare the later `r_final-g` image with one
   direct sparse `H(step)` oracle under the R4 `1e-10` bounds. It forms no
   trial and changes no live guard or cap.
+- **D7R19R8 result:** PASS and
+  `TIERED_GRACE_RESIDUAL_MODEL_CANDIDATE` at stdout SHA
+  `def805d3...03d5` and semantic result `65b9a51e...8f63`. R7 stdout remains
+  exact at `db0e5e73...fcdb`.
+- **Envelope fact:** tier 1 remains exact and converges on HVP 33. Tier 2
+  enters at `1.891245*eta`, contracts to `1.294362*eta` by factor `0.684397`
+  on safe HVP 33 and converges at `0.933412*eta` on HVP 34.
+- **Model fact:** the later `r_final-g` image agrees with direct `H(step)` at
+  `1.05e-15` L2-relative, `5.83e-14` scaled-component and `2.86e-16`
+  quadratic/predicted-relative error. Both model reductions are positive.
+- **Current decision:** research/freeze D7R19R9 as one private first-substep
+  transaction that integrates only this exact tiered completion policy.
+  Ordinary solves retain direct model HVPs; production policy stays unchanged.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2214,13 +2227,14 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R7/R6/R5/R4/R3/R2/R1, D7R19 and all preceding normalized
-   parents exactly. Implement frozen D7R19R8 as a replay-only discriminator
-   over the original one-HVP boundary and the later two-HVP boundary. Apply
-   only its online-computable progress gates and one direct model-image oracle
-   at the 34-HVP solution. Do not form a trial, continue the transaction,
-   change the live cap/policy, publicly commit state or start another substep,
-   macro, trajectory or timing lane.
+6. Preserve D7R19R8/R7/R6/R5/R4/R3/R2/R1, D7R19 and all preceding normalized
+   parents exactly. Research/freeze D7R19R9 as one private first-substep
+   transaction using the exact R8 tiered completion envelope. Preserve direct
+   model HVPs for ordinary solves and residual-derived completion only after
+   an actually converged tier-1 or tier-2 grace path. Bind all R6/R5/R2
+   anchors and explicit recurrence/model work ownership. Do not change
+   production policy, publicly commit state or start a second substep, macro,
+   trajectory or timing lane.
 
 ## Reconsideration triggers
 
