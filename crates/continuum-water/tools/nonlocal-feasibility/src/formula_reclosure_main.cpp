@@ -175,6 +175,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-tiered-grace-private-transaction|"
                          "--nonlocal-al-total-hvp-boundary-diagnostic|"
                          "--nonlocal-al-total-budget-offline-replay|"
+                         "--nonlocal-al-total-budget-atomic-completion|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1362,6 +1363,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_total_budget_offline_replay_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-total-budget-atomic-completion") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_total_budget_atomic_completion_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

@@ -76898,9 +76898,17 @@ std::string al_r11_boundary_root(
     return sha256_hex(projection.str());
 }
 
+struct ALNormalizedOfflineReplayCapture {
+    bool captured = false;
+    ALNormalizedTieredTransactionCapture r10;
+    ALNormalizedTrustRecurrence offline;
+    std::vector<Vec3> step;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_total_budget_offline_replay_controls() {
+SplitBoundaryReport run_al_total_budget_offline_replay_controls_impl(
+    ALNormalizedOfflineReplayCapture* capture_out) {
     constexpr std::size_t live_prefix_hvp = 14U;
     constexpr std::size_t offline_hvp_cap = 128U;
     const bool identity_exact = sha256_hex(B4E2D7R19R11_IDENTITY_PROJECTION)
@@ -77295,6 +77303,616 @@ SplitBoundaryReport run_al_total_budget_offline_replay_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    if (capture_out != nullptr) {
+        capture_out->captured = true;
+        capture_out->r10 = capture;
+        capture_out->offline = offline;
+        capture_out->step = offline_step;
+    }
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19R12_IDENTITY_SHA256 =
+    "17ea852a62651deb0140d0dbdc3b10012d7304a394b620ceb64ae51da1d17894";
+constexpr const char* B4E2D7R19R12_IDENTITY_PROJECTION =
+    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19r12-total-budget-atomic-completion|v1|parent=b83469e9:bd05f7ac3ca76425dbfda1e43882f48adcb4c83addf1fe4ddeaacd37ca8a8efe:be9cc63d2376f4c560498aa9d28c1d44070a40e1ec412a30cbe735fba89305ef|legacy=r10-stdout15719465931a21421e094abde1200d685bee44e4b112dc314d5857f863074953;r9-stdoutf1cb461d270e1642e9c0220c60fc59c64cb5bb69039f293ed8e9eade7f6ed1f0;r8-stdoutdef805d3ff7b9b596dd00ec0ff07cd6490dc0f483baa37efc9b8bff511a503d5;r7-stdoutdb0e5e733b57c9d6b5ffe0ad9fb641de1cee78e2fd05fe8cbf890fcae591fcdb;r6-stdout67dfb6781a5840e228b63f3524bf4999ca6d1d9b650f8c461117575a8172611c;r5-stdoutfe0a75877bf539e37e11955f25cebb05821dcbacf7cb50eb120913367f664294;r2-stdout3dad88903f5f619d540587e805b35d63e2ef8c848e53e1ab87786c9e90587ba0|target=boundary-002f3b63423de2e0db8715b599e064043502c3881ba89cb55aaf7394bee850df;live-recurrence-a900c9452fa173f1c60fdf7c670de747653742348340056f05d7336cbaaa974c;prefix-b3165d58a442deccd262812fdafb4d385337a7dc81ceddf2200dde890bdc5768;offline-trace-0fb21740e7137234fe17332d451b0767b78ae3fc636a98a829ea175c482458e0;step-e63fd50c794d9c6679e9a3d63beb5105e05fbe0a56f7bd128465a9ba69993983;outer5;trial1;solve20|completion=live-prefix14;offline-total24;post-boundary-recurrence10;ordinary-direct-model1;projected-total523;one-trial-shadow|model=direct-hstep;minus-g-dot-s-minus-half-s-dot-hs|reduction=raw-and-inherited-comparators;precancelled-selected;selected-repeat-exact;rho-threshold0.1|precision=binary64-owned;long-double-iff-would-accept;binary128-iff-precancellation-candidate-effect;negative-contradiction;unresolved-or-candidate-bound-fail-oracle-required|radius=existing-ratio-and-step-norm-policy;classification-only|controls=r19r11-parent-bytes;transitive-parents-retained;target-input-roots;gradient-exact;first14-exact;offline-trace-and-step-exact;debt-accounting;direct-model;trial;divided-repeat;precision-ledger;static-binding;finite;lifecycle;all-pair0;rollback|routes=total-budget-atomic-nonfinite;total-budget-atomic-nonpositive-model;total-budget-atomic-precision-contradiction;total-budget-atomic-oracle-required;total-budget-atomic-rejected;total-budget-atomic-acceptance-candidate|precedence=nonfinite,model,contradiction,oracle,rejected,acceptance|runs=2-clean-release-builds;1-process-each;byte-exact|work=control-parent-substeps1;physical-parent-replay24;projected-new-recurrence10;new-model1;current-and-trial-workspaces2;trials1;acceptance-commit0;long-double<=1;binary128<=1|transaction-continuation=none;second-solve=none;second-substep=none;macro=none;trajectory=none;timing=none;public-commit=none;physics-mutation=none;live-total-cap-change=none;production-policy-change=none|credit=one-shadow-atomic-completion-classification-only)IDENTITY";
+
+} // namespace
+
+SplitBoundaryReport run_al_total_budget_atomic_completion_controls() {
+    constexpr std::size_t live_prefix_hvp = 14U;
+    constexpr std::size_t offline_total_hvp = 24U;
+    constexpr std::size_t expected_recurrence_debt = 10U;
+    constexpr std::size_t expected_model_debt = 1U;
+    constexpr std::size_t live_total_hvp = 512U;
+    constexpr std::size_t projected_live_total_hvp = 523U;
+    const bool identity_exact = sha256_hex(B4E2D7R19R12_IDENTITY_PROJECTION)
+        == B4E2D7R19R12_IDENTITY_SHA256;
+
+    ALNormalizedOfflineReplayCapture capture;
+    const SplitBoundaryReport r11_parent =
+        run_al_total_budget_offline_replay_controls_impl(&capture);
+    const std::string r11_stdout_sha256 = sha256_hex(r11_parent.json + "\n");
+    const bool r11_semantic_exact = r11_parent.json.find(
+        "\"result_sha256\":\""
+        "be9cc63d2376f4c560498aa9d28c1d44070a40e1ec412a30cbe735fba89305ef"
+        "\"") != std::string::npos;
+    const bool parents_retained = r11_parent.json.find(
+        "15719465931a21421e094abde1200d685bee44e4b112dc314d5857f863074953")
+            != std::string::npos
+        && r11_parent.json.find(
+            "\"transitive_parents_retained\":true") != std::string::npos;
+    const bool parent_exact = r11_parent.passed && r11_semantic_exact
+        && parents_retained
+        && r11_stdout_sha256
+            == "bd05f7ac3ca76425dbfda1e43882f48adcb4c83addf1fe4ddeaacd37ca8a8efe";
+
+    const ALNormalizedTotalHvpBoundaryCapture& live_capture =
+        capture.r10.total_hvp_boundary;
+    const ALNormalizedTrustRecurrence& live = live_capture.recurrence;
+    const ALNormalizedTrustRecurrence& offline = capture.offline;
+    const std::vector<Vec3>& step = capture.step;
+    const std::string boundary_root = al_r11_boundary_root(live_capture);
+    const std::string live_trace_root =
+        al_normalized_trust_trace_root(live);
+    const std::string live_prefix_root =
+        al_normalized_trust_prefix_root(live, live_prefix_hvp);
+    const std::string offline_prefix_root =
+        al_normalized_trust_prefix_root(offline, live_prefix_hvp);
+    const std::string offline_trace_root =
+        al_normalized_trust_trace_root(offline);
+    const std::string step_root = al_binary64_vec3_root(step);
+    const std::string returned_step_root =
+        al_binary64_vec3_root(offline.returned_step);
+    const std::string current_root =
+        al_binary64_vec3_root(live_capture.current_position);
+    const std::string predicted_root =
+        al_binary64_vec3_root(live_capture.predicted_position);
+    const std::string gradient_root =
+        al_binary64_vec3_root(live_capture.gradient);
+    const std::string dual_root = al_r10_dual_root(live_capture.u);
+    const std::string transaction_root_before = capture.r10.candidate.root;
+    const std::string progress_root_before =
+        al_r10_progress_root(capture.r10.candidate.transaction);
+    const bool target_exact = capture.captured && live_capture.captured
+        && boundary_root
+            == "002f3b63423de2e0db8715b599e064043502c3881ba89cb55aaf7394bee850df"
+        && live_trace_root
+            == "a900c9452fa173f1c60fdf7c670de747653742348340056f05d7336cbaaa974c"
+        && live_prefix_root
+            == "b3165d58a442deccd262812fdafb4d385337a7dc81ceddf2200dde890bdc5768"
+        && offline_prefix_root == live_prefix_root
+        && offline_trace_root
+            == "0fb21740e7137234fe17332d451b0767b78ae3fc636a98a829ea175c482458e0"
+        && step_root
+            == "e63fd50c794d9c6679e9a3d63beb5105e05fbe0a56f7bd128465a9ba69993983"
+        && returned_step_root == step_root
+        && exact_vec3_values(offline.returned_step, step)
+        && live_capture.outer == 5 && live_capture.trial == 1
+        && live_capture.solve_index == 20U
+        && live.hvp_calls == live_prefix_hvp
+        && offline.hvp_calls == offline_total_hvp
+        && offline.termination == "FORCING_CONVERGED"
+        && current_root
+            == "cefab23603e8cb5b773b346d896a15b6cc3c28516acb747c4b8652cec27aae63"
+        && predicted_root
+            == "36112dde1e0b274c5b9216f4818b82977a0c80dc257478c111b0f0a9390d2d7e"
+        && gradient_root
+            == "51388c4bffce4fd3213844e51510b2ebfdfbad4c8db38baef35005edfcb62f95"
+        && dual_root
+            == "fff30a51545a3ed99ac71070b1279e725806e93ee4528ded93e0ef15efb0030d"
+        && transaction_root_before
+            == "c6a03d43a04ba00cef80b618bb983ab23f59e27d79ad073f327f119b145660cf";
+    const bool input_finite = target_exact
+        && std::isfinite(live_capture.theta) && live_capture.theta > 0.0
+        && std::isfinite(live_capture.radius) && live_capture.radius > 0.0
+        && std::all_of(live_capture.current_position.begin(),
+            live_capture.current_position.end(),
+            [](Vec3 value) { return finite(value); })
+        && std::all_of(live_capture.predicted_position.begin(),
+            live_capture.predicted_position.end(),
+            [](Vec3 value) { return finite(value); })
+        && std::all_of(live_capture.gradient.begin(),
+            live_capture.gradient.end(),
+            [](Vec3 value) { return finite(value); })
+        && std::all_of(live_capture.u.begin(), live_capture.u.end(),
+            [](double value) { return std::isfinite(value); });
+    const std::size_t recurrence_debt = offline.hvp_calls >= live.hvp_calls
+        ? offline.hvp_calls - live.hvp_calls : 0U;
+    const std::size_t model_debt = target_exact ? expected_model_debt : 0U;
+    const std::size_t projected_total = live_capture.budget.total_hvp
+        + recurrence_debt + model_debt;
+    const bool debt_exact = target_exact
+        && live_capture.budget.total_hvp == live_total_hvp
+        && recurrence_debt == expected_recurrence_debt
+        && model_debt == expected_model_debt
+        && projected_total == projected_live_total_hvp;
+
+    ALSparseWorkTrace shadow_work;
+    ALSparsePrecisionWorkTrace precision_work;
+    StaticSupportWorkTrace shadow_static_work;
+    FlatAdjacencyWorkTrace shadow_adjacency_work;
+    const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
+    const JointStaticSupportIndex shadow_index =
+        build_joint_static_support_index(
+            tagged_points(nominal_fixture.boundary),
+            &shadow_static_work);
+    const JointStaticSupportBinding shadow_binding =
+        bind_joint_static_support_index(
+            &shadow_index, shadow_index.identity_sha256);
+    ALNormalizedSparseInnerState current;
+    ALNormalizedSparseInnerState trial;
+    ALNormalizedHvp model_image;
+    std::vector<Vec3> trial_position;
+    std::size_t direct_model_hvp = 0U;
+    double gradient_step = 0.0;
+    double predicted_reduction = 0.0;
+    if (target_exact) {
+        current = evaluate_al_normalized_sparse_inner(
+            live_capture.current_position, live_capture.predicted_position,
+            shadow_binding, live_capture.u, live_capture.theta,
+            &shadow_work, &shadow_static_work, &shadow_adjacency_work);
+    }
+    const bool gradient_exact = current.inner.passed
+        && exact_vec3_values(
+            current.inner.gradient, live_capture.gradient);
+    if (gradient_exact && step.size() == current.inner.gradient.size()) {
+        model_image = apply_al_normalized_sparse_hessian(
+            current.workspace, step);
+        direct_model_hvp = 1U;
+        if (model_image.passed
+            && model_image.value.size() == step.size()) {
+            gradient_step = flat_dot(current.inner.gradient, step);
+            predicted_reduction = -gradient_step
+                - 0.5 * flat_dot(step, model_image.value);
+            trial_position = add_scaled(
+                live_capture.current_position, step, 1.0);
+            trial = evaluate_al_normalized_sparse_inner(
+                trial_position, live_capture.predicted_position,
+                shadow_binding, live_capture.u, live_capture.theta,
+                &shadow_work, &shadow_static_work,
+                &shadow_adjacency_work);
+        }
+    }
+
+    const std::string model_image_root =
+        al_binary64_vec3_root(model_image.value);
+    const std::string trial_root = al_binary64_vec3_root(trial_position);
+    const double step_norm = vector_norm(step);
+    const double raw_reduction = current.inner.passed && trial.inner.passed
+        ? current.inner.total - trial.inner.total : 0.0;
+    ALNormalizedDivided inherited;
+    ALNormalizedDivided inherited_repeat;
+    ALNormalizedPrecancellationDivided divided;
+    ALNormalizedPrecancellationDivided divided_repeat;
+    const bool division_executed = current.inner.passed
+        && trial.inner.passed;
+    if (division_executed) {
+        inherited = evaluate_al_normalized_divided(
+            current.inner, trial.inner, live_capture.current_position,
+            trial_position, live_capture.predicted_position,
+            live_capture.u, live_capture.theta);
+        inherited_repeat = evaluate_al_normalized_divided(
+            current.inner, trial.inner, live_capture.current_position,
+            trial_position, live_capture.predicted_position,
+            live_capture.u, live_capture.theta);
+        divided = evaluate_al_normalized_sparse_precancelled_divided(
+            current.workspace, trial.workspace,
+            live_capture.predicted_position, live_capture.u,
+            live_capture.theta, &shadow_work);
+        divided_repeat = evaluate_al_normalized_sparse_precancelled_divided(
+            current.workspace, trial.workspace,
+            live_capture.predicted_position, live_capture.u,
+            live_capture.theta, &shadow_work);
+    }
+    const bool inherited_repeat_exact = division_executed
+        && al_normalized_divided_exact(inherited, inherited_repeat);
+    const bool divided_repeat_exact = division_executed
+        && al_normalized_precancellation_exact(divided, divided_repeat);
+    const double divided_ratio = predicted_reduction > 0.0
+        ? divided.value.reduction / predicted_reduction
+        : -std::numeric_limits<double>::infinity();
+    const double raw_ratio = predicted_reduction > 0.0
+        ? raw_reduction / predicted_reduction
+        : -std::numeric_limits<double>::infinity();
+    const double inherited_ratio = predicted_reduction > 0.0
+        ? inherited.reduction / predicted_reduction
+        : -std::numeric_limits<double>::infinity();
+    const bool raw_would_accept = trial.inner.passed
+        && predicted_reduction > 0.0 && raw_reduction > 0.0
+        && raw_ratio >= 0.1;
+    const bool inherited_would_accept = trial.inner.passed
+        && inherited.finite_values && inherited_repeat_exact
+        && predicted_reduction > 0.0 && inherited.reduction > 0.0
+        && inherited_ratio >= 0.1;
+    const bool would_accept = trial.inner.passed
+        && divided.value.finite_values && divided_repeat_exact
+        && predicted_reduction > 0.0 && divided.value.reduction > 0.0
+        && divided_ratio >= 0.1;
+    const bool candidate_effect = would_accept
+        && (!raw_would_accept || !inherited_would_accept);
+
+    LongDoubleTrialEnergyAudit long_audit;
+    Binary128TrialEnergyAudit binary_audit;
+    bool long_executed = false;
+    bool binary_executed = false;
+    if (would_accept) {
+        long_audit = audit_al_normalized_sparse_long_double(
+            live_capture.current_position, trial_position,
+            live_capture.predicted_position, live_capture.u,
+            live_capture.theta, shadow_binding, &precision_work,
+            ALPrecisionMembershipPolicy::Binary64Owned);
+        long_executed = true;
+    }
+    if (candidate_effect) {
+        binary_audit = audit_al_normalized_sparse_binary128(
+            live_capture.current_position, trial_position,
+            live_capture.predicted_position, live_capture.u,
+            live_capture.theta, shadow_binding,
+            divided.value.reduction, &precision_work,
+            ALPrecisionMembershipPolicy::Binary64Owned);
+        binary_executed = true;
+    }
+    const std::string long_root = long_executed
+        ? al_normalized_long_double_trial_root(long_audit) : std::string{};
+    const std::string binary_root = binary_executed
+        ? al_binary128_audit_root(binary_audit) : std::string{};
+
+    double radius_after = live_capture.radius;
+    std::string radius_owner = "NONE";
+    if (division_executed && std::isfinite(predicted_reduction)
+        && std::isfinite(divided.value.reduction)) {
+        if (divided_ratio < 0.25) {
+            bool used_step_norm = false;
+            bool invalid_interpolation = false;
+            const bool interior = !would_accept
+                && step_norm < 0.9 * live_capture.radius;
+            radius_after = al_step_norm_rejected_radius(
+                live_capture.radius, step_norm, gradient_step,
+                divided.value.reduction, interior,
+                used_step_norm, invalid_interpolation);
+            radius_owner = used_step_norm ? "STEP_NORM" : "QUARTER";
+        } else if (divided_ratio > 0.75
+            && step_norm >= 0.9 * live_capture.radius) {
+            radius_after = std::min(
+                2.0 * live_capture.radius, 2.0 * SPACING);
+        }
+    }
+
+    if (trial.workspace.passed) {
+        release_al_normalized_workspace(trial.workspace, &shadow_work);
+    }
+    if (current.workspace.passed) {
+        release_al_normalized_workspace(current.workspace, &shadow_work);
+    }
+
+    const bool direct_model_exact = direct_model_hvp == 1U
+        && model_image.passed && model_image.value.size() == step.size()
+        && !model_image_root.empty();
+    const bool common_finite = current.inner.passed && trial.inner.passed
+        && model_image.passed && divided.value.finite_values
+        && inherited.finite_values
+        && std::isfinite(step_norm) && std::isfinite(gradient_step)
+        && std::isfinite(predicted_reduction)
+        && std::isfinite(raw_reduction)
+        && std::isfinite(inherited.reduction)
+        && std::isfinite(divided.value.reduction)
+        && std::isfinite(divided.value.phr_reduction)
+        && std::isfinite(divided.value.inertia_reduction)
+        && std::isfinite(radius_after) && radius_after > 0.0
+        && (predicted_reduction <= 0.0
+            || (std::isfinite(raw_ratio)
+                && std::isfinite(inherited_ratio)
+                && std::isfinite(divided_ratio)));
+    const bool precision_nonfinite =
+        (long_executed && !long_audit.finite_values)
+        || (binary_executed && !binary_audit.finite_values);
+    const bool shadow_nonfinite = !common_finite || precision_nonfinite;
+    const bool model_nonpositive = !shadow_nonfinite
+        && predicted_reduction <= 0.0;
+    const bool precision_contradiction = !shadow_nonfinite
+        && !model_nonpositive && would_accept
+        && (long_audit.resolved_negative
+            || (binary_executed && binary_audit.resolved_negative));
+    const bool oracle_required = !shadow_nonfinite
+        && !model_nonpositive && would_accept
+        && !precision_contradiction
+        && (!long_audit.resolved_positive
+            || (candidate_effect
+                && (!binary_audit.resolved_positive
+                    || !binary_audit.candidate_pass)));
+    const bool acceptance_candidate = !shadow_nonfinite
+        && !model_nonpositive && would_accept
+        && !precision_contradiction && !oracle_required
+        && long_audit.resolved_positive
+        && (!candidate_effect
+            || (binary_audit.resolved_positive
+                && binary_audit.candidate_pass));
+    const bool rejected = !shadow_nonfinite && !model_nonpositive
+        && !would_accept;
+    const bool comparator_exact = !division_executed
+        || inherited_repeat_exact;
+    const bool division_control_exact = !division_executed
+        || divided_repeat_exact;
+    const bool precision_ledger_exact =
+        long_executed == would_accept
+        && binary_executed == candidate_effect
+        && precision_work.long_double_audits
+            == (would_accept ? 1U : 0U)
+        && precision_work.binary128_audits
+            == (candidate_effect ? 1U : 0U)
+        && precision_work.all_pair_candidate_calls == 0U;
+    const bool work_exact = shadow_work.workspace_builds == 2U
+        && shadow_work.workspace_releases == 2U
+        && shadow_work.live_workspaces == 0U
+        && shadow_work.maximum_live_workspaces <= 2U
+        && !shadow_work.lifecycle_underflow
+        && shadow_work.all_pair_candidate_calls == 0U
+        && shadow_static_work.static_index_builds == 1U
+        && shadow_static_work.support_canonicalizations == 1U
+        && shadow_static_work.workspace_builds == 2U
+        && shadow_adjacency_work.workspace_builds == 2U
+        && direct_model_hvp == 1U;
+    const bool static_binding_exact = shadow_index.passed
+        && shadow_binding.passed && shadow_binding.index == &shadow_index
+        && shadow_binding.expected_identity_sha256
+            == shadow_index.identity_sha256
+        && shadow_index.identity_sha256
+            == live_capture.static_identity_sha256;
+    const bool rollback_exact =
+        al_r11_boundary_root(live_capture) == boundary_root
+        && al_normalized_trust_trace_root(live) == live_trace_root
+        && al_normalized_trust_trace_root(offline) == offline_trace_root
+        && al_binary64_vec3_root(step) == step_root
+        && al_binary64_vec3_root(live_capture.current_position)
+            == current_root
+        && al_binary64_vec3_root(live_capture.predicted_position)
+            == predicted_root
+        && al_binary64_vec3_root(live_capture.gradient) == gradient_root
+        && al_r10_dual_root(live_capture.u) == dual_root
+        && capture.r10.candidate.root == transaction_root_before
+        && al_r10_progress_root(capture.r10.candidate.transaction)
+            == progress_root_before
+        && capture.r10.candidate.budget.total_hvp == live_total_hvp
+        && capture.r10.candidate.budget.failure
+            == "STRUCTURAL_BUDGET_TOTAL_HVP";
+
+    const bool hard_controls = identity_exact && parent_exact && target_exact
+        && input_finite && debt_exact && gradient_exact
+        && direct_model_exact && comparator_exact && division_control_exact
+        && precision_ledger_exact && work_exact && static_binding_exact
+        && rollback_exact && !trial_root.empty();
+    std::string route;
+    if (hard_controls) {
+        if (shadow_nonfinite) route = "TOTAL_BUDGET_ATOMIC_NONFINITE";
+        else if (model_nonpositive) {
+            route = "TOTAL_BUDGET_ATOMIC_NONPOSITIVE_MODEL";
+        } else if (precision_contradiction) {
+            route = "TOTAL_BUDGET_ATOMIC_PRECISION_CONTRADICTION";
+        } else if (oracle_required) {
+            route = "TOTAL_BUDGET_ATOMIC_ORACLE_REQUIRED";
+        } else if (rejected) {
+            route = "TOTAL_BUDGET_ATOMIC_REJECTED";
+        } else if (acceptance_candidate) {
+            route = "TOTAL_BUDGET_ATOMIC_ACCEPTANCE_CANDIDATE";
+        }
+    }
+    const int route_count = (shadow_nonfinite ? 1 : 0)
+        + (model_nonpositive ? 1 : 0)
+        + (precision_contradiction ? 1 : 0)
+        + (oracle_required ? 1 : 0)
+        + (rejected ? 1 : 0)
+        + (acceptance_candidate ? 1 : 0);
+    const bool route_precedence_exact = route_count == 1
+        && ((shadow_nonfinite
+                && route == "TOTAL_BUDGET_ATOMIC_NONFINITE")
+            || (!shadow_nonfinite && model_nonpositive
+                && route == "TOTAL_BUDGET_ATOMIC_NONPOSITIVE_MODEL")
+            || (!shadow_nonfinite && !model_nonpositive
+                && precision_contradiction
+                && route
+                    == "TOTAL_BUDGET_ATOMIC_PRECISION_CONTRADICTION")
+            || (!shadow_nonfinite && !model_nonpositive
+                && !precision_contradiction && oracle_required
+                && route == "TOTAL_BUDGET_ATOMIC_ORACLE_REQUIRED")
+            || (!shadow_nonfinite && !model_nonpositive
+                && !precision_contradiction && !oracle_required
+                && rejected && route == "TOTAL_BUDGET_ATOMIC_REJECTED")
+            || (!shadow_nonfinite && !model_nonpositive
+                && !precision_contradiction && !oracle_required
+                && !rejected && acceptance_candidate
+                && route
+                    == "TOTAL_BUDGET_ATOMIC_ACCEPTANCE_CANDIDATE"));
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R19R11_PARENT_BYTES";
+    else if (!target_exact) first_failure = "TARGET";
+    else if (!input_finite) first_failure = "INPUT_FINITE";
+    else if (!debt_exact) first_failure = "DEBT_ACCOUNTING";
+    else if (!gradient_exact) first_failure = "GRADIENT";
+    else if (!direct_model_exact) first_failure = "DIRECT_MODEL";
+    else if (!comparator_exact) first_failure = "INHERITED_REPEAT";
+    else if (!division_control_exact) first_failure = "DIVIDED_REPEAT";
+    else if (!precision_ledger_exact) first_failure = "PRECISION_LEDGER";
+    else if (!work_exact) first_failure = "WORK";
+    else if (!static_binding_exact) first_failure = "STATIC_BINDING";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (trial_root.empty()) first_failure = "TRIAL";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<long double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19R12_IDENTITY_SHA256 << '|'
+             << r11_stdout_sha256 << ':' << r11_semantic_exact << ':'
+             << parents_retained << '|' << boundary_root << ':'
+             << live_trace_root << ':' << live_prefix_root << ':'
+             << offline_trace_root << ':' << step_root << '|'
+             << recurrence_debt << ':' << model_debt << ':'
+             << projected_total << '|' << current_root << ':'
+             << trial_root << ':' << model_image_root << '|'
+             << binary64_bits(step_norm) << ':'
+             << binary64_bits(gradient_step) << ':'
+             << binary64_bits(predicted_reduction) << ':'
+             << binary64_bits(raw_reduction) << ':'
+             << binary64_bits(inherited.reduction) << ':'
+             << binary64_bits(divided.value.reduction) << ':'
+             << binary64_bits(divided_ratio) << '|'
+             << raw_would_accept << ':' << inherited_would_accept << ':'
+             << would_accept << ':' << candidate_effect << '|'
+             << long_executed << ':' << long_root << ':'
+             << long_audit.resolved_positive << ':'
+             << long_audit.resolved_negative << ':'
+             << binary_executed << ':' << binary_root << ':'
+             << binary_audit.resolved_positive << ':'
+             << binary_audit.resolved_negative << ':'
+             << binary_audit.candidate_pass << '|'
+             << binary64_bits(radius_after) << ':' << radius_owner << '|'
+             << work_exact << ':' << precision_ledger_exact << ':'
+             << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_bits = [](std::ostringstream& output, double value) {
+        output << "\"0x" << std::hex << binary64_bits(value)
+               << std::dec << '"';
+    };
+    std::ostringstream report;
+    report << std::setprecision(std::numeric_limits<double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19r12_total_budget_atomic_completion.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R19R12_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"r11_stdout_sha256\":\""
+           << r11_stdout_sha256 << "\",\"r11_semantic_exact\":"
+           << (r11_semantic_exact ? "true" : "false")
+           << ",\"transitive_parents_retained\":"
+           << (parents_retained ? "true" : "false")
+           << ",\"exact\":" << (parent_exact ? "true" : "false")
+           << "},\"target\":{\"boundary_root\":\"" << boundary_root
+           << "\",\"live_trace_root\":\"" << live_trace_root
+           << "\",\"prefix_root\":\"" << live_prefix_root
+           << "\",\"offline_trace_root\":\"" << offline_trace_root
+           << "\",\"step_root\":\"" << step_root
+           << "\",\"outer\":" << live_capture.outer
+           << ",\"trial\":" << live_capture.trial
+           << ",\"solve_index\":" << live_capture.solve_index
+           << ",\"current_root\":\"" << current_root
+           << "\",\"predicted_root\":\"" << predicted_root
+           << "\",\"gradient_root\":\"" << gradient_root
+           << "\",\"dual_root\":\"" << dual_root
+           << "\",\"exact\":" << (target_exact ? "true" : "false")
+           << "},\"accounting\":{\"live_prefix_hvp\":"
+           << live.hvp_calls << ",\"physical_offline_hvp\":"
+           << offline.hvp_calls << ",\"post_boundary_recurrence_hvp\":"
+           << recurrence_debt << ",\"new_direct_model_hvp\":"
+           << direct_model_hvp << ",\"live_total_before\":"
+           << live_capture.budget.total_hvp
+           << ",\"projected_live_total\":" << projected_total
+           << ",\"exact\":" << (debt_exact ? "true" : "false")
+           << "},\"model\":{\"image_root\":\"" << model_image_root
+           << "\",\"step_norm_bits\":";
+    append_bits(report, step_norm);
+    report << ",\"gradient_step_bits\":";
+    append_bits(report, gradient_step);
+    report << ",\"predicted_reduction_bits\":";
+    append_bits(report, predicted_reduction);
+    report << ",\"direct_hvp\":" << direct_model_hvp
+           << ",\"exact\":" << (direct_model_exact ? "true" : "false")
+           << "},\"trial\":{\"trial_root\":\"" << trial_root
+           << "\",\"raw_reduction_bits\":";
+    append_bits(report, raw_reduction);
+    report << ",\"inherited_reduction_bits\":";
+    append_bits(report, inherited.reduction);
+    report << ",\"precancelled_reduction_bits\":";
+    append_bits(report, divided.value.reduction);
+    report << ",\"rho_bits\":";
+    append_bits(report, divided_ratio);
+    report << ",\"raw_would_accept\":"
+           << (raw_would_accept ? "true" : "false")
+           << ",\"inherited_would_accept\":"
+           << (inherited_would_accept ? "true" : "false")
+           << ",\"would_accept\":"
+           << (would_accept ? "true" : "false")
+           << ",\"candidate_effect\":"
+           << (candidate_effect ? "true" : "false")
+           << ",\"inherited_repeat_exact\":"
+           << (inherited_repeat_exact ? "true" : "false")
+           << ",\"precancelled_repeat_exact\":"
+           << (divided_repeat_exact ? "true" : "false")
+           << ",\"union_visits_per_evaluation\":"
+           << divided.union_visits << "},\"precision\":{\"long_executed\":"
+           << (long_executed ? "true" : "false")
+           << ",\"long_root\":\"" << long_root
+           << "\",\"long_finite\":"
+           << (long_audit.finite_values ? "true" : "false")
+           << ",\"long_resolved_positive\":"
+           << (long_audit.resolved_positive ? "true" : "false")
+           << ",\"long_resolved_negative\":"
+           << (long_audit.resolved_negative ? "true" : "false")
+           << ",\"topology_mismatch_diagnostic\":"
+           << (long_audit.topology_precision_mismatch ? "true" : "false")
+           << ",\"binary128_executed\":"
+           << (binary_executed ? "true" : "false")
+           << ",\"binary128_root\":\"" << binary_root
+           << "\",\"binary128_resolved_positive\":"
+           << (binary_audit.resolved_positive ? "true" : "false")
+           << ",\"binary128_resolved_negative\":"
+           << (binary_audit.resolved_negative ? "true" : "false")
+           << ",\"binary128_candidate_pass\":"
+           << (binary_audit.candidate_pass ? "true" : "false")
+           << ",\"ledger_exact\":"
+           << (precision_ledger_exact ? "true" : "false")
+           << "},\"radius\":{\"before_bits\":";
+    append_bits(report, live_capture.radius);
+    report << ",\"after_bits\":";
+    append_bits(report, radius_after);
+    report << ",\"owner\":\"" << radius_owner
+           << "\"},\"work\":{\"workspace_builds\":"
+           << shadow_work.workspace_builds
+           << ",\"workspace_releases\":"
+           << shadow_work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << shadow_work.maximum_live_workspaces
+           << ",\"divided_union_visits\":"
+           << shadow_work.divided_union_visits
+           << ",\"long_double_audits\":"
+           << precision_work.long_double_audits
+           << ",\"binary128_audits\":"
+           << precision_work.binary128_audits
+           << ",\"all_pair_candidate_calls\":"
+           << shadow_work.all_pair_candidate_calls
+                + precision_work.all_pair_candidate_calls
+           << ",\"exact\":" << (work_exact ? "true" : "false") << '}'
+           << ",\"input_finite\":"
+           << (input_finite ? "true" : "false")
+           << ",\"gradient_exact\":"
+           << (gradient_exact ? "true" : "false")
+           << ",\"static_binding_exact\":"
+           << (static_binding_exact ? "true" : "false")
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"control_parent_substeps\":1"
+              ",\"candidate_nominal_substeps\":0"
+              ",\"transaction_continuation\":false"
+              ",\"second_solve_executed\":false"
+              ",\"second_substep_executed\":false"
+              ",\"macro_frames\":0,\"trajectory_steps\":0"
+              ",\"trial_commit_count\":0,\"public_commit_count\":0"
+              ",\"physics_mutation\":false"
+              ",\"live_total_cap_changed\":false"
+              ",\"production_policy_changed\":false"
+              ",\"timing_admitted\":false,\"speedup_claim\":false"
+              ",\"runtime_authority\":false"
+              ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
     return {passed, report.str()};
 }
 
@@ -77304,6 +77922,10 @@ SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
 
 SplitBoundaryReport run_al_tiered_grace_private_transaction_controls() {
     return run_al_tiered_grace_private_transaction_controls_impl(nullptr);
+}
+
+SplitBoundaryReport run_al_total_budget_offline_replay_controls() {
+    return run_al_total_budget_offline_replay_controls_impl(nullptr);
 }
 
 SplitBoundaryReport run_al_guarded_residual_private_transaction_controls() {
