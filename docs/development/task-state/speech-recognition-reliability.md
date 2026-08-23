@@ -11,22 +11,21 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The §12 baseline ladder is implemented and honestly fitted once: logistic L2 improves calibration Brier by only 1.9 % against constant (gate ≥10 % fails), so the candidate stays report-only exactly as the spec requires.
-- **Why:** Fitted on aug-500 replay outputs (2 923 train / 71 calibration rows); the revision-stability rule is degenerate on a final-only route and scored worse than constant (-7 %).
-- **Next action:** When `replay-runs/aug-batch2` finishes (~6 h for 11 984 turns), refit baselines on the merged table via one extra `--results` file and record whether the gate verdict changes with n≈9k calibration rows.
-- **Current blocker:** None technical; wall-clock dominates scaling (~1.9 s/turn unpaced GigaAM finalize overhead).
-- **Do not retry:** Tuning RULE_CONSTANTS or λ against calibration; touching held_out before gates; pooling routes; treating CV-domain accuracies as route benchmarks.
-- **Reconsider when:** Batch2 data lands or a streaming route (gigastt/Voxtral) supplies non-degenerate revision features.
+- **Current conclusion:** Merged refit on 14 973 real rows confirms the honest verdict: logistic L2 reaches excellent calibration (ECE 0.0087, gate ≤0.05 PASS) but Brier improvement vs constant is +0.6 % — the ≥10 % utility gate FAILS, candidate stays report-only.
+- **Why:** The final-only GigaAM route leaves revision features degenerate and the base rate (~90 % exact) caps attainable Brier headroom; current acoustic features barely separate the failing 10 %.
+- **Next action:** Two levers before any held-out run: bind a streaming route (gigastt local bundle) to revive churn features, and/or extend the feature schema with condition-interaction terms; then refit. Held-out replay stays untouched until a candidate passes calibration+utility gates on frozen outputs.
+- **Current blocker:** Feature signal, not plumbing — the whole chain (augment → resident replay → fit → typed gates) runs unattended.
+- **Do not retry:** Tuning RULE_CONSTANTS/λ against calibration; pooling routes; reading CV-domain accuracies as route quality; touching held_out now.
+- **Reconsider when:** A streaming-route trace exists or feature-schema v0.1 adds discriminating terms.
 
 ## Current evidence
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| External store `~/.cache/nextengine/speech-reliability/prepared.jsonl` | `PASS` prepare 2026-08-22 | 63 389 speech + 61 068 asset rows, splits 84 106/16 176/24 075; index sha256 `53c5eb50…` |
-| `replay-runs/aug-500` | `PASS` degraded replay | 2 994 completed + 1 typed speech_but_empty; exact by condition: control 91.4 %, attenuation 91.0 %, EQ 90.2 %, MUSAN 87.1 %, room+noise 84.5 % |
-| `baselines/gigaam-v1/baseline-report.json` | `PASS` fit, gate FAILED | constant cal-Brier 0.1445 / rule 0.1546 / logistic 0.1418; improvement +1.9 % < 10 % ⇒ candidate report-only; ECE 0.0718 > 0.05 also failing |
-| `augmented/train-calib-500-2500.jsonl` + batch2 replay | `RUNNING` | 11 984 rows (offset 500, limit 1500); replay cap raised to 50 000 with bounded-memory justification |
-| Held-out evaluation / isotonic / shipped artifact | `NOT_RUN` | No calibrated reliability claim exists |
+| `prepared.jsonl` | `PASS` | 63 389 speech rows, splits 84 106/16 176/24 075; sha256 `53c5eb50…` |
+| `replay-runs/aug-500` + `aug-batch2` | `PASS` degraded replays | 14 973 admissible rows; exact by condition: control 91.1 %, attenuation 90.8 %, EQ 90.3 %, RIRS 90.4 %, MUSAN 87.5 %, room+noise 85.4 %; 6 typed non-completed |
+| `baselines/gigaam-v2-merged/baseline-report.json` | `PASS` fit; utility gate FAILED | calib n=1 815: constant Brier 0.0873 / rule 0.0927 / logistic 0.0867 (+0.6 % < 10 %); logistic ECE 0.0087 (≤0.05 PASS); candidates + report atomic 0600 |
+| Streaming-route trace / feature-schema v0.1 / held-out eval | `NOT_RUN` | No calibrated reliability claim exists |
 
 ## Decisions that still constrain the work
 
