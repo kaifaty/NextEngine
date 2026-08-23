@@ -65135,6 +65135,7 @@ struct ALNormalizedPrivateTrial {
     double inertia_reduction = 0.0;
     std::vector<Vec3> current_position;
     std::vector<Vec3> trial_position;
+    std::vector<Vec3> step;
     bool long_double_audited = false;
     bool long_double_finite = false;
     bool long_double_topology_mismatch = false;
@@ -65151,6 +65152,13 @@ struct ALNormalizedPrivateTrial {
     bool binary128_resolved_negative = false;
     bool binary128_candidate_pass = false;
     std::string binary128_root;
+    int recurrence_hvp_calls = 0;
+    int model_hvp_calls = 0;
+    bool guarded_completion_attempted = false;
+    bool guarded_completion_eligible = false;
+    bool guarded_completion_used = false;
+    bool direct_model_used = false;
+    bool residual_model_used = false;
 };
 
 struct ALNormalizedPrivateInnerSolve {
@@ -65343,6 +65351,70 @@ struct ALNormalizedTrustRecurrenceSink {
     ALNormalizedTrustRecurrence target;
 };
 
+enum class ALNormalizedTrustCompletionPolicy {
+    DirectModelHvp,
+    GuardedResidualModel,
+};
+
+struct ALNormalizedTrustCompletionTrace {
+    std::size_t direct_policy_trust_steps = 0U;
+    std::size_t guarded_policy_trust_steps = 0U;
+    std::size_t recurrence_hvp = 0U;
+    std::size_t direct_model_hvp = 0U;
+    std::size_t residual_model_uses = 0U;
+    std::size_t guard_attempts = 0U;
+    std::size_t guard_eligible = 0U;
+    std::size_t guard_hvp = 0U;
+    std::size_t guard_converged = 0U;
+    std::size_t guard_denied = 0U;
+};
+
+struct ALNormalizedTrustCompletionOutcome {
+    bool guard_attempted = false;
+    bool guard_eligible = false;
+    bool guard_used = false;
+    ALNormalizedTrustRecurrence recurrence;
+};
+
+bool al_guarded_residual_grace_eligible(
+    const ALNormalizedTrustRecurrence& recurrence,
+    double& ratio_after_32,
+    bool& trailing_decrease) {
+    constexpr std::size_t base_hvp = 32U;
+    constexpr std::size_t trailing_count = 8U;
+    ratio_after_32 = 0.0;
+    trailing_decrease = false;
+    if (!recurrence.captured
+        || recurrence.iterations.size() < base_hvp
+        || !std::isfinite(recurrence.forcing_eta)
+        || recurrence.forcing_eta <= 0.0) {
+        return false;
+    }
+    bool prefix_exact = true;
+    for (std::size_t index = 0U; index < base_hvp; ++index) {
+        const ALNormalizedTrustRecurrenceIteration& iteration =
+            recurrence.iterations[index];
+        prefix_exact = prefix_exact && iteration.hvp_passed
+            && iteration.finite_values && iteration.positive_curvature
+            && !iteration.boundary
+            && std::isfinite(iteration.candidate_norm)
+            && iteration.candidate_norm < recurrence.radius;
+    }
+    ratio_after_32 = recurrence.iterations[base_hvp - 1U]
+        .next_residual_ratio;
+    trailing_decrease = true;
+    const std::size_t first = base_hvp - trailing_count;
+    for (std::size_t index = first + 1U; index < base_hvp; ++index) {
+        trailing_decrease = trailing_decrease
+            && recurrence.iterations[index].next_residual_ratio
+                < recurrence.iterations[index - 1U].next_residual_ratio;
+    }
+    return prefix_exact && trailing_decrease
+        && std::isfinite(ratio_after_32)
+        && ratio_after_32 > recurrence.forcing_eta
+        && ratio_after_32 <= 1.25 * recurrence.forcing_eta;
+}
+
 std::vector<Vec3> al_normalized_trust_step(
     const ALNormalizedWorkspace& workspace,
     const std::vector<Vec3>& gradient,
@@ -65352,7 +65424,11 @@ std::vector<Vec3> al_normalized_trust_step(
     ALSparseStructuralBudget* budget,
     ALNormalizedKrylovForcingPolicy forcing_policy,
     ALNormalizedKrylovForcingTrace* forcing_trace,
-    ALNormalizedTrustRecurrenceSink* recurrence_sink = nullptr) {
+    ALNormalizedTrustRecurrenceSink* recurrence_sink = nullptr,
+    ALNormalizedTrustCompletionPolicy completion_policy =
+        ALNormalizedTrustCompletionPolicy::DirectModelHvp,
+    ALNormalizedTrustCompletionTrace* completion_trace = nullptr,
+    ALNormalizedTrustCompletionOutcome* completion_outcome = nullptr) {
     ALNormalizedTrustRecurrence* recurrence = nullptr;
     if (recurrence_sink != nullptr) {
         const std::size_t solve_index =
@@ -65364,6 +65440,20 @@ std::vector<Vec3> al_normalized_trust_step(
             recurrence_sink->target.radius = radius;
             recurrence = &recurrence_sink->target;
         }
+    }
+    if (completion_policy
+        == ALNormalizedTrustCompletionPolicy::GuardedResidualModel) {
+        if (completion_trace != nullptr) {
+            ++completion_trace->guarded_policy_trust_steps;
+        }
+        if (completion_outcome != nullptr) {
+            *completion_outcome = ALNormalizedTrustCompletionOutcome{};
+            completion_outcome->recurrence.captured = true;
+            completion_outcome->recurrence.radius = radius;
+            recurrence = &completion_outcome->recurrence;
+        }
+    } else if (completion_trace != nullptr) {
+        ++completion_trace->direct_policy_trust_steps;
     }
     std::vector<Vec3> point(gradient.size());
     std::vector<Vec3> residual = gradient;
@@ -65398,6 +65488,50 @@ std::vector<Vec3> al_normalized_trust_step(
     double previous_beta = 0.0;
     for (std::size_t iteration = 0U;
          iteration < 3U * gradient.size(); ++iteration) {
+        const bool guarded_completion = completion_policy
+            == ALNormalizedTrustCompletionPolicy::GuardedResidualModel;
+        if (guarded_completion && iteration >= 32U) {
+            if (iteration > 32U) {
+                if (budget != nullptr) {
+                    budget->exhausted = true;
+                    if (budget->failure.empty()) {
+                        budget->failure =
+                            "STRUCTURAL_BUDGET_GUARDED_HVP_NOT_CONVERGED";
+                    }
+                }
+                if (recurrence != nullptr) {
+                    recurrence->termination = "GUARDED_HVP_NOT_CONVERGED";
+                }
+                return {};
+            }
+            double ratio_after_32 = 0.0;
+            bool trailing_decrease = false;
+            const bool eligible = recurrence != nullptr
+                && al_guarded_residual_grace_eligible(
+                    *recurrence, ratio_after_32, trailing_decrease);
+            if (completion_outcome != nullptr) {
+                completion_outcome->guard_attempted = true;
+                completion_outcome->guard_eligible = eligible;
+            }
+            if (completion_trace != nullptr) {
+                ++completion_trace->guard_attempts;
+                completion_trace->guard_eligible += eligible ? 1U : 0U;
+                completion_trace->guard_denied += eligible ? 0U : 1U;
+            }
+            if (!eligible) {
+                if (budget != nullptr) {
+                    budget->exhausted = true;
+                    if (budget->failure.empty()) {
+                        budget->failure =
+                            "STRUCTURAL_BUDGET_GUARDED_HVP_DENIED";
+                    }
+                }
+                if (recurrence != nullptr) {
+                    recurrence->termination = "GUARDED_HVP_DENIED";
+                }
+                return {};
+            }
+        }
         if (!al_sparse_budget_consume_hvp(budget)) {
             if (recurrence != nullptr) {
                 recurrence->termination = "BUDGET";
@@ -65419,6 +65553,11 @@ std::vector<Vec3> al_normalized_trust_step(
         const ALNormalizedHvp evaluated =
             apply_al_normalized_sparse_hessian(workspace, direction);
         ++hvp_calls;
+        if (completion_trace != nullptr) {
+            ++completion_trace->recurrence_hvp;
+            completion_trace->guard_hvp +=
+                guarded_completion && iteration == 32U ? 1U : 0U;
+        }
         if (recurrence != nullptr) {
             ++recurrence->hvp_calls;
             record.hvp_passed = evaluated.passed;
@@ -65553,7 +65692,28 @@ std::vector<Vec3> al_normalized_trust_step(
                 recurrence->final_residual = next_residual;
                 recurrence->accumulated_image = candidate_image;
             }
+            if (guarded_completion && iteration == 32U) {
+                if (completion_outcome != nullptr) {
+                    completion_outcome->guard_used = true;
+                }
+                if (completion_trace != nullptr) {
+                    ++completion_trace->guard_converged;
+                }
+            }
             return point;
+        }
+        if (guarded_completion && iteration == 32U) {
+            if (budget != nullptr) {
+                budget->exhausted = true;
+                if (budget->failure.empty()) {
+                    budget->failure =
+                        "STRUCTURAL_BUDGET_GUARDED_HVP_NOT_CONVERGED";
+                }
+            }
+            if (recurrence != nullptr) {
+                recurrence->termination = "GUARDED_HVP_NOT_CONVERGED";
+            }
+            return {};
         }
         if (recurrence != nullptr) {
             previous_direction = direction;
@@ -65817,7 +65977,10 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
     ALNormalizedKrylovForcingTrace* forcing_trace = nullptr,
     ALPrecisionMembershipPolicy precision_membership_policy =
         ALPrecisionMembershipPolicy::LiveExtended,
-    ALNormalizedTrustRecurrenceSink* recurrence_sink = nullptr) {
+    ALNormalizedTrustRecurrenceSink* recurrence_sink = nullptr,
+    ALNormalizedTrustCompletionPolicy completion_policy =
+        ALNormalizedTrustCompletionPolicy::DirectModelHvp,
+    ALNormalizedTrustCompletionTrace* completion_trace = nullptr) {
     constexpr double stationarity_limit = 1.0e-10;
     ALNormalizedPrivateInnerSolve result;
     result.position = initial;
@@ -65867,10 +66030,22 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
         record.stationarity_before = result.final_stationarity;
         record.radius_before = trust_radius;
         int hvp_calls = 0;
+        ALNormalizedTrustCompletionOutcome completion_outcome;
         const std::vector<Vec3> step = al_normalized_trust_step(
             current.workspace, current.inner.gradient, trust_radius,
             hvp_calls, record.negative_curvature, budget,
-            forcing_policy, forcing_trace, recurrence_sink);
+            forcing_policy, forcing_trace, recurrence_sink,
+            completion_policy, completion_trace,
+            completion_policy
+                    == ALNormalizedTrustCompletionPolicy::GuardedResidualModel
+                ? &completion_outcome : nullptr);
+        record.step = step;
+        record.recurrence_hvp_calls = hvp_calls;
+        record.guarded_completion_attempted =
+            completion_outcome.guard_attempted;
+        record.guarded_completion_eligible =
+            completion_outcome.guard_eligible;
+        record.guarded_completion_used = completion_outcome.guard_used;
         if (budget->exhausted || step.size() != result.position.size()) {
             result.hvp_calls += hvp_calls;
             result.failure = budget->exhausted
@@ -65878,15 +66053,40 @@ ALNormalizedPrivateInnerSolve solve_al_normalized_private_inner(
             release_al_normalized_workspace(current.workspace, work);
             return result;
         }
-        if (!al_sparse_budget_consume_hvp(budget)) {
-            result.hvp_calls += hvp_calls;
-            result.failure = budget->failure;
-            release_al_normalized_workspace(current.workspace, work);
-            return result;
+        ALNormalizedHvp image;
+        if (completion_outcome.guard_used) {
+            image.value.resize(current.inner.gradient.size());
+            image.passed = completion_outcome.recurrence.final_residual.size()
+                == current.inner.gradient.size();
+            if (image.passed) {
+                for (std::size_t index = 0U;
+                     index < image.value.size(); ++index) {
+                    image.value[index] =
+                        completion_outcome.recurrence.final_residual[index]
+                        - current.inner.gradient[index];
+                    image.passed = image.passed && finite(image.value[index]);
+                }
+            }
+            record.residual_model_used = image.passed;
+            if (completion_trace != nullptr && image.passed) {
+                ++completion_trace->residual_model_uses;
+            }
+        } else {
+            if (!al_sparse_budget_consume_hvp(budget)) {
+                result.hvp_calls += hvp_calls;
+                result.failure = budget->failure;
+                release_al_normalized_workspace(current.workspace, work);
+                return result;
+            }
+            image = apply_al_normalized_sparse_hessian(
+                current.workspace, step);
+            ++hvp_calls;
+            record.model_hvp_calls = 1;
+            record.direct_model_used = true;
+            if (completion_trace != nullptr) {
+                ++completion_trace->direct_model_hvp;
+            }
         }
-        const ALNormalizedHvp image =
-            apply_al_normalized_sparse_hessian(current.workspace, step);
-        ++hvp_calls;
         record.hvp_calls = hvp_calls;
         result.hvp_calls += hvp_calls;
         if (!image.passed) {
@@ -66144,7 +66344,10 @@ ALNormalizedOuterUpdate al_normalized_private_outer_update(
     ALNormalizedKrylovForcingTrace* forcing_trace = nullptr,
     ALPrecisionMembershipPolicy precision_membership_policy =
         ALPrecisionMembershipPolicy::LiveExtended,
-    ALNormalizedTrustRecurrenceSink* recurrence_sink = nullptr) {
+    ALNormalizedTrustRecurrenceSink* recurrence_sink = nullptr,
+    ALNormalizedTrustCompletionPolicy completion_policy =
+        ALNormalizedTrustCompletionPolicy::DirectModelHvp,
+    ALNormalizedTrustCompletionTrace* completion_trace = nullptr) {
     constexpr double dual_limit = 8.154943934760449e-12;
     constexpr double complementarity_limit = 8.154943934760449e-13;
     ALNormalizedOuterUpdate result;
@@ -66154,7 +66357,8 @@ ALNormalizedOuterUpdate al_normalized_private_outer_update(
             predicted, position, u, theta, binding, work,
             precision_work, static_work, adjacency_work, budget,
             use_precancelled_divided, forcing_policy, forcing_trace,
-            precision_membership_policy, recurrence_sink);
+            precision_membership_policy, recurrence_sink,
+            completion_policy, completion_trace);
     result.inner_root = al_normalized_private_inner_root(inner);
     result.trials = inner.trials;
     result.state.inner_trials = static_cast<int>(inner.trials.size()) + 1;
@@ -66292,7 +66496,10 @@ ALNormalizedPrivateTransaction solve_al_full_normalized_private_transaction(
     ALNormalizedKrylovForcingTrace* forcing_trace = nullptr,
     ALPrecisionMembershipPolicy precision_membership_policy =
         ALPrecisionMembershipPolicy::LiveExtended,
-    ALNormalizedTrustRecurrenceSink* recurrence_sink = nullptr) {
+    ALNormalizedTrustRecurrenceSink* recurrence_sink = nullptr,
+    ALNormalizedTrustCompletionPolicy completion_policy =
+        ALNormalizedTrustCompletionPolicy::DirectModelHvp,
+    ALNormalizedTrustCompletionTrace* completion_trace = nullptr) {
     constexpr int maximum_outer = 64;
     ALNormalizedPrivateTransaction result;
     result.position = position;
@@ -66328,7 +66535,7 @@ ALNormalizedPrivateTransaction solve_al_full_normalized_private_transaction(
                 precision_work, static_work, adjacency_work, budget,
                 use_precancelled_divided, forcing_policy,
                 forcing_trace, precision_membership_policy,
-                recurrence_sink);
+                recurrence_sink, completion_policy, completion_trace);
         al_normalized_transaction_observe(result, update);
         if (!update.passed) {
             if (!update.sign_contradiction
@@ -66376,7 +66583,8 @@ ALNormalizedPrivateTransaction solve_al_full_normalized_private_transaction(
             result.confirmation_index + 1, binding, work,
             precision_work, static_work, adjacency_work, budget,
             use_precancelled_divided, forcing_policy, forcing_trace,
-            precision_membership_policy, recurrence_sink);
+            precision_membership_policy, recurrence_sink,
+            completion_policy, completion_trace);
         al_normalized_transaction_observe(result, result.warm_holdout);
         if (!result.warm_holdout.passed) {
             if (!result.warm_holdout.sign_contradiction
@@ -72558,39 +72766,8 @@ bool al_sixth_trial_grace_eligible(
     const ALNormalizedTrustRecurrence& recurrence,
     double& ratio_after_32,
     bool& trailing_decrease) {
-    constexpr std::size_t base_hvp = 32U;
-    constexpr std::size_t trailing_count = 8U;
-    ratio_after_32 = 0.0;
-    trailing_decrease = false;
-    if (!recurrence.captured
-        || recurrence.iterations.size() < base_hvp
-        || !std::isfinite(recurrence.forcing_eta)
-        || recurrence.forcing_eta <= 0.0) {
-        return false;
-    }
-    bool prefix_exact = true;
-    for (std::size_t index = 0U; index < base_hvp; ++index) {
-        const ALNormalizedTrustRecurrenceIteration& iteration =
-            recurrence.iterations[index];
-        prefix_exact = prefix_exact && iteration.hvp_passed
-            && iteration.finite_values && iteration.positive_curvature
-            && !iteration.boundary
-            && std::isfinite(iteration.candidate_norm)
-            && iteration.candidate_norm < recurrence.radius;
-    }
-    ratio_after_32 = recurrence.iterations[base_hvp - 1U]
-        .next_residual_ratio;
-    trailing_decrease = true;
-    const std::size_t first = base_hvp - trailing_count;
-    for (std::size_t index = first + 1U; index < base_hvp; ++index) {
-        trailing_decrease = trailing_decrease
-            && recurrence.iterations[index].next_residual_ratio
-                < recurrence.iterations[index - 1U].next_residual_ratio;
-    }
-    return prefix_exact && trailing_decrease
-        && std::isfinite(ratio_after_32)
-        && ratio_after_32 > recurrence.forcing_eta
-        && ratio_after_32 <= 1.25 * recurrence.forcing_eta;
+    return al_guarded_residual_grace_eligible(
+        recurrence, ratio_after_32, trailing_decrease);
 }
 
 } // namespace
@@ -72954,6 +73131,800 @@ SplitBoundaryReport run_al_guarded_sixth_trial_shadow_controls() {
            << ",\"timing_admitted\":false,\"speedup_claim\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19R6_IDENTITY_SHA256 =
+    "e71a9fced6ffa724380cfd3a4dc7e00354738fe56168aa1a8f1242dc9da9a895";
+constexpr const char* B4E2D7R19R6_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r19r6-guarded-residual-private-transaction|"
+    "v1|parent=95e2fa24f528395c1faf619a2a2d3b442367cad3:"
+    "fe0a75877bf539e37e11955f25cebb05821dcbacf7cb50eb120913367f664294:"
+    "ae751940bf195fdf70aab9f1a5df6ce986decfc9c4f3c5fbeb26bf95d43e8880|"
+    "legacy=r4-stdout"
+    "798e8005aaa503eedb7a90ed9fd3590230cec7bbadf85536b39ac135ac7cb3a0;"
+    "r3-stdout"
+    "a1038937496f31ed64008eb8e366763e2da9875e3935194955d68604a7b23771;"
+    "r2-stdout"
+    "3dad88903f5f619d540587e805b35d63e2ef8c848e53e1ab87786c9e90587ba0|"
+    "policy=ordinary-direct-model;guarded-residual-model-only-after-grace|"
+    "budget=base-recurrence32;guard-extra1;absolute-step33;total512;outer16;"
+    "trials-per-update16;workspaces288;precision64|"
+    "guard=first32-finite-positive-interior;ratio-after32-in-eta-to-1.25eta;"
+    "last8-decrease;hvp33-must-converge|precision=binary64-owned-membership;"
+    "long-double-every-accepted;binary128-candidate-effect-only|"
+    "anchors=trials0-4-r2-binary64-exact;trial5-current"
+    "54bafbf48d0798438fd9baad9fb91e67c7b5cf6b12e37c4bb1d49694384ddf8a-"
+    "step74a9b58726d5d0279699498c41a70fb0e199f45e531d11befd2bc2dfe692d2bd-"
+    "trial932ce178a6238025c8de6ea907d9966638fa0f5abef7780a15fb9c8171f67ea2-"
+    "predicted0x3bc27dd9b2871ea7-divided0x3bc27dd8dc16d400-"
+    "ratio0x3feffffe8ce92225-"
+    "precisiona58caa2c1cb83c23dbcc15b8d2daf243de7749e6e692a92369141bbfd741f8db-"
+    "radius0x3f8999999999999a|"
+    "work-ownership=ordinary-recurrence+direct-model;"
+    "guarded-recurrence+residual-model;all-pair0|"
+    "controls=r19r5-parent-bytes;r19r4+r19r3+r19r2-retained;"
+    "legacy-policy-bytes;first-six-anchors;guard-provenance;model-ownership;"
+    "divided-repeat;precision;static-binding;structural-work;finite;mass;"
+    "boundary;impulse;rollback|routes=normalized-nominal-precision-"
+    "contradiction;normalized-nominal-structural-watchdog-exhausted;"
+    "normalized-nominal-solver-not-confirmed;normalized-nominal-boundary-"
+    "penetration;normalized-nominal-impulse-ledger-mismatch;"
+    "normalized-nominal-substep-shadow-confirmed|"
+    "precedence=precision,watchdog,solver,boundary,ledger,confirmed|"
+    "runs=2-clean-release-builds;1-process-each;byte-exact|"
+    "candidate-nominal-substeps=1;second-substep=none;macro=none;"
+    "trajectory=none;timing=none;public-commit=none;physics-mutation=none;"
+    "production-cap-change=none|"
+    "credit=one-private-guarded-residual-first-substep-transaction-only";
+
+bool al_normalized_private_trial_legacy_exact(
+    const ALNormalizedPrivateTrial& lhs,
+    const ALNormalizedPrivateTrial& rhs) {
+    const auto same_double = [](double a, double b) {
+        return binary64_bits(a) == binary64_bits(b);
+    };
+    return lhs.trial == rhs.trial
+        && lhs.finite_values == rhs.finite_values
+        && lhs.divided_repeat_exact == rhs.divided_repeat_exact
+        && lhs.raw_would_accept == rhs.raw_would_accept
+        && lhs.inherited_would_accept == rhs.inherited_would_accept
+        && lhs.candidate_accepted == rhs.candidate_accepted
+        && lhs.candidate_effect == rhs.candidate_effect
+        && lhs.negative_curvature == rhs.negative_curvature
+        && lhs.hvp_calls == rhs.hvp_calls
+        && lhs.radius_owner == rhs.radius_owner
+        && same_double(lhs.stationarity_before, rhs.stationarity_before)
+        && same_double(lhs.radius_before, rhs.radius_before)
+        && same_double(lhs.radius_after, rhs.radius_after)
+        && same_double(lhs.step_norm, rhs.step_norm)
+        && same_double(lhs.predicted_reduction, rhs.predicted_reduction)
+        && same_double(lhs.raw_reduction, rhs.raw_reduction)
+        && same_double(lhs.divided_reduction, rhs.divided_reduction)
+        && same_double(lhs.divided_ratio, rhs.divided_ratio)
+        && same_double(lhs.phr_reduction, rhs.phr_reduction)
+        && same_double(lhs.inertia_reduction, rhs.inertia_reduction)
+        && exact_vec3_values(lhs.current_position, rhs.current_position)
+        && exact_vec3_values(lhs.trial_position, rhs.trial_position)
+        && exact_vec3_values(lhs.step, rhs.step)
+        && lhs.long_double_audited == rhs.long_double_audited
+        && lhs.long_double_finite == rhs.long_double_finite
+        && lhs.long_double_topology_mismatch
+            == rhs.long_double_topology_mismatch
+        && lhs.long_double_current_membership_mismatches
+            == rhs.long_double_current_membership_mismatches
+        && lhs.long_double_trial_membership_mismatches
+            == rhs.long_double_trial_membership_mismatches
+        && lhs.long_double_current_minimum_horizon_margin
+            == rhs.long_double_current_minimum_horizon_margin
+        && lhs.long_double_trial_minimum_horizon_margin
+            == rhs.long_double_trial_minimum_horizon_margin
+        && lhs.long_double_resolved_positive
+            == rhs.long_double_resolved_positive
+        && lhs.long_double_resolved_negative
+            == rhs.long_double_resolved_negative
+        && lhs.long_double_unresolved == rhs.long_double_unresolved
+        && lhs.long_double_root == rhs.long_double_root
+        && lhs.binary128_audited == rhs.binary128_audited
+        && lhs.binary128_resolved_positive
+            == rhs.binary128_resolved_positive
+        && lhs.binary128_resolved_negative
+            == rhs.binary128_resolved_negative
+        && lhs.binary128_candidate_pass == rhs.binary128_candidate_pass
+        && lhs.binary128_root == rhs.binary128_root;
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_guarded_residual_private_transaction_controls() {
+    constexpr double time_step = TIME_STEP / 78.0;
+    const bool identity_exact = sha256_hex(B4E2D7R19R6_IDENTITY_PROJECTION)
+        == B4E2D7R19R6_IDENTITY_SHA256;
+
+    const SplitBoundaryReport r5_parent =
+        run_al_guarded_sixth_trial_shadow_controls();
+    const std::string r5_stdout_sha256 = sha256_hex(
+        r5_parent.json + "\n");
+    const bool r5_semantic_exact = r5_parent.json.find(
+        "\"result_sha256\":\""
+        "ae751940bf195fdf70aab9f1a5df6ce986decfc9c4f3c5fbeb26bf95d43e8880"
+        "\"") != std::string::npos;
+    const bool r4_retained = r5_parent.json.find(
+        "798e8005aaa503eedb7a90ed9fd3590230cec7bbadf85536b39ac135ac7cb3a0")
+        != std::string::npos;
+    const bool r3_retained = r5_parent.json.find(
+        "\"r3_retained\":true") != std::string::npos;
+    const bool r2_parent_retained = r5_parent.json.find(
+        "\"r2_retained\":true") != std::string::npos;
+    const bool r5_exact = r5_parent.passed && r5_semantic_exact
+        && r4_retained && r3_retained && r2_parent_retained
+        && r5_stdout_sha256
+            == "fe0a75877bf539e37e11955f25cebb05821dcbacf7cb50eb120913367f664294";
+
+    ALTopologyPrecisionReplayCapture r2_capture;
+    const SplitBoundaryReport r2_control =
+        run_al_binary64_topology_nominal_substep_shadow_controls_impl(
+            &r2_capture, nullptr);
+    const std::string r2_stdout_sha256 = sha256_hex(
+        r2_control.json + "\n");
+    const bool r2_exact = r2_control.passed && r2_capture.captured
+        && r2_stdout_sha256
+            == "3dad88903f5f619d540587e805b35d63e2ef8c848e53e1ab87786c9e90587ba0";
+
+    const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
+    ALNormalizedTransactionRun candidate;
+    ALNormalizedTrustCompletionTrace completion_trace;
+    candidate.budget.maximum_outer_updates = 16U;
+    candidate.budget.maximum_inner_trials_per_update = 16U;
+    candidate.budget.maximum_hvp_per_trust_step = 33U;
+    candidate.budget.maximum_total_hvp = 512U;
+    candidate.budget.maximum_workspace_builds = 288U;
+    candidate.budget.maximum_precision_audits = 64U;
+    const JointStaticSupportIndex static_index =
+        build_joint_static_support_index(
+            tagged_points(nominal_fixture.boundary),
+            &candidate.static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+    const std::vector<double> zero_u(r2_capture.predicted_position.size());
+    candidate.transaction = solve_al_full_normalized_private_transaction(
+        r2_capture.predicted_position, r2_capture.predicted_position,
+        zero_u, r2_capture.theta, binding, &candidate.work,
+        &candidate.precision_work, &candidate.static_work,
+        &candidate.adjacency_work, &candidate.budget, true,
+        ALNormalizedKrylovForcingPolicy::DimensionlessStationarity,
+        &candidate.forcing_trace,
+        ALPrecisionMembershipPolicy::Binary64Owned, nullptr,
+        ALNormalizedTrustCompletionPolicy::GuardedResidualModel,
+        &completion_trace);
+    candidate.root = al_full_normalized_private_transaction_root(
+        candidate.transaction, r2_capture.theta);
+    const ALNormalizedPrivateTransaction& transaction =
+        candidate.transaction;
+
+    const ALNormalizedOuterUpdate* r2_first_update =
+        !r2_capture.transaction.updates.empty()
+            ? &r2_capture.transaction.updates.front() : nullptr;
+    const ALNormalizedOuterUpdate* candidate_first_update =
+        !transaction.updates.empty() ? &transaction.updates.front() : nullptr;
+    bool first_five_exact = r2_first_update != nullptr
+        && candidate_first_update != nullptr
+        && r2_first_update->trials.size() >= 5U
+        && candidate_first_update->trials.size() >= 6U;
+    std::array<bool, 5U> first_five_trial_exact{};
+    for (std::size_t index = 0U; index < first_five_trial_exact.size();
+         ++index) {
+        first_five_trial_exact[index] = first_five_exact
+            && al_normalized_private_trial_legacy_exact(
+                r2_first_update->trials[index],
+                candidate_first_update->trials[index]);
+        first_five_exact = first_five_exact
+            && first_five_trial_exact[index];
+    }
+
+    const ALNormalizedPrivateTrial* sixth_trial =
+        candidate_first_update != nullptr
+            && candidate_first_update->trials.size() >= 6U
+        ? &candidate_first_update->trials[5U] : nullptr;
+    const std::string sixth_current_root = sixth_trial != nullptr
+        ? al_binary64_vec3_root(sixth_trial->current_position)
+        : std::string{};
+    const std::string sixth_step_root = sixth_trial != nullptr
+        ? al_binary64_vec3_root(sixth_trial->step) : std::string{};
+    const std::string sixth_trial_root = sixth_trial != nullptr
+        ? al_binary64_vec3_root(sixth_trial->trial_position)
+        : std::string{};
+    const bool sixth_anchor_exact = sixth_trial != nullptr
+        && sixth_trial->trial == 5 && sixth_trial->finite_values
+        && sixth_trial->candidate_accepted
+        && sixth_trial->divided_repeat_exact
+        && sixth_trial->long_double_audited
+        && sixth_trial->long_double_finite
+        && sixth_trial->long_double_resolved_positive
+        && !sixth_trial->long_double_resolved_negative
+        && !sixth_trial->long_double_unresolved
+        && sixth_current_root
+            == "54bafbf48d0798438fd9baad9fb91e67c7b5cf6b12e37c4bb1d49694384ddf8a"
+        && sixth_step_root
+            == "74a9b58726d5d0279699498c41a70fb0e199f45e531d11befd2bc2dfe692d2bd"
+        && sixth_trial_root
+            == "932ce178a6238025c8de6ea907d9966638fa0f5abef7780a15fb9c8171f67ea2"
+        && binary64_bits(sixth_trial->predicted_reduction)
+            == 0x3bc27dd9b2871ea7ULL
+        && binary64_bits(sixth_trial->divided_reduction)
+            == 0x3bc27dd8dc16d400ULL
+        && binary64_bits(sixth_trial->divided_ratio)
+            == 0x3feffffe8ce92225ULL
+        && sixth_trial->long_double_root
+            == "a58caa2c1cb83c23dbcc15b8d2daf243de7749e6e692a92369141bbfd741f8db"
+        && binary64_bits(sixth_trial->radius_before)
+            == 0x3f8999999999999aULL
+        && binary64_bits(sixth_trial->radius_after)
+            == 0x3f8999999999999aULL
+        && sixth_trial->hvp_calls == 33
+        && sixth_trial->recurrence_hvp_calls == 33
+        && sixth_trial->model_hvp_calls == 0
+        && sixth_trial->guarded_completion_attempted
+        && sixth_trial->guarded_completion_eligible
+        && sixth_trial->guarded_completion_used
+        && !sixth_trial->direct_model_used
+        && sixth_trial->residual_model_used;
+
+    std::size_t recorded_trials = 0U;
+    std::size_t recorded_recurrence_hvp = 0U;
+    std::size_t recorded_model_hvp = 0U;
+    std::size_t recorded_direct_models = 0U;
+    std::size_t recorded_residual_models = 0U;
+    std::size_t recorded_guarded_completions = 0U;
+    bool model_ownership_exact = true;
+    bool divided_repeat_exact = true;
+    bool recorded_finite = true;
+    bool precision_trials_exact = true;
+    std::size_t long_double_audited = 0U;
+    std::size_t binary128_audited = 0U;
+    const auto observe_trials = [&](const ALNormalizedOuterUpdate& update) {
+        for (const ALNormalizedPrivateTrial& trial : update.trials) {
+            ++recorded_trials;
+            recorded_recurrence_hvp += static_cast<std::size_t>(
+                trial.recurrence_hvp_calls);
+            recorded_model_hvp += static_cast<std::size_t>(
+                trial.model_hvp_calls);
+            recorded_direct_models += trial.direct_model_used ? 1U : 0U;
+            recorded_residual_models += trial.residual_model_used ? 1U : 0U;
+            recorded_guarded_completions +=
+                trial.guarded_completion_used ? 1U : 0U;
+            const bool guarded = trial.guarded_completion_used;
+            model_ownership_exact = model_ownership_exact
+                && trial.recurrence_hvp_calls > 0
+                && trial.recurrence_hvp_calls <= (guarded ? 33 : 32)
+                && trial.hvp_calls == trial.recurrence_hvp_calls
+                    + trial.model_hvp_calls
+                && (guarded
+                    ? (trial.guarded_completion_attempted
+                        && trial.guarded_completion_eligible
+                        && trial.model_hvp_calls == 0
+                        && !trial.direct_model_used
+                        && trial.residual_model_used)
+                    : (!trial.guarded_completion_attempted
+                        && !trial.guarded_completion_eligible
+                        && trial.model_hvp_calls == 1
+                        && trial.direct_model_used
+                        && !trial.residual_model_used));
+            divided_repeat_exact = divided_repeat_exact
+                && trial.divided_repeat_exact;
+            recorded_finite = recorded_finite && trial.finite_values;
+            long_double_audited += trial.long_double_audited ? 1U : 0U;
+            binary128_audited += trial.binary128_audited ? 1U : 0U;
+            precision_trials_exact = precision_trials_exact
+                && (!trial.candidate_accepted
+                    || (trial.long_double_audited
+                        && trial.long_double_finite
+                        && !trial.long_double_unresolved))
+                && (!trial.binary128_audited || trial.candidate_effect);
+        }
+    };
+    for (const ALNormalizedOuterUpdate& update : transaction.updates) {
+        observe_trials(update);
+    }
+    if (transaction.warm_holdout_attempted) {
+        observe_trials(transaction.warm_holdout);
+    }
+    const bool guard_provenance_exact =
+        completion_trace.direct_policy_trust_steps == 0U
+        && completion_trace.guarded_policy_trust_steps
+            == candidate.forcing_trace.dimensionless_trust_steps
+        && completion_trace.guard_attempts
+            == completion_trace.guard_eligible
+                + completion_trace.guard_denied
+        && completion_trace.guard_hvp
+            == completion_trace.guard_converged
+        && completion_trace.guard_eligible
+            == completion_trace.guard_converged
+        && completion_trace.residual_model_uses
+            == completion_trace.guard_converged
+        && recorded_guarded_completions
+            == completion_trace.residual_model_uses
+        && recorded_residual_models == recorded_guarded_completions
+        && recorded_direct_models == completion_trace.direct_model_hvp
+        && recorded_model_hvp == completion_trace.direct_model_hvp
+        && completion_trace.recurrence_hvp
+                + completion_trace.direct_model_hvp
+            == candidate.budget.total_hvp
+        && completion_trace.guard_converged >= 1U;
+    model_ownership_exact = model_ownership_exact
+        && guard_provenance_exact;
+
+    const bool budget_shape_exact =
+        candidate.budget.maximum_outer_updates == 16U
+        && candidate.budget.maximum_inner_trials_per_update == 16U
+        && candidate.budget.maximum_hvp_per_trust_step == 33U
+        && candidate.budget.maximum_total_hvp == 512U
+        && candidate.budget.maximum_workspace_builds == 288U
+        && candidate.budget.maximum_precision_audits == 64U
+        && candidate.budget.outer_updates <= 16U
+        && candidate.budget.inner_trials_in_update <= 16U
+        && candidate.budget.hvp_in_trust_step <= 33U
+        && candidate.budget.total_hvp <= 512U
+        && candidate.budget.workspace_builds <= 288U
+        && candidate.budget.precision_audits <= 64U;
+    const bool lifecycle_exact =
+        candidate.work.workspace_builds == candidate.work.workspace_releases
+        && candidate.work.live_workspaces == 0U
+        && candidate.work.maximum_live_workspaces <= 2U
+        && !candidate.work.lifecycle_underflow
+        && candidate.budget.workspace_builds
+            == candidate.work.workspace_builds
+        && candidate.static_work.static_index_builds == 1U
+        && candidate.static_work.support_canonicalizations == 1U
+        && candidate.static_work.workspace_builds
+            == candidate.work.workspace_builds
+        && candidate.adjacency_work.workspace_builds
+            == candidate.work.workspace_builds
+        && candidate.work.all_pair_candidate_calls == 0U
+        && candidate.precision_work.all_pair_candidate_calls == 0U;
+    const bool precision_ledger_exact = precision_trials_exact
+        && transaction.long_double_audits == transaction.accepted_trials
+        && transaction.binary128_audits
+            == transaction.candidate_effect_acceptances
+        && candidate.precision_work.long_double_audits
+            == static_cast<std::size_t>(transaction.long_double_audits)
+        && candidate.precision_work.binary128_audits
+            == static_cast<std::size_t>(transaction.binary128_audits)
+        && candidate.budget.precision_audits
+            == static_cast<std::size_t>(transaction.long_double_audits
+                + transaction.binary128_audits)
+        && long_double_audited
+            == static_cast<std::size_t>(transaction.long_double_audits)
+        && binary128_audited
+            == static_cast<std::size_t>(transaction.binary128_audits);
+    const bool precision_contradiction = transaction.sign_contradiction
+        || transaction.resolved_negative > 0
+        || transaction.binary128_resolved_negative > 0;
+
+    const bool selected_state_available = transaction.confirmed
+        && transaction.warm_holdout_attempted
+        && transaction.warm_holdout.passed
+        && transaction.warm_holdout_admissible
+        && !transaction.updates.empty();
+    const ALNormalizedOuterUpdate* observed_update =
+        !transaction.updates.empty() ? &transaction.updates.back() : nullptr;
+    const ALNormalizedOuterUpdate* selected_update = selected_state_available
+        ? &transaction.updates.back() : nullptr;
+    const ALNormalizedOuterState* selected_state = selected_update != nullptr
+        ? &selected_update->state : nullptr;
+    const std::vector<Vec3>& final_position = selected_state_available
+        ? transaction.position : r2_capture.predicted_position;
+    const std::vector<double>& final_u = selected_state_available
+        ? transaction.u : zero_u;
+
+    double minimum_density = std::numeric_limits<double>::infinity();
+    double maximum_density = -std::numeric_limits<double>::infinity();
+    double maximum_penetration = 0.0;
+    if (observed_update != nullptr && observed_update->passed) {
+        for (double density : observed_update->support.density) {
+            minimum_density = std::min(minimum_density, density);
+            maximum_density = std::max(maximum_density, density);
+        }
+        for (Vec3 position : transaction.position) {
+            for (int axis = 0; axis < 3; ++axis) {
+                maximum_penetration = std::max(maximum_penetration,
+                    component(nominal_fixture.contact_low, axis)
+                        - component(position, axis));
+                maximum_penetration = std::max(maximum_penetration,
+                    component(position, axis)
+                        - component(nominal_fixture.contact_high, axis));
+            }
+        }
+        maximum_penetration = std::max(0.0, maximum_penetration);
+    } else {
+        minimum_density = 0.0;
+        maximum_density = 0.0;
+    }
+
+    std::vector<Vec3> free_displacement(r2_capture.initial_position.size());
+    for (std::size_t index = 0U;
+         index < r2_capture.initial_position.size(); ++index) {
+        free_displacement[index] = time_step
+            * (r2_capture.initial_velocity[index]
+                + time_step * nominal_fixture.gravity);
+    }
+    const std::vector<Vec3> predictor_displacement =
+        clamp_box_displacement(nominal_fixture,
+            r2_capture.initial_position, free_displacement);
+    using Impulse = std::array<long double, 3U>;
+    Impulse gravity_impulse{};
+    Impulse contact_impulse{};
+    Impulse pressure_impulse{};
+    Impulse fluid_momentum_change{};
+    Impulse pressure_from_gradient{};
+    Impulse support_reaction{};
+    const auto add_impulse = [](Impulse& target, Vec3 value,
+                                long double scale) {
+        target[0] += scale * static_cast<long double>(value.x);
+        target[1] += scale * static_cast<long double>(value.y);
+        target[2] += scale * static_cast<long double>(value.z);
+    };
+    for (std::size_t index = 0U;
+         index < r2_capture.initial_position.size(); ++index) {
+        const Vec3 free_velocity = r2_capture.initial_velocity[index]
+            + time_step * nominal_fixture.gravity;
+        const Vec3 predictor_velocity =
+            predictor_displacement[index] / time_step;
+        add_impulse(gravity_impulse, nominal_fixture.gravity,
+            static_cast<long double>(MASS * time_step));
+        add_impulse(contact_impulse, predictor_velocity - free_velocity,
+            static_cast<long double>(MASS));
+    }
+    const long double normalized_impulse_scale =
+        static_cast<long double>(MASS / time_step);
+    if (selected_update != nullptr) {
+        for (std::size_t index = 0U;
+             index < r2_capture.initial_position.size(); ++index) {
+            const Vec3 predictor_velocity =
+                predictor_displacement[index] / time_step;
+            const Vec3 correction_displacement = final_position[index]
+                - r2_capture.predicted_position[index];
+            const Vec3 final_velocity = predictor_velocity
+                + correction_displacement / time_step;
+            add_impulse(pressure_impulse, correction_displacement,
+                normalized_impulse_scale);
+            add_impulse(fluid_momentum_change,
+                final_velocity - r2_capture.initial_velocity[index],
+                static_cast<long double>(MASS));
+            add_impulse(pressure_from_gradient,
+                selected_update->support.gradient[index],
+                -normalized_impulse_scale);
+        }
+        for (std::size_t index = r2_capture.initial_position.size();
+             index < selected_update->support.gradient.size(); ++index) {
+            add_impulse(support_reaction,
+                selected_update->support.gradient[index],
+                -normalized_impulse_scale);
+        }
+    }
+    Impulse fluid_ledger_residual{};
+    Impulse pressure_support_residual{};
+    Impulse gradient_pair_residual{};
+    Impulse kinematic_stationarity_residual{};
+    if (selected_update != nullptr) {
+        for (std::size_t axis = 0U; axis < 3U; ++axis) {
+            fluid_ledger_residual[axis] = fluid_momentum_change[axis]
+                - gravity_impulse[axis] - contact_impulse[axis]
+                - pressure_impulse[axis];
+            pressure_support_residual[axis] = pressure_impulse[axis]
+                + support_reaction[axis];
+            gradient_pair_residual[axis] = pressure_from_gradient[axis]
+                + support_reaction[axis];
+            kinematic_stationarity_residual[axis] = pressure_impulse[axis]
+                - pressure_from_gradient[axis];
+        }
+    }
+    const auto maximum_absolute = [](const Impulse& value) {
+        return std::max({std::abs(value[0]), std::abs(value[1]),
+            std::abs(value[2])});
+    };
+    const double total_mass = static_cast<double>(
+        r2_capture.initial_position.size()) * MASS;
+    const long double impulse_denominator = static_cast<long double>(
+        total_mass * SPACING / time_step);
+    const auto scaled_residual = [&](const Impulse& value) {
+        return impulse_denominator > 0.0L
+            ? maximum_absolute(value) / impulse_denominator : 0.0L;
+    };
+    const long double fluid_ledger_scaled =
+        scaled_residual(fluid_ledger_residual);
+    const long double pressure_support_scaled =
+        scaled_residual(pressure_support_residual);
+    const long double gradient_pair_scaled =
+        scaled_residual(gradient_pair_residual);
+    const long double stationarity_impulse_scaled =
+        scaled_residual(kinematic_stationarity_residual);
+
+    const bool finite_exact = recorded_finite
+        && std::all_of(final_position.begin(), final_position.end(),
+            [](Vec3 value) { return finite(value); })
+        && std::all_of(final_u.begin(), final_u.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::isfinite(minimum_density)
+        && std::isfinite(maximum_density)
+        && std::isfinite(maximum_penetration)
+        && std::isfinite(static_cast<double>(fluid_ledger_scaled))
+        && std::isfinite(static_cast<double>(pressure_support_scaled));
+    const bool mass_exact = binary64_bits(total_mass)
+        == binary64_bits(750.0);
+    const bool solver_confirmed = selected_state_available
+        && transaction.all_inners_pass && transaction.all_finite
+        && transaction.primal_monotone && transaction.dual_feasible
+        && transaction.confirmation_count == 1
+        && !transaction.precision_hard_failure
+        && !transaction.sign_contradiction
+        && !transaction.oracle_bound_required
+        && selected_state != nullptr && selected_update->passed
+        && selected_state->admissible
+        && selected_state->primal <= 1.0e-8
+        && selected_state->stationarity <= 1.0e-10
+        && selected_state->complementarity <= 8.154943934760449e-13
+        && selected_state->position_update_dx <= 1.0e-8
+        && selected_state->minimum_u >= 0.0;
+    const bool boundary_exact = solver_confirmed
+        && maximum_penetration <= 1.0e-12;
+    const bool ledger_exact = boundary_exact
+        && fluid_ledger_scaled <= 1.0e-10L
+        && pressure_support_scaled <= 1.0e-10L
+        && gradient_pair_scaled <= 1.0e-10L
+        && stationarity_impulse_scaled <= 1.0e-10L;
+    const std::string initial_root_before = b4e2d2_frame_zero_root(
+        r2_capture.initial_position, r2_capture.initial_velocity);
+    const std::string predicted_root_before = al_binary64_vec3_root(
+        r2_capture.predicted_position);
+    const bool rollback_exact = initial_root_before
+            == r2_capture.frame_zero_root
+        && b4e2d2_frame_zero_root(r2_capture.initial_position,
+            r2_capture.initial_velocity) == initial_root_before
+        && al_binary64_vec3_root(r2_capture.predicted_position)
+            == predicted_root_before
+        && predicted_root_before
+            == "36112dde1e0b274c5b9216f4818b82977a0c80dc257478c111b0f0a9390d2d7e";
+    const bool static_binding_exact = static_index.passed && binding.passed
+        && binding.index == &static_index
+        && binding.expected_identity_sha256 == static_index.identity_sha256;
+
+    const bool hard_controls = identity_exact && r5_exact && r2_exact
+        && first_five_exact && sixth_anchor_exact
+        && model_ownership_exact && divided_repeat_exact
+        && precision_ledger_exact && budget_shape_exact && lifecycle_exact
+        && finite_exact && mass_exact && rollback_exact
+        && static_binding_exact;
+    std::string route;
+    if (hard_controls) {
+        if (precision_contradiction) {
+            route = "NORMALIZED_NOMINAL_PRECISION_CONTRADICTION";
+        } else if (candidate.budget.exhausted) {
+            route = "NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED";
+        } else if (!solver_confirmed) {
+            route = "NORMALIZED_NOMINAL_SOLVER_NOT_CONFIRMED";
+        } else if (!boundary_exact) {
+            route = "NORMALIZED_NOMINAL_BOUNDARY_PENETRATION";
+        } else if (!ledger_exact) {
+            route = "NORMALIZED_NOMINAL_IMPULSE_LEDGER_MISMATCH";
+        } else {
+            route = "NORMALIZED_NOMINAL_SUBSTEP_SHADOW_CONFIRMED";
+        }
+    }
+    const bool route_precedence_exact =
+        (precision_contradiction
+            && route == "NORMALIZED_NOMINAL_PRECISION_CONTRADICTION")
+        || (!precision_contradiction && candidate.budget.exhausted
+            && route
+                == "NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED")
+        || (!precision_contradiction && !candidate.budget.exhausted
+            && !solver_confirmed
+            && route == "NORMALIZED_NOMINAL_SOLVER_NOT_CONFIRMED")
+        || (!precision_contradiction && !candidate.budget.exhausted
+            && solver_confirmed && !boundary_exact
+            && route == "NORMALIZED_NOMINAL_BOUNDARY_PENETRATION")
+        || (!precision_contradiction && !candidate.budget.exhausted
+            && solver_confirmed && boundary_exact && !ledger_exact
+            && route == "NORMALIZED_NOMINAL_IMPULSE_LEDGER_MISMATCH")
+        || (!precision_contradiction && !candidate.budget.exhausted
+            && solver_confirmed && boundary_exact && ledger_exact
+            && route == "NORMALIZED_NOMINAL_SUBSTEP_SHADOW_CONFIRMED");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!r5_exact) first_failure = "D7R19R5_PARENT_BYTES";
+    else if (!r2_exact) first_failure = "D7R19R2_CAPTURE_BYTES";
+    else if (!first_five_exact) first_failure = "TRIALS_0_4_ANCHORS";
+    else if (!sixth_anchor_exact) first_failure = "TRIAL_5_ANCHOR";
+    else if (!model_ownership_exact) first_failure = "MODEL_OWNERSHIP";
+    else if (!divided_repeat_exact) first_failure = "DIVIDED_REPEAT";
+    else if (!precision_ledger_exact) first_failure = "PRECISION";
+    else if (!budget_shape_exact) first_failure = "STRUCTURAL_BUDGET";
+    else if (!lifecycle_exact) first_failure = "WORK_LIFECYCLE";
+    else if (!finite_exact) first_failure = "FINITE";
+    else if (!mass_exact) first_failure = "MASS";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!static_binding_exact) first_failure = "STATIC_BINDING";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << std::setprecision(
+                    std::numeric_limits<long double>::max_digits10)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19R6_IDENTITY_SHA256 << '|'
+             << r5_stdout_sha256 << ':' << r2_stdout_sha256 << '|'
+             << first_five_exact << ':' << sixth_current_root << ':'
+             << sixth_step_root << ':' << sixth_trial_root << '|'
+             << candidate.root << ':' << transaction.failure << ':'
+             << transaction.confirmed << ':' << transaction.accepted_trials
+             << ':' << transaction.rejected_trials << '|'
+             << candidate.budget.outer_updates << ':'
+             << candidate.budget.total_hvp << ':'
+             << candidate.budget.workspace_builds << ':'
+             << candidate.budget.precision_audits << ':'
+             << candidate.budget.failure << '|'
+             << completion_trace.guarded_policy_trust_steps << ':'
+             << completion_trace.recurrence_hvp << ':'
+             << completion_trace.direct_model_hvp << ':'
+             << completion_trace.residual_model_uses << ':'
+             << completion_trace.guard_attempts << ':'
+             << completion_trace.guard_converged << '|'
+             << maximum_penetration << ':' << fluid_ledger_scaled << ':'
+             << pressure_support_scaled << ':' << gradient_pair_scaled << ':'
+             << stationarity_impulse_scaled << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_bits = [](std::ostringstream& output, double value) {
+        output << "\"0x" << std::hex << binary64_bits(value)
+               << std::dec << '"';
+    };
+    std::ostringstream report;
+    report << std::setprecision(
+                  std::numeric_limits<long double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19r6_guarded_residual_private_transaction.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R19R6_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parents\":{\"r5_stdout_sha256\":\""
+           << r5_stdout_sha256 << "\",\"r5_semantic_exact\":"
+           << (r5_semantic_exact ? "true" : "false")
+           << ",\"r4_retained\":" << (r4_retained ? "true" : "false")
+           << ",\"r3_retained\":" << (r3_retained ? "true" : "false")
+           << ",\"r2_stdout_sha256\":\"" << r2_stdout_sha256
+           << "\",\"exact\":" << ((r5_exact && r2_exact) ? "true" : "false")
+           << "},\"policy\":{\"default\":\"direct-model-hvp\""
+              ",\"candidate\":\"guarded-residual-model\""
+              ",\"binary64_owned_membership\":true"
+              ",\"legacy_bytes_exact\":"
+           << (r5_exact ? "true" : "false")
+           << ",\"guard_provenance_exact\":"
+           << (guard_provenance_exact ? "true" : "false")
+           << ",\"model_ownership_exact\":"
+           << (model_ownership_exact ? "true" : "false") << '}'
+           << ",\"anchors\":{\"trials_0_4_exact\":[";
+    for (std::size_t index = 0U; index < first_five_trial_exact.size();
+         ++index) {
+        if (index != 0U) report << ',';
+        report << (first_five_trial_exact[index] ? "true" : "false");
+    }
+    report << "],\"first_five_exact\":"
+           << (first_five_exact ? "true" : "false")
+           << ",\"trial_5\":{\"current_root\":\""
+           << sixth_current_root << "\",\"step_root\":\""
+           << sixth_step_root << "\",\"trial_root\":\""
+           << sixth_trial_root << "\",\"predicted_bits\":";
+    append_bits(report,
+        sixth_trial != nullptr ? sixth_trial->predicted_reduction : 0.0);
+    report << ",\"divided_bits\":";
+    append_bits(report,
+        sixth_trial != nullptr ? sixth_trial->divided_reduction : 0.0);
+    report << ",\"ratio_bits\":";
+    append_bits(report,
+        sixth_trial != nullptr ? sixth_trial->divided_ratio : 0.0);
+    report << ",\"precision_root\":\""
+           << (sixth_trial != nullptr ? sixth_trial->long_double_root
+                                      : std::string{})
+           << "\",\"radius_before_bits\":";
+    append_bits(report,
+        sixth_trial != nullptr ? sixth_trial->radius_before : 0.0);
+    report << ",\"radius_after_bits\":";
+    append_bits(report,
+        sixth_trial != nullptr ? sixth_trial->radius_after : 0.0);
+    report << ",\"recurrence_hvp\":"
+           << (sixth_trial != nullptr
+                   ? sixth_trial->recurrence_hvp_calls : 0)
+           << ",\"model_hvp\":"
+           << (sixth_trial != nullptr ? sixth_trial->model_hvp_calls : 0)
+           << ",\"residual_model_used\":"
+           << (sixth_trial != nullptr && sixth_trial->residual_model_used
+                   ? "true" : "false")
+           << ",\"exact\":" << (sixth_anchor_exact ? "true" : "false")
+           << "}},\"solver\":{\"transaction_root\":\""
+           << candidate.root << "\",\"confirmed\":"
+           << (transaction.confirmed ? "true" : "false")
+           << ",\"failure\":\"" << transaction.failure
+           << "\",\"accepted_trials\":" << transaction.accepted_trials
+           << ",\"rejected_trials\":" << transaction.rejected_trials
+           << ",\"recorded_trials\":" << recorded_trials
+           << ",\"long_double_audits\":"
+           << transaction.long_double_audits
+           << ",\"binary128_audits\":"
+           << transaction.binary128_audits
+           << ",\"precision_contradiction\":"
+           << (precision_contradiction ? "true" : "false")
+           << "},\"work\":{\"limits\":{\"outer\":16,"
+              "\"trials_per_update\":16,\"base_recurrence_hvp\":32,"
+              "\"guard_extra_hvp\":1,\"absolute_step_hvp\":33,"
+              "\"total_hvp\":512,\"workspaces\":288,"
+              "\"precision_audits\":64},\"used\":{\"outer\":"
+           << candidate.budget.outer_updates << ",\"total_hvp\":"
+           << candidate.budget.total_hvp << ",\"workspaces\":"
+           << candidate.budget.workspace_builds
+           << ",\"precision_audits\":"
+           << candidate.budget.precision_audits
+           << ",\"recurrence_hvp\":"
+           << completion_trace.recurrence_hvp
+           << ",\"direct_model_hvp\":"
+           << completion_trace.direct_model_hvp
+           << ",\"residual_model_uses\":"
+           << completion_trace.residual_model_uses
+           << ",\"guard_attempts\":" << completion_trace.guard_attempts
+           << ",\"guard_eligible\":" << completion_trace.guard_eligible
+           << ",\"guard_hvp\":" << completion_trace.guard_hvp
+           << ",\"guard_converged\":"
+           << completion_trace.guard_converged
+           << ",\"guard_denied\":" << completion_trace.guard_denied
+           << "},\"exhausted\":"
+           << (candidate.budget.exhausted ? "true" : "false")
+           << ",\"failure\":\"" << candidate.budget.failure
+           << "\",\"workspace_builds\":" << candidate.work.workspace_builds
+           << ",\"workspace_releases\":"
+           << candidate.work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << candidate.work.maximum_live_workspaces
+           << ",\"all_pair_candidate_calls\":"
+           << candidate.work.all_pair_candidate_calls
+                + candidate.precision_work.all_pair_candidate_calls
+           << ",\"budget_shape_exact\":"
+           << (budget_shape_exact ? "true" : "false")
+           << ",\"lifecycle_exact\":"
+           << (lifecycle_exact ? "true" : "false") << '}'
+           << ",\"physics\":{\"finite_exact\":"
+           << (finite_exact ? "true" : "false")
+           << ",\"mass_exact\":" << (mass_exact ? "true" : "false")
+           << ",\"maximum_penetration\":" << maximum_penetration
+           << ",\"fluid_ledger_scaled\":" << fluid_ledger_scaled
+           << ",\"pressure_support_scaled\":" << pressure_support_scaled
+           << ",\"gradient_pair_scaled\":" << gradient_pair_scaled
+           << ",\"stationarity_impulse_scaled\":"
+           << stationarity_impulse_scaled
+           << ",\"solver_confirmed\":"
+           << (solver_confirmed ? "true" : "false")
+           << ",\"boundary_exact\":"
+           << (boundary_exact ? "true" : "false")
+           << ",\"impulse_exact\":" << (ledger_exact ? "true" : "false")
+           << "},\"divided_repeat_exact\":"
+           << (divided_repeat_exact ? "true" : "false")
+           << ",\"precision_ledger_exact\":"
+           << (precision_ledger_exact ? "true" : "false")
+           << ",\"static_binding_exact\":"
+           << (static_binding_exact ? "true" : "false")
+           << ",\"rollback_exact\":" << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"candidate_nominal_substeps\":1"
+              ",\"second_substep_executed\":false"
+              ",\"macro_frames\":0,\"trajectory_steps\":0"
+              ",\"public_commit_count\":0,\"physics_mutation\":false"
+              ",\"production_cap_changed\":false"
+              ",\"timing_admitted\":false,\"speedup_claim\":false"
+              ",\"runtime_authority\":false,\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
     return {passed, report.str()};
 }
