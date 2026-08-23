@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R16 -- canonical v2 continuation-envelope contract
 
-Status: `FROZEN / IMPLEMENTATION NEXT / VALIDATION ONLY`
+Status: `FROZEN / PASS V2 VALIDATION CANDIDATE / READ ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -60,3 +60,6 @@ This contract grants one private, read-only v2 validation corpus. A PASS does
 not consume ownership or authorize resume. It does not define a public schema,
 change budget code, execute outer 6, run timing or grant runtime/production
 authority.
+
+Closed by the
+[D7R19R16 v2 envelope evidence](../../development/nonlocal-nsr3b4e2d7r19r16-v2-envelope-evidence-2026-08-24.md).

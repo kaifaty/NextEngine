@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R15_PASS_V1_RESOURCE_LEDGER_COLLISION / D7R19R16_CONTRACT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R16_PASS_V2_VALIDATION_CANDIDATE / D7R19R17_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -446,6 +446,17 @@
   never consumes it. Duplicate and stale controls fail before solver work.
 - **Current decision:** implement only the frozen R16 canonical encode/decode
   and validation corpus. No epoch transition, resume or outer 6.
+- **D7R19R16 result:** PASS and `TOKEN_V2_VALIDATION_CANDIDATE` at stdout SHA
+  `d493c68d...f689f` and semantic result `e0ed3a9b...cbdcd`. R15/R14 and all
+  transitive parents remain exact.
+- **Validation fact:** the exact `524/540` byte body/envelope reproduces root
+  `069f8bdd...15b8f9`; all 24 valid/negative cases select their frozen first
+  routes with corpus root `403e00e7...9589f`.
+- **Authority fact:** owner remains unconsumed at epoch 0; no HVP, workspace,
+  epoch transition, resume or outer 6 executes.
+- **Current decision:** research/freeze R17 as an atomic owner-consume and
+  epoch-transition projection. Reset slice HVP only; preserve cumulative and
+  all substep ledgers. Outer 6 remains forbidden.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2348,12 +2359,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19
-   and all preceding normalized parents exactly. Implement only the frozen
-   D7R19R16 canonical v2 continuation-envelope validation corpus. Do not
-   mutate budget code, consume owner state, transition epoch, execute resume
-   or outer 6, admit another trial/solve, commit public state, raise the live
-   cap, change production policy, start another substep/macro/trajectory or
-   run timing.
+   and all preceding normalized parents exactly. Research/freeze only
+   D7R19R17 atomic owner-consume and epoch-transition projection with
+   idempotent negative controls. Do not mutate live budget code, execute
+   resume or outer 6, admit another trial/solve, commit public state, raise the
+   live cap, change production policy, start another substep/macro/trajectory
+   or run timing.
 
 ## Reconsideration triggers
 

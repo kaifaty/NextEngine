@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / CONTRACT FROZEN / VALIDATION ONLY`
+Status: `RESEARCH COMPLETE / V2 VALIDATION PASS / OWNER TRANSITION NEXT`
 
 ## Question
 
@@ -184,3 +184,6 @@ shadow outer-6 continuation and compare it against an unsliced oracle.
 
 The executable validator is frozen by the
 [D7R19R16 v2 envelope contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r16-v2-envelope-contract.md).
+
+The canonical envelope and validation corpus pass as recorded in the
+[D7R19R16 evidence](nonlocal-nsr3b4e2d7r19r16-v2-envelope-evidence-2026-08-24.md).
