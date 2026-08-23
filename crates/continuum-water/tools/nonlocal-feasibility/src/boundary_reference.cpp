@@ -76295,7 +76295,8 @@ std::string al_r10_progress_root(
 
 } // namespace
 
-SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
+SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls_impl(
+    ALNormalizedTieredTransactionCapture* capture_out) {
     const bool identity_exact = sha256_hex(B4E2D7R19R10_IDENTITY_PROJECTION)
         == B4E2D7R19R10_IDENTITY_SHA256;
 
@@ -76866,7 +76867,439 @@ SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    if (capture_out != nullptr) {
+        *capture_out = capture;
+    }
     return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19R11_IDENTITY_SHA256 =
+    "9cf1761428463b72901c61503466128576e113b9a75f21da3149dda8a7af7a40";
+constexpr const char* B4E2D7R19R11_IDENTITY_PROJECTION =
+    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19r11-total-budget-offline-replay|v1|parent=750719f1:15719465931a21421e094abde1200d685bee44e4b112dc314d5857f863074953:30f339247a76484071494b26db54c385a0bea637c4f9e744628a0ff83371b30c|legacy=r9-stdoutf1cb461d270e1642e9c0220c60fc59c64cb5bb69039f293ed8e9eade7f6ed1f0;r8-stdoutdef805d3ff7b9b596dd00ec0ff07cd6490dc0f483baa37efc9b8bff511a503d5;r7-stdoutdb0e5e733b57c9d6b5ffe0ad9fb641de1cee78e2fd05fe8cbf890fcae591fcdb;r6-stdout67dfb6781a5840e228b63f3524bf4999ca6d1d9b650f8c461117575a8172611c;r5-stdoutfe0a75877bf539e37e11955f25cebb05821dcbacf7cb50eb120913367f664294;r2-stdout3dad88903f5f619d540587e805b35d63e2ef8c848e53e1ab87786c9e90587ba0|target=boundary-002f3b63423de2e0db8715b599e064043502c3881ba89cb55aaf7394bee850df;recurrence-a900c9452fa173f1c60fdf7c670de747653742348340056f05d7336cbaaa974c;outer5;trial1;solve20;live-prefix14;termination-budget;final-ratio37.960285973054738eta|offline=same-binary64-owned-sparse-workspace;same-gradient-radius-dimensionless-forcing;steihaug;no-preconditioner;first14-exact;cap128|diagnostics=full-iteration-roots;residual;curvature;boundary;orthogonality;conjugacy;ritz|controls=r19r10-parent-bytes;transitive-parents-retained;target-input-roots;gradient-exact;first14-prefix-exact;static-binding;finite;work;all-pair0;rollback|routes=total-budget-offline-nonfinite;total-budget-offline-nonpositive-curvature;total-budget-offline-boundary;total-budget-offline-forcing-converged;total-budget-offline-cap-exhausted|precedence=nonfinite,curvature,boundary,converged,cap|runs=2-clean-release-builds;1-process-each;byte-exact|work=control-parent-substeps1;candidate-substeps0;offline-hvp<=128;workspace1;model0;trial0;acceptance0;precision0|transaction-continuation=none;second-substep=none;macro=none;trajectory=none;timing=none;public-commit=none;physics-mutation=none;live-total-cap-change=none;production-policy-change=none|credit=one-replay-only-total-budget-recurrence-diagnostic)IDENTITY";
+
+std::string al_r11_boundary_root(
+    const ALNormalizedTotalHvpBoundaryCapture& value) {
+    if (!value.captured) return {};
+    std::ostringstream projection;
+    projection << value.outer << ':' << value.trial << ':'
+        << value.solve_index << ':' << binary64_bits(value.theta) << ':'
+        << binary64_bits(value.radius) << ':'
+        << value.static_identity_sha256 << '|'
+        << al_binary64_vec3_root(value.predicted_position) << ':'
+        << al_binary64_vec3_root(value.current_position) << ':'
+        << al_binary64_vec3_root(value.gradient) << ':'
+        << al_r10_dual_root(value.u) << '|'
+        << al_normalized_trust_trace_root(value.recurrence) << ':'
+        << value.budget.total_hvp << ':'
+        << value.budget.hvp_in_trust_step;
+    return sha256_hex(projection.str());
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_total_budget_offline_replay_controls() {
+    constexpr std::size_t live_prefix_hvp = 14U;
+    constexpr std::size_t offline_hvp_cap = 128U;
+    const bool identity_exact = sha256_hex(B4E2D7R19R11_IDENTITY_PROJECTION)
+        == B4E2D7R19R11_IDENTITY_SHA256;
+
+    ALNormalizedTieredTransactionCapture capture;
+    const SplitBoundaryReport r10_parent =
+        run_al_total_hvp_boundary_diagnostic_controls_impl(&capture);
+    const std::string r10_stdout_sha256 = sha256_hex(r10_parent.json + "\n");
+    const bool r10_semantic_exact = r10_parent.json.find(
+        "\"result_sha256\":\""
+        "30f339247a76484071494b26db54c385a0bea637c4f9e744628a0ff83371b30c"
+        "\"") != std::string::npos;
+    const bool parents_retained = r10_parent.json.find(
+        "f1cb461d270e1642e9c0220c60fc59c64cb5bb69039f293ed8e9eade7f6ed1f0")
+            != std::string::npos
+        && r10_parent.json.find("\"legacy_retained\":true")
+            != std::string::npos;
+    const bool parent_exact = r10_parent.passed && r10_semantic_exact
+        && parents_retained
+        && r10_stdout_sha256
+            == "15719465931a21421e094abde1200d685bee44e4b112dc314d5857f863074953";
+
+    const ALNormalizedTotalHvpBoundaryCapture& live_capture =
+        capture.total_hvp_boundary;
+    const ALNormalizedTrustRecurrence& live = live_capture.recurrence;
+    const std::string boundary_root = al_r11_boundary_root(live_capture);
+    const std::string live_trace_root =
+        al_normalized_trust_trace_root(live);
+    const std::string live_prefix_root =
+        al_normalized_trust_prefix_root(live, live_prefix_hvp);
+    const std::string current_root =
+        al_binary64_vec3_root(live_capture.current_position);
+    const std::string predicted_root =
+        al_binary64_vec3_root(live_capture.predicted_position);
+    const std::string gradient_root =
+        al_binary64_vec3_root(live_capture.gradient);
+    const std::string dual_root = al_r10_dual_root(live_capture.u);
+    const bool target_exact = capture.captured && live_capture.captured
+        && boundary_root
+            == "002f3b63423de2e0db8715b599e064043502c3881ba89cb55aaf7394bee850df"
+        && live_trace_root
+            == "a900c9452fa173f1c60fdf7c670de747653742348340056f05d7336cbaaa974c"
+        && live_capture.outer == 5 && live_capture.trial == 1
+        && live_capture.solve_index == 20U
+        && live.hvp_calls == live_prefix_hvp
+        && live.iterations.size() == live_prefix_hvp
+        && live.termination == "BUDGET"
+        && live_capture.budget.total_hvp == 512U
+        && live_capture.budget.hvp_in_trust_step == live_prefix_hvp
+        && live_capture.budget.failure == "STRUCTURAL_BUDGET_TOTAL_HVP"
+        && !current_root.empty() && !predicted_root.empty()
+        && !gradient_root.empty() && !dual_root.empty()
+        && !live_prefix_root.empty();
+
+    const std::string boundary_root_before = boundary_root;
+    ALSparseWorkTrace offline_work;
+    StaticSupportWorkTrace offline_static_work;
+    FlatAdjacencyWorkTrace offline_adjacency_work;
+    const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
+    const JointStaticSupportIndex offline_index =
+        build_joint_static_support_index(
+            tagged_points(nominal_fixture.boundary),
+            &offline_static_work);
+    const JointStaticSupportBinding offline_binding =
+        bind_joint_static_support_index(
+            &offline_index, offline_index.identity_sha256);
+    ALNormalizedSparseInnerState offline_state =
+        evaluate_al_normalized_sparse_inner(
+            live_capture.current_position, live_capture.predicted_position,
+            offline_binding, live_capture.u, live_capture.theta,
+            &offline_work, &offline_static_work,
+            &offline_adjacency_work);
+    const bool gradient_exact = offline_state.inner.passed
+        && exact_vec3_values(
+            offline_state.inner.gradient, live_capture.gradient);
+
+    ALSparseStructuralBudget offline_budget;
+    offline_budget.maximum_outer_updates = 1U;
+    offline_budget.maximum_inner_trials_per_update = 1U;
+    offline_budget.maximum_hvp_per_trust_step = offline_hvp_cap;
+    offline_budget.maximum_total_hvp = offline_hvp_cap;
+    offline_budget.maximum_workspace_builds = 1U;
+    offline_budget.maximum_precision_audits = 1U;
+    const bool offline_trial_started =
+        al_sparse_budget_begin_inner_trial(&offline_budget);
+    ALNormalizedKrylovForcingTrace offline_forcing_trace;
+    ALNormalizedTrustRecurrenceSink offline_sink;
+    offline_sink.target_solve_index = 0U;
+    int offline_hvp_calls = 0;
+    bool offline_negative_curvature = false;
+    std::vector<Vec3> offline_step;
+    if (gradient_exact && offline_trial_started) {
+        offline_step = al_normalized_trust_step(
+            offline_state.workspace, offline_state.inner.gradient,
+            live_capture.radius, offline_hvp_calls,
+            offline_negative_curvature, &offline_budget,
+            ALNormalizedKrylovForcingPolicy::DimensionlessStationarity,
+            &offline_forcing_trace, &offline_sink);
+    }
+    release_al_normalized_workspace(
+        offline_state.workspace, &offline_work);
+
+    const ALNormalizedTrustRecurrence& offline = offline_sink.target;
+    const std::string offline_prefix_root =
+        al_normalized_trust_prefix_root(offline, live_prefix_hvp);
+    const std::string offline_trace_root =
+        al_normalized_trust_trace_root(offline);
+    const std::string offline_step_root =
+        al_binary64_vec3_root(offline_step);
+    const bool prefix_exact = target_exact
+        && offline.iterations.size() >= live_prefix_hvp
+        && live_prefix_root == offline_prefix_root;
+
+    double final_residual_ratio = 0.0;
+    double minimum_residual_ratio = std::numeric_limits<double>::infinity();
+    double maximum_residual_orthogonality = 0.0;
+    double maximum_adjacent_a_conjugacy = 0.0;
+    bool prefix_finite_before_terminal = offline.captured
+        && !offline.iterations.empty();
+    for (std::size_t index = 0U; index < offline.iterations.size(); ++index) {
+        const ALNormalizedTrustRecurrenceIteration& iteration =
+            offline.iterations[index];
+        const bool terminal_nonfinite_iteration =
+            offline.termination == "NONFINITE"
+            && index + 1U == offline.iterations.size();
+        prefix_finite_before_terminal = prefix_finite_before_terminal
+            && (terminal_nonfinite_iteration || iteration.finite_values);
+        const double ratio = iteration.beta_available
+            ? iteration.next_residual_ratio : iteration.residual_ratio;
+        if (std::isfinite(ratio)) {
+            final_residual_ratio = ratio;
+            minimum_residual_ratio = std::min(
+                minimum_residual_ratio, ratio);
+        }
+        if (iteration.residual_orthogonality_available) {
+            maximum_residual_orthogonality = std::max(
+                maximum_residual_orthogonality,
+                iteration.residual_orthogonality);
+        }
+        if (iteration.adjacent_a_conjugacy_available) {
+            maximum_adjacent_a_conjugacy = std::max(
+                maximum_adjacent_a_conjugacy,
+                iteration.adjacent_a_conjugacy);
+        }
+    }
+    if (!std::isfinite(minimum_residual_ratio)) {
+        minimum_residual_ratio = 0.0;
+    }
+    const ALNormalizedRitzEstimate ritz =
+        al_normalized_ritz_estimate(offline);
+
+    const bool offline_trace_exact = offline.captured
+        && offline.solve_index == 0U
+        && offline_sink.next_solve_index == 1U
+        && offline.hvp_calls
+            == static_cast<std::size_t>(offline_hvp_calls)
+        && offline.hvp_calls == offline.iterations.size()
+        && offline.hvp_calls >= live_prefix_hvp
+        && offline.hvp_calls <= offline_hvp_cap
+        && binary64_bits(offline.radius) == binary64_bits(live.radius)
+        && binary64_bits(offline.forcing_eta)
+            == binary64_bits(live.forcing_eta)
+        && binary64_bits(offline.initial_residual)
+            == binary64_bits(live.initial_residual)
+        && prefix_finite_before_terminal && !offline_trace_root.empty();
+    const bool work_exact = offline_work.workspace_builds == 1U
+        && offline_work.workspace_releases == 1U
+        && offline_work.live_workspaces == 0U
+        && offline_work.maximum_live_workspaces <= 1U
+        && !offline_work.lifecycle_underflow
+        && offline_work.all_pair_candidate_calls == 0U
+        && offline_static_work.static_index_builds == 1U
+        && offline_static_work.support_canonicalizations == 1U
+        && offline_static_work.workspace_builds == 1U
+        && offline_adjacency_work.workspace_builds == 1U
+        && offline_budget.total_hvp == offline.hvp_calls
+        && offline_budget.hvp_in_trust_step == offline.hvp_calls
+        && offline_budget.workspace_builds == 0U
+        && offline_budget.precision_audits == 0U
+        && offline_forcing_trace.dimensionless_trust_steps == 1U
+        && offline_forcing_trace.inherited_trust_steps == 0U;
+    const bool static_binding_exact = offline_index.passed
+        && offline_binding.passed && offline_binding.index == &offline_index
+        && offline_binding.expected_identity_sha256
+            == offline_index.identity_sha256
+        && offline_index.identity_sha256
+            == live_capture.static_identity_sha256;
+    const bool finite_diagnostics = offline_state.inner.passed
+        && gradient_exact && std::isfinite(final_residual_ratio)
+        && std::isfinite(minimum_residual_ratio)
+        && std::isfinite(maximum_residual_orthogonality)
+        && std::isfinite(maximum_adjacent_a_conjugacy)
+        && ritz.passed;
+    const bool rollback_exact = boundary_root_before
+            == al_r11_boundary_root(live_capture)
+        && al_binary64_vec3_root(live_capture.current_position)
+            == current_root
+        && al_binary64_vec3_root(live_capture.predicted_position)
+            == predicted_root
+        && al_binary64_vec3_root(live_capture.gradient) == gradient_root
+        && al_r10_dual_root(live_capture.u) == dual_root;
+
+    const bool terminal_nonfinite = offline.termination == "NONFINITE";
+    const bool terminal_curvature =
+        offline.termination == "NEGATIVE_CURVATURE";
+    const bool terminal_boundary = offline.termination == "BOUNDARY";
+    const bool terminal_converged =
+        offline.termination == "FORCING_CONVERGED";
+    const bool terminal_cap = offline.termination == "BUDGET"
+        && offline_budget.exhausted
+        && offline_budget.failure == "STRUCTURAL_BUDGET_HVP_PER_STEP"
+        && offline.hvp_calls == offline_hvp_cap;
+    const int terminal_count = (terminal_nonfinite ? 1 : 0)
+        + (terminal_curvature ? 1 : 0)
+        + (terminal_boundary ? 1 : 0)
+        + (terminal_converged ? 1 : 0)
+        + (terminal_cap ? 1 : 0);
+
+    std::string route;
+    if (terminal_nonfinite) route = "TOTAL_BUDGET_OFFLINE_NONFINITE";
+    else if (terminal_curvature) {
+        route = "TOTAL_BUDGET_OFFLINE_NONPOSITIVE_CURVATURE";
+    } else if (terminal_boundary) {
+        route = "TOTAL_BUDGET_OFFLINE_BOUNDARY";
+    } else if (terminal_converged) {
+        route = "TOTAL_BUDGET_OFFLINE_FORCING_CONVERGED";
+    } else if (terminal_cap) {
+        route = "TOTAL_BUDGET_OFFLINE_CAP_EXHAUSTED";
+    }
+    const bool route_precedence_exact = terminal_count == 1
+        && ((terminal_nonfinite
+                && route == "TOTAL_BUDGET_OFFLINE_NONFINITE")
+            || (!terminal_nonfinite && terminal_curvature
+                && route
+                    == "TOTAL_BUDGET_OFFLINE_NONPOSITIVE_CURVATURE")
+            || (!terminal_nonfinite && !terminal_curvature
+                && terminal_boundary
+                && route == "TOTAL_BUDGET_OFFLINE_BOUNDARY")
+            || (!terminal_nonfinite && !terminal_curvature
+                && !terminal_boundary && terminal_converged
+                && route == "TOTAL_BUDGET_OFFLINE_FORCING_CONVERGED")
+            || (!terminal_nonfinite && !terminal_curvature
+                && !terminal_boundary && !terminal_converged
+                && terminal_cap
+                && route == "TOTAL_BUDGET_OFFLINE_CAP_EXHAUSTED"));
+    const bool hard_controls = identity_exact && parent_exact && target_exact
+        && gradient_exact && prefix_exact && offline_trace_exact
+        && work_exact && static_binding_exact && finite_diagnostics
+        && rollback_exact && terminal_count == 1;
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R19R10_PARENT_BYTES";
+    else if (!target_exact) first_failure = "TARGET_CAPTURE";
+    else if (!gradient_exact) first_failure = "GRADIENT";
+    else if (!prefix_exact) first_failure = "FIRST_14_PREFIX";
+    else if (!offline_trace_exact) first_failure = "OFFLINE_TRACE";
+    else if (!work_exact) first_failure = "WORK";
+    else if (!static_binding_exact) first_failure = "STATIC_BINDING";
+    else if (!finite_diagnostics) first_failure = "DIAGNOSTICS";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (terminal_count != 1) first_failure = "TERMINATION";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19R11_IDENTITY_SHA256 << '|'
+             << r10_stdout_sha256 << ':' << r10_semantic_exact << ':'
+             << parents_retained << '|' << boundary_root << ':'
+             << live_trace_root << ':' << live_prefix_root << ':'
+             << offline_prefix_root << ':' << offline_trace_root << '|'
+             << offline.hvp_calls << ':' << offline.termination << ':'
+             << binary64_bits(final_residual_ratio) << ':'
+             << binary64_bits(minimum_residual_ratio) << ':'
+             << binary64_bits(maximum_residual_orthogonality) << ':'
+             << binary64_bits(maximum_adjacent_a_conjugacy) << ':'
+             << offline_step_root << '|' << ritz.dimension << ':'
+             << binary64_bits(ritz.minimum) << ':'
+             << binary64_bits(ritz.maximum) << ':'
+             << binary64_bits(ritz.condition) << '|'
+             << work_exact << ':' << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_bits = [](std::ostringstream& output, double value) {
+        output << "\"0x" << std::hex << binary64_bits(value)
+               << std::dec << '"';
+    };
+    std::ostringstream report;
+    report << std::setprecision(std::numeric_limits<double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19r11_total_budget_offline_replay.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R19R11_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"r10_stdout_sha256\":\""
+           << r10_stdout_sha256 << "\",\"r10_semantic_exact\":"
+           << (r10_semantic_exact ? "true" : "false")
+           << ",\"transitive_parents_retained\":"
+           << (parents_retained ? "true" : "false")
+           << ",\"exact\":" << (parent_exact ? "true" : "false") << '}'
+           << ",\"target\":{\"boundary_root\":\"" << boundary_root
+           << "\",\"live_trace_root\":\"" << live_trace_root
+           << "\",\"outer\":" << live_capture.outer
+           << ",\"trial\":" << live_capture.trial
+           << ",\"solve_index\":" << live_capture.solve_index
+           << ",\"live_hvp\":" << live.hvp_calls
+           << ",\"current_root\":\"" << current_root
+           << "\",\"predicted_root\":\"" << predicted_root
+           << "\",\"gradient_root\":\"" << gradient_root
+           << "\",\"dual_root\":\"" << dual_root
+           << "\",\"exact\":" << (target_exact ? "true" : "false")
+           << "},\"prefix\":{\"live_root\":\"" << live_prefix_root
+           << "\",\"offline_root\":\"" << offline_prefix_root
+           << "\",\"count\":14,\"exact\":"
+           << (prefix_exact ? "true" : "false") << '}'
+           << ",\"offline\":{\"hvp_calls\":" << offline.hvp_calls
+           << ",\"cap\":128,\"termination\":\"" << offline.termination
+           << "\",\"trace_root\":\"" << offline_trace_root
+           << "\",\"step_root\":\"" << offline_step_root
+           << "\",\"forcing_eta\":" << offline.forcing_eta
+           << ",\"final_residual_ratio\":" << final_residual_ratio
+           << ",\"final_over_eta\":"
+           << (offline.forcing_eta > 0.0
+                   ? final_residual_ratio / offline.forcing_eta : 0.0)
+           << ",\"minimum_residual_ratio\":" << minimum_residual_ratio
+           << ",\"maximum_residual_orthogonality\":"
+           << maximum_residual_orthogonality
+           << ",\"maximum_adjacent_a_conjugacy\":"
+           << maximum_adjacent_a_conjugacy
+           << ",\"ritz\":{\"dimension\":" << ritz.dimension
+           << ",\"minimum\":" << ritz.minimum
+           << ",\"maximum\":" << ritz.maximum
+           << ",\"condition\":" << ritz.condition
+           << ",\"passed\":" << (ritz.passed ? "true" : "false")
+           << "},\"iterations\":[";
+    for (std::size_t index = 0U; index < offline.iterations.size(); ++index) {
+        if (index != 0U) report << ',';
+        const ALNormalizedTrustRecurrenceIteration& iteration =
+            offline.iterations[index];
+        report << "{\"iteration\":" << iteration.iteration
+               << ",\"finite\":"
+               << (iteration.finite_values ? "true" : "false")
+               << ",\"positive_curvature\":"
+               << (iteration.positive_curvature ? "true" : "false")
+               << ",\"boundary\":"
+               << (iteration.boundary ? "true" : "false")
+               << ",\"forcing_converged\":"
+               << (iteration.forcing_converged ? "true" : "false")
+               << ",\"next_residual_ratio\":"
+               << iteration.next_residual_ratio
+               << ",\"point_root\":\"" << iteration.point_root
+               << "\",\"residual_root\":\"" << iteration.residual_root
+               << "\",\"direction_root\":\""
+               << iteration.direction_root << "\",\"hvp_root\":\""
+               << iteration.hvp_root << "\",\"curvature_bits\":";
+        append_bits(report, iteration.curvature);
+        report << "}";
+    }
+    report << "]},\"work\":{\"offline_hvp\":" << offline.hvp_calls
+           << ",\"workspace_builds\":" << offline_work.workspace_builds
+           << ",\"workspace_releases\":"
+           << offline_work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << offline_work.maximum_live_workspaces
+           << ",\"model_hvp\":0,\"trials_formed\":0"
+              ",\"acceptances\":0,\"precision_audits\":0"
+              ",\"all_pair_candidate_calls\":"
+           << offline_work.all_pair_candidate_calls
+           << ",\"exact\":" << (work_exact ? "true" : "false") << '}'
+           << ",\"gradient_exact\":"
+           << (gradient_exact ? "true" : "false")
+           << ",\"static_binding_exact\":"
+           << (static_binding_exact ? "true" : "false")
+           << ",\"finite_diagnostics\":"
+           << (finite_diagnostics ? "true" : "false")
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"control_parent_substeps\":1"
+              ",\"candidate_nominal_substeps\":0"
+              ",\"transaction_continuation\":false"
+              ",\"second_substep_executed\":false"
+              ",\"macro_frames\":0,\"trajectory_steps\":0"
+              ",\"public_commit_count\":0,\"physics_mutation\":false"
+              ",\"preconditioner_tested\":false"
+              ",\"live_total_cap_changed\":false"
+              ",\"production_policy_changed\":false"
+              ",\"timing_admitted\":false,\"speedup_claim\":false"
+              ",\"runtime_authority\":false"
+              ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
+    return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
 }
 
 SplitBoundaryReport run_al_tiered_grace_private_transaction_controls() {
