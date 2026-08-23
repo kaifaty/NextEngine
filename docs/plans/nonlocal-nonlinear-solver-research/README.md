@@ -2081,3 +2081,11 @@ exactly as `480 completed recurrence + 14 interrupted + 18 direct model =
 512`, and capture adds only the final workspace release. Research/freeze an
 offline-only continuation of this exact recurrence next; do not change the
 live cap or form a model/trial.
+The
+[D7R19R11 research](../../development/nonlocal-nsr3b4e2d7r19r11-total-budget-offline-replay-research-2026-08-23.md)
+selects a deterministic replay from the exact captured state rather than a
+live cap increase or geometric extrapolation. The
+[frozen contract](03b4e2d7r19r11-total-budget-offline-replay-contract.md)
+requires exact first-14 correspondence before continuing unchanged Steihaug
+under the existing offline cap of 128 HVPs. Implement only this recurrence
+diagnostic; model, trial, transaction continuation and timing remain forbidden.
