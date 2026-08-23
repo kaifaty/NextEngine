@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R9_PASS_TOTAL_HVP_EXHAUSTED / D7R19R10_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R9_PASS_TOTAL_HVP_EXHAUSTED / D7R19R10_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -346,6 +346,14 @@
 - **Current decision:** research D7R19R10 as a passive total-budget progress
   audit. Capture per-outer/trial progress and the interrupted recurrence before
   considering any bounded total-budget continuation.
+- **D7R19R10 frozen design:** reuse the exact R9 execution through an optional
+  passive capture sink. Project every completed outer/trial and the recurrence
+  prefix stopped by `STRUCTURAL_BUDGET_TOTAL_HVP`; account completed plus
+  interrupted work exactly to 512 without another HVP, model or trial.
+- **R10 classifier boundary:** classify nonfinite, nonpositive-curvature,
+  trust-boundary and already-converged contradictions before safe near-forcing,
+  progressing or inconclusive routes. The result can authorize only a separate
+  offline-continuation research contract, never a live cap increase.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2248,12 +2256,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19 and all preceding
-   normalized parents exactly. Research D7R19R10 as a passive diagnostic of
-   the exact `512` total-HVP boundary. Expose per-outer/trial progress, work
-   distribution and the solve/recurrence prefix interrupted by total budget.
-   Do not raise or continue the budget, form another trial, change production
-   policy, publicly commit state or start a second substep, macro, trajectory
-   or timing lane.
+   normalized parents exactly. Implement the frozen D7R19R10 passive
+   diagnostic of the exact `512` total-HVP boundary. Expose per-outer/trial
+   progress, exact work distribution and the solve/recurrence prefix
+   interrupted by total budget. Do not raise or continue the budget, form
+   another trial, change production policy, publicly commit state or start a
+   second substep, macro, trajectory or timing lane.
 
 ## Reconsideration triggers
 
