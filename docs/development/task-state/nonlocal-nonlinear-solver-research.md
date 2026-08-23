@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R8_PASS_RESIDUAL_MODEL_CANDIDATE / D7R19R9_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R8_PASS_RESIDUAL_MODEL_CANDIDATE / D7R19R9_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-23` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -326,6 +326,12 @@
 - **Current decision:** research/freeze D7R19R9 as one private first-substep
   transaction that integrates only this exact tiered completion policy.
   Ordinary solves retain direct model HVPs; production policy stays unchanged.
+- **D7R19R9 frozen integration:** add one explicit research-only completion
+  policy. Base recurrence stays 32; tier 1 owns only HVP 33, while tier 2 may
+  reach HVP 34 only after the exact R8 entry and continuation gates.
+- **R9 work boundary:** ordinary trials retain one direct model HVP. A
+  converged 33/34-HVP grace path owns `r_final-g` and zero model HVPs. All
+  other caps remain `512/16/16/288/64`; production policy is unchanged.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2228,7 +2234,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
 6. Preserve D7R19R8/R7/R6/R5/R4/R3/R2/R1, D7R19 and all preceding normalized
-   parents exactly. Research/freeze D7R19R9 as one private first-substep
+   parents exactly. Implement frozen D7R19R9 as one private first-substep
    transaction using the exact R8 tiered completion envelope. Preserve direct
    model HVPs for ordinary solves and residual-derived completion only after
    an actually converged tier-1 or tier-2 grace path. Bind all R6/R5/R2
