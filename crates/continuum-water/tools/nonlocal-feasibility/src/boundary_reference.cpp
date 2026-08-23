@@ -77986,9 +77986,23 @@ std::string al_r13_outer_state_root(
     return sha256_hex(projection.str());
 }
 
+struct ALNormalizedPostAcceptanceBoundaryCapture {
+    bool captured = false;
+    ALNormalizedAtomicCompletionCapture r12;
+    double stationarity = 0.0;
+    bool inner_complete = false;
+    ALNormalizedOuterState outer_state;
+    std::vector<double> outer_u;
+    bool outer_complete = false;
+    bool outer_monotone = false;
+    std::string accepted_gradient_root;
+    std::string outer_state_root;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_post_acceptance_boundary_controls() {
+SplitBoundaryReport run_al_post_acceptance_boundary_controls_impl(
+    ALNormalizedPostAcceptanceBoundaryCapture* capture_out) {
     constexpr double stationarity_limit = 1.0e-10;
     constexpr double dual_limit = 8.154943934760449e-12;
     constexpr double complementarity_limit = 8.154943934760449e-13;
@@ -78383,6 +78397,265 @@ SplitBoundaryReport run_al_post_acceptance_boundary_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    if (capture_out != nullptr) {
+        capture_out->captured = true;
+        capture_out->r12 = capture;
+        capture_out->stationarity = stationarity;
+        capture_out->inner_complete = inner_complete;
+        capture_out->outer_state = outer_state;
+        capture_out->outer_u = outer_u;
+        capture_out->outer_complete = outer_complete;
+        capture_out->outer_monotone = outer_monotone;
+        capture_out->accepted_gradient_root = accepted_gradient_root;
+        capture_out->outer_state_root = outer_state_root;
+    }
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19R14_IDENTITY_SHA256 =
+    "0d8a39cfefd050febf87c9544c4a33b0cee9251a769bc3b73d6a2f126d4d839f";
+constexpr const char* B4E2D7R19R14_IDENTITY_PROJECTION =
+    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19r14-soft-cap-suspension|v1|parent=dfa474f2:0f248c4506303055cbf7a967dd1328a36d8628341a04b6861aec210af17f57f9:3a60f64ee09a85b4ea892f12341ff3b8c4e7dcb63bbe4eb4cbebd99c237e5e57|legacy=r12-stdoute57ba96aca2c3114ea2c9c10fa2728d8c91dd7ac7969010f381a245219175cee;r11-stdoutbd05f7ac3ca76425dbfda1e43882f48adcb4c83addf1fe4ddeaacd37ca8a8efe;r10-stdout15719465931a21421e094abde1200d685bee44e4b112dc314d5857f863074953;r9-stdoutf1cb461d270e1642e9c0220c60fc59c64cb5bb69039f293ed8e9eade7f6ed1f0|target=outer5-complete;state-5dd9a07d60cbfe851bdc4c383944a1eb8042f178a821f4a546da33101dd0a19a;dual-f4279bde29358f65b17b15ad7456e8c5743b44ec99fd3612d78cb5f905b00aca;trial-start498;soft512;trial-allowance34;dynamic-ceiling532;actual-trial25;completed523|admission=trial-start-only-below-soft;admitted-trial-owns-existing-hard-allowance;outer6-denied-at-or-above-soft|suspension=explicit-not-converged-not-failed;next-outer6;private-position-dual;previous-primal-admissibility-provisional;predicted-theta-static;budget-epoch-and-cumulative-ledger;versioned-root|unsupported=over-cap-inner-requires-another-trial-fail-closed|controls=r19r13-parent-bytes;transitive-parents-retained;exact-accounting;reserve-bound;outer-boundary-state;token-fields;token-root;rollback;zero-new-work|routes=soft-cap-projection-invalid;soft-cap-atomic-reserve-exceeded;soft-cap-inner-suspension-unsupported;soft-cap-outer-boundary-incomplete;soft-cap-outer-boundary-suspended|precedence=invalid,reserve,inner,outer,suspended|runs=2-clean-release-builds;1-process-each;byte-exact|work=control-parent-substeps1;new-workspaces0;new-hvp0;new-model0;new-trial0;new-precision0;new-outer0|resume-executed=none;outer6=none;second-solve=none;second-substep=none;macro=none;trajectory=none;timing=none;public-commit=none;physics-mutation=none;live-budget-code-change=none;production-policy-change=none|credit=one-soft-cap-suspension-policy-projection-only)IDENTITY";
+
+} // namespace
+
+SplitBoundaryReport run_al_soft_cap_suspension_projection_controls() {
+    constexpr std::size_t soft_limit = 512U;
+    constexpr std::size_t trial_allowance = 34U;
+    constexpr std::size_t next_outer = 6U;
+    const bool identity_exact = sha256_hex(B4E2D7R19R14_IDENTITY_PROJECTION)
+        == B4E2D7R19R14_IDENTITY_SHA256;
+
+    ALNormalizedPostAcceptanceBoundaryCapture capture;
+    const SplitBoundaryReport r13_parent =
+        run_al_post_acceptance_boundary_controls_impl(&capture);
+    const std::string r13_stdout_sha256 = sha256_hex(r13_parent.json + "\n");
+    const bool r13_semantic_exact = r13_parent.json.find(
+        "\"result_sha256\":\""
+        "3a60f64ee09a85b4ea892f12341ff3b8c4e7dcb63bbe4eb4cbebd99c237e5e57"
+        "\"") != std::string::npos;
+    const bool parents_retained = r13_parent.json.find(
+        "e57ba96aca2c3114ea2c9c10fa2728d8c91dd7ac7969010f381a245219175cee")
+            != std::string::npos
+        && r13_parent.json.find(
+            "\"transitive_parents_retained\":true") != std::string::npos;
+    const bool parent_exact = r13_parent.passed && r13_semantic_exact
+        && parents_retained
+        && r13_stdout_sha256
+            == "0f248c4506303055cbf7a967dd1328a36d8628341a04b6861aec210af17f57f9";
+
+    const ALNormalizedTotalHvpBoundaryCapture& live_capture =
+        capture.r12.r11.r10.total_hvp_boundary;
+    const std::size_t live_prefix_hvp = live_capture.recurrence.hvp_calls;
+    const std::size_t trial_start_total = soft_limit >= live_prefix_hvp
+        ? soft_limit - live_prefix_hvp : 0U;
+    const std::size_t recurrence_hvp = capture.r12.r11.offline.hvp_calls;
+    const std::size_t model_hvp = 1U;
+    const std::size_t actual_trial_hvp = recurrence_hvp + model_hvp;
+    const std::size_t dynamic_ceiling = trial_start_total + trial_allowance;
+    const std::size_t completed_total = trial_start_total + actual_trial_hvp;
+    const std::size_t overshoot = completed_total > soft_limit
+        ? completed_total - soft_limit : 0U;
+    const std::size_t unused_allowance = trial_allowance >= actual_trial_hvp
+        ? trial_allowance - actual_trial_hvp : 0U;
+    const bool admission_exact = trial_start_total < soft_limit;
+    const bool reserve_exceeded = actual_trial_hvp > trial_allowance
+        || completed_total > dynamic_ceiling;
+    const bool inner_unsupported = !reserve_exceeded
+        && !capture.inner_complete;
+    const bool outer_incomplete = !reserve_exceeded
+        && !inner_unsupported && !capture.outer_complete;
+    const std::string position_root =
+        al_binary64_vec3_root(capture.r12.trial_position);
+    const std::string dual_root = al_r10_dual_root(capture.outer_u);
+    const std::string predicted_root = al_binary64_vec3_root(
+        live_capture.predicted_position);
+    const bool target_exact = capture.captured && capture.r12.captured
+        && capture.outer_complete && capture.outer_monotone
+        && !capture.outer_state.admissible
+        && capture.outer_state_root
+            == "5dd9a07d60cbfe851bdc4c383944a1eb8042f178a821f4a546da33101dd0a19a"
+        && dual_root
+            == "f4279bde29358f65b17b15ad7456e8c5743b44ec99fd3612d78cb5f905b00aca"
+        && trial_start_total == 498U && live_prefix_hvp == 14U
+        && recurrence_hvp == 24U && actual_trial_hvp == 25U
+        && dynamic_ceiling == 532U && completed_total == 523U
+        && overshoot == 11U && unused_allowance == 9U
+        && capture.r12.r11.r10.candidate.budget
+                .maximum_hvp_per_trust_step
+            == trial_allowance
+        && capture.r12.r11.r10.candidate.budget.maximum_total_hvp
+            == soft_limit
+        && !position_root.empty() && !predicted_root.empty()
+        && !live_capture.static_identity_sha256.empty();
+
+    const bool outer6_denied = target_exact
+        && completed_total >= soft_limit;
+    const bool suspended = !reserve_exceeded && !inner_unsupported
+        && !outer_incomplete && outer6_denied;
+    const int provisional_index = capture.outer_state.admissible ? 5 : -1;
+    const bool previous_admissible = capture.outer_state.admissible;
+    std::ostringstream token_projection;
+    if (suspended) {
+        token_projection
+            << "nextengine.nonlocal.al-outer-continuation|v1|"
+            << next_outer << ':' << position_root << ':' << dual_root << ':'
+            << binary64_bits(capture.outer_state.primal) << ':'
+            << previous_admissible << ':' << provisional_index << '|'
+            << predicted_root << ':' << binary64_bits(live_capture.theta)
+            << ':' << live_capture.static_identity_sha256 << '|'
+            << 0U << ':' << completed_total << ':' << completed_total << ':'
+            << soft_limit << ':' << trial_allowance << '|'
+            << capture.outer_state_root;
+    }
+    const std::string token_root = suspended
+        ? sha256_hex(token_projection.str()) : std::string{};
+    const bool token_exact = !suspended
+        || (next_outer == 6U && !position_root.empty() && !dual_root.empty()
+            && !predicted_root.empty() && !token_root.empty()
+            && provisional_index == -1 && !previous_admissible);
+    const bool rollback_exact =
+        al_binary64_vec3_root(capture.r12.trial_position) == position_root
+        && al_r10_dual_root(capture.outer_u) == dual_root
+        && al_binary64_vec3_root(live_capture.predicted_position)
+            == predicted_root
+        && capture.r12.r11.r10.candidate.budget.total_hvp == soft_limit
+        && capture.r12.r11.r10.candidate.budget.failure
+            == "STRUCTURAL_BUDGET_TOTAL_HVP"
+        && capture.outer_state_root
+            == al_r13_outer_state_root(
+                capture.outer_state, capture.r12.trial_position,
+                capture.outer_u);
+    const bool projection_invalid = !target_exact || !admission_exact;
+    const bool hard_controls = identity_exact && parent_exact
+        && token_exact && rollback_exact;
+
+    std::string route;
+    if (hard_controls) {
+        if (projection_invalid) route = "SOFT_CAP_PROJECTION_INVALID";
+        else if (reserve_exceeded) {
+            route = "SOFT_CAP_ATOMIC_RESERVE_EXCEEDED";
+        } else if (inner_unsupported) {
+            route = "SOFT_CAP_INNER_SUSPENSION_UNSUPPORTED";
+        } else if (outer_incomplete) {
+            route = "SOFT_CAP_OUTER_BOUNDARY_INCOMPLETE";
+        } else if (suspended) {
+            route = "SOFT_CAP_OUTER_BOUNDARY_SUSPENDED";
+        }
+    }
+    const int route_count = (projection_invalid ? 1 : 0)
+        + (reserve_exceeded ? 1 : 0) + (inner_unsupported ? 1 : 0)
+        + (outer_incomplete ? 1 : 0) + (suspended ? 1 : 0);
+    const bool route_precedence_exact = route_count == 1
+        && ((projection_invalid
+                && route == "SOFT_CAP_PROJECTION_INVALID")
+            || (!projection_invalid && reserve_exceeded
+                && route == "SOFT_CAP_ATOMIC_RESERVE_EXCEEDED")
+            || (!projection_invalid && !reserve_exceeded
+                && inner_unsupported
+                && route == "SOFT_CAP_INNER_SUSPENSION_UNSUPPORTED")
+            || (!projection_invalid && !reserve_exceeded
+                && !inner_unsupported && outer_incomplete
+                && route == "SOFT_CAP_OUTER_BOUNDARY_INCOMPLETE")
+            || (!projection_invalid && !reserve_exceeded
+                && !inner_unsupported && !outer_incomplete && suspended
+                && route == "SOFT_CAP_OUTER_BOUNDARY_SUSPENDED"));
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R19R13_PARENT_BYTES";
+    else if (!token_exact) first_failure = "TOKEN";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19R14_IDENTITY_SHA256 << '|'
+             << r13_stdout_sha256 << ':' << r13_semantic_exact << ':'
+             << parents_retained << '|' << trial_start_total << ':'
+             << soft_limit << ':' << trial_allowance << ':'
+             << dynamic_ceiling << ':' << actual_trial_hvp << ':'
+             << completed_total << ':' << overshoot << ':'
+             << unused_allowance << '|' << position_root << ':'
+             << dual_root << ':' << capture.outer_state_root << '|'
+             << next_outer << ':' << binary64_bits(
+                    capture.outer_state.primal)
+             << ':' << previous_admissible << ':' << provisional_index << ':'
+             << token_root << '|' << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19r14_soft_cap_suspension.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R19R14_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"r13_stdout_sha256\":\""
+           << r13_stdout_sha256 << "\",\"r13_semantic_exact\":"
+           << (r13_semantic_exact ? "true" : "false")
+           << ",\"transitive_parents_retained\":"
+           << (parents_retained ? "true" : "false")
+           << ",\"exact\":" << (parent_exact ? "true" : "false")
+           << "},\"accounting\":{\"trial_start_total\":"
+           << trial_start_total << ",\"soft_limit\":" << soft_limit
+           << ",\"trial_allowance\":" << trial_allowance
+           << ",\"dynamic_ceiling\":" << dynamic_ceiling
+           << ",\"recurrence_hvp\":" << recurrence_hvp
+           << ",\"model_hvp\":" << model_hvp
+           << ",\"actual_trial_hvp\":" << actual_trial_hvp
+           << ",\"completed_total\":" << completed_total
+           << ",\"overshoot\":" << overshoot
+           << ",\"unused_allowance\":" << unused_allowance
+           << ",\"admitted_below_soft\":"
+           << (admission_exact ? "true" : "false")
+           << ",\"within_reserve\":"
+           << (!reserve_exceeded ? "true" : "false")
+           << "},\"boundary\":{\"outer_state_root\":\""
+           << capture.outer_state_root << "\",\"position_root\":\""
+           << position_root << "\",\"dual_root\":\"" << dual_root
+           << "\",\"inner_complete\":"
+           << (capture.inner_complete ? "true" : "false")
+           << ",\"outer_complete\":"
+           << (capture.outer_complete ? "true" : "false")
+           << ",\"outer6_denied\":"
+           << (outer6_denied ? "true" : "false")
+           << "},\"continuation\":{\"schema_version\":1,"
+              "\"next_outer\":" << next_outer
+           << ",\"previous_primal_bits\":\"0x" << std::hex
+           << binary64_bits(capture.outer_state.primal) << std::dec << '"'
+           << ",\"previous_admissible\":"
+           << (previous_admissible ? "true" : "false")
+           << ",\"provisional_index\":" << provisional_index
+           << ",\"predicted_root\":\"" << predicted_root
+           << "\",\"static_identity\":\""
+           << live_capture.static_identity_sha256
+           << "\",\"budget_epoch\":0,\"slice_hvp\":"
+           << completed_total << ",\"cumulative_hvp\":"
+           << completed_total << ",\"token_root\":\"" << token_root
+           << "\",\"candidate\":" << (suspended ? "true" : "false")
+           << "},\"zero_new_work\":true"
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"control_parent_substeps\":1"
+              ",\"new_workspaces\":0,\"new_hvp\":0"
+              ",\"new_model_hvp\":0,\"new_trials\":0"
+              ",\"new_precision_audits\":0,\"new_outer_updates\":0"
+              ",\"resume_executed\":false,\"outer6_executed\":false"
+              ",\"second_solve_executed\":false"
+              ",\"second_substep_executed\":false"
+              ",\"macro_frames\":0,\"trajectory_steps\":0"
+              ",\"public_commit_count\":0,\"physics_mutation\":false"
+              ",\"live_budget_code_changed\":false"
+              ",\"production_policy_changed\":false"
+              ",\"timing_admitted\":false,\"speedup_claim\":false"
+              ",\"runtime_authority\":false"
+              ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
     return {passed, report.str()};
 }
 
@@ -78400,6 +78673,10 @@ SplitBoundaryReport run_al_total_budget_offline_replay_controls() {
 
 SplitBoundaryReport run_al_total_budget_atomic_completion_controls() {
     return run_al_total_budget_atomic_completion_controls_impl(nullptr);
+}
+
+SplitBoundaryReport run_al_post_acceptance_boundary_controls() {
+    return run_al_post_acceptance_boundary_controls_impl(nullptr);
 }
 
 SplitBoundaryReport run_al_guarded_residual_private_transaction_controls() {
