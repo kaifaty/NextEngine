@@ -185,6 +185,7 @@ SplitBoundaryReport run_al_tiered_grace_private_transaction_controls();
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls();
 SplitBoundaryReport run_al_total_budget_offline_replay_controls();
 SplitBoundaryReport run_al_total_budget_atomic_completion_controls();
+SplitBoundaryReport run_al_post_acceptance_boundary_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
