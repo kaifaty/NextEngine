@@ -74038,6 +74038,17 @@ constexpr const char* B4E2D7R19R7_IDENTITY_PROJECTION =
     "production-cap-change=none|"
     "credit=one-replay-only-later-guard-denial-diagnostic";
 
+struct ALNormalizedSecondGuardReplayCapture {
+    bool captured = false;
+    ALNormalizedGuardDeniedCapture live;
+    ALNormalizedTrustRecurrence offline;
+    std::vector<Vec3> offline_step;
+    std::string capture_root;
+    std::string live_prefix_root;
+    std::string offline_prefix_root;
+    std::string offline_trace_root;
+};
+
 std::string al_guard_denied_capture_root(
     const ALNormalizedGuardDeniedCapture& value) {
     if (!value.captured) return {};
@@ -74072,7 +74083,8 @@ std::string al_guard_denied_capture_root(
 
 } // namespace
 
-SplitBoundaryReport run_al_second_guard_boundary_replay_controls() {
+SplitBoundaryReport run_al_second_guard_boundary_replay_controls_impl(
+    ALNormalizedSecondGuardReplayCapture* replay_capture_out) {
     constexpr std::size_t live_prefix_hvp = 32U;
     constexpr std::size_t offline_hvp_cap = 128U;
     const bool identity_exact = sha256_hex(B4E2D7R19R7_IDENTITY_PROJECTION)
@@ -74534,6 +74546,537 @@ SplitBoundaryReport run_al_second_guard_boundary_replay_controls() {
               ",\"public_commit_count\":0,\"physics_mutation\":false"
               ",\"guard_changed\":false,\"production_cap_changed\":false"
               ",\"preconditioner_tested\":false"
+              ",\"timing_admitted\":false,\"speedup_claim\":false"
+              ",\"runtime_authority\":false,\"production_authority\":false"
+           << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    if (replay_capture_out != nullptr) {
+        replay_capture_out->captured = passed;
+        replay_capture_out->live = capture;
+        replay_capture_out->offline = offline;
+        replay_capture_out->offline_step = offline_step;
+        replay_capture_out->capture_root = capture_root;
+        replay_capture_out->live_prefix_root = live_prefix_root;
+        replay_capture_out->offline_prefix_root = offline_prefix_root;
+        replay_capture_out->offline_trace_root = offline_trace_root;
+    }
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_second_guard_boundary_replay_controls() {
+    return run_al_second_guard_boundary_replay_controls_impl(nullptr);
+}
+
+namespace {
+
+constexpr const char* B4E2D7R19R8_IDENTITY_SHA256 =
+    "15b8442aa24bf86d5358a018c4e4f13258dfb6f3ccf65aa9363415617b37221d";
+constexpr const char* B4E2D7R19R8_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e2d7r19r8-tiered-grace-model-image|v1|"
+    "parent=8b806993c6c8588cc6b4334064b42b06a4628700:"
+    "db0e5e733b57c9d6b5ffe0ad9fb641de1cee78e2fd05fe8cbf890fcae591fcdb:"
+    "c8f350b941e57910b1dc5dc93e6a357319d22de6f2fb16fb3a338592f6596c79|"
+    "legacy=r6-stdout"
+    "67dfb6781a5840e228b63f3524bf4999ca6d1d9b650f8c461117575a8172611c;"
+    "r5-stdout"
+    "fe0a75877bf539e37e11955f25cebb05821dcbacf7cb50eb120913367f664294|"
+    "targets=first-prefix-"
+    "f478832923673956bc98d8067fff9bdeb5c3dab109c0a8e239ad12c6844d60dd-"
+    "step"
+    "74a9b58726d5d0279699498c41a70fb0e199f45e531d11befd2bc2dfe692d2bd-"
+    "hvp33-converged;second-capture"
+    "97c340ed27b33318fb4d6684a7d385380ddc15e3a8b0358d0c86feb189f48ab3-"
+    "prefix"
+    "adf2edcc243060a540d515f6d8687a2b2b0f0e9e2131fbc402f06d9b50b85d08-"
+    "hvp34-converged|"
+    "tier1=prefix-safe;ratio32-in-eta-to-1.25eta;last8-decrease;"
+    "hvp33-must-converge;unchanged|"
+    "tier2-entry=prefix-safe;ratio32-in-1.25eta-to-2eta;last8-decrease;"
+    "allow-hvp33|"
+    "tier2-continuation=hvp33-safe-interior;ratio33-in-eta-to-1.5eta;"
+    "q33<=0.75;updated-last8-decrease;allow-hvp34;"
+    "hvp34-must-converge|"
+    "model=residual-r-final-minus-g;direct-H-step-oracle;"
+    "image-l2-relative<=1e-10;component-scaled<=1e-10;"
+    "quadratic-relative<=1e-10;predicted-relative<=1e-10;"
+    "positive-signs|"
+    "controls=r19r7-parent-bytes;r19r6+r19r5-retained;two-target-roots;"
+    "tier1-unchanged;tier2-clauses;hvp34-convergence;"
+    "model-correspondence;static-binding;finite;work;all-pair0;rollback|"
+    "routes=tiered-grace-rejected;tiered-grace-residual-model-candidate;"
+    "direct-model-hvp-required|"
+    "precedence=guard,residual,direct|"
+    "runs=2-clean-release-builds;1-process-each;byte-exact|"
+    "work=parent-replays;new-direct-oracle-hvp1;workspace1;"
+    "candidate-model-hvp0;precision0;trial0;acceptance0|"
+    "candidate-substeps=0;transaction=none;second-substep=none;macro=none;"
+    "trajectory=none;timing=none;public-commit=none;physics-mutation=none;"
+    "guard-change=none;production-cap-change=none|"
+    "credit=one-replay-only-tiered-grace-model-discriminator";
+
+bool al_tiered_iteration_safe(
+    const ALNormalizedTrustRecurrence& recurrence,
+    std::size_t index) {
+    if (index >= recurrence.iterations.size()) return false;
+    const ALNormalizedTrustRecurrenceIteration& iteration =
+        recurrence.iterations[index];
+    return iteration.hvp_passed && iteration.finite_values
+        && iteration.positive_curvature && !iteration.boundary
+        && std::isfinite(iteration.candidate_norm)
+        && iteration.candidate_norm < recurrence.radius
+        && std::isfinite(iteration.next_residual_ratio);
+}
+
+bool al_tiered_prefix_safe(
+    const ALNormalizedTrustRecurrence& recurrence,
+    std::size_t count) {
+    if (!recurrence.captured || recurrence.iterations.size() < count
+        || !std::isfinite(recurrence.forcing_eta)
+        || recurrence.forcing_eta <= 0.0) {
+        return false;
+    }
+    for (std::size_t index = 0U; index < count; ++index) {
+        if (!al_tiered_iteration_safe(recurrence, index)) return false;
+    }
+    return true;
+}
+
+bool al_tiered_trailing_decrease(
+    const ALNormalizedTrustRecurrence& recurrence,
+    std::size_t end,
+    std::size_t count) {
+    if (count == 0U || end < count
+        || recurrence.iterations.size() < end) {
+        return false;
+    }
+    const std::size_t first = end - count;
+    for (std::size_t index = first + 1U; index < end; ++index) {
+        const double previous = recurrence.iterations[index - 1U]
+            .next_residual_ratio;
+        const double current = recurrence.iterations[index]
+            .next_residual_ratio;
+        if (!std::isfinite(previous) || !std::isfinite(current)
+            || !(current < previous)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_tiered_grace_model_image_discriminator_controls() {
+    constexpr std::size_t base_hvp = 32U;
+    constexpr std::size_t first_grace_hvp = 33U;
+    constexpr std::size_t second_grace_hvp = 34U;
+    constexpr std::size_t trailing_count = 8U;
+    const bool identity_exact = sha256_hex(B4E2D7R19R8_IDENTITY_PROJECTION)
+        == B4E2D7R19R8_IDENTITY_SHA256;
+
+    ALNormalizedSecondGuardReplayCapture later;
+    const SplitBoundaryReport parent =
+        run_al_second_guard_boundary_replay_controls_impl(&later);
+    const std::string parent_stdout_sha256 = sha256_hex(parent.json + "\n");
+    const bool parent_semantic_exact = parent.json.find(
+        "\"result_sha256\":\""
+        "c8f350b941e57910b1dc5dc93e6a357319d22de6f2fb16fb3a338592f6596c79"
+        "\"") != std::string::npos;
+    const bool r6_retained = parent.json.find(
+        "67dfb6781a5840e228b63f3524bf4999ca6d1d9b650f8c461117575a8172611c")
+        != std::string::npos;
+    const bool r5_retained = parent.json.find(
+        "\"r5_retained\":true") != std::string::npos;
+    const bool parent_exact = parent.passed && parent_semantic_exact
+        && r6_retained && r5_retained
+        && parent_stdout_sha256
+            == "db0e5e733b57c9d6b5ffe0ad9fb641de1cee78e2fd05fe8cbf890fcae591fcdb";
+
+    ALNormalizedSixthTrustReplayCapture first;
+    const SplitBoundaryReport first_parent =
+        run_al_sixth_trust_recurrence_replay_controls_impl(&first);
+    const ALNormalizedTrustRecurrence& first_recurrence = first.offline;
+    const std::string first_step_root =
+        al_binary64_vec3_root(first_recurrence.returned_step);
+    const double first_ratio_32 =
+        first_recurrence.iterations.size() >= base_hvp
+        ? first_recurrence.iterations[base_hvp - 1U].next_residual_ratio
+        : 0.0;
+    const bool first_prefix_safe =
+        al_tiered_prefix_safe(first_recurrence, base_hvp);
+    const bool first_trailing_decrease = al_tiered_trailing_decrease(
+        first_recurrence, base_hvp, trailing_count);
+    const bool first_ratio_window = std::isfinite(first_ratio_32)
+        && first_ratio_32 > first_recurrence.forcing_eta
+        && first_ratio_32 <= 1.25 * first_recurrence.forcing_eta;
+    const bool first_hvp_33_converged =
+        first_recurrence.iterations.size() == first_grace_hvp
+        && al_tiered_iteration_safe(first_recurrence, base_hvp)
+        && first_recurrence.iterations[base_hvp].forcing_converged
+        && first_recurrence.iterations[base_hvp].next_residual_ratio
+            <= first_recurrence.forcing_eta
+        && first_recurrence.termination == "FORCING_CONVERGED";
+    const bool first_target_exact = first_parent.passed && first.captured
+        && first.prefix_root
+            == "f478832923673956bc98d8067fff9bdeb5c3dab109c0a8e239ad12c6844d60dd"
+        && first_step_root
+            == "74a9b58726d5d0279699498c41a70fb0e199f45e531d11befd2bc2dfe692d2bd"
+        && first_recurrence.hvp_calls == first_grace_hvp
+        && first_prefix_safe && first_ratio_window
+        && first_trailing_decrease && first_hvp_33_converged;
+
+    const ALNormalizedTrustRecurrence& second_recurrence = later.offline;
+    const std::string second_step_root =
+        al_binary64_vec3_root(second_recurrence.returned_step);
+    const double second_ratio_32 =
+        second_recurrence.iterations.size() >= base_hvp
+        ? second_recurrence.iterations[base_hvp - 1U].next_residual_ratio
+        : 0.0;
+    const double second_ratio_33 =
+        second_recurrence.iterations.size() >= first_grace_hvp
+        ? second_recurrence.iterations[first_grace_hvp - 1U]
+            .next_residual_ratio
+        : 0.0;
+    const double second_ratio_34 =
+        second_recurrence.iterations.size() >= second_grace_hvp
+        ? second_recurrence.iterations[second_grace_hvp - 1U]
+            .next_residual_ratio
+        : 0.0;
+    const double second_contraction = second_ratio_32 > 0.0
+        ? second_ratio_33 / second_ratio_32 : 0.0;
+    const bool second_prefix_safe =
+        al_tiered_prefix_safe(second_recurrence, base_hvp);
+    const bool second_initial_trailing = al_tiered_trailing_decrease(
+        second_recurrence, base_hvp, trailing_count);
+    const bool second_entry_ratio = std::isfinite(second_ratio_32)
+        && second_ratio_32 > 1.25 * second_recurrence.forcing_eta
+        && second_ratio_32 <= 2.0 * second_recurrence.forcing_eta;
+    const bool second_entry = second_prefix_safe
+        && second_initial_trailing && second_entry_ratio;
+    const bool second_hvp_33_safe =
+        al_tiered_iteration_safe(second_recurrence, base_hvp)
+        && !second_recurrence.iterations[base_hvp].forcing_converged;
+    const bool second_ratio_33_window = std::isfinite(second_ratio_33)
+        && second_ratio_33 > second_recurrence.forcing_eta
+        && second_ratio_33 <= 1.5 * second_recurrence.forcing_eta;
+    const bool second_contraction_exact =
+        std::isfinite(second_contraction) && second_contraction <= 0.75;
+    const bool second_updated_trailing = al_tiered_trailing_decrease(
+        second_recurrence, first_grace_hvp, trailing_count);
+    const bool second_continuation = second_hvp_33_safe
+        && second_ratio_33_window && second_contraction_exact
+        && second_updated_trailing;
+    const bool second_hvp_34_converged =
+        second_recurrence.iterations.size() == second_grace_hvp
+        && al_tiered_iteration_safe(
+            second_recurrence, second_grace_hvp - 1U)
+        && second_recurrence.iterations[second_grace_hvp - 1U]
+            .forcing_converged
+        && second_ratio_34 <= second_recurrence.forcing_eta
+        && second_recurrence.termination == "FORCING_CONVERGED";
+    const bool second_target_exact = later.captured
+        && later.capture_root
+            == "97c340ed27b33318fb4d6684a7d385380ddc15e3a8b0358d0c86feb189f48ab3"
+        && later.live_prefix_root
+            == "adf2edcc243060a540d515f6d8687a2b2b0f0e9e2131fbc402f06d9b50b85d08"
+        && later.offline_prefix_root == later.live_prefix_root
+        && second_step_root
+            == "35054f8939760fe7baaa4d03250b7d14ec82a284a4f01d44a15cacff6a6b0cef"
+        && second_recurrence.hvp_calls == second_grace_hvp
+        && second_entry && second_continuation
+        && second_hvp_34_converged;
+
+    const std::string first_current_before =
+        al_binary64_vec3_root(first.current_position);
+    const std::string first_predicted_before =
+        al_binary64_vec3_root(first.predicted_position);
+    const std::string second_current_before =
+        al_binary64_vec3_root(later.live.current_position);
+    const std::string second_predicted_before =
+        al_binary64_vec3_root(later.live.predicted_position);
+
+    ALSparseWorkTrace oracle_work;
+    StaticSupportWorkTrace oracle_static_work;
+    FlatAdjacencyWorkTrace oracle_adjacency_work;
+    const SmokeFixture nominal_fixture = make_b4e2d_dam_fixture();
+    const JointStaticSupportIndex oracle_index =
+        build_joint_static_support_index(
+            tagged_points(nominal_fixture.boundary), &oracle_static_work);
+    const JointStaticSupportBinding oracle_binding =
+        bind_joint_static_support_index(
+            &oracle_index, oracle_index.identity_sha256);
+    ALNormalizedSparseInnerState oracle_state =
+        evaluate_al_normalized_sparse_inner(
+            later.live.current_position, later.live.predicted_position,
+            oracle_binding, later.live.u, later.live.theta, &oracle_work,
+            &oracle_static_work, &oracle_adjacency_work);
+    const bool oracle_gradient_exact = oracle_state.inner.passed
+        && exact_vec3_values(
+            oracle_state.inner.gradient, later.live.gradient);
+    ALNormalizedHvp direct;
+    if (oracle_gradient_exact && second_target_exact) {
+        direct = apply_al_normalized_sparse_hessian(
+            oracle_state.workspace, second_recurrence.returned_step);
+    }
+    release_al_normalized_workspace(oracle_state.workspace, &oracle_work);
+
+    std::vector<Vec3> residual_image;
+    if (second_recurrence.final_residual.size()
+        == oracle_state.inner.gradient.size()) {
+        residual_image.resize(second_recurrence.final_residual.size());
+        for (std::size_t index = 0U; index < residual_image.size(); ++index) {
+            residual_image[index] =
+                second_recurrence.final_residual[index]
+                - oracle_state.inner.gradient[index];
+        }
+    }
+    const std::string direct_root = al_binary64_vec3_root(direct.value);
+    const std::string residual_root =
+        al_binary64_vec3_root(residual_image);
+    const double gradient_step = oracle_gradient_exact
+        ? flat_dot(oracle_state.inner.gradient,
+            second_recurrence.returned_step)
+        : 0.0;
+    const double direct_quadratic = direct.passed
+        ? flat_dot(second_recurrence.returned_step, direct.value) : 0.0;
+    const double direct_predicted =
+        -gradient_step - 0.5 * direct_quadratic;
+    const ALNormalizedModelImageComparison residual_model =
+        al_compare_model_image(
+            residual_image, direct, second_recurrence.returned_step,
+            gradient_step, direct_quadratic, direct_predicted);
+
+    const bool oracle_exact = oracle_gradient_exact && direct.passed
+        && !direct_root.empty() && !residual_root.empty()
+        && std::isfinite(gradient_step)
+        && std::isfinite(direct_quadratic)
+        && std::isfinite(direct_predicted) && direct_predicted > 0.0;
+    const bool work_exact = oracle_work.workspace_builds == 1U
+        && oracle_work.workspace_releases == 1U
+        && oracle_work.live_workspaces == 0U
+        && oracle_work.maximum_live_workspaces <= 1U
+        && !oracle_work.lifecycle_underflow
+        && oracle_work.all_pair_candidate_calls == 0U
+        && oracle_static_work.static_index_builds == 1U
+        && oracle_static_work.support_canonicalizations == 1U
+        && oracle_static_work.workspace_builds == 1U
+        && oracle_adjacency_work.workspace_builds == 1U;
+    const bool static_binding_exact = oracle_index.passed
+        && oracle_binding.passed && oracle_binding.index == &oracle_index
+        && oracle_binding.expected_identity_sha256
+            == oracle_index.identity_sha256
+        && oracle_index.identity_sha256
+            == later.live.static_identity_sha256;
+    const bool finite_exact = std::isfinite(first_ratio_32)
+        && std::isfinite(second_ratio_32)
+        && std::isfinite(second_ratio_33)
+        && std::isfinite(second_ratio_34)
+        && std::isfinite(second_contraction)
+        && residual_model.finite_values;
+    const bool rollback_exact =
+        al_binary64_vec3_root(first.current_position)
+            == first_current_before
+        && al_binary64_vec3_root(first.predicted_position)
+            == first_predicted_before
+        && al_binary64_vec3_root(later.live.current_position)
+            == second_current_before
+        && al_binary64_vec3_root(later.live.predicted_position)
+            == second_predicted_before;
+    const bool tiered_grace_exact = first_target_exact
+        && second_target_exact;
+    const bool hard_controls = identity_exact && parent_exact
+        && first_target_exact && second_target_exact && oracle_exact
+        && finite_exact && work_exact && static_binding_exact
+        && rollback_exact;
+
+    std::string route;
+    if (!tiered_grace_exact) {
+        route = "TIERED_GRACE_REJECTED";
+    } else if (residual_model.within_bound) {
+        route = "TIERED_GRACE_RESIDUAL_MODEL_CANDIDATE";
+    } else {
+        route = "DIRECT_MODEL_HVP_REQUIRED";
+    }
+    const bool route_precedence_exact =
+        (!tiered_grace_exact && route == "TIERED_GRACE_REJECTED")
+        || (tiered_grace_exact && residual_model.within_bound
+            && route == "TIERED_GRACE_RESIDUAL_MODEL_CANDIDATE")
+        || (tiered_grace_exact && !residual_model.within_bound
+            && route == "DIRECT_MODEL_HVP_REQUIRED");
+    const bool passed = hard_controls && route_precedence_exact;
+    std::string first_failure;
+    if (!identity_exact) first_failure = "IDENTITY";
+    else if (!parent_exact) first_failure = "D7R19R7_PARENT_BYTES";
+    else if (!first_target_exact) first_failure = "TIER1_TARGET";
+    else if (!second_target_exact) first_failure = "TIER2_TARGET";
+    else if (!oracle_exact) first_failure = "DIRECT_ORACLE";
+    else if (!finite_exact) first_failure = "FINITE";
+    else if (!work_exact) first_failure = "WORK";
+    else if (!static_binding_exact) first_failure = "STATIC_BINDING";
+    else if (!rollback_exact) first_failure = "ROLLBACK";
+    else if (!route_precedence_exact) first_failure = "ROUTE_PRECEDENCE";
+
+    const auto append_model_semantic = [](
+        std::ostringstream& output,
+        const ALNormalizedModelImageComparison& value) {
+        output << value.finite_values << ':' << value.positive_model << ':'
+               << value.within_bound << ':' << value.image_root << ':'
+               << binary64_bits(value.image_relative_error) << ':'
+               << binary64_bits(value.maximum_scaled_component_error) << ':'
+               << binary64_bits(value.quadratic) << ':'
+               << binary64_bits(value.quadratic_relative_error) << ':'
+               << binary64_bits(value.predicted_reduction) << ':'
+               << binary64_bits(value.predicted_relative_error);
+    };
+    std::ostringstream semantic;
+    semantic << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << B4E2D7R19R8_IDENTITY_SHA256 << '|'
+             << parent_stdout_sha256 << ':' << parent_semantic_exact << ':'
+             << r6_retained << ':' << r5_retained << '|'
+             << first.prefix_root << ':' << first_step_root << ':'
+             << binary64_bits(first_ratio_32) << ':'
+             << first_prefix_safe << ':' << first_ratio_window << ':'
+             << first_trailing_decrease << ':'
+             << first_hvp_33_converged << '|'
+             << later.capture_root << ':' << later.live_prefix_root << ':'
+             << later.offline_prefix_root << ':' << second_step_root << ':'
+             << binary64_bits(second_ratio_32) << ':'
+             << binary64_bits(second_ratio_33) << ':'
+             << binary64_bits(second_ratio_34) << ':'
+             << binary64_bits(second_contraction) << ':'
+             << second_entry << ':' << second_hvp_33_safe << ':'
+             << second_ratio_33_window << ':'
+             << second_contraction_exact << ':'
+             << second_updated_trailing << ':'
+             << second_hvp_34_converged << '|'
+             << residual_root << ':' << direct_root << ':'
+             << binary64_bits(gradient_step) << ':'
+             << binary64_bits(direct_quadratic) << ':'
+             << binary64_bits(direct_predicted) << '|';
+    append_model_semantic(semantic, residual_model);
+    semantic << '|' << work_exact << ':' << static_binding_exact << ':'
+             << rollback_exact << '|' << route;
+    const std::string result_sha256 = sha256_hex(semantic.str());
+
+    const auto append_bits = [](std::ostringstream& output, double value) {
+        output << "\"0x" << std::hex << binary64_bits(value)
+               << std::dec << '"';
+    };
+    std::ostringstream report;
+    report << std::setprecision(std::numeric_limits<double>::max_digits10)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4e2d7r19r8_tiered_grace_model_image.v1\""
+           << ",\"identity_sha256\":\"" << B4E2D7R19R8_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent\":{\"stdout_sha256\":\""
+           << parent_stdout_sha256 << "\",\"semantic_exact\":"
+           << (parent_semantic_exact ? "true" : "false")
+           << ",\"r6_retained\":" << (r6_retained ? "true" : "false")
+           << ",\"r5_retained\":" << (r5_retained ? "true" : "false")
+           << ",\"exact\":" << (parent_exact ? "true" : "false") << '}'
+           << ",\"tier1\":{\"prefix_root\":\"" << first.prefix_root
+           << "\",\"step_root\":\"" << first_step_root
+           << "\",\"ratio_after_32_bits\":";
+    append_bits(report, first_ratio_32);
+    report << ",\"eta_bits\":";
+    append_bits(report, first_recurrence.forcing_eta);
+    report << ",\"prefix_safe\":"
+           << (first_prefix_safe ? "true" : "false")
+           << ",\"ratio_window\":"
+           << (first_ratio_window ? "true" : "false")
+           << ",\"trailing_decrease\":"
+           << (first_trailing_decrease ? "true" : "false")
+           << ",\"hvp_33_converged\":"
+           << (first_hvp_33_converged ? "true" : "false")
+           << ",\"unchanged\":"
+           << (first_target_exact ? "true" : "false") << '}'
+           << ",\"tier2\":{\"capture_root\":\"" << later.capture_root
+           << "\",\"live_prefix_root\":\"" << later.live_prefix_root
+           << "\",\"offline_prefix_root\":\""
+           << later.offline_prefix_root << "\",\"step_root\":\""
+           << second_step_root << "\",\"ratio_after_32_bits\":";
+    append_bits(report, second_ratio_32);
+    report << ",\"ratio_after_33_bits\":";
+    append_bits(report, second_ratio_33);
+    report << ",\"ratio_after_34_bits\":";
+    append_bits(report, second_ratio_34);
+    report << ",\"eta_bits\":";
+    append_bits(report, second_recurrence.forcing_eta);
+    report << ",\"contraction_33_bits\":";
+    append_bits(report, second_contraction);
+    report << ",\"entry_prefix_safe\":"
+           << (second_prefix_safe ? "true" : "false")
+           << ",\"entry_ratio_window\":"
+           << (second_entry_ratio ? "true" : "false")
+           << ",\"entry_trailing_decrease\":"
+           << (second_initial_trailing ? "true" : "false")
+           << ",\"entry\":" << (second_entry ? "true" : "false")
+           << ",\"hvp_33_safe\":"
+           << (second_hvp_33_safe ? "true" : "false")
+           << ",\"ratio_33_window\":"
+           << (second_ratio_33_window ? "true" : "false")
+           << ",\"contraction_at_most_0_75\":"
+           << (second_contraction_exact ? "true" : "false")
+           << ",\"updated_trailing_decrease\":"
+           << (second_updated_trailing ? "true" : "false")
+           << ",\"continuation\":"
+           << (second_continuation ? "true" : "false")
+           << ",\"hvp_34_converged\":"
+           << (second_hvp_34_converged ? "true" : "false")
+           << ",\"exact\":" << (second_target_exact ? "true" : "false")
+           << "},\"model\":{\"residual_image_root\":\""
+           << residual_root << "\",\"direct_image_root\":\""
+           << direct_root << "\",\"image_relative_error_bits\":";
+    append_bits(report, residual_model.image_relative_error);
+    report << ",\"maximum_scaled_component_error_bits\":";
+    append_bits(report, residual_model.maximum_scaled_component_error);
+    report << ",\"quadratic_bits\":";
+    append_bits(report, residual_model.quadratic);
+    report << ",\"quadratic_relative_error_bits\":";
+    append_bits(report, residual_model.quadratic_relative_error);
+    report << ",\"predicted_reduction_bits\":";
+    append_bits(report, residual_model.predicted_reduction);
+    report << ",\"predicted_relative_error_bits\":";
+    append_bits(report, residual_model.predicted_relative_error);
+    report << ",\"direct_predicted_bits\":";
+    append_bits(report, direct_predicted);
+    report << ",\"finite\":"
+           << (residual_model.finite_values ? "true" : "false")
+           << ",\"positive\":"
+           << (residual_model.positive_model ? "true" : "false")
+           << ",\"within_bound\":"
+           << (residual_model.within_bound ? "true" : "false")
+           << "},\"bounds\":{\"image_relative\":1e-10,"
+              "\"component_scaled\":1e-10,"
+              "\"quadratic_relative\":1e-10,"
+              "\"predicted_relative\":1e-10}"
+           << ",\"work\":{\"parent_replays\":2,\"new_oracle_hvp\":1,"
+              "\"candidate_model_hvp\":0,\"workspace_builds\":"
+           << oracle_work.workspace_builds
+           << ",\"workspace_releases\":" << oracle_work.workspace_releases
+           << ",\"maximum_live_workspaces\":"
+           << oracle_work.maximum_live_workspaces
+           << ",\"precision_audits\":0,\"trials_formed\":0,"
+              "\"acceptances\":0,\"all_pair_candidate_calls\":"
+           << oracle_work.all_pair_candidate_calls
+           << ",\"exact\":" << (work_exact ? "true" : "false") << '}'
+           << ",\"oracle_gradient_exact\":"
+           << (oracle_gradient_exact ? "true" : "false")
+           << ",\"static_binding_exact\":"
+           << (static_binding_exact ? "true" : "false")
+           << ",\"finite_exact\":" << (finite_exact ? "true" : "false")
+           << ",\"rollback_exact\":"
+           << (rollback_exact ? "true" : "false")
+           << ",\"route_precedence_exact\":"
+           << (route_precedence_exact ? "true" : "false")
+           << ",\"route\":\"" << route << '"'
+           << ",\"control_parent_substeps\":1"
+              ",\"candidate_nominal_substeps\":0"
+              ",\"transaction_continuation\":false"
+              ",\"second_substep_executed\":false"
+              ",\"macro_frames\":0,\"trajectory_steps\":0"
+              ",\"public_commit_count\":0,\"physics_mutation\":false"
+              ",\"guard_changed\":false,\"production_cap_changed\":false"
+              ",\"trial_formation_authorized\":false"
               ",\"timing_admitted\":false,\"speedup_claim\":false"
               ",\"runtime_authority\":false,\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";

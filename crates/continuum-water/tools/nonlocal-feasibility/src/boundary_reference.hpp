@@ -179,6 +179,8 @@ run_al_guarded_sixth_trial_shadow_controls();
 SplitBoundaryReport
 run_al_guarded_residual_private_transaction_controls();
 SplitBoundaryReport run_al_second_guard_boundary_replay_controls();
+SplitBoundaryReport
+run_al_tiered_grace_model_image_discriminator_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

@@ -170,6 +170,8 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-guarded-sixth-trial-shadow|"
                          "--nonlocal-al-guarded-residual-private-transaction|"
                          "--nonlocal-al-second-guard-boundary-replay|"
+                         "--nonlocal-al-tiered-grace-model-image-"
+                         "discriminator|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1325,6 +1327,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_second_guard_boundary_replay_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-tiered-grace-model-image-discriminator") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_tiered_grace_model_image_discriminator_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
