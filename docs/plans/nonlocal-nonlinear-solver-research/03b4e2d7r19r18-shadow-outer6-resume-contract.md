@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R18 -- shadow outer-6 resume contract
 
-Status: `FROZEN / IMPLEMENTATION NEXT / SHADOW ONLY`
+Status: `FROZEN / PASS SHADOW OUTER6 CONTINUATION / NOT ADMISSIBLE`
 
 Identity projection (exact bytes, no final LF):
 
@@ -68,3 +68,6 @@ authority.
 
 Research basis:
 [D7R19R18 shadow-resume research](../../development/nonlocal-nsr3b4e2d7r19r18-shadow-outer6-resume-research-2026-08-24.md).
+
+Closed by the
+[D7R19R18 evidence](../../development/nonlocal-nsr3b4e2d7r19r18-shadow-outer6-resume-evidence-2026-08-24.md).

@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / DUAL-BUDGET ORACLE SELECTED / IMPLEMENTATION NEXT`
+Status: `PASS / RESUME EQUIVALENT / OUTER6 NOT ADMISSIBLE / R19 NEXT`
 
 ## Question
 
@@ -109,3 +109,6 @@ admissible, or a new suspension boundary; R18 itself grants no further work.
 
 The executable gate is frozen by the
 [D7R19R18 contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r18-shadow-outer6-resume-contract.md).
+
+The candidate and oracle pass exactly as recorded in the
+[D7R19R18 evidence](nonlocal-nsr3b4e2d7r19r18-shadow-outer6-resume-evidence-2026-08-24.md).

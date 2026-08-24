@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R17_PASS_OWNER_EPOCH_TRANSITION_CANDIDATE / D7R19R18_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R18_PASS_RESUME_EQUIVALENT_NOT_ADMISSIBLE / D7R19R19_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -490,6 +490,21 @@
 - **Current decision:** implement only the frozen R18 candidate+oracle pair and
   ownership transaction. Outer 7, another substep and public/world commit
   remain forbidden.
+- **D7R19R18 result:** PASS and `SHADOW_OUTER6_CONTINUATION_CANDIDATE` at
+  stdout SHA `3047e85d...41e8` and semantic result `baadf44a...e14d`.
+  Both clean binaries and full outputs are byte-exact.
+- **Resume-equivalence fact:** epoch-slice candidate and unsliced cumulative
+  oracle have exact update root `9dfe1a51...2ed5`, work root
+  `cd6418fc...9bda` and deltas `50 HVP / 4 workspaces / 2 precision`.
+- **Physical fact:** outer 6 is finite with stationarity `4.3587e-13`, but
+  primal `2.5139e-8` exceeds `1e-8`; the state is not admissible and no public
+  commit is selected.
+- **Successor fact:** private state root is `5ad2f99d...07bc`; epoch remains
+  `1`, slice/cumulative HVP become `50/573`, and used ledger is
+  `7,2,25,1,50,573,37,23,552,21,2,23,0`.
+- **Current decision:** research/freeze R19 as a zero-work, one-use outer-7
+  grant inside epoch 1. Preserve slice/cumulative and bind the exact
+  non-admissible outer-6 receipt; outer 7 remains forbidden until then.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2393,9 +2408,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19
    and all preceding normalized parents exactly. Research/freeze only
-   the frozen D7R19R18 bounded shadow outer-6 resume with active-owner consume,
-   exact unsliced-oracle comparison, explicit work ceiling, idempotent
-   negatives and rollback. Do not mutate live budget code, execute
+   D7R19R19 as a zero-work, one-use outer-7 grant inside epoch 1, preserving
+   slice/cumulative `50/573` and binding the exact R18 state/receipt. Do not
+   mutate live budget code, execute outer 7 or another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.
