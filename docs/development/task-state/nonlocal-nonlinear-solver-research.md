@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R28_PASS_OUTER11_EQUIVALENT_NOT_ADMISSIBLE / D7R19R29_FROZEN_OPERATOR_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R29_PASS_LINEARIZED_FEASIBILITY_OPERATOR / D7R19R30_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -10,6 +10,22 @@
 | Authority | Working context only; Accepted architecture, SPEC-38/ADR-076/ADR-081 and frozen stage contracts outrank this file |
 
 ## Resume in 60 seconds
+
+- **Current conclusion:** D7R19R29 passes at stdout SHA
+  `596c81d4...fe7b`, semantic result `f6736b14...835` and route
+  `LINEARIZED_FEASIBILITY_OPERATOR_CANDIDATE`. Two clean Release binaries and
+  outputs are byte-exact.
+- **Operator fact:** pair-once and directed JVP roots are identical over
+  340,340 pairs; centered finite-difference relative L2 is `4.03e-10`,
+  adjoint relative error is `2.11e-14`, and constant translation is exactly
+  zero on all 2,858 interior rows.
+- **Partition fact:** the frozen R28 state has 1,420 violated, 2,432
+  PHR-active, 3,142 static-support-coupled and 2,858 interior rows. These are
+  exact binary64 membership facts, not a floor classification.
+- **Current decision:** R29 authorizes research/freeze of one read-only
+  matrix-free range projection over the exact operator. It does not authorize
+  LSQR implementation before contract freeze, a correction, another outer,
+  tuning, timing, runtime integration or production authority.
 
 - **Current conclusion:** D7R17 reproducibly selects
   `NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED` at stdout SHA
@@ -2561,11 +2577,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R29 as a zero-state-mutation dimensionless
-   constraint-Jacobian operator proof over exact R28. Do not run LSQR, form a
-   correction, classify a floor, refine, change penalty,
+   Research/freeze only D7R19R30 as a zero-state-mutation matrix-free range
+   projection over exact R29/R28. Do not implement an unfrozen LSQR, form a
+   correction, classify a nonlinear floor, refine, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
