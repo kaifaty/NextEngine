@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R47_PASS_RESTORATION_COMPATIBILITY_REQUIRED / D7R19R48_RESTORATION_CERTIFICATE_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R47_PASS_RESTORATION_COMPATIBILITY_REQUIRED / D7R19R48_SPECIALIZED_PRIMAL_DUAL_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -23,10 +23,14 @@
   by `1.9721522630525295e-31`, below the frozen `gamma(4)` bound
   `5.8474928675268488e-30`; direct `h` is bit-exact. R47 v1 remains an invalid
   inverse-subtraction diagnostic with no scientific credit.
-- **Current decision:** research R48 as a rollback-only matrix-free bounded
-  primal/dual restoration-compatibility certificate at the exact R43 moved
-  state. Do not choose filter switching/trust constants or claim restoration
-  exit before a feasible contact-cone correction is certified.
+- **Current decision:** R48 is frozen at identity `decfdc17...8611` after
+  primary filter-SQP corrected the earlier correction-
+  application framing. R48 must certify whether the *next* TRQP at the exact
+  filter-acceptable R43 moved point admits a contact-safe normal witness inside
+  a frozen half-radius reserve. Use specialized matrix-free PDAL plus independent
+  primal row enclosures or an outward Fenchel-dual lower bound; do not apply the
+  witness or claim restoration exit. Implement the report-only discriminator
+  without parameter changes.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3150,6 +3154,26 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   freezes its immutable source/operator, trust ownership, contact cone,
   numerical stopping rules and exact rollback boundary.
 
+### D-094 -- Certify the next TRQP; do not append a correction to the old step
+
+- **Observation:** filter-SQP restoration seeks a filter-acceptable point whose
+  newly linearized TRQP is compatible for a positive next radius. R43 already
+  supplies the acceptable moved point. Treating an R48 vector as an addition to
+  the old uncommitted normal step would mix two algorithmic transactions.
+- **Decision:** relinearize at exact R43 and solve only the local convex witness
+  problem `min 0.5||max(c+A*d,0)||^2` in the current contact box and a frozen
+  `0.125` normal ball, leaving half of the inherited `0.25` radius. Use
+  Malitsky--Pock PDAL as generator. Authoritative outcomes come only from an
+  independently bounded primal feasible witness or a positive Fenchel-dual
+  lower bound; otherwise report unresolved.
+- **Rejected:** applying the witness, centering the new trust region at the old
+  source, selecting switching/trust-update policy now, generic HSDE/SCS before
+  the specialized reference, treating positive stationary hinge as
+  infeasibility, or tuning iterations from the nominal outcome.
+- **Reconsider when:** the frozen R48 discriminator closes a primal, dual or
+  exact unresolved route. A primal route permits research of a complete
+  restoration-exit transaction; it does not execute one.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3222,10 +3246,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    production margin. Preserve D7R19R47 v1 as invalid inverse-subtraction
    evidence with no scientific credit. Preserve D7R19R47 v2 exact
    PASS/`RESTORATION_COMPATIBILITY_REQUIRED`; its positive direct linear
-   residual forbids an ordinary transaction. Research/freeze D7R19R48 as a
-   rollback-only matrix-free primal/dual bounded contact-cone restoration
-   certificate at the exact R43 moved state. Do not start switching, trust
-   response or restoration exit before that certificate closes. Do
+   residual forbids an ordinary transaction. Freeze D7R19R48 as a rollback-
+   only specialized PDAL/Fenchel certificate for the next TRQP relinearized at
+   exact R43, with normal radius `0.125` inside next radius `0.25`. Do not apply
+   its witness or start switching, trust response or restoration exit before
+   that certificate closes. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
