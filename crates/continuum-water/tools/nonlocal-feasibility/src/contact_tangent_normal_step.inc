@@ -31,6 +31,9 @@ struct ALR43ReplayCapture {
     std::vector<Vec3> projected_endpoint;
     std::vector<Vec3> projected_physical;
     std::vector<Vec3> projected_trial;
+    double predicted_psi_reduction = 0.0;
+    double actual_psi_reduction = 0.0;
+    double model_ratio = 0.0;
 };
 
 } // namespace
@@ -322,6 +325,9 @@ SplitBoundaryReport run_al_contact_tangent_normal_step_controls_impl(
         replay_capture->projected_endpoint = std::move(projected);
         replay_capture->projected_physical = std::move(physical);
         replay_capture->projected_trial = std::move(trial);
+        replay_capture->predicted_psi_reduction = predicted_reduction;
+        replay_capture->actual_psi_reduction = actual_reduction;
+        replay_capture->model_ratio = rho;
     }
     return {passed, report.str()};
 }

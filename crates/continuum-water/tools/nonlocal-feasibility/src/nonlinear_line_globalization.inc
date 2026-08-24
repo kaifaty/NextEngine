@@ -42,9 +42,15 @@ double al_r45_max_particle_norm(const std::vector<Vec3>& values) {
     return maximum;
 }
 
+struct ALR45ReplayCapture {
+    bool captured = false;
+    ALR44ReplayCapture r44;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_nonlinear_line_globalization_controls() {
+SplitBoundaryReport run_al_nonlinear_line_globalization_controls_impl(
+    ALR45ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R45_IDENTITY_PROJECTION)
         == B4E2D7R19R45_IDENTITY_SHA256;
     ALR44ReplayCapture capture;
@@ -598,5 +604,13 @@ SplitBoundaryReport run_al_nonlinear_line_globalization_controls() {
               ",\"runtime_authority\":false,\"production_authority\":false"
               ",\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r44 = std::move(capture);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_nonlinear_line_globalization_controls() {
+    return run_al_nonlinear_line_globalization_controls_impl(nullptr);
 }

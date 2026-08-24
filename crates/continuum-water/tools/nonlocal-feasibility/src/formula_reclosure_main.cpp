@@ -209,6 +209,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-contact-tangent-normal-step|"
                          "--nonlocal-al-contact-feasible-common-descent|"
                          "--nonlocal-al-nonlinear-line-globalization|"
+                         "--nonlocal-al-filter-globalization|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1640,6 +1641,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_nonlinear_line_globalization_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-filter-globalization") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_filter_globalization_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
