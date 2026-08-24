@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R35_PASS_FIRST_ORDER_RETAINED / D7R19R36_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R35_PASS_FIRST_ORDER_RETAINED / D7R19R36_FROZEN_EQUAL_WORK_HYBRID_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -68,9 +68,9 @@
   result `bacfbc3d...c368` and route `FIRST_ORDER_REFERENCE_RETAINED`.
   Curvature improves objective/violation to `0.28259x/0.53159x` of R34 but
   worsens projected mapping to `1.45259x`; strict dominance fails.
-- **Current decision:** research R36 as a fixed 51-pass hybrid: three
+- **Current decision:** R36 is frozen as a fixed 51-pass hybrid: three
   curvature outers followed by six projected exact-line polishing steps from
-  exact `v8`. Keep the same three-metric strict-dominance rule.
+  exact `v8`. Implement it next with the same strict-dominance rule.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35 remain private diagnostics.
   They
   cannot
@@ -2750,7 +2750,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research and freeze only D7R19R36 as an equal-work curvature-plus-polish
+   Implement only frozen D7R19R36 as an equal-work curvature-plus-polish
    discriminator over the R34 objective/trust geometry. Do not form
    or apply a correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
