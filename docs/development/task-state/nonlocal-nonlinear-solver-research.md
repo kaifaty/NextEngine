@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R34_PASS_FIRST_ORDER_REFERENCE / D7R19R35_FROZEN_EQUAL_WORK_CURVATURE_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R35_PASS_FIRST_ORDER_RETAINED / D7R19R36_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -64,11 +64,15 @@
   `0.0500554x` of the source. The 8-step and 16-step block geometric factors
   are `0.9176058` and `0.9176000`; stable linear convergence is observed, but
   terminal projected mapping remains `1.49888e-9`.
-- **Current decision:** R35 is frozen as four undamped generalized-Hessian
-  outer iterations with five CG HVPs each, exact all-row globalization and a
-  51-pass cap from the same R33 `v8` prefix. Implement it next; strict direct
-  terminal dominance over R34 is required to select curvature.
-- **Authority boundary:** R30/R31/R32/R33/R34 remain private diagnostics. They
+- **Current conclusion:** R35 passes at stdout SHA `8f4161e6...6fe9`, semantic
+  result `bacfbc3d...c368` and route `FIRST_ORDER_REFERENCE_RETAINED`.
+  Curvature improves objective/violation to `0.28259x/0.53159x` of R34 but
+  worsens projected mapping to `1.45259x`; strict dominance fails.
+- **Current decision:** research R36 as a fixed 51-pass hybrid: three
+  curvature outers followed by six projected exact-line polishing steps from
+  exact `v8`. Keep the same three-metric strict-dominance rule.
+- **Authority boundary:** R30/R31/R32/R33/R34/R35 remain private diagnostics.
+  They
   cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
   penalty/cap/policy, time the solver, integrate runtime state or claim
@@ -2672,6 +2676,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R35 closes exact parent/prefix, CG/globalization,
   equal-work terminal comparison and rollback evidence.
 
+### D-077 -- Polish curvature instead of relaxing dominance
+
+- **Observation:** R35 curvature removes more feasibility residual than R34
+  but leaves a `1.45259x` worse projected mapping. Its first three outer blocks
+  already reach objective `9.74609e-17`; the fourth consumes 12 passes.
+- **Decision:** replace only that fourth 12-pass block with six validated
+  2-pass first-order polishing steps. Preserve exact `v8`, the first three R35
+  outer records, total 51-pass budget and strict dominance over R34.
+- **Rejected:** accepting two of three metrics, adding more work, changing CG
+  depth after the result, damping/preconditioning, applying either endpoint or
+  using wall time.
+- **Reconsider when:** R36 research freezes prefix composition, exact work
+  partition, polish recurrence, direct comparison and dense controls.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2730,10 +2748,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R35 as an equal-work generalized-Hessian
-   curvature discriminator over the R34 objective/trust geometry. Do not form
+   Research and freeze only D7R19R36 as an equal-work curvature-plus-polish
+   discriminator over the R34 objective/trust geometry. Do not form
    or apply a correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
