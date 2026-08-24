@@ -23,6 +23,18 @@ struct ALR36PolishRecord {
     std::string root;
 };
 
+struct ALR36HybridCapture {
+    bool captured = false;
+    ALR35CurvatureCapture r35;
+    std::vector<Vec3> iterate;
+    std::vector<double> maintained_response;
+    std::vector<double> terminal_response;
+    std::vector<Vec3> terminal_gradient;
+    std::vector<Vec3> projected_mapping;
+    std::vector<ALR36PolishRecord> polish_records;
+    ALR32Evaluation terminal;
+};
+
 bool al_r36_dense_controls(std::string* output_root) {
     std::string curvature_root;
     const bool curvature = al_r35_dense_controls(&curvature_root);
@@ -64,7 +76,8 @@ std::string al_r36_route(
 
 } // namespace
 
-SplitBoundaryReport run_al_equal_work_curvature_polish_hybrid_controls() {
+SplitBoundaryReport run_al_equal_work_curvature_polish_hybrid_controls_impl(
+    ALR36HybridCapture* output_capture) {
     const bool identity_exact = sha256_hex(B4E2D7R19R36_IDENTITY_PROJECTION)
         == B4E2D7R19R36_IDENTITY_SHA256;
     ALR35CurvatureCapture parent_capture;
@@ -650,5 +663,20 @@ SplitBoundaryReport run_al_equal_work_curvature_polish_hybrid_controls() {
               ",\"state_mutation\":false,\"timing_admitted\":false"
               ",\"runtime_authority\":false,\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (output_capture != nullptr) {
+        output_capture->captured = passed;
+        output_capture->r35 = std::move(parent_capture);
+        output_capture->iterate = std::move(iterate);
+        output_capture->maintained_response = std::move(maintained_response);
+        output_capture->terminal_response = std::move(terminal_response.value);
+        output_capture->terminal_gradient = std::move(terminal_gradient);
+        output_capture->projected_mapping = std::move(projected_mapping);
+        output_capture->polish_records = std::move(polish_records);
+        output_capture->terminal = terminal;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_equal_work_curvature_polish_hybrid_controls() {
+    return run_al_equal_work_curvature_polish_hybrid_controls_impl(nullptr);
 }
