@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / PASS / SHADOW_OUTER9_EXECUTION_CANDIDATE`
 
 ## Question
 
@@ -66,3 +66,7 @@ prework and idempotent.
 One private outer-9 candidate and one comparison oracle only. No following
 outer, substep, macro, trajectory, timing, public/world commit, durable or
 concurrent CAS, runtime integration or production authority.
+
+The frozen implementation passes with exact candidate/oracle roots and remains
+non-admissible after 49 new HVP. See the
+[dated evidence](nonlocal-nsr3b4e2d7r19r24-shadow-outer9-execution-evidence-2026-08-24.md).
