@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R17_PASS_OWNER_EPOCH_TRANSITION_CANDIDATE / D7R19R18_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R17_PASS_OWNER_EPOCH_TRANSITION_CANDIDATE / D7R19R18_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -480,6 +480,16 @@
 - **Current decision:** research/freeze R18 as one bounded shadow outer-6
   resume with active-owner consume, exact unsliced-oracle comparison, explicit
   work ceiling and rollback. Do not implement resume until frozen.
+- **R18 frozen design:** clone the exact R16/R17 physics state and execute the
+  same outer-6 function twice. The candidate owns epoch-1 slice HVP `0/512`;
+  the independent oracle owns unsliced cumulative HVP `523/8704`. All solver
+  inputs/policies remain identical and every output/work delta must be exact.
+- **Commit rule:** consume the active owner and emit private canonical resume
+  receipt/state only after candidate/oracle equality. Every failure and
+  injected mismatch/abort rolls back; duplicate replay is prework/idempotent.
+- **Current decision:** implement only the frozen R18 candidate+oracle pair and
+  ownership transaction. Outer 7, another substep and public/world commit
+  remain forbidden.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2383,7 +2393,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19
    and all preceding normalized parents exactly. Research/freeze only
-   D7R19R18 as one bounded shadow outer-6 resume with active-owner consume,
+   the frozen D7R19R18 bounded shadow outer-6 resume with active-owner consume,
    exact unsliced-oracle comparison, explicit work ceiling, idempotent
    negatives and rollback. Do not mutate live budget code, execute
    resume or outer 6, admit another trial/solve, commit public state, raise the
