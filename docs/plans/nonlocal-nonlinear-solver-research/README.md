@@ -2419,3 +2419,11 @@ descent at every state and restarts, proving the guard is necessary. Freeze a
 short rollback-only Hager--Zhang recurrence against an equal-work steepest
 trajectory next. Do not infer recurrent convergence or production readiness
 from the replay.
+The [D7R19R39 research](../../development/nonlocal-nsr3b4e2d7r19r39-guarded-hz-recurrence-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r39-guarded-hz-recurrence-contract.md)
+select eight rollback-only Hager--Zhang steps from exact R37 state 24 against
+eight equal-work steepest steps. Checkpoints `1/2/4/8` require strict
+objective, violation and mapping dominance; at least two consecutive
+non-restarted memory steps distinguish recurrence from retained one-step
+benefit. Each nonstationary lane owns exactly 18 pair passes. Implement R39
+next without timing or nonlinear moved-state evaluation.

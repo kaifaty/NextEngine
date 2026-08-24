@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R38_PASS_HAGER_ZHANG_DIRECTION_CANDIDATE / D7R19R39_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R38_PASS_HAGER_ZHANG_DIRECTION_CANDIDATE / D7R19R39_FROZEN_GUARDED_RECURRENCE_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -121,6 +121,11 @@
   from the exact R37 terminal state against an equal-work steepest trajectory.
   Preserve exact line globalization and restart on any invalid or non-descent
   direction; do not infer a recurrent solver from the one-step replay.
+- **R39 contract:** from exact R37 state 24, execute at most eight guarded HZ
+  and eight steepest linearized steps with checkpoints `1/2/4/8`. A full
+  nonstationary lane owns exactly 18 pair passes. Selection requires strict
+  three-metric dominance at every checkpoint and at least two consecutive
+  non-restarted memory steps.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -2852,11 +2857,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R38/R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research and freeze D7R19R39 as a short rollback-only Hager--Zhang
-   recurrence from the exact R37 terminal state against an equal-work
-   steepest trajectory. Do not implement before the formulas, history
-   ownership, restart precedence, horizon, work ledger and selection gates
-   are frozen. Do not form or apply a
+   Implement only frozen D7R19R39 as the short rollback-only Hager--Zhang
+   recurrence from the exact R37 terminal state against its equal-work
+   steepest trajectory. Do not form or apply a
    correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
