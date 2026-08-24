@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R39_PASS_GUARDED_HZ_RECURRENCE / D7R19R40_NONLINEAR_ACCEPTANCE_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R39_PASS_GUARDED_HZ_RECURRENCE / D7R19R40_NONLINEAR_ACCEPTANCE_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -139,6 +139,17 @@
 - **Current decision:** retain guarded HZ as the linearized normal-step
   candidate and research/freeze rollback-only nonlinear moved-state
   acceptance next. Do not spend more inner steps to manufacture stationarity.
+- **R40 contract:** map the exact R39 endpoint as
+  `trial=current+SPACING*v`, rebuild current/trial nonlinear workspaces and
+  require both feasibility agreement (`rho>=0.1`) and precision-resolved
+  positive full normalized merit reduction. Equal pair membership and no
+  increased dam-box penetration are mandatory.
+- **Precision decision:** always audit the full-merit sign in normalized long
+  double with binary64-owned membership. Binary128 is conditional only on an
+  unresolved/disagreeing long-double sign and remains diagnostic.
+- **Scientific fork:** feasibility acceptance with nonpositive full merit is
+  a successful `COMPOSITE_NORMAL_TANGENTIAL_STEP_REQUIRED` classification,
+  not permission to tune penalty, trust or a tolerance.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -2827,6 +2838,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R40 freezes exact mapping, merit, predicted/actual
   reduction, topology, rollback, work and outcome routes before code.
 
+### D-082 -- Gate the normal step separately from the complete merit
+
+- **Observation:** R39 minimizes only the linearized feasibility hinge. SQP
+  normal-step theory does not imply that this direction also reduces inertia
+  plus the PHR augmented-Lagrangian term at the nonlinear moved state.
+- **Decision:** R40 requires both nonlinear feasibility model agreement at the
+  inherited `rho>=0.1` and a precision-resolved positive complete normalized
+  merit reduction. Preserve a separate composite-step-required route when
+  feasibility passes but merit fails.
+- **Rejected:** accepting on feasibility alone, inventing a full-merit model
+  after seeing the result, tuning penalty/trust/rho, permitting topology or
+  contact drift, committing the trial, or using wall time.
+- **Reconsider when:** R40 closes exact moved-state evidence and selects its
+  first scientific route.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2887,13 +2913,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R39/R38/R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research and freeze D7R19R40 as a rollback-only nonlinear moved-state
-   acceptance discriminator for the exact R39 HZ endpoint. Do not implement
-   before dimensional mapping, nonlinear objective/merit, predicted/actual
-   reduction, topology/trust ownership, work and routes are frozen. Do not
-   form or apply a
-   correction, evaluate a moved
-   nonlinear state, classify a nonlinear floor, change penalty,
+   D7R19R40 is frozen as a rollback-only nonlinear moved-state acceptance
+   discriminator for the exact R39 HZ endpoint. Implement that exact contract
+   next, then obtain two clean byte-exact Release outputs. Do not apply or
+   commit the correction, classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
