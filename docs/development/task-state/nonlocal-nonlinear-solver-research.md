@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R32_PASS_ALL_INEQUALITY_CAUCHY / D7R19R33_FROZEN_ITERATED_NORMAL_STEP_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R33_PASS_ITERATED_NORMAL_STEP / D7R19R34_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -44,11 +44,21 @@
   norm from `8.1139951e-8` to `7.3077349e-8` (`0.9006334x`). The exact line
   minimum is interior at `alpha=1.7940547e-7`; 208 inactive rows enter and
   178 active rows leave.
-- **Current decision:** R33 is frozen as an eight-iteration projected
-  exact-line normal-step pilot with checkpoints `1/2/4/8`, exact R32 first-step
-  reproduction and at most 18 new pair passes. Implement it next; use the
-  result to decide whether R34 needs generalized-Hessian TRON/Newton-CG.
-- **Authority boundary:** R30/R31/R32 remain private diagnostics. They cannot
+- **R33 contract:** eight projected exact-line iterations, checkpoints
+  `1/2/4/8`, exact R32 first-step reproduction and at most 18 new pair passes.
+- **Current conclusion:** R33 passes at stdout SHA `6bab6bfb...5464`, semantic
+  result `61f21b04...e9ec` and route
+  `ITERATED_ALL_INEQUALITY_NORMAL_STEP_CANDIDATE`. Two clean binaries and
+  outputs are byte-exact.
+- **Convergence fact:** violation norm falls to `0.627875x` and hinge
+  objective to `0.394228x` of the source by iteration eight. All doubling
+  checkpoints strictly improve, while terminal projected mapping remains
+  `4.33159e-9`; the pilot progresses but has not solved the subproblem.
+- **Current decision:** research R34 as the exact R33-prefix continuation to
+  checkpoints 16 and 32. Use it as the fixed first-order reference for a
+  later equal-work generalized-Hessian comparison if stationarity is absent.
+- **Authority boundary:** R30/R31/R32/R33 remain private diagnostics. They
+  cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
   penalty/cap/policy, time the solver, integrate runtime state or claim
   production readiness.
@@ -2616,6 +2626,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R33 closes its exact first-step reproduction,
   checkpoint trajectory, direct terminal operator checks and classification.
 
+### D-075 -- Establish a 32-step first-order reference before Newton-CG
+
+- **Observation:** R33 strictly reduces the objective through checkpoint
+  eight and uses only `4.38365e-7` of the `0.25` trust radius. The terminal
+  projected mapping remains nonzero, so neither trust-boundary stationarity
+  nor a first-order plateau is observed.
+- **Decision:** continue the exact recurrence to fixed checkpoints 16 and 32
+  with the R33 eight-step prefix as a hard gate. This becomes the first-order
+  work/reference curve. If still nonstationary, research a separately frozen
+  generalized-Hessian TRON/Newton-CG method and compare at equal pair-pass
+  work rather than selecting it from asymptotic theory alone.
+- **Rejected:** applying the eight-step iterate, declaring convergence from
+  objective reduction, immediately replacing the validated recurrence with
+  Newton-CG, extending until a convenient result without a frozen checkpoint,
+  or interpreting shared-host duration as solver performance.
+- **Reconsider when:** R34 fixes and closes exact 16/32 checkpoints, terminal
+  direct operator evidence and its pair-pass ledger.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2674,11 +2702,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R33 as an eight-iteration projected exact-line
-   all-inequality normal-step discriminator with inherited trust bound and an
-   18-pair-pass cap. Do not form or apply a correction, evaluate a moved
+   Research and freeze only D7R19R34 as an exact continuation of the R33
+   projected exact-line prefix to checkpoints 16/32 with a predeclared
+   pair-pass cap. Do not form or apply a correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
