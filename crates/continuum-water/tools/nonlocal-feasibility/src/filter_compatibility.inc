@@ -23,9 +23,15 @@ std::string al_r47_route(bool parent, bool source, bool linear,
     return "FILTER_NORMAL_STEP_COMPATIBLE_CANDIDATE";
 }
 
+struct ALR47ReplayCapture {
+    bool captured = false;
+    ALR46ReplayCapture r46;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_filter_compatibility_controls() {
+SplitBoundaryReport run_al_filter_compatibility_controls_impl(
+    ALR47ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R47_IDENTITY_PROJECTION)
         == B4E2D7R19R47_IDENTITY_SHA256;
     ALR46ReplayCapture capture;
@@ -232,5 +238,13 @@ SplitBoundaryReport run_al_filter_compatibility_controls() {
               ",\"runtime_authority\":false,\"production_authority\":false"
               ",\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r46 = std::move(capture);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_filter_compatibility_controls() {
+    return run_al_filter_compatibility_controls_impl(nullptr);
 }
