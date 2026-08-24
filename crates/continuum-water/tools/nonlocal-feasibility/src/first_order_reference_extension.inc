@@ -34,9 +34,22 @@ std::string al_r34_route(
         : "EXTENDED_FIRST_ORDER_REFERENCE_CANDIDATE";
 }
 
+struct ALR34ReferenceCapture {
+    bool captured = false;
+    ALR33NormalStepCapture r33;
+    std::vector<ALR34Checkpoint> checkpoints;
+    std::vector<Vec3> iterate;
+    std::vector<double> maintained_response;
+    std::vector<double> terminal_response;
+    std::vector<Vec3> terminal_gradient;
+    std::vector<Vec3> projected_mapping;
+    ALR32Evaluation terminal;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_first_order_reference_extension_controls() {
+SplitBoundaryReport run_al_first_order_reference_extension_controls_impl(
+    ALR34ReferenceCapture* output_capture) {
     const bool identity_exact = sha256_hex(B4E2D7R19R34_IDENTITY_PROJECTION)
         == B4E2D7R19R34_IDENTITY_SHA256;
     ALR33NormalStepCapture capture;
@@ -472,5 +485,20 @@ SplitBoundaryReport run_al_first_order_reference_extension_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (output_capture != nullptr) {
+        output_capture->captured = passed;
+        output_capture->r33 = std::move(capture);
+        output_capture->checkpoints = std::move(checkpoints);
+        output_capture->iterate = std::move(iterate);
+        output_capture->maintained_response = std::move(maintained_response);
+        output_capture->terminal_response = std::move(terminal_response.value);
+        output_capture->terminal_gradient = std::move(terminal_gradient);
+        output_capture->projected_mapping = std::move(projected_mapping);
+        output_capture->terminal = terminal;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_first_order_reference_extension_controls() {
+    return run_al_first_order_reference_extension_controls_impl(nullptr);
 }

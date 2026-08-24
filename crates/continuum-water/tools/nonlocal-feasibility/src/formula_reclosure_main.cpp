@@ -198,6 +198,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-all-inequality-cauchy-normal-step|"
                          "--nonlocal-al-iterated-all-inequality-normal-step|"
                          "--nonlocal-al-first-order-reference-extension|"
+                         "--nonlocal-al-equal-work-generalized-hessian|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1551,6 +1552,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_first_order_reference_extension_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-equal-work-generalized-hessian") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_equal_work_generalized_hessian_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
