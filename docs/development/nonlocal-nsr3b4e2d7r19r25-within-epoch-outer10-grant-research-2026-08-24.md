@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `PASS / OUTER10_GRANT_CANDIDATE / SHADOW ONLY`
 
 ## Decision
 
@@ -39,3 +39,6 @@ Validate exact R24, all context/ledger fields and canonical roots; execute the
 14-route rollback/idempotence corpus; commit one private outer-10 owner only.
 No outer 10, cap change, epoch reset, substep, macro, trajectory, timing,
 public/world commit, live policy change or production authority.
+
+Result:
+[D7R19R25 evidence](nonlocal-nsr3b4e2d7r19r25-within-epoch-outer10-grant-evidence-2026-08-24.md).
