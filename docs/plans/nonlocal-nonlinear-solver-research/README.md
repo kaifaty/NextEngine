@@ -2342,3 +2342,9 @@ the all-row violation norm by about `9.94%`, reaches an interior line KKT
 point and changes the active set by 208 entries and 178 exits. Research a
 separately frozen bounded iterative all-inequality normal step next; do not
 apply the R32 step or select production integration.
+The [D7R19R33 research](../../development/nonlocal-nsr3b4e2d7r19r33-iterated-normal-step-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r33-iterated-normal-step-contract.md)
+select an eight-iteration projected exact-line pilot with checkpoints at
+`1/2/4/8` and at most 18 new pair passes. It separates continued cheap
+first-order progress from the need for a later generalized-Hessian TRON
+experiment. Implement only this report-only discriminator next.

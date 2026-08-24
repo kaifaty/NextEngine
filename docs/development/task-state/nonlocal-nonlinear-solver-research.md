@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R32_PASS_ALL_INEQUALITY_CAUCHY / R33_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R32_PASS_ALL_INEQUALITY_CAUCHY / D7R19R33_FROZEN_ITERATED_NORMAL_STEP_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -44,10 +44,10 @@
   norm from `8.1139951e-8` to `7.3077349e-8` (`0.9006334x`). The exact line
   minimum is interior at `alpha=1.7940547e-7`; 208 inactive rows enter and
   178 active rows leave.
-- **Current decision:** research R33 as a bounded iterative all-inequality
-  normal-step discriminator. Preserve the R32 objective and trust geometry,
-  predeclare a strict pair-pass budget and distinguish shallow one-step
-  progress from materially deeper feasible-residual reduction.
+- **Current decision:** R33 is frozen as an eight-iteration projected
+  exact-line normal-step pilot with checkpoints `1/2/4/8`, exact R32 first-step
+  reproduction and at most 18 new pair passes. Implement it next; use the
+  result to decide whether R34 needs generalized-Hessian TRON/Newton-CG.
 - **Authority boundary:** R30/R31/R32 remain private diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
   penalty/cap/policy, time the solver, integrate runtime state or claim
@@ -2613,8 +2613,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   state, evaluating a moved nonlinear state before a deeper linearized
   certificate, increasing the trust radius from the observed result, or
   selecting a library/package before its operator and KKT contract are fixed.
-- **Reconsider when:** R33 research fixes one algorithm, deterministic
-  recurrence, work cap, direct terminal checks and independent dense controls.
+- **Reconsider when:** R33 closes its exact first-step reproduction,
+  checkpoint trajectory, direct terminal operator checks and classification.
 
 ## Performance facts retained
 
@@ -2676,9 +2676,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research and freeze only D7R19R33 as a bounded iterative all-inequality
-   normal-step discriminator with inherited trust bound and a predeclared
-   pair-pass cap. Do not form or apply a correction, evaluate a moved
+   Implement only frozen D7R19R33 as an eight-iteration projected exact-line
+   all-inequality normal-step discriminator with inherited trust bound and an
+   18-pair-pass cap. Do not form or apply a correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
