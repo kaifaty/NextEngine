@@ -122,9 +122,17 @@ std::string al_r40_route(
     return "NONLINEAR_NORMAL_STEP_ACCEPTANCE_CANDIDATE";
 }
 
+struct ALR40ReplayCapture {
+    bool captured = false;
+    ALR39ReplayCapture r39;
+    std::vector<Vec3> physical_step;
+    std::vector<Vec3> trial_position;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_nonlinear_normal_acceptance_controls() {
+SplitBoundaryReport run_al_nonlinear_normal_acceptance_controls_impl(
+    ALR40ReplayCapture* replay_capture) {
     const bool identity_exact = sha256_hex(
         B4E2D7R19R40_IDENTITY_PROJECTION)
         == B4E2D7R19R40_IDENTITY_SHA256;
@@ -591,5 +599,15 @@ SplitBoundaryReport run_al_nonlinear_normal_acceptance_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r39 = std::move(capture);
+        replay_capture->physical_step = std::move(physical_step);
+        replay_capture->trial_position = std::move(trial_position);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_nonlinear_normal_acceptance_controls() {
+    return run_al_nonlinear_normal_acceptance_controls_impl(nullptr);
 }

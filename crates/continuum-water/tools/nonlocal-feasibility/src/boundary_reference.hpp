@@ -213,6 +213,7 @@ SplitBoundaryReport run_al_hybrid_polish_continuation_controls();
 SplitBoundaryReport run_al_direction_memory_replay_controls();
 SplitBoundaryReport run_al_guarded_hz_recurrence_controls();
 SplitBoundaryReport run_al_nonlinear_normal_acceptance_controls();
+SplitBoundaryReport run_al_support_crossing_contact_audit_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
