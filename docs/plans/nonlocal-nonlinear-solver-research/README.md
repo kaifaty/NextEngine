@@ -2474,3 +2474,10 @@ existing conservative displacement certificate by more than four orders in
 length. R42 must still prove exact two-graph inclusion, bit-exact canonical
 correspondence and a fresh trial JVP/VJP/finite-difference operator before
 this abstraction receives any topology-admission credit.
+The [D7R19R42 evidence](../../development/nonlocal-nsr3b4e2d7r19r42-stable-superset-relinearization-evidence-2026-08-24.md)
+closes `PASS / STABLE_SUPERSET_RELINEARIZATION_CANDIDATE`. One 386,402-pair
+superset with maximum degree 122 covers both exact graphs; current/trial masks
+and normalized workspaces match independent canonical builds bit-for-bit.
+Trial FD and adjoint errors are `3.96e-10` and `2.95e-14`. The trial remains
+nearly feasible but nonstationary. Research/freeze contact-tangent projection
+with stable-superset rebuild/relinearization and complete-merit evaluation next.

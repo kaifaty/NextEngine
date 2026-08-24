@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R41_PASS_NONZERO_SUPPORT_CROSSING / D7R19R42_STABLE_SUPERSET_RELINEARIZATION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R42_PASS_STABLE_SUPERSET_RELINEARIZATION / D7R19R43_CONTACT_TANGENT_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -194,6 +194,19 @@
 - **Current decision:** implement only the frozen rollback-only R42
   discriminator. The skin owns candidate identity, never physical support;
   active masks and trial coefficients remain exact and state-local.
+- **Current conclusion:** R42 passes at stdout SHA `f7ae3a0c...5106`, semantic
+  `fed11eef...84d2` and route
+  `STABLE_SUPERSET_RELINEARIZATION_CANDIDATE`; two clean binaries and outputs
+  are byte-exact.
+- **Ownership fact:** one 386,402-pair superset (maximum degree 122) covers
+  both exact active graphs. Both masked normalized workspaces are bit-exact
+  against independent canonical builds; physical support remains unchanged.
+- **Operator fact:** trial finite-difference and adjoint errors are
+  `3.9624e-10` and `2.94575e-14`. The fresh zero-origin projected mapping is
+  nonzero at `2.96605e-14`; no stationarity tolerance is selected.
+- **Current decision:** research/freeze contact-tangent projection of the R40
+  normal step, followed by stable-superset rebuild/relinearization and full
+  nonlinear feasibility/merit evaluation.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -2933,6 +2946,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   current/trial relinearization or demonstrates that a state-dependent
   support rebuild remains unavoidable.
 
+### D-085 -- Project the normal step into active-contact tangent cones
+
+- **Observation:** R42 closes topology ownership and trial relinearization.
+  R41 found no new contact crossings; all 1,268 regressions are inward motion
+  at already-active box faces. The unprojected full merit remains negative.
+- **Decision:** research a per-particle projection of the frozen R40 physical
+  normal step into the intersection of source-active box half-space tangent
+  cones. Rebuild exact masked neighborhoods and trial coefficients, then
+  reevaluate contact, feasibility agreement and precision-resolved full merit.
+- **Rejected:** clipping final positions without step ownership, projecting
+  only the worst face, adding contact penalty after the result, changing
+  density penalty/support/trust radius, accepting on contact alone, or timing.
+- **Reconsider when:** R43 freezes exact active-face ownership, projection,
+  stable-superset coverage, relinearization, merit and rollback routes.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2995,9 +3023,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
    Preserve D7R19R40 exact PASS/`NONLINEAR_TOPOLOGY_REJECTED` and D7R19R41
    exact PASS/`NONZERO_SUPPORT_CROSSING_REQUIRES_RELINEARIZATION` evidence.
-   Research and freeze D7R19R42 as a rollback-only stable-superset coverage and
-   exact trial-state relinearization discriminator. Keep physical `H`, exact
-   compact-support evaluation and the R40 source/trial unchanged. Do
+   Preserve D7R19R42 exact PASS/`STABLE_SUPERSET_RELINEARIZATION_CANDIDATE`.
+   Research and freeze D7R19R43 as a rollback-only active-contact tangent
+   projection with stable-superset rebuild/relinearization and full merit.
+   Keep physical `H` and the unprojected R40 evidence unchanged. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
