@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R41_PASS_NONZERO_SUPPORT_CROSSING / D7R19R42_STABLE_SUPERSET_RELINEARIZATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R41_PASS_NONZERO_SUPPORT_CROSSING / D7R19R42_STABLE_SUPERSET_RELINEARIZATION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -182,6 +182,18 @@
   containing both exact compact-support graphs and a freshly relinearized
   trial operator. Preserve physical compact support and exact kernel values;
   do not fit a shell tolerance or project contact yet.
+- **R42 contract:** build one source-anchored canonical `H+0.04H` ownership
+  superset, filter exact current/trial `r<=H` masks, require bit-exact
+  correspondence with both independent canonical workspaces, and validate a
+  freshly evaluated trial JVP/VJP/finite-difference operator.
+- **Coverage fact:** the R40 global physical L2 step norm
+  `6.1414253e-8` bounds every individual displacement and is over four orders
+  below the existing conservative `s/2=0.003` certificate limit. This is an
+  analytic prerequisite; R42 must still audit actual displacement and ordered
+  inclusion before selection.
+- **Current decision:** implement only the frozen rollback-only R42
+  discriminator. The skin owns candidate identity, never physical support;
+  active masks and trial coefficients remain exact and state-local.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune

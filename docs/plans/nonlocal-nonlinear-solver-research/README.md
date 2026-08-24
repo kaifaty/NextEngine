@@ -2466,3 +2466,11 @@ the trial even though R40 feasibility agreement is nearly exact. No new box
 contact appears; all 1,268 worsened faces were already penetrating and move
 inward. Research/freeze a stable neighbor superset and exact trial-state
 relinearization before contact-tangent or composite-step design.
+The [D7R19R42 research](../../development/nonlocal-nsr3b4e2d7r19r42-stable-superset-relinearization-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r42-stable-superset-relinearization-contract.md)
+select one source-anchored canonical `H+0.04H` ownership superset with exact
+state-local `r<=H` masks. The R40 global step norm analytically fits the
+existing conservative displacement certificate by more than four orders in
+length. R42 must still prove exact two-graph inclusion, bit-exact canonical
+correspondence and a fresh trial JVP/VJP/finite-difference operator before
+this abstraction receives any topology-admission credit.
