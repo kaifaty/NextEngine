@@ -49,9 +49,23 @@ std::string al_r46_route(bool parent, bool source, bool coordinate,
     return "FILTER_FEASIBILITY_STEP_CANDIDATE";
 }
 
+struct ALR46ReplayCapture {
+    bool captured = false;
+    ALR45ReplayCapture r45;
+    double source_f = 0.0;
+    double trial_f = 0.0;
+    double objective_reduction = 0.0;
+    double source_h = 0.0;
+    double trial_h = 0.0;
+    double source_psi = 0.0;
+    double trial_psi = 0.0;
+    bool filter_admitted = false;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_filter_globalization_controls() {
+SplitBoundaryReport run_al_filter_globalization_controls_impl(
+    ALR46ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R46_IDENTITY_PROJECTION)
         == B4E2D7R19R46_IDENTITY_SHA256;
     ALR45ReplayCapture capture;
@@ -404,5 +418,21 @@ SplitBoundaryReport run_al_filter_globalization_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r45 = std::move(capture);
+        replay_capture->source_f = source_f;
+        replay_capture->trial_f = trial_f;
+        replay_capture->objective_reduction = objective_reduction;
+        replay_capture->source_h = source_metric.norm;
+        replay_capture->trial_h = trial_metric.norm;
+        replay_capture->source_psi = source_metric.psi;
+        replay_capture->trial_psi = trial_metric.psi;
+        replay_capture->filter_admitted = envelope_exact;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_filter_globalization_controls() {
+    return run_al_filter_globalization_controls_impl(nullptr);
 }

@@ -34,6 +34,10 @@ struct ALR43ReplayCapture {
     double predicted_psi_reduction = 0.0;
     double actual_psi_reduction = 0.0;
     double model_ratio = 0.0;
+    double source_psi = 0.0;
+    double linear_psi = 0.0;
+    double linear_h = 0.0;
+    std::size_t linear_active = 0U;
 };
 
 } // namespace
@@ -328,6 +332,10 @@ SplitBoundaryReport run_al_contact_tangent_normal_step_controls_impl(
         replay_capture->predicted_psi_reduction = predicted_reduction;
         replay_capture->actual_psi_reduction = actual_reduction;
         replay_capture->model_ratio = rho;
+        replay_capture->source_psi = source_metric.psi;
+        replay_capture->linear_psi = linear_metric.psi;
+        replay_capture->linear_h = linear_metric.norm;
+        replay_capture->linear_active = linear_metric.active;
     }
     return {passed, report.str()};
 }

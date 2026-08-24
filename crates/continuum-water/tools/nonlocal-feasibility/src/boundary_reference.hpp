@@ -219,6 +219,7 @@ SplitBoundaryReport run_al_contact_tangent_normal_step_controls();
 SplitBoundaryReport run_al_contact_feasible_common_descent_controls();
 SplitBoundaryReport run_al_nonlinear_line_globalization_controls();
 SplitBoundaryReport run_al_filter_globalization_controls();
+SplitBoundaryReport run_al_filter_compatibility_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
