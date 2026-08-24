@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R47_PASS_RESTORATION_COMPATIBILITY_REQUIRED / D7R19R48_SPECIALIZED_PRIMAL_DUAL_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R47_PASS / D7R19R48V1_INVALID_GEOMETRY_ASSUMPTION / D7R19R48V2_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -23,14 +23,17 @@
   by `1.9721522630525295e-31`, below the frozen `gamma(4)` bound
   `5.8474928675268488e-30`; direct `h` is bit-exact. R47 v1 remains an invalid
   inverse-subtraction diagnostic with no scientific credit.
-- **Current decision:** R48 is frozen at identity `decfdc17...8611` after
-  primary filter-SQP corrected the earlier correction-
+- **Current decision:** R48 v1 stopped before solver work because its assumed
+  half-skin `0.3` is actually `0.059999999999940004`. Preserve that invalid
+  geometry diagnostic without solver credit. R48 v2 retains the specialized
+  primal/dual design but freezes dyadic next/normal radii `1/16` and `1/32`.
+  Primary filter-SQP had corrected the earlier correction-
   application framing. R48 must certify whether the *next* TRQP at the exact
   filter-acceptable R43 moved point admits a contact-safe normal witness inside
   a frozen half-radius reserve. Use specialized matrix-free PDAL plus independent
   primal row enclosures or an outward Fenchel-dual lower bound; do not apply the
-  witness or claim restoration exit. Implement the report-only discriminator
-  without parameter changes.
+  witness or claim restoration exit. Finalize the v2 identity, then implement
+  the report-only discriminator without parameter changes.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3162,7 +3165,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   the old uncommitted normal step would mix two algorithmic transactions.
 - **Decision:** relinearize at exact R43 and solve only the local convex witness
   problem `min 0.5||max(c+A*d,0)||^2` in the current contact box and a frozen
-  `0.125` normal ball, leaving half of the inherited `0.25` radius. Use
+  `0.03125` normal ball, leaving half of the frozen `0.0625` radius. Use
   Malitsky--Pock PDAL as generator. Authoritative outcomes come only from an
   independently bounded primal feasible witness or a positive Fenchel-dual
   lower bound; otherwise report unresolved.
@@ -3173,6 +3176,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** the frozen R48 discriminator closes a primal, dual or
   exact unresolved route. A primal route permits research of a complete
   restoration-exit transaction; it does not execute one.
+
+### D-095 -- Derive the witness radius from the exact frozen skin
+
+- **Observation:** R48 v1 reproduced R47 and the moved workspace but stopped
+  before solver work. The assumed dimensionless half-skin `0.3` was wrong;
+  exact `SPACING` and `B4EP3_SKIN` give `0.059999999999940004`, so a `0.125`
+  normal ball could not use the frozen R42 operator.
+- **Decision:** retain v1 as an invalid geometry diagnostic with no solver
+  credit. V2 freezes exact dyadic next radius `1/16` and half-reserve normal
+  radius `1/32`; `||r43||+1/32` is strictly inside the exact half-skin. The
+  operator, contact set, PDAL parameters and primal/dual certificate do not
+  change. V2 identity is `b20c6c6b...52332`.
+- **Rejected:** widening the superset after seeing the failure, ignoring skin,
+  counting the geometry stop as a PDAL result, choosing a radius from a nominal
+  convergence outcome, or changing the half-reserve rule.
+- **Reconsider when:** v2 either enters the frozen generator and closes one
+  classification or exposes the next exact pre-solver boundary.
 
 ## Performance facts retained
 
@@ -3248,7 +3268,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`RESTORATION_COMPATIBILITY_REQUIRED`; its positive direct linear
    residual forbids an ordinary transaction. Freeze D7R19R48 as a rollback-
    only specialized PDAL/Fenchel certificate for the next TRQP relinearized at
-   exact R43, with normal radius `0.125` inside next radius `0.25`. Do not apply
+   exact R43, with normal radius `0.03125` inside next radius `0.0625`. Do not apply
    its witness or start switching, trust response or restoration exit before
    that certificate closes. Do
    not apply or commit the correction,

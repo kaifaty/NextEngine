@@ -47,18 +47,19 @@ P(d) = 0.5 * ||max(c + A*d, 0)||_2^2.
 The feasible geometry is the convex set
 
 ```text
-C = {d : ||d||_2 <= 0.125, l_contact <= d <= u_contact}.
+C = {d : ||d||_2 <= 0.03125, l_contact <= d <= u_contact}.
 ```
 
-The next TRQP radius remains the inherited `0.25`; limiting the normal witness
-to half of it is an outcome-independent compatibility reserve. The component
+The next TRQP radius is the dyadic `0.0625`; limiting the normal witness to its
+half `0.03125` is an outcome-independent compatibility reserve. The component
 bounds are rebuilt at `y`: an already penetrating face permits only
 non-worsening motion, while an interior component may move only up to the exact
 first box-face crossing. Every interval contains zero.
 
-The R43 total displacement has norm `1.0290544256239871e-6`. Even the triangle
-bound with the complete `0.125` normal radius remains below the existing
-source-anchored half-skin radius `0.3` in dimensionless units. The frozen R42
+The R43 total displacement has norm `1.0290544256239871e-6`. The first frozen
+draft incorrectly inferred half-skin `0.3`; the exact value is
+`0.059999999999940004`. The dyadic `0.03125` normal ball plus the R43
+displacement remains strictly below that bound. The frozen R42
 superset can therefore own every R48 operator evaluation without support
 expansion.
 

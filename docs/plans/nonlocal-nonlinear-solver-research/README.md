@@ -1,7 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R47_PASS_RESTORATION_COMPATIBILITY_REQUIRED /
-NSR3B4E2D7R19R48_SPECIALIZED_PRIMAL_DUAL_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R19R48V1_INVALID_GEOMETRY_ASSUMPTION /
+NSR3B4E2D7R19R48V2_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves the pre-closure R47 v2 freeze marker for historical audit.
 
@@ -2570,9 +2571,13 @@ The [D7R19R48 research](../../development/nonlocal-nsr3b4e2d7r19r48-restoration-
 corrects the transaction boundary: R43 is the filter-acceptable restoration
 point, while R48 must only certify compatibility of its freshly relinearized
 next TRQP. The selected local problem minimizes the all-row hinge over a
-`0.125` normal ball and exact current contact box, leaving half of the inherited
-`0.25` radius. Malitsky--Pock PDAL is only the matrix-free witness generator;
+`0.03125` normal ball and exact current contact box, leaving half of the frozen
+`0.0625` next radius. Malitsky--Pock PDAL is only the matrix-free witness generator;
 independent rowwise primal enclosures or an outward Fenchel-dual lower bound own
 the result. The rollback-only contract is frozen at identity
-`decfdc1738adc72a5cf9a2aa0ede5c9ca5a34b15cbb090fd4324640f74c98611`.
-Implement it next; do not apply the witness or commit a restoration exit.
+V1's larger radius stopped at the exact geometry gate before solver work because
+the inherited half-skin is `0.06`, not `0.3`; it receives no solver credit.
+V2 is frozen at identity
+`b20c6c6b530bd3078de7707e87c8deacf8eae0dab581584cf30421e5a1d52332`.
+Implement it next; do not apply the witness or
+commit a restoration exit.
