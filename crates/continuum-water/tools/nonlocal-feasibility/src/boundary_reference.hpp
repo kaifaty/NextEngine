@@ -203,6 +203,7 @@ SplitBoundaryReport run_al_within_epoch_outer11_grant_controls();
 SplitBoundaryReport run_al_shadow_outer11_execution_controls();
 SplitBoundaryReport run_al_linearized_feasibility_operator_controls();
 SplitBoundaryReport run_al_linearized_range_projection_controls();
+SplitBoundaryReport run_al_scalar_feasibility_interval_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

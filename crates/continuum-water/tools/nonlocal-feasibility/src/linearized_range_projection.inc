@@ -621,9 +621,26 @@ std::string al_r30_route(
     return "LINEARIZED_RANGE_PROJECTION_CANDIDATE";
 }
 
+struct ALR30RangeProjectionCapture {
+    bool captured = false;
+    std::string state_root;
+    std::vector<double> constraint;
+    std::vector<std::uint8_t> violated;
+    std::vector<Vec3> preimage;
+    std::vector<double> full_response;
+    std::string topology_root;
+    std::string violated_root;
+    std::string rhs_root;
+    std::string preimage_root;
+    std::string response_root;
+    double preimage_rms = 0.0;
+    double preimage_maximum = 0.0;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_linearized_range_projection_controls() {
+SplitBoundaryReport run_al_linearized_range_projection_controls_impl(
+    ALR30RangeProjectionCapture* output_capture) {
     const bool identity_exact = sha256_hex(B4E2D7R19R30_IDENTITY_PROJECTION)
         == B4E2D7R19R30_IDENTITY_SHA256;
     ALShadowOuter11ExecutionCapture capture;
@@ -1056,5 +1073,25 @@ SplitBoundaryReport run_al_linearized_range_projection_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (output_capture != nullptr) {
+        output_capture->captured = passed;
+        output_capture->state_root = capture.state_root;
+        output_capture->constraint =
+            capture.candidate.update.support.constraint;
+        output_capture->violated = std::move(violated);
+        output_capture->preimage = std::move(preimage);
+        output_capture->full_response = std::move(full_response);
+        output_capture->topology_root = topology_root;
+        output_capture->violated_root = violated_root;
+        output_capture->rhs_root = rhs_root;
+        output_capture->preimage_root = preimage_root;
+        output_capture->response_root = response_root;
+        output_capture->preimage_rms = preimage_rms;
+        output_capture->preimage_maximum = preimage_maximum;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_linearized_range_projection_controls() {
+    return run_al_linearized_range_projection_controls_impl(nullptr);
 }
