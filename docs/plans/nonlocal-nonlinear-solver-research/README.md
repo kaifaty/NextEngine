@@ -2391,3 +2391,9 @@ projected mapping to `0.21562x/0.46434x/0.49843x`; both clean Release outputs
 are byte-exact. The endpoint remains nonstationary. Research/freeze a bounded
 unchanged-polish continuation and termination curve next; do not apply the
 iterate or evaluate a moved nonlinear state.
+The [D7R19R37 research](../../development/nonlocal-nsr3b4e2d7r19r37-hybrid-polish-continuation-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r37-hybrid-polish-continuation-contract.md)
+select exactly 24 additional unchanged polish steps with checkpoints after
+`6/12/24`. Fresh prefix/terminal operators and the 48 iteration passes close
+again at exactly 51 pair passes. Exact zero remains the only stationarity
+route; no tolerance is fitted. Implement report-only R37 next.

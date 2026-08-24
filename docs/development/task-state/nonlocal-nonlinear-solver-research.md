@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R36_PASS_EQUAL_WORK_HYBRID_SELECTED / PROJECTED_STATIONARITY_CONTINUATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R36_PASS_EQUAL_WORK_HYBRID_SELECTED / D7R19R37_FROZEN_TERMINATION_CURVE_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -83,6 +83,11 @@
   linearized normal-step candidate. Research/freeze a bounded continuation of
   the unchanged polish recurrence to establish its projected-stationarity
   curve before any nonlinear moved-state evaluation.
+- **R37 contract:** start from the exact R36 endpoint and execute at most 24
+  additional unchanged polish steps with checkpoints `6/12/24`. Prefix plus
+  iterations plus fresh terminal operators close at exactly 51 pair passes
+  and zero HVPs. Exact zero is the only stationarity route; no numerical
+  tolerance is selected.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -2780,8 +2785,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research and freeze only a bounded unchanged-polish continuation from the
-   exact R36 endpoint. Do not form or apply a correction, evaluate a moved
+   Implement only frozen D7R19R37 as the bounded unchanged-polish
+   termination curve from the exact R36 endpoint. Do not form or apply a
+   correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
