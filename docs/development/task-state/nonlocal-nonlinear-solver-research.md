@@ -2,14 +2,26 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R44_PASS_CONTACT_FEASIBLE_COMMON_DESCENT / D7R19R45_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
-| Updated | `2026-08-24` |
+| Status | `ACTIVE / D7R19R45_PASS_COMPOSITE_MERIT_RECOVERY_REQUIRED / D7R19R46_FILTER_GLOBALIZATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
 | Definition of done | NSR0--NSR6 select a production-roadmap candidate or stop at an exact reproducible boundary |
 | Authority | Working context only; Accepted architecture, SPEC-38/ADR-076/ADR-081 and frozen stage contracts outrank this file |
 
 ## Resume in 60 seconds
+
+- **Current conclusion:** R45 passes at stdout SHA `2ab62170...abc7`, semantic
+  `55c04d42...773` and route `COMPOSITE_MERIT_RECOVERY_REQUIRED`. Two clean
+  Release binaries and outputs are byte-exact.
+- **Line fact:** all 25 predeclared candidates are topology/contact safe. The
+  first locally admissible point is backtrack 5 but retains source merit
+  `-1.242e-15`; the best sampled source merit is still `-1.197e-15` at
+  backtrack 4. Twenty long-double audits resolve with no binary128 use.
+- **Current decision:** do not densify the same tangential line. Research a
+  filter-SQP/restoration acceptance discriminator that treats feasibility and
+  objective as separate coordinates before any state application or next
+  outer.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3045,6 +3057,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R45 either selects one finite rollback-only composite
   candidate or isolates the first exact domain/globalization boundary.
 
+### D-089 -- Replace monotone composite merit with an explicit filter study
+
+- **Observation:** R45 finds precision-resolved local common descent but no
+  finite point on that line recovers positive source merit. Its best source
+  reduction remains `-1.1966e-15`; contact, trust, topology and sign
+  resolution are already closed.
+- **Decision:** preserve R43 as a candidate feasibility-restoration step and
+  research filter-SQP globalization. R46 must freeze separate objective and
+  violation coordinates, initial-filter ownership, sufficient decrease,
+  nondominance, restoration classification and rollback before evaluating
+  whether R43 is admissible.
+- **Rejected:** denser R45 sampling, another raw-gradient direction from the
+  same fixed trial, relaxing the positive-merit gate without a filter,
+  changing penalty/contact/trust, accepting R43 directly or running the next
+  outer.
+- **Reconsider when:** R46 proves or rejects a complete finite filter
+  acceptance transaction with exact source/trial coordinates and controls.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3111,8 +3141,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R43 exact PASS/`TANGENTIAL_MERIT_STEP_REQUIRED` and both
    immutable unprojected/projected trial roots. Preserve D7R19R44 exact
    PASS/`CONTACT_FEASIBLE_COMMON_DESCENT_CANDIDATE` and rollback evidence.
-   Implement only the frozen D7R19R45 scale-aware nonlinear
-   line-globalization discriminator. Do
+   Preserve D7R19R45 exact PASS/`COMPOSITE_MERIT_RECOVERY_REQUIRED`; do not
+   densify or retune its scalar line. Research/freeze D7R19R46 as a
+   rollback-only filter-SQP/restoration acceptance discriminator. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
