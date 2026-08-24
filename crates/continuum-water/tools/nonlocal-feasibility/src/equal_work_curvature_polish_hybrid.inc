@@ -1,26 +1,20 @@
 namespace {
 
-constexpr const char* B4E2D7R19R35_IDENTITY_SHA256 =
-    "9462749f5b1f1113537e9bc1b57883198571721e88e4a2ddaf8f255ebedc4708";
-constexpr const char* B4E2D7R19R35_IDENTITY_PROJECTION =
-    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19r35-equal-work-generalized-hessian|v1|parent=7db0857e:5150f1f697072a21a81ce7d6fc7aa4548ce603e7e27796143483fa0ad796f345:00dcf602a9266d8170a8c84af1f338903650f4c767a24d7cf00249a9837583b7|source=v8-from-r33;prefix-response-7dd519932782f9177be354418c9ecaaa1fed3baac1e8255305675da7cb59dff3;baseline-checkpoint-35db4ad52c1fbd8d99e4ada888ecc5589df1cdfb39e3f9a73cd1323494326dc3;baseline-response-ed311a3272f1cd21049db2fa57cb40d6a9b3dd23a9e629b0cfd9f5f514d62193;baseline-gradient-49edafddd1de7d26262831752dc14269a6c6a72b317983c5b75c626939b66996;baseline-mapping-f536d409dc5679e2343d05a418d0a33637f9ec1db65c52e25f8eb49a1e0d1c07;particles6000;pairs340340;max-degree113|model=phi(v)=0.5*norm(max(c+A*v,0))2;A=SPACING*Jc;all-rows;support-fixed;H=At*Dactive*A|trust=global-l2;delta0.25;fixed|curvature=outer4;cg-max5;unpreconditioned;undamped;zero-initial-direction;consistent-range;hvp=jvp-mask-vjp;zero-or-nonpositive-curvature-stop|globalization=z=project-ball(v+p,delta);d=(z-v)/norm(z-v);exact-r32-piecewise-line;all-rows|comparison=same-v8;pair-pass-cap51;strict-terminal-phi-violation-mapping-dominance-over-r34|terminal=fresh-jvp-v;fresh-vjp-positive;maintained-direct-response-relative<=1e-12;projected-mapping|controls=dense-spd-newton;dense-singular-consistent;dense-active-switch;dense-trust-projection;parent;source;workspace;prefix;cg;globalization;direct;work;rollback|observations=outer-cg-residual-curvature-step-active;terminal-roots;baseline-candidate-ratios;trust-use|nullspace-stops|routes=curvature-parent-rejected;curvature-source-rejected;curvature-dense-rejected;curvature-workspace-rejected;curvature-prefix-rejected;curvature-cg-rejected;curvature-globalization-rejected;curvature-direct-rejected;curvature-work-rejected;all-inequality-projected-stationary;first-order-reference-retained;equal-work-generalized-hessian-candidate|precedence=parent,source,dense,workspace,prefix,cg,globalization,direct,work,classification|runs=2-clean-release-builds;1-process-each;byte-exact|work=control-parent-r34-once;diagnostic-workspaces1;prefix-passes1;outer4*(gradient1+cg5*hvp2+line1)=48;terminal-passes2;new-pair-passes<=51;new-hvp<=20;new-model0;new-trial0;new-outer0|correction=none;nonlinear-evaluation=none;floor-classification=none;state-mutation=none;following-outer=none;substep=none;macro=none;trajectory=none;timing=none;public-schema=none;runtime=none;production=none|credit=one-private-equal-work-generalized-hessian-classification-only)IDENTITY";
+constexpr const char* B4E2D7R19R36_IDENTITY_SHA256 =
+    "2e5cd1cb1fc8722c7d75fdf81c59e0d999809d8a9c00886b5260de62b80e3054";
+constexpr const char* B4E2D7R19R36_IDENTITY_PROJECTION =
+    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19r36-equal-work-curvature-polish-hybrid|v1|parent=a1b0f1e8:8f4161e6d4cf9ac24d1ee828dec7019ae0179bd5979c97ea8fec3f2910446fe9:bacfbc3d6a3a620d83bddac51cde4133169100e7300dd9850ae1851d6997c368|source=v8-from-r33;r35-outer-prefix-b35a0e69d29316e6a53836e5c5d689d1ad6b915ea46dda968149459f587b1fa2,6457aeb488feff2b4526a1d227ecd13a6f0c37f7b4045e70102ce07eae189391,9520017434f95d8c1cabd9217dcfa88a1ac589efb03526420313bce9ff708c53;baseline-r34-phi-1.6477454905319591e-16;violation-1.8153487216135412e-8;mapping-1.4988794937300478e-9|model=all-row-squared-hinge;trust-global-l2-delta0.25|hybrid=curvature-outers3;cg-max5;undamped;then-projected-exact-line-polish6|work=prefix1+curvature36+polish12+terminal2;pair-pass-cap51;hvp15|comparison=strict-terminal-phi-violation-mapping-dominance-over-r34|controls=dense-curvature-prefix;dense-polish-stationarity;dense-active-switch;parent;source;workspace;prefix;curvature;polish;direct;work;rollback|routes=hybrid-parent-rejected;hybrid-source-rejected;hybrid-dense-rejected;hybrid-workspace-rejected;hybrid-prefix-rejected;hybrid-curvature-rejected;hybrid-polish-rejected;hybrid-direct-rejected;hybrid-work-rejected;all-inequality-projected-stationary;first-order-reference-retained;equal-work-curvature-polish-hybrid-candidate|runs=2-clean-release-builds;1-process-each;byte-exact|correction=none;nonlinear-evaluation=none;state-mutation=none;timing=none;runtime=none;production=none|credit=one-private-equal-work-hybrid-classification-only)IDENTITY";
 
-struct ALR35DenseCg {
-    bool passed = false;
-    std::vector<double> step;
-    double residual_norm = 0.0;
-    std::size_t iterations = 0U;
-    std::size_t curvature_stops = 0U;
-    std::string root;
-};
+constexpr std::array<const char*, 3U> AL_R36_CURVATURE_ROOTS{{
+    "b35a0e69d29316e6a53836e5c5d689d1ad6b915ea46dda968149459f587b1fa2",
+    "6457aeb488feff2b4526a1d227ecd13a6f0c37f7b4045e70102ce07eae189391",
+    "9520017434f95d8c1cabd9217dcfa88a1ac589efb03526420313bce9ff708c53",
+}};
 
-struct ALR35OuterRecord {
-    std::size_t outer = 0U;
-    std::size_t cg_iterations = 0U;
-    std::size_t curvature_stops = 0U;
-    double cg_initial_norm = 0.0;
-    double cg_final_norm = 0.0;
-    double descent = 0.0;
+struct ALR36PolishRecord {
+    std::size_t iteration = 0U;
+    double gradient_norm = 0.0;
+    double step_norm = 0.0;
     double line_alpha = 0.0;
     double phi = 0.0;
     double violation_norm = 0.0;
@@ -29,191 +23,80 @@ struct ALR35OuterRecord {
     std::string root;
 };
 
-struct ALR35CurvatureCapture {
-    bool captured = false;
-    ALR34ReferenceCapture r34;
-    std::vector<ALR35OuterRecord> outer_records;
-};
-
-long double al_r35_dot_vec3(
-    const std::vector<Vec3>& lhs,
-    const std::vector<Vec3>& rhs) {
-    if (lhs.size() != rhs.size()) {
-        return std::numeric_limits<long double>::quiet_NaN();
-    }
-    long double result = 0.0L;
-    for (std::size_t index = 0U; index < lhs.size(); ++index) {
-        result += static_cast<long double>(dot(lhs[index], rhs[index]));
-    }
-    return result;
-}
-
-std::vector<double> al_r35_dense_matvec(
-    const std::vector<std::vector<double>>& matrix,
-    const std::vector<double>& value) {
-    std::vector<double> result(matrix.size(), 0.0);
-    for (std::size_t row = 0U; row < matrix.size(); ++row) {
-        long double item = 0.0L;
-        for (std::size_t column = 0U; column < value.size(); ++column) {
-            item += static_cast<long double>(matrix[row][column])
-                * value[column];
-        }
-        result[row] = static_cast<double>(item);
-    }
-    return result;
-}
-
-ALR35DenseCg al_r35_dense_cg(
-    const std::vector<std::vector<double>>& hessian,
-    const std::vector<double>& gradient) {
-    ALR35DenseCg result;
-    if (hessian.empty() || hessian.size() != gradient.size()) return result;
-    std::vector<double> residual(gradient.size(), 0.0);
-    std::vector<double> direction(gradient.size(), 0.0);
-    result.step.assign(gradient.size(), 0.0);
-    for (std::size_t index = 0U; index < gradient.size(); ++index) {
-        residual[index] = -gradient[index];
-        direction[index] = residual[index];
-    }
-    long double rr = al_r30_dot(residual, residual);
-    const long double initial = rr;
-    bool exact = std::isfinite(static_cast<double>(rr));
-    for (std::size_t iteration = 0U; iteration < 5U && rr != 0.0L;
-         ++iteration) {
-        const std::vector<double> image =
-            al_r35_dense_matvec(hessian, direction);
-        const long double curvature = al_r30_dot(direction, image);
-        if (!std::isfinite(static_cast<double>(curvature))) {
-            exact = false;
-            break;
-        }
-        if (curvature <= 0.0L) {
-            ++result.curvature_stops;
-            break;
-        }
-        const long double alpha = rr / curvature;
-        for (std::size_t index = 0U; index < gradient.size(); ++index) {
-            result.step[index] += static_cast<double>(alpha) * direction[index];
-            residual[index] -= static_cast<double>(alpha) * image[index];
-        }
-        const long double rr_next = al_r30_dot(residual, residual);
-        ++result.iterations;
-        if (!std::isfinite(static_cast<double>(rr_next)) || rr_next < 0.0L) {
-            exact = false;
-            break;
-        }
-        if (rr_next == 0.0L) {
-            rr = rr_next;
-            break;
-        }
-        const long double beta = rr_next / rr;
-        for (std::size_t index = 0U; index < gradient.size(); ++index) {
-            direction[index] = residual[index]
-                + static_cast<double>(beta) * direction[index];
-        }
-        rr = rr_next;
-    }
-    result.residual_norm = std::sqrt(static_cast<double>(rr));
-    result.passed = exact && initial >= rr
-        && std::all_of(result.step.begin(), result.step.end(),
-            [](double value) { return std::isfinite(value); });
+bool al_r36_dense_controls(std::string* output_root) {
+    std::string curvature_root;
+    const bool curvature = al_r35_dense_controls(&curvature_root);
+    ALR33DenseControl polish = al_r33_dense_run(
+        "hybrid-polish-stationary", {{1.0, 0.0}, {0.0, 4.0}},
+        {1.0, 1.0}, 2.0, 6U);
+    ALR33DenseControl active_switch = al_r33_dense_run(
+        "hybrid-active-switch", {{-1.0}, {1.0}}, {1.0, -0.1}, 1.0, 6U);
+    polish.passed = polish.passed && polish.stationary
+        && polish.accepted == 2U && polish.phi <= 1.0e-28;
+    active_switch.passed = active_switch.passed && active_switch.stationary
+        && active_switch.accepted == 1U && active_switch.active == 2U;
+    const bool exact = curvature && polish.passed && active_switch.passed;
     std::ostringstream projection;
-    projection << result.passed << ':' << result.iterations << ':'
-               << result.curvature_stops << ':'
-               << binary64_bits(result.residual_norm) << ':';
-    for (double value : result.step) projection << binary64_bits(value) << ':';
-    result.root = sha256_hex(projection.str());
-    return result;
-}
-
-bool al_r35_dense_controls(std::string* output_root) {
-    const ALR35DenseCg spd = al_r35_dense_cg(
-        {{2.0, 0.0}, {0.0, 4.0}}, {2.0, 4.0});
-    const ALR35DenseCg singular = al_r35_dense_cg(
-        {{1.0, 0.0}, {0.0, 0.0}}, {1.0, 0.0});
-    const ALR35DenseCg active_cg = al_r35_dense_cg({{1.0}}, {-1.0});
-    const ALR32LineResult active_line = al_r32_piecewise_line(
-        {1.0, -0.1}, {-1.0, 1.0}, 1.0);
-    const std::vector<double> projected = al_r33_dense_project({10.9}, 1.0);
-    const bool exact = spd.passed && spd.iterations <= 5U
-        && spd.residual_norm <= 1.0e-14
-        && std::abs(spd.step[0] + 1.0) <= 1.0e-14
-        && std::abs(spd.step[1] + 1.0) <= 1.0e-14
-        && singular.passed && singular.iterations == 1U
-        && singular.residual_norm == 0.0
-        && binary64_bits(singular.step[0]) == binary64_bits(-1.0)
-        && singular.step[1] == 0.0
-        && active_cg.passed && active_cg.iterations == 1U
-        && active_line.passed
-        && binary64_bits(active_line.alpha) == binary64_bits(0.55)
-        && active_line.final.active == 2U
-        && projected.size() == 1U
-        && std::abs(projected[0] - 1.0) <= 1.0e-15;
-    std::ostringstream projection;
-    projection << spd.root << ':' << singular.root << ':' << active_cg.root
-               << ':' << active_line.root << ':'
-               << (projected.empty() ? 0ULL : binary64_bits(projected[0]))
-               << ':' << exact;
+    projection << curvature_root << ':' << polish.root << ':'
+               << active_switch.root << ':' << exact;
     if (output_root != nullptr) *output_root = sha256_hex(projection.str());
     return exact;
 }
 
-std::string al_r35_route(
-    bool parent, bool source, bool dense, bool workspace, bool prefix, bool cg,
-    bool globalization, bool direct, bool work, bool stationary,
+std::string al_r36_route(
+    bool parent, bool source, bool dense, bool workspace, bool prefix,
+    bool curvature, bool polish, bool direct, bool work, bool stationary,
     bool dominates) {
-    if (!parent) return "CURVATURE_PARENT_REJECTED";
-    if (!source) return "CURVATURE_SOURCE_REJECTED";
-    if (!dense) return "CURVATURE_DENSE_REJECTED";
-    if (!workspace) return "CURVATURE_WORKSPACE_REJECTED";
-    if (!prefix) return "CURVATURE_PREFIX_REJECTED";
-    if (!cg) return "CURVATURE_CG_REJECTED";
-    if (!globalization) return "CURVATURE_GLOBALIZATION_REJECTED";
-    if (!direct) return "CURVATURE_DIRECT_REJECTED";
-    if (!work) return "CURVATURE_WORK_REJECTED";
+    if (!parent) return "HYBRID_PARENT_REJECTED";
+    if (!source) return "HYBRID_SOURCE_REJECTED";
+    if (!dense) return "HYBRID_DENSE_REJECTED";
+    if (!workspace) return "HYBRID_WORKSPACE_REJECTED";
+    if (!prefix) return "HYBRID_PREFIX_REJECTED";
+    if (!curvature) return "HYBRID_CURVATURE_REJECTED";
+    if (!polish) return "HYBRID_POLISH_REJECTED";
+    if (!direct) return "HYBRID_DIRECT_REJECTED";
+    if (!work) return "HYBRID_WORK_REJECTED";
     if (stationary) return "ALL_INEQUALITY_PROJECTED_STATIONARY";
     return dominates
-        ? "EQUAL_WORK_GENERALIZED_HESSIAN_CANDIDATE"
+        ? "EQUAL_WORK_CURVATURE_POLISH_HYBRID_CANDIDATE"
         : "FIRST_ORDER_REFERENCE_RETAINED";
 }
 
 } // namespace
 
-SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
-    ALR35CurvatureCapture* output_capture) {
-    const bool identity_exact = sha256_hex(B4E2D7R19R35_IDENTITY_PROJECTION)
-        == B4E2D7R19R35_IDENTITY_SHA256;
-    ALR34ReferenceCapture capture;
+SplitBoundaryReport run_al_equal_work_curvature_polish_hybrid_controls() {
+    const bool identity_exact = sha256_hex(B4E2D7R19R36_IDENTITY_PROJECTION)
+        == B4E2D7R19R36_IDENTITY_SHA256;
+    ALR35CurvatureCapture parent_capture;
     const SplitBoundaryReport parent =
-        run_al_first_order_reference_extension_controls_impl(&capture);
+        run_al_equal_work_generalized_hessian_controls_impl(&parent_capture);
     const std::string parent_stdout = sha256_hex(parent.json + "\n");
     const bool parent_semantic = parent.json.find(
         "\"result_sha256\":\""
-        "00dcf602a9266d8170a8c84af1f338903650f4c767a24d7cf00249a9837583b7"
+        "bacfbc3d6a3a620d83bddac51cde4133169100e7300dd9850ae1851d6997c368"
         "\"") != std::string::npos;
-    const bool parent_exact = parent.passed && capture.captured
+    const bool parent_exact = parent.passed && parent_capture.captured
         && parent_semantic && parent_stdout
-            == "5150f1f697072a21a81ce7d6fc7aa4548ce603e7e27796143483fa0ad796f345";
-    ALR33NormalStepCapture& r33 = capture.r33;
+            == "8f4161e6d4cf9ac24d1ee828dec7019ae0179bd5979c97ea8fec3f2910446fe9";
+    ALR34ReferenceCapture& baseline = parent_capture.r34;
+    ALR33NormalStepCapture& r33 = baseline.r33;
     ALR30RangeProjectionCapture& r30 = r33.r32.r31.r30;
     const std::string position_before = al_binary64_vec3_root(r30.position);
     const std::string dual_before = al_r10_dual_root(r30.dual);
     const std::string constraint_before = al_r10_dual_root(r30.constraint);
-    std::ostringstream baseline_checkpoint_projection;
-    for (const ALR34Checkpoint& checkpoint : capture.checkpoints) {
-        baseline_checkpoint_projection << checkpoint.root << '|';
-    }
-    const std::string baseline_checkpoint_root =
-        sha256_hex(baseline_checkpoint_projection.str());
+    const double baseline_mapping_norm =
+        al_r32_vec3_norm(baseline.projected_mapping);
     const bool source_exact = parent_exact
-        && baseline_checkpoint_root
-            == "35db4ad52c1fbd8d99e4ada888ecc5589df1cdfb39e3f9a73cd1323494326dc3"
-        && al_r10_dual_root(capture.terminal_response)
-            == "ed311a3272f1cd21049db2fa57cb40d6a9b3dd23a9e629b0cfd9f5f514d62193"
-        && al_binary64_vec3_root(capture.terminal_gradient)
-            == "49edafddd1de7d26262831752dc14269a6c6a72b317983c5b75c626939b66996"
-        && al_binary64_vec3_root(capture.projected_mapping)
-            == "f536d409dc5679e2343d05a418d0a33637f9ec1db65c52e25f8eb49a1e0d1c07"
+        && parent_capture.outer_records.size() == 4U
+        && parent_capture.outer_records[0].root == AL_R36_CURVATURE_ROOTS[0]
+        && parent_capture.outer_records[1].root == AL_R36_CURVATURE_ROOTS[1]
+        && parent_capture.outer_records[2].root == AL_R36_CURVATURE_ROOTS[2]
+        && binary64_bits(baseline.terminal.phi)
+            == binary64_bits(1.6477454905319591e-16)
+        && binary64_bits(baseline.terminal.positive_norm)
+            == binary64_bits(1.8153487216135412e-8)
+        && binary64_bits(baseline_mapping_norm)
+            == binary64_bits(1.4988794937300478e-9)
         && al_r10_dual_root(r33.terminal_response)
             == "7dd519932782f9177be354418c9ecaaa1fed3baac1e8255305675da7cb59dff3"
         && r30.state_root
@@ -222,7 +105,7 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
         && r33.maintained_response.size() == 6000U;
 
     std::string dense_root;
-    const bool dense_exact = al_r35_dense_controls(&dense_root);
+    const bool dense_exact = al_r36_dense_controls(&dense_root);
     ALSparseWorkTrace work;
     StaticSupportWorkTrace static_work;
     FlatAdjacencyWorkTrace adjacency_work;
@@ -265,13 +148,12 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
     for (std::size_t row = 0U; row < residual.size(); ++row) {
         residual[row] = r30.constraint[row] + maintained_response[row];
     }
-    std::vector<ALR35OuterRecord> outer_records;
-    bool cg_exact = prefix_exact;
-    bool globalization_exact = prefix_exact;
+    std::vector<ALR35OuterRecord> curvature_records;
+    bool curvature_exact = prefix_exact;
     bool projected_stationary = false;
     std::size_t curvature_stops = 0U;
-    for (std::size_t outer = 0U; outer < 4U && cg_exact
-            && globalization_exact && !projected_stationary; ++outer) {
+    for (std::size_t outer = 0U; outer < 3U && curvature_exact
+            && !projected_stationary; ++outer) {
         std::vector<double> positive(residual.size(), 0.0);
         for (std::size_t row = 0U; row < residual.size(); ++row) {
             positive[row] = std::max(residual[row], 0.0);
@@ -280,12 +162,9 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
             al_r29_pair_once_vjp(workspace, positive);
         ++pair_passes;
         const double gradient_norm = al_r32_vec3_norm(gradient);
-        if (!al_r32_vec3_finite(gradient) || !std::isfinite(gradient_norm)) {
-            cg_exact = false;
-            break;
-        }
-        if (gradient_norm == 0.0) {
-            projected_stationary = true;
+        if (!al_r32_vec3_finite(gradient) || !std::isfinite(gradient_norm)
+            || gradient_norm == 0.0) {
+            curvature_exact = false;
             break;
         }
         std::vector<Vec3> step(iterate.size());
@@ -304,7 +183,7 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
                 al_r29_pair_once_jvp(workspace, direction);
             ++pair_passes;
             if (!image.passed) {
-                cg_exact = false;
+                curvature_exact = false;
                 break;
             }
             std::vector<double> masked(image.value.size(), 0.0);
@@ -316,13 +195,13 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
             ++pair_passes;
             ++hvp_count;
             if (!al_r32_vec3_finite(hessian_direction)) {
-                cg_exact = false;
+                curvature_exact = false;
                 break;
             }
             const long double curvature =
                 al_r35_dot_vec3(direction, hessian_direction);
             if (!std::isfinite(static_cast<double>(curvature))) {
-                cg_exact = false;
+                curvature_exact = false;
                 break;
             }
             if (curvature <= 0.0L) {
@@ -333,7 +212,8 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
             const long double alpha = rr / curvature;
             for (std::size_t particle = 0U;
                  particle < iterate.size(); ++particle) {
-                step[particle] += static_cast<double>(alpha) * direction[particle];
+                step[particle] += static_cast<double>(alpha)
+                    * direction[particle];
                 cg_residual[particle] += -static_cast<double>(alpha)
                     * hessian_direction[particle];
             }
@@ -341,7 +221,7 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
                 al_r35_dot_vec3(cg_residual, cg_residual);
             ++cg_iterations;
             if (!std::isfinite(static_cast<double>(rr_next)) || rr_next < 0.0L) {
-                cg_exact = false;
+                curvature_exact = false;
                 break;
             }
             if (rr_next == 0.0L) {
@@ -356,14 +236,15 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
             }
             rr = rr_next;
         }
-        if (!cg_exact) break;
+        if (!curvature_exact) break;
         const double cg_final_norm = std::sqrt(static_cast<double>(rr));
         const double descent = static_cast<double>(
             al_r35_dot_vec3(gradient, step));
-        cg_exact = al_r32_vec3_finite(step) && std::isfinite(cg_final_norm)
-            && std::isfinite(descent) && descent < 0.0
-            && cg_iterations <= 5U;
-        if (!cg_exact) break;
+        curvature_exact = al_r32_vec3_finite(step)
+            && std::isfinite(cg_final_norm) && std::isfinite(descent)
+            && descent < 0.0 && cg_iterations == 5U
+            && outer_curvature_stops == 0U;
+        if (!curvature_exact) break;
 
         std::vector<Vec3> trial(iterate.size());
         for (std::size_t particle = 0U; particle < iterate.size(); ++particle) {
@@ -372,7 +253,7 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
         const std::vector<Vec3> target = al_r33_project_vec3(
             trial, AL_R32_TRUST_DELTA);
         if (target.size() != iterate.size()) {
-            globalization_exact = false;
+            curvature_exact = false;
             break;
         }
         std::vector<Vec3> line_direction(iterate.size());
@@ -381,7 +262,7 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
         }
         const double chord_norm = al_r32_vec3_norm(line_direction);
         if (chord_norm == 0.0) {
-            projected_stationary = true;
+            curvature_exact = false;
             break;
         }
         for (Vec3& value : line_direction) {
@@ -391,7 +272,7 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
             al_r29_pair_once_jvp(workspace, line_direction);
         ++pair_passes;
         if (!line_response.passed) {
-            globalization_exact = false;
+            curvature_exact = false;
             break;
         }
         const ALR32LineResult line = al_r32_piecewise_line(
@@ -401,9 +282,9 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
         const bool line_kkt = line.trust_active
             ? line.final.derivative <= 0.0
             : std::abs(line.final.derivative) / derivative_scale <= 1.0e-10;
-        globalization_exact = line.passed && line_kkt
+        curvature_exact = line.passed && line_kkt
             && line.final.phi < line.initial.phi;
-        if (!globalization_exact) break;
+        if (!curvature_exact) break;
         for (std::size_t particle = 0U; particle < iterate.size(); ++particle) {
             iterate[particle] += line.alpha * line_direction[particle];
         }
@@ -411,7 +292,7 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
             maintained_response[row] += line.alpha * line_response.value[row];
             residual[row] = r30.constraint[row] + maintained_response[row];
         }
-        globalization_exact = al_r32_vec3_norm(iterate)
+        curvature_exact = al_r32_vec3_norm(iterate)
             <= std::nextafter(AL_R32_TRUST_DELTA,
                 std::numeric_limits<double>::infinity());
         ALR35OuterRecord record;
@@ -437,13 +318,108 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
                    << binary64_bits(record.violation_norm) << ':'
                    << record.active << ':' << record.line_root;
         record.root = sha256_hex(projection.str());
-        outer_records.push_back(std::move(record));
+        curvature_exact = curvature_exact
+            && record.root == AL_R36_CURVATURE_ROOTS[outer]
+            && record.root == parent_capture.outer_records[outer].root;
+        curvature_records.push_back(std::move(record));
     }
-    const bool outer_exact = cg_exact && globalization_exact
-        && (projected_stationary || outer_records.size() == 4U);
+    curvature_exact = curvature_exact && curvature_records.size() == 3U
+        && pair_passes == 37U && hvp_count == 15U
+        && curvature_stops == 0U;
+
+    std::vector<ALR36PolishRecord> polish_records;
+    bool polish_exact = curvature_exact;
+    for (std::size_t polish = 0U; polish < 6U && polish_exact; ++polish) {
+        std::vector<double> positive(residual.size(), 0.0);
+        for (std::size_t row = 0U; row < residual.size(); ++row) {
+            positive[row] = std::max(residual[row], 0.0);
+        }
+        const std::vector<Vec3> gradient =
+            al_r29_pair_once_vjp(workspace, positive);
+        ++pair_passes;
+        const double gradient_norm = al_r32_vec3_norm(gradient);
+        if (!al_r32_vec3_finite(gradient) || !std::isfinite(gradient_norm)) {
+            polish_exact = false;
+            break;
+        }
+        if (gradient_norm == 0.0) {
+            projected_stationary = true;
+            polish_exact = false;
+            break;
+        }
+        std::vector<Vec3> target(iterate.size());
+        for (std::size_t particle = 0U; particle < iterate.size(); ++particle) {
+            target[particle] = iterate[particle]
+                - (1.0 / gradient_norm) * gradient[particle];
+        }
+        target = al_r33_project_vec3(target, AL_R32_TRUST_DELTA);
+        if (target.size() != iterate.size()) {
+            polish_exact = false;
+            break;
+        }
+        std::vector<Vec3> direction(iterate.size());
+        for (std::size_t particle = 0U; particle < iterate.size(); ++particle) {
+            direction[particle] = target[particle] - iterate[particle];
+        }
+        const double step_norm = al_r32_vec3_norm(direction);
+        if (step_norm == 0.0) {
+            projected_stationary = true;
+            polish_exact = false;
+            break;
+        }
+        for (Vec3& value : direction) value = (1.0 / step_norm) * value;
+        const ALLinearizedJvp line_response =
+            al_r29_pair_once_jvp(workspace, direction);
+        ++pair_passes;
+        if (!line_response.passed) {
+            polish_exact = false;
+            break;
+        }
+        const ALR32LineResult line = al_r32_piecewise_line(
+            residual, line_response.value, step_norm);
+        const double derivative_scale = std::max(
+            std::abs(line.initial.derivative), 1.0e-300);
+        const bool line_kkt = line.trust_active
+            ? line.final.derivative <= 0.0
+            : std::abs(line.final.derivative) / derivative_scale <= 1.0e-10;
+        polish_exact = line.passed && line_kkt
+            && line.final.phi < line.initial.phi;
+        if (!polish_exact) break;
+        for (std::size_t particle = 0U; particle < iterate.size(); ++particle) {
+            iterate[particle] += line.alpha * direction[particle];
+        }
+        for (std::size_t row = 0U; row < residual.size(); ++row) {
+            maintained_response[row] += line.alpha * line_response.value[row];
+            residual[row] = r30.constraint[row] + maintained_response[row];
+        }
+        polish_exact = al_r32_vec3_norm(iterate)
+            <= std::nextafter(AL_R32_TRUST_DELTA,
+                std::numeric_limits<double>::infinity());
+        ALR36PolishRecord record;
+        record.iteration = polish + 1U;
+        record.gradient_norm = gradient_norm;
+        record.step_norm = step_norm;
+        record.line_alpha = line.alpha;
+        record.phi = line.final.phi;
+        record.violation_norm = line.final.positive_norm;
+        record.active = line.final.active;
+        record.line_root = line.root;
+        std::ostringstream projection;
+        projection << record.iteration << ':'
+                   << binary64_bits(record.gradient_norm) << ':'
+                   << binary64_bits(record.step_norm) << ':'
+                   << binary64_bits(record.line_alpha) << ':'
+                   << binary64_bits(record.phi) << ':'
+                   << binary64_bits(record.violation_norm) << ':'
+                   << record.active << ':' << record.line_root;
+        record.root = sha256_hex(projection.str());
+        polish_records.push_back(std::move(record));
+    }
+    polish_exact = polish_exact && polish_records.size() == 6U
+        && pair_passes == 49U;
 
     ALLinearizedJvp terminal_response;
-    if (workspace_exact && outer_exact) {
+    if (workspace_exact && polish_exact) {
         terminal_response = al_r29_pair_once_jvp(workspace, iterate);
         ++pair_passes;
     }
@@ -491,17 +467,14 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
         && std::isfinite(terminal_gradient_norm)
         && std::isfinite(projected_mapping_norm)
         && mapping_target.size() == iterate.size();
-    projected_stationary = projected_stationary
-        || (direct_exact && projected_mapping_norm == 0.0);
-    const double baseline_mapping_norm =
-        al_r32_vec3_norm(capture.projected_mapping);
+    projected_stationary = direct_exact && projected_mapping_norm == 0.0;
     const bool dominates = direct_exact
-        && terminal.phi < capture.terminal.phi
-        && terminal.positive_norm < capture.terminal.positive_norm
+        && terminal.phi < baseline.terminal.phi
+        && terminal.positive_norm < baseline.terminal.positive_norm
         && projected_mapping_norm < baseline_mapping_norm;
 
     release_al_normalized_workspace(workspace, &work);
-    const bool work_exact = pair_passes <= 51U && hvp_count <= 20U
+    const bool work_exact = pair_passes == 51U && hvp_count == 15U
         && work.workspace_builds == 1U && work.workspace_releases == 1U
         && work.live_workspaces == 0U && work.maximum_live_workspaces == 1U
         && !work.lifecycle_underflow && work.all_pair_candidate_calls == 0U
@@ -516,18 +489,18 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
         && r30.violated_root == al_r29_mask_root(r30.violated);
 
     const std::array<std::pair<const char*, std::string>, 12U> routes{{
-        {"EQUAL_WORK_GENERALIZED_HESSIAN_CANDIDATE", al_r35_route(1,1,1,1,1,1,1,1,1,0,1)},
-        {"FIRST_ORDER_REFERENCE_RETAINED", al_r35_route(1,1,1,1,1,1,1,1,1,0,0)},
-        {"ALL_INEQUALITY_PROJECTED_STATIONARY", al_r35_route(1,1,1,1,1,1,1,1,1,1,0)},
-        {"CURVATURE_PARENT_REJECTED", al_r35_route(0,1,1,1,1,1,1,1,1,0,0)},
-        {"CURVATURE_SOURCE_REJECTED", al_r35_route(1,0,1,1,1,1,1,1,1,0,0)},
-        {"CURVATURE_DENSE_REJECTED", al_r35_route(1,1,0,1,1,1,1,1,1,0,0)},
-        {"CURVATURE_WORKSPACE_REJECTED", al_r35_route(1,1,1,0,1,1,1,1,1,0,0)},
-        {"CURVATURE_PREFIX_REJECTED", al_r35_route(1,1,1,1,0,1,1,1,1,0,0)},
-        {"CURVATURE_CG_REJECTED", al_r35_route(1,1,1,1,1,0,1,1,1,0,0)},
-        {"CURVATURE_GLOBALIZATION_REJECTED", al_r35_route(1,1,1,1,1,1,0,1,1,0,0)},
-        {"CURVATURE_DIRECT_REJECTED", al_r35_route(1,1,1,1,1,1,1,0,1,0,0)},
-        {"CURVATURE_WORK_REJECTED", al_r35_route(1,1,1,1,1,1,1,1,0,0,0)},
+        {"EQUAL_WORK_CURVATURE_POLISH_HYBRID_CANDIDATE", al_r36_route(1,1,1,1,1,1,1,1,1,0,1)},
+        {"FIRST_ORDER_REFERENCE_RETAINED", al_r36_route(1,1,1,1,1,1,1,1,1,0,0)},
+        {"ALL_INEQUALITY_PROJECTED_STATIONARY", al_r36_route(1,1,1,1,1,1,1,1,1,1,0)},
+        {"HYBRID_PARENT_REJECTED", al_r36_route(0,1,1,1,1,1,1,1,1,0,0)},
+        {"HYBRID_SOURCE_REJECTED", al_r36_route(1,0,1,1,1,1,1,1,1,0,0)},
+        {"HYBRID_DENSE_REJECTED", al_r36_route(1,1,0,1,1,1,1,1,1,0,0)},
+        {"HYBRID_WORKSPACE_REJECTED", al_r36_route(1,1,1,0,1,1,1,1,1,0,0)},
+        {"HYBRID_PREFIX_REJECTED", al_r36_route(1,1,1,1,0,1,1,1,1,0,0)},
+        {"HYBRID_CURVATURE_REJECTED", al_r36_route(1,1,1,1,1,0,1,1,1,0,0)},
+        {"HYBRID_POLISH_REJECTED", al_r36_route(1,1,1,1,1,1,0,1,1,0,0)},
+        {"HYBRID_DIRECT_REJECTED", al_r36_route(1,1,1,1,1,1,1,0,1,0,0)},
+        {"HYBRID_WORK_REJECTED", al_r36_route(1,1,1,1,1,1,1,1,0,0,0)},
     }};
     bool routes_exact = true;
     std::ostringstream route_projection;
@@ -536,13 +509,14 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
         route_projection << value.first << ':' << value.second << '|';
     }
     const std::string route_root = sha256_hex(route_projection.str());
-    const std::string route = al_r35_route(
+    const std::string route = al_r36_route(
         parent_exact, source_exact, dense_exact, workspace_exact, prefix_exact,
-        cg_exact, globalization_exact, direct_exact && rollback_exact,
+        curvature_exact, polish_exact, direct_exact && rollback_exact,
         work_exact, projected_stationary, dominates);
     const bool passed = identity_exact && parent_exact && source_exact
-        && dense_exact && workspace_exact && prefix_exact && outer_exact
-        && direct_exact && work_exact && rollback_exact && routes_exact;
+        && dense_exact && workspace_exact && prefix_exact && curvature_exact
+        && polish_exact && direct_exact && work_exact && rollback_exact
+        && routes_exact;
     std::string first_failure;
     if (!identity_exact) first_failure = "IDENTITY";
     else if (!parent_exact) first_failure = "PARENT";
@@ -550,35 +524,41 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
     else if (!dense_exact) first_failure = "DENSE";
     else if (!workspace_exact) first_failure = "WORKSPACE";
     else if (!prefix_exact) first_failure = "PREFIX";
-    else if (!cg_exact) first_failure = "CG";
-    else if (!globalization_exact) first_failure = "GLOBALIZATION";
-    else if (!outer_exact) first_failure = "OUTER";
+    else if (!curvature_exact) first_failure = "CURVATURE";
+    else if (!polish_exact) first_failure = "POLISH";
     else if (!direct_exact) first_failure = "DIRECT";
     else if (!work_exact) first_failure = "WORK";
     else if (!rollback_exact) first_failure = "ROLLBACK";
     else if (!routes_exact) first_failure = "ROUTES";
 
-    std::ostringstream outer_projection;
-    for (const ALR35OuterRecord& record : outer_records) {
-        outer_projection << record.root << '|';
+    std::ostringstream curvature_projection;
+    for (const ALR35OuterRecord& record : curvature_records) {
+        curvature_projection << record.root << '|';
     }
-    const std::string outer_root = sha256_hex(outer_projection.str());
+    const std::string curvature_root =
+        sha256_hex(curvature_projection.str());
+    std::ostringstream polish_projection;
+    for (const ALR36PolishRecord& record : polish_records) {
+        polish_projection << record.root << '|';
+    }
+    const std::string polish_root = sha256_hex(polish_projection.str());
     const std::string terminal_response_root = terminal_response.passed
         ? al_r10_dual_root(terminal_response.value) : sha256_hex("missing");
     const std::string terminal_gradient_root =
         al_binary64_vec3_root(terminal_gradient);
     const std::string projected_mapping_root =
         al_binary64_vec3_root(projected_mapping);
-    const double phi_ratio = terminal.phi / capture.terminal.phi;
+    const double phi_ratio = terminal.phi / baseline.terminal.phi;
     const double violation_ratio =
-        terminal.positive_norm / capture.terminal.positive_norm;
+        terminal.positive_norm / baseline.terminal.positive_norm;
     const double mapping_ratio = projected_mapping_norm / baseline_mapping_norm;
     std::ostringstream semantic;
     semantic << (passed ? "PASS|" : "FAIL|")
-             << B4E2D7R19R35_IDENTITY_SHA256 << '|' << parent_stdout << '|'
-             << dense_root << ':' << outer_root << ':'
-             << terminal_response_root << ':' << terminal_gradient_root << ':'
-             << projected_mapping_root << '|' << binary64_bits(phi_ratio) << ':'
+             << B4E2D7R19R36_IDENTITY_SHA256 << '|' << parent_stdout << '|'
+             << dense_root << ':' << curvature_root << ':' << polish_root
+             << ':' << terminal_response_root << ':' << terminal_gradient_root
+             << ':' << projected_mapping_root << '|'
+             << binary64_bits(phi_ratio) << ':'
              << binary64_bits(violation_ratio) << ':'
              << binary64_bits(mapping_ratio) << ':' << pair_passes << ':'
              << hvp_count << '|' << route_root << ':' << route;
@@ -587,44 +567,57 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
     std::ostringstream report;
     report << std::setprecision(17)
            << "{\"schema\":\"nextengine.nonlocal."
-              "nsr3b4e2d7r19r35_equal_work_generalized_hessian.v1\""
+              "nsr3b4e2d7r19r36_equal_work_curvature_polish_hybrid.v1\""
            << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
-           << ",\"identity_sha256\":\"" << B4E2D7R19R35_IDENTITY_SHA256
+           << ",\"identity_sha256\":\"" << B4E2D7R19R36_IDENTITY_SHA256
            << "\",\"parent_stdout_sha256\":\"" << parent_stdout << "\""
-           << ",\"source\":{\"baseline_checkpoint_root\":\""
-           << baseline_checkpoint_root << "\",\"prefix_response_root\":\""
+           << ",\"source\":{\"prefix_response_root\":\""
            << (prefix_response.passed
                ? al_r10_dual_root(prefix_response.value) : sha256_hex("missing"))
            << "\",\"prefix_response_relative\":" << prefix_relative << "}"
            << ",\"dense\":{\"passed\":"
            << (dense_exact ? "true" : "false")
            << ",\"root\":\"" << dense_root << "\"}"
-           << ",\"curvature\":{\"outer_count\":" << outer_records.size()
+           << ",\"curvature\":{\"outer_count\":" << curvature_records.size()
            << ",\"hvp_count\":" << hvp_count
            << ",\"curvature_stops\":" << curvature_stops
            << ",\"records\":[";
     for (std::size_t index_value = 0U;
-         index_value < outer_records.size(); ++index_value) {
+         index_value < curvature_records.size(); ++index_value) {
         if (index_value != 0U) report << ',';
-        const ALR35OuterRecord& record = outer_records[index_value];
+        const ALR35OuterRecord& record = curvature_records[index_value];
         report << "{\"outer\":" << record.outer
                << ",\"cg_iterations\":" << record.cg_iterations
-               << ",\"curvature_stops\":" << record.curvature_stops
                << ",\"cg_initial_norm\":" << record.cg_initial_norm
                << ",\"cg_final_norm\":" << record.cg_final_norm
-               << ",\"descent\":" << record.descent
                << ",\"line_alpha\":" << record.line_alpha
                << ",\"phi\":" << record.phi
                << ",\"violation_norm\":" << record.violation_norm
                << ",\"active\":" << record.active
                << ",\"root\":\"" << record.root << "\"}";
     }
-    report << "],\"root\":\"" << outer_root << "\"}"
-           << ",\"comparison\":{\"baseline_phi\":" << capture.terminal.phi
+    report << "],\"root\":\"" << curvature_root << "\"}"
+           << ",\"polish\":{\"accepted\":" << polish_records.size()
+           << ",\"records\":[";
+    for (std::size_t index_value = 0U;
+         index_value < polish_records.size(); ++index_value) {
+        if (index_value != 0U) report << ',';
+        const ALR36PolishRecord& record = polish_records[index_value];
+        report << "{\"iteration\":" << record.iteration
+               << ",\"gradient_norm\":" << record.gradient_norm
+               << ",\"step_norm\":" << record.step_norm
+               << ",\"line_alpha\":" << record.line_alpha
+               << ",\"phi\":" << record.phi
+               << ",\"violation_norm\":" << record.violation_norm
+               << ",\"active\":" << record.active
+               << ",\"root\":\"" << record.root << "\"}";
+    }
+    report << "],\"root\":\"" << polish_root << "\"}"
+           << ",\"comparison\":{\"baseline_phi\":" << baseline.terminal.phi
            << ",\"candidate_phi\":" << terminal.phi
            << ",\"phi_ratio\":" << phi_ratio
            << ",\"baseline_violation_norm\":"
-           << capture.terminal.positive_norm
+           << baseline.terminal.positive_norm
            << ",\"candidate_violation_norm\":" << terminal.positive_norm
            << ",\"violation_ratio\":" << violation_ratio
            << ",\"baseline_projected_mapping_norm\":"
@@ -642,7 +635,7 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
            << "\",\"gradient_root\":\"" << terminal_gradient_root
            << "\",\"projected_mapping_root\":\""
            << projected_mapping_root << "\"}"
-           << ",\"work\":{\"parent_r34_replays\":1"
+           << ",\"work\":{\"parent_r35_replays\":1"
            << ",\"diagnostic_workspaces\":1,\"new_pair_passes\":"
            << pair_passes << ",\"new_hvp\":" << hvp_count
            << ",\"new_model\":0,\"new_trials\":0,\"new_outer\":0}"
@@ -654,18 +647,8 @@ SplitBoundaryReport run_al_equal_work_generalized_hessian_controls_impl(
            << ",\"first_failure\":\"" << first_failure << "\""
            << ",\"route\":\"" << route << "\""
               ",\"correction_applied\":false,\"nonlinear_evaluation\":false"
-              ",\"floor_classification\":false,\"state_mutation\":false"
-              ",\"timing_admitted\":false,\"runtime_authority\":false"
-              ",\"production_authority\":false"
+              ",\"state_mutation\":false,\"timing_admitted\":false"
+              ",\"runtime_authority\":false,\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
-    if (output_capture != nullptr) {
-        output_capture->captured = passed;
-        output_capture->r34 = std::move(capture);
-        output_capture->outer_records = std::move(outer_records);
-    }
     return {passed, report.str()};
-}
-
-SplitBoundaryReport run_al_equal_work_generalized_hessian_controls() {
-    return run_al_equal_work_generalized_hessian_controls_impl(nullptr);
 }

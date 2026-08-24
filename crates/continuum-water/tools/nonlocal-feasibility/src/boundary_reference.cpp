@@ -80027,6 +80027,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "iterated_all_inequality_normal_step.inc"
 #include "first_order_reference_extension.inc"
 #include "equal_work_generalized_hessian.inc"
+#include "equal_work_curvature_polish_hybrid.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
