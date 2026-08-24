@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R37_PASS_LINEAR_CONVERGENCE_CURVE / D7R19R38_FROZEN_DIRECTION_MEMORY_REPLAY_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R38_PASS_HAGER_ZHANG_DIRECTION_CANDIDATE / D7R19R39_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -106,7 +106,22 @@
   parameter-free DY-HS+ and raw Hager-Zhang one-step directions. Every lane
   checks raw/projected descent and exact line; invalid lanes restart to
   steepest. Fixed work is 15 JVP pair passes, with no accepted update.
-- **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37 remain private
+- **Current conclusion:** R38 passes at stdout SHA `7f574289...abb1`,
+  semantic result `cc030c65...7d3` and route
+  `HAGER_ZHANG_DIRECTION_CANDIDATE`. Two clean Release binaries and outputs
+  are byte-exact.
+- **Direction fact:** Hager--Zhang and DY-HS+ strictly dominate the equal-work
+  steepest lane in objective, violation and projected mapping at all three
+  exact captured states. At R37 state 24, Hager--Zhang reaches objective
+  `1.36848e-20` versus steepest `4.21187e-18`, or `0.00324909x`.
+- **Restart fact:** PRP+ loses projected descent at every captured state and
+  restarts to steepest. A projected-descent guard is therefore a required
+  part of any recurrence, not optional hardening.
+- **Current decision:** freeze a short rollback-only Hager--Zhang recurrence
+  from the exact R37 terminal state against an equal-work steepest trajectory.
+  Preserve exact line globalization and restart on any invalid or non-descent
+  direction; do not infer a recurrent solver from the one-step replay.
+- **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
   penalty/cap/policy, time the solver, integrate runtime state or claim
@@ -2762,6 +2777,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** a replay design can compare formulas and restart rules
   without accepting a new state or fitting policy to nominal outcomes.
 
+### D-080 -- Promote guarded Hager--Zhang to recurrence research only
+
+- **Observation:** R38 Hager--Zhang and DY-HS+ strictly dominate equal-work
+  steepest steps on all three captured states. Frozen precedence selects
+  Hager--Zhang. PRP+ loses projected descent and restarts on all three.
+- **Decision:** promote only the Hager--Zhang direction formula, exact-line
+  globalization and complete restart guard to a separately frozen bounded
+  recurrence discriminator. Compare against steepest at equal pair-pass work,
+  own the history explicitly and retain exact rollback.
+- **Rejected:** integrating one-step replay as a solver, unguarded PRP+ or
+  Hager--Zhang, selecting by wall time, fitting a stopping tolerance, applying
+  the endpoint or evaluating the nonlinear moved state.
+- **Reconsider when:** R39 freezes and executes a multi-step recurrence with
+  exact parent/history/work/rollback controls and strict terminal comparison.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2820,10 +2850,13 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R38/R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R38 as the direction-memory/restart replay over
-   exact captured R37 states. Do not form or apply a
+   Research and freeze D7R19R39 as a short rollback-only Hager--Zhang
+   recurrence from the exact R37 terminal state against an equal-work
+   steepest trajectory. Do not implement before the formulas, history
+   ownership, restart precedence, horizon, work ledger and selection gates
+   are frozen. Do not form or apply a
    correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
