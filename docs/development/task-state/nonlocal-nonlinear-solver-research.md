@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R46_PASS_FILTER_FEASIBILITY_STEP_CANDIDATE / D7R19R47_FILTER_TRANSACTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R46_PASS_FILTER_FEASIBILITY_STEP_CANDIDATE / D7R19R47_FILTER_COMPATIBILITY_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -18,10 +18,11 @@
   increases by `5.28%`. All 24 frozen margins pass by feasibility, including
   `gamma=1/2`; none passes by objective. Model ratio is `0.999999993`, and
   topology/contact/work/rollback are exact.
-- **Current decision:** preserve R46 as one-step admission evidence. Research
-  R47 as a complete rollback-only filter transaction with a switching rule,
-  finite insertion/removal, trust-radius response and restoration entry/exit.
-  Do not commit R43, choose a production gamma or execute the next outer.
+- **Current decision:** primary filter-SQP compatibility precedes the planned
+  transaction. R43 leaves predicted linearized `h=3.702437226e-8`, so R47 is
+  frozen as a zero-new-work compatibility/restoration classifier at identity
+  `a70d15dc...568f`. Implement it before switching, trust update or any
+  restoration-exit claim.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3088,8 +3089,27 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** directly committing R43, treating the strongest successful
   audit margin as a production choice, omitting switching/restoration,
   returning to monotone AL merit, running the next outer, or timing.
-- **Reconsider when:** R47 proves or rejects one complete finite transaction
-  under immutable source/trial/filter ownership.
+- **Reconsider when:** D-091's compatibility prerequisite closes and a later
+  stage can return to one complete finite transaction under immutable
+  source/trial/filter ownership.
+
+### D-091 -- Prove normal-step compatibility before filter switching
+
+- **Observation:** primary trust-region filter-SQP permits an ordinary
+  normal/tangential transaction only after the normal step satisfies the
+  linearized constraints within the compatible trust geometry. R46 proves
+  filter admission, but R43 retains predicted linearized
+  `psi=6.8540207066e-16`, `h=3.7024372261e-8`.
+- **Decision:** suspend the complete-transaction plan. R47 first replays the
+  exact linear metric and classifies strict compatibility versus restoration
+  ownership with no fitted tolerance and no new derivative/model work.
+- **Rejected:** relabeling filter admission as compatibility, using nonlinear
+  progress to erase a positive linear residual, choosing switching/trust
+  constants before compatibility, declaring restoration exit without a
+  compatible next-state TRQP, or timing.
+- **Reconsider when:** R47 closes the exact route. If restoration is required,
+  research a matrix-free primal/dual bounded contact-cone compatibility
+  certificate at the R43 moved state before returning to filter switching.
 
 ## Performance facts retained
 
@@ -3160,9 +3180,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R45 exact PASS/`COMPOSITE_MERIT_RECOVERY_REQUIRED`; do not
    densify or retune its scalar line. Preserve D7R19R46 exact
    PASS/`FILTER_FEASIBILITY_STEP_CANDIDATE`; do not commit R43 or select a
-   production margin. Research/freeze D7R19R47 as one complete rollback-only
-   filter transaction with switching, finite filter lifecycle, trust response
-   and restoration. Do
+   production margin. Implement frozen D7R19R47 as a zero-new-work strict
+   filter-compatibility/restoration classifier. Do not start switching, trust
+   response or restoration exit before this prerequisite closes. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
