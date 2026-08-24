@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.18 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 1.19 |
+| Последняя проверка | 2026-08-24 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-06 1.17; admits the bounded R4d structured-speech, systemic-execution and tier-cognition consumer |
+| Дополнительные зависимости V1.19 | [ADR-091](adr/091-linux-release-performance-authority.md) |
+| Заменяет | SPEC-06 1.18; aligns the tier-cognition performance consumer with the current Linux R4 v2 workload identity |
 
 ## Source of truth и ownership
 
@@ -158,7 +159,7 @@ Process получает минимальный serialized context, не filesys
 | AI-01 | Same 100 scenarios with `ai-host` disabled | Gameplay and quest outcomes remain correct without blocking a tick; use the built-in planner/dialogue fallback. |
 | AI-02 | 1,000 kill/restart/timeout/malformed-result injections | No host crash or duplicate committed command; fallback is selected no later than one gameplay tick after the deadline signal. |
 | AI-03 | Adversarial intents and stale facts | Every forbidden or stale mutation is rejected and no direct state write is possible. |
-| AI-04 | **R4d single-consumer correctness plus exact tier-cognition scheduling.** Run focused cognition/systemic vectors and `play`; run `r4-100npc.v1` conditionally in report mode. | One production subject produces exact beliefs/goals/plans, structured acts, emergency resume, systemic owner outcomes and Agent/Memory roots. The 100-NPC workload records exact four-kind work/counters/roots with zero fabricated outcomes; on the recorded unsupported host its outer result remains `NOT_RUN`, so it cannot close B-12. |
+| AI-04 | **R4d single-consumer correctness plus exact tier-cognition scheduling.** Run focused cognition/systemic vectors and `play`; run `r4-100npc.v2` conditionally. | One production subject produces exact beliefs/goals/plans, structured acts, emergency resume, systemic owner outcomes and Agent/Memory roots. The 100-NPC workload records exact four-kind work/counters/roots with zero fabricated outcomes; report mode remains diagnostic, while a hard verdict requires the exact ADR-091 Linux profile and compatible evidence. |
 | MEMORY-P1 | SQLite candidate crash, compaction and migration corpus | Every committed record is recovered, canonical queries match, and corruption fails closed; fall back to the append-only log with compacted indexes. |
 | AI-05 | Restart/save/load with and without embeddings | Authoritative memory, relationship and narrative state is identical; embeddings may be rebuilt or disabled. |
 | AI-06 | Package affordance discovery | Every granted planner-visible ability is discoverable, new fixture abilities need no AI code change, and invalid/stale affordances are rejected; otherwise mark the ability manual-only. |

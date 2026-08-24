@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 5.4 |
-| Последняя проверка | 2026-08-21 |
+| Версия | 5.5 |
+| Последняя проверка | 2026-08-24 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V4.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
@@ -16,7 +16,7 @@
 | Дополнительные зависимости V5.2 | [ADR-092](adr/092-dimensional-relative-performance-comparison.md) |
 | Дополнительные зависимости V5.3 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
 | Дополнительные зависимости V5.4 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
-| Заменяет | SPEC-12 5.3; adopts confidence-gated relative warnings under methodology v11 |
+| Заменяет | SPEC-12 5.4; aligns current methodology-v11 workload identities and CI-gated warning semantics with ADR-093/094 |
 
 ## Назначение
 
@@ -349,7 +349,7 @@ GiB free physical RAM, CPU clock at least 80% of reported maximum и inactive
 GPU thermal slowdown.
 
 Two-role streaming, one-agent, статические render fixtures и live-movement checks
-являются только `smoke/report`. Отдельный representative `r2-alpha-render.v3`
+являются только `smoke/report`. Отдельный representative `r2-alpha-render.v4`
 production workload реализован для `projects/reference-alpha` и активного
 Linux desktop host: exploration,
 combat и UI/dialogue выполняются отдельно в primary и fallback profiles с
@@ -360,18 +360,19 @@ combat и UI/dialogue выполняются отдельно в primary и fall
 capability даёт typed `NOT_RUN`, не software/Windows fallback. Hard mode требует
 реальный display, exact ADR-091 host, clean ten-run baseline и fixed gate.
 Отдельный streaming-only
-`r3-multiregion-streaming` выполняет 1 000 production packaged transitions по
+`r3-multiregion-streaming.v2` выполняет 1 000 production packaged transitions по
 canonical four-region/64-chunk route, публикует только `streaming_world` и
 заполняет logical `required_staging_bytes`; gate mode применяет hard
 1,500,000 us whole-workload p95/p99 ceiling. Реализованный
-`r4-100npc.v1` выполняет 1 000 warm-up и 10 000 measured совместных production
+`r4-100npc.v2` выполняет 1 000 warm-up и 10 000 measured совместных production
 ticks над exact 16/32/52 population, проверяет один graph query на каждую due
 record, exact four-kind tier-cognition dispatch, zero defer/drop/starvation/
 fabricated outcomes и canonical roots. Gate mode применяет canonical ADR-016
 navigation/cognition/integrated rows; несовместимый host остаётся `NOT_RUN`.
-`r5-physics-16.v1` реализован по ADR-062: один run выполняет одинаковые
+`r5-physics-16.v3` реализован по ADR-062/093: один run выполняет одинаковые
 sixteen-slot PhysX 23-DoF trajectories при 1/4/8 workers, требует exact
-canonical root parity и отдельно измеряет live cadence, checkpoint/restore and
+canonical root parity, детерминированно размещает workers по physical cores до
+warm-up и отдельно измеряет live cadence, checkpoint/restore and
 resources. Gate mode применяет ADR-062 rows independently accepted for the
 ADR-091 Linux profile; report mode остаётся `REPORT_ONLY`.
 
@@ -384,7 +385,8 @@ binary, поэтому process high-water, allocator и vendor-runtime lifetime
 budgets применяются к worst per-run p95/p99; relative point estimate сравнивает
 median candidate-run p95 с median baseline-run p95, а deterministic 95%
 bootstrap resamples whole runs. Compatible relative regression `<2%` считается
-noise, `2–5%` — `WARNING`, `>=5%` при нижней границе interval `>=5%` — `FAIL`.
+noise. `WARNING` требует point estimate `>=2%` и нижнюю границу interval
+`>=2%`; `FAIL` требует point estimate `>=5%` и нижнюю границу interval `>=5%`.
 ADR-092 applies this relative rule to direct durations, reciprocal costs and
 bytes. Already normalized R5 scaling-inefficiency and replay-prefix-overhead
 ratios remain hard absolute metrics with unchanged ceilings but do not receive

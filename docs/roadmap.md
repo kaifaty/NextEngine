@@ -6,7 +6,7 @@
 | Последнее обновление | 2026-08-24 |
 | Текущая точка | R1–R6 завершены на current Linux product boundary. [R7a Linux release authority](development/task-state/r7a-linux-release-authority.md) и [R7b release package/clean install](development/task-state/r7b-linux-release-package.md) завершены exact Linux bundles с `PASS / release_ready=true`. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) has Accepted ADR-091/092/093/094, strict Performance V6/v11 tooling and deterministic R5 worker placement; R3/R4/R5 retain hard `PASS` evidence on `8498001`, and the R2 presentation blocker is fixed. The final one-commit R2–R5 campaign now waits for an authenticated reboot into the installed exact-profile kernel `7.0.0-29-generic`; the wrong-kernel/observed-host attempt is preserved as invalid. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
 | Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
-| R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v3` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. B-12 is now the R7c Linux hard-performance authority gap. |
+| R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v4` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. B-12 is now the R7c Linux hard-performance authority gap. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 | World-dynamics guardrail | ADR-081 Accepted: successor stage/DAG, scheduled PhysX checkpoint epochs, exact float/identity, capacity/fault/budget closure and shadow-only neural rules apply to every post-v1 physical-world track without activating it |
@@ -109,7 +109,7 @@ Roadmap намеренно не содержит календарных обещ
   `>=10 GiB`), postflight integrity, explicit run boundaries и полным
   streaming/agent/render/live smoke report; representative `r2-alpha-render`
   и streaming-only `r3-multiregion-streaming` реализованы как `REPORT_ONLY`;
-  representative `r5-physics-16.v1` выполняет 16 production PhysX 23-DoF
+  representative `r5-physics-16.v3` выполняет 16 production PhysX 23-DoF
   humanoids при 240/60 Hz и 1/4/8 workers с exact root parity, accepted
   absolute budgets and exact roots. Historical V4/v7 calibration содержит 10
   runs; первый non-retried v7 hard gate прошёл absolute budgets, но дал
@@ -292,8 +292,8 @@ developer package.
   Linux-only schema-v2 `PASS / release_ready=true` verdict;
 - R7b exact commit `a5f896e…` closed reproducible V5 package, copied-root
   clean-install and ELF/runtime dependency evidence;
-- R7c has accepted ADR-091/092/093 and implemented Linux Performance
-  V6/v10/v3-workload authority; the R3, R4 and R5 portions hold hard `PASS`
+- R7c has accepted ADR-091/092/093/094 and implemented Linux Performance
+  V6/v11/R5-v3-workload authority; the R3, R4 and R5 portions hold hard `PASS`
   ten-run baselines plus isolated fixed gates on the single commit `8498001`;
   only R2 remains, deferred until its desktop presentation path is stable.
 
@@ -823,7 +823,7 @@ Physical gameplay conformance и evidence R5j записаны в
 
 **Accepted parallel substrate, но ещё не Stage 0 completion:** PhysX 5.9.0 —
 единственный production backend по ADR-058. Fixed 23-DoF humanoid, fixed
-PD/safety, 240/60 schedule, bounded restore and `r5-physics-16.v1` уже
+PD/safety, 240/60 schedule, bounded restore and `r5-physics-16.v3` уже
 реализованы. На clean commit
 `f3226580432103666550dea952cdb67803c3d96e` ровно десять valid release runs
 опубликовали historical compatible V4/v7 baseline и один exact root. Первый и
@@ -836,7 +836,7 @@ policy дала
 ADR-063 и Performance V5/v8 исправляют evidence unit: baseline хранит 10
 independent runs, hard gate является fixed three-run batch, relative bootstrap
 работает по whole-run p95. Fresh compatible Linux calibration/gate ещё не
-запускались. ADR-091/092 now accept the Linux V6/v10 profile for those runs;
+запускались. ADR-091/092/093/094 now accept the Linux V6/v11 profile for those runs;
 Isaac correspondence remains optional Stage 0 evidence. Current work runs
 affected Linux platform/replay/report-only performance inline. This does not
 declare Stage 0 ready or close B-12/v1.
@@ -2137,7 +2137,7 @@ host/capability registration отклоняет stale adapter events; Load ра�
 
 Historical performance measurement foundation (`DONE_LOCAL_WINDOWS`) использует
 `PerformanceRunV5`/`PerformanceResourceCountersV4`/`PerformanceMetricV1`/
-`PerformanceBaselineV5`; current Linux release authority is its strict V6/v10
+`PerformanceBaselineV5`; current Linux release authority is its strict V6/v11
 successor under ADR-091. V2/V3/V4 readers удалены. Полный historical THOTH
 fingerprint and ready load/RAM/thermal preflight, profile `profiling`,
 raw nearest-rank metrics с explicit independent-run boundaries и explicit
@@ -2245,7 +2245,7 @@ ADR-049 удалил allocator-counter subsystem после того, как о�
 быть hard evidence. Retained failed candidates остаются историческим фактом в
 Git history; они не требуют live crate, unsafe hook или compatibility reader.
 Этот абзац описывает historical V4 state. Current representative workloads use
-Performance V6/v10 under ADR-091/092; B-12 remains open only until compatible clean
+Performance V6/v11 under ADR-091/092/094; B-12 remains open only until compatible clean
 Linux R2–R5 baselines/fixed gates are collected.
 
 Отдельно реализован bounded incremental checkpoint

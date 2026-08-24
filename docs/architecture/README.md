@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.62 |
-| Последняя проверка | 2026-08-21 |
-| Заменяет | INDEX-001 2.61; adds ADR-094 confidence-gated relative warnings |
+| Версия | 2.63 |
+| Последняя проверка | 2026-08-24 |
+| Заменяет | INDEX-001 2.62; aligns current performance specifications with ADR-094 methodology v11 and executable workload identities |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose

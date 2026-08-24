@@ -49,7 +49,7 @@
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| ADR-091/092 | Accepted exact Linux fingerprint, preflight, canonical R2–R5 budgets and V6/v10 dimensional evidence semantics | Normative authority is complete; Windows/THOTH stays historical |
+| ADR-091/092/093/094 | Accepted exact Linux fingerprint, preflight, canonical R2–R5 budgets, deterministic R5 placement and V6/v11 dimensional/CI-gated evidence semantics | Normative authority is complete; Windows/THOTH stays historical |
 | Performance V6 implementation | Linux-only baseline/gate prerequisites, budget-bearing baseline V2 metrics, canonical hard/diagnostic policy and R2–R5 gate routing compile and pass focused tests | Clean evidence may now be collected without relabelling V5 |
 | R3/R5 diagnostics | R3 completes in `868,855 us`; R5 passes every existing row with exact worker roots and clean environment boundaries | Accepted budgets have observed headroom |
 | R4 pre-optimization diagnostic | Exact roots and zero defer/drop/starvation/fabrication, but navigation `4,236/4,793 us` and integrated `15,425/16,100 us` exceed ADR-016 | Optimize; do not widen budgets |

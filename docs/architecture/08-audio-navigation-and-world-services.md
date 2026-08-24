@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-08 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.6 |
+| Последняя проверка | 2026-08-24 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-08 2.4; admits the bounded R4d World Activity and tier-cognition consumers while physical traversal remains Proposed |
+| Дополнительные зависимости V2.6 | [ADR-091](adr/091-linux-release-performance-authority.md) |
+| Заменяет | SPEC-08 2.5; aligns NAV-P3 with the current Linux R4 v2 workload identity and hard-evidence boundary |
 
 ## Source of truth и ownership
 
@@ -143,7 +144,7 @@ physical corridor following remains deferred.
 |---|---|---|
 | NAV-P1 | Engine-owned deterministic graph/tile cook and query baseline | The 64 chunk-bound nodes, four region tiles, catalog/plan hashes and route tie-break are exact across repeats and input permutations. Optional Recast must match the engine contract or remain disabled. |
 | NAV-P2 | **Deferred physical-path recipe; no current gate.** Door, off-mesh, push, stuck and streamed polygon fixtures | Stale paths reject, bounded fixtures either reach the goal or return no-path, and no path teleports an actor; deterministically replan or idle. |
-| NAV-P3 | ADR-016 deterministic `r4-100npc.v1` report-only workload | 1,000 warm-up plus 10,000 measured ticks produce exact 16/32/52 due/query/tier-cognition counts and roots with no starvation/drop/fabricated outcomes. Timing remains report-only; the current unsupported-host navigation p95/p99 `4292/4870 us` exceeds `1250/1500 us` and is not a pass or B-12 evidence. |
+| NAV-P3 | ADR-016/091 deterministic `r4-100npc.v2` workload | 1,000 warm-up plus 10,000 measured ticks produce exact 16/32/52 due/query/tier-cognition counts and roots with no starvation/drop/fabricated outcomes. Report mode remains diagnostic; an exact-profile gate applies navigation p95/p99 `1250/1500 us` and the remaining canonical R4 rows. |
 | AUDIO-P1 | Engine baseline and optional Steam Audio candidate | Baseline playback always works, device loss recovers without gameplay differences, and optional propagation stays within scenario tolerance; fall back to baseline attenuation/panning/zones. |
 | AUDIO-L1 | Steam Audio version and distribution matrix | The selected version is compatible with target platforms and may be redistributed under the project policy; otherwise do not ship the adapter. |
 | WORLD-02 | Current abstract-transfer ownership branch plus deferred physical corpus | World Services owns tier/logical placement and commits one exact Abstract transfer; Physics alone owns active traversal, so an Active transfer returns `PHYSICAL_TRAVERSAL_REQUIRED`. Save/Replay V10 preserve the result; broader traversal deterministically replans or idles. |
