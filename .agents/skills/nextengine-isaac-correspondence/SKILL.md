@@ -82,6 +82,12 @@ python .agents/skills/nextengine-isaac-correspondence/scripts/audit_corresponden
   Q16 component profile; trainer-side fixes are invalid.
 - Non-finite or sample-floor failure: reject the corpus.
 
+Do not invent a tolerance, relax a frozen threshold or change the canonical
+physical model to make correspondence pass. Use
+`$nextengine-mathematical-research` for a disputed numerical/model claim and
+`$nextengine-architecture` for any resulting semantic change before collecting
+new admission evidence.
+
 For direct-torque profiles, imported joint drives must not fight the agent.
 The current reference tracker is residual position target plus engine safety
 and fixed PD; do not disable those drives by copying advice for another action

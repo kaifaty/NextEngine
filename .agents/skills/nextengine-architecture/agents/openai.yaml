@@ -1,0 +1,4 @@
+interface:
+  display_name: "NextEngine Architecture"
+  short_description: "Route architecture and product checks"
+  default_prompt: "Use $nextengine-architecture to route this NextEngine design question to the governing SPEC/ADRs and ProductChecks."

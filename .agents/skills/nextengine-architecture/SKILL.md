@@ -48,6 +48,11 @@ location.
 
 - Define the required result, actual input sizes and load, hard constraints and
   limiting resource before choosing a design.
+- Keep settled engineering selection here. When a choice depends on an
+  unresolved claim about stability, convergence, conservation, conditioning,
+  error bounds, solver feasibility or physical-model validity, use
+  `$nextengine-mathematical-research` to return a claim-scoped report; then
+  resume this workflow for any semantic, roadmap or ProductCheck decision.
 - Prefer the simplest architecture that satisfies current product,
   architecture, safety and verification requirements. Avoid speculative
   abstractions, unnecessary layers, ceremonies and coordination structures.

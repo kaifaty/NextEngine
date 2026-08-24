@@ -43,6 +43,13 @@ repository source says something newer.
 
 The current `isaac_reference_overfit.py` entry point supports an explicitly
 bound initial checkpoint; it is not a general optimizer-resume interface.
+This skill executes or validates a frozen experiment contract; it does not
+select the next one-variable PPO experiment from run evidence, redefine the
+canonical environment or select a new physical model. Route hash-closed run
+diagnosis and next-experiment selection to `$nextengine-training-diagnostics`.
+Route only a new mathematical/model-validity claim to
+`$nextengine-mathematical-research`, and any resulting semantic change to
+`$nextengine-architecture`.
 
 ## Run the fail-closed preflight
 

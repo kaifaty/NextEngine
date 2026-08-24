@@ -18,6 +18,8 @@ Codex discovers these repository-scoped skills from `.agents/skills`.
 
 | Skill | Purpose |
 | --- | --- |
+| `nextengine-architecture` | Normative SPEC/ADR/roadmap routing, solution selection and ProductCheck mapping |
+| `nextengine-mathematical-research` | Claim-scoped mathematical and numerical research with counterexamples, independent oracles and bounded verification |
 | `nextengine-training-runner` | Fail-closed preflight and claim-safe preparation of hash-closed reference PPO runs |
 | `nextengine-training-diagnostics` | Deterministic artifact, safety, PPO and evaluation diagnosis with one-variable next experiments |
 | `nextengine-isaac-correspondence` | CPU-canonical/Isaac-mirror identity and MODEL-MIRROR-P1/P2 evidence audit |
@@ -26,8 +28,25 @@ Codex discovers these repository-scoped skills from `.agents/skills`.
 These skills are native NextEngine guidance. Their workflow design applies the
 useful parts of the imported deep-RL, experiment-tracking and determinism
 skills, while replacing generic framework assumptions with the repository's
-SPEC/ADR/profile/generation authority. Their scripts use only the Python
-standard library, are read-only, and emit machine-readable JSON.
+SPEC/ADR/profile/generation authority. Where present, their scripts use only
+the Python standard library, are read-only, and emit machine-readable JSON.
+
+### Composition boundaries
+
+| Question | Start with | Hand off when |
+| --- | --- | --- |
+| What semantics, owner, contract or check may the engine adopt? | `nextengine-architecture` | An unresolved mathematical claim blocks selection |
+| Is this exact model/solver claim true under the frozen assumptions? | `nextengine-mathematical-research` | A semantic decision, implementation or ProductCheck remains |
+| What material conclusion must survive a pause or handoff? | `maintain-task-context` | Detailed evidence belongs in a dated research report |
+| Why did this exact PPO run fail, or what one-variable run comes next? | `nextengine-training-diagnostics` | The blocker is a new mathematical/model claim |
+| May this exact run start/resume, or is its checkpoint compatible? | `nextengine-training-runner` | Run evidence needs diagnosis/next-experiment selection, or a new mathematical/model claim is required |
+| Does this Isaac result correspond to canonical CPU PhysX? | `nextengine-isaac-correspondence` | The canonical model or tolerance itself is disputed |
+
+`nextengine-mathematical-research` is original project guidance informed by a
+primary-source method review recorded in
+[the dated research report](../../docs/development/mathematical-research-skill-research-2026-08-24.md).
+No external research framework, helper code or skill text is vendored by that
+skill; Lean, LeanExplore, CAS and Wolfram remain optional backends.
 
 ## Third-Party Attribution
 

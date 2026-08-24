@@ -65,6 +65,10 @@ iterations, phases, clips and action channels.
   rerun the unchanged acceptance matrix.
 - Debug before changing algorithms. Keep the current PPO baseline until an
   equal-budget alternative is justified.
+- If the same blocker survives two coherent remediation cycles, or the next
+  step depends on a new dynamics, reward-invariance, feasibility or solver
+  claim rather than run evidence, stop tuning and use
+  `$nextengine-mathematical-research` for the bounded discriminator first.
 - Pre-register checkpoint selection, seeds and evaluation points. Never choose
   the best result from undeclared points.
 - Treat a notebook or local MLflow/Trackio/TensorBoard dashboard as disposable
