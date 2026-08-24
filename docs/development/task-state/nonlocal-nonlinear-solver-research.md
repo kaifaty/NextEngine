@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R30_PASS_LINEARIZED_RANGE_PROJECTION / D7R19R31_FROZEN_SCALAR_INTERVAL_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R31_PASS_ACTIVE_SET_REFORMULATION_REQUIRED / D7R19R32_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -27,10 +27,19 @@
   ill-conditioned angle-cosine gate at roundoff-sized `q`. The exact failure
   is retained; the hard metric is cross-energy normalized by `||b||^2`, with
   unchanged `1e-10` tolerance and unchanged LSMR policy.
-- **Current decision:** R31 is frozen as the exact scalar feasibility interval
-  `alpha_lower<=alpha<=alpha_upper`. Binary128 orders source ratios and bounded
-  binary64 `nextafter` repair closes direct predicates. No fitted progress
-  threshold exists. Implement this one classifier next.
+- **Current conclusion:** R31 passes at stdout SHA `67adbee5...f3cb`, semantic
+  result `d57f2712...aa98` and route
+  `INEQUALITY_ACTIVE_SET_REFORMULATION_REQUIRED`. Two clean binaries and
+  outputs are byte-exact.
+- **Interval fact:** repairing all selected rows requires
+  `alpha>=1.0000019515`, while preserving inactive rows requires
+  `alpha<=6.73507e-14`. At the safe upper bound all 1,420 selected rows remain
+  positive and predicted progress is `6.73905e-14`; at the required lower
+  bound 450 inactive rows are positive.
+- **Current decision:** scalar damping of R30 is closed as mathematically
+  insufficient for this state. Research R32 as an all-inequality matrix-free
+  feasibility normal step with an explicit trust bound; do not choose the
+  algorithm or thresholds before that research is frozen.
 - **Authority boundary:** R30/R31 remain private diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
   penalty/cap/policy, time the solver, integrate runtime state or claim
@@ -2565,6 +2574,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R31 closes the exact maximal safe fraction and predicted
   progress without state mutation or nonlinear evaluation.
 
+### D-073 -- Replace scalar damping with an all-inequality normal step
+
+- **Observation:** R31 proves an empty scalar interval with a gap of
+  `-1.0000019515`. Safe scalar progress is only `6.73905e-14`, while the
+  direction required to repair selected rows creates exactly 450 inactive
+  violations.
+- **Decision:** stop scalar line-search research on the R30 direction. Research
+  a matrix-free feasibility normal-step subproblem that includes every frozen
+  inequality and an explicit trust bound, with exact KKT/active-set and
+  rollback controls before any nonlinear moved-state evaluation.
+- **Rejected:** smaller arbitrary alpha, ignoring inactive rows, fitting a
+  progress threshold, another violated-only equality solve, raising the outer
+  cap, applying R30 or choosing a production QP package before a frozen
+  discriminator exists.
+- **Reconsider when:** R32 research derives a bounded problem, solver action,
+  work cap and independent tiny controls from exact R31/R30/R29 evidence.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2623,10 +2649,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R31 as a zero-state-mutation scalar-feasibility
-   interval discriminator over exact R30/R29/R28. Do not form or
+   Research/freeze D7R19R32 as an all-inequality matrix-free feasibility
+   normal-step discriminator with an explicit trust bound. Do not form or
    apply a correction, evaluate a moved nonlinear state, classify a nonlinear
    floor, refine, change penalty,
    cap/policy, execute a following outer or run another
