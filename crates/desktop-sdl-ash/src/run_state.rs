@@ -70,6 +70,16 @@ pub struct DesktopRunOptions {
     /// overlay drops `Subtitle`-role semantic elements. Voice-absent subtitle
     /// fallback stays enabled by default (SPEC-08/SPEC-18).
     pub ui_subtitles_enabled: bool,
+    /// Presentation-start stabilization for prepared runs: when enabled and
+    /// the declared extent equals the target display bounds, the window starts
+    /// borderless fullscreen and the adapter absorbs the initial compositor
+    /// configure before swapchain creation, so presentation begins from one
+    /// stable declared extent instead of rebuilding mid-run. The final pixel
+    /// extent is still enforced strictly; a compositor that cannot deliver it
+    /// fails closed with a typed error. Extents are compared against display
+    /// bounds, so hosts with a fractional logical/pixel scale mismatch fail
+    /// closed rather than presenting at an undeclared size.
+    pub prefer_borderless_fullscreen_when_display_matches: bool,
 }
 
 impl Default for DesktopRunOptions {
@@ -92,6 +102,7 @@ impl Default for DesktopRunOptions {
             frame_profiling_sample_capacity: 0,
             audio_output_enabled: true,
             ui_subtitles_enabled: true,
+            prefer_borderless_fullscreen_when_display_matches: false,
         }
     }
 }

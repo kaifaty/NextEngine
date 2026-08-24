@@ -6,7 +6,10 @@ use ash::vk;
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum DesktopAdapterError {
-    Client { code: &'static str, message: String },
+    Client {
+        code: &'static str,
+        message: String,
+    },
     Presentation(next_contracts::presentation::PresentationContractError),
     Render(next_render::RenderDeviceError),
     RenderContent(String),
@@ -14,22 +17,40 @@ pub enum DesktopAdapterError {
     Identifier(next_contracts::ids::IdentifierError),
     Sdl(String),
     Loader(String),
-    LoaderVersionUnsupported { required: u32, actual: u32 },
-    IcdUnavailable { error: Option<vk::Result> },
+    LoaderVersionUnsupported {
+        required: u32,
+        actual: u32,
+    },
+    IcdUnavailable {
+        error: Option<vk::Result>,
+    },
     Graphics(vk::Result),
     InvalidName,
     InvalidExtent,
     GpuUnsupported,
     GpuTimestampsUnsupported,
-    GpuProfilingSampleCapacityExceeded { maximum: u32 },
+    GpuProfilingSampleCapacityExceeded {
+        maximum: u32,
+    },
     GpuTimestampStateInvalid,
     CounterOverflow,
     EventBatchLimitExceeded,
-    EventLoopIterationLimitExceeded { maximum: u64 },
+    EventLoopIterationLimitExceeded {
+        maximum: u64,
+    },
     SnapshotTransitionInvalid,
-    TimebaseRegression { previous: u64, actual: u64 },
+    TimebaseRegression {
+        previous: u64,
+        actual: u64,
+    },
     GraphicsContextMissing,
-    DeviceRecoveryLimitExceeded { maximum: u16 },
+    DeviceRecoveryLimitExceeded {
+        maximum: u16,
+    },
+    FullscreenStartExtentUnavailable {
+        requested: [u32; 2],
+        observed: [u32; 2],
+    },
 }
 
 impl DesktopAdapterError {
@@ -71,6 +92,9 @@ impl DesktopAdapterError {
             Self::TimebaseRegression { .. } => "PLATFORM_TIMEBASE_INVALID",
             Self::GraphicsContextMissing => "PRESENTATION_GRAPHICS_CONTEXT_MISSING",
             Self::DeviceRecoveryLimitExceeded { .. } => "PRESENTATION_DEVICE_RECOVERY_EXHAUSTED",
+            Self::FullscreenStartExtentUnavailable { .. } => {
+                "PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE"
+            }
         }
     }
 
@@ -158,6 +182,11 @@ impl Display for DesktopAdapterError {
             Self::DeviceRecoveryLimitExceeded { maximum } => write!(
                 formatter,
                 "PRESENTATION_DEVICE_RECOVERY_EXHAUSTED: maximum recoveries {maximum}"
+            ),
+            Self::FullscreenStartExtentUnavailable { requested, observed } => write!(
+                formatter,
+                "PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE: borderless fullscreen start settled at {:?} instead of the declared extent {:?}",
+                observed, requested
             ),
         }
     }

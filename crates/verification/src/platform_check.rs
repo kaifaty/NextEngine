@@ -503,6 +503,7 @@ fn prepare_desktop_frame_timing_inputs(
         ui_text_catalogs: text_catalogs.to_vec(),
         ui_locale: "en".to_owned(),
         frame_profiling_sample_capacity: total_frames,
+        prefer_borderless_fullscreen_when_display_matches: true,
         ..next_desktop_sdl_ash::DesktopRunOptions::default()
     };
     Ok(Some(next_desktop_sdl_ash::prepare_interactive(

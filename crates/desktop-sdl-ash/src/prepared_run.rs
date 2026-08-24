@@ -1,9 +1,70 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::*;
+use sdl3::event::EventType;
+use sdl3::{EventPump, EventSubsystem};
 
 const PREPARED_RUN_INVALID_CODE: &str = "PERF_DESKTOP_PREPARED_RUN_INVALID";
 static NEXT_PREPARATION_ID: AtomicU64 = AtomicU64::new(1);
+
+/// Bounded wait for the initial compositor configure after a borderless
+/// fullscreen start. Wayland/X11 compositors apply the fullscreen state
+/// asynchronously; presentation must not create its swapchain until the
+/// window settles at the declared extent or the frame plan would rebuild
+/// mid-run when the surface changes under it.
+const FULLSCREEN_START_STABILIZATION_TIMEOUT: Duration = Duration::from_millis(1_000);
+const FULLSCREEN_START_POLL_INTERVAL: Duration = Duration::from_millis(10);
+const FULLSCREEN_START_REQUIRED_STABLE_POLLS: u32 = 2;
+/// SDL3 flattens every `SDL_EVENT_WINDOW_*` subtype into one contiguous type
+/// range that ends below the keyboard block (`0x300`). Flushing this range
+/// after stabilization drops only pre-run window noise (configure/resize/
+/// expose transitions absorbed by the fullscreen switch), never input events.
+const SDL_EVENT_TYPE_WINDOW_LAST: u32 = 0x2FF;
+
+fn extent_matches_pixel_pair(extent: [u32; 2], width: u32, height: u32) -> bool {
+    extent[0] == width && extent[1] == height
+}
+
+fn display_bounds_match_extent(window: &Window, requested_extent: [u32; 2]) -> bool {
+    let Ok(display) = window.get_display() else {
+        return false;
+    };
+    let Ok(bounds) = display.get_bounds() else {
+        return false;
+    };
+    extent_matches_pixel_pair(requested_extent, bounds.width(), bounds.height())
+}
+
+fn enter_stable_borderless_fullscreen(
+    window: &mut Window,
+    events: &mut EventPump,
+    event_subsystem: &EventSubsystem,
+    requested_extent: [u32; 2],
+) -> Result<(), DesktopAdapterError> {
+    window.set_fullscreen(true).map_err(sdl_error)?;
+    let deadline = Instant::now() + FULLSCREEN_START_STABILIZATION_TIMEOUT;
+    let mut stable_polls = 0_u32;
+    while Instant::now() < deadline {
+        events.pump_events();
+        let (width, height) = window.size_in_pixels();
+        if extent_matches_pixel_pair(requested_extent, width, height) {
+            stable_polls += 1;
+            if stable_polls >= FULLSCREEN_START_REQUIRED_STABLE_POLLS {
+                event_subsystem
+                    .flush_events(EventType::WindowShown as u32, SDL_EVENT_TYPE_WINDOW_LAST);
+                return Ok(());
+            }
+        } else {
+            stable_polls = 0;
+        }
+        std::thread::sleep(FULLSCREEN_START_POLL_INTERVAL);
+    }
+    let (width, height) = window.size_in_pixels();
+    Err(DesktopAdapterError::FullscreenStartExtentUnavailable {
+        requested: requested_extent,
+        observed: [width, height],
+    })
+}
 
 /// Opaque owner for an initialized SDL/Vulkan interactive run.
 ///
@@ -210,8 +271,8 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
         // initialization failure finalizes before reverse-order native drops.
         let sdl;
         let video;
-        let window;
-        let events;
+        let mut window;
+        let mut events;
         let graphics;
         let finalizer = AdapterFinalizer::new(finalize_application);
 
@@ -234,6 +295,17 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             .build()
             .map_err(|error| DesktopAdapterError::Sdl(error.to_string()))?;
         events = sdl.event_pump().map_err(sdl_error)?;
+        if options.prefer_borderless_fullscreen_when_display_matches
+            && display_bounds_match_extent(&window, options.initial_extent)
+        {
+            let event_subsystem = sdl.event().map_err(sdl_error)?;
+            enter_stable_borderless_fullscreen(
+                &mut window,
+                &mut events,
+                &event_subsystem,
+                options.initial_extent,
+            )?;
+        }
         if options.inject_startup_lifecycle_probe {
             native_events::inject_startup_lifecycle_probe(
                 &sdl.event().map_err(sdl_error)?,
@@ -818,5 +890,31 @@ mod tests {
             };
         }
         assert_eq!(order.into_inner(), ["finalize", "adapter-drop"]);
+    }
+
+    #[test]
+    fn borderless_fullscreen_start_is_opt_in() {
+        assert!(!DesktopRunOptions::default().prefer_borderless_fullscreen_when_display_matches);
+    }
+
+    #[test]
+    fn fullscreen_start_extent_mismatch_has_typed_code_and_message() {
+        let error = DesktopAdapterError::FullscreenStartExtentUnavailable {
+            requested: [1_920, 1_080],
+            observed: [1_853, 1_011],
+        };
+        assert_eq!(
+            error.diagnostic_code(),
+            "PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE"
+        );
+        let message = error.to_string();
+        assert!(message.contains("1853x1011") || message.contains("[1853, 1011]"));
+        assert!(message.contains("1920"));
+    }
+
+    #[test]
+    fn extent_pixel_pair_comparison_is_exact() {
+        assert!(extent_matches_pixel_pair([1_280, 720], 1_280, 720));
+        assert!(!extent_matches_pixel_pair([1_920, 1_080], 1_920, 1_011));
     }
 }
