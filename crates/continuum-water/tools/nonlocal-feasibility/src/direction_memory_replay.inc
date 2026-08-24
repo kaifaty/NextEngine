@@ -44,6 +44,11 @@ struct ALR38LaneRecord {
     std::string root;
 };
 
+struct ALR38ReplayCapture {
+    bool captured = false;
+    ALR37ContinuationCapture r37;
+};
+
 const char* al_r38_lane_name(ALR38LaneKind kind) {
     switch (kind) {
     case ALR38LaneKind::Steepest: return "STEEPEST";
@@ -271,7 +276,8 @@ std::string al_r38_route(
 
 } // namespace
 
-SplitBoundaryReport run_al_direction_memory_replay_controls() {
+SplitBoundaryReport run_al_direction_memory_replay_controls_impl(
+    ALR38ReplayCapture* output_capture) {
     const bool identity_exact = sha256_hex(B4E2D7R19R38_IDENTITY_PROJECTION)
         == B4E2D7R19R38_IDENTITY_SHA256;
     ALR37ContinuationCapture capture;
@@ -551,5 +557,13 @@ SplitBoundaryReport run_al_direction_memory_replay_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (output_capture != nullptr) {
+        output_capture->captured = passed;
+        output_capture->r37 = std::move(capture);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_direction_memory_replay_controls() {
+    return run_al_direction_memory_replay_controls_impl(nullptr);
 }
