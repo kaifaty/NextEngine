@@ -102,7 +102,8 @@ ALR33DenseControl al_r33_dense_run(
     std::string name,
     const std::vector<std::vector<double>>& matrix,
     const std::vector<double>& constraint,
-    double delta) {
+    double delta,
+    std::size_t maximum_iterations = AL_R33_MAX_ITERATIONS) {
     ALR33DenseControl result;
     result.name = std::move(name);
     if (matrix.empty() || matrix.size() != constraint.size()
@@ -113,7 +114,7 @@ ALR33DenseControl al_r33_dense_run(
     const std::vector<double> zero(constraint.size(), 0.0);
     bool exact = true;
     for (std::size_t iteration = 0U;
-         iteration < AL_R33_MAX_ITERATIONS; ++iteration) {
+         iteration < maximum_iterations; ++iteration) {
         std::vector<double> positive(residual.size(), 0.0);
         for (std::size_t row = 0U; row < residual.size(); ++row) {
             positive[row] = std::max(residual[row], 0.0);
@@ -243,9 +244,22 @@ std::string al_r33_route(
         : "ITERATED_CAUCHY_NO_ADDITIONAL_PROGRESS";
 }
 
+struct ALR33NormalStepCapture {
+    bool captured = false;
+    ALR32CauchyCapture r32;
+    std::vector<Vec3> iterate;
+    std::vector<double> maintained_response;
+    std::vector<double> terminal_response;
+    std::vector<Vec3> terminal_gradient;
+    std::vector<ALR33Checkpoint> checkpoints;
+    ALR32Evaluation terminal;
+    bool projected_stationary = false;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_iterated_all_inequality_normal_step_controls() {
+SplitBoundaryReport run_al_iterated_all_inequality_normal_step_controls_impl(
+    ALR33NormalStepCapture* output_capture) {
     const bool identity_exact = sha256_hex(B4E2D7R19R33_IDENTITY_PROJECTION)
         == B4E2D7R19R33_IDENTITY_SHA256;
     ALR32CauchyCapture capture;
@@ -668,5 +682,20 @@ SplitBoundaryReport run_al_iterated_all_inequality_normal_step_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (output_capture != nullptr) {
+        output_capture->captured = passed;
+        output_capture->r32 = std::move(capture);
+        output_capture->iterate = std::move(iterate);
+        output_capture->maintained_response = std::move(maintained_response);
+        output_capture->terminal_response = std::move(terminal_response.value);
+        output_capture->terminal_gradient = std::move(terminal_gradient);
+        output_capture->checkpoints = std::move(checkpoints);
+        output_capture->terminal = terminal;
+        output_capture->projected_stationary = projected_stationary;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_iterated_all_inequality_normal_step_controls() {
+    return run_al_iterated_all_inequality_normal_step_controls_impl(nullptr);
 }

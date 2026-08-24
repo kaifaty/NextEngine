@@ -80025,6 +80025,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "scalar_feasibility_interval.inc"
 #include "all_inequality_cauchy_step.inc"
 #include "iterated_all_inequality_normal_step.inc"
+#include "first_order_reference_extension.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
