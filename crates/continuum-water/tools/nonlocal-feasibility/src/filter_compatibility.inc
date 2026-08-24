@@ -1,9 +1,9 @@
 namespace {
 
 constexpr const char* B4E2D7R19R47_IDENTITY_SHA256 =
-    "a70d15dcebfbbb3d670ba3b39988518772862b58a54cedd8fc3f1dd0114b568f";
+    "09b1ce5efc452cbbd4220f6bb09f720d23fdb777b65de7d796e9c64d0e41799f";
 constexpr const char* B4E2D7R19R47_IDENTITY_PROJECTION =
-    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19r47-filter-compatibility|v1|parent=3f42e2d2:ecbdc13b1cf1ca889fed1f0ce98f4f4613c06eb222d2e132271cd23cdddaf4e3:8b3390babbb896cef73a487bbf2512abc8f2031ff6ad7299d506928ac0d59cf0:FILTER_FEASIBILITY_STEP_CANDIDATE|source=r43-position-e0f7ba79637171012b11750b752ab862b7b24174f4d79e2ec115e06bc8b93828;endpoint-30885f22768de119065907526f36c225d058c6b97693770be109faf3ddd3b960;trial-0fb11d7feb63a38f285798bd1eb2aad49131fbe5ff72df48e2230b31b8ffcc50;owner-baf145ae5d293802b8a1915ec05b10781b79bfed2f30f520f0a960bb817e5187|linear=source-psi-minus-r43-predicted-reduction;captured-direct-linear-psi-and-h;binary64-exact-repeat;finite-nonnegative;exact-zero-required-for-strict-linearized-inequality-compatibility;no-fitted-tolerance|geometry=endpoint-global-l2<=0.25;source-active-contact-tangent;no-new-contact-evaluation|filter=r46-admitted-exact;admission-necessary-not-sufficient|restoration=ordinary-theta-step-requires-compatible-normal;filter-acceptable-incompatible-step-selects-restoration;restoration-exit-requires-filter-acceptable-next-trqp-compatible;next-state-compatibility-not-claimed|controls=zero-linear-compatible;positive-linear-restoration;filter-pass-compatibility-fail;route-precedence;parent;source;linear;trust;contact;filter;work;rollback|routes=filter-compatibility-parent-rejected;filter-compatibility-source-rejected;filter-linear-metric-rejected;filter-trust-rejected;filter-contact-rejected;filter-admission-rejected;filter-compatibility-work-rejected;restoration-compatibility-required;filter-normal-step-compatible-candidate|precedence=parent,source,linear,trust,contact,filter,work,compatibility|work=parent-r46-replays1;new-workspaces0;new-jvp0;new-vjp0;new-hvp0;new-model0;new-trial0;new-outer0|runs=2-clean-release-builds;1-process-each;byte-exact|r40-r41-r42-r43-r44-r45-r46=unchanged;correction=none;candidate-commit=none;filter-runtime-commit=none;restoration-execution=none;following-outer=none;tolerance=none;penalty-change=none;support-expansion=none;state-mutation=none;timing=none;runtime=none;production=none|credit=one-private-filter-compatibility-classification-only)IDENTITY";
+    R"IDENTITY(nextengine.nonlocal.nsr3b4e2d7r19r47-filter-compatibility|v2|parent=3f42e2d2:ecbdc13b1cf1ca889fed1f0ce98f4f4613c06eb222d2e132271cd23cdddaf4e3:8b3390babbb896cef73a487bbf2512abc8f2031ff6ad7299d506928ac0d59cf0:FILTER_FEASIBILITY_STEP_CANDIDATE|source=r43-position-e0f7ba79637171012b11750b752ab862b7b24174f4d79e2ec115e06bc8b93828;endpoint-30885f22768de119065907526f36c225d058c6b97693770be109faf3ddd3b960;trial-0fb11d7feb63a38f285798bd1eb2aad49131fbe5ff72df48e2230b31b8ffcc50;owner-baf145ae5d293802b8a1915ec05b10781b79bfed2f30f520f0a960bb817e5187|linear=direct-captured-linear-psi-and-h-authoritative;source-minus-predicted-diagnostic;absolute-error<=gamma4*(abs-source+abs-predicted+abs-direct);direct-h=sqrt(2*direct-psi)-binary64-exact;finite-nonnegative;exact-zero-required-for-strict-linearized-inequality-compatibility;no-fitted-tolerance|geometry=endpoint-global-l2<=0.25;source-active-contact-tangent;no-new-contact-evaluation|filter=r46-admitted-exact;admission-necessary-not-sufficient|restoration=ordinary-theta-step-requires-compatible-normal;filter-acceptable-incompatible-step-selects-restoration;restoration-exit-requires-filter-acceptable-next-trqp-compatible;next-state-compatibility-not-claimed|controls=two-subtraction-forward-bound;zero-linear-compatible;positive-linear-restoration;filter-pass-compatibility-fail;route-precedence;parent;source;linear;trust;contact;filter;work;rollback|routes=filter-compatibility-parent-rejected;filter-compatibility-source-rejected;filter-linear-metric-rejected;filter-trust-rejected;filter-contact-rejected;filter-admission-rejected;filter-compatibility-work-rejected;restoration-compatibility-required;filter-normal-step-compatible-candidate|precedence=parent,source,linear,trust,contact,filter,work,compatibility|work=parent-r46-replays1;new-workspaces0;new-jvp0;new-vjp0;new-hvp0;new-model0;new-trial0;new-outer0|runs=2-clean-release-builds;1-process-each;byte-exact|r40-r41-r42-r43-r44-r45-r46=unchanged;correction=none;candidate-commit=none;filter-runtime-commit=none;restoration-execution=none;following-outer=none;tolerance=none;penalty-change=none;support-expansion=none;state-mutation=none;timing=none;runtime=none;production=none|credit=one-private-filter-compatibility-classification-only)IDENTITY";
 
 bool al_r47_strictly_compatible(double psi, double h) {
     return std::isfinite(psi) && std::isfinite(h)
@@ -61,7 +61,16 @@ SplitBoundaryReport run_al_filter_compatibility_controls() {
         && owner_before
             == "baf145ae5d293802b8a1915ec05b10781b79bfed2f30f520f0a960bb817e5187";
 
-    const bool dense = identity
+    constexpr double dense_source = 3.2918458374056909e-15;
+    constexpr double dense_predicted = 2.6064437667433723e-15;
+    constexpr double dense_direct = 6.8540207066231842e-16;
+    const double dense_reconstructed = dense_source - dense_predicted;
+    const double dense_error = std::abs(dense_reconstructed - dense_direct);
+    const double dense_bound = gamma_factor(4U)
+        * (std::abs(dense_source) + std::abs(dense_predicted)
+            + std::abs(dense_direct));
+    const bool dense = identity && dense_error > 0.0
+        && dense_error <= dense_bound
         && al_r47_strictly_compatible(0.0, 0.0)
         && !al_r47_strictly_compatible(
             std::numeric_limits<double>::denorm_min(), 0.0)
@@ -74,16 +83,26 @@ SplitBoundaryReport run_al_filter_compatibility_controls() {
         r43.source_psi - r43.predicted_psi_reduction;
     const double recomputed_linear_h =
         std::sqrt(2.0 * recomputed_linear_psi);
+    const double reconstruction_error =
+        std::abs(recomputed_linear_psi - r43.linear_psi);
+    const double reconstruction_bound = gamma_factor(4U)
+        * (std::abs(r43.source_psi)
+            + std::abs(r43.predicted_psi_reduction)
+            + std::abs(r43.linear_psi));
+    const bool direct_h_exact = binary64_bits(r43.linear_h)
+        == binary64_bits(std::sqrt(2.0 * r43.linear_psi));
     const bool linear_exact = source_exact && dense
         && std::isfinite(r43.source_psi) && r43.source_psi > 0.0
         && std::isfinite(r43.predicted_psi_reduction)
         && r43.predicted_psi_reduction > 0.0
-        && std::isfinite(r43.linear_psi) && r43.linear_psi >= 0.0
-        && std::isfinite(r43.linear_h) && r43.linear_h >= 0.0
-        && binary64_bits(recomputed_linear_psi)
-            == binary64_bits(r43.linear_psi)
-        && binary64_bits(recomputed_linear_h)
-            == binary64_bits(r43.linear_h)
+        && std::isfinite(r43.linear_psi) && r43.linear_psi > 0.0
+        && std::isfinite(r43.linear_h) && r43.linear_h > 0.0
+        && std::isfinite(recomputed_linear_psi)
+        && std::isfinite(recomputed_linear_h)
+        && std::isfinite(reconstruction_error)
+        && std::isfinite(reconstruction_bound)
+        && reconstruction_error <= reconstruction_bound
+        && direct_h_exact
         && binary64_bits(capture.source_psi)
             == binary64_bits(r43.source_psi)
         && capture.filter_admitted;
@@ -157,12 +176,14 @@ SplitBoundaryReport run_al_filter_compatibility_controls() {
         work_exact && rollback, compatible);
     const bool passed = identity && parent_exact && source_exact && dense
         && linear_exact && trust_exact && contact_exact && filter_exact
-        && work_exact && rollback && routes_exact;
+        && work_exact && rollback && routes_exact && !compatible
+        && route == "RESTORATION_COMPATIBILITY_REQUIRED";
     std::ostringstream semantic;
     semantic << std::setprecision(17) << (passed ? "PASS|" : "FAIL|")
              << B4E2D7R19R47_IDENTITY_SHA256 << '|' << parent_stdout << '|'
              << r43.source_psi << ':' << r43.predicted_psi_reduction << ':'
              << r43.linear_psi << ':' << r43.linear_h << ':'
+             << reconstruction_error << ':' << reconstruction_bound << ':'
              << r43.linear_active << ':' << compatible << '|'
              << endpoint_norm << ':' << active_components << ':'
              << tangent_violations << '|' << work_exact << ':' << rollback
@@ -170,7 +191,7 @@ SplitBoundaryReport run_al_filter_compatibility_controls() {
     const std::string result_sha = sha256_hex(semantic.str());
     std::ostringstream report;
     report << std::setprecision(17)
-           << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r47_filter_compatibility.v1\",\"status\":\""
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r47_filter_compatibility.v2\",\"status\":\""
            << (passed ? "PASS" : "FAIL") << "\",\"identity_sha256\":\""
            << B4E2D7R19R47_IDENTITY_SHA256
            << "\",\"parent_stdout_sha256\":\"" << parent_stdout << "\""
@@ -178,6 +199,12 @@ SplitBoundaryReport run_al_filter_compatibility_controls() {
            << ",\"predicted_reduction\":"
            << r43.predicted_psi_reduction << ",\"residual_psi\":"
            << r43.linear_psi << ",\"residual_h\":" << r43.linear_h
+           << ",\"reconstructed_psi\":" << recomputed_linear_psi
+           << ",\"reconstructed_h\":" << recomputed_linear_h
+           << ",\"reconstruction_error\":" << reconstruction_error
+           << ",\"reconstruction_bound\":" << reconstruction_bound
+           << ",\"direct_h_exact\":"
+           << (direct_h_exact ? "true" : "false")
            << ",\"active\":" << r43.linear_active
            << ",\"strictly_compatible\":"
            << (compatible ? "true" : "false") << "}"
