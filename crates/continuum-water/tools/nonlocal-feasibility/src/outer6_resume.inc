@@ -520,9 +520,20 @@ bool al_decode_active_epoch_owner_for_resume_v1(
         && reencoded == bytes;
 }
 
+struct ALShadowOuter6ResumeCapture {
+    bool captured = false;
+    ALOwnerEpochTransitionCapture r17;
+    ALOuter6Execution candidate;
+    ALShadowResumeReceiptV1 receipt;
+    ALShadowResumeStateV1 state;
+    std::string receipt_root;
+    std::string state_root;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_shadow_outer6_resume_controls() {
+SplitBoundaryReport run_al_shadow_outer6_resume_controls_impl(
+    ALShadowOuter6ResumeCapture* capture_out) {
     const bool identity_exact = sha256_hex(B4E2D7R19R18_IDENTITY_PROJECTION)
         == B4E2D7R19R18_IDENTITY_SHA256;
 
@@ -931,5 +942,18 @@ SplitBoundaryReport run_al_shadow_outer6_resume_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    if (capture_out != nullptr) {
+        capture_out->captured = passed;
+        capture_out->r17 = std::move(capture);
+        capture_out->candidate = candidate;
+        capture_out->receipt = receipt;
+        capture_out->state = resume_state;
+        capture_out->receipt_root = receipt_root;
+        capture_out->state_root = resume_state_root;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_shadow_outer6_resume_controls() {
+    return run_al_shadow_outer6_resume_controls_impl(nullptr);
 }

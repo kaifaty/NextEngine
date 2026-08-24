@@ -182,6 +182,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-v2-envelope-validation|"
                          "--nonlocal-al-owner-epoch-transition|"
                          "--nonlocal-al-shadow-outer6-resume|"
+                         "--nonlocal-al-within-epoch-outer7-grant|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1421,6 +1422,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_shadow_outer6_resume_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-within-epoch-outer7-grant") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_within_epoch_outer7_grant_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
