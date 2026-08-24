@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R35_PASS_FIRST_ORDER_RETAINED / D7R19R36_FROZEN_EQUAL_WORK_HYBRID_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R36_PASS_EQUAL_WORK_HYBRID_SELECTED / PROJECTED_STATIONARITY_CONTINUATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -68,12 +68,23 @@
   result `bacfbc3d...c368` and route `FIRST_ORDER_REFERENCE_RETAINED`.
   Curvature improves objective/violation to `0.28259x/0.53159x` of R34 but
   worsens projected mapping to `1.45259x`; strict dominance fails.
-- **Current decision:** R36 is frozen as a fixed 51-pass hybrid: three
+- **R36 contract:** fixed 51-pass hybrid with three
   curvature outers followed by six projected exact-line polishing steps from
-  exact `v8`. Implement it next with the same strict-dominance rule.
-- **Authority boundary:** R30/R31/R32/R33/R34/R35 remain private diagnostics.
-  They
-  cannot
+  exact `v8` and the same strict-dominance rule.
+- **Current conclusion:** R36 passes at stdout SHA `13566a2d...7550`,
+  semantic result `6efda6f0...ae99` and route
+  `EQUAL_WORK_CURVATURE_POLISH_HYBRID_CANDIDATE`. Two clean Release binaries
+  and outputs are byte-exact.
+- **Hybrid fact:** at the same 51-pass budget, R36 improves R34 objective,
+  violation and projected mapping to `0.21562x`, `0.46434x` and `0.49843x`.
+  It uses exactly 15 HVPs, reproduces all three R35 curvature-prefix roots and
+  then accepts six unchanged first-order polish steps.
+- **Current decision:** retain curvature-plus-polish as the equal-work
+  linearized normal-step candidate. Research/freeze a bounded continuation of
+  the unchanged polish recurrence to establish its projected-stationarity
+  curve before any nonlinear moved-state evaluation.
+- **Authority boundary:** R30/R31/R32/R33/R34/R35/R36 remain private
+  diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
   penalty/cap/policy, time the solver, integrate runtime state or claim
   production readiness.
@@ -2690,6 +2701,25 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R36 research freezes prefix composition, exact work
   partition, polish recurrence, direct comparison and dense controls.
 
+### D-078 -- Establish the hybrid termination curve before nonlinear use
+
+- **Observation:** R36 strictly dominates R34 at equal work, but its projected
+  mapping remains nonzero at `7.47091e-10`. Six polish steps reduce that
+  mapping substantially after the curvature prefix; they do not yet provide a
+  termination certificate or show a plateau.
+- **Decision:** preserve the exact R36 endpoint and continue only its unchanged
+  projected exact-line recurrence at predeclared doubling checkpoints. Use a
+  fresh prefix response, direct checkpoint/terminal operators, strict work and
+  rollback ledgers, and report block contractions without fitting a stopping
+  tolerance to the observed values.
+- **Rejected:** applying the R36 iterate, calling it converged from strict
+  dominance, choosing a tolerance from `7.47e-10`, adding curvature/damping or
+  preconditioning after the result, evaluating a nonlinear moved state before
+  the linearized termination curve, or using wall time.
+- **Reconsider when:** the continuation either reaches exact projected
+  stationarity, preserves strict monotone contraction through frozen
+  checkpoints, or exposes its first numerical/active-set plateau.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2748,11 +2778,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R36 as an equal-work curvature-plus-polish
-   discriminator over the R34 objective/trust geometry. Do not form
-   or apply a correction, evaluate a moved
+   Research and freeze only a bounded unchanged-polish continuation from the
+   exact R36 endpoint. Do not form or apply a correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the

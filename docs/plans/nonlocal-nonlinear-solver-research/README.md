@@ -2384,3 +2384,10 @@ and [frozen contract](03b4e2d7r19r36-hybrid-contract.md) preserve exact R35
 outers 1--3, replace its fourth 12-pass block with six validated first-order
 polish steps, and keep the total at 51. Strict R34 three-metric dominance
 remains mandatory. Implement report-only R36 next.
+The [D7R19R36 evidence](../../development/nonlocal-nsr3b4e2d7r19r36-hybrid-evidence-2026-08-24.md)
+closes `PASS / EQUAL_WORK_CURVATURE_POLISH_HYBRID_CANDIDATE`. At exactly 51
+pair passes and 15 HVPs, the hybrid improves R34 objective, violation and
+projected mapping to `0.21562x/0.46434x/0.49843x`; both clean Release outputs
+are byte-exact. The endpoint remains nonstationary. Research/freeze a bounded
+unchanged-polish continuation and termination curve next; do not apply the
+iterate or evaluate a moved nonlinear state.
