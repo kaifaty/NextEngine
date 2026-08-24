@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R30_PASS_LINEARIZED_RANGE_PROJECTION / D7R19R31_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R30_PASS_LINEARIZED_RANGE_PROJECTION / D7R19R31_FROZEN_SCALAR_INTERVAL_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -27,11 +27,10 @@
   ill-conditioned angle-cosine gate at roundoff-sized `q`. The exact failure
   is retained; the hard metric is cross-energy normalized by `||b||^2`, with
   unchanged `1e-10` tolerance and unchanged LSMR policy.
-- **Current decision:** research/freeze R31 as a read-only
-  fraction-to-boundary/globalization discriminator. First establish whether
-  any scalar fraction of the R30 direction yields material predicted progress
-  without crossing inactive inequalities; do not apply or nonlinearly
-  evaluate the direction.
+- **Current decision:** R31 is frozen as the exact scalar feasibility interval
+  `alpha_lower<=alpha<=alpha_upper`. Binary128 orders source ratios and bounded
+  binary64 `nextafter` repair closes direct predicates. No fitted progress
+  threshold exists. Implement this one classifier next.
 - **Authority boundary:** R30/R31 remain private diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
   penalty/cap/policy, time the solver, integrate runtime state or claim
@@ -2626,8 +2625,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research/freeze D7R19R31 as a zero-state-mutation fraction-to-boundary and
-   scalar-globalization discriminator over exact R30/R29/R28. Do not form or
+   Implement only frozen D7R19R31 as a zero-state-mutation scalar-feasibility
+   interval discriminator over exact R30/R29/R28. Do not form or
    apply a correction, evaluate a moved nonlinear state, classify a nonlinear
    floor, refine, change penalty,
    cap/policy, execute a following outer or run another
