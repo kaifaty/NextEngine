@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R33_PASS_ITERATED_NORMAL_STEP / D7R19R34_FROZEN_FIRST_ORDER_REFERENCE_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R34_PASS_FIRST_ORDER_REFERENCE / D7R19R35_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -54,11 +54,20 @@
   objective to `0.394228x` of the source by iteration eight. All doubling
   checkpoints strictly improve, while terminal projected mapping remains
   `4.33159e-9`; the pilot progresses but has not solved the subproblem.
-- **Current decision:** R34 is frozen as the exact R33-prefix continuation to
-  checkpoints 16 and 32 with at most 51 new pair passes. Implement it next;
-  use it as the fixed first-order reference for a later equal-work
-  generalized-Hessian comparison if stationarity is absent.
-- **Authority boundary:** R30/R31/R32/R33 remain private diagnostics. They
+- **R34 contract:** exact R33-prefix continuation to checkpoints 16 and 32
+  with at most 51 new pair passes.
+- **Current conclusion:** R34 passes at stdout SHA `5150f1f6...f345`, semantic
+  result `00dcf602...83b7` and route
+  `EXTENDED_FIRST_ORDER_REFERENCE_CANDIDATE`. Two clean binaries and outputs
+  are byte-exact.
+- **Reference fact:** at step 32, violation norm is `0.223731x` and objective
+  `0.0500554x` of the source. The 8-step and 16-step block geometric factors
+  are `0.9176058` and `0.9176000`; stable linear convergence is observed, but
+  terminal projected mapping remains `1.49888e-9`.
+- **Current decision:** research R35 as a generalized-Hessian curvature
+  discriminator with no more matrix-free operator work than R34. Compare
+  direct terminal objective, violation and projected mapping at equal work.
+- **Authority boundary:** R30/R31/R32/R33/R34 remain private diagnostics. They
   cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
   penalty/cap/policy, time the solver, integrate runtime state or claim
@@ -2645,6 +2654,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R34 fixes and closes exact 16/32 checkpoints, terminal
   direct operator evidence and its pair-pass ledger.
 
+### D-076 -- Compare curvature only at equal operator work
+
+- **Observation:** R34 establishes a reproducible 51-pass continuation
+  reference with stable `~0.91760` per-step objective contraction through
+  iteration 32, but no projected stationarity.
+- **Decision:** research a matrix-free generalized-Hessian method for
+  `A^T D A`, including singular/nullspace and trust-boundary handling. Freeze
+  its outer/inner recurrence and cap total comparable operator passes at the
+  R34 reference before execution. Compare only fresh direct terminal metrics
+  and certificates.
+- **Rejected:** claiming first-order is optimal from stable convergence,
+  claiming Newton-CG is superior from asymptotic theory, giving curvature
+  unlimited Krylov work, adding diagonal regularization after observing the
+  nominal spectrum, applying either iterate or using wall time on this host.
+- **Reconsider when:** R35 research fixes one curvature algorithm, exact work
+  equivalence, globalization, singularity stops and independent dense controls.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2703,11 +2729,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R34 as an exact continuation of the R33
-   projected exact-line prefix to checkpoints 16/32 with a 51-pair-pass cap.
-   Do not form or apply a correction, evaluate a moved
+   Research and freeze only D7R19R35 as an equal-work generalized-Hessian
+   curvature discriminator over the R34 objective/trust geometry. Do not form
+   or apply a correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
