@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R39_PASS_GUARDED_HZ_RECURRENCE / D7R19R40_NONLINEAR_ACCEPTANCE_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R40_PASS_NONLINEAR_TOPOLOGY_REJECTED / D7R19R41_CROSSING_CONTACT_AUDIT_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -150,6 +150,20 @@
 - **Scientific fork:** feasibility acceptance with nonpositive full merit is
   a successful `COMPOSITE_NORMAL_TANGENTIAL_STEP_REQUIRED` classification,
   not permission to tune penalty, trust or a tolerance.
+- **Current conclusion:** R40 passes at stdout SHA `6db946e6...489d`,
+  semantic result `d8ea9710...98ff` and route
+  `NONLINEAR_TOPOLOGY_REJECTED`. Two clean Release binaries and outputs are
+  byte-exact.
+- **Nonlinear-model fact:** feasibility agreement is essentially exact:
+  `rho=0.9999999999999891`, violation falls from `8.114e-8` to
+  `1.354e-13`, and active rows fall from `1420` to `53`.
+- **Admission facts:** the trial has net 78 fewer neighborhood pairs, box
+  penetration increases by `1.337e-9`, and full normalized merit reduction is
+  `-2.603e-15`. Long double resolves and confirms the negative sign.
+- **Current decision:** preserve R40 and diagnose exact horizon-shell pair
+  crossings plus contact ownership before composite normal/tangential design.
+  Do not relax topology/contact or tune the nearly balanced merit after the
+  result.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -2853,6 +2867,22 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R40 closes exact moved-state evidence and selects its
   first scientific route.
 
+### D-083 -- Diagnose support-shell and contact ownership before composition
+
+- **Observation:** R40's nonlinear density model agrees at almost unit ratio,
+  yet the tiny `6.14e-8` physical global displacement changes pair membership,
+  increases existing box penetration and loses complete merit by only
+  `2.60e-15` after opposing PHR/inertia terms nearly cancel.
+- **Decision:** freeze an exact lost/entered-pair audit with source/trial
+  radii, kernel/derivative magnitudes and horizon margins, plus per-particle
+  contact-displacement attribution. Keep the R40 trial immutable.
+- **Rejected:** declaring horizon crossings harmless from net count alone,
+  expanding support, projecting contact, scaling the step, fitting merit
+  acceptance, beginning a tangential solver before attribution, or timing.
+- **Reconsider when:** R41 distinguishes zero-measure compact-support shell
+  changes from meaningful graph discontinuity and identifies the contact
+  owner components.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2913,10 +2943,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R39/R38/R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   D7R19R40 is frozen as a rollback-only nonlinear moved-state acceptance
-   discriminator for the exact R39 HZ endpoint. Implement that exact contract
-   next, then obtain two clean byte-exact Release outputs. Do not apply or
-   commit the correction, classify a nonlinear floor, change penalty,
+   Preserve D7R19R40 exact PASS/`NONLINEAR_TOPOLOGY_REJECTED` evidence.
+   Research and freeze D7R19R41 as a rollback-only exact pair-crossing and
+   contact-attribution audit of the unchanged R40 source/trial. Do not
+   implement before pair partitions, horizon metrics, contact ownership,
+   work and routes are frozen. Do not apply or commit the correction,
+   classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
