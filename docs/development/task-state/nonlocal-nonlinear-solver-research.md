@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R37_PASS_LINEAR_CONVERGENCE_CURVE / DIRECTION_MEMORY_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R37_PASS_LINEAR_CONVERGENCE_CURVE / D7R19R38_FROZEN_DIRECTION_MEMORY_REPLAY_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -102,6 +102,10 @@
 - **Current decision:** research/freeze an active-set-aware direction-memory
   discriminator with fail-safe steepest-descent restart and unchanged exact
   line globalization. Do not select a beta formula before the replay design.
+- **R38 contract:** at exact R37 states `6/12/24`, compare steepest, PRP+,
+  parameter-free DY-HS+ and raw Hager-Zhang one-step directions. Every lane
+  checks raw/projected descent and exact line; invalid lanes restart to
+  steepest. Fixed work is 15 JVP pair passes, with no accepted update.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -2818,7 +2822,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research and freeze only a direction-memory/restart discriminator over
+   Implement only frozen D7R19R38 as the direction-memory/restart replay over
    exact captured R37 states. Do not form or apply a
    correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,

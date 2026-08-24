@@ -2404,3 +2404,9 @@ near `0.959` per step while the active set keeps changing. The selected method
 is convergent but remains in a linear steepest-descent regime. Research/freeze
 an active-set-aware direction-memory discriminator next; do not merely extend
 the same recurrence or evaluate a moved nonlinear state.
+The [D7R19R38 research](../../development/nonlocal-nsr3b4e2d7r19r38-direction-memory-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r38-direction-memory-contract.md) select a
+replay-only comparison of steepest, PRP+, DY-HS+ and raw Hager-Zhang directions
+at exact R37 states `6/12/24`. Raw and projected descent plus exact-line KKT
+are mandatory; unsafe lanes restart to steepest. Fifteen pair passes evaluate
+all lanes without accepting state. Implement R38 next.
