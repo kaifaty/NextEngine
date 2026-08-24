@@ -2452,3 +2452,9 @@ box penetration and loses full normalized merit by `2.603e-15`. Long double
 resolves the negative merit sign. Research/freeze an exact pair-crossing and
 contact-attribution audit next; keep the R40 trial and gates unchanged and do
 not start composite-step implementation yet.
+The [D7R19R41 research](../../development/nonlocal-nsr3b4e2d7r19r41-support-crossing-contact-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r41-support-crossing-contact-contract.md)
+select an exact pair symmetric-difference audit and all 36,000 particle-axis-
+side contact tests. Material-zero shell classification requires bit-exact zero
+kernel value, gradient, second derivative and crossing-density ledger; no
+observed epsilon is admitted. Implement only this rollback-only audit next.

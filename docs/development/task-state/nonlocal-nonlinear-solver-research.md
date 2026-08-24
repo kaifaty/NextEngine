@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R40_PASS_NONLINEAR_TOPOLOGY_REJECTED / D7R19R41_CROSSING_CONTACT_AUDIT_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R40_PASS_NONLINEAR_TOPOLOGY_REJECTED / D7R19R41_CROSSING_CONTACT_AUDIT_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -164,6 +164,13 @@
   crossings plus contact ownership before composite normal/tangential design.
   Do not relax topology/contact or tune the nearly balanced merit after the
   result.
+- **R41 contract:** merge the exact current/trial pair graphs, require
+  bit-exact `W/W'/W''` and per-center density ledgers for a material-zero shell
+  classification, and audit all 36,000 particle-axis-side contact faces.
+- **Current decision:** implement the frozen rollback-only R41 audit. Exact
+  zeros, not an observed epsilon, decide whether topology is materially
+  equivalent; contact routes distinguish new faces from worsening an existing
+  face.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -2944,10 +2951,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 6. Preserve D7R19R39/R38/R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
    Preserve D7R19R40 exact PASS/`NONLINEAR_TOPOLOGY_REJECTED` evidence.
-   Research and freeze D7R19R41 as a rollback-only exact pair-crossing and
-   contact-attribution audit of the unchanged R40 source/trial. Do not
-   implement before pair partitions, horizon metrics, contact ownership,
-   work and routes are frozen. Do not apply or commit the correction,
+   D7R19R41 is frozen as a rollback-only exact pair-crossing and
+   contact-attribution audit of the unchanged R40 source/trial. Implement that
+   exact contract next, then obtain two clean byte-exact Release outputs. Do
+   not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
