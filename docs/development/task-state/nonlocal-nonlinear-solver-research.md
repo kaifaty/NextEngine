@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R44_PASS_CONTACT_FEASIBLE_COMMON_DESCENT / D7R19R45_NONLINEAR_LINE_GLOBALIZATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R44_PASS_CONTACT_FEASIBLE_COMMON_DESCENT / D7R19R45_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -3028,6 +3028,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R45 freezes a scale/domain and finite nonlinear line
   selection without using nominal outcome to choose its bounds.
 
+### D-088 -- Use a bounded unit-direction line, not raw-gradient scaling
+
+- **Observation:** R44's raw direction norm is `5.4585e-9`, so a raw
+  `alpha=1` has no invariant relation to trust, contact or neighbor ownership.
+  The source-anchored R42 skin and R32 trust ball already provide independent
+  finite displacement bounds.
+- **Decision:** R45 normalizes the exact direction, bounds its scalar domain by
+  the conservative intersection of trust, skin-certificate and inactive-face
+  contact slack, and evaluates a predeclared largest-first `0..24` dyadic
+  ladder. Selection requires nonlinear local/source hinge and merit progress,
+  inherited ratio `>=0.1`, precision and selected canonical correspondence.
+- **Rejected:** raw `alpha=1`, scaling from the observed R43 merit deficit,
+  fitting a contact epsilon, accepting directional signs alone, rebuilding a
+  density-nullspace QP despite R44 common descent, or timing.
+- **Reconsider when:** R45 either selects one finite rollback-only composite
+  candidate or isolates the first exact domain/globalization boundary.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3092,9 +3109,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    exact PASS/`NONZERO_SUPPORT_CROSSING_REQUIRES_RELINEARIZATION` evidence.
    Preserve D7R19R42 exact PASS/`STABLE_SUPERSET_RELINEARIZATION_CANDIDATE`.
    Preserve D7R19R43 exact PASS/`TANGENTIAL_MERIT_STEP_REQUIRED` and both
-   immutable unprojected/projected trial roots. Research/freeze D7R19R44 as a
-   rollback-only R44 common-descent evidence. Research/freeze D7R19R45 as a
-   scale-aware nonlinear line-globalization discriminator. Do
+   immutable unprojected/projected trial roots. Preserve D7R19R44 exact
+   PASS/`CONTACT_FEASIBLE_COMMON_DESCENT_CANDIDATE` and rollback evidence.
+   Implement only the frozen D7R19R45 scale-aware nonlinear
+   line-globalization discriminator. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
