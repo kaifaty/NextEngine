@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R34_PASS_FIRST_ORDER_REFERENCE / D7R19R35_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R34_PASS_FIRST_ORDER_REFERENCE / D7R19R35_FROZEN_EQUAL_WORK_CURVATURE_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -64,9 +64,10 @@
   `0.0500554x` of the source. The 8-step and 16-step block geometric factors
   are `0.9176058` and `0.9176000`; stable linear convergence is observed, but
   terminal projected mapping remains `1.49888e-9`.
-- **Current decision:** research R35 as a generalized-Hessian curvature
-  discriminator with no more matrix-free operator work than R34. Compare
-  direct terminal objective, violation and projected mapping at equal work.
+- **Current decision:** R35 is frozen as four undamped generalized-Hessian
+  outer iterations with five CG HVPs each, exact all-row globalization and a
+  51-pass cap from the same R33 `v8` prefix. Implement it next; strict direct
+  terminal dominance over R34 is required to select curvature.
 - **Authority boundary:** R30/R31/R32/R33/R34 remain private diagnostics. They
   cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -2668,8 +2669,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   claiming Newton-CG is superior from asymptotic theory, giving curvature
   unlimited Krylov work, adding diagonal regularization after observing the
   nominal spectrum, applying either iterate or using wall time on this host.
-- **Reconsider when:** R35 research fixes one curvature algorithm, exact work
-  equivalence, globalization, singularity stops and independent dense controls.
+- **Reconsider when:** R35 closes exact parent/prefix, CG/globalization,
+  equal-work terminal comparison and rollback evidence.
 
 ## Performance facts retained
 
@@ -2731,7 +2732,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research and freeze only D7R19R35 as an equal-work generalized-Hessian
+   Implement only frozen D7R19R35 as an equal-work generalized-Hessian
    curvature discriminator over the R34 objective/trust geometry. Do not form
    or apply a correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
