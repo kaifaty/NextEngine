@@ -274,9 +274,19 @@ std::string al_r32_route(
         : "ALL_INEQUALITY_CAUCHY_NORMAL_STEP_CANDIDATE";
 }
 
+struct ALR32CauchyCapture {
+    bool captured = false;
+    ALR31ScalarIntervalCapture r31;
+    std::vector<Vec3> gradient;
+    std::vector<Vec3> direction;
+    std::vector<double> response;
+    ALR32LineResult line;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_all_inequality_cauchy_step_controls() {
+SplitBoundaryReport run_al_all_inequality_cauchy_step_controls_impl(
+    ALR32CauchyCapture* output_capture) {
     const bool identity_exact = sha256_hex(B4E2D7R19R32_IDENTITY_PROJECTION)
         == B4E2D7R19R32_IDENTITY_SHA256;
     ALR31ScalarIntervalCapture capture;
@@ -560,5 +570,17 @@ SplitBoundaryReport run_al_all_inequality_cauchy_step_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (output_capture != nullptr) {
+        output_capture->captured = passed;
+        output_capture->r31 = std::move(capture);
+        output_capture->gradient = std::move(gradient);
+        output_capture->direction = std::move(direction);
+        output_capture->response = std::move(response.value);
+        output_capture->line = std::move(line);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_all_inequality_cauchy_step_controls() {
+    return run_al_all_inequality_cauchy_step_controls_impl(nullptr);
 }

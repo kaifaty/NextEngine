@@ -205,6 +205,7 @@ SplitBoundaryReport run_al_linearized_feasibility_operator_controls();
 SplitBoundaryReport run_al_linearized_range_projection_controls();
 SplitBoundaryReport run_al_scalar_feasibility_interval_controls();
 SplitBoundaryReport run_al_all_inequality_cauchy_step_controls();
+SplitBoundaryReport run_al_iterated_all_inequality_normal_step_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
