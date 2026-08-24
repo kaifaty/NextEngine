@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R47V1_INVALID_LINEAR_METRIC_INVERSE / D7R19R47V2_FILTER_COMPATIBILITY_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R47_PASS_RESTORATION_COMPATIBILITY_REQUIRED / D7R19R48_RESTORATION_CERTIFICATE_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,18 +11,22 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R46 passes at stdout SHA `ecbdc13b...f4e3`, semantic
-  `8b3390ba...9cf0` and route `FILTER_FEASIBILITY_STEP_CANDIDATE`. Two clean
-  Release binaries and outputs are byte-exact.
-- **Filter fact:** R43 reduces `h` to `0.456303x` while pure inertia `f`
-  increases by `5.28%`. All 24 frozen margins pass by feasibility, including
-  `gamma=1/2`; none passes by objective. Model ratio is `0.999999993`, and
-  topology/contact/work/rollback are exact.
-- **Current decision:** R47 v1 exposed an invalid bit-exact inverse-
-  subtraction gate before scientific classification. V2 is frozen at identity
-  `09b1ce5e...799f`: direct linear `psi/h` is authoritative and reconstructed
-  `psi` owns a `gamma(4)` forward bound. Implement v2 before switching, trust
-  update or any restoration-exit claim.
+- **Current conclusion:** R47 v2 passes at stdout SHA `dac0ffd8...71d`,
+  semantic `cbc08218...86c` and route
+  `RESTORATION_COMPATIBILITY_REQUIRED`. Two clean Release binaries and
+  outputs are byte-exact.
+- **Compatibility fact:** R43 remains filter-admitted and lies well inside the
+  trust/contact tangent geometry, but its authoritative linear residual is
+  positive: `psi=6.8540207066231842e-16`, `h=3.702437226104768e-8`, 464
+  positive rows. It is not a compatible ordinary filter-SQP normal step.
+- **Numerical reclosure:** reconstructed `psi` differs from the direct metric
+  by `1.9721522630525295e-31`, below the frozen `gamma(4)` bound
+  `5.8474928675268488e-30`; direct `h` is bit-exact. R47 v1 remains an invalid
+  inverse-subtraction diagnostic with no scientific credit.
+- **Current decision:** research R48 as a rollback-only matrix-free bounded
+  primal/dual restoration-compatibility certificate at the exact R43 moved
+  state. Do not choose filter switching/trust constants or claim restoration
+  exit before a feasible contact-cone correction is certified.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3126,6 +3130,26 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** v2 either closes the forward-error ownership and reaches
   compatibility classification or exposes a different first boundary.
 
+### D-093 -- Enter restoration; do not commit a merely filter-admitted step
+
+- **Observation:** R47 v2 closes every parent, source, trust, contact, filter,
+  work and rollback gate, yet the exact direct linearized violation remains
+  positive at 464 rows. Filter admission proves useful feasibility progress;
+  it does not prove normal-step compatibility.
+- **Decision:** preserve R43 as an immutable restoration source/candidate and
+  research a matrix-free bounded feasibility problem at its moved state:
+  find or rule out a correction in the remaining trust region and exact box-
+  contact tangent cone that closes the linearized inequalities. Require a
+  primal residual and an independent dual/infeasibility certificate before
+  any restoration-exit or ordinary filter transaction.
+- **Rejected:** committing R43 as an ordinary step, erasing the positive
+  residual with a fitted tolerance, selecting switching/trust-update constants
+  first, unconstrained least squares outside the contact cone, or claiming
+  restoration success from feasibility reduction alone.
+- **Reconsider when:** R48 identifies a finite matrix-free certificate and
+  freezes its immutable source/operator, trust ownership, contact cone,
+  numerical stopping rules and exact rollback boundary.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3196,9 +3220,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    densify or retune its scalar line. Preserve D7R19R46 exact
    PASS/`FILTER_FEASIBILITY_STEP_CANDIDATE`; do not commit R43 or select a
    production margin. Preserve D7R19R47 v1 as invalid inverse-subtraction
-   evidence with no scientific credit. Implement frozen D7R19R47 v2 as a
-   zero-new-work strict filter-compatibility/restoration classifier. Do not start switching, trust
-   response or restoration exit before this prerequisite closes. Do
+   evidence with no scientific credit. Preserve D7R19R47 v2 exact
+   PASS/`RESTORATION_COMPATIBILITY_REQUIRED`; its positive direct linear
+   residual forbids an ordinary transaction. Research/freeze D7R19R48 as a
+   rollback-only matrix-free primal/dual bounded contact-cone restoration
+   certificate at the exact R43 moved state. Do not start switching, trust
+   response or restoration exit before that certificate closes. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
