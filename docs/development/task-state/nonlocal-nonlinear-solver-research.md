@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R27_PASS_OUTER11_GRANT_CANDIDATE / D7R19R28_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R28_PASS_OUTER11_EQUIVALENT_NOT_ADMISSIBLE / D7R19R29_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -643,8 +643,17 @@
 - **R28 frozen design:** execute exactly one outer-11 update from independent
   slice/oracle clones; allow at most 230 candidate HVP, 234 workspaces and 32
   precision audits. Primal/stationarity trends are report-only.
-- **Current decision:** implement only frozen R28. Do not tune cap, penalty,
-  policy or a stagnation threshold after observing the result.
+- **R28 result:** PASS at stdout `9c953a11...7237`, semantic result
+  `00662064...12d0` and route `SHADOW_OUTER11_EXECUTION_CANDIDATE`;
+  candidate/oracle and all `13/13` atomic routes are exact.
+- **Mechanism fact:** two accepted trials use 51 HVP and the last uses 26/34.
+  Primal improves 4.4290% to `1.84036e-8`; stationarity remains small at
+  `5.43804e-14`. Outer 10 did not establish a stable plateau.
+- **Successor fact:** state is `851b4eb8...90d7`, epoch remains 1 and
+  slice/cumulative become `333/856`, leaving 179 slice HVP.
+- **Current decision:** research/freeze R29 as a zero-state-mutation
+  linearized-feasibility range diagnostic. Separate representation rank,
+  active tangent restrictions and outer AL response before tuning anything.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2546,11 +2555,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R28 as one outer-11 slice candidate at `282/512`
-   and one independent unsliced oracle at `805/8704`. Keep cap/policy exact;
-   do not execute a following outer, run another
+   Research/freeze only D7R19R29 as a zero-state-mutation linearized-
+   feasibility range diagnostic over exact R28. Do not refine, change penalty,
+   cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.

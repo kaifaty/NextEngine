@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / PASS / SHADOW_OUTER11_EXECUTION_CANDIDATE`
 
 ## Question
 
@@ -77,3 +77,7 @@ One private outer-11 candidate and one comparison oracle only. No following
 outer, substep, macro, trajectory, timing, public/world commit, durable or
 concurrent CAS, runtime integration or production authority.
 
+The frozen implementation passes with exact candidate/oracle roots. Outer 11
+restores `4.4290%` primal improvement while remaining non-admissible; outer
+10's weak progress was a local observation, not a proven plateau. See the
+[dated evidence](nonlocal-nsr3b4e2d7r19r28-shadow-outer11-execution-evidence-2026-08-24.md).
