@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R29_PASS_LINEARIZED_FEASIBILITY_OPERATOR / D7R19R30_FROZEN_RANGE_PROJECTION_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R30_PASS_LINEARIZED_RANGE_PROJECTION / D7R19R31_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,25 +11,31 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** D7R19R29 passes at stdout SHA
-  `596c81d4...fe7b`, semantic result `f6736b14...835` and route
-  `LINEARIZED_FEASIBILITY_OPERATOR_CANDIDATE`. Two clean Release binaries and
+- **Current conclusion:** D7R19R30 passes at stdout SHA
+  `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
+  `LINEARIZED_RANGE_PROJECTION_CANDIDATE`. Two clean Release binaries and
   outputs are byte-exact.
-- **Operator fact:** pair-once and directed JVP roots are identical over
-  340,340 pairs; centered finite-difference relative L2 is `4.03e-10`,
-  adjoint relative error is `2.11e-14`, and constant translation is exactly
-  zero on all 2,858 interior rows.
-- **Partition fact:** the frozen R28 state has 1,420 violated, 2,432
-  PHR-active, 3,142 static-support-coupled and 2,858 interior rows. These are
-  exact binary64 membership facts, not a floor classification.
-- **Current decision:** R30 is frozen as one read-only, column-scaled LSMR
-  projection of `-c` on the 1,420 violated rows. Maximum work is 512
-  iterations/1,028 pair passes. Four analytic dense controls and independently
-  recomputed primal/normal residuals precede any interpretation.
-- **Authority boundary:** R30 may produce only a range-projection diagnostic.
-  It cannot apply its iterate, evaluate a moved nonlinear state, classify a
-  floor, execute another outer, tune policy, time the solver, integrate
-  runtime state or claim production readiness.
+- **Range fact:** column-scaled LSMR reaches `COMPATIBLE` in 388 iterations.
+  Direct `||q||/||b||` is `6.25812e-9`; cross-energy and Pythagorean defects
+  are `2.67574e-13` and `5.35148e-13`. The violated-row RHS therefore has no
+  substantial observed component outside the exact R29 linearized range.
+- **Globalization fact:** the dimensionless preimage has RMS `1.29664e4` and
+  maximum `5.10947e5`; its full-row response creates 450 positive constraints
+  outside the frozen violated set and reaches predicted positive
+  `1.78318e5`. This iterate is not an admissible correction.
+- **Diagnostic repair:** the first run's `ORTHOGONALITY` failure was an
+  ill-conditioned angle-cosine gate at roundoff-sized `q`. The exact failure
+  is retained; the hard metric is cross-energy normalized by `||b||^2`, with
+  unchanged `1e-10` tolerance and unchanged LSMR policy.
+- **Current decision:** research/freeze R31 as a read-only
+  fraction-to-boundary/globalization discriminator. First establish whether
+  any scalar fraction of the R30 direction yields material predicted progress
+  without crossing inactive inequalities; do not apply or nonlinearly
+  evaluate the direction.
+- **Authority boundary:** R30/R31 remain private diagnostics. They cannot
+  mutate state, classify a nonlinear floor, execute another outer, tune
+  penalty/cap/policy, time the solver, integrate runtime state or claim
+  production readiness.
 
 - **Current conclusion:** D7R17 reproducibly selects
   `NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED` at stdout SHA
@@ -2541,6 +2547,25 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R30 either converges with exact reproducibility or
   preserves its first condition/iteration/implementation boundary.
 
+### D-072 -- Globalize the range direction before nonlinear evaluation
+
+- **Observation:** R30 converges compatibly with residual ratio `6.25812e-9`,
+  so a substantial violated-row range floor is not observed. The resulting
+  full direction is nevertheless enormous and creates 450 new linearized
+  violations outside the selected set, with maximum predicted positive
+  `1.78318e5`.
+- **Decision:** do not damp by an arbitrary fitted constant and do not apply
+  the R30 iterate. Research one read-only fraction-to-boundary discriminator
+  over exact inactive-row breakpoints, predicted progress and predeclared
+  safety fractions. Use it to decide whether scalar globalization is viable
+  or a true inequality active-set/trust-region subproblem is required.
+- **Rejected:** interpreting linear range compatibility as nonlinear
+  feasibility, applying the full preimage, ignoring inactive rows, selecting
+  a step fraction after observing a convenient result, rerunning outer 12,
+  changing penalty/cap/policy or treating shared-host duration as performance.
+- **Reconsider when:** R31 closes the exact maximal safe fraction and predicted
+  progress without state mutation or nonlinear evaluation.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2599,11 +2624,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R30 as a zero-state-mutation matrix-free LSMR
-   range projection over exact R29/R28. Do not form or apply a
-   correction, classify a nonlinear floor, refine, change penalty,
+   Research/freeze D7R19R31 as a zero-state-mutation fraction-to-boundary and
+   scalar-globalization discriminator over exact R30/R29/R28. Do not form or
+   apply a correction, evaluate a moved nonlinear state, classify a nonlinear
+   floor, refine, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
