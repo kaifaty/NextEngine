@@ -125,3 +125,12 @@ production use.
 
 Frozen contract:
 [R46 filter globalization](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r46-filter-globalization-contract.md).
+
+## Pre-evidence identity reclosure
+
+The first executable attempt exposed an identity-serialization defect before
+scientific admission: the documented SHA included a trailing line feed while
+the raw executable projection did not. The contract now records the correct
+raw 2,406-byte SHA `afa98b31...ee4`. No identity text, coordinate, filter
+margin, model gate, route or work rule changed; the invalid attempt receives
+no outcome credit.

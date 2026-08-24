@@ -18,12 +18,13 @@
   first locally admissible point is backtrack 5 but retains source merit
   `-1.242e-15`; the best sampled source merit is still `-1.197e-15` at
   backtrack 4. Twenty long-double audits resolve with no binary128 use.
-- **Current decision:** R46 research and contract are frozen at identity
-  `316ee56d...d14`. Implement the rollback-only discriminator with pure
-  normalized inertia `f`, positive density-violation norm `h`, exact dyadic
-  margins `2^-1..2^-24`, inherited R43 model/contact/topology gates and a
-  hypothetical source-entry filter update. Do not commit state or run the
-  next outer.
+- **Current decision:** R46 research and contract are frozen at raw-string
+  identity `afa98b31...ee4` after correcting a trailing-LF hash annotation.
+  The identity text and all gates are unchanged. Implement the rollback-only
+  discriminator with pure normalized inertia `f`, positive density-violation
+  norm `h`, exact dyadic margins `2^-1..2^-24`, inherited R43
+  model/contact/topology gates and a hypothetical source-entry filter update.
+  Do not commit state or run the next outer.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
