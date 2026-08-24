@@ -111,9 +111,16 @@ or the least-squares rule
 ||g|| <= ATOL ||C||_F ||q||
 ```
 
-holds. Also require normalized projection orthogonality and Pythagorean defect
-at most `1e-10`. These are verification controls, not a threshold on the
-physical size of `q`.
+holds. Also require energy-normalized projection orthogonality
+
+```text
+|p^T q| / max(||b||^2, tiny) <= 1e-10
+```
+
+and Pythagorean defect at most `1e-10`. The angle cosine
+`|p^Tq|/(||p||||q||)` is report-only because it is ill-conditioned when a
+compatible solve drives `||q||` to roundoff. These are verification controls,
+not a threshold on the physical size of `q`.
 
 The implementation itself must first pass four small dense controls:
 

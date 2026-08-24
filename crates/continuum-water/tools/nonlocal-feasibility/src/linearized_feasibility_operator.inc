@@ -230,7 +230,8 @@ std::string al_r29_route(
 
 } // namespace
 
-SplitBoundaryReport run_al_linearized_feasibility_operator_controls() {
+SplitBoundaryReport run_al_linearized_feasibility_operator_controls_impl(
+    ALShadowOuter11ExecutionCapture* output_capture) {
     const bool identity_exact = sha256_hex(B4E2D7R19R29_IDENTITY_PROJECTION)
         == B4E2D7R19R29_IDENTITY_SHA256;
     ALShadowOuter11ExecutionCapture capture;
@@ -574,5 +575,13 @@ SplitBoundaryReport run_al_linearized_feasibility_operator_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
-    return {passed, report.str()};
+    SplitBoundaryReport result{passed, report.str()};
+    if (output_capture != nullptr) {
+        *output_capture = std::move(capture);
+    }
+    return result;
+}
+
+SplitBoundaryReport run_al_linearized_feasibility_operator_controls() {
+    return run_al_linearized_feasibility_operator_controls_impl(nullptr);
 }

@@ -35,5 +35,13 @@ must not update particle positions or any AL/public/world state. No nonlinear
 evaluation, floor classification, following outer, policy change, timing,
 runtime or production authority.
 
+## Implementation clarification
+
+`orthogonality` is the dimensionless cross-energy
+`|p^T q| / max(||b||^2, tiny)`. The raw angle cosine is report-only: it is
+undefined at an exact compatible projection and numerically unstable once
+`||q||` reaches roundoff. This clarification does not change the frozen
+`1e-10` gate, LSMR policy, iteration cap or any physical acceptance threshold.
+
 Research basis:
 [D7R19R30 research](../../development/nonlocal-nsr3b4e2d7r19r30-linearized-range-projection-research-2026-08-24.md).
