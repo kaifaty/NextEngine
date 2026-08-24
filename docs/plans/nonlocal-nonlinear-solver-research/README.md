@@ -2487,3 +2487,9 @@ select exact Euclidean projection of the frozen dimensionless normal step into
 all source-active box-face tangent half-spaces. R43 must recompute linear and
 nonlinear feasibility, contact, stable-superset coverage, trial mapping and
 precision-resolved complete merit; no R40 acceptance quantity is inherited.
+The [D7R19R43 evidence](../../development/nonlocal-nsr3b4e2d7r19r43-contact-tangent-normal-evidence-2026-08-24.md)
+closes `PASS / TANGENTIAL_MERIT_STEP_REQUIRED`. Projection clamps exactly
+1,268 inward components, leaves zero new/worsened faces and retains nearly
+unit density agreement (`rho=0.999999993`), but complete merit reduction is
+`-1.761e-15`. Research/freeze a contact-feasible tangential-descent existence
+discriminator before implementing a composite SQP step.

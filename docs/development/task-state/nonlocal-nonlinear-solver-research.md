@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R42_PASS_STABLE_SUPERSET_RELINEARIZATION / D7R19R43_CONTACT_TANGENT_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R43_PASS_TANGENTIAL_MERIT_STEP_REQUIRED / D7R19R44_TANGENTIAL_DESCENT_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -214,6 +214,19 @@
 - **Current decision:** implement only the frozen rollback-only R43
   discriminator. A contact/feasibility pass with negative merit selects a
   later tangential-merit step; it does not authorize coefficient tuning.
+- **Current conclusion:** R43 passes at stdout SHA `565c70d2...c993`, semantic
+  `e1f019da...eea6` and route `TANGENTIAL_MERIT_STEP_REQUIRED`; two clean
+  binaries and outputs are byte-exact.
+- **Contact fact:** projection clamps 1,268 inward components owned by 1,290
+  active faces. The projected trial has zero new and zero worsened contacts.
+- **Composite fact:** density agreement remains nearly exact
+  (`rho=0.9999999927`), but violation is `3.7024e-8`, fresh mapping is
+  `9.7691e-9` and complete merit reduction is `-1.7608e-15` with a resolved
+  long-double sign.
+- **Current decision:** research/freeze a rollback-only discriminator for a
+  contact-feasible tangential descent direction near the projected trial.
+  Test complete-merit directional derivative and fresh density-null
+  compatibility before designing a composite step.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -2968,6 +2981,22 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R43 freezes exact active-face ownership, projection,
   stable-superset coverage, relinearization, merit and rollback routes.
 
+### D-086 -- Prove tangential descent exists before building composite SQP
+
+- **Observation:** R43 fixes all box-contact regressions and preserves strong
+  density reduction, yet complete merit remains negative. The fresh projected
+  trial is not density-stationary and has 464 active rows.
+- **Decision:** first audit candidate descent directions formed from the full
+  normalized merit gradient projected into the source contact cone and the
+  approximate null space of the fresh projected-trial density operator.
+  Require negative directional derivative, bounded density image and exact
+  matrix-free adjoint/work ownership before any line search or accepted step.
+- **Rejected:** immediately implementing a full SQP/Newton solve, further
+  clipping the normal step, tuning penalty/trust, treating negative merit as a
+  precision floor, or timing.
+- **Reconsider when:** R44 distinguishes an available tangential descent from
+  a need to change the normal/tangential decomposition itself.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3031,9 +3060,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R40 exact PASS/`NONLINEAR_TOPOLOGY_REJECTED` and D7R19R41
    exact PASS/`NONZERO_SUPPORT_CROSSING_REQUIRES_RELINEARIZATION` evidence.
    Preserve D7R19R42 exact PASS/`STABLE_SUPERSET_RELINEARIZATION_CANDIDATE`.
-   Research and freeze D7R19R43 as a rollback-only active-contact tangent
-   projection with stable-superset rebuild/relinearization and full merit.
-   Keep physical `H` and the unprojected R40 evidence unchanged. Do
+   Preserve D7R19R43 exact PASS/`TANGENTIAL_MERIT_STEP_REQUIRED` and both
+   immutable unprojected/projected trial roots. Research/freeze D7R19R44 as a
+   rollback-only tangential-descent existence discriminator. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
