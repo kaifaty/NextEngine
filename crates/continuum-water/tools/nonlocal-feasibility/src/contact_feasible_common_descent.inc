@@ -20,9 +20,21 @@ std::string al_r44_route(bool parent, bool source, bool workspace,
     return "CONTACT_FEASIBLE_COMMON_DESCENT_CANDIDATE";
 }
 
+struct ALR44ReplayCapture {
+    bool captured = false;
+    ALR43ReplayCapture r43;
+    std::vector<Vec3> gradient;
+    std::vector<Vec3> direction;
+    std::vector<double> image;
+    long double merit_slope = 0.0L;
+    long double feasibility_slope = 0.0L;
+    double direction_norm = 0.0;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_contact_feasible_common_descent_controls() {
+SplitBoundaryReport run_al_contact_feasible_common_descent_controls_impl(
+    ALR44ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R44_IDENTITY_PROJECTION)
         == B4E2D7R19R44_IDENTITY_SHA256;
     ALR43ReplayCapture capture;
@@ -223,5 +235,19 @@ SplitBoundaryReport run_al_contact_feasible_common_descent_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r43 = std::move(capture);
+        replay_capture->gradient = std::move(gradient);
+        replay_capture->direction = std::move(direction);
+        replay_capture->image = image.value;
+        replay_capture->merit_slope = merit_slope;
+        replay_capture->feasibility_slope = feasibility_slope;
+        replay_capture->direction_norm = direction_norm;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_contact_feasible_common_descent_controls() {
+    return run_al_contact_feasible_common_descent_controls_impl(nullptr);
 }

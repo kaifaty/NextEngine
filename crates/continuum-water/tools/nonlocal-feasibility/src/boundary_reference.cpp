@@ -80052,6 +80052,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "stable_superset_relinearization.inc"
 #include "contact_tangent_normal_step.inc"
 #include "contact_feasible_common_descent.inc"
+#include "nonlinear_line_globalization.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
