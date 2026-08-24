@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R24_PASS_OUTER9_EQUIVALENT_NOT_ADMISSIBLE / D7R19R25_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R24_PASS_OUTER9_EQUIVALENT_NOT_ADMISSIBLE / D7R19R25_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -603,6 +603,11 @@
 - **Successor fact:** state is `749f0805...32d98`, epoch remains 1 and
   slice/cumulative become `231/754`, leaving 281 slice HVP.
 - **Current decision:** research/freeze R25 as one zero-work outer-10 grant.
+- **R25 frozen design:** bind exact R24 state `749f0805...32d98`, receipt
+  `9c618bd1...74e28`, history `d39b98c2...0b28d` and slice/cumulative
+  `231/754`; issue one unconsumed outer-10 owner with zero solver work.
+- **Current decision:** implement only the frozen R25 grant. Outer 10 and cap
+  changes remain forbidden.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2506,7 +2511,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research/freeze only D7R19R25 as a zero-work one-use outer-10 grant over
+   Implement only frozen D7R19R25 as a zero-work one-use outer-10 grant over
    exact R24 state/receipt/history at slice/cumulative `231/754`. Do not change
    cap/policy, execute outer 10, run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
