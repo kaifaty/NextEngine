@@ -199,9 +199,22 @@ std::string al_outer7_transaction_bytes(
     return bytes;
 }
 
+struct ALShadowOuter7ExecutionCapture {
+    bool captured = false;
+    ALWithinEpochOuter7GrantCapture r19;
+    ALOuter6Execution candidate;
+    ALOuterExecutionReceiptV1 receipt;
+    ALOuterExecutionStateV1 state;
+    std::string receipt_bytes;
+    std::string state_bytes;
+    std::string receipt_root;
+    std::string state_root;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_shadow_outer7_execution_controls() {
+SplitBoundaryReport run_al_shadow_outer7_execution_controls_impl(
+    ALShadowOuter7ExecutionCapture* capture_out) {
     const bool identity_exact = sha256_hex(B4E2D7R19R20_IDENTITY_PROJECTION)
         == B4E2D7R19R20_IDENTITY_SHA256;
     ALWithinEpochOuter7GrantCapture capture;
@@ -460,5 +473,20 @@ SplitBoundaryReport run_al_shadow_outer7_execution_controls() {
               ",\"world_physics_mutation\":false,\"timing_admitted\":false"
               ",\"runtime_authority\":false,\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (capture_out != nullptr) {
+        capture_out->captured = passed;
+        capture_out->r19 = std::move(capture);
+        capture_out->candidate = candidate;
+        capture_out->receipt = receipt;
+        capture_out->state = state;
+        capture_out->receipt_bytes = receipt_bytes;
+        capture_out->state_bytes = state_bytes;
+        capture_out->receipt_root = receipt_root;
+        capture_out->state_root = state_root;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_shadow_outer7_execution_controls() {
+    return run_al_shadow_outer7_execution_controls_impl(nullptr);
 }

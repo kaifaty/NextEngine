@@ -97,7 +97,8 @@ bool al_encode_outer_grant_state(
 
 std::string al_outer_grant_route(
     bool source, bool owner, bool duplicate, bool stale, bool ledger,
-    bool context, bool grant, bool receipt, bool active, bool abort) {
+    bool context, bool grant, bool receipt, bool active, bool abort,
+    const char* candidate_route = "OUTER7_GRANT_CANDIDATE") {
     if (!source) return "OUTER_GRANT_SOURCE_REJECTED";
     if (!owner) return "OUTER_GRANT_OWNER_REJECTED";
     if (duplicate) return "OUTER_GRANT_DUPLICATE_REJECTED";
@@ -108,7 +109,7 @@ std::string al_outer_grant_route(
     if (!receipt) return "OUTER_GRANT_RECEIPT_REJECTED";
     if (!active) return "OUTER_GRANT_ACTIVE_OWNER_REJECTED";
     if (abort) return "OUTER_GRANT_ABORTED";
-    return "OUTER7_GRANT_CANDIDATE";
+    return candidate_route;
 }
 
 struct ALOuterGrantTransactionState {
@@ -140,11 +141,12 @@ std::string al_apply_outer_grant_transaction(
     ALOuterGrantTransactionState& state,
     const ALOuterGrantTransactionState& committed,
     bool source, bool owner, bool duplicate, bool stale, bool ledger,
-    bool context, bool grant, bool receipt, bool active, bool abort) {
+    bool context, bool grant, bool receipt, bool active, bool abort,
+    const char* candidate_route = "OUTER7_GRANT_CANDIDATE") {
     const std::string route = al_outer_grant_route(
         source, owner, duplicate, stale, ledger, context, grant, receipt,
-        active, abort);
-    if (route == "OUTER7_GRANT_CANDIDATE") {
+        active, abort, candidate_route);
+    if (route == candidate_route) {
         ALOuterGrantTransactionState candidate = committed;
         state = std::move(candidate);
     }
