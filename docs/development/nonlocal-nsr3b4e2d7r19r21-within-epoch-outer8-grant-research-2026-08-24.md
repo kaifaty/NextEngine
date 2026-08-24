@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / PASS / OUTER8_GRANT_CANDIDATE`
 
 ## Question
 
@@ -57,3 +57,7 @@ production policy.
 
 The executable gate is frozen by the
 [R21 contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r21-within-epoch-outer8-grant-contract.md).
+
+The implementation passes with all canonical roots, routes and rollback
+controls exact. See the
+[dated evidence](nonlocal-nsr3b4e2d7r19r21-within-epoch-outer8-grant-evidence-2026-08-24.md).
