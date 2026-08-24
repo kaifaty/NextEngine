@@ -2499,3 +2499,9 @@ contact-projected negative complete-merit gradient at the exact R43 trial.
 Strict long-double merit and hinge directional signs decide whether a common
 descent already exists or a density-null-space QP is actually required. No
 line step or moved state is admitted.
+The [D7R19R44 evidence](../../development/nonlocal-nsr3b4e2d7r19r44-common-descent-evidence-2026-08-24.md)
+closes `PASS / CONTACT_FEASIBLE_COMMON_DESCENT_CANDIDATE`. Contact projection
+retains almost the full negative gradient norm; normalized merit and hinge
+slopes are strictly negative at `-0.9988` and `-0.3172`. Research/freeze a
+scale-aware bounded nonlinear line globalization next; a null-space QP is not
+selected for this state.

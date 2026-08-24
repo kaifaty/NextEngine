@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R43_PASS_TANGENTIAL_MERIT_STEP_REQUIRED / D7R19R44_COMMON_DESCENT_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R44_PASS_CONTACT_FEASIBLE_COMMON_DESCENT / D7R19R45_NONLINEAR_LINE_GLOBALIZATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -233,6 +233,16 @@
 - **Current decision:** implement only the frozen first-order discriminator.
   Run a null-space study only if contact-feasible merit descent increases the
   density hinge; run line globalization only if both slopes are negative.
+- **Current conclusion:** R44 passes at stdout SHA `2fb42990...5292`, semantic
+  `b1485fd0...a9a1` and route
+  `CONTACT_FEASIBLE_COMMON_DESCENT_CANDIDATE`; two clean binaries and outputs
+  are byte-exact.
+- **Directional fact:** contact projection retains direction norm
+  `5.4585e-9` from raw `5.4651e-9`. Normalized complete-merit and hinge slopes
+  are strictly negative at `-0.9987921` and `-0.3172183`.
+- **Current decision:** do not build a null-space QP for this state. Research
+  scale-aware bounded nonlinear line globalization with contact,
+  stable-superset, feasibility and precision-resolved merit gates.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -3003,6 +3013,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R44 distinguishes an available tangential descent from
   a need to change the normal/tangential decomposition itself.
 
+### D-087 -- Globalize the common descent before accepting a composite step
+
+- **Observation:** R44 proves strict local common descent, but its raw norm is
+  tiny and no finite moved state has been evaluated. Active density rows and
+  compact-support membership may change along a scaled line.
+- **Decision:** research a dimensionless unit-direction parameterization with
+  bounds derived independently from contact slack, the inherited trust region
+  and R42 superset certificate. Freeze finite candidate generation and require
+  nonlinear hinge progress plus precision-resolved positive complete merit.
+- **Rejected:** `alpha=1` from raw gradient units, scaling to cancel the R43
+  merit deficit after seeing it, accepting on directional signs, skipping
+  topology/contact rebuilds, null-space QP despite common descent, or timing.
+- **Reconsider when:** R45 freezes a scale/domain and finite nonlinear line
+  selection without using nominal outcome to choose its bounds.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3068,7 +3093,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R42 exact PASS/`STABLE_SUPERSET_RELINEARIZATION_CANDIDATE`.
    Preserve D7R19R43 exact PASS/`TANGENTIAL_MERIT_STEP_REQUIRED` and both
    immutable unprojected/projected trial roots. Research/freeze D7R19R44 as a
-   rollback-only tangential-descent existence discriminator. Do
+   rollback-only R44 common-descent evidence. Research/freeze D7R19R45 as a
+   scale-aware nonlinear line-globalization discriminator. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
