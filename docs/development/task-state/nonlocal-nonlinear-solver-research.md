@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R31_PASS_ACTIVE_SET_REFORMULATION_REQUIRED / D7R19R32_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R31_PASS_ACTIVE_SET_REFORMULATION_REQUIRED / D7R19R32_FROZEN_ALL_INEQUALITY_CAUCHY_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -36,10 +36,10 @@
   `alpha<=6.73507e-14`. At the safe upper bound all 1,420 selected rows remain
   positive and predicted progress is `6.73905e-14`; at the required lower
   bound 450 inactive rows are positive.
-- **Current decision:** scalar damping of R30 is closed as mathematically
-  insufficient for this state. Research R32 as an all-inequality matrix-free
-  feasibility normal step with an explicit trust bound; do not choose the
-  algorithm or thresholds before that research is frozen.
+- **Current decision:** R32 is frozen as the all-row hinge Cauchy normal step
+  at inherited dimensionless global-L2 trust radius `0.25`. One VJP, one JVP
+  and a binary128-ordered piecewise-quadratic breakpoint sweep derive the
+  exact line minimum. Implement this read-only baseline next.
 - **Authority boundary:** R30/R31 remain private diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
   penalty/cap/policy, time the solver, integrate runtime state or claim
@@ -2651,8 +2651,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research/freeze D7R19R32 as an all-inequality matrix-free feasibility
-   normal-step discriminator with an explicit trust bound. Do not form or
+   Implement only frozen D7R19R32 as an all-inequality matrix-free Cauchy
+   normal-step discriminator with inherited trust bound. Do not form or
    apply a correction, evaluate a moved nonlinear state, classify a nonlinear
    floor, refine, change penalty,
    cap/policy, execute a following outer or run another
