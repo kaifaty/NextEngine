@@ -624,6 +624,9 @@ std::string al_r30_route(
 struct ALR30RangeProjectionCapture {
     bool captured = false;
     std::string state_root;
+    std::vector<Vec3> position;
+    std::vector<double> dual;
+    double theta = 0.0;
     std::vector<double> constraint;
     std::vector<std::uint8_t> violated;
     std::vector<Vec3> preimage;
@@ -1076,6 +1079,9 @@ SplitBoundaryReport run_al_linearized_range_projection_controls_impl(
     if (output_capture != nullptr) {
         output_capture->captured = passed;
         output_capture->state_root = capture.state_root;
+        output_capture->position = position;
+        output_capture->dual = dual;
+        output_capture->theta = boundary.theta;
         output_capture->constraint =
             capture.candidate.update.support.constraint;
         output_capture->violated = std::move(violated);

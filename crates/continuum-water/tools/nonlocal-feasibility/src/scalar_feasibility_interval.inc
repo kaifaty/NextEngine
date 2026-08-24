@@ -322,9 +322,16 @@ std::string al_r31_route(
         : "INEQUALITY_ACTIVE_SET_REFORMULATION_REQUIRED";
 }
 
+struct ALR31ScalarIntervalCapture {
+    bool captured = false;
+    ALR30RangeProjectionCapture r30;
+    ALR31Interval interval;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_scalar_feasibility_interval_controls() {
+SplitBoundaryReport run_al_scalar_feasibility_interval_controls_impl(
+    ALR31ScalarIntervalCapture* output_capture) {
     const bool identity_exact = sha256_hex(B4E2D7R19R31_IDENTITY_PROJECTION)
         == B4E2D7R19R31_IDENTITY_SHA256;
     ALR30RangeProjectionCapture capture;
@@ -572,5 +579,14 @@ SplitBoundaryReport run_al_scalar_feasibility_interval_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (output_capture != nullptr) {
+        output_capture->captured = passed;
+        output_capture->r30 = std::move(capture);
+        output_capture->interval = std::move(interval);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_scalar_feasibility_interval_controls() {
+    return run_al_scalar_feasibility_interval_controls_impl(nullptr);
 }

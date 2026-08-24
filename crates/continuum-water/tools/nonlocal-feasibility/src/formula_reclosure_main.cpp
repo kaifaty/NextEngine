@@ -195,6 +195,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-linearized-feasibility-operator|"
                          "--nonlocal-al-linearized-range-projection|"
                          "--nonlocal-al-scalar-feasibility-interval|"
+                         "--nonlocal-al-all-inequality-cauchy-normal-step|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1525,6 +1526,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_scalar_feasibility_interval_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-all-inequality-cauchy-normal-step") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_all_inequality_cauchy_step_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

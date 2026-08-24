@@ -80023,6 +80023,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "linearized_feasibility_operator.inc"
 #include "linearized_range_projection.inc"
 #include "scalar_feasibility_interval.inc"
+#include "all_inequality_cauchy_step.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
