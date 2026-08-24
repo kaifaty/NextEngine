@@ -63161,14 +63161,11 @@ ALNormalizedSupport evaluate_al_normalized_dense_support(
     return result;
 }
 
-ALNormalizedWorkspace build_al_normalized_sparse_workspace(
-    const std::vector<Vec3>& fluid,
-    const JointStaticSupportBinding& binding,
+ALNormalizedWorkspace build_al_normalized_workspace_from_neighborhood(
+    JointNeighborhood neighborhood,
     const std::vector<double>& u,
     double theta,
-    ALSparseWorkTrace* work,
-    StaticSupportWorkTrace* static_work,
-    FlatAdjacencyWorkTrace* adjacency_work) {
+    ALSparseWorkTrace* work) {
     ALNormalizedWorkspace result;
     if (!al_normalized_inputs_valid(theta, u)) {
         result.failure = "AL_NORMALIZED_INPUT_INVALID";
@@ -63181,9 +63178,7 @@ ALNormalizedWorkspace build_al_normalized_sparse_workspace(
             work->maximum_live_workspaces, work->live_workspaces);
     }
     result.theta = theta;
-    result.neighborhood = build_joint_neighborhood_with_static_support(
-        tagged_points(fluid), &binding, true, static_work, true,
-        adjacency_work);
+    result.neighborhood = std::move(neighborhood);
     if (!result.neighborhood.passed
         || u.size() != result.neighborhood.fluid.size()) {
         result.failure = result.neighborhood.passed
@@ -63265,6 +63260,27 @@ ALNormalizedWorkspace build_al_normalized_sparse_workspace(
     result.passed = result.support.finite_values;
     if (!result.passed) result.failure = "AL_NORMALIZED_NONFINITE";
     return result;
+}
+
+ALNormalizedWorkspace build_al_normalized_sparse_workspace(
+    const std::vector<Vec3>& fluid,
+    const JointStaticSupportBinding& binding,
+    const std::vector<double>& u,
+    double theta,
+    ALSparseWorkTrace* work,
+    StaticSupportWorkTrace* static_work,
+    FlatAdjacencyWorkTrace* adjacency_work) {
+    if (!al_normalized_inputs_valid(theta, u)) {
+        ALNormalizedWorkspace result;
+        result.failure = "AL_NORMALIZED_INPUT_INVALID";
+        return result;
+    }
+    JointNeighborhood neighborhood =
+        build_joint_neighborhood_with_static_support(
+            tagged_points(fluid), &binding, true, static_work, true,
+            adjacency_work);
+    return build_al_normalized_workspace_from_neighborhood(
+        std::move(neighborhood), u, theta, work);
 }
 
 void release_al_normalized_workspace(
@@ -80033,6 +80049,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "guarded_hz_recurrence.inc"
 #include "nonlinear_normal_acceptance.inc"
 #include "support_crossing_contact_audit.inc"
+#include "stable_superset_relinearization.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

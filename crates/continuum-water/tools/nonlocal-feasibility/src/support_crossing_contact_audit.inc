@@ -363,7 +363,8 @@ std::string al_r41_route(
 
 } // namespace
 
-SplitBoundaryReport run_al_support_crossing_contact_audit_controls() {
+SplitBoundaryReport run_al_support_crossing_contact_audit_controls_impl(
+    ALR40ReplayCapture* replay_capture) {
     const bool identity_exact = sha256_hex(
         B4E2D7R19R41_IDENTITY_PROJECTION)
         == B4E2D7R19R41_IDENTITY_SHA256;
@@ -610,5 +611,13 @@ SplitBoundaryReport run_al_support_crossing_contact_audit_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        *replay_capture = std::move(capture);
+        replay_capture->captured = passed;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_support_crossing_contact_audit_controls() {
+    return run_al_support_crossing_contact_audit_controls_impl(nullptr);
 }
