@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R16_PASS_V2_VALIDATION_CANDIDATE / D7R19R17_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R17_PASS_OWNER_EPOCH_TRANSITION_CANDIDATE / D7R19R18_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -468,6 +468,18 @@
   shadow transaction, not concurrent/durable CAS.
 - **Current decision:** implement only the frozen R17 ownership corpus. Do not
   resume, execute outer 6 or mutate the live budget state machine.
+- **D7R19R17 result:** PASS and `OWNER_EPOCH_TRANSITION_CANDIDATE` at
+  stdout SHA `d930b6d5...2447` and semantic result `c0c6d028...a173`.
+  Both clean Release outputs and binaries are byte-exact.
+- **Atomicity fact:** all `15/15` valid/negative routes pass at corpus root
+  `b41bf104...e00f`; every precommit failure rolls back exactly and duplicate
+  replay preserves the exact successful state.
+- **Ownership fact:** source owner is consumed once, epoch advances `0 -> 1`,
+  slice HVP resets `523 -> 0`, cumulative HVP remains `523` and the immutable
+  R16 envelope/payload remain exact. Active owner is unconsumed.
+- **Current decision:** research/freeze R18 as one bounded shadow outer-6
+  resume with active-owner consume, exact unsliced-oracle comparison, explicit
+  work ceiling and rollback. Do not implement resume until frozen.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2371,8 +2383,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19
    and all preceding normalized parents exactly. Research/freeze only
-   the frozen D7R19R17 atomic owner-consume and epoch-transition projection
-   with idempotent negative controls. Do not mutate live budget code, execute
+   D7R19R18 as one bounded shadow outer-6 resume with active-owner consume,
+   exact unsliced-oracle comparison, explicit work ceiling, idempotent
+   negatives and rollback. Do not mutate live budget code, execute
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.

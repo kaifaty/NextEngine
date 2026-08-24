@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / SHADOW TRANSACTION SELECTED / IMPLEMENTATION NEXT`
+Status: `PASS / OWNER EPOCH TRANSITION CANDIDATE / OUTER6 SHADOW RESEARCH NEXT`
 
 ## Question
 
@@ -187,3 +187,6 @@ rollback rules before implementation.
 
 The executable gate is frozen by the
 [D7R19R17 contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r17-owner-epoch-transition-contract.md).
+
+The transition passes as recorded in the
+[D7R19R17 evidence](nonlocal-nsr3b4e2d7r19r17-owner-epoch-transition-evidence-2026-08-24.md).

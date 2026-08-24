@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R17 -- atomic owner/epoch transition contract
 
-Status: `FROZEN / IMPLEMENTATION NEXT / SHADOW ONLY`
+Status: `FROZEN / PASS OWNER EPOCH TRANSITION CANDIDATE / SHADOW ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -64,3 +64,6 @@ or grant runtime/production authority.
 
 Research basis:
 [D7R19R17 owner/epoch research](../../development/nonlocal-nsr3b4e2d7r19r17-owner-epoch-transition-research-2026-08-24.md).
+
+Closed by the
+[D7R19R17 evidence](../../development/nonlocal-nsr3b4e2d7r19r17-owner-epoch-transition-evidence-2026-08-24.md).
