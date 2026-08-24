@@ -2481,3 +2481,9 @@ and normalized workspaces match independent canonical builds bit-for-bit.
 Trial FD and adjoint errors are `3.96e-10` and `2.95e-14`. The trial remains
 nearly feasible but nonstationary. Research/freeze contact-tangent projection
 with stable-superset rebuild/relinearization and complete-merit evaluation next.
+The [D7R19R43 research](../../development/nonlocal-nsr3b4e2d7r19r43-contact-tangent-normal-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r43-contact-tangent-normal-contract.md)
+select exact Euclidean projection of the frozen dimensionless normal step into
+all source-active box-face tangent half-spaces. R43 must recompute linear and
+nonlinear feasibility, contact, stable-superset coverage, trial mapping and
+precision-resolved complete merit; no R40 acceptance quantity is inherited.

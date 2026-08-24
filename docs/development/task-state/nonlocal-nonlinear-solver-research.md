@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R42_PASS_STABLE_SUPERSET_RELINEARIZATION / D7R19R43_CONTACT_TANGENT_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R42_PASS_STABLE_SUPERSET_RELINEARIZATION / D7R19R43_CONTACT_TANGENT_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -207,6 +207,13 @@
 - **Current decision:** research/freeze contact-tangent projection of the R40
   normal step, followed by stable-superset rebuild/relinearization and full
   nonlinear feasibility/merit evaluation.
+- **R43 contract:** exact source-active box faces own componentwise tangent
+  half-spaces. Project the frozen dimensionless endpoint, rebuild the physical
+  trial and recompute contact, stable-superset coverage, feasibility model,
+  trial mapping and precision-resolved complete merit from scratch.
+- **Current decision:** implement only the frozen rollback-only R43
+  discriminator. A contact/feasibility pass with negative merit selects a
+  later tangential-merit step; it does not authorize coefficient tuning.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
