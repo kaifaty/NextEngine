@@ -80031,6 +80031,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "hybrid_polish_continuation.inc"
 #include "direction_memory_replay.inc"
 #include "guarded_hz_recurrence.inc"
+#include "nonlinear_normal_acceptance.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

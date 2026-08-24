@@ -43,6 +43,7 @@ struct ALR39Trajectory {
     std::vector<std::string> step_roots;
     std::vector<ALR39Checkpoint> checkpoints;
     ALR37Checkpoint terminal;
+    std::vector<Vec3> terminal_iterate;
     std::string terminal_response_root;
     std::string terminal_gradient_root;
     std::string terminal_mapping_root;
@@ -318,6 +319,7 @@ ALR39Trajectory al_r39_run_trajectory(
         && std::isfinite(result.terminal_response_relative)
         && result.terminal_response_relative <= 1.0e-12;
     if (result.direct_exact) {
+        result.terminal_iterate = iterate;
         result.terminal = al_r37_checkpoint(
             result.accepted, iterate, terminal_response.value,
             terminal_residual, terminal_gradient, terminal_mapping);
@@ -387,6 +389,12 @@ ALR39Trajectory al_r39_run_trajectory(
     return result;
 }
 
+struct ALR39ReplayCapture {
+    bool captured = false;
+    ALR38ReplayCapture r38;
+    ALR39Trajectory hz;
+};
+
 bool al_r39_checkpoint_dominance(
     const ALR39Checkpoint& candidate,
     const ALR39Checkpoint& reference) {
@@ -417,7 +425,8 @@ std::string al_r39_route(
 
 } // namespace
 
-SplitBoundaryReport run_al_guarded_hz_recurrence_controls() {
+SplitBoundaryReport run_al_guarded_hz_recurrence_controls_impl(
+    ALR39ReplayCapture* replay_capture) {
     const bool identity_exact = sha256_hex(B4E2D7R19R39_IDENTITY_PROJECTION)
         == B4E2D7R19R39_IDENTITY_SHA256;
     ALR38ReplayCapture capture;
@@ -702,5 +711,14 @@ SplitBoundaryReport run_al_guarded_hz_recurrence_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r38 = std::move(capture);
+        replay_capture->hz = std::move(hz);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_guarded_hz_recurrence_controls() {
+    return run_al_guarded_hz_recurrence_controls_impl(nullptr);
 }

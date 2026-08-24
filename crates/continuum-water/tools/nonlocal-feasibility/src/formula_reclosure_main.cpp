@@ -203,6 +203,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-hybrid-polish-continuation|"
                          "--nonlocal-al-direction-memory-replay|"
                          "--nonlocal-al-guarded-hz-recurrence|"
+                         "--nonlocal-al-nonlinear-normal-acceptance|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1592,6 +1593,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_guarded_hz_recurrence_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-nonlinear-normal-acceptance") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_nonlinear_normal_acceptance_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

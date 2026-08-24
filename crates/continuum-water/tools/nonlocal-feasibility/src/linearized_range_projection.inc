@@ -625,6 +625,7 @@ struct ALR30RangeProjectionCapture {
     bool captured = false;
     std::string state_root;
     std::vector<Vec3> position;
+    std::vector<Vec3> predicted_position;
     std::vector<double> dual;
     double theta = 0.0;
     std::vector<double> constraint;
@@ -1080,6 +1081,7 @@ SplitBoundaryReport run_al_linearized_range_projection_controls_impl(
         output_capture->captured = passed;
         output_capture->state_root = capture.state_root;
         output_capture->position = position;
+        output_capture->predicted_position = boundary.predicted_position;
         output_capture->dual = dual;
         output_capture->theta = boundary.theta;
         output_capture->constraint =
