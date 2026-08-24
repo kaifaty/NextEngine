@@ -24,9 +24,19 @@ std::string al_r43_route(bool parent, bool source, bool projection,
     return "CONTACT_TANGENT_NORMAL_STEP_CANDIDATE";
 }
 
+struct ALR43ReplayCapture {
+    bool captured = false;
+    ALR42ReplayCapture r42;
+    std::vector<std::uint8_t> owners;
+    std::vector<Vec3> projected_endpoint;
+    std::vector<Vec3> projected_physical;
+    std::vector<Vec3> projected_trial;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_contact_tangent_normal_step_controls() {
+SplitBoundaryReport run_al_contact_tangent_normal_step_controls_impl(
+    ALR43ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R43_IDENTITY_PROJECTION)
         == B4E2D7R19R43_IDENTITY_SHA256;
     ALR42ReplayCapture capture;
@@ -305,5 +315,17 @@ SplitBoundaryReport run_al_contact_tangent_normal_step_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r42 = std::move(capture);
+        replay_capture->owners = std::move(owners);
+        replay_capture->projected_endpoint = std::move(projected);
+        replay_capture->projected_physical = std::move(physical);
+        replay_capture->projected_trial = std::move(trial);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_contact_tangent_normal_step_controls() {
+    return run_al_contact_tangent_normal_step_controls_impl(nullptr);
 }
