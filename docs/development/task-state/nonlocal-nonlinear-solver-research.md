@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R19_PASS_OUTER7_GRANT_CANDIDATE / D7R19R20_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R20_PASS_OUTER7_EQUIVALENT_NOT_ADMISSIBLE / D7R19R21_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -534,6 +534,18 @@
   it may not adopt the oracle state or reset epoch implicitly.
 - **Current decision:** implement only the frozen R20 candidate+oracle pair.
   No next outer, substep, macro, trajectory, timing or public/world commit.
+- **D7R19R20 result:** PASS and `SHADOW_OUTER7_EXECUTION_CANDIDATE` at stdout
+  SHA `df06ac41...1d113` and semantic result `a375f2e5...d1412`. Both clean
+  binaries and reports are byte-exact.
+- **Continuation fact:** slice/unsliced lanes share update root `f9cf69b1...4eb5`
+  and work root `e5f47a38...e7c37`. Outer 7 uses two accepted trials, 52 HVP,
+  four workspaces and two precision audits.
+- **Physical fact:** primal improves to `2.14040711821184e-8` and stationarity
+  to `1.4979505686051011e-13`, but admissibility remains false.
+- **Successor fact:** state root is `1da2e0f5...2b84f`; epoch remains 1,
+  slice/cumulative become `102/625`, and 410 slice HVP remain.
+- **Current decision:** research/freeze R21 as a zero-work one-use outer-8
+  grant inside epoch 1. Do not execute outer 8 until it passes.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2435,12 +2447,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R20 as one shadow outer-7 candidate at epoch
-   slice `50/512` and one independent unsliced oracle at cumulative
-   `573/8704`, with at most 462 new candidate HVP. Do not mutate live budget
-   code, borrow oracle capacity, run another
+   Research/freeze only D7R19R21 as a zero-work, one-use outer-8 grant inside
+   epoch 1, preserving slice/cumulative `102/625` and binding exact R20
+   state/receipt/history. Do not mutate live budget code, execute outer 8, run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.

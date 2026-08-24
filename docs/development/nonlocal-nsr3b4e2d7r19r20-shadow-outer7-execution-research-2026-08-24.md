@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / PASS / SHADOW_OUTER7_EXECUTION_CANDIDATE`
 
 ## Question
 
@@ -108,3 +108,7 @@ R20 authorizes one private candidate outer 7 and one private oracle outer 7
 only after its contract is frozen. It authorizes no second substep, macro,
 trajectory, timing, public/world commit, runtime integration, durable or
 concurrent CAS, live budget-code change or production policy.
+
+The frozen implementation passes with exact candidate/oracle update and work
+roots, consumes 52 new HVP and remains non-admissible. See the
+[dated evidence](nonlocal-nsr3b4e2d7r19r20-shadow-outer7-execution-evidence-2026-08-24.md).
