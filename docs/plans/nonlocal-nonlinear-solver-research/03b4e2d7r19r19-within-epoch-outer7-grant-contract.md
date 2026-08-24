@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R19 -- within-epoch outer-7 grant contract
 
-Status: `FROZEN / IMPLEMENTATION NEXT / SHADOW ONLY`
+Status: `PASS / OUTER7_GRANT_CANDIDATE / SHADOW ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -34,3 +34,6 @@ runtime integration or production use.
 
 Research basis:
 [D7R19R19 grant research](../../development/nonlocal-nsr3b4e2d7r19r19-within-epoch-outer7-grant-research-2026-08-24.md).
+
+Result:
+[D7R19R19 evidence](../../development/nonlocal-nsr3b4e2d7r19r19-within-epoch-outer7-grant-evidence-2026-08-24.md).

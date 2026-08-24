@@ -2,7 +2,7 @@
 
 Date: `2026-08-24`
 
-Status: `RESEARCH COMPLETE / WITHIN-EPOCH GRANT SELECTED / IMPLEMENTATION NEXT`
+Status: `COMPLETE / PASS / OUTER7_GRANT_CANDIDATE`
 
 ## Question
 
@@ -30,6 +30,10 @@ outer-7 grant, still epoch 1, still 50/573
 Creating epoch 2 or resetting slice HVP here is rejected: the epoch-1 soft
 slice has consumed only 50 of 512 HVP. Epoch transition is a slice-exhaustion
 operation, not an outer-update operation.
+
+The frozen implementation passes with exact canonical roots, `14/14` route
+precedence, byte-exact rollback and idempotent duplicate replay. See the
+[dated evidence](nonlocal-nsr3b4e2d7r19r19-within-epoch-outer7-grant-evidence-2026-08-24.md).
 
 ## Bound source
 

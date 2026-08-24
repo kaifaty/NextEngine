@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R18_PASS_RESUME_EQUIVALENT_NOT_ADMISSIBLE / D7R19R19_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R19_PASS_OUTER7_GRANT_CANDIDATE / D7R19R20_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -512,6 +512,19 @@
 - **Current decision:** implement only the frozen R19 zero-work ownership
   transaction and negative corpus. Do not consume the new grant or execute
   outer 7.
+- **D7R19R19 result:** PASS and `OUTER7_GRANT_CANDIDATE` at stdout SHA
+  `0b002ee4...ffb24` and semantic result `e49c1fa1...21b97`. Both clean
+  binaries and full reports are byte-exact.
+- **Atomicity fact:** all six canonical roots and all `14/14` routes are
+  exact. Every negative route preserves complete transaction bytes, the sole
+  success equals the canonical committed state and duplicate replay is
+  idempotent.
+- **Ownership fact:** epoch and slice/cumulative HVP remain `1` and `50/573`;
+  the source owner is consumed, the outer-7 owner is unconsumed, and no new
+  solver work or outer update executes.
+- **Current decision:** research/freeze R20 as one shadow outer-7
+  candidate+unsliced-oracle pair inside epoch 1. Do not execute it until the
+  exact contract is frozen.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2413,11 +2426,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19
-   and all preceding normalized parents exactly. Research/freeze only
-   the frozen D7R19R19 zero-work, one-use outer-7 grant inside epoch 1, preserving
-   slice/cumulative `50/573` and binding the exact R18 state/receipt. Do not
-   mutate live budget code, execute outer 7 or another
+6. Preserve D7R19R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+   R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
+   Research/freeze only D7R19R20 as one shadow outer-7 candidate at epoch
+   slice `50/512` and one independent unsliced oracle at cumulative
+   `573/8704`. Do not mutate live budget code, execute outer 7 before that
+   contract is frozen, run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.
