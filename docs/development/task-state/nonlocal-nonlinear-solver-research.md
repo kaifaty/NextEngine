@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R22_PASS_OUTER8_EQUIVALENT_NOT_ADMISSIBLE / D7R19R23_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R23_PASS_OUTER9_GRANT_CANDIDATE / D7R19R24_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -579,6 +579,13 @@
   `182/705`; issue one unconsumed outer-9 owner with zero solver work.
 - **Current decision:** implement only the frozen R23 grant. Outer 9 and cap
   changes remain forbidden.
+- **D7R19R23 result:** PASS and `OUTER9_GRANT_CANDIDATE` at stdout SHA
+  `c1aca629...7a01` and semantic result `27e37a5a...bfa8`; both clean binaries
+  and reports are byte-exact.
+- **Atomicity fact:** all six roots and `14/14` routes are exact; every failure
+  rolls back and duplicate replay is idempotent. New solver work is zero.
+- **Current decision:** research/freeze R24 as one outer-9 slice candidate
+  plus one unsliced cumulative oracle. Keep cap 34 unchanged.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2480,11 +2487,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R23 as a zero-work one-use outer-9 grant over
-   exact R22 state/receipt/history at slice/cumulative `182/705`. Do not change
-   cap/policy, execute outer 9, run another
+   Research/freeze only D7R19R24 as one outer-9 candidate at slice `182/512`
+   and one unsliced oracle at cumulative `705/8704`, with at most 330 new
+   candidate HVP. Do not change cap/policy, execute outer 9 before freeze, run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.
