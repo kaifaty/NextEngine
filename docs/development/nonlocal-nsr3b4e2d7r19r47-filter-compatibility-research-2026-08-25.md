@@ -88,3 +88,13 @@ switching and trust-radius implementation.
 
 Frozen contract:
 [R47 filter compatibility](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r19r47-filter-compatibility-contract.md).
+
+## V1 numerical reclosure
+
+The first implementation exposed an invalid inverse-subtraction requirement:
+the directly evaluated linear `psi` and
+`fl(source-fl(source-linear))` differ in low binary64 bits. V2 keeps the
+direct linear metric authoritative and freezes a `gamma(4)` forward bound
+derived from the two subtractions. No observed tolerance, physical formula,
+compatibility rule or filter decision changes. The v1 diagnostic is retained
+separately with no scientific credit.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R46_PASS_FILTER_FEASIBILITY_STEP_CANDIDATE / D7R19R47_FILTER_COMPATIBILITY_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R47V1_INVALID_LINEAR_METRIC_INVERSE / D7R19R47V2_FILTER_COMPATIBILITY_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -18,11 +18,11 @@
   increases by `5.28%`. All 24 frozen margins pass by feasibility, including
   `gamma=1/2`; none passes by objective. Model ratio is `0.999999993`, and
   topology/contact/work/rollback are exact.
-- **Current decision:** primary filter-SQP compatibility precedes the planned
-  transaction. R43 leaves predicted linearized `h=3.702437226e-8`, so R47 is
-  frozen as a zero-new-work compatibility/restoration classifier at identity
-  `a70d15dc...568f`. Implement it before switching, trust update or any
-  restoration-exit claim.
+- **Current decision:** R47 v1 exposed an invalid bit-exact inverse-
+  subtraction gate before scientific classification. V2 is frozen at identity
+  `09b1ce5e...799f`: direct linear `psi/h` is authoritative and reconstructed
+  `psi` owns a `gamma(4)` forward bound. Implement v2 before switching, trust
+  update or any restoration-exit claim.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3111,6 +3111,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   research a matrix-free primal/dual bounded contact-cone compatibility
   certificate at the R43 moved state before returning to filter switching.
 
+### D-092 -- Do not require floating-point subtraction to be invertible
+
+- **Observation:** R47 v1 required the direct linear `psi` to equal
+  `fl(source-fl(source-linear))` bit-for-bit. The two values differ only in low
+  bits, and all other gates close. Subtraction discarded those bits and cannot
+  reconstruct them exactly.
+- **Decision:** retain the direct R43 linear evaluation as authoritative. R47
+  v2 freezes a `gamma(4)` absolute forward bound derived from the two
+  subtractions; direct `h=sqrt(2*psi)` remains bit-exact.
+- **Rejected:** fitting a tolerance to the observed difference, changing the
+  direct metric, hiding v1, treating the harness failure as a compatibility
+  result, or weakening exact-zero compatibility.
+- **Reconsider when:** v2 either closes the forward-error ownership and reaches
+  compatibility classification or exposes a different first boundary.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3180,8 +3195,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R45 exact PASS/`COMPOSITE_MERIT_RECOVERY_REQUIRED`; do not
    densify or retune its scalar line. Preserve D7R19R46 exact
    PASS/`FILTER_FEASIBILITY_STEP_CANDIDATE`; do not commit R43 or select a
-   production margin. Implement frozen D7R19R47 as a zero-new-work strict
-   filter-compatibility/restoration classifier. Do not start switching, trust
+   production margin. Preserve D7R19R47 v1 as invalid inverse-subtraction
+   evidence with no scientific credit. Implement frozen D7R19R47 v2 as a
+   zero-new-work strict filter-compatibility/restoration classifier. Do not start switching, trust
    response or restoration exit before this prerequisite closes. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
