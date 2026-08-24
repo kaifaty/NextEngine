@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R45_PASS_COMPOSITE_MERIT_RECOVERY_REQUIRED / D7R19R46_FILTER_GLOBALIZATION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R46_PASS_FILTER_FEASIBILITY_STEP_CANDIDATE / D7R19R47_FILTER_TRANSACTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,20 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R45 passes at stdout SHA `2ab62170...abc7`, semantic
-  `55c04d42...773` and route `COMPOSITE_MERIT_RECOVERY_REQUIRED`. Two clean
+- **Current conclusion:** R46 passes at stdout SHA `ecbdc13b...f4e3`, semantic
+  `8b3390ba...9cf0` and route `FILTER_FEASIBILITY_STEP_CANDIDATE`. Two clean
   Release binaries and outputs are byte-exact.
-- **Line fact:** all 25 predeclared candidates are topology/contact safe. The
-  first locally admissible point is backtrack 5 but retains source merit
-  `-1.242e-15`; the best sampled source merit is still `-1.197e-15` at
-  backtrack 4. Twenty long-double audits resolve with no binary128 use.
-- **Current decision:** R46 research and contract are frozen at raw-string
-  identity `afa98b31...ee4` after correcting a trailing-LF hash annotation.
-  The identity text and all gates are unchanged. Implement the rollback-only
-  discriminator with pure normalized inertia `f`, positive density-violation
-  norm `h`, exact dyadic margins `2^-1..2^-24`, inherited R43
-  model/contact/topology gates and a hypothetical source-entry filter update.
-  Do not commit state or run the next outer.
+- **Filter fact:** R43 reduces `h` to `0.456303x` while pure inertia `f`
+  increases by `5.28%`. All 24 frozen margins pass by feasibility, including
+  `gamma=1/2`; none passes by objective. Model ratio is `0.999999993`, and
+  topology/contact/work/rollback are exact.
+- **Current decision:** preserve R46 as one-step admission evidence. Research
+  R47 as a complete rollback-only filter transaction with a switching rule,
+  finite insertion/removal, trust-radius response and restoration entry/exit.
+  Do not commit R43, choose a production gamma or execute the next outer.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3075,8 +3072,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   same fixed trial, relaxing the positive-merit gate without a filter,
   changing penalty/contact/trust, accepting R43 directly or running the next
   outer.
-- **Reconsider when:** R46 proves or rejects a complete finite filter
-  acceptance transaction with exact source/trial coordinates and controls.
+- **Reconsider when:** R46 proves or rejects finite one-step filter admission
+  with exact source/trial coordinates and controls.
+
+### D-090 -- Separate admission from the complete filter transaction
+
+- **Observation:** R46 proves robust one-step feasibility admission. The R43
+  trial passes all 24 frozen envelopes by `h`, including `gamma=1/2`, while
+  pure inertia rises. Its model, topology, contact, work and rollback close.
+- **Decision:** preserve this admission lemma and research a complete
+  filter-SQP transaction separately. R47 must freeze the objective-versus-
+  feasibility switching condition, finite filter entry insertion/removal,
+  trust-radius response, restoration entry/exit and exact rollback before any
+  state may be applied.
+- **Rejected:** directly committing R43, treating the strongest successful
+  audit margin as a production choice, omitting switching/restoration,
+  returning to monotone AL merit, running the next outer, or timing.
+- **Reconsider when:** R47 proves or rejects one complete finite transaction
+  under immutable source/trial/filter ownership.
 
 ## Performance facts retained
 
@@ -3145,8 +3158,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    immutable unprojected/projected trial roots. Preserve D7R19R44 exact
    PASS/`CONTACT_FEASIBLE_COMMON_DESCENT_CANDIDATE` and rollback evidence.
    Preserve D7R19R45 exact PASS/`COMPOSITE_MERIT_RECOVERY_REQUIRED`; do not
-   densify or retune its scalar line. Implement the frozen D7R19R46
-   rollback-only filter-SQP/restoration acceptance discriminator. Do
+   densify or retune its scalar line. Preserve D7R19R46 exact
+   PASS/`FILTER_FEASIBILITY_STEP_CANDIDATE`; do not commit R43 or select a
+   production margin. Research/freeze D7R19R47 as one complete rollback-only
+   filter transaction with switching, finite filter lifecycle, trust response
+   and restoration. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
