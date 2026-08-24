@@ -1,6 +1,6 @@
 ---
 name: nextengine-architecture
-description: "Route architecture-sensitive, cross-cutting and roadmap-sensitive Next Engine work to governing SPEC/ADRs, then choose the smallest architecture and constraint-optimal algorithms and data structures. Use for public contracts, commands/events, determinism, replay, persistence, schemas, ECS, assets/streaming, rendering/platform, physics, animation, motor/ML, AI, RPG, scripting/plugins, UI, application sessions, jobs/memory/performance, tooling, importer boundaries, licensing/security, product checks, ADR/SPEC changes and roadmap scope. Russian triggers include: архитектура движка, спеки, ADR, детерминизм, реплей, сохранения, миграции, контракты, алгоритмы, структуры данных, производительность, физика, рендер, анимация, плагины, роадмап, продукт-чеки."
+description: "Route cross-cutting NextEngine architecture/roadmap via SPEC/ADRs; choose optimal algorithms/data structures. Use for contracts, commands/events, determinism/replay/persistence/migrations, schemas/ECS, assets/streaming, rendering/platform/physics/animation/motor, ML/AI/RPG, scripting/plugins/UI/sessions, jobs/memory/performance, tooling/importer/licensing/security, ProductChecks and ADR/SPEC/roadmap changes. Russian: архитектура, спеки/ADR, детерминизм/реплей/сохранения/миграции, контракты, алгоритмы/структуры данных/производительность, физика/рендер/анимация, плагины, роадмап/продукт-чеки."
 ---
 
 # Next Engine architecture workflow

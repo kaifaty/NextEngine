@@ -31,6 +31,17 @@ skills, while replacing generic framework assumptions with the repository's
 SPEC/ADR/profile/generation authority. Where present, their scripts use only
 the Python standard library, are read-only, and emit machine-readable JSON.
 
+### Context budget
+
+- Keep one project-authored orchestrator per concern; compose specialist skills
+  instead of installing overlapping top-level workflows.
+- Keep frontmatter descriptions to triggers and ownership boundaries, targeting
+  at most 600 characters unless forward tests show a concrete recall loss.
+- Keep `SKILL.md` procedural and move claim-specific playbooks into one-level
+  references that are opened only when the matching route applies.
+- Keep optional literature, CAS, Lean/search and Wolfram integrations as
+  backends until a real task justifies installing or loading them.
+
 ### Composition boundaries
 
 | Question | Start with | Hand off when |

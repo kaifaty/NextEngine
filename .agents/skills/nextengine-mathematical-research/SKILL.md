@@ -1,6 +1,6 @@
 ---
 name: nextengine-mathematical-research
-description: "Prove, refute or bound exact mathematical and numerical claims for NextEngine using architecture-grounded definitions, primary sources, independent derivations, counterexamples, reproducible computation and claim-appropriate verification. Use for stability, convergence, conservation, conditioning, discretization, fixed-point/overflow/error bounds, geometric or control invariants, solver/coupler mathematics, reference oracles, new physical models, or a scientific blocker surviving two remediation cycles. Russian triggers include: математическое исследование движка, докажи или опровергни, контрпример, устойчивость, сходимость, закон сохранения, граница ошибки, numerical oracle, формализуй лемму. Do not own ADR/SPEC/roadmap decisions, ordinary implementation, PPO run diagnosis or launch, CPU/Isaac admission, or durable task-state."
+description: "Prove/refute/bound NextEngine math/numerical claims with counterexamples/reproducible evidence. Use for stability, convergence, conservation, conditioning, discretization, fixed-point/overflow/error bounds, solver/control/geometry, numerical oracles, frozen-model math, or math/model-validity blocker after 2 repair cycles. Russian: математическое исследование, докажи/опровергни, контрпример, устойчивость, сходимость, закон сохранения, граница ошибки, numerical oracle, формализуй лемму. Excludes ADR/SPEC/roadmap ownership, routine implementation, PPO diagnosis/runs, Isaac admission/task-state."
 ---
 
 # NextEngine mathematical research
