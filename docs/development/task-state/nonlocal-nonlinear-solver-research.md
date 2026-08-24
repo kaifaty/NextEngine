@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R29_PASS_LINEARIZED_FEASIBILITY_OPERATOR / D7R19R30_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R29_PASS_LINEARIZED_FEASIBILITY_OPERATOR / D7R19R30_FROZEN_RANGE_PROJECTION_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -22,10 +22,14 @@
 - **Partition fact:** the frozen R28 state has 1,420 violated, 2,432
   PHR-active, 3,142 static-support-coupled and 2,858 interior rows. These are
   exact binary64 membership facts, not a floor classification.
-- **Current decision:** R29 authorizes research/freeze of one read-only
-  matrix-free range projection over the exact operator. It does not authorize
-  LSQR implementation before contract freeze, a correction, another outer,
-  tuning, timing, runtime integration or production authority.
+- **Current decision:** R30 is frozen as one read-only, column-scaled LSMR
+  projection of `-c` on the 1,420 violated rows. Maximum work is 512
+  iterations/1,028 pair passes. Four analytic dense controls and independently
+  recomputed primal/normal residuals precede any interpretation.
+- **Authority boundary:** R30 may produce only a range-projection diagnostic.
+  It cannot apply its iterate, evaluate a moved nonlinear state, classify a
+  floor, execute another outer, tune policy, time the solver, integrate
+  runtime state or claim production readiness.
 
 - **Current conclusion:** D7R17 reproducibly selects
   `NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED` at stdout SHA
@@ -2519,6 +2523,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R8 selects or rejects an online-computable envelope and
   proves model-image correspondence at the 34-HVP solution.
 
+### D-071 -- Measure the violated-row range with LSMR before another outer
+
+- **Observation:** R29 closes exact matrix-free `A=SPACING*Jc` and `A^T` on
+  the R28 state. The pair-once/directed roots are identical, finite-difference
+  error is `4.03e-10`, and adjoint error is `2.11e-14`. Trend extrapolation
+  cannot distinguish an outer-policy limit from a representation limit.
+- **Decision:** freeze R30 as zero-damping LSMR on the exact 1,420 violated
+  rows with exact nonzero-column unit scaling, 512 iterations and the primary
+  `ATOL=BTOL=1e-10`, `CONLIM=1e12` stopping policy. Independently recompute
+  both residuals and projection orthogonality; report magnitude and active-set
+  leakage without a physical threshold.
+- **Rejected:** another outer before causal discrimination, CGLS or explicit
+  normal equations, row scaling, post-observation tolerance fitting, applying
+  the linear preimage, or calling its residual a nonlinear/discretization
+  floor.
+- **Reconsider when:** R30 either converges with exact reproducibility or
+  preserves its first condition/iteration/implementation boundary.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2579,8 +2601,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research/freeze only D7R19R30 as a zero-state-mutation matrix-free range
-   projection over exact R29/R28. Do not implement an unfrozen LSQR, form a
+   Implement only frozen D7R19R30 as a zero-state-mutation matrix-free LSMR
+   range projection over exact R29/R28. Do not form or apply a
    correction, classify a nonlinear floor, refine, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
