@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R19_PASS_OUTER7_GRANT_CANDIDATE / D7R19R20_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R19_PASS_OUTER7_GRANT_CANDIDATE / D7R19R20_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -525,6 +525,15 @@
 - **Current decision:** research/freeze R20 as one shadow outer-7
   candidate+unsliced-oracle pair inside epoch 1. Do not execute it until the
   exact contract is frozen.
+- **R20 frozen design:** execute outer 7 once from two independent clones.
+  Candidate starts at slice `50/512` and may spend at most 462 new HVP; oracle
+  starts at cumulative `573/8704`. Require exact physics/trial/work deltas
+  before consuming the R19 owner.
+- **Budget boundary:** oracle capacity is comparison-only. Candidate slice
+  exhaustion must preserve R19 and route to later epoch-transition research;
+  it may not adopt the oracle state or reset epoch implicitly.
+- **Current decision:** implement only the frozen R20 candidate+oracle pair.
+  No next outer, substep, macro, trajectory, timing or public/world commit.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2428,10 +2437,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research/freeze only D7R19R20 as one shadow outer-7 candidate at epoch
+   Implement only frozen D7R19R20 as one shadow outer-7 candidate at epoch
    slice `50/512` and one independent unsliced oracle at cumulative
-   `573/8704`. Do not mutate live budget code, execute outer 7 before that
-   contract is frozen, run another
+   `573/8704`, with at most 462 new candidate HVP. Do not mutate live budget
+   code, borrow oracle capacity, run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.
