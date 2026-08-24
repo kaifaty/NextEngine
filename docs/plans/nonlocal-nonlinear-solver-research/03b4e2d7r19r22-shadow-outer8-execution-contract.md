@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R19R22 -- shadow outer-8 execution contract
 
-Status: `FROZEN / IMPLEMENTATION NEXT / SHADOW ONLY`
+Status: `PASS / SHADOW_OUTER8_EXECUTION_CANDIDATE / SHADOW ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -32,3 +32,6 @@ production authority.
 
 Research basis:
 [D7R19R22 research](../../development/nonlocal-nsr3b4e2d7r19r22-shadow-outer8-execution-research-2026-08-24.md).
+
+Result:
+[D7R19R22 evidence](../../development/nonlocal-nsr3b4e2d7r19r22-shadow-outer8-execution-evidence-2026-08-24.md).

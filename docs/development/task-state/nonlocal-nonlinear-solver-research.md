@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R21_PASS_OUTER8_GRANT_CANDIDATE / D7R19R22_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R22_PASS_OUTER8_EQUIVALENT_NOT_ADMISSIBLE / D7R19R23_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -565,6 +565,15 @@
   Candidate may spend at most 410 new HVP.
 - **Current decision:** implement only the frozen R22 pair. No following outer,
   substep, macro, trajectory, timing or public/world commit.
+- **D7R19R22 result:** PASS and `SHADOW_OUTER8_EXECUTION_CANDIDATE` at stdout
+  SHA `32d98ee5...18790` and semantic `9a5380ef...16296`; clean binaries and
+  reports are exact.
+- **Mechanism fact:** all three trials accept with 80 HVP total and no reject
+  churn, but primal improves only 4.9% to `2.0358387642360753e-8`. The last
+  trial uses 32/34 HVP; do not raise the cap without a future diagnostic.
+- **Successor fact:** state is `dc983c93...b36d9`, epoch remains 1 and
+  slice/cumulative become `182/705`, leaving 330 slice HVP.
+- **Current decision:** research/freeze R23 as one zero-work outer-9 grant.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2466,12 +2475,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R22 as one outer-8 candidate at slice `102/512`
-   and one unsliced oracle at cumulative `625/8704`, with at most 410 new
-   candidate HVP. Do not mutate live budget code, execute outer 8 before
-   freeze, run another
+   Research/freeze only D7R19R23 as a zero-work one-use outer-9 grant over
+   exact R22 state/receipt/history at slice/cumulative `182/705`. Do not change
+   cap/policy, execute outer 9, run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.
