@@ -79281,6 +79281,16 @@ struct ALV2CaseRecord {
     bool passed = false;
 };
 
+struct ALV2EnvelopeCapture {
+    bool captured = false;
+    ALTokenCompletenessCapture r15;
+    ALContinuationEnvelopeV2 envelope;
+    ALContinuationOwnerV2 owner;
+    std::string envelope_bytes;
+    std::string envelope_root;
+    std::string parent_transaction_root;
+};
+
 void al_append_u32_le(std::string& bytes, std::uint32_t value) {
     for (unsigned shift = 0U; shift < 32U; shift += 8U) {
         bytes.push_back(static_cast<char>((value >> shift) & 0xffU));
@@ -79574,7 +79584,8 @@ ALV2ValidationResult al_validate_continuation_v2(
 
 } // namespace
 
-SplitBoundaryReport run_al_v2_envelope_validation_controls() {
+SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
+    ALV2EnvelopeCapture* capture_out) {
     const bool identity_exact = sha256_hex(B4E2D7R19R16_IDENTITY_PROJECTION)
         == B4E2D7R19R16_IDENTITY_SHA256;
 
@@ -79985,8 +79996,19 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    if (capture_out != nullptr) {
+        capture_out->captured = passed;
+        capture_out->r15 = std::move(capture);
+        capture_out->envelope = baseline;
+        capture_out->owner = baseline_owner;
+        capture_out->envelope_bytes = baseline_bytes;
+        capture_out->envelope_root = baseline_root;
+        capture_out->parent_transaction_root = parent_transaction_root;
+    }
     return {passed, report.str()};
 }
+
+#include "owner_epoch_transition.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
@@ -80014,6 +80036,10 @@ SplitBoundaryReport run_al_soft_cap_suspension_projection_controls() {
 
 SplitBoundaryReport run_al_token_completeness_controls() {
     return run_al_token_completeness_controls_impl(nullptr);
+}
+
+SplitBoundaryReport run_al_v2_envelope_validation_controls() {
+    return run_al_v2_envelope_validation_controls_impl(nullptr);
 }
 
 SplitBoundaryReport run_al_guarded_residual_private_transaction_controls() {

@@ -189,6 +189,7 @@ SplitBoundaryReport run_al_post_acceptance_boundary_controls();
 SplitBoundaryReport run_al_soft_cap_suspension_projection_controls();
 SplitBoundaryReport run_al_token_completeness_controls();
 SplitBoundaryReport run_al_v2_envelope_validation_controls();
+SplitBoundaryReport run_al_owner_epoch_transition_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
