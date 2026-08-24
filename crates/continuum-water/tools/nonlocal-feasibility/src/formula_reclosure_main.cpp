@@ -206,6 +206,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-nonlinear-normal-acceptance|"
                          "--nonlocal-al-support-crossing-contact-audit|"
                          "--nonlocal-al-stable-superset-relinearization|"
+                         "--nonlocal-al-contact-tangent-normal-step|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1616,6 +1617,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_stable_superset_relinearization_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-contact-tangent-normal-step") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_contact_tangent_normal_step_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

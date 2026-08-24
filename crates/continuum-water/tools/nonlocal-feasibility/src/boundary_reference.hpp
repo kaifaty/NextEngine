@@ -215,6 +215,7 @@ SplitBoundaryReport run_al_guarded_hz_recurrence_controls();
 SplitBoundaryReport run_al_nonlinear_normal_acceptance_controls();
 SplitBoundaryReport run_al_support_crossing_contact_audit_controls();
 SplitBoundaryReport run_al_stable_superset_relinearization_controls();
+SplitBoundaryReport run_al_contact_tangent_normal_step_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

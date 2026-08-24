@@ -110,9 +110,16 @@ double al_r42_jvp_bound_ratio(const ALLinearizedJvp& pair,
     return maximum;
 }
 
+struct ALR42ReplayCapture {
+    bool captured = false;
+    ALR40ReplayCapture r40;
+    JointNeighborhood superset;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_stable_superset_relinearization_controls() {
+SplitBoundaryReport run_al_stable_superset_relinearization_controls_impl(
+    ALR42ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R42_IDENTITY_PROJECTION)
         == B4E2D7R19R42_IDENTITY_SHA256;
     ALR40ReplayCapture capture;
@@ -441,5 +448,14 @@ SplitBoundaryReport run_al_stable_superset_relinearization_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r40 = std::move(capture);
+        replay_capture->superset = std::move(superset);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_stable_superset_relinearization_controls() {
+    return run_al_stable_superset_relinearization_controls_impl(nullptr);
 }
