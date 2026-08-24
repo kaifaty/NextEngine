@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R40_PASS_NONLINEAR_TOPOLOGY_REJECTED / D7R19R41_CROSSING_CONTACT_AUDIT_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R41_PASS_NONZERO_SUPPORT_CROSSING / D7R19R42_STABLE_SUPERSET_RELINEARIZATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -167,10 +167,21 @@
 - **R41 contract:** merge the exact current/trial pair graphs, require
   bit-exact `W/W'/W''` and per-center density ledgers for a material-zero shell
   classification, and audit all 36,000 particle-axis-side contact faces.
-- **Current decision:** implement the frozen rollback-only R41 audit. Exact
-  zeros, not an observed epsilon, decide whether topology is materially
-  equivalent; contact routes distinguish new faces from worsening an existing
-  face.
+- **Current conclusion:** R41 passes at stdout SHA `0237a380...d81c`, semantic
+  result `3462fdcb...8ff` and route
+  `NONZERO_SUPPORT_CROSSING_REQUIRES_RELINEARIZATION`. Two clean Release
+  binaries and outputs are byte-exact.
+- **Crossing fact:** 680 pairs leave and 602 enter compact support. Their
+  maximum per-center density contribution is only `3.809e-22`, but maximum
+  `|W''|` is nonzero at `0.0046782`; the shell is not exactly material-zero
+  and the trial changes the linearized curvature/operator graph.
+- **Contact fact:** no new or resolved contact exists. All 1,268 worsened box
+  faces were already penetrating and own inward normal motion. Contact tangent
+  projection remains necessary, but comes after support relinearization.
+- **Current decision:** research/freeze a topology-stable neighbor superset
+  containing both exact compact-support graphs and a freshly relinearized
+  trial operator. Preserve physical compact support and exact kernel values;
+  do not fit a shell tolerance or project contact yet.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
@@ -2890,6 +2901,26 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   changes from meaningful graph discontinuity and identifies the contact
   owner components.
 
+### D-084 -- Stabilize operator ownership and relinearize before contact composition
+
+- **Observation:** R41 finds 1,282 compact-support crossings. Their density
+  effect is almost zero, but their maximum second derivative is nonzero, so
+  exact current-state pair membership cannot own trial-state curvature. No
+  new contact occurs; the contact regression belongs entirely to already
+  active inward faces.
+- **Decision:** research a nonphysical neighbor ownership superset that covers
+  both current and trial exact-support pairs, keeps `H` and compact-support
+  kernel evaluation unchanged, and supports a freshly rebuilt trial-state
+  linearized operator. Test exact coverage and derivative closure before any
+  contact-tangent or composite step.
+- **Rejected:** relabeling the crossings harmless from density magnitude,
+  fitting a shell epsilon, changing `H`, treating the existing broad-phase
+  skin as physical support, relaxing R40 topology admission, projecting
+  contact before operator ownership closes, or using wall time.
+- **Reconsider when:** R42 either proves stable-superset coverage and exact
+  current/trial relinearization or demonstrates that a state-dependent
+  support rebuild remains unavoidable.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2950,10 +2981,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R39/R38/R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Preserve D7R19R40 exact PASS/`NONLINEAR_TOPOLOGY_REJECTED` evidence.
-   D7R19R41 is frozen as a rollback-only exact pair-crossing and
-   contact-attribution audit of the unchanged R40 source/trial. Implement that
-   exact contract next, then obtain two clean byte-exact Release outputs. Do
+   Preserve D7R19R40 exact PASS/`NONLINEAR_TOPOLOGY_REJECTED` and D7R19R41
+   exact PASS/`NONZERO_SUPPORT_CROSSING_REQUIRES_RELINEARIZATION` evidence.
+   Research and freeze D7R19R42 as a rollback-only stable-superset coverage and
+   exact trial-state relinearization discriminator. Keep physical `H`, exact
+   compact-support evaluation and the R40 source/trial unchanged. Do
    not apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another

@@ -2458,3 +2458,11 @@ select an exact pair symmetric-difference audit and all 36,000 particle-axis-
 side contact tests. Material-zero shell classification requires bit-exact zero
 kernel value, gradient, second derivative and crossing-density ledger; no
 observed epsilon is admitted. Implement only this rollback-only audit next.
+The [D7R19R41 evidence](../../development/nonlocal-nsr3b4e2d7r19r41-support-crossing-contact-evidence-2026-08-24.md)
+closes `PASS / NONZERO_SUPPORT_CROSSING_REQUIRES_RELINEARIZATION`. The 1,282
+crossing records contribute at most `3.81e-22` per-center density but reach
+nonzero kernel second derivative `0.004678`, so the old operator does not own
+the trial even though R40 feasibility agreement is nearly exact. No new box
+contact appears; all 1,268 worsened faces were already penetrating and move
+inward. Research/freeze a stable neighbor superset and exact trial-state
+relinearization before contact-tangent or composite-step design.
