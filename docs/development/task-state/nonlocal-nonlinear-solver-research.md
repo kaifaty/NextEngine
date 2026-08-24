@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R25_PASS_OUTER10_GRANT_CANDIDATE / D7R19R26_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R25_PASS_OUTER10_GRANT_CANDIDATE / D7R19R26_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -616,6 +616,13 @@
 - **Current decision:** research/freeze R26 as one outer-10 slice candidate
   plus one unsliced cumulative oracle. Preserve stationarity observation and
   keep cap 34 unchanged.
+- **R26 frozen design:** candidate starts at `231/512`, oracle at `754/8704`;
+  both execute outer 10 once from independent clones. Candidate may use at
+  most 281 new HVP, 238 workspaces and 34 precision audits.
+- **Trend policy:** report exact resulting stationarity against R24, but do not
+  introduce a post hoc pass/fail threshold. Existing validity remains exact.
+- **Current decision:** implement only the frozen R26 pair. No following outer,
+  cap change or public state.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2519,9 +2526,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Research/freeze only D7R19R26 as one outer-10 candidate at slice `231/512`
+   Implement only frozen D7R19R26 as one outer-10 candidate at slice `231/512`
    and one unsliced oracle at cumulative `754/8704`, with at most 281 new
-   candidate HVP. Do not change cap/policy, execute outer 10 before freeze, run another
+   candidate HVP. Do not change cap/policy, execute a following outer, run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.
