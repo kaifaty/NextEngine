@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R16_PASS_V2_VALIDATION_CANDIDATE / D7R19R17_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R16_PASS_V2_VALIDATION_CANDIDATE / D7R19R17_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -457,6 +457,17 @@
 - **Current decision:** research/freeze R17 as an atomic owner-consume and
   epoch-transition projection. Reset slice HVP only; preserve cumulative and
   all substep ledgers. Outer 6 remains forbidden.
+- **R17 frozen design:** preserve the immutable R16 envelope and atomically
+  replace only a private copy-on-write ownership state. Consume the source
+  owner, issue separate canonical grant/receipt/active-owner objects, advance
+  epoch `0 -> 1` and reset slice HVP `523 -> 0`; cumulative HVP and every
+  physical/history/policy field remain exact.
+- **Atomicity boundary:** injected abort/corruption controls must leave the
+  exact `180`-byte before-state unchanged; replay after success must return
+  duplicate and preserve the exact after-state. This is a single-process
+  shadow transaction, not concurrent/durable CAS.
+- **Current decision:** implement only the frozen R17 ownership corpus. Do not
+  resume, execute outer 6 or mutate the live budget state machine.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2360,8 +2371,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    runtime binary128.
 6. Preserve D7R19R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/R4/R3/R2/R1, D7R19
    and all preceding normalized parents exactly. Research/freeze only
-   D7R19R17 atomic owner-consume and epoch-transition projection with
-   idempotent negative controls. Do not mutate live budget code, execute
+   the frozen D7R19R17 atomic owner-consume and epoch-transition projection
+   with idempotent negative controls. Do not mutate live budget code, execute
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.
