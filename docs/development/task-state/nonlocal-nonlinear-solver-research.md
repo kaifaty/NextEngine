@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R26_PASS_OUTER10_EQUIVALENT_NOT_ADMISSIBLE / D7R19R27_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R27_PASS_OUTER11_GRANT_CANDIDATE / D7R19R28_RESEARCH_FREEZE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -632,12 +632,14 @@
   spike as a local transient rather than monotonic inner degradation.
 - **Successor fact:** state is `317f63c5...fe1fd`, epoch remains 1 and
   slice/cumulative become `282/805`, leaving 230 slice HVP.
-- **Current decision:** research/freeze R27 as one zero-work outer-11 grant;
-  obtain outer 11 before designing a primal-stagnation discriminator.
-- **R27 frozen design:** bind exact R26 state `317f63c5...fe1fd`, receipt
-  `3b5c6dd3...88776`, history `7aaf5e50...66785` and slice/cumulative
-  `282/805`; issue one unconsumed outer-11 owner with zero solver work.
-- **Current decision:** implement only frozen R27. Outer 11 remains forbidden.
+- **R27 frozen intent:** issue one zero-work outer-11 grant and obtain outer 11
+  before designing a primal-stagnation discriminator.
+- **R27 result:** PASS at stdout `3760daf9...65c2`, semantic result
+  `7f08a85a...e47dd` and route `OUTER11_GRANT_CANDIDATE`; all `14/14`
+  atomic routes and frozen roots are exact with zero solver work.
+- **Current decision:** research/freeze R28 as exactly one outer-11 slice
+  candidate at `282/512` and one unsliced oracle at `805/8704`; keep cap 34
+  and every policy unchanged. Outer 11 remains forbidden before that freeze.
 
 - **Current conclusion:** D7R8 passes reproducibly at stdout SHA
   `42ce1054...48b1`, semantic result `dbdfcf00...5cac` and route
@@ -2539,11 +2541,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R27 as a zero-work one-use outer-11 grant over
-   exact R26 state/receipt/history at slice/cumulative `282/805`. Do not change
-   cap/policy, execute outer 11, run another
+   Research/freeze only D7R19R28 as one outer-11 slice candidate at `282/512`
+   and one independent unsliced oracle at `805/8704`. Keep cap/policy exact;
+   do not execute outer 11 before freeze, run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
    live cap, change production policy, start another substep/macro/trajectory
    or run timing.
