@@ -90,7 +90,12 @@ bool al_outer7_execution_valid(
     const ALOuter6Execution& value,
     std::size_t base_hvp,
     std::size_t maximum_hvp,
-    const std::string& expected_static_identity) {
+    const std::string& expected_static_identity,
+    std::size_t outer = 7U,
+    std::size_t base_workspaces = 37U,
+    std::size_t base_precision = 23U,
+    std::size_t maximum_delta_workspaces = 251U,
+    std::size_t maximum_delta_precision = 41U) {
     std::size_t recorded_hvp = 0U;
     std::size_t accepted = 0U;
     std::size_t rejected = 0U;
@@ -99,20 +104,23 @@ bool al_outer7_execution_valid(
         accepted += trial.candidate_accepted ? 1U : 0U;
         rejected += trial.candidate_accepted ? 0U : 1U;
     }
-    return value.update.passed && value.update.state.outer == 7U
+    return value.update.passed
+        && value.update.state.outer == static_cast<int>(outer)
         && value.update.state.finite_values
         && !value.update.precision_hard_failure
         && !value.update.sign_contradiction
         && !value.update.oracle_bound_required
         && !value.budget.exhausted && value.budget.failure.empty()
-        && value.budget.outer_updates == 8U
+        && value.budget.outer_updates == outer + 1U
         && value.budget.inner_trials_in_update <= 16U
         && value.delta_hvp <= maximum_hvp - base_hvp
-        && value.delta_workspaces <= 251U
-        && value.delta_precision <= 41U
+        && value.delta_workspaces <= maximum_delta_workspaces
+        && value.delta_precision <= maximum_delta_precision
         && value.budget.total_hvp == base_hvp + value.delta_hvp
-        && value.budget.workspace_builds == 37U + value.delta_workspaces
-        && value.budget.precision_audits == 23U + value.delta_precision
+        && value.budget.workspace_builds
+            == base_workspaces + value.delta_workspaces
+        && value.budget.precision_audits
+            == base_precision + value.delta_precision
         && value.work.workspace_builds == value.delta_workspaces
         && value.work.workspace_releases == value.delta_workspaces
         && value.work.live_workspaces == 0U
@@ -136,7 +144,8 @@ bool al_outer7_execution_valid(
 
 std::array<std::uint64_t, AL_V2_USED_COUNT> al_outer7_successor_used(
     const std::array<std::uint64_t, AL_V2_USED_COUNT>& baseline,
-    const ALOuter6Execution& execution) {
+    const ALOuter6Execution& execution,
+    std::uint64_t successor_outer = 8U) {
     auto used = baseline;
     std::uint64_t accepted = 0U;
     std::uint64_t rejected = 0U;
@@ -146,7 +155,7 @@ std::array<std::uint64_t, AL_V2_USED_COUNT> al_outer7_successor_used(
         rejected += trial.candidate_accepted ? 0U : 1U;
         residual_models += trial.residual_model_used ? 1U : 0U;
     }
-    used[AL_V2_USED_OUTER] = 8U;
+    used[AL_V2_USED_OUTER] = successor_outer;
     used[AL_V2_USED_INNER] = execution.budget.inner_trials_in_update;
     used[AL_V2_USED_LAST_TRIAL_HVP] = execution.update.trials.empty() ? 0U
         : static_cast<std::uint64_t>(execution.update.trials.back().hvp_calls);
