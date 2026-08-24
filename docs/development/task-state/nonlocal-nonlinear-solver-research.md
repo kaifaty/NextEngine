@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R36_PASS_EQUAL_WORK_HYBRID_SELECTED / D7R19R37_FROZEN_TERMINATION_CURVE_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R37_PASS_LINEAR_CONVERGENCE_CURVE / DIRECTION_MEMORY_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -88,7 +88,21 @@
   iterations plus fresh terminal operators close at exactly 51 pair passes
   and zero HVPs. Exact zero is the only stationarity route; no numerical
   tolerance is selected.
-- **Authority boundary:** R30/R31/R32/R33/R34/R35/R36 remain private
+- **Current conclusion:** R37 passes at stdout SHA `f475c203...3571`, semantic
+  result `c6a25424...4118` and route
+  `HYBRID_POLISH_CONTINUATION_CANDIDATE`. Two clean Release binaries and
+  outputs are byte-exact.
+- **Termination-curve fact:** after 24 additional steps, objective, violation
+  and projected mapping are `0.12887x/0.35898x/0.35367x` of R36. Mapping
+  remains nonzero at `2.64227e-10`; active count changes `876→868→858→846`.
+- **Mechanism fact:** objective per-step block factors stabilize
+  `0.9145→0.9184→0.9199`, while mapping factors stabilize
+  `0.9543→0.9581→0.9591`. More unchanged polish would continue an established
+  linear steepest-descent regime rather than test a new hypothesis.
+- **Current decision:** research/freeze an active-set-aware direction-memory
+  discriminator with fail-safe steepest-descent restart and unchanged exact
+  line globalization. Do not select a beta formula before the replay design.
+- **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
   penalty/cap/policy, time the solver, integrate runtime state or claim
@@ -2725,6 +2739,25 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   stationarity, preserves strict monotone contraction through frozen
   checkpoints, or exposes its first numerical/active-set plateau.
 
+### D-079 -- Change direction, not the established globalization
+
+- **Observation:** R37 establishes stable linear objective/mapping factors
+  through 24 additional exact-line steps. The active set still changes at
+  every checkpoint, so neither more identical steepest steps nor an
+  unguarded fixed-active-set Newton phase addresses the observed regime.
+- **Decision:** research direction memory that keeps the closed projection and
+  exact piecewise-line globalization. Compare restart-safe nonlinear-CG or
+  related matrix-free directions on exact captured states; restart to
+  steepest descent on non-descent, invalid beta/curvature or a predeclared
+  active-set incompatibility. Freeze formulas, restart precedence and equal
+  pair-pass work before candidate execution.
+- **Rejected:** extending R37 until a convenient tolerance, fitting a
+  tolerance from its terminal mapping, scalar spectral scaling that leaves
+  the exact-line direction unchanged, unguarded semismooth Newton while the
+  active set is moving, applying the vector or using wall time.
+- **Reconsider when:** a replay design can compare formulas and restart rules
+  without accepting a new state or fitting policy to nominal outcomes.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -2783,10 +2816,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
 5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+6. Preserve D7R19R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
-   Implement only frozen D7R19R37 as the bounded unchanged-polish
-   termination curve from the exact R36 endpoint. Do not form or apply a
+   Research and freeze only a direction-memory/restart discriminator over
+   exact captured R37 states. Do not form or apply a
    correction, evaluate a moved
    nonlinear state, classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another

@@ -2397,3 +2397,10 @@ select exactly 24 additional unchanged polish steps with checkpoints after
 `6/12/24`. Fresh prefix/terminal operators and the 48 iteration passes close
 again at exactly 51 pair passes. Exact zero remains the only stationarity
 route; no tolerance is fitted. Implement report-only R37 next.
+The [D7R19R37 evidence](../../development/nonlocal-nsr3b4e2d7r19r37-hybrid-polish-continuation-evidence-2026-08-24.md)
+closes `PASS / HYBRID_POLISH_CONTINUATION_CANDIDATE`. All 24 steps are
+accepted and mapping falls to `0.35367x` of R36, but block factors stabilize
+near `0.959` per step while the active set keeps changing. The selected method
+is convergent but remains in a linear steepest-descent regime. Research/freeze
+an active-set-aware direction-memory discriminator next; do not merely extend
+the same recurrence or evaluate a moved nonlinear state.
