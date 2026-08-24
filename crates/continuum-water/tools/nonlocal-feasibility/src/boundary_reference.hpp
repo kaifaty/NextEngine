@@ -210,6 +210,7 @@ SplitBoundaryReport run_al_first_order_reference_extension_controls();
 SplitBoundaryReport run_al_equal_work_generalized_hessian_controls();
 SplitBoundaryReport run_al_equal_work_curvature_polish_hybrid_controls();
 SplitBoundaryReport run_al_hybrid_polish_continuation_controls();
+SplitBoundaryReport run_al_direction_memory_replay_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

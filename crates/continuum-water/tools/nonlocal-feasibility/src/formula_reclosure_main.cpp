@@ -201,6 +201,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-equal-work-generalized-hessian|"
                          "--nonlocal-al-equal-work-curvature-polish-hybrid|"
                          "--nonlocal-al-hybrid-polish-continuation|"
+                         "--nonlocal-al-direction-memory-replay|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1576,6 +1577,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_hybrid_polish_continuation_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-direction-memory-replay") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_direction_memory_replay_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

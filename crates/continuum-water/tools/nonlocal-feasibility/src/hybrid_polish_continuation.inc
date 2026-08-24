@@ -19,6 +19,22 @@ struct ALR37Checkpoint {
     std::string root;
 };
 
+struct ALR37ReplayState {
+    ALR37Checkpoint checkpoint;
+    std::vector<Vec3> iterate;
+    std::vector<double> maintained_response;
+    std::vector<double> residual;
+    std::vector<Vec3> gradient;
+    std::vector<Vec3> previous_gradient;
+    std::vector<Vec3> previous_direction;
+};
+
+struct ALR37ContinuationCapture {
+    bool captured = false;
+    ALR36HybridCapture r36;
+    std::vector<ALR37ReplayState> replay_states;
+};
+
 std::vector<Vec3> al_r37_projected_mapping(
     const std::vector<Vec3>& iterate,
     const std::vector<Vec3>& gradient) {
@@ -121,7 +137,8 @@ std::string al_r37_route(
 
 } // namespace
 
-SplitBoundaryReport run_al_hybrid_polish_continuation_controls() {
+SplitBoundaryReport run_al_hybrid_polish_continuation_controls_impl(
+    ALR37ContinuationCapture* output_capture) {
     const bool identity_exact = sha256_hex(B4E2D7R19R37_IDENTITY_PROJECTION)
         == B4E2D7R19R37_IDENTITY_SHA256;
     ALR36HybridCapture capture;
@@ -202,6 +219,9 @@ SplitBoundaryReport run_al_hybrid_polish_continuation_controls() {
         residual[row] = r30.constraint[row] + maintained_response[row];
     }
     std::vector<ALR37Checkpoint> checkpoints;
+    std::vector<ALR37ReplayState> replay_states;
+    std::vector<Vec3> previous_gradient;
+    std::vector<Vec3> previous_direction;
     std::size_t accepted = 0U;
     bool iteration_exact = prefix_exact;
     bool projected_stationary = false;
@@ -226,9 +246,13 @@ SplitBoundaryReport run_al_hybrid_polish_continuation_controls() {
             break;
         }
         if (accepted == 6U || accepted == 12U) {
-            checkpoints.push_back(al_r37_checkpoint(
+            ALR37Checkpoint checkpoint = al_r37_checkpoint(
                 accepted, iterate, maintained_response, residual,
-                gradient, mapping));
+                gradient, mapping);
+            checkpoints.push_back(checkpoint);
+            replay_states.push_back({
+                std::move(checkpoint), iterate, maintained_response, residual,
+                gradient, previous_gradient, previous_direction});
         }
         if (mapping_norm == 0.0) {
             projected_stationary = true;
@@ -282,6 +306,8 @@ SplitBoundaryReport run_al_hybrid_polish_continuation_controls() {
             maintained_response[row] += line.alpha * line_response.value[row];
             residual[row] = r30.constraint[row] + maintained_response[row];
         }
+        previous_gradient = gradient;
+        previous_direction = direction;
         ++accepted;
         iteration_exact = al_r32_vec3_norm(iterate)
             <= std::nextafter(AL_R32_TRUST_DELTA,
@@ -331,9 +357,14 @@ SplitBoundaryReport run_al_hybrid_polish_continuation_controls() {
         && std::isfinite(terminal_mapping_norm);
     projected_stationary = direct_exact && terminal_mapping_norm == 0.0;
     if (direct_exact && accepted == 24U) {
-        checkpoints.push_back(al_r37_checkpoint(
+        ALR37Checkpoint checkpoint = al_r37_checkpoint(
             accepted, iterate, terminal_response.value, terminal_residual,
-            terminal_gradient, terminal_mapping));
+            terminal_gradient, terminal_mapping);
+        checkpoints.push_back(checkpoint);
+        replay_states.push_back({
+            std::move(checkpoint), iterate, terminal_response.value,
+            terminal_residual, terminal_gradient, previous_gradient,
+            previous_direction});
     }
 
     bool checkpoint_exact = direct_exact;
@@ -515,5 +546,14 @@ SplitBoundaryReport run_al_hybrid_polish_continuation_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (output_capture != nullptr) {
+        output_capture->captured = passed;
+        output_capture->r36 = std::move(capture);
+        output_capture->replay_states = std::move(replay_states);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_hybrid_polish_continuation_controls() {
+    return run_al_hybrid_polish_continuation_controls_impl(nullptr);
 }
