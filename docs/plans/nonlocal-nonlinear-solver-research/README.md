@@ -2493,3 +2493,9 @@ closes `PASS / TANGENTIAL_MERIT_STEP_REQUIRED`. Projection clamps exactly
 unit density agreement (`rho=0.999999993`), but complete merit reduction is
 `-1.761e-15`. Research/freeze a contact-feasible tangential-descent existence
 discriminator before implementing a composite SQP step.
+The [D7R19R44 research](../../development/nonlocal-nsr3b4e2d7r19r44-common-descent-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r44-common-descent-contract.md) first test the
+contact-projected negative complete-merit gradient at the exact R43 trial.
+Strict long-double merit and hinge directional signs decide whether a common
+descent already exists or a density-null-space QP is actually required. No
+line step or moved state is admitted.

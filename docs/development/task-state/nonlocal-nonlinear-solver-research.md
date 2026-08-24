@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R43_PASS_TANGENTIAL_MERIT_STEP_REQUIRED / D7R19R44_TANGENTIAL_DESCENT_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R43_PASS_TANGENTIAL_MERIT_STEP_REQUIRED / D7R19R44_COMMON_DESCENT_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-24` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -227,6 +227,12 @@
   contact-feasible tangential descent direction near the projected trial.
   Test complete-merit directional derivative and fresh density-null
   compatibility before designing a composite step.
+- **R44 contract:** evaluate the exact projected-trial complete-merit gradient,
+  project its negative into the source-active contact cone, apply one fresh
+  density JVP and classify strict long-double merit/hinge directional signs.
+- **Current decision:** implement only the frozen first-order discriminator.
+  Run a null-space study only if contact-feasible merit descent increases the
+  density hinge; run line globalization only if both slopes are negative.
 - **Authority boundary:** R30/R31/R32/R33/R34/R35/R36/R37/R38 remain private
   diagnostics. They cannot
   mutate state, classify a nonlinear floor, execute another outer, tune
