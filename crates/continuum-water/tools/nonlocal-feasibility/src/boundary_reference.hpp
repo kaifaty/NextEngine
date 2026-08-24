@@ -198,6 +198,7 @@ SplitBoundaryReport run_al_shadow_outer8_execution_controls();
 SplitBoundaryReport run_al_within_epoch_outer9_grant_controls();
 SplitBoundaryReport run_al_shadow_outer9_execution_controls();
 SplitBoundaryReport run_al_within_epoch_outer10_grant_controls();
+SplitBoundaryReport run_al_shadow_outer10_execution_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
