@@ -666,9 +666,17 @@ std::size_t al_owner_epoch_route_index(const std::string& route) {
     return 10U;
 }
 
+struct ALOwnerEpochTransitionCapture {
+    bool captured = false;
+    ALV2EnvelopeCapture r16;
+    ALOwnerEpochStateV1 state;
+    ALOwnerEpochTransitionResult result;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_owner_epoch_transition_controls() {
+SplitBoundaryReport run_al_owner_epoch_transition_controls_impl(
+    ALOwnerEpochTransitionCapture* capture_out) {
     const bool identity_exact = sha256_hex(B4E2D7R19R17_IDENTITY_PROJECTION)
         == B4E2D7R19R17_IDENTITY_SHA256;
     const bool policy_exact = sha256_hex(AL_OWNER_EPOCH_POLICY)
@@ -1088,5 +1096,15 @@ SplitBoundaryReport run_al_owner_epoch_transition_controls() {
               ",\"runtime_authority\":false"
               ",\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha256 << "\"}";
+    if (capture_out != nullptr) {
+        capture_out->captured = passed;
+        capture_out->r16 = std::move(capture);
+        capture_out->state = successful_state;
+        capture_out->result = successful_result;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_owner_epoch_transition_controls() {
+    return run_al_owner_epoch_transition_controls_impl(nullptr);
 }
