@@ -80011,6 +80011,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "owner_epoch_transition.inc"
 #include "outer6_resume.inc"
 #include "outer7_grant.inc"
+#include "outer7_execution.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

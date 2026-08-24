@@ -232,26 +232,30 @@ std::string al_outer6_work_root(const ALOuter6Execution& value) {
     return sha256_hex(projection.str());
 }
 
-ALOuter6Execution al_execute_outer6(
+ALOuter6Execution al_execute_outer_update(
     const std::vector<Vec3>& predicted,
     const std::vector<Vec3>& position,
     const std::vector<double>& dual,
     double theta,
-    bool unsliced_oracle) {
+    std::size_t outer,
+    std::size_t base_total_hvp,
+    std::size_t maximum_total_hvp,
+    std::size_t base_workspaces,
+    std::size_t base_precision) {
     ALOuter6Execution result;
-    result.base_total_hvp = unsliced_oracle ? 523U : 0U;
+    result.base_total_hvp = base_total_hvp;
     result.budget.maximum_outer_updates = 16U;
     result.budget.maximum_inner_trials_per_update = 16U;
     result.budget.maximum_hvp_per_trust_step = 34U;
-    result.budget.maximum_total_hvp = unsliced_oracle ? 8704U : 512U;
+    result.budget.maximum_total_hvp = maximum_total_hvp;
     result.budget.maximum_workspace_builds = 288U;
     result.budget.maximum_precision_audits = 64U;
-    result.budget.outer_updates = 6U;
+    result.budget.outer_updates = outer;
     result.budget.inner_trials_in_update = 2U;
     result.budget.hvp_in_trust_step = 25U;
     result.budget.total_hvp = result.base_total_hvp;
-    result.budget.workspace_builds = 33U;
-    result.budget.precision_audits = 21U;
+    result.budget.workspace_builds = base_workspaces;
+    result.budget.precision_audits = base_precision;
 
     const SmokeFixture fixture = make_b4e2d_dam_fixture();
     const JointStaticSupportIndex index = build_joint_static_support_index(
@@ -262,7 +266,7 @@ ALOuter6Execution al_execute_outer6(
     if (index.passed && binding.passed
         && al_sparse_budget_begin_outer_update(&result.budget)) {
         result.update = al_normalized_private_outer_update(
-            predicted, position, dual, theta, 6, binding, &result.work,
+            predicted, position, dual, theta, outer, binding, &result.work,
             &result.precision_work, &result.static_work,
             &result.adjacency_work, &result.budget, true,
             ALNormalizedKrylovForcingPolicy::DimensionlessStationarity,
@@ -270,14 +274,26 @@ ALOuter6Execution al_execute_outer6(
             nullptr, ALNormalizedTrustCompletionPolicy::TieredGraceResidualModel,
             &result.completion_trace);
     } else {
-        result.update.failure = "OUTER6_PREWORK_INVALID";
+        result.update.failure = "OUTER_UPDATE_PREWORK_INVALID";
     }
     result.delta_hvp = result.budget.total_hvp - result.base_total_hvp;
-    result.delta_workspaces = result.budget.workspace_builds - 33U;
-    result.delta_precision = result.budget.precision_audits - 21U;
+    result.delta_workspaces = result.budget.workspace_builds - base_workspaces;
+    result.delta_precision = result.budget.precision_audits - base_precision;
     result.update_root = al_outer6_update_root(result.update);
     result.work_root = al_outer6_work_root(result);
     return result;
+}
+
+ALOuter6Execution al_execute_outer6(
+    const std::vector<Vec3>& predicted,
+    const std::vector<Vec3>& position,
+    const std::vector<double>& dual,
+    double theta,
+    bool unsliced_oracle) {
+    return al_execute_outer_update(
+        predicted, position, dual, theta, 6U,
+        unsliced_oracle ? 523U : 0U,
+        unsliced_oracle ? 8704U : 512U, 33U, 21U);
 }
 
 bool al_outer6_trials_exact(

@@ -151,9 +151,27 @@ std::string al_apply_outer_grant_transaction(
     return route;
 }
 
+struct ALWithinEpochOuter7GrantCapture {
+    bool captured = false;
+    ALShadowOuter6ResumeCapture r18;
+    ALOuterGrantV1 grant;
+    ALOuterGrantReceiptV1 receipt;
+    ALOuterGrantOwnerV1 active_owner;
+    ALOuterGrantStateV1 state;
+    std::string grant_bytes;
+    std::string receipt_bytes;
+    std::string active_owner_bytes;
+    std::string state_bytes;
+    std::string grant_root;
+    std::string receipt_root;
+    std::string active_owner_root;
+    std::string state_root;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_within_epoch_outer7_grant_controls() {
+SplitBoundaryReport run_al_within_epoch_outer7_grant_controls_impl(
+    ALWithinEpochOuter7GrantCapture* capture_out) {
     const bool identity_exact = sha256_hex(B4E2D7R19R19_IDENTITY_PROJECTION)
         == B4E2D7R19R19_IDENTITY_SHA256;
     const bool policy_exact = sha256_hex(B4E2D7R19R19_POLICY)
@@ -323,5 +341,25 @@ SplitBoundaryReport run_al_within_epoch_outer7_grant_controls() {
               ",\"world_physics_mutation\":false,\"timing_admitted\":false"
               ",\"runtime_authority\":false,\"production_authority\":false"
            << ",\"result_sha256\":\"" << result_sha << "\"}";
+    if (capture_out != nullptr) {
+        capture_out->captured = passed;
+        capture_out->r18 = std::move(capture);
+        capture_out->grant = grant;
+        capture_out->receipt = receipt;
+        capture_out->active_owner = active;
+        capture_out->state = state;
+        capture_out->grant_bytes = grant_bytes;
+        capture_out->receipt_bytes = receipt_bytes;
+        capture_out->active_owner_bytes = active_bytes;
+        capture_out->state_bytes = state_bytes;
+        capture_out->grant_root = grant_root;
+        capture_out->receipt_root = receipt_root;
+        capture_out->active_owner_root = sha256_hex(active_bytes);
+        capture_out->state_root = sha256_hex(state_bytes);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_within_epoch_outer7_grant_controls() {
+    return run_al_within_epoch_outer7_grant_controls_impl(nullptr);
 }
