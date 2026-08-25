@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R63_CACHED_NORMAL_TRQP_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R63_PASS_TANGENTIAL_MASTER_EXPANSION_REQUIRED / D7R19R64_SPARSE_ROW_OPERATOR_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,12 @@
 
 ## Resume in 60 seconds
 
+- **R63 result:** clean stdout `38298214...5b62`, semantic
+  `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
+  model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
+  rows lie outside the fixed restoration master. Do not add master-only depth.
+  Research R64 sparse all-row gradients plus particle-to-row incidence and
+  validate against captured R51 reference rows before active-set expansion.
 - **R63 frozen:** because current filter objective is pure inertia,
   its step Hessian is exactly `SPACING^2*I`; the next TRQP is a Euclidean
   projection of `(predicted-R43)/SPACING` onto density halfspaces, R43 contact
@@ -3863,6 +3869,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** viscosity/surface/elastic objective terms are admitted;
   their separately specified curvature will require a generalized TRQP owner.
 
+### D-128 -- Separate restoration-master ownership from tangential active rows
+
+- **Observation:** R63 contracts residual on the 494 restoration rows to
+  `9.03e-14` but still has 2,796 raw-positive rows outside that set. Model
+  reduction and geometry remain strong.
+- **Decision:** retain R63 as the full-vector projection reference and stop
+  fixed-master depth. Research sparse topology-derived row gradients and a
+  particle-to-row overlap index, validate them against R51, then permit a
+  dynamic tangential active set over all rows.
+- **Rejected:** more sweeps over 494 rows, a dense 6000-by-6000 Gram, full
+  6000-vector storage per row, immediate nonlinear globalization or treating
+  restoration rows as persistent tangential ownership.
+- **Reconsider when:** a sparse operator-equivalence audit cannot reproduce the
+  captured row action/diagonal/update within a frozen forward-error contract.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3953,10 +3974,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. Preserve D7R19R62 exact
    PASS/`RESTORATION_EXIT_TRANSACTION_CANDIDATE`; its private position is R43
    and its exact R58 normal remains cached and unapplied. Freeze D7R19R63 as a
-   frozen pure-inertia projection TRQP with exact-once cached-normal
-   consumption, 64 Hildreth/Dykstra cycles, four all-row R61 checkpoints,
-   contact/trust/model gates and rollback. Defer nonlinear switching/filter
-   globalization to the next stage.
+   D7R19R63 exact PASS/`TANGENTIAL_MASTER_EXPANSION_REQUIRED`; do not add
+   fixed-master depth. Research D7R19R64 sparse topology-derived all-row
+   gradients, particle-to-row incidence/overlap and exact equivalence against
+   the captured R51 reference before dynamic active-set solve. Defer nonlinear
+   switching/filter globalization.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,

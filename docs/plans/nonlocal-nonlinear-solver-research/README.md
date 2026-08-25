@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R62_PASS_RESTORATION_EXIT_TRANSACTION_CANDIDATE /
-NSR3B4E2D7R19R63_CACHED_NORMAL_TRQP_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R63_PASS_TANGENTIAL_MASTER_EXPANSION_REQUIRED /
+NSR3B4E2D7R19R64_SPARSE_ROW_OPERATOR_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2854,3 +2854,10 @@ uses exactly 64 captured-master Hildreth/Dykstra cycles and R61 audits at
 8/16/32/64. It performs no new row-basis/Gram work, HVP or nonlinear density
 trial. Implement it next and retain candidate, master-expansion, depth and
 certificate-refinement outcomes without fitted tolerances.
+The [R63 evidence](../../development/nonlocal-nsr3b4e2d7r19r63-cached-normal-trqp-evidence-2026-08-25.md)
+closes `PASS / TANGENTIAL_MASTER_EXPANSION_REQUIRED`. The pure-inertia
+projection identity is forward-bound exact and reduces model inertia by about
+`5.30e-13`, while the fixed 494-row master leaves 2,796 positive rows outside
+its ownership. More fixed-master depth is rejected. Research sparse all-row
+row gradients and particle-to-row overlap with exact reference validation
+before dynamic active-set expansion.
