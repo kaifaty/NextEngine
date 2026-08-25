@@ -3129,3 +3129,12 @@ Armijo-positive interval after crossing. The next
 and [analytic contract](03b4e2d7r20r21-fixed-face-event-contract.md) derive the
 linear/quadratic projector KKT event equation and validate it against the
 frozen cells before it may influence a solver trial.
+The
+[R20R21 evidence](../../development/nonlocal-nsr3b4e2d7r20r21-fixed-face-event-evidence-2026-08-26.md)
+finds one unique correct event in every cell. All selected events are active-
+ball releases from a zero lower bound, so their physical root is linear even
+though the general predictor retains the quadratic branch. The next
+[event-side research](../../development/nonlocal-nsr3b4e2d7r20r22-event-side-trial-research-2026-08-26.md)
+and [shadow contract](03b4e2d7r20r22-event-side-trial-contract.md) evaluate the
+root and its immediate next binary128 value to test a zero-tuning face crossing
+before any solver trajectory changes.

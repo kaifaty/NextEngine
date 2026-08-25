@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_FIXED_FACE_EVENT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_EVENT_SIDE_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -30,6 +30,14 @@
   Active-ball events reduce to a scalar quadratic; inactive-ball and zero-bound
   events are linear. Validate one unique predicted scalar/root inside every
   frozen R20 transition cell. Do not generate a solver trial.
+- **R20R21 result:** implementation `0c261dd4`, semantic
+  `3ff49117...7bca`, route `FIXED_FACE_EVENT_PREDICTOR_CANDIDATE`. All seven
+  cells contain one unique correct root; ambiguity/unbracketed/wrong-scalar
+  counts are zero. The selected events are zero-lower-bound releases, hence
+  linear despite active ball coupling.
+- **R20R22 frozen:** evaluate exactly the root and its immediate next binary128
+  value in all seven states. Require the next value to select exactly the new
+  predicted face and audit rigorous Armijo/KKT without applying it.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4546,6 +4554,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** all seven events validate uniquely or the audit exposes
   ambiguity, wrong-scalar prediction or unbracketed finite arithmetic.
 
+### D-150 -- Cross by one representable value before choosing an offset policy
+
+- **Observation:** R21 predicts every event uniquely. The physical roots are
+  zero-bound releases, for which the immediate new-face side is defined without
+  a tunable epsilon by `nextafterq(root,+inf)`.
+- **Decision:** shadow-evaluate only the root and next representable alpha.
+  Require exactly the predicted scalar change, unchanged ball status and a
+  rigorous Armijo sign before considering an opt-in trajectory.
+- **Rejected:** a hand-picked fraction past the event, reusing the 65-point
+  grid, midpoint/bisection search, inserting the event into the solver now, or
+  treating exact root prediction as proof of objective acceptance.
+- **Reconsider when:** the seven next-representable trials classify under the
+  frozen all/subset/Armijo/face-side routes.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4599,9 +4621,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R20 semantic `4ca89c1f...1de5`. Implement only the frozen
-   R20R21 fixed-face analytic event predictor; do not generate or apply a line
-   trial, select a post-boundary offset or alter the cap.
+2. Preserve R20R21 semantic `3ff49117...7bca`. Implement only the frozen
+   R20R22 root/next-representable shadow audit; do not insert or apply either
+   point in the solver, select an offset/fallback or alter the cap.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
