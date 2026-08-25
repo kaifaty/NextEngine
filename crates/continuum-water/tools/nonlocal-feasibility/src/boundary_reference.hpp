@@ -229,6 +229,7 @@ SplitBoundaryReport run_al_operator_consistency_decomposition_controls();
 SplitBoundaryReport run_al_model_projection_decomposition_controls();
 SplitBoundaryReport run_al_contact_constrained_dykstra_controls();
 SplitBoundaryReport run_al_joint_witness_certificate_controls();
+SplitBoundaryReport run_al_certificate_aware_refinement_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

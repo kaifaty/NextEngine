@@ -80064,6 +80064,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "model_projection_decomposition.inc"
 #include "contact_constrained_dykstra.inc"
 #include "joint_witness_certificate.inc"
+#include "certificate_refinement.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
