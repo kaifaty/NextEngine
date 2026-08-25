@@ -3120,3 +3120,12 @@ and [fixed audit contract](03b4e2d7r20r20-breakpoint-geometry-contract.md)
 scan 65 exact points inside each of the seven frontier brackets to distinguish
 a single aligned event from a hidden same-face Armijo layer or a multi-event
 piecewise path before any solver change.
+The
+[R20R20 evidence](../../development/nonlocal-nsr3b4e2d7r20r20-breakpoint-geometry-evidence-2026-08-26.md)
+finds one non-returning one-scalar mask event and one Armijo sign event in all
+seven brackets, with no stable rejection. Five brackets retain a narrow
+Armijo-positive interval after crossing. The next
+[fixed-face event research](../../development/nonlocal-nsr3b4e2d7r20r21-fixed-face-event-research-2026-08-26.md)
+and [analytic contract](03b4e2d7r20r21-fixed-face-event-contract.md) derive the
+linear/quadratic projector KKT event equation and validate it against the
+frozen cells before it may influence a solver trial.

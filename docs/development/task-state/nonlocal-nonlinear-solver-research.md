@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_BREAKPOINT_GEOMETRY_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_FIXED_FACE_EVENT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -21,6 +21,15 @@
   Classify a same-face Armijo layer, multiple/returning mask events, a single
   aligned breakpoint or a simple offset. Report only; do not change the solver
   or cap.
+- **R20R20 result:** implementation `4ca6de6e`, semantic
+  `4ca89c1f...1de5`, route `SIMPLE_BREAKPOINT_OFFSET`. All seven brackets have
+  one mask event, one Armijo sign event, one changed scalar and no returns,
+  ball changes or stable rejection. Five retain an admissible interval after
+  crossing. Scalars 168 and 189 persist on either side of step 28.
+- **R20R21 frozen:** derive the fixed-face projector event from the affine input.
+  Active-ball events reduce to a scalar quadratic; inactive-ball and zero-bound
+  events are linear. Validate one unique predicted scalar/root inside every
+  frozen R20 transition cell. Do not generate a solver trial.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4521,6 +4530,22 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R20 classifies all seven brackets or any parent/root/
   endpoint parity gate fails.
 
+### D-149 -- Derive the event from projector KKT before using sampled geometry
+
+- **Observation:** all seven R20 brackets contain one scalar event; five have a
+  nonempty Armijo-positive interval on the new face. The 65-point grid
+  identifies geometry but is not an algorithm and cannot certify an event
+  location outside its cells.
+- **Decision:** derive the fixed-face linear/quadratic event equation from the
+  exact joint box-ball KKT system. Enumerate all scalar bounds and validate a
+  unique admissible root/scalar against every frozen R20 cell, with explicit
+  degeneracy and zero-bound controls.
+- **Rejected:** putting the 65-point scan in the solver, taking the grid's best
+  point, using an epsilon beyond the boundary, assuming the squared quadratic
+  preserves sign, or changing line/cap policy before predictor validation.
+- **Reconsider when:** all seven events validate uniquely or the audit exposes
+  ambiguity, wrong-scalar prediction or unbracketed finite arithmetic.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4574,8 +4599,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Implement only the frozen R20R20 65-point breakpoint-geometry audit. Keep
-   R19 and the shear candidate exact; do not apply samples or alter the cap.
+2. Preserve R20R20 semantic `4ca89c1f...1de5`. Implement only the frozen
+   R20R21 fixed-face analytic event predictor; do not generate or apply a line
+   trial, select a post-boundary offset or alter the cap.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
