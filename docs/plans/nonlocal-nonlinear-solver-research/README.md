@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R60_PASS_CERTIFICATE_VALIDATION_CANDIDATE /
-NSR3B4E2D7R19R61_CERTIFICATE_INTEGRATION_RESEARCH_NEXT /
+NSR3B4E2D7R19R61_CERTIFICATE_INTEGRATION_RESEARCH_COMPLETE /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2805,3 +2805,9 @@ subnormal/nonfinite intermediates, and all 6000 local uppers dominate a fresh
 full128 upper. The minimum containment margin is `3.34566e-22`. Research a
 separate topology-owned integration boundary next; do not apply the witness or
 carry binary128 into runtime.
+The [R61 research](../../development/nonlocal-nsr3b4e2d7r19r61-certificate-integration-research-2026-08-25.md)
+selects a new topology-owned binary64 audit rather than mutation of transitive
+legacy parents. It executes one directed JVP, derives degree from the same flat
+offsets and publishes the unchanged global bound as shadow beside the validated
+row-local candidate. Exact R58/R59 reproduction, all-row monotonicity and active
+subset relations are mandatory; no witness or restoration state is applied.

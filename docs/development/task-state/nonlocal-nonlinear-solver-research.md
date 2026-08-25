@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R60_PASS_CERTIFICATE_VALIDATION_CANDIDATE / D7R19R61_CERTIFICATE_INTEGRATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R60_PASS_CERTIFICATE_VALIDATION_CANDIDATE / D7R19R61_CERTIFICATE_INTEGRATION_RESEARCH_COMPLETE / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -3766,6 +3766,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R61 proves candidate/shadow relations and lifecycle
   ownership without changing parent bytes or operator arithmetic.
 
+### D-123 -- Own topology and shadow the legacy certificate
+
+- **Observation:** passing a degree vector into a legacy audit would preserve a
+  stale/undercount failure mode, while modifying the legacy audit would rewrite
+  every transitive parent.
+- **Decision:** R61 creates a new workspace-owned dual-path audit. One directed
+  JVP feeds bit-exact legacy global shadow and validated row-local candidate;
+  degree is derived only from the traversal offsets. Require candidate subset
+  and monotone-upper relations on every row.
+- **Rejected:** in-place legacy mutation, caller degree cache, removing the
+  shadow, runtime binary128, witness application or restoration exit.
+- **Reconsider when:** frozen R61 proves topology, shadow, candidate, relation,
+  work and rollback gates.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3852,8 +3866,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    `ROW_LOCAL_ENCLOSURE_CERTIFICATE_CANDIDATE`; do not integrate it directly.
    Preserve D7R19R60 exact PASS/
    `ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`. Research and freeze D7R19R61
-   as a separate topology-owned integration candidate with legacy global
-   shadow. Do not apply the witness or authorize restoration exit yet.
+   Freeze and implement D7R19R61 as a separate topology-owned integration
+   candidate with legacy global shadow. Do not apply the witness or authorize
+   restoration exit yet.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
