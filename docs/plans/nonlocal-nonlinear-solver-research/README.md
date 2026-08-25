@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R56_PASS_HIGH_PRECISION_RAW_RESIDUAL /
-NSR3B4E2D7R19R57_TERMINAL_FEASIBILITY_POLISH_RESEARCH_NEXT /
+NSR3B4E2D7R19R57_CERTIFICATE_REFINEMENT_CONTRACT_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2730,3 +2730,13 @@ sign as unresolved. The maximum lower bound is strictly positive near
 enclosure. Preserve R55/R56 and research the smallest bounded terminal
 feasibility polish next. Do not fit a tolerance or weaken gamma; raw
 feasibility must close before enclosure-only positives can be reconsidered.
+
+The [D7R19R57 research](../../development/nonlocal-nsr3b4e2d7r19r57-certificate-refinement-research-2026-08-25.md)
+rejects unstructured extension of the original Dykstra depth as the primary
+terminal mechanism. R57 instead freezes a new minimum-norm correction from the
+exact cycle-64 witness with `current_directed_upper + A delta <= 0` and contact
+box bounds relative to that witness. The safety margin is the proved enclosure,
+not a fitted tolerance. Use the same grouped-box Dykstra reference for solver
+attribution, then perform one high-precision terminal sign audit. SHQP and the
+2026 extreme-point-corrected semismooth Newton method are retained as the R58
+fallback if this certificate-aware refinement remains asymptotic.

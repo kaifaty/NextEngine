@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R56_PASS_HIGH_PRECISION_RAW_RESIDUAL / D7R19R57_TERMINAL_FEASIBILITY_POLISH_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R56_PASS_HIGH_PRECISION_RAW_RESIDUAL / D7R19R57_CERTIFICATE_REFINEMENT_CONTRACT_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -112,6 +112,13 @@
   positive. Two clean binaries and outputs are byte-exact. Preserve R55/R56
   and research a bounded terminal feasibility polish next; do not weaken the
   certificate or fit a tolerance.
+  R57 research selects certificate-aware residual refinement, not plain cycle
+  continuation: solve a fresh minimum-norm grouped-box problem from the exact
+  R55 witness with `current_directed_upper + A delta <= 0`, then re-audit the
+  unchanged certificate. The error buffer comes from the proof enclosure and
+  is not tuned. Freeze 64 cycles, checkpoints 8/16/32/64, 69 new pair passes
+  plus one binary128 row traversal. If it fails, research SHQP or the 2026
+  extreme-point-corrected semismooth Newton method; do not extend depth ad hoc.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3600,6 +3607,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R57 proves exact/directed feasibility, isolates a
   binary64 iteration floor, or selects one bounded polish formulation.
 
+### D-115 -- Refine the proved upper endpoint, not the boundary projection
+
+- **Observation:** continuing the original projection approaches active
+  `raw=0`, while a directed certificate needs a nonpositive upper endpoint.
+  Dykstra is asymptotic and may stall; extra depth alone does not construct
+  strict certificate margin.
+- **Decision:** select R57 certificate-aware refinement. From the exact R55
+  witness, solve `min 0.5||delta||^2` subject to its current directed upper plus
+  `A delta <= 0` and relative contact-box bounds. Use zero-initialized
+  grouped-box Dykstra only as the reference, with fixed 64-cycle work and one
+  terminal binary128 classification.
+- **Rejected:** arbitrary negative epsilon, original-state continuation as the
+  primary experiment, gamma weakening, runtime binary128 or immediate naive
+  semismooth Newton without degeneracy/representative controls.
+- **Reconsider when:** executable R57 closes the directed certificate or
+  selects raw-polish, unresolved-sign or enclosure-fixed-point fallback.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3680,8 +3704,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`; it is not compatibility.
    Preserve D7R19R50--R56, including exact R56
    PASS/`JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Research and
-   freeze D7R19R57 as a bounded terminal-feasibility discriminator before any
-   new solver execution. Do not fit a tolerance, weaken gamma or start
+   freeze D7R19R57 as the researched certificate-aware grouped-box refinement
+   before any new solver execution. Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
    apply or commit the correction,
