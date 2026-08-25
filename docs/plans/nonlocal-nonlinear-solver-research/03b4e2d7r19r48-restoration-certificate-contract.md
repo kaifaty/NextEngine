@@ -2,7 +2,7 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN V2 / GEOMETRY RECLOSURE / IMPLEMENTATION NEXT /
+Status: `PASS / RESTORATION_CERTIFICATE_UNRESOLVED / CLOSED /
 ROLLBACK ONLY`.
 
 Parent: `33e6ebfd`, R47 stdout SHA-256
@@ -59,6 +59,15 @@ rules, generator or certificate. V1 receives no solver credit; see the
 Require two clean Release builds and byte-exact outputs. Any PASS is one
 private next-TRQP compatibility classification only, not a completed
 restoration transaction, runtime permission or production evidence.
+
+## Closed result
+
+V2 closes `PASS / RESTORATION_CERTIFICATE_UNRESOLVED`. The PDAL generator
+reduces `h` from `3.7024372773750754e-8` to `5.1494460510689202e-9`, but the
+primal directed maximum upper bound remains positive and the dual lower bound
+remains negative. No witness or state is applied. Both clean Release binaries
+and stdout payloads are byte-exact; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r19r48-restoration-certificate-evidence-2026-08-25.md).
 
 Rationale:
 [R48 research](../../development/nonlocal-nsr3b4e2d7r19r48-restoration-certificate-research-2026-08-25.md).

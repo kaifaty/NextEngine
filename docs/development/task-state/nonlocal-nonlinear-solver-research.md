@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R47_PASS / D7R19R48V1_INVALID_GEOMETRY_ASSUMPTION / D7R19R48V2_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R48_PASS_UNRESOLVED / D7R19R49_PRIMAL_ACCELERATOR_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,29 +11,25 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R47 v2 passes at stdout SHA `dac0ffd8...71d`,
-  semantic `cbc08218...86c` and route
-  `RESTORATION_COMPATIBILITY_REQUIRED`. Two clean Release binaries and
-  outputs are byte-exact.
-- **Compatibility fact:** R43 remains filter-admitted and lies well inside the
-  trust/contact tangent geometry, but its authoritative linear residual is
-  positive: `psi=6.8540207066231842e-16`, `h=3.702437226104768e-8`, 464
-  positive rows. It is not a compatible ordinary filter-SQP normal step.
-- **Numerical reclosure:** reconstructed `psi` differs from the direct metric
-  by `1.9721522630525295e-31`, below the frozen `gamma(4)` bound
-  `5.8474928675268488e-30`; direct `h` is bit-exact. R47 v1 remains an invalid
-  inverse-subtraction diagnostic with no scientific credit.
-- **Current decision:** R48 v1 stopped before solver work because its assumed
-  half-skin `0.3` is actually `0.059999999999940004`. Preserve that invalid
-  geometry diagnostic without solver credit. R48 v2 retains the specialized
-  primal/dual design but freezes dyadic next/normal radii `1/16` and `1/32`.
-  Primary filter-SQP had corrected the earlier correction-
-  application framing. R48 must certify whether the *next* TRQP at the exact
-  filter-acceptable R43 moved point admits a contact-safe normal witness inside
-  a frozen half-radius reserve. Use specialized matrix-free PDAL plus independent
-  primal row enclosures or an outward Fenchel-dual lower bound; do not apply the
-  witness or claim restoration exit. Finalize the v2 identity, then implement
-  the report-only discriminator without parameter changes.
+- **Current conclusion:** R48 v2 passes at stdout SHA `70a66443...90b6`,
+  semantic `7d83b855...7e91` and route
+  `RESTORATION_CERTIFICATE_UNRESOLVED`. Two clean Release binaries and outputs
+  are byte-exact. R48 v1 remains an invalid geometry diagnostic with no solver
+  credit.
+- **Generator fact:** frozen PDAL reduces fresh moved-state `h` from
+  `3.7024372774e-8` to `5.1494460511e-9` (`7.18997x`) and `psi` by
+  `51.6957x`, but the independent directed maximum row upper bound remains
+  positive at `4.6927711453e-10`. The negative dual lower bound does not prove
+  infeasibility. Neither authoritative certificate closes.
+- **Geometry fact:** the witness norm is only `3.7060636244e-7`, versus normal
+  radius `0.03125`; contact/trust geometry is not the observed limiter. No
+  witness, R43 state, filter state, restoration exit or following outer is
+  committed.
+- **Current decision:** preserve the exact R48 problem, geometry, primal/dual
+  authorities and rollback. Do not raise the 128-iteration PDAL cap. Research
+  R49 as a replacement primal generator only: guarded Hager--Zhang memory,
+  convex contact-box/trust projection and exact all-inequality hinge line
+  minimization, with R48's independent row enclosures still owning success.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3194,6 +3190,28 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** v2 either enters the frozen generator and closes one
   classification or exposes the next exact pre-solver boundary.
 
+### D-096 -- Replace the primal generator; preserve the certificate authority
+
+- **Observation:** R48 v2 executes the complete bounded PDAL recurrence and
+  lowers fresh moved-state `h` by `7.18997x`, but after 128 iterations its
+  independently directed maximum row upper bound remains positive at
+  `4.6927711453e-10`. The witness uses only `1.18594e-5` of the normal radius,
+  and the dual lower bound is negative. Thus neither trust/contact geometry nor
+  certified infeasibility explains the unresolved result.
+- **Decision:** retain the R48 linear problem, dyadic geometry, box-ball
+  projector, rowwise primal enclosure, outward dual lower bound, work ledger
+  and rollback. Do not increase the PDAL cap. Research R49 as a new primal
+  candidate generator using guarded Hager--Zhang memory and exact hinge line
+  minimization along a feasible chord; only the unchanged independent R48
+  certificate may authorize compatibility.
+- **Rejected:** accepting the small generator residual, fitting a positive-row
+  tolerance, weakening directed rounding, applying the uncertified witness,
+  interpreting a negative dual lower bound as infeasibility, or spending more
+  iterations in the same established first-order recurrence.
+- **Reconsider when:** R49 freezes an outcome-independent recurrence, work cap,
+  restart policy and certificate reuse, then closes a clean reproducible
+  classification.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3266,12 +3284,15 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    production margin. Preserve D7R19R47 v1 as invalid inverse-subtraction
    evidence with no scientific credit. Preserve D7R19R47 v2 exact
    PASS/`RESTORATION_COMPATIBILITY_REQUIRED`; its positive direct linear
-   residual forbids an ordinary transaction. Freeze D7R19R48 as a rollback-
-   only specialized PDAL/Fenchel certificate for the next TRQP relinearized at
-   exact R43, with normal radius `0.03125` inside next radius `0.0625`. Do not apply
-   its witness or start switching, trust response or restoration exit before
-   that certificate closes. Do
-   not apply or commit the correction,
+   residual forbids an ordinary transaction. Preserve D7R19R48 v1 as an
+   invalid geometry diagnostic with no solver credit. Preserve D7R19R48 v2
+   exact PASS/`RESTORATION_CERTIFICATE_UNRESOLVED`: its PDAL generator improves
+   the residual but neither the independent primal nor dual certificate
+   closes. Do not raise its cap or apply its witness. Research/freeze D7R19R49
+   as a replacement primal generator over the unchanged R48 next-TRQP problem,
+   contact/trust geometry and certificate authority. Do not start switching,
+   trust response or restoration exit before compatibility closes. Do not
+   apply or commit the correction,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
