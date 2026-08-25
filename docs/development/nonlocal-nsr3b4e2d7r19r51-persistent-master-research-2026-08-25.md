@@ -2,7 +2,20 @@
 
 Date: `2026-08-25`
 
-Status: `RESEARCH COMPLETE / ONE-OUTER PERSISTENT MASTER SELECTED`.
+Status: `RESEARCH COMPLETE / V2 WORKSPACE LIFECYCLE RECLOSED / ONE-OUTER PERSISTENT MASTER SELECTED`.
+
+## V1 lifecycle correction
+
+The frozen v1 identity allowed missing-row VJP/JVP construction while declaring
+`moved-workspace0-new`. That combination is not executable under the exact R50
+ownership boundary: the parent must release its moved workspace, and captured
+row/Gram vectors cannot evaluate a row that is absent from the cache.
+
+V1 is therefore retained as an invalid pre-implementation contract with no
+solver credit. V2 admits exactly one new moved-workspace construction and one
+matching release for missing-row basis construction and fresh candidate
+audits. The persistent master, capacity, sweep count, dyadic ladder, certificate
+and 49-pair-pass ceiling are unchanged.
 
 ## Question
 

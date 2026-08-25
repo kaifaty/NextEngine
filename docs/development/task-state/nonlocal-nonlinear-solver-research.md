@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R50_PASS_CLOSURE / D7R19R51_PERSISTENT_MASTER_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R50_PASS_CLOSURE / D7R19R51V1_INVALID_WORKSPACE_LIFECYCLE / D7R19R51V2_PERSISTENT_MASTER_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -45,9 +45,12 @@
   `1ee396be...b56d`, semantic `a97b34d1...7d8d`; two clean binaries and
   concurrent outputs are byte-exact.
   Do not add a fifth outer or widen capacity; preserve the witness and research
-  persistent constraint generation after closure. R51 is frozen at identity
-  `8b30f853...e44a` as one eight-sweep solve over the stable cache/terminal-row
+  persistent constraint generation after closure. R51 v1 is invalid before
+  implementation because missing-row operator work had no owned workspace.
+  R51 v2 is frozen at identity `6146af2c...28c9` as one eight-sweep solve over the stable cache/terminal-row
   union, reusing captured bases and adding at most 20 missing rows/49 passes.
+  It builds and releases exactly one new moved workspace; all mathematical
+  controls remain unchanged.
   Implement it next.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
@@ -3297,6 +3300,22 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   the mathematical result or counting parent cache work as new R51 work.
 - **Reconsider when:** frozen R51 closes a clean certificate, expansion-required,
   master-closure, capacity/Gram/globalization or reference-retained route.
+
+### D-101 -- Reclose the missing-row workspace lifecycle before implementation
+
+- **Observation:** frozen R51 v1 admits up to 20 missing-row VJP/JVP builds and
+  fresh directed candidate audits while declaring zero new moved workspaces.
+  The exact R50 replay must release its workspace, and captured basis/Gram bytes
+  cannot evaluate an uncached row, so the lifecycle is contradictory.
+- **Decision:** retain v1 as an invalid pre-implementation contract with no
+  solver credit. Freeze v2 with exactly one new moved-workspace build and one
+  matching release. Preserve the persistent union, 512 capacity, eight sweeps,
+  dyadic globalization, certificate and 49-pair-pass ceiling unchanged.
+- **Rejected:** retaining a leaked parent workspace, silently rebuilding an
+  uncounted workspace, pretending captured rows can evaluate missing rows, or
+  changing the mathematical experiment while repairing ownership.
+- **Reconsider when:** the v2 implementation either proves exact lifecycle and
+  work controls or closes a dedicated workspace-rejected route.
 
 ## Performance facts retained
 

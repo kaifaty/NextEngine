@@ -1,7 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R50_PASS_ACTIVE_FACE_CLOSURE /
-NSR3B4E2D7R19R51_PERSISTENT_MASTER_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R19R51V1_INVALID_WORKSPACE_LIFECYCLE /
+NSR3B4E2D7R19R51V2_PERSISTENT_MASTER_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2627,5 +2628,7 @@ isolates the cycling hypothesis with one persistent union-master solve. Its
 492-row R50 basis/Gram cache, adds at most 20 missing terminal-positive rows,
 retains currently negative constraints and executes the unchanged eight-sweep
 Hildreth block plus directed dyadic globalization. New work is capped at 49
-pair passes. Implement it next; do not add a second persistent outer or change
-capacity from the nominal result.
+pair passes. V1 is invalid before implementation because that work owned no
+workspace; v2 builds and releases exactly one moved workspace without changing
+the mathematical experiment. Implement v2 next; do not add a second persistent
+outer or change capacity from the nominal result.
