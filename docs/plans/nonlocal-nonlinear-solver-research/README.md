@@ -3070,3 +3070,9 @@ reproduces both stops as `BOUNDARY_RATIO_UNRESOLVED`. The next
 [ratio-collision research](../../development/nonlocal-nsr3b4e2d7r20r13-ratio-collision-research-2026-08-25.md)
 and [observer contract](03b4e2d7r20r13-ratio-collision-contract.md) distinguish
 the ratio subpredicate without changing solver decisions.
+The
+[R20R13 evidence](../../development/nonlocal-nsr3b4e2d7r20r13-ratio-collision-evidence-2026-08-26.md)
+finds overlapping rigorous ratio intervals in both failures. The next
+[error-budget research](../../development/nonlocal-nsr3b4e2d7r20r14-ratio-error-budget-research-2026-08-26.md)
+and [counterfactual contract](03b4e2d7r20r14-ratio-error-budget-contract.md)
+separate candidate-solve error from accumulated current-direction error.
