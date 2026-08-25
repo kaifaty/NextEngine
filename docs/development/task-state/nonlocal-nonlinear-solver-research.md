@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_STOPPING_CONTRACT_R2_FROZEN / ORACLE_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_FROZEN / PHASE1_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -162,6 +162,17 @@
   dual/complementarity residuals at `2^-20`, analytic stationarity bounds, a
   32-outer hard cap and an independent binary128 primal-Dykstra oracle through
   at most `2^18` fixed cycles. Dual stagnation alone cannot stop.
+- **R20 oracle result:** harness/source/profile/work pass at semantic
+  `885dc7bd...c60f`, but the route is `ORACLE_UNRESOLVED`. Four quiet cases
+  certify at cycle zero. Supported is primal-feasible but misses the `2^-70`
+  stationarity/gap reference threshold; both filled blind cases remain far
+  from primal, dual, complementarity and stationarity at `2^18`. Candidate
+  iterations remain zero; never extend this Dykstra depth.
+- **R20R1 frozen:** distinguish empty constraint intersection from slow oracle
+  convergence using phase-I hinge feasibility. A forward-feasible primal is a
+  feasibility certificate; a positive binary128 Fenchel-dual lower bound is
+  an infeasibility certificate. Implement the bounded independent
+  discriminator next. Do not edit blind bytes or execute the candidate.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive

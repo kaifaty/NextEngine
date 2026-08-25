@@ -2969,3 +2969,14 @@ derives row-scale-invariant primal/projected-dual/complementarity residuals;
 the revision-2 [frozen contract](03b4e2d7r20-generalization-stopping-contract.md)
 authorizes one rollback-only corpus execution with an independent binary128
 primal-Dykstra oracle. Small dual change alone is not convergence.
+The resulting
+[binary128 oracle evidence](../../development/nonlocal-nsr3b4e2d7r20-binary128-oracle-evidence-2026-08-25.md)
+closes `PASS / ORACLE_UNRESOLVED`: the supported case is primal-feasible but
+misses the deliberately strict reference stationarity/gap threshold, while
+both filled blind cases remain far from several KKT conditions at the fixed
+`2^18` cap. The candidate was not executed. The
+[phase-I research](../../development/nonlocal-nsr3b4e2d7r20-phase1-feasibility-research-2026-08-25.md)
+and [frozen R20R1 contract](03b4e2d7r20r1-phase1-feasibility-contract.md)
+therefore test full density/contact/trust feasibility using mutually exclusive
+primal and Fenchel-dual certificates. Oracle depth extension and blind-case
+tuning remain forbidden.
