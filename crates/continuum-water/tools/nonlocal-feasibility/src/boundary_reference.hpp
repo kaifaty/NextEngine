@@ -226,6 +226,7 @@ SplitBoundaryReport run_al_active_face_closure_controls();
 SplitBoundaryReport run_al_persistent_master_controls();
 SplitBoundaryReport run_al_persistent_master_sweep_depth_controls();
 SplitBoundaryReport run_al_operator_consistency_decomposition_controls();
+SplitBoundaryReport run_al_model_projection_decomposition_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

@@ -283,9 +283,16 @@ std::string al_r53_route(bool parent, bool source, bool workspace,
     return "RESTORATION_NEXT_TRQP_COMPATIBLE_CANDIDATE";
 }
 
+struct ALR53ReplayCapture {
+    bool captured = false;
+    ALR52ReplayCapture r52;
+    ALR53Result decomposition;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_operator_consistency_decomposition_controls() {
+SplitBoundaryReport run_al_operator_consistency_decomposition_controls_impl(
+    ALR53ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R53_IDENTITY_PROJECTION)
         == B4E2D7R19R53_IDENTITY_SHA256;
     ALR52ReplayCapture capture;
@@ -523,5 +530,14 @@ SplitBoundaryReport run_al_operator_consistency_decomposition_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r52 = std::move(capture);
+        replay_capture->decomposition = std::move(decomposition);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_operator_consistency_decomposition_controls() {
+    return run_al_operator_consistency_decomposition_controls_impl(nullptr);
 }

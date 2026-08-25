@@ -80061,6 +80061,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "persistent_master.inc"
 #include "persistent_master_sweep_depth.inc"
 #include "operator_consistency_decomposition.inc"
+#include "model_projection_decomposition.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
