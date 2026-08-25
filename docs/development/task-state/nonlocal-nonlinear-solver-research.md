@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_CERTIFIED_EVENT_TRAJECTORY_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_REJECTED_STEP_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -71,6 +71,15 @@
   and replace only a stable pre-event acceptance by one zero-bound trial at
   `nextafter(root+B_z/dz,+inf)`. Fallback is the exact old acceptance. Replay
   all 12 cases; success requires 12/12 certification within cap 32.
+- **R20R26 result:** implementation `4b0f58ba`, semantic
+  `4203c7ce...a8d2`, route `V3_CERTIFIED_EVENT_SOLVER_REJECTED`. R8/R17/R25
+  remain exact and 11/12 certify. Three shear replacements reduce residual
+  about 40x to `4.34313e-9` in 19 accepted steps, then step 20 rejects all
+  existing line trials. One radial replacement remains certified.
+- **R20R27 frozen:** replay only exact R26 shear and expose the rejected step's
+  face/support/direction and all existing Armijo margins. Classify same-face
+  rejection, all-crossing envelope exhaustion, precision or face inconsistency;
+  add no trial or cap.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4658,6 +4667,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R26 certifies 12/12, retains 11/12, regresses a historical
   case or fails an event/fallback/root gate.
 
+### D-155 -- Diagnose the new boundary exposed by successful event crossings
+
+- **Observation:** R26 does not certify shear, but three certified replacements
+  remove the old cap cycle and reduce residual about 40x before a new step-20
+  globalization rejection. Eleven cases still certify.
+- **Decision:** stop candidate changes. Replay only exact R26 shear and audit
+  every final dyadic margin/mask plus the three committed event transitions.
+  Classify the new boundary before adding a point or changing policy.
+- **Rejected:** cap extension, proactive search, another event formula,
+  loosening Armijo, treating lower residual as convergence, timing or production
+  promotion.
+- **Reconsider when:** R27 identifies same-face model failure, line-envelope
+  exhaustion, precision ambiguity, face inconsistency or remains unresolved.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4711,9 +4734,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R25 semantic `d3544d42...d449`. Implement only the frozen
-   R20R26 default-false certified event replacement and one ordered 12-case
-   replay; keep the old dyadic bracket/fallback exact and do not alter the cap.
+2. Preserve R20R26 semantic `4203c7ce...a8d2` and shear root
+   `1c9a0bf3...cf91`. Implement only the frozen R20R27 rejected-step audit;
+   add no alpha/event/fallback, change no cap/tolerance and apply no state.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.

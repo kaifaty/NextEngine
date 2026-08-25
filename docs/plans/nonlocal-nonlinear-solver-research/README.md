@@ -3171,3 +3171,11 @@ Armijo suffix for all seven events. The next
 and [opt-in contract](03b4e2d7r20r26-certified-event-trajectory-contract.md)
 replace only an already bracketed pre-event dyadic acceptance by one
 forward-certified post-event trial and replay the complete 12-case corpus.
+The
+[R20R26 evidence](../../development/nonlocal-nsr3b4e2d7r20r26-certified-event-trajectory-evidence-2026-08-26.md)
+certifies 11/12. Three shear replacements reduce its residual about 40x and
+remove the old cap cycle, but the twentieth step rejects all existing line
+trials; radial's one replacement remains certified. The next
+[post-event research](../../development/nonlocal-nsr3b4e2d7r20r27-post-event-globalization-research-2026-08-26.md)
+and [rejected-step contract](03b4e2d7r20r27-post-event-globalization-contract.md)
+audit the exact final direction and line envelope before another candidate.
