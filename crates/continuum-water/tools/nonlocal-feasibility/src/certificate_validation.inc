@@ -288,9 +288,17 @@ std::string al_r60_route(bool parent, bool source, bool workspace,
     return "VALIDATION_REFERENCE_RETAINED";
 }
 
+struct ALR60ReplayCapture {
+    bool captured = false;
+    ALR59ReplayCapture r59;
+    ALR60DegreeControls degree_controls;
+    ALR60Validation validation;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_certificate_validation_controls() {
+SplitBoundaryReport run_al_certificate_validation_controls_impl(
+    ALR60ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R60_IDENTITY_PROJECTION)
         == B4E2D7R19R60_IDENTITY_SHA256;
     ALR59ReplayCapture capture;
@@ -580,5 +588,15 @@ SplitBoundaryReport run_al_certificate_validation_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r59 = std::move(capture);
+        replay_capture->degree_controls = std::move(degree_controls);
+        replay_capture->validation = std::move(validation);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_certificate_validation_controls() {
+    return run_al_certificate_validation_controls_impl(nullptr);
 }

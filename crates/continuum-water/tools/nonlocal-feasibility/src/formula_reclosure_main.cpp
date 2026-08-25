@@ -1751,6 +1751,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nonlocal-al-certificate-integration") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_certificate_integration_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (command == "--nominal-dam-first-output-preflight") {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
