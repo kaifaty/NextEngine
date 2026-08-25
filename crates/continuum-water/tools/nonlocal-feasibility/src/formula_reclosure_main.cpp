@@ -242,6 +242,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v3-breakpoint-geometry|"
                          "--nonlocal-al-generalization-v3-fixed-face-event|"
                          "--nonlocal-al-generalization-v3-event-side-trial|"
+                         "--nonlocal-al-generalization-v3-ulp-ladder|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2020,6 +2021,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v3_event_side_trial_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command ==
+            "--nonlocal-al-generalization-v3-ulp-ladder") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v3_ulp_ladder_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
