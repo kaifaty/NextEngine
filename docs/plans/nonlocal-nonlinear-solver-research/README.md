@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R58_PASS_FIXED_POINT_CONTRACTION /
-NSR3B4E2D7R19R59_ROW_LOCAL_ENCLOSURE_RESEARCH_COMPLETE /
+NSR3B4E2D7R19R59_ROW_LOCAL_ENCLOSURE_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2775,3 +2775,8 @@ R58 selected audit, performs no new JVP and must reproduce the existing global
 upper bit-for-bit before comparing the row-local bound. Error-free
 `TwoSum`/`TwoProduct` and `Dot2Err` are retained only as the next branch if the
 local operation count does not close.
+The [frozen R59 contract](03b4e2d7r19r59-row-local-enclosure-contract.md)
+performs exactly one passive R58 replay, one moved-workspace lifecycle and one
+6000-row scalar scan. It requires bit-exact reproduction of the current global
+upper before evaluating the local-degree upper and forbids all new JVP,
+binary128, solver and timing work.
