@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_ACTIVE_FACE_PCG_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_FACE_RESTART_PCG_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -48,6 +48,15 @@
   about `1e-6`, exposing the handoff error. No numerical result has credit.
   The density block keeps `p_C` fixed, but the next Dykstra set must project
   `target-A^T lambda`; correct only that handoff and rerun the frozen probe.
+- **R65 PCG result:** corrected exploratory PASS with stationarity at
+  `1e-22..1e-23`, zero curvature stops and 350,114,131 structural terms versus
+  FISTA's 596,971,680. But every outer is limited by one tiny dual coordinate;
+  final raw `2.032e-8` and projected gradient `1.553e-7` do not dominate
+  FISTA. Preserve route `ACTIVE_FACE_PCG_FACE_IDENTIFICATION_REQUIRED`.
+- **R65 face-restart probe frozen:** retain the 16-HVP-per-outer budget but
+  apply PCG one direction at a time. On a first-bound hit, zero the stable
+  limiting row, refresh raw with one `A`, restart on strict `lambda>0` and use
+  the remaining budget. Freshly reconstruct before the joint projection.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4017,6 +4026,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** PCG encounters nonpositive curvature, boundary
   truncation prevents strict progress, or it cannot dominate FISTA in both
   terminal primal raw and projected-gradient norm at lower operator work.
+
+### D-135 -- Restart PCG at the limiting bound inside the fixed budget
+
+- **Observation:** corrected PCG uses 41.35% less structural work than FISTA,
+  has positive curvature and reduces every fixed-face residual, but all 16
+  accumulated steps are truncated to `7.48e-5..3.71e-3` by one small
+  multiplier. The discarded Krylov direction, not its computation, is the
+  dominant failure.
+- **Decision:** apply one PCG direction at a time. When the nonnegative bound
+  precedes the unconstrained CG minimizer, fix the first stable limiting row at
+  zero, refresh the all-row residual and restart CG on the reduced face within
+  the same 16-HVP budget.
+- **Rejected:** increasing PCG iterations, allowing negative multipliers,
+  fraction-to-boundary tuning, regularization or retaining a stale residual
+  after explicitly zeroing a coordinate.
+- **Reconsider when:** boundary refreshes consume the entire budget without
+  residual dominance, recurrence/fresh reconstruction diverges, or structural
+  work reaches the FISTA reference.
 
 ## Performance facts retained
 
