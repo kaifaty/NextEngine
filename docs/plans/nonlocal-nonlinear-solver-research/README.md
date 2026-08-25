@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R58_PASS_FIXED_POINT_CONTRACTION /
-NSR3B4E2D7R19R59_ENCLOSURE_ATTRIBUTION_RESEARCH_NEXT /
+NSR3B4E2D7R19R59_ROW_LOCAL_ENCLOSURE_RESEARCH_COMPLETE /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2768,3 +2768,10 @@ from 245 to 234, while full binary128 resolves all 6000 raw rows negative. The
 binary64 maximum upper is nevertheless bit-identical at cycles 16/32/64 while
 the inner model residual falls to `9.11e-36`. Stop fixed-point/depth extension
 and research a read-only, provable decomposition of the enclosure next.
+The [R59 research](../../development/nonlocal-nsr3b4e2d7r19r59-row-local-enclosure-research-2026-08-25.md)
+selects exact per-row adjacency degree under the unchanged
+`gamma(16*degree+66)` proof as the first attribution experiment. It reuses the
+R58 selected audit, performs no new JVP and must reproduce the existing global
+upper bit-for-bit before comparing the row-local bound. Error-free
+`TwoSum`/`TwoProduct` and `Dot2Err` are retained only as the next branch if the
+local operation count does not close.

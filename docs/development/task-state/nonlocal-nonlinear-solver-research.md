@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R58_PASS_FIXED_POINT_CONTRACTION / D7R19R59_ENCLOSURE_ATTRIBUTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R58_PASS_FIXED_POINT_CONTRACTION / D7R19R59_ROW_LOCAL_ENCLOSURE_RESEARCH_COMPLETE / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -3693,6 +3693,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   identifies a sound binary64 tightening, or shows that stronger arithmetic or
   an SHQP/semismooth certificate is required.
 
+### D-119 -- Specialize the existing operation-count proof per row first
+
+- **Observation:** directed rows are evaluated independently over exact flat
+  adjacency ranges, but the current certificate charges every row the global
+  maximum degree. The accepted bound already has the affine operation count
+  `16*degree+66`.
+- **Decision:** R59 will replay R58 and compare its bit-exact current upper with
+  `gamma(16*d[row]+66)` using each exact row degree. No JVP, witness or gamma
+  definition changes. Retain rigorous error-free accumulation as the next
+  branch only if local counting is insufficient.
+- **Rejected:** fitted gamma scaling, binary128 runtime authority, immediate
+  compensated arithmetic, more solver depth or another fixed-point outer.
+- **Reconsider when:** the frozen R59 scan proves complete local closure,
+  partial improvement, maximum-degree obstruction or no improvement.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3775,8 +3790,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Research and
    Preserve D7R19R57 exact PASS/enclosure-fixed-point evidence and D7R19R58
    exact PASS/`FIXED_POINT_CONTRACTION_CANDIDATE`. Do not execute a third
-   fixed-point outer. Research D7R19R59 as read-only enclosure attribution and
-   freeze any arithmetic/certificate experiment before implementation.
+   fixed-point outer. Freeze and implement D7R19R59 as a read-only row-local
+   operation-count attribution. Preserve exact global-gamma recomputation as a
+   gate; do not implement error-free accumulation in the same experiment.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
