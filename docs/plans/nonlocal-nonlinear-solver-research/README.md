@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R60_PASS_CERTIFICATE_VALIDATION_CANDIDATE /
-NSR3B4E2D7R19R61_CERTIFICATE_INTEGRATION_RESEARCH_COMPLETE /
+NSR3B4E2D7R19R61_CERTIFICATE_INTEGRATION_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2811,3 +2811,8 @@ legacy parents. It executes one directed JVP, derives degree from the same flat
 offsets and publishes the unchanged global bound as shadow beside the validated
 row-local candidate. Exact R58/R59 reproduction, all-row monotonicity and active
 subset relations are mandatory; no witness or restoration state is applied.
+The [frozen R61 contract](03b4e2d7r19r61-certificate-integration-contract.md)
+adds one new workspace-owned dual-path audit with one directed JVP. It must
+reproduce R58 shadow and R59 candidate exactly, prove all-row monotone/subset
+relations and pass six deterministic topology controls. Historical owners and
+restoration state remain unchanged.
