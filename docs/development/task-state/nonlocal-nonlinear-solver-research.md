@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_BATCH_PROJECTED_NEWTON_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_DYADIC_PROJECTED_PATH_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -65,6 +65,14 @@
   products for face Newton `d`, form `d_P=max(0,lambda+d)-lambda`, spend the
   sixteenth product on `H d_P` and take the exact feasible quadratic line
   minimizer. Batch face changes replace sequential bound hits; no backtracking.
+- **R65 batch Newton result:** exploratory PASS at 349,366,230 terms. It
+  improves restart-v2 raw `4.83x`, but exact chord alphas are all below one, so
+  6,883 predicted zero events yield zero applied zeros. Final raw `3.337e-9`
+  remains `2.82x` above FISTA. Preserve the useful curvature result but reject
+  the chord; projected Newton must follow `max(0,lambda+alpha*d)`.
+- **R65 projected-path probe frozen:** keep 15 face-PCG products, then test
+  `alpha=1,1/2,...,2^-15` on the actual projected path. Each candidate uses
+  one `A^T` and exact quadratic change; accept the first strict decrease.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4070,6 +4078,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   destabilize recurrence/joint projection, or the terminal pair does not
   dominate FISTA at lower structural work.
 
+### D-137 -- Search the projected path, not the endpoint chord
+
+- **Observation:** batch Newton predicts 6,883 zero events but applies none,
+  because all chord minimizers have `alpha<1`. Nevertheless it improves the
+  restart raw `4.83x` at only 58.52% of FISTA work, validating the Newton
+  direction while falsifying the chord geometry.
+- **Decision:** evaluate the true projected path
+  `max(0,lambda+alpha*d)` at the fixed dyadic sequence `2^-k`, `k=0..15`, and
+  accept the largest candidate with strict negative exact sparse quadratic
+  change. Candidate evaluation needs `A^T` only.
+- **Rejected:** more chord depth, forcing `alpha=1` without objective descent,
+  fitting breakpoints from this fixture, or a dense exact projected-path
+  factorization.
+- **Reconsider when:** no dyadic candidate descends, candidate transpose work
+  reaches FISTA, batch zeros hurt KKT/model gates, or terminal residuals still
+  fail strict dominance.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4164,9 +4189,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    fixed-master depth. Preserve D7R19R64 exact
    PASS/`SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`, including separate
    workspace/operator topology roots and its fail-closed negative result.
-   Preserve all D7R19R65 dynamic/FISTA/PCG probes as no-credit exploratory
-   evidence. Implement the frozen batch projected-Newton probe next. Defer
-   nonlinear switching/filter globalization.
+   Preserve all D7R19R65 dynamic/FISTA/PCG/Newton probes as no-credit
+   exploratory evidence. Implement the frozen dyadic projected-path probe
+   next. Defer nonlinear switching/filter globalization.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,
