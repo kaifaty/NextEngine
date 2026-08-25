@@ -19,6 +19,7 @@ struct ALR20NewtonDualEvaluation {
     Binary128 value = static_cast<Binary128>(0.0);
     Binary128 bound = static_cast<Binary128>(0.0);
     ALR20ProjectorState projector;
+    std::vector<Binary128Vec3> input;
     std::vector<Binary128> residual;
     std::vector<Binary128> residual_bound;
     std::string root;
@@ -36,6 +37,7 @@ ALR20NewtonDualEvaluation al_r20_newton_dual_evaluate(
     std::vector<Binary128Vec3> input(target.size());
     for (std::size_t particle = 0U; particle < target.size(); ++particle)
         input[particle] = target[particle] - at[particle];
+    result.input = input;
     result.projector = al_r20_projector_state(input,
         al_r20_projector_promote_bounds(problem.lower),
         al_r20_projector_promote_bounds(problem.upper),

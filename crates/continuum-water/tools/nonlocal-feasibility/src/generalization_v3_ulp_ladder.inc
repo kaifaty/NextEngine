@@ -21,6 +21,9 @@ struct ALR20UlpLadderAudit {
     Binary128 first_margin = static_cast<Binary128>(0.0);
     Binary128 first_dual_increase_lower = static_cast<Binary128>(0.0);
     ALR20OracleMetrics first_metrics;
+    std::vector<int> face_codes;
+    std::vector<Binary128> actual_inputs;
+    std::vector<Binary128> analytic_inputs;
     std::string first_mask_root;
     std::string root;
 };
@@ -79,6 +82,22 @@ ALR20UlpLadderAudit al_r20_r23_ulp_ladder(
         }
         const bool ball_changed = dual.projector.ball_active
             != current.projector.ball_active;
+        int face_code = 2;
+        if (!ball_changed && mask_changes == 0U) face_code = 0;
+        else if (!ball_changed && mask_changes == 1U && predicted_changed)
+            face_code = 1;
+        result.face_codes.push_back(face_code);
+        const std::size_t predicted_particle = result.predicted_scalar / 3U;
+        const int predicted_axis = static_cast<int>(
+            result.predicted_scalar % 3U);
+        result.actual_inputs.push_back(al_r20_q_component(
+            dual.input[predicted_particle], predicted_axis));
+        const ALR20EventPolynomial& selected_polynomial =
+            event.events.front().polynomial;
+        result.analytic_inputs.push_back(
+            selected_polynomial.zero_bound
+                ? selected_polynomial.b * alpha + selected_polynomial.c
+                : al_r20_r21_polynomial_value(selected_polynomial, alpha));
         const std::string mask_root = al_r20_r20_mask_root(dual.projector);
         const bool sample_exact = cone_exact && dual.exact
             && finiteq(alpha) != 0 && finiteq(margin) != 0;
