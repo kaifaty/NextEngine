@@ -1,8 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
-NSR3B4E2D7R19R65_MARGIN_SENSITIVE_FILTER_PATH /
-NSR3B4E2D7R19R65_COMPOSED_DUAL_MERIT_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R19R65_COMPOSED_DUAL_PATH_CANDIDATE /
+NSR3B4E2D7R19R65_BEST_COMPOSED_DUAL_TRANSACTION_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2927,3 +2927,12 @@ factor-two violation reduction. Before fitting a filter margin, the
 and [frozen contract](03b4e2d7r19r65-composed-dual-merit-contract.md) derive
 the exact convex projection dual and require direct/completed-square
 correspondence on every existing pair. Candidate application remains blocked.
+The
+[composed-dual evidence](../../development/nonlocal-nsr3b4e2d7r19r65-composed-dual-merit-evidence-2026-08-25.md)
+finds strict ascent for all 235 normal-safe candidates and all 15 previously
+blocked outers. This selects the
+[best composed-dual path research](../../development/nonlocal-nsr3b4e2d7r19r65-best-composed-dual-path-research-2026-08-25.md)
+and [frozen transaction](03b4e2d7r19r65-best-composed-dual-path-contract.md):
+apply maximum completed-square ascent, verify committed direct dual and compare
+terminal KKT/work with FISTA. Runtime and nonlinear outer acceptance remain
+blocked.

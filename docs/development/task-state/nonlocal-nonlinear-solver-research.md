@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_MARGIN_SENSITIVE_FILTER_PATH / D7R19R65_COMPOSED_DUAL_MERIT_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_COMPOSED_DUAL_PATH_CANDIDATE / D7R19R65_BEST_COMPOSED_DUAL_TRANSACTION_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -122,6 +122,16 @@
   `d=0.5||s-t||^2+lambda^T(c+A*s)` and its completed-square form for every v8
   pair. Reuse the same 255 audits with zero new sparse/projection work and do
   not apply a candidate.
+- **R65 composed-dual result:** v9 passes at semantic `77cbed07...83af` with
+  exact v6/v7/v8 roots. All 235 normal-safe candidates ascend the exact dual
+  and all 15 blocked outers are covered. Direct/completed-square and physical
+  scaling bounds pass. The strict intermediate primal-inertia gate is the
+  wrong inner convex merit on this fixture.
+- **R65 best composed-dual transaction frozen:** select the maximum strict
+  completed-square dual ascent under inherited fixed-density and cached-normal
+  gates, apply it for 16 outers and verify committed direct dual through the
+  existing fresh all-row audit. Add no candidate JVP/filter margin or timing;
+  compare terminal KKT pair and sparse work with FISTA.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4236,6 +4246,22 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** composed-dual ascent is uniform, absent, phase-dependent
   or fails formula/scaling correspondence.
 
+### D-143 -- Use the exact composed dual as the inner transaction merit
+
+- **Observation:** v9 finds strict composed-dual ascent in all 235 normal-safe
+  candidates and all 15 v6-blocked outers. Direct and completed-square forms
+  agree far inside the bound, while all earlier roots and work remain exact.
+- **Decision:** run a new private trajectory selecting the maximum strict
+  completed-square ascent over the unchanged dyadic path. Verify the selected
+  value after commit with `F+lambda^T raw` from the already mandatory all-row
+  audit. Keep the outer nonlinear filter lineage separate.
+- **Rejected:** retaining strict intermediate primal inertia, fitting filter
+  gamma, using v8's 255 diagnostic JVPs in selection, mixing normalized and
+  physical units, assuming parent ascent guarantees child dominance, or timing.
+- **Reconsider when:** the applied trajectory loses dual/model/recurrence
+  correspondence, fails terminal KKT dominance, exceeds FISTA sparse work or
+  closes the frozen acceleration route.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4336,9 +4362,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    and diagnostic semantic `9203252f...ea03`. Implement the frozen
    projected filter-pair discriminator exact
    PASS/`MARGIN_SENSITIVE_FILTER_PATH_CANDIDATE` at semantic
-   `bdeeab4b...8ab2`. Implement the frozen composed dual-merit discriminator
-   next. Defer a complete filter lifecycle and candidate application until the
-   correct inner merit is classified.
+   `bdeeab4b...8ab2`. Preserve v9 exact
+   PASS/`COMPOSED_DUAL_PATH_CANDIDATE` at semantic `77cbed07...83af`.
+   Implement the frozen best composed-dual private transaction next. Keep
+   filter-SQP deferred to outer nonlinear globalization; do not use it as the
+   R65 convex-block merit.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,
