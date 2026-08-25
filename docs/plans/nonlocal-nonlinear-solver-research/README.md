@@ -3146,3 +3146,11 @@ on the old face even though all seven Armijo margins are positive. The next
 and [fixed contract](03b4e2d7r20r23-ulp-ladder-contract.md) evaluate all
 `2^0..2^64` ULP displacements to measure the end-to-end finite-precision event
 boundary without fitting an epsilon.
+The
+[R20R23 evidence](../../development/nonlocal-nsr3b4e2d7r20r23-ulp-ladder-evidence-2026-08-26.md)
+finds correct Armijo-positive first crossings at powers `10,14,13,4,6,11,0`,
+but step 32 changes mask again inside the micro-ladder. The next
+[zero-bound flutter research](../../development/nonlocal-nsr3b4e2d7r20r24-zero-bound-flutter-research-2026-08-26.md)
+and [existing-ladder contract](03b4e2d7r20r24-zero-bound-flutter-contract.md)
+expose the already computed preprojection scalar and mask run to distinguish a
+rounding return from a genuine second event.

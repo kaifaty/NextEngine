@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_ULP_LADDER_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_FLUTTER_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -47,6 +47,13 @@
   every analytic root. Find the first actual face crossing and require exactly
   the predicted scalar, positive Armijo and no later additional event. Report
   only; no fitted epsilon or state update.
+- **R20R23 result:** implementation `423d52ad`, semantic
+  `48d97d21...1987`, route `ULP_LADDER_MULTI_EVENT`. All seven first crossings
+  are correct and Armijo-positive at powers `10,14,13,4,6,11,0`; only step 32
+  later changes mask again.
+- **R20R24 frozen:** expose the already computed step-32 preprojection scalar
+  and old/new/other mask run for all 65 powers. Distinguish zero-bound rounding
+  flutter from a genuine second geometric event; add no samples or solver work.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4591,6 +4598,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** all seven first crossings are classified or the fixed
   ladder exposes no-cross, wrong-face, Armijo or multi-event behavior.
 
+### D-152 -- Attribute the isolated later mask event before selecting stability
+
+- **Observation:** R23 crosses every predicted event correctly, but step 32
+  changes mask later inside a microscopic alpha range. R20 independently sees
+  only one geometric event in the much wider bracket.
+- **Decision:** expose the existing 65 projector inputs and run-length encode
+  old/predicted/other masks. Compare actual scalar 189 with its monotone affine
+  zero-bound value and identify the final stable-new suffix.
+- **Rejected:** treating any first crossing as stable, selecting two consecutive
+  new masks, forcing the analytic face, widening projector equality or adding
+  more alpha samples before attributing the existing run.
+- **Reconsider when:** R24 proves rounding flutter, a genuine second event,
+  detector over-sensitivity or remains unresolved.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4644,9 +4665,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R22 semantic `3c39b724...9ad6`. Implement only the frozen
-   R20R23 65-point power-of-two ULP ladder; do not stop it early, fit a crossing
-   epsilon, insert/apply a point in the solver or alter the cap.
+2. Preserve R20R23 semantic `48d97d21...1987`. Implement only the frozen
+   R20R24 existing-ladder mask/input run audit; add no ladder point, fit no
+   stable-suffix rule, force no mask, apply no state and do not alter the cap.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
