@@ -3163,3 +3163,11 @@ nonnegative. The next
 and [componentwise contract](03b4e2d7r20r25-event-forward-bound-contract.md)
 derive a sparse-entry-count gamma bound and test containment/stable-side
 selection on the existing 455 points without fitting the observed error.
+The
+[R20R25 evidence](../../development/nonlocal-nsr3b4e2d7r20r25-event-forward-bound-evidence-2026-08-26.md)
+contains all 455 differences and proves a stable predicted-face/positive-
+Armijo suffix for all seven events. The next
+[certified-event trajectory research](../../development/nonlocal-nsr3b4e2d7r20r26-certified-event-trajectory-research-2026-08-26.md)
+and [opt-in contract](03b4e2d7r20r26-certified-event-trajectory-contract.md)
+replace only an already bracketed pre-event dyadic acceptance by one
+forward-certified post-event trial and replay the complete 12-case corpus.
