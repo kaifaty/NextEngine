@@ -2,7 +2,8 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN V1 / IMPLEMENTATION NEXT / ROLLBACK ONLY`.
+Status: `PASS / ACTIVE_FACE_HILDRETH_CLOSURE_CANDIDATE / CLOSED /
+ROLLBACK ONLY`.
 
 Parent: `8789cc16`, R49 stdout SHA-256
 `7e1dde137b6164f67a448ab704eb713148e08c3a3a6e693614cb2645b01fa656`,
@@ -45,6 +46,15 @@ SHA-256: `ab745dfcfede239ed739d5bec80f1bc6c9e74be36b3bd5daa6887f830f263c75`.
 Require two clean Release builds and byte-exact outputs. Any PASS is one private
 active-face closure classification only, not a completed restoration transaction,
 runtime permission or production evidence.
+
+## Closed result
+
+R50 closes `PASS / ACTIVE_FACE_HILDRETH_CLOSURE_CANDIDATE`. Four accepted
+outers and 991 pair passes lower `h` to `2.9894663306152676e-12` and maximum
+directed upper to `1.0297972392379541e-12`, but 488 rows remain positive and
+the cache reaches 492/512. Both clean Release binaries and outputs are
+byte-exact; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r19r50-active-face-closure-evidence-2026-08-25.md).
 
 Rationale:
 [R50 research](../../development/nonlocal-nsr3b4e2d7r19r50-active-face-closure-research-2026-08-25.md).

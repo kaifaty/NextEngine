@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R49_PASS_PRIMAL_ACCELERATOR /
-NSR3B4E2D7R19R50_HILDRETH_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R50_PASS_ACTIVE_FACE_CLOSURE /
+NSR3B4E2D7R19R51_PERSISTENT_MASTER_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2613,3 +2613,11 @@ four-outer Hildreth dual-coordinate reference with a 512-row exact basis/Gram
 cache, eight fixed sweeps and directed dyadic globalization. Implement this
 rollback-only reference next. Predicted halfspace feasibility or Hildreth dual
 stationarity cannot replace the unchanged all-row certificate.
+The [D7R19R50 evidence](../../development/nonlocal-nsr3b4e2d7r19r50-active-face-closure-evidence-2026-08-25.md)
+closes `PASS / ACTIVE_FACE_HILDRETH_CLOSURE_CANDIDATE`. Four accepted outers
+and 991 pair passes lower `h`, `psi` and maximum directed upper by `47.3140x`,
+`2238.62x` and `19.1994x` relative to R49. Both clean binaries and concurrent
+outputs are byte-exact. The positive face migrates from 366 to 488 rows and
+the cache reaches 492/512, so compatibility is not certified. Research a
+persistent accumulated-row master next; do not add a fifth current-active-only
+outer, widen capacity, apply the witness or exit restoration.
