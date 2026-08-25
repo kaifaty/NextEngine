@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_ACTIVE_FACE_FISTA_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_ACTIVE_FACE_PCG_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -33,6 +33,16 @@
   operators. Run exactly 16 outer blocks x 16 projected-FISTA iterations,
   power-of-two backtracking, no tolerance stop/deletion/timing. Project the
   joint set once per block, grow ownership and audit full primal/KKT/model.
+- **R65 FISTA result:** exploratory PASS but acceleration rejected. Final
+  maximum raw is `1.1823e-9`; 256 iterations require 770 `A^T` and 288 `A`
+  calls, or 596,971,680 sparse terms/slots including fresh audits. The
+  cycle-64 `omega=1.5` Hildreth raw is already `2.99x` smaller. Preserve the
+  negative result; do not tune FISTA depth, momentum or scalar Lipschitz.
+- **R65 PCG probe frozen:** use the Moré--Toraldo two-phase pattern. Run one
+  ascending `omega=1` Hildreth identification sweep, then at most 16
+  Jacobi-PCG steps on strict `lambda>0` rows, truncate the accumulated face
+  step at the first nonnegative-dual boundary, reconstruct through fresh R64
+  `A^T`, project the joint set and audit. Run 16 outers, no tolerance/timing.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -3985,6 +3995,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** equal operator work does not materially beat cyclic raw,
   backtracking is unstable, or joint/KKT/model gates fail.
 
+### D-134 -- Replace scalar-Lipschitz FISTA with two-phase face PCG
+
+- **Observation:** the FISTA probe preserves KKT decomposition and model
+  reduction but reaches only `1.1823e-9` raw after 770 transpose calls. It is
+  worse than cycle-64 relaxed Hildreth and spends 596,971,680 sparse
+  terms/slots including audits. The bottleneck is correlated face curvature,
+  not missing ownership or an invalid dual model.
+- **Decision:** retain one direct Hildreth sweep as the face-identification
+  phase, then use Jacobi-preconditioned matrix-free CG on strict positive-dual
+  rows. Truncate the accumulated step at the first `lambda=0` boundary and
+  return through a fresh reconstruction, joint projection and full audit.
+- **Rejected:** more FISTA depth, momentum/restart tuning, fitted spectral
+  estimates, dense factorization, regularizing the physical objective, or
+  accepting a faster nominal iteration count without sparse-term accounting.
+- **Reconsider when:** PCG encounters nonpositive curvature, boundary
+  truncation prevents strict progress, or it cannot dominate FISTA in both
+  terminal primal raw and projected-gradient norm at lower operator work.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4079,8 +4107,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    fixed-master depth. Preserve D7R19R64 exact
    PASS/`SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`, including separate
    workspace/operator topology roots and its fail-closed negative result.
-   Research and freeze D7R19R65 dynamic all-row active-set ownership before
-   executing it. Defer nonlinear switching/filter globalization.
+   Preserve D7R19R65 dynamic all-row and FISTA probes as no-credit exploratory
+   evidence. Implement the frozen two-phase active-face PCG probe next. Defer
+   nonlinear switching/filter globalization.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,
