@@ -2,7 +2,8 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN / IMPLEMENTATION AUTHORIZED / ROLLBACK ONLY`.
+Status: `CLOSED / PASS / TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE /
+ROLLBACK ONLY`.
 
 Parent: `0c77720d`, R60 stdout SHA-256
 `6c6c62b6efb196d97dc4210ad7bcb56732f0c2d107a2df6aa10e9de84005c7f7`,
@@ -37,3 +38,6 @@ private reusable integration candidate only.
 
 Rationale:
 [R61 research](../../development/nonlocal-nsr3b4e2d7r19r61-certificate-integration-research-2026-08-25.md).
+
+Closure evidence:
+[R61 evidence](../../development/nonlocal-nsr3b4e2d7r19r61-certificate-integration-evidence-2026-08-25.md).

@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R60_PASS_CERTIFICATE_VALIDATION_CANDIDATE /
-NSR3B4E2D7R19R61_CERTIFICATE_INTEGRATION_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R61_PASS_TOPOLOGY_OWNED_AUDIT_CANDIDATE /
+NSR3B4E2D7R19R62_RESTORATION_PROMOTION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2816,3 +2816,9 @@ adds one new workspace-owned dual-path audit with one directed JVP. It must
 reproduce R58 shadow and R59 candidate exactly, prove all-row monotone/subset
 relations and pass six deterministic topology controls. Historical owners and
 restoration state remain unchanged.
+The [R61 evidence](../../development/nonlocal-nsr3b4e2d7r19r61-certificate-integration-evidence-2026-08-25.md)
+closes `PASS / TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. One fresh binary64
+JVP feeds an exact R58 global shadow and exact R59 zero-positive candidate;
+upper/subset relation failures are zero. The owner derives degree from its own
+validated flat topology and has no binary128 runtime dependency. Research a
+separate atomic restoration-promotion transaction next.

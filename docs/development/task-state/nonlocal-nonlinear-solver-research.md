@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R60_PASS_CERTIFICATE_VALIDATION_CANDIDATE / D7R19R61_CERTIFICATE_INTEGRATION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R61_PASS_TOPOLOGY_OWNED_AUDIT_CANDIDATE / D7R19R62_RESTORATION_PROMOTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,13 @@
 
 ## Resume in 60 seconds
 
+- **Integration result:** clean R61 passes at stdout `cdfe69bf...47cb4`,
+  semantic `18794b59...7436` and route
+  `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. A new binary64 owner executes one
+  fresh directed JVP, reproduces R58 shadow and R59 candidate exactly, and has
+  zero upper/subset relation failures. Topology is lifecycle-owned; binary128
+  is absent. Research atomic restoration promotion in R62; witness/state still
+  remain unapplied.
 - **Validation result:** clean R60 passes at stdout `6c6c62b6...5c7f7`,
   semantic `d93dbdc9...aec9` and route
   `ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`. All degree-corruption controls
@@ -3780,6 +3787,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** frozen R61 proves topology, shadow, candidate, relation,
   work and rollback gates.
 
+### D-124 -- Move from certificate integration to an atomic promotion problem
+
+- **Observation:** R61's fresh owner reproduces R58/R59 exactly, proves
+  candidate/shadow relations and rejects topology truncation without changing
+  legacy parents. Linearized compatibility now has a reusable binary64 owner.
+- **Decision:** preserve R61 and research R62 as an atomic restoration
+  promotion transaction with immutable source identity, fresh nonlinear
+  topology/contact/merit checks and all-failure rollback.
+- **Rejected:** silently replacing legacy callers, applying the witness as a
+  world-state mutation, restoration exit without fresh nonlinear checks,
+  binary128 runtime, timing or production promotion.
+- **Reconsider when:** R62 selects exact mapping/ownership and predeclares all
+  commit/reject routes before execution.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3865,10 +3886,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    fixed-point outer. Preserve D7R19R59 exact PASS/
    `ROW_LOCAL_ENCLOSURE_CERTIFICATE_CANDIDATE`; do not integrate it directly.
    Preserve D7R19R60 exact PASS/
-   `ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`. Research and freeze D7R19R61
-   Freeze and implement D7R19R61 as a separate topology-owned integration
-   candidate with legacy global shadow. Do not apply the witness or authorize
-   restoration exit yet.
+   `ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`.
+   Preserve D7R19R61 exact PASS/
+   `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. Research D7R19R62 as a separate
+   atomic restoration-promotion transaction; do not apply the witness before
+   mapping, nonlinear/contact and rollback contracts are frozen.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
