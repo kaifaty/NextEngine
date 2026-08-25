@@ -2,8 +2,8 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN V2 / PRE-EXECUTION ROUTE REACHABILITY CORRECTED /
-IMPLEMENTATION AUTHORIZED / ROLLBACK ONLY`.
+Status: `CLOSED / PASS / ROW_LOCAL_ENCLOSURE_CERTIFICATE_CANDIDATE /
+ROLLBACK ONLY`.
 
 Parent: `ccd2461e`, R58 stdout SHA-256
 `8078c06230d6436253df966eb617bee202237143a1cf5def0e1dac49028ec257`,
@@ -46,3 +46,6 @@ improvement as a hard gate; it has no execution or scientific credit.
 
 Rationale:
 [R59 research](../../development/nonlocal-nsr3b4e2d7r19r59-row-local-enclosure-research-2026-08-25.md).
+
+Closure evidence:
+[R59 evidence](../../development/nonlocal-nsr3b4e2d7r19r59-row-local-enclosure-evidence-2026-08-25.md).

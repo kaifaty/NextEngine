@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R58_PASS_FIXED_POINT_CONTRACTION / D7R19R59_ROW_LOCAL_ENCLOSURE_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R59_PASS_ROW_LOCAL_CERTIFICATE_CANDIDATE / D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,13 @@
 
 ## Resume in 60 seconds
 
+- **Newest result:** clean R59 passes at stdout `495bbd21...3a4b`, semantic
+  `e97d6823...071d` and route `ROW_LOCAL_ENCLOSURE_CERTIFICATE_CANDIDATE`.
+  Exact row degrees range 44--113; replacing the global maximum work count by
+  exact row work closes all 234 bound-only positives and yields worst local
+  upper `-1.93542e-23`. Current global bounds reproduce bit-for-bit; no new
+  operator/solver/binary128 passes run. Validate per-row high-precision
+  dominance and forced degree-undercount rejection in R60 before integration.
 - **Latest result:** clean R58 passes at stdout `8078c062...c257`, semantic
   `f7070521...4c3` and route `FIXED_POINT_CONTRACTION_CANDIDATE`. The final
   bounded composition reduces R57 maximum directed upper by `4.65112x` and
@@ -3708,6 +3715,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** the frozen R59 scan proves complete local closure,
   partial improvement, maximum-degree obstruction or no improvement.
 
+### D-120 -- Treat complete row-local closure as a candidate, not integration
+
+- **Observation:** R59 reproduces all current upper bits, then closes 234/234
+  positives using exact row degree. The worst local upper is strictly negative
+  and no current-positive row has maximum degree.
+- **Decision:** preserve the row-local formula and research R60 as independent
+  certificate validation. Compare every local upper against a fresh full
+  binary128 forward enclosure, and add topology/degree undercount negative
+  controls before any runtime or restoration-exit integration.
+- **Rejected:** immediate production promotion, state application, another
+  solver/fixed-point step, generic EFT work without need, or treating clean
+  replay duration as performance evidence.
+- **Reconsider when:** R60 validates dominance and all negative controls, or
+  identifies a row where local accounting is not conservative.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3790,9 +3812,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Research and
    Preserve D7R19R57 exact PASS/enclosure-fixed-point evidence and D7R19R58
    exact PASS/`FIXED_POINT_CONTRACTION_CANDIDATE`. Do not execute a third
-   fixed-point outer. Freeze and implement D7R19R59 as a read-only row-local
-   operation-count attribution. Preserve exact global-gamma recomputation as a
-   gate; do not implement error-free accumulation in the same experiment.
+   fixed-point outer. Preserve D7R19R59 exact PASS/
+   `ROW_LOCAL_ENCLOSURE_CERTIFICATE_CANDIDATE`; do not integrate it directly.
+   Research and freeze D7R19R60 independent high-precision dominance and
+   topology/degree negative controls before restoration exit or runtime work.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not

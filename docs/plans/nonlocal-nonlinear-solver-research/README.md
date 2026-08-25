@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R58_PASS_FIXED_POINT_CONTRACTION /
-NSR3B4E2D7R19R59_ROW_LOCAL_ENCLOSURE_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R59_PASS_ROW_LOCAL_CERTIFICATE_CANDIDATE /
+NSR3B4E2D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2780,3 +2780,10 @@ performs exactly one passive R58 replay, one moved-workspace lifecycle and one
 6000-row scalar scan. It requires bit-exact reproduction of the current global
 upper before evaluating the local-degree upper and forbids all new JVP,
 binary128, solver and timing work.
+The [R59 evidence](../../development/nonlocal-nsr3b4e2d7r19r59-row-local-enclosure-evidence-2026-08-25.md)
+closes `PASS / ROW_LOCAL_ENCLOSURE_CERTIFICATE_CANDIDATE`. Exact row degrees
+range from 44 to 113; the current worst row has degree 102 but was charged for
+113. The unchanged gamma proof with row-local work closes all 234 positives
+and has strictly negative worst upper `-1.93542e-23`, with zero new operator or
+solver passes. Validate high-precision dominance and forced degree-undercount
+rejection independently before integration or restoration exit.
