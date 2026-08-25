@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_DYNAMIC_ACTIVE_SET_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_MATRIX_FREE_DYNAMIC_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -17,6 +17,11 @@
   entries/incidences. Captured gradients are bit-exact; transpose, diagonal
   and all 494x6000 overlaps pass frozen gamma bounds. Research R65 dynamic
   all-row active-set ownership. Do not execute a nonlinear trial or timing.
+- **R65 selected design:** matrix-free monotone constraint generation. Directly
+  evaluate the current sparse row, retain per-row Hildreth duals, use one
+  Dykstra correction for the exact joint box-ball projector, refresh all rows
+  after it and add all newly candidate-positive rows. Probe fixed depths
+  8/16/32/64/128/256 with KKT stationarity; no fitted tolerance or timing.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -3920,6 +3925,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** a sparse overlap violates the frozen bound, a dynamic
   update cannot be reconciled with a fresh all-row action, or finite ownership
   requires dense Gram state.
+
+### D-131 -- Prefer direct sparse row coordinates over Gram propagation
+
+- **Observation:** R64 averages about 89 row-particle entries per row and per
+  particle. Incidence propagation from one row therefore visits a second-order
+  neighborhood, while one direct residual and primal update each scan only the
+  row itself. R63's joint box-ball block already forms a valid single Dykstra
+  set and forces a fresh global residual afterward.
+- **Decision:** use direct matrix-free Hildreth coordinates, monotone working-set
+  growth and one joint-set correction. Audit full feasibility, complementarity,
+  reprojection and `s-target+A^T lambda+p_C=0`. Run a no-credit fixed-depth
+  probe before freezing R65.
+- **Rejected:** dense Gram, incidence overlap after every coordinate, dropping
+  rows in the first dynamic owner, independent box and ball corrections, or
+  interpreting an intermediate Dykstra iterate as feasible/optimal.
+- **Reconsider when:** measured structural counts make overlap propagation
+  narrower than direct rows, or the fixed-depth probe shows direct coordinates
+  cannot reach a KKT-aligned checkpoint.
 
 ## Performance facts retained
 

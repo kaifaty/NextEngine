@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
-NSR3B4E2D7R19R65_DYNAMIC_ALL_ROW_ACTIVE_SET_RESEARCH_NEXT /
+NSR3B4E2D7R19R65_DYNAMIC_ALL_ROW_ACTIVE_SET_EXPLORATORY_PROBE_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2880,3 +2880,10 @@ all 8,892,000 captured gradient components are bit-exact and all transpose,
 diagonal and 2,964,000 overlap values satisfy the frozen gamma bounds. No
 dense Gram or solve exists. Research R65 dynamic all-row active-set ownership;
 do not apply a nonlinear step or admit runtime authority.
+The [R65 research](../../development/nonlocal-nsr3b4e2d7r19r65-dynamic-all-row-active-set-research-2026-08-25.md)
+selects matrix-free monotone constraint generation. Directly evaluate and
+update one sparse row per Hildreth coordinate; a Gram/incidence propagation is
+asymptotically and practically wider for this topology. Retain one scalar dual
+per owned halfspace and one correction for the exact joint box-ball projector,
+refresh all rows after that projector, and add all newly candidate-positive
+rows. Probe depths 8 through 256 without tolerance fitting before freezing.
