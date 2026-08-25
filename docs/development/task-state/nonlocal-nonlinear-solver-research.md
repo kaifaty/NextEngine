@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R51V3_PASS_PERSISTENT_MASTER_CLOSURE / D7R19R52_SWEEP_DEPTH_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R52_PASS_SWEEP_DEPTH / D7R19R53_OPERATOR_CONSISTENCY_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -62,8 +62,13 @@
   R52 research selects independent 16/32/64 zero-dual depth probes from the
   same R50 anchor over the exact 494-row master. Identity is
   `fde05c9b...aafd`; new operator work is exactly three directed audits and no
-  basis/Gram builds. Implement it next. If depth does not dominate R51, derive
-  a Perkins-style active-face CG polish instead of extending cyclic sweeps.
+  basis/Gram builds. Clean R52 passes at stdout `b1d43995...cf4e`, semantic
+  `ad1efbe4...744b` and route `PERSISTENT_MASTER_SWEEP_DEPTH_CANDIDATE`.
+  Frozen selection chooses 16 sweeps; all depths strictly dominate R51 but none
+  certifies. At 64 sweeps the master residual is `1.8707447850e-20`, while the
+  fresh directed upper remains `7.7539986039e-14`; all outside-master counts are
+  zero. Stop depth/CG extension and research pair-once versus directed binary64
+  operator consistency and certificate decomposition next.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3380,6 +3385,39 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   factorization or treating master residual contraction as compatibility.
 - **Reconsider when:** R52 certifies, selects a depth candidate, or shows that
   coordinate depth should stop in favor of a derived Dykstra--CG polish.
+
+### D-105 -- Retain the smallest strict depth; do not promote 64 sweeps
+
+- **Observation:** clean R52 finds strict R51 dominance at 16, 32 and 64 sweeps,
+  so the frozen smallest-strict rule selects 16. The 64-sweep physical metrics
+  improve only marginally beyond 32 even though its predicted master maximum
+  falls to `1.8707447850e-20`.
+- **Decision:** retain 16 sweeps as a private accelerator candidate only. Treat
+  32/64 as diagnostics, not runtime budget. No checkpoint is compatible and no
+  witness/restoration state is committed.
+- **Rejected:** selecting 64 after observing its lower residual, fitting a
+  master tolerance, treating strict progress as certificate, or granting
+  production authority from dense sweep work.
+- **Reconsider when:** a consistent operator/certificate proves that additional
+  master accuracy maps to authoritative feasibility.
+
+### D-106 -- Close external migration; audit binary64 operator consistency
+
+- **Observation:** raw and directed outside-master counts are exactly zero at
+  every R52 depth. At 64 sweeps 219 raw and 340 directed-positive rows remain
+  inside the same master. The pair-once Gram predicted residual improves by
+  `1,286,235.94x` from eight sweeps, while the independent directed upper
+  improves only `1.15199583x` versus R51.
+- **Decision:** do not widen capacity, generate external constraints or add CG
+  yet. Research R53 at the exact 64-sweep witness as a rowwise decomposition of
+  pair-once versus directed accumulation, raw residual, gamma envelope and a
+  higher-precision/compensated reference. Preserve the current certificate
+  until a tighter bound is proved.
+- **Rejected:** lowering gamma, declaring `1e-13` zero, more cyclic sweeps,
+  active-face CG over the same pair-once operator, or another nonlinear outer
+  before identifying the cross-fold residual.
+- **Reconsider when:** R53 attributes the worst-row sign and magnitude to raw
+  physics, reduction-order error, conservative enclosure or a proved mixture.
 
 ## Performance facts retained
 

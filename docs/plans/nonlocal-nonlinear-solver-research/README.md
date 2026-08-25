@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R51V3_PASS_PERSISTENT_MASTER_CLOSURE /
-NSR3B4E2D7R19R52_SWEEP_DEPTH_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R52_PASS_SWEEP_DEPTH /
+NSR3B4E2D7R19R53_OPERATOR_CONSISTENCY_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2649,3 +2649,13 @@ then projects and audits all three candidates. It reuses every basis/Gram byte
 and admits exactly three new pair passes. Implement it next. If depth does not
 strictly dominate R51, derive a Perkins-style active-face CG polish rather than
 extending cyclic sweeps or transferring multipliers ad hoc.
+The [D7R19R52 evidence](../../development/nonlocal-nsr3b4e2d7r19r52-sweep-depth-evidence-2026-08-25.md)
+closes `PASS / PERSISTENT_MASTER_SWEEP_DEPTH_CANDIDATE`. All three depths
+strictly dominate R51, and the frozen rule selects 16 sweeps using three new
+pair passes total. Both clean binaries and concurrent outputs are byte-exact.
+At 64 sweeps the pair-once master residual falls to `1.8707447850e-20`, but the
+fresh directed upper plateaus at `7.7539986039e-14`; 219 raw and 340 directed
+rows remain positive, all inside the exact master. Stop sweep/CG extension and
+research pair-once versus directed accumulation and certificate tightness next.
+Do not lower gamma, fit a zero tolerance, widen capacity, apply the witness or
+exit restoration.
