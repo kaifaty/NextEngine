@@ -25,6 +25,9 @@ struct ALR65PBlock {
     std::size_t iterations = 0U;
     std::size_t face_iterations = 0U;
     std::size_t candidate_trials = 0U;
+    std::size_t candidate_projection_calls = 0U;
+    std::size_t dual_rejections = 0U;
+    std::size_t model_rejections = 0U;
     std::size_t selected_exponent = 16U;
     std::size_t transpose_calls = 0U;
     std::size_t action_calls = 0U;
@@ -37,6 +40,8 @@ struct ALR65PBlock {
     double line_alpha = 0.0;
     double line_slope = 0.0;
     double line_curvature = 0.0;
+    double candidate_inertia = 0.0;
+    double candidate_model_reduction = 0.0;
     std::string batch_root;
 };
 
@@ -45,12 +50,21 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
     const std::vector<double>& diagonal,
     const std::vector<double>& initial_lambda,
     const std::vector<Vec3>& initial_q,
-    const std::vector<double>& initial_raw) {
+    const std::vector<double>& initial_raw,
+    const std::vector<Vec3>& correction,
+    const std::vector<Vec3>& lower,
+    const std::vector<Vec3>& upper,
+    const std::vector<Vec3>& trial_origin,
+    const std::vector<Vec3>& predicted_position,
+    double normal_inertia) {
     ALR65PBlock result;
     const std::size_t count = initial_raw.size();
     if (count == 0U || owned.size() != count || diagonal.size() != count
         || initial_lambda.size() != count
-        || initial_q.size() != count)
+        || initial_q.size() != count || correction.size() != count
+        || lower.size() != count || upper.size() != count
+        || trial_origin.size() != count || predicted_position.size() != count
+        || !std::isfinite(normal_inertia))
         return result;
     result.lambda = initial_lambda;
     result.q = initial_q;
@@ -181,12 +195,43 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
             && std::isfinite(static_cast<double>(curvature))
             && curvature >= 0.0L
             && std::isfinite(static_cast<double>(change));
-        if (!exact || change >= 0.0L) continue;
+        if (!exact) continue;
+        if (change >= 0.0L) {
+            ++result.dual_rejections;
+            continue;
+        }
+        std::vector<Vec3> candidate_joint_input(count);
+        for (std::size_t particle = 0U; particle < count; ++particle)
+            candidate_joint_input[particle] = correction[particle]
+                + initial_q[particle] - at_trial[particle];
+        const ALR48Projection candidate_projection = al_r48_project_ball_box(
+            candidate_joint_input, lower, upper, AL_R62_NEXT_RADIUS);
+        ++result.candidate_projection_calls;
+        exact = candidate_projection.passed
+            && candidate_projection.value.size() == count;
+        if (!exact) break;
+        std::vector<Vec3> candidate_endpoint(count);
+        for (std::size_t particle = 0U; particle < count; ++particle)
+            candidate_endpoint[particle] = trial_origin[particle]
+                + SPACING * candidate_projection.value[particle];
+        const double candidate_inertia = al_r63_inertia(
+            candidate_endpoint, predicted_position);
+        const double candidate_model_reduction =
+            normal_inertia - candidate_inertia;
+        exact = std::isfinite(candidate_inertia)
+            && std::isfinite(candidate_model_reduction);
+        if (!exact) break;
+        if (candidate_model_reduction <= 0.0) {
+            ++result.model_rejections;
+            continue;
+        }
         result.line_exact = true;
         result.line_alpha = alpha;
         result.line_slope = static_cast<double>(slope);
         result.line_curvature = static_cast<double>(curvature);
         result.descent = static_cast<double>(change);
+        result.candidate_inertia = candidate_inertia;
+        result.candidate_model_reduction = candidate_model_reduction;
         result.selected_exponent = exponent;
         selected_lambda = std::move(trial_lambda);
         selected_at = at_trial;
@@ -205,12 +250,16 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
     std::ostringstream batch_material;
     batch_material << result.face_iterations << ':'
         << result.candidate_trials << ':' << result.selected_exponent << ':'
+        << result.candidate_projection_calls << ':'
+        << result.dual_rejections << ':' << result.model_rejections << ':'
         << result.predicted_zeros << ':'
         << result.applied_zeros << ':' << al_r29_mask_root(predicted_mask)
         << ':' << al_r29_mask_root(applied_mask) << ':'
         << binary64_bits(result.line_slope) << ':'
         << binary64_bits(result.line_curvature) << ':'
-        << binary64_bits(result.line_alpha);
+        << binary64_bits(result.line_alpha) << ':'
+        << binary64_bits(result.candidate_inertia) << ':'
+        << binary64_bits(result.candidate_model_reduction);
     result.batch_root = sha256_hex(batch_material.str());
     result.passed = exact && al_r30_finite(result.lambda)
         && al_r48_vec_finite(result.q) && al_r30_finite(result.raw)
@@ -229,6 +278,9 @@ struct ALR65PRecord {
     std::size_t face = 0U;
     std::size_t pcg_iterations = 0U;
     std::size_t candidate_trials = 0U;
+    std::size_t candidate_projection_calls = 0U;
+    std::size_t dual_rejections = 0U;
+    std::size_t model_rejections = 0U;
     std::size_t selected_exponent = 16U;
     std::size_t predicted_zeros = 0U;
     std::size_t applied_zeros = 0U;
@@ -240,6 +292,10 @@ struct ALR65PRecord {
     double line_alpha = 0.0;
     double line_slope = 0.0;
     double line_curvature = 0.0;
+    double candidate_model_reduction = 0.0;
+    double committed_model_reduction = 0.0;
+    double model_prediction_gap = 0.0;
+    double model_prediction_bound = 0.0;
     double recurrence_gap = 0.0;
     double recurrence_bound = 0.0;
     double dual_objective = 0.0;
@@ -253,15 +309,23 @@ struct ALR65PRecord {
 };
 
 std::string al_r65p_route(bool exact, bool curvature, bool line,
-    bool recurrence, bool model, bool lower_work, bool dominates) {
-    if (!exact) return "DYADIC_PROJECTED_PATH_REFERENCE_RETAINED";
-    if (!curvature) return "DYADIC_PROJECTED_PATH_CURVATURE_REJECTED";
-    if (!line) return "DYADIC_PROJECTED_PATH_LINE_REJECTED";
-    if (!recurrence) return "DYADIC_PROJECTED_PATH_RECURRENCE_REJECTED";
-    if (!model) return "DYADIC_PROJECTED_PATH_MODEL_REDUCTION_REJECTED";
+    bool candidate_model_rejected, bool model_agreement, bool recurrence,
+    bool model, bool lower_work, bool dominates) {
+    if (!exact) return "MODEL_AWARE_PROJECTED_PATH_REFERENCE_RETAINED";
+    if (!curvature)
+        return "MODEL_AWARE_PROJECTED_PATH_CURVATURE_REJECTED";
+    if (!line && candidate_model_rejected)
+        return "MODEL_AWARE_PROJECTED_PATH_MODEL_REJECTED";
+    if (!line) return "MODEL_AWARE_PROJECTED_PATH_LINE_REJECTED";
+    if (!model_agreement)
+        return "MODEL_AWARE_PROJECTED_PATH_MODEL_AGREEMENT_REJECTED";
+    if (!recurrence)
+        return "MODEL_AWARE_PROJECTED_PATH_RECURRENCE_REJECTED";
+    if (!model)
+        return "MODEL_AWARE_PROJECTED_PATH_CHECKPOINT_MODEL_REJECTED";
     if (lower_work && dominates)
-        return "DYADIC_PROJECTED_PATH_ACCELERATION_CANDIDATE";
-    return "DYADIC_PROJECTED_PATH_REFERENCE_RETAINED";
+        return "MODEL_AWARE_PROJECTED_PATH_ACCELERATION_CANDIDATE";
+    return "MODEL_AWARE_PROJECTED_PATH_REFERENCE_RETAINED";
 }
 
 } // namespace
@@ -359,6 +423,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     bool exact = geometry_exact && audit.owner_exact && initial_working > 0U;
     bool curvature_exact = true;
     bool line_exact = true;
+    bool candidate_model_rejected = false;
+    bool model_agreement_exact = true;
     bool recurrence_exact = true;
     bool model_exact = true;
     std::size_t total_additions = initial_working;
@@ -369,6 +435,10 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     std::size_t coordinate_update_terms = 0U;
     std::size_t face_pcg_iterations = 0U;
     std::size_t candidate_trials = 0U;
+    std::size_t candidate_projection_calls = 0U;
+    std::size_t candidate_dual_rejections = 0U;
+    std::size_t candidate_model_rejections = 0U;
+    std::size_t accepted_lines = 0U;
     std::size_t curvature_stops = 0U;
     std::size_t batch_predicted_zeros = 0U;
     std::size_t batch_applied_zeros = 0U;
@@ -427,9 +497,14 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         exact = exact && al_r30_finite(raw) && face_count > 0U;
         if (!exact) break;
         const ALR65PBlock block = al_r65p_block(
-            op, owned, diagonal, lambda, q, raw);
+            op, owned, diagonal, lambda, q, raw, correction, lower, upper,
+            r43.projected_trial, r30.predicted_position, normal_inertia);
         face_pcg_iterations += block.face_iterations;
         candidate_trials += block.candidate_trials;
+        candidate_projection_calls += block.candidate_projection_calls;
+        candidate_dual_rejections += block.dual_rejections;
+        candidate_model_rejections += block.model_rejections;
+        if (block.line_exact) ++accepted_lines;
         transpose_calls += block.transpose_calls;
         action_calls += block.action_calls;
         curvature_stops += block.curvature_stops;
@@ -437,6 +512,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         batch_applied_zeros += block.applied_zeros;
         curvature_exact = curvature_exact && block.curvature_exact;
         line_exact = line_exact && block.line_exact;
+        candidate_model_rejected = candidate_model_rejected
+            || (!block.line_exact && block.model_rejections > 0U);
         exact = block.passed;
         if (!exact) break;
         lambda = block.lambda;
@@ -502,6 +579,33 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         composite = projection.value;
         for (std::size_t i = 0U; i < 6000U; ++i)
             correction[i] = joint_input[i] - composite[i];
+        std::vector<Vec3> committed_endpoint(6000U);
+        for (std::size_t i = 0U; i < 6000U; ++i)
+            committed_endpoint[i] = r43.projected_trial[i]
+                + SPACING * composite[i];
+        const double committed_inertia = al_r63_inertia(
+            committed_endpoint, r30.predicted_position);
+        const double committed_model_reduction =
+            normal_inertia - committed_inertia;
+        const double model_prediction_gap = block.line_exact
+            ? std::abs(block.candidate_model_reduction
+                - committed_model_reduction) : 0.0;
+        const double model_prediction_bound = block.line_exact
+            ? gamma_factor(128U * 6000U + 512U)
+                * (std::abs(normal_inertia)
+                    + std::abs(block.candidate_inertia)
+                    + std::abs(committed_inertia))
+            : 0.0;
+        const bool outer_model_agreement = !block.line_exact
+            || (std::isfinite(model_prediction_gap)
+                && std::isfinite(model_prediction_bound)
+                && model_prediction_gap <= model_prediction_bound);
+        const bool outer_model_exact = std::isfinite(committed_inertia)
+            && std::isfinite(committed_model_reduction)
+            && committed_model_reduction > 0.0;
+        model_agreement_exact = model_agreement_exact
+            && outer_model_agreement;
+        model_exact = model_exact && outer_model_exact;
         audit = al_r61_topology_owned_audit(workspace, composite);
         ++audit_calls;
         exact = audit.owner_exact && al_r48_vec_finite(correction);
@@ -527,6 +631,10 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         record.face = face_count;
         record.pcg_iterations = block.face_iterations;
         record.candidate_trials = block.candidate_trials;
+        record.candidate_projection_calls =
+            block.candidate_projection_calls;
+        record.dual_rejections = block.dual_rejections;
+        record.model_rejections = block.model_rejections;
         record.selected_exponent = block.selected_exponent;
         record.predicted_zeros = block.predicted_zeros;
         record.applied_zeros = block.applied_zeros;
@@ -539,6 +647,11 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         record.line_alpha = block.line_alpha;
         record.line_slope = block.line_slope;
         record.line_curvature = block.line_curvature;
+        record.candidate_model_reduction =
+            block.candidate_model_reduction;
+        record.committed_model_reduction = committed_model_reduction;
+        record.model_prediction_gap = model_prediction_gap;
+        record.model_prediction_bound = model_prediction_bound;
         record.recurrence_gap = recurrence_gap;
         record.recurrence_bound = recurrence_bound;
         record.dual_objective = dual_objective;
@@ -559,19 +672,16 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             reprojection_input, lower, upper, AL_R62_NEXT_RADIUS);
         record.reprojection_exact = reprojection.passed
             && exact_vec3_values(reprojection.value, composite);
-        std::vector<Vec3> endpoint(6000U);
-        for (std::size_t i = 0U; i < 6000U; ++i)
-            endpoint[i] = r43.projected_trial[i] + SPACING * composite[i];
-        record.inertia = al_r63_inertia(endpoint, r30.predicted_position);
-        record.model_reduction = normal_inertia - record.inertia;
-        model_exact = model_exact && std::isfinite(record.model_reduction)
-            && record.model_reduction > 0.0;
+        record.inertia = committed_inertia;
+        record.model_reduction = committed_model_reduction;
         std::ostringstream material;
         material << std::setprecision(17) << record.outer << ':'
             << record.working << ':' << record.additions << ':'
             << record.raw_positive << ':' << record.candidate_positive << ':'
             << record.nonzero_lambda << ':' << record.face << ':'
             << record.pcg_iterations << ':' << record.candidate_trials << ':'
+            << record.candidate_projection_calls << ':'
+            << record.dual_rejections << ':' << record.model_rejections << ':'
             << record.selected_exponent << ':' << record.predicted_zeros << ':'
             << record.applied_zeros << ':'
             << record.maximum_raw << ':' << record.projected_gradient_norm
@@ -579,6 +689,10 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << record.pcg_final_residual_norm << ':' << record.pcg_descent
             << ':' << record.line_alpha << ':' << record.line_slope << ':'
             << record.line_curvature << ':' << record.recurrence_gap << ':'
+            << record.candidate_model_reduction << ':'
+            << record.committed_model_reduction << ':'
+            << record.model_prediction_gap << ':'
+            << record.model_prediction_bound << ':'
             << record.recurrence_bound << ':' << record.dual_objective << ':'
             << record.stationarity_norm << ':'
             << record.complementarity_maximum << ':' << record.inertia << ':'
@@ -613,6 +727,11 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             <= AL_R65P_OUTERS * (AL_R65P_INNERS - 1U)
         && candidate_trials >= AL_R65P_OUTERS
         && candidate_trials <= 16U * AL_R65P_OUTERS
+        && candidate_projection_calls <= candidate_trials
+        && candidate_dual_rejections + candidate_projection_calls
+            == candidate_trials
+        && candidate_model_rejections + accepted_lines
+            == candidate_projection_calls
         && transpose_calls == 2U * AL_R65P_OUTERS
             + face_pcg_iterations + candidate_trials
         && action_calls == 2U * AL_R65P_OUTERS + face_pcg_iterations
@@ -626,7 +745,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     const bool passed = exact && parent_exact && workspace_exact
         && operator_exact && geometry_exact && work_exact && rollback;
     const std::string route = al_r65p_route(passed, curvature_exact,
-        line_exact, recurrence_exact, model_exact, lower_work, dominates);
+        line_exact, candidate_model_rejected, model_agreement_exact,
+        recurrence_exact, model_exact, lower_work, dominates);
 
     std::ostringstream semantic;
     semantic << std::setprecision(17) << (passed ? "PASS|" : "FAIL|")
@@ -635,6 +755,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << coordinate_visits << ':' << coordinate_updates << ':'
         << coordinate_residual_terms << ':' << coordinate_update_terms << ':'
         << face_pcg_iterations << ':' << candidate_trials << ':'
+        << candidate_projection_calls << ':' << candidate_dual_rejections
+        << ':' << candidate_model_rejections << ':' << accepted_lines << ':'
         << curvature_stops << ':'
         << batch_predicted_zeros << ':' << batch_applied_zeros << ':'
         << transpose_calls << ':'
@@ -645,7 +767,7 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
 
     std::ostringstream report;
     report << std::setprecision(17)
-        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_dyadic_projected_path_probe.v4\",\"status\":\""
+        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_model_aware_projected_path_probe.v5\",\"status\":\""
         << (passed ? "PASS" : "FAIL")
         << "\",\"authority\":\"EXPLORATORY_ONLY_NO_CREDIT\""
         << ",\"route\":\"" << route << "\""
@@ -664,6 +786,10 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << ",\"face\":" << record.face
             << ",\"pcg_iterations\":" << record.pcg_iterations
             << ",\"candidate_trials\":" << record.candidate_trials
+            << ",\"candidate_projection_calls\":"
+            << record.candidate_projection_calls
+            << ",\"dual_rejections\":" << record.dual_rejections
+            << ",\"model_rejections\":" << record.model_rejections
             << ",\"selected_exponent\":" << record.selected_exponent
             << ",\"predicted_zeros\":" << record.predicted_zeros
             << ",\"applied_zeros\":" << record.applied_zeros
@@ -678,6 +804,14 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << ",\"line_alpha\":" << record.line_alpha
             << ",\"line_slope\":" << record.line_slope
             << ",\"line_curvature\":" << record.line_curvature
+            << ",\"candidate_model_reduction\":"
+            << record.candidate_model_reduction
+            << ",\"committed_model_reduction\":"
+            << record.committed_model_reduction
+            << ",\"model_prediction_gap\":"
+            << record.model_prediction_gap
+            << ",\"model_prediction_bound\":"
+            << record.model_prediction_bound
             << ",\"recurrence_gap\":" << record.recurrence_gap
             << ",\"recurrence_bound\":" << record.recurrence_bound
             << ",\"dual_objective\":" << record.dual_objective
@@ -699,6 +833,13 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << ",\"coordinate_update_terms\":" << coordinate_update_terms
         << ",\"face_pcg_iterations\":" << face_pcg_iterations
         << ",\"projected_candidate_trials\":" << candidate_trials
+        << ",\"candidate_joint_projections\":"
+        << candidate_projection_calls
+        << ",\"candidate_dual_rejections\":"
+        << candidate_dual_rejections
+        << ",\"candidate_model_rejections\":"
+        << candidate_model_rejections
+        << ",\"accepted_lines\":" << accepted_lines
         << ",\"curvature_stops\":" << curvature_stops
         << ",\"batch_predicted_zeros\":" << batch_predicted_zeros
         << ",\"batch_applied_zeros\":" << batch_applied_zeros
@@ -713,6 +854,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << (lower_work ? "true" : "false")
         << ",\"exact\":" << (work_exact ? "true" : "false") << "}"
         << ",\"dominates_fista\":" << (dominates ? "true" : "false")
+        << ",\"model_agreement_exact\":"
+        << (model_agreement_exact ? "true" : "false")
         << ",\"rollback_exact\":" << (rollback ? "true" : "false")
         << ",\"nonlinear_trial_executed\":false"
            ",\"runtime_state_mutated\":false,\"timing_admitted\":false"
