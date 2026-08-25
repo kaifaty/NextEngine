@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
-NSR3B4E2D7R19R65_ACTIVE_FACE_SHQP_RESEARCH_NEXT /
+NSR3B4E2D7R19R65_ACTIVE_FACE_FISTA_PROBE_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2896,3 +2896,9 @@ checkpoint 8; after 2048 cycles ascending Hildreth still has maximum raw
 updates. Stationarity/reprojection/model are coherent. Research matrix-free
 SHQP/active-face block polish next; R65 remains unfrozen and has no solve
 authority.
+The [active-face FISTA research](../../development/nonlocal-nsr3b4e2d7r19r65-active-face-fista-research-2026-08-25.md)
+reduces the fixed-`p_C` density block to a nonnegative dual QP with gradient
+`A(A^T lambda)-b`. Probe 16 outer joint-set blocks with 16 projected-FISTA
+iterations each, deterministic power-of-two backtracking and no tolerance
+stop. All work stays matrix-free; compare equal operator counts against cyclic
+Hildreth before freezing any R65 stage.

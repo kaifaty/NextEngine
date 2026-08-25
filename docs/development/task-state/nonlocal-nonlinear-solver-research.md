@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_ACTIVE_FACE_SHQP_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_ACTIVE_FACE_FISTA_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -28,6 +28,11 @@
   worse. `omega=1.5` reaches `2.77e-12` but does not remove the millions-of-
   updates problem. Stop depth/order/omega tuning. Research matrix-free
   SHQP/active-face block polish with full primal/KKT/reprojection audits.
+- **R65 FISTA probe frozen:** at fixed joint correction solve
+  `min_{lambda>=0} 0.5||A^T lambda||^2-b^T lambda` with R64 matrix-free
+  operators. Run exactly 16 outer blocks x 16 projected-FISTA iterations,
+  power-of-two backtracking, no tolerance stop/deletion/timing. Project the
+  joint set once per block, grow ownership and audit full primal/KKT/model.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -3965,6 +3970,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   tolerance from the observed plateau.
 - **Reconsider when:** block polish cannot preserve nonnegative dual ownership,
   joint-set correction consistency or positive model reduction.
+
+### D-133 -- Probe accelerated dual block alternating minimization
+
+- **Observation:** with `p_C` fixed, the density block is a nonnegative smooth
+  dual QP whose gradient is available through exact/bounded R64 `A/A^T`.
+  Reconstructing `q=target-A^T lambda` before the joint projection preserves
+  the Dykstra stationarity decomposition by construction.
+- **Decision:** probe 16x16 projected FISTA with deterministic backtracking and
+  standard momentum/restart, warm-starting persistent nonnegative duals and
+  monotonically adding fresh candidate-positive rows.
+- **Rejected:** forming Gram, using an unbounded power estimate, choosing work
+  from observed residual, deleting face rows, or claiming runtime acceleration.
+- **Reconsider when:** equal operator work does not materially beat cyclic raw,
+  backtracking is unstable, or joint/KKT/model gates fail.
 
 ## Performance facts retained
 
