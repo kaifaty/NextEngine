@@ -213,6 +213,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-filter-compatibility|"
                          "--nonlocal-al-restoration-certificate|"
                          "--nonlocal-al-sparse-row-operator|"
+                         "--nonlocal-al-dynamic-all-row-probe|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1777,6 +1778,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_sparse_row_operator_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-dynamic-all-row-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_dynamic_all_row_probe_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
