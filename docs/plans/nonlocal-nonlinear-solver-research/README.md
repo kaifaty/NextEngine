@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R50_PASS_ACTIVE_FACE_CLOSURE /
-NSR3B4E2D7R19R51_PERSISTENT_MASTER_RESEARCH_NEXT /
+NSR3B4E2D7R19R51_PERSISTENT_MASTER_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2621,3 +2621,11 @@ outputs are byte-exact. The positive face migrates from 366 to 488 rows and
 the cache reaches 492/512, so compatibility is not certified. Research a
 persistent accumulated-row master next; do not add a fifth current-active-only
 outer, widen capacity, apply the witness or exit restoration.
+The [D7R19R51 research](../../development/nonlocal-nsr3b4e2d7r19r51-persistent-master-research-2026-08-25.md)
+isolates the cycling hypothesis with one persistent union-master solve. Its
+[frozen contract](03b4e2d7r19r51-persistent-master-contract.md) reuses the exact
+492-row R50 basis/Gram cache, adds at most 20 missing terminal-positive rows,
+retains currently negative constraints and executes the unchanged eight-sweep
+Hildreth block plus directed dyadic globalization. New work is capped at 49
+pair passes. Implement it next; do not add a second persistent outer or change
+capacity from the nominal result.

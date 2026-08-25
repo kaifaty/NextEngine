@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R50_PASS_CLOSURE / D7R19R51_PERSISTENT_MASTER_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R50_PASS_CLOSURE / D7R19R51_PERSISTENT_MASTER_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -45,7 +45,10 @@
   `1ee396be...b56d`, semantic `a97b34d1...7d8d`; two clean binaries and
   concurrent outputs are byte-exact.
   Do not add a fifth outer or widen capacity; preserve the witness and research
-  persistent constraint generation after closure.
+  persistent constraint generation after closure. R51 is frozen at identity
+  `8b30f853...e44a` as one eight-sweep solve over the stable cache/terminal-row
+  union, reusing captured bases and adding at most 20 missing rows/49 passes.
+  Implement it next.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3277,6 +3280,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   row drop tolerance, or calling the 991-pass basis reference performant.
 - **Reconsider when:** the exact terminal-active versus cached-union membership
   freezes a persistent-master discriminator.
+
+### D-100 -- Isolate row persistence in one cached master solve
+
+- **Observation:** R50 already owns exact row gradients and Gram columns for
+  492 unique rows, while its terminal directed-positive set has 488 rows. The
+  unchanged 512 capacity leaves at most 20 slots, enough to test exact union
+  persistence without fitting a larger structure.
+- **Decision:** freeze R51 as one zero-dual eight-sweep Hildreth solve over the
+  stable ascending union of all cached rows and all terminal positives. Reuse
+  captured bases bit-for-bit, build only missing rows, preserve negative cached
+  constraints and classify exact positive rows outside the master after one
+  directed-globalized update.
+- **Rejected:** a second persistent outer, multiplier warm start, dropping
+  negative rows, capacity expansion, more sweeps, local-row optimization before
+  the mathematical result or counting parent cache work as new R51 work.
+- **Reconsider when:** frozen R51 closes a clean certificate, expansion-required,
+  master-closure, capacity/Gram/globalization or reference-retained route.
 
 ## Performance facts retained
 
