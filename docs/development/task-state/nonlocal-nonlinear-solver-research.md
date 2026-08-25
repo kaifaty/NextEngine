@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R53_PASS_HIGH_PRECISION_RAW_RESIDUAL / D7R19R54_MODEL_PROJECTION_DECOMPOSITION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R54_PASS_BALL_BOX_PROJECTION_MODEL_REQUIRED / D7R19R55_CONTACT_CONSTRAINED_CORRECTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -80,12 +80,15 @@
   not a fresh pair-once residual of the projected witness. Preserve the exact
   witness/certificate and research a read-only predictor-to-projection
   decomposition next; do not add sweeps/CG or weaken gamma first.
-  R54 is frozen at identity `14a4a943...91ca`. It compares the recursive
-  master predictor with direct binary64/binary128 `u-G lambda`, fresh JVPs of
-  the assembled correction and unprojected target, and captured projected
-  rows. Exact target/box/ball displacement is audited without a new projection.
-  Implement it next with exactly two fresh pair passes; select the largest
-  exact stage gap and change no solver policy yet.
+  Clean R54 passes at stdout `b2f32c0a...edff`, semantic `9d0b1b8c...e74` and
+  route `BALL_BOX_PROJECTION_MODEL_REQUIRED`. Recursive/direct Gram and fresh
+  correction response agree near `1.9e-20`; the unprojected target has only two
+  positive rows near `1.55e-20`. Contact-box clamping then changes 1125
+  components with displacement norm `8.16348e-12` and creates 219 positives up
+  to `7.7539982073e-14`. The normal ball is inactive; analytic clamp equals the
+  stored witness bit-for-bit. Two clean binaries and concurrent outputs are
+  exact. Stop residual-replacement/sweep/CG/precision work on the current
+  pipeline and research one contact-constrained minimum-norm correction next.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3491,6 +3494,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   recomputing the projection, changing gamma or committing the witness.
 - **Reconsider when:** executable R54 selects one dominant transition or shows
   all four exact gaps are zero.
+
+### D-110 -- Replace solve-then-clamp with a contact-constrained correction
+
+- **Observation:** R54 localizes the dominant gap to unprojected target versus
+  projected witness (`2.90787e-13`), while recursive/direct Gram and correction
+  assembly gaps are below `2.1e-27`. Component clamp changes 1125 active-face
+  coordinates and is the complete observed projection; the ball is inactive.
+- **Decision:** close residual replacement, more sweeps/CG and higher-precision
+  Gram work as remedies for this floor. Research R55 as the minimum-norm QP
+  with density halfspaces and absolute contact-box bounds solved together.
+  Compare an implicit primal-dual Hildreth/Dykstra row-action reference against
+  a dense-density/sparse-coordinate hybrid before freezing implementation.
+- **Rejected:** solve density then clamp again, treating `8e-12` displacement as
+  negligible, fitting a positivity tolerance, weakening gamma or promoting the
+  unprojected contact-infeasible target.
+- **Reconsider when:** R55 derives a bounded exact reference that preserves
+  both density and contact feasibility without activating the normal ball.
 
 ## Performance facts retained
 

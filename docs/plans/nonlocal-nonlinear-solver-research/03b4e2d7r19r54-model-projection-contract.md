@@ -2,7 +2,7 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN V1 / IMPLEMENTATION NEXT / ROLLBACK ONLY`.
+Status: `CLOSED PASS / BALL_BOX_PROJECTION_MODEL_REQUIRED / ROLLBACK ONLY`.
 
 Parent: `af354acc`, R53 stdout SHA-256
 `490669f7533c6b160a8426b029ee458cf80dc97439872f9b16bbf077a94b531a`,
@@ -44,3 +44,6 @@ or production evidence.
 
 Rationale:
 [R54 research](../../development/nonlocal-nsr3b4e2d7r19r54-model-projection-research-2026-08-25.md).
+
+Evidence:
+[R54 closure](../../development/nonlocal-nsr3b4e2d7r19r54-model-projection-evidence-2026-08-25.md).

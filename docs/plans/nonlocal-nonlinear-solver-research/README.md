@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R53_PASS_HIGH_PRECISION_RAW_RESIDUAL /
-NSR3B4E2D7R19R54_MODEL_PROJECTION_DECOMPOSITION_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R54_PASS_BALL_BOX_PROJECTION_MODEL_REQUIRED /
+NSR3B4E2D7R19R55_CONTACT_CONSTRAINED_CORRECTION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2686,3 +2686,13 @@ audits box/ball displacement without executing a new projection. Exactly two
 new pair passes are admitted. Implement it next and select the largest exact
 stage gap; do not enable residual replacement or change correction/projection
 before attribution.
+The [D7R19R54 evidence](../../development/nonlocal-nsr3b4e2d7r19r54-model-projection-evidence-2026-08-25.md)
+closes `PASS / BALL_BOX_PROJECTION_MODEL_REQUIRED`. Recursive/direct Gram and
+fresh correction response agree near `1.9e-20`; the unprojected target has only
+two `~1.55e-20` positives. Contact-box clamping then changes 1125 components by
+displacement norm `8.16e-12` and creates 219 positives with maximum
+`7.754e-14`. The normal ball is inactive and analytic component clamping
+reproduces the stored witness bit-for-bit. Research a contact-constrained
+minimum-norm correction next. Stop sweep/CG/precision work over the current
+solve-then-project sequence; do not fit a tolerance, apply the witness or exit
+restoration.
