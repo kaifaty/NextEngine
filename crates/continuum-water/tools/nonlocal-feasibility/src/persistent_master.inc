@@ -41,6 +41,8 @@ struct ALR51MasterResult {
     ALR50Solve solve;
     ALR50Audit terminal;
     std::vector<Vec3> witness;
+    std::vector<std::size_t> rows;
+    std::vector<ALR50RowBasis> cache;
 };
 
 std::string al_r51_cache_root(const std::vector<ALR50RowBasis>& cache) {
@@ -76,6 +78,7 @@ ALR51MasterResult al_r51_generate(const ALNormalizedWorkspace& workspace,
     for (std::size_t row = 0U; row < row_count; ++row)
         if (master_mask[row] != 0U) master_rows.push_back(row);
     result.master_rows = master_rows.size();
+    result.rows = master_rows;
     result.union_root = al_r29_mask_root(master_mask);
     result.union_exact = rows_valid
         && result.source_cache_rows == 492U
@@ -167,6 +170,7 @@ ALR51MasterResult al_r51_generate(const ALNormalizedWorkspace& workspace,
             ++result.outside_master_positive;
     result.witness_norm = al_r32_vec3_norm(result.witness);
     result.pair_passes = result.row_vjp + result.gram_jvp + result.audit_jvp;
+    result.cache = std::move(cache);
     return result;
 }
 
@@ -216,9 +220,16 @@ std::string al_r51_route(bool parent, bool source, bool workspace,
     return "PERSISTENT_R50_REFERENCE_RETAINED";
 }
 
+struct ALR51ReplayCapture {
+    bool captured = false;
+    ALR50ReplayCapture r50;
+    ALR51MasterResult master;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_persistent_master_controls() {
+SplitBoundaryReport run_al_persistent_master_controls_impl(
+    ALR51ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(al_r51_identity_projection_v3())
         == B4E2D7R19R51_IDENTITY_SHA256;
     ALR50ReplayCapture capture;
@@ -475,5 +486,14 @@ SplitBoundaryReport run_al_persistent_master_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r50 = std::move(capture);
+        replay_capture->master = std::move(master);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_persistent_master_controls() {
+    return run_al_persistent_master_controls_impl(nullptr);
 }

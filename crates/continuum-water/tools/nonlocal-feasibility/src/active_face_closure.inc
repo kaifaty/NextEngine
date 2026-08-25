@@ -184,7 +184,8 @@ struct ALR50Solve {
 };
 
 ALR50Solve al_r50_solve(const std::vector<ALR50RowBasis>& cache,
-    const ALR50Audit& audit) {
+    const ALR50Audit& audit,
+    std::size_t sweeps = AL_R50_SWEEPS) {
     ALR50Solve result;
     const std::size_t count = audit.active.size();
     if (!audit.passed || count == 0U || cache.empty()) return result;
@@ -221,7 +222,7 @@ ALR50Solve al_r50_solve(const std::vector<ALR50RowBasis>& cache,
         && result.minimum_diagonal > 0.0;
     result.gram_exact = gram_exact;
     if (!gram_exact) return result;
-    result.core = al_r50_hildreth_core(gram, upper);
+    result.core = al_r50_hildreth_core(gram, upper, sweeps);
     if (!result.core.passed) return result;
     result.correction.assign(cache.front().gradient.size(), Vec3{});
     for (std::size_t i = 0U; i < count; ++i) {
