@@ -3089,3 +3089,10 @@ accumulated interpolation as the corner cause. The next
 [current-provenance research](../../development/nonlocal-nsr3b4e2d7r20r16-current-provenance-research-2026-08-26.md)
 and [dual-inverse contract](03b4e2d7r20r16-current-provenance-contract.md) test
 whether the last complete current solve can be verified independently.
+The
+[R20R16 evidence](../../development/nonlocal-nsr3b4e2d7r20r16-current-provenance-evidence-2026-08-26.md)
+certifies both current inverse enclosures and resolves both ratio orderings. The
+next
+[candidate research](../../development/nonlocal-nsr3b4e2d7r20r17-dual-refinement-candidate-research-2026-08-26.md)
+and [candidate contract](03b4e2d7r20r17-dual-refinement-candidate-contract.md)
+consume the refinement opt-in across the complete development corpus.
