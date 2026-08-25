@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_FACE_RESTART_PCG_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_BATCH_PROJECTED_NEWTON_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -57,6 +57,14 @@
   apply PCG one direction at a time. On a first-bound hit, zero the stable
   limiting row, refresh raw with one `A`, restart on strict `lambda>0` and use
   the remaining budget. Freshly reconstruct before the joint projection.
+- **R65 face-restart result:** exploratory PASS, but all 256 HVPs become 256
+  one-row restarts. Recurrence, curvature, joint and KKT checks pass; work is
+  504,992,816 terms. Final raw `1.6125e-8` is still `13.64x` above FISTA.
+  Stop one-row restart depth; preserve route `FACE_RESTART_PCG_DEPTH_REQUIRED`.
+- **R65 batch projected-Newton frozen:** after one Hildreth sweep use 15 PCG
+  products for face Newton `d`, form `d_P=max(0,lambda+d)-lambda`, spend the
+  sixteenth product on `H d_P` and take the exact feasible quadratic line
+  minimizer. Batch face changes replace sequential bound hits; no backtracking.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4045,6 +4053,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   residual dominance, recurrence/fresh reconstruction diverges, or structural
   work reaches the FISTA reference.
 
+### D-136 -- Project the Newton trial to change the face in batch
+
+- **Observation:** face-restart PCG consumes all 256 HVPs on 256 single-row
+  removals, improves raw only `1.26x` over one-shot PCG and remains `13.64x`
+  worse than FISTA. Curvature and recurrence are valid, so additional restart
+  depth would only scale this serial active-set bottleneck.
+- **Decision:** compute a 15-HVP face Newton direction, project the full trial
+  onto the nonnegative orthant, then use the sixteenth HVP for the exact
+  quadratic minimizer along that batch-feasible direction. This can change
+  many binding coordinates while retaining the same total HVP budget.
+- **Rejected:** more one-row restarts, negative multipliers, fitted
+  fraction-to-boundary values, Armijo tuning when the objective is exactly
+  quadratic, or accepting objective decrease without full primal/KKT audits.
+- **Reconsider when:** the projected direction is not descent, batch changes
+  destabilize recurrence/joint projection, or the terminal pair does not
+  dominate FISTA at lower structural work.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4139,8 +4164,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    fixed-master depth. Preserve D7R19R64 exact
    PASS/`SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`, including separate
    workspace/operator topology roots and its fail-closed negative result.
-   Preserve D7R19R65 dynamic all-row and FISTA probes as no-credit exploratory
-   evidence. Implement the frozen two-phase active-face PCG probe next. Defer
+   Preserve all D7R19R65 dynamic/FISTA/PCG probes as no-credit exploratory
+   evidence. Implement the frozen batch projected-Newton probe next. Defer
    nonlinear switching/filter globalization.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
