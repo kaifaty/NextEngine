@@ -257,6 +257,7 @@ SplitBoundaryReport run_al_generalization_v3_preflight_controls();
 SplitBoundaryReport run_al_generalization_v3_solver_controls();
 SplitBoundaryReport run_al_generalization_v3_failure_diagnostic_controls();
 SplitBoundaryReport run_al_generalization_v3_ratio_diagnostic_controls();
+SplitBoundaryReport run_al_generalization_v3_ratio_error_budget_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

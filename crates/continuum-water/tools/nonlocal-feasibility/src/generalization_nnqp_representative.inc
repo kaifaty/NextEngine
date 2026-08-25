@@ -55,6 +55,18 @@ struct ALR20NNQPSolve {
     Binary128 ratio_competitor_denominator = static_cast<Binary128>(0.0);
     Binary128 ratio_competitor_value = static_cast<Binary128>(0.0);
     Binary128 ratio_competitor_bound = static_cast<Binary128>(0.0);
+    Binary128 ratio_current_error = static_cast<Binary128>(0.0);
+    Binary128 ratio_candidate_error = static_cast<Binary128>(0.0);
+    Binary128 ratio_best_round_bound = static_cast<Binary128>(0.0);
+    Binary128 ratio_best_input_bound = static_cast<Binary128>(0.0);
+    Binary128 ratio_competitor_round_bound = static_cast<Binary128>(0.0);
+    Binary128 ratio_competitor_input_bound = static_cast<Binary128>(0.0);
+    ALR20VerifiedInverse ratio_inverse_audit;
+    bool ratio_refined_exact = false;
+    std::string ratio_refined_failure = "NOT_RUN";
+    Binary128 ratio_refined_alpha = static_cast<Binary128>(0.0);
+    Binary128 ratio_refined_best_bound = static_cast<Binary128>(0.0);
+    Binary128 ratio_refined_competitor_bound = static_cast<Binary128>(0.0);
     std::vector<Binary128> direction;
     std::vector<Binary128> reduced_gradient;
     std::vector<bool> passive;
@@ -82,6 +94,12 @@ struct ALR20NNQPRatio {
     Binary128 competitor_denominator = static_cast<Binary128>(0.0);
     Binary128 competitor_ratio = static_cast<Binary128>(0.0);
     Binary128 competitor_bound = static_cast<Binary128>(0.0);
+    Binary128 current_error = static_cast<Binary128>(0.0);
+    Binary128 candidate_error = static_cast<Binary128>(0.0);
+    Binary128 best_round_bound = static_cast<Binary128>(0.0);
+    Binary128 best_input_bound = static_cast<Binary128>(0.0);
+    Binary128 competitor_round_bound = static_cast<Binary128>(0.0);
+    Binary128 competitor_input_bound = static_cast<Binary128>(0.0);
 };
 
 ALR20NNQPRatio al_r20_nnqp_ratio(
@@ -91,6 +109,8 @@ ALR20NNQPRatio al_r20_nnqp_ratio(
     const std::vector<std::size_t>& negative,
     const std::vector<std::size_t>& source_rows) {
     ALR20NNQPRatio result;
+    result.current_error = current_error;
+    result.candidate_error = candidate_error;
     if (current.size() != candidate.size()
         || current.size() != source_rows.size() || negative.empty()) {
         result.failure = "INVALID_RATIO_INPUT";
@@ -98,6 +118,8 @@ ALR20NNQPRatio al_r20_nnqp_ratio(
     }
     std::vector<Binary128> ratio(current.size());
     std::vector<Binary128> bound(current.size());
+    std::vector<Binary128> round_bound(current.size());
+    std::vector<Binary128> input_bound(current.size());
     std::size_t best = current.size();
     for (std::size_t index : negative) {
         const Binary128 denominator = current[index] - candidate[index];
@@ -115,6 +137,11 @@ ALR20NNQPRatio al_r20_nnqp_ratio(
             + (current_error + candidate_error)
                 * (static_cast<Binary128>(1.0) + fabsq(ratio[index]))
                 / denominator;
+        round_bound[index] = al_r20_q_gamma(512U)
+            * (static_cast<Binary128>(1.0) + fabsq(ratio[index]));
+        input_bound[index] = (current_error + candidate_error)
+            * (static_cast<Binary128>(1.0) + fabsq(ratio[index]))
+            / denominator;
         if (best == current.size() || ratio[index] < ratio[best]
             || (ratio[index] == ratio[best]
                 && source_rows[index] < source_rows[best]))
@@ -130,6 +157,8 @@ ALR20NNQPRatio al_r20_nnqp_ratio(
     result.best_denominator = current[best] - candidate[best];
     result.best_ratio = ratio[best];
     result.best_bound = bound[best];
+    result.best_round_bound = round_bound[best];
+    result.best_input_bound = input_bound[best];
     for (std::size_t index : negative) {
         if (ratio[index] == ratio[best]) result.hits.push_back(index);
         else if (ratio[index] - bound[index]
@@ -144,6 +173,8 @@ ALR20NNQPRatio al_r20_nnqp_ratio(
                 current[index] - candidate[index];
             result.competitor_ratio = ratio[index];
             result.competitor_bound = bound[index];
+            result.competitor_round_bound = round_bound[index];
+            result.competitor_input_bound = input_bound[index];
             return result;
         }
     }
@@ -466,6 +497,48 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                     ratio.competitor_denominator;
                 result.ratio_competitor_value = ratio.competitor_ratio;
                 result.ratio_competitor_bound = ratio.competitor_bound;
+                result.ratio_current_error = ratio.current_error;
+                result.ratio_candidate_error = ratio.candidate_error;
+                result.ratio_best_round_bound = ratio.best_round_bound;
+                result.ratio_best_input_bound = ratio.best_input_bound;
+                result.ratio_competitor_round_bound =
+                    ratio.competitor_round_bound;
+                result.ratio_competitor_input_bound =
+                    ratio.competitor_input_bound;
+                if (verified_inverse
+                    && ratio.failure == "RATIO_ORDER_AMBIGUOUS") {
+                    result.ratio_inverse_audit = al_r20_verified_inverse(
+                        factor, solve_residual, solve_bound,
+                        passive_value, passive_error, &result.work);
+                    if (result.ratio_inverse_audit.passed) {
+                        const Binary128 refined_error =
+                            result.ratio_inverse_audit.refined_error;
+                        const ALR20NNQPRatio refined = al_r20_nnqp_ratio(
+                            result.direction, candidate, direction_error,
+                            refined_error, negative, source_rows);
+                        result.ratio_refined_exact = refined.exact;
+                        result.ratio_refined_failure = refined.failure;
+                        result.ratio_refined_alpha = refined.alpha;
+                        result.ratio_refined_best_bound =
+                            al_r20_q_gamma(512U)
+                                * (static_cast<Binary128>(1.0)
+                                    + fabsq(ratio.best_ratio))
+                            + (direction_error + refined_error)
+                                * (static_cast<Binary128>(1.0)
+                                    + fabsq(ratio.best_ratio))
+                                / ratio.best_denominator;
+                        result.ratio_refined_competitor_bound =
+                            al_r20_q_gamma(512U)
+                                * (static_cast<Binary128>(1.0)
+                                    + fabsq(ratio.competitor_ratio))
+                            + (direction_error + refined_error)
+                                * (static_cast<Binary128>(1.0)
+                                    + fabsq(ratio.competitor_ratio))
+                                / ratio.competitor_denominator;
+                    } else {
+                        result.ratio_refined_failure = "AUDIT_REJECTED";
+                    }
+                }
                 break;
             }
             Binary128 step_scale = static_cast<Binary128>(1.0);
