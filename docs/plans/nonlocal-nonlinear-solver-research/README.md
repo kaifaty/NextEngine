@@ -3031,3 +3031,11 @@ large projector-face changes. The next
 [iterative semismooth research](../../development/nonlocal-nsr3b4e2d7r20r7-iterative-semismooth-research-2026-08-25.md)
 and [frozen iteration contract](03b4e2d7r20r7-iterative-semismooth-contract.md)
 rebuild that local model for at most 32 accepted binary128 steps.
+The
+[R20R7 evidence](../../development/nonlocal-nsr3b4e2d7r20r7-iterative-semismooth-evidence-2026-08-25.md)
+certifies filled edge in eight steps but strictly rejects one corner passive
+sign because a cheap inverse-norm bound is wider than its positive value. The
+next [verified-inverse research](../../development/nonlocal-nsr3b4e2d7r20r8-verified-inverse-research-2026-08-25.md)
+and [frozen enclosure contract](03b4e2d7r20r8-verified-inverse-contract.md)
+add an on-demand right-inverse residual certificate without changing the
+semismooth direction or active-set sequence.
