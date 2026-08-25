@@ -11,11 +11,93 @@ constexpr double AL_R65P_FISTA_PROJECTED_GRADIENT =
     9.5382120867736572e-9;
 constexpr const char* AL_R65P_V6_RESULT_SHA256 =
     "bd568e0f367d34ef75f5ebeeca085f6cd6c36bb9fd56cb6966965a629ae8f0e2";
+constexpr const char* AL_R65P_V7_DIAGNOSTIC_SHA256 =
+    "9203252f9f330c4ce92bc2bcbe6ed091c361aadb915e28daf6a7ade26620ea03";
 
 bool al_r65p_checkpoint(std::size_t outer) {
     return std::find(AL_R65P_CHECKPOINTS.begin(),
         AL_R65P_CHECKPOINTS.end(), outer) != AL_R65P_CHECKPOINTS.end();
 }
+
+struct ALR65PViolation {
+    bool passed = false;
+    std::size_t positive_rows = 0U;
+    double squared = 0.0;
+    double norm = 0.0;
+};
+
+ALR65PViolation al_r65p_violation(const ALR61Audit& audit) {
+    ALR65PViolation result;
+    long double squared = 0.0L;
+    std::size_t positive_rows = 0U;
+    bool finite = audit.owner_exact && audit.raw.size() == 6000U;
+    for (double raw : audit.raw) {
+        finite = finite && std::isfinite(raw);
+        const double positive = std::max(raw, 0.0);
+        if (positive > 0.0) ++positive_rows;
+        squared += static_cast<long double>(positive) * positive;
+    }
+    result.positive_rows = positive_rows;
+    result.squared = static_cast<double>(squared);
+    result.norm = std::sqrt(result.squared);
+    result.passed = finite && result.positive_rows == audit.raw_positive
+        && std::isfinite(result.squared) && result.squared >= 0.0
+        && std::isfinite(result.norm) && result.norm >= 0.0;
+    return result;
+}
+
+bool al_r65p_filter_envelope(double baseline_f, double baseline_h,
+    double candidate_f, double candidate_h, double gamma) {
+    return std::isfinite(baseline_f) && baseline_f >= 0.0
+        && std::isfinite(baseline_h) && baseline_h >= 0.0
+        && std::isfinite(candidate_f) && candidate_f >= 0.0
+        && std::isfinite(candidate_h) && candidate_h >= 0.0
+        && std::isfinite(gamma) && gamma > 0.0 && gamma < 1.0
+        && (candidate_h <= (1.0 - gamma) * baseline_h
+            || baseline_f - candidate_f >= gamma * baseline_h);
+}
+
+struct ALR65PFilterCandidate {
+    std::size_t exponent = 0U;
+    std::size_t positive_rows = 0U;
+    double alpha = 0.0;
+    double dual_change = 0.0;
+    double inertia = 0.0;
+    double baseline_inertia_reduction = 0.0;
+    double normal_inertia_reduction = 0.0;
+    double violation_squared = 0.0;
+    double violation_norm = 0.0;
+    double strong_slack = 0.0;
+    double strong_resolution_bound = 0.0;
+    bool audit_exact = false;
+    bool normal_safe = false;
+    bool strong_h_branch = false;
+    bool strong_resolution_exact = false;
+    bool strong = false;
+    bool weak_or_strong = false;
+    std::string raw_root;
+    std::string root;
+};
+
+struct ALR65PFilterOuter {
+    std::size_t outer = 0U;
+    std::size_t baseline_positive_rows = 0U;
+    std::size_t pair_passes = 0U;
+    std::size_t normal_safe_candidates = 0U;
+    std::size_t strong_candidates = 0U;
+    std::size_t weak_or_strong_candidates = 0U;
+    std::size_t best_violation_exponent = 16U;
+    double baseline_inertia = 0.0;
+    double baseline_violation_squared = 0.0;
+    double baseline_violation_norm = 0.0;
+    double best_violation_norm = std::numeric_limits<double>::infinity();
+    bool baseline_exact = false;
+    bool exact = true;
+    bool blocked = false;
+    std::string baseline_raw_root;
+    std::string root;
+    std::vector<ALR65PFilterCandidate> candidates;
+};
 
 struct ALR65PBlock {
     bool passed = false;
@@ -53,6 +135,9 @@ struct ALR65PBlock {
 };
 
 ALR65PBlock al_r65p_block(const ALR64Operator& op,
+    const ALNormalizedWorkspace& workspace,
+    std::size_t outer,
+    ALR65PFilterOuter* filter_outer,
     const std::vector<std::uint8_t>& owned,
     const std::vector<double>& diagonal,
     const std::vector<double>& initial_lambda,
@@ -66,6 +151,7 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
     double normal_inertia) {
     ALR65PBlock result;
     const std::size_t count = initial_raw.size();
+    if (filter_outer != nullptr) filter_outer->outer = outer;
     if (count == 0U || owned.size() != count || diagonal.size() != count
         || initial_lambda.size() != count
         || initial_q.size() != count || correction.size() != count
@@ -192,6 +278,26 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
         ? al_r63_inertia(baseline_endpoint, predicted_position)
         : std::numeric_limits<double>::infinity();
     exact = exact && std::isfinite(result.baseline_inertia);
+    if (filter_outer != nullptr) {
+        const ALR61Audit baseline_audit = al_r61_topology_owned_audit(
+            workspace, baseline_projection.value);
+        const ALR65PViolation baseline_violation = al_r65p_violation(
+            baseline_audit);
+        filter_outer->pair_passes += baseline_audit.pair_passes;
+        filter_outer->baseline_inertia = result.baseline_inertia;
+        filter_outer->baseline_positive_rows =
+            baseline_violation.positive_rows;
+        filter_outer->baseline_violation_squared =
+            baseline_violation.squared;
+        filter_outer->baseline_violation_norm = baseline_violation.norm;
+        filter_outer->baseline_raw_root = baseline_audit.raw_root;
+        filter_outer->baseline_exact = baseline_violation.passed
+            && baseline_audit.owner_exact
+            && std::isfinite(filter_outer->baseline_inertia)
+            && filter_outer->baseline_inertia >= 0.0;
+        filter_outer->exact = filter_outer->exact
+            && filter_outer->baseline_exact;
+    }
     result.line_exact = false;
     double best_baseline_reduction = 0.0;
     for (std::size_t exponent = 0U; exponent < 16U && exact; ++exponent) {
@@ -249,6 +355,96 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
             && std::isfinite(candidate_model_reduction)
             && std::isfinite(baseline_model_reduction);
         if (!exact) break;
+        if (filter_outer != nullptr) {
+            ALR65PFilterCandidate filter_candidate;
+            filter_candidate.exponent = exponent;
+            filter_candidate.alpha = alpha;
+            filter_candidate.dual_change = static_cast<double>(change);
+            filter_candidate.inertia = candidate_inertia;
+            filter_candidate.baseline_inertia_reduction =
+                baseline_model_reduction;
+            filter_candidate.normal_inertia_reduction =
+                candidate_model_reduction;
+            const ALR61Audit candidate_audit = al_r61_topology_owned_audit(
+                workspace, candidate_projection.value);
+            const ALR65PViolation candidate_violation = al_r65p_violation(
+                candidate_audit);
+            filter_outer->pair_passes += candidate_audit.pair_passes;
+            filter_candidate.positive_rows =
+                candidate_violation.positive_rows;
+            filter_candidate.violation_squared = candidate_violation.squared;
+            filter_candidate.violation_norm = candidate_violation.norm;
+            filter_candidate.raw_root = candidate_audit.raw_root;
+            filter_candidate.audit_exact = candidate_violation.passed
+                && candidate_audit.owner_exact;
+            filter_candidate.normal_safe =
+                candidate_model_reduction > 0.0;
+            const double strong_threshold = 0.5
+                * filter_outer->baseline_violation_norm;
+            filter_candidate.strong_slack = strong_threshold
+                - filter_candidate.violation_norm;
+            filter_candidate.strong_resolution_bound = 1024.0
+                * std::numeric_limits<double>::epsilon()
+                * std::max({filter_outer->baseline_violation_norm,
+                    filter_candidate.violation_norm,
+                    std::numeric_limits<double>::min()});
+            filter_candidate.strong_h_branch =
+                filter_candidate.violation_norm <= strong_threshold;
+            filter_candidate.strong_resolution_exact =
+                std::isfinite(filter_candidate.strong_slack)
+                && std::isfinite(filter_candidate.strong_resolution_bound)
+                && filter_candidate.strong_slack
+                    > filter_candidate.strong_resolution_bound;
+            filter_candidate.strong = filter_candidate.audit_exact
+                && filter_candidate.normal_safe
+                && filter_candidate.strong_h_branch
+                && filter_candidate.strong_resolution_exact;
+            filter_candidate.weak_or_strong = filter_candidate.audit_exact
+                && filter_candidate.normal_safe
+                && al_r65p_filter_envelope(
+                    filter_outer->baseline_inertia,
+                    filter_outer->baseline_violation_norm,
+                    filter_candidate.inertia,
+                    filter_candidate.violation_norm,
+                    std::ldexp(1.0, -24));
+            std::ostringstream filter_material;
+            filter_material << std::setprecision(17)
+                << filter_candidate.exponent << ':'
+                << filter_candidate.alpha << ':'
+                << filter_candidate.dual_change << ':'
+                << filter_candidate.inertia << ':'
+                << filter_candidate.baseline_inertia_reduction << ':'
+                << filter_candidate.normal_inertia_reduction << ':'
+                << filter_candidate.positive_rows << ':'
+                << filter_candidate.violation_squared << ':'
+                << filter_candidate.violation_norm << ':'
+                << filter_candidate.strong_slack << ':'
+                << filter_candidate.strong_resolution_bound << ':'
+                << filter_candidate.audit_exact << ':'
+                << filter_candidate.normal_safe << ':'
+                << filter_candidate.strong_h_branch << ':'
+                << filter_candidate.strong_resolution_exact << ':'
+                << filter_candidate.strong << ':'
+                << filter_candidate.weak_or_strong << ':'
+                << filter_candidate.raw_root;
+            filter_candidate.root = sha256_hex(filter_material.str());
+            filter_outer->exact = filter_outer->exact
+                && filter_candidate.audit_exact;
+            if (filter_candidate.normal_safe)
+                ++filter_outer->normal_safe_candidates;
+            if (filter_candidate.strong)
+                ++filter_outer->strong_candidates;
+            if (filter_candidate.weak_or_strong)
+                ++filter_outer->weak_or_strong_candidates;
+            if (filter_candidate.normal_safe
+                && filter_candidate.violation_norm
+                    < filter_outer->best_violation_norm) {
+                filter_outer->best_violation_norm =
+                    filter_candidate.violation_norm;
+                filter_outer->best_violation_exponent = exponent;
+            }
+            filter_outer->candidates.push_back(filter_candidate);
+        }
         if (candidate_model_reduction <= 0.0) {
             ++result.model_rejections;
             continue;
@@ -415,6 +611,62 @@ ALR65PProportioningControl al_r65p_proportioning_control() {
     return result;
 }
 
+struct ALR65PFilterControl {
+    bool feasibility_admitted = false;
+    bool objective_admitted = false;
+    bool dominated_rejected = false;
+    bool positive_part_exact = false;
+    bool absolute_substitute_rejected = false;
+    bool self_rejected = false;
+};
+
+ALR65PFilterControl al_r65p_filter_control() {
+    ALR65PFilterControl result;
+    constexpr double baseline_f = 10.0;
+    constexpr double baseline_h = 4.0;
+    result.feasibility_admitted = al_r65p_filter_envelope(
+        baseline_f, baseline_h, 11.0, 1.0, 0.5)
+        && 11.0 > baseline_f;
+    result.objective_admitted = al_r65p_filter_envelope(
+        baseline_f, baseline_h, 7.0, 4.0, 0.5)
+        && 4.0 == baseline_h;
+    result.dominated_rejected = !al_r65p_filter_envelope(
+        baseline_f, baseline_h, 9.0, 3.0, 0.5);
+    constexpr std::array<double, 2U> raw{{-3.0, 4.0}};
+    long double positive_squared = 0.0L;
+    long double absolute_squared = 0.0L;
+    for (double value : raw) {
+        const double positive = std::max(value, 0.0);
+        positive_squared += static_cast<long double>(positive) * positive;
+        absolute_squared += static_cast<long double>(value) * value;
+    }
+    result.positive_part_exact = positive_squared == 16.0L;
+    result.absolute_substitute_rejected = absolute_squared == 25.0L
+        && absolute_squared != positive_squared;
+    result.self_rejected = true;
+    for (std::size_t exponent = 1U; exponent <= 24U; ++exponent)
+        result.self_rejected = result.self_rejected
+            && !al_r65p_filter_envelope(baseline_f, baseline_h,
+                baseline_f, baseline_h,
+                std::ldexp(1.0, -static_cast<int>(exponent)));
+    return result;
+}
+
+std::string al_r65p_filter_pair_route(bool identity, bool exact,
+    std::size_t blocked, std::size_t strong,
+    std::size_t weak_or_strong) {
+    if (!identity || !exact || blocked != 15U || strong > weak_or_strong
+        || weak_or_strong > blocked)
+        return "FILTER_PAIR_REFERENCE_RETAINED";
+    if (strong == blocked)
+        return "UNIFORM_FILTER_FEASIBILITY_PATH_CANDIDATE";
+    if (weak_or_strong == blocked)
+        return "MARGIN_SENSITIVE_FILTER_PATH_CANDIDATE";
+    if (weak_or_strong == 0U)
+        return "COMMON_DESCENT_DIRECTION_REQUIRED";
+    return "PHASE_DEPENDENT_FILTER_REQUIRED";
+}
+
 std::string al_r65p_diagnostic_route(bool identity, bool exact,
     std::size_t blocked, std::size_t chopped_dominant,
     std::size_t free_dominant, std::size_t stationary) {
@@ -574,6 +826,7 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     std::size_t audit_calls = 1U;
     std::vector<ALR65PRecord> records;
     std::vector<ALR65PProportioningDiagnostic> diagnostics;
+    std::vector<ALR65PFilterOuter> filter_outers;
     bool diagnostic_decomposition_exact = true;
     std::size_t blocked_diagnostics = 0U;
     std::size_t blocked_chopped_dominant = 0U;
@@ -690,9 +943,11 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         diagnostic_decomposition_exact = diagnostic_decomposition_exact
             && diagnostic.decomposition_exact;
 
+        ALR65PFilterOuter filter_outer;
         const ALR65PBlock block = al_r65p_block(
-            op, owned, diagonal, lambda, q, raw, correction, lower, upper,
-            r43.projected_trial, r30.predicted_position, normal_inertia);
+            op, workspace, outer, &filter_outer, owned, diagonal, lambda, q,
+            raw, correction, lower, upper, r43.projected_trial,
+            r30.predicted_position, normal_inertia);
         face_pcg_iterations += block.face_iterations;
         candidate_trials += block.candidate_trials;
         baseline_projection_calls += block.baseline_projection_calls;
@@ -737,6 +992,32 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << diagnostic.stationary << ':' << diagnostic.line_accepted;
         diagnostic.root = sha256_hex(diagnostic_material.str());
         diagnostics.push_back(diagnostic);
+        filter_outer.blocked = !block.line_exact;
+        filter_outer.exact = filter_outer.exact
+            && filter_outer.candidates.size()
+                == block.candidate_projection_calls
+            && filter_outer.pair_passes
+                == 1U + filter_outer.candidates.size();
+        std::ostringstream filter_outer_material;
+        filter_outer_material << std::setprecision(17)
+            << filter_outer.outer << ':' << filter_outer.blocked << ':'
+            << filter_outer.baseline_inertia << ':'
+            << filter_outer.baseline_positive_rows << ':'
+            << filter_outer.baseline_violation_squared << ':'
+            << filter_outer.baseline_violation_norm << ':'
+            << filter_outer.baseline_exact << ':'
+            << filter_outer.pair_passes << ':'
+            << filter_outer.normal_safe_candidates << ':'
+            << filter_outer.strong_candidates << ':'
+            << filter_outer.weak_or_strong_candidates << ':'
+            << filter_outer.best_violation_exponent << ':'
+            << filter_outer.best_violation_norm << ':'
+            << filter_outer.exact << ':'
+            << filter_outer.baseline_raw_root << '|';
+        for (const ALR65PFilterCandidate& candidate : filter_outer.candidates)
+            filter_outer_material << candidate.root << ':';
+        filter_outer.root = sha256_hex(filter_outer_material.str());
+        filter_outers.push_back(filter_outer);
         exact = block.passed;
         if (!exact) break;
         lambda = block.lambda;
@@ -1042,17 +1323,102 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     diagnostic_semantic << "|MEASUREMENT_ONLY_NO_SOLVER_CREDIT";
     const std::string diagnostic_result_sha = sha256_hex(
         diagnostic_semantic.str());
-    const bool report_passed = passed && diagnostic_exact;
+    const bool proportioning_identity_exact = diagnostic_exact
+        && diagnostic_result_sha == AL_R65P_V7_DIAGNOSTIC_SHA256;
+
+    const ALR65PFilterControl filter_control = al_r65p_filter_control();
+    const bool filter_control_exact = filter_control.feasibility_admitted
+        && filter_control.objective_admitted
+        && filter_control.dominated_rejected
+        && filter_control.positive_part_exact
+        && filter_control.absolute_substitute_rejected
+        && filter_control.self_rejected;
+    const bool filter_route_control_exact =
+        al_r65p_filter_pair_route(false, true, 15U, 15U, 15U)
+                == "FILTER_PAIR_REFERENCE_RETAINED"
+        && al_r65p_filter_pair_route(true, false, 15U, 15U, 15U)
+                == "FILTER_PAIR_REFERENCE_RETAINED"
+        && al_r65p_filter_pair_route(true, true, 15U, 15U, 15U)
+                == "UNIFORM_FILTER_FEASIBILITY_PATH_CANDIDATE"
+        && al_r65p_filter_pair_route(true, true, 15U, 14U, 15U)
+                == "MARGIN_SENSITIVE_FILTER_PATH_CANDIDATE"
+        && al_r65p_filter_pair_route(true, true, 15U, 0U, 0U)
+                == "COMMON_DESCENT_DIRECTION_REQUIRED"
+        && al_r65p_filter_pair_route(true, true, 15U, 1U, 1U)
+                == "PHASE_DEPENDENT_FILTER_REQUIRED";
+    std::size_t filter_pair_passes = 0U;
+    std::size_t filter_candidates = 0U;
+    std::size_t filter_normal_safe_candidates = 0U;
+    std::size_t filter_strong_candidates = 0U;
+    std::size_t filter_weak_or_strong_candidates = 0U;
+    std::size_t filter_blocked_outers = 0U;
+    std::size_t filter_strong_outers = 0U;
+    std::size_t filter_weak_or_strong_outers = 0U;
+    bool filter_audits_exact = filter_outers.size() == AL_R65P_OUTERS;
+    for (const ALR65PFilterOuter& outer : filter_outers) {
+        filter_pair_passes += outer.pair_passes;
+        filter_candidates += outer.candidates.size();
+        filter_normal_safe_candidates += outer.normal_safe_candidates;
+        filter_strong_candidates += outer.strong_candidates;
+        filter_weak_or_strong_candidates +=
+            outer.weak_or_strong_candidates;
+        filter_audits_exact = filter_audits_exact && outer.exact;
+        if (!outer.blocked) continue;
+        ++filter_blocked_outers;
+        if (outer.strong_candidates > 0U) ++filter_strong_outers;
+        if (outer.weak_or_strong_candidates > 0U)
+            ++filter_weak_or_strong_outers;
+    }
+    const std::size_t filter_diagnostic_slots = filter_pair_passes
+        * op.slots.size();
+    const bool filter_work_exact = filter_outers.size() == AL_R65P_OUTERS
+        && filter_candidates == candidate_projection_calls
+        && filter_candidates == 239U
+        && filter_pair_passes == AL_R65P_OUTERS + filter_candidates
+        && filter_pair_passes == 255U
+        && filter_diagnostic_slots == 154311720U;
+    const bool filter_exact = proportioning_identity_exact
+        && filter_control_exact && filter_route_control_exact
+        && filter_audits_exact && filter_work_exact;
+    const std::string filter_pair_route = al_r65p_filter_pair_route(
+        proportioning_identity_exact, filter_exact, filter_blocked_outers,
+        filter_strong_outers, filter_weak_or_strong_outers);
+    std::ostringstream filter_semantic;
+    filter_semantic << std::setprecision(17)
+        << (filter_exact ? "PASS|" : "FAIL|")
+        << diagnostic_result_sha << '|' << filter_pair_route << '|'
+        << filter_pair_passes << ':' << filter_candidates << ':'
+        << filter_normal_safe_candidates << ':'
+        << filter_strong_candidates << ':'
+        << filter_weak_or_strong_candidates << ':'
+        << filter_blocked_outers << ':' << filter_strong_outers << ':'
+        << filter_weak_or_strong_outers << ':'
+        << filter_diagnostic_slots << '|'
+        << filter_control.feasibility_admitted << ':'
+        << filter_control.objective_admitted << ':'
+        << filter_control.dominated_rejected << ':'
+        << filter_control.positive_part_exact << ':'
+        << filter_control.absolute_substitute_rejected << ':'
+        << filter_control.self_rejected << ':'
+        << filter_route_control_exact << '|';
+    for (const ALR65PFilterOuter& outer : filter_outers)
+        filter_semantic << outer.root << ':';
+    filter_semantic << "|MEASUREMENT_ONLY_NO_FILTER_OR_SOLVER_CREDIT";
+    const std::string filter_result_sha = sha256_hex(filter_semantic.str());
+    const bool report_passed = passed && diagnostic_exact && filter_exact;
 
     std::ostringstream report;
     report << std::setprecision(17)
-        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_proportioning_filter_diagnostic.v7\",\"status\":\""
+        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_projected_filter_pair_diagnostic.v8\",\"status\":\""
         << (report_passed ? "PASS" : "FAIL")
         << "\",\"authority\":\"EXPLORATORY_ONLY_NO_CREDIT\""
         << ",\"route\":\"" << route << "\""
         << ",\"diagnostic_route\":\"" << diagnostic_route << "\""
+        << ",\"filter_pair_route\":\"" << filter_pair_route << "\""
         << ",\"solver_identity_exact\":"
         << (solver_identity_exact ? "true" : "false")
+        << ",\"proportioning_identity_exact\":"
+        << (proportioning_identity_exact ? "true" : "false")
         << ",\"parent_stdout_sha256\":\"" << parent_stdout << "\""
         << ",\"initial_working\":" << initial_working
         << ",\"records\":[";
@@ -1170,6 +1536,105 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << (diagnostic.line_accepted ? "true" : "false")
             << ",\"root\":\"" << diagnostic.root << "\"}";
     }
+    report << "]},\"filter_pair\":{\"research_id\":\"NSR3-B4E2D7R19R65-FILTER-PAIR-R1\""
+        << ",\"measurement_only\":true"
+        << ",\"audits_exact\":"
+        << (filter_audits_exact ? "true" : "false")
+        << ",\"work_exact\":" << (filter_work_exact ? "true" : "false")
+        << ",\"route_control_exact\":"
+        << (filter_route_control_exact ? "true" : "false")
+        << ",\"blocked_outers\":" << filter_blocked_outers
+        << ",\"strong_outers\":" << filter_strong_outers
+        << ",\"weak_or_strong_outers\":"
+        << filter_weak_or_strong_outers
+        << ",\"normal_safe_candidates\":"
+        << filter_normal_safe_candidates
+        << ",\"strong_candidates\":" << filter_strong_candidates
+        << ",\"weak_or_strong_candidates\":"
+        << filter_weak_or_strong_candidates
+        << ",\"control\":{\"feasibility_admitted\":"
+        << (filter_control.feasibility_admitted ? "true" : "false")
+        << ",\"objective_admitted\":"
+        << (filter_control.objective_admitted ? "true" : "false")
+        << ",\"dominated_rejected\":"
+        << (filter_control.dominated_rejected ? "true" : "false")
+        << ",\"positive_part_exact\":"
+        << (filter_control.positive_part_exact ? "true" : "false")
+        << ",\"absolute_substitute_rejected\":"
+        << (filter_control.absolute_substitute_rejected ? "true" : "false")
+        << ",\"self_rejected\":"
+        << (filter_control.self_rejected ? "true" : "false")
+        << "},\"work\":{\"baseline_audits\":" << AL_R65P_OUTERS
+        << ",\"candidate_audits\":" << filter_candidates
+        << ",\"directed_pair_passes\":" << filter_pair_passes
+        << ",\"directed_slots\":" << filter_diagnostic_slots
+        << ",\"new_transposes\":0,\"new_joint_projections\":0}"
+        << ",\"outers\":[";
+    for (std::size_t i = 0U; i < filter_outers.size(); ++i) {
+        if (i != 0U) report << ',';
+        const ALR65PFilterOuter& outer = filter_outers[i];
+        report << "{\"outer\":" << outer.outer
+            << ",\"blocked\":" << (outer.blocked ? "true" : "false")
+            << ",\"baseline_inertia\":" << outer.baseline_inertia
+            << ",\"baseline_positive_rows\":"
+            << outer.baseline_positive_rows
+            << ",\"baseline_violation_squared\":"
+            << outer.baseline_violation_squared
+            << ",\"baseline_violation_norm\":"
+            << outer.baseline_violation_norm
+            << ",\"baseline_exact\":"
+            << (outer.baseline_exact ? "true" : "false")
+            << ",\"pair_passes\":" << outer.pair_passes
+            << ",\"normal_safe_candidates\":"
+            << outer.normal_safe_candidates
+            << ",\"strong_candidates\":" << outer.strong_candidates
+            << ",\"weak_or_strong_candidates\":"
+            << outer.weak_or_strong_candidates
+            << ",\"best_violation_exponent\":"
+            << outer.best_violation_exponent
+            << ",\"best_violation_norm\":";
+        if (std::isfinite(outer.best_violation_norm))
+            report << outer.best_violation_norm;
+        else report << "null";
+        report << ",\"exact\":" << (outer.exact ? "true" : "false")
+            << ",\"baseline_raw_root\":\"" << outer.baseline_raw_root
+            << "\",\"root\":\"" << outer.root << "\""
+            << ",\"candidates\":[";
+        for (std::size_t j = 0U; j < outer.candidates.size(); ++j) {
+            if (j != 0U) report << ',';
+            const ALR65PFilterCandidate& candidate = outer.candidates[j];
+            report << "{\"exponent\":" << candidate.exponent
+                << ",\"alpha\":" << candidate.alpha
+                << ",\"dual_change\":" << candidate.dual_change
+                << ",\"inertia\":" << candidate.inertia
+                << ",\"baseline_inertia_reduction\":"
+                << candidate.baseline_inertia_reduction
+                << ",\"normal_inertia_reduction\":"
+                << candidate.normal_inertia_reduction
+                << ",\"positive_rows\":" << candidate.positive_rows
+                << ",\"violation_squared\":"
+                << candidate.violation_squared
+                << ",\"violation_norm\":" << candidate.violation_norm
+                << ",\"strong_slack\":" << candidate.strong_slack
+                << ",\"strong_resolution_bound\":"
+                << candidate.strong_resolution_bound
+                << ",\"audit_exact\":"
+                << (candidate.audit_exact ? "true" : "false")
+                << ",\"normal_safe\":"
+                << (candidate.normal_safe ? "true" : "false")
+                << ",\"strong_h_branch\":"
+                << (candidate.strong_h_branch ? "true" : "false")
+                << ",\"strong_resolution_exact\":"
+                << (candidate.strong_resolution_exact ? "true" : "false")
+                << ",\"strong\":"
+                << (candidate.strong ? "true" : "false")
+                << ",\"weak_or_strong\":"
+                << (candidate.weak_or_strong ? "true" : "false")
+                << ",\"raw_root\":\"" << candidate.raw_root << "\""
+                << ",\"root\":\"" << candidate.root << "\"}";
+        }
+        report << "]}";
+    }
     report << "]},\"work\":{\"outer_blocks\":" << identification_sweeps
         << ",\"identification_sweeps\":" << identification_sweeps
         << ",\"coordinate_visits\":" << coordinate_visits
@@ -1213,6 +1678,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << ",\"solver_result_sha256\":\"" << result_sha << "\""
         << ",\"diagnostic_result_sha256\":\""
         << diagnostic_result_sha << "\""
-        << ",\"result_sha256\":\"" << diagnostic_result_sha << "\"}";
+        << ",\"filter_pair_result_sha256\":\""
+        << filter_result_sha << "\""
+        << ",\"result_sha256\":\"" << filter_result_sha << "\"}";
     return {report_passed, report.str()};
 }
