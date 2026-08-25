@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_FILTER_MERIT_CONFLICT_SUPPORTED_BOUNDED / D7R19R65_FILTER_PAIR_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_MARGIN_SENSITIVE_FILTER_PATH / D7R19R65_COMPOSED_DUAL_MERIT_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -113,6 +113,15 @@
   every no-PCG baseline and all 239 existing dual-decreasing projected
   candidates. Use 255 fresh directed audits, the inherited R46 dyadic envelope
   ladder and no candidate application, timing or selected production margin.
+- **R65 filter-pair result:** v8 passes at semantic `bdeeab4b...8ab2` with
+  exact v6/v7 roots and work. All 15 blocked outers contain weakly acceptable
+  normal-safe candidates, but none of 235 safe candidates reduces `h` by the
+  strong factor two. The path is real but margin-sensitive; do not fit gamma.
+- **R65 composed-dual discriminator frozen:** before designing an inner filter,
+  evaluate the exact convex TRQP dual
+  `d=0.5||s-t||^2+lambda^T(c+A*s)` and its completed-square form for every v8
+  pair. Reuse the same 255 audits with zero new sparse/projection work and do
+  not apply a candidate.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4208,6 +4217,25 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   is even weakly admissible, the result is phase-dependent, or fresh directed
   residuals fail provenance/work/identity controls.
 
+### D-142 -- Test the exact convex dual before importing an inner filter
+
+- **Observation:** v8 finds a safe feasibility-improving candidate in every
+  blocked outer, but no factor-two reduction and a 3%--32% best-reduction
+  spread. R65 is a fixed convex best-approximation TRQP; filter-SQP governs the
+  nonlinear outer problem. The inner projection has an exact concave Lagrange
+  dual whose minimizer over the joint set is already each candidate projection.
+- **Decision:** compute the normalized direct dual
+  `F(s)+lambda^T(c+A*s)` and an independently arranged completed-square form
+  for every existing baseline/candidate. Preserve all old roots/work and use
+  strict positive dual change plus inherited dual/normal gates only for
+  classification.
+- **Rejected:** fitting filter gamma from v8, mixing physical inertia with
+  normalized multipliers, applying a candidate, assuming Dykstra theory proves
+  the accelerated block, or implementing persistent filter state before the
+  exact inner merit is measured.
+- **Reconsider when:** composed-dual ascent is uniform, absent, phase-dependent
+  or fails formula/scaling correspondence.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4306,8 +4334,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    no-credit exploratory evidence. Preserve v7 exact
    PASS/`FILTER_MERIT_CONFLICT_CANDIDATE`, solver semantic `bd568e0f...f0e2`
    and diagnostic semantic `9203252f...ea03`. Implement the frozen
-   measurement-only projected filter-pair discriminator next. Defer a complete
-   filter lifecycle until that path is classified.
+   projected filter-pair discriminator exact
+   PASS/`MARGIN_SENSITIVE_FILTER_PATH_CANDIDATE` at semantic
+   `bdeeab4b...8ab2`. Implement the frozen composed dual-merit discriminator
+   next. Defer a complete filter lifecycle and candidate application until the
+   correct inner merit is classified.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,

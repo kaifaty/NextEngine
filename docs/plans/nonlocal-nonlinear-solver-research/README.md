@@ -1,8 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
-NSR3B4E2D7R19R65_FILTER_MERIT_CONFLICT_SUPPORTED_BOUNDED /
-NSR3B4E2D7R19R65_FILTER_PAIR_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R19R65_MARGIN_SENSITIVE_FILTER_PATH /
+NSR3B4E2D7R19R65_COMPOSED_DUAL_MERIT_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2919,3 +2919,11 @@ filter-merit experiment rather than a proportioning phase. The next
 and [frozen contract](03b4e2d7r19r65-filter-pair-contract.md) measure pure
 inertia and full-row positive density violation for all existing candidates.
 They do not apply a line or inherit filter-SQP convergence authority.
+The resulting
+[filter-pair evidence](../../development/nonlocal-nsr3b4e2d7r19r65-filter-pair-evidence-2026-08-25.md)
+finds a weakly acceptable safe candidate in all 15 blocked outers but no
+factor-two violation reduction. Before fitting a filter margin, the
+[composed dual-merit research](../../development/nonlocal-nsr3b4e2d7r19r65-composed-dual-merit-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r65-composed-dual-merit-contract.md) derive
+the exact convex projection dual and require direct/completed-square
+correspondence on every existing pair. Candidate application remains blocked.
