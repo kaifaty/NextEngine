@@ -241,6 +241,7 @@ SplitBoundaryReport run_al_dynamic_all_row_probe_controls();
 SplitBoundaryReport run_al_active_face_fista_probe_controls();
 SplitBoundaryReport run_al_active_face_pcg_probe_controls();
 SplitBoundaryReport run_al_best_composed_dual_path_controls();
+SplitBoundaryReport run_al_equal_work_dual_completion_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

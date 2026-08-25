@@ -2,6 +2,9 @@ namespace {
 
 constexpr const char* AL_R65D_PARENT_SHA256 =
     "77cbed07c8cdc615110677cbae0266946b1fed777f2ba6ceba875a1ba4f583af";
+constexpr const char* AL_R65D_V10_RESULT_SHA256 =
+    "f497ab0a61e846d95ec5d86cc4de0328a01b99b8d622fadf17a431aa4af7d32b";
+constexpr std::size_t AL_R65D_EQUAL_WORK_OUTERS = 20U;
 
 struct ALR65DRecord {
     std::size_t outer = 0U;
@@ -90,9 +93,36 @@ bool al_r65d_route_controls() {
             == "COMPOSED_DUAL_PATH_REFERENCE_RETAINED";
 }
 
+std::string al_r65d_equal_work_route(bool exact, bool prefix,
+    bool lower_work, bool dominates) {
+    if (!exact || !prefix || !lower_work)
+        return "EQUAL_WORK_COMPOSED_DUAL_REJECTED";
+    if (dominates)
+        return "EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE";
+    return "EQUAL_WORK_DEPTH_EXHAUSTED";
+}
+
+bool al_r65d_equal_work_route_controls() {
+    return al_r65d_equal_work_route(false, true, true, true)
+            == "EQUAL_WORK_COMPOSED_DUAL_REJECTED"
+        && al_r65d_equal_work_route(true, false, true, true)
+            == "EQUAL_WORK_COMPOSED_DUAL_REJECTED"
+        && al_r65d_equal_work_route(true, true, false, true)
+            == "EQUAL_WORK_COMPOSED_DUAL_REJECTED"
+        && al_r65d_equal_work_route(true, true, true, true)
+            == "EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE"
+        && al_r65d_equal_work_route(true, true, true, false)
+            == "EQUAL_WORK_DEPTH_EXHAUSTED";
+}
+
 } // namespace
 
-SplitBoundaryReport run_al_best_composed_dual_path_controls() {
+SplitBoundaryReport run_al_best_composed_dual_path_controls_impl(
+    std::size_t outer_limit) {
+    const bool equal_work_extension =
+        outer_limit == AL_R65D_EQUAL_WORK_OUTERS;
+    if (outer_limit != AL_R65P_OUTERS && !equal_work_extension)
+        return {false, "{\"status\":\"FAIL\",\"route\":\"EQUAL_WORK_COMPOSED_DUAL_REJECTED\"}"};
     ALR65PReplayCapture parent_capture;
     const SplitBoundaryReport parent =
         run_al_active_face_pcg_probe_controls_impl(&parent_capture);
@@ -100,7 +130,9 @@ SplitBoundaryReport run_al_best_composed_dual_path_controls() {
         && parent_capture.result_sha == AL_R65D_PARENT_SHA256;
     if (!parent_exact)
         return {false,
-            "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_best_composed_dual_path.v10\",\"status\":\"FAIL\",\"route\":\"COMPOSED_DUAL_TRANSACTION_REJECTED\",\"parent_exact\":false}"};
+            equal_work_extension
+                ? "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_equal_work_dual_completion.v11\",\"status\":\"FAIL\",\"route\":\"EQUAL_WORK_COMPOSED_DUAL_REJECTED\",\"parent_exact\":false}"
+                : "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_best_composed_dual_path.v10\",\"status\":\"FAIL\",\"route\":\"COMPOSED_DUAL_TRANSACTION_REJECTED\",\"parent_exact\":false}"};
 
     ALR63ReplayCapture& capture = parent_capture.r63;
     ALR62ReplayCapture& r62 = capture.r62;
@@ -215,8 +247,10 @@ SplitBoundaryReport run_al_best_composed_dual_path_controls() {
     std::size_t checkpoint_reprojections = 0U;
     std::size_t composed_dual_vector_terms = 0U;
     std::vector<ALR65DRecord> records;
+    std::string prefix_result_sha;
+    bool prefix_exact = !equal_work_extension;
 
-    for (std::size_t outer = 1U; outer <= AL_R65P_OUTERS && exact; ++outer) {
+    for (std::size_t outer = 1U; outer <= outer_limit && exact; ++outer) {
         std::vector<Vec3> at_lambda = al_r64_transpose(op, lambda, nullptr);
         ++transpose_calls;
         exact = at_lambda.size() == 6000U && al_r48_vec_finite(at_lambda);
@@ -402,7 +436,10 @@ SplitBoundaryReport run_al_best_composed_dual_path_controls() {
                 ++additions;
             }
         total_additions += additions;
-        if (!al_r65p_checkpoint(outer)) continue;
+        const bool checkpoint = al_r65p_checkpoint(outer)
+            || (equal_work_extension
+                && outer == AL_R65D_EQUAL_WORK_OUTERS);
+        if (!checkpoint) continue;
 
         ALR65DRecord record;
         record.outer = outer;
@@ -488,6 +525,36 @@ SplitBoundaryReport run_al_best_composed_dual_path_controls() {
             && std::isfinite(record.stationarity_norm)
             && std::isfinite(record.complementarity_maximum);
         records.push_back(record);
+        if (outer == AL_R65P_OUTERS) {
+            const std::size_t prefix_structural_terms =
+                transpose_calls * op.entries.size()
+                + (action_calls + audit_calls) * op.slots.size()
+                + coordinate_residual_terms + coordinate_update_terms;
+            std::ostringstream prefix_semantic;
+            prefix_semantic << std::setprecision(17)
+                << "PASS|" << parent_capture.result_sha
+                << "|COMPOSED_DUAL_PATH_REFERENCE_RETAINED|"
+                << initial_working << ':' << total_additions << ':'
+                << identification_sweeps << ':' << coordinate_visits << ':'
+                << coordinate_updates << ':' << coordinate_residual_terms
+                << ':' << coordinate_update_terms << ':'
+                << face_pcg_iterations << ':' << candidate_trials << ':'
+                << baseline_projection_calls << ':'
+                << candidate_projection_calls << ':'
+                << candidate_fixed_dual_rejections << ':'
+                << candidate_normal_rejections << ':'
+                << candidate_composed_dual_rejections << ':'
+                << admissible_candidates << ':' << accepted_lines << ':'
+                << transpose_calls << ':' << action_calls << ':'
+                << audit_calls << ':' << prefix_structural_terms << ':'
+                << composed_dual_vector_terms << '|';
+            for (const ALR65DRecord& prefix_record : records)
+                prefix_semantic << prefix_record.root << ':';
+            prefix_semantic << "|EXPLORATORY_ONLY_NO_CREDIT";
+            prefix_result_sha = sha256_hex(prefix_semantic.str());
+            prefix_exact = prefix_result_sha == AL_R65D_V10_RESULT_SHA256;
+            exact = exact && prefix_exact;
+        }
     }
 
     if (workspace.passed)
@@ -497,32 +564,34 @@ SplitBoundaryReport run_al_best_composed_dual_path_controls() {
         + (action_calls + audit_calls) * op.slots.size()
         + coordinate_residual_terms + coordinate_update_terms;
     const bool lower_work = structural_terms < AL_R65P_FISTA_STRUCTURAL_TERMS;
-    const bool dominates = records.size() == AL_R65P_CHECKPOINTS.size()
+    const std::size_t expected_checkpoints = AL_R65P_CHECKPOINTS.size()
+        + (equal_work_extension ? 1U : 0U);
+    const bool dominates = records.size() == expected_checkpoints
         && records.back().maximum_raw < AL_R65P_FISTA_MAXIMUM_RAW
         && records.back().projected_gradient_norm
             < AL_R65P_FISTA_PROJECTED_GRADIENT;
     const bool work_exact = workspace_work.workspace_builds == 1U
         && workspace_work.workspace_releases == 1U
         && workspace_work.live_workspaces == 0U
-        && identification_sweeps == AL_R65P_OUTERS
+        && identification_sweeps == outer_limit
         && face_pcg_iterations
-            <= AL_R65P_OUTERS * (AL_R65P_INNERS - 1U)
-        && candidate_trials == 16U * AL_R65P_OUTERS
-        && baseline_projection_calls == AL_R65P_OUTERS
+            <= outer_limit * (AL_R65P_INNERS - 1U)
+        && candidate_trials == 16U * outer_limit
+        && baseline_projection_calls == outer_limit
         && candidate_projection_calls <= candidate_trials
         && candidate_fixed_dual_rejections + candidate_projection_calls
             == candidate_trials
         && candidate_normal_rejections + candidate_composed_dual_rejections
                 + admissible_candidates
             == candidate_projection_calls
-        && accepted_lines <= AL_R65P_OUTERS
-        && transpose_calls == 2U * AL_R65P_OUTERS
+        && accepted_lines <= outer_limit
+        && transpose_calls == 2U * outer_limit
             + face_pcg_iterations + candidate_trials
-        && action_calls == 2U * AL_R65P_OUTERS + face_pcg_iterations
-        && projection_calls == AL_R65P_OUTERS
-        && audit_calls == AL_R65P_OUTERS + 1U
-        && checkpoint_reprojections == AL_R65P_CHECKPOINTS.size()
-        && records.size() == AL_R65P_CHECKPOINTS.size()
+        && action_calls == 2U * outer_limit + face_pcg_iterations
+        && projection_calls == outer_limit
+        && audit_calls == outer_limit + 1U
+        && checkpoint_reprojections == expected_checkpoints
+        && records.size() == expected_checkpoints
         && composed_dual_vector_terms
             == (baseline_projection_calls + candidate_projection_calls
                 - candidate_normal_rejections) * 6000U
@@ -531,18 +600,24 @@ SplitBoundaryReport run_al_best_composed_dual_path_controls() {
             == al_binary64_vec3_root(r43.projected_trial)
         && target_before == al_binary64_vec3_root(capture.target);
     const bool controls = al_r65d_dense_controls()
-        && al_r65d_route_controls();
+        && al_r65d_route_controls()
+        && (!equal_work_extension || al_r65d_equal_work_route_controls());
     const bool passed = exact && parent_exact && workspace_exact
         && operator_exact && geometry_exact && curvature_exact && line_exact
-        && accepted_lines == AL_R65P_OUTERS && dual_prediction_exact
+        && accepted_lines == outer_limit && dual_prediction_exact
         && model_prediction_exact && recurrence_exact && work_exact
-        && rollback && controls;
-    const std::string route = al_r65d_route(passed, line_exact,
-        dual_prediction_exact, model_prediction_exact, lower_work, dominates);
+        && rollback && controls && prefix_exact;
+    const std::string route = equal_work_extension
+        ? al_r65d_equal_work_route(
+            passed, prefix_exact, lower_work, dominates)
+        : al_r65d_route(passed, line_exact, dual_prediction_exact,
+            model_prediction_exact, lower_work, dominates);
+    const std::string semantic_parent = equal_work_extension
+        ? prefix_result_sha : parent_capture.result_sha;
 
     std::ostringstream semantic;
     semantic << std::setprecision(17) << (passed ? "PASS|" : "FAIL|")
-        << parent_capture.result_sha << '|' << route << '|'
+        << semantic_parent << '|' << route << '|'
         << initial_working << ':' << total_additions << ':'
         << identification_sweeps << ':' << coordinate_visits << ':'
         << coordinate_updates << ':' << coordinate_residual_terms << ':'
@@ -561,11 +636,19 @@ SplitBoundaryReport run_al_best_composed_dual_path_controls() {
 
     std::ostringstream report;
     report << std::setprecision(17)
-        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_best_composed_dual_path.v10\",\"status\":\""
+        << "{\"schema\":\""
+        << (equal_work_extension
+            ? "nextengine.nonlocal.nsr3b4e2d7r19r65_equal_work_dual_completion.v11"
+            : "nextengine.nonlocal.nsr3b4e2d7r19r65_best_composed_dual_path.v10")
+        << "\",\"status\":\""
         << (passed ? "PASS" : "FAIL") << "\",\"authority\":\"EXPLORATORY_ONLY_NO_CREDIT\""
         << ",\"route\":\"" << route << "\""
         << ",\"parent_result_sha256\":\""
+        << semantic_parent << "\""
+        << ",\"v9_result_sha256\":\""
         << parent_capture.result_sha << "\""
+        << ",\"v10_prefix_exact\":"
+        << (prefix_exact ? "true" : "false")
         << ",\"records\":[";
     for (std::size_t index_record = 0U; index_record < records.size();
          ++index_record) {
@@ -672,4 +755,13 @@ SplitBoundaryReport run_al_best_composed_dual_path_controls() {
            ",\"production_authority\":false,\"result_sha256\":\""
         << result_sha << "\"}";
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_best_composed_dual_path_controls() {
+    return run_al_best_composed_dual_path_controls_impl(AL_R65P_OUTERS);
+}
+
+SplitBoundaryReport run_al_equal_work_dual_completion_controls() {
+    return run_al_best_composed_dual_path_controls_impl(
+        AL_R65D_EQUAL_WORK_OUTERS);
 }
