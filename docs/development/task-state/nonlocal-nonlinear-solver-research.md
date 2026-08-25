@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R62_PASS_RESTORATION_EXIT_TRANSACTION_CANDIDATE / D7R19R63_CACHED_NORMAL_TANGENTIAL_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R62_PASS_RESTORATION_EXIT_TRANSACTION_CANDIDATE / D7R19R63_CACHED_NORMAL_TRQP_CONTRACT_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,11 @@
 
 ## Resume in 60 seconds
 
+- **R63 selected model:** because current filter objective is pure inertia,
+  its step Hessian is exactly `SPACING^2*I`; the next TRQP is a Euclidean
+  projection of `(predicted-R43)/SPACING` onto density halfspaces, R43 contact
+  box and radius `0.0625`. Freeze a 64-cycle 494-row Hildreth/Dykstra reference
+  with R61 audits at 8/16/32/64. No HVP, nonlinear trial or switching yet.
 - **R62 result:** clean stdout `acbfa4be...5fae`, semantic
   `61de28c3...da43`, route `RESTORATION_EXIT_TRANSACTION_CANDIDATE`. Exact R43
   publishes once into a private payload; cached normal remains unapplied,
@@ -3842,6 +3847,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R63 cannot construct a finite, contact-safe tangential
   transaction from the frozen payload and provides a new fail-closed route.
 
+### D-127 -- Use the exact pure-inertia projection TRQP as the first tangent reference
+
+- **Observation:** after filter separation, the current objective is quadratic
+  inertia and has identity Hessian up to the exact `SPACING^2` scale. Density
+  PHR curvature is constraint machinery, not filter-objective curvature.
+- **Decision:** solve the current composite linearized TRQP as a Euclidean
+  projection using the cached normal as feasible anchor and exact-once input.
+  Start with the captured 494-row reference cache and bounded 64-cycle
+  Hildreth/Dykstra plus all-row row-local certificate checkpoints.
+- **Rejected:** reusing R44 augmented-Lagrangian descent, adding an HVP/CG solve
+  to an identity-Hessian model, applying `n` before constructing `s=n+t`, or
+  combining nonlinear switching/globalization into the projection experiment.
+- **Reconsider when:** viscosity/surface/elastic objective terms are admitted;
+  their separately specified curvature will require a generalized TRQP owner.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3931,10 +3951,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R61 exact PASS/
    `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. Preserve D7R19R62 exact
    PASS/`RESTORATION_EXIT_TRANSACTION_CANDIDATE`; its private position is R43
-   and its exact R58 normal remains cached and unapplied. Research D7R19R63 as
-   the next ordinary TRQP with exact-once cached-normal consumption,
-   contact-feasible tangential construction, switching/filter globalization
-   and all-reject rollback.
+   and its exact R58 normal remains cached and unapplied. Freeze D7R19R63 as a
+   bounded pure-inertia projection TRQP with exact-once cached-normal
+   consumption, 64 Hildreth/Dykstra cycles, four all-row R61 checkpoints,
+   contact/trust/model gates and rollback. Defer nonlinear switching/filter
+   globalization to the next stage.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,
