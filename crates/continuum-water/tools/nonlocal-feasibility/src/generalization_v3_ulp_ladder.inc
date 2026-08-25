@@ -24,6 +24,7 @@ struct ALR20UlpLadderAudit {
     std::vector<int> face_codes;
     std::vector<Binary128> actual_inputs;
     std::vector<Binary128> analytic_inputs;
+    std::vector<Binary128> margins;
     std::string first_mask_root;
     std::string root;
 };
@@ -98,6 +99,7 @@ ALR20UlpLadderAudit al_r20_r23_ulp_ladder(
             selected_polynomial.zero_bound
                 ? selected_polynomial.b * alpha + selected_polynomial.c
                 : al_r20_r21_polynomial_value(selected_polynomial, alpha));
+        result.margins.push_back(margin);
         const std::string mask_root = al_r20_r20_mask_root(dual.projector);
         const bool sample_exact = cone_exact && dual.exact
             && finiteq(alpha) != 0 && finiteq(margin) != 0;

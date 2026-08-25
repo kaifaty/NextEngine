@@ -269,6 +269,7 @@ SplitBoundaryReport run_al_generalization_v3_fixed_face_event_controls();
 SplitBoundaryReport run_al_generalization_v3_event_side_trial_controls();
 SplitBoundaryReport run_al_generalization_v3_ulp_ladder_controls();
 SplitBoundaryReport run_al_generalization_v3_zero_bound_flutter_controls();
+SplitBoundaryReport run_al_generalization_v3_event_forward_bound_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

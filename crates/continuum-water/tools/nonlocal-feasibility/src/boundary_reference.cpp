@@ -80102,6 +80102,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_v3_event_side_trial.inc"
 #include "generalization_v3_ulp_ladder.inc"
 #include "generalization_v3_zero_bound_flutter.inc"
+#include "generalization_v3_event_forward_bound.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

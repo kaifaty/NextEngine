@@ -244,6 +244,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v3-event-side-trial|"
                          "--nonlocal-al-generalization-v3-ulp-ladder|"
                          "--nonlocal-al-generalization-v3-zero-bound-flutter|"
+                         "--nonlocal-al-generalization-v3-event-forward-bound|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2038,6 +2039,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v3_zero_bound_flutter_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command ==
+            "--nonlocal-al-generalization-v3-event-forward-bound") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v3_event_forward_bound_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
