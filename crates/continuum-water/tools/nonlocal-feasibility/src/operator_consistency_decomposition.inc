@@ -35,6 +35,8 @@ struct ALR53Result {
     ALR53Maximum directed_maximum;
     ALR53Maximum term128_maximum;
     ALR53Maximum full128_maximum;
+    ALR53Maximum full128_lower_maximum;
+    ALR53Maximum full128_upper_maximum;
     ALR53Maximum bound_maximum;
     ALR53Maximum upper_maximum;
     ALR53Difference pair_direct_difference;
@@ -181,6 +183,10 @@ ALR53Result al_r53_decompose(const ALNormalizedWorkspace& workspace,
         al_r53_update_maximum(&result.directed_maximum, directed_raw, row);
         al_r53_update_maximum(&result.term128_maximum, term_raw, row);
         al_r53_update_maximum(&result.full128_maximum, full_raw, row);
+        al_r53_update_maximum(
+            &result.full128_lower_maximum, full_raw - full_bound, row);
+        al_r53_update_maximum(
+            &result.full128_upper_maximum, full_raw + full_bound, row);
         al_r53_update_maximum(&result.bound_maximum, directed_bound, row);
         al_r53_update_maximum(&result.upper_maximum, directed_upper, row);
         al_r53_update_difference(&result.pair_direct_difference,

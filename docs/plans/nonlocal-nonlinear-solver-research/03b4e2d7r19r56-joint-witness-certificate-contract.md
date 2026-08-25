@@ -15,7 +15,7 @@ nextengine.nonlocal.nsr3b4e2d7r19r56-joint-witness-certificate|v1|parent=ec8cd14
 ```
 
 SHA-256 (exact runtime literal, no terminal newline):
-`d499f2f44c116a15c8e79f8d35789a3e63f80699f5160cf62665d094a8d20549`.
+`d7fd1d53edb0f1467c99fd6b76e42c96c1775cda9ab5ea95821c89301acfef6e`.
 
 ## Hard gates
 

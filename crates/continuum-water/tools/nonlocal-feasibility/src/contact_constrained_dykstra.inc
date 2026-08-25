@@ -53,6 +53,10 @@ struct ALR55Result {
     std::size_t total_box_changes = 0U;
     std::vector<ALR55Record> records;
     std::vector<Vec3> witness;
+    std::vector<Vec3> diagnostic_witness;
+    std::vector<Vec3> diagnostic_correction;
+    std::vector<Vec3> diagnostic_box_dual;
+    ALR50Audit diagnostic_audit;
     ALR50Audit terminal;
     std::string state_root;
 };
@@ -219,6 +223,12 @@ ALR55Result al_r55_generate(const ALNormalizedWorkspace& workspace,
         record.passed = record.audit.passed && record.box_exact
             && std::isfinite(record.correction_norm)
             && std::isfinite(record.box_dual_norm);
+        if (cycle == AL_R55_CHECKPOINTS.back()) {
+            result.diagnostic_witness = witness;
+            result.diagnostic_correction = correction;
+            result.diagnostic_box_dual = box_dual;
+            result.diagnostic_audit = record.audit;
+        }
         result.records.push_back(std::move(record));
     }
     result.dykstra_exact = exact && result.density_sweeps == 64U
@@ -339,9 +349,16 @@ std::string al_r55_route(bool parent, bool source, bool workspace,
     return "CONTACT_CONSTRAINED_REFERENCE_RETAINED";
 }
 
+struct ALR55ReplayCapture {
+    bool captured = false;
+    ALR54ReplayCapture r54;
+    ALR55Result result;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_contact_constrained_dykstra_controls() {
+SplitBoundaryReport run_al_contact_constrained_dykstra_controls_impl(
+    ALR55ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R55_IDENTITY_PROJECTION)
         == B4E2D7R19R55_IDENTITY_SHA256;
     ALR54ReplayCapture capture;
@@ -580,5 +597,14 @@ SplitBoundaryReport run_al_contact_constrained_dykstra_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r54 = std::move(capture);
+        replay_capture->result = std::move(result);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_contact_constrained_dykstra_controls() {
+    return run_al_contact_constrained_dykstra_controls_impl(nullptr);
 }
