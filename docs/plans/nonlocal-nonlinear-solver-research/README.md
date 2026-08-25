@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R59_PASS_ROW_LOCAL_CERTIFICATE_CANDIDATE /
-NSR3B4E2D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_RESEARCH_COMPLETE /
+NSR3B4E2D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2793,3 +2793,8 @@ forced under/over-count and offset negative controls, arithmetic-domain audit
 for subnormal/nonfinite intermediates, and all-row containment of a fresh
 binary128 forward upper by the R59 binary64 local upper. No solver work or
 certificate integration is admitted.
+The [frozen R60 contract](03b4e2d7r19r60-certificate-validation-contract.md)
+requires exact R59 reproduction, five deterministic structural degree-control
+cases, one fresh full-binary128 traversal, arithmetic-domain audit and all-row
+upper containment. PASS remains private validation and cannot integrate the
+certificate or exit restoration.

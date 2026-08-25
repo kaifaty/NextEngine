@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R59_PASS_ROW_LOCAL_CERTIFICATE_CANDIDATE / D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_RESEARCH_COMPLETE / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R59_PASS_ROW_LOCAL_CERTIFICATE_CANDIDATE / D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
