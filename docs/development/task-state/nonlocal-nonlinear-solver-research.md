@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_BEST_MODEL_DYADIC_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_PROPORTIONING_FILTER_DIAGNOSTIC_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -93,6 +93,16 @@
   largest strict baseline model reduction among candidates that also decrease
   the dual quadratic and retain positive normal-reference reduction. Keep the
   v5 commit-agreement gate and fixed 15-HVP direction.
+- **R65 best-model result:** the dominance claim is `REFUTED` on the frozen
+  fixture. Only 14 of 239 dual-decreasing candidates improve the composed
+  baseline, all in outer 1; 221 fail composed descent and only one of 16 lines
+  is accepted. Final raw is `1.980e-8` at 468,968,743 terms. Preserve route
+  `BEST_MODEL_DYADIC_NO_COMPOSED_DESCENT` and semantic `bd568e0f...f0e2`.
+- **R65 diagnostic frozen:** replay v6 without changing its state/work root and
+  measure post-Hildreth free/chopped projected-gradient decomposition at all
+  16 outers. Use the predeclared uniform/mixed split to distinguish premature
+  face-PCG from a density/inertia filter conflict. Add no sparse operators,
+  projections, fitted `Gamma` or timing.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4150,6 +4160,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   search consumes the FISTA work budget, the best-model face harms terminal
   KKT residuals, or strict FISTA dominance still fails.
 
+### D-140 -- Diagnose the phase before changing the solver again
+
+- **Observation:** v6 exhausts all 256 dyadic values, but 221 of 239
+  dual-decreasing candidates worsen the post-Hildreth composed baseline and
+  only outer 1 accepts a line. Candidate/commit model gaps are zero, so alpha
+  search and recurrence are no longer the leading unknowns.
+- **Decision:** stop solver variants and run one measurement-only replay that
+  decomposes the projected gradient into free and chopped components. Uniform
+  chopped dominance selects proportioning; uniform free dominance selects a
+  filter-merit experiment; mixed evidence requires a phase-dependent
+  controller. The diagnostic adds no `A`, `A^T` or projection calls.
+- **Rejected:** another line search, a fitted inertia allowance, increased PCG
+  depth, treating harness `PASS` as algorithm success, or claiming the cited
+  BQP convergence theorems for the composed Nonlocal/Dykstra problem.
+- **Reconsider when:** the v6 state hash changes under instrumentation, the
+  decomposition identity fails, or the 16 blocked-state classifications do
+  not satisfy any predeclared resolution.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4245,8 +4273,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`, including separate
    workspace/operator topology roots and its fail-closed negative result.
    Preserve all D7R19R65 dynamic/FISTA/PCG/Newton/projected-path probes as
-   no-credit exploratory evidence. Implement the frozen best-model dyadic
-   probe next. Defer nonlinear switching/filter globalization.
+   no-credit exploratory evidence. Implement the frozen measurement-only
+   proportioning/filter diagnostic next. Defer nonlinear switching/filter
+   globalization.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,

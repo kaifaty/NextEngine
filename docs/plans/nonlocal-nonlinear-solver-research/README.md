@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
-NSR3B4E2D7R19R65_ACTIVE_FACE_FISTA_PROBE_NEXT /
+NSR3B4E2D7R19R65_PROPORTIONING_FILTER_DIAGNOSTIC_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2902,3 +2902,12 @@ reduces the fixed-`p_C` density block to a nonnegative dual QP with gradient
 iterations each, deterministic power-of-two backtracking and no tolerance
 stop. All work stays matrix-free; compare equal operator counts against cyclic
 Hildreth before freezing any R65 stage.
+The subsequent R65 PCG/Newton/projected-path portfolio is preserved as
+exploratory evidence. The model-aware path validates candidate/commit
+globalization, but the exhaustive best-inertia v6 claim is
+[refuted on the frozen fixture](../../development/nonlocal-nsr3b4e2d7r19r65-best-model-dyadic-probe-evidence-2026-08-25.md):
+221 of 239 dual-decreasing candidates fail composed-baseline descent and only
+one outer accepts a line. The frozen
+[proportioning/filter discriminator](../../development/nonlocal-nsr3b4e2d7r19r65-proportioning-filter-contract-2026-08-25.md)
+measures free/chopped gradient components without changing v6 state or sparse
+work before any further solver implementation.
