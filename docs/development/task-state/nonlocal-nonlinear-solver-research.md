@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R50_PASS_CLOSURE / D7R19R51V1_INVALID_WORKSPACE_LIFECYCLE / D7R19R51V2_PERSISTENT_MASTER_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R50_PASS_CLOSURE / D7R19R51V1_INVALID_WORKSPACE_LIFECYCLE / D7R19R51V2_INVALID_IDENTITY_ENCODING / D7R19R51V3_PERSISTENT_MASTER_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -47,7 +47,10 @@
   Do not add a fifth outer or widen capacity; preserve the witness and research
   persistent constraint generation after closure. R51 v1 is invalid before
   implementation because missing-row operator work had no owned workspace.
-  R51 v2 is frozen at identity `6146af2c...28c9` as one eight-sweep solve over the stable cache/terminal-row
+  The first R51 v2 executable replay reproduced R50 exactly and its own 1/1
+  workspace lifecycle, but rejected before the master because its documented
+  SHA included a terminal Markdown newline. It has no solver credit. R51 v3 is
+  frozen at newline-free identity `9785a216...5fcf` as one eight-sweep solve over the stable cache/terminal-row
   union, reusing captured bases and adding at most 20 missing rows/49 passes.
   It builds and releases exactly one new moved workspace; all mathematical
   controls remain unchanged.
@@ -3316,6 +3319,22 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   changing the mathematical experiment while repairing ownership.
 - **Reconsider when:** the v2 implementation either proves exact lifecycle and
   work controls or closes a dedicated workspace-rejected route.
+
+### D-102 -- Hash the runtime identity literal, not its Markdown line
+
+- **Observation:** the first v2 process reproduces exact R50 stdout, builds and
+  releases one workspace, and preserves rollback, but routes
+  `PERSISTENT_WORKSPACE_REJECTED` before union formation. The frozen SHA equals
+  the v2 code-block line including its terminal newline; established executable
+  identities hash the literal without that newline.
+- **Decision:** retain v2 as an invalid identity-encoding run with no solver
+  credit. Freeze v3 by changing only the version token and hashing the exact
+  newline-free runtime literal. All mathematical and work controls stay exact.
+- **Rejected:** weakening the identity gate, accepting a short-circuited dense
+  control, silently changing the constant under v2, or crediting the unexecuted
+  persistent master.
+- **Reconsider when:** v3 passes the identity/dense/workspace gates and forms the
+  exact union, or exposes a distinct later gate.
 
 ## Performance facts retained
 

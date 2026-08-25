@@ -470,9 +470,19 @@ std::string al_r50_route(bool parent, bool source, bool workspace,
     return "ACTIVE_FACE_REFERENCE_RETAINED";
 }
 
+struct ALR50ReplayCapture {
+    bool captured = false;
+    ALR49ReplayCapture r49;
+    ALR50Generator generator;
+    std::string cache_root;
+    std::string outer_root;
+    std::string witness_root;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_active_face_closure_controls() {
+SplitBoundaryReport run_al_active_face_closure_controls_impl(
+    ALR50ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R50_IDENTITY_PROJECTION)
         == B4E2D7R19R50_IDENTITY_SHA256;
     ALR49ReplayCapture capture;
@@ -741,5 +751,17 @@ SplitBoundaryReport run_al_active_face_closure_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r49 = std::move(capture);
+        replay_capture->generator = std::move(generator);
+        replay_capture->cache_root = cache_root;
+        replay_capture->outer_root = outer_root;
+        replay_capture->witness_root = witness_root;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_active_face_closure_controls() {
+    return run_al_active_face_closure_controls_impl(nullptr);
 }

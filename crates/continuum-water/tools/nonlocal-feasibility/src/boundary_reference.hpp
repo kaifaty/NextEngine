@@ -223,6 +223,7 @@ SplitBoundaryReport run_al_filter_compatibility_controls();
 SplitBoundaryReport run_al_restoration_certificate_controls();
 SplitBoundaryReport run_al_restoration_hz_accelerator_controls();
 SplitBoundaryReport run_al_active_face_closure_controls();
+SplitBoundaryReport run_al_persistent_master_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

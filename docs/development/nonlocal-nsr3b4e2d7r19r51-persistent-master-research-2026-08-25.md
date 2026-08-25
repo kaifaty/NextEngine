@@ -2,7 +2,7 @@
 
 Date: `2026-08-25`
 
-Status: `RESEARCH COMPLETE / V2 WORKSPACE LIFECYCLE RECLOSED / ONE-OUTER PERSISTENT MASTER SELECTED`.
+Status: `RESEARCH COMPLETE / V2 IDENTITY ENCODING INVALID / V3 IDENTITY RECLOSED / ONE-OUTER PERSISTENT MASTER SELECTED`.
 
 ## V1 lifecycle correction
 
@@ -16,6 +16,14 @@ solver credit. V2 admits exactly one new moved-workspace construction and one
 matching release for missing-row basis construction and fresh candidate
 audits. The persistent master, capacity, sweep count, dyadic ladder, certificate
 and 49-pair-pass ceiling are unchanged.
+
+The first v2 executable replay then reproduced R50 exactly but stopped at
+`PERSISTENT_WORKSPACE_REJECTED` before forming the master. The contract SHA had
+been computed over the code-block line plus its Markdown newline, whereas every
+previous executable identity hashes the literal without that newline. V2 is
+retained as an invalid identity-encoding run with no solver credit. V3 changes
+only the version and hashes the exact newline-free runtime literal; ownership
+and all mathematical controls remain unchanged.
 
 ## Question
 
