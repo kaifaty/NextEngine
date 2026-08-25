@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R49_PASS_ACCELERATOR / D7R19R50_HILDRETH_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R50_INCREMENTAL_PASS_CLOSURE / CLEAN_AB_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -38,10 +38,12 @@
 - **Current decision:** preserve the exact R48 problem/certificates and select
   guarded HZ as the stronger primal generator. It
   still does not certify compatibility. Do not extend the 16-step cap. After
-  R49 closure, R50 research selects a four-outer active-face Hildreth reference,
-  frozen at identity `ab745dfc...3c75`. Cache at most 512 exact row/Gram
-  columns, run eight stable coordinate sweeps and use fresh directed dyadic
-  globalization. Implement it next; do not apply the witness or exit restoration.
+  R49 closure, incremental R50 passes
+  `ACTIVE_FACE_HILDRETH_CLOSURE_CANDIDATE`: four outers and 991 pair passes
+  reduce `h` by `47.3140x` and maximum upper by `19.1994x`, but 488 rows remain
+  directed-positive and the union cache reaches 492/512. Clean A/B is pending.
+  Do not add a fifth outer or widen capacity; preserve the witness and research
+  persistent constraint generation after closure.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3256,6 +3258,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   or calling the reference's basis-vector work scalable.
 - **Reconsider when:** frozen R50 closes a clean compatibility, closure-
   candidate, capacity/Gram/globalization boundary or retained-reference route.
+
+### D-099 -- Preserve accumulated halfspaces; do not widen the reference
+
+- **Observation:** incremental R50 accepts all four frozen outers and lowers
+  terminal `h` to `2.9894663306e-12`, but the directed-positive set migrates
+  from 366 to 488 rows while the exact row cache grows to 492/512. Each outer
+  solves only its currently positive rows with fresh zero duals, so constraints
+  that became inactive can be released and later re-enter.
+- **Decision:** close R50 cleanly without a fifth outer or larger cache. If
+  reproducible, research R51 as persistent constraint generation over the
+  accumulated row union, retaining inactive rows in the master QP while the
+  nonnegative Hildreth coordinates may release them naturally.
+- **Rejected:** interpreting lower amplitude as compatibility, changing 512 to
+  fit the observed 492, executing another current-active-only outer, fitting a
+  row drop tolerance, or calling the 991-pass basis reference performant.
+- **Reconsider when:** clean R50 closes and the exact terminal-active versus
+  cached-union membership can freeze a persistent-master discriminator.
 
 ## Performance facts retained
 
