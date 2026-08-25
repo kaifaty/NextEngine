@@ -40,8 +40,16 @@ candidate `delta_k`:
 
 The candidate projection is a model oracle only. After selection, freshly
 reconstruct `A^T lambda`, repeat the committed joint projection, audit all
-rows and retain the existing checkpoint gates. No candidate may publish
-state directly.
+rows and retain the existing checkpoint gates. When a candidate is accepted,
+require its predicted and committed reductions to agree within
+
+```text
+gamma_(128*N+512) *
+    (abs(normal inertia) + abs(candidate inertia) + abs(committed inertia)).
+```
+
+The committed reduction must also be strictly positive at every outer block.
+No candidate may publish state directly.
 
 ## Frozen exploratory schedule
 
@@ -70,6 +78,7 @@ not add sparse operator terms, but they remain explicit work counts.
 MODEL_AWARE_PROJECTED_PATH_ACCELERATION_CANDIDATE
 MODEL_AWARE_PROJECTED_PATH_LINE_REJECTED
 MODEL_AWARE_PROJECTED_PATH_MODEL_REJECTED
+MODEL_AWARE_PROJECTED_PATH_MODEL_AGREEMENT_REJECTED
 MODEL_AWARE_PROJECTED_PATH_CURVATURE_REJECTED
 MODEL_AWARE_PROJECTED_PATH_RECURRENCE_REJECTED
 MODEL_AWARE_PROJECTED_PATH_CHECKPOINT_MODEL_REJECTED
