@@ -80079,6 +80079,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_corpus_manifest.inc"
 #include "generalization_operator_preflight.inc"
 #include "generalization_binary128_oracle.inc"
+#include "generalization_admm_oracle.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
