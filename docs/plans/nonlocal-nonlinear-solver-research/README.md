@@ -3138,3 +3138,11 @@ though the general predictor retains the quadratic branch. The next
 and [shadow contract](03b4e2d7r20r22-event-side-trial-contract.md) evaluate the
 root and its immediate next binary128 value to test a zero-tuning face crossing
 before any solver trajectory changes.
+The
+[R20R22 evidence](../../development/nonlocal-nsr3b4e2d7r20r22-event-side-trial-evidence-2026-08-26.md)
+rejects one-ULP alpha crossing: six of seven actual projector evaluations stay
+on the old face even though all seven Armijo margins are positive. The next
+[ULP-ladder research](../../development/nonlocal-nsr3b4e2d7r20r23-ulp-ladder-research-2026-08-26.md)
+and [fixed contract](03b4e2d7r20r23-ulp-ladder-contract.md) evaluate all
+`2^0..2^64` ULP displacements to measure the end-to-end finite-precision event
+boundary without fitting an epsilon.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_EVENT_SIDE_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_ULP_LADDER_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -38,6 +38,15 @@
 - **R20R22 frozen:** evaluate exactly the root and its immediate next binary128
   value in all seven states. Require the next value to select exactly the new
   predicted face and audit rigorous Armijo/KKT without applying it.
+- **R20R22 result:** implementation `17dde13c`, semantic
+  `3c39b724...9ad6`, route `NEXT_REPRESENTABLE_FACE_REJECTED`. All root/next
+  points are Armijo-positive, but only step 32 changes face at one alpha ULP;
+  the other six remain on the old face because the end-to-end multiplier/
+  transpose rounding displacement is wider.
+- **R20R23 frozen:** evaluate all 65 fixed displacements `2^0..2^64` ULP from
+  every analytic root. Find the first actual face crossing and require exactly
+  the predicted scalar, positive Armijo and no later additional event. Report
+  only; no fitted epsilon or state update.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4568,6 +4577,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** the seven next-representable trials classify under the
   frozen all/subset/Armijo/face-side routes.
 
+### D-151 -- Measure the evaluation-graph displacement with a fixed ULP ladder
+
+- **Observation:** R22 retains positive Armijo in all seven root/next points,
+  but six one-ULP perturbations disappear through multiplier construction and
+  `A^T lambda`; only one changes the projector mask.
+- **Decision:** evaluate every predeclared `2^k` ULP displacement for
+  `k=0..64`. Measure the first actual mask event, its scalar/Armijo/KKT facts
+  and whether a later event appears before the fixed ladder ends.
+- **Rejected:** choosing a constant from the six misses, looping until success
+  without a cap, changing projector comparisons, injecting a z-space epsilon,
+  or interpreting mathematical root accuracy as end-to-end face selection.
+- **Reconsider when:** all seven first crossings are classified or the fixed
+  ladder exposes no-cross, wrong-face, Armijo or multi-event behavior.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4621,9 +4644,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R21 semantic `3ff49117...7bca`. Implement only the frozen
-   R20R22 root/next-representable shadow audit; do not insert or apply either
-   point in the solver, select an offset/fallback or alter the cap.
+2. Preserve R20R22 semantic `3c39b724...9ad6`. Implement only the frozen
+   R20R23 65-point power-of-two ULP ladder; do not stop it early, fit a crossing
+   epsilon, insert/apply a point in the solver or alter the cap.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
