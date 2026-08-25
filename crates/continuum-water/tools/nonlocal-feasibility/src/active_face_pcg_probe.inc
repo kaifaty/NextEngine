@@ -77,6 +77,82 @@ struct ALR65PComposedDual {
     std::string root;
 };
 
+struct ALR65PCompletedDual {
+    bool passed = false;
+    double value = 0.0;
+    double physical_scaled = 0.0;
+    double physical_gap = 0.0;
+    double physical_bound = 0.0;
+    std::size_t vector_terms = 0U;
+    std::string root;
+};
+
+ALR65PCompletedDual al_r65p_completed_dual(
+    const std::vector<Vec3>& projected,
+    const std::vector<Vec3>& target,
+    const std::vector<Vec3>& projection_input,
+    const std::vector<double>& lambda,
+    const std::vector<double>& constraint,
+    double physical_inertia) {
+    ALR65PCompletedDual result;
+    const std::size_t count = projected.size();
+    if (count == 0U || target.size() != count
+        || projection_input.size() != count || lambda.size() != count
+        || constraint.size() != count || !std::isfinite(physical_inertia))
+        return result;
+    long double primal = 0.0L;
+    long double proximal = 0.0L;
+    long double transpose_target = 0.0L;
+    long double transpose_squared = 0.0L;
+    for (std::size_t particle = 0U; particle < count; ++particle) {
+        const Vec3 primal_delta = projected[particle] - target[particle];
+        const Vec3 proximal_delta =
+            projected[particle] - projection_input[particle];
+        const Vec3 transpose =
+            target[particle] - projection_input[particle];
+        primal += 0.5L * static_cast<long double>(
+            norm_squared(primal_delta));
+        proximal += 0.5L * static_cast<long double>(
+            norm_squared(proximal_delta));
+        transpose_target += static_cast<long double>(transpose.x)
+                * target[particle].x
+            + static_cast<long double>(transpose.y) * target[particle].y
+            + static_cast<long double>(transpose.z) * target[particle].z;
+        transpose_squared += static_cast<long double>(
+            norm_squared(transpose));
+    }
+    long double lambda_constraint = 0.0L;
+    for (std::size_t row = 0U; row < count; ++row)
+        lambda_constraint += static_cast<long double>(lambda[row])
+            * constraint[row];
+    const double normalized_primal = static_cast<double>(primal);
+    result.value = static_cast<double>(proximal + lambda_constraint
+        + transpose_target - 0.5L * transpose_squared);
+    result.physical_scaled = SPACING * SPACING * normalized_primal;
+    result.physical_gap = std::abs(
+        physical_inertia - result.physical_scaled);
+    result.physical_bound = gamma_factor(64U * count + 256U)
+        * (std::abs(physical_inertia) + std::abs(result.physical_scaled));
+    result.vector_terms = count;
+    result.passed = std::isfinite(result.value)
+        && std::isfinite(result.physical_scaled)
+        && std::isfinite(result.physical_gap)
+        && std::isfinite(result.physical_bound)
+        && result.physical_gap <= result.physical_bound;
+    std::ostringstream material;
+    material << std::setprecision(17) << result.value << ':'
+        << result.physical_scaled << ':' << result.physical_gap << ':'
+        << result.physical_bound << ':' << result.vector_terms << ':'
+        << result.passed;
+    result.root = sha256_hex(material.str());
+    return result;
+}
+
+enum class ALR65PSelectionPolicy {
+    PrimalInertia,
+    ComposedDual,
+};
+
 ALR65PComposedDual al_r65p_composed_dual(
     const std::vector<Vec3>& projected,
     const std::vector<Vec3>& target,
@@ -255,12 +331,18 @@ struct ALR65PBlock {
     double baseline_model_reduction = 0.0;
     double candidate_inertia = 0.0;
     double candidate_model_reduction = 0.0;
+    double baseline_composed_dual = 0.0;
+    double candidate_composed_dual = 0.0;
+    double composed_dual_change = 0.0;
+    std::size_t composed_dual_vector_terms = 0U;
+    bool composed_dual_exact = true;
     std::string batch_root;
 };
 
 ALR65PBlock al_r65p_block(const ALR64Operator& op,
     const ALNormalizedWorkspace& workspace,
     std::size_t outer,
+    ALR65PSelectionPolicy selection_policy,
     ALR65PFilterOuter* filter_outer,
     const std::vector<std::uint8_t>& owned,
     const std::vector<double>& diagonal,
@@ -404,6 +486,16 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
         ? al_r63_inertia(baseline_endpoint, predicted_position)
         : std::numeric_limits<double>::infinity();
     exact = exact && std::isfinite(result.baseline_inertia);
+    if (selection_policy == ALR65PSelectionPolicy::ComposedDual) {
+        const ALR65PCompletedDual baseline_dual = al_r65p_completed_dual(
+            baseline_projection.value, trial_target, baseline_joint_input,
+            result.lambda, workspace.support.constraint,
+            result.baseline_inertia);
+        result.baseline_composed_dual = baseline_dual.value;
+        result.composed_dual_vector_terms += baseline_dual.vector_terms;
+        result.composed_dual_exact = baseline_dual.passed;
+        exact = exact && baseline_dual.passed;
+    }
     if (filter_outer != nullptr) {
         const ALR61Audit baseline_audit = al_r61_topology_owned_audit(
             workspace, baseline_projection.value);
@@ -608,14 +700,30 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
             ++result.model_rejections;
             continue;
         }
-        if (baseline_model_reduction <= 0.0) {
+        double selection_reduction = baseline_model_reduction;
+        double candidate_composed_dual = 0.0;
+        if (selection_policy == ALR65PSelectionPolicy::ComposedDual) {
+            const ALR65PCompletedDual completed = al_r65p_completed_dual(
+                candidate_projection.value, trial_target,
+                candidate_joint_input, trial_lambda,
+                workspace.support.constraint, candidate_inertia);
+            result.composed_dual_vector_terms += completed.vector_terms;
+            result.composed_dual_exact = result.composed_dual_exact
+                && completed.passed;
+            exact = exact && completed.passed;
+            if (!exact) break;
+            candidate_composed_dual = completed.value;
+            selection_reduction = candidate_composed_dual
+                - result.baseline_composed_dual;
+        }
+        if (selection_reduction <= 0.0) {
             ++result.composed_rejections;
             continue;
         }
         ++result.admissible_candidates;
-        if (baseline_model_reduction <= best_baseline_reduction) continue;
+        if (selection_reduction <= best_baseline_reduction) continue;
         result.line_exact = true;
-        best_baseline_reduction = baseline_model_reduction;
+        best_baseline_reduction = selection_reduction;
         result.line_alpha = alpha;
         result.line_slope = static_cast<double>(slope);
         result.line_curvature = static_cast<double>(curvature);
@@ -623,6 +731,10 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
         result.candidate_inertia = candidate_inertia;
         result.candidate_model_reduction = candidate_model_reduction;
         result.baseline_model_reduction = baseline_model_reduction;
+        result.candidate_composed_dual = candidate_composed_dual;
+        result.composed_dual_change = selection_policy
+                == ALR65PSelectionPolicy::ComposedDual
+            ? selection_reduction : 0.0;
         result.selected_exponent = exponent;
         selected_lambda = trial_lambda;
         selected_at = at_trial;
@@ -920,9 +1032,16 @@ std::string al_r65p_route(bool exact, bool curvature, bool line,
     return "BEST_MODEL_DYADIC_REFERENCE_RETAINED";
 }
 
+struct ALR65PReplayCapture {
+    bool captured = false;
+    ALR63ReplayCapture r63;
+    std::string result_sha;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
+SplitBoundaryReport run_al_active_face_pcg_probe_controls_impl(
+    ALR65PReplayCapture* output_capture) {
     ALR63ReplayCapture capture;
     const SplitBoundaryReport parent =
         run_al_cached_normal_projection_trqp_controls_impl(&capture);
@@ -1163,9 +1282,10 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
 
         ALR65PFilterOuter filter_outer;
         const ALR65PBlock block = al_r65p_block(
-            op, workspace, outer, &filter_outer, owned, diagonal, lambda, q,
-            raw, correction, lower, upper, r43.projected_trial,
-            capture.target, r30.predicted_position, normal_inertia);
+            op, workspace, outer, ALR65PSelectionPolicy::PrimalInertia,
+            &filter_outer, owned, diagonal, lambda, q, raw, correction, lower,
+            upper, r43.projected_trial, capture.target,
+            r30.predicted_position, normal_inertia);
         face_pcg_iterations += block.face_iterations;
         candidate_trials += block.candidate_trials;
         baseline_projection_calls += block.baseline_projection_calls;
@@ -2101,5 +2221,14 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << ",\"composed_dual_result_sha256\":\""
         << composed_dual_result_sha << "\""
         << ",\"result_sha256\":\"" << composed_dual_result_sha << "\"}";
+    if (output_capture != nullptr && report_passed) {
+        output_capture->captured = true;
+        output_capture->r63 = std::move(capture);
+        output_capture->result_sha = composed_dual_result_sha;
+    }
     return {report_passed, report.str()};
+}
+
+SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
+    return run_al_active_face_pcg_probe_controls_impl(nullptr);
 }
