@@ -1,8 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
-NSR3B4E2D7R19R65_COMPOSED_DUAL_PATH_CANDIDATE /
-NSR3B4E2D7R19R65_BEST_COMPOSED_DUAL_TRANSACTION_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R19R65_COMPOSED_DUAL_TRANSACTION_PASS /
+NSR3B4E2D7R19R65_EQUAL_WORK_OUTER20_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2936,3 +2936,11 @@ and [frozen transaction](03b4e2d7r19r65-best-composed-dual-path-contract.md):
 apply maximum completed-square ascent, verify committed direct dual and compare
 terminal KKT/work with FISTA. Runtime and nonlinear outer acceptance remain
 blocked.
+The
+[v10 evidence](../../development/nonlocal-nsr3b4e2d7r19r65-best-composed-dual-path-evidence-2026-08-25.md)
+passes all transaction gates but retains the reference because both terminal
+residuals remain above FISTA at 78.4% sparse work. The analytically derived
+[equal-work research](../../development/nonlocal-nsr3b4e2d7r19r65-equal-work-dual-completion-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r65-equal-work-dual-completion-contract.md)
+authorize exactly four more unchanged outers: worst-case work remains below
+FISTA, whereas a fifth is forbidden. No depth grid or timing is admitted.

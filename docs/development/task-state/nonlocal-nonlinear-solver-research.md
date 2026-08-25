@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_COMPOSED_DUAL_PATH_CANDIDATE / D7R19R65_BEST_COMPOSED_DUAL_TRANSACTION_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_COMPOSED_DUAL_TRANSACTION_PASS / D7R19R65_EQUAL_WORK_OUTER20_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -132,6 +132,15 @@
   gates, apply it for 16 outers and verify committed direct dual through the
   existing fresh all-row audit. Add no candidate JVP/filter margin or timing;
   compare terminal KKT pair and sparse work with FISTA.
+- **R65 best composed-dual result:** v10 passes every transaction gate at
+  semantic `f497ab0a...7d32b`, accepts 16/16 lines and uses 467,826,594 sparse
+  terms, but terminal raw `2.084e-9` and projected gradient `1.405e-8` do not
+  dominate FISTA. Preserve the correct dual path; 16-outer dominance is
+  `REFUTED_BOUNDED`.
+- **R65 equal-work completion frozen:** the conservative extra-outer bound is
+  29,638,172 terms. Exactly four more outers give at most 586,379,282 terms,
+  still below FISTA; a fifth is not guaranteed. Reproduce the v10 prefix and
+  run exactly 20 outers with no residual stop or policy change.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4262,6 +4271,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   correspondence, fails terminal KKT dominance, exceeds FISTA sparse work or
   closes the frozen acceleration route.
 
+### D-144 -- Spend only the analytically remaining equal-work budget
+
+- **Observation:** v10 closes all correctness gates and is near FISTA accuracy
+  at 78.4% sparse work, but strict dominance fails. A worst-case outer costs at
+  most 29,638,172 terms from fixed operator counts and two full row scans.
+- **Decision:** run exactly four additional unchanged outers. The resulting
+  worst-case 586,379,282 terms stay below FISTA; five are not guaranteed.
+  Preserve the entire outer-16 prefix and add only checkpoint 20.
+- **Rejected:** a depth grid, residual-based early stop, outer 21, changing
+  PCG/preconditioner/alpha, counting wall time, or calling near-dominance a win.
+- **Reconsider when:** outer 20 either strictly dominates both FISTA residuals
+  under budget or returns `EQUAL_WORK_DEPTH_EXHAUSTED`; the latter closes depth
+  and selects direction/preconditioner research.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4364,9 +4387,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`MARGIN_SENSITIVE_FILTER_PATH_CANDIDATE` at semantic
    `bdeeab4b...8ab2`. Preserve v9 exact
    PASS/`COMPOSED_DUAL_PATH_CANDIDATE` at semantic `77cbed07...83af`.
-   Implement the frozen best composed-dual private transaction next. Keep
-   filter-SQP deferred to outer nonlinear globalization; do not use it as the
-   R65 convex-block merit.
+   Preserve v10 exact PASS/`COMPOSED_DUAL_PATH_REFERENCE_RETAINED` at semantic
+   `f497ab0a...7d32b`; all transaction gates pass but 16-outer FISTA dominance
+   is refuted. Implement the frozen 20-outer equal-work completion next. Keep
+   filter-SQP deferred to outer nonlinear globalization and do not run outer
+   21.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,
