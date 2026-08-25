@@ -3,6 +3,26 @@ namespace {
 constexpr const char* AL_R20_NEWTON_DIRECTION_SHA256 =
     "5ae59256f4b4836d9ceccf5e2ad6b1a071e6fce7097463b4b8b4ff1e921745b7";
 
+struct ALR20InverseNormAudit {
+    bool passed = false;
+    std::size_t dimension = 0U;
+    Binary128 rho = static_cast<Binary128>(0.0);
+    Binary128 inverse_norm_bound = static_cast<Binary128>(0.0);
+    std::string root;
+};
+
+struct ALR20VerifiedInverse {
+    bool passed = false;
+    std::size_t dimension = 0U;
+    std::size_t column_solves = 0U;
+    Binary128 cheap_error = static_cast<Binary128>(0.0);
+    Binary128 refined_error = static_cast<Binary128>(0.0);
+    Binary128 maximum_column_residual = static_cast<Binary128>(0.0);
+    Binary128 maximum_column_bound = static_cast<Binary128>(0.0);
+    ALR20InverseNormAudit norm;
+    std::string root;
+};
+
 struct ALR20NNQPSolve {
     bool exact = false;
     bool terminated = false;
@@ -26,6 +46,7 @@ struct ALR20NNQPSolve {
     std::vector<Binary128> reduced_gradient;
     std::vector<bool> passive;
     ALR20ADMMWork work;
+    std::vector<ALR20VerifiedInverse> inverse_audits;
     std::string failure = "NONE";
     std::string support_root;
     std::string root;
@@ -83,6 +104,123 @@ ALR20NNQPRatio al_r20_nnqp_ratio(
     return result;
 }
 
+ALR20InverseNormAudit al_r20_inverse_norm_audit(
+    const std::vector<Binary128>& matrix,
+    const std::vector<Binary128>& inverse,
+    const std::vector<Binary128>& column_bound,
+    std::size_t dimension) {
+    ALR20InverseNormAudit result;
+    result.dimension = dimension;
+    if (dimension == 0U || matrix.size() != dimension * dimension
+        || inverse.size() != dimension * dimension
+        || column_bound.size() != dimension) return result;
+    Binary128 inverse_norm = static_cast<Binary128>(0.0);
+    for (std::size_t row = 0U; row < dimension; ++row) {
+        Binary128Accumulator inverse_row;
+        Binary128Accumulator residual_row;
+        for (std::size_t column = 0U; column < dimension; ++column) {
+            inverse_row.add(fabsq(inverse[row * dimension + column]));
+            Binary128Accumulator image;
+            Binary128 absolute = row == column
+                ? static_cast<Binary128>(1.0)
+                : static_cast<Binary128>(0.0);
+            for (std::size_t inner = 0U; inner < dimension; ++inner) {
+                const Binary128 term = matrix[row * dimension + inner]
+                    * inverse[inner * dimension + column];
+                image.add(term);
+                absolute += fabsq(term);
+            }
+            const Binary128 identity = row == column
+                ? static_cast<Binary128>(1.0)
+                : static_cast<Binary128>(0.0);
+            const Binary128 arithmetic_bound = al_r20_q_gamma(
+                4U * dimension + 256U)
+                * fmaxq(absolute,
+                    ldexpq(static_cast<Binary128>(1.0), -16382));
+            residual_row.add(fabsq(identity - image.value())
+                + arithmetic_bound + column_bound[column]);
+        }
+        inverse_norm = fmaxq(inverse_norm, inverse_row.value()
+            * (static_cast<Binary128>(1.0)
+                + al_r20_q_gamma(4U * dimension + 128U)));
+        result.rho = fmaxq(result.rho, residual_row.value());
+    }
+    result.passed = finiteq(result.rho) != 0
+        && finiteq(inverse_norm) != 0
+        && result.rho < static_cast<Binary128>(1.0);
+    if (result.passed)
+        result.inverse_norm_bound = inverse_norm
+            / (static_cast<Binary128>(1.0) - result.rho);
+    std::ostringstream material;
+    material << result.passed << ':' << dimension << ':'
+             << al_binary128_hex(result.rho) << ':'
+             << al_binary128_hex(result.inverse_norm_bound) << ':'
+             << al_r20_q_scalar_root(inverse) << ':'
+             << al_r20_q_scalar_root(column_bound);
+    result.root = sha256_hex(material.str());
+    return result;
+}
+
+ALR20VerifiedInverse al_r20_verified_inverse(
+    const ALR20ADMMFactor& factor,
+    Binary128 solve_residual, Binary128 solve_bound,
+    const std::vector<Binary128>& solution,
+    Binary128 cheap_error, ALR20ADMMWork* work) {
+    ALR20VerifiedInverse result;
+    result.dimension = factor.dimension;
+    result.cheap_error = cheap_error;
+    if (!factor.passed || solution.size() != factor.dimension
+        || factor.dimension == 0U) return result;
+    const std::size_t dimension = factor.dimension;
+    std::vector<Binary128> inverse(dimension * dimension,
+        static_cast<Binary128>(0.0));
+    std::vector<Binary128> column_bound(dimension,
+        static_cast<Binary128>(0.0));
+    bool exact = true;
+    for (std::size_t column = 0U; column < dimension; ++column) {
+        std::vector<Binary128> rhs(dimension,
+            static_cast<Binary128>(0.0));
+        rhs[column] = static_cast<Binary128>(1.0);
+        std::vector<Binary128> value;
+        Binary128 residual = static_cast<Binary128>(0.0);
+        Binary128 bound = static_cast<Binary128>(0.0);
+        exact = exact && al_r20_admm_solve(factor, rhs, &value,
+            &residual, &bound, work);
+        ++result.column_solves;
+        if (!exact) break;
+        for (std::size_t row = 0U; row < dimension; ++row)
+            inverse[row * dimension + column] = value[row];
+        column_bound[column] = residual + bound;
+        result.maximum_column_residual = fmaxq(
+            result.maximum_column_residual, residual);
+        result.maximum_column_bound = fmaxq(
+            result.maximum_column_bound, bound);
+    }
+    if (exact)
+        result.norm = al_r20_inverse_norm_audit(
+            factor.matrix, inverse, column_bound, dimension);
+    Binary128 solution_scale = static_cast<Binary128>(1.0);
+    for (Binary128 item : solution)
+        solution_scale = fmaxq(solution_scale, fabsq(item));
+    if (result.norm.passed)
+        result.refined_error = result.norm.inverse_norm_bound
+            * (solve_residual + solve_bound)
+            + al_r20_q_gamma(64U * dimension * dimension + 8192U)
+                * solution_scale;
+    result.passed = exact && result.norm.passed
+        && finiteq(result.refined_error) != 0;
+    std::ostringstream material;
+    material << result.passed << ':' << dimension << ':'
+             << result.column_solves << ':'
+             << al_binary128_hex(result.cheap_error) << ':'
+             << al_binary128_hex(result.refined_error) << ':'
+             << al_binary128_hex(result.maximum_column_residual) << ':'
+             << al_binary128_hex(result.maximum_column_bound) << ':'
+             << result.norm.root;
+    result.root = sha256_hex(material.str());
+    return result;
+}
+
 void al_r20_nnqp_reduced_gradient(
     const std::vector<Binary128>& matrix,
     const std::vector<Binary128>& rhs,
@@ -117,7 +255,8 @@ ALR20NNQPSolve al_r20_nnqp_solve(
     const std::vector<Binary128>& matrix,
     const std::vector<Binary128>& rhs,
     const std::vector<Binary128>& rhs_bound,
-    const std::vector<std::size_t>& source_rows) {
+    const std::vector<std::size_t>& source_rows,
+    bool verified_inverse = false) {
     ALR20NNQPSolve result;
     const std::size_t dimension = rhs.size();
     if (dimension == 0U || matrix.size() != dimension * dimension
@@ -201,11 +340,32 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                 result.failure = "PRINCIPAL_SOLVE_REJECTED";
                 break;
             }
-            const Binary128 passive_error =
+            Binary128 passive_error =
                 al_r20_newton_direction_error_bound(factor,
                     solve_residual, solve_bound, passive_value);
             std::vector<Binary128> candidate(dimension,
                 static_cast<Binary128>(0.0));
+            bool passive_ambiguous = false;
+            for (std::size_t local = 0U;
+                 local < passive_dimension; ++local)
+                passive_ambiguous = passive_ambiguous
+                    || (passive_value[local] + passive_error
+                            >= static_cast<Binary128>(0.0)
+                        && passive_value[local] - passive_error
+                            <= static_cast<Binary128>(0.0));
+            if (passive_ambiguous && verified_inverse) {
+                ALR20VerifiedInverse audit = al_r20_verified_inverse(
+                    factor, solve_residual, solve_bound,
+                    passive_value, passive_error, &result.work);
+                if (!audit.passed) {
+                    exact = false;
+                    result.failure = "VERIFIED_INVERSE_AUDIT_REJECTED";
+                } else {
+                    passive_error = audit.refined_error;
+                }
+                result.inverse_audits.push_back(std::move(audit));
+            }
+            if (!exact) break;
             std::vector<std::size_t> negative;
             for (std::size_t local = 0U;
                  local < passive_dimension; ++local) {
@@ -343,6 +503,11 @@ ALR20NNQPSolve al_r20_nnqp_solve(
              << al_r20_q_scalar_root(result.direction) << ':'
              << al_r20_q_scalar_root(result.reduced_gradient) << ':'
              << result.support_root;
+    if (!result.inverse_audits.empty()) {
+        material << "|verified_inverse|";
+        for (const ALR20VerifiedInverse& audit : result.inverse_audits)
+            material << audit.root << ';';
+    }
     result.root = sha256_hex(material.str());
     return result;
 }
