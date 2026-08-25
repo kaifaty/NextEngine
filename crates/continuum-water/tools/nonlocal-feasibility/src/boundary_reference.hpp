@@ -244,6 +244,7 @@ SplitBoundaryReport run_al_best_composed_dual_path_controls();
 SplitBoundaryReport run_al_equal_work_dual_completion_controls();
 SplitBoundaryReport run_al_generalization_corpus_manifest_controls();
 SplitBoundaryReport run_al_generalization_operator_preflight_controls();
+SplitBoundaryReport run_al_generalization_binary128_oracle_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

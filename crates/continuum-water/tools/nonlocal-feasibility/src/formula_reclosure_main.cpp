@@ -220,6 +220,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-equal-work-dual-completion|"
                          "--nonlocal-al-generalization-corpus-manifest|"
                          "--nonlocal-al-generalization-operator-preflight|"
+                         "--nonlocal-al-generalization-binary128-oracle|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1833,6 +1834,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_operator_preflight_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-generalization-binary128-oracle") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_binary128_oracle_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
