@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R54_PASS_BALL_BOX_PROJECTION_MODEL_REQUIRED / D7R19R55_CONTACT_CONSTRAINED_CORRECTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R54_PASS_BALL_BOX_PROJECTION_MODEL_REQUIRED / D7R19R55_CONTACT_DYKSTRA_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -89,6 +89,12 @@
   stored witness bit-for-bit. Two clean binaries and concurrent outputs are
   exact. Stop residual-replacement/sweep/CG/precision work on the current
   pipeline and research one contact-constrained minimum-norm correction next.
+  R55 is frozen at identity `4195f54a...be28`. It retains the 494 cached
+  density halfspaces and adds the contact box as one grouped Dykstra set with a
+  persistent correction vector. A single 64-cycle continuation refreshes
+  `A p` after every box; directed certificates are captured at 8/16/32/64.
+  Implement it next with 68 exact pair passes, no new bases/Gram and no final
+  solve-then-clamp projection.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3511,6 +3517,22 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   unprojected contact-infeasible target.
 - **Reconsider when:** R55 derives a bounded exact reference that preserves
   both density and contact feasibility without activating the normal ball.
+
+### D-111 -- Select grouped-box Dykstra as the first exact joint reference
+
+- **Observation:** Dykstra supports arbitrary closed convex sets and reduces to
+  Hildreth for halfspaces. Therefore the 494 density halfspaces can retain
+  scalar dual corrections while the full axis-aligned box is one separable set
+  with a vector correction; no 1125-row dense Gram extension is required.
+- **Decision:** freeze R55 at `4195f54a...be28`. Run 64 deterministic cycles,
+  persist both density and box corrections, and explicitly refresh the all-row
+  pair-once residual after each box block. Audit the inactive normal ball and
+  authoritative directed certificate at checkpoints 8/16/32/64.
+- **Rejected:** naive alternating projection without Dykstra correction,
+  dense coordinate-face Gram, tangent-component freezing, post-terminal clamp,
+  tolerance stopping or immediate piecewise box-eliminated dual Newton.
+- **Reconsider when:** R55 certifies, activates an outside-master/ball boundary,
+  strictly improves R52-64, or fails to contract under the exact joint sets.
 
 ## Performance facts retained
 

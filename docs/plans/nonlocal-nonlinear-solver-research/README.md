@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R54_PASS_BALL_BOX_PROJECTION_MODEL_REQUIRED /
-NSR3B4E2D7R19R55_CONTACT_CONSTRAINED_CORRECTION_RESEARCH_NEXT /
+NSR3B4E2D7R19R55_CONTACT_DYKSTRA_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2696,3 +2696,10 @@ reproduces the stored witness bit-for-bit. Research a contact-constrained
 minimum-norm correction next. Stop sweep/CG/precision work over the current
 solve-then-project sequence; do not fit a tolerance, apply the witness or exit
 restoration.
+The [D7R19R55 research](../../development/nonlocal-nsr3b4e2d7r19r55-contact-dykstra-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r55-contact-dykstra-contract.md) select a
+grouped-box Dykstra reference for the joint density/contact minimum-norm QP.
+Each of 64 cycles processes the 494 cached density halfspaces, applies one box
+set with persistent Dykstra correction, and explicitly refreshes the residual.
+Checkpoints 8/16/32/64 receive the unchanged directed certificate. Implement it
+next with exactly 68 new pair passes and no post-terminal projection.
