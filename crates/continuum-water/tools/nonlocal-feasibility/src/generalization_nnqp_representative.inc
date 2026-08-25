@@ -76,6 +76,19 @@ struct ALR20NNQPSolve {
     Binary128 ratio_affine_refined_best_bound = static_cast<Binary128>(0.0);
     Binary128 ratio_affine_refined_competitor_bound =
         static_cast<Binary128>(0.0);
+    bool current_provenance_direct = false;
+    bool current_provenance_correspondence = false;
+    std::size_t current_provenance_transition = 0U;
+    std::size_t current_provenance_dimension = 0U;
+    std::size_t current_provenance_invalidations = 0U;
+    std::string current_provenance_support_root;
+    ALR20VerifiedInverse ratio_current_inverse_audit;
+    bool ratio_dual_refined_exact = false;
+    std::string ratio_dual_refined_failure = "NOT_RUN";
+    Binary128 ratio_dual_refined_alpha = static_cast<Binary128>(0.0);
+    Binary128 ratio_dual_refined_best_bound = static_cast<Binary128>(0.0);
+    Binary128 ratio_dual_refined_competitor_bound =
+        static_cast<Binary128>(0.0);
     std::vector<Binary128> direction;
     std::vector<Binary128> reduced_gradient;
     std::vector<bool> passive;
@@ -369,6 +382,15 @@ ALR20NNQPSolve al_r20_nnqp_solve(
     Binary128 affine_direction_error = static_cast<Binary128>(0.0);
     bool affine_shadow_exact = true;
     std::size_t affine_shadow_updates = 0U;
+    bool current_provenance_direct = false;
+    std::size_t current_provenance_transition = 0U;
+    std::size_t current_provenance_invalidations = 0U;
+    ALR20ADMMFactor current_provenance_factor;
+    std::vector<Binary128> current_provenance_solution;
+    std::vector<std::size_t> current_provenance_indices;
+    Binary128 current_provenance_residual = static_cast<Binary128>(0.0);
+    Binary128 current_provenance_bound = static_cast<Binary128>(0.0);
+    Binary128 current_provenance_error = static_cast<Binary128>(0.0);
     const std::size_t transition_cap = 8U * dimension * dimension + 8U;
     bool exact = true;
     bool terminated = false;
@@ -485,6 +507,14 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                 direction_error = passive_error;
                 affine_direction_error = passive_error;
                 ++affine_shadow_updates;
+                current_provenance_direct = true;
+                current_provenance_transition = result.transitions;
+                current_provenance_factor = factor;
+                current_provenance_solution = passive_value;
+                current_provenance_indices = indices;
+                current_provenance_residual = solve_residual;
+                current_provenance_bound = solve_bound;
+                current_provenance_error = passive_error;
                 passive_solution = true;
                 continue;
             }
@@ -575,6 +605,94 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                                 * (static_cast<Binary128>(1.0)
                                     + fabsq(ratio.competitor_ratio))
                                 / ratio.competitor_denominator;
+                        result.current_provenance_direct =
+                            current_provenance_direct;
+                        result.current_provenance_transition =
+                            current_provenance_transition;
+                        result.current_provenance_dimension =
+                            current_provenance_factor.dimension;
+                        result.current_provenance_invalidations =
+                            current_provenance_invalidations;
+                        std::ostringstream provenance_support;
+                        for (std::size_t provenance_index :
+                             current_provenance_indices)
+                            provenance_support
+                                << source_rows[provenance_index] << ',';
+                        result.current_provenance_support_root =
+                            sha256_hex(provenance_support.str());
+                        bool correspondence = current_provenance_direct
+                            && current_provenance_solution.size()
+                                == current_provenance_indices.size();
+                        std::vector<bool> provenance_mask(
+                            dimension, false);
+                        for (std::size_t local = 0U;
+                             correspondence
+                                && local
+                                    < current_provenance_indices.size();
+                             ++local) {
+                            const std::size_t provenance_index =
+                                current_provenance_indices[local];
+                            correspondence = provenance_index < dimension
+                                && result.direction[provenance_index]
+                                    == current_provenance_solution[local];
+                            if (correspondence)
+                                provenance_mask[provenance_index] = true;
+                        }
+                        for (std::size_t index = 0U;
+                             correspondence && index < dimension; ++index)
+                            correspondence = provenance_mask[index]
+                                || result.direction[index]
+                                    == static_cast<Binary128>(0.0);
+                        result.current_provenance_correspondence =
+                            correspondence;
+                        if (correspondence) {
+                            result.ratio_current_inverse_audit =
+                                al_r20_verified_inverse(
+                                    current_provenance_factor,
+                                    current_provenance_residual,
+                                    current_provenance_bound,
+                                    current_provenance_solution,
+                                    current_provenance_error, &result.work);
+                            if (result.ratio_current_inverse_audit.passed) {
+                                const Binary128 current_refined =
+                                    result.ratio_current_inverse_audit
+                                        .refined_error;
+                                const ALR20NNQPRatio dual_refined =
+                                    al_r20_nnqp_ratio(result.direction,
+                                        candidate, current_refined,
+                                        refined_error, negative, source_rows);
+                                result.ratio_dual_refined_exact =
+                                    dual_refined.exact;
+                                result.ratio_dual_refined_failure =
+                                    dual_refined.failure;
+                                result.ratio_dual_refined_alpha =
+                                    dual_refined.alpha;
+                                result.ratio_dual_refined_best_bound =
+                                    al_r20_q_gamma(512U)
+                                        * (static_cast<Binary128>(1.0)
+                                            + fabsq(ratio.best_ratio))
+                                    + (current_refined + refined_error)
+                                        * (static_cast<Binary128>(1.0)
+                                            + fabsq(ratio.best_ratio))
+                                        / ratio.best_denominator;
+                                result.ratio_dual_refined_competitor_bound =
+                                    al_r20_q_gamma(512U)
+                                        * (static_cast<Binary128>(1.0)
+                                            + fabsq(
+                                                ratio.competitor_ratio))
+                                    + (current_refined + refined_error)
+                                        * (static_cast<Binary128>(1.0)
+                                            + fabsq(
+                                                ratio.competitor_ratio))
+                                        / ratio.competitor_denominator;
+                            } else {
+                                result.ratio_dual_refined_failure =
+                                    "CURRENT_AUDIT_REJECTED";
+                            }
+                        } else {
+                            result.ratio_dual_refined_failure =
+                                "CURRENT_PROVENANCE_ABSENT";
+                        }
                     } else {
                         result.ratio_refined_failure = "AUDIT_REJECTED";
                         result.ratio_affine_refined_failure =
@@ -582,6 +700,10 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                     }
                 }
                 break;
+            }
+            if (current_provenance_direct) {
+                current_provenance_direct = false;
+                ++current_provenance_invalidations;
             }
             Binary128 step_scale = static_cast<Binary128>(1.0);
             for (std::size_t index = 0U; index < dimension; ++index)

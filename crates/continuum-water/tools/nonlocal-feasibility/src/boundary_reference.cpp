@@ -80093,6 +80093,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_v3_ratio_diagnostic.inc"
 #include "generalization_v3_ratio_error_budget.inc"
 #include "generalization_v3_affine_shadow.inc"
+#include "generalization_v3_current_provenance.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
