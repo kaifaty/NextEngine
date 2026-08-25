@@ -3057,3 +3057,10 @@ admits all four blind problems with strict excitation. The next
 [v3 generalization research](../../development/nonlocal-nsr3b4e2d7r20r11-v3-generalization-research-2026-08-25.md)
 and [one-shot contract](03b4e2d7r20r11-v3-generalization-contract.md) execute
 the unchanged R8 solver once on the frozen problem roots.
+The
+[R20R11 evidence](../../development/nonlocal-nsr3b4e2d7r20r11-v3-generalization-evidence-2026-08-25.md)
+refutes all-four generalization: two cases certify and two stop inside the
+active-set/NNQP solve. The next
+[failure-mechanism research](../../development/nonlocal-nsr3b4e2d7r20r12-failure-mechanism-research-2026-08-25.md)
+and [report-only contract](03b4e2d7r20r12-failure-mechanism-contract.md) expose
+the first failing predicate before any solver remedy is considered.
