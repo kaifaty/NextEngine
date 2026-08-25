@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R49_PASS_ACCELERATOR / D7R19R50_ACTIVE_FACE_CLOSURE_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R49_PASS_ACCELERATOR / D7R19R50_HILDRETH_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -38,8 +38,10 @@
 - **Current decision:** preserve the exact R48 problem/certificates and select
   guarded HZ as the stronger primal generator. It
   still does not certify compatibility. Do not extend the 16-step cap. After
-  R49 closure, research a new active-face closure mechanism over the
-  remaining directed-positive rows; do not apply the witness or exit restoration.
+  R49 closure, R50 research selects a four-outer active-face Hildreth reference,
+  frozen at identity `ab745dfc...3c75`. Cache at most 512 exact row/Gram
+  columns, run eight stable coordinate sweeps and use fresh directed dyadic
+  globalization. Implement it next; do not apply the witness or exit restoration.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3238,6 +3240,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** a frozen R50 study distinguishes semismooth/active-set
   correction from more recurrence iterations.
 
+### D-098 -- Close the active face as halfspaces, not another aggregate hinge
+
+- **Observation:** R49 leaves only 366 directed-positive rows while the witness
+  uses a negligible fraction of the normal radius. Continuing HZ would fit work
+  to the observed endpoint. Semismooth normal equations add singular-solve and
+  forcing policy before testing direct feasibility projection.
+- **Decision:** freeze R50 as a four-outer Hildreth minimum-norm halfspace
+  reference. Build exact row gradients/Gram columns once for at most 512 unique
+  rows, run fixed eight-sweep dual-coordinate solves, project with the unchanged
+  ball-box operator and globalize on the fixed `1..2^-8` dyadic chord. Fresh
+  all-row directed upper bounds remain the only compatibility authority.
+- **Rejected:** a fifth outer, truncating rows at capacity, extending HZ,
+  fitting a Gram/feasibility tolerance, accepting predicted halfspace closure,
+  or calling the reference's basis-vector work scalable.
+- **Reconsider when:** frozen R50 closes a clean compatibility, closure-
+  candidate, capacity/Gram/globalization boundary or retained-reference route.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3314,9 +3333,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    invalid geometry diagnostic with no solver credit. Preserve D7R19R48 v2
    exact PASS/`RESTORATION_CERTIFICATE_UNRESOLVED`: its PDAL generator improves
    the residual but neither the independent primal nor dual certificate
-   closes. Do not raise its cap or apply its witness. Implement frozen
-   D7R19R49 as a replacement primal generator over the unchanged R48 next-TRQP
-   problem, contact/trust geometry and certificate authority. Do not start switching,
+   closes. Do not raise its cap or apply its witness. Preserve D7R19R49 exact
+   PASS/`RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`; it is not compatibility.
+   Implement frozen D7R19R50 as an active-face Hildreth closure reference over
+   the unchanged problem, contact/trust geometry and directed certificate. Do
+   not start switching,
    trust response or restoration exit before compatibility closes. Do not
    apply or commit the correction,
    classify a nonlinear floor, change penalty,

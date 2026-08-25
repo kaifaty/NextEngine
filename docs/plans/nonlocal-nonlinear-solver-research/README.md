@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R49_PASS_PRIMAL_ACCELERATOR /
-NSR3B4E2D7R19R50_ACTIVE_FACE_CLOSURE_RESEARCH_NEXT /
+NSR3B4E2D7R19R50_HILDRETH_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2605,3 +2605,11 @@ outputs are byte-exact. The maximum row upper remains positive at
 `1.9771445877e-11` over 366 rows, so compatibility is not certified. Research
 an active-face closure mechanism next; do not extend the observed HZ cap,
 apply the witness or exit restoration.
+The [D7R19R50 research](../../development/nonlocal-nsr3b4e2d7r19r50-active-face-closure-research-2026-08-25.md)
+recasts the remaining 366 rows as a minimum-norm halfspace projection rather
+than another aggregate hinge block. Its
+[frozen contract](03b4e2d7r19r50-active-face-closure-contract.md) selects a
+four-outer Hildreth dual-coordinate reference with a 512-row exact basis/Gram
+cache, eight fixed sweeps and directed dyadic globalization. Implement this
+rollback-only reference next. Predicted halfspace feasibility or Hildreth dual
+stationarity cannot replace the unchanged all-row certificate.
