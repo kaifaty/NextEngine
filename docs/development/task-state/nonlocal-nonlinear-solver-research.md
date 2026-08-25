@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R61_PASS_TOPOLOGY_OWNED_AUDIT_CANDIDATE / D7R19R62_RESTORATION_PROMOTION_CONTRACT_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R62_RESTORATION_EXIT_TRANSACTION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,11 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **R62 mapping correction:** the exact promotion target is R43, not
+- **R62 frozen:** the exact promotion target is R43, not
   `R43 + SPACING*witness`. The R58 witness is the cached dimensionless normal
-  step for the next TRQP at R43. Freeze a copy-on-write exit transaction with
-  fresh R43 topology/contact/filter coordinates, radius `0.0625`, witness
-  geometry and the R61 zero-positive audit; publish no runtime state.
+  step for the next TRQP at R43. Implement the frozen copy-on-write transaction
+  with one fresh R43 workspace/superset, filter coordinates, 72,000 contact
+  tests, witness geometry and the R61 zero-positive audit. Publish no runtime
+  state and do not execute the cached normal.
 - **Integration result:** clean R61 passes at stdout `cdfe69bf...47cb4`,
   semantic `18794b59...7436` and route
   `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. A new binary64 owner executes one
@@ -3908,10 +3909,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R60 exact PASS/
    `ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`.
    Preserve D7R19R61 exact PASS/
-   `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. Freeze D7R19R62 as a separate
-   copy-on-write restoration-exit transaction whose candidate is exact R43 and
-   whose cached next normal step is the unapplied R58 witness. Require fresh
-   nonlinear/filter/topology/contact/trust/certificate and rollback gates.
+   `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. Implement frozen D7R19R62 as a
+   separate copy-on-write restoration-exit transaction whose candidate is
+   exact R43 and whose cached next normal step is the unapplied R58 witness.
+   Require fresh nonlinear/filter/topology/contact/trust/certificate,
+   nine atomic-publication controls and rollback gates.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not

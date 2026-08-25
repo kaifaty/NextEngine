@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R61_PASS_TOPOLOGY_OWNED_AUDIT_CANDIDATE /
-NSR3B4E2D7R19R62_RESTORATION_PROMOTION_CONTRACT_NEXT /
+NSR3B4E2D7R19R62_RESTORATION_EXIT_TRANSACTION_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2829,3 +2829,9 @@ the *next* TRQP at R43 is compatible and must not be added to particle state.
 Freeze a copy-on-write exit candidate that freshly rejoins nonlinear filter
 coordinates, R43-owned topology/contact, trust reserve and the R61 certificate.
 No public state mutation or following tangential step is admitted in R62.
+The [frozen R62 contract](03b4e2d7r19r62-restoration-promotion-contract.md)
+promotes exact R43 into a private copy-on-write payload and carries the exact
+R58 witness as the cached normal step at radius `0.0625`. Fresh R43-anchored
+topology, nonlinear filter coordinates, 72,000 contact tests, witness geometry
+and the R61 owner must all close before one publication. Implement it next;
+do not apply the witness or start the tangential solve.
