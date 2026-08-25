@@ -3103,3 +3103,10 @@ structural rejection. The next
 [trajectory research](../../development/nonlocal-nsr3b4e2d7r20r18-shear-cap-trajectory-research-2026-08-26.md)
 and [audit contract](03b4e2d7r20r18-shear-cap-trajectory-contract.md) classify
 contraction, active-set churn and globalization before any cap change.
+The
+[R20R18 evidence](../../development/nonlocal-nsr3b4e2d7r20r18-shear-cap-trajectory-evidence-2026-08-26.md)
+finds a stable natural face, repeated Armijo shrinkage and one late projector
+mask transition. The next
+[line-frontier research](../../development/nonlocal-nsr3b4e2d7r20r19-line-frontier-research-2026-08-26.md)
+and [trial-audit contract](03b4e2d7r20r19-line-frontier-contract.md) compare
+mask stability to the exact Armijo acceptance frontier.
