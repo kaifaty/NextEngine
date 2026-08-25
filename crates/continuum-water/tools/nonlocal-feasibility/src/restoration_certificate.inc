@@ -420,6 +420,11 @@ struct ALR48Generator {
     std::vector<double> checkpoint_psi;
 };
 
+struct ALR48ReplayCapture {
+    bool captured = false;
+    ALR47ReplayCapture r47;
+};
+
 ALR48Generator al_r48_generate(const ALNormalizedWorkspace& workspace,
     const std::vector<Vec3>& lower, const std::vector<Vec3>& upper) {
     ALR48Generator result;
@@ -551,7 +556,8 @@ std::string al_r48_route(bool parent, bool source, bool workspace,
 
 } // namespace
 
-SplitBoundaryReport run_al_restoration_certificate_controls() {
+SplitBoundaryReport run_al_restoration_certificate_controls_impl(
+    ALR48ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R48_IDENTITY_PROJECTION)
         == B4E2D7R19R48_IDENTITY_SHA256;
     ALR47ReplayCapture capture;
@@ -834,5 +840,13 @@ SplitBoundaryReport run_al_restoration_certificate_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r47 = std::move(capture);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_restoration_certificate_controls() {
+    return run_al_restoration_certificate_controls_impl(nullptr);
 }
