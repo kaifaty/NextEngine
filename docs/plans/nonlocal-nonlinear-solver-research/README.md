@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R57_PASS_ENCLOSURE_FIXED_POINT_REQUIRED /
-NSR3B4E2D7R19R58_ENCLOSURE_FIXED_POINT_CONTRACT_NEXT /
+NSR3B4E2D7R19R58_ENCLOSURE_FIXED_POINT_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2757,3 +2757,7 @@ R57 selected witness and directed upper. It reuses the same zero-initialized
 64-cycle grouped-box core and high-precision terminal audit. Certification,
 raw regression, unresolved sign, exact stalling and strict contraction are
 predeclared outcomes. Open-ended outer refinement is forbidden.
+The [frozen R58 contract](03b4e2d7r19r58-enclosure-fixed-point-contract.md)
+uses identity `a0327b38...6542f` and reuses the R57 core exactly once. Implement
+it next with one passive R57 capture, 69 new pair passes, exact
+contraction/stalling gates and no third outer.

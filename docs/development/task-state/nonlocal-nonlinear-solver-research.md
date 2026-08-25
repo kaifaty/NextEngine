@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R57_PASS_ENCLOSURE_FIXED_POINT_REQUIRED / D7R19R58_ENCLOSURE_FIXED_POINT_CONTRACT_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R57_PASS_ENCLOSURE_FIXED_POINT_REQUIRED / D7R19R58_ENCLOSURE_FIXED_POINT_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -134,6 +134,9 @@
   the exact R57 witness/upper, reusing the same 64-cycle zero-initialized core.
   Freeze certification, raw-regression, unresolved, exact-stalling and strict
   contraction routes before execution. Do not create an open-ended outer loop.
+  R58 is frozen at identity `a0327b38...6542f`: exact R57 replay/capture, one
+  unchanged 64-cycle core invocation, four checkpoints and one terminal sign
+  decomposition. Implement it next; a third fixed-point outer is forbidden.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3746,7 +3749,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R50--R56, including exact R56
    PASS/`JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Research and
    Preserve D7R19R57 exact PASS/enclosure-fixed-point evidence. Research and
-   freeze D7R19R58 as exactly one bounded unchanged-enclosure fixed-point refinement.
+   Implement only frozen D7R19R58 as exactly one bounded unchanged-enclosure
+   fixed-point refinement.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
