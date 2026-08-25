@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R53_PASS_HIGH_PRECISION_RAW_RESIDUAL /
-NSR3B4E2D7R19R54_MODEL_PROJECTION_DECOMPOSITION_RESEARCH_NEXT /
+NSR3B4E2D7R19R54_MODEL_PROJECTION_DECOMPOSITION_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2678,3 +2678,11 @@ research the predictor-to-projection pipeline next: direct `u-G lambda`,
 assembled correction JVP, unprojected anchor addition, and ball/box projection.
 Do not add sweeps/CG, weaken gamma, fit zero tolerance, apply the witness or
 exit restoration first.
+The [D7R19R54 research](../../development/nonlocal-nsr3b4e2d7r19r54-model-projection-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r54-model-projection-contract.md) select one
+read-only decomposition of recursive prediction, direct binary64/binary128
+`u-G lambda`, fresh correction/target JVPs and captured projected rows. It also
+audits box/ball displacement without executing a new projection. Exactly two
+new pair passes are admitted. Implement it next and select the largest exact
+stage gap; do not enable residual replacement or change correction/projection
+before attribution.

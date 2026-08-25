@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R53_PASS_HIGH_PRECISION_RAW_RESIDUAL / D7R19R54_MODEL_PROJECTION_DECOMPOSITION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R53_PASS_HIGH_PRECISION_RAW_RESIDUAL / D7R19R54_MODEL_PROJECTION_DECOMPOSITION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -80,6 +80,12 @@
   not a fresh pair-once residual of the projected witness. Preserve the exact
   witness/certificate and research a read-only predictor-to-projection
   decomposition next; do not add sweeps/CG or weaken gamma first.
+  R54 is frozen at identity `14a4a943...91ca`. It compares the recursive
+  master predictor with direct binary64/binary128 `u-G lambda`, fresh JVPs of
+  the assembled correction and unprojected target, and captured projected
+  rows. Exact target/box/ball displacement is audited without a new projection.
+  Implement it next with exactly two fresh pair passes; select the largest
+  exact stage gap and change no solver policy yet.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3467,6 +3473,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R54 identifies the first transition that creates the
   raw-positive floor and distinguishes recurrence drift, correction assembly,
   anchor addition or projection displacement.
+
+### D-109 -- Freeze explicit true-residual pipeline before choosing a remedy
+
+- **Observation:** recursively updated residuals can converge far below their
+  explicitly recomputed counterparts in finite precision. Residual replacement
+  and QP iterative refinement are evidence-backed remedies, but the current
+  path additionally assembles a primal correction and applies ball/box
+  projection.
+- **Decision:** freeze R54 at `14a4a943...91ca`. Compare four exact stage gaps:
+  recursive/direct Gram, direct Gram/fresh correction response,
+  anchor-linearity/fresh target, and target/projected witness. Select the
+  largest without a tolerance, retain every final-worst-row stage value, and
+  cap new operator work at two pair JVPs.
+- **Rejected:** assuming residual replacement is already the answer, treating
+  exact-arithmetic Hildreth convergence as finite-precision feasibility,
+  recomputing the projection, changing gamma or committing the witness.
+- **Reconsider when:** executable R54 selects one dominant transition or shows
+  all four exact gaps are zero.
 
 ## Performance facts retained
 
