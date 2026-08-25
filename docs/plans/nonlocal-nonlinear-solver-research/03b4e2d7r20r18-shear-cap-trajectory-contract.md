@@ -25,6 +25,16 @@ Require exact R17 case root and report per accepted step:
 - dual-refinement and inverse-column counts.
 
 Classify the late window (steps 25–32) from observed contraction, face/mask and
-line-power facts. No cap extension, retry-driven tuning, timing, solver change,
-runtime/GPU or production authority.
+line-power facts using these pre-observation rules:
 
+- `useful_contraction`: every finite consecutive primal and dual-mapping ratio
+  is at most `0.9`;
+- `plateau`: every such ratio is at least `0.99`;
+- `active_set_chatter`: any selected projector mask change or natural-face-root
+  change occurs in the window;
+- `globalization_throttled`: at least six of eight selected powers are positive.
+
+Choose route priority chatter, globalization, plateau, useful contraction,
+then mixed/unresolved. These are diagnostic labels, not convergence theorems.
+No cap extension, retry-driven tuning, timing, solver change, runtime/GPU or
+production authority.

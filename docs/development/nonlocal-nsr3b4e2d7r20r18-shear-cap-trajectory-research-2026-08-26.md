@@ -29,3 +29,8 @@ select the smallest next counterfactual: bounded cap extension for T1, local
 precision/model audit for T2, active-set stabilization for T3, or globalization
 research for T4.
 
+Before replay, the late-window labels are fixed: every ratio `<=0.9` means
+useful contraction; every ratio `>=0.99` means plateau; any mask or natural-face
+change means chatter; at least six positive line powers means globalization
+throttling. Route priority is chatter, globalization, plateau, contraction,
+then unresolved.
