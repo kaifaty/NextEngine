@@ -9,6 +9,8 @@ constexpr double AL_R65P_FISTA_MAXIMUM_RAW =
     1.1823169686944491e-9;
 constexpr double AL_R65P_FISTA_PROJECTED_GRADIENT =
     9.5382120867736572e-9;
+constexpr const char* AL_R65P_V6_RESULT_SHA256 =
+    "bd568e0f367d34ef75f5ebeeca085f6cd6c36bb9fd56cb6966965a629ae8f0e2";
 
 bool al_r65p_checkpoint(std::size_t outer) {
     return std::find(AL_R65P_CHECKPOINTS.begin(),
@@ -351,6 +353,80 @@ struct ALR65PRecord {
     std::string root;
 };
 
+struct ALR65PProportioningDiagnostic {
+    std::size_t outer = 0U;
+    double free_squared = 0.0;
+    double chopped_squared = 0.0;
+    double projected_squared = 0.0;
+    double decomposed_squared = 0.0;
+    double free_norm = 0.0;
+    double chopped_norm = 0.0;
+    double projected_norm = 0.0;
+    double chopped_free_ratio = 0.0;
+    double decomposition_gap = 0.0;
+    double decomposition_bound = 0.0;
+    bool decomposition_exact = false;
+    bool chopped_dominant = false;
+    bool stationary = false;
+    bool line_accepted = false;
+    std::string root;
+};
+
+struct ALR65PProportioningControl {
+    double free_squared = 0.0;
+    double chopped_squared = 0.0;
+    double projected_squared = 0.0;
+    double wrong_sign_squared = 0.0;
+    bool successful_exact = false;
+    bool negative_rejected = false;
+};
+
+ALR65PProportioningControl al_r65p_proportioning_control() {
+    constexpr std::array<double, 3U> lambda{{1.0, 0.0, 0.0}};
+    constexpr std::array<double, 3U> raw{{2.0, 3.0, -4.0}};
+    long double free_squared = 0.0L;
+    long double chopped_squared = 0.0L;
+    long double projected_squared = 0.0L;
+    long double wrong_sign_squared = 0.0L;
+    for (std::size_t row = 0U; row < lambda.size(); ++row) {
+        const double gradient = -raw[row];
+        const double free = lambda[row] > 0.0 ? gradient : 0.0;
+        const double chopped = lambda[row] == 0.0
+            ? std::min(gradient, 0.0) : 0.0;
+        const double projected = lambda[row] > 0.0
+            ? gradient : std::min(gradient, 0.0);
+        const double wrong_sign = lambda[row] > 0.0
+            ? gradient : std::max(gradient, 0.0);
+        free_squared += static_cast<long double>(free) * free;
+        chopped_squared += static_cast<long double>(chopped) * chopped;
+        projected_squared += static_cast<long double>(projected) * projected;
+        wrong_sign_squared += static_cast<long double>(wrong_sign) * wrong_sign;
+    }
+    ALR65PProportioningControl result;
+    result.free_squared = static_cast<double>(free_squared);
+    result.chopped_squared = static_cast<double>(chopped_squared);
+    result.projected_squared = static_cast<double>(projected_squared);
+    result.wrong_sign_squared = static_cast<double>(wrong_sign_squared);
+    result.successful_exact = result.free_squared == 4.0
+        && result.chopped_squared == 9.0
+        && result.projected_squared == 13.0;
+    result.negative_rejected = result.wrong_sign_squared == 20.0
+        && result.wrong_sign_squared != result.projected_squared;
+    return result;
+}
+
+std::string al_r65p_diagnostic_route(bool identity, bool exact,
+    std::size_t blocked, std::size_t chopped_dominant,
+    std::size_t free_dominant, std::size_t stationary) {
+    if (!identity || !exact || blocked == 0U || stationary != 0U)
+        return "DIAGNOSTIC_REFERENCE_RETAINED";
+    if (chopped_dominant == blocked)
+        return "PROPORTIONING_PHASE_CANDIDATE";
+    if (free_dominant == blocked)
+        return "FILTER_MERIT_CONFLICT_CANDIDATE";
+    return "PHASE_DEPENDENT_CONTROLLER_REQUIRED";
+}
+
 std::string al_r65p_route(bool exact, bool curvature, bool line,
     bool normal_model_rejected, bool composed_model_rejected,
     bool model_agreement, bool recurrence, bool model, bool lower_work,
@@ -497,6 +573,12 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     std::size_t projection_calls = 0U;
     std::size_t audit_calls = 1U;
     std::vector<ALR65PRecord> records;
+    std::vector<ALR65PProportioningDiagnostic> diagnostics;
+    bool diagnostic_decomposition_exact = true;
+    std::size_t blocked_diagnostics = 0U;
+    std::size_t blocked_chopped_dominant = 0U;
+    std::size_t blocked_free_dominant = 0U;
+    std::size_t blocked_stationary = 0U;
 
     for (std::size_t outer = 1U; outer <= AL_R65P_OUTERS && exact; ++outer) {
         std::vector<Vec3> at_lambda = al_r64_transpose(op, lambda, nullptr);
@@ -546,6 +628,68 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         }
         exact = exact && al_r30_finite(raw) && face_count > 0U;
         if (!exact) break;
+
+        ALR65PProportioningDiagnostic diagnostic;
+        diagnostic.outer = outer;
+        long double diagnostic_free_squared = 0.0L;
+        long double diagnostic_chopped_squared = 0.0L;
+        long double diagnostic_projected_squared = 0.0L;
+        for (std::size_t row = 0U; row < 6000U; ++row) {
+            if (owned[row] == 0U) continue;
+            const double gradient = -raw[row];
+            const double free = lambda[row] > 0.0 ? gradient : 0.0;
+            const double chopped = lambda[row] == 0.0
+                ? std::min(gradient, 0.0) : 0.0;
+            const double projected = lambda[row] > 0.0
+                ? gradient : std::min(gradient, 0.0);
+            diagnostic_free_squared += static_cast<long double>(free) * free;
+            diagnostic_chopped_squared +=
+                static_cast<long double>(chopped) * chopped;
+            diagnostic_projected_squared +=
+                static_cast<long double>(projected) * projected;
+        }
+        diagnostic.free_squared = static_cast<double>(
+            diagnostic_free_squared);
+        diagnostic.chopped_squared = static_cast<double>(
+            diagnostic_chopped_squared);
+        diagnostic.projected_squared = static_cast<double>(
+            diagnostic_projected_squared);
+        diagnostic.decomposed_squared = static_cast<double>(
+            diagnostic_free_squared + diagnostic_chopped_squared);
+        diagnostic.free_norm = std::sqrt(diagnostic.free_squared);
+        diagnostic.chopped_norm = std::sqrt(diagnostic.chopped_squared);
+        diagnostic.projected_norm = std::sqrt(
+            diagnostic.projected_squared);
+        diagnostic.chopped_free_ratio = diagnostic.free_norm > 0.0
+            ? diagnostic.chopped_norm / diagnostic.free_norm
+            : (diagnostic.chopped_norm > 0.0
+                ? std::numeric_limits<double>::max() : 0.0);
+        diagnostic.decomposition_gap = std::abs(
+            diagnostic.projected_squared - diagnostic.decomposed_squared);
+        diagnostic.decomposition_bound = gamma_factor(64U * 6000U + 256U)
+            * (std::abs(diagnostic.projected_squared)
+                + std::abs(diagnostic.free_squared)
+                + std::abs(diagnostic.chopped_squared));
+        diagnostic.decomposition_exact =
+            std::isfinite(diagnostic.free_squared)
+            && std::isfinite(diagnostic.chopped_squared)
+            && std::isfinite(diagnostic.projected_squared)
+            && std::isfinite(diagnostic.decomposed_squared)
+            && std::isfinite(diagnostic.free_norm)
+            && std::isfinite(diagnostic.chopped_norm)
+            && std::isfinite(diagnostic.projected_norm)
+            && std::isfinite(diagnostic.chopped_free_ratio)
+            && std::isfinite(diagnostic.decomposition_gap)
+            && std::isfinite(diagnostic.decomposition_bound)
+            && diagnostic.decomposition_gap
+                <= diagnostic.decomposition_bound;
+        diagnostic.stationary = diagnostic.free_squared == 0.0
+            && diagnostic.chopped_squared == 0.0;
+        diagnostic.chopped_dominant = !diagnostic.stationary
+            && diagnostic.chopped_norm > diagnostic.free_norm;
+        diagnostic_decomposition_exact = diagnostic_decomposition_exact
+            && diagnostic.decomposition_exact;
+
         const ALR65PBlock block = al_r65p_block(
             op, owned, diagonal, lambda, q, raw, correction, lower, upper,
             r43.projected_trial, r30.predicted_position, normal_inertia);
@@ -569,6 +713,30 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             || (!block.line_exact && block.model_rejections > 0U);
         composed_model_rejected = composed_model_rejected
             || (!block.line_exact && block.composed_rejections > 0U);
+        diagnostic.line_accepted = block.line_exact;
+        if (!diagnostic.line_accepted) {
+            ++blocked_diagnostics;
+            if (diagnostic.stationary) ++blocked_stationary;
+            else if (diagnostic.chopped_dominant)
+                ++blocked_chopped_dominant;
+            else ++blocked_free_dominant;
+        }
+        std::ostringstream diagnostic_material;
+        diagnostic_material << std::setprecision(17) << diagnostic.outer << ':'
+            << diagnostic.free_squared << ':'
+            << diagnostic.chopped_squared << ':'
+            << diagnostic.projected_squared << ':'
+            << diagnostic.decomposed_squared << ':'
+            << diagnostic.free_norm << ':' << diagnostic.chopped_norm << ':'
+            << diagnostic.projected_norm << ':'
+            << diagnostic.chopped_free_ratio << ':'
+            << diagnostic.decomposition_gap << ':'
+            << diagnostic.decomposition_bound << ':'
+            << diagnostic.decomposition_exact << ':'
+            << diagnostic.chopped_dominant << ':'
+            << diagnostic.stationary << ':' << diagnostic.line_accepted;
+        diagnostic.root = sha256_hex(diagnostic_material.str());
+        diagnostics.push_back(diagnostic);
         exact = block.passed;
         if (!exact) break;
         lambda = block.lambda;
@@ -839,12 +1007,52 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     semantic << "|EXPLORATORY_ONLY_NO_CREDIT";
     const std::string result_sha = sha256_hex(semantic.str());
 
+    const ALR65PProportioningControl diagnostic_control =
+        al_r65p_proportioning_control();
+    const bool solver_identity_exact = passed
+        && result_sha == AL_R65P_V6_RESULT_SHA256;
+    const bool diagnostic_work_exact = diagnostic_decomposition_exact
+        && diagnostics.size() == AL_R65P_OUTERS
+        && blocked_diagnostics + accepted_lines == AL_R65P_OUTERS
+        && blocked_chopped_dominant + blocked_free_dominant
+                + blocked_stationary
+            == blocked_diagnostics;
+    const bool diagnostic_exact = solver_identity_exact
+        && diagnostic_control.successful_exact
+        && diagnostic_control.negative_rejected
+        && diagnostic_work_exact;
+    const std::string diagnostic_route = al_r65p_diagnostic_route(
+        solver_identity_exact, diagnostic_exact, blocked_diagnostics,
+        blocked_chopped_dominant, blocked_free_dominant,
+        blocked_stationary);
+    std::ostringstream diagnostic_semantic;
+    diagnostic_semantic << std::setprecision(17)
+        << (diagnostic_exact ? "PASS|" : "FAIL|")
+        << result_sha << '|' << diagnostic_route << '|'
+        << diagnostic_control.free_squared << ':'
+        << diagnostic_control.chopped_squared << ':'
+        << diagnostic_control.projected_squared << ':'
+        << diagnostic_control.wrong_sign_squared << ':'
+        << diagnostic_control.successful_exact << ':'
+        << diagnostic_control.negative_rejected << '|'
+        << blocked_diagnostics << ':' << blocked_chopped_dominant << ':'
+        << blocked_free_dominant << ':' << blocked_stationary << '|';
+    for (const ALR65PProportioningDiagnostic& diagnostic : diagnostics)
+        diagnostic_semantic << diagnostic.root << ':';
+    diagnostic_semantic << "|MEASUREMENT_ONLY_NO_SOLVER_CREDIT";
+    const std::string diagnostic_result_sha = sha256_hex(
+        diagnostic_semantic.str());
+    const bool report_passed = passed && diagnostic_exact;
+
     std::ostringstream report;
     report << std::setprecision(17)
-        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_best_model_dyadic_probe.v6\",\"status\":\""
-        << (passed ? "PASS" : "FAIL")
+        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_proportioning_filter_diagnostic.v7\",\"status\":\""
+        << (report_passed ? "PASS" : "FAIL")
         << "\",\"authority\":\"EXPLORATORY_ONLY_NO_CREDIT\""
         << ",\"route\":\"" << route << "\""
+        << ",\"diagnostic_route\":\"" << diagnostic_route << "\""
+        << ",\"solver_identity_exact\":"
+        << (solver_identity_exact ? "true" : "false")
         << ",\"parent_stdout_sha256\":\"" << parent_stdout << "\""
         << ",\"initial_working\":" << initial_working
         << ",\"records\":[";
@@ -908,7 +1116,61 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << ",\"batch_root\":\"" << record.batch_root << "\""
             << ",\"root\":\"" << record.root << "\"}";
     }
-    report << "],\"work\":{\"outer_blocks\":" << identification_sweeps
+    report << "],\"diagnostic\":{\"research_id\":\"NSR3-B4E2D7R19R65-PROP-FILTER-R1\""
+        << ",\"measurement_only\":true"
+        << ",\"decomposition_exact\":"
+        << (diagnostic_decomposition_exact ? "true" : "false")
+        << ",\"work_exact\":"
+        << (diagnostic_work_exact ? "true" : "false")
+        << ",\"blocked_outers\":" << blocked_diagnostics
+        << ",\"blocked_chopped_dominant\":"
+        << blocked_chopped_dominant
+        << ",\"blocked_free_dominant\":" << blocked_free_dominant
+        << ",\"blocked_stationary\":" << blocked_stationary
+        << ",\"control\":{\"free_squared\":"
+        << diagnostic_control.free_squared
+        << ",\"chopped_squared\":"
+        << diagnostic_control.chopped_squared
+        << ",\"projected_squared\":"
+        << diagnostic_control.projected_squared
+        << ",\"wrong_sign_squared\":"
+        << diagnostic_control.wrong_sign_squared
+        << ",\"successful_exact\":"
+        << (diagnostic_control.successful_exact ? "true" : "false")
+        << ",\"negative_rejected\":"
+        << (diagnostic_control.negative_rejected ? "true" : "false")
+        << "},\"states\":[";
+    for (std::size_t i = 0U; i < diagnostics.size(); ++i) {
+        if (i != 0U) report << ',';
+        const ALR65PProportioningDiagnostic& diagnostic = diagnostics[i];
+        const char* classification = diagnostic.stationary
+            ? "STATIONARY"
+            : (diagnostic.chopped_dominant
+                ? "CHOPPED_DOMINANT" : "FREE_DOMINANT");
+        report << "{\"outer\":" << diagnostic.outer
+            << ",\"free_squared\":" << diagnostic.free_squared
+            << ",\"chopped_squared\":" << diagnostic.chopped_squared
+            << ",\"projected_squared\":"
+            << diagnostic.projected_squared
+            << ",\"decomposed_squared\":"
+            << diagnostic.decomposed_squared
+            << ",\"free_norm\":" << diagnostic.free_norm
+            << ",\"chopped_norm\":" << diagnostic.chopped_norm
+            << ",\"projected_norm\":" << diagnostic.projected_norm
+            << ",\"chopped_free_ratio\":"
+            << diagnostic.chopped_free_ratio
+            << ",\"decomposition_gap\":"
+            << diagnostic.decomposition_gap
+            << ",\"decomposition_bound\":"
+            << diagnostic.decomposition_bound
+            << ",\"decomposition_exact\":"
+            << (diagnostic.decomposition_exact ? "true" : "false")
+            << ",\"classification\":\"" << classification << "\""
+            << ",\"line_accepted\":"
+            << (diagnostic.line_accepted ? "true" : "false")
+            << ",\"root\":\"" << diagnostic.root << "\"}";
+    }
+    report << "]},\"work\":{\"outer_blocks\":" << identification_sweeps
         << ",\"identification_sweeps\":" << identification_sweeps
         << ",\"coordinate_visits\":" << coordinate_visits
         << ",\"coordinate_updates\":" << coordinate_updates
@@ -947,7 +1209,10 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << ",\"rollback_exact\":" << (rollback ? "true" : "false")
         << ",\"nonlinear_trial_executed\":false"
            ",\"runtime_state_mutated\":false,\"timing_admitted\":false"
-           ",\"production_authority\":false,\"result_sha256\":\""
-        << result_sha << "\"}";
-    return {passed, report.str()};
+           ",\"production_authority\":false"
+        << ",\"solver_result_sha256\":\"" << result_sha << "\""
+        << ",\"diagnostic_result_sha256\":\""
+        << diagnostic_result_sha << "\""
+        << ",\"result_sha256\":\"" << diagnostic_result_sha << "\"}";
+    return {report_passed, report.str()};
 }
