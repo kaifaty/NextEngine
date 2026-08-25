@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R55_PASS_CONTACT_CONSTRAINED_DYKSTRA / D7R19R56_JOINT_WITNESS_CERTIFICATE_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R55_PASS_CONTACT_CONSTRAINED_DYKSTRA / D7R19R56_JOINT_WITNESS_CERTIFICATE_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -97,6 +97,12 @@
   R52-64. Two clean binaries/outputs are byte-exact. Preserve the joint witness
   and research its high-precision raw/enclosure certificate next; do not add
   cycles or performance optimizations first.
+  R56 research now freezes one exact cycle-64 certificate decomposition: reuse
+  the captured directed binary64 image, execute one fresh pair-once JVP and one
+  compensated binary128 directed-row traversal, and classify operator
+  alignment, true positive raw residual, unresolved signs, binary64
+  cancellation, bound-only positives or compatibility in that order. No new
+  Dykstra cycle, projection, gamma change or performance work is admitted.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3553,6 +3559,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R56 proves true positive raw residual, cancellation-only
   signs, bound-only positives or existing compatibility.
 
+### D-113 -- Freeze an outcome-independent joint-witness sign certificate
+
+- **Observation:** R55's cycle-64 aggregate residual is below ordinary
+  binary64 cancellation scale, while its contact, ball and master-membership
+  gates are already closed. Solver depth and certificate arithmetic are now
+  competing explanations.
+- **Decision:** freeze R56 over the exact retained cycle-64 vectors. Reuse the
+  R53 compensated binary128 decomposition, add explicit resolved/unresolved and
+  cancellation routes, and preserve the current directed upper as authority.
+- **Rejected:** more cycles, a fitted zero tolerance, runtime binary128,
+  lowering gamma or performance optimization before sign attribution.
+- **Reconsider when:** executable R56 selects its first frozen scientific route
+  with exact R55 bytes, work and rollback.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3631,9 +3651,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    the residual but neither the independent primal nor dual certificate
    closes. Do not raise its cap or apply its witness. Preserve D7R19R49 exact
    PASS/`RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`; it is not compatibility.
-   Implement frozen D7R19R50 as an active-face Hildreth closure reference over
-   the unchanged problem, contact/trust geometry and directed certificate. Do
-   not start switching,
+   Preserve D7R19R50--R55 and implement only frozen D7R19R56 as the exact
+   cycle-64 joint-witness binary64/binary128 certificate decomposition. Do not
+   add Dykstra cycles or start switching,
    trust response or restoration exit before compatibility closes. Do not
    apply or commit the correction,
    classify a nonlinear floor, change penalty,

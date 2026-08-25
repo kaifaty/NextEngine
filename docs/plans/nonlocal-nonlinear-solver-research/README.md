@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R55_PASS_CONTACT_CONSTRAINED_DYKSTRA /
-NSR3B4E2D7R19R56_JOINT_WITNESS_CERTIFICATE_RESEARCH_NEXT /
+NSR3B4E2D7R19R56_JOINT_WITNESS_CERTIFICATE_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2711,3 +2711,12 @@ outside the 494-row master. At cycle 64, `h=7.3368e-20` and maximum upper
 binaries and outputs are byte-exact. Research binary128 raw/enclosure
 decomposition at this exact joint witness next; do not extend depth or optimize
 the 68 refreshes first.
+The [D7R19R56 research](../../development/nonlocal-nsr3b4e2d7r19r56-joint-witness-certificate-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r56-joint-witness-certificate-contract.md)
+select one read-only certificate decomposition at the exact R55 cycle-64
+witness. It reuses the captured directed image, executes one fresh pair-once
+JVP and one compensated binary128 row traversal, then distinguishes operator
+alignment, true positive residual, unresolved signs, binary64 cancellation,
+bound-only positives and compatibility by frozen precedence. Implement R56
+next. Do not add Dykstra cycles, lower gamma, change state arithmetic or run
+performance work first.
