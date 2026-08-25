@@ -214,6 +214,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-restoration-certificate|"
                          "--nonlocal-al-sparse-row-operator|"
                          "--nonlocal-al-dynamic-all-row-probe|"
+                         "--nonlocal-al-active-face-fista-probe|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1785,6 +1786,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_dynamic_all_row_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-active-face-fista-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_active_face_fista_probe_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
