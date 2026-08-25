@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R49_INCREMENTAL_PASS_ACCELERATOR / CLEAN_AB_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R49_PASS_ACCELERATOR / D7R19R50_ACTIVE_FACE_CLOSURE_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -25,19 +25,20 @@
   radius `0.03125`; contact/trust geometry is not the observed limiter. No
   witness, R43 state, filter state, restoration exit or following outer is
   committed.
-- **Incremental R49 result:** `PASS / RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`
-  at semantic `bbdfae6f...6544`. Sixteen accepted steps use exactly 48 pair
-  passes; all 15 HZ memory steps survive with zero restart. R48 parent bytes,
-  source, geometry, work and rollback remain exact. Clean A/B is pending.
+- **R49 result:** `PASS / RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE` at
+  stdout `7e1dde13...a656` and semantic `bbdfae6f...6544`. Sixteen accepted
+  steps use exactly 48 pair passes; all 15 HZ memory steps survive with zero
+  restart. R48 parent bytes, source, geometry, work and rollback remain exact.
+  Two clean binaries and concurrent outputs are byte-identical.
 - **Acceleration fact:** versus the 322-pass R48 PDAL endpoint, R49 lowers
   `h` by `36.4063x`, `psi` by `1325.42x` and the directed maximum row upper by
   `23.7351x`. Terminal `h=1.4144370953e-10`, maximum upper
   `1.9771445877e-11`, 366 certified-positive rows. The witness remains tiny at
   norm `5.0385810268e-7`.
 - **Current decision:** preserve the exact R48 problem/certificates and select
-  guarded HZ as the stronger primal generator, subject to clean closure. It
+  guarded HZ as the stronger primal generator. It
   still does not certify compatibility. Do not extend the 16-step cap. After
-  clean R49 closure, research a new active-face closure mechanism over the
+  R49 closure, research a new active-face closure mechanism over the
   remaining directed-positive rows; do not apply the witness or exit restoration.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
@@ -3226,16 +3227,16 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   restart and a 15-step memory streak. In 48 pair passes it strictly dominates
   the 322-pass R48 endpoint in `psi`, `h` and maximum directed upper, but 366
   row upper bounds remain positive and the maximum is `1.9771445877e-11`.
-- **Decision:** subject to clean byte-exact closure, retain guarded HZ as the
-  primal generator. Preserve the independent R48 row enclosure as authority.
+- **Decision:** retain guarded HZ as the clean byte-exact primal generator.
+  Preserve the independent R48 row enclosure as authority.
   Do not increase the HZ cap after seeing the endpoint; research a distinct
   active-face closure mechanism next.
 - **Rejected:** calling the `1.4144e-10` norm compatible, fitting a row
   tolerance, accepting ordinary residual instead of directed upper bounds,
   applying the witness, or treating the 6.7x pair-pass ratio as measured
   wall-clock speedup.
-- **Reconsider when:** clean R49 A/B closes and a frozen R50 study distinguishes
-  semismooth/active-set correction from more recurrence iterations.
+- **Reconsider when:** a frozen R50 study distinguishes semismooth/active-set
+  correction from more recurrence iterations.
 
 ## Performance facts retained
 

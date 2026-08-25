@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R48_PASS_RESTORATION_CERTIFICATE_UNRESOLVED /
-NSR3B4E2D7R19R49_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R49_PASS_PRIMAL_ACCELERATOR /
+NSR3B4E2D7R19R50_ACTIVE_FACE_CLOSURE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2596,3 +2596,12 @@ after every accepted step. The outcome-independent cap is 16 accepted steps
 and 48 pair passes. Implement this report-only discriminator next; no generated
 residual, line minimum or projected stationarity may replace the independent
 row enclosure.
+The [D7R19R49 evidence](../../development/nonlocal-nsr3b4e2d7r19r49-restoration-hz-evidence-2026-08-25.md)
+closes `PASS / RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`. All 15 HZ memory
+steps survive without restart; in 48 pair passes the terminal `h`, `psi` and
+directed maximum upper strictly dominate the 322-pass R48 endpoint by
+`36.4063x`, `1325.42x` and `23.7351x`. Both clean binaries and concurrent
+outputs are byte-exact. The maximum row upper remains positive at
+`1.9771445877e-11` over 366 rows, so compatibility is not certified. Research
+an active-face closure mechanism next; do not extend the observed HZ cap,
+apply the witness or exit restoration.

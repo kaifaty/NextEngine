@@ -2,7 +2,8 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN V1 / IMPLEMENTATION NEXT / ROLLBACK ONLY`.
+Status: `PASS / RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE / CLOSED /
+ROLLBACK ONLY`.
 
 Parent: `b2d160d7`, R48 stdout SHA-256
 `70a66443d0a278697e3e4d8d4456f80f5f1ccb1269596d3e5ce569e87d9b90b6`,
@@ -48,6 +49,15 @@ SHA-256: `e61ba2c8ca22f43c09ca7ad6a8949af6437b91f13b1f45b5b5c17926dbae62b8`.
 Require two clean Release builds and byte-exact outputs. A primal PASS is one
 private next-TRQP compatibility candidate only, not a completed restoration
 transaction, runtime permission or production evidence.
+
+## Closed result
+
+R49 closes `PASS / RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`. Sixteen
+accepted steps and 48 pair passes lower `h` to `1.414437095274004e-10` with a
+15-step memory streak and zero restart. The directed maximum remains positive
+at `1.9771445876661678e-11`, so compatibility is not certified. Both clean
+Release binaries and outputs are byte-exact; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r19r49-restoration-hz-evidence-2026-08-25.md).
 
 Rationale:
 [R49 research](../../development/nonlocal-nsr3b4e2d7r19r49-restoration-hz-research-2026-08-25.md).
