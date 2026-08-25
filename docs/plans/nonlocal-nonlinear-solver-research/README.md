@@ -2988,3 +2988,13 @@ instead select a row-normalized binary128 consensus split with a dense
 `2I+B^T*B` Cholesky step. It globally couples the correlated filled-box rows
 while remaining algorithmically separate from the sparse composed-dual
 candidate. Implement this oracle next; do not rerun/extend cyclic Dykstra.
+The
+[R20R2 evidence](../../development/nonlocal-nsr3b4e2d7r20r2-global-admm-oracle-evidence-2026-08-25.md)
+certifies the supported transfer case at 16,384 global iterations, but fixed
+`rho=1` leaves the filled cases primal-consensus dominated at 65,536. This
+closes fixed-penalty depth and converts those observed holdouts to development
+fixtures. The
+[multiparameter research](../../development/nonlocal-nsr3b4e2d7r20r3-multiparameter-admm-research-2026-08-25.md)
+and [frozen R20R3 contract](03b4e2d7r20r3-multiparameter-admm-contract.md)
+select independent density/domain penalties with a bounded MpSRA update.
+Even success is development evidence only; new v3 holdouts remain mandatory.

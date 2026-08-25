@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_FROZEN / GLOBAL_ORACLE_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MULTIPARAMETER_ADMM_FROZEN / MPADMM_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -177,6 +177,16 @@
   rows; exact orthant and box-ball proxes remain independent. Implement
   checkpoints through `2^16`, full KKT/gap certification and no adaptive rho,
   timing or candidate execution.
+- **R20R2 result:** semantic `929a6676...08c`, route
+  `GLOBAL_ADMM_ORACLE_UNRESOLVED`. Supported certifies at cycle 16,384 with all
+  KKT components near `1e-30`, validating global coupling. Filled edge/corner
+  remain uncertified at 65,536: primal consensus exceeds dual by `6.8x/211x`.
+  Stop fixed-rho depth. These two cases are now development, not blind.
+- **R20R3 frozen:** apply separate density/domain penalties with the 2026
+  multiparameter spectral-radius update every 64 iterations, exact dual
+  rescaling/factor rebuild and cap `2^14`. Linear residual audits move to
+  factor/checkpoint boundaries. Implement next; success still requires new v3
+  holdouts before any generalization claim.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
