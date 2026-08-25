@@ -225,6 +225,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-mpadmm-oracle|"
                          "--nonlocal-al-generalization-projector-derivative|"
                          "--nonlocal-al-generalization-newton-direction|"
+                         "--nonlocal-al-generalization-nnqp-representative|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1873,6 +1874,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_newton_direction_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-generalization-nnqp-representative") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_nnqp_representative_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
