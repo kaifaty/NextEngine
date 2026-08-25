@@ -250,6 +250,7 @@ SplitBoundaryReport run_al_generalization_mpadmm_oracle_controls();
 SplitBoundaryReport run_al_generalization_projector_derivative_controls();
 SplitBoundaryReport run_al_generalization_newton_direction_controls();
 SplitBoundaryReport run_al_generalization_nnqp_representative_controls();
+SplitBoundaryReport run_al_generalization_iterative_semismooth_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

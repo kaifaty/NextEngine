@@ -19,10 +19,14 @@ struct ALR20NNQPSolve {
     Binary128 slope = static_cast<Binary128>(0.0);
     Binary128 slope_bound = static_cast<Binary128>(0.0);
     Binary128 minimum_positive = static_cast<Binary128>(0.0);
+    Binary128 failure_value = static_cast<Binary128>(0.0);
+    Binary128 failure_bound = static_cast<Binary128>(0.0);
+    std::size_t failure_source_row = 0U;
     std::vector<Binary128> direction;
     std::vector<Binary128> reduced_gradient;
     std::vector<bool> passive;
     ALR20ADMMWork work;
+    std::string failure = "NONE";
     std::string support_root;
     std::string root;
 };
@@ -121,7 +125,10 @@ ALR20NNQPSolve al_r20_nnqp_solve(
         || source_rows.size() != dimension
         || !al_r20_admm_finite(matrix)
         || !al_r20_admm_finite(rhs)
-        || !al_r20_admm_finite(rhs_bound)) return result;
+        || !al_r20_admm_finite(rhs_bound)) {
+        result.failure = "INVALID_INPUT";
+        return result;
+    }
     result.direction.assign(dimension, static_cast<Binary128>(0.0));
     result.reduced_gradient = rhs;
     result.passive.assign(dimension, false);
@@ -155,6 +162,7 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                         + reduced_bound[index]
                             > static_cast<Binary128>(0.0))
                     exact = false;
+            if (!exact) result.failure = "INACTIVE_SIGN_UNRESOLVED";
             terminated = exact;
             break;
         }
@@ -190,6 +198,7 @@ ALR20NNQPSolve al_r20_nnqp_solve(
             ++result.principal_solves;
             if (!solved) {
                 exact = false;
+                result.failure = "PRINCIPAL_SOLVE_REJECTED";
                 break;
             }
             const Binary128 passive_error =
@@ -205,8 +214,13 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                         < static_cast<Binary128>(0.0))
                     negative.push_back(indices[local]);
                 else if (passive_value[local] - passive_error
-                        <= static_cast<Binary128>(0.0))
+                        <= static_cast<Binary128>(0.0)) {
                     exact = false;
+                    result.failure = "PASSIVE_SIGN_UNRESOLVED";
+                    result.failure_value = passive_value[local];
+                    result.failure_bound = passive_error;
+                    result.failure_source_row = source_rows[indices[local]];
+                }
             }
             if (!exact) break;
             if (negative.empty()) {
@@ -221,6 +235,7 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                 passive_error, negative, source_rows);
             if (!ratio.exact) {
                 exact = false;
+                result.failure = "BOUNDARY_RATIO_UNRESOLVED";
                 break;
             }
             Binary128 step_scale = static_cast<Binary128>(1.0);
@@ -244,10 +259,14 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                     && result.direction[index] - direction_error
                         <= static_cast<Binary128>(0.0)) {
                     exact = false;
+                    result.failure = "BOUNDARY_UPDATE_UNRESOLVED";
                     break;
                 }
         }
     }
+    if (exact && !terminated
+        && result.transitions >= transition_cap)
+        result.failure = "TRANSITION_CAP";
     result.terminated = terminated;
     result.direction_error_bound = direction_error;
     std::vector<Binary128> reduced_bound;
