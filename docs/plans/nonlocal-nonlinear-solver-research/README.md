@@ -3039,3 +3039,9 @@ next [verified-inverse research](../../development/nonlocal-nsr3b4e2d7r20r8-veri
 and [frozen enclosure contract](03b4e2d7r20r8-verified-inverse-contract.md)
 add an on-demand right-inverse residual certificate without changing the
 semismooth direction or active-set sequence.
+The
+[R20R8 evidence](../../development/nonlocal-nsr3b4e2d7r20r8-verified-inverse-evidence-2026-08-25.md)
+strictly certifies the complete development corpus. The next
+[v3 holdout research](../../development/nonlocal-nsr3b4e2d7r20r9-v3-holdout-research-2026-08-25.md)
+and [source-only contract](03b4e2d7r20r9-v3-holdout-manifest-contract.md)
+freeze four new blind fixtures before any operator or solver observation.
