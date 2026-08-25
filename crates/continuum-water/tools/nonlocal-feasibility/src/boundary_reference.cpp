@@ -80098,6 +80098,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_v3_shear_trajectory.inc"
 #include "generalization_v3_line_frontier.inc"
 #include "generalization_v3_breakpoint_geometry.inc"
+#include "generalization_v3_fixed_face_event.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

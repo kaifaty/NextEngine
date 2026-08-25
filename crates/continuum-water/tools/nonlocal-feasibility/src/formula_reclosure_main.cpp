@@ -240,6 +240,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v3-shear-trajectory|"
                          "--nonlocal-al-generalization-v3-line-frontier|"
                          "--nonlocal-al-generalization-v3-breakpoint-geometry|"
+                         "--nonlocal-al-generalization-v3-fixed-face-event|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2002,6 +2003,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v3_breakpoint_geometry_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command ==
+            "--nonlocal-al-generalization-v3-fixed-face-event") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v3_fixed_face_event_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
