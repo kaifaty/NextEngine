@@ -9,12 +9,19 @@ struct ALR20SemismoothStep {
     bool natural_face_resolved = false;
     bool direction_certified = false;
     bool accepted = false;
+    bool event_replacement_eligible = false;
+    bool event_replacement_applied = false;
     std::size_t iteration = 0U;
     std::size_t natural_face_size = 0U;
     std::size_t ambiguous_rows = 0U;
     Binary128 slope = static_cast<Binary128>(0.0);
     Binary128 slope_bound = static_cast<Binary128>(0.0);
     Binary128 direction_error_bound = static_cast<Binary128>(0.0);
+    Binary128 event_root_alpha = static_cast<Binary128>(0.0);
+    Binary128 event_certified_alpha = static_cast<Binary128>(0.0);
+    Binary128 event_forward_bound = static_cast<Binary128>(0.0);
+    std::size_t event_scalar = 0U;
+    std::size_t event_contributing_entries = 0U;
     ALR20NNQPSolve solve;
     std::vector<ALR20NewtonTrial> trials;
     ALR20NewtonTrial selected;
@@ -32,7 +39,8 @@ ALR20SemismoothStep al_r20_semismooth_step(
     const std::vector<Binary128>& diagonal,
     std::size_t iteration,
     bool verified_inverse = false,
-    bool dual_ratio_refinement = false) {
+    bool dual_ratio_refinement = false,
+    bool certified_event_replacement = false) {
     ALR20SemismoothStep result;
     result.iteration = iteration;
     const std::size_t all_rows = lambda.size();
@@ -210,6 +218,150 @@ ALR20SemismoothStep al_r20_semismooth_step(
             }
         }
     }
+    if (certified_event_replacement && result.accepted
+        && result.selected.power > 0U
+        && result.selected.mask_changes == 0U
+        && !result.selected.ball_activity_changed) {
+        const ALR20NewtonTrial* rejected_double = nullptr;
+        bool all_prior_crossing = true;
+        for (const ALR20NewtonTrial& trial : result.trials) {
+            if (trial.power + 1U == result.selected.power)
+                rejected_double = &trial;
+            if (trial.power < result.selected.power)
+                all_prior_crossing = all_prior_crossing
+                    && (trial.mask_changes > 0U
+                        || trial.ball_activity_changed);
+        }
+        const std::vector<Binary128Vec3> lower =
+            al_r20_projector_promote_bounds(problem.lower);
+        std::vector<Binary128> multiplier_direction(all_rows);
+        for (std::size_t row = 0U; row < all_rows; ++row)
+            multiplier_direction[row] = representative[row] - lambda[row];
+        const std::vector<Binary128Vec3> input_direction_image =
+            al_r20_q_transpose(
+                problem.op, multiplier_direction, problem.target.size());
+        struct ZeroRelease {
+            std::size_t scalar = 0U;
+            Binary128 root = static_cast<Binary128>(0.0);
+            Binary128 derivative = static_cast<Binary128>(0.0);
+        };
+        std::vector<ZeroRelease> releases;
+        if (all_prior_crossing && rejected_double != nullptr)
+            for (std::size_t scalar = 0U;
+                 scalar < current.projector.mask.size(); ++scalar) {
+                if (current.projector.mask[scalar] != -1) continue;
+                const std::size_t particle = scalar / 3U;
+                const int axis = static_cast<int>(scalar % 3U);
+                if (al_r20_q_component(lower[particle], axis)
+                        != static_cast<Binary128>(0.0))
+                    continue;
+                const Binary128 derivative = -al_r20_q_component(
+                    input_direction_image[particle], axis);
+                if (!(derivative > static_cast<Binary128>(0.0))) continue;
+                const Binary128 initial = al_r20_q_component(
+                    current.input[particle], axis);
+                const Binary128 root = -initial / derivative;
+                if (finiteq(root) != 0
+                    && root >= result.selected.alpha
+                    && root <= rejected_double->alpha)
+                    releases.push_back({scalar, root, derivative});
+            }
+        result.event_replacement_eligible = releases.size() == 1U;
+        if (result.event_replacement_eligible) {
+            const ZeroRelease& release = releases.front();
+            result.event_scalar = release.scalar;
+            result.event_root_alpha = release.root;
+            const std::size_t particle = release.scalar / 3U;
+            const int axis = static_cast<int>(release.scalar % 3U);
+            const std::vector<Binary128Vec3> target =
+                al_r20_q_promote(problem.target);
+            Binary128Accumulator event_scale;
+            event_scale.add(fabsq(
+                al_r20_q_component(target[particle], axis)));
+            for (std::size_t row = 0U; row < all_rows; ++row)
+                for (std::size_t index = problem.op.entry_offsets[row];
+                     index < problem.op.entry_offsets[row + 1U]; ++index) {
+                    const ALR64Entry& entry = problem.op.entries[index];
+                    if (entry.particle != particle) continue;
+                    const Binary128 coefficient = fabsq(al_r20_q_component(
+                        al_binary128_vec3(entry.coefficient), axis));
+                    if (coefficient == static_cast<Binary128>(0.0)) continue;
+                    event_scale.add(coefficient * (fabsq(lambda[row])
+                        + fabsq(representative[row])));
+                    ++result.event_contributing_entries;
+                }
+            result.event_forward_bound = al_r20_q_gamma(
+                32U * result.event_contributing_entries + 256U)
+                * fmaxq(event_scale.value(),
+                    ldexpq(static_cast<Binary128>(1.0), -16382));
+            const Binary128 safe_edge = release.root
+                + result.event_forward_bound / release.derivative;
+            result.event_certified_alpha = nextafterq(safe_edge, HUGE_VALQ);
+            ALR20NewtonTrial event_trial;
+            event_trial.power = AL_R20_NEWTON_LINE_TRIALS;
+            event_trial.alpha = result.event_certified_alpha;
+            std::vector<Binary128> event_lambda(all_rows);
+            bool cone_exact = event_trial.alpha > release.root
+                && event_trial.alpha <= rejected_double->alpha;
+            for (std::size_t row = 0U; row < all_rows; ++row) {
+                event_lambda[row] =
+                    (static_cast<Binary128>(1.0) - event_trial.alpha)
+                        * lambda[row]
+                    + event_trial.alpha * representative[row];
+                cone_exact = cone_exact
+                    && event_lambda[row] >= static_cast<Binary128>(0.0);
+            }
+            event_trial.dual = al_r20_newton_dual_evaluate(
+                problem, event_lambda);
+            event_trial.exact = cone_exact && event_trial.dual.exact;
+            event_trial.dual_increase_lower =
+                event_trial.dual.value - event_trial.dual.bound
+                - current.value - current.bound;
+            event_trial.ball_activity_changed =
+                event_trial.dual.projector.ball_active
+                != current.projector.ball_active;
+            bool predicted_changed = false;
+            for (std::size_t scalar = 0U;
+                 scalar < current.projector.mask.size(); ++scalar)
+                if (event_trial.dual.projector.mask[scalar]
+                        != current.projector.mask[scalar]) {
+                    ++event_trial.mask_changes;
+                    predicted_changed = predicted_changed
+                        || scalar == release.scalar;
+                }
+            event_trial.accepted = event_trial.exact
+                && !event_trial.ball_activity_changed
+                && event_trial.mask_changes == 1U && predicted_changed
+                && al_r20_newton_armijo(
+                    current.value, current.bound,
+                    event_trial.dual.value, event_trial.dual.bound,
+                    event_trial.alpha, result.slope, result.slope_bound);
+            event_trial.metrics = al_r20_q_metrics(problem,
+                event_trial.dual.projector.value, event_lambda,
+                diagonal, iteration);
+            event_trial.exact = event_trial.exact
+                && event_trial.metrics.finite;
+            std::ostringstream event_trial_material;
+            event_trial_material << "certified-event:"
+                << event_trial.exact << ':' << event_trial.accepted << ':'
+                << release.scalar << ':'
+                << al_binary128_hex(release.root) << ':'
+                << al_binary128_hex(result.event_forward_bound) << ':'
+                << al_binary128_hex(event_trial.alpha) << ':'
+                << al_binary128_hex(event_trial.dual_increase_lower) << ':'
+                << event_trial.mask_changes << ':'
+                << event_trial.ball_activity_changed << ':'
+                << event_trial.dual.root << ':' << event_trial.metrics.root;
+            event_trial.root = sha256_hex(event_trial_material.str());
+            result.trials.push_back(event_trial);
+            line_exact = line_exact && event_trial.exact;
+            if (event_trial.accepted) {
+                result.event_replacement_applied = true;
+                result.selected = event_trial;
+                result.next_lambda = std::move(event_lambda);
+            }
+        }
+    }
     result.harness_exact = result.harness_exact && line_exact;
     std::ostringstream material;
     material << result.harness_exact << ':'
@@ -226,6 +378,14 @@ ALR20SemismoothStep al_r20_semismooth_step(
              << '|';
     for (const ALR20NewtonTrial& trial : result.trials)
         material << trial.root << ';';
+    if (certified_event_replacement)
+        material << "|certified-event:" << result.event_replacement_eligible
+                 << ':' << result.event_replacement_applied << ':'
+                 << result.event_scalar << ':'
+                 << result.event_contributing_entries << ':'
+                 << al_binary128_hex(result.event_root_alpha) << ':'
+                 << al_binary128_hex(result.event_certified_alpha) << ':'
+                 << al_binary128_hex(result.event_forward_bound);
     result.root = sha256_hex(material.str());
     return result;
 }
@@ -240,6 +400,9 @@ struct ALR20SemismoothCase {
     std::size_t total_mask_changes = 0U;
     std::size_t total_principal_solves = 0U;
     std::size_t total_transitions = 0U;
+    std::size_t event_replacements = 0U;
+    std::size_t event_fallbacks = 0U;
+    std::size_t event_extra_evaluations = 0U;
     ALR20OracleMetrics initial_metrics;
     ALR20OracleMetrics final_metrics;
     std::vector<ALR20SemismoothStep> steps;
@@ -250,7 +413,8 @@ struct ALR20SemismoothCase {
 ALR20SemismoothCase al_r20_semismooth_case(
     const ALR20ProblemData& problem,
     bool verified_inverse = false,
-    bool dual_ratio_refinement = false) {
+    bool dual_ratio_refinement = false,
+    bool certified_event_replacement = false) {
     ALR20SemismoothCase result;
     const std::size_t rows = problem.row_scale.size();
     const std::vector<Binary128> diagonal = al_r20_q_diagonal(problem.op);
@@ -272,10 +436,17 @@ ALR20SemismoothCase al_r20_semismooth_case(
          iteration <= AL_R20_SEMISMOOTH_ITERATION_CAP; ++iteration) {
         ALR20SemismoothStep step = al_r20_semismooth_step(
             problem, current, lambda, diagonal, iteration,
-            verified_inverse, dual_ratio_refinement);
+            verified_inverse, dual_ratio_refinement,
+            certified_event_replacement);
         result.harness_exact = result.harness_exact && step.harness_exact;
         result.total_principal_solves += step.solve.principal_solves;
         result.total_transitions += step.solve.transitions;
+        result.event_replacements +=
+            step.event_replacement_applied ? 1U : 0U;
+        result.event_fallbacks += step.event_replacement_eligible
+                && !step.event_replacement_applied ? 1U : 0U;
+        result.event_extra_evaluations +=
+            step.event_replacement_eligible ? 1U : 0U;
         if (!step.natural_face_resolved || !step.solve.exact) {
             result.active_set_rejected = true;
             result.steps.push_back(std::move(step));
@@ -317,6 +488,10 @@ ALR20SemismoothCase al_r20_semismooth_case(
              << al_r20_q_scalar_root(result.final_lambda) << '|';
     for (const ALR20SemismoothStep& step : result.steps)
         material << step.root << ';';
+    if (certified_event_replacement)
+        material << "|certified-event:" << result.event_replacements << ':'
+                 << result.event_fallbacks << ':'
+                 << result.event_extra_evaluations;
     result.root = sha256_hex(material.str());
     return result;
 }
