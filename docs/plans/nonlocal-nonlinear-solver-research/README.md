@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R63_PASS_TANGENTIAL_MASTER_EXPANSION_REQUIRED /
-NSR3B4E2D7R19R64_SPARSE_ROW_OPERATOR_RESEARCH_NEXT /
+NSR3B4E2D7R19R64_SPARSE_ROW_OPERATOR_CONTRACT_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2861,3 +2861,10 @@ projection identity is forward-bound exact and reduces model inertia by about
 its ownership. More fixed-master depth is rejected. Research sparse all-row
 row gradients and particle-to-row overlap with exact reference validation
 before dynamic active-set expansion.
+The [R64 research](../../development/nonlocal-nsr3b4e2d7r19r64-sparse-row-operator-research-2026-08-25.md)
+selects a two-layer all-row representation: exact-order directed slots for
+certificate correspondence, aggregated particle coefficients for updates and
+a particle-to-row inverted incidence for local Gram overlap. Timestamp scratch
+plus a touched-row list avoids full-array clearing per coordinate. Validate
+all 494 captured gradients, diagonals and 6000-entry Gram columns before any
+dynamic active-set solve.

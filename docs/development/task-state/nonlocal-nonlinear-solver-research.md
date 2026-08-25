@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R63_PASS_TANGENTIAL_MASTER_EXPANSION_REQUIRED / D7R19R64_SPARSE_ROW_OPERATOR_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R63_PASS_TANGENTIAL_MASTER_EXPANSION_REQUIRED / D7R19R64_SPARSE_ROW_OPERATOR_CONTRACT_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,11 @@
 
 ## Resume in 60 seconds
 
+- **R64 selected structure:** exact-order directed slots plus unique aggregated
+  particle entries and particle-to-row incidence. Use epoch/timestamp scratch
+  and touched rows for local Gram overlap. Freeze equivalence against fresh R29
+  action/transpose and all 494 R51 gradients/diagonals/columns. No solve or
+  timing until equivalence closes.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -3884,6 +3889,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** a sparse operator-equivalence audit cannot reproduce the
   captured row action/diagonal/update within a frozen forward-error contract.
 
+### D-129 -- Validate a two-layer sparse Jacobian before all-row expansion
+
+- **Observation:** density rows have 44--113 directed slots, while full-vector
+  all-row gradients and dense Gram would consume roughly 864 MB and 288 MB
+  respectively and make coordinate updates globally scanned.
+- **Decision:** own exact directed slots for row action and separately aggregate
+  unique fluid-DOF entries for sparse updates. Build particle-to-row incidence;
+  use epoch-tagged scratch and touched rows for overlap columns. Validate all
+  available R51 rows and fresh R29 actions before a solve.
+- **Rejected:** dense all-row vectors/Gram, new per-row VJP/JVP construction,
+  enabling dynamic Hildreth before equivalence, or timing an unvalidated path.
+- **Reconsider when:** R64 exact/bounded equivalence passes structural,
+  arithmetic, corruption, work and rollback gates.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3975,10 +3994,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`RESTORATION_EXIT_TRANSACTION_CANDIDATE`; its private position is R43
    and its exact R58 normal remains cached and unapplied. Freeze D7R19R63 as a
    D7R19R63 exact PASS/`TANGENTIAL_MASTER_EXPANSION_REQUIRED`; do not add
-   fixed-master depth. Research D7R19R64 sparse topology-derived all-row
-   gradients, particle-to-row incidence/overlap and exact equivalence against
-   the captured R51 reference before dynamic active-set solve. Defer nonlinear
-   switching/filter globalization.
+   fixed-master depth. Freeze D7R19R64 sparse topology-derived all-row slots,
+   unique gradients, particle-to-row incidence/epoch overlap and exact/bounded
+   equivalence against fresh R29 plus all captured R51 rows. Do not execute a
+   dynamic active-set solve yet. Defer nonlinear switching/filter globalization.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,
