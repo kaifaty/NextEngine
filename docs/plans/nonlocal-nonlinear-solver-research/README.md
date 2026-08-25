@@ -1,9 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R50_PASS_ACTIVE_FACE_CLOSURE /
-NSR3B4E2D7R19R51V1_INVALID_WORKSPACE_LIFECYCLE /
-NSR3B4E2D7R19R51V2_INVALID_IDENTITY_ENCODING /
-NSR3B4E2D7R19R51V3_PERSISTENT_MASTER_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R51V3_PASS_PERSISTENT_MASTER_CLOSURE /
+NSR3B4E2D7R19R52_FIXED_MASTER_CONVERGENCE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2633,5 +2631,12 @@ pair passes. V1 is invalid before implementation because that work owned no
 workspace. V2 correctly reproduces R50 and the 1/1 workspace lifecycle but is
 invalid because its SHA included a Markdown newline. V3 hashes the exact
 newline-free runtime literal without changing the mathematical experiment.
-Implement v3 next; do not add a second persistent outer or change capacity from
-the nominal result.
+The clean v3 execution below is the only credited persistent-master result.
+The [D7R19R51 evidence](../../development/nonlocal-nsr3b4e2d7r19r51-persistent-master-evidence-2026-08-25.md)
+closes `PASS / PERSISTENT_MASTER_CLOSURE_CANDIDATE`. The exact union has 494
+rows and needs only two new bases; full `alpha=1` lowers R50 `psi`, `h` and
+maximum directed upper by `33.1961x`, `5.76161x` and `11.5286x` in five new
+pair passes. Both clean binaries and concurrent outputs are byte-exact. All 481
+remaining positives are inside the persistent master, so research fixed-master
+solve convergence next. Compatibility is still open; do not widen capacity,
+run another nonlinear outer, apply the witness or exit restoration first.

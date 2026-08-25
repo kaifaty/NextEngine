@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R50_PASS_CLOSURE / D7R19R51V1_INVALID_WORKSPACE_LIFECYCLE / D7R19R51V2_INVALID_IDENTITY_ENCODING / D7R19R51V3_PERSISTENT_MASTER_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R51V3_PASS_PERSISTENT_MASTER_CLOSURE / D7R19R52_FIXED_MASTER_CONVERGENCE_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -49,12 +49,16 @@
   implementation because missing-row operator work had no owned workspace.
   The first R51 v2 executable replay reproduced R50 exactly and its own 1/1
   workspace lifecycle, but rejected before the master because its documented
-  SHA included a terminal Markdown newline. It has no solver credit. R51 v3 is
-  frozen at newline-free identity `9785a216...5fcf` as one eight-sweep solve over the stable cache/terminal-row
-  union, reusing captured bases and adding at most 20 missing rows/49 passes.
-  It builds and releases exactly one new moved workspace; all mathematical
-  controls remain unchanged.
-  Implement it next.
+  SHA included a terminal Markdown newline. It has no solver credit. Clean R51
+  v3 passes at stdout `c0fc53e3...f960`, semantic `65df3604...361a` and route
+  `PERSISTENT_MASTER_CLOSURE_CANDIDATE`. The stable union has 494 rows, only two
+  new bases and zero terminal positives outside the master. Full `alpha=1`
+  lowers R50 `psi`, `h` and maximum upper by `33.1961x`, `5.76161x` and
+  `11.5286x` using five new pair passes. Both clean binaries and outputs are
+  byte-exact. Compatibility remains open at 481 directed-positive rows and
+  maximum upper `8.9325740895e-14`. Preserve the exact fixed master and research
+  its solve convergence next; do not widen capacity or execute another
+  nonlinear outer first.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3335,6 +3339,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   persistent master.
 - **Reconsider when:** v3 passes the identity/dense/workspace gates and forms the
   exact union, or exposes a distinct later gate.
+
+### D-103 -- Close row migration; isolate fixed-master convergence next
+
+- **Observation:** clean R51 v3 forms a 494-row union from the 492 cached and
+  488 terminal-positive R50 rows, requiring only two new bases. Eight zero-dual
+  Hildreth sweeps and full `alpha=1` make strict progress in five pair passes.
+  All 481 remaining directed-positive rows are already inside the master, while
+  its predicted maximum remains positive at `2.4062191743e-14`.
+- **Decision:** close external row migration as the observed cause addressed by
+  persistence. Preserve the exact 494-row master/basis/Gram and research R52 as
+  a fixed-master convergence discriminator: compare principled multiplier
+  continuation and a frozen higher-sweep zero-dual reference before selection.
+- **Rejected:** widening capacity, a second nonlinear outer, returning to
+  current-positive-only solves, treating membership as compatibility, fitting a
+  positivity tolerance, or applying the uncertified R51 witness.
+- **Reconsider when:** research identifies an outcome-independent fixed-master
+  stopping/work policy and an independent certificate-preserving experiment.
 
 ## Performance facts retained
 
