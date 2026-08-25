@@ -47,6 +47,16 @@ struct ALR49Generator {
     std::vector<std::string> step_roots;
 };
 
+struct ALR49ReplayCapture {
+    bool captured = false;
+    ALR48ReplayCapture r48;
+    std::vector<Vec3> witness;
+    ALR48PrimalAudit primal;
+    std::string checkpoint_root;
+    std::string step_root;
+    std::string witness_root;
+};
+
 bool al_r49_checkpoint_requested(std::size_t accepted) {
     return accepted == 1U || accepted == 2U || accepted == 4U
         || accepted == 8U || accepted == 16U;
@@ -371,7 +381,8 @@ std::string al_r49_route(bool parent, bool source, bool workspace,
 
 } // namespace
 
-SplitBoundaryReport run_al_restoration_hz_accelerator_controls() {
+SplitBoundaryReport run_al_restoration_hz_accelerator_controls_impl(
+    ALR49ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R49_IDENTITY_PROJECTION)
         == B4E2D7R19R49_IDENTITY_SHA256;
     ALR48ReplayCapture capture;
@@ -649,5 +660,18 @@ SplitBoundaryReport run_al_restoration_hz_accelerator_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r48 = std::move(capture);
+        replay_capture->witness = generator.witness;
+        replay_capture->primal = generator.primal;
+        replay_capture->checkpoint_root = checkpoint_root;
+        replay_capture->step_root = step_root;
+        replay_capture->witness_root = witness_root;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_restoration_hz_accelerator_controls() {
+    return run_al_restoration_hz_accelerator_controls_impl(nullptr);
 }
