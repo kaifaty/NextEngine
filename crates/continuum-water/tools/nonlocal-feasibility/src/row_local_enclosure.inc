@@ -167,9 +167,16 @@ std::string al_r59_route(bool parent, bool source, bool workspace,
     return "ROW_LOCAL_ENCLOSURE_NO_IMPROVEMENT";
 }
 
+struct ALR59ReplayCapture {
+    bool captured = false;
+    ALR58ReplayCapture r58;
+    ALR59Scan scan;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_row_local_enclosure_controls() {
+SplitBoundaryReport run_al_row_local_enclosure_controls_impl(
+    ALR59ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R59_IDENTITY_PROJECTION)
         == B4E2D7R19R59_IDENTITY_SHA256;
     ALR58ReplayCapture capture;
@@ -437,5 +444,14 @@ SplitBoundaryReport run_al_row_local_enclosure_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r58 = std::move(capture);
+        replay_capture->scan = std::move(scan);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_row_local_enclosure_controls() {
+    return run_al_row_local_enclosure_controls_impl(nullptr);
 }

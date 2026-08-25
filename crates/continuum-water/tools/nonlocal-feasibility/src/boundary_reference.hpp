@@ -232,6 +232,7 @@ SplitBoundaryReport run_al_joint_witness_certificate_controls();
 SplitBoundaryReport run_al_certificate_aware_refinement_controls();
 SplitBoundaryReport run_al_directed_enclosure_fixed_point_controls();
 SplitBoundaryReport run_al_row_local_enclosure_controls();
+SplitBoundaryReport run_al_certificate_validation_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
