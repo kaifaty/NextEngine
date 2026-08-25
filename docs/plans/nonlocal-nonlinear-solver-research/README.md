@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R48_PASS_RESTORATION_CERTIFICATE_UNRESOLVED /
-NSR3B4E2D7R19R49_PRIMAL_ACCELERATOR_RESEARCH_NEXT /
+NSR3B4E2D7R19R49_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2587,3 +2587,12 @@ trust geometry. Both clean Release binaries and outputs are byte-exact. Keep
 the R48 problem and certificates fixed; research/freeze a guarded
 Hager--Zhang/exact-line primal accelerator next. Do not raise the PDAL cap,
 apply its uncertified witness or commit a restoration exit.
+The [D7R19R49 research](../../development/nonlocal-nsr3b4e2d7r19r49-restoration-hz-research-2026-08-25.md)
+selects a guarded Hager--Zhang primal transfer over the unchanged R48 problem.
+Its [frozen contract](03b4e2d7r19r49-restoration-hz-contract.md) projects every
+proposal with the exact R48 ball-box operator, minimizes the all-row hinge
+exactly on the resulting feasible chord and runs a fresh directed primal audit
+after every accepted step. The outcome-independent cap is 16 accepted steps
+and 48 pair passes. Implement this report-only discriminator next; no generated
+residual, line minimum or projected stationarity may replace the independent
+row enclosure.

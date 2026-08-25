@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R48_PASS_UNRESOLVED / D7R19R49_PRIMAL_ACCELERATOR_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R48_PASS_UNRESOLVED / D7R19R49_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -26,10 +26,11 @@
   witness, R43 state, filter state, restoration exit or following outer is
   committed.
 - **Current decision:** preserve the exact R48 problem, geometry, primal/dual
-  authorities and rollback. Do not raise the 128-iteration PDAL cap. Research
-  R49 as a replacement primal generator only: guarded Hager--Zhang memory,
-  convex contact-box/trust projection and exact all-inequality hinge line
-  minimization, with R48's independent row enclosures still owning success.
+  authorities and rollback. Do not raise the 128-iteration PDAL cap. R49 is
+  frozen at identity `e61ba2c8...e62b8` as a replacement primal generator only:
+  guarded Hager--Zhang memory, convex contact-box/trust projection and exact
+  all-inequality hinge line minimization. Maximum work is 16 accepted steps
+  and 48 pair passes; fresh R48 directed row enclosures still own success.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3208,9 +3209,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   tolerance, weakening directed rounding, applying the uncertified witness,
   interpreting a negative dual lower bound as infeasibility, or spending more
   iterations in the same established first-order recurrence.
-- **Reconsider when:** R49 freezes an outcome-independent recurrence, work cap,
-  restart policy and certificate reuse, then closes a clean reproducible
-  classification.
+- **Reconsider when:** the frozen R49 recurrence closes a clean reproducible
+  primal, stationary, accelerator or reference-retained classification.
 
 ## Performance facts retained
 
@@ -3288,9 +3288,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    invalid geometry diagnostic with no solver credit. Preserve D7R19R48 v2
    exact PASS/`RESTORATION_CERTIFICATE_UNRESOLVED`: its PDAL generator improves
    the residual but neither the independent primal nor dual certificate
-   closes. Do not raise its cap or apply its witness. Research/freeze D7R19R49
-   as a replacement primal generator over the unchanged R48 next-TRQP problem,
-   contact/trust geometry and certificate authority. Do not start switching,
+   closes. Do not raise its cap or apply its witness. Implement frozen
+   D7R19R49 as a replacement primal generator over the unchanged R48 next-TRQP
+   problem, contact/trust geometry and certificate authority. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
    apply or commit the correction,
    classify a nonlinear floor, change penalty,
