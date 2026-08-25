@@ -25,9 +25,12 @@ struct ALR65PBlock {
     std::size_t iterations = 0U;
     std::size_t face_iterations = 0U;
     std::size_t candidate_trials = 0U;
+    std::size_t baseline_projection_calls = 0U;
     std::size_t candidate_projection_calls = 0U;
     std::size_t dual_rejections = 0U;
     std::size_t model_rejections = 0U;
+    std::size_t composed_rejections = 0U;
+    std::size_t admissible_candidates = 0U;
     std::size_t selected_exponent = 16U;
     std::size_t transpose_calls = 0U;
     std::size_t action_calls = 0U;
@@ -40,6 +43,8 @@ struct ALR65PBlock {
     double line_alpha = 0.0;
     double line_slope = 0.0;
     double line_curvature = 0.0;
+    double baseline_inertia = 0.0;
+    double baseline_model_reduction = 0.0;
     double candidate_inertia = 0.0;
     double candidate_model_reduction = 0.0;
     std::string batch_root;
@@ -168,7 +173,25 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
     std::vector<double> selected_lambda = result.lambda;
     std::vector<Vec3> selected_at(count);
     std::vector<std::uint8_t> applied_mask(count, 0U);
+    std::vector<Vec3> baseline_joint_input(count);
+    for (std::size_t particle = 0U; particle < count; ++particle)
+        baseline_joint_input[particle] =
+            correction[particle] + initial_q[particle];
+    const ALR48Projection baseline_projection = al_r48_project_ball_box(
+        baseline_joint_input, lower, upper, AL_R62_NEXT_RADIUS);
+    ++result.baseline_projection_calls;
+    exact = exact && baseline_projection.passed
+        && baseline_projection.value.size() == count;
+    std::vector<Vec3> baseline_endpoint(count);
+    for (std::size_t particle = 0U; particle < count && exact; ++particle)
+        baseline_endpoint[particle] = trial_origin[particle]
+            + SPACING * baseline_projection.value[particle];
+    result.baseline_inertia = exact
+        ? al_r63_inertia(baseline_endpoint, predicted_position)
+        : std::numeric_limits<double>::infinity();
+    exact = exact && std::isfinite(result.baseline_inertia);
     result.line_exact = false;
+    double best_baseline_reduction = 0.0;
     for (std::size_t exponent = 0U; exponent < 16U && exact; ++exponent) {
         const double alpha = std::ldexp(1.0, -static_cast<int>(exponent));
         std::vector<double> trial_lambda = result.lambda;
@@ -218,24 +241,34 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
             candidate_endpoint, predicted_position);
         const double candidate_model_reduction =
             normal_inertia - candidate_inertia;
+        const double baseline_model_reduction =
+            result.baseline_inertia - candidate_inertia;
         exact = std::isfinite(candidate_inertia)
-            && std::isfinite(candidate_model_reduction);
+            && std::isfinite(candidate_model_reduction)
+            && std::isfinite(baseline_model_reduction);
         if (!exact) break;
         if (candidate_model_reduction <= 0.0) {
             ++result.model_rejections;
             continue;
         }
+        if (baseline_model_reduction <= 0.0) {
+            ++result.composed_rejections;
+            continue;
+        }
+        ++result.admissible_candidates;
+        if (baseline_model_reduction <= best_baseline_reduction) continue;
         result.line_exact = true;
+        best_baseline_reduction = baseline_model_reduction;
         result.line_alpha = alpha;
         result.line_slope = static_cast<double>(slope);
         result.line_curvature = static_cast<double>(curvature);
         result.descent = static_cast<double>(change);
         result.candidate_inertia = candidate_inertia;
         result.candidate_model_reduction = candidate_model_reduction;
+        result.baseline_model_reduction = baseline_model_reduction;
         result.selected_exponent = exponent;
-        selected_lambda = std::move(trial_lambda);
+        selected_lambda = trial_lambda;
         selected_at = at_trial;
-        break;
     }
     if (result.line_exact) {
         result.lambda = std::move(selected_lambda);
@@ -250,14 +283,19 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
     std::ostringstream batch_material;
     batch_material << result.face_iterations << ':'
         << result.candidate_trials << ':' << result.selected_exponent << ':'
+        << result.baseline_projection_calls << ':'
         << result.candidate_projection_calls << ':'
         << result.dual_rejections << ':' << result.model_rejections << ':'
+        << result.composed_rejections << ':'
+        << result.admissible_candidates << ':'
         << result.predicted_zeros << ':'
         << result.applied_zeros << ':' << al_r29_mask_root(predicted_mask)
         << ':' << al_r29_mask_root(applied_mask) << ':'
         << binary64_bits(result.line_slope) << ':'
         << binary64_bits(result.line_curvature) << ':'
         << binary64_bits(result.line_alpha) << ':'
+        << binary64_bits(result.baseline_inertia) << ':'
+        << binary64_bits(result.baseline_model_reduction) << ':'
         << binary64_bits(result.candidate_inertia) << ':'
         << binary64_bits(result.candidate_model_reduction);
     result.batch_root = sha256_hex(batch_material.str());
@@ -278,9 +316,12 @@ struct ALR65PRecord {
     std::size_t face = 0U;
     std::size_t pcg_iterations = 0U;
     std::size_t candidate_trials = 0U;
+    std::size_t baseline_projection_calls = 0U;
     std::size_t candidate_projection_calls = 0U;
     std::size_t dual_rejections = 0U;
     std::size_t model_rejections = 0U;
+    std::size_t composed_rejections = 0U;
+    std::size_t admissible_candidates = 0U;
     std::size_t selected_exponent = 16U;
     std::size_t predicted_zeros = 0U;
     std::size_t applied_zeros = 0U;
@@ -292,6 +333,8 @@ struct ALR65PRecord {
     double line_alpha = 0.0;
     double line_slope = 0.0;
     double line_curvature = 0.0;
+    double baseline_inertia = 0.0;
+    double baseline_model_reduction = 0.0;
     double candidate_model_reduction = 0.0;
     double committed_model_reduction = 0.0;
     double model_prediction_gap = 0.0;
@@ -309,23 +352,26 @@ struct ALR65PRecord {
 };
 
 std::string al_r65p_route(bool exact, bool curvature, bool line,
-    bool candidate_model_rejected, bool model_agreement, bool recurrence,
-    bool model, bool lower_work, bool dominates) {
-    if (!exact) return "MODEL_AWARE_PROJECTED_PATH_REFERENCE_RETAINED";
+    bool normal_model_rejected, bool composed_model_rejected,
+    bool model_agreement, bool recurrence, bool model, bool lower_work,
+    bool dominates) {
+    if (!exact) return "BEST_MODEL_DYADIC_REFERENCE_RETAINED";
     if (!curvature)
-        return "MODEL_AWARE_PROJECTED_PATH_CURVATURE_REJECTED";
-    if (!line && candidate_model_rejected)
-        return "MODEL_AWARE_PROJECTED_PATH_MODEL_REJECTED";
-    if (!line) return "MODEL_AWARE_PROJECTED_PATH_LINE_REJECTED";
+        return "BEST_MODEL_DYADIC_CURVATURE_REJECTED";
+    if (!line && composed_model_rejected)
+        return "BEST_MODEL_DYADIC_NO_COMPOSED_DESCENT";
+    if (!line && normal_model_rejected)
+        return "BEST_MODEL_DYADIC_NORMAL_MODEL_REJECTED";
+    if (!line) return "BEST_MODEL_DYADIC_NO_COMPOSED_DESCENT";
     if (!model_agreement)
-        return "MODEL_AWARE_PROJECTED_PATH_MODEL_AGREEMENT_REJECTED";
+        return "BEST_MODEL_DYADIC_MODEL_AGREEMENT_REJECTED";
     if (!recurrence)
-        return "MODEL_AWARE_PROJECTED_PATH_RECURRENCE_REJECTED";
+        return "BEST_MODEL_DYADIC_RECURRENCE_REJECTED";
     if (!model)
-        return "MODEL_AWARE_PROJECTED_PATH_CHECKPOINT_MODEL_REJECTED";
+        return "BEST_MODEL_DYADIC_CHECKPOINT_MODEL_REJECTED";
     if (lower_work && dominates)
-        return "MODEL_AWARE_PROJECTED_PATH_ACCELERATION_CANDIDATE";
-    return "MODEL_AWARE_PROJECTED_PATH_REFERENCE_RETAINED";
+        return "BEST_MODEL_DYADIC_ACCELERATION_CANDIDATE";
+    return "BEST_MODEL_DYADIC_REFERENCE_RETAINED";
 }
 
 } // namespace
@@ -423,7 +469,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     bool exact = geometry_exact && audit.owner_exact && initial_working > 0U;
     bool curvature_exact = true;
     bool line_exact = true;
-    bool candidate_model_rejected = false;
+    bool normal_model_rejected = false;
+    bool composed_model_rejected = false;
     bool model_agreement_exact = true;
     bool recurrence_exact = true;
     bool model_exact = true;
@@ -435,9 +482,12 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     std::size_t coordinate_update_terms = 0U;
     std::size_t face_pcg_iterations = 0U;
     std::size_t candidate_trials = 0U;
+    std::size_t baseline_projection_calls = 0U;
     std::size_t candidate_projection_calls = 0U;
     std::size_t candidate_dual_rejections = 0U;
     std::size_t candidate_model_rejections = 0U;
+    std::size_t candidate_composed_rejections = 0U;
+    std::size_t admissible_candidates = 0U;
     std::size_t accepted_lines = 0U;
     std::size_t curvature_stops = 0U;
     std::size_t batch_predicted_zeros = 0U;
@@ -501,9 +551,12 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             r43.projected_trial, r30.predicted_position, normal_inertia);
         face_pcg_iterations += block.face_iterations;
         candidate_trials += block.candidate_trials;
+        baseline_projection_calls += block.baseline_projection_calls;
         candidate_projection_calls += block.candidate_projection_calls;
         candidate_dual_rejections += block.dual_rejections;
         candidate_model_rejections += block.model_rejections;
+        candidate_composed_rejections += block.composed_rejections;
+        admissible_candidates += block.admissible_candidates;
         if (block.line_exact) ++accepted_lines;
         transpose_calls += block.transpose_calls;
         action_calls += block.action_calls;
@@ -512,8 +565,10 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         batch_applied_zeros += block.applied_zeros;
         curvature_exact = curvature_exact && block.curvature_exact;
         line_exact = line_exact && block.line_exact;
-        candidate_model_rejected = candidate_model_rejected
+        normal_model_rejected = normal_model_rejected
             || (!block.line_exact && block.model_rejections > 0U);
+        composed_model_rejected = composed_model_rejected
+            || (!block.line_exact && block.composed_rejections > 0U);
         exact = block.passed;
         if (!exact) break;
         lambda = block.lambda;
@@ -631,10 +686,14 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         record.face = face_count;
         record.pcg_iterations = block.face_iterations;
         record.candidate_trials = block.candidate_trials;
+        record.baseline_projection_calls =
+            block.baseline_projection_calls;
         record.candidate_projection_calls =
             block.candidate_projection_calls;
         record.dual_rejections = block.dual_rejections;
         record.model_rejections = block.model_rejections;
+        record.composed_rejections = block.composed_rejections;
+        record.admissible_candidates = block.admissible_candidates;
         record.selected_exponent = block.selected_exponent;
         record.predicted_zeros = block.predicted_zeros;
         record.applied_zeros = block.applied_zeros;
@@ -647,6 +706,9 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         record.line_alpha = block.line_alpha;
         record.line_slope = block.line_slope;
         record.line_curvature = block.line_curvature;
+        record.baseline_inertia = block.baseline_inertia;
+        record.baseline_model_reduction =
+            block.baseline_model_reduction;
         record.candidate_model_reduction =
             block.candidate_model_reduction;
         record.committed_model_reduction = committed_model_reduction;
@@ -680,8 +742,11 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << record.raw_positive << ':' << record.candidate_positive << ':'
             << record.nonzero_lambda << ':' << record.face << ':'
             << record.pcg_iterations << ':' << record.candidate_trials << ':'
+            << record.baseline_projection_calls << ':'
             << record.candidate_projection_calls << ':'
             << record.dual_rejections << ':' << record.model_rejections << ':'
+            << record.composed_rejections << ':'
+            << record.admissible_candidates << ':'
             << record.selected_exponent << ':' << record.predicted_zeros << ':'
             << record.applied_zeros << ':'
             << record.maximum_raw << ':' << record.projected_gradient_norm
@@ -689,6 +754,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << record.pcg_final_residual_norm << ':' << record.pcg_descent
             << ':' << record.line_alpha << ':' << record.line_slope << ':'
             << record.line_curvature << ':' << record.recurrence_gap << ':'
+            << record.baseline_inertia << ':'
+            << record.baseline_model_reduction << ':'
             << record.candidate_model_reduction << ':'
             << record.committed_model_reduction << ':'
             << record.model_prediction_gap << ':'
@@ -725,13 +792,16 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         && identification_sweeps == AL_R65P_OUTERS
         && face_pcg_iterations
             <= AL_R65P_OUTERS * (AL_R65P_INNERS - 1U)
-        && candidate_trials >= AL_R65P_OUTERS
-        && candidate_trials <= 16U * AL_R65P_OUTERS
+        && candidate_trials == 16U * AL_R65P_OUTERS
+        && baseline_projection_calls == AL_R65P_OUTERS
         && candidate_projection_calls <= candidate_trials
         && candidate_dual_rejections + candidate_projection_calls
             == candidate_trials
-        && candidate_model_rejections + accepted_lines
+        && candidate_model_rejections + candidate_composed_rejections
+            + admissible_candidates
             == candidate_projection_calls
+        && accepted_lines <= AL_R65P_OUTERS
+        && accepted_lines <= admissible_candidates
         && transpose_calls == 2U * AL_R65P_OUTERS
             + face_pcg_iterations + candidate_trials
         && action_calls == 2U * AL_R65P_OUTERS + face_pcg_iterations
@@ -745,8 +815,9 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     const bool passed = exact && parent_exact && workspace_exact
         && operator_exact && geometry_exact && work_exact && rollback;
     const std::string route = al_r65p_route(passed, curvature_exact,
-        line_exact, candidate_model_rejected, model_agreement_exact,
-        recurrence_exact, model_exact, lower_work, dominates);
+        line_exact, normal_model_rejected, composed_model_rejected,
+        model_agreement_exact, recurrence_exact, model_exact, lower_work,
+        dominates);
 
     std::ostringstream semantic;
     semantic << std::setprecision(17) << (passed ? "PASS|" : "FAIL|")
@@ -755,8 +826,11 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << coordinate_visits << ':' << coordinate_updates << ':'
         << coordinate_residual_terms << ':' << coordinate_update_terms << ':'
         << face_pcg_iterations << ':' << candidate_trials << ':'
-        << candidate_projection_calls << ':' << candidate_dual_rejections
-        << ':' << candidate_model_rejections << ':' << accepted_lines << ':'
+        << baseline_projection_calls << ':' << candidate_projection_calls
+        << ':' << candidate_dual_rejections << ':'
+        << candidate_model_rejections << ':'
+        << candidate_composed_rejections << ':' << admissible_candidates
+        << ':' << accepted_lines << ':'
         << curvature_stops << ':'
         << batch_predicted_zeros << ':' << batch_applied_zeros << ':'
         << transpose_calls << ':'
@@ -767,7 +841,7 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
 
     std::ostringstream report;
     report << std::setprecision(17)
-        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_model_aware_projected_path_probe.v5\",\"status\":\""
+        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_best_model_dyadic_probe.v6\",\"status\":\""
         << (passed ? "PASS" : "FAIL")
         << "\",\"authority\":\"EXPLORATORY_ONLY_NO_CREDIT\""
         << ",\"route\":\"" << route << "\""
@@ -786,10 +860,16 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << ",\"face\":" << record.face
             << ",\"pcg_iterations\":" << record.pcg_iterations
             << ",\"candidate_trials\":" << record.candidate_trials
+            << ",\"baseline_projection_calls\":"
+            << record.baseline_projection_calls
             << ",\"candidate_projection_calls\":"
             << record.candidate_projection_calls
             << ",\"dual_rejections\":" << record.dual_rejections
             << ",\"model_rejections\":" << record.model_rejections
+            << ",\"composed_rejections\":"
+            << record.composed_rejections
+            << ",\"admissible_candidates\":"
+            << record.admissible_candidates
             << ",\"selected_exponent\":" << record.selected_exponent
             << ",\"predicted_zeros\":" << record.predicted_zeros
             << ",\"applied_zeros\":" << record.applied_zeros
@@ -804,6 +884,9 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << ",\"line_alpha\":" << record.line_alpha
             << ",\"line_slope\":" << record.line_slope
             << ",\"line_curvature\":" << record.line_curvature
+            << ",\"baseline_inertia\":" << record.baseline_inertia
+            << ",\"baseline_model_reduction\":"
+            << record.baseline_model_reduction
             << ",\"candidate_model_reduction\":"
             << record.candidate_model_reduction
             << ",\"committed_model_reduction\":"
@@ -833,12 +916,17 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << ",\"coordinate_update_terms\":" << coordinate_update_terms
         << ",\"face_pcg_iterations\":" << face_pcg_iterations
         << ",\"projected_candidate_trials\":" << candidate_trials
+        << ",\"baseline_joint_projections\":"
+        << baseline_projection_calls
         << ",\"candidate_joint_projections\":"
         << candidate_projection_calls
         << ",\"candidate_dual_rejections\":"
         << candidate_dual_rejections
         << ",\"candidate_model_rejections\":"
         << candidate_model_rejections
+        << ",\"candidate_composed_rejections\":"
+        << candidate_composed_rejections
+        << ",\"admissible_candidates\":" << admissible_candidates
         << ",\"accepted_lines\":" << accepted_lines
         << ",\"curvature_stops\":" << curvature_stops
         << ",\"batch_predicted_zeros\":" << batch_predicted_zeros
