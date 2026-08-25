@@ -30,7 +30,8 @@ ALR20SemismoothStep al_r20_semismooth_step(
     const std::vector<Binary128>& lambda,
     const std::vector<Binary128>& diagonal,
     std::size_t iteration,
-    bool verified_inverse = false) {
+    bool verified_inverse = false,
+    bool dual_ratio_refinement = false) {
     ALR20SemismoothStep result;
     result.iteration = iteration;
     const std::size_t all_rows = lambda.size();
@@ -119,7 +120,8 @@ ALR20SemismoothStep al_r20_semismooth_step(
                     + raw_principal[column * dimension + row]);
     result.hessian_root = al_r20_q_scalar_root(raw_principal);
     result.solve = al_r20_nnqp_solve(
-        principal, rhs, rhs_bound, natural_face, verified_inverse);
+        principal, rhs, rhs_bound, natural_face,
+        verified_inverse, dual_ratio_refinement);
     result.direction_error_bound = result.solve.direction_error_bound;
     std::vector<Binary128> representative(all_rows,
         static_cast<Binary128>(0.0));
@@ -245,7 +247,8 @@ struct ALR20SemismoothCase {
 
 ALR20SemismoothCase al_r20_semismooth_case(
     const ALR20ProblemData& problem,
-    bool verified_inverse = false) {
+    bool verified_inverse = false,
+    bool dual_ratio_refinement = false) {
     ALR20SemismoothCase result;
     const std::size_t rows = problem.row_scale.size();
     const std::vector<Binary128> diagonal = al_r20_q_diagonal(problem.op);
@@ -267,7 +270,7 @@ ALR20SemismoothCase al_r20_semismooth_case(
          iteration <= AL_R20_SEMISMOOTH_ITERATION_CAP; ++iteration) {
         ALR20SemismoothStep step = al_r20_semismooth_step(
             problem, current, lambda, diagonal, iteration,
-            verified_inverse);
+            verified_inverse, dual_ratio_refinement);
         result.harness_exact = result.harness_exact && step.harness_exact;
         result.total_principal_solves += step.solve.principal_solves;
         result.total_transitions += step.solve.transitions;

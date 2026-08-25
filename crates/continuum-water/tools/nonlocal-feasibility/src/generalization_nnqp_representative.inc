@@ -89,6 +89,9 @@ struct ALR20NNQPSolve {
     Binary128 ratio_dual_refined_best_bound = static_cast<Binary128>(0.0);
     Binary128 ratio_dual_refined_competitor_bound =
         static_cast<Binary128>(0.0);
+    bool dual_ratio_refinement_consumed = false;
+    std::size_t dual_ratio_refinements = 0U;
+    std::size_t ratio_inverse_columns = 0U;
     std::vector<Binary128> direction;
     std::vector<Binary128> reduced_gradient;
     std::vector<bool> passive;
@@ -363,7 +366,8 @@ ALR20NNQPSolve al_r20_nnqp_solve(
     const std::vector<Binary128>& rhs,
     const std::vector<Binary128>& rhs_bound,
     const std::vector<std::size_t>& source_rows,
-    bool verified_inverse = false) {
+    bool verified_inverse = false,
+    bool dual_ratio_refinement = false) {
     ALR20NNQPSolve result;
     const std::size_t dimension = rhs.size();
     if (dimension == 0U || matrix.size() != dimension * dimension
@@ -519,12 +523,10 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                 continue;
             }
 
-            const ALR20NNQPRatio ratio = al_r20_nnqp_ratio(
+            ALR20NNQPRatio ratio = al_r20_nnqp_ratio(
                 result.direction, candidate, direction_error,
                 passive_error, negative, source_rows);
             if (!ratio.exact) {
-                exact = false;
-                result.failure = "BOUNDARY_RATIO_UNRESOLVED";
                 result.ratio_failure = ratio.failure;
                 result.ratio_best_source_row = ratio.best_source_row;
                 result.ratio_competitor_source_row =
@@ -554,6 +556,8 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                     result.ratio_inverse_audit = al_r20_verified_inverse(
                         factor, solve_residual, solve_bound,
                         passive_value, passive_error, &result.work);
+                    result.ratio_inverse_columns +=
+                        result.ratio_inverse_audit.column_solves;
                     if (result.ratio_inverse_audit.passed) {
                         const Binary128 refined_error =
                             result.ratio_inverse_audit.refined_error;
@@ -653,6 +657,9 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                                     current_provenance_bound,
                                     current_provenance_solution,
                                     current_provenance_error, &result.work);
+                            result.ratio_inverse_columns +=
+                                result.ratio_current_inverse_audit
+                                    .column_solves;
                             if (result.ratio_current_inverse_audit.passed) {
                                 const Binary128 current_refined =
                                     result.ratio_current_inverse_audit
@@ -685,6 +692,16 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                                             + fabsq(
                                                 ratio.competitor_ratio))
                                         / ratio.competitor_denominator;
+                                if (dual_ratio_refinement
+                                    && dual_refined.exact) {
+                                    ratio = dual_refined;
+                                    direction_error = current_refined;
+                                    affine_direction_error = current_refined;
+                                    passive_error = refined_error;
+                                    result.dual_ratio_refinement_consumed =
+                                        true;
+                                    ++result.dual_ratio_refinements;
+                                }
                             } else {
                                 result.ratio_dual_refined_failure =
                                     "CURRENT_AUDIT_REJECTED";
@@ -699,7 +716,11 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                             "AUDIT_REJECTED";
                     }
                 }
-                break;
+                if (!ratio.exact) {
+                    exact = false;
+                    result.failure = "BOUNDARY_RATIO_UNRESOLVED";
+                    break;
+                }
             }
             if (current_provenance_direct) {
                 current_provenance_direct = false;
