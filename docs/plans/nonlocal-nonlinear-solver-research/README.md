@@ -3076,3 +3076,9 @@ finds overlapping rigorous ratio intervals in both failures. The next
 [error-budget research](../../development/nonlocal-nsr3b4e2d7r20r14-ratio-error-budget-research-2026-08-26.md)
 and [counterfactual contract](03b4e2d7r20r14-ratio-error-budget-contract.md)
 separate candidate-solve error from accumulated current-direction error.
+The
+[R20R14 evidence](../../development/nonlocal-nsr3b4e2d7r20r14-ratio-error-budget-evidence-2026-08-26.md)
+shows candidate inverse refinement resolves shear only. The next
+[affine-enclosure research](../../development/nonlocal-nsr3b4e2d7r20r15-affine-enclosure-research-2026-08-26.md)
+and [shadow contract](03b4e2d7r20r15-affine-enclosure-contract.md) test the
+correlation-aware current-error lemma without altering solver state.
