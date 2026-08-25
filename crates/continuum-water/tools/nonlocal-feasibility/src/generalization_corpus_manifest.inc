@@ -116,6 +116,60 @@ SmokeFixture al_r20_make_opposed_corner_holdout() {
     return result;
 }
 
+SmokeFixture al_r20_make_filled_edge_holdout() {
+    SmokeFixture result;
+    result.name = "r20-v2-blind-filled-upper-x-lower-y-edge";
+    result.position = make_lattice_fluid({5, 4, 3});
+    result.velocity.reserve(result.position.size());
+    for (std::size_t index = 0U; index < result.position.size(); ++index) {
+        const double x_lane = static_cast<double>(index % 5U);
+        const double y_lane = static_cast<double>((index / 5U) % 4U);
+        const double z_lane = static_cast<double>(index / 20U);
+        result.velocity.push_back({
+            0.52 + 0.010 * y_lane,
+            -0.71 - 0.008 * x_lane,
+            0.06 + 0.006 * z_lane,
+        });
+    }
+    result.boundary = make_box_owned_shell({5, 4, 3}, 2);
+    result.closed_box_contact = true;
+    result.contact_low = {RADIUS, RADIUS, RADIUS};
+    result.contact_high = {
+        0.25 - RADIUS, 0.20 - RADIUS, 0.15 - RADIUS};
+    result.maximum_participants =
+        result.position.size() + result.boundary.size();
+    result.maximum_pairs = 160U * result.position.size();
+    result.geometry_sha256 = geometry_hash(result);
+    return result;
+}
+
+SmokeFixture al_r20_make_filled_opposed_corner_holdout() {
+    SmokeFixture result;
+    result.name = "r20-v2-blind-filled-upper-x-upper-y-lower-z-corner";
+    result.position = make_lattice_fluid({4, 4, 4});
+    result.velocity.reserve(result.position.size());
+    for (std::size_t index = 0U; index < result.position.size(); ++index) {
+        const double x_lane = static_cast<double>(index % 4U);
+        const double y_lane = static_cast<double>((index / 4U) % 4U);
+        const double z_lane = static_cast<double>(index / 16U);
+        result.velocity.push_back({
+            0.46 + 0.007 * z_lane,
+            0.39 + 0.009 * x_lane,
+            -0.58 - 0.006 * y_lane,
+        });
+    }
+    result.boundary = make_box_owned_shell({4, 4, 4}, 2);
+    result.closed_box_contact = true;
+    result.contact_low = {RADIUS, RADIUS, RADIUS};
+    result.contact_high = {
+        0.20 - RADIUS, 0.20 - RADIUS, 0.20 - RADIUS};
+    result.maximum_participants =
+        result.position.size() + result.boundary.size();
+    result.maximum_pairs = 160U * result.position.size();
+    result.geometry_sha256 = geometry_hash(result);
+    return result;
+}
+
 void al_r20_advance_free_flight(
     SmokeFixture& fixture, std::size_t steps) {
     for (std::size_t step = 0U; step < steps; ++step) {
@@ -231,19 +285,35 @@ std::vector<ALR20ManifestCase> al_r20_manifest_cases() {
         {},
     });
     cases.push_back({
-        "BLIND_HOLDOUT",
-        "r20-new-no-solver-observation",
+        "KINEMATIC_NEGATIVE_CONTROL",
+        "r20-v1-blind-reclassified-after-input-only-preflight",
         "upper-x-lower-y-oblique-edge",
         0U,
         al_r20_make_oblique_edge_holdout(),
         {},
     });
     cases.push_back({
-        "BLIND_HOLDOUT",
-        "r20-new-no-solver-observation",
+        "KINEMATIC_NEGATIVE_CONTROL",
+        "r20-v1-blind-reclassified-after-input-only-preflight",
         "upper-x-upper-y-lower-z-opposed-corner",
         0U,
         al_r20_make_opposed_corner_holdout(),
+        {},
+    });
+    cases.push_back({
+        "BLIND_HOLDOUT",
+        "r20-v2-new-no-solver-or-oracle-observation",
+        "filled-upper-x-lower-y-edge",
+        0U,
+        al_r20_make_filled_edge_holdout(),
+        {},
+    });
+    cases.push_back({
+        "BLIND_HOLDOUT",
+        "r20-v2-new-no-solver-or-oracle-observation",
+        "filled-upper-x-upper-y-lower-z-opposed-corner",
+        0U,
+        al_r20_make_filled_opposed_corner_holdout(),
         {},
     });
     for (ALR20ManifestCase& value : cases)
@@ -251,42 +321,59 @@ std::vector<ALR20ManifestCase> al_r20_manifest_cases() {
     return cases;
 }
 
-} // namespace
-
-SplitBoundaryReport run_al_generalization_corpus_manifest_controls() {
-    const std::vector<ALR20ManifestCase> cases = al_r20_manifest_cases();
-    bool exact = cases.size() == 6U;
+std::string al_r20_manifest_semantic_root(
+    const std::vector<ALR20ManifestCase>& cases) {
     std::size_t transfer = 0U;
     std::size_t holdout = 0U;
-    std::vector<std::string> roots;
+    std::size_t negative = 0U;
     for (const ALR20ManifestCase& value : cases) {
-        exact = exact && al_r20_case_finite_and_owned(value);
         transfer += value.role == "TRANSFER_REGRESSION" ? 1U : 0U;
         holdout += value.role == "BLIND_HOLDOUT" ? 1U : 0U;
-        roots.push_back(value.source_root);
+        negative += value.role == "KINEMATIC_NEGATIVE_CONTROL" ? 1U : 0U;
     }
-    std::sort(roots.begin(), roots.end());
-    exact = exact && transfer == 4U && holdout == 2U
-        && std::adjacent_find(roots.begin(), roots.end()) == roots.end();
     std::ostringstream semantic;
-    semantic << "nextengine.nonlocal.nsr3b4e2d7r20-corpus-manifest.v1|"
-             << cases.size() << ':' << transfer << ':' << holdout << '|';
+    semantic << "nextengine.nonlocal.nsr3b4e2d7r20-corpus-manifest.v2|"
+             << cases.size() << ':' << transfer << ':' << negative << ':'
+             << holdout << '|';
     for (const ALR20ManifestCase& value : cases)
         semantic << value.source_root << ';';
     semantic << "target=semi-implicit-predictor-minus-source-over-spacing|"
                 "trqp=r64-density-plus-contact-box-plus-global-ball|"
                 "solver-executed=0";
-    const std::string result_sha = sha256_hex(semantic.str());
+    return sha256_hex(semantic.str());
+}
+
+} // namespace
+
+SplitBoundaryReport run_al_generalization_corpus_manifest_controls() {
+    const std::vector<ALR20ManifestCase> cases = al_r20_manifest_cases();
+    bool exact = cases.size() == 8U;
+    std::size_t transfer = 0U;
+    std::size_t holdout = 0U;
+    std::size_t negative = 0U;
+    std::vector<std::string> roots;
+    for (const ALR20ManifestCase& value : cases) {
+        exact = exact && al_r20_case_finite_and_owned(value);
+        transfer += value.role == "TRANSFER_REGRESSION" ? 1U : 0U;
+        holdout += value.role == "BLIND_HOLDOUT" ? 1U : 0U;
+        negative += value.role == "KINEMATIC_NEGATIVE_CONTROL" ? 1U : 0U;
+        roots.push_back(value.source_root);
+    }
+    std::sort(roots.begin(), roots.end());
+    exact = exact && transfer == 4U && negative == 2U && holdout == 2U
+        && std::adjacent_find(roots.begin(), roots.end()) == roots.end();
+    const std::string result_sha = al_r20_manifest_semantic_root(cases);
 
     std::ostringstream report;
     report << std::setprecision(17)
-           << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r20_corpus_manifest.v1\""
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r20_corpus_manifest.v2\""
            << ",\"status\":\"" << (exact ? "PASS" : "FAIL") << "\""
            << ",\"route\":\""
            << (exact ? "GENERALIZATION_CORPUS_MANIFEST_CANDIDATE"
                      : "GENERALIZATION_CORPUS_MANIFEST_REJECTED")
            << "\",\"case_count\":" << cases.size()
            << ",\"transfer_regressions\":" << transfer
+           << ",\"kinematic_negative_controls\":" << negative
            << ",\"blind_holdouts\":" << holdout
            << ",\"trust_radius\":" << AL_R20_TRUST_RADIUS
            << ",\"cases\":[";
