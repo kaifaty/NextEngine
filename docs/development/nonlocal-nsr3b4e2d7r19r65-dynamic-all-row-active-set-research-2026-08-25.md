@@ -2,8 +2,8 @@
 
 Date: `2026-08-25`
 
-Status: `RESEARCH COMPLETE / MATRIX-FREE MONOTONE CONSTRAINT GENERATION
-SELECTED / EXPLORATORY DEPTH PROBE NEXT`.
+Status: `RESEARCH CONTINUES / MATRIX-FREE OWNERSHIP VALIDATED /
+ACTIVE-FACE SHQP ACCELERATION REQUIRED`.
 
 ## Mathematical owner
 
@@ -107,7 +107,7 @@ from the best-approximation solution sought by the TRQP.
 
 ## Exploratory probe and frozen-stage candidates
 
-Probe fixed checkpoints `8,16,32,64,128,256` from one unchanged target, with
+Probe fixed checkpoints `8,16,32,64,128,256,512,1024,2048` from one unchanged target, with
 no tolerance stop. Record working-set size/additions, positive rows,
 stationarity, complementarity, joint correction, inertia and direct sparse
 work. The later frozen contract must select one depth before its nominal run.
@@ -125,3 +125,14 @@ DYNAMIC_ACTIVE_SET_MODEL_REDUCTION_REJECTED
 R65 executes only the linearized convex projection. Nonlinear density,
 switching/filter acceptance, runtime publication, timing and production remain
 out of scope.
+
+## Exploratory outcome
+
+The [probe evidence](nonlocal-nsr3b4e2d7r19r65-dynamic-all-row-probe-evidence-2026-08-25.md)
+shows that monotone ownership stabilizes at 4680 rows before checkpoint 8, but
+ascending Hildreth still has maximum raw `9.17e-12` after 2048 cycles. Fresh
+most-violated ordering is worse. `omega=1.5` reaches `2.77e-12` but does not
+change the algorithmic conclusion. Stationarity, complementarity, joint
+reprojection and model reduction remain coherent. Stop depth/order/omega
+tuning and research an SHQP/active-face block polish over the stabilized dual
+face.

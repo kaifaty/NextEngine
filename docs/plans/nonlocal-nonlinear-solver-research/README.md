@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
-NSR3B4E2D7R19R65_DYNAMIC_ALL_ROW_ACTIVE_SET_EXPLORATORY_PROBE_NEXT /
+NSR3B4E2D7R19R65_ACTIVE_FACE_SHQP_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2886,4 +2886,13 @@ update one sparse row per Hildreth coordinate; a Gram/incidence propagation is
 asymptotically and practically wider for this topology. Retain one scalar dual
 per owned halfspace and one correction for the exact joint box-ball projector,
 refresh all rows after that projector, and add all newly candidate-positive
-rows. Probe depths 8 through 256 without tolerance fitting before freezing.
+rows. Probe power-of-two depths through 2048 without tolerance fitting before
+freezing.
+The [R65 exploratory evidence](../../development/nonlocal-nsr3b4e2d7r19r65-dynamic-all-row-probe-evidence-2026-08-25.md)
+validates working-set discovery but rejects plain depth, fresh-most-violated
+ordering and a relaxation grid. Ownership stabilizes at 4680 rows before
+checkpoint 8; after 2048 cycles ascending Hildreth still has maximum raw
+`9.17e-12`. `omega=1.5` improves that to `2.77e-12` but remains millions of
+updates. Stationarity/reprojection/model are coherent. Research matrix-free
+SHQP/active-face block polish next; R65 remains unfrozen and has no solve
+authority.

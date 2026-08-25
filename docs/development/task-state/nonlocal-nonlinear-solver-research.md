@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_MATRIX_FREE_DYNAMIC_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_ACTIVE_FACE_SHQP_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -21,7 +21,13 @@
   evaluate the current sparse row, retain per-row Hildreth duals, use one
   Dykstra correction for the exact joint box-ball projector, refresh all rows
   after it and add all newly candidate-positive rows. Probe fixed depths
-  8/16/32/64/128/256 with KKT stationarity; no fitted tolerance or timing.
+  through 2048 with KKT stationarity; no fitted tolerance or timing.
+- **R65 probe result:** initial 1080 rows grow monotonically to 4680 before
+  checkpoint 8 and never add later. Plain ascending Hildreth remains at
+  maximum raw `9.17e-12` after 2048 cycles; fresh-most-violated ordering is
+  worse. `omega=1.5` reaches `2.77e-12` but does not remove the millions-of-
+  updates problem. Stop depth/order/omega tuning. Research matrix-free
+  SHQP/active-face block polish with full primal/KKT/reprojection audits.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -3943,6 +3949,22 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** measured structural counts make overlap propagation
   narrower than direct rows, or the fixed-depth probe shows direct coordinates
   cannot reach a KKT-aligned checkpoint.
+
+### D-132 -- Stop cyclic tuning and accelerate the stabilized active face
+
+- **Observation:** working-set growth closes before checkpoint 8 at 4680 rows,
+  stationarity is about `1e-20` and complementarity about `1e-16`, yet primal
+  raw remains `9.17e-12` after 2048 ascending cycles. Fresh-most-violated order
+  is worse; `omega=1.5` gives only a late 3.3x residual improvement.
+- **Decision:** preserve monotone ownership and direct sparse coordinates as
+  globalization/reference, but research SHQP/active-face matrix-free Krylov
+  polish over the stabilized nonzero-dual face. Compare equal operator work and
+  return every block step through joint projection and fresh R61/KKT audits.
+- **Rejected:** more fixed cyclic depth, sorting by stale violation, an omega
+  grid, declaring active equality enclosures infeasible, or fitting a residual
+  tolerance from the observed plateau.
+- **Reconsider when:** block polish cannot preserve nonnegative dual ownership,
+  joint-set correction consistency or positive model reduction.
 
 ## Performance facts retained
 
