@@ -80070,6 +80070,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "certificate_validation.inc"
 #include "certificate_integration.inc"
 #include "restoration_exit_transaction.inc"
+#include "cached_normal_projection_trqp.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

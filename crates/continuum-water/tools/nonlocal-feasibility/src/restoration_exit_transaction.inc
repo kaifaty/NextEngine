@@ -183,9 +183,18 @@ std::string al_r62_route(bool parent, bool source, bool capture,
     return "RESTORATION_EXIT_TRANSACTION_CANDIDATE";
 }
 
+struct ALR62ReplayCapture {
+    bool captured = false;
+    ALR61ReplayCapture r61;
+    ALR62Payload payload;
+    ALR62Publication publication;
+    ALR62AtomicControls controls;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_restoration_exit_transaction_controls() {
+SplitBoundaryReport run_al_restoration_exit_transaction_controls_impl(
+    ALR62ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R62_IDENTITY_PROJECTION)
         == B4E2D7R19R62_IDENTITY_SHA256;
     ALR61ReplayCapture capture;
@@ -552,5 +561,16 @@ SplitBoundaryReport run_al_restoration_exit_transaction_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r61 = std::move(capture);
+        replay_capture->payload = std::move(payload);
+        replay_capture->publication = std::move(publication);
+        replay_capture->controls = atomic_controls;
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_restoration_exit_transaction_controls() {
+    return run_al_restoration_exit_transaction_controls_impl(nullptr);
 }
