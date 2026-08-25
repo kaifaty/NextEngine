@@ -2,14 +2,25 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_LINE_FRONTIER_FROZEN / REPORT_ONLY_TRIAL_CAUSE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
-| Updated | `2026-08-25` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_BREAKPOINT_GEOMETRY_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
 | Definition of done | NSR0--NSR6 select a production-roadmap candidate or stop at an exact reproducible boundary |
 | Authority | Working context only; Accepted architecture, SPEC-38/ADR-076/ADR-081 and frozen stage contracts outrank this file |
 
 ## Resume in 60 seconds
+
+- **R20R19 result:** implementation `38b788c8`, semantic
+  `46f8d84a...a06f`, route `MASK_CROSSING_FRONTIER`. Seven of eight late
+  steps accept exactly the first mask-stable dyadic trial, with zero stable
+  rejections; step 28 is the sole crossing acceptance. Binary128 Armijo parity
+  is exact.
+- **R20R20 frozen:** for those seven coincidence brackets, evaluate exactly 65
+  uniform binary128 points between the accepted alpha and its rejected double.
+  Classify a same-face Armijo layer, multiple/returning mask events, a single
+  aligned breakpoint or a simple offset. Report only; do not change the solver
+  or cap.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4494,6 +4505,22 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** the v2 oracle certifies or fails to certify the three
   excited intersections under the frozen caps.
 
+### D-148 -- Diagnose the continuous breakpoint before changing globalization
+
+- **Observation:** R19 has seven exact first-stable/first-accepted dyadic
+  coincidences, zero stable rejections and one crossing acceptance. Existing
+  endpoints implicate the projector mask, but cannot exclude hidden crossings
+  or a narrow same-face rejection layer.
+- **Decision:** scan 65 fixed, exactly representable points in every coincidence
+  bracket. Preserve the affine multiplier path and rigorous Armijo formula;
+  measure mask runs, changing scalar identities and sign transitions without
+  applying any sample.
+- **Rejected:** immediately implementing breakpoint stepping, increasing the
+  cap, fitting a boundary tolerance, assuming endpoint mask equality proves
+  path monotonicity, or spending shared-host timing work.
+- **Reconsider when:** R20 classifies all seven brackets or any parent/root/
+  endpoint parity gate fails.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4547,12 +4574,14 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
-3. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
-4. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
-5. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
+2. Implement only the frozen R20R20 65-point breakpoint-geometry audit. Keep
+   R19 and the shear candidate exact; do not apply samples or alter the cap.
+3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
+4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
+5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
+6. Preserve D7R11's offline certificate and exact D7R10 bytes; do not add
    runtime binary128.
-6. Preserve D7R19R39/R38/R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
+7. Preserve D7R19R39/R38/R37/R36/R35/R34/R33/R32/R31/R30/R29/R28/R27/R26/R25/R24/R23/R22/R21/R20/R19/R18/R17/R16/R15/R14/R13/R12/R11/R10/R9/R8/R7/R6/R5/
    R4/R3/R2/R1, D7R19 and all preceding normalized parents exactly.
    Preserve D7R19R40 exact PASS/`NONLINEAR_TOPOLOGY_REJECTED` and D7R19R41
    exact PASS/`NONZERO_SUPPORT_CROSSING_REQUIRES_RELINEARIZATION` evidence.

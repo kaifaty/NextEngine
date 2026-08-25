@@ -3110,3 +3110,13 @@ mask transition. The next
 [line-frontier research](../../development/nonlocal-nsr3b4e2d7r20r19-line-frontier-research-2026-08-26.md)
 and [trial-audit contract](03b4e2d7r20r19-line-frontier-contract.md) compare
 mask stability to the exact Armijo acceptance frontier.
+The
+[R20R19 evidence](../../development/nonlocal-nsr3b4e2d7r20r19-line-frontier-evidence-2026-08-26.md)
+finds seven exact first-stable/first-accepted coincidences, zero stable
+rejections and one crossing acceptance. The late shear solve is throttled at a
+projector-mask boundary, not by observed same-face rejection. The next
+[breakpoint-geometry research](../../development/nonlocal-nsr3b4e2d7r20r20-breakpoint-geometry-research-2026-08-26.md)
+and [fixed audit contract](03b4e2d7r20r20-breakpoint-geometry-contract.md)
+scan 65 exact points inside each of the seven frontier brackets to distinguish
+a single aligned event from a hidden same-face Armijo layer or a multi-event
+piecewise path before any solver change.
