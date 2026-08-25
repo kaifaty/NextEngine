@@ -3082,3 +3082,10 @@ shows candidate inverse refinement resolves shear only. The next
 [affine-enclosure research](../../development/nonlocal-nsr3b4e2d7r20r15-affine-enclosure-research-2026-08-26.md)
 and [shadow contract](03b4e2d7r20r15-affine-enclosure-contract.md) test the
 correlation-aware current-error lemma without altering solver state.
+The
+[R20R15 evidence](../../development/nonlocal-nsr3b4e2d7r20r15-affine-enclosure-evidence-2026-08-26.md)
+shows the shadow equals the current error at both failures, excluding
+accumulated interpolation as the corner cause. The next
+[current-provenance research](../../development/nonlocal-nsr3b4e2d7r20r16-current-provenance-research-2026-08-26.md)
+and [dual-inverse contract](03b4e2d7r20r16-current-provenance-contract.md) test
+whether the last complete current solve can be verified independently.
