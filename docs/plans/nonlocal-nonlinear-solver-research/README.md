@@ -3064,3 +3064,9 @@ active-set/NNQP solve. The next
 [failure-mechanism research](../../development/nonlocal-nsr3b4e2d7r20r12-failure-mechanism-research-2026-08-25.md)
 and [report-only contract](03b4e2d7r20r12-failure-mechanism-contract.md) expose
 the first failing predicate before any solver remedy is considered.
+The
+[R20R12 evidence](../../development/nonlocal-nsr3b4e2d7r20r12-failure-mechanism-evidence-2026-08-25.md)
+reproduces both stops as `BOUNDARY_RATIO_UNRESOLVED`. The next
+[ratio-collision research](../../development/nonlocal-nsr3b4e2d7r20r13-ratio-collision-research-2026-08-25.md)
+and [observer contract](03b4e2d7r20r13-ratio-collision-contract.md) distinguish
+the ratio subpredicate without changing solver decisions.
