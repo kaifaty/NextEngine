@@ -3045,3 +3045,9 @@ strictly certifies the complete development corpus. The next
 [v3 holdout research](../../development/nonlocal-nsr3b4e2d7r20r9-v3-holdout-research-2026-08-25.md)
 and [source-only contract](03b4e2d7r20r9-v3-holdout-manifest-contract.md)
 freeze four new blind fixtures before any operator or solver observation.
+The
+[R20R9 evidence](../../development/nonlocal-nsr3b4e2d7r20r9-v3-manifest-evidence-2026-08-25.md)
+freezes four source roots and 277 samples with zero operator/solver execution.
+The next [v3 preflight research](../../development/nonlocal-nsr3b4e2d7r20r10-v3-preflight-research-2026-08-25.md)
+and [input-only contract](03b4e2d7r20r10-v3-preflight-contract.md) test operator
+ownership and excitation before the solver may see the holdouts.

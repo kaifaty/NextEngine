@@ -22,7 +22,8 @@ v3-filled-radial-compression-5x3x4
 
 Each uses `make_lattice_fluid` with the named dimensions and a matching
 `make_box_owned_shell(...,2)`. The closed box has low corner `(RADIUS,... )`
-and high corner `(count_axis*SPACING-RADIUS,...)`. Velocities are deterministic
+and high corner `RADIUS+(count_axis-1)*SPACING`, using the exact same binary64
+expression as the last lattice coordinate. Velocities are deterministic
 index/lattice-coordinate formulas recorded directly in source; no randomness
 or observed solver state is allowed.
 
