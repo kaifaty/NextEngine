@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_PROPORTIONING_FILTER_DIAGNOSTIC_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_FILTER_MERIT_CONFLICT_SUPPORTED_BOUNDED / D7R19R65_FILTER_PAIR_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -103,6 +103,16 @@
   16 outers. Use the predeclared uniform/mixed split to distinguish premature
   face-PCG from a density/inertia filter conflict. Add no sparse operators,
   projections, fitted `Gamma` or timing.
+- **R65 diagnostic result:** v7 passes with the exact v6 solver semantic
+  `bd568e0f...f0e2` and separate diagnostic semantic `9203252f...ea03`.
+  All 15 blocked outers are free-dominant, none chopped-dominant or stationary;
+  every decomposition and scalar sign control passes. H2 is
+  `SUPPORTED_BOUNDED`; H1 and H4 are `REFUTED_BOUNDED` on this fixture.
+- **R65 filter-pair discriminator frozen:** preserve v6/v7 state and roots, then
+  measure pure inertia `f` and full-row positive linearized violation `h` for
+  every no-PCG baseline and all 239 existing dual-decreasing projected
+  candidates. Use 255 fresh directed audits, the inherited R46 dyadic envelope
+  ladder and no candidate application, timing or selected production margin.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4178,6 +4188,26 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   decomposition identity fails, or the 16 blocked-state classifications do
   not satisfy any predeclared resolution.
 
+### D-141 -- Measure the bicriteria path before designing a filter controller
+
+- **Observation:** v7 preserves v6 exactly and classifies all 15 blocked states
+  as free-dominant. Face-PCG therefore acts on a proportional face, but its
+  density-dual descent conflicts with strict intermediate composed-inertia
+  descent. Filter-SQP separates objective and violation; Dykstra/Hildreth is a
+  primal-dual coordinate method, so neither source licenses treating one
+  intermediate primal distance as the complete progress measure.
+- **Decision:** replay the existing path and measure `(f,h)` for every
+  dual-decreasing projected candidate against its no-PCG baseline. `f` remains
+  R63 pure inertia; `h` is a fresh all-row R61 positive-violation norm. Reuse
+  the R46 dyadic envelope only as a frozen discriminator and preserve the
+  dual-decrease and cached-normal safety gates.
+- **Rejected:** removing the composed gate, selecting the observed best
+  margin, applying v5 candidates, treating filter-SQP convergence as inherited,
+  checkpoint-only sampling, another alpha/PCG-depth sweep or timing.
+- **Reconsider when:** all blocked outers are strongly filter-feasible, none
+  is even weakly admissible, the result is phase-dependent, or fresh directed
+  residuals fail provenance/work/identity controls.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4273,9 +4303,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`, including separate
    workspace/operator topology roots and its fail-closed negative result.
    Preserve all D7R19R65 dynamic/FISTA/PCG/Newton/projected-path probes as
-   no-credit exploratory evidence. Implement the frozen measurement-only
-   proportioning/filter diagnostic next. Defer nonlinear switching/filter
-   globalization.
+   no-credit exploratory evidence. Preserve v7 exact
+   PASS/`FILTER_MERIT_CONFLICT_CANDIDATE`, solver semantic `bd568e0f...f0e2`
+   and diagnostic semantic `9203252f...ea03`. Implement the frozen
+   measurement-only projected filter-pair discriminator next. Defer a complete
+   filter lifecycle until that path is classified.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,

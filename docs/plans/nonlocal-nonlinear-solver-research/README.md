@@ -1,7 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
-NSR3B4E2D7R19R65_PROPORTIONING_FILTER_DIAGNOSTIC_NEXT /
+NSR3B4E2D7R19R65_FILTER_MERIT_CONFLICT_SUPPORTED_BOUNDED /
+NSR3B4E2D7R19R65_FILTER_PAIR_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2910,4 +2911,11 @@ globalization, but the exhaustive best-inertia v6 claim is
 one outer accepts a line. The frozen
 [proportioning/filter discriminator](../../development/nonlocal-nsr3b4e2d7r19r65-proportioning-filter-contract-2026-08-25.md)
 measures free/chopped gradient components without changing v6 state or sparse
-work before any further solver implementation.
+work. Its
+[evidence](../../development/nonlocal-nsr3b4e2d7r19r65-proportioning-filter-evidence-2026-08-25.md)
+classifies all 15 blocked states as free-dominant and selects a bounded
+filter-merit experiment rather than a proportioning phase. The next
+[projected filter-pair research](../../development/nonlocal-nsr3b4e2d7r19r65-filter-pair-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r65-filter-pair-contract.md) measure pure
+inertia and full-row positive density violation for all existing candidates.
+They do not apply a line or inherit filter-SQP convergence authority.
