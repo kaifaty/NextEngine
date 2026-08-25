@@ -2,7 +2,7 @@
 
 Date: `2026-08-25`
 
-Status: `PASS / GENERALIZATION_CORPUS_MANIFEST_CANDIDATE / NO SOLVER RUN`.
+Status: `PASS / SUPERSEDED BY V2 BEFORE SOLVER EXECUTION`.
 
 Implementation commit: `e2bbeebb`.
 
@@ -44,3 +44,13 @@ This evidence proves source identity and provenance only. It says nothing yet
 about feasibility, convergence, accuracy, work advantage, nonlinear transfer,
 runtime throughput or production readiness. Those observations are forbidden
 until the R20 stopping/oracle contract is frozen.
+
+## Supersession
+
+The first input-only operator preflight later showed that five of these six
+problems, including both intended blind holdouts, already had zero positive
+density rows after projecting the predictor onto contact/trust geometry. They
+would test a zero-step exit rather than composed-dual acceleration. No
+candidate or oracle iteration had run, so manifest v1 and contract revision 1
+were superseded rather than silently retuned. The two quiet states are retained
+as explicit negative controls in v2.

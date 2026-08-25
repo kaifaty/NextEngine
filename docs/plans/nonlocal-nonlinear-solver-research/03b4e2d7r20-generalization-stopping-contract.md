@@ -1,4 +1,4 @@
-# NSR3-B4E2D7R20 generalization/stopping contract -- revision 1
+# NSR3-B4E2D7R20 generalization/stopping contract -- revision 2
 
 Status: `FROZEN / EXECUTION AUTHORIZED / REPORT ONLY`.
 
@@ -6,15 +6,19 @@ Status: `FROZEN / EXECUTION AUTHORIZED / REPORT ONLY`.
 
 | Item | Value |
 |---|---|
-| manifest schema | `nextengine.nonlocal.nsr3b4e2d7r20_corpus_manifest.v1` |
-| manifest semantic | `a983588303964ff5483aed5f6dd5939ac37fc9e53b11ef1a442fe2eaac292471` |
-| manifest stdout | `da427e474f1c8ab2f342f103763d88141434b694b1f69dd918f6fca0375034b5` |
-| implementation | `e2bbeebb` |
-| cases | four transfer regressions plus two blind holdouts, stable listed order |
+| manifest schema | `nextengine.nonlocal.nsr3b4e2d7r20_corpus_manifest.v2` |
+| manifest semantic | `420031730236445859426960bc5540ae8b8f9522d4b9263fe5e86cf5f13f85b4` |
+| manifest stdout | `cf9af006da05434233436458fca7eebbd6dc67831d41d64f5752a143d57543c7` |
+| preflight semantic | `16a24ef3040411ef0bd29294f0887b29a1cce7690c7d8a8bee511ea58880b1f6` |
+| preflight stdout | `a7afb864fc6d437af0dba59e76b50a819fc798adf7af24589a3dffc2340bf613` |
+| implementation | `6cbf10ad` |
+| cases | four transfer, two kinematic negative controls, two blind holdouts; stable listed order |
 | TRQP | R64 dimensionless density rows, source contact box and global ball `Delta=0.0625` |
 | target | `(semi_implicit_predictor - source_position) / SPACING` |
 
-Every source root in the dated manifest evidence is exact. A mismatch rejects
+Revision 1 is withdrawn before any solver/oracle iteration because its input
+preflight found both intended holdouts solver-trivial. Every v2 source/problem
+root in the dated preflight evidence is exact. A mismatch rejects
 before operator construction.
 
 ## Hypotheses
@@ -22,8 +26,8 @@ before operator construction.
 | ID | Frozen hypothesis | Decisive observation |
 |---|---|---|
 | H1 | composed-dual transactions generalize beyond the dam state | both blind holdouts reach the KKT tuple and oracle envelope |
-| H2 | the same policy transfers across face, edge, supported and pre-impact regimes | all four transfer cases reach the KKT tuple or match a certified oracle feasibility classification |
-| H3 | fixed 20 is unnecessary as a stop rule | at least two certified cases stop at different outer counts |
+| H2 | zero-step detection and active solving coexist without a fixture-specific mode | all quiet controls stop at outer zero while all excited certified cases solve |
+| H3 | fixed 20 is unnecessary as a stop rule | at least two excited certified cases stop at different outer counts |
 | H4 | dual/objective stagnation alone is safe | deliberately stalled control would have to satisfy KKT; otherwise H4 is refuted |
 
 H1--H3 are not all-or-nothing algorithm truth. Failures must publish the first
@@ -32,12 +36,17 @@ a corruption control.
 
 ## Execution order
 
-1. Recreate all sources and require manifest identity.
-2. Materialize `c`, sparse R64 `A`, target and contact/trust projection data.
-3. Run structural/operator, row-scaling and positive-row-rescaling controls.
+1. Recreate all sources and require v2 manifest identity.
+2. Materialize `c`, sparse R64 `A`, target and contact/trust projection data;
+   require exact preflight semantic and problem roots.
+3. Preserve the input admission: both negative controls have zero positive
+   projected rows; both blind holdouts have positive projected rows. Run
+   structural/operator, row-scaling and positive-row-rescaling controls.
 4. Run the binary128 offline Dykstra lane first. Stop the whole case on
    `ORACLE_UNRESOLVED`; never inspect/tune the candidate for that case.
-5. From the immutable source, run the unchanged R65 composed-dual policy with
+5. Audit `s0=projection_D(t), lambda0=0`. If the complete KKT tuple passes,
+   publish the exact outer-zero route with no solver transaction. Otherwise,
+   from the immutable source run the unchanged R65 composed-dual policy with
    the R20 checkpoint stop and cap 32.
 6. Run the frozen FISTA reference under separately reported structural work.
 7. Publish every case, including failures; no best-of-case aggregation.

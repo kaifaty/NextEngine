@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_CORPUS_MANIFEST_PASS / D7R20_KKT_STOPPING_CONTRACT_FROZEN / EXECUTION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_STOPPING_CONTRACT_R2_FROZEN / ORACLE_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -150,10 +150,14 @@
   face/corner/supported/released convex-TRQP corpus, a higher-accuracy offline
   oracle and dimensionless KKT/dual stopping tuple. Fixed 20 is evidence, not
   a runtime policy. Do not execute a corpus before its contract is frozen.
-- **R20 corpus frozen:** manifest `a9835883...2471` contains four explicitly
-  labeled transfer regressions and two new blind holdouts. Two manifest runs
-  are byte-identical at stdout `da427e47...34b5`; no solver, oracle or timing
-  executed.
+- **R20 v1 corpus rejected:** input-only preflight showed five of six projected
+  targets already density-feasible; both intended holdouts were solver-trivial.
+  No candidate/oracle ran. Preserve this negative result; do not claim v1
+  generalization.
+- **R20 v2 corpus/preflight:** manifest `42003173...85b4`, preflight
+  `16a24ef3...b1f6`. Four transfer, two quiet negative and two blind roles are
+  exact. Excited row counts are 16 supported, 38 blind edge and 42 blind
+  corner. Row-scale controls at `2^-8/2^8` have zero gap.
 - **R20 stopping contract frozen:** use row-scale-invariant primal/projected-
   dual/complementarity residuals at `2^-20`, analytic stationarity bounds, a
   32-outer hard cap and an independent binary128 primal-Dykstra oracle through
@@ -4325,12 +4329,26 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Decision:** retain the four old states as transfer regressions and the two
   new states as blind holdouts under manifest `a9835883...2471`. Execute only
   the frozen row-scale-invariant KKT contract with an independent binary128
-  primal-Dykstra oracle.
+  primal-Dykstra oracle. Superseded before execution by D-147 after the
+  input-only excitation preflight rejected both intended holdouts.
 - **Rejected:** relabeling historical cases as holdouts, selecting cases after
   convergence is known, raw residual thresholds, iterate-change convergence,
   result-dependent oracle/candidate depth or FISTA-as-oracle.
 - **Reconsider when:** the fixed corpus returns a certified cross-regime result
   or the oracle honestly returns `ORACLE_UNRESOLVED`.
+
+### D-147 -- Require input excitation before spending oracle work
+
+- **Observation:** v1 was structurally valid but five projected targets were
+  already feasible, so its apparent breadth would not exercise acceleration.
+- **Decision:** preserve v1 as an excitation failure. V2 retains its quiet
+  states as negative controls and adds two filled multi-face holdouts; require
+  positive rows at preflight before any solver/oracle iteration. V2 passes
+  with 38/42 blind positive rows.
+- **Rejected:** counting zero-step exits as acceleration generalization,
+  changing solver tolerances to excite a case, or discarding the quiet states.
+- **Reconsider when:** the v2 oracle certifies or fails to certify the three
+  excited intersections under the frozen caps.
 
 ## Performance facts retained
 
@@ -4437,9 +4455,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve v11 exact PASS/
    `EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE` at semantic
    `8994703f...ae9f`, including its exact v10 prefix and 584,699,855-term
-   ledger. Do not run outer 21. Preserve R20 manifest
-   `a9835883...2471`, including four transfer and two blind source roles.
-   Implement the frozen rollback-only R20 binary128 oracle and composed-dual
+   ledger. Do not run outer 21. Preserve R20 v1 excitation failure and v2
+   manifest `42003173...85b4` / preflight `16a24ef3...b1f6`, including role,
+   excitation and problem roots. Implement the frozen rollback-only R20
+   binary128 oracle and composed-dual
    corpus execution next. Do not alter `2^-20`, the 32-outer cap, `2^18`
    oracle cap, case order or source roots after observing results. GPU timing,
    nonlinear/runtime integration and production remain blocked.

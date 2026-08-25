@@ -2,9 +2,10 @@
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
 NSR3B4E2D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE /
-NSR3B4E2D7R20_CORPUS_MANIFEST_PASS /
-NSR3B4E2D7R20_KKT_STOPPING_CONTRACT_FROZEN /
-NSR3B4E2D7R20_EXECUTION_NEXT /
+NSR3B4E2D7R20_V1_CORPUS_EXCITATION_FAIL /
+NSR3B4E2D7R20_V2_OPERATOR_PREFLIGHT_PASS /
+NSR3B4E2D7R20_STOPPING_CONTRACT_R2_FROZEN /
+NSR3B4E2D7R20_ORACLE_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2955,12 +2956,16 @@ as a bounded acceleration candidate, not production. The next
 must freeze independent topology/contact holdouts, an offline accuracy oracle
 and dimensionless stopping tuple. Outer 21, GPU timing and runtime integration
 remain blocked.
-The R20
-[manifest evidence](../../development/nonlocal-nsr3b4e2d7r20-corpus-manifest-evidence-2026-08-25.md)
-freezes four transfer regressions and two new blind holdouts before any solver
-observation. The
+The first R20
+[manifest](../../development/nonlocal-nsr3b4e2d7r20-corpus-manifest-evidence-2026-08-25.md)
+was superseded before solver execution because its
+[input preflight](../../development/nonlocal-nsr3b4e2d7r20-v1-operator-preflight-evidence-2026-08-25.md)
+found both intended holdouts already density-feasible. The
+[v2 manifest/preflight](../../development/nonlocal-nsr3b4e2d7r20-v2-corpus-preflight-evidence-2026-08-25.md)
+retains those states as quiet controls and freezes two genuinely excited blind
+holdouts. The
 [KKT research](../../development/nonlocal-nsr3b4e2d7r20-kkt-stopping-research-2026-08-25.md)
 derives row-scale-invariant primal/projected-dual/complementarity residuals;
-the [frozen contract](03b4e2d7r20-generalization-stopping-contract.md)
+the revision-2 [frozen contract](03b4e2d7r20-generalization-stopping-contract.md)
 authorizes one rollback-only corpus execution with an independent binary128
 primal-Dykstra oracle. Small dual change alone is not convergence.
