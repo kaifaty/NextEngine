@@ -13,6 +13,8 @@ constexpr const char* AL_R65P_V6_RESULT_SHA256 =
     "bd568e0f367d34ef75f5ebeeca085f6cd6c36bb9fd56cb6966965a629ae8f0e2";
 constexpr const char* AL_R65P_V7_DIAGNOSTIC_SHA256 =
     "9203252f9f330c4ce92bc2bcbe6ed091c361aadb915e28daf6a7ade26620ea03";
+constexpr const char* AL_R65P_V8_FILTER_SHA256 =
+    "bdeeab4bd4d5db6b4f269de61fe84db020726690c22b464434935d8fcf218ab2";
 
 bool al_r65p_checkpoint(std::size_t outer) {
     return std::find(AL_R65P_CHECKPOINTS.begin(),
@@ -57,6 +59,118 @@ bool al_r65p_filter_envelope(double baseline_f, double baseline_h,
             || baseline_f - candidate_f >= gamma * baseline_h);
 }
 
+struct ALR65PComposedDual {
+    bool passed = false;
+    double primal = 0.0;
+    double physical_scaled = 0.0;
+    double physical_gap = 0.0;
+    double physical_bound = 0.0;
+    double lambda_raw = 0.0;
+    double direct = 0.0;
+    double proximal = 0.0;
+    double lambda_constraint = 0.0;
+    double transpose_target = 0.0;
+    double transpose_squared = 0.0;
+    double completed_square = 0.0;
+    double formula_gap = 0.0;
+    double formula_bound = 0.0;
+    std::string root;
+};
+
+ALR65PComposedDual al_r65p_composed_dual(
+    const std::vector<Vec3>& projected,
+    const std::vector<Vec3>& target,
+    const std::vector<Vec3>& projection_input,
+    const std::vector<double>& lambda,
+    const std::vector<double>& constraint,
+    const std::vector<double>& raw,
+    double physical_inertia) {
+    ALR65PComposedDual result;
+    const std::size_t count = projected.size();
+    if (count == 0U || target.size() != count
+        || projection_input.size() != count || lambda.size() != count
+        || constraint.size() != count || raw.size() != count
+        || !std::isfinite(physical_inertia)) return result;
+    long double primal = 0.0L;
+    long double proximal = 0.0L;
+    long double transpose_target = 0.0L;
+    long double transpose_squared = 0.0L;
+    for (std::size_t particle = 0U; particle < count; ++particle) {
+        const Vec3 primal_delta = projected[particle] - target[particle];
+        const Vec3 proximal_delta =
+            projected[particle] - projection_input[particle];
+        const Vec3 transpose =
+            target[particle] - projection_input[particle];
+        primal += 0.5L * static_cast<long double>(
+            norm_squared(primal_delta));
+        proximal += 0.5L * static_cast<long double>(
+            norm_squared(proximal_delta));
+        transpose_target += static_cast<long double>(transpose.x)
+                * target[particle].x
+            + static_cast<long double>(transpose.y) * target[particle].y
+            + static_cast<long double>(transpose.z) * target[particle].z;
+        transpose_squared += static_cast<long double>(
+            norm_squared(transpose));
+    }
+    long double lambda_raw = 0.0L;
+    long double lambda_constraint = 0.0L;
+    for (std::size_t row = 0U; row < count; ++row) {
+        lambda_raw += static_cast<long double>(lambda[row]) * raw[row];
+        lambda_constraint += static_cast<long double>(lambda[row])
+            * constraint[row];
+    }
+    result.primal = static_cast<double>(primal);
+    result.physical_scaled = SPACING * SPACING * result.primal;
+    result.physical_gap = std::abs(
+        physical_inertia - result.physical_scaled);
+    result.physical_bound = gamma_factor(64U * count + 256U)
+        * (std::abs(physical_inertia) + std::abs(result.physical_scaled));
+    result.lambda_raw = static_cast<double>(lambda_raw);
+    result.direct = static_cast<double>(primal + lambda_raw);
+    result.proximal = static_cast<double>(proximal);
+    result.lambda_constraint = static_cast<double>(lambda_constraint);
+    result.transpose_target = static_cast<double>(transpose_target);
+    result.transpose_squared = static_cast<double>(transpose_squared);
+    result.completed_square = static_cast<double>(proximal
+        + lambda_constraint + transpose_target
+        - 0.5L * transpose_squared);
+    result.formula_gap = std::abs(result.direct - result.completed_square);
+    const double formula_scale = std::abs(result.direct)
+        + std::abs(result.completed_square) + std::abs(result.primal)
+        + std::abs(result.lambda_raw) + std::abs(result.proximal)
+        + std::abs(result.lambda_constraint)
+        + std::abs(result.transpose_target)
+        + 0.5 * std::abs(result.transpose_squared);
+    result.formula_bound = gamma_factor(256U * count + 1024U)
+        * formula_scale;
+    result.passed = std::isfinite(result.primal) && result.primal >= 0.0
+        && std::isfinite(result.physical_scaled)
+        && std::isfinite(result.physical_gap)
+        && std::isfinite(result.physical_bound)
+        && result.physical_gap <= result.physical_bound
+        && std::isfinite(result.lambda_raw) && std::isfinite(result.direct)
+        && std::isfinite(result.proximal)
+        && std::isfinite(result.lambda_constraint)
+        && std::isfinite(result.transpose_target)
+        && std::isfinite(result.transpose_squared)
+        && result.transpose_squared >= 0.0
+        && std::isfinite(result.completed_square)
+        && std::isfinite(result.formula_gap)
+        && std::isfinite(result.formula_bound)
+        && result.formula_gap <= result.formula_bound;
+    std::ostringstream material;
+    material << std::setprecision(17) << result.primal << ':'
+        << result.physical_scaled << ':' << result.physical_gap << ':'
+        << result.physical_bound << ':' << result.lambda_raw << ':'
+        << result.direct << ':' << result.proximal << ':'
+        << result.lambda_constraint << ':' << result.transpose_target << ':'
+        << result.transpose_squared << ':' << result.completed_square << ':'
+        << result.formula_gap << ':' << result.formula_bound << ':'
+        << result.passed;
+    result.root = sha256_hex(material.str());
+    return result;
+}
+
 struct ALR65PFilterCandidate {
     std::size_t exponent = 0U;
     std::size_t positive_rows = 0U;
@@ -77,6 +191,10 @@ struct ALR65PFilterCandidate {
     bool weak_or_strong = false;
     std::string raw_root;
     std::string root;
+    ALR65PComposedDual composed_dual;
+    double composed_dual_change = 0.0;
+    bool safe_composed_dual_ascent = false;
+    std::string composed_dual_root;
 };
 
 struct ALR65PFilterOuter {
@@ -97,6 +215,12 @@ struct ALR65PFilterOuter {
     std::string baseline_raw_root;
     std::string root;
     std::vector<ALR65PFilterCandidate> candidates;
+    ALR65PComposedDual baseline_composed_dual;
+    bool composed_dual_exact = true;
+    std::size_t safe_composed_dual_candidates = 0U;
+    double best_composed_dual_change = 0.0;
+    std::size_t best_composed_dual_exponent = 16U;
+    std::string composed_dual_root;
 };
 
 struct ALR65PBlock {
@@ -147,6 +271,7 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
     const std::vector<Vec3>& lower,
     const std::vector<Vec3>& upper,
     const std::vector<Vec3>& trial_origin,
+    const std::vector<Vec3>& trial_target,
     const std::vector<Vec3>& predicted_position,
     double normal_inertia) {
     ALR65PBlock result;
@@ -156,7 +281,8 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
         || initial_lambda.size() != count
         || initial_q.size() != count || correction.size() != count
         || lower.size() != count || upper.size() != count
-        || trial_origin.size() != count || predicted_position.size() != count
+        || trial_origin.size() != count || trial_target.size() != count
+        || predicted_position.size() != count
         || !std::isfinite(normal_inertia))
         return result;
     result.lambda = initial_lambda;
@@ -297,6 +423,10 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
             && filter_outer->baseline_inertia >= 0.0;
         filter_outer->exact = filter_outer->exact
             && filter_outer->baseline_exact;
+        filter_outer->baseline_composed_dual = al_r65p_composed_dual(
+            baseline_projection.value, trial_target, baseline_joint_input,
+            result.lambda, workspace.support.constraint,
+            baseline_audit.raw, result.baseline_inertia);
     }
     result.line_exact = false;
     double best_baseline_reduction = 0.0;
@@ -407,6 +537,26 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
                     filter_candidate.inertia,
                     filter_candidate.violation_norm,
                     std::ldexp(1.0, -24));
+            filter_candidate.composed_dual = al_r65p_composed_dual(
+                candidate_projection.value, trial_target,
+                candidate_joint_input, trial_lambda,
+                workspace.support.constraint, candidate_audit.raw,
+                candidate_inertia);
+            filter_candidate.composed_dual_change =
+                filter_candidate.composed_dual.direct
+                - filter_outer->baseline_composed_dual.direct;
+            filter_candidate.safe_composed_dual_ascent =
+                filter_outer->baseline_composed_dual.passed
+                && filter_candidate.composed_dual.passed
+                && filter_candidate.normal_safe
+                && filter_candidate.composed_dual_change > 0.0;
+            std::ostringstream composed_dual_material;
+            composed_dual_material << std::setprecision(17)
+                << filter_candidate.composed_dual.root << ':'
+                << filter_candidate.composed_dual_change << ':'
+                << filter_candidate.safe_composed_dual_ascent;
+            filter_candidate.composed_dual_root = sha256_hex(
+                composed_dual_material.str());
             std::ostringstream filter_material;
             filter_material << std::setprecision(17)
                 << filter_candidate.exponent << ':'
@@ -436,6 +586,15 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
                 ++filter_outer->strong_candidates;
             if (filter_candidate.weak_or_strong)
                 ++filter_outer->weak_or_strong_candidates;
+            if (filter_candidate.safe_composed_dual_ascent) {
+                ++filter_outer->safe_composed_dual_candidates;
+                if (filter_candidate.composed_dual_change
+                    > filter_outer->best_composed_dual_change) {
+                    filter_outer->best_composed_dual_change =
+                        filter_candidate.composed_dual_change;
+                    filter_outer->best_composed_dual_exponent = exponent;
+                }
+            }
             if (filter_candidate.normal_safe
                 && filter_candidate.violation_norm
                     < filter_outer->best_violation_norm) {
@@ -650,6 +809,65 @@ ALR65PFilterControl al_r65p_filter_control() {
                 baseline_f, baseline_h,
                 std::ldexp(1.0, -static_cast<int>(exponent)));
     return result;
+}
+
+struct ALR65PComposedDualControl {
+    bool scalar_midpoint_exact = false;
+    bool scalar_optimum_exact = false;
+    bool wrong_sign_rejected = false;
+    bool box_active_exact = false;
+};
+
+ALR65PComposedDualControl al_r65p_composed_dual_control() {
+    ALR65PComposedDualControl result;
+    const std::vector<Vec3> zero{{0.0, 0.0, 0.0}};
+    const std::vector<Vec3> midpoint{{-0.5, 0.0, 0.0}};
+    const std::vector<double> half_lambda{0.5};
+    const std::vector<double> unit_constraint{1.0};
+    const std::vector<double> half_raw{0.5};
+    const ALR65PComposedDual midpoint_dual = al_r65p_composed_dual(
+        midpoint, zero, midpoint, half_lambda, unit_constraint, half_raw,
+        0.125 * SPACING * SPACING);
+    result.scalar_midpoint_exact = midpoint_dual.passed
+        && midpoint_dual.primal == 0.125
+        && midpoint_dual.lambda_raw == 0.25
+        && midpoint_dual.direct == 0.375
+        && midpoint_dual.completed_square == 0.375;
+    const std::vector<Vec3> optimum{{-1.0, 0.0, 0.0}};
+    const std::vector<double> unit_lambda{1.0};
+    const std::vector<double> zero_raw{0.0};
+    const ALR65PComposedDual optimum_dual = al_r65p_composed_dual(
+        optimum, zero, optimum, unit_lambda, unit_constraint, zero_raw,
+        0.5 * SPACING * SPACING);
+    result.scalar_optimum_exact = optimum_dual.passed
+        && optimum_dual.primal == 0.5 && optimum_dual.direct == 0.5
+        && optimum_dual.completed_square == 0.5;
+    const double wrong_sign = midpoint_dual.primal
+        - midpoint_dual.lambda_raw;
+    result.wrong_sign_rejected = wrong_sign == -0.125
+        && wrong_sign != midpoint_dual.direct;
+    const std::vector<Vec3> box_target{{2.0, 0.0, 0.0}};
+    const std::vector<Vec3> box_input{{1.5, 0.0, 0.0}};
+    const std::vector<Vec3> box_projected{{1.0, 0.0, 0.0}};
+    const std::vector<double> box_constraint{-2.0};
+    const std::vector<double> box_raw{-1.0};
+    const ALR65PComposedDual box_dual = al_r65p_composed_dual(
+        box_projected, box_target, box_input, half_lambda,
+        box_constraint, box_raw, 0.5 * SPACING * SPACING);
+    result.box_active_exact = box_dual.passed
+        && box_dual.primal == 0.5 && box_dual.direct == 0.0
+        && box_dual.proximal == 0.125
+        && box_dual.completed_square == 0.0;
+    return result;
+}
+
+std::string al_r65p_composed_dual_route(bool identity, bool exact,
+    std::size_t blocked, std::size_t ascent) {
+    if (!identity || !exact || blocked != 15U || ascent > blocked)
+        return "COMPOSED_DUAL_REFERENCE_RETAINED";
+    if (ascent == blocked) return "COMPOSED_DUAL_PATH_CANDIDATE";
+    if (ascent == 0U) return "FILTER_CONTROLLER_REQUIRED";
+    return "PHASE_DEPENDENT_DUAL_FILTER_REQUIRED";
 }
 
 std::string al_r65p_filter_pair_route(bool identity, bool exact,
@@ -947,7 +1165,7 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         const ALR65PBlock block = al_r65p_block(
             op, workspace, outer, &filter_outer, owned, diagonal, lambda, q,
             raw, correction, lower, upper, r43.projected_trial,
-            r30.predicted_position, normal_inertia);
+            capture.target, r30.predicted_position, normal_inertia);
         face_pcg_iterations += block.face_iterations;
         candidate_trials += block.candidate_trials;
         baseline_projection_calls += block.baseline_projection_calls;
@@ -1017,6 +1235,26 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         for (const ALR65PFilterCandidate& candidate : filter_outer.candidates)
             filter_outer_material << candidate.root << ':';
         filter_outer.root = sha256_hex(filter_outer_material.str());
+        filter_outer.composed_dual_exact =
+            filter_outer.baseline_composed_dual.passed
+            && std::all_of(filter_outer.candidates.begin(),
+                filter_outer.candidates.end(),
+                [](const ALR65PFilterCandidate& candidate) {
+                    return candidate.composed_dual.passed
+                        && std::isfinite(candidate.composed_dual_change);
+                });
+        std::ostringstream composed_dual_outer_material;
+        composed_dual_outer_material << std::setprecision(17)
+            << filter_outer.outer << ':' << filter_outer.blocked << ':'
+            << filter_outer.baseline_composed_dual.root << ':'
+            << filter_outer.composed_dual_exact << ':'
+            << filter_outer.safe_composed_dual_candidates << ':'
+            << filter_outer.best_composed_dual_change << ':'
+            << filter_outer.best_composed_dual_exponent << '|';
+        for (const ALR65PFilterCandidate& candidate : filter_outer.candidates)
+            composed_dual_outer_material << candidate.composed_dual_root << ':';
+        filter_outer.composed_dual_root = sha256_hex(
+            composed_dual_outer_material.str());
         filter_outers.push_back(filter_outer);
         exact = block.passed;
         if (!exact) break;
@@ -1405,20 +1643,119 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         filter_semantic << outer.root << ':';
     filter_semantic << "|MEASUREMENT_ONLY_NO_FILTER_OR_SOLVER_CREDIT";
     const std::string filter_result_sha = sha256_hex(filter_semantic.str());
-    const bool report_passed = passed && diagnostic_exact && filter_exact;
+    const bool filter_identity_exact = filter_exact
+        && filter_result_sha == AL_R65P_V8_FILTER_SHA256;
+
+    const ALR65PComposedDualControl composed_dual_control =
+        al_r65p_composed_dual_control();
+    const bool composed_dual_control_exact =
+        composed_dual_control.scalar_midpoint_exact
+        && composed_dual_control.scalar_optimum_exact
+        && composed_dual_control.wrong_sign_rejected
+        && composed_dual_control.box_active_exact;
+    const bool composed_dual_route_control_exact =
+        al_r65p_composed_dual_route(false, true, 15U, 15U)
+                == "COMPOSED_DUAL_REFERENCE_RETAINED"
+        && al_r65p_composed_dual_route(true, false, 15U, 15U)
+                == "COMPOSED_DUAL_REFERENCE_RETAINED"
+        && al_r65p_composed_dual_route(true, true, 15U, 15U)
+                == "COMPOSED_DUAL_PATH_CANDIDATE"
+        && al_r65p_composed_dual_route(true, true, 15U, 0U)
+                == "FILTER_CONTROLLER_REQUIRED"
+        && al_r65p_composed_dual_route(true, true, 15U, 1U)
+                == "PHASE_DEPENDENT_DUAL_FILTER_REQUIRED";
+    bool composed_dual_audits_exact =
+        filter_outers.size() == AL_R65P_OUTERS;
+    std::size_t composed_dual_candidates = 0U;
+    std::size_t safe_composed_dual_candidates = 0U;
+    std::size_t composed_dual_ascent_outers = 0U;
+    double maximum_composed_dual_formula_gap = 0.0;
+    double maximum_composed_dual_formula_bound = 0.0;
+    double maximum_composed_dual_physical_gap = 0.0;
+    double maximum_composed_dual_physical_bound = 0.0;
+    for (const ALR65PFilterOuter& outer : filter_outers) {
+        composed_dual_audits_exact = composed_dual_audits_exact
+            && outer.composed_dual_exact;
+        composed_dual_candidates += outer.candidates.size();
+        safe_composed_dual_candidates +=
+            outer.safe_composed_dual_candidates;
+        if (outer.blocked && outer.safe_composed_dual_candidates > 0U)
+            ++composed_dual_ascent_outers;
+        maximum_composed_dual_formula_gap = std::max(
+            maximum_composed_dual_formula_gap,
+            outer.baseline_composed_dual.formula_gap);
+        maximum_composed_dual_formula_bound = std::max(
+            maximum_composed_dual_formula_bound,
+            outer.baseline_composed_dual.formula_bound);
+        maximum_composed_dual_physical_gap = std::max(
+            maximum_composed_dual_physical_gap,
+            outer.baseline_composed_dual.physical_gap);
+        maximum_composed_dual_physical_bound = std::max(
+            maximum_composed_dual_physical_bound,
+            outer.baseline_composed_dual.physical_bound);
+        for (const ALR65PFilterCandidate& candidate : outer.candidates) {
+            maximum_composed_dual_formula_gap = std::max(
+                maximum_composed_dual_formula_gap,
+                candidate.composed_dual.formula_gap);
+            maximum_composed_dual_formula_bound = std::max(
+                maximum_composed_dual_formula_bound,
+                candidate.composed_dual.formula_bound);
+            maximum_composed_dual_physical_gap = std::max(
+                maximum_composed_dual_physical_gap,
+                candidate.composed_dual.physical_gap);
+            maximum_composed_dual_physical_bound = std::max(
+                maximum_composed_dual_physical_bound,
+                candidate.composed_dual.physical_bound);
+        }
+    }
+    const bool composed_dual_work_exact = filter_work_exact
+        && composed_dual_candidates == 239U;
+    const bool composed_dual_exact = filter_identity_exact
+        && composed_dual_control_exact
+        && composed_dual_route_control_exact
+        && composed_dual_audits_exact && composed_dual_work_exact;
+    const std::string composed_dual_route = al_r65p_composed_dual_route(
+        filter_identity_exact, composed_dual_exact, filter_blocked_outers,
+        composed_dual_ascent_outers);
+    std::ostringstream composed_dual_semantic;
+    composed_dual_semantic << std::setprecision(17)
+        << (composed_dual_exact ? "PASS|" : "FAIL|")
+        << filter_result_sha << '|' << composed_dual_route << '|'
+        << composed_dual_candidates << ':'
+        << safe_composed_dual_candidates << ':'
+        << composed_dual_ascent_outers << ':'
+        << maximum_composed_dual_formula_gap << ':'
+        << maximum_composed_dual_formula_bound << ':'
+        << maximum_composed_dual_physical_gap << ':'
+        << maximum_composed_dual_physical_bound << '|'
+        << composed_dual_control.scalar_midpoint_exact << ':'
+        << composed_dual_control.scalar_optimum_exact << ':'
+        << composed_dual_control.wrong_sign_rejected << ':'
+        << composed_dual_control.box_active_exact << ':'
+        << composed_dual_route_control_exact << '|';
+    for (const ALR65PFilterOuter& outer : filter_outers)
+        composed_dual_semantic << outer.composed_dual_root << ':';
+    composed_dual_semantic << "|MEASUREMENT_ONLY_NO_DUAL_PATH_CREDIT";
+    const std::string composed_dual_result_sha = sha256_hex(
+        composed_dual_semantic.str());
+    const bool report_passed = passed && diagnostic_exact && filter_exact
+        && composed_dual_exact;
 
     std::ostringstream report;
     report << std::setprecision(17)
-        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_projected_filter_pair_diagnostic.v8\",\"status\":\""
+        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_composed_dual_merit_diagnostic.v9\",\"status\":\""
         << (report_passed ? "PASS" : "FAIL")
         << "\",\"authority\":\"EXPLORATORY_ONLY_NO_CREDIT\""
         << ",\"route\":\"" << route << "\""
         << ",\"diagnostic_route\":\"" << diagnostic_route << "\""
         << ",\"filter_pair_route\":\"" << filter_pair_route << "\""
+        << ",\"composed_dual_route\":\"" << composed_dual_route << "\""
         << ",\"solver_identity_exact\":"
         << (solver_identity_exact ? "true" : "false")
         << ",\"proportioning_identity_exact\":"
         << (proportioning_identity_exact ? "true" : "false")
+        << ",\"filter_identity_exact\":"
+        << (filter_identity_exact ? "true" : "false")
         << ",\"parent_stdout_sha256\":\"" << parent_stdout << "\""
         << ",\"initial_working\":" << initial_working
         << ",\"records\":[";
@@ -1635,6 +1972,87 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         }
         report << "]}";
     }
+    report << "]},\"composed_dual\":{\"measurement_only\":true"
+        << ",\"audits_exact\":"
+        << (composed_dual_audits_exact ? "true" : "false")
+        << ",\"work_exact\":"
+        << (composed_dual_work_exact ? "true" : "false")
+        << ",\"route_control_exact\":"
+        << (composed_dual_route_control_exact ? "true" : "false")
+        << ",\"candidate_audits\":" << composed_dual_candidates
+        << ",\"safe_ascent_candidates\":"
+        << safe_composed_dual_candidates
+        << ",\"blocked_ascent_outers\":"
+        << composed_dual_ascent_outers
+        << ",\"maximum_formula_gap\":"
+        << maximum_composed_dual_formula_gap
+        << ",\"maximum_formula_bound\":"
+        << maximum_composed_dual_formula_bound
+        << ",\"maximum_physical_gap\":"
+        << maximum_composed_dual_physical_gap
+        << ",\"maximum_physical_bound\":"
+        << maximum_composed_dual_physical_bound
+        << ",\"control\":{\"scalar_midpoint_exact\":"
+        << (composed_dual_control.scalar_midpoint_exact ? "true" : "false")
+        << ",\"scalar_optimum_exact\":"
+        << (composed_dual_control.scalar_optimum_exact ? "true" : "false")
+        << ",\"wrong_sign_rejected\":"
+        << (composed_dual_control.wrong_sign_rejected ? "true" : "false")
+        << ",\"box_active_exact\":"
+        << (composed_dual_control.box_active_exact ? "true" : "false")
+        << "},\"outers\":[";
+    for (std::size_t i = 0U; i < filter_outers.size(); ++i) {
+        if (i != 0U) report << ',';
+        const ALR65PFilterOuter& outer = filter_outers[i];
+        const ALR65PComposedDual& baseline = outer.baseline_composed_dual;
+        report << "{\"outer\":" << outer.outer
+            << ",\"blocked\":" << (outer.blocked ? "true" : "false")
+            << ",\"exact\":"
+            << (outer.composed_dual_exact ? "true" : "false")
+            << ",\"safe_ascent_candidates\":"
+            << outer.safe_composed_dual_candidates
+            << ",\"best_ascent_exponent\":"
+            << outer.best_composed_dual_exponent
+            << ",\"best_ascent\":"
+            << outer.best_composed_dual_change
+            << ",\"root\":\"" << outer.composed_dual_root << "\""
+            << ",\"baseline\":{\"primal\":" << baseline.primal
+            << ",\"physical_scaled\":" << baseline.physical_scaled
+            << ",\"physical_gap\":" << baseline.physical_gap
+            << ",\"physical_bound\":" << baseline.physical_bound
+            << ",\"lambda_raw\":" << baseline.lambda_raw
+            << ",\"direct\":" << baseline.direct
+            << ",\"completed_square\":" << baseline.completed_square
+            << ",\"formula_gap\":" << baseline.formula_gap
+            << ",\"formula_bound\":" << baseline.formula_bound
+            << ",\"passed\":" << (baseline.passed ? "true" : "false")
+            << ",\"root\":\"" << baseline.root << "\"}"
+            << ",\"candidates\":[";
+        for (std::size_t j = 0U; j < outer.candidates.size(); ++j) {
+            if (j != 0U) report << ',';
+            const ALR65PFilterCandidate& candidate = outer.candidates[j];
+            const ALR65PComposedDual& dual = candidate.composed_dual;
+            report << "{\"exponent\":" << candidate.exponent
+                << ",\"normal_safe\":"
+                << (candidate.normal_safe ? "true" : "false")
+                << ",\"primal\":" << dual.primal
+                << ",\"physical_scaled\":" << dual.physical_scaled
+                << ",\"physical_gap\":" << dual.physical_gap
+                << ",\"physical_bound\":" << dual.physical_bound
+                << ",\"lambda_raw\":" << dual.lambda_raw
+                << ",\"direct\":" << dual.direct
+                << ",\"completed_square\":" << dual.completed_square
+                << ",\"formula_gap\":" << dual.formula_gap
+                << ",\"formula_bound\":" << dual.formula_bound
+                << ",\"change\":" << candidate.composed_dual_change
+                << ",\"safe_ascent\":"
+                << (candidate.safe_composed_dual_ascent ? "true" : "false")
+                << ",\"passed\":" << (dual.passed ? "true" : "false")
+                << ",\"root\":\"" << candidate.composed_dual_root
+                << "\"}";
+        }
+        report << "]}";
+    }
     report << "]},\"work\":{\"outer_blocks\":" << identification_sweeps
         << ",\"identification_sweeps\":" << identification_sweeps
         << ",\"coordinate_visits\":" << coordinate_visits
@@ -1680,6 +2098,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << diagnostic_result_sha << "\""
         << ",\"filter_pair_result_sha256\":\""
         << filter_result_sha << "\""
-        << ",\"result_sha256\":\"" << filter_result_sha << "\"}";
+        << ",\"composed_dual_result_sha256\":\""
+        << composed_dual_result_sha << "\""
+        << ",\"result_sha256\":\"" << composed_dual_result_sha << "\"}";
     return {report_passed, report.str()};
 }
