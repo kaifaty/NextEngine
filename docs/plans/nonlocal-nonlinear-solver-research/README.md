@@ -3096,3 +3096,10 @@ next
 [candidate research](../../development/nonlocal-nsr3b4e2d7r20r17-dual-refinement-candidate-research-2026-08-26.md)
 and [candidate contract](03b4e2d7r20r17-dual-refinement-candidate-contract.md)
 consume the refinement opt-in across the complete development corpus.
+The
+[R20R17 evidence](../../development/nonlocal-nsr3b4e2d7r20r17-dual-refinement-candidate-evidence-2026-08-26.md)
+certifies 11/12 cases: corner closes, while shear reaches cap 32 without a
+structural rejection. The next
+[trajectory research](../../development/nonlocal-nsr3b4e2d7r20r18-shear-cap-trajectory-research-2026-08-26.md)
+and [audit contract](03b4e2d7r20r18-shear-cap-trajectory-contract.md) classify
+contraction, active-set churn and globalization before any cap change.
