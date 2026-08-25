@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R61_PASS_TOPOLOGY_OWNED_AUDIT_CANDIDATE /
-NSR3B4E2D7R19R62_RESTORATION_PROMOTION_RESEARCH_NEXT /
+NSR3B4E2D7R19R62_RESTORATION_PROMOTION_CONTRACT_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2822,3 +2822,10 @@ JVP feeds an exact R58 global shadow and exact R59 zero-positive candidate;
 upper/subset relation failures are zero. The owner derives degree from its own
 validated flat topology and has no binary128 runtime dependency. Research a
 separate atomic restoration-promotion transaction next.
+The [R62 research](../../development/nonlocal-nsr3b4e2d7r19r62-restoration-promotion-research-2026-08-25.md)
+corrects the promotion mapping. R43 itself is the filter-acceptable restoration
+output; the dimensionless R58 witness is the cached normal step proving that
+the *next* TRQP at R43 is compatible and must not be added to particle state.
+Freeze a copy-on-write exit candidate that freshly rejoins nonlinear filter
+coordinates, R43-owned topology/contact, trust reserve and the R61 certificate.
+No public state mutation or following tangential step is admitted in R62.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R61_PASS_TOPOLOGY_OWNED_AUDIT_CANDIDATE / D7R19R62_RESTORATION_PROMOTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R61_PASS_TOPOLOGY_OWNED_AUDIT_CANDIDATE / D7R19R62_RESTORATION_PROMOTION_CONTRACT_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,11 @@
 
 ## Resume in 60 seconds
 
+- **R62 mapping correction:** the exact promotion target is R43, not
+  `R43 + SPACING*witness`. The R58 witness is the cached dimensionless normal
+  step for the next TRQP at R43. Freeze a copy-on-write exit transaction with
+  fresh R43 topology/contact/filter coordinates, radius `0.0625`, witness
+  geometry and the R61 zero-positive audit; publish no runtime state.
 - **Integration result:** clean R61 passes at stdout `cdfe69bf...47cb4`,
   semantic `18794b59...7436` and route
   `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. A new binary64 owner executes one
@@ -3801,6 +3806,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R62 selects exact mapping/ownership and predeclares all
   commit/reject routes before execution.
 
+### D-125 -- Promote R43 and retain the certificate witness for the next TRQP
+
+- **Observation:** the frozen R48 system is relinearized at R43 and solves for
+  a normal step of the next TRQP. Primary filter-SQP semantics require the
+  restoration point to become the next iterate and the compatibility normal
+  step to be reused in the following iteration.
+- **Decision:** R62's candidate position is exact R43. Carry the exact R58
+  dimensionless witness as cached normal-step state beside next radius
+  `0.0625`; never apply it to R43 during restoration promotion.
+- **Rejected:** `R43 + SPACING*witness`, composite-AL merit as restoration-exit
+  authority, silently discarding the certified normal step, public mutation or
+  a tangential solve in the same transaction.
+- **Reconsider when:** a different algorithm with a separately frozen state
+  mapping replaces the current trust-region filter-SQP lineage.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3888,9 +3908,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R60 exact PASS/
    `ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`.
    Preserve D7R19R61 exact PASS/
-   `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. Research D7R19R62 as a separate
-   atomic restoration-promotion transaction; do not apply the witness before
-   mapping, nonlinear/contact and rollback contracts are frozen.
+   `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. Freeze D7R19R62 as a separate
+   copy-on-write restoration-exit transaction whose candidate is exact R43 and
+   whose cached next normal step is the unapplied R58 witness. Require fresh
+   nonlinear/filter/topology/contact/trust/certificate and rollback gates.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
