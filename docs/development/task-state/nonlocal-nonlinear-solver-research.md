@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R62_PASS_RESTORATION_EXIT_TRANSACTION_CANDIDATE / D7R19R63_CACHED_NORMAL_TRQP_CONTRACT_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R63_CACHED_NORMAL_TRQP_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,11 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **R63 selected model:** because current filter objective is pure inertia,
+- **R63 frozen:** because current filter objective is pure inertia,
   its step Hessian is exactly `SPACING^2*I`; the next TRQP is a Euclidean
   projection of `(predicted-R43)/SPACING` onto density halfspaces, R43 contact
-  box and radius `0.0625`. Freeze a 64-cycle 494-row Hildreth/Dykstra reference
-  with R61 audits at 8/16/32/64. No HVP, nonlinear trial or switching yet.
+  box and radius `0.0625`. Implement the 64-cycle 494-row Hildreth/Dykstra
+  reference with R61 audits at 8/16/32/64. No HVP, new row cache, nonlinear
+  trial or switching.
 - **R62 result:** clean stdout `acbfa4be...5fae`, semantic
   `61de28c3...da43`, route `RESTORATION_EXIT_TRANSACTION_CANDIDATE`. Exact R43
   publishes once into a private payload; cached normal remains unapplied,
@@ -3952,7 +3953,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. Preserve D7R19R62 exact
    PASS/`RESTORATION_EXIT_TRANSACTION_CANDIDATE`; its private position is R43
    and its exact R58 normal remains cached and unapplied. Freeze D7R19R63 as a
-   bounded pure-inertia projection TRQP with exact-once cached-normal
+   frozen pure-inertia projection TRQP with exact-once cached-normal
    consumption, 64 Hildreth/Dykstra cycles, four all-row R61 checkpoints,
    contact/trust/model gates and rollback. Defer nonlinear switching/filter
    globalization to the next stage.

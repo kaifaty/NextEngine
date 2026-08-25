@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R62_PASS_RESTORATION_EXIT_TRANSACTION_CANDIDATE /
-NSR3B4E2D7R19R63_CACHED_NORMAL_TRQP_CONTRACT_NEXT /
+NSR3B4E2D7R19R63_CACHED_NORMAL_TRQP_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2849,3 +2849,8 @@ the exact composite step is the projection of
 and radius `0.0625`. Select a bounded 64-cycle Hildreth/Dykstra reference over
 the captured 494-row master with all-row R61 audits at cycles 8/16/32/64.
 Nonlinear switching/filter globalization remains a separate later stage.
+The [frozen R63 contract](03b4e2d7r19r63-cached-normal-trqp-contract.md)
+uses exactly 64 captured-master Hildreth/Dykstra cycles and R61 audits at
+8/16/32/64. It performs no new row-basis/Gram work, HVP or nonlinear density
+trial. Implement it next and retain candidate, master-expansion, depth and
+certificate-refinement outcomes without fitted tolerances.
