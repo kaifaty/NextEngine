@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_FROZEN / ACTIVE_SET_DIAGNOSTIC_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_ITERATIVE_SEMISMOOTH_FROZEN / COLD_START_ITERATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -216,6 +216,13 @@
   deterministic finite single-pivot active set, exact principal solves and
   complementarity bounds. Reuse the certified dual line search once, then
   stop. Implement next.
+- **R20R6 result:** implementation `1854c327`, semantic `bfa10141...1500`,
+  route `NNQP_RELINEARIZATION_REQUIRED`. Strict supports are `16/16`, `21/38`
+  and `28/42`; all local NNQP KKT systems certify. Filled cases accept exact
+  dual ascent at `1/4` and `1/8` while changing 39/42 projector components.
+- **R20R7 frozen:** iterate the natural-residual face plus cold-start R20R6
+  NNQP for at most 32 accepted steps, rebuilding the projector derivative and
+  exact-dual line search after every acceptance. Implement next.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive

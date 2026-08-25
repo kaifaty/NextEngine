@@ -3024,3 +3024,10 @@ supported case, but leaves the dual cone in both filled cases. The next
 and [frozen active-set contract](03b4e2d7r20r6-nnqp-representative-contract.md)
 replace that direction with the nonnegative quadratic-model minimizer before
 allowing nonlinear relinearization.
+The
+[R20R6 evidence](../../development/nonlocal-nsr3b4e2d7r20r6-nnqp-representative-evidence-2026-08-25.md)
+certifies the cone-aware local models and exact-dual steps, while observing
+large projector-face changes. The next
+[iterative semismooth research](../../development/nonlocal-nsr3b4e2d7r20r7-iterative-semismooth-research-2026-08-25.md)
+and [frozen iteration contract](03b4e2d7r20r7-iterative-semismooth-contract.md)
+rebuild that local model for at most 32 accepted binary128 steps.
