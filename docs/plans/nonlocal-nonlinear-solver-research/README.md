@@ -2,7 +2,9 @@
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
 NSR3B4E2D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE /
-NSR3B4E2D7R20_GENERALIZATION_STOPPING_RESEARCH_NEXT /
+NSR3B4E2D7R20_CORPUS_MANIFEST_PASS /
+NSR3B4E2D7R20_KKT_STOPPING_CONTRACT_FROZEN /
+NSR3B4E2D7R20_EXECUTION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2953,3 +2955,12 @@ as a bounded acceleration candidate, not production. The next
 must freeze independent topology/contact holdouts, an offline accuracy oracle
 and dimensionless stopping tuple. Outer 21, GPU timing and runtime integration
 remain blocked.
+The R20
+[manifest evidence](../../development/nonlocal-nsr3b4e2d7r20-corpus-manifest-evidence-2026-08-25.md)
+freezes four transfer regressions and two new blind holdouts before any solver
+observation. The
+[KKT research](../../development/nonlocal-nsr3b4e2d7r20-kkt-stopping-research-2026-08-25.md)
+derives row-scale-invariant primal/projected-dual/complementarity residuals;
+the [frozen contract](03b4e2d7r20-generalization-stopping-contract.md)
+authorizes one rollback-only corpus execution with an independent binary128
+primal-Dykstra oracle. Small dual change alone is not convergence.

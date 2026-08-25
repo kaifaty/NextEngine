@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_GENERALIZATION_STOPPING_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_CORPUS_MANIFEST_PASS / D7R20_KKT_STOPPING_CONTRACT_FROZEN / EXECUTION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -150,6 +150,14 @@
   face/corner/supported/released convex-TRQP corpus, a higher-accuracy offline
   oracle and dimensionless KKT/dual stopping tuple. Fixed 20 is evidence, not
   a runtime policy. Do not execute a corpus before its contract is frozen.
+- **R20 corpus frozen:** manifest `a9835883...2471` contains four explicitly
+  labeled transfer regressions and two new blind holdouts. Two manifest runs
+  are byte-identical at stdout `da427e47...34b5`; no solver, oracle or timing
+  executed.
+- **R20 stopping contract frozen:** use row-scale-invariant primal/projected-
+  dual/complementarity residuals at `2^-20`, analytic stationarity bounds, a
+  32-outer hard cap and an independent binary128 primal-Dykstra oracle through
+  at most `2^18` fixed cycles. Dual stagnation alone cannot stop.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4309,6 +4317,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** corpus provenance/oracles/scales are frozen and either
   generalize the candidate or expose the first reproducible regime failure.
 
+### D-146 -- Freeze source identity before observing generalization
+
+- **Observation:** four useful historical face/corner/supported/released
+  states predate R65 but are not honest holdouts. Two new asymmetric
+  multi-face states can be frozen without running either candidate or oracle.
+- **Decision:** retain the four old states as transfer regressions and the two
+  new states as blind holdouts under manifest `a9835883...2471`. Execute only
+  the frozen row-scale-invariant KKT contract with an independent binary128
+  primal-Dykstra oracle.
+- **Rejected:** relabeling historical cases as holdouts, selecting cases after
+  convergence is known, raw residual thresholds, iterate-change convergence,
+  result-dependent oracle/candidate depth or FISTA-as-oracle.
+- **Reconsider when:** the fixed corpus returns a certified cross-regime result
+  or the oracle honestly returns `ORACLE_UNRESOLVED`.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4414,9 +4437,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve v11 exact PASS/
    `EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE` at semantic
    `8994703f...ae9f`, including its exact v10 prefix and 584,699,855-term
-   ledger. Do not run outer 21. Research and freeze the R66/R20 independent
-   corpus, offline oracle and dimensionless stopping contract next; execution,
-   GPU timing and runtime integration remain blocked.
+   ledger. Do not run outer 21. Preserve R20 manifest
+   `a9835883...2471`, including four transfer and two blind source roles.
+   Implement the frozen rollback-only R20 binary128 oracle and composed-dual
+   corpus execution next. Do not alter `2^-20`, the 32-outer cap, `2^18`
+   oracle cap, case order or source roots after observing results. GPU timing,
+   nonlinear/runtime integration and production remain blocked.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,
