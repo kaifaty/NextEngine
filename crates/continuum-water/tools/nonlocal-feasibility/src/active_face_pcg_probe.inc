@@ -24,7 +24,8 @@ struct ALR65PBlock {
     std::vector<double> raw;
     std::size_t iterations = 0U;
     std::size_t face_iterations = 0U;
-    std::size_t batch_products = 0U;
+    std::size_t candidate_trials = 0U;
+    std::size_t selected_exponent = 16U;
     std::size_t transpose_calls = 0U;
     std::size_t action_calls = 0U;
     std::size_t curvature_stops = 0U;
@@ -140,70 +141,70 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
 
     result.final_residual_norm = std::sqrt(
         static_cast<double>(residual_squared));
-    std::vector<double> projected_direction(count, 0.0);
     std::vector<std::uint8_t> predicted_mask(count, 0U);
     result.face_iterations = result.iterations;
     for (std::size_t row = 0U; row < count; ++row) {
         if (face[row] == 0U) continue;
         const double candidate = std::max(0.0, result.lambda[row] + step[row]);
-        projected_direction[row] = candidate - result.lambda[row];
         if (candidate == 0.0 && result.lambda[row] > 0.0) {
             predicted_mask[row] = 1U;
             ++result.predicted_zeros;
         }
     }
-    const std::vector<Vec3> at_projected =
-        al_r64_transpose(op, projected_direction, nullptr);
-    ++result.transpose_calls;
-    const ALLinearizedJvp projected_image =
-        al_r64_action(op, at_projected);
-    ++result.action_calls;
-    ++result.iterations;
-    ++result.batch_products;
-    exact = exact && at_projected.size() == count
-        && al_r48_vec_finite(at_projected) && projected_image.passed
-        && projected_image.value.size() == count;
-    long double slope = 0.0L;
-    long double line_curvature = 0.0L;
-    for (std::size_t row = 0U; row < count && exact; ++row) {
-        slope -= static_cast<long double>(result.raw[row])
-            * projected_direction[row];
-        line_curvature += static_cast<long double>(projected_direction[row])
-            * projected_image.value[row];
-    }
-    result.line_slope = static_cast<double>(slope);
-    result.line_curvature = static_cast<double>(line_curvature);
-    const bool zero_direction = std::all_of(projected_direction.begin(),
-        projected_direction.end(), [](double value) { return value == 0.0; });
-    result.line_exact = zero_direction || (std::isfinite(result.line_slope)
-        && result.line_slope < 0.0 && std::isfinite(result.line_curvature)
-        && result.line_curvature >= 0.0);
-    if (!zero_direction && result.line_exact) {
-        const double unconstrained = result.line_curvature > 0.0
-            ? -result.line_slope / result.line_curvature : 1.0;
-        result.line_alpha = std::min(1.0, std::max(0.0, unconstrained));
-        result.line_exact = std::isfinite(result.line_alpha)
-            && result.line_alpha > 0.0;
-    }
-    exact = exact && result.line_exact;
+    std::vector<double> selected_lambda = result.lambda;
+    std::vector<Vec3> selected_at(count);
     std::vector<std::uint8_t> applied_mask(count, 0U);
-    if (exact && !zero_direction) {
+    result.line_exact = false;
+    for (std::size_t exponent = 0U; exponent < 16U && exact; ++exponent) {
+        const double alpha = std::ldexp(1.0, -static_cast<int>(exponent));
+        std::vector<double> trial_lambda = result.lambda;
+        std::vector<double> trial_direction(count, 0.0);
         for (std::size_t row = 0U; row < count; ++row) {
-            result.lambda[row] += result.line_alpha * projected_direction[row];
-            result.raw[row] -= result.line_alpha * projected_image.value[row];
+            if (face[row] != 0U)
+                trial_lambda[row] = std::max(
+                    0.0, result.lambda[row] + alpha * step[row]);
+            trial_direction[row] = trial_lambda[row] - result.lambda[row];
+        }
+        const std::vector<Vec3> at_trial =
+            al_r64_transpose(op, trial_direction, nullptr);
+        ++result.transpose_calls;
+        ++result.candidate_trials;
+        exact = at_trial.size() == count && al_r48_vec_finite(at_trial)
+            && al_r30_finite(trial_lambda);
+        long double slope = 0.0L;
+        for (std::size_t row = 0U; row < count && exact; ++row)
+            slope -= static_cast<long double>(result.raw[row])
+                * trial_direction[row];
+        const long double curvature = al_r35_dot_vec3(at_trial, at_trial);
+        const long double change = slope + 0.5L * curvature;
+        exact = exact && std::isfinite(static_cast<double>(slope))
+            && std::isfinite(static_cast<double>(curvature))
+            && curvature >= 0.0L
+            && std::isfinite(static_cast<double>(change));
+        if (!exact || change >= 0.0L) continue;
+        result.line_exact = true;
+        result.line_alpha = alpha;
+        result.line_slope = static_cast<double>(slope);
+        result.line_curvature = static_cast<double>(curvature);
+        result.descent = static_cast<double>(change);
+        result.selected_exponent = exponent;
+        selected_lambda = std::move(trial_lambda);
+        selected_at = at_trial;
+        break;
+    }
+    if (result.line_exact) {
+        result.lambda = std::move(selected_lambda);
+        for (std::size_t row = 0U; row < count; ++row)
             if (result.lambda[row] == 0.0 && initial_lambda[row] > 0.0) {
                 applied_mask[row] = 1U;
                 ++result.applied_zeros;
             }
-        }
         for (std::size_t particle = 0U; particle < count; ++particle)
-            result.q[particle] = result.q[particle]
-                - result.line_alpha * at_projected[particle];
+            result.q[particle] = result.q[particle] - selected_at[particle];
     }
-    result.descent = result.line_alpha * result.line_slope
-        + 0.5 * result.line_alpha * result.line_alpha * result.line_curvature;
     std::ostringstream batch_material;
     batch_material << result.face_iterations << ':'
+        << result.candidate_trials << ':' << result.selected_exponent << ':'
         << result.predicted_zeros << ':'
         << result.applied_zeros << ':' << al_r29_mask_root(predicted_mask)
         << ':' << al_r29_mask_root(applied_mask) << ':'
@@ -214,8 +215,7 @@ ALR65PBlock al_r65p_block(const ALR64Operator& op,
     result.passed = exact && al_r30_finite(result.lambda)
         && al_r48_vec_finite(result.q) && al_r30_finite(result.raw)
         && std::isfinite(result.final_residual_norm)
-        && std::isfinite(result.descent)
-        && (zero_direction || result.descent < 0.0);
+        && std::isfinite(result.descent);
     return result;
 }
 
@@ -228,8 +228,8 @@ struct ALR65PRecord {
     std::size_t nonzero_lambda = 0U;
     std::size_t face = 0U;
     std::size_t pcg_iterations = 0U;
-    std::size_t face_iterations = 0U;
-    std::size_t batch_products = 0U;
+    std::size_t candidate_trials = 0U;
+    std::size_t selected_exponent = 16U;
     std::size_t predicted_zeros = 0U;
     std::size_t applied_zeros = 0U;
     double maximum_raw = 0.0;
@@ -254,14 +254,14 @@ struct ALR65PRecord {
 
 std::string al_r65p_route(bool exact, bool curvature, bool line,
     bool recurrence, bool model, bool lower_work, bool dominates) {
-    if (!exact) return "BATCH_PROJECTED_NEWTON_REFERENCE_RETAINED";
-    if (!curvature) return "BATCH_PROJECTED_NEWTON_CURVATURE_REJECTED";
-    if (!line) return "BATCH_PROJECTED_NEWTON_LINE_REJECTED";
-    if (!recurrence) return "BATCH_PROJECTED_NEWTON_RECURRENCE_REJECTED";
-    if (!model) return "BATCH_PROJECTED_NEWTON_MODEL_REDUCTION_REJECTED";
+    if (!exact) return "DYADIC_PROJECTED_PATH_REFERENCE_RETAINED";
+    if (!curvature) return "DYADIC_PROJECTED_PATH_CURVATURE_REJECTED";
+    if (!line) return "DYADIC_PROJECTED_PATH_LINE_REJECTED";
+    if (!recurrence) return "DYADIC_PROJECTED_PATH_RECURRENCE_REJECTED";
+    if (!model) return "DYADIC_PROJECTED_PATH_MODEL_REDUCTION_REJECTED";
     if (lower_work && dominates)
-        return "BATCH_PROJECTED_NEWTON_ACCELERATION_CANDIDATE";
-    return "BATCH_PROJECTED_NEWTON_REFERENCE_RETAINED";
+        return "DYADIC_PROJECTED_PATH_ACCELERATION_CANDIDATE";
+    return "DYADIC_PROJECTED_PATH_REFERENCE_RETAINED";
 }
 
 } // namespace
@@ -367,9 +367,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
     std::size_t coordinate_updates = 0U;
     std::size_t coordinate_residual_terms = 0U;
     std::size_t coordinate_update_terms = 0U;
-    std::size_t pcg_iterations = 0U;
     std::size_t face_pcg_iterations = 0U;
-    std::size_t batch_products = 0U;
+    std::size_t candidate_trials = 0U;
     std::size_t curvature_stops = 0U;
     std::size_t batch_predicted_zeros = 0U;
     std::size_t batch_applied_zeros = 0U;
@@ -429,9 +428,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         if (!exact) break;
         const ALR65PBlock block = al_r65p_block(
             op, owned, diagonal, lambda, q, raw);
-        pcg_iterations += block.iterations;
         face_pcg_iterations += block.face_iterations;
-        batch_products += block.batch_products;
+        candidate_trials += block.candidate_trials;
         transpose_calls += block.transpose_calls;
         action_calls += block.action_calls;
         curvature_stops += block.curvature_stops;
@@ -454,7 +452,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         }
         const double recurrence_gap = al_r32_vec3_norm(q_difference);
         const double recurrence_bound = gamma_factor(
-            64U * (coordinate_updates + pcg_iterations + batch_applied_zeros)
+            64U * (coordinate_updates + face_pcg_iterations
+                + candidate_trials + batch_applied_zeros)
                 + 256U)
             * (al_r32_vec3_norm(maintained_q) + al_r32_vec3_norm(q));
         const bool outer_recurrence = std::isfinite(recurrence_gap)
@@ -526,9 +525,9 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             lambda.begin(), lambda.end(),
             [](double value) { return value > 0.0; }));
         record.face = face_count;
-        record.pcg_iterations = block.iterations;
-        record.face_iterations = block.face_iterations;
-        record.batch_products = block.batch_products;
+        record.pcg_iterations = block.face_iterations;
+        record.candidate_trials = block.candidate_trials;
+        record.selected_exponent = block.selected_exponent;
         record.predicted_zeros = block.predicted_zeros;
         record.applied_zeros = block.applied_zeros;
         record.maximum_raw = *std::max_element(
@@ -572,8 +571,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << record.working << ':' << record.additions << ':'
             << record.raw_positive << ':' << record.candidate_positive << ':'
             << record.nonzero_lambda << ':' << record.face << ':'
-            << record.pcg_iterations << ':' << record.face_iterations << ':'
-            << record.batch_products << ':' << record.predicted_zeros << ':'
+            << record.pcg_iterations << ':' << record.candidate_trials << ':'
+            << record.selected_exponent << ':' << record.predicted_zeros << ':'
             << record.applied_zeros << ':'
             << record.maximum_raw << ':' << record.projected_gradient_norm
             << ':' << record.pcg_initial_residual_norm << ':'
@@ -610,13 +609,13 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         && workspace_work.workspace_releases == 1U
         && workspace_work.live_workspaces == 0U
         && identification_sweeps == AL_R65P_OUTERS
-        && pcg_iterations <= AL_R65P_OUTERS * AL_R65P_INNERS
-        && face_pcg_iterations + batch_products == pcg_iterations
         && face_pcg_iterations
             <= AL_R65P_OUTERS * (AL_R65P_INNERS - 1U)
-        && batch_products == AL_R65P_OUTERS
-        && transpose_calls == 2U * AL_R65P_OUTERS + pcg_iterations
-        && action_calls == 2U * AL_R65P_OUTERS + pcg_iterations
+        && candidate_trials >= AL_R65P_OUTERS
+        && candidate_trials <= 16U * AL_R65P_OUTERS
+        && transpose_calls == 2U * AL_R65P_OUTERS
+            + face_pcg_iterations + candidate_trials
+        && action_calls == 2U * AL_R65P_OUTERS + face_pcg_iterations
         && projection_calls == AL_R65P_OUTERS
         && audit_calls == AL_R65P_OUTERS + 1U
         && records.size() == AL_R65P_CHECKPOINTS.size()
@@ -635,8 +634,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << total_additions << ':' << identification_sweeps << ':'
         << coordinate_visits << ':' << coordinate_updates << ':'
         << coordinate_residual_terms << ':' << coordinate_update_terms << ':'
-        << pcg_iterations << ':' << face_pcg_iterations << ':'
-        << batch_products << ':' << curvature_stops << ':'
+        << face_pcg_iterations << ':' << candidate_trials << ':'
+        << curvature_stops << ':'
         << batch_predicted_zeros << ':' << batch_applied_zeros << ':'
         << transpose_calls << ':'
         << action_calls << ':' << structural_terms << '|';
@@ -646,7 +645,7 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
 
     std::ostringstream report;
     report << std::setprecision(17)
-        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_batch_projected_newton_probe.v3\",\"status\":\""
+        << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r19r65_dyadic_projected_path_probe.v4\",\"status\":\""
         << (passed ? "PASS" : "FAIL")
         << "\",\"authority\":\"EXPLORATORY_ONLY_NO_CREDIT\""
         << ",\"route\":\"" << route << "\""
@@ -664,8 +663,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
             << ",\"nonzero_lambda\":" << record.nonzero_lambda
             << ",\"face\":" << record.face
             << ",\"pcg_iterations\":" << record.pcg_iterations
-            << ",\"face_iterations\":" << record.face_iterations
-            << ",\"batch_products\":" << record.batch_products
+            << ",\"candidate_trials\":" << record.candidate_trials
+            << ",\"selected_exponent\":" << record.selected_exponent
             << ",\"predicted_zeros\":" << record.predicted_zeros
             << ",\"applied_zeros\":" << record.applied_zeros
             << ",\"maximum_raw\":" << record.maximum_raw
@@ -698,9 +697,8 @@ SplitBoundaryReport run_al_active_face_pcg_probe_controls() {
         << ",\"coordinate_updates\":" << coordinate_updates
         << ",\"coordinate_residual_terms\":" << coordinate_residual_terms
         << ",\"coordinate_update_terms\":" << coordinate_update_terms
-        << ",\"pcg_iterations\":" << pcg_iterations
         << ",\"face_pcg_iterations\":" << face_pcg_iterations
-        << ",\"batch_products\":" << batch_products
+        << ",\"projected_candidate_trials\":" << candidate_trials
         << ",\"curvature_stops\":" << curvature_stops
         << ",\"batch_predicted_zeros\":" << batch_predicted_zeros
         << ",\"batch_applied_zeros\":" << batch_applied_zeros
