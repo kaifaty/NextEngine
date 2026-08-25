@@ -2998,3 +2998,13 @@ fixtures. The
 and [frozen R20R3 contract](03b4e2d7r20r3-multiparameter-admm-contract.md)
 select independent density/domain penalties with a bounded MpSRA update.
 Even success is development evidence only; new v3 holdouts remain mandatory.
+The
+[R20R3 evidence](../../development/nonlocal-nsr3b4e2d7r20r3-multiparameter-admm-evidence-2026-08-25.md)
+records a mixed result: supported certifies 16x earlier, but both filled cases
+show safeguard-scale penalty oscillation and remain unresolved. The emitted
+route missed its own frozen oscillation condition, so M3 instability is the
+scientific classification and ADMM penalty tuning stops. The next
+[projector/Newton research](../../development/nonlocal-nsr3b4e2d7r20r4-projector-newton-research-2026-08-25.md)
+and [frozen derivative contract](03b4e2d7r20r4-projector-newton-derivative-contract.md)
+validate the exact joint-projector generalized derivative and face-Hessian
+rank before any semismooth Newton step.

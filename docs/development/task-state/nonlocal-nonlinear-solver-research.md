@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MULTIPARAMETER_ADMM_FROZEN / MPADMM_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_FROZEN / DERIVATIVE_DIAGNOSTIC_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -187,6 +187,17 @@
   rescaling/factor rebuild and cap `2^14`. Linear residual audits move to
   factor/checkpoint boundaries. Implement next; success still requires new v3
   holdouts before any generalization claim.
+- **R20R3 result:** semantic `cd094b7f...b486`. Supported certifies at 1,024,
+  but filled penalties oscillate across orders of magnitude, repeatedly hit
+  `2^20` and do not certify. Edge KKT regresses strongly. The emitted
+  active-set route omitted the frozen oscillation classifier; scientifically
+  M3 instability is supported. Stop ADMM penalty tuning and preserve the
+  reporting defect.
+- **R20R4 frozen:** derive the exact generalized derivative of the joint
+  box-ball projector and audit `A_I J_D A_I^T` rank/degeneracy at lambda zero.
+  Six tangent-safe finite-difference probes and pivoted binary128 rank controls
+  run without a Newton step. Implement next; result selects ordinary Newton or
+  representative-selection research.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
