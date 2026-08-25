@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R59_PASS_ROW_LOCAL_CERTIFICATE_CANDIDATE /
-NSR3B4E2D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R60_PASS_CERTIFICATE_VALIDATION_CANDIDATE /
+NSR3B4E2D7R19R61_CERTIFICATE_INTEGRATION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2798,3 +2798,10 @@ requires exact R59 reproduction, five deterministic structural degree-control
 cases, one fresh full-binary128 traversal, arithmetic-domain audit and all-row
 upper containment. PASS remains private validation and cannot integrate the
 certificate or exit restoration.
+The [R60 evidence](../../development/nonlocal-nsr3b4e2d7r19r60-certificate-validation-evidence-2026-08-25.md)
+closes `PASS / ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`. All structural
+mutations are rejected, the explicit binary64 replay is bit-exact with zero
+subnormal/nonfinite intermediates, and all 6000 local uppers dominate a fresh
+full128 upper. The minimum containment margin is `3.34566e-22`. Research a
+separate topology-owned integration boundary next; do not apply the witness or
+carry binary128 into runtime.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R59_PASS_ROW_LOCAL_CERTIFICATE_CANDIDATE / D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R60_PASS_CERTIFICATE_VALIDATION_CANDIDATE / D7R19R61_CERTIFICATE_INTEGRATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,13 @@
 
 ## Resume in 60 seconds
 
+- **Validation result:** clean R60 passes at stdout `6c6c62b6...5c7f7`,
+  semantic `d93dbdc9...aec9` and route
+  `ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`. All degree-corruption controls
+  reject, binary64 scalar replay is bit-exact, subnormal/nonfinite counts are
+  zero and all 6000 local uppers contain a fresh full128 upper. Minimum margin
+  is `3.34566e-22`. Research a separate R61 integration owner next; no witness,
+  restoration exit, runtime or production authority exists yet.
 - **Newest result:** clean R59 passes at stdout `495bbd21...3a4b`, semantic
   `e97d6823...071d` and route `ROW_LOCAL_ENCLOSURE_CERTIFICATE_CANDIDATE`.
   Exact row degrees range 44--113; replacing the global maximum work count by
@@ -3744,6 +3751,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** the frozen R60 executable selects validation, structural
   rejection, arithmetic-domain strengthening or dominance rejection.
 
+### D-122 -- Permit integration design, not restoration exit
+
+- **Observation:** R60 passes every structural negative control, has exact
+  binary64 replay with zero arithmetic-domain exceptions and proves positive
+  containment margin over an independently recomputed full128 upper on every
+  row.
+- **Decision:** retain R59/R60 and research R61 as a topology-owned row-local
+  audit integration candidate. Keep the legacy global upper as shadow, reuse
+  structural controls and keep binary128 offline.
+- **Rejected:** direct mutation of the legacy audit without shadow evidence,
+  binary128 runtime, immediate witness application, restoration exit,
+  performance timing or production promotion.
+- **Reconsider when:** R61 proves candidate/shadow relations and lifecycle
+  ownership without changing parent bytes or operator arithmetic.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3828,9 +3850,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    exact PASS/`FIXED_POINT_CONTRACTION_CANDIDATE`. Do not execute a third
    fixed-point outer. Preserve D7R19R59 exact PASS/
    `ROW_LOCAL_ENCLOSURE_CERTIFICATE_CANDIDATE`; do not integrate it directly.
-   Freeze and implement D7R19R60 independent structural/domain/dominance
-   validation before restoration exit or runtime work. Do not combine R60 with
-   certificate integration.
+   Preserve D7R19R60 exact PASS/
+   `ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`. Research and freeze D7R19R61
+   as a separate topology-owned integration candidate with legacy global
+   shadow. Do not apply the witness or authorize restoration exit yet.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not

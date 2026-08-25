@@ -2,7 +2,8 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN / IMPLEMENTATION AUTHORIZED / ROLLBACK ONLY`.
+Status: `CLOSED / PASS / ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE /
+ROLLBACK ONLY`.
 
 Parent: `e2553f04`, R59 stdout SHA-256
 `495bbd213784c4e4f7500c33e2be32c05d41b859145282770364a8fc3a143a4b`,
@@ -39,3 +40,6 @@ research and freezing of a separate integration contract.
 
 Rationale:
 [R60 research](../../development/nonlocal-nsr3b4e2d7r19r60-certificate-validation-research-2026-08-25.md).
+
+Closure evidence:
+[R60 evidence](../../development/nonlocal-nsr3b4e2d7r19r60-certificate-validation-evidence-2026-08-25.md).
