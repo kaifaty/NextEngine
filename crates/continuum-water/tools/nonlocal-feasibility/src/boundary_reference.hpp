@@ -266,6 +266,7 @@ SplitBoundaryReport run_al_generalization_v3_shear_trajectory_controls();
 SplitBoundaryReport run_al_generalization_v3_line_frontier_controls();
 SplitBoundaryReport run_al_generalization_v3_breakpoint_geometry_controls();
 SplitBoundaryReport run_al_generalization_v3_fixed_face_event_controls();
+SplitBoundaryReport run_al_generalization_v3_event_side_trial_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
