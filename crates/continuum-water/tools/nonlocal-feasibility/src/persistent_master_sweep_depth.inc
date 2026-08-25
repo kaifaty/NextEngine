@@ -216,9 +216,16 @@ std::string al_r52_route(bool parent, bool source, bool workspace,
     return "PERSISTENT_MASTER_R51_REFERENCE_RETAINED";
 }
 
+struct ALR52ReplayCapture {
+    bool captured = false;
+    ALR51ReplayCapture r51;
+    ALR52Result depth;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_persistent_master_sweep_depth_controls() {
+SplitBoundaryReport run_al_persistent_master_sweep_depth_controls_impl(
+    ALR52ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R52_IDENTITY_PROJECTION)
         == B4E2D7R19R52_IDENTITY_SHA256;
     ALR51ReplayCapture capture;
@@ -458,5 +465,14 @@ SplitBoundaryReport run_al_persistent_master_sweep_depth_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r51 = std::move(capture);
+        replay_capture->depth = std::move(depth);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_persistent_master_sweep_depth_controls() {
+    return run_al_persistent_master_sweep_depth_controls_impl(nullptr);
 }
