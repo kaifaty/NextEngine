@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R63_PASS_TANGENTIAL_MASTER_EXPANSION_REQUIRED / D7R19R64_SPARSE_ROW_OPERATOR_CONTRACT_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_SPARSE_ROW_OPERATOR_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,11 +11,11 @@
 
 ## Resume in 60 seconds
 
-- **R64 selected structure:** exact-order directed slots plus unique aggregated
+- **R64 frozen:** exact-order directed slots plus unique aggregated
   particle entries and particle-to-row incidence. Use epoch/timestamp scratch
-  and touched rows for local Gram overlap. Freeze equivalence against fresh R29
-  action/transpose and all 494 R51 gradients/diagonals/columns. No solve or
-  timing until equivalence closes.
+  and touched rows for local Gram overlap. Implement equivalence against fresh
+  R29 action/transpose and all 494 R51 gradients/diagonals/columns under frozen
+  gamma bounds. No solve or timing until equivalence closes.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -3994,7 +3994,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`RESTORATION_EXIT_TRANSACTION_CANDIDATE`; its private position is R43
    and its exact R58 normal remains cached and unapplied. Freeze D7R19R63 as a
    D7R19R63 exact PASS/`TANGENTIAL_MASTER_EXPANSION_REQUIRED`; do not add
-   fixed-master depth. Freeze D7R19R64 sparse topology-derived all-row slots,
+   fixed-master depth. Implement frozen D7R19R64 sparse topology-derived all-row slots,
    unique gradients, particle-to-row incidence/epoch overlap and exact/bounded
    equivalence against fresh R29 plus all captured R51 rows. Do not execute a
    dynamic active-set solve yet. Defer nonlinear switching/filter globalization.

@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R63_PASS_TANGENTIAL_MASTER_EXPANSION_REQUIRED /
-NSR3B4E2D7R19R64_SPARSE_ROW_OPERATOR_CONTRACT_NEXT /
+NSR3B4E2D7R19R64_SPARSE_ROW_OPERATOR_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2868,3 +2868,8 @@ a particle-to-row inverted incidence for local Gram overlap. Timestamp scratch
 plus a touched-row list avoids full-array clearing per coordinate. Validate
 all 494 captured gradients, diagonals and 6000-entry Gram columns before any
 dynamic active-set solve.
+The [frozen R64 contract](03b4e2d7r19r64-sparse-row-operator-contract.md)
+builds all 6000 sparse rows once, checks fresh directed action/transpose and
+validates every captured R51 gradient, diagonal and 6000-entry overlap column.
+Gamma bounds own legal addition-order differences. Implement equivalence only;
+Hildreth/projection/nonlinear work remains zero.
