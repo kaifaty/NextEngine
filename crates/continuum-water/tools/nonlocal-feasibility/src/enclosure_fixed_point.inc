@@ -33,9 +33,17 @@ std::string al_r58_route(bool parent, bool source, bool workspace,
     return "FIXED_POINT_REFERENCE_RETAINED";
 }
 
+struct ALR58ReplayCapture {
+    bool captured = false;
+    ALR57ReplayCapture r57;
+    ALR57Result result;
+    ALR53Result decomposition;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_directed_enclosure_fixed_point_controls() {
+SplitBoundaryReport run_al_directed_enclosure_fixed_point_controls_impl(
+    ALR58ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R58_IDENTITY_PROJECTION)
         == B4E2D7R19R58_IDENTITY_SHA256;
     ALR57ReplayCapture capture;
@@ -345,5 +353,15 @@ SplitBoundaryReport run_al_directed_enclosure_fixed_point_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r57 = std::move(capture);
+        replay_capture->result = std::move(result);
+        replay_capture->decomposition = std::move(decomposition);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_directed_enclosure_fixed_point_controls() {
+    return run_al_directed_enclosure_fixed_point_controls_impl(nullptr);
 }
