@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_DYADIC_PROJECTED_PATH_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_MODEL_AWARE_PROJECTED_PATH_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -73,6 +73,16 @@
 - **R65 projected-path probe frozen:** keep 15 face-PCG products, then test
   `alpha=1,1/2,...,2^-15` on the actual projected path. Each candidate uses
   one `A^T` and exact quadratic change; accept the first strict decrease.
+- **R65 projected-path result:** v4 applies 4,065 of 5,260 predicted zeros and
+  ends at raw `1.472e-9` using 351,545,778 terms, but outer 2 has negative
+  post-joint model reduction `-4.268e-15`. Fixed-correction dual descent is
+  insufficient for the composed Dykstra/inertia step. Preserve route
+  `DYADIC_PROJECTED_PATH_MODEL_REDUCTION_REJECTED`.
+- **R65 model-aware path frozen:** keep the same 15-HVP direction and dyadic
+  order, but accept only a candidate that has both strict dual decrease and
+  strict positive inertia-model reduction after the exact box-ball
+  projection. Count candidate projections explicitly; retain every existing
+  checkpoint, work and rollback gate.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4095,6 +4105,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   reaches FISTA, batch zeros hurt KKT/model gates, or terminal residuals still
   fail strict dominance.
 
+### D-138 -- Globalize the projected path through the joint model
+
+- **Observation:** v4 applies 4,065 projected-path zeros and reaches within
+  `1.24x` of FISTA raw at 58.89% of its structural work. Yet outer 2 accepts a
+  strict dual decrease that produces model reduction `-4.268e-15` after the
+  exact joint projection. The projected geometry is useful; its local
+  acceptance model is incomplete.
+- **Decision:** for every largest-first dyadic candidate, require both strict
+  fixed-block dual decrease and strict positive frozen inertia-model
+  reduction after an exact candidate box-ball projection. Freshly reconstruct
+  and project again before any outer state change.
+- **Rejected:** weakening the positive-model gate, admitting only a terminal
+  checkpoint, increasing PCG depth before correcting globalization, fitting a
+  tolerance to the outer-2 loss, or publishing a candidate projection.
+- **Reconsider when:** all dual-decreasing candidates fail the joint model,
+  candidate projections become the dominant work class, committed and
+  predicted model reductions disagree, or strict FISTA dominance still fails.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4189,9 +4217,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    fixed-master depth. Preserve D7R19R64 exact
    PASS/`SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`, including separate
    workspace/operator topology roots and its fail-closed negative result.
-   Preserve all D7R19R65 dynamic/FISTA/PCG/Newton probes as no-credit
-   exploratory evidence. Implement the frozen dyadic projected-path probe
-   next. Defer nonlinear switching/filter globalization.
+   Preserve all D7R19R65 dynamic/FISTA/PCG/Newton/projected-path probes as
+   no-credit exploratory evidence. Implement the frozen model-aware
+   projected-path probe next. Defer nonlinear switching/filter globalization.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,
