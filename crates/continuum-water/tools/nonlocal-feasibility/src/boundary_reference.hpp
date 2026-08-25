@@ -254,6 +254,7 @@ SplitBoundaryReport run_al_generalization_iterative_semismooth_controls();
 SplitBoundaryReport run_al_generalization_verified_inverse_controls();
 SplitBoundaryReport run_al_generalization_v3_manifest_controls();
 SplitBoundaryReport run_al_generalization_v3_preflight_controls();
+SplitBoundaryReport run_al_generalization_v3_solver_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
