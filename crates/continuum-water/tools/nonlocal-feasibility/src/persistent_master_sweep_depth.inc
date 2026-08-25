@@ -15,6 +15,8 @@ struct ALR52Record {
     bool strict = false;
     bool certified = false;
     std::size_t sweeps = 0U;
+    std::size_t raw_outside_master = 0U;
+    std::size_t directed_outside_master = 0U;
     ALR50Solve solve;
     ALR50Audit audit;
     std::vector<Vec3> witness;
@@ -60,6 +62,9 @@ ALR52Result al_r52_generate(const ALNormalizedWorkspace& workspace,
     ALR50Audit master = r50.terminal;
     master.active = r51.rows;
     master.active_root = r51.union_root;
+    std::vector<std::uint8_t> master_mask(
+        workspace.support.constraint.size(), 0U);
+    for (std::size_t row : r51.rows) master_mask[row] = 1U;
 
     bool all_depth = true;
     bool all_gram = true;
@@ -93,6 +98,13 @@ ALR52Result al_r52_generate(const ALNormalizedWorkspace& workspace,
         ++result.audit_jvp;
         all_primal = all_primal && record.audit.passed;
         record.certified = record.audit.passed && record.audit.active.empty();
+        for (std::size_t row = 0U; row < master_mask.size(); ++row)
+            if (master_mask[row] == 0U
+                && workspace.support.constraint[row]
+                    + record.audit.image.value[row] > 0.0)
+                ++record.raw_outside_master;
+        for (std::size_t row : record.audit.active)
+            if (master_mask[row] == 0U) ++record.directed_outside_master;
         record.strict = record.audit.passed
             && record.audit.primal.psi < AL_R52_R51_PSI
             && record.audit.primal.h < AL_R52_R51_H
@@ -107,7 +119,10 @@ ALR52Result al_r52_generate(const ALNormalizedWorkspace& workspace,
                  << record.audit.primal.psi << ':' << record.audit.primal.h
                  << ':' << record.audit.primal.maximum_upper << ':'
                  << record.audit.primal.raw_active << ':'
-                 << record.audit.active.size() << ':' << record.strict << ':'
+                 << record.audit.active.size() << ':'
+                 << record.raw_outside_master << ':'
+                 << record.directed_outside_master << ':'
+                 << record.strict << ':'
                  << record.certified << ':' << record.witness_norm << ':'
                  << record.witness_root;
         record.root = sha256_hex(material.str());
@@ -399,6 +414,10 @@ SplitBoundaryReport run_al_persistent_master_sweep_depth_controls() {
                << record.audit.primal.maximum_upper
                << ",\"raw_active\":" << record.audit.primal.raw_active
                << ",\"certified_positive\":" << record.audit.active.size()
+               << ",\"raw_outside_master\":"
+               << record.raw_outside_master
+               << ",\"directed_outside_master\":"
+               << record.directed_outside_master
                << ",\"strict\":" << (record.strict ? "true" : "false")
                << ",\"certified\":"
                << (record.certified ? "true" : "false")
