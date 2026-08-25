@@ -236,6 +236,7 @@ SplitBoundaryReport run_al_certificate_validation_controls();
 SplitBoundaryReport run_al_certificate_integration_controls();
 SplitBoundaryReport run_al_restoration_exit_transaction_controls();
 SplitBoundaryReport run_al_cached_normal_projection_trqp_controls();
+SplitBoundaryReport run_al_sparse_row_operator_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

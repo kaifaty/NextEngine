@@ -212,6 +212,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-filter-globalization|"
                          "--nonlocal-al-filter-compatibility|"
                          "--nonlocal-al-restoration-certificate|"
+                         "--nonlocal-al-sparse-row-operator|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1769,6 +1770,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_cached_normal_projection_trqp_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-sparse-row-operator") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_sparse_row_operator_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

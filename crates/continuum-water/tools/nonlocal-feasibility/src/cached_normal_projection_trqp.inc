@@ -88,6 +88,13 @@ struct ALR63Result {
     std::string state_root;
 };
 
+struct ALR63ReplayCapture {
+    bool captured = false;
+    ALR62ReplayCapture r62;
+    ALR63Result result;
+    std::vector<Vec3> target;
+};
+
 ALR63Result al_r63_project(const ALNormalizedWorkspace& workspace,
     const ALR51MasterResult& master, const std::vector<Vec3>& target,
     const std::vector<Vec3>& lower, const std::vector<Vec3>& upper,
@@ -286,7 +293,8 @@ std::string al_r63_route(bool parent, bool source, bool capture,
 
 } // namespace
 
-SplitBoundaryReport run_al_cached_normal_projection_trqp_controls() {
+SplitBoundaryReport run_al_cached_normal_projection_trqp_controls_impl(
+    ALR63ReplayCapture* capture_out) {
     const bool identity = sha256_hex(B4E2D7R19R63_IDENTITY_PROJECTION)
         == B4E2D7R19R63_IDENTITY_SHA256;
     ALR62ReplayCapture capture;
@@ -604,5 +612,15 @@ SplitBoundaryReport run_al_cached_normal_projection_trqp_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (capture_out != nullptr) {
+        capture_out->captured = passed;
+        capture_out->r62 = std::move(capture);
+        capture_out->result = std::move(result);
+        capture_out->target = std::move(target);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_cached_normal_projection_trqp_controls() {
+    return run_al_cached_normal_projection_trqp_controls_impl(nullptr);
 }
