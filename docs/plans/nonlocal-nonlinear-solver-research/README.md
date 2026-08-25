@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R59_PASS_ROW_LOCAL_CERTIFICATE_CANDIDATE /
-NSR3B4E2D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_RESEARCH_NEXT /
+NSR3B4E2D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_RESEARCH_COMPLETE /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2787,3 +2787,9 @@ range from 44 to 113; the current worst row has degree 102 but was charged for
 and has strictly negative worst upper `-1.93542e-23`, with zero new operator or
 solver passes. Validate high-precision dominance and forced degree-undercount
 rejection independently before integration or restoration exit.
+The [R60 research](../../development/nonlocal-nsr3b4e2d7r19r60-certificate-validation-research-2026-08-25.md)
+selects a three-layer validation boundary: exact topology-owned degree with
+forced under/over-count and offset negative controls, arithmetic-domain audit
+for subnormal/nonfinite intermediates, and all-row containment of a fresh
+binary128 forward upper by the R59 binary64 local upper. No solver work or
+certificate integration is admitted.

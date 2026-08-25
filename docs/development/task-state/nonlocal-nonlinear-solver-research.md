@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R59_PASS_ROW_LOCAL_CERTIFICATE_CANDIDATE / D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R59_PASS_ROW_LOCAL_CERTIFICATE_CANDIDATE / D7R19R60_INDEPENDENT_CERTIFICATE_VALIDATION_RESEARCH_COMPLETE / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -3730,6 +3730,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R60 validates dominance and all negative controls, or
   identifies a row where local accounting is not conservative.
 
+### D-121 -- Validate structure, arithmetic domain and containment together
+
+- **Observation:** R59 shares its directed values, absolute sums and gamma
+  implementation with the legacy audit, so internal monotonicity alone is not
+  an independent proof.
+- **Decision:** R60 will combine exact flat-offset degree ownership and forced
+  corruption controls, nonfinite/subnormal intermediate audit, and per-row
+  containment of a fresh compensated binary128 forward upper by the local
+  binary64 upper.
+- **Rejected:** immediate integration, sign-only binary128 evidence, random
+  tests as proof, or EFT complexity before a concrete failure requires it.
+- **Reconsider when:** the frozen R60 executable selects validation, structural
+  rejection, arithmetic-domain strengthening or dominance rejection.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3814,8 +3828,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    exact PASS/`FIXED_POINT_CONTRACTION_CANDIDATE`. Do not execute a third
    fixed-point outer. Preserve D7R19R59 exact PASS/
    `ROW_LOCAL_ENCLOSURE_CERTIFICATE_CANDIDATE`; do not integrate it directly.
-   Research and freeze D7R19R60 independent high-precision dominance and
-   topology/degree negative controls before restoration exit or runtime work.
+   Freeze and implement D7R19R60 independent structural/domain/dominance
+   validation before restoration exit or runtime work. Do not combine R60 with
+   certificate integration.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
