@@ -18,6 +18,7 @@ struct ALR20SemismoothStep {
     ALR20NNQPSolve solve;
     std::vector<ALR20NewtonTrial> trials;
     ALR20NewtonTrial selected;
+    std::vector<Binary128> line_representative;
     std::vector<Binary128> next_lambda;
     std::string natural_face_root;
     std::string hessian_root;
@@ -127,6 +128,7 @@ ALR20SemismoothStep al_r20_semismooth_step(
         static_cast<Binary128>(0.0));
     for (std::size_t local = 0U; local < dimension; ++local)
         representative[natural_face[local]] = result.solve.direction[local];
+    result.line_representative = representative;
     std::vector<Binary128> direction(all_rows,
         static_cast<Binary128>(0.0));
     Binary128Accumulator slope;
