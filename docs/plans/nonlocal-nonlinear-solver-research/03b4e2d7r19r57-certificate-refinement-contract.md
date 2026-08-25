@@ -2,7 +2,7 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN / IMPLEMENTATION AUTHORIZED / ROLLBACK ONLY`.
+Status: `CLOSED / PASS / CERTIFICATE_REFINEMENT_ENCLOSURE_FIXED_POINT_REQUIRED / ROLLBACK ONLY`.
 
 Parent: `6b346ff6`, R56 stdout SHA-256
 `e0ececa2d57448248e86d623d4c1e15e69abe68576c503e1e802ef990b7c46aa`,
@@ -47,3 +47,6 @@ restoration transaction, runtime permission or production evidence.
 
 Rationale:
 [R57 research](../../development/nonlocal-nsr3b4e2d7r19r57-certificate-refinement-research-2026-08-25.md).
+
+Result:
+[R57 evidence](../../development/nonlocal-nsr3b4e2d7r19r57-certificate-refinement-evidence-2026-08-25.md).

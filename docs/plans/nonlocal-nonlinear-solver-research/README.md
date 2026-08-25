@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R56_PASS_HIGH_PRECISION_RAW_RESIDUAL /
-NSR3B4E2D7R19R57_CERTIFICATE_REFINEMENT_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R57_PASS_ENCLOSURE_FIXED_POINT_REQUIRED /
+NSR3B4E2D7R19R58_ENCLOSURE_FIXED_POINT_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2744,3 +2744,10 @@ The [frozen R57 contract](03b4e2d7r19r57-certificate-refinement-contract.md)
 uses identity `2a41c16b...b5d9e`, exactly 64 zero-initialized refinement cycles,
 four directed checkpoint audits and one selected-witness binary128
 decomposition. Implement it next with 69 new pair passes and no state commit.
+The [R57 evidence](../../development/nonlocal-nsr3b4e2d7r19r57-certificate-refinement-evidence-2026-08-25.md)
+closes `PASS / CERTIFICATE_REFINEMENT_ENCLOSURE_FIXED_POINT_REQUIRED`. Every
+checkpoint has zero raw-positive rows. At cycle 64, full binary128 resolves all
+6000 rows negative with maximum raw `-5.19866e-22`, while the unchanged
+binary64 certificate still reports 245 bound-only positives up to
+`6.36190e-24`. Research one bounded enclosure fixed-point refinement next; do
+not weaken gamma or treat binary128 as runtime authority.

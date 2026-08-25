@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R56_PASS_HIGH_PRECISION_RAW_RESIDUAL / D7R19R57_CERTIFICATE_REFINEMENT_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R57_PASS_ENCLOSURE_FIXED_POINT_REQUIRED / D7R19R58_ENCLOSURE_FIXED_POINT_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -123,6 +123,13 @@
   workspace, 64 zero-initialized refinement cycles, checkpoints 8/16/32/64,
   first certified else cycle 64, then one high-precision sign decomposition.
   Implement this contract next with rollback only.
+  Clean R57 passes at stdout `a1930bc9...6b5c`, semantic
+  `666e9f62...39b6` and route
+  `CERTIFICATE_REFINEMENT_ENCLOSURE_FIXED_POINT_REQUIRED`. All checkpoints
+  have zero raw positives; terminal binary128 resolves all 6000 rows negative
+  with maximum raw `-5.19866e-22`. The unchanged binary64 enclosure still has
+  245 bound-only positives up to `6.36190e-24`. Two clean binaries/outputs are
+  byte-exact. Research one bounded R58 fixed-point refinement next.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3628,6 +3635,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** executable R57 closes the directed certificate or
   selects raw-polish, unresolved-sign or enclosure-fixed-point fallback.
 
+### D-116 -- Raw feasibility is closed; iterate the unchanged enclosure once
+
+- **Observation:** R57 makes every raw row strictly negative and binary128
+  certifies all 6000 signs, but 245 binary64 directed uppers remain positive.
+  The final Dykstra model residual is `6.14e-28`, so further inner depth does
+  not address the dominant `6.36e-24` enclosure endpoint.
+- **Decision:** preserve R57 and research R58 as one bounded fixed-point
+  certificate refinement sourced from R57's exact selected upper. Retain
+  unchanged gamma and add explicit contraction/stalling classification.
+- **Rejected:** more R57 inner cycles, a zero tolerance, gamma weakening,
+  runtime binary128 or immediate state promotion.
+- **Reconsider when:** R58 certifies, stalls, produces a true raw positive or
+  requires SHQP/extreme-point-corrected semismooth Newton.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3708,8 +3729,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`; it is not compatibility.
    Preserve D7R19R50--R56, including exact R56
    PASS/`JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Research and
-   Implement only frozen D7R19R57 as the researched certificate-aware
-   grouped-box refinement. Do not fit a tolerance, weaken gamma or start
+   Preserve D7R19R57 exact PASS/enclosure-fixed-point evidence. Research and
+   freeze D7R19R58 as one bounded unchanged-enclosure fixed-point refinement.
+   Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
    apply or commit the correction,
