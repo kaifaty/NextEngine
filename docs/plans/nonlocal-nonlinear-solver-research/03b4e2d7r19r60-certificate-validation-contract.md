@@ -24,8 +24,9 @@ SHA-256 (exact runtime literal, no terminal newline):
 2. Build/release one exact moved workspace and verify topology, 494-row master
    and exact selected witness.
 3. Recompute the complete R59 scan and require exact roots/counts/maxima.
-4. Run all five frozen degree-control cases. The nominal/dense cases pass and
-   undercount, overcount, decreasing-offset and maximum-mismatch mutations fail.
+4. Require exact nominal-workspace degree validation, then run five frozen
+   dense cases: one valid case passes; undercount, overcount, decreasing-offset
+   and maximum-mismatch mutations fail.
 5. Execute exactly one fresh binary128 row traversal and arithmetic-domain
    audit. Preserve stable row/slot order and row-local operation counts.
 6. Publish every-row containment, minimum margin, worst row/degree, subnormal
