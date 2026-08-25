@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_COMPOSED_DUAL_TRANSACTION_PASS / D7R19R65_EQUAL_WORK_OUTER20_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_GENERALIZATION_STOPPING_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -141,6 +141,15 @@
   29,638,172 terms. Exactly four more outers give at most 586,379,282 terms,
   still below FISTA; a fifth is not guaranteed. Reproduce the v10 prefix and
   run exactly 20 outers with no residual stop or policy change.
+- **R65 equal-work result:** v11 passes at semantic `8994703f...ae9f` and route
+  `EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE`. Final raw is
+  `3.641e-10`, projected gradient `6.751e-9`, and sparse work 584,699,855:
+  both residuals strictly beat FISTA with 12,271,825 terms remaining. Prefix,
+  all 20 transactions and rollback are exact.
+- **R66/R20 next:** stop depth. Research a predeclared independent
+  face/corner/supported/released convex-TRQP corpus, a higher-accuracy offline
+  oracle and dimensionless KKT/dual stopping tuple. Fixed 20 is evidence, not
+  a runtime policy. Do not execute a corpus before its contract is frozen.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4285,6 +4294,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   under budget or returns `EQUAL_WORK_DEPTH_EXHAUSTED`; the latter closes depth
   and selects direction/preconditioner research.
 
+### D-145 -- Promote only to corpus/stopping research, not production
+
+- **Observation:** v11 beats FISTA by `3.247x/1.413x` in raw/projected gradient
+  at 2.056% lower sparse work, with exact v10 prefix and all transaction gates.
+  The winning outer count is still a comparison-budget artifact on one dam
+  state.
+- **Decision:** close R65 as a bounded acceleration candidate and stop depth.
+  Research R66/R20 independent topology/contact holdouts, an offline accuracy
+  oracle and a scale-free KKT/dual stopping contract before any new execution.
+- **Rejected:** outer 21, calling fixed 20 adaptive, fitting tolerance from v11,
+  treating FISTA as ground truth, GPU timing, runtime integration or production
+  status.
+- **Reconsider when:** corpus provenance/oracles/scales are frozen and either
+  generalize the candidate or expose the first reproducible regime failure.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4387,11 +4411,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`MARGIN_SENSITIVE_FILTER_PATH_CANDIDATE` at semantic
    `bdeeab4b...8ab2`. Preserve v9 exact
    PASS/`COMPOSED_DUAL_PATH_CANDIDATE` at semantic `77cbed07...83af`.
-   Preserve v10 exact PASS/`COMPOSED_DUAL_PATH_REFERENCE_RETAINED` at semantic
-   `f497ab0a...7d32b`; all transaction gates pass but 16-outer FISTA dominance
-   is refuted. Implement the frozen 20-outer equal-work completion next. Keep
-   filter-SQP deferred to outer nonlinear globalization and do not run outer
-   21.
+   Preserve v11 exact PASS/
+   `EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE` at semantic
+   `8994703f...ae9f`, including its exact v10 prefix and 584,699,855-term
+   ledger. Do not run outer 21. Research and freeze the R66/R20 independent
+   corpus, offline oracle and dimensionless stopping contract next; execution,
+   GPU timing and runtime integration remain blocked.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,

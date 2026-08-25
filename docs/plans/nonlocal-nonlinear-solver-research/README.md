@@ -1,8 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
-NSR3B4E2D7R19R65_COMPOSED_DUAL_TRANSACTION_PASS /
-NSR3B4E2D7R19R65_EQUAL_WORK_OUTER20_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE /
+NSR3B4E2D7R20_GENERALIZATION_STOPPING_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2944,3 +2944,12 @@ residuals remain above FISTA at 78.4% sparse work. The analytically derived
 and [frozen contract](03b4e2d7r19r65-equal-work-dual-completion-contract.md)
 authorize exactly four more unchanged outers: worst-case work remains below
 FISTA, whereas a fifth is forbidden. No depth grid or timing is admitted.
+The
+[v11 evidence](../../development/nonlocal-nsr3b4e2d7r19r65-equal-work-dual-completion-evidence-2026-08-25.md)
+passes: both terminal residuals strictly beat FISTA at 12,271,825 fewer sparse
+terms, with exact v10 prefix and all transaction gates. R65 therefore closes
+as a bounded acceleration candidate, not production. The next
+[R66/R20 research](../../development/nonlocal-nsr3b4e2d7r20-generalization-stopping-research-2026-08-25.md)
+must freeze independent topology/contact holdouts, an offline accuracy oracle
+and dimensionless stopping tuple. Outer 21, GPU timing and runtime integration
+remain blocked.
