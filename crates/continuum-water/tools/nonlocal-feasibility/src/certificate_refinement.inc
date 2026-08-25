@@ -296,9 +296,17 @@ std::string al_r57_route(bool parent, bool source, bool workspace,
     return "CERTIFICATE_REFINEMENT_REFERENCE_RETAINED";
 }
 
+struct ALR57ReplayCapture {
+    bool captured = false;
+    ALR56ReplayCapture r56;
+    ALR57Result result;
+    ALR53Result decomposition;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_certificate_aware_refinement_controls() {
+SplitBoundaryReport run_al_certificate_aware_refinement_controls_impl(
+    ALR57ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R57_IDENTITY_PROJECTION)
         == B4E2D7R19R57_IDENTITY_SHA256;
     ALR56ReplayCapture capture;
@@ -626,5 +634,15 @@ SplitBoundaryReport run_al_certificate_aware_refinement_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r56 = std::move(capture);
+        replay_capture->result = std::move(result);
+        replay_capture->decomposition = std::move(decomposition);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_certificate_aware_refinement_controls() {
+    return run_al_certificate_aware_refinement_controls_impl(nullptr);
 }
