@@ -398,9 +398,16 @@ std::string al_r54_route(bool parent, bool source, bool workspace,
     return "MODEL_PROJECTION_CONSISTENT_CANDIDATE";
 }
 
+struct ALR54ReplayCapture {
+    bool captured = false;
+    ALR53ReplayCapture r53;
+    ALR54Result decomposition;
+};
+
 } // namespace
 
-SplitBoundaryReport run_al_model_projection_decomposition_controls() {
+SplitBoundaryReport run_al_model_projection_decomposition_controls_impl(
+    ALR54ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R54_IDENTITY_PROJECTION)
         == B4E2D7R19R54_IDENTITY_SHA256;
     ALR53ReplayCapture capture;
@@ -706,5 +713,14 @@ SplitBoundaryReport run_al_model_projection_decomposition_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r53 = std::move(capture);
+        replay_capture->decomposition = std::move(decomposition);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_model_projection_decomposition_controls() {
+    return run_al_model_projection_decomposition_controls_impl(nullptr);
 }
