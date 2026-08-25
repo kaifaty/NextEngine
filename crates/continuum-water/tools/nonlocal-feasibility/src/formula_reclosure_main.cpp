@@ -229,6 +229,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-iterative-semismooth|"
                          "--nonlocal-al-generalization-verified-inverse|"
                          "--nonlocal-al-generalization-v3-manifest|"
+                         "--nonlocal-al-generalization-v3-preflight|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -1905,6 +1906,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v3_manifest_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-generalization-v3-preflight") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v3_preflight_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

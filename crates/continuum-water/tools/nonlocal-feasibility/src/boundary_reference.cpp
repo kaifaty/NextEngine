@@ -80087,6 +80087,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_iterative_semismooth.inc"
 #include "generalization_verified_inverse.inc"
 #include "generalization_v3_manifest.inc"
+#include "generalization_v3_preflight.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
