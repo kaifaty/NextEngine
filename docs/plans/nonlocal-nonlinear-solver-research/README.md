@@ -2980,3 +2980,11 @@ and [frozen R20R1 contract](03b4e2d7r20r1-phase1-feasibility-contract.md)
 therefore test full density/contact/trust feasibility using mutually exclusive
 primal and Fenchel-dual certificates. Oracle depth extension and blind-case
 tuning remain forbidden.
+Correction: R20R1 was withdrawn before implementation because the immutable
+preflight already supplies the feasible witness `s=0` for every case. The
+[global ADMM oracle research](../../development/nonlocal-nsr3b4e2d7r20r2-global-admm-oracle-research-2026-08-25.md)
+and [frozen R20R2 contract](03b4e2d7r20r2-global-admm-oracle-contract.md)
+instead select a row-normalized binary128 consensus split with a dense
+`2I+B^T*B` Cholesky step. It globally couples the correlated filled-box rows
+while remaining algorithmically separate from the sparse composed-dual
+candidate. Implement this oracle next; do not rerun/extend cyclic Dykstra.

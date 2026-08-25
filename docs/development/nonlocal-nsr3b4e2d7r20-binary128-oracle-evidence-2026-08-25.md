@@ -52,17 +52,17 @@ after an unresolved oracle. It instead exposes a corpus-admission gap: input
 excitation (`P_D(t)` violates density) does not prove that the density,
 contact and trust sets have a nonempty intersection.
 
-Two explanations remain:
+Post-run review closes the feasibility question without another solve. Every
+case has `source_positive=0`, the contact bounds contain the zero step, and the
+trust ball contains zero. Thus `s=0` is an explicit feasible witness for every
+materialized TRQP. The two blind outcomes prove that cyclic primal Dykstra is
+an inadequate high-accuracy reference for these geometries at the frozen cap;
+they do not expose infeasible corpus inputs.
 
-1. the filled edge/corner TRQPs are infeasible under the frozen contact/trust
-   geometry; or
-2. they are feasible, but cyclic primal Dykstra is an inadequate high-accuracy
-   reference for these geometries.
-
-The next experiment is a separately frozen phase-I feasibility discriminator.
-It must either produce a forward-audited feasible witness or a positive
-Fenchel-dual lower bound. Oracle depth extension, tolerance changes, blind-case
-geometry changes and candidate execution are forbidden until that distinction
-is closed.
+R20R1 phase-I was consequently withdrawn before implementation or execution.
+The next experiment must use a globally coupled, independently implemented
+oracle rather than extend cyclic Dykstra. Tolerance changes, blind-case
+geometry changes and candidate execution remain forbidden until that oracle
+closes.
 
 This evidence grants no runtime, GPU, nonlinear-step or production authority.

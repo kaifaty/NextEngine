@@ -1,6 +1,18 @@
 # NSR3-B4E2D7R20 phase-I feasibility research
 
-Status: `RESEARCH COMPLETE / DISCRIMINATOR SELECTED`.
+Status: `WITHDRAWN BEFORE IMPLEMENTATION / FEASIBILITY ALREADY PROVED`.
+
+## Withdrawal correction
+
+This branch was frozen and then rejected before code or execution. The R20
+preflight already reports `source_positive=0` for every case. By construction,
+each contact interval contains the zero displacement and the global trust ball
+contains zero. Therefore `s=0` satisfies `c+A*s<=0` and `s in D` exactly for
+all eight TRQPs. Hypothesis P1 is refuted by immutable parent data; a phase-I
+solver would only rediscover a known witness.
+
+The derivation below remains mathematically valid and may be reused for future
+corpora that do not inherit a feasible source. It is not the next R20 action.
 
 ## Question exposed by the oracle
 
@@ -65,7 +77,7 @@ transpose, support value and outward envelope from frozen binary64 inputs.
 The supported transfer case is included as a feasible positive control. The
 four cycle-zero cases remain zero-work feasibility controls.
 
-## Selected method
+## Superseded selected method
 
 Use a bounded primal-dual phase-I generator over the frozen R64 sparse
 operator. It alternates exact `D` projection with the nonnegative quadratic

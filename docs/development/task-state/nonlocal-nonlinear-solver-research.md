@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_FROZEN / PHASE1_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_FROZEN / GLOBAL_ORACLE_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -168,11 +168,15 @@
   stationarity/gap reference threshold; both filled blind cases remain far
   from primal, dual, complementarity and stationarity at `2^18`. Candidate
   iterations remain zero; never extend this Dykstra depth.
-- **R20R1 frozen:** distinguish empty constraint intersection from slow oracle
-  convergence using phase-I hinge feasibility. A forward-feasible primal is a
-  feasibility certificate; a positive binary128 Fenchel-dual lower bound is
-  an infeasibility certificate. Implement the bounded independent
-  discriminator next. Do not edit blind bytes or execute the candidate.
+- **R20R1 withdrawn before implementation:** all sources have `c<=0` and zero
+  belongs to every contact/trust domain, so `s=0` already proves all TRQPs
+  feasible. Preserve the correction; do not implement the redundant phase-I
+  solver.
+- **R20R2 frozen:** replace local cyclic Dykstra with row-normalized consensus
+  ADMM. Its binary128 dense `2I+B^T*B` Cholesky step globally couples density
+  rows; exact orthant and box-ball proxes remain independent. Implement
+  checkpoints through `2^16`, full KKT/gap certification and no adaptive rho,
+  timing or candidate execution.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive

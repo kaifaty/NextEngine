@@ -1,6 +1,11 @@
 # NSR3-B4E2D7R20R1 phase-I feasibility discriminator contract
 
-Status: `FROZEN / EXECUTION AUTHORIZED / REPORT ONLY`.
+Status: `WITHDRAWN BEFORE IMPLEMENTATION / NOT EXECUTED`.
+
+The immutable parent itself supplies the feasible witness `s=0`: every source
+density row is nonpositive, every contact interval contains zero, and zero is
+inside the trust ball. The discriminator would be redundant. Preserve this
+contract as a no-repeat record; it grants no execution authority.
 
 ## Immutable parent
 
