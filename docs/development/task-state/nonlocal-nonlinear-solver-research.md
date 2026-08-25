@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R57_PASS_ENCLOSURE_FIXED_POINT_REQUIRED / D7R19R58_ENCLOSURE_FIXED_POINT_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R58_PASS_FIXED_POINT_CONTRACTION / D7R19R59_ENCLOSURE_ATTRIBUTION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,13 @@
 
 ## Resume in 60 seconds
 
+- **Latest result:** clean R58 passes at stdout `8078c062...c257`, semantic
+  `f7070521...4c3` and route `FIXED_POINT_CONTRACTION_CANDIDATE`. The final
+  bounded composition reduces R57 maximum directed upper by `4.65112x` and
+  bound-only positives from 245 to 234. Full binary128 resolves all 6000 raw
+  rows negative. The binary64 upper plateaus exactly from cycle 16 through 64
+  while the model maximum reaches `9.11e-36`; fixed-point/depth extension is
+  closed. Research read-only R59 enclosure attribution next.
 - **Current conclusion:** R48 v2 passes at stdout SHA `70a66443...90b6`,
   semantic `7d83b855...7e91` and route
   `RESTORATION_CERTIFICATE_UNRESOLVED`. Two clean Release binaries and outputs
@@ -3668,6 +3675,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** executable R58 selects certified, raw-regression,
   unresolved, stalled or strictly contracting outcome.
 
+### D-118 -- Attribute the binary64 enclosure plateau before changing the solver
+
+- **Observation:** R58 strictly contracts the R57 maximum upper by `4.65112x`
+  and bound-only count from 245 to 234. Full binary128 resolves all 6000 rows
+  negative. The binary64 maximum upper is exactly unchanged at cycles 16, 32
+  and 64 even though the inner model maximum falls from `1.19e-27` to
+  `9.11e-36`.
+- **Decision:** end bounded fixed-point refinement at R58. Research R59 as a
+  read-only decomposition of the existing directed certificate into actual
+  row degree, local-operation and accumulation contributions. Admit only
+  provable bounds derived before execution.
+- **Rejected:** a third fixed-point outer, more inner cycles, fitted tolerance,
+  gamma weakening, runtime binary128 or performance work before compatibility
+  closes.
+- **Reconsider when:** R59 proves the present bound already tight enough,
+  identifies a sound binary64 tightening, or shows that stronger arithmetic or
+  an SHQP/semismooth certificate is required.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3748,9 +3773,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`; it is not compatibility.
    Preserve D7R19R50--R56, including exact R56
    PASS/`JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Research and
-   Preserve D7R19R57 exact PASS/enclosure-fixed-point evidence. Research and
-   Implement only frozen D7R19R58 as exactly one bounded unchanged-enclosure
-   fixed-point refinement.
+   Preserve D7R19R57 exact PASS/enclosure-fixed-point evidence and D7R19R58
+   exact PASS/`FIXED_POINT_CONTRACTION_CANDIDATE`. Do not execute a third
+   fixed-point outer. Research D7R19R59 as read-only enclosure attribution and
+   freeze any arithmetic/certificate experiment before implementation.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not

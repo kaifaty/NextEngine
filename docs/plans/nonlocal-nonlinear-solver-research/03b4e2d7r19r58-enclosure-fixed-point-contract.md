@@ -2,7 +2,7 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN / IMPLEMENTATION AUTHORIZED / ROLLBACK ONLY`.
+Status: `CLOSED / PASS / FIXED_POINT_CONTRACTION_CANDIDATE / ROLLBACK ONLY`.
 
 Parent: `5aaae13e`, R57 stdout SHA-256
 `a1930bc92665cb08f5f46ff53e9b53da48d09438d3bc52c25ec848a2db0a6b5c`,
@@ -42,3 +42,6 @@ transaction, runtime permission or production evidence.
 
 Rationale:
 [R58 research](../../development/nonlocal-nsr3b4e2d7r19r58-enclosure-fixed-point-research-2026-08-25.md).
+
+Closure evidence:
+[R58 evidence](../../development/nonlocal-nsr3b4e2d7r19r58-enclosure-fixed-point-evidence-2026-08-25.md).

@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R57_PASS_ENCLOSURE_FIXED_POINT_REQUIRED /
-NSR3B4E2D7R19R58_ENCLOSURE_FIXED_POINT_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R58_PASS_FIXED_POINT_CONTRACTION /
+NSR3B4E2D7R19R59_ENCLOSURE_ATTRIBUTION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2761,3 +2761,10 @@ The [frozen R58 contract](03b4e2d7r19r58-enclosure-fixed-point-contract.md)
 uses identity `a0327b38...6542f` and reuses the R57 core exactly once. Implement
 it next with one passive R57 capture, 69 new pair passes, exact
 contraction/stalling gates and no third outer.
+The [R58 evidence](../../development/nonlocal-nsr3b4e2d7r19r58-enclosure-fixed-point-evidence-2026-08-25.md)
+closes `PASS / FIXED_POINT_CONTRACTION_CANDIDATE`. The second and final bounded
+composition reduces maximum directed upper by `4.65112x` and bound-only rows
+from 245 to 234, while full binary128 resolves all 6000 raw rows negative. The
+binary64 maximum upper is nevertheless bit-identical at cycles 16/32/64 while
+the inner model residual falls to `9.11e-36`. Stop fixed-point/depth extension
+and research a read-only, provable decomposition of the enclosure next.
