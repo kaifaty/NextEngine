@@ -3051,3 +3051,9 @@ freezes four source roots and 277 samples with zero operator/solver execution.
 The next [v3 preflight research](../../development/nonlocal-nsr3b4e2d7r20r10-v3-preflight-research-2026-08-25.md)
 and [input-only contract](03b4e2d7r20r10-v3-preflight-contract.md) test operator
 ownership and excitation before the solver may see the holdouts.
+The
+[R20R10 evidence](../../development/nonlocal-nsr3b4e2d7r20r10-v3-preflight-evidence-2026-08-25.md)
+admits all four blind problems with strict excitation. The next
+[v3 generalization research](../../development/nonlocal-nsr3b4e2d7r20r11-v3-generalization-research-2026-08-25.md)
+and [one-shot contract](03b4e2d7r20r11-v3-generalization-contract.md) execute
+the unchanged R8 solver once on the frozen problem roots.
