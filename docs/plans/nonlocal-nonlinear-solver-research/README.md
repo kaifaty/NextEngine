@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R61_PASS_TOPOLOGY_OWNED_AUDIT_CANDIDATE /
-NSR3B4E2D7R19R62_RESTORATION_EXIT_TRANSACTION_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R62_PASS_RESTORATION_EXIT_TRANSACTION_CANDIDATE /
+NSR3B4E2D7R19R63_CACHED_NORMAL_TANGENTIAL_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2835,3 +2835,10 @@ R58 witness as the cached normal step at radius `0.0625`. Fresh R43-anchored
 topology, nonlinear filter coordinates, 72,000 contact tests, witness geometry
 and the R61 owner must all close before one publication. Implement it next;
 do not apply the witness or start the tangential solve.
+The [R62 evidence](../../development/nonlocal-nsr3b4e2d7r19r62-restoration-promotion-evidence-2026-08-25.md)
+closes `PASS / RESTORATION_EXIT_TRANSACTION_CANDIDATE`. Exact R43, the
+canonical one-entry filter, radius `0.0625`, fresh R43 topology and the exact
+cached R58 normal publish once into a private payload after all gates. Both
+contact traversals have zero new/worsened faces and the R61 certificate has
+zero positive rows. Research the next ordinary TRQP and exact-once cached
+normal consumption in R63; runtime state remains untouched.

@@ -2,7 +2,8 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN / IMPLEMENTATION AUTHORIZED / PRIVATE COPY-ON-WRITE ONLY`.
+Status: `CLOSED / PASS / RESTORATION_EXIT_TRANSACTION_CANDIDATE /
+PRIVATE COPY-ON-WRITE ONLY`.
 
 Parent: `fa7d48de`, R61 stdout SHA-256
 `cdfe69bfccba8161708a92636a256313a3efbb27a8f6e7bb1bfa915a04047cb4`,
@@ -54,3 +55,6 @@ run another outer, authorize timing or establish production readiness.
 
 Rationale:
 [R62 research](../../development/nonlocal-nsr3b4e2d7r19r62-restoration-promotion-research-2026-08-25.md).
+
+Closure evidence:
+[R62 evidence](../../development/nonlocal-nsr3b4e2d7r19r62-restoration-promotion-evidence-2026-08-25.md).

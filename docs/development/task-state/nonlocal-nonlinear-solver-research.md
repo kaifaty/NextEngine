@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R62_RESTORATION_EXIT_TRANSACTION_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R62_PASS_RESTORATION_EXIT_TRANSACTION_CANDIDATE / D7R19R63_CACHED_NORMAL_TANGENTIAL_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,12 @@
 
 ## Resume in 60 seconds
 
+- **R62 result:** clean stdout `acbfa4be...5fae`, semantic
+  `61de28c3...da43`, route `RESTORATION_EXIT_TRANSACTION_CANDIDATE`. Exact R43
+  publishes once into a private payload; cached normal remains unapplied,
+  fresh topology/filter/contact/trust/certificate and nine atomic controls
+  pass. Research R63 exact-once normal consumption plus tangential/globalized
+  next TRQP. Runtime and production remain unauthorized.
 - **R62 frozen:** the exact promotion target is R43, not
   `R43 + SPACING*witness`. The R58 witness is the cached dimensionless normal
   step for the next TRQP at R43. Implement the frozen copy-on-write transaction
@@ -3822,6 +3828,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** a different algorithm with a separately frozen state
   mapping replaces the current trust-region filter-SQP lineage.
 
+### D-126 -- Close private restoration and move to the cached-normal TRQP
+
+- **Observation:** R62 freshly rejoins R43 filter acceptance, topology,
+  contact, trust reserve and the zero-positive R61 certificate. The valid
+  payload publishes exactly once; every corrupted payload remains unpublished.
+- **Decision:** restoration is complete at the private research boundary.
+  Preserve the payload and research R63 as the next ordinary TRQP, consuming
+  its cached normal exactly once before tangential/globalization decisions.
+- **Rejected:** rerunning restoration, applying the cached normal alone,
+  treating the diagnostic normal endpoint as committed position, skipping
+  switching/filter globalization or promoting the private payload to runtime.
+- **Reconsider when:** R63 cannot construct a finite, contact-safe tangential
+  transaction from the frozen payload and provides a new fail-closed route.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3909,15 +3929,15 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R60 exact PASS/
    `ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`.
    Preserve D7R19R61 exact PASS/
-   `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. Implement frozen D7R19R62 as a
-   separate copy-on-write restoration-exit transaction whose candidate is
-   exact R43 and whose cached next normal step is the unapplied R58 witness.
-   Require fresh nonlinear/filter/topology/contact/trust/certificate,
-   nine atomic-publication controls and rollback gates.
+   `TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. Preserve D7R19R62 exact
+   PASS/`RESTORATION_EXIT_TRANSACTION_CANDIDATE`; its private position is R43
+   and its exact R58 normal remains cached and unapplied. Research D7R19R63 as
+   the next ordinary TRQP with exact-once cached-normal consumption,
+   contact-feasible tangential construction, switching/filter globalization
+   and all-reject rollback.
    Do not fit a tolerance, weaken gamma or start
-   performance work. Do not start switching,
-   trust response or restoration exit before compatibility closes. Do not
-   apply or commit the correction,
+   performance work. Do not mutate runtime filter/trust or publish the private
+   restoration exit. Do not apply or commit the correction alone,
    classify a nonlinear floor, change penalty,
    cap/policy, execute a following outer or run another
    resume or outer 6, admit another trial/solve, commit public state, raise the
