@@ -2,7 +2,7 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN V1 / IMPLEMENTATION NEXT / ROLLBACK ONLY`.
+Status: `CLOSED PASS / HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED / ROLLBACK ONLY`.
 
 Parent: `2549bdd5`, R52 stdout SHA-256
 `b1d439950f174b66b837041d077ed24fd19524bf2880ded37fc6392f9c65cf4e`,
@@ -42,3 +42,6 @@ transaction, runtime permission or production evidence.
 
 Rationale:
 [R53 research](../../development/nonlocal-nsr3b4e2d7r19r53-operator-consistency-research-2026-08-25.md).
+
+Evidence:
+[R53 closure](../../development/nonlocal-nsr3b4e2d7r19r53-operator-consistency-evidence-2026-08-25.md).

@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R52_PASS_SWEEP_DEPTH /
-NSR3B4E2D7R19R53_OPERATOR_CONSISTENCY_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R53_PASS_HIGH_PRECISION_RAW_RESIDUAL /
+NSR3B4E2D7R19R54_MODEL_PROJECTION_DECOMPOSITION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2667,3 +2667,14 @@ binary128 term folds/recomputation, then decomposes raw residual and the current
 gamma envelope. New work is one pair pass plus one quad row traversal. Implement
 it next; binary128 is an oracle only and current certificate authority is
 unchanged.
+The [D7R19R53 evidence](../../development/nonlocal-nsr3b4e2d7r19r53-operator-consistency-evidence-2026-08-25.md)
+closes `PASS / HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Fresh pair-once and
+captured directed binary64 JVPs are bit-identical. Compensated and full
+binary128 recomputation resolve the same 219 raw-positive rows and the same
+worst row near `7.754e-14`; there are zero operator sign disagreements. Thus
+R52's `1.87e-20` value describes its recursive Hildreth predictor, not a fresh
+pair-once residual of the projected witness. Stop precision/reduction work and
+research the predictor-to-projection pipeline next: direct `u-G lambda`,
+assembled correction JVP, unprojected anchor addition, and ball/box projection.
+Do not add sweeps/CG, weaken gamma, fit zero tolerance, apply the witness or
+exit restoration first.

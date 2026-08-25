@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R52_PASS_SWEEP_DEPTH / D7R19R53_OPERATOR_CONSISTENCY_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R53_PASS_HIGH_PRECISION_RAW_RESIDUAL / D7R19R54_MODEL_PROJECTION_DECOMPOSITION_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -69,11 +69,17 @@
   fresh directed upper remains `7.7539986039e-14`; all outside-master counts are
   zero. Stop depth/CG extension and research pair-once versus directed binary64
   operator consistency and certificate decomposition next.
-  R53 is frozen at identity `3dbdcd22...acc6` as a read-only rowwise comparison
-  of captured directed binary64, fresh pair-once binary64, compensated
-  binary128 folds of the same terms and frozen-coefficient binary128
-  recomputation at the exact 64-sweep witness. Implement it next; current gamma
-  and certificate remain unchanged.
+  Clean R53 passes at stdout `490669f7...31a`, semantic `4a778c2e...e80c` and
+  route `HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Fresh pair-once and captured
+  directed binary64 images are bit-identical. Compensated and full binary128
+  recomputation resolve the same 219 raw-positive rows; worst raw is
+  `7.7539982074e-14` at row 848 and zero rows have pair/full128 sign
+  disagreement. Two clean binaries and concurrent outputs are byte-exact.
+  This rejects operator traversal, summation order and local binary64 products
+  as the dominant cause. R52's `1.8707e-20` is its recursive Hildreth predictor,
+  not a fresh pair-once residual of the projected witness. Preserve the exact
+  witness/certificate and research a read-only predictor-to-projection
+  decomposition next; do not add sweeps/CG or weaken gamma first.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3441,6 +3447,26 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   work or moving the witness.
 - **Reconsider when:** R53 selects operator alignment, confirmed raw residual,
   proved enclosure tightening or existing compatibility.
+
+### D-108 -- Close operator mismatch; localize predictor-to-witness drift
+
+- **Observation:** clean R53 finds identical fresh pair-once and captured
+  directed binary64 images. Full binary128 resolves exactly 219 positive and
+  5781 negative rows with no sign disagreement. Fold-order error is at most
+  `2.77555e-17` and local-arithmetic error at most `8.11240e-25`, while the
+  worst physical raw residual remains `7.7539982074e-14`.
+- **Decision:** close operator alignment, summation and local binary64 products
+  as dominant explanations. Correct the R52 interpretation: `1.8707e-20` is a
+  recursively maintained predictor, not a fresh pair-once residual. Research
+  one rollback-only R54 decomposition of recursive prediction, direct
+  `u-G lambda`, JVP of the assembled correction, unprojected anchor plus
+  correction, and the final ball/box-projected witness.
+- **Rejected:** ReproBLAS/ExBLAS integration at this boundary, binary128 runtime
+  promotion, more Hildreth sweeps, CG over the same unexplained pipeline,
+  lowering gamma or fitting a numerical zero.
+- **Reconsider when:** R54 identifies the first transition that creates the
+  raw-positive floor and distinguishes recurrence drift, correction assembly,
+  anchor addition or projection displacement.
 
 ## Performance facts retained
 
