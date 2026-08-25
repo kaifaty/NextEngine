@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_FLUTTER_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_FORWARD_BOUND_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -54,6 +54,15 @@
 - **R20R24 frozen:** expose the already computed step-32 preprojection scalar
   and old/new/other mask run for all 65 powers. Distinguish zero-bound rounding
   flutter from a genuine second geometric event; add no samples or solver work.
+- **R20R24 result:** implementation `74dc6dca`, semantic
+  `9f3c9072...d67b`, route `ZERO_BOUND_ROUNDING_FLUTTER`. Step 32 is
+  `new[0..5],old[6],new[7..64]`; no other mask/ball event exists. Actual input
+  changes sign twice, analytic input is monotone/nonnegative, maximum
+  discrepancy is `7.83614e-36`.
+- **R20R25 frozen:** derive an alpha-independent componentwise gamma bound from
+  exact sparse transpose entry count and magnitude. Require it to contain all
+  455 actual/affine discrepancies and identify a certified new-face suffix
+  without using observed errors or powers.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4612,6 +4621,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R24 proves rounding flutter, a genuine second event,
   detector over-sensitivity or remains unresolved.
 
+### D-153 -- Own stable face selection with a forward bound, not a run length
+
+- **Observation:** R24 proves a one-sample zero-bound rounding return. The final
+  stable suffix starts at power 7, but choosing that observed power would fit a
+  policy to one trajectory.
+- **Decision:** derive one componentwise gamma bound from exact sparse
+  transpose ownership and endpoint magnitudes. Test all existing ladder
+  discrepancies for containment, then require affine distance above the bound
+  to imply a stable predicted face and positive Armijo.
+- **Rejected:** a fixed ULP power, consecutive-new heuristic, observed maximum
+  error inflation, mask forcing, projector tolerance or new ladder points.
+- **Reconsider when:** R25 either certifies all seven stable sides, proves the
+  bound incomplete/useless, or exposes a mask implication failure.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4665,9 +4688,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R23 semantic `48d97d21...1987`. Implement only the frozen
-   R20R24 existing-ladder mask/input run audit; add no ladder point, fit no
-   stable-suffix rule, force no mask, apply no state and do not alter the cap.
+2. Preserve R20R24 semantic `9f3c9072...d67b`. Implement only the frozen
+   R20R25 componentwise forward-bound audit on the existing 455 points; add no
+   alpha, fit no gamma factor, generate/apply no trial and do not alter the cap.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.

@@ -3154,3 +3154,12 @@ but step 32 changes mask again inside the micro-ladder. The next
 and [existing-ladder contract](03b4e2d7r20r24-zero-bound-flutter-contract.md)
 expose the already computed preprojection scalar and mask run to distinguish a
 rounding return from a genuine second event.
+The
+[R20R24 evidence](../../development/nonlocal-nsr3b4e2d7r20r24-zero-bound-flutter-evidence-2026-08-26.md)
+proves `new[0..5],old[6],new[7..64]` zero-bound rounding flutter: the actual
+input changes sign twice while the independent affine input is monotone and
+nonnegative. The next
+[forward-bound research](../../development/nonlocal-nsr3b4e2d7r20r25-event-forward-bound-research-2026-08-26.md)
+and [componentwise contract](03b4e2d7r20r25-event-forward-bound-contract.md)
+derive a sparse-entry-count gamma bound and test containment/stable-side
+selection on the existing 455 points without fitting the observed error.
