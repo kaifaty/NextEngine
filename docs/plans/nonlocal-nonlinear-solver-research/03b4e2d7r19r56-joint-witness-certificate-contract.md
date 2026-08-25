@@ -2,7 +2,7 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN / IMPLEMENTATION AUTHORIZED / ROLLBACK ONLY`.
+Status: `CLOSED / PASS / JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED / ROLLBACK ONLY`.
 
 Parent: `ec8cd141`, R55 stdout SHA-256
 `fce9bec7ef370caed4904cedf61851f0fb87bf539960134fabefbb9dc94d6db8`,
@@ -43,3 +43,6 @@ restoration transaction, runtime permission or production evidence.
 
 Rationale:
 [R56 research](../../development/nonlocal-nsr3b4e2d7r19r56-joint-witness-certificate-research-2026-08-25.md).
+
+Result:
+[R56 evidence](../../development/nonlocal-nsr3b4e2d7r19r56-joint-witness-certificate-evidence-2026-08-25.md).

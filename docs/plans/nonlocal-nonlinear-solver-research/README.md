@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R55_PASS_CONTACT_CONSTRAINED_DYKSTRA /
-NSR3B4E2D7R19R56_JOINT_WITNESS_CERTIFICATE_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R56_PASS_HIGH_PRECISION_RAW_RESIDUAL /
+NSR3B4E2D7R19R57_TERMINAL_FEASIBILITY_POLISH_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2720,3 +2720,13 @@ alignment, true positive residual, unresolved signs, binary64 cancellation,
 bound-only positives and compatibility by frozen precedence. Implement R56
 next. Do not add Dykstra cycles, lower gamma, change state arithmetic or run
 performance work first.
+
+The [D7R19R56 evidence](../../development/nonlocal-nsr3b4e2d7r19r56-joint-witness-certificate-evidence-2026-08-25.md)
+closes `PASS / JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Pair-once
+and directed binary64 are bit-identical; full binary128 resolves all 308 raw
+positives as genuinely positive, all 5692 remaining rows as negative, and no
+sign as unresolved. The maximum lower bound is strictly positive near
+`3.820676e-20`. Another 168 rows are positive only under the current directed
+enclosure. Preserve R55/R56 and research the smallest bounded terminal
+feasibility polish next. Do not fit a tolerance or weaken gamma; raw
+feasibility must close before enclosure-only positives can be reconsidered.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R55_PASS_CONTACT_CONSTRAINED_DYKSTRA / D7R19R56_JOINT_WITNESS_CERTIFICATE_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R56_PASS_HIGH_PRECISION_RAW_RESIDUAL / D7R19R57_TERMINAL_FEASIBILITY_POLISH_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -103,6 +103,15 @@
   alignment, true positive raw residual, unresolved signs, binary64
   cancellation, bound-only positives or compatibility in that order. No new
   Dykstra cycle, projection, gamma change or performance work is admitted.
+  Clean R56 passes at stdout `e0ececa2...46aa`, semantic
+  `625f8db0...7ca` and route
+  `JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Pair/direct binary64
+  are bit-identical. Full binary128 resolves all 308 raw positives as truly
+  positive, all other 5692 rows negative and none unresolved; the maximum
+  strict lower bound is near `3.820676e-20`. Another 168 rows are bound-only
+  positive. Two clean binaries and outputs are byte-exact. Preserve R55/R56
+  and research a bounded terminal feasibility polish next; do not weaken the
+  certificate or fit a tolerance.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3573,6 +3582,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** executable R56 selects its first frozen scientific route
   with exact R55 bytes, work and rollback.
 
+### D-114 -- Treat the cycle-64 residual as solver error, not certificate noise
+
+- **Observation:** R56 proves pair/direct operator identity and resolves all
+  308 raw-positive rows strictly positive in full binary128. There are zero
+  unresolved signs and zero pair/full128 sign disagreements. The worst strict
+  lower bound is about `3.820676e-20`; 168 additional rows are positive only
+  under the unchanged directed enclosure.
+- **Decision:** retain the joint density/contact formulation and grouped-box
+  Dykstra state. Research R57 as a bounded terminal-feasibility discriminator:
+  compare finite Dykstra continuation against a face-aware primal-dual or
+  active-set polish, then re-audit the unchanged directed certificate. Freeze
+  work and selection before execution.
+- **Rejected:** declaring numerical zero, fitting a tolerance, weakening gamma,
+  runtime binary128, applying the uncertified witness or beginning performance
+  optimization while raw feasibility remains open.
+- **Reconsider when:** R57 proves exact/directed feasibility, isolates a
+  binary64 iteration floor, or selects one bounded polish formulation.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3651,9 +3678,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    the residual but neither the independent primal nor dual certificate
    closes. Do not raise its cap or apply its witness. Preserve D7R19R49 exact
    PASS/`RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`; it is not compatibility.
-   Preserve D7R19R50--R55 and implement only frozen D7R19R56 as the exact
-   cycle-64 joint-witness binary64/binary128 certificate decomposition. Do not
-   add Dykstra cycles or start switching,
+   Preserve D7R19R50--R56, including exact R56
+   PASS/`JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Research and
+   freeze D7R19R57 as a bounded terminal-feasibility discriminator before any
+   new solver execution. Do not fit a tolerance, weaken gamma or start
+   performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
    apply or commit the correction,
    classify a nonlinear floor, change penalty,
