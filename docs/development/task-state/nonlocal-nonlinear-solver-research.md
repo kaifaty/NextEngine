@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R56_PASS_HIGH_PRECISION_RAW_RESIDUAL / D7R19R57_CERTIFICATE_REFINEMENT_CONTRACT_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R56_PASS_HIGH_PRECISION_RAW_RESIDUAL / D7R19R57_CERTIFICATE_REFINEMENT_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -119,6 +119,10 @@
   is not tuned. Freeze 64 cycles, checkpoints 8/16/32/64, 69 new pair passes
   plus one binary128 row traversal. If it fails, research SHQP or the 2026
   extreme-point-corrected semismooth Newton method; do not extend depth ad hoc.
+  R57 is frozen at identity `2a41c16b...b5d9e`: exact R56 replay, one moved
+  workspace, 64 zero-initialized refinement cycles, checkpoints 8/16/32/64,
+  first certified else cycle 64, then one high-precision sign decomposition.
+  Implement this contract next with rollback only.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3704,8 +3708,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`; it is not compatibility.
    Preserve D7R19R50--R56, including exact R56
    PASS/`JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Research and
-   freeze D7R19R57 as the researched certificate-aware grouped-box refinement
-   before any new solver execution. Do not fit a tolerance, weaken gamma or start
+   Implement only frozen D7R19R57 as the researched certificate-aware
+   grouped-box refinement. Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
    apply or commit the correction,

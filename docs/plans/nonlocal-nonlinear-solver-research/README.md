@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R56_PASS_HIGH_PRECISION_RAW_RESIDUAL /
-NSR3B4E2D7R19R57_CERTIFICATE_REFINEMENT_CONTRACT_NEXT /
+NSR3B4E2D7R19R57_CERTIFICATE_REFINEMENT_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2740,3 +2740,7 @@ not a fitted tolerance. Use the same grouped-box Dykstra reference for solver
 attribution, then perform one high-precision terminal sign audit. SHQP and the
 2026 extreme-point-corrected semismooth Newton method are retained as the R58
 fallback if this certificate-aware refinement remains asymptotic.
+The [frozen R57 contract](03b4e2d7r19r57-certificate-refinement-contract.md)
+uses identity `2a41c16b...b5d9e`, exactly 64 zero-initialized refinement cycles,
+four directed checkpoint audits and one selected-witness binary128
+decomposition. Implement it next with 69 new pair passes and no state commit.
