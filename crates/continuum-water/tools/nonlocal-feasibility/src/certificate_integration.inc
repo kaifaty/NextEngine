@@ -174,6 +174,13 @@ struct ALR61DenseControls {
     std::string root;
 };
 
+struct ALR61ReplayCapture {
+    bool captured = false;
+    ALR60ReplayCapture r60;
+    ALR61Audit audit;
+    ALR61DenseControls controls;
+};
+
 ALR61DenseControls al_r61_dense_controls(
     const JointNeighborhood& neighborhood) {
     ALR61DenseControls result;
@@ -231,7 +238,8 @@ std::string al_r61_route(bool parent, bool source, bool workspace,
 
 } // namespace
 
-SplitBoundaryReport run_al_certificate_integration_controls() {
+SplitBoundaryReport run_al_certificate_integration_controls_impl(
+    ALR61ReplayCapture* replay_capture) {
     const bool identity = sha256_hex(B4E2D7R19R61_IDENTITY_PROJECTION)
         == B4E2D7R19R61_IDENTITY_SHA256;
     ALR60ReplayCapture capture;
@@ -488,5 +496,15 @@ SplitBoundaryReport run_al_certificate_integration_controls() {
               ",\"timing_admitted\":false,\"runtime_authority\":false"
               ",\"production_authority\":false,\"result_sha256\":\""
            << result_sha << "\"}";
+    if (replay_capture != nullptr) {
+        replay_capture->captured = passed;
+        replay_capture->r60 = std::move(capture);
+        replay_capture->audit = std::move(audit);
+        replay_capture->controls = std::move(controls);
+    }
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_al_certificate_integration_controls() {
+    return run_al_certificate_integration_controls_impl(nullptr);
 }

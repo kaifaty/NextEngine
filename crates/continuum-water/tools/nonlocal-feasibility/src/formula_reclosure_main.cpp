@@ -1758,6 +1758,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nonlocal-al-restoration-exit-transaction") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_restoration_exit_transaction_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (command == "--nominal-dam-first-output-preflight") {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
