@@ -80074,6 +80074,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "sparse_row_operator.inc"
 #include "dynamic_all_row_probe.inc"
 #include "active_face_fista_probe.inc"
+#include "active_face_pcg_probe.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

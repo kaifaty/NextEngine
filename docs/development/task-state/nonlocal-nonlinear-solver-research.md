@@ -43,6 +43,11 @@
   Jacobi-PCG steps on strict `lambda>0` rows, truncate the accumulated face
   step at the first nonnegative-dual boundary, reconstruct through fresh R64
   `A^T`, project the joint set and audit. Run 16 outers, no tolerance/timing.
+- **R65 PCG invalid run:** the first implementation incorrectly sent
+  `target-p_C-A^T lambda` into the joint-set projection. Stationarity rose to
+  about `1e-6`, exposing the handoff error. No numerical result has credit.
+  The density block keeps `p_C` fixed, but the next Dykstra set must project
+  `target-A^T lambda`; correct only that handoff and rerun the frozen probe.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
