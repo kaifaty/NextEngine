@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R52_PASS_SWEEP_DEPTH / D7R19R53_OPERATOR_CONSISTENCY_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R52_PASS_SWEEP_DEPTH / D7R19R53_OPERATOR_CONSISTENCY_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -69,6 +69,11 @@
   fresh directed upper remains `7.7539986039e-14`; all outside-master counts are
   zero. Stop depth/CG extension and research pair-once versus directed binary64
   operator consistency and certificate decomposition next.
+  R53 is frozen at identity `3dbdcd22...acc6` as a read-only rowwise comparison
+  of captured directed binary64, fresh pair-once binary64, compensated
+  binary128 folds of the same terms and frozen-coefficient binary128
+  recomputation at the exact 64-sweep witness. Implement it next; current gamma
+  and certificate remain unchanged.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3418,6 +3423,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   before identifying the cross-fold residual.
 - **Reconsider when:** R53 attributes the worst-row sign and magnitude to raw
   physics, reduction-order error, conservative enclosure or a proved mixture.
+
+### D-107 -- Decompose terms, fold order and enclosure without weakening proof
+
+- **Observation:** pair-once Gram and directed certification are algebraically
+  equivalent but traverse/recompute rows differently. Accurate-summation and
+  reproducible-reduction literature provides several remedies, but the present
+  dominant component is not yet measured.
+- **Decision:** freeze R53 at `3dbdcd22...acc6`. At the exact R52 64-sweep
+  witness compare captured directed binary64, one pair-once binary64 JVP,
+  compensated binary128 folds of ordinary terms and compensated binary128
+  recomputation from frozen coefficients. Report rowwise signs, maxima,
+  discrepancies and raw/gamma-envelope decomposition. Cap new work at one pair
+  pass and one quad row traversal.
+- **Rejected:** replacing the certificate with quad output, lowering gamma,
+  choosing ReproBLAS/ExBLAS before attribution, aggregate-only norms, new solve
+  work or moving the witness.
+- **Reconsider when:** R53 selects operator alignment, confirmed raw residual,
+  proved enclosure tightening or existing compatibility.
 
 ## Performance facts retained
 

@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R52_PASS_SWEEP_DEPTH /
-NSR3B4E2D7R19R53_OPERATOR_CONSISTENCY_RESEARCH_NEXT /
+NSR3B4E2D7R19R53_OPERATOR_CONSISTENCY_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2659,3 +2659,11 @@ rows remain positive, all inside the exact master. Stop sweep/CG extension and
 research pair-once versus directed accumulation and certificate tightness next.
 Do not lower gamma, fit a zero tolerance, widen capacity, apply the witness or
 exit restoration.
+The [D7R19R53 research](../../development/nonlocal-nsr3b4e2d7r19r53-operator-consistency-research-2026-08-25.md)
+selects a rowwise numerical decomposition at the exact 64-sweep witness. Its
+[frozen contract](03b4e2d7r19r53-operator-consistency-contract.md) compares
+captured directed and fresh pair-once binary64 images with compensated
+binary128 term folds/recomputation, then decomposes raw residual and the current
+gamma envelope. New work is one pair pass plus one quad row traversal. Implement
+it next; binary128 is an oracle only and current certificate authority is
+unchanged.
