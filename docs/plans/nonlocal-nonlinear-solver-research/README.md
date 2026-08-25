@@ -3016,3 +3016,11 @@ development cases. The next
 and [frozen one-step contract](03b4e2d7r20r5-newton-direction-contract.md)
 test dual-cone feasibility and certified dual ascent before permitting an
 iterative semismooth solver.
+The
+[R20R5 evidence](../../development/nonlocal-nsr3b4e2d7r20r5-newton-direction-evidence-2026-08-25.md)
+shows that the full-face Newton direction is exact and immediately solves the
+supported case, but leaves the dual cone in both filled cases. The next
+[NNQP representative research](../../development/nonlocal-nsr3b4e2d7r20r6-nnqp-representative-research-2026-08-25.md)
+and [frozen active-set contract](03b4e2d7r20r6-nnqp-representative-contract.md)
+replace that direction with the nonnegative quadratic-model minimizer before
+allowing nonlinear relinearization.
