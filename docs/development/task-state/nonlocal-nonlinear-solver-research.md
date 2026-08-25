@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R51V3_PASS_PERSISTENT_MASTER_CLOSURE / D7R19R52_FIXED_MASTER_CONVERGENCE_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R51V3_PASS_PERSISTENT_MASTER_CLOSURE / D7R19R52_SWEEP_DEPTH_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -59,6 +59,11 @@
   maximum upper `8.9325740895e-14`. Preserve the exact fixed master and research
   its solve convergence next; do not widen capacity or execute another
   nonlinear outer first.
+  R52 research selects independent 16/32/64 zero-dual depth probes from the
+  same R50 anchor over the exact 494-row master. Identity is
+  `fde05c9b...aafd`; new operator work is exactly three directed audits and no
+  basis/Gram builds. Implement it next. If depth does not dominate R51, derive
+  a Perkins-style active-face CG polish instead of extending cyclic sweeps.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3356,6 +3361,25 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   positivity tolerance, or applying the uncertified R51 witness.
 - **Reconsider when:** research identifies an outcome-independent fixed-master
   stopping/work policy and an independent certificate-preserving experiment.
+
+### D-104 -- Measure fixed-master coordinate depth before changing QP solvers
+
+- **Observation:** Hildreth/Dykstra is dual coordinate descent and polyhedral
+  convergence can be linear but is not finitely exact. R51's eight-sweep
+  predicted maximum remains positive, while all nonlinear positives are already
+  in the master. Continuing multipliers without changing the upper vector is
+  just further sweeps; transferring them after the nonlinear step needs a new
+  anchor/delta derivation to avoid double-counting correction.
+- **Decision:** freeze R52 at identity `fde05c9b...aafd` as independent exact
+  16/32/64 zero-dual solves from the unchanged R50 terminal anchor, reusing the
+  494-row R51 basis/Gram. Evaluate all three projected candidates with fresh
+  directed audits; select the smallest certificate or smallest strict R51
+  dominator. Cap new work at three pair passes and 112 dense sweeps.
+- **Rejected:** ad hoc cross-outer multiplier reuse, another nonlinear outer,
+  an unfrozen residual tolerance, capacity growth, immediate dense active-set
+  factorization or treating master residual contraction as compatibility.
+- **Reconsider when:** R52 certifies, selects a depth candidate, or shows that
+  coordinate depth should stop in favor of a derived Dykstra--CG polish.
 
 ## Performance facts retained
 

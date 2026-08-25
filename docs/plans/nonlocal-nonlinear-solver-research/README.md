@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R51V3_PASS_PERSISTENT_MASTER_CLOSURE /
-NSR3B4E2D7R19R52_FIXED_MASTER_CONVERGENCE_RESEARCH_NEXT /
+NSR3B4E2D7R19R52_SWEEP_DEPTH_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2640,3 +2640,12 @@ pair passes. Both clean binaries and concurrent outputs are byte-exact. All 481
 remaining positives are inside the persistent master, so research fixed-master
 solve convergence next. Compatibility is still open; do not widen capacity,
 run another nonlinear outer, apply the witness or exit restoration first.
+The [D7R19R52 research](../../development/nonlocal-nsr3b4e2d7r19r52-sweep-depth-research-2026-08-25.md)
+selects a fixed-master coordinate-depth discriminator before changing QP
+methods. Its
+[frozen contract](03b4e2d7r19r52-sweep-depth-contract.md) independently solves
+the exact 494-row master from the R50 terminal anchor at 16, 32 and 64 sweeps,
+then projects and audits all three candidates. It reuses every basis/Gram byte
+and admits exactly three new pair passes. Implement it next. If depth does not
+strictly dominate R51, derive a Perkins-style active-face CG polish rather than
+extending cyclic sweeps or transferring multipliers ad hoc.
