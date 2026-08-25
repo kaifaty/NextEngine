@@ -67,6 +67,15 @@ struct ALR20NNQPSolve {
     Binary128 ratio_refined_alpha = static_cast<Binary128>(0.0);
     Binary128 ratio_refined_best_bound = static_cast<Binary128>(0.0);
     Binary128 ratio_refined_competitor_bound = static_cast<Binary128>(0.0);
+    bool affine_shadow_exact = true;
+    std::size_t affine_shadow_updates = 0U;
+    Binary128 affine_direction_error = static_cast<Binary128>(0.0);
+    bool ratio_affine_refined_exact = false;
+    std::string ratio_affine_refined_failure = "NOT_RUN";
+    Binary128 ratio_affine_refined_alpha = static_cast<Binary128>(0.0);
+    Binary128 ratio_affine_refined_best_bound = static_cast<Binary128>(0.0);
+    Binary128 ratio_affine_refined_competitor_bound =
+        static_cast<Binary128>(0.0);
     std::vector<Binary128> direction;
     std::vector<Binary128> reduced_gradient;
     std::vector<bool> passive;
@@ -357,6 +366,9 @@ ALR20NNQPSolve al_r20_nnqp_solve(
     result.reduced_gradient = rhs;
     result.passive.assign(dimension, false);
     Binary128 direction_error = static_cast<Binary128>(0.0);
+    Binary128 affine_direction_error = static_cast<Binary128>(0.0);
+    bool affine_shadow_exact = true;
+    std::size_t affine_shadow_updates = 0U;
     const std::size_t transition_cap = 8U * dimension * dimension + 8U;
     bool exact = true;
     bool terminated = false;
@@ -471,6 +483,8 @@ ALR20NNQPSolve al_r20_nnqp_solve(
             if (negative.empty()) {
                 result.direction = std::move(candidate);
                 direction_error = passive_error;
+                affine_direction_error = passive_error;
+                ++affine_shadow_updates;
                 passive_solution = true;
                 continue;
             }
@@ -535,8 +549,36 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                                 * (static_cast<Binary128>(1.0)
                                     + fabsq(ratio.competitor_ratio))
                                 / ratio.competitor_denominator;
+                        const ALR20NNQPRatio affine_refined =
+                            al_r20_nnqp_ratio(result.direction, candidate,
+                                affine_direction_error, refined_error,
+                                negative, source_rows);
+                        result.ratio_affine_refined_exact =
+                            affine_refined.exact;
+                        result.ratio_affine_refined_failure =
+                            affine_refined.failure;
+                        result.ratio_affine_refined_alpha =
+                            affine_refined.alpha;
+                        result.ratio_affine_refined_best_bound =
+                            al_r20_q_gamma(512U)
+                                * (static_cast<Binary128>(1.0)
+                                    + fabsq(ratio.best_ratio))
+                            + (affine_direction_error + refined_error)
+                                * (static_cast<Binary128>(1.0)
+                                    + fabsq(ratio.best_ratio))
+                                / ratio.best_denominator;
+                        result.ratio_affine_refined_competitor_bound =
+                            al_r20_q_gamma(512U)
+                                * (static_cast<Binary128>(1.0)
+                                    + fabsq(ratio.competitor_ratio))
+                            + (affine_direction_error + refined_error)
+                                * (static_cast<Binary128>(1.0)
+                                    + fabsq(ratio.competitor_ratio))
+                                / ratio.competitor_denominator;
                     } else {
                         result.ratio_refined_failure = "AUDIT_REJECTED";
+                        result.ratio_affine_refined_failure =
+                            "AUDIT_REJECTED";
                     }
                 }
                 break;
@@ -551,6 +593,16 @@ ALR20NNQPSolve al_r20_nnqp_solve(
             direction_error = direction_error
                 + ratio.alpha * (passive_error + direction_error)
                 + al_r20_q_gamma(32U * dimension + 512U) * step_scale;
+            affine_direction_error =
+                (static_cast<Binary128>(1.0) - ratio.alpha)
+                    * affine_direction_error
+                + ratio.alpha * passive_error
+                + al_r20_q_gamma(32U * dimension + 512U) * step_scale;
+            ++affine_shadow_updates;
+            affine_shadow_exact = affine_shadow_exact
+                && finiteq(affine_direction_error) != 0
+                && affine_direction_error >= static_cast<Binary128>(0.0)
+                && affine_direction_error <= direction_error;
             for (std::size_t hitting : ratio.hits) {
                 result.direction[hitting] = static_cast<Binary128>(0.0);
                 result.passive[hitting] = false;
@@ -572,6 +624,9 @@ ALR20NNQPSolve al_r20_nnqp_solve(
         result.failure = "TRANSITION_CAP";
     result.terminated = terminated;
     result.direction_error_bound = direction_error;
+    result.affine_shadow_exact = affine_shadow_exact;
+    result.affine_shadow_updates = affine_shadow_updates;
+    result.affine_direction_error = affine_direction_error;
     std::vector<Binary128> reduced_bound;
     al_r20_nnqp_reduced_gradient(matrix, rhs, rhs_bound,
         result.direction, direction_error,
