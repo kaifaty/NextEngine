@@ -1,0 +1,4 @@
+interface:
+  display_name: "NextEngine Mathematical Research"
+  short_description: "Falsifiable math and numerical research"
+  default_prompt: "Use $nextengine-mathematical-research to test this engine-mathematics claim with counterexamples and reproducible evidence."
