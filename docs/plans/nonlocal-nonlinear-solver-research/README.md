@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R19R57_PASS_ENCLOSURE_FIXED_POINT_REQUIRED /
-NSR3B4E2D7R19R58_ENCLOSURE_FIXED_POINT_RESEARCH_NEXT /
+NSR3B4E2D7R19R58_ENCLOSURE_FIXED_POINT_CONTRACT_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2751,3 +2751,9 @@ checkpoint has zero raw-positive rows. At cycle 64, full binary128 resolves all
 binary64 certificate still reports 245 bound-only positives up to
 `6.36190e-24`. Research one bounded enclosure fixed-point refinement next; do
 not weaken gamma or treat binary128 as runtime authority.
+The [R58 research](../../development/nonlocal-nsr3b4e2d7r19r58-enclosure-fixed-point-research-2026-08-25.md)
+selects exactly one additional certificate-aware outer sourced from the exact
+R57 selected witness and directed upper. It reuses the same zero-initialized
+64-cycle grouped-box core and high-precision terminal audit. Certification,
+raw regression, unresolved sign, exact stalling and strict contraction are
+predeclared outcomes. Open-ended outer refinement is forbidden.

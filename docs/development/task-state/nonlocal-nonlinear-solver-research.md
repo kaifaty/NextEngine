@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R57_PASS_ENCLOSURE_FIXED_POINT_REQUIRED / D7R19R58_ENCLOSURE_FIXED_POINT_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R57_PASS_ENCLOSURE_FIXED_POINT_REQUIRED / D7R19R58_ENCLOSURE_FIXED_POINT_CONTRACT_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -130,6 +130,10 @@
   with maximum raw `-5.19866e-22`. The unchanged binary64 enclosure still has
   245 bound-only positives up to `6.36190e-24`. Two clean binaries/outputs are
   byte-exact. Research one bounded R58 fixed-point refinement next.
+  R58 research selects exactly one further certificate-aware refinement from
+  the exact R57 witness/upper, reusing the same 64-cycle zero-initialized core.
+  Freeze certification, raw-regression, unresolved, exact-stalling and strict
+  contraction routes before execution. Do not create an open-ended outer loop.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3649,6 +3653,18 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R58 certifies, stalls, produces a true raw positive or
   requires SHQP/extreme-point-corrected semismooth Newton.
 
+### D-117 -- Bound the enclosure fixed-point test to one composition
+
+- **Observation:** R57 reduces maximum directed upper by `6511.43x`; its inner
+  model residual is already four orders smaller than the remaining upper.
+- **Decision:** evaluate exactly `T(T(w55))` using the unchanged R57 core and
+  exact R57 source. Define contraction without tolerance as both active count
+  and maximum upper strictly decreasing.
+- **Rejected:** open-ended refinement, more inner cycles, binary128 runtime
+  authority or changing solver and certificate source in one experiment.
+- **Reconsider when:** executable R58 selects certified, raw-regression,
+  unresolved, stalled or strictly contracting outcome.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -3730,7 +3746,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    Preserve D7R19R50--R56, including exact R56
    PASS/`JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Research and
    Preserve D7R19R57 exact PASS/enclosure-fixed-point evidence. Research and
-   freeze D7R19R58 as one bounded unchanged-enclosure fixed-point refinement.
+   freeze D7R19R58 as exactly one bounded unchanged-enclosure fixed-point refinement.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not start switching,
    trust response or restoration exit before compatibility closes. Do not
