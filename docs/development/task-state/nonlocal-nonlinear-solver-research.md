@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_FROZEN / DERIVATIVE_DIAGNOSTIC_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_NEWTON_DIRECTION_FROZEN / ONE_STEP_DIAGNOSTIC_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -198,6 +198,15 @@
   Six tangent-safe finite-difference probes and pivoted binary128 rank controls
   run without a Newton step. Implement next; result selects ordinary Newton or
   representative-selection research.
+- **R20R4 result:** implementation `23a25a17`, semantic `18d3d90b...9a4d`,
+  route `FACE_HESSIAN_NONSINGULAR_CANDIDATE`. All 48 derivative probes pass;
+  the excited selected face ranks are `16/16`, `38/38`, `42/42`, with minimum
+  pivots `~1e-5` or larger versus `~1e-30` bounds. This proves a nonsingular
+  representative, not strong regularity across projector kinks.
+- **R20R5 frozen:** solve exactly one unregularized face-Newton direction at
+  lambda zero. Negative components are observed, not repaired. A feasible
+  direction receives a certified exact-dual Armijo search over 21 dyadic
+  steps, after which execution stops. Implement next.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive

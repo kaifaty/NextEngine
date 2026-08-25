@@ -3008,3 +3008,11 @@ scientific classification and ADMM penalty tuning stops. The next
 and [frozen derivative contract](03b4e2d7r20r4-projector-newton-derivative-contract.md)
 validate the exact joint-projector generalized derivative and face-Hessian
 rank before any semismooth Newton step.
+The
+[R20R4 evidence](../../development/nonlocal-nsr3b4e2d7r20r4-projector-derivative-evidence-2026-08-25.md)
+finds a nonsingular selected generalized Jacobian in all three excited
+development cases. The next
+[Newton-direction research](../../development/nonlocal-nsr3b4e2d7r20r5-newton-direction-research-2026-08-25.md)
+and [frozen one-step contract](03b4e2d7r20r5-newton-direction-contract.md)
+test dual-cone feasibility and certified dual ascent before permitting an
+iterative semismooth solver.
