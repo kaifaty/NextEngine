@@ -2,7 +2,7 @@
 
 Date: `2026-08-25`
 
-Status: `FROZEN V1 / IMPLEMENTATION NEXT / ROLLBACK ONLY`.
+Status: `CLOSED PASS / CONTACT_CONSTRAINED_DYKSTRA_CANDIDATE / ROLLBACK ONLY`.
 
 Parent: `76e72ba9`, R54 stdout SHA-256
 `b2f32c0aa9e8dd689e3924d8a88db5c4c971404fbc3835bd313cf7512994edff`,
@@ -46,3 +46,6 @@ authority.
 
 Rationale:
 [R55 research](../../development/nonlocal-nsr3b4e2d7r19r55-contact-dykstra-research-2026-08-25.md).
+
+Evidence:
+[R55 closure](../../development/nonlocal-nsr3b4e2d7r19r55-contact-dykstra-evidence-2026-08-25.md).

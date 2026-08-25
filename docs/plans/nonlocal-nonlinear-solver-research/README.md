@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R54_PASS_BALL_BOX_PROJECTION_MODEL_REQUIRED /
-NSR3B4E2D7R19R55_CONTACT_DYKSTRA_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R19R55_PASS_CONTACT_CONSTRAINED_DYKSTRA /
+NSR3B4E2D7R19R56_JOINT_WITNESS_CERTIFICATE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2703,3 +2703,11 @@ Each of 64 cycles processes the 494 cached density halfspaces, applies one box
 set with persistent Dykstra correction, and explicitly refreshes the residual.
 Checkpoints 8/16/32/64 receive the unchanged directed certificate. Implement it
 next with exactly 68 new pair passes and no post-terminal projection.
+The [D7R19R55 evidence](../../development/nonlocal-nsr3b4e2d7r19r55-contact-dykstra-evidence-2026-08-25.md)
+closes `PASS / CONTACT_CONSTRAINED_DYKSTRA_CANDIDATE`. Checkpoints contract
+strictly through 64 cycles, remain box/ball feasible and never activate a row
+outside the 494-row master. At cycle 64, `h=7.3368e-20` and maximum upper
+`4.1425e-20`, improvements of `5.43e6x` and `1.87e6x` over R52-64. Both clean
+binaries and outputs are byte-exact. Research binary128 raw/enclosure
+decomposition at this exact joint witness next; do not extend depth or optimize
+the 68 refreshes first.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R54_PASS_BALL_BOX_PROJECTION_MODEL_REQUIRED / D7R19R55_CONTACT_DYKSTRA_FROZEN_IMPLEMENTATION_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R55_PASS_CONTACT_CONSTRAINED_DYKSTRA / D7R19R56_JOINT_WITNESS_CERTIFICATE_RESEARCH_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -89,12 +89,14 @@
   stored witness bit-for-bit. Two clean binaries and concurrent outputs are
   exact. Stop residual-replacement/sweep/CG/precision work on the current
   pipeline and research one contact-constrained minimum-norm correction next.
-  R55 is frozen at identity `4195f54a...be28`. It retains the 494 cached
-  density halfspaces and adds the contact box as one grouped Dykstra set with a
-  persistent correction vector. A single 64-cycle continuation refreshes
-  `A p` after every box; directed certificates are captured at 8/16/32/64.
-  Implement it next with 68 exact pair passes, no new bases/Gram and no final
-  solve-then-clamp projection.
+  Clean R55 passes at stdout `fce9bec7...6db8`, semantic `fb549fd3...c83e` and
+  route `CONTACT_CONSTRAINED_DYKSTRA_CANDIDATE`. All checkpoints are box/ball
+  feasible, contract strictly and have zero positives outside the 494-row
+  master. Cycle 64 reaches `h=7.3368316e-20`, `psi=2.6914549e-39` and maximum
+  upper `4.1425105e-20`: `5.43e6x`, `2.95e13x` and `1.87e6x` improvements over
+  R52-64. Two clean binaries/outputs are byte-exact. Preserve the joint witness
+  and research its high-precision raw/enclosure certificate next; do not add
+  cycles or performance optimizations first.
 
 - **Current conclusion:** D7R19R30 passes at stdout SHA
   `34cf7a56...96ad`, semantic result `41c3e833...08b` and route
@@ -3533,6 +3535,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   tolerance stopping or immediate piecewise box-eliminated dual Newton.
 - **Reconsider when:** R55 certifies, activates an outside-master/ball boundary,
   strictly improves R52-64, or fails to contract under the exact joint sets.
+
+### D-112 -- Joint correction works; certify its roundoff-scale endpoint
+
+- **Observation:** R55 preserves density/contact coupling and contracts fresh
+  maximum upper from `3.389e-14` at cycle 8 to `4.143e-20` at cycle 64. Box and
+  ball remain feasible, and no positive row escapes the master. Nevertheless
+  308 raw and 476 directed-positive rows remain at a total raw norm
+  `h=7.337e-20`, now far below ordinary binary64 cancellation scale.
+- **Decision:** retain grouped-box Dykstra. Research R56 at the exact cycle-64
+  witness using fresh pair/directed binary64, compensated binary128 term folds
+  and the unchanged gamma decomposition. Determine true sign margins before
+  any further cycles, polish, tolerance or certificate change.
+- **Rejected:** returning to solve-then-clamp, choosing 64 as runtime budget,
+  extending cycles merely because the recurrence contracts, lowering gamma or
+  claiming compatibility from tiny aggregate norm.
+- **Reconsider when:** R56 proves true positive raw residual, cancellation-only
+  signs, bound-only positives or existing compatibility.
 
 ## Performance facts retained
 
