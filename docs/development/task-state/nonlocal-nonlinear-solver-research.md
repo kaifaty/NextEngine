@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_MODEL_AWARE_PROJECTED_PATH_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R64_PASS_BOUNDED_EQUIVALENCE / D7R19R65_BEST_MODEL_DYADIC_PROBE_NEXT / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-25` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -83,6 +83,16 @@
   strict positive inertia-model reduction after the exact box-ball
   projection. Count candidate projections explicitly; retain every existing
   checkpoint, work and rollback gate.
+- **R65 model-aware result:** v5 rejects the unsafe outer-2 full step and
+  accepts `alpha=1/2`; all 16 candidate/commit model pairs agree exactly and
+  remain positive. It applies 4,324 zeros at 350,496,935 terms, but terminal
+  raw `1.900e-9` and gradient `2.706e-8` do not dominate FISTA. Preserve the
+  globalization mechanism and route `MODEL_AWARE_PROJECTED_PATH_REFERENCE_RETAINED`.
+- **R65 best-model dyadic frozen:** measure the exact post-Hildreth no-PCG
+  composed baseline, evaluate all 16 fixed dyadic candidates and select the
+  largest strict baseline model reduction among candidates that also decrease
+  the dual quadratic and retain positive normal-reference reduction. Keep the
+  v5 commit-agreement gate and fixed 15-HVP direction.
 - **R63 result:** clean stdout `38298214...5b62`, semantic
   `9f456232...440`, route `TANGENTIAL_MASTER_EXPANSION_REQUIRED`. Projection
   model/contact/trust/work pass and inertia falls strongly, but 2,796 positive
@@ -4123,6 +4133,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   candidate projections become the dominant work class, committed and
   predicted model reductions disagree, or strict FISTA dominance still fails.
 
+### D-139 -- Select by composed-model reduction, not largest safe alpha
+
+- **Observation:** v5 correctly replaces the unsafe outer-2 full step by a
+  safe half step and has zero candidate/commit model gap, proving the
+  globalization handoff. It nevertheless stops at the first safe alpha and
+  ends `1.29x/1.24x` worse than v4 in raw/projected gradient.
+- **Decision:** evaluate the complete fixed 16-value dyadic set against a
+  no-PCG composed baseline and select minimum inertia under strict dual,
+  baseline and normal-reference descent. Worst-case counted sparse work
+  remains below FISTA.
+- **Rejected:** returning to unsafe dual-only acceptance, fitting alpha,
+  increasing PCG depth, accepting equality at either model gate, or using the
+  normal reference alone as a line objective.
+- **Reconsider when:** no candidate improves the composed baseline, exhaustive
+  search consumes the FISTA work budget, the best-model face harms terminal
+  KKT residuals, or strict FISTA dominance still fails.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4218,8 +4245,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    PASS/`SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`, including separate
    workspace/operator topology roots and its fail-closed negative result.
    Preserve all D7R19R65 dynamic/FISTA/PCG/Newton/projected-path probes as
-   no-credit exploratory evidence. Implement the frozen model-aware
-   projected-path probe next. Defer nonlinear switching/filter globalization.
+   no-credit exploratory evidence. Implement the frozen best-model dyadic
+   probe next. Defer nonlinear switching/filter globalization.
    Do not fit a tolerance, weaken gamma or start
    performance work. Do not mutate runtime filter/trust or publish the private
    restoration exit. Do not apply or commit the correction alone,
