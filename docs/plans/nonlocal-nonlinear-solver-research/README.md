@@ -3401,3 +3401,11 @@ next
 and [five-case contract](03b4e2d7r20r51-generic-corpus-contract.md) replay the
 same policy independently on all immutable v4 cases, preserving the unrelated
 counterflow direction certificate.
+The
+[R20R51 evidence](../../development/nonlocal-nsr3b4e2d7r20r51-generic-corpus-evidence-2026-08-26.md)
+certifies 4/5 cases and leaves only the unchanged counterflow
+`DIRECTION_REJECTED` boundary; no generic call occurs outside torsion. The next
+[counterflow center research](../../development/nonlocal-nsr3b4e2d7r20r52-counterflow-centered-slope-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r52-counterflow-centered-slope-contract.md)
+capture the already successful final inverse and test whether the same centered
+solution certificate closes its global slope bound without changing state.
