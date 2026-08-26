@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_WOOD_ACCEPTED / GLASS-H_WEAK_PREFERENCE / DIFFSOUND_PROXY_REJECTED / P1_BLOCKED` |
+| Status | `P0_WOOD_ACCEPTED / DIFFSOUND_GLASS_DIRECTION_ACCEPTED / PHYSICAL_IDENTIFICATION_OPEN / P1_BLOCKED` |
 | Updated | `2026-08-26` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact audition and feature-gated reference-demo experiment |
@@ -11,17 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** DiffSound runs locally, but its upstream-bowl proxy
-  does not fit the frozen thin-goblet target well enough to continue.
-- **Why:** The 16-epoch proxy improved DiffSound RMSE by only `0.244%` while
-  spectral loss rose; independent analysis found `45.338 dB` spectral RMSE.
-- **Next action:** Acquire one exact glass mesh plus controlled multi-microphone
-  impacts before another geometry-aware inverse fit.
+- **Current conclusion:** The DiffSound 16-step output is recognizably glass-like
+  and better than the earlier local renders; preserve it as a perceptual anchor.
+- **Why:** Product-owner audition outranks uncalibrated reference metrics for
+  identity; `45.338 dB` RMSE only says it differs from the synthetic target.
+- **Next action:** Run an instrumented 500-ms, 16-mode, 151-epoch fit that
+  exports frequency, damping, amplitude and transient checkpoints for audition.
 - **Current blocker:** No controlled matched-reference corpus, held-out human
   preference labels, calibrated threshold, measured
   whole-mixer budget, Accepted consumer ADR or complete impulse/effective-mass/
   acoustic-material contact projection exists.
-- **Do not retry:** The DiffSound bowl proxy, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
+- **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound and raw PhysX-callback mixing.
 - **Reconsider when:** P0 produces a measured quality/cost point and a concrete
@@ -31,14 +31,14 @@
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| [Research report](../physical-sound-synthesis-research-2026-08-26.md) and [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md) | `LOCAL_PIPELINE_PASS / GLASS_PROXY_REJECTED` | DiffSound executes offline, but wrong geometry plus repeated single-channel audio does not recover the goblet; acoustic quality and promotion evidence remain open. |
+| [Research report](../physical-sound-synthesis-research-2026-08-26.md) and [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md) | `LOCAL_PIPELINE_PASS / PERCEPTUAL_DIRECTION_ACCEPTED / PHYSICAL_ID_OPEN` | The proxy yields a preferred glass-like sound, but wrong geometry and repeated audio make its material numbers non-physical; promotion evidence remains open. |
 | [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md) | `CLASSICAL_Q0_Q1_IMPLEMENTED / HUMAN_CALIBRATION_OPEN` | Matched classical descriptors and blind A/B are available; no single automatic metric or uncalibrated control run is an admissible quality judge. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition | `PASS` | Nine frozen baseline WAVs and three same-excitation glass-body WAVs repeat byte-exactly; Glass-H center/demo hashes and all wood/steel PCM remain unchanged. |
-| Glass-object separated audition set | `READY_FOR_HUMAN_AUDITION / UNCALIBRATED` | Goblet/bottle/jar spectral centroids are `1,948.754/3,657.293/1,499.715 Hz` and durations are `500/233.333/166.667 ms`; separation is diagnostic, not a quality rank. |
+| Glass-object set and DiffSound audition | `DIFFSOUND PERCEPTUAL_ACCEPT / UNCALIBRATED` | The 16-step DiffSound output sounds more glass-like than prior renders even though it mismatches the synthetic target; identity and reference fidelity must be scored separately. |
 | Product-owner audition, 2026-08-26 | `PERCEPTUAL_FAIL` | The current output only remotely resembles the target; engineering checks cannot support an acoustic-quality claim. |
 | Product-owner wood/glass audition, 2026-08-26 | `WOOD-B ACCEPT / GLASS-D-F FAIL / G PARTIAL_ACCEPT / H WEAK_PREFERENCE` | H is tentatively better but hard to distinguish from G; preserve both and require a stronger discriminator. |
 | `xtask physical-sound-eval` Q0 run | `PASS / UNCALIBRATED` | Nine hash-frozen WAVs produce bounded signal, multiresolution spectrum, modal-assignment and per-band decay reports under evaluator profile hash `e1e57d9b…66af1`; every entry correctly remains `NeedsReference`. |
@@ -165,9 +165,9 @@
 - **Rejected alternatives:** A single FAD/CLAP/ViSQOL/aesthetic score, direct
   prose judgment by a general audio model, or fitting and evaluating on the same
   object/impact split.
-- **Consequences:** Q0/Q1 selected useful steel/wood candidates, but both glass
-  D and F failed identity. CLAP and classical screens may diagnose candidates,
-  but cannot select glass without held-out human calibration.
+- **Consequences:** Q0/Q1 selected useful steel/wood candidates, but the
+  DiffSound pair now falsifies reference fidelity as a glass-identity proxy.
+  Classical/CLAP screens remain diagnostics until held-out human calibration.
 - **Uncertainty:** The smallest local reference corpus and human-label count are
   chosen only after measuring recording and label variance.
 - **Reconsider when:** A frozen single metric demonstrably outperforms the
@@ -178,7 +178,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A compact modal core plus fused transient can evoke glass | G improved identity; H is weakly preferred; DiffSound executes locally | G/H are hard to distinguish; the wrong-geometry DiffSound proxy produced `45.338 dB` spectral RMSE | Capture one exact meshed object under controlled impacts, then fit and test held-out strikes |
+| H1: A compact modal core plus fused transient can evoke glass | DiffSound's 16-mode proxy is preferred and recognizably glass-like | Its tail/amplitudes/transient are incomplete and its material values are not identifiable | Checkpoint a 500-ms amplitude/transient-aware 151-epoch run, then blind-audition it against the accepted proxy |
 | H2: The complete SPEC-26 contact projection is sufficient for impact excitation | It includes identity, point, velocity, impulse bounds, effective mass and tags | Current implementation omits the decisive numeric fields; solver-force fidelity is untested | Close one fixture projection and compare against exact synthetic excitation/control PCM |
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Repeated scalar renders are byte-exact and profiles/impact points are distinct | Quality, detuning and damping error against a high-precision reference remain unmeasured | Compare the frozen Q30 recurrence with a high-precision solver across the P0 stability envelope |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
@@ -200,10 +200,10 @@ Read these sources in precedence order before acting:
 
 1. Preserve all frozen baselines, references and reports; freeze wood-B and
    retain glass-D/F only as rejected metal-like anchors.
-2. Keep weakly preferred Glass-H as the provisional baseline; do not extend
-   the rejected DiffSound bowl proxy or treat its fitted values as physical.
-3. Acquire an exact glass mesh and controlled multi-microphone impacts, then
-   use the generated browser to calibrate pairwise/MUSHRA-like human
+2. Preserve the preferred DiffSound proxy externally; run a checkpointed
+   500-ms 16-mode fit before mode-count or geometry expansion.
+3. Fit/export amplitudes and transient residuals; exact geometry and controlled
+   impacts remain prerequisites for physical transfer. Use the browser for human
    labels, validate leave-one-object or
    leave-one-position-out ranking and only then run bounded parameter search.
 4. Compare reference-fitted candidates and select or reject a bounded quality/
@@ -243,8 +243,8 @@ Read these sources in precedence order before acting:
 - **Remaining risk:** acoustic quality, calibration, complete contact-signal
   sufficiency, cooker design, callback/whole-mixer cost, propagation
   integration and content-author workflow are all unmeasured.
-- **Quality status:** wood-B passed informal identity; glass-D/F failed; G is
-  partially accepted and H is weakly preferred. DiffSound runs, but its bowl
-  proxy is rejected; no controlled corpus or autonomous-ranking evidence exists.
+- **Quality status:** wood-B passed informal identity; glass-D/F failed; G/H
+  improved weakly. The DiffSound proxy is the first preferred glass-like
+  direction; no controlled corpus or autonomous-ranking evidence exists.
 - **Promotion needed:** Concrete consumer plus later Accepted ADR under ADR-046;
   then exact content/contact/DSP profiles and ProductChecks.

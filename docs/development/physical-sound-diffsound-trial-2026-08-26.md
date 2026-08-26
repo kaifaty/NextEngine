@@ -5,15 +5,18 @@
 DiffSound ran end to end on the local RTX 3080, including its real-audio
 damping fit, second-order tetrahedral modal solve, differentiable oscillator,
 loss and backward pass. This establishes tool compatibility for an isolated
-offline laboratory. It does not establish that DiffSound can recover a useful
-glass model from the current Next Engine audition WAV.
+offline laboratory. A subsequent product-owner audition judged its 16-step
+prediction recognizably glass-like and better than the earlier local glass
+renders, so it is retained as a promising perceptual direction.
 
 The bounded glass proxy moved its modes and reduced DiffSound's reported RMSE
 by only `0.243610%`, while its optimization loss increased by `0.096294%`.
 Next Engine's independent evaluator then measured `45.337802 dB`
 gain-matched multiresolution spectral RMSE, modal-assignment cost `2.174618`,
-and a `1,469.665 Hz` spectral-centroid overshoot. The proxy is rejected as a
-calibration result.
+and a `1,469.665 Hz` spectral-centroid overshoot. Those measurements establish
+poor reproduction of the earlier synthetic target, not poor glass identity.
+The proxy remains invalid as physical material identification but is no longer
+rejected as a perceptual calibration direction.
 
 No DiffSound source, dependency, model weight, target recording or generated
 audio is added to the repository. SPEC-45 remains `Proposed`; the clip
@@ -87,7 +90,7 @@ cannot validate convergence or material recovery.
 
 DiffSound's real-audio experiment assumes known geometry and multiple
 recordings. Next Engine currently has neither an exact goblet mesh nor a
-controlled multi-microphone capture. To test the nearest available path
+controlled multi-impact capture. To test the nearest available path
 without misrepresenting it as identification, the trial used:
 
 - target: frozen `glass-thin-goblet.wav`, source SHA-256
@@ -149,30 +152,62 @@ The evaluator tagged spectral and modal-structure mismatch and kept the result
 at `NeedsHumanAudit`. Report SHA-256:
 `3540968ce71f7bb4902160421557f3a178709e112af8af7ff5949819d21b8adc`.
 
-This analysis is diagnostic, not an autonomous quality score. The magnitude
-and direction of several independent mismatches are nevertheless enough to
-reject spending more compute on the same wrong-geometry proxy.
+This analysis is diagnostic, not an autonomous quality score. Product-owner
+audition subsequently preferred the prediction as a glass sound despite its
+reference mismatch. This pair is therefore a concrete counterexample to using
+synthetic-target fidelity as a proxy for material identity.
+
+## Post-audition correction
+
+The positive audition changes the admissible conclusion:
+
+- keep the 16-step prediction as an external perceptual baseline;
+- do not force a future run toward the earlier synthetic target merely to
+  reduce spectral RMSE;
+- measure glass identity/naturalness separately from exact target fidelity;
+- retain the geometry/material numbers as latent artistic parameters until an
+  exact mesh, scale, density and controlled captures make them identifiable.
+
+The released real-audio path is also materially less complete than the method
+described in the paper. The current proxy used only 250 ms of the 500-ms target.
+Its final `forward_curve` path comments out learned modal amplitudes, emits all
+modes at equal amplitude, normalizes each result, and does not add the learned
+filtered-noise component. The paper instead describes learned per-mode
+amplitudes, damping factors and an LTV-FIR filtered-noise component for natural
+recordings. It reports 10,000 damping and 10,000 material steps, whereas the
+released config uses 2,001 and 3,000 and the smoke proxy used only 16 material
+steps. These gaps leave useful fitting capacity unexplored.
 
 ## Decision and smallest next experiment
 
-DiffSound is viable as an offline inverse-material tool when object geometry
-and recording conditions are known. It is not a prompt-to-sound model and the
-evaluated experiment is not a generic WAV-to-modal-profile extractor. Material,
-geometry, excitation, microphone response and radiation are confounded when a
-single synthetic WAV is repeated over the eight expected inputs.
+DiffSound is viable for two distinct purposes. As a perceptual baker, its modal
+bank may be treated as an artistic glass archetype even with proxy geometry.
+As an inverse-material tool, it still requires known geometry and recording
+conditions. Material, geometry, excitation, microphone response and radiation
+remain confounded when one synthetic WAV is repeated over the expected inputs.
 
-Do not extend this bowl-proxy run to 3,000 epochs. Resume DiffSound evaluation
-only after all of the following are available:
+The smallest next perceptual experiment is a checkpointed external run that:
 
-1. one concrete glass object's measured or authored surface mesh and a checked
-   tetrahedralization;
-2. multiple controlled impulse recordings with impact position, gain, padding,
-   sample rate and microphone placement recorded;
-3. a train/held-out capture split so recovery and audio similarity are not
-   judged on the fitted strike alone;
-4. clarified upstream licensing or a clean-room/licensed alternative before
-   any code or derived runtime component is considered for distribution.
+1. uses all 500 ms (`16,000` frames at 32 kHz), initially retains 16 modes and
+   saves a preview plus `frequency`, `damping`, `amplitude` and loss values at
+   every eigen-decomposition checkpoint;
+2. fits per-mode amplitudes and a bounded 1–3 ms excitation/noise residual
+   after fixing frequencies and damping;
+3. stops first at 151 material epochs for audition, then extends to 1,001 and
+   the released 3,000-step schedule only when a checkpoint improves glass
+   identity or naturalness;
+4. compares 16, 32 and 64 modes only after the 16-mode full-tail control, with
+   the current preferred prediction and Glass-H preserved as blind anchors;
+5. exports each accepted mode as `f_i`, exponential damping `d_i` and gain
+   `A_i`; the runtime decay pole is `r_i = exp(-d_i / sample_rate)` and its
+   `T60` is `ln(1000) / d_i`.
 
-Until then, use DiffSound as evidence that differentiable geometry-aware
-fitting is technically possible, not as calibration of Glass-H or as an
-independent sound-quality oracle.
+Physical transfer across shapes, strike points and sizes is a later experiment
+requiring one exact scaled glass mesh, measured or fixed density, multiple
+controlled impacts with force/position metadata, and held-out strikes. Modal
+frequencies primarily constrain `E / density`; absolute Young's modulus is not
+identifiable if scale and density float simultaneously.
+
+Clarify upstream licensing or use a clean-room/licensed implementation before
+shipping code. Until then, keep DiffSound and all generated assets external and
+use the accepted output only to derive and validate engine-owned modal math.
