@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63I exported-factor RHS research
 
-Status: `FROZEN FOR IMPLEMENTATION`.
+Status: `IMPLEMENTED / WIDE_RHS_SIGN_CERTIFICATE_REJECTED`.
 
 ## Question
 
@@ -151,3 +151,18 @@ R63I performs exactly three two-triangular RHS solves. It performs no inverse,
 iterative refinement, LSQR/LSMR/SVD, rank action, row drop, regularization,
 center beyond the read-only R60 certificate, replacement, state update,
 following transition, trajectory or timing. R64 and R65 remain blocked.
+
+## Result
+
+The frozen apparatus selects `WIDE_RHS_SIGN_CERTIFICATE_REJECTED` at semantic
+`4055d0b0...6415`; stdout repeats at `6aaf5889...bd7a`. Even the retained-wide
+factor built from the binary64-stored operator leaves a certified original-
+system forward-error radius `4.14356e15` and 66 unresolved signs. The export/
+wide and export/binary64 lanes fail similarly. See the
+[evidence record](nonlocal-nsr3b4e2d7r20r63i-exported-factor-rhs-evidence-2026-08-26.md).
+
+This isolates stored-operator perturbation, not triangular consumption
+precision, as the first failing boundary for the captured RHS. The next bounded
+research stage is original-system residual refinement with a depth frozen from
+the already verified `rho=0.0248854` contraction; no candidate may update the
+parent state.

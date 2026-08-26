@@ -1,8 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63H_WIDE_BUILD_BINARY64_EXPORT_CANDIDATE /
-NSR3B4E2D7R20R63I_EXPORTED_FACTOR_RHS_FROZEN /
-NSR3B4E2D7R20R63I_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63I_WIDE_RHS_SIGN_CERTIFICATE_REJECTED /
+NSR3B4E2D7R20R63J_ORIGINAL_RESIDUAL_REFINEMENT_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3656,6 +3655,16 @@ exported-factor/strict-binary64 lanes each execute two triangular solves once.
 The original R60 left-inverse contraction converts independently enclosed
 captured-system residuals into rigorous error radii, and all 102 signs must
 match the R60 `24+/78-` component pattern. No lane updates the parent solve.
+
+The
+[R20R63I evidence](../../development/nonlocal-nsr3b4e2d7r20r63i-exported-factor-rhs-evidence-2026-08-26.md)
+selects `WIDE_RHS_SIGN_CERTIFICATE_REJECTED`. Even retained-wide consumption
+of the factor built from the binary64-stored operator gives an independently
+certified original-system error radius `4.14356e15` with 66 unresolved signs.
+Export/wide and export/binary64 fail similarly. Thus triangular precision is
+not the first boundary: weak-image preservation did not make the rounded
+operator safe to invert. Research a pre-bounded original-residual refinement
+next; do not publish state or infer runtime/production readiness.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
