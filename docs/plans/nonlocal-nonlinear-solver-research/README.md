@@ -3291,3 +3291,11 @@ contains all `4225/4225` exact residual entries and certifies
 and [frozen contract](03b4e2d7r20r39-dot2-solution-error-contract.md) apply the
 same compensated certificate to the already solved passive RHS and test whether
 the resulting infinity error strictly resolves every active-set sign.
+The
+[R20R39 evidence](../../development/nonlocal-nsr3b4e2d7r20r39-dot2-solution-error-evidence-2026-08-26.md)
+contains all 65 residuals and improves the legacy error by `6.88e22`, but the
+global inverse-norm product still leaves six signs unresolved. The next
+[directional research](../../development/nonlocal-nsr3b4e2d7r20r40-directional-krawczyk-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r40-directional-krawczyk-contract.md) certify
+the actual `Xr` correction and left defect `I-XA` before considering a solver
+repair.
