@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63D_PROJECTOR_METRIC_NUMERICAL_RANK_LOSS /
-NSR3B4E2D7R20R63E_PROJECTOR_RANGE_NULLSPACE_RESEARCH_NEXT /
+Current milestone: `NSR3B4E2D7R20R63E_CLAMP_METRIC_NUMERICAL_RANK_LOSS /
+NSR3B4E2D7R20R63F_PROJECTION_EQUIVALENT_REPRESENTATIVE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3592,3 +3592,15 @@ while the projected block is numerical rank 101 in both binary64 and
 binary128 profiles. This selects projector-metric near-null geometry, not a
 duplicate-row policy. Research/freeze an R63E projector range/nullspace witness
 before QR, row removal, extended precision or any RHS solve.
+
+The
+[R20R63E research](../../development/nonlocal-nsr3b4e2d7r20r63e-projector-nullspace-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63e-projector-nullspace-contract.md) separate the
+clamp mask, active-ball tangent and uniform projector scale. The
+[R20R63E evidence](../../development/nonlocal-nsr3b4e2d7r20r63e-projector-nullspace-evidence-2026-08-26.md)
+reconstructs the full R63 matrix bit-for-bit and selects
+`CLAMP_METRIC_NUMERICAL_RANK_LOSS`. The witness source energy is about `20.52`,
+almost all on 141 clamped coordinates; only order `4e-30` remains free and the
+ball-radial term is order `2.5e-32`. Research/freeze projection-equivalent dual
+representative semantics next. Do not infer exact rank 101, delete a row or
+apply wider arithmetic/RHS work first.
