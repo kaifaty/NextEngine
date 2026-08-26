@@ -3409,3 +3409,10 @@ certifies 4/5 cases and leaves only the unchanged counterflow
 and [report-only contract](03b4e2d7r20r52-counterflow-centered-slope-contract.md)
 capture the already successful final inverse and test whether the same centered
 solution certificate closes its global slope bound without changing state.
+The
+[R20R52 evidence](../../development/nonlocal-nsr3b4e2d7r20r52-counterflow-centered-slope-evidence-2026-08-26.md)
+closes that premise as false without solver credit: the exact counterflow replay
+executes and stores no verified-inverse audit. Its 66/66 support is resolved by
+the direct solve, while the cheap error has passed through 86 affine-shadow
+updates. The next experiment must capture the final direct principal solve and
+explicitly budget a new report-only inverse; it may not reuse an absent audit.

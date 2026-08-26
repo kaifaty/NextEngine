@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R52 counterflow centered-slope research
 
-Status: `RESEARCH COMPLETE / SUCCESSFUL-INVERSE CENTER AUDIT SELECTED`.
+Status: `CLOSED / CAPTURE PREMISE REFUTED / NO SOLVER CREDIT`.
 
 ## Question
 
@@ -31,3 +31,17 @@ the same binary128 order. Add no direction, line trial or state update.
 
 S1 authorizes only a separately frozen shadow trajectory using a generic
 successful-audit refinement point. It does not change the production policy.
+
+## Outcome
+
+The frozen replay reproduced the exact R51 counterflow case and R36 slope, but
+the observer recorded zero verified-inverse calls. The final NNQP solve also
+contains zero inverse-audit records. Counterflow never reaches that predicate:
+its final 66-row support is already sign-resolved by the cheap direct-solve
+bound, then the global slope certificate rejects the direction.
+
+Therefore the assumed "already executed final successful inverse audit" does
+not exist. R52 is an invalid-apparatus result with no certificate or solver
+credit. A successor must explicitly capture the final direct principal solve
+and budget any new report-only inverse work; it must not reinterpret the empty
+R52 capture as a physical or convergence failure.

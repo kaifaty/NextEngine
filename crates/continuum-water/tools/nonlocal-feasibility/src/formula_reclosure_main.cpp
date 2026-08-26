@@ -271,6 +271,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v4-three-refinement-trajectory|"
                          "--nonlocal-al-generalization-v4-generic-centered-verifier|"
                          "--nonlocal-al-generalization-v4-generic-corpus|"
+                         "--nonlocal-al-generalization-v4-counterflow-centered-slope|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2276,6 +2277,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v4_generic_corpus_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-generalization-v4-counterflow-centered-slope") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v4_counterflow_centered_slope_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
