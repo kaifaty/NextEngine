@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R61_PROFILE_BOUNDED_V5_6_OF_6_CANDIDATE /
-NSR3B4E2D7R20R62_FINITE_PRECISION_CORRESPONDENCE_RESEARCH_NEXT /
+Current milestone: `NSR3B4E2D7R20R62_STRICT_BINARY64_DOT2ERR_ARCHITECTURE_SELECTED /
+NSR3B4E2D7R20R63_BINARY64_PROJECTED_INVERSE_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3509,3 +3509,13 @@ This closes the current binary128 tiny-corpus policy gate. Research a bounded
 finite-precision/certification correspondence architecture next; do not add a
 third binary128 callback, start physical-scale execution, time this shared-host
 oracle or imply production readiness.
+
+The
+[R20R62 finite-precision research](../../development/nonlocal-nsr3b4e2d7r20r62-finite-precision-correspondence-research-2026-08-26.md)
+selects strict working-precision `Dot2Err` intervals as the smallest runtime-
+plausible certificate arithmetic. Exact dyadics remain an offline independent
+oracle; mixed-precision refinement is only a possible candidate generator and
+runtime binary128 is rejected. The next executable gate is frozen by the
+[R20R63 contract](03b4e2d7r20r63-binary64-dot2err-contract.md): project only
+the immutable R60 dimension-102 tuple to binary64 and require exact containment
+plus two-sided contraction before evaluating any centered correction.
