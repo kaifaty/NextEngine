@@ -6,7 +6,8 @@ NSR3B4E2D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED /
 NSR3B4E2D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED /
 NSR3B4E2D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE /
 NSR3B4E2D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE /
-NSR3B4E2D7R20R63S_COMMON_OPERATOR_PCG_CERTIFICATE_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED /
+NSR3B4E2D7R20R63T_COMMON_RESIDUAL_RECOVERABILITY_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3836,6 +3837,16 @@ and [contract](03b4e2d7r20r63s-common-operator-pcg-certificate-contract.md)
 freeze both eight-update direct tangent-PCG lanes. The start and every iterate
 receive an exact `H*` residual and R63R solution-error/sign certificate. Dense
 `H/X`, R60 signs and defect transport are excluded.
+
+The
+[R20R63S evidence](../../development/nonlocal-nsr3b4e2d7r20r63s-common-operator-pcg-certificate-evidence-2026-08-27.md)
+selects `RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED`. Both complete lanes reach
+an exact common residual near `5e-19`, but the verified `1.05e33`
+amplification leaves the same 66 signs unresolved. Iterations 6--8 are
+byte-stationary, so more unchanged PCG updates are not a credible next step.
+Research a fixed-depth common-residual recoverability discriminator using the
+R63R verifier next; keep it offline and separate from a later factor-based or
+wider finite representation.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
