@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_SUB_ENVELOPE_EVENT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_ONE_SHOT_RECOVERY_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -89,6 +89,14 @@
   `(0,2^-20]`. For a unique nearest zero-bound event only, use the R25 forward
   bound to shadow-evaluate exactly one certified point on each side. Add no
   sweep, cap or state update.
+- **R20R28 result:** implementation `36f67e97`, semantic
+  `a95370b4...e52d`, route `SUB_ENVELOPE_BIDIRECTIONAL_ACCEPTANCE`. Of 346
+  algebraic roots, only scalar 168 at `1.89081646e-7` is bounded/admissible.
+  Both R25-certified sides are mask-correct and Armijo-positive; the old line
+  depth, not direction quality, caused R27 rejection.
+- **R20R29 frozen:** after the exact 19-step R26 shear prefix, commit exactly
+  the re-derived R28 new-side root once, then continue unchanged through cap
+  32. Replay all 12 cases; no second exhausted-line recovery.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4705,6 +4713,19 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R28 identifies a safe old/new side, coupled/ambiguous
   event, local rejection or precision boundary.
 
+### D-157 -- Cross the proven event once before generalizing a policy
+
+- **Observation:** R28 finds one unique zero-bound release below the old line
+  and proves both adjacent representable sides Armijo-valid. The new side
+  changes only scalar 168 and has no ball or precision ambiguity.
+- **Decision:** run one causal trajectory: bind the exact R26 prefix, derive
+  and commit only the R28 new-side point at step 20, then continue unchanged.
+  Replay all 12 cases and prohibit a second exhausted-line intervention.
+- **Rejected:** a generic proactive search now, choosing the old side that
+  leaves the event pending, adding more dyadic points, repeated recovery,
+  extending cap, timing or treating a local accepted point as convergence.
+- **Reconsider when:** R29 certifies 12/12 or exposes the first later barrier.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4758,10 +4779,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R27 semantic `6ef46e9e...e003`, R20R26 semantic
-   `4203c7ce...a8d2` and shear root `1c9a0bf3...cf91`. Implement only the
-   frozen R20R28 two-sided sub-envelope event audit; evaluate at most two
-   conditional shadow points, change no cap/tolerance and apply no state.
+2. Preserve R20R28 semantic `a95370b4...e52d`, R20R27 semantic
+   `6ef46e9e...e003`, R20R26 semantic `4203c7ce...a8d2` and shear root
+   `1c9a0bf3...cf91`. Implement only frozen R20R29; commit the exact R28
+   new-side trial once after the bound prefix, permit no second recovery,
+   change no cap/tolerance and replay all 12 cases.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
