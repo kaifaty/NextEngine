@@ -304,3 +304,31 @@ clip path and gameplay acoustic facts. If the product owner schedules the
 track, perform only P0 first; promote no public contract until the bounded
 impact consumer, exact content closure, physics projection and ProductChecks
 are concrete.
+
+## Local implementation experiment — 2026-08-26
+
+The product owner explicitly scheduled an isolated P0/P0.5 trial after this
+research decision. The result is `LOCAL_EXPERIMENT_PASS`, not P1 promotion:
+
+- `next_presentation::physical_sound_lab` advances five frozen Q30 damped
+  resonators per steel/wood/glass heuristic profile, adds a short seeded strike
+  component and produces exact 48 kHz stereo S16 windows;
+- `cargo run -p xtask -- physical-sound-lab --output <external-empty-dir>`
+  renders nine material/impact-position WAVs plus a six-second comparison and
+  refuses repository-local output;
+- the repeated comparison WAV was byte-identical with SHA-256
+  `5552fa4e8d84868526441b01d7dcaef0b5fe14fc8efcf5be46d86c6b6a2f8c35`;
+- the reference live driver consumes only the prepared immutable contact batch
+  behind Cargo feature `physical-sound-lab`, admits at most four `Begin`
+  impacts/tick and mixes after `AudioMixerV1`;
+- a focused enabled/disabled test observes different PCM but identical runtime,
+  RPG and physics checkpoint state for the same committed demo tick.
+
+The demo adapter is deliberately a discriminator, not a production estimator.
+It derives a bounded energy proxy from adjacent canonical body velocities and
+uses stable identity/location buckets for virtual material and impact-position
+selection because the current reference physics catalog has one zero material
+and current `ContactEventV1` omits the required P1 fields. It consumes no raw
+PhysX callback and writes no authoritative state. No recording/offline-solver
+comparison or blinded perceptual score has run, so H1 quality remains open and
+the Accepted-ADR/contact/content/ProductCheck promotion sequence is unchanged.

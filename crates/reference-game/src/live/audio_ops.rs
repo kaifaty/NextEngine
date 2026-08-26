@@ -69,6 +69,20 @@ impl ReferenceGameDriverV2 {
             self.runtime.physics_snapshot(),
         )?;
         let pcm = self.audio_mixer.mix_tick(&scene, &self.audio_clips);
+        #[cfg(feature = "physical-sound-lab")]
+        let pcm = {
+            let physical_pcm = if self.physical_sound_lab_enabled {
+                self.physical_sound_lab.mix_tick(&[])
+            } else {
+                vec![0; pcm.len()]
+            };
+            let mut mixed = pcm;
+            next_presentation::physical_sound_lab::mix_physical_sound_in_place(
+                &mut mixed,
+                &physical_pcm,
+            );
+            mixed
+        };
         if let Some(text_id) =
             crate::audio::active_subtitle_text_id(&scene, &self.audio_cue_bindings)
         {

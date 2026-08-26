@@ -163,6 +163,10 @@ impl ReferenceGameDriverV2 {
             audio_cue_bindings: Arc::clone(&self.audio_cue_bindings),
             audio_listener_binding,
             audio_mixer,
+            #[cfg(feature = "physical-sound-lab")]
+            physical_sound_lab: ExperimentalPhysicalSoundMixer::default(),
+            #[cfg(feature = "physical-sound-lab")]
+            physical_sound_lab_enabled: true,
             audio_scene,
             audio_pcm: Arc::from(Vec::new()),
             next_audio_sequence: 0,

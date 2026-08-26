@@ -26,6 +26,17 @@ sound production are separate source-model tracks. They may reuse the same
 bounded excitation and mixer interfaces after their own owners and evidence
 exist, but they are not implied by the rigid modal vertical.
 
+Non-normative implementation note (2026-08-26): an isolated P0/P0.5
+laboratory now exists in `next_presentation::physical_sound_lab`. The `xtask
+physical-sound-lab` command emits external 48 kHz audition WAVs, and the
+reference demo can mix committed `Begin` contacts behind the explicit Cargo
+feature `physical-sound-lab`. It uses five frozen fixed-point resonators per
+steel/wood/glass heuristic profile and a provisional adjacent-snapshot speed
+estimator because the current contact record lacks impulse/effective-mass and
+material fields. This experiment does not implement the candidate content
+records, does not satisfy a P1 ProductCheck and does not relax the production
+block below. Disabling the feature preserves the ordinary clip baseline.
+
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,
 reference numeric profile and ProductChecks. Until then all record shapes and

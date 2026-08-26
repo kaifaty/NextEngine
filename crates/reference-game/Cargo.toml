@@ -6,6 +6,10 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+[features]
+default = []
+physical-sound-lab = []
+
 [dependencies]
 next_agent.workspace = true
 next_assets.workspace = true

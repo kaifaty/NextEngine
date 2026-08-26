@@ -2,29 +2,28 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `DRAFT_SPEC_COMPLETE / IMPLEMENTATION_NOT_SCHEDULED` |
+| Status | `P0_REFERENCE_AND_P0_5_DEMO_IMPLEMENTED / LOCAL_EXPERIMENT_PASS / P1_BLOCKED` |
 | Updated | `2026-08-26` |
 | Task key | `physical-sound-synthesis` |
-| Scope | Research and Proposed architecture for a bounded physics-driven sound-source layer |
-| Definition of done | Primary-source research, SPEC-45, routing and traceability agree on authority, first vertical, fallback and evidence; no runtime/public-contract/roadmap claim |
+| Scope | Proposed architecture plus isolated fixed-point impact audition and feature-gated reference-demo experiment |
+| Definition of done | Exact external WAV audition, committed-contact demo wiring and enabled/disabled authoritative-root non-regression pass without adding a public schema or P1/shipping claim |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** A presentation-only modal source-synthesis layer is
-  feasible enough for a bounded P0/P1 experiment. Start with cooked rigid
-  impacts; keep authored clips as fallback; do not schedule rolling/scraping or
-  other source classes until impact evidence closes.
-- **Why:** Primary work demonstrates offline modal preprocessing plus real-time
-  contact excitation, while high-quality persistent contact requires richer
-  micro-collision/stick-slip treatment. Current Next Engine authority
-  boundaries already separate gameplay acoustic facts from PCM.
-- **Next action:** If explicitly scheduled, freeze the tiny P0 steel/wood/glass
-  corpus, reference recordings/offline solver, metrics and resource profile;
-  implement no runtime contract yet.
-- **Current blocker:** No roadmap slot, exact P0 corpus, quality metric, numeric
-  recurrence, mode/voice budget or current complete contact-event
-  implementation exists.
+- **Current conclusion:** The five-mode fixed-point steel/wood/glass reference
+  is byte-exact, non-silent and usable in the reference demo as a
+  PresentationOnly experiment. It proves integration feasibility, not acoustic
+  quality or a production contact contract.
+- **Why:** The external audition reproduces exact WAV bytes, and the same demo
+  tick changes PCM while runtime/RPG/physics state stays identical with the lab
+  enabled or disabled.
+- **Next action:** Listen to the comparison, freeze reference recordings or a
+  high-quality solver corpus and score frequency/decay/perceptual quality before
+  tuning or promoting any content/contact schema.
+- **Current blocker:** No calibrated corpus, perceptual threshold, measured
+  whole-mixer budget, Accepted consumer ADR or complete impulse/effective-mass/
+  acoustic-material contact projection exists.
 - **Do not retry:** A universal “all sounds from physics materials” design or a
   raw PhysX-callback mixer path; both erase required source-model and
   engine-owned-contract boundaries.
@@ -35,11 +34,15 @@
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| [Research report](../physical-sound-synthesis-research-2026-08-26.md) | `REPORT_ONLY` | Modal rigid impact is credible; scraping and other modalities need separate evidence; no implementation is proven. |
+| [Research report](../physical-sound-synthesis-research-2026-08-26.md) | `REPORT_PLUS_LOCAL_EXPERIMENT` | Modal rigid impact is technically integrated; acoustic quality and promotion evidence remain open. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
-| [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation exist; no physical source synth or new check result is claimed. |
+| [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
-| Candidate `AUDIO-PHYS-*` checks | `NOT_RUN` | No source, contact, content, PCM, platform or performance claim is admissible. |
+| `xtask physical-sound-lab` external audition | `PASS` | Nine material/position WAVs and one six-second comparison repeat byte-exactly; comparison WAV SHA-256 is `5552fa4e…f8c35`. |
+| Feature-gated demo enabled/disabled regression | `PASS` | Committed `Begin` contact changes only PCM; runtime, RPG and physics checkpoint state remain identical. |
+| 120-frame SDL/Ash reference demo with `physical-sound-lab` | `PASS / DEBUG_FUNCTIONAL` | 79 simulation ticks, active audio device, 144,000 queued samples, zero drops/faults; 64 debug underruns grant no platform/performance credit. |
+| `audio-scene`, `play`, `host-check` | `PASS` | Baseline audio/play roots remain valid; workspace fmt/clippy/tests and boundary policy pass on Rust 1.97.1. |
+| Candidate `AUDIO-PHYS-*` checks | `NOT_RUN / NOT_PROMOTED` | Local experiment checks do not create source/content/platform/performance or P1 admissibility. |
 
 ## Decisions that still constrain the work
 
@@ -93,17 +96,21 @@
 - **Reconsider when:** A concrete consumer proves one field is truly a shared
   physical source of truth rather than presentation calibration.
 
-### D-004 — Close the engine-owned contact projection before runtime wiring
+### D-004 — Close the engine-owned contact projection before production wiring
 
 - **Observation:** SPEC-26 normatively names relative velocity, impulse bounds,
   effective mass and material tags, but the current Rust contact record omits
   them.
 - **Evidence:** Direct comparison of SPEC-26 and
   `crates/contracts/src/physics/contact.rs` on 2026-08-26.
-- **Decision:** P0 may use exact synthetic fixtures; production P1 waits for a
-  consumer-driven contact projection and `PHYS-COLLISION-P1` evidence.
+- **Decision:** P0 may use exact synthetic fixtures. The requested P0.5 demo
+  may use only committed `Begin` contacts plus an explicitly provisional
+  adjacent-snapshot estimator behind an off-by-default feature. Production P1
+  still waits for a consumer-driven contact projection and
+  `PHYS-COLLISION-P1` evidence.
 - **Rejected alternatives:** Raw PhysX callback/solver pointer/manifold data,
-  callback-count noise or presentation-side guessing.
+  callback-count noise or presenting the P0.5 identity/velocity proxy as a
+  physical material/impulse contract.
 - **Consequences:** The physical-audio draft creates no parallel contact
   contract.
 - **Uncertainty:** Whether the existing planned normalized projection is
@@ -126,17 +133,18 @@
 - **Reconsider when:** Two bounded classical/calibration cycles leave a named,
   measured residual that a small immutable model demonstrably removes.
 
-### D-006 — No roadmap or shipping claim from the research draft
+### D-006 — Isolated roadmap experiment, no stage activation or shipping claim
 
-- **Observation:** The current roadmap's audio gaps are long-clip streaming and
-  zone reverb; no physical-synthesis consumer or milestone is selected.
+- **Observation:** The product owner explicitly requested an independent
+  experiment in the demo; R8 permits isolated pre-v1 experiments that do not
+  affect mandatory gameplay.
 - **Evidence:** Current roadmap and ADR-046 consumer-driven contract rule.
-- **Decision:** Index and route SPEC-45 as Proposed without editing roadmap
-  status or current audio completion.
-- **Rejected alternatives:** Add an implementation stage or public V1 records
-  merely because the research is promising.
-- **Consequences:** The next action requires an explicit product scheduling
-  choice and a bounded P0 definition.
+- **Decision:** Record the completed P0/P0.5 experiment in the R8 table without
+  activating R8, changing baseline-audio completion or promoting P1.
+- **Rejected alternatives:** Add an implementation stage, public V1 records or
+  current-audio completion claim merely because the laboratory is audible.
+- **Consequences:** Further tuning is allowed inside the experiment; production
+  integration still requires a concrete consumer and Accepted ADR.
 - **Uncertainty:** Priority relative to current gameplay/audio gaps is a product
   decision.
 - **Reconsider when:** A roadmap slot and concrete player-visible impact
@@ -146,9 +154,9 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A compact modal model is perceptually useful for the first three object profiles | Established rigid-impact research and commercial-game precedent | No Next Engine corpus, content pipeline or blinded comparison | Render predeclared P0 impulses and compare peaks, decay, envelope/spectrum and perceptual judgments |
+| H1: A compact modal model is perceptually useful for the first three object profiles | Established prior art; exact non-silent steel/wood/glass audition now exists | No calibrated recordings/offline solver or blinded comparison | Compare the emitted WAVs against frozen references on peaks, decay, spectrum and perceptual judgments |
 | H2: The complete SPEC-26 contact projection is sufficient for impact excitation | It includes identity, point, velocity, impulse bounds, effective mass and tags | Current implementation omits the decisive numeric fields; solver-force fidelity is untested | Close one fixture projection and compare against exact synthetic excitation/control PCM |
-| H3: Fixed-point reference resonators can meet both exact PCM and quality | Existing mixer already produces exact integer 48 kHz PCM | Coefficient quantization may detune or over-damp high modes | Compare scalar fixed-point recurrence with high-precision offline reference across the P0 stability envelope |
+| H3: Fixed-point reference resonators can meet both exact PCM and quality | Repeated scalar renders are byte-exact and profiles/impact points are distinct | Quality, detuning and damping error against a high-precision reference remain unmeasured | Compare the frozen Q30 recurrence with a high-precision solver across the P0 stability envelope |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | Modal banks are compact and admit explicit LOD | Current engine has no measured physical-voice/model/callback cost | Profile P0/P1 with declared modes, voices, queue and whole-mixer p95/p99 before setting a budget |
 
@@ -164,12 +172,13 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Obtain an explicit product decision to schedule P0, without implying P1.
-2. Freeze exact neutral geometry/material/calibration inputs, reference source,
-   metrics, sample rate/window and candidate recurrence.
-3. Render the offline corpus and select a bounded quality/cost point.
-4. On success, write the promoting consumer ADR and close the contact-
-   projection/content/check plan before runtime code.
+1. Audition the emitted steel/wood/glass comparison and record obvious failure
+   modes without tuning the contact proxy to taste.
+2. Freeze exact neutral geometry/material/calibration inputs, reference source
+   and perceptual/numeric metrics around the existing 48 kHz Q30 recurrence.
+3. Compare against references and select or reject a bounded quality/cost point.
+4. Only on measured success, write the promoting consumer ADR and close the
+   contact-projection/content/check plan before runtime code.
 5. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
    survives.
 
@@ -187,14 +196,16 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** documentation-only Proposed SPEC, research note,
-  task-state and navigation/traceability updates; no runtime/schema/content or
-  roadmap change.
-- **Checks:** documentation cheap path only; every executable
-  `AUDIO-PHYS-*`, physics, play, persistence, content, platform and performance
-  check remains `NOT_RUN(NoExecutableChange)`.
-- **Remaining risk:** acoustic quality, calibration, contact-signal
-  sufficiency, exact fixed-point DSP, cooker design, callback cost, propagation
+- **Workspace state:** fixed-point presentation laboratory, external-audition
+  xtask and feature-gated reference-demo adapter implemented; no public schema,
+  acoustic content role or authoritative owner added.
+- **Checks:** local synthesis determinism/distinction, demo enabled/disabled
+  authoritative-state regression, 120-frame SDL functional launch,
+  `audio-scene`, `play`, focused clippy/tests, boundary scan and broad
+  `host-check` pass. Candidate `AUDIO-PHYS-*`, content, persistence, formal
+  platform and performance promotion checks remain not promoted or not run.
+- **Remaining risk:** acoustic quality, calibration, complete contact-signal
+  sufficiency, cooker design, callback/whole-mixer cost, propagation
   integration and content-author workflow are all unmeasured.
 - **Promotion needed:** Concrete consumer plus later Accepted ADR under ADR-046;
   then exact content/contact/DSP profiles and ProductChecks.

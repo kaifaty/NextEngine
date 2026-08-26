@@ -9,6 +9,7 @@ publish = false
 [features]
 default = []
 desktop-sdl-ash = ["dep:next_desktop_sdl_ash"]
+physical-sound-lab = ["next_application/physical-sound-lab"]
 
 [dependencies]
 next_application.workspace = true

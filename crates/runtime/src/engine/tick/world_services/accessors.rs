@@ -16,6 +16,12 @@ impl PreparedRuntimeWorldServicesTickV1 {
         self.runtime.physics_snapshot()
     }
 
+    /// Immutable contact candidate at the same prepared publication boundary.
+    #[must_use]
+    pub fn contact_batch(&self) -> &next_contracts::physics::ClosedPhysicsContactBatchV1 {
+        self.runtime.contact_batch()
+    }
+
     #[must_use]
     pub fn rpg_snapshot(&self) -> next_contracts::rpg::RpgSnapshotV2 {
         self.runtime.rpg_snapshot()

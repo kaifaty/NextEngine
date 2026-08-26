@@ -35,6 +35,7 @@ use super::world_activity::WorldActivityStageContextV1;
 use super::world_population::WorldPopulationStageContextV1;
 use super::world_routine::WorldRoutineStageContextV1;
 
+mod accessors;
 mod preparation;
 mod snapshot_materialization;
 mod world_services;

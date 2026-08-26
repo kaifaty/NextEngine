@@ -24,6 +24,7 @@ mod ui_overlay;
 
 pub mod audio_mix;
 pub mod audio_scene;
+pub mod physical_sound_lab;
 
 pub use text::{
     LocalizationDiagnosticV1, TEXT_RESOLUTION_MAX_DEPTH, TextCatalogResolverV1, TextResolutionV1,
