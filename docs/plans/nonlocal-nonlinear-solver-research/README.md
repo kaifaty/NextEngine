@@ -1,8 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63F_LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED /
-NSR3B4E2D7R20R63G_RECTANGULAR_FACTOR_PRECISION_FROZEN /
-NSR3B4E2D7R20R63G_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63G_BINARY64_RECTANGULAR_FACTOR_FLOOR /
+NSR3B4E2D7R20R63H_BOUNDED_WIDER_FACTOR_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3628,3 +3627,13 @@ orthogonality/reconstruction/Gram correspondence, and tests coefficient
 storage separately from factor arithmetic against the immutable R63F weak
 signal. No RHS, new pivot search, rank threshold, row action or production
 arithmetic choice is admitted.
+
+The
+[R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
+selects `BINARY64_RECTANGULAR_FACTOR_FLOOR`. Rounding the operator to binary64
+preserves the immutable weak signal, and the binary128 factor preserves it by
+a wide margin. Strict-binary64 Householder QR loses it even though global
+orthogonality/reconstruction/Gram residuals remain around `1e-15..1e-17` and
+all 102 factor diagonals are nonzero. Preserve binary64 storage; research a
+bounded wider factor/accumulation or reorthogonalized Golub--Kahan lane before
+any RHS. Do not infer default binary128 runtime arithmetic.

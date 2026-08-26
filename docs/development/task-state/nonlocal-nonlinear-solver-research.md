@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_65_OF_65_CENTERED_CANDIDATE / D7R20R42_RATIO_ORDER_BOUNDARY / D7R20R43_SECOND_INVERSE_BOUNDARY / D7R20R44_TWO_SIDED_CONTRACTIVE / D7R20R45_65_OF_65_SECOND_CENTER / D7R20R46_THIRD_INVERSE_BOUNDARY / D7R20R47_TWO_SIDED_CONTRACTIVE / D7R20R48_65_OF_65_THIRD_CENTER / D7R20R49_FOURTH_INVERSE_BOUNDARY / D7R20R50_TORSION_GENERIC_CANDIDATE / D7R20R51_COUNTERFLOW_ONLY_BOUNDARY / D7R20R52_CAPTURE_PREMISE_REFUTED / D7R20R53_CENTERED_SLOPE_CANDIDATE / D7R20R54_LEGACY_SLOPE_CANDIDATE / D7R20R55_COUNTERFLOW_CERTIFIED / D7R20R56_V4_5_OF_5 / D7R20R57_V5_MANIFEST_FROZEN / D7R20R58_V5_PREFLIGHT_PASS / D7R20R59_V5_DIMENSION_BOUNDARY / D7R20R60_DIMENSION_GENERIC_CENTER / D7R20R61_V5_6_OF_6 / D7R20R62_STRICT_BINARY64_DOT2ERR_SELECTED / D7R20R63_BINARY64_PROJECTED_INVERSE_NONCONTRACTIVE / D7R20R63A_MIXED_PROJECTION_CONTRIBUTION / D7R20R63B_FACTOR_LEFT_NONCONTRACTIVE / D7R20R63C_BINARY64_LOWER_LEFT_NONCONTRACTIVE / D7R20R63D_PROJECTOR_METRIC_NUMERICAL_RANK_LOSS / D7R20R63E_CLAMP_METRIC_NUMERICAL_RANK_LOSS / D7R20R63F_LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED / SHARED_HOST_PERFORMANCE_STOP` |
-| Current frontier | `D7R20R63G_RECTANGULAR_FACTOR_PRECISION_FROZEN / D7R20R63G_IMPLEMENTATION_NEXT` |
+| Current frontier | `D7R20R63G_BINARY64_RECTANGULAR_FACTOR_FLOOR / D7R20R63H_BOUNDED_WIDER_FACTOR_RESEARCH_NEXT` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -76,6 +76,19 @@
 - **Next:** implement only the frozen R63G factor-precision discriminator. Do
   not run an NNQP RHS, QRCP pivot search, LSQR/LSMR/SVD, choose rank 101, remove
   a row, regularize, select default runtime binary128, run timing or infer
+  runtime/GPU/production authority. R64/R65 remain blocked.
+- **Current result:** R20R63G passes at semantic
+  `d1b09efa...25e1eb`, route `BINARY64_RECTANGULAR_FACTOR_FLOOR`; stdout is
+  byte-identical at `9de77523...81908`. Binary64 coefficient storage preserves
+  the R63F signal (`9.31e-32 < 3.95e-30` squared error), but strict-binary64
+  Householder factor arithmetic does not (`8.73e-30 > 3.95e-30`). The
+  binary128 reference error is `3.00e-66`; all 102 diagonals remain nonzero and
+  R63B--R63F bytes remain unchanged.
+- **Next:** stop ordinary binary64 factor work and research/freeze R63H around
+  binary64 storage plus bounded wider factor/accumulation versus a
+  reorthogonalized Golub--Kahan lane. State the precision boundary explicitly
+  and keep the first experiment pre-RHS. Do not select full runtime binary128,
+  fit a rank threshold, remove a row, regularize, run timing or infer
   runtime/GPU/production authority. R64/R65 remain blocked.
 - **R20R19 result:** implementation `38b788c8`, semantic
   `46f8d84a...a06f`, route `MASK_CROSSING_FRONTIER`. Seven of eight late
@@ -5542,6 +5555,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R63G establishes whether direct QR/Golub--Kahan
   arithmetic preserves all 102 directions in binary64 or requires a separately
   bounded wider-accumulation certificate.
+
+### D-196 -- Preserve binary64 storage; widen only factor arithmetic
+
+- **Context:** R63G shows coefficient-rounding squared error `9.31e-32`, below
+  the immutable weak signal `3.95e-30`. Strict-binary64 Householder factor
+  error is `8.73e-30`, above that signal, despite ordinary global backward
+  residuals and 102 nonzero diagonals. The binary128 factor closes at
+  `3.00e-66` squared directional error.
+- **Decision:** preserve `BINARY64_RECTANGULAR_FACTOR_FLOOR`. Keep binary64
+  operator storage and research a bounded wider factor/accumulation or
+  reorthogonalized rectangular iteration before solving an NNQP RHS.
+- **Rejected:** declaring binary64 coefficient storage insufficient; accepting
+  global QR residuals as the weak-direction certificate; defaulting the whole
+  runtime to binary128; rank 101, row deletion, regularization, another Gram
+  inverse, RHS/trajectory/timing or production inference.
+- **Reconsider when:** R63H proves a precisely bounded arithmetic lane retains
+  the weak direction on the stored binary64 operator and freezes the first
+  original-system RHS certificate.
 
 ## Performance facts retained
 
