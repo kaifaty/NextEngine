@@ -80156,6 +80156,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_v5_preconditioned_cg.inc"
 #include "generalization_v5_matrix_free_correspondence.inc"
 #include "generalization_v5_canonical_defect_transport.inc"
+#include "generalization_v5_projector_idempotence.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
