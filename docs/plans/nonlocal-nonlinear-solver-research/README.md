@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63B_BINARY64_FACTOR_LEFT_NONCONTRACTIVE /
-NSR3B4E2D7R20R63C_DIRECTED_TRIANGULAR_CERTIFICATE_RESEARCH_NEXT /
+NSR3B4E2D7R20R63C_ORIENTATION_MATCHED_FACTOR_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3561,3 +3561,13 @@ preserves an asymmetric binary64 boundary. Exact factor reconstruction and all
 candidate is rejected. Research a one-sided a-posteriori triangular solution
 certificate versus rank-revealing reformulation next; do not reinterpret the
 right-side success as an R63B pass or execute an NNQP trajectory.
+
+The primary-source comparison is recorded in the
+[R20R63C research](../../development/nonlocal-nsr3b4e2d7r20r63c-orientation-matched-factor-research-2026-08-26.md).
+It selects the smaller pre-RHS test from Oishi--Rump's orientation principle:
+construct a left inverse of `L` from transposed row solves and a right inverse
+whose transpose is a left inverse of `L^T`. The
+[R20R63C contract](03b4e2d7r20r63c-orientation-matched-factor-contract.md)
+freezes two direct binary64 constructions, four contained defect audits and the
+two norms actually required by sequential factor verification. Rank semantics,
+RHS/sign work and R64 remain blocked until this arithmetic gate resolves.
