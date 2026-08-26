@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63_BINARY64_PROJECTED_INVERSE_NONCONTRACTIVE /
-NSR3B4E2D7R20R63A_PROJECTION_CONDITIONING_DECOMPOSITION_RESEARCH_NEXT /
+NSR3B4E2D7R20R63A_PROJECTION_CONDITIONING_DECOMPOSITION_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3528,3 +3528,10 @@ projected inverse itself. Exact right/left defect norms are approximately
 route. R64 is not authorized. Research and freeze R63A to decompose matrix
 versus inverse projection error and conditioning/scaling before constructing
 any new inverse or center.
+
+That no-solve diagnostic is now frozen by the
+[R20R63A research](../../development/nonlocal-nsr3b4e2d7r20r63a-projection-conditioning-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63a-projection-conditioning-contract.md). It requires
+eight exact defect products, two componentwise decomposition identities and
+scale/structure facts before it may classify matrix, inverse or mixed
+projection dominance. It selects no equilibration formula and adds no solve.

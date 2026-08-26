@@ -23,8 +23,8 @@
   `70f298d4...11496`, route `BINARY64_RIGHT_NONCONTRACTIVE`; stdout is
   byte-identical at `b54cd01e...9d472`. All 20,808 intervals contain exact
   dyadics, but projected right/left exact norms are `1.82e15/3.15e15`.
-- **Next:** research/freeze R20R63A projection/conditioning decomposition.
-  Distinguish matrix projection, inverse projection and scaling before any new
+- **Next:** implement frozen R20R63A projection/conditioning decomposition.
+  Execute eight exact residual products and structure/scale folds only; no new
   inverse construction. R64 center/trajectory work remains blocked.
 - **R20R19 result:** implementation `38b788c8`, semantic
   `46f8d84a...a06f`, route `MASK_CROSSING_FRONTIER`. Seven of eight late
@@ -5342,6 +5342,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   trajectory execution, shared-host timing and production inference.
 - **Reconsider when:** R63A identifies the dominant projection contribution
   and a falsifiable scaling/direct-construction discriminator.
+
+### D-187 -- Decompose projection exactly before choosing equilibration
+
+- **Context:** exact projected defects prove R63's direct projection invalid,
+  but do not distinguish rounding `A`, rounding `X`, their interaction or a
+  scale-driven representability problem.
+- **Decision:** freeze R63A with exactly eight exact residual products, two
+  componentwise decompositions per multiplication order, scale/structure facts
+  and a predeclared 16x dominance classifier. It computes no scaling or solve.
+- **Rejected:** choosing Ruiz/Jacobi/LAPACK scaling before observing the exact
+  decomposition, calling the inverse-norm proxy a condition number, norm-only
+  closure, another Dot2 sweep, refinement, center, trajectory or timing.
+- **Reconsider when:** the exact decomposition and controls select one bounded
+  projection class and expose the matrix symmetry/dynamic range needed for the
+  next contract.
 
 ## Performance facts retained
 
