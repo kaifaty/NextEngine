@@ -1,8 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63L_EXPORTED_FACTOR_WIDE_STANDARD_REFINEMENT_CANDIDATE /
-NSR3B4E2D7R20R63M_PRECONDITIONED_CG_FROZEN /
-NSR3B4E2D7R20R63M_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE /
+NSR3B4E2D7R20R63N_MATRIX_FREE_CORRESPONDENCE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3730,6 +3729,16 @@ eight factor preconditioner solves and nine original-`H` applications versus
 the stationary 17/21 baselines. Every iterate is independently sign-certified
 and recurrence/direct-residual drift is bound; no wall timing, strict
 binary64, restart or production inference is admitted.
+
+The
+[R20R63M evidence](../../development/nonlocal-nsr3b4e2d7r20r63m-preconditioned-cg-evidence-2026-08-26.md)
+selects `EXPORTED_FACTOR_WIDE_PCG_CANDIDATE`. Both lanes certify all 102 signs
+at iteration 2 and remain certified through the frozen iteration 8. Full
+predeclared work is 16 factor solves and 18 algorithmic `H` applications,
+versus 38/38 for R63L. This selects PCG for the captured RHS but retains dense
+`H`, binary128 arithmetic and an offline dense-inverse certificate. Research
+dense-versus-rectangular matrix-free product correspondence next; do not infer
+a runtime stop rule, GPU throughput or production authority.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)

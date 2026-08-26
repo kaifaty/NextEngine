@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63M preconditioned-CG research
 
-Status: `FROZEN FOR IMPLEMENTATION`.
+Status: `IMPLEMENTED / EXPORTED_FACTOR_WIDE_PCG_CANDIDATE`.
 
 Contract apparatus revision: `2` (the completion control uses eight distinct
 positive diagonal eigenvalues so all eight frozen updates are exercised; the
@@ -123,3 +123,20 @@ low-rank correction. An export-only rejection retains the wide factor state.
 No adaptive restart, residual replacement, state update, following NNQP
 transition, rank/row/regularization change, trajectory, timing, runtime/GPU or
 production inference occurs. R64 and R65 remain blocked.
+
+## Result
+
+Both frozen lanes certify all 102 signs at PCG iteration 2 and remain
+certified through iteration 8. The complete predeclared ledger uses 16 factor
+solves and 18 algorithmic `H` applications across both lanes, versus 38/38 for
+the R63L stationary baseline. Recurrence/direct-residual drift stays below
+`5.61e-19`, and every SPD, parent, work and lifecycle gate closes.
+
+The selected route is `EXPORTED_FACTOR_WIDE_PCG_CANDIDATE` at semantic
+`3fb7fdd6...ed424`; stdout repeats byte-identically at
+`9eebbd19...d09e7`. See the
+[evidence record](nonlocal-nsr3b4e2d7r20r63m-preconditioned-cg-evidence-2026-08-26.md).
+
+The next stage must prove dense-versus-rectangular matrix-free `H` product
+correspondence and replay the frozen PCG semantics before any precision,
+runtime-stop or production work.
