@@ -3372,3 +3372,13 @@ cancellation artifact. The next
 and [report-only contract](03b4e2d7r20r48-third-centered-solution-contract.md)
 apply the unchanged fixed checkpoint schedule to the third RHS without
 changing NNQP state.
+The
+[R20R48 evidence](../../development/nonlocal-nsr3b4e2d7r20r48-third-centered-solution-evidence-2026-08-26.md)
+contains the third exact RHS throughout and resolves all signs at depth four;
+depth 16 is the first arithmetic-floor checkpoint at radius `6.49e-14`. The
+next
+[three-refinement research](../../development/nonlocal-nsr3b4e2d7r20r49-three-refinement-trajectory-research-2026-08-26.md)
+and [default-off contract](03b4e2d7r20r49-three-refinement-trajectory-contract.md)
+apply all three frozen certificates once. This is the final target-specific
+chain discriminator: a fourth inverse boundary redirects research to a
+case-agnostic compensated verification policy.
