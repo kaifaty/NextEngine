@@ -7,7 +7,7 @@ NSR3B4E2D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED /
 NSR3B4E2D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE /
 NSR3B4E2D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE /
 NSR3B4E2D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED /
-NSR3B4E2D7R20R63T_COMMON_RESIDUAL_RECOVERABILITY_RESEARCH_NEXT /
+NSR3B4E2D7R20R63T_COMMON_RESIDUAL_RECOVERABILITY_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3847,6 +3847,15 @@ byte-stationary, so more unchanged PCG updates are not a credible next step.
 Research a fixed-depth common-residual recoverability discriminator using the
 R63R verifier next; keep it offline and separate from a later factor-based or
 wider finite representation.
+
+That discriminator is now frozen by the
+[R20R63T research](../../development/nonlocal-nsr3b4e2d7r20r63t-common-residual-recoverability-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63t-common-residual-recoverability-contract.md).
+It replays both exact R63S finals through 16 fresh exact-common-residual
+corrections with offline `Z`, independently certifies every updated center and
+continues after the first pass. The fixed budget follows the verified
+`rho_left` contraction but no analytic estimate can select a route.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
