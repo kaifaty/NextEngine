@@ -1,7 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63F_LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED /
-NSR3B4E2D7R20R63G_NO_DROP_RECTANGULAR_ARITHMETIC_RESEARCH_NEXT /
+NSR3B4E2D7R20R63G_RECTANGULAR_FACTOR_PRECISION_FROZEN /
+NSR3B4E2D7R20R63G_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3617,3 +3618,13 @@ direct image for the inherited near-null witness. This selects
 this face and research/freeze no-drop rectangular arithmetic before any RHS.
 Do not choose numerical rank 101, remove a row, regularize or infer that
 binary64 QR/LSQR is already sufficient.
+
+The
+[R20R63G research](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63g-rectangular-factor-precision-contract.md) freeze
+the first no-drop arithmetic discriminator. It factors `A^T` with the same
+complete inherited permutation in binary128 and strict binary64, audits thin
+orthogonality/reconstruction/Gram correspondence, and tests coefficient
+storage separately from factor arithmetic against the immutable R63F weak
+signal. No RHS, new pivot search, rank threshold, row action or production
+arithmetic choice is admitted.
