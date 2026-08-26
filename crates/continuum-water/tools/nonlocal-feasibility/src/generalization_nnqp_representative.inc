@@ -35,6 +35,11 @@ struct ALR20VerifiedInverseCapture {
     std::vector<Binary128> lower;
     std::vector<Binary128> inverse;
     std::vector<Binary128> column_bound;
+    std::vector<Binary128> rhs;
+    std::vector<Binary128> solution;
+    Binary128 solve_residual = static_cast<Binary128>(0.0);
+    Binary128 solve_bound = static_cast<Binary128>(0.0);
+    Binary128 cheap_error = static_cast<Binary128>(0.0);
     ALR20VerifiedInverse audit;
 };
 
@@ -293,7 +298,8 @@ ALR20VerifiedInverse al_r20_verified_inverse(
     const ALR20ADMMFactor& factor,
     Binary128 solve_residual, Binary128 solve_bound,
     const std::vector<Binary128>& solution,
-    Binary128 cheap_error, ALR20ADMMWork* work) {
+    Binary128 cheap_error, ALR20ADMMWork* work,
+    const std::vector<Binary128>* rhs = nullptr) {
     ALR20VerifiedInverse result;
     result.dimension = factor.dimension;
     result.cheap_error = cheap_error;
@@ -361,6 +367,12 @@ ALR20VerifiedInverse al_r20_verified_inverse(
             capture.lower = factor.lower;
             capture.inverse = inverse;
             capture.column_bound = column_bound;
+            capture.rhs = rhs == nullptr
+                ? std::vector<Binary128>{} : *rhs;
+            capture.solution = solution;
+            capture.solve_residual = solve_residual;
+            capture.solve_bound = solve_bound;
+            capture.cheap_error = cheap_error;
             capture.audit = result;
         }
     }
@@ -515,7 +527,8 @@ ALR20NNQPSolve al_r20_nnqp_solve(
             if (passive_ambiguous && verified_inverse) {
                 ALR20VerifiedInverse audit = al_r20_verified_inverse(
                     factor, solve_residual, solve_bound,
-                    passive_value, passive_error, &result.work);
+                    passive_value, passive_error, &result.work,
+                    &principal_rhs);
                 if (!audit.passed) {
                     exact = false;
                     result.failure = "VERIFIED_INVERSE_AUDIT_REJECTED";
