@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_CENTERED_NEUMANN_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_65_OF_65_CENTERED_CANDIDATE / D7R20R42_TARGET_REFINEMENT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -193,6 +193,14 @@
   and independently certify depths `1,2,4,8,16,32`. Require exact containment
   of the centered residual and error-free solution center; no correction,
   passive-set decision or state update is authorized.
+- **R20R41 result:** implementation `e92a7b8c`, semantic
+  `0ff6f9cc...f3cb`, route `CENTERED_NEUMANN_SOLUTION_CANDIDATE`. Exact
+  containment passes throughout; depth four resolves `24/41/0` signs with no
+  conflict and minimum separation `1054.24`. Depth eight reaches the
+  `4.58e-14` arithmetic floor.
+- **R20R42 frozen:** install a default-null target-bound refinement hook,
+  reproduce the practical depth-four certificate, replace only the rejected
+  torsion passive vector once and expose the unchanged later NNQP boundary.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -5002,6 +5010,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R41 resolves all signs without conflict, leaves an exact
   component face-near after depth 32, or rejects arithmetic containment.
 
+### D-170 -- Validate the refined center inside the active-set trajectory
+
+- **Observation:** R41 resolves all signs at fixed depth four with radius
+  `0.1422` and more than `1054` minimum separation. Six formerly ambiguous
+  entries are negative, so certification alone cannot resume the old passive
+  state; NNQP must consume the refined vector and perform its normal ratio
+  transition.
+- **Decision:** add a default-null, exact-target-bound refinement hook and
+  allow one local passive-vector replacement in torsion. Preserve the first
+  subsequent route without retry.
+- **Rejected:** declaring offline sign closure a completed solver fix, making
+  refinement default, using depth eight/32 merely because tighter, skipping
+  the negative-set transition, replaying counterflow, timing or production
+  promotion.
+- **Reconsider when:** R42 consumes exactly one certificate and either closes
+  torsion or identifies a later exact boundary; reject on any target/cardinality
+  mismatch.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -5055,16 +5081,17 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R40 semantic `a999b65a...f7e`, R20R39 semantic
+2. Preserve R20R41 semantic `0ff6f9cc...f3cb`, R20R40 semantic
+   `a999b65a...f7e`, R20R39 semantic
    `83e1f738...1bac`, R20R38 semantic
    `6898dcbe...06ae`, R20R37 semantic `e9e61c01...598ff`, R20R36 semantic
    `448a9b8b...b90f`, R20R35 semantic `59c32c19...37b3`, both failed case/step
    roots, R20R34 semantic `811ac231...02ab`, R20R32 semantic
-   `e7b9acaf...0f73` and all parents. Implement only report-only R20R41
-   centered Neumann audit at fixed depths `1,2,4,8,16,32`; add no
-   factorization/inverse column/solve, correction apply, counterflow replay,
-   NNQP decision/transition, state, tolerance/cap/Armijo change, retry, tuning
-   or timing.
+   `e7b9acaf...0f73` and all parents. Implement only default-off, target-bound
+   R20R42 depth-four passive-solution refinement; allow one local replacement
+   and its unchanged NNQP transition, but add no unrelated factorization/solve,
+   counterflow replay, state, tolerance/cap/Armijo change, retry, tuning or
+   timing.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.

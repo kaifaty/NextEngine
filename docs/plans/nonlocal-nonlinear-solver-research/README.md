@@ -3308,3 +3308,12 @@ same six signs remain unresolved. The next
 and [frozen contract](03b4e2d7r20r41-centered-neumann-contract.md) build a
 shadow fixed-point center at fixed depths and independently certify its
 remaining residual before any refined solution may affect NNQP state.
+The
+[R20R41 evidence](../../development/nonlocal-nsr3b4e2d7r20r41-centered-neumann-evidence-2026-08-26.md)
+contains every exact oracle and resolves all 65 signs first at frozen depth
+four: the six ambiguous components are negative, with zero prior-sign conflict
+and minimum separation above `1054`. The next
+[trajectory research](../../development/nonlocal-nsr3b4e2d7r20r42-centered-refinement-trajectory-research-2026-08-26.md)
+and [default-off contract](03b4e2d7r20r42-centered-refinement-trajectory-contract.md)
+allow that practical four-step certificate to replace only the exact rejected
+torsion passive vector and expose the unchanged subsequent NNQP boundary.
