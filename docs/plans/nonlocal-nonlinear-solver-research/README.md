@@ -3239,3 +3239,11 @@ next [v4 holdout research](../../development/nonlocal-nsr3b4e2d7r20r33-v4-holdou
 and [source-only contract](03b4e2d7r20r33-v4-holdout-manifest-contract.md)
 freeze five new source fixtures before any operator, excitation or solver
 observation.
+The
+[R20R33 evidence](../../development/nonlocal-nsr3b4e2d7r20r33-v4-manifest-evidence-2026-08-26.md)
+freezes five distinct sources and 404 samples at semantic
+`33ff1cbf...ee63`, with every forbidden-work counter zero. The next
+[v4 preflight research](../../development/nonlocal-nsr3b4e2d7r20r34-v4-preflight-research-2026-08-26.md)
+and [input-only contract](03b4e2d7r20r34-v4-preflight-contract.md) build exact
+operators and test ownership, excitation, scaling and problem-root distinction
+without invoking the solver.
