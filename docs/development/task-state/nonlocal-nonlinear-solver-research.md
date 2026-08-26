@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_65_OF_65_CENTERED_CANDIDATE / D7R20R42_RATIO_ORDER_BOUNDARY / D7R20R43_SECOND_INVERSE_BOUNDARY / D7R20R44_TWO_SIDED_CONTRACTIVE / D7R20R45_65_OF_65_SECOND_CENTER / D7R20R46_THIRD_INVERSE_BOUNDARY / D7R20R47_TWO_SIDED_CONTRACTIVE / D7R20R48_65_OF_65_THIRD_CENTER / D7R20R49_FOURTH_INVERSE_BOUNDARY / D7R20R50_TORSION_GENERIC_CANDIDATE / D7R20R51_COUNTERFLOW_ONLY_BOUNDARY / D7R20R52_CAPTURE_PREMISE_REFUTED / D7R20R53_CENTERED_SLOPE_CANDIDATE / D7R20R54_LEGACY_SLOPE_CANDIDATE / D7R20R55_COUNTERFLOW_CERTIFIED / D7R20R56_V4_5_OF_5 / D7R20R57_V5_MANIFEST_FROZEN / D7R20R58_V5_PREFLIGHT_PASS / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_65_OF_65_CENTERED_CANDIDATE / D7R20R42_RATIO_ORDER_BOUNDARY / D7R20R43_SECOND_INVERSE_BOUNDARY / D7R20R44_TWO_SIDED_CONTRACTIVE / D7R20R45_65_OF_65_SECOND_CENTER / D7R20R46_THIRD_INVERSE_BOUNDARY / D7R20R47_TWO_SIDED_CONTRACTIVE / D7R20R48_65_OF_65_THIRD_CENTER / D7R20R49_FOURTH_INVERSE_BOUNDARY / D7R20R50_TORSION_GENERIC_CANDIDATE / D7R20R51_COUNTERFLOW_ONLY_BOUNDARY / D7R20R52_CAPTURE_PREMISE_REFUTED / D7R20R53_CENTERED_SLOPE_CANDIDATE / D7R20R54_LEGACY_SLOPE_CANDIDATE / D7R20R55_COUNTERFLOW_CERTIFIED / D7R20R56_V4_5_OF_5 / D7R20R57_V5_MANIFEST_FROZEN / D7R20R58_V5_PREFLIGHT_PASS / D7R20R59_V5_DIMENSION_BOUNDARY / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,6 +11,18 @@
 
 ## Resume in 60 seconds
 
+- **Current result:** R20R59 passes at semantic `a0881eaa...faa9`, route
+  `BLIND_V5_BOUNDARY_IDENTIFIED`; two corrected stdout repeats are
+  byte-identical at `461c4962...44ac`. Five of six blind v5 cases certify
+  without either fallback. Oblique jet/twist alone makes one R50 request,
+  rejected only by the frozen dimension-65 policy before arithmetic work.
+- **Invalid run warning:** the earlier
+  `BLIND_V5_POLICY_ACCOUNTING_REJECTED` execution has no scientific credit.
+  Its harness marked slope refinement attempted on a failed active-set solve;
+  exact/KKT eligibility now precedes that flag. R56--R58 hashes are unchanged.
+- **Next:** freeze R20R60 as a report-only audit of the immutable oblique
+  inverse tuple: actual dimension, exact/Dot2 two-sided contraction and fixed
+  centered depths. Do not remove the dimension guard or apply a replacement.
 - **R20R19 result:** implementation `38b788c8`, semantic
   `46f8d84a...a06f`, route `MASK_CROSSING_FRONTIER`. Seven of eight late
   steps accept exactly the first mask-stable dyadic trial, with zero stable
@@ -5246,6 +5258,24 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R59 certifies all six or identifies the first exact blind
   boundary/trigger pattern.
 
+### D-182 -- Generalize the certificate from the frozen v5 dimension boundary
+
+- **Observation:** corrected R59 passes with semantic `a0881eaa...faa9` and
+  byte-identical stdout `461c4962...44ac`. Five of six blind cases certify
+  without fallback. Oblique jet/twist alone reaches an inverse-audit failure;
+  R50 records one exact dimension rejection and performs no certificate work.
+  The first run's policy-accounting failure was an apparatus bug and has no
+  scientific credit.
+- **Decision:** preserve the failed tuple and research R60 report-only: expose
+  its actual dimension/material roots, certify exact/Dot2 two-sided inverse
+  contraction, then test the existing centered fixed-point construction at
+  frozen depths without applying a replacement.
+- **Rejected:** simply deleting the dimension-65 guard, retrying R59, fitting
+  the v5 source, adding another fallback, weakening arithmetic or starting
+  timing/runtime/GPU work.
+- **Reconsider when:** R60 either resolves every solution sign with exact work
+  accounting or identifies a dimension-dependent contraction/sign boundary.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -5330,9 +5360,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    work ledger. Preserve R20R57 semantic `2e5b9353...3b9a`, all six source and
    geometry roots and literal zero operator/solver work. Preserve R20R58
    semantic `966c7264...bfad`, all six problem roots and zero solver work.
-   Implement frozen R20R59 as one blind composed-policy replay; add no retry,
-   tuning or unrelated
-   fallback, root-selected branch,
+   Preserve R20R59 semantic `a0881eaa...faa9`, stdout
+   `461c4962...44ac`, 5/6 certification and the exact oblique-jet/twist
+   dimension rejection. Freeze R20R60 as a report-only generic centered
+   certificate audit of that immutable tuple; expose its dimension and roots,
+   certify two-sided contraction and fixed-depth signs, and add no retry,
+   tuning or unrelated fallback, root-selected branch,
    prodK, unrelated solve, counterflow retry,
    state, tolerance/cap/ratio/Armijo change, retry, tuning or timing.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.

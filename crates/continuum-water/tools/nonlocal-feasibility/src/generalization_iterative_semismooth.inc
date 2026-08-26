@@ -191,12 +191,14 @@ ALR20SemismoothStep al_r20_semismooth_step(
     result.direction_certified = result.solve.kkt_certified
         && result.slope - result.slope_bound
             > static_cast<Binary128>(0.0);
-    if (!result.direction_certified && al_r20_slope_error_refiner != nullptr) {
+    const bool slope_refinement_eligible = !result.direction_certified
+        && al_r20_slope_error_refiner != nullptr
+        && result.solve.exact && result.solve.terminated
+        && result.solve.kkt_certified && result.solve.failure == "NONE";
+    if (slope_refinement_eligible) {
         result.slope_refinement_attempted = true;
         bool direct_correspondence = slope_capture_armed
             && slope_capture_released && slope_direct.calls > 0U
-            && result.solve.exact && result.solve.terminated
-            && result.solve.kkt_certified && result.solve.failure == "NONE"
             && result.solve.passive.size() == dimension
             && result.solve.direction.size() == dimension
             && slope_direct.factor.passed
