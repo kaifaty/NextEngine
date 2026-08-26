@@ -45,11 +45,13 @@ ALR20R42PracticalCertificate al_r20_r42_practical_certificate(
     const std::vector<Binary128>& matrix,
     const std::vector<Binary128>& inverse,
     const std::vector<Binary128>& rhs,
-    const std::vector<Binary128>& solution) {
+    const std::vector<Binary128>& solution,
+    std::size_t center_depth = 4U) {
     ALR20R42PracticalCertificate result;
     result.dimension = rhs.size();
     const std::size_t dimension = result.dimension;
-    if (dimension == 0U || matrix.size() != dimension * dimension
+    if ((center_depth != 4U && center_depth != 8U)
+        || dimension == 0U || matrix.size() != dimension * dimension
         || inverse.size() != dimension * dimension
         || solution.size() != dimension)
         return result;
@@ -146,7 +148,7 @@ ALR20R42PracticalCertificate al_r20_r42_practical_certificate(
     std::vector<Binary128> correction(dimension,
         static_cast<Binary128>(0.0));
     std::ostringstream generation_material;
-    for (std::size_t depth = 1U; depth <= 4U; ++depth) {
+    for (std::size_t depth = 1U; depth <= center_depth; ++depth) {
         std::vector<Binary128> next(dimension);
         for (std::size_t row = 0U; row < dimension; ++row) {
             std::vector<Binary128> left(dimension + 1U);
@@ -249,7 +251,7 @@ ALR20R42PracticalCertificate al_r20_r42_practical_certificate(
     result.exact = exact
         && result.left_dots == dimension * dimension
         && result.residual_dots == dimension && result.z_dots == dimension
-        && result.center_dots == 4U * dimension
+        && result.center_dots == center_depth * dimension
         && result.certificate_dots == dimension
         && result.sum_dots == dimension
         && al_r20_admm_finite(result.solution)
@@ -261,8 +263,12 @@ ALR20R42PracticalCertificate al_r20_r42_practical_certificate(
     const bool r41_values_exact =
         result.rho_bound == strtoflt128(
             "1.317676975770132537272002207352103601e-01", nullptr)
-        && result.radius == strtoflt128(
-            "1.421399732012795356965411694525785042e-01", nullptr)
+        && ((center_depth == 4U
+                && result.radius == strtoflt128(
+                    "1.421399732012795356965411694525785042e-01", nullptr))
+            || (center_depth == 8U
+                && result.radius == strtoflt128(
+                    "4.575300864161587341257666716201492586e-14", nullptr)))
         && result.positive == 24U && result.negative == 41U
         && result.unresolved == 0U
         && result.minimum_separation > static_cast<Binary128>(0.0);
