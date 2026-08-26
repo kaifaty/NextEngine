@@ -46,11 +46,13 @@ ALR20R42PracticalCertificate al_r20_r42_practical_certificate(
     const std::vector<Binary128>& inverse,
     const std::vector<Binary128>& rhs,
     const std::vector<Binary128>& solution,
-    std::size_t center_depth = 4U) {
+    std::size_t center_depth = 4U,
+    bool require_first_target_values = true) {
     ALR20R42PracticalCertificate result;
     result.dimension = rhs.size();
     const std::size_t dimension = result.dimension;
-    if ((center_depth != 4U && center_depth != 8U)
+    if ((center_depth != 4U && center_depth != 8U
+            && center_depth != 16U)
         || dimension == 0U || matrix.size() != dimension * dimension
         || inverse.size() != dimension * dimension
         || solution.size() != dimension)
@@ -260,20 +262,22 @@ ALR20R42PracticalCertificate al_r20_r42_practical_certificate(
         && finiteq(result.radius) != 0
         && finiteq(result.error) != 0
         && finiteq(result.minimum_separation) != 0;
-    const bool r41_values_exact =
-        result.rho_bound == strtoflt128(
-            "1.317676975770132537272002207352103601e-01", nullptr)
-        && ((center_depth == 4U
-                && result.radius == strtoflt128(
-                    "1.421399732012795356965411694525785042e-01", nullptr))
-            || (center_depth == 8U
-                && result.radius == strtoflt128(
-                    "4.575300864161587341257666716201492586e-14", nullptr)))
-        && result.positive == 24U && result.negative == 41U
+    const bool r41_values_exact = !require_first_target_values
+        || (result.rho_bound == strtoflt128(
+                "1.317676975770132537272002207352103601e-01", nullptr)
+            && ((center_depth == 4U
+                    && result.radius == strtoflt128(
+                        "1.421399732012795356965411694525785042e-01",
+                        nullptr))
+                || (center_depth == 8U
+                    && result.radius == strtoflt128(
+                        "4.575300864161587341257666716201492586e-14",
+                        nullptr)))
+            && result.positive == 24U && result.negative == 41U);
+    result.passed = result.exact && result.no_underflow
+        && result.contractive && r41_values_exact
         && result.unresolved == 0U
         && result.minimum_separation > static_cast<Binary128>(0.0);
-    result.passed = result.exact && result.no_underflow
-        && result.contractive && r41_values_exact;
     std::ostringstream material;
     material << result.exact << ':' << result.passed << ':'
         << result.no_underflow << ':' << result.contractive << ':'
