@@ -4,6 +4,20 @@ constexpr const char* AL_R20_NNQP_SHA256 =
     "bfa10141c0f50658548205e44d397a8999f36a0d0c0e00da0cb9d3d7ebc01500";
 constexpr std::size_t AL_R20_SEMISMOOTH_ITERATION_CAP = 32U;
 
+struct ALR20SlopeErrorRefinement {
+    bool exact = false;
+    bool passed = false;
+    std::size_t inverse_columns = 0U;
+    Binary128 error = static_cast<Binary128>(0.0);
+    std::string audit_root;
+    std::string root;
+};
+
+using ALR20SlopeErrorRefiner = ALR20SlopeErrorRefinement (*)(
+    const ALR20DirectSolutionCapture&);
+
+thread_local ALR20SlopeErrorRefiner al_r20_slope_error_refiner = nullptr;
+
 struct ALR20SemismoothStep {
     bool harness_exact = false;
     bool natural_face_resolved = false;
@@ -11,17 +25,22 @@ struct ALR20SemismoothStep {
     bool accepted = false;
     bool event_replacement_eligible = false;
     bool event_replacement_applied = false;
+    bool slope_refinement_attempted = false;
+    bool slope_refinement_consumed = false;
     std::size_t iteration = 0U;
     std::size_t natural_face_size = 0U;
     std::size_t ambiguous_rows = 0U;
     Binary128 slope = static_cast<Binary128>(0.0);
     Binary128 slope_bound = static_cast<Binary128>(0.0);
     Binary128 direction_error_bound = static_cast<Binary128>(0.0);
+    Binary128 initial_direction_error_bound = static_cast<Binary128>(0.0);
+    Binary128 initial_slope_bound = static_cast<Binary128>(0.0);
     Binary128 event_root_alpha = static_cast<Binary128>(0.0);
     Binary128 event_certified_alpha = static_cast<Binary128>(0.0);
     Binary128 event_forward_bound = static_cast<Binary128>(0.0);
     std::size_t event_scalar = 0U;
     std::size_t event_contributing_entries = 0U;
+    ALR20SlopeErrorRefinement slope_refinement;
     ALR20NNQPSolve solve;
     std::vector<ALR20NewtonTrial> trials;
     ALR20NewtonTrial selected;
@@ -128,10 +147,21 @@ ALR20SemismoothStep al_r20_semismooth_step(
                 * (raw_principal[row * dimension + column]
                     + raw_principal[column * dimension + row]);
     result.hessian_root = al_r20_q_scalar_root(raw_principal);
+    ALR20DirectSolutionCapture slope_direct;
+    const bool slope_capture_armed = al_r20_slope_error_refiner != nullptr
+        && al_r20_direct_solution_capture == nullptr;
+    if (slope_capture_armed)
+        al_r20_direct_solution_capture = &slope_direct;
     result.solve = al_r20_nnqp_solve(
         principal, rhs, rhs_bound, natural_face,
         verified_inverse, dual_ratio_refinement);
+    if (slope_capture_armed
+        && al_r20_direct_solution_capture == &slope_direct)
+        al_r20_direct_solution_capture = nullptr;
+    const bool slope_capture_released =
+        al_r20_direct_solution_capture == nullptr;
     result.direction_error_bound = result.solve.direction_error_bound;
+    result.initial_direction_error_bound = result.direction_error_bound;
     std::vector<Binary128> representative(all_rows,
         static_cast<Binary128>(0.0));
     for (std::size_t local = 0U; local < dimension; ++local)
@@ -157,10 +187,80 @@ ALR20SemismoothStep al_r20_semismooth_step(
     result.slope = slope.value();
     result.slope_bound += al_r20_q_gamma(16U * all_rows + 512U)
         * slope_absolute;
+    result.initial_slope_bound = result.slope_bound;
     result.direction_certified = result.solve.kkt_certified
         && result.slope - result.slope_bound
             > static_cast<Binary128>(0.0);
+    if (!result.direction_certified && al_r20_slope_error_refiner != nullptr) {
+        result.slope_refinement_attempted = true;
+        bool direct_correspondence = slope_capture_armed
+            && slope_capture_released && slope_direct.calls > 0U
+            && result.solve.exact && result.solve.terminated
+            && result.solve.kkt_certified && result.solve.failure == "NONE"
+            && result.solve.passive.size() == dimension
+            && result.solve.direction.size() == dimension
+            && slope_direct.factor.passed
+            && slope_direct.indices.size() == slope_direct.solution.size()
+            && slope_direct.source_rows.size() == slope_direct.solution.size()
+            && slope_direct.rhs.size() == slope_direct.solution.size()
+            && slope_direct.factor.dimension == slope_direct.solution.size()
+            && slope_direct.cheap_error == result.solve.direction_error_bound;
+        std::vector<bool> captured_support(dimension, false);
+        for (std::size_t local = 0U;
+             direct_correspondence && local < slope_direct.indices.size();
+             ++local) {
+            const std::size_t index = slope_direct.indices[local];
+            direct_correspondence = index < dimension
+                && result.solve.passive[index]
+                && result.solve.direction[index] == slope_direct.solution[local]
+                && slope_direct.source_rows[local] == natural_face[index];
+            if (direct_correspondence) captured_support[index] = true;
+        }
+        for (std::size_t index = 0U;
+             direct_correspondence && index < dimension; ++index)
+            direct_correspondence = captured_support[index]
+                || (!result.solve.passive[index]
+                    && result.solve.direction[index]
+                        == static_cast<Binary128>(0.0));
+        if (direct_correspondence)
+            result.slope_refinement =
+                al_r20_slope_error_refiner(slope_direct);
+        else
+            result.slope_refinement.root =
+                sha256_hex("slope-direct-correspondence-rejected");
+        const bool refinement_valid = direct_correspondence
+            && result.slope_refinement.exact
+            && result.slope_refinement.passed
+            && finiteq(result.slope_refinement.error) != 0
+            && result.slope_refinement.error
+                >= static_cast<Binary128>(0.0)
+            && result.slope_refinement.error
+                <= result.initial_direction_error_bound;
+        if (refinement_valid) {
+            result.slope_refinement_consumed = true;
+            result.direction_error_bound = result.slope_refinement.error;
+            result.slope_bound = static_cast<Binary128>(0.0);
+            for (std::size_t row = 0U; row < all_rows; ++row) {
+                const Binary128 direction_bound = std::binary_search(
+                    natural_face.begin(), natural_face.end(), row)
+                    ? result.direction_error_bound
+                    : static_cast<Binary128>(0.0);
+                result.slope_bound += current.residual_bound[row]
+                        * (fabsq(direction[row]) + direction_bound)
+                    + fabsq(current.residual[row]) * direction_bound;
+            }
+            result.slope_bound += al_r20_q_gamma(
+                16U * all_rows + 512U) * slope_absolute;
+            result.direction_certified = result.solve.kkt_certified
+                && result.slope - result.slope_bound
+                    > static_cast<Binary128>(0.0);
+        }
+    }
     result.harness_exact = result.harness_exact && result.solve.exact
+        && (al_r20_slope_error_refiner == nullptr
+            || (slope_capture_armed && slope_capture_released))
+        && (!result.slope_refinement_attempted
+            || result.slope_refinement.exact)
         && al_r20_admm_finite(direction)
         && finiteq(result.slope) != 0 && finiteq(result.slope_bound) != 0;
     bool line_exact = true;
@@ -386,6 +486,15 @@ ALR20SemismoothStep al_r20_semismooth_step(
                  << al_binary128_hex(result.event_root_alpha) << ':'
                  << al_binary128_hex(result.event_certified_alpha) << ':'
                  << al_binary128_hex(result.event_forward_bound);
+    if (result.slope_refinement_attempted)
+        material << "|slope-refinement:"
+                 << result.slope_refinement_consumed << ':'
+                 << result.slope_refinement.inverse_columns << ':'
+                 << al_binary128_hex(result.initial_direction_error_bound)
+                 << ':' << al_binary128_hex(result.initial_slope_bound)
+                 << ':' << al_binary128_hex(result.direction_error_bound)
+                 << ':' << result.slope_refinement.audit_root
+                 << ':' << result.slope_refinement.root;
     result.root = sha256_hex(material.str());
     return result;
 }

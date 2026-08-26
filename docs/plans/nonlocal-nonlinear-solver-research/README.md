@@ -3447,3 +3447,9 @@ and [contract](03b4e2d7r20r55-counterflow-slope-trajectory-contract.md). It may
 consume one classical inverse audit only after an exact/KKT slope rejection,
 then follows the unchanged counterflow line search and fails closed on any
 second refinement request.
+The
+[R20R55 evidence](../../development/nonlocal-nsr3b4e2d7r20r55-counterflow-slope-trajectory-evidence-2026-08-26.md)
+consumes one iteration-10 audit and certifies counterflow ordinarily with the
+same 701 principal solves/transitions. A separate full v4 composition of the
+R50 failed-inverse verifier and R55 slope verifier is now the next bounded
+generalization gate.

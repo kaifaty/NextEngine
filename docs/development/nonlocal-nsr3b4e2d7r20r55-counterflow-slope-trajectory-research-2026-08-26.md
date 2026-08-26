@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R55 counterflow slope-refinement trajectory research
 
-Status: `RESEARCH COMPLETE / ONE-REFINEMENT TRAJECTORY SELECTED`.
+Status: `PASS / COUNTERFLOW ORDINARY CERTIFICATION RESTORED`.
 
 ## Question
 
@@ -34,3 +34,10 @@ inverse build, preserving the first subsequent boundary.
 No result promotes the policy to default or to the full corpus. T1 would
 authorize a separate five-case replay with the generic torsion verifier and
 the slope fallback composed under independent caps.
+
+## Outcome
+
+T1 is confirmed. Exactly one iteration-10 refinement is consumed; unchanged
+globalization certifies counterflow with the same 701 principal solves and
+transitions as the rejected baseline. A composed five-case replay is now the
+smallest remaining generalization test.
