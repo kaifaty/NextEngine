@@ -5269,8 +5269,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    `1.09315e-24`, centered error `1.91139e-33`, positive shadow slope and exact
    work ledger. Preserve R20R54 semantic `cce59025...389e`, byte-identical
    direction/nominal slope, verified error `1.09315e-24` and refined bound
-   `2.48507e-36`. Research and freeze one default-off, root-agnostic R20R55
-   counterflow trajectory with at most one exact/KKT slope-refinement; add no
+   `2.48507e-36`. Implement frozen default-off, root-agnostic R20R55 counterflow
+   trajectory with at most one exact/KKT slope-refinement; add no
    solution change, extra fallback, root-selected branch,
    prodK, unrelated solve, counterflow retry,
    state, tolerance/cap/ratio/Armijo change, retry, tuning or timing.

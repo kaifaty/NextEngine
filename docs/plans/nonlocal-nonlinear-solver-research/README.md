@@ -3441,3 +3441,9 @@ preserves the old direction exactly and reduces its bound to `2.4851e-36`,
 certifying positive slope with no compensated work. The next experiment may
 place this existing verifier behind a default-off slope-rejection fallback and
 observe the unchanged counterflow trajectory once.
+That default-off discriminator is frozen by the
+[R20R55 research](../../development/nonlocal-nsr3b4e2d7r20r55-counterflow-slope-trajectory-research-2026-08-26.md)
+and [contract](03b4e2d7r20r55-counterflow-slope-trajectory-contract.md). It may
+consume one classical inverse audit only after an exact/KKT slope rejection,
+then follows the unchanged counterflow line search and fails closed on any
+second refinement request.
