@@ -5253,9 +5253,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    do not repeat its false successful-audit premise. Preserve R20R53 semantic
    `5418141a...40a4`, exact 66/66 centered certificate, legacy inverse error
    `1.09315e-24`, centered error `1.91139e-33`, positive shadow slope and exact
-   work ledger. Research and freeze R20R54 as a report-only recomposition around
-   the unchanged direct solution using only the existing legacy verified-inverse
-   error; add no applied direction/trial, root-selected branch,
+   work ledger. Implement frozen R20R54 as a report-only recomposition around
+   the unchanged direct solution using exactly one existing 66-column legacy
+   verified-inverse and no compensated dots. Preserve the old nominal direction;
+   add no applied direction/trial, root-selected branch,
    prodK, unrelated solve, counterflow retry,
    state, tolerance/cap/ratio/Armijo change, retry, tuning or timing.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.

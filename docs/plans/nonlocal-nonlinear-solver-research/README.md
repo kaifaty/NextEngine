@@ -3429,3 +3429,9 @@ from negative to `1.8493e-19`. More importantly, the newly invoked existing
 verified-inverse already passes with error `1.09e-24`; the next discriminator
 should test that smaller verifier-placement remedy before any centered
 trajectory is authorized.
+The next
+[R20R54 research](../../development/nonlocal-nsr3b4e2d7r20r54-counterflow-legacy-slope-research-2026-08-26.md)
+and [contract](03b4e2d7r20r54-counterflow-legacy-slope-contract.md) freeze that
+minimal discriminator: retain the old direct solution, invoke exactly the
+existing 66-column verified-inverse and recompose only its slope enclosure,
+with no compensated or centered work.
