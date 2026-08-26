@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63C orientation-matched factor research
 
-Status: `COMPLETE / ORIENTATION_MATCHED_BINARY64_FACTOR_GATE_SELECTED`.
+Status: `COMPLETE / BINARY64_LOWER_LEFT_NONCONTRACTIVE`.
 
 ## Question
 
@@ -109,3 +109,15 @@ R63C solves identity columns only. It does not apply an NNQP right-hand side,
 form the inverse of `A`, choose a rank, remove a constraint, compute a center,
 execute a trajectory or authorize runtime, GPU, timing or production work.
 R64 and R65 remain blocked.
+
+## Observed resolution
+
+The frozen gate is negative. Direct `X_L` construction leaves
+`||I-X_L L||inf=1.747>1`, despite complete `Dot2Err` containment; the opposite
+`L X_L` product is about `1.87e-13`. The required upper/transpose gate passes
+at about `1.09e-14`. See the
+[R63C evidence](nonlocal-nsr3b4e2d7r20r63c-orientation-matched-factor-evidence-2026-08-26.md).
+
+Per the frozen branch, ordinary binary64 factor-inverse work stops. Research
+must move to the underlying active-row rank structure or a separately bounded
+extended-precision fallback; no R63D RHS solve is authorized.

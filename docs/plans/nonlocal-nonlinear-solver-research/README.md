@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63B_BINARY64_FACTOR_LEFT_NONCONTRACTIVE /
-NSR3B4E2D7R20R63C_ORIENTATION_MATCHED_FACTOR_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63C_BINARY64_LOWER_LEFT_NONCONTRACTIVE /
+NSR3B4E2D7R20R63D_ACTIVE_ROW_RANK_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3571,3 +3571,12 @@ whose transpose is a left inverse of `L^T`. The
 freezes two direct binary64 constructions, four contained defect audits and the
 two norms actually required by sequential factor verification. Rank semantics,
 RHS/sign work and R64 remain blocked until this arithmetic gate resolves.
+
+The
+[R20R63C evidence](../../development/nonlocal-nsr3b4e2d7r20r63c-orientation-matched-factor-evidence-2026-08-26.md)
+preserves the second complete-containment factor boundary. Direct row/back
+construction still yields `||I-X_L L||inf=1.747>1`, while its opposite product
+is about `1.87e-13`; the required upper/transpose gate passes at `1.09e-14`.
+Thus projection was not the sole cause. Stop ordinary binary64 factor-inverse
+work and research the rank of the underlying active projector rows before any
+RHS, row removal or extended-precision fallback.

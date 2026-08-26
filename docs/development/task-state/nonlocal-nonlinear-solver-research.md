@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_65_OF_65_CENTERED_CANDIDATE / D7R20R42_RATIO_ORDER_BOUNDARY / D7R20R43_SECOND_INVERSE_BOUNDARY / D7R20R44_TWO_SIDED_CONTRACTIVE / D7R20R45_65_OF_65_SECOND_CENTER / D7R20R46_THIRD_INVERSE_BOUNDARY / D7R20R47_TWO_SIDED_CONTRACTIVE / D7R20R48_65_OF_65_THIRD_CENTER / D7R20R49_FOURTH_INVERSE_BOUNDARY / D7R20R50_TORSION_GENERIC_CANDIDATE / D7R20R51_COUNTERFLOW_ONLY_BOUNDARY / D7R20R52_CAPTURE_PREMISE_REFUTED / D7R20R53_CENTERED_SLOPE_CANDIDATE / D7R20R54_LEGACY_SLOPE_CANDIDATE / D7R20R55_COUNTERFLOW_CERTIFIED / D7R20R56_V4_5_OF_5 / D7R20R57_V5_MANIFEST_FROZEN / D7R20R58_V5_PREFLIGHT_PASS / D7R20R59_V5_DIMENSION_BOUNDARY / D7R20R60_DIMENSION_GENERIC_CENTER / D7R20R61_V5_6_OF_6 / D7R20R62_STRICT_BINARY64_DOT2ERR_SELECTED / D7R20R63_BINARY64_PROJECTED_INVERSE_NONCONTRACTIVE / D7R20R63A_MIXED_PROJECTION_CONTRIBUTION / SHARED_HOST_PERFORMANCE_STOP` |
-| Current frontier | `D7R20R63B_BINARY64_FACTOR_LEFT_NONCONTRACTIVE / D7R20R63C_ORIENTATION_MATCHED_FACTOR_FROZEN_IMPLEMENTATION_NEXT` |
+| Current frontier | `D7R20R63C_BINARY64_LOWER_LEFT_NONCONTRACTIVE / D7R20R63D_ACTIVE_ROW_RANK_RESEARCH_NEXT` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -30,14 +30,16 @@
   factor arithmetic because the hook observed 125 parent inverse audits.
   Revision 2 selects the unique pre-frozen R63 matrix root; the apparatus-only
   run has no scientific credit.
-- **Current decision:** primary-source R20R63C research selects direct
-  orientation-matched binary64 factor inverses before an RHS certificate. One
-  candidate targets `X_L L`; the other targets `(L Z_R)^T` for `L^T`. Four
-  exact/`Dot2Err` defects and fixed construction work are frozen; no NNQP RHS.
-- **Next:** implement/run the frozen R20R63C arithmetic discriminator twice.
-  If either required orientation fails with complete containment, move to
-  rank/extended-precision research; if both pass, freeze R63D before one RHS.
-  R64/R65, trajectory, timing and production remain blocked.
+- **Current result:** R20R63C is a valid negative at semantic
+  `39ca735e...54aa1`, route `BINARY64_LOWER_LEFT_NONCONTRACTIVE`; stdout is
+  byte-identical at `0ace54f4...581b`. All 41,616 intervals contain exact
+  values. Direct `X_L L` is `1.747>1`; the opposite side is `1.87e-13`, and
+  the required upper/transpose side passes at `1.09e-14`.
+- **Next:** stop ordinary binary64 inverse-factor work. Research/freeze R63D
+  around the exact source rows of the Gram system, canonical rank semantics and
+  a no-drop control before any QR/pivoted-Cholesky implementation or RHS solve.
+  Extended precision remains a separately bounded fallback; R64/R65,
+  trajectory, timing and production remain blocked.
 - **R20R19 result:** implementation `38b788c8`, semantic
   `46f8d84a...a06f`, route `MASK_CROSSING_FRONTIER`. Seven of eight late
   steps accept exactly the first mask-stable dyadic trial, with zero stable
@@ -5433,6 +5435,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   runtime binary128, trajectory, timing and production inference.
 - **Reconsider when:** R63C closes both oriented factors or preserves the first
   complete-containment orientation boundary.
+
+### D-192 -- Stop inverse-factor variants at the complete lower-left boundary
+
+- **Context:** R63C's direct row/back candidate still has
+  `||I-X_L L||inf=1.747`, while every candidate interval contains the exact
+  result. Its opposite product and the required upper transpose product are
+  near `1e-13/1e-14`.
+- **Decision:** preserve R63C negative and stop ordinary binary64 inverse-factor
+  variants. Research the underlying Gram source rows and exact/numerical rank
+  semantics before implementing QR, pivoted Cholesky or any row policy.
+- **Rejected:** another accumulation order, transpose repair, scaling the same
+  factor, applying an NNQP RHS, weakening two-sided sequential needs, runtime
+  binary128 by default, trajectory, timing and production inference.
+- **Reconsider when:** a frozen source-row diagnostic distinguishes exact
+  redundancy, numerical near dependence and full-rank extreme conditioning.
 
 ## Performance facts retained
 
