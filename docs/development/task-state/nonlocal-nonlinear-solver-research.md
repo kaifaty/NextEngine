@@ -5315,8 +5315,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    ordinary certification at 701 transitions. Preserve R20R56 semantic
    `daf7c2ce...20b7`, 5/5 ordinary routes, exact independent trigger matrix and
    work ledger. Preserve R20R57 semantic `2e5b9353...3b9a`, all six source and
-   geometry roots and literal zero operator/solver work. Research and freeze
-   R20R58 as an input-only v5 preflight; add no solver observation or unrelated
+   geometry roots and literal zero operator/solver work. Implement frozen R20R58
+   as an input-only v5 preflight; add no solver observation or unrelated
    fallback, root-selected branch,
    prodK, unrelated solve, counterflow retry,
    state, tolerance/cap/ratio/Armijo change, retry, tuning or timing.

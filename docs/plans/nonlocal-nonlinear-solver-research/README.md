@@ -3473,3 +3473,8 @@ The
 freezes six distinct source/geometry roots and 637 particles with all forbidden
 work false. These exact sources now advance to a separately frozen input-only
 preflight; they may not be edited after excitation is observed.
+The
+[R20R58 research](../../development/nonlocal-nsr3b4e2d7r20r58-v5-preflight-research-2026-08-26.md)
+and [contract](03b4e2d7r20r58-v5-preflight-contract.md) now freeze that
+input-only observation: structural/scaling/excitation roots are recorded once,
+with zero nonlinear or certificate work.
