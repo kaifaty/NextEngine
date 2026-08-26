@@ -3,6 +3,23 @@ namespace {
 constexpr const char* AL_R20_NEWTON_DIRECTION_SHA256 =
     "5ae59256f4b4836d9ceccf5e2ad6b1a071e6fce7097463b4b8b4ff1e921745b7";
 
+struct ALR20VerifiedSolutionRefinement {
+    bool exact = false;
+    bool passed = false;
+    Binary128 error = static_cast<Binary128>(0.0);
+    std::vector<Binary128> solution;
+    std::string root;
+};
+
+using ALR20VerifiedSolutionRefiner = ALR20VerifiedSolutionRefinement (*)(
+    const std::vector<Binary128>&,
+    const std::vector<Binary128>&,
+    const std::vector<Binary128>&,
+    const std::vector<Binary128>&);
+
+thread_local ALR20VerifiedSolutionRefiner
+    al_r20_verified_solution_refiner = nullptr;
+
 struct ALR20InverseNormAudit {
     bool passed = false;
     std::size_t dimension = 0U;
@@ -20,6 +37,8 @@ struct ALR20VerifiedInverse {
     Binary128 maximum_column_residual = static_cast<Binary128>(0.0);
     Binary128 maximum_column_bound = static_cast<Binary128>(0.0);
     ALR20InverseNormAudit norm;
+    bool refinement_attempted = false;
+    ALR20VerifiedSolutionRefinement refinement;
     std::string root;
 };
 
@@ -341,8 +360,26 @@ ALR20VerifiedInverse al_r20_verified_inverse(
             * (solve_residual + solve_bound)
             + al_r20_q_gamma(64U * dimension * dimension + 8192U)
                 * solution_scale;
-    result.passed = exact && result.norm.passed
+    const bool classical_passed = exact && result.norm.passed
         && finiteq(result.refined_error) != 0;
+    if (!classical_passed && exact && rhs != nullptr
+        && al_r20_verified_solution_refiner != nullptr) {
+        result.refinement_attempted = true;
+        result.refinement = al_r20_verified_solution_refiner(
+            factor.matrix, inverse, *rhs, solution);
+        if (result.refinement.exact && result.refinement.passed
+            && result.refinement.solution.size() == dimension
+            && al_r20_admm_finite(result.refinement.solution)
+            && finiteq(result.refinement.error) != 0) {
+            result.refined_error = result.refinement.error;
+        }
+    }
+    const bool refinement_passed = result.refinement_attempted
+        && result.refinement.exact && result.refinement.passed
+        && result.refinement.solution.size() == dimension
+        && al_r20_admm_finite(result.refinement.solution)
+        && finiteq(result.refinement.error) != 0;
+    result.passed = classical_passed || refinement_passed;
     std::ostringstream material;
     material << result.passed << ':' << dimension << ':'
              << result.column_solves << ':'
@@ -351,6 +388,11 @@ ALR20VerifiedInverse al_r20_verified_inverse(
              << al_binary128_hex(result.maximum_column_residual) << ':'
              << al_binary128_hex(result.maximum_column_bound) << ':'
              << result.norm.root;
+    if (result.refinement_attempted)
+        material << "|refinement:" << result.refinement.exact << ':'
+            << result.refinement.passed << ':'
+            << al_binary128_hex(result.refinement.error) << ':'
+            << result.refinement.root;
     result.root = sha256_hex(material.str());
     if (al_r20_verified_inverse_capture != nullptr) {
         ALR20VerifiedInverseCapture& capture =
@@ -534,6 +576,9 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                     result.failure = "VERIFIED_INVERSE_AUDIT_REJECTED";
                 } else {
                     passive_error = audit.refined_error;
+                    if (audit.refinement_attempted
+                        && audit.refinement.passed)
+                        passive_value = audit.refinement.solution;
                 }
                 result.inverse_audits.push_back(std::move(audit));
             }
