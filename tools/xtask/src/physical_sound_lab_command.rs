@@ -150,7 +150,7 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         schema: "nextengine.experimental-physical-sound-lab.report.v0",
         status: "PASS",
         claim: "EXPERIMENT_ONLY / NOT_A_SHIPPED_AUDIO_CONTRACT",
-        model: "bounded fixed-point 12-mode steel/wood banks plus a 3-mode glass clink with deterministic fused micro-contact onset",
+        model: "bounded fixed-point 12-mode steel/wood banks plus a 4-mode glass clink with deterministic fused micro-contact onset",
         fallback: "ordinary AudioMixerV1 output with the physical-sound-lab feature disabled",
         sample_rate_hz: ExperimentalPhysicalSoundMixer::sample_rate_hz(),
         channel_count: 2,

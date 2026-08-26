@@ -31,7 +31,7 @@ laboratory now exists in `next_presentation::physical_sound_lab`. The `xtask
 physical-sound-lab` command emits external 48 kHz audition WAVs, and the
 reference demo can mix committed `Begin` contacts behind the explicit Cargo
 feature `physical-sound-lab`. It uses 12-mode steel/dry-hardwood banks and one
-three-mode small-glass clink with a fused sub-1.5 ms non-fracture onset, plus a
+four-mode small-glass clink with a fused sub-1.5 ms non-fracture onset, plus a
 provisional adjacent-snapshot speed estimator because the current contact
 record lacks impulse/effective-mass and material fields. The small
 heterogeneous CC0 screens

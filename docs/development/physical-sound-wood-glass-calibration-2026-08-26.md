@@ -2,7 +2,7 @@
 
 ## Status and bounded claim
 
-`WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_AUDITION_REQUIRED / NO_P1_PROMOTION`
+`WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_AUDITION_REQUIRED / NO_P1_PROMOTION`
 
 This report records one frozen P0 screen for two concrete experimental targets:
 
@@ -10,9 +10,9 @@ This report records one frozen P0 screen for two concrete experimental targets:
 - a deliberately short clink from a small glass object struck once without
   fracture.
 
-The accepted 12-mode wood profile and hybrid three-mode Glass-G
-counterfactual exist only inside the off-by-default laboratory and
-feature-gated reference demo.
+The accepted 12-mode wood profile, partially accepted hybrid Glass-G and
+four-mode Glass-H counterfactual exist only inside the off-by-default
+laboratory and feature-gated reference demo.
 They do not establish universal material sounds, calibrate the quality
 evaluator, close SPEC-45 P1, or alter the shipped clip fallback.
 
@@ -173,6 +173,24 @@ spectral centroid `4,438.190 Hz`, broadband T20 `36.687 ms`, flatness
 `-47.249 dB` and temporal centroid `7.387 ms`. They diagnose the intended
 sparse/short relation but confer no perceptual pass.
 
+The product-owner reported that G was more glass-like, reversing the D/F
+metal-like verdict without accepting it as final. That result is evidence for
+the small-object clink plus fused-onset model family and permits one
+conservative spectral-balance refinement; it is not evidence for a universal
+glass profile or an autonomous evaluator.
+
+Glass-H preserves G's fused-onset pulse definition byte-for-byte. It reduces
+the 4,320 Hz partial, shortens the three established partials to T20 values of
+38/26/17 ms, and adds a low-gain 10,800 Hz partial with a 10 ms T20. Its
+center spectral centroid is `4,845.789 Hz`, bandwidth `1,128.729 Hz`, broadband T20
+`27.903 ms`, flatness `-42.616 dB` and temporal centroid `5.016 ms`, versus
+G's `4,438.190 Hz`, `591.971 Hz`, `36.687 ms`, `-47.249 dB` and `7.387 ms`.
+These relations confirm only that H is brighter, wider and shorter as intended;
+they do not rank H above G. The center Q0 report retains
+`DECAY_WINDOW_CENSORED` because its low/mid tail falls below the finite decay
+fit window. That limitation is recorded rather than treated as a sound-quality
+failure or hidden in a scalar.
+
 ## Exact selected outputs
 
 | Output | WAV SHA-256 |
@@ -180,10 +198,10 @@ sparse/short relation but confer no perceptual pass.
 | `wood-center.wav` | `bff56a532b254fff1e18e7d5896643a92f0be4308d3979969c76d81a38d47fc9` |
 | `wood-edge.wav` | `d10538c2b77dd5a9a47a60bebe4833fc1e376c278780dc675aeff1d676317f62` |
 | `wood-corner.wav` | `9bdb766f77359a376ee01e3cf9e78d3b27cab0decca1bf865be499345e1e0242` |
-| `glass-center.wav` | `1f24caaf8fd22c1b77d1d406245e3db44bd8d00914c7c26960ac9fcffb4c0727` |
-| `glass-edge.wav` | `67312a21dbf3e1ccb90d52e7c0c5565f0f9504e9144e1f862f419c32dd5e92ef` |
-| `glass-corner.wav` | `0bd95169e6e2e8a25b42803294fe903d5f79ba9c4610405b1a83548080e71eda` |
-| `demo-sequence.wav` | `f31e1ce291eb9802951646a3a7f9b301b014b7948f6c620f279e3a5edf53395f` |
+| `glass-center.wav` | `12c81bce61938e89904717461d95031755a7919cbb0f817ea6d0a0457e5d4c09` |
+| `glass-edge.wav` | `8fdea1c5eb41d81336fdc670eff174d73fcd1fdc7b84b62ab42c260192c22104` |
+| `glass-corner.wav` | `8aa5dbceeb0b979a3b4fd1c29f0c7337ba4b46b31d2787f7da3eb0aa1a4f0e77` |
+| `demo-sequence.wav` | `3cfbef1609ce57c39b52d25f3a9b6b6e53dcc172cdb0939e4ad137aabb66e2d2` |
 
 The center raw interleaved PCM hashes are pinned in focused Rust tests. Steel's
 existing exact PCM hash remains unchanged. Center/edge/corner share frequencies
@@ -192,13 +210,14 @@ position relation.
 
 ## Decision and remaining uncertainty
 
-Keep accepted wood-B bit-exact and expose Glass-G as the sole new demo
-counterfactual. Keep rejected D/F, reference audio, blind bundles, model weights
-and evaluator artifacts external. Preserve the ordinary clip mixer as the
-shipping/fault fallback.
+Keep accepted wood-B bit-exact, preserve Glass-G as the positive control and
+expose Glass-H as the sole new demo counterfactual. Keep rejected D/F,
+reference audio, blind bundles, model weights and evaluator artifacts external.
+Preserve the ordinary clip mixer as the shipping/fault fallback.
 
-The next discriminator is the product-owner audition of Glass-G in the demo;
-failure rejects it without another same-family tuning loop. A controlled
-recording of one known glass body at repeated positions/forces is still
-required before held-out ranking, autonomous quality iteration, a generic
+The next discriminator is a direct product-owner audition of Glass-H against
+the partially accepted Glass-G. H may be preferred, rejected in favor of G or
+motivate a bounded blend; the descriptors cannot make that decision. A
+controlled recording of one known glass body at repeated positions/forces is
+still required before held-out ranking, autonomous quality iteration, a generic
 material claim or any P1 promotion.

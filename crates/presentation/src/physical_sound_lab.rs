@@ -453,31 +453,38 @@ const WOOD_MODES: [ModeProfile; MAX_MODE_COUNT] = [
     },
 ];
 
-// Glass-G changes the bounded object hypothesis from a thick plate to a small
-// glass clink. Three consonant, widely separated partials keep the spectrum
-// sparse and low-roughness; a sub-1.5 ms fused onset below adds non-modal
-// micro-contact detail without representing fracture or additional contacts.
-const GLASS_MODES: [ModeProfile; 3] = [
-    // 4,320 Hz / T20 45 ms
+// Glass-H conservatively refines the positively auditioned Glass-G small-object
+// clink. It preserves the fused onset below, shortens the dominant low partial
+// and redistributes energy toward two short upper partials plus a quiet air
+// sparkle. The sparse harmonic relation stays low-roughness and non-fracture.
+const GLASS_MODES: [ModeProfile; 4] = [
+    // 4,320 Hz / T20 38 ms
     ModeProfile {
-        coefficient_a_q30: 1_811_248_572,
-        coefficient_b_q30: 1_071_455_020,
-        gain_q15: 23_000,
+        coefficient_a_q30: 1_810_892_931,
+        coefficient_b_q30: 1_071_034_298,
+        gain_q15: 18_000,
         initial_sine_q15: 17_558,
     },
-    // 6,480 Hz / T20 32 ms
+    // 6,480 Hz / T20 26 ms
     ModeProfile {
-        coefficient_a_q30: 1_418_029_085,
-        coefficient_b_q30: 1_070_527_398,
-        gain_q15: 13_000,
+        coefficient_a_q30: 1_417_538_616,
+        coefficient_b_q30: 1_069_786_975,
+        gain_q15: 24_000,
         initial_sine_q15: 24_580,
     },
-    // 8,640 Hz / T20 22 ms
+    // 8,640 Hz / T20 17 ms
     ModeProfile {
-        coefficient_a_q30: 912_362_509,
-        coefficient_b_q30: 1_069_069_478,
-        gain_q15: 7_000,
+        coefficient_a_q30: 911_777_583,
+        coefficient_b_q30: 1_067_699_132,
+        gain_q15: 14_000,
         initial_sine_q15: 29_649,
+    },
+    // 10,800 Hz / T20 10 ms
+    ModeProfile {
+        coefficient_a_q30: 334_332_791,
+        coefficient_b_q30: 1_063_489_492,
+        gain_q15: 2_000,
+        initial_sine_q15: 32_365,
     },
 ];
 
@@ -770,14 +777,14 @@ mod tests {
             PhysicalSoundMaterial::Glass,
             0x61a5_0101,
             16_000,
-            "3cb2d0294ebe660c361105f1442842982fafb56ecaeceee3702fb09cbc999237",
+            "4cd5e61da43d34e71715bef6d11a51522cfd5ab4ac9b0ec3d25920b8d79bb34c",
         );
     }
 
     #[test]
     fn glass_clink_keeps_microbursts_inside_one_fused_onset() {
         let profile = material_profile(PhysicalSoundMaterial::Glass);
-        assert_eq!(profile.modes.len(), 3);
+        assert_eq!(profile.modes.len(), 4);
         let StrikeTransientProfile::FusedGlassClink { pulses } = profile.strike_transient else {
             panic!("glass must use the bounded fused-clink transient");
         };

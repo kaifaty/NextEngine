@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_WOOD_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_AUDITION_READY / P1_BLOCKED` |
+| Status | `P0_WOOD_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_AUDITION_READY / P1_BLOCKED` |
 | Updated | `2026-08-26` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact audition and feature-gated reference-demo experiment |
@@ -11,13 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Freeze accepted wood-B. Glass-D/F are metal-like;
-  Glass-G is one hybrid small-object-clink counterfactual ready for audition.
-- **Why:** F improved spectrum/modal distance and CLAP glass-vs-metal scores,
-  yet failed human material identity again. Those screens are not predictive
-  for this residual; another mode-bank variant would repeat the failed path.
-- **Next action:** Audition Glass-G in the demo without changing bit-exact
-  wood-B; failure ends this same-family loop rather than starting Glass-H.
+- **Current conclusion:** Freeze wood-B and preserve partially accepted Glass-G;
+  brighter/shorter Glass-H is ready for direct G/H audition.
+- **Why:** H keeps G's fused onset, reduces the 4.32 kHz tail and adds a short
+  high-band partial without changing accepted wood/steel PCM.
+- **Next action:** Audition Glass-G then H; select H, retain G or define one
+  bounded blend from that comparison rather than from automatic metrics.
 - **Current blocker:** No controlled matched-reference corpus, held-out human
   preference labels, calibrated threshold, measured
   whole-mixer budget, Accepted consumer ADR or complete impulse/effective-mass/
@@ -34,17 +33,17 @@
 | --- | --- | --- |
 | [Research report](../physical-sound-synthesis-research-2026-08-26.md) | `REPORT_PLUS_LOCAL_EXPERIMENT` | Modal rigid impact is technically integrated; acoustic quality and promotion evidence remain open. |
 | [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md) | `CLASSICAL_Q0_Q1_IMPLEMENTED / HUMAN_CALIBRATION_OPEN` | Matched classical descriptors and blind A/B are available; no single automatic metric or uncalibrated control run is an admissible quality judge. |
-| [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_AUDITION_READY` | Freeze wood-B. Glass-G tests three sparse partials plus a fused sub-1.5 ms non-fracture onset; it is not a quality pass. |
+| [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_AUDITION_READY` | Freeze wood-B and G; compare the one bounded H refinement without a generic quality claim. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
-| `xtask physical-sound-lab` external audition | `PASS` | Nine material/position WAVs and one six-second comparison repeat byte-exactly; Glass-G center/demo WAV hashes are `1f24caaf…c0727` / `f31e1ce2…395f`. |
+| `xtask physical-sound-lab` external audition | `PASS` | Nine material/position WAVs repeat byte-exactly; Glass-H center/demo WAV hashes are `12c81bce…4c09` / `3cfbef16…e2d2`, while wood/steel hashes remain unchanged. |
 | Product-owner audition, 2026-08-26 | `PERCEPTUAL_FAIL` | The current output only remotely resembles the target; engineering checks cannot support an acoustic-quality claim. |
-| Product-owner wood/glass audition, 2026-08-26 | `WOOD-B ACCEPT / GLASS-D-F PERCEPTUAL_FAIL` | Freeze wood-B. Human identity overrides descriptor/CLAP gains; switch the glass event-model family rather than retuning modes. |
+| Product-owner wood/glass audition, 2026-08-26 | `WOOD-B ACCEPT / GLASS-D-F FAIL / GLASS-G PARTIAL_ACCEPT` | Freeze wood-B. G is more glass-like; tune only its residual tonal balance and preserve the event-model change. |
 | `xtask physical-sound-eval` Q0 run | `PASS / UNCALIBRATED` | Nine hash-frozen WAVs produce bounded signal, multiresolution spectrum, modal-assignment and per-band decay reports under evaluator profile hash `e1e57d9b…66af1`; every entry correctly remains `NeedsReference`. |
 | Q1 self/mismatch controls and blind bundle | `PASS / CONTROL_ONLY` | Self-match is zero on every matched distance; steel-center versus glass-corner yields `28.7939 dB` spectral RMSE, `0.642964` modal cost and spectral/modal/high-band-decay tags. Seed `42` emits two blinded pairs; repeated report SHA-256 is `65a6d437…da81`. |
 | Feature-gated demo enabled/disabled regression | `PASS` | Committed `Begin` contact changes only PCM; runtime, RPG and physics checkpoint state remain identical. |
-| 120-frame SDL/Ash reference demo with `physical-sound-lab` | `PASS / DEBUG_FUNCTIONAL` | Glass-G run: 56 simulation ticks, active audio device, 124,800 queued samples, zero drops/faults; 42 debug underruns grant no platform/performance credit. |
+| 120-frame SDL/Ash reference demo with `physical-sound-lab` | `PASS / DEBUG_FUNCTIONAL` | Glass-H run: 55 simulation ticks, active audio device, 121,600 queued samples, zero drops/faults; 43 debug underruns grant no platform/performance credit. |
 | `audio-scene`, `play`, `host-check` | `PASS` | Baseline audio/play roots remain valid; workspace fmt/clippy/tests and boundary policy pass on Rust 1.97.1. |
 | Candidate `AUDIO-PHYS-*` checks | `NOT_RUN / NOT_PROMOTED` | Local experiment checks do not create source/content/platform/performance or P1 admissibility. |
 
@@ -131,10 +130,10 @@
   adaptation.
 - **Consequences:** Network/model/provider failure cannot affect the first
   track; any later learned path needs immutable lineage and non-neural fallback.
-- **Uncertainty:** Whether sparse deterministic micro-events remove the named
-  metal-like residual without sounding like full breakage is unmeasured.
-- **Reconsider when:** Now met for glass: test one classical hybrid residual;
-  neural runtime remains deferred until held-out evidence supports it.
+- **Uncertainty:** G improved identity, but the best upper-partial balance and
+  tail length remain unmeasured without a controlled object recording.
+- **Reconsider when:** Hybrid residual now has positive human evidence; permit
+  one conservative refinement, while neural runtime remains deferred.
 ### D-006 — Isolated roadmap experiment, no stage activation or shipping claim
 
 - **Observation:** The product owner explicitly requested an independent
@@ -178,7 +177,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A compact modal model is useful for steel/wood, while recognizable glass needs a separate transient event layer | Steel/wood improved; wood-B passed identity; G has sparse peaks and fused non-fracture onset | Glass-D and F both sounded metallic; G has no human verdict | Audition Glass-G once against the rejected F anchor |
+| H1: A compact modal core plus fused transient can evoke glass | G became more glass-like; H preserves its onset; steel/wood remain exact | G/H are not yet final; no controlled object corpus exists | Directly audition brighter/shorter H against G |
 | H2: The complete SPEC-26 contact projection is sufficient for impact excitation | It includes identity, point, velocity, impulse bounds, effective mass and tags | Current implementation omits the decisive numeric fields; solver-force fidelity is untested | Close one fixture projection and compare against exact synthetic excitation/control PCM |
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Repeated scalar renders are byte-exact and profiles/impact points are distinct | Quality, detuning and damping error against a high-precision reference remain unmeasured | Compare the frozen Q30 recurrence with a high-precision solver across the P0 stability envelope |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
@@ -200,8 +199,8 @@ Read these sources in precedence order before acting:
 
 1. Preserve all frozen baselines, references and reports; freeze wood-B and
    retain glass-D/F only as rejected metal-like anchors.
-2. Audition exactly one deterministic hybrid Glass-G against frozen F; failure
-   stops this same-family loop before broader tuning.
+2. Preserve Glass-G as the positive control and directly audition the completed
+   conservative Glass-H spectral-balance refinement.
 3. Acquire a licensed controlled subset or three engine-owned objects, then
    use the generated browser to calibrate pairwise/MUSHRA-like human
    labels, validate leave-one-object or
@@ -243,8 +242,8 @@ Read these sources in precedence order before acting:
 - **Remaining risk:** acoustic quality, calibration, complete contact-signal
   sufficiency, cooker design, callback/whole-mixer cost, propagation
   integration and content-author workflow are all unmeasured.
-- **Quality status:** wood-B passed informal material identity; glass-D/F are
-  `PERCEPTUAL_FAIL`; Glass-G awaits audition. No controlled corpus or held-out
-  autonomous-ranking evidence exists.
+- **Quality status:** wood-B passed informal identity; glass-D/F failed; G is
+  partially accepted and H awaits G/H audition. No controlled corpus or
+  held-out autonomous-ranking evidence exists.
 - **Promotion needed:** Concrete consumer plus later Accepted ADR under ADR-046;
   then exact content/contact/DSP profiles and ProductChecks.
