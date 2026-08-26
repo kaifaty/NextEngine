@@ -291,6 +291,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v5-rectangular-factor-precision|"
                          "--nonlocal-al-generalization-v5-bounded-wide-factor|"
                          "--nonlocal-al-generalization-v5-exported-factor-rhs|"
+                         "--nonlocal-al-generalization-v5-original-residual-refinement|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2451,6 +2452,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v5_exported_factor_rhs_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command ==
+            "--nonlocal-al-generalization-v5-original-residual-refinement") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v5_original_residual_refinement_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

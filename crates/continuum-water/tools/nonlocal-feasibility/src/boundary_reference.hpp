@@ -323,6 +323,8 @@ SplitBoundaryReport
 run_al_generalization_v5_bounded_wide_factor_controls();
 SplitBoundaryReport
 run_al_generalization_v5_exported_factor_rhs_controls();
+SplitBoundaryReport
+run_al_generalization_v5_original_residual_refinement_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
