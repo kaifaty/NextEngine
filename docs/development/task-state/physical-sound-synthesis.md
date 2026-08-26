@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_THREE_MATERIAL_SCREENS_FITTED / HUMAN_AUDITION_OPEN / Q1_CONTROLS_PASS / P1_BLOCKED` |
+| Status | `P0_WOOD_ACCEPTED / GLASS-F_AUDITION_READY / Q1_CONTROLS_PASS / P1_BLOCKED` |
 | Updated | `2026-08-26` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact audition and feature-gated reference-demo experiment |
@@ -11,14 +11,13 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Frozen CC0 screens now support improved experimental
-  12-mode steel, dry-hardwood-block and thick-glass-plate candidates. All three
-  remain broad-screen hypotheses and still need blind human audition.
-- **Why:** Wood median spectrum/modal distances moved `35.66129 → 21.11627 dB`
-  and `1.073954 → 0.847192`; glass moved `31.87924 → 28.96005 dB` and
-  `1.860082 → 0.671596`. Glass decay remains an explicit metric disagreement.
-- **Next action:** Blind-audition old/new/reference triplets for all three
-  profiles; record the artifact before any further coefficient change.
+- **Current conclusion:** Freeze accepted wood-B. Glass-D is rejected as
+  metal-like; sparse short Glass-F is the next demo audition candidate.
+- **Why:** On the same four short-clink anchors F beat E on spectrum/modal
+  distance (`20.15047 dB` / `0.562628`) and the auxiliary CLAP ensemble favoured
+  glass over metal (`0.573800` / `0.018618`) while exposing bad controls.
+- **Next action:** Audition Glass-F in the demo; accept, reject or revise it
+  without changing the bit-exact wood-B profile.
 - **Current blocker:** No controlled matched-reference corpus, held-out human
   preference labels, calibrated threshold, measured
   whole-mixer budget, Accepted consumer ADR or complete impulse/effective-mass/
@@ -35,16 +34,17 @@
 | --- | --- | --- |
 | [Research report](../physical-sound-synthesis-research-2026-08-26.md) | `REPORT_PLUS_LOCAL_EXPERIMENT` | Modal rigid impact is technically integrated; acoustic quality and promotion evidence remain open. |
 | [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md) | `CLASSICAL_Q0_Q1_IMPLEMENTED / HUMAN_CALIBRATION_OPEN` | Matched classical descriptors and blind A/B are available; no single automatic metric or uncalibrated control run is an admissible quality judge. |
-| [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `BOUNDED_REFERENCE_SCREENS_PASS / HUMAN_AUDITION_OPEN` | Three 12-mode candidates improve bounded descriptor sets against frozen heterogeneous CC0 screens; no generic material, calibrated-Q2 or P1 claim follows. |
+| [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D_REJECTED / GLASS-F_AUDITION_READY` | Freeze wood-B; the six-mode Glass-F correction is secondary-screened but still requires product-owner audition. No generic material, calibrated-Q2 or P1 claim follows. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
-| `xtask physical-sound-lab` external audition | `PASS` | Nine material/position WAVs and one six-second comparison repeat byte-exactly; selected comparison WAV SHA-256 is `3b9d66f9…2c0490`. |
+| `xtask physical-sound-lab` external audition | `PASS` | Nine material/position WAVs and one six-second comparison repeat byte-exactly; Glass-F comparison WAV SHA-256 is `83356b06…bc73`. |
 | Product-owner audition, 2026-08-26 | `PERCEPTUAL_FAIL` | The current output only remotely resembles the target; engineering checks cannot support an acoustic-quality claim. |
+| Product-owner wood/glass audition, 2026-08-26 | `WOOD-B ACCEPT / GLASS-D PERCEPTUAL_FAIL` | Freeze wood-B. Reject glass-D despite its descriptor gains; do not reuse its dense long modal tail without new evidence. |
 | `xtask physical-sound-eval` Q0 run | `PASS / UNCALIBRATED` | Nine hash-frozen WAVs produce bounded signal, multiresolution spectrum, modal-assignment and per-band decay reports under evaluator profile hash `e1e57d9b…66af1`; every entry correctly remains `NeedsReference`. |
 | Q1 self/mismatch controls and blind bundle | `PASS / CONTROL_ONLY` | Self-match is zero on every matched distance; steel-center versus glass-corner yields `28.7939 dB` spectral RMSE, `0.642964` modal cost and spectral/modal/high-band-decay tags. Seed `42` emits two blinded pairs; repeated report SHA-256 is `65a6d437…da81`. |
 | Feature-gated demo enabled/disabled regression | `PASS` | Committed `Begin` contact changes only PCM; runtime, RPG and physics checkpoint state remain identical. |
-| 120-frame SDL/Ash reference demo with `physical-sound-lab` | `PASS / DEBUG_FUNCTIONAL` | 46 simulation ticks, active audio device, 76,800 queued samples, zero drops/faults; 53 debug underruns grant no platform/performance credit. |
+| 120-frame SDL/Ash reference demo with `physical-sound-lab` | `PASS / DEBUG_FUNCTIONAL` | Glass-F run: 55 simulation ticks, active audio device, 105,600 queued samples, zero drops/faults; 51 debug underruns grant no platform/performance credit. |
 | `audio-scene`, `play`, `host-check` | `PASS` | Baseline audio/play roots remain valid; workspace fmt/clippy/tests and boundary policy pass on Rust 1.97.1. |
 | Candidate `AUDIO-PHYS-*` checks | `NOT_RUN / NOT_PROMOTED` | Local experiment checks do not create source/content/platform/performance or P1 admissibility. |
 
@@ -162,10 +162,9 @@
 - **Rejected alternatives:** A single FAD/CLAP/ViSQOL/aesthetic score, direct
   prose judgment by a general audio model, or fitting and evaluating on the same
   object/impact split.
-- **Consequences:** Q0/Q1 classical tooling and bounded screens selected better
-  steel, wood and glass candidates. The next work is
-  blind human review and controlled reference acquisition, not another
-  unrecorded synth preset. Data and candidate batches remain external.
+- **Consequences:** Q0/Q1 and frozen screens selected useful steel/wood
+  candidates, but glass-D failed material identity. The bounded correction
+  selects Glass-F for audition, not as a calibrated or autonomous verdict.
 - **Uncertainty:** The smallest local reference corpus and human-label count are
   chosen only after measuring recording and label variance.
 - **Reconsider when:** A frozen single metric demonstrably outperforms the
@@ -176,7 +175,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A compact reference-fitted modal model is perceptually useful for the first three object profiles | Screened 12-mode steel, wood and glass candidates improve bounded descriptor sets | Reference bodies are heterogeneous and none has passed blind human audition | Run old/new/reference blind audition, then controlled-object held-out preference tests |
+| H1: A compact reference-fitted modal model is perceptually useful for the first three object profiles | Steel/wood improve descriptors; wood-B passed identity; Glass-F improves the short-clink screen and glass-vs-metal auxiliary score | Glass-D improved descriptors but sounded strongly metallic; F has no human verdict | Audition Glass-F, then use controlled held-out preference tests |
 | H2: The complete SPEC-26 contact projection is sufficient for impact excitation | It includes identity, point, velocity, impulse bounds, effective mass and tags | Current implementation omits the decisive numeric fields; solver-force fidelity is untested | Close one fixture projection and compare against exact synthetic excitation/control PCM |
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Repeated scalar renders are byte-exact and profiles/impact points are distinct | Quality, detuning and damping error against a high-precision reference remain unmeasured | Compare the frozen Q30 recurrence with a high-precision solver across the P0 stability envelope |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
@@ -196,10 +195,10 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Preserve the hash-frozen baselines, evaluator profile, CC0 reference hashes
-   and selected steel/wood/glass reports; do not tune again before audition.
-2. Blind-audition old/new/reference triplets for each profile, recording the
-   named artifact and decision.
+1. Preserve all frozen baselines, references and reports; freeze wood-B and
+   retain glass-D only as the rejected metal-like anchor.
+2. Audition the selected six-mode Glass-F candidate in the demo; record the
+   decision before any further coefficient change.
 3. Acquire a licensed controlled subset or three engine-owned objects, then
    use the generated browser to calibrate pairwise/MUSHRA-like human
    labels, validate leave-one-object or
@@ -241,9 +240,9 @@ Read these sources in precedence order before acting:
 - **Remaining risk:** acoustic quality, calibration, complete contact-signal
   sufficiency, cooker design, callback/whole-mixer cost, propagation
   integration and content-author workflow are all unmeasured.
-- **Quality status:** the original product-owner audition remains a recorded
-  `PERCEPTUAL_FAIL`; candidate D passes a heterogeneous external reference
-  screen but has no blind human verdict, controlled corpus or held-out
-  autonomous-ranking evidence.
+- **Quality status:** wood-B passed informal material identity; glass-D is a
+  recorded `PERCEPTUAL_FAIL`. Glass-F is a screened correction awaiting human
+  audition, not a quality pass. No controlled corpus or held-out autonomous-
+  ranking evidence exists.
 - **Promotion needed:** Concrete consumer plus later Accepted ADR under ADR-046;
   then exact content/contact/DSP profiles and ProductChecks.

@@ -411,92 +411,51 @@ const WOOD_MODES: [ModeProfile; MAX_MODE_COUNT] = [
     },
 ];
 
-// A thick glass-plate candidate screened against two small external CC0 glass
-// packs. Its inharmonic upper modes and longer T20 distinguish it from the dry
-// wood body without stretching the experimental voice to the old two seconds.
-const GLASS_MODES: [ModeProfile; MAX_MODE_COUNT] = [
-    // 1,172 Hz / T20 350 ms
+// A deliberately sparse, short glass-clink candidate screened against small
+// external CC0 glass impacts. It keeps the primary energy above the steel
+// body's register and avoids the dense, long-lived tail that made Glass-D read
+// as another metal plate. Impact position still changes participation only.
+const GLASS_MODES: [ModeProfile; 6] = [
+    // 2,760 Hz / T20 60 ms
     ModeProfile {
-        coefficient_a_q30: 2_121_970_743,
-        coefficient_b_q30: 1_073_447_533,
-        gain_q15: 4_000,
-        initial_sine_q15: 5_007,
-    },
-    // 1,645 Hz / T20 300 ms
-    ModeProfile {
-        coefficient_a_q30: 2_097_554_096,
-        coefficient_b_q30: 1_073_398_493,
-        gain_q15: 6_000,
-        initial_sine_q15: 7_002,
-    },
-    // 2,208 Hz / T20 275 ms
-    ModeProfile {
-        coefficient_a_q30: 2_058_050_834,
-        coefficient_b_q30: 1_073_367_286,
-        gain_q15: 16_000,
-        initial_sine_q15: 9_340,
-    },
-    // 2,732 Hz / T20 250 ms
-    ModeProfile {
-        coefficient_a_q30: 2_011_233_483,
-        coefficient_b_q30: 1_073_329_839,
-        gain_q15: 20_000,
-        initial_sine_q15: 11_470,
-    },
-    // 3,533 Hz / T20 325 ms
-    ModeProfile {
-        coefficient_a_q30: 1_921_615_061,
-        coefficient_b_q30: 1_073_424_899,
-        gain_q15: 17_000,
-        initial_sine_q15: 14_620,
-    },
-    // 3,838 Hz / T20 300 ms
-    ModeProfile {
-        coefficient_a_q30: 1_881_824_117,
-        coefficient_b_q30: 1_073_398_493,
+        coefficient_a_q30: 2_007_245_308,
+        coefficient_b_q30: 1_072_026_264,
         gain_q15: 18_000,
-        initial_sine_q15: 15_779,
+        initial_sine_q15: 11_583,
     },
-    // 4,638 Hz / T20 225 ms
+    // 3,814 Hz / T20 75 ms
     ModeProfile {
-        coefficient_a_q30: 1_763_349_309,
-        coefficient_b_q30: 1_073_284_073,
-        gain_q15: 15_000,
-        initial_sine_q15: 18_694,
+        coefficient_a_q30: 1_884_158_861,
+        coefficient_b_q30: 1_072_369_157,
+        gain_q15: 22_000,
+        initial_sine_q15: 15_688,
     },
-    // 5,212 Hz / T20 212.5 ms
+    // 4,690 Hz / T20 60 ms
     ModeProfile {
-        coefficient_a_q30: 1_666_407_102,
-        coefficient_b_q30: 1_073_257_153,
-        gain_q15: 14_000,
-        initial_sine_q15: 20_662,
+        coefficient_a_q30: 1_753_942_414,
+        coefficient_b_q30: 1_072_026_264,
+        gain_q15: 18_000,
+        initial_sine_q15: 18_877,
     },
-    // 6,171 Hz / T20 187.5 ms
+    // 6,539 Hz / T20 45 ms
     ModeProfile {
-        coefficient_a_q30: 1_483_753_158,
-        coefficient_b_q30: 1_073_192_546,
-        gain_q15: 11_000,
-        initial_sine_q15: 23_683,
+        coefficient_a_q30: 1_406_173_655,
+        coefficient_b_q30: 1_071_455_020,
+        gain_q15: 12_000,
+        initial_sine_q15: 24_746,
     },
-    // 7,059 Hz / T20 168.75 ms
+    // 7,450 Hz / T20 38 ms
     ModeProfile {
-        coefficient_a_q30: 1_293_740_616,
-        coefficient_b_q30: 1_073_131_533,
+        coefficient_a_q30: 1_203_218_983,
+        coefficient_b_q30: 1_071_034_298,
         gain_q15: 9_000,
-        initial_sine_q15: 26_150,
+        initial_sine_q15: 27_126,
     },
-    // 7,629 Hz / T20 150 ms
+    // 8,875 Hz / T20 30 ms
     ModeProfile {
-        coefficient_a_q30: 1_162_386_337,
-        coefficient_b_q30: 1_073_055_271,
-        gain_q15: 7_000,
-        initial_sine_q15: 27_549,
-    },
-    // 8,875 Hz / T20 112.5 ms
-    ModeProfile {
-        coefficient_a_q30: 853_794_206,
-        coefficient_b_q30: 1_072_826_517,
-        gain_q15: 5_000,
+        coefficient_a_q30: 852_793_622,
+        coefficient_b_q30: 1_070_313_445,
+        gain_q15: 6_000,
         initial_sine_q15: 30_064,
     },
 ];
@@ -518,8 +477,8 @@ const fn material_profile(material: PhysicalSoundMaterial) -> MaterialProfile {
         PhysicalSoundMaterial::Glass => MaterialProfile {
             modes: &GLASS_MODES,
             noise_gain_q15: 32_767,
-            noise_frames: 480,
-            duration_frames: 33_600,
+            noise_frames: 192,
+            duration_frames: 9_600,
         },
     }
 }
@@ -766,8 +725,8 @@ mod tests {
         assert_profile(
             PhysicalSoundMaterial::Glass,
             0x61a5_0101,
-            67_200,
-            "5d0e59d0155cde71d70cdd51fd9df59e5c781ea188aef568246e6e6102a7b634",
+            19_200,
+            "0673411cedd963ce55d503400761ad3e0a2d9d2c099429fda1775d6456c429f3",
         );
     }
 

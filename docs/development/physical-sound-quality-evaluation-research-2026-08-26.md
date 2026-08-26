@@ -334,21 +334,26 @@ A second bounded cycle froze four wood and five glass CC0 anchors from three
 external archives. The selected dry-hardwood-block candidate reduced median
 spectrum RMSE from `35.66129 dB` to `21.11627 dB` and median modal cost from
 `1.073954` to `0.847192`; temporal centroid moved from `133.967 ms` to
-`18.087 ms`. The selected thick-glass-plate candidate reduced median spectrum
-RMSE from `31.87924 dB` to `28.96005 dB` and modal cost from `1.860082` to
+`18.087 ms`. The initially selected thick-glass-plate candidate reduced median
+spectrum RMSE from `31.87924 dB` to `28.96005 dB` and modal cost from `1.860082` to
 `0.671596`; temporal centroid moved from `61.788 ms` to `33.773 ms`. Glass
 decay remained a metric disagreement rather than being hidden in a scalar.
 
 The exact sources, hashes, intermediate candidates and limitations are in the
 [wood/glass calibration report](physical-sound-wood-glass-calibration-2026-08-26.md).
-Like the steel screen, this permits only an experimental preset replacement.
-Every comparison remains `NeedsHumanAudit`; no calibrated or autonomous
-quality claim follows.
+The later product-owner audition accepted wood-B but rejected Glass-D as
+strongly metal-like. A bounded correction selected a sparse six-mode Glass-F
+over E on four short-clink anchors plus an auxiliary fixed-prompt CLAP screen;
+the learned screen visibly misclassified some real and synthetic controls, so
+it remains secondary evidence only. Like the steel screen, this permits only
+an experimental preset replacement. Every comparison remains
+`NeedsHumanAudit`; no calibrated or autonomous quality claim follows.
 
 ## Decision
 
-Treat the current P0 audition as `PERCEPTUAL_FAIL`. Preserve modal impact as a
-candidate model family, but block further quality claims and blind coefficient
-tuning. The next coherent work package is an external, human-calibrated
+Treat Glass-D as `PERCEPTUAL_FAIL`, preserve wood-B, and expose Glass-F only as
+the next audition candidate. Preserve modal impact as a candidate model family,
+but block further quality claims and blind coefficient tuning. The next
+coherent work package is an external, human-calibrated
 `PhysicalSoundQualityOracleP0`; its success means reliable held-out ranking of
 candidate sounds, not production promotion.
