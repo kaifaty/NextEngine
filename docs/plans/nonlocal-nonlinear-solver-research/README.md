@@ -1,8 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63K_WIDE_FACTOR_STANDARD_REFINEMENT_REJECTED /
-NSR3B4E2D7R20R63L_WIDE_CONVERGENCE_FRONTIER_FROZEN /
-NSR3B4E2D7R20R63L_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63L_EXPORTED_FACTOR_WIDE_STANDARD_REFINEMENT_CANDIDATE /
+NSR3B4E2D7R20R63M_PRECONDITIONED_CG_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3712,6 +3711,15 @@ Every iteration 17--32 is executed and independently certified; the unstable
 strict-binary64 lane receives zero continuation work. This locates the natural
 stationary-convergence frontier before selecting a Krylov or low-rank
 accelerator.
+
+The
+[R20R63L evidence](../../development/nonlocal-nsr3b4e2d7r20r63l-wide-refinement-frontier-evidence-2026-08-26.md)
+selects `EXPORTED_FACTOR_WIDE_STANDARD_REFINEMENT_CANDIDATE`. Retained-wide
+first certifies at total iteration 17 and export/wide at 21; every later frozen
+iterate through 32 remains certified. This is the exact stationary work
+baseline, not a production recommendation. Research an eight-step SPD
+preconditioned-CG discriminator next and compare deterministic factor/operator
+work before considering GMRES-IR or low-rank correction.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)

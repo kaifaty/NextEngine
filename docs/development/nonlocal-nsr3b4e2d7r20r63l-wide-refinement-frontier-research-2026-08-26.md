@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63L wide-refinement frontier research
 
-Status: `FROZEN FOR IMPLEMENTATION`.
+Status: `IMPLEMENTED / EXPORTED_FACTOR_WIDE_STANDARD_REFINEMENT_CANDIDATE`.
 
 ## Question
 
@@ -77,3 +77,16 @@ new research hypothesis.
 No state replacement, following transition, rank/row/regularization change,
 trajectory, timing, runtime/GPU or production inference occurs. R64 and R65
 remain blocked.
+
+## Result
+
+The frozen apparatus selects
+`EXPORTED_FACTOR_WIDE_STANDARD_REFINEMENT_CANDIDATE` at semantic
+`16633e07...7333`; stdout repeats at `bf59f1ed...6de5`. Retained-wide first
+certifies at iteration 17 and export/wide at iteration 21; both remain
+certified through 32. See the
+[evidence record](nonlocal-nsr3b4e2d7r20r63l-wide-refinement-frontier-evidence-2026-08-26.md).
+
+The stationary correctness frontier is closed. The next stage should compare
+preconditioned CG against the exact 17/21 correction-work baselines before
+researching GMRES-IR or explicit weak-direction correction.
