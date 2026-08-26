@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63A_MIXED_PROJECTION_CONTRIBUTION /
-NSR3B4E2D7R20R63B_GRAM_RANK_REFORMULATION_RESEARCH_NEXT /
+NSR3B4E2D7R20R63B_BINARY64_FACTOR_SPACE_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3544,3 +3544,11 @@ matrix row/diagonal ranges are only `3.65x/2.50x`, while the inverse-norm proxy
 is `2.64e32` and `u64*proxy` is `2.93e16`. Research the underlying Gram/rank
 structure and a rank-revealing reformulation before any scaling, new inverse or
 center experiment.
+
+The intervening
+[R20R63B research](../../development/nonlocal-nsr3b4e2d7r20r63b-factor-space-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63b-factor-space-contract.md) freeze the smallest
+normal-equation-squaring discriminator. They reuse the already captured
+Cholesky factor, construct only its triangular inverse and test strict
+binary64/exact two-sided defects. No NNQP right-hand side, rank threshold or
+trajectory is evaluated.

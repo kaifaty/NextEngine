@@ -23,9 +23,9 @@
   `MIXED_PROJECTION_CONTRIBUTION`; stdout is byte-identical at
   `b0dba1bc...5b4c9`. Both exact decompositions close. Matrix/inverse
   projection each produces order-`1e15` defects; `u64*proxy=2.93e16`.
-- **Next:** research/freeze R20R63B Gram/rank reformulation. Inspect the
-  nearly dependent active projector rows and certified conditioning lower
-  bound before any scaling, inverse construction or center.
+- **Next:** implement frozen R20R63B factor-space discriminator. Reuse the
+  existing Cholesky factor, construct only its triangular inverse and test
+  exact/strict-binary64 contraction; no NNQP RHS or trajectory.
 - **R20R19 result:** implementation `38b788c8`, semantic
   `46f8d84a...a06f`, route `MASK_CROSSING_FRONTIER`. Seven of eight late
   steps accept exactly the first mask-stable dyadic trial, with zero stable
@@ -5375,6 +5375,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** primary-source research and a frozen source-only/rank
   discriminator distinguish normal-equation conditioning from an intrinsic
   physical/model rank boundary.
+
+### D-189 -- Test one factor before implementing rank policy
+
+- **Context:** LAPACK's normal-equation analysis predicts squared conditioning;
+  the existing failed audit already contains `L`, so factor representability is
+  observable without altering the objective or selecting a rank threshold.
+- **Decision:** freeze R63B to capture that exact factor, construct only 102
+  forward-triangular inverse columns, and audit projected `L/Z` with R63
+  `Dot2Err` plus exact dyadics. Also compute a directed condition lower bound.
+- **Rejected:** another factorization, using full `X` as the factor inverse,
+  NNQP RHS application, premature QR implementation, row removal, scaling,
+  regularization, center/trajectory work or timing.
+- **Reconsider when:** exact and projected factor defects classify whether
+  binary64 factor-space work is arithmetically plausible.
 
 ## Performance facts retained
 
