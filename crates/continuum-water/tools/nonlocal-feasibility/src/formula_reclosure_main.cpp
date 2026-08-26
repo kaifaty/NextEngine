@@ -264,6 +264,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v4-centered-refinement-trajectory|"
                          "--nonlocal-al-generalization-v4-depth8-ratio-trajectory|"
                          "--nonlocal-al-generalization-v4-second-inverse-contraction|"
+                         "--nonlocal-al-generalization-v4-second-centered-solution|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2214,6 +2215,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v4_second_inverse_contraction_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-generalization-v4-second-centered-solution") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v4_second_centered_solution_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
