@@ -3327,3 +3327,12 @@ The next
 and [frozen contract](03b4e2d7r20r43-depth8-ratio-trajectory-contract.md) reuse
 the predeclared R41 arithmetic-floor checkpoint to test that ratio ordering
 without changing its formula.
+The
+[R20R43 evidence](../../development/nonlocal-nsr3b4e2d7r20r43-depth8-ratio-trajectory-evidence-2026-08-26.md)
+resolves that ratio, adds two unchanged active-set transitions and stops at a
+different 65-row inverse-audit target. The hook rejects the new tuple and
+freezes all four object roots. The next
+[second-inverse research](../../development/nonlocal-nsr3b4e2d7r20r44-second-inverse-contraction-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r44-second-inverse-contraction-contract.md)
+test exact/Dot2 right and left contraction before assuming centered refinement
+generalizes.
