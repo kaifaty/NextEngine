@@ -1,7 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63K_WIDE_FACTOR_STANDARD_REFINEMENT_REJECTED /
-NSR3B4E2D7R20R63L_WIDE_CONVERGENCE_FRONTIER_RESEARCH_NEXT /
+NSR3B4E2D7R20R63L_WIDE_CONVERGENCE_FRONTIER_FROZEN /
+NSR3B4E2D7R20R63L_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3702,6 +3703,15 @@ iteration 16; export/wide reaches `5.06e4`. Strict binary64 correction is
 nonmonotone and remains order `1e15`. Research a separate frozen 17--32
 convergence frontier for the two wide lanes before choosing GMRES-IR/PCG; do
 not amend the closed R63K budget.
+
+The
+[R20R63L research](../../development/nonlocal-nsr3b4e2d7r20r63l-wide-refinement-frontier-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63l-wide-refinement-frontier-contract.md) freeze an
+exact continuation of only the retained-wide and export/wide R63K states.
+Every iteration 17--32 is executed and independently certified; the unstable
+strict-binary64 lane receives zero continuation work. This locates the natural
+stationary-convergence frontier before selecting a Krylov or low-rank
+accelerator.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
