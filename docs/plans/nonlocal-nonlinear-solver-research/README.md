@@ -2,7 +2,8 @@
 
 Current milestone: `NSR3B4E2D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE /
 NSR3B4E2D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED /
-NSR3B4E2D7R20R63O_CANONICAL_DEFECT_TRANSPORT_RESEARCH_NEXT /
+NSR3B4E2D7R20R63O_CANONICAL_DEFECT_TRANSPORT_FROZEN /
+NSR3B4E2D7R20R63O_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3759,6 +3760,15 @@ residual at minimum slack near `-3.34e-19`. This is not a PCG rejection. The
 raw direct-product bound omits propagation of the certified per-column
 representation defect through `|p_j|`. Research that exact defect transport
 next; do not fit a tolerance or relabel R63N.
+
+The
+[R20R63O research](../../development/nonlocal-nsr3b4e2d7r20r63o-canonical-defect-transport-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63o-canonical-defect-transport-contract.md) freeze
+the missing linear enclosure. One immutable `E_ij` is derived from each R63N
+canonical center difference and both arithmetic bounds, then transported as
+the exact upward `sum_j E_ij |p_j|` at every initial/Krylov product. `E` never
+enters PCG. No tolerance multiplier, sparse/precision change, timing or
+production inference is admitted.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
