@@ -1,7 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63G_BINARY64_RECTANGULAR_FACTOR_FLOOR /
-NSR3B4E2D7R20R63H_BOUNDED_WIDER_FACTOR_RESEARCH_NEXT /
+NSR3B4E2D7R20R63H_BOUNDED_WIDE_FACTOR_FROZEN /
+NSR3B4E2D7R20R63H_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3627,6 +3628,15 @@ orthogonality/reconstruction/Gram correspondence, and tests coefficient
 storage separately from factor arithmetic against the immutable R63F weak
 signal. No RHS, new pivot search, rank threshold, row action or production
 arithmetic choice is admitted.
+
+The
+[R20R63H research](../../development/nonlocal-nsr3b4e2d7r20r63h-bounded-wide-factor-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63h-bounded-wide-factor-contract.md) freeze the
+minimum mixed-precision boundary. The operator remains binary64; only its
+active `315 x 102` factor workspace is promoted. A second lane casts the
+completed factor back to binary64. Both lanes must preserve the stored and
+original weak images under strict open signal balls. No RHS, triangular solve,
+iterative refinement or default runtime-wide arithmetic is admitted.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
