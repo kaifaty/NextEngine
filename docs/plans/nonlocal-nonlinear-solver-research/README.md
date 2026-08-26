@@ -14,7 +14,8 @@ Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS 
 Current bounded frontier: `NSR3B4E2D7R20R27_PASS_LINE_ENVELOPE_EXHAUSTED /
 NSR3B4E2D7R20R28_PASS_BIDIRECTIONAL_ACCEPTANCE /
 NSR3B4E2D7R20R29_PASS_LATER_GLOBALIZATION_REJECTED /
-NSR3B4E2D7R20R30_FROZEN / REPORT_ONLY`.
+NSR3B4E2D7R20R30_PASS_SAME_FACE_REJECTION /
+NSR3B4E2D7R20R31_FROZEN / REPORT_ONLY`.
 
 Candidate identity:
 
@@ -3211,3 +3212,12 @@ iteration 22 rejects globalization. The next
 [terminal audit research](../../development/nonlocal-nsr3b4e2d7r20r30-post-recovery-globalization-research-2026-08-26.md)
 and [report-only contract](03b4e2d7r20r30-post-recovery-globalization-contract.md)
 classify every iteration-22 margin and mask regime before a second candidate.
+The
+[R20R30 evidence](../../development/nonlocal-nsr3b4e2d7r20r30-post-recovery-globalization-evidence-2026-08-26.md)
+finds 21 strictly negative same-face margins with no mask/ball event. The full
+step reports KKT scalars below `2^-70`, but terminal certification was not yet
+audited. The next
+[certificate research](../../development/nonlocal-nsr3b4e2d7r20r31-terminal-certificate-research-2026-08-26.md)
+and [merit-audit contract](03b4e2d7r20r31-terminal-certificate-contract.md)
+test whether an existing trial is already terminally certified and decompose
+the bounded Armijo comparison without applying it.
