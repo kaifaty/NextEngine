@@ -2,7 +2,7 @@
 
 ## Status and bounded claim
 
-`WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_AUDITION_REQUIRED / NO_P1_PROMOTION`
+`WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE / NO_P1_PROMOTION`
 
 This report records one frozen P0 screen for two concrete experimental targets:
 
@@ -191,6 +191,12 @@ they do not rank H above G. The center Q0 report retains
 fit window. That limitation is recorded rather than treated as a sound-quality
 failure or hidden in a scalar.
 
+Direct product-owner G/H audition found the two difficult to distinguish, with
+a weak preference for the second clip, H. H therefore becomes the provisional
+experimental baseline and G remains its close positive control. The low
+discriminability is also a stop signal: another near-neighbor coefficient tweak
+would not be a useful independent experiment.
+
 ## Exact selected outputs
 
 | Output | WAV SHA-256 |
@@ -210,14 +216,13 @@ position relation.
 
 ## Decision and remaining uncertainty
 
-Keep accepted wood-B bit-exact, preserve Glass-G as the positive control and
-expose Glass-H as the sole new demo counterfactual. Keep rejected D/F,
-reference audio, blind bundles, model weights and evaluator artifacts external.
-Preserve the ordinary clip mixer as the shipping/fault fallback.
+Keep accepted wood-B bit-exact, retain Glass-G as the close positive control
+and keep weakly preferred Glass-H as the current demo profile. Keep rejected
+D/F, reference audio, blind bundles, model weights and evaluator artifacts
+external. Preserve the ordinary clip mixer as the shipping/fault fallback.
 
-The next discriminator is a direct product-owner audition of Glass-H against
-the partially accepted Glass-G. H may be preferred, rejected in favor of G or
-motivate a bounded blend; the descriptors cannot make that decision. A
-controlled recording of one known glass body at repeated positions/forces is
-still required before held-out ranking, autonomous quality iteration, a generic
-material claim or any P1 promotion.
+Do not continue with another barely separated G/H coefficient variant. The
+next useful discriminator is a controlled recording of one known glass body at
+repeated positions/forces, or a deliberately larger one-axis counterfactual
+evaluated against that target. This remains required before held-out ranking,
+autonomous quality iteration, a generic material claim or any P1 promotion.

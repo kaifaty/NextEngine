@@ -359,9 +359,11 @@ evidence for its sparse small-clink plus fused-onset model family without
 accepting it as final. Glass-H is one human-authorized conservative refinement
 of that result, not an automatic-metric selection: it preserves G's fused-onset
 pulse definition, shortens the modal tail and adds low-gain high-band energy.
-Its descriptors may verify that intended relation, but only direct G/H audition can select between
-them. Preserve modal impact where it has human support, but block generic
-quality claims and blind coefficient tuning. The next coherent work package is
-an external, human-calibrated
+Its descriptors verify that intended relation; direct audition found G/H hard
+to distinguish and weakly preferred H. Keep H as the provisional baseline and
+G as its close control, but treat the low discriminability as evidence against
+another near-neighbor coefficient loop. Preserve modal impact where it has
+human support, but block generic quality claims and blind coefficient tuning.
+The next coherent work package is an external, human-calibrated
 `PhysicalSoundQualityOracleP0`; its success means reliable held-out ranking of
 candidate sounds, not production promotion.
