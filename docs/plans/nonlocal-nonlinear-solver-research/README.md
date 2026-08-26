@@ -3453,3 +3453,8 @@ consumes one iteration-10 audit and certifies counterflow ordinarily with the
 same 701 principal solves/transitions. A separate full v4 composition of the
 R50 failed-inverse verifier and R55 slope verifier is now the next bounded
 generalization gate.
+That gate is frozen by the
+[R20R56 research](../../development/nonlocal-nsr3b4e2d7r20r56-composed-v4-corpus-research-2026-08-26.md)
+and [contract](03b4e2d7r20r56-composed-v4-corpus-contract.md): replay all five
+immutable cases with independent per-case caps and require the exact trigger
+matrix `5/0, 0/0, 0/1, 0/0, 0/0` before claiming composition.

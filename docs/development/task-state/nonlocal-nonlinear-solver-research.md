@@ -5285,7 +5285,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    direction/nominal slope, verified error `1.09315e-24` and refined bound
    `2.48507e-36`. Preserve R20R55 semantic `9684d2ad...fc6e`, one call/66
    columns, unchanged direction and
-   ordinary certification at 701 transitions. Research and freeze R20R56 as a
+   ordinary certification at 701 transitions. Implement frozen R20R56 as a
    five-case composition of independent R50/R55 caps; add no unrelated
    fallback, root-selected branch,
    prodK, unrelated solve, counterflow retry,
