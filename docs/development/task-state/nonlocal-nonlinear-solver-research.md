@@ -317,6 +317,12 @@
   projected once to binary128, one offline dense `Z` application, one center
   update and an independent exact common sign certificate. Execute and bind
   every iteration after first pass; require equal final sign vectors.
+- **Invalid run warning:** the first R63T apparatus execution incorrectly
+  required `common_audit.matrix.columns==102`. That field retains the physical
+  tangent width 315; the common square operator is established by `rows==102`
+  and 10,404 oracle numerators. Both lanes therefore stopped before correction
+  work. The pre-correction run has no scientific credit and the invalid
+  dimension premise was removed.
 - **Next:** implement only the frozen R63T common-residual recoverability
   discriminator. Do not use R60 signs/stored dense `H/X`, replace state,
   relabel dense `Z` as runtime, add factor/sparse/timing work or infer GPU/

@@ -80160,6 +80160,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_v5_full_operator_materialization.inc"
 #include "generalization_v5_common_operator_inverse.inc"
 #include "generalization_v5_common_operator_pcg.inc"
+#include "generalization_v5_common_residual_recoverability.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
