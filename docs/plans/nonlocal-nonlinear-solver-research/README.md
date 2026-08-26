@@ -3483,3 +3483,8 @@ The
 admits all six distinct problems with `53/75/84/73/55/77` certified-positive
 rows and zero solver work. A one-shot blind replay of the unchanged composed
 policy is now the next gate.
+That one-shot gate is frozen by the
+[R20R59 research](../../development/nonlocal-nsr3b4e2d7r20r59-blind-v5-replay-research-2026-08-26.md)
+and [contract](03b4e2d7r20r59-blind-v5-replay-contract.md). It explicitly treats
+R50's current dimension-65 rejection as a valid blind policy boundary rather
+than silently generalizing the certificate after observation.

@@ -5330,7 +5330,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    work ledger. Preserve R20R57 semantic `2e5b9353...3b9a`, all six source and
    geometry roots and literal zero operator/solver work. Preserve R20R58
    semantic `966c7264...bfad`, all six problem roots and zero solver work.
-   Research and freeze R20R59 as one blind composed-policy replay; add no retry,
+   Implement frozen R20R59 as one blind composed-policy replay; add no retry,
    tuning or unrelated
    fallback, root-selected branch,
    prodK, unrelated solve, counterflow retry,
