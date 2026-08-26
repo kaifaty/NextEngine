@@ -233,7 +233,12 @@ its manifest SHA-256 is
 `1db7e93195c48fe5e0a19315a8008220b58ce3d38bf32894121a308c0fed5c60`.
 It preserves the accepted 16-step anchor, the synthetic target, five
 equal-amplitude checkpoints and all four final amplitude/transient variants.
-Human audition remains the decision gate; no automatic winner is claimed.
+Product-owner audition selected
+`09-step150-ridge-amplitude-transient.wav` as the best candidate and described
+it as a strike on a glass container with a fairly thin wall. Its SHA-256 is
+`4246dd506d9db8e3d30f7764cdb8fe034508b42313b83924392f8ab864dd6d77`.
+This is positive identity evidence for that bounded archetype, not for a
+universal glass material or physically identified wall thickness.
 
 ## Decision and smallest next experiment
 
@@ -243,19 +248,20 @@ As an inverse-material tool, it still requires known geometry and recording
 conditions. Material, geometry, excitation, microphone response and radiation
 remain confounded when one synthetic WAV is repeated over the expected inputs.
 
-The checkpointed run closes the requested compute/export step but not
-perceptual selection. The smallest next experiment is therefore:
+The checkpointed run closes the requested compute/export and first perceptual
+selection steps. The smallest next experiment is therefore:
 
-1. blind-audition the accepted anchor, selected checkpoints and four final
-   variants for glass identity, naturalness and impact clarity;
-2. retain a new candidate only if that listening result is meaningfully better
-   than the accepted 16-step anchor, not merely closer to the synthetic target;
-3. extend to 1,001 material steps, compare 32/64 modes or add the released
-   filtered-noise path one variable at a time only after a positive selection;
-4. freeze the selected `f_i`, exponential damping `d_i`, gain `A_i` and
-   transient parameters as external calibration evidence for an engine-owned
-   recurrence; `r_i = exp(-d_i / sample_rate)` and
-   `T60 = ln(1000) / d_i`.
+1. freeze candidate `09` and its `f_i`, exponential damping `d_i`, ridge gain
+   `A_i` and transient parameters as external calibration evidence;
+2. reproduce its PCM with an engine-owned offline recurrence and measure the
+   residual against the selected WAV; `r_i = exp(-d_i / sample_rate)` and
+   `T60 = ln(1000) / d_i`;
+3. if a broader vessel palette is needed, change upper-mode tilt and transient
+   level one variable at a time around this anchor, labeling the results as
+   artistic thin/thick-wall impressions rather than inferred geometry;
+4. extend optimization steps, mode count or filtered noise only if the bounded
+   recurrence cannot preserve the selected identity or a controlled recording
+   exposes a specific residual.
 
 Physical transfer across shapes, strike points and sizes is a later experiment
 requiring one exact scaled glass mesh, measured or fixed density, multiple
