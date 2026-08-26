@@ -3382,3 +3382,13 @@ and [default-off contract](03b4e2d7r20r49-three-refinement-trajectory-contract.m
 apply all three frozen certificates once. This is the final target-specific
 chain discriminator: a fourth inverse boundary redirects research to a
 case-agnostic compensated verification policy.
+The
+[R20R49 evidence](../../development/nonlocal-nsr3b4e2d7r20r49-three-refinement-trajectory-evidence-2026-08-26.md)
+applies all three certificates and advances torsion to `708` transitions, then
+captures a fourth distinct inverse-audit boundary. This closes target-specific
+chaining. The next
+[generic-verifier research](../../development/nonlocal-nsr3b4e2d7r20r50-generic-centered-verifier-research-2026-08-26.md)
+and [root-agnostic contract](03b4e2d7r20r50-generic-centered-verifier-contract.md)
+evaluate the same fixed depth-16 compensated certificate on every failed
+legacy audit under the inherited 32-iteration structural cap. Object roots are
+regression evidence only and never policy selectors.
