@@ -3336,3 +3336,12 @@ freezes all four object roots. The next
 and [report-only contract](03b4e2d7r20r44-second-inverse-contraction-contract.md)
 test exact/Dot2 right and left contraction before assuming centered refinement
 generalizes.
+The
+[R20R44 evidence](../../development/nonlocal-nsr3b4e2d7r20r44-second-inverse-contraction-evidence-2026-08-26.md)
+contains all 8450 exact defects and proves right/left `rho` values
+`0.00502/0.17756`; the inherited `47.86` rejection is another cancellation
+artifact. The next
+[second-solution research](../../development/nonlocal-nsr3b4e2d7r20r45-second-centered-solution-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r45-second-centered-solution-contract.md)
+apply the fixed R41 checkpoint schedule to the new RHS without changing NNQP
+state.
