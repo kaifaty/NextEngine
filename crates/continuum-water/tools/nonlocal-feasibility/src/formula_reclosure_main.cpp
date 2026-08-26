@@ -247,6 +247,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v3-event-forward-bound|"
                          "--nonlocal-al-generalization-v3-certified-event-trajectory|"
                          "--nonlocal-al-generalization-v3-post-event-globalization|"
+                         "--nonlocal-al-generalization-v3-sub-envelope-event|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2065,6 +2066,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v3_post_event_globalization_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command ==
+            "--nonlocal-al-generalization-v3-sub-envelope-event") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v3_sub_envelope_event_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
