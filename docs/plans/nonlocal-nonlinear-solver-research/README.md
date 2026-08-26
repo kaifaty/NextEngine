@@ -3247,3 +3247,12 @@ freezes five distinct sources and 404 samples at semantic
 and [input-only contract](03b4e2d7r20r34-v4-preflight-contract.md) build exact
 operators and test ownership, excitation, scaling and problem-root distinction
 without invoking the solver.
+The
+[R20R34 evidence](../../development/nonlocal-nsr3b4e2d7r20r34-v4-preflight-evidence-2026-08-26.md)
+admits all five distinct problems with `47/62/48/65/60` rigorously positive
+rows and zero solver work. The next
+[v4 generalization research](../../development/nonlocal-nsr3b4e2d7r20r35-v4-generalization-research-2026-08-26.md)
+and [one-shot contract](03b4e2d7r20r35-v4-generalization-contract.md) execute a
+case-agnostic R32 policy once: terminal certificate first, then at most one
+unique forward-certified zero-bound recovery per case, with all other
+rejections fail-closed.
