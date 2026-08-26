@@ -3,7 +3,7 @@
 Current milestone: `NSR3B4E2D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE /
 NSR3B4E2D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED /
 NSR3B4E2D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED /
-NSR3B4E2D7R20R63P_OPERATOR_SEMANTIC_ARBITRATION_RESEARCH_NEXT /
+NSR3B4E2D7R20R63P_PROJECTOR_IDEMPOTENCE_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3778,6 +3778,16 @@ unresolved. Thus the issue is no longer a missing bound: `H` and direct
 `K=sigma T T^T` have materially different inverses in the weak direction.
 Research an exact/higher-precision `A DPi A^T` semantic arbitration before
 choosing dense reproduction, low-rank correction or direct-operator authority.
+
+The
+[R20R63P research](../../development/nonlocal-nsr3b4e2d7r20r63p-projector-idempotence-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63p-projector-idempotence-contract.md) freeze the
+smallest causal operator arbitration. The stored active-ball derivative uses
+`P_d=I-yy^T/d`; exact arithmetic gives
+`P_d^2-P_d=((y^T y-d)/d^2)yy^T`. R63P evaluates the inherited weak witness
+with exact dyadic/rational cross-products and asks whether dense `H` represents
+`sigma A P_d A^T` while the tangent Gram represents the distinct
+`sigma A P_d^2 A^T`. No RHS solve or empirical rank-one repair is admitted.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
