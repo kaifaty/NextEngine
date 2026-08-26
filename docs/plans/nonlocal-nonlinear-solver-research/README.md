@@ -3468,3 +3468,8 @@ The new blind family is frozen by the
 and [source-only contract](03b4e2d7r20r57-v5-source-manifest-contract.md): six
 new 96--120-particle fields and literal zero operator/solver work must be
 committed before any input preflight.
+The
+[R20R57 evidence](../../development/nonlocal-nsr3b4e2d7r20r57-v5-source-manifest-evidence-2026-08-26.md)
+freezes six distinct source/geometry roots and 637 particles with all forbidden
+work false. These exact sources now advance to a separately frozen input-only
+preflight; they may not be edited after excitation is observed.

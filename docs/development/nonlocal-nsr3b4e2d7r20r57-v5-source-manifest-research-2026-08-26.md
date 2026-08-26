@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R57 v5 source-manifest research
 
-Status: `RESEARCH COMPLETE / NEW BLIND SOURCE FAMILY SELECTED`.
+Status: `PASS / SIX BLIND V5 SOURCES IMMUTABLY FROZEN`.
 
 ## Question
 
@@ -27,3 +27,9 @@ timing counters must remain literal zero. A later quiet or rejected source is
 evidence; it may not be edited or replaced after this commit.
 
 Success authorizes only a separately frozen input-only v5 preflight.
+
+## Outcome
+
+All six finite/owned sources are distinct and repeat byte-identically with 637
+particles total. No operator or solver work executed. Their source roots are
+now immutable inputs to R58.
