@@ -1,4 +1,4 @@
-# NSR3-B4E2D7R20R63M preconditioned-CG contract -- revision 1
+# NSR3-B4E2D7R20R63M preconditioned-CG contract -- revision 2
 
 | Field | Value |
 |---|---|
@@ -76,8 +76,11 @@ GMRES/MINRES, rank action, row drop, regularization or state update.
 
 ## Controls
 
-1. Scalar SPD `H=1`, preconditioner inverse `3/4`, `b=1`, `x0=-3` certifies
-   exactly at PCG iteration 1.
+1. An eight-dimensional positive diagonal SPD system with scalar
+   preconditioner inverse `3/4` completes all eight PCG updates and certifies
+   its known positive solution. A one-dimensional control would terminate
+   exactly after one update and therefore cannot audit the frozen no-early-exit
+   eight-update ledger.
 2. Negative scalar `H` rejects at nonpositive `p^THp` with exact stage.
 3. A passed/refined parent start is rejected; only the R63I start is valid.
 4. A nonidentity permutation verifies preconditioner orientation.

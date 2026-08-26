@@ -2,6 +2,10 @@
 
 Status: `FROZEN FOR IMPLEMENTATION`.
 
+Contract apparatus revision: `2` (the completion control uses eight distinct
+positive diagonal eigenvalues so all eight frozen updates are exercised; the
+scientific lanes, budget and routes are unchanged).
+
 ## Question
 
 R63L proves that exported-factor standard refinement eventually certifies the
