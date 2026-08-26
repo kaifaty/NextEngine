@@ -317,6 +317,8 @@ SplitBoundaryReport run_al_generalization_v5_active_row_rank_controls();
 SplitBoundaryReport run_al_generalization_v5_projector_nullspace_controls();
 SplitBoundaryReport
 run_al_generalization_v5_representative_injectivity_controls();
+SplitBoundaryReport
+run_al_generalization_v5_rectangular_factor_precision_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
