@@ -1,8 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63G_BINARY64_RECTANGULAR_FACTOR_FLOOR /
-NSR3B4E2D7R20R63H_BOUNDED_WIDE_FACTOR_FROZEN /
-NSR3B4E2D7R20R63H_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63H_WIDE_BUILD_BINARY64_EXPORT_CANDIDATE /
+NSR3B4E2D7R20R63I_EXPORTED_FACTOR_RHS_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3637,6 +3636,16 @@ active `315 x 102` factor workspace is promoted. A second lane casts the
 completed factor back to binary64. Both lanes must preserve the stored and
 original weak images under strict open signal balls. No RHS, triangular solve,
 iterative refinement or default runtime-wide arithmetic is admitted.
+
+The
+[R20R63H evidence](../../development/nonlocal-nsr3b4e2d7r20r63h-bounded-wide-factor-evidence-2026-08-26.md)
+selects `WIDE_BUILD_BINARY64_EXPORT_CANDIDATE`. A promoted factor built from
+the stored binary64 operator preserves both stored/original weak signals, and
+one-time binary64 export still remains inside both signal balls. The export
+original-image squared error is `1.46e-31` versus signal `3.95e-30`. Research
+one immutable RHS through retained-wide, exported-wide-consumption and strict-
+binary64-consumption lanes next; do not integrate or infer production
+arithmetic.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
