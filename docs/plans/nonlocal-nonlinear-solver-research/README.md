@@ -1,11 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R19R64_PASS_SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE /
-NSR3B4E2D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE /
-NSR3B4E2D7R20_V1_CORPUS_EXCITATION_FAIL /
-NSR3B4E2D7R20_V2_OPERATOR_PREFLIGHT_PASS /
-NSR3B4E2D7R20_STOPPING_CONTRACT_R2_FROZEN /
-NSR3B4E2D7R20_ORACLE_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R61_PROFILE_BOUNDED_V5_6_OF_6_CANDIDATE /
+NSR3B4E2D7R20R62_FINITE_PRECISION_CORRESPONDENCE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3488,3 +3484,28 @@ That one-shot gate is frozen by the
 and [contract](03b4e2d7r20r59-blind-v5-replay-contract.md). It explicitly treats
 R50's current dimension-65 rejection as a valid blind policy boundary rather
 than silently generalizing the certificate after observation.
+The first R59 execution had invalid slope-attempt accounting and receives no
+scientific credit. After the eligibility repair, the
+[R20R59 evidence](../../development/nonlocal-nsr3b4e2d7r20r59-blind-v5-replay-evidence-2026-08-26.md)
+passes apparatus accounting and identifies one exact dimension-policy boundary:
+5/6 cases certify, while oblique jet/twist requests a dimension-102 center.
+The separately frozen
+[R20R60 research](../../development/nonlocal-nsr3b4e2d7r20r60-dimension-generic-center-research-2026-08-26.md)
+and [contract](03b4e2d7r20r60-dimension-generic-center-contract.md) audit that
+tuple without applying it. The
+[R20R60 evidence](../../development/nonlocal-nsr3b4e2d7r20r60-dimension-generic-center-evidence-2026-08-26.md)
+proves exact/Dot2 two-sided contraction and resolves all 102 signs already at
+depth four; dimension 65 is policy-only for this tuple.
+The next
+[R20R61 research](../../development/nonlocal-nsr3b4e2d7r20r61-profile-bounded-callback-research-2026-08-26.md)
+and [contract](03b4e2d7r20r61-profile-bounded-callback-contract.md) freeze one
+complete v5 replay with the unchanged depth-16 certificate, a preflight-owned
+dimension cap 120 and exact dimension-derived work.
+The
+[R20R61 evidence](../../development/nonlocal-nsr3b4e2d7r20r61-profile-bounded-callback-evidence-2026-08-26.md)
+certifies 6/6. Exactly one dimension-102 center is consumed; the other five
+case roots remain exact and neither slope fallback nor another mechanism runs.
+This closes the current binary128 tiny-corpus policy gate. Research a bounded
+finite-precision/certification correspondence architecture next; do not add a
+third binary128 callback, start physical-scale execution, time this shared-host
+oracle or imply production readiness.

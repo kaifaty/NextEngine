@@ -80138,6 +80138,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_v5_preflight.inc"
 #include "generalization_v5_blind_replay.inc"
 #include "generalization_v5_dimension_generic_center.inc"
+#include "generalization_v5_profile_bounded_callback.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

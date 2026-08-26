@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R61 profile-bounded generic callback research
 
-Status: `RESEARCH COMPLETE / SIX-CASE TRAJECTORY REPLAY SELECTED`.
+Status: `SUPPORTED_BOUNDED / PROFILE_BOUNDED_V5_6_OF_6_CANDIDATE`.
 
 ## Question
 
@@ -36,3 +36,8 @@ boundary without retry.
 
 R61 is still binary128 CPU research. It changes no R50 result, runtime/GPU
 path, public contract, performance status or production authority.
+
+## Result pointer
+
+The frozen replay certifies 6/6 with one dimension-102 replacement. See
+[R61 evidence](nonlocal-nsr3b4e2d7r20r61-profile-bounded-callback-evidence-2026-08-26.md).

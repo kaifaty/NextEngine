@@ -308,6 +308,7 @@ SplitBoundaryReport run_al_generalization_v5_manifest_controls();
 SplitBoundaryReport run_al_generalization_v5_preflight_controls();
 SplitBoundaryReport run_al_generalization_v5_blind_replay_controls();
 SplitBoundaryReport run_al_generalization_v5_dimension_generic_center_controls();
+SplitBoundaryReport run_al_generalization_v5_profile_bounded_callback_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
