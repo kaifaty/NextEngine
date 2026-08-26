@@ -5,6 +5,10 @@
 //! synthesizer that can be auditioned offline and, behind an explicit Cargo
 //! feature in the reference game, mixed after the ordinary baseline mixer.
 
+mod glass_body_profiles;
+
+use glass_body_profiles::glass_body_profile;
+
 const SAMPLE_RATE_HZ: u32 = 48_000;
 const FRAMES_PER_TICK: usize = 1_600;
 const CHANNEL_COUNT: usize = 2;
@@ -88,6 +92,26 @@ impl PhysicalSoundImpactPoint {
                 8_000, 16_000, 14_000, 24_000, 32_767, -28_000, 22_000, 30_000, -26_000, 18_000,
                 32_000, -24_000,
             ],
+        }
+    }
+}
+
+/// Deliberately separated glass-object hypotheses for external audition only.
+/// They are not material classes, cooked content or a production contract.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum GlassBodyVariant {
+    ThinGoblet,
+    Bottle,
+    ThickJar,
+}
+
+impl GlassBodyVariant {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::ThinGoblet => "thin-goblet",
+            Self::Bottle => "bottle",
+            Self::ThickJar => "thick-jar",
         }
     }
 }
@@ -176,6 +200,10 @@ struct ModalVoice {
 impl ModalVoice {
     fn new(excitation: PhysicalSoundExcitation) -> Self {
         let profile = material_profile(excitation.material);
+        Self::new_with_profile(excitation, profile)
+    }
+
+    fn new_with_profile(excitation: PhysicalSoundExcitation, profile: MaterialProfile) -> Self {
         let point_factors = excitation.impact_point.factors_q15(excitation.material);
         let mut modes = [ModeState::default(); MAX_MODE_COUNT];
         for (index, mode) in modes.iter_mut().take(profile.modes.len()).enumerate() {
@@ -267,6 +295,7 @@ impl ModalVoice {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 struct MaterialProfile {
     modes: &'static [ModeProfile],
     strike_transient: StrikeTransientProfile,
@@ -639,6 +668,34 @@ pub fn render_physical_sound_impact(excitation: PhysicalSoundExcitation) -> Vec<
     samples
 }
 
+/// Renders one center impact for a deliberately separated glass-object
+/// hypothesis. Energy and seed are shared by the audition command so only the
+/// bounded body profile changes between variants.
+#[must_use]
+pub fn render_glass_body_variant_impact(
+    variant: GlassBodyVariant,
+    energy_q16: u32,
+    strike_seed: u32,
+) -> Vec<i16> {
+    let excitation = PhysicalSoundExcitation::new(
+        PhysicalSoundMaterial::Glass,
+        PhysicalSoundImpactPoint::Center,
+        energy_q16,
+        0,
+        strike_seed,
+    );
+    let mut mixer = ExperimentalPhysicalSoundMixer::default();
+    mixer.voices.push(ModalVoice::new_with_profile(
+        excitation,
+        glass_body_profile(variant),
+    ));
+    let mut samples = mixer.mix_tick(&[]);
+    while mixer.active_voice_count() > 0 {
+        samples.extend(mixer.mix_tick(&[]));
+    }
+    samples
+}
+
 /// Six-second comparison sequence used by the independent audition command.
 #[must_use]
 pub fn render_physical_sound_lab_sequence() -> Vec<i16> {
@@ -797,6 +854,39 @@ mod tests {
             .map(|pulse| pulse.offset_frames + pulse.duration_frames)
             .expect("glass clink pulse");
         assert!(final_frame <= 72, "onset must end within 1.5 ms at 48 kHz");
+    }
+
+    #[test]
+    fn glass_body_variants_repeat_exactly_and_stay_materially_separated() {
+        let render = |variant| render_glass_body_variant_impact(variant, 49_152, 0x61a5_b0d1);
+        let thin_goblet = render(GlassBodyVariant::ThinGoblet);
+        let bottle = render(GlassBodyVariant::Bottle);
+        let thick_jar = render(GlassBodyVariant::ThickJar);
+
+        assert_eq!(thin_goblet, render(GlassBodyVariant::ThinGoblet));
+        assert_eq!(bottle, render(GlassBodyVariant::Bottle));
+        assert_eq!(thick_jar, render(GlassBodyVariant::ThickJar));
+        assert_eq!(thin_goblet.len(), 48_000);
+        assert_eq!(bottle.len(), 22_400);
+        assert_eq!(thick_jar.len(), 16_000);
+        assert_eq!(
+            ContentHash::from_bytes(sha256(&samples_as_bytes(&thin_goblet))).to_hex(),
+            "47fc42095a7bffcd6a1562d9e2095265a76ff3e1e3ac10fc2ac79f444f145bb5"
+        );
+        assert_eq!(
+            ContentHash::from_bytes(sha256(&samples_as_bytes(&bottle))).to_hex(),
+            "07c0de35ad35ee9f8760165f94a9245cef3ed84cab145e57a379936a22564515"
+        );
+        assert_eq!(
+            ContentHash::from_bytes(sha256(&samples_as_bytes(&thick_jar))).to_hex(),
+            "acb94f263d9de25e50ab2e5dcead69c129dc457c05852cc19cc143b29a1e10c7"
+        );
+        assert_ne!(thin_goblet, bottle);
+        assert_ne!(thin_goblet, thick_jar);
+        assert_ne!(bottle, thick_jar);
+        assert!(thin_goblet.iter().any(|sample| *sample != 0));
+        assert!(bottle.iter().any(|sample| *sample != 0));
+        assert!(thick_jar.iter().any(|sample| *sample != 0));
     }
 
     #[test]

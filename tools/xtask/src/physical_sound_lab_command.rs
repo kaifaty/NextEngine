@@ -5,8 +5,9 @@ use next_contracts::canonical::sha256;
 use next_contracts::ids::ContentHash;
 use next_presentation::audio_mix::{AudioMixProfileV1, encode_canonical_wav};
 use next_presentation::physical_sound_lab::{
-    ExperimentalPhysicalSoundMixer, PhysicalSoundExcitation, PhysicalSoundImpactPoint,
-    PhysicalSoundMaterial, render_physical_sound_impact, render_physical_sound_lab_sequence,
+    ExperimentalPhysicalSoundMixer, GlassBodyVariant, PhysicalSoundExcitation,
+    PhysicalSoundImpactPoint, PhysicalSoundMaterial, render_glass_body_variant_impact,
+    render_physical_sound_impact, render_physical_sound_lab_sequence,
 };
 use serde::Serialize;
 
@@ -48,6 +49,16 @@ struct LabOutputReport {
 }
 
 #[derive(Serialize)]
+struct GlassBodyOutputReport {
+    file: String,
+    object: String,
+    energy_q16: u32,
+    stereo_frame_count: usize,
+    peak_sample: u16,
+    wav_sha256: String,
+}
+
+#[derive(Serialize)]
 struct LabReport {
     schema: &'static str,
     status: &'static str,
@@ -61,6 +72,7 @@ struct LabReport {
     demo_sequence_wav_sha256: String,
     quality_manifest_file: &'static str,
     outputs: Vec<LabOutputReport>,
+    glass_body_outputs: Vec<GlassBodyOutputReport>,
 }
 
 pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
@@ -127,6 +139,32 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         }
     }
 
+    let glass_body_energy_q16 = 49_152;
+    let glass_body_seed = 0x61a5_b0d1;
+    let mut glass_body_reports = Vec::new();
+    for variant in [
+        GlassBodyVariant::ThinGoblet,
+        GlassBodyVariant::Bottle,
+        GlassBodyVariant::ThickJar,
+    ] {
+        let first =
+            render_glass_body_variant_impact(variant, glass_body_energy_q16, glass_body_seed);
+        let second =
+            render_glass_body_variant_impact(variant, glass_body_energy_q16, glass_body_seed);
+        repeated_render_identical &= first == second;
+        let wav = encode_canonical_wav(&profile, &first);
+        let file = format!("glass-{}.wav", variant.label());
+        fs::write(output.join(&file), &wav).map_err(|error| format!("write {file}: {error}"))?;
+        glass_body_reports.push(GlassBodyOutputReport {
+            file,
+            object: variant.label().to_owned(),
+            energy_q16: glass_body_energy_q16,
+            stereo_frame_count: first.len() / 2,
+            peak_sample: peak_sample(&first),
+            wav_sha256: ContentHash::from_bytes(sha256(&wav)).to_hex(),
+        });
+    }
+
     let demo_sequence = render_physical_sound_lab_sequence();
     let second_demo_sequence = render_physical_sound_lab_sequence();
     repeated_render_identical &= demo_sequence == second_demo_sequence;
@@ -144,13 +182,22 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
             file: entry.file.clone(),
             sha256: entry.wav_sha256.clone(),
         })
+        .chain(glass_body_reports.iter().map(|entry| Q0Candidate {
+            id: format!("glass-{}", entry.object),
+            object_id: format!("p0-glass-{}", entry.object),
+            material: "glass".to_owned(),
+            impact_position: "center".to_owned(),
+            force_band: "medium".to_owned(),
+            file: entry.file.clone(),
+            sha256: entry.wav_sha256.clone(),
+        }))
         .collect::<Vec<_>>();
     write_q0_manifest(&output, &quality_candidates)?;
     let report = LabReport {
         schema: "nextengine.experimental-physical-sound-lab.report.v0",
         status: "PASS",
         claim: "EXPERIMENT_ONLY / NOT_A_SHIPPED_AUDIO_CONTRACT",
-        model: "bounded fixed-point 12-mode steel/wood banks plus a 4-mode glass clink with deterministic fused micro-contact onset",
+        model: "bounded fixed-point 12-mode steel/wood banks, current 4-mode glass clink and three separated glass-object audition profiles with one fused onset",
         fallback: "ordinary AudioMixerV1 output with the physical-sound-lab feature disabled",
         sample_rate_hz: ExperimentalPhysicalSoundMixer::sample_rate_hz(),
         channel_count: 2,
@@ -159,9 +206,14 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         demo_sequence_wav_sha256: ContentHash::from_bytes(sha256(&demo_wav)).to_hex(),
         quality_manifest_file: "quality-manifest.json",
         outputs: reports,
+        glass_body_outputs: glass_body_reports,
     };
     if !report.repeated_render_identical
         || report.outputs.iter().any(|entry| entry.peak_sample == 0)
+        || report
+            .glass_body_outputs
+            .iter()
+            .any(|entry| entry.peak_sample == 0)
     {
         return Err("physical-sound-lab deterministic/non-silent acceptance failed".to_owned());
     }

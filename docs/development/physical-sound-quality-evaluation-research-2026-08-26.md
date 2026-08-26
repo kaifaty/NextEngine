@@ -364,6 +364,10 @@ to distinguish and weakly preferred H. Keep H as the provisional baseline and
 G as its close control, but treat the low discriminability as evidence against
 another near-neighbor coefficient loop. Preserve modal impact where it has
 human support, but block generic quality claims and blind coefficient tuning.
+The follow-up goblet/bottle/thick-jar set deliberately changes body modes and
+duration under one excitation instead. Q0 confirms that its spectral and
+temporal descriptors separate; this only makes it a useful human target-choice
+experiment and does not calibrate Q0 or rank the three sounds.
 The next coherent work package is an external, human-calibrated
 `PhysicalSoundQualityOracleP0`; its success means reliable held-out ranking of
 candidate sounds, not production promotion.

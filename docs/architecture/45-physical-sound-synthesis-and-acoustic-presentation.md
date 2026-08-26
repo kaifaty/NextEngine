@@ -32,6 +32,10 @@ physical-sound-lab` command emits external 48 kHz audition WAVs, and the
 reference demo can mix committed `Begin` contacts behind the explicit Cargo
 feature `physical-sound-lab`. It uses 12-mode steel/dry-hardwood banks and one
 four-mode small-glass clink with a fused sub-1.5 ms non-fracture onset, plus a
+same-excitation external audition set for thin-goblet, bottle and thick-jar
+body hypotheses. The latter is deliberately separated diagnostic content, not
+three promoted material classes or a replacement for the current glass
+profile. The laboratory also uses a
 provisional adjacent-snapshot speed estimator because the current contact
 record lacks impulse/effective-mass and material fields. The small
 heterogeneous CC0 screens

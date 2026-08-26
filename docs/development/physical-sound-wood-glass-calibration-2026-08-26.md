@@ -2,7 +2,7 @@
 
 ## Status and bounded claim
 
-`WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE / NO_P1_PROMOTION`
+`WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE / GLASS-OBJECT_SET_AUDITION_READY / NO_P1_PROMOTION`
 
 This report records one frozen P0 screen for two concrete experimental targets:
 
@@ -197,6 +197,27 @@ experimental baseline and G remains its close positive control. The low
 discriminability is also a stop signal: another near-neighbor coefficient tweak
 would not be a useful independent experiment.
 
+## Deliberately separated glass-object audition
+
+The next audition changes the target body rather than making another adjacent
+Glass-H coefficient tweak. All three renders use energy `49,152`, seed
+`0x61a5_b0d1`, center participation and the same fused onset; only the bounded
+modal body profile and render duration differ.
+
+- Thin goblet uses the measured `630/1,563/2,927/4,640 Hz` impulse peaks of a
+  medium wineglass and a deliberately long `500 ms` render.
+- Bottle uses the measured dominant `3,200/4,448/5,632 Hz` structural clink of
+  a beer bottle, plus one short upper residual, in a `233.333 ms` render.
+- Thick jar is explicitly heuristic: lower modes and heavier damping form the
+  darker `166.667 ms` counterfactual. It is not represented as a measurement.
+
+Sources: [wineglass impulse measurement](https://www.rose-hulman.edu/~moloney/Ph425/ejp_projects_0708/resonant%20wineglass%20excitation%20n%20measurement%20AJP000851.pdf)
+and [Penn State beer-bottle modal analysis](https://www.acs.psu.edu/drussell/demos/beerbottle/beerbottle.html).
+The uncalibrated Q0 descriptors confirm material separation, not quality:
+spectral centroids are `1,948.754/3,657.293/1,499.715 Hz` and temporal
+centroids are `31.619/19.185/11.628 ms` for goblet/bottle/jar respectively.
+Direct audition remains the decision surface.
+
 ## Exact selected outputs
 
 | Output | WAV SHA-256 |
@@ -207,6 +228,9 @@ would not be a useful independent experiment.
 | `glass-center.wav` | `12c81bce61938e89904717461d95031755a7919cbb0f817ea6d0a0457e5d4c09` |
 | `glass-edge.wav` | `8fdea1c5eb41d81336fdc670eff174d73fcd1fdc7b84b62ab42c260192c22104` |
 | `glass-corner.wav` | `8aa5dbceeb0b979a3b4fd1c29f0c7337ba4b46b31d2787f7da3eb0aa1a4f0e77` |
+| `glass-thin-goblet.wav` | `0ab121b00b3c195df6d2101e8e5137d4dc0295b5a7243ba6247ba890df302423` |
+| `glass-bottle.wav` | `a83e9c728489743521146c2cc786d68216b3bc2c96e9497360acc0639ff1599f` |
+| `glass-thick-jar.wav` | `3a09c9c2d8a422334989086eb55a1d7d873004f111afaadd84700d003fdca2ad` |
 | `demo-sequence.wav` | `3cfbef1609ce57c39b52d25f3a9b6b6e53dcc172cdb0939e4ad137aabb66e2d2` |
 
 The center raw interleaved PCM hashes are pinned in focused Rust tests. Steel's
@@ -221,8 +245,8 @@ and keep weakly preferred Glass-H as the current demo profile. Keep rejected
 D/F, reference audio, blind bundles, model weights and evaluator artifacts
 external. Preserve the ordinary clip mixer as the shipping/fault fallback.
 
-Do not continue with another barely separated G/H coefficient variant. The
-next useful discriminator is a controlled recording of one known glass body at
-repeated positions/forces, or a deliberately larger one-axis counterfactual
-evaluated against that target. This remains required before held-out ranking,
+Do not continue with another barely separated G/H coefficient variant. First
+audition the deliberately separated goblet/bottle/jar set and use that result
+to choose one concrete body target. A controlled recording of the chosen body
+at repeated positions/forces remains required before held-out ranking,
 autonomous quality iteration, a generic material claim or any P1 promotion.
