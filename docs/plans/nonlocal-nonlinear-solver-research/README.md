@@ -6,7 +6,7 @@ NSR3B4E2D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED /
 NSR3B4E2D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED /
 NSR3B4E2D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE /
 NSR3B4E2D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE /
-NSR3B4E2D7R20R63S_COMMON_OPERATOR_PCG_CERTIFICATE_RESEARCH_NEXT /
+NSR3B4E2D7R20R63S_COMMON_OPERATOR_PCG_CERTIFICATE_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3829,6 +3829,13 @@ selects `COMMON_OPERATOR_TWO_SIDED_CANDIDATE`. Exact common-operator defects
 contract at `rho_left=9.06e-3` and `rho_right=3.57e-3`, yielding a strict left
 amplification bound `1.05019e33`. Replay the immutable RHS through direct
 tangent PCG next and certify exact common residual/signs without dense `H/X`.
+
+The
+[R20R63S research](../../development/nonlocal-nsr3b4e2d7r20r63s-common-operator-pcg-certificate-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63s-common-operator-pcg-certificate-contract.md)
+freeze both eight-update direct tangent-PCG lanes. The start and every iterate
+receive an exact `H*` residual and R63R solution-error/sign certificate. Dense
+`H/X`, R60 signs and defect transport are excluded.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
