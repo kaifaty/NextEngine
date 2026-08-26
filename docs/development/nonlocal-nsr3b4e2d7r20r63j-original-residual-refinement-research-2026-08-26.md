@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63J original-residual refinement research
 
-Status: `FROZEN FOR IMPLEMENTATION`.
+Status: `IMPLEMENTED / EXPORTED_FACTOR_REFINED_RHS_CANDIDATE`.
 
 ## Question
 
@@ -132,3 +132,17 @@ row deletion or regularization.
 
 R63J performs no replacement, following NNQP transition, trajectory, timing,
 runtime/GPU or production inference. R64 and R65 remain blocked.
+
+## Result
+
+The frozen apparatus selects `EXPORTED_FACTOR_REFINED_RHS_CANDIDATE` at
+semantic `4a4d1798...8f96`; stdout repeats at `b4a2908e...191d`. All three
+lanes independently recover the exact R60 `24+/78-` sign pattern at the first
+frozen checkpoint, depth 4. Their certified errors are
+`3.11e-3 / 1.99e-3 / 4.51e-3`. See the
+[evidence record](nonlocal-nsr3b4e2d7r20r63j-original-residual-refinement-evidence-2026-08-26.md).
+
+This proves mathematical recoverability with the dense verified `X` oracle.
+The next research stage must replace `X` as correction provider with the
+retained/exported rectangular factor while keeping `X` only for independent
+certification.

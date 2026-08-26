@@ -1,8 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63I_WIDE_RHS_SIGN_CERTIFICATE_REJECTED /
-NSR3B4E2D7R20R63J_ORIGINAL_RESIDUAL_REFINEMENT_FROZEN /
-NSR3B4E2D7R20R63J_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63J_EXPORTED_FACTOR_REFINED_RHS_CANDIDATE /
+NSR3B4E2D7R20R63K_FACTOR_STANDARD_REFINEMENT_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3676,6 +3675,15 @@ recertified independently against original `H,b` and the R60 componentwise
 sign vector. The experiment may prove mathematical recoverability only; dense
 `X`, binary128 correction, runtime integration and production inference remain
 out of scope.
+
+The
+[R20R63J evidence](../../development/nonlocal-nsr3b4e2d7r20r63j-original-residual-refinement-evidence-2026-08-26.md)
+selects `EXPORTED_FACTOR_REFINED_RHS_CANDIDATE`. All three rejected R63I
+initial solutions recover the exact `24+/78-` sign vector at frozen depth 4;
+their certified errors are `3.11e-3 / 1.99e-3 / 4.51e-3`. This proves
+recoverability with original residuals, but the correction still consumes the
+dense verified inverse oracle. Research factor-based standard refinement next,
+keeping that inverse only for independent certification.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
