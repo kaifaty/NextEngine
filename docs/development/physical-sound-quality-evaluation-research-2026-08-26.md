@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `RESEARCH_COMPLETE / EVALUATOR_NOT_IMPLEMENTED` |
+| Status | `RESEARCH_COMPLETE / CLASSICAL_Q0_Q1_IMPLEMENTED / HUMAN_CALIBRATION_OPEN` |
 | Question | How can Codex judge the impact-sound experiment well enough to run useful improvement iterations without asking the product owner to audition every candidate? |
 | Result | Build a calibrated offline quality oracle over frozen real references, physical/perceptual descriptors, auxiliary learned embeddings and a small held-out human-preference set; no single metric or general audio model is an admissible judge |
 | Trigger | Product-owner audition reports that the current P0 only remotely resembles the intended sound |
@@ -282,6 +282,33 @@ Implement evaluator Q0/Q1 before changing the synthesizer:
 This gives Codex a falsifiable ear with a classical offline fallback. It avoids
 committing model weights or datasets, adds no runtime dependency and prevents
 another round of tuning to whichever artifact happens to sound less bad once.
+
+## Local implementation checkpoint
+
+`cargo run -p xtask -- physical-sound-eval --manifest <external-json>
+--output <external-empty-directory>` now implements the classical Q0/Q1 cut:
+
+- the physical-sound laboratory emits a sorted external manifest with exact WAV
+  hashes and the nine failed-baseline condition identities;
+- the evaluator accepts bounded PCM 8/16/24/32-bit and IEEE float32 WAV,
+  downmixes deterministically, aligns onset and reports hard signal checks,
+  multiresolution gain-matched log spectra, modal-peak assignment, attack,
+  temporal/spectral centroid, bandwidth/flatness and per-band T20;
+- matched entries report raw level separately from timbre/decay distances and
+  retain `NeedsHumanAudit`; no uncalibrated weighted quality scalar exists;
+- a fixed seed produces renamed A/B WAVs, a static local rating browser and a
+  separate hidden answer key;
+- external paths, hashes, entry order, counts, sizes and durations fail closed;
+  raw corpora and generated reports remain outside the repository.
+
+The first Q0 run analyzed all nine baseline WAVs. A repeated two-pair Q1
+control report was byte-identical: self-match returned zero for every distance,
+while steel-center against glass-corner produced `28.7939 dB` multiresolution
+spectrum RMSE, modal cost `0.642964` and spectral/modal/high-band-decay
+diagnostics. This proves determinism and basic sensitivity only. No reviewed
+real reference, human-preference calibration, relational-physics gate,
+embedding adapter or held-out ranker has run, so autonomous tuning remains
+blocked at Q2.
 
 ## Decision
 

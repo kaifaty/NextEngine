@@ -37,6 +37,14 @@ material fields. This experiment does not implement the candidate content
 records, does not satisfy a P1 ProductCheck and does not relax the production
 block below. Disabling the feature preserves the ordinary clip baseline.
 
+The same isolated experiment now includes `xtask physical-sound-eval`. It
+consumes only external hash-frozen WAV manifests, emits deterministic classical
+signal/modal/spectrum/decay reports and can build a seeded blind A/B browser for
+matched references. Its Q0 baseline and self/mismatch controls are evidence
+tooling only: no reviewed real corpus or human calibration has run, every
+matched candidate remains `NeedsHumanAudit`, and the command creates no public
+content schema, runtime dependency or promotion evidence.
+
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,
 reference numeric profile and ProductChecks. Until then all record shapes and

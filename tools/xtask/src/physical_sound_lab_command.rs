@@ -10,6 +10,8 @@ use next_presentation::physical_sound_lab::{
 };
 use serde::Serialize;
 
+use crate::physical_sound_eval_command::{Q0Candidate, write_q0_manifest};
+
 pub(super) struct Request {
     output: PathBuf,
 }
@@ -57,6 +59,7 @@ struct LabReport {
     repeated_render_identical: bool,
     demo_sequence_file: &'static str,
     demo_sequence_wav_sha256: String,
+    quality_manifest_file: &'static str,
     outputs: Vec<LabOutputReport>,
 }
 
@@ -130,6 +133,19 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
     let demo_wav = encode_canonical_wav(&profile, &demo_sequence);
     fs::write(output.join("demo-sequence.wav"), &demo_wav)
         .map_err(|error| format!("write demo-sequence.wav: {error}"))?;
+    let quality_candidates = reports
+        .iter()
+        .map(|entry| Q0Candidate {
+            id: format!("{}-{}", entry.material, entry.impact_point),
+            object_id: format!("p0-{}", entry.material),
+            material: entry.material.clone(),
+            impact_position: entry.impact_point.clone(),
+            force_band: "medium".to_owned(),
+            file: entry.file.clone(),
+            sha256: entry.wav_sha256.clone(),
+        })
+        .collect::<Vec<_>>();
+    write_q0_manifest(&output, &quality_candidates)?;
     let report = LabReport {
         schema: "nextengine.experimental-physical-sound-lab.report.v0",
         status: "PASS",
@@ -141,6 +157,7 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         repeated_render_identical,
         demo_sequence_file: "demo-sequence.wav",
         demo_sequence_wav_sha256: ContentHash::from_bytes(sha256(&demo_wav)).to_hex(),
+        quality_manifest_file: "quality-manifest.json",
         outputs: reports,
     };
     if !report.repeated_render_identical
