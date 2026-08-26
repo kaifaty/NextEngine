@@ -1,7 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63H_WIDE_BUILD_BINARY64_EXPORT_CANDIDATE /
-NSR3B4E2D7R20R63I_EXPORTED_FACTOR_RHS_RESEARCH_NEXT /
+NSR3B4E2D7R20R63I_EXPORTED_FACTOR_RHS_FROZEN /
+NSR3B4E2D7R20R63I_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3646,6 +3647,15 @@ original-image squared error is `1.46e-31` versus signal `3.95e-30`. Research
 one immutable RHS through retained-wide, exported-wide-consumption and strict-
 binary64-consumption lanes next; do not integrate or infer production
 arithmetic.
+
+The
+[R20R63I research](../../development/nonlocal-nsr3b4e2d7r20r63i-exported-factor-rhs-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63i-exported-factor-rhs-contract.md) freeze the
+first no-drop RHS. Retained-wide, exported-factor/wide-consumption and
+exported-factor/strict-binary64 lanes each execute two triangular solves once.
+The original R60 left-inverse contraction converts independently enclosed
+captured-system residuals into rigorous error radii, and all 102 signs must
+match the R60 `24+/78-` component pattern. No lane updates the parent solve.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
