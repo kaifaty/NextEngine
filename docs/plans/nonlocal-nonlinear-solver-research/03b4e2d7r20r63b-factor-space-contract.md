@@ -1,4 +1,4 @@
-# NSR3-B4E2D7R20R63B research contract -- revision 1
+# NSR3-B4E2D7R20R63B research contract -- revision 2
 
 | Field | Value |
 |---|---|
@@ -29,12 +29,21 @@ candidate arithmetic is permitted.
 ## Frozen capture
 
 - Replay only v5 case index 3 under the exact R60 capture refiner.
-- Simultaneously install the existing verified-inverse capture with no selected
-  root; require exactly one audit/callback.
+- Simultaneously install the existing verified-inverse capture. The parent
+  replay may expose other inverse audits; select only the unique audit whose
+  matrix root equals the already frozen R63 matrix root. Require one selected
+  audit and 102 selected column solves, while reporting the total observed
+  audit count.
 - Require dimension 102 and exact R60 matrix/inverse/RHS/solution roots.
 - Require captured inverse root equal R60's inverse and the factor's matrix
   root equal the same captured matrix.
 - Record the inherited lower-factor root as an observed output.
+
+Revision 2 is an apparatus-only correction made after the first execution
+stopped at `FACTOR_SPACE_CAPTURE_REJECTED`: the hook observed 125 parent audits
+rather than one. The immutable R63 matrix root was frozen before R63B and does
+not depend on factor results. The rejected execution has no scientific credit;
+no arithmetic result was available before this selection was corrected.
 
 ## Triangular inverse
 

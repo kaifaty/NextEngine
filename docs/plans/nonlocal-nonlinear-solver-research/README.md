@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63A_MIXED_PROJECTION_CONTRIBUTION /
-NSR3B4E2D7R20R63B_BINARY64_FACTOR_SPACE_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63B_BINARY64_FACTOR_LEFT_NONCONTRACTIVE /
+NSR3B4E2D7R20R63C_DIRECTED_TRIANGULAR_CERTIFICATE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3552,3 +3552,12 @@ normal-equation-squaring discriminator. They reuse the already captured
 Cholesky factor, construct only its triangular inverse and test strict
 binary64/exact two-sided defects. No NNQP right-hand side, rank threshold or
 trajectory is evaluated.
+
+The
+[R20R63B evidence](../../development/nonlocal-nsr3b4e2d7r20r63b-factor-space-evidence-2026-08-26.md)
+preserves an asymmetric binary64 boundary. Exact factor reconstruction and all
+20,808 containment checks pass. The projected right defect contracts at
+`1.29e-14`, while the left defect is `1.579>1`, so the frozen two-sided factor
+candidate is rejected. Research a one-sided a-posteriori triangular solution
+certificate versus rank-revealing reformulation next; do not reinterpret the
+right-side success as an R63B pass or execute an NNQP trajectory.

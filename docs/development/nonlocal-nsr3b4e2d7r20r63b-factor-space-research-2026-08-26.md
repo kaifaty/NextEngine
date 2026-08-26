@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63B factor-space research
 
-Status: `FROZEN / BINARY64_CHOLESKY_FACTOR_DISCRIMINATOR_NEXT`.
+Status: `COMPLETE / BINARY64_FACTOR_LEFT_NONCONTRACTIVE`.
 
 ## Question
 
@@ -66,9 +66,15 @@ every possible scaling or algorithm must fail.
   precision path;
 - factor reconstruction/capture failure: stop at apparatus; make no rank claim.
 
+The observed result occupies a narrower branch than the original binary
+classification: `I-L64*Z64` contracts by a wide margin, but `I-Z64*L64` does
+not. The frozen two-sided candidate is therefore rejected. Before selecting
+rank removal or extended precision, research whether the successful one-sided
+defect is sufficient for a fail-closed a-posteriori triangular solution bound;
+that is a new claim and may not retroactively change R63B.
+
 ## Ceiling
 
 R63B applies no triangular solution to the NNQP right-hand side, chooses no
 rank threshold, removes no row, changes no objective and authorizes no center,
 trajectory, runtime/GPU, timing or production path.
-
