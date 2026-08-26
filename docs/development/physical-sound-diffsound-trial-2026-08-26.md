@@ -178,6 +178,63 @@ recordings. It reports 10,000 damping and 10,000 material steps, whereas the
 released config uses 2,001 and 3,000 and the smoke proxy used only 16 material
 steps. These gaps leave useful fitting capacity unexplored.
 
+## Checkpointed 500-ms follow-up
+
+The smallest proposed follow-up was implemented as an external-only harness
+against the same upstream commit. It used the complete 500-ms target, one
+audio input, 16 modes, the released 2,001-step damping fit and 151 material
+steps. Full eigendecomposition and export ran every 15 material steps. The
+loss changed from optimal transport to multiscale L1 at step 60, so scalar
+loss values on opposite sides of that boundary are not comparable.
+
+At every one of 11 checkpoints the harness exported four normalized 32-kHz
+mono float32 WAVs: equal-amplitude modal synthesis, damping-curve amplitude,
+ridge-fitted amplitude, and ridge amplitude plus a bounded three-millisecond
+transient. It also exported the 16 frequencies, damped frequencies, damping
+coefficients, T60 values, runtime decay poles and both fitted amplitude sets.
+The transient peak was limited to 25% of the modal peak. No generated file or
+harness source was added to the repository.
+
+The full run completed successfully in 10 minutes 12 seconds. All 44 WAVs had
+unique hashes, all 11 modal profiles were finite, and no JSON output contained
+NaN, infinity or null. Exact evidence roots and hashes are:
+
+| Evidence | Location or SHA-256 |
+| --- | --- |
+| Run root | `/home/kaifaty/.cache/nextengine-research/diffsound-3a0be14/glass-checkpointed/glass-500ms-16mode-151_20260826-222834/` |
+| `run-report.json` | `a1d3e03e02900fb24b0ccba9a5c3ce42743e196b1b7060d9f4f510a75f0e25bc` |
+| `damping-fit.json` | `c582956c3362922305c8820e09b6857bd73365b0a440d51b6ee2937b8da5b41f` |
+| frozen normalized target | `691d4b1313b5dbd04caaf9367083c19b45b9c9db85c93d0e3487039f541a94e0` |
+| harness | `d205e01af506c561fffc7a8b095b110fa549e4a6d06ed058839d8fd210941c46` |
+| run config | `13b68f9c1918bd066024a1dbd2939f735ff9de46340c80835e8f5256cc3c64fb` |
+
+The final modes span `1,538.578` to `14,803.317 Hz`. Damping spans
+`53.553` to `78.492 s^-1`, corresponding to T60 values of `88.0` to
+`129.0 ms` and 32-kHz recurrence poles of `0.9975501` to `0.9983279`.
+The optimized proxy ended at `60.669313 GPa` and Poisson ratio `0.197534`.
+These remain artistic latent values because the bowl geometry is wrong and
+density, scale, excitation and radiation are not identified.
+
+The independent evaluator accepted all 44 files as matched analysis and
+reported `Q1_MATCHED_ANALYSIS / HUMAN_CALIBRATION_REQUIRED`; report SHA-256 is
+`9d5ffbd9bc8207acb1307ccd641d5f4d0b30b2fba0fa48239fea9205c4e46c1b`.
+The final amplitude variants are materially distinct: their spectral
+centroids are approximately `12.386 kHz` for damping-curve amplitude,
+`1.710 kHz` for ridge amplitude and `5.821 kHz` for equal amplitude. Adding
+the transient changed the final gain-matched spectral RMSE from `54.425 dB`
+to `44.500 dB` without changing the ridge modal centroid. These numbers are
+diagnostics, not a glass-identity ranking: the accepted 16-step anchor already
+demonstrated that closer target match can disagree with human material
+identity.
+
+The ten-file audition package is at
+`/home/kaifaty/.cache/nextengine-research/diffsound-3a0be14/glass-checkpointed-audition-151-v2/audition/`;
+its manifest SHA-256 is
+`1db7e93195c48fe5e0a19315a8008220b58ce3d38bf32894121a308c0fed5c60`.
+It preserves the accepted 16-step anchor, the synthetic target, five
+equal-amplitude checkpoints and all four final amplitude/transient variants.
+Human audition remains the decision gate; no automatic winner is claimed.
+
 ## Decision and smallest next experiment
 
 DiffSound is viable for two distinct purposes. As a perceptual baker, its modal
@@ -186,21 +243,19 @@ As an inverse-material tool, it still requires known geometry and recording
 conditions. Material, geometry, excitation, microphone response and radiation
 remain confounded when one synthetic WAV is repeated over the expected inputs.
 
-The smallest next perceptual experiment is a checkpointed external run that:
+The checkpointed run closes the requested compute/export step but not
+perceptual selection. The smallest next experiment is therefore:
 
-1. uses all 500 ms (`16,000` frames at 32 kHz), initially retains 16 modes and
-   saves a preview plus `frequency`, `damping`, `amplitude` and loss values at
-   every eigen-decomposition checkpoint;
-2. fits per-mode amplitudes and a bounded 1–3 ms excitation/noise residual
-   after fixing frequencies and damping;
-3. stops first at 151 material epochs for audition, then extends to 1,001 and
-   the released 3,000-step schedule only when a checkpoint improves glass
-   identity or naturalness;
-4. compares 16, 32 and 64 modes only after the 16-mode full-tail control, with
-   the current preferred prediction and Glass-H preserved as blind anchors;
-5. exports each accepted mode as `f_i`, exponential damping `d_i` and gain
-   `A_i`; the runtime decay pole is `r_i = exp(-d_i / sample_rate)` and its
-   `T60` is `ln(1000) / d_i`.
+1. blind-audition the accepted anchor, selected checkpoints and four final
+   variants for glass identity, naturalness and impact clarity;
+2. retain a new candidate only if that listening result is meaningfully better
+   than the accepted 16-step anchor, not merely closer to the synthetic target;
+3. extend to 1,001 material steps, compare 32/64 modes or add the released
+   filtered-noise path one variable at a time only after a positive selection;
+4. freeze the selected `f_i`, exponential damping `d_i`, gain `A_i` and
+   transient parameters as external calibration evidence for an engine-owned
+   recurrence; `r_i = exp(-d_i / sample_rate)` and
+   `T60 = ln(1000) / d_i`.
 
 Physical transfer across shapes, strike points and sizes is a later experiment
 requiring one exact scaled glass mesh, measured or fixed density, multiple
