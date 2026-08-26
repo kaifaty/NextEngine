@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_REJECTED_STEP_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_SUB_ENVELOPE_EVENT_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -80,6 +80,15 @@
   face/support/direction and all existing Armijo margins. Classify same-face
   rejection, all-crossing envelope exhaustion, precision or face inconsistency;
   add no trial or cap.
+- **R20R27 result:** implementation `5ac52d26`, semantic
+  `6ef46e9e...e003`, route `POST_EVENT_LINE_ENVELOPE_EXHAUSTED`. All three
+  committed event lineages are exact. Every one of the 21 final trials crosses
+  one or two mask components, none changes ball activity, and all margins are
+  strictly signed negative. The existing line ends before a stable face point.
+- **R20R28 frozen:** enumerate every component/ball event inside
+  `(0,2^-20]`. For a unique nearest zero-bound event only, use the R25 forward
+  bound to shadow-evaluate exactly one certified point on each side. Add no
+  sweep, cap or state update.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4681,6 +4690,21 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R27 identifies same-face model failure, line-envelope
   exhaustion, precision ambiguity, face inconsistency or remains unresolved.
 
+### D-156 -- Resolve the hidden sub-envelope event before extending the line
+
+- **Observation:** R27 reproduces exact event lineage and finds no stable final
+  trial. Every dyadic alpha through `2^-20` crosses the mask, ball activity is
+  unchanged and every bounded margin is strictly negative.
+- **Decision:** keep the line cap unchanged. Analytically enumerate the nearest
+  fixed-face component and ball events below `2^-20`; only for one unique
+  zero-bound event, construct forward-bound-certified points on both sides and
+  shadow-evaluate their Armijo/KKT values.
+- **Rejected:** blind cap extension, another dyadic/ULP ladder, loosening
+  Armijo, assuming the first changed scalar from endpoint counts, applying a
+  pre/post-event point before both sides are certified, timing or promotion.
+- **Reconsider when:** R28 identifies a safe old/new side, coupled/ambiguous
+  event, local rejection or precision boundary.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4734,9 +4758,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R26 semantic `4203c7ce...a8d2` and shear root
-   `1c9a0bf3...cf91`. Implement only the frozen R20R27 rejected-step audit;
-   add no alpha/event/fallback, change no cap/tolerance and apply no state.
+2. Preserve R20R27 semantic `6ef46e9e...e003`, R20R26 semantic
+   `4203c7ce...a8d2` and shear root `1c9a0bf3...cf91`. Implement only the
+   frozen R20R28 two-sided sub-envelope event audit; evaluate at most two
+   conditional shadow points, change no cap/tolerance and apply no state.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.
@@ -4793,7 +4818,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    manifest `42003173...85b4` / preflight `16a24ef3...b1f6`, including role,
    excitation and problem roots. Implement the frozen rollback-only R20
    binary128 oracle and composed-dual
-   corpus execution next. Do not alter `2^-20`, the 32-outer cap, `2^18`
+   corpus execution lineage exactly. Do not alter `2^-20`, the 32-outer cap, `2^18`
    oracle cap, case order or source roots after observing results. GPU timing,
    nonlinear/runtime integration and production remain blocked.
    Do not fit a tolerance, weaken gamma or start
