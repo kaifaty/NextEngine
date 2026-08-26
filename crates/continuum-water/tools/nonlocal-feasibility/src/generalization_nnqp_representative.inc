@@ -65,6 +65,22 @@ struct ALR20VerifiedInverseCapture {
 thread_local ALR20VerifiedInverseCapture*
     al_r20_verified_inverse_capture = nullptr;
 
+struct ALR20DirectSolutionCapture {
+    std::size_t calls = 0U;
+    std::size_t transition = 0U;
+    ALR20ADMMFactor factor;
+    std::vector<std::size_t> indices;
+    std::vector<std::size_t> source_rows;
+    std::vector<Binary128> rhs;
+    std::vector<Binary128> solution;
+    Binary128 solve_residual = static_cast<Binary128>(0.0);
+    Binary128 solve_bound = static_cast<Binary128>(0.0);
+    Binary128 cheap_error = static_cast<Binary128>(0.0);
+};
+
+thread_local ALR20DirectSolutionCapture*
+    al_r20_direct_solution_capture = nullptr;
+
 struct ALR20NNQPSolve {
     bool exact = false;
     bool terminated = false;
@@ -601,6 +617,23 @@ ALR20NNQPSolve al_r20_nnqp_solve(
             }
             if (!exact) break;
             if (negative.empty()) {
+                if (al_r20_direct_solution_capture != nullptr) {
+                    ALR20DirectSolutionCapture& capture =
+                        *al_r20_direct_solution_capture;
+                    ++capture.calls;
+                    capture.transition = result.transitions;
+                    capture.factor = factor;
+                    capture.indices = indices;
+                    capture.source_rows.clear();
+                    capture.source_rows.reserve(indices.size());
+                    for (std::size_t index : indices)
+                        capture.source_rows.push_back(source_rows[index]);
+                    capture.rhs = principal_rhs;
+                    capture.solution = passive_value;
+                    capture.solve_residual = solve_residual;
+                    capture.solve_bound = solve_bound;
+                    capture.cheap_error = passive_error;
+                }
                 result.direction = std::move(candidate);
                 direction_error = passive_error;
                 affine_direction_error = passive_error;

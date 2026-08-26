@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R53 counterflow direct-center research
 
-Status: `RESEARCH COMPLETE / FINAL DIRECT-SOLVE AUDIT SELECTED`.
+Status: `PASS / FULL-SUPPORT CENTER AND SLOPE CERTIFIED`.
 
 ## Question
 
@@ -50,3 +50,11 @@ execute line search.
 D1 authorizes only a separately frozen default-off trajectory that replaces the
 final direct center before the unchanged slope and globalization predicates. It
 does not authorize production, runtime or performance work.
+
+## Outcome
+
+D1 is confirmed: the centered certificate resolves all 66 positive components
+and the shadow slope lower bound is positive. The explicit legacy
+verified-inverse also passes with error `1.09e-24`, already far below the slope
+budget. Therefore a smaller legacy-refinement discriminator must precede any
+centered trajectory.

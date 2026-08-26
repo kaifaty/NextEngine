@@ -151,7 +151,8 @@ SplitBoundaryReport run_al_generalization_v4_counterflow_centered_slope_controls
     ALR20R35CaseAudit counterflow;
     std::size_t solver_executions = 0U;
     const bool hook_slot_clear = al_r20_verified_solution_refiner == nullptr
-        && al_r20_verified_inverse_capture == nullptr;
+        && al_r20_verified_inverse_capture == nullptr
+        && al_r20_direct_solution_capture == nullptr;
     if (parent_exact && hook_slot_clear) {
         al_r20_verified_inverse_capture = &capture;
         counterflow = al_r20_r35_case(problem);
@@ -159,7 +160,8 @@ SplitBoundaryReport run_al_generalization_v4_counterflow_centered_slope_controls
         solver_executions = 1U;
     }
     const bool hook_slot_released = al_r20_verified_solution_refiner == nullptr
-        && al_r20_verified_inverse_capture == nullptr;
+        && al_r20_verified_inverse_capture == nullptr
+        && al_r20_direct_solution_capture == nullptr;
     const ALR20SemismoothStep* final_step =
         counterflow.diagnostic.steps.empty()
         ? nullptr : &counterflow.diagnostic.steps.back();

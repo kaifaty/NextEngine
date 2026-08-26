@@ -3422,3 +3422,10 @@ and [contract](03b4e2d7r20r53-counterflow-direct-center-contract.md): observe
 the final direct 66-row tuple, construct exactly 66 inverse columns, certify one
 depth-16 center, and recompute the shadow slope around that new center rather
 than attaching its radius to the old solution.
+The
+[R20R53 evidence](../../development/nonlocal-nsr3b4e2d7r20r53-counterflow-direct-center-evidence-2026-08-26.md)
+certifies the complete 66-row center and converts the global slope lower bound
+from negative to `1.8493e-19`. More importantly, the newly invoked existing
+verified-inverse already passes with error `1.09e-24`; the next discriminator
+should test that smaller verifier-placement remedy before any centered
+trajectory is authorized.
