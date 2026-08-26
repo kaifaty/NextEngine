@@ -7,7 +7,7 @@
 | Version | 0.1 |
 | Last verified | 2026-08-26 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
-| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md) |
+| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md) |
 | Replaces | None; first candidate revision |
 
 ## Status and decision boundary
@@ -30,15 +30,15 @@ Non-normative implementation note (2026-08-26): an isolated P0/P0.5
 laboratory now exists in `next_presentation::physical_sound_lab`. The `xtask
 physical-sound-lab` command emits external 48 kHz audition WAVs, and the
 reference demo can mix committed `Begin` contacts behind the explicit Cargo
-feature `physical-sound-lab`. It uses a 12-mode plate-like steel profile fitted
-against an external reference screen while preserving the five-mode heuristic
-wood and glass profiles, plus a provisional adjacent-snapshot speed estimator
-because the current contact record lacks impulse/effective-mass and material
-fields. The small heterogeneous CC0 screen improved spectral/decay descriptors
-but is not a controlled corpus or a substitute for human audition. This
-experiment does not implement the candidate content records, does not satisfy
-a P1 ProductCheck and does not relax the production block below. Disabling the
-feature preserves the ordinary clip baseline.
+feature `physical-sound-lab`. It uses separately screened 12-mode steel,
+dry-hardwood-block and thick-glass-plate candidates, plus a provisional
+adjacent-snapshot speed estimator because the current contact record lacks
+impulse/effective-mass and material fields. The small heterogeneous CC0 screens
+improved bounded descriptor sets but are not a controlled corpus, universal
+material profiles or substitutes for human audition. This experiment does not
+implement the candidate content records, does not satisfy a P1 ProductCheck and
+does not relax the production block below. Disabling the feature preserves the
+ordinary clip baseline.
 
 The same isolated experiment now includes `xtask physical-sound-eval`. It
 consumes only external hash-frozen WAV manifests, emits deterministic classical

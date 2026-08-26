@@ -64,9 +64,30 @@ impl PhysicalSoundImpactPoint {
                 10_000, 22_000, 32_767, 28_000, -20_000, -18_000, 30_000, 26_000, -26_000, 32_767,
                 28_000, -24_000,
             ],
-            (_, Self::Center) => [32_767, 8_192, -22_938, 6_554, 18_022, 0, 0, 0, 0, 0, 0, 0],
-            (_, Self::Edge) => [14_746, 32_767, 11_469, -26_214, 21_299, 0, 0, 0, 0, 0, 0, 0],
-            (_, Self::Corner) => [9_830, 24_576, 32_767, 19_661, -16_384, 0, 0, 0, 0, 0, 0, 0],
+            (PhysicalSoundMaterial::Wood, Self::Center) => [
+                32_767, 24_000, -18_000, 28_000, 22_000, -20_000, 16_000, 26_000, -14_000, 12_000,
+                -9_000, 7_000,
+            ],
+            (PhysicalSoundMaterial::Wood, Self::Edge) => [
+                14_000, 32_767, 26_000, -18_000, 22_000, 30_000, -24_000, 18_000, 28_000, -20_000,
+                16_000, -12_000,
+            ],
+            (PhysicalSoundMaterial::Wood, Self::Corner) => [
+                9_000, 18_000, 32_767, 24_000, -28_000, 22_000, 30_000, -26_000, 18_000, 32_767,
+                -22_000, 14_000,
+            ],
+            (PhysicalSoundMaterial::Glass, Self::Center) => [
+                18_000, 14_000, 32_767, 28_000, 24_000, -22_000, 30_000, 26_000, -18_000, 22_000,
+                -14_000, 12_000,
+            ],
+            (PhysicalSoundMaterial::Glass, Self::Edge) => [
+                12_000, 22_000, 20_000, 32_767, -26_000, 30_000, 24_000, -18_000, 28_000, 32_000,
+                -22_000, 18_000,
+            ],
+            (PhysicalSoundMaterial::Glass, Self::Corner) => [
+                8_000, 16_000, 14_000, 24_000, 32_767, -28_000, 22_000, 30_000, -26_000, 18_000,
+                32_000, -24_000,
+            ],
         }
     }
 }
@@ -300,69 +321,183 @@ const STEEL_MODES: [ModeProfile; MAX_MODE_COUNT] = [
     },
 ];
 
-const WOOD_MODES: [ModeProfile; 5] = [
+// A dry hardwood-block candidate screened against two small external CC0
+// impact packs. The short, frequency-dependent T20 values keep the body woody
+// rather than metallic; impact position changes participation, never pitch.
+const WOOD_MODES: [ModeProfile; MAX_MODE_COUNT] = [
+    // 140 Hz / T20 90 ms
     ModeProfile {
-        coefficient_a_q30: 2_146_788_181,
-        coefficient_b_q30: 1_073_642_408,
-        gain_q15: 23_593,
-        initial_sine_q15: 772,
+        coefficient_a_q30: 2_145_978_928,
+        coefficient_b_q30: 1_072_597_813,
+        gain_q15: 7_000,
+        initial_sine_q15: 600,
     },
+    // 225 Hz / T20 82.5 ms
     ModeProfile {
-        coefficient_a_q30: 2_144_111_380,
-        coefficient_b_q30: 1_073_614_005,
-        gain_q15: 15_729,
-        initial_sine_q15: 1_801,
+        coefficient_a_q30: 2_145_304_529,
+        coefficient_b_q30: 1_072_493_872,
+        gain_q15: 12_000,
+        initial_sine_q15: 965,
     },
+    // 315 Hz / T20 75 ms
     ModeProfile {
-        coefficient_a_q30: 2_135_264_964,
-        coefficient_b_q30: 1_073_582_053,
-        gain_q15: 10_158,
-        initial_sine_q15: 3_468,
+        coefficient_a_q30: 2_144_286_398,
+        coefficient_b_q30: 1_072_369_157,
+        gain_q15: 12_000,
+        initial_sine_q15: 1_351,
     },
+    // 485 Hz / T20 65 ms
     ModeProfile {
-        coefficient_a_q30: 2_108_697_596,
-        coefficient_b_q30: 1_073_518_151,
-        gain_q15: 6_226,
-        initial_sine_q15: 6_182,
+        coefficient_a_q30: 2_141_576_283,
+        coefficient_b_q30: 1_072_158_133,
+        gain_q15: 18_000,
+        initial_sine_q15: 2_079,
     },
+    // 590 Hz / T20 60 ms
     ModeProfile {
-        coefficient_a_q30: 2_034_963_840,
-        coefficient_b_q30: 1_073_369_062,
-        gain_q15: 3_604,
-        initial_sine_q15: 10_452,
+        coefficient_a_q30: 2_139_371_261,
+        coefficient_b_q30: 1_072_026_264,
+        gain_q15: 18_000,
+        initial_sine_q15: 2_528,
+    },
+    // 815 Hz / T20 55 ms
+    ModeProfile {
+        coefficient_a_q30: 2_133_413_083,
+        coefficient_b_q30: 1_071_870_440,
+        gain_q15: 16_000,
+        initial_sine_q15: 3_489,
+    },
+    // 1,080 Hz / T20 50 ms
+    ModeProfile {
+        coefficient_a_q30: 2_124_020_830,
+        coefficient_b_q30: 1_071_683_481,
+        gain_q15: 16_000,
+        initial_sine_q15: 4_617,
+    },
+    // 1,185 Hz / T20 47.5 ms
+    ModeProfile {
+        coefficient_a_q30: 2_119_558_454,
+        coefficient_b_q30: 1_071_575_257,
+        gain_q15: 14_000,
+        initial_sine_q15: 5_062,
+    },
+    // 1,715 Hz / T20 42.5 ms
+    ModeProfile {
+        coefficient_a_q30: 2_091_235_312,
+        coefficient_b_q30: 1_071_320_654,
+        gain_q15: 12_000,
+        initial_sine_q15: 7_295,
+    },
+    // 2,400 Hz / T20 35 ms
+    ModeProfile {
+        coefficient_a_q30: 2_039_580_979,
+        coefficient_b_q30: 1_070_802_543,
+        gain_q15: 8_000,
+        initial_sine_q15: 10_126,
+    },
+    // 3,150 Hz / T20 30 ms
+    ModeProfile {
+        coefficient_a_q30: 1_964_355_106,
+        coefficient_b_q30: 1_070_313_445,
+        gain_q15: 5_000,
+        initial_sine_q15: 13_132,
+    },
+    // 4,100 Hz / T20 25 ms
+    ModeProfile {
+        coefficient_a_q30: 1_842_023_310,
+        coefficient_b_q30: 1_069_629_084,
+        gain_q15: 3_000,
+        initial_sine_q15: 16_754,
     },
 ];
 
-const GLASS_MODES: [ModeProfile; 5] = [
+// A thick glass-plate candidate screened against two small external CC0 glass
+// packs. Its inharmonic upper modes and longer T20 distinguish it from the dry
+// wood body without stretching the experimental voice to the old two seconds.
+const GLASS_MODES: [ModeProfile; MAX_MODE_COUNT] = [
+    // 1,172 Hz / T20 350 ms
     ModeProfile {
-        coefficient_a_q30: 2_136_272_041,
-        coefficient_b_q30: 1_073_713_862,
-        gain_q15: 17_039,
-        initial_sine_q15: 3_340,
+        coefficient_a_q30: 2_121_970_743,
+        coefficient_b_q30: 1_073_447_533,
+        gain_q15: 4_000,
+        initial_sine_q15: 5_007,
     },
+    // 1,645 Hz / T20 300 ms
     ModeProfile {
-        coefficient_a_q30: 2_090_709_929,
-        coefficient_b_q30: 1_073_706_033,
-        gain_q15: 15_729,
-        initial_sine_q15: 7_483,
+        coefficient_a_q30: 2_097_554_096,
+        coefficient_b_q30: 1_073_398_493,
+        gain_q15: 6_000,
+        initial_sine_q15: 7_002,
     },
+    // 2,208 Hz / T20 275 ms
     ModeProfile {
-        coefficient_a_q30: 1_957_178_328,
-        coefficient_b_q30: 1_073_692_115,
-        gain_q15: 11_469,
-        initial_sine_q15: 13_485,
+        coefficient_a_q30: 2_058_050_834,
+        coefficient_b_q30: 1_073_367_286,
+        gain_q15: 16_000,
+        initial_sine_q15: 9_340,
     },
+    // 2,732 Hz / T20 250 ms
     ModeProfile {
-        coefficient_a_q30: 1_610_795_325,
-        coefficient_b_q30: 1_073_667_261,
-        gain_q15: 7_209,
-        initial_sine_q15: 21_670,
+        coefficient_a_q30: 2_011_233_483,
+        coefficient_b_q30: 1_073_329_839,
+        gain_q15: 20_000,
+        initial_sine_q15: 11_470,
     },
+    // 3,533 Hz / T20 325 ms
     ModeProfile {
-        coefficient_a_q30: 847_659_503,
-        coefficient_b_q30: 1_073_624_096,
-        gain_q15: 3_932,
-        initial_sine_q15: 30_107,
+        coefficient_a_q30: 1_921_615_061,
+        coefficient_b_q30: 1_073_424_899,
+        gain_q15: 17_000,
+        initial_sine_q15: 14_620,
+    },
+    // 3,838 Hz / T20 300 ms
+    ModeProfile {
+        coefficient_a_q30: 1_881_824_117,
+        coefficient_b_q30: 1_073_398_493,
+        gain_q15: 18_000,
+        initial_sine_q15: 15_779,
+    },
+    // 4,638 Hz / T20 225 ms
+    ModeProfile {
+        coefficient_a_q30: 1_763_349_309,
+        coefficient_b_q30: 1_073_284_073,
+        gain_q15: 15_000,
+        initial_sine_q15: 18_694,
+    },
+    // 5,212 Hz / T20 212.5 ms
+    ModeProfile {
+        coefficient_a_q30: 1_666_407_102,
+        coefficient_b_q30: 1_073_257_153,
+        gain_q15: 14_000,
+        initial_sine_q15: 20_662,
+    },
+    // 6,171 Hz / T20 187.5 ms
+    ModeProfile {
+        coefficient_a_q30: 1_483_753_158,
+        coefficient_b_q30: 1_073_192_546,
+        gain_q15: 11_000,
+        initial_sine_q15: 23_683,
+    },
+    // 7,059 Hz / T20 168.75 ms
+    ModeProfile {
+        coefficient_a_q30: 1_293_740_616,
+        coefficient_b_q30: 1_073_131_533,
+        gain_q15: 9_000,
+        initial_sine_q15: 26_150,
+    },
+    // 7,629 Hz / T20 150 ms
+    ModeProfile {
+        coefficient_a_q30: 1_162_386_337,
+        coefficient_b_q30: 1_073_055_271,
+        gain_q15: 7_000,
+        initial_sine_q15: 27_549,
+    },
+    // 8,875 Hz / T20 112.5 ms
+    ModeProfile {
+        coefficient_a_q30: 853_794_206,
+        coefficient_b_q30: 1_072_826_517,
+        gain_q15: 5_000,
+        initial_sine_q15: 30_064,
     },
 ];
 
@@ -376,15 +511,15 @@ const fn material_profile(material: PhysicalSoundMaterial) -> MaterialProfile {
         },
         PhysicalSoundMaterial::Wood => MaterialProfile {
             modes: &WOOD_MODES,
-            noise_gain_q15: 6_554,
-            noise_frames: 288,
-            duration_frames: 48_000,
+            noise_gain_q15: 8_192,
+            noise_frames: 480,
+            duration_frames: 16_800,
         },
         PhysicalSoundMaterial::Glass => MaterialProfile {
             modes: &GLASS_MODES,
-            noise_gain_q15: 2_621,
-            noise_frames: 96,
-            duration_frames: 96_000,
+            noise_gain_q15: 32_767,
+            noise_frames: 480,
+            duration_frames: 33_600,
         },
     }
 }
@@ -594,6 +729,46 @@ mod tests {
         assert_ne!(center, edge);
         assert_ne!(center, corner);
         assert_ne!(edge, corner);
+    }
+
+    #[test]
+    fn screened_wood_and_glass_profiles_retain_exact_pcm_and_position_response() {
+        let assert_profile = |material, seed, expected_len, expected_hash: &str| {
+            let render = |impact_point| {
+                render_physical_sound_impact(PhysicalSoundExcitation::new(
+                    material,
+                    impact_point,
+                    49_152,
+                    0,
+                    seed,
+                ))
+            };
+            let center = render(PhysicalSoundImpactPoint::Center);
+            let edge = render(PhysicalSoundImpactPoint::Edge);
+            let corner = render(PhysicalSoundImpactPoint::Corner);
+
+            assert_eq!(center.len(), expected_len);
+            assert_eq!(
+                ContentHash::from_bytes(sha256(&samples_as_bytes(&center))).to_hex(),
+                expected_hash
+            );
+            assert_ne!(center, edge);
+            assert_ne!(center, corner);
+            assert_ne!(edge, corner);
+        };
+
+        assert_profile(
+            PhysicalSoundMaterial::Wood,
+            0x700d_0101,
+            35_200,
+            "5c536dfda9e4529c0dda14e854b5718e50d1860dd6a2ca47fc58809762e7f186",
+        );
+        assert_profile(
+            PhysicalSoundMaterial::Glass,
+            0x61a5_0101,
+            67_200,
+            "5d0e59d0155cde71d70cdd51fd9df59e5c781ea188aef568246e6e6102a7b634",
+        );
     }
 
     #[test]

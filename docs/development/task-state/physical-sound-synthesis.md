@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_STEEL_REFERENCE_SCREEN_FITTED / HUMAN_AUDITION_OPEN / Q1_CONTROLS_PASS / P1_BLOCKED` |
+| Status | `P0_THREE_MATERIAL_SCREENS_FITTED / HUMAN_AUDITION_OPEN / Q1_CONTROLS_PASS / P1_BLOCKED` |
 | Updated | `2026-08-26` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact audition and feature-gated reference-demo experiment |
@@ -11,15 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** A bounded seven-file CC0 screen moved the experimental
-  steel impact away from its low, multi-second drone: candidate D halves median
-  spectral error and matches the screen's decay envelope far better. Modal
-  identity remains mixed and the result still needs blind human audition.
-- **Why:** The frozen evaluator compared four candidates with the same external hashes. Candidate D reduced median spectrum RMSE from `44.5951` to `21.9281`
-  dB and median absolute mean-T20 delta from `6606.82` to `49.17` ms, while
-  modal cost worsened from `1.04514` to `1.36658`.
-- **Next action:** Blind-audition old versus candidate D and D versus named CC0
-  anchors; record the artifact before any further coefficient change.
+- **Current conclusion:** Frozen CC0 screens now support improved experimental
+  12-mode steel, dry-hardwood-block and thick-glass-plate candidates. All three
+  remain broad-screen hypotheses and still need blind human audition.
+- **Why:** Wood median spectrum/modal distances moved `35.66129 → 21.11627 dB`
+  and `1.073954 → 0.847192`; glass moved `31.87924 → 28.96005 dB` and
+  `1.860082 → 0.671596`. Glass decay remains an explicit metric disagreement.
+- **Next action:** Blind-audition old/new/reference triplets for all three
+  profiles; record the artifact before any further coefficient change.
 - **Current blocker:** No controlled matched-reference corpus, held-out human
   preference labels, calibrated threshold, measured
   whole-mixer budget, Accepted consumer ADR or complete impulse/effective-mass/
@@ -36,16 +35,16 @@
 | --- | --- | --- |
 | [Research report](../physical-sound-synthesis-research-2026-08-26.md) | `REPORT_PLUS_LOCAL_EXPERIMENT` | Modal rigid impact is technically integrated; acoustic quality and promotion evidence remain open. |
 | [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md) | `CLASSICAL_Q0_Q1_IMPLEMENTED / HUMAN_CALIBRATION_OPEN` | Matched classical descriptors and blind A/B are available; no single automatic metric or uncalibrated control run is an admissible quality judge. |
-| [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) | `BOUNDED_REFERENCE_SCREEN_PASS / HUMAN_AUDITION_OPEN` | A 12-mode candidate repairs the baseline spectral/decay failure against seven frozen CC0 references; heterogeneous-object modal agreement remains mixed, so no generic steel or Q2 claim follows. |
+| [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `BOUNDED_REFERENCE_SCREENS_PASS / HUMAN_AUDITION_OPEN` | Three 12-mode candidates improve bounded descriptor sets against frozen heterogeneous CC0 screens; no generic material, calibrated-Q2 or P1 claim follows. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
-| `xtask physical-sound-lab` external audition | `PASS` | Nine material/position WAVs and one six-second comparison repeat byte-exactly; comparison WAV SHA-256 is `5552fa4e…f8c35`. |
+| `xtask physical-sound-lab` external audition | `PASS` | Nine material/position WAVs and one six-second comparison repeat byte-exactly; selected comparison WAV SHA-256 is `3b9d66f9…2c0490`. |
 | Product-owner audition, 2026-08-26 | `PERCEPTUAL_FAIL` | The current output only remotely resembles the target; engineering checks cannot support an acoustic-quality claim. |
 | `xtask physical-sound-eval` Q0 run | `PASS / UNCALIBRATED` | Nine hash-frozen WAVs produce bounded signal, multiresolution spectrum, modal-assignment and per-band decay reports under evaluator profile hash `e1e57d9b…66af1`; every entry correctly remains `NeedsReference`. |
 | Q1 self/mismatch controls and blind bundle | `PASS / CONTROL_ONLY` | Self-match is zero on every matched distance; steel-center versus glass-corner yields `28.7939 dB` spectral RMSE, `0.642964` modal cost and spectral/modal/high-band-decay tags. Seed `42` emits two blinded pairs; repeated report SHA-256 is `65a6d437…da81`. |
 | Feature-gated demo enabled/disabled regression | `PASS` | Committed `Begin` contact changes only PCM; runtime, RPG and physics checkpoint state remain identical. |
-| 120-frame SDL/Ash reference demo with `physical-sound-lab` | `PASS / DEBUG_FUNCTIONAL` | 73 simulation ticks, active audio device, 118,400 queued samples, zero drops/faults; 74 debug underruns grant no platform/performance credit. |
+| 120-frame SDL/Ash reference demo with `physical-sound-lab` | `PASS / DEBUG_FUNCTIONAL` | 46 simulation ticks, active audio device, 76,800 queued samples, zero drops/faults; 53 debug underruns grant no platform/performance credit. |
 | `audio-scene`, `play`, `host-check` | `PASS` | Baseline audio/play roots remain valid; workspace fmt/clippy/tests and boundary policy pass on Rust 1.97.1. |
 | Candidate `AUDIO-PHYS-*` checks | `NOT_RUN / NOT_PROMOTED` | Local experiment checks do not create source/content/platform/performance or P1 admissibility. |
 
@@ -163,8 +162,8 @@
 - **Rejected alternatives:** A single FAD/CLAP/ViSQOL/aesthetic score, direct
   prose judgment by a general audio model, or fitting and evaluating on the same
   object/impact split.
-- **Consequences:** Q0/Q1 classical tooling is implemented and one bounded
-  reference-screen cycle selected a better steel candidate. The next work is
+- **Consequences:** Q0/Q1 classical tooling and bounded screens selected better
+  steel, wood and glass candidates. The next work is
   blind human review and controlled reference acquisition, not another
   unrecorded synth preset. Data and candidate batches remain external.
 - **Uncertainty:** The smallest local reference corpus and human-label count are
@@ -177,7 +176,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A compact reference-fitted modal model is perceptually useful for the first three object profiles | A 12-mode steel candidate materially improves spectrum/decay against a frozen external screen | Modal identity is mixed and the candidate has not passed blind human audition | Run old/new/reference blind audition, then controlled-object held-out preference tests |
+| H1: A compact reference-fitted modal model is perceptually useful for the first three object profiles | Screened 12-mode steel, wood and glass candidates improve bounded descriptor sets | Reference bodies are heterogeneous and none has passed blind human audition | Run old/new/reference blind audition, then controlled-object held-out preference tests |
 | H2: The complete SPEC-26 contact projection is sufficient for impact excitation | It includes identity, point, velocity, impulse bounds, effective mass and tags | Current implementation omits the decisive numeric fields; solver-force fidelity is untested | Close one fixture projection and compare against exact synthetic excitation/control PCM |
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Repeated scalar renders are byte-exact and profiles/impact points are distinct | Quality, detuning and damping error against a high-precision reference remain unmeasured | Compare the frozen Q30 recurrence with a high-precision solver across the P0 stability envelope |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
@@ -197,10 +196,10 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Preserve the hash-frozen negative baseline, evaluator profile, CC0 reference
-   hashes and candidate-D report; do not tune again before blind audition.
-2. Blind-audition old versus D and D versus the representative reference
-   anchors, recording the named artifact and decision.
+1. Preserve the hash-frozen baselines, evaluator profile, CC0 reference hashes
+   and selected steel/wood/glass reports; do not tune again before audition.
+2. Blind-audition old/new/reference triplets for each profile, recording the
+   named artifact and decision.
 3. Acquire a licensed controlled subset or three engine-owned objects, then
    use the generated browser to calibrate pairwise/MUSHRA-like human
    labels, validate leave-one-object or

@@ -328,6 +328,23 @@ establish autonomous quality ranking, or authorize a generic steel/P1 claim.
 The next discriminator remains a blind product-owner audition, followed by a
 controlled small object corpus if the candidate is worth pursuing.
 
+## Wood/glass reference-screen checkpoint
+
+A second bounded cycle froze four wood and five glass CC0 anchors from three
+external archives. The selected dry-hardwood-block candidate reduced median
+spectrum RMSE from `35.66129 dB` to `21.11627 dB` and median modal cost from
+`1.073954` to `0.847192`; temporal centroid moved from `133.967 ms` to
+`18.087 ms`. The selected thick-glass-plate candidate reduced median spectrum
+RMSE from `31.87924 dB` to `28.96005 dB` and modal cost from `1.860082` to
+`0.671596`; temporal centroid moved from `61.788 ms` to `33.773 ms`. Glass
+decay remained a metric disagreement rather than being hidden in a scalar.
+
+The exact sources, hashes, intermediate candidates and limitations are in the
+[wood/glass calibration report](physical-sound-wood-glass-calibration-2026-08-26.md).
+Like the steel screen, this permits only an experimental preset replacement.
+Every comparison remains `NeedsHumanAudit`; no calibrated or autonomous
+quality claim follows.
+
 ## Decision
 
 Treat the current P0 audition as `PERCEPTUAL_FAIL`. Preserve modal impact as a
