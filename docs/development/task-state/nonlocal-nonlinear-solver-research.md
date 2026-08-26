@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_TERMINAL_TRAJECTORY_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -113,6 +113,15 @@
 - **R20R31 frozen:** report every inherited trial's full KKT certificate and
   decompose nominal dual change plus all Armijo bounds. Apply no trial and do
   not alter merit or tolerance.
+- **R20R31 result:** implementation `7bb3c886`, semantic
+  `3425772c...de5b`, route `TERMINAL_CERTIFICATE_PRECEDES_ARMIJO`. Exactly the
+  full step is completely KKT-certified. Its nominal Armijo margin is positive,
+  but the explicit bound burden is about `94,976x` the nominal dual change;
+  all 21 merit comparisons are bound dominated.
+- **R20R32 frozen:** after an ordinary 21-trial line rejection, select only the
+  first already evaluated, fully KKT-certified trial as a terminal result.
+  Replay all 12 R29 cases; the sole permitted intervention is exact shear
+  iteration 22 power 0. Do not alter ordinary Armijo, `2^-70`, cap or trials.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4769,6 +4778,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R31 proves terminal certificate precedence, identifies
   a hidden KKT predicate failure or exposes a contradiction.
 
+### D-160 -- Let a complete terminal certificate outrank progress merit
+
+- **Observation:** R31 exhaustively audits all 21 inherited trials and finds
+  exactly one complete KKT certificate at power 0. Its nominal Armijo margin is
+  positive, but the rigorous bound burden is about 94,976 times the nominal
+  dual change, so bounded merit cannot prove progress at terminal scale.
+- **Decision:** preserve ordinary Armijo. Under a separate candidate, only
+  after the complete inherited line rejects, select the first already computed
+  fully certified trial as terminal state and stop. Bind the first experiment
+  to exact R29 shear iteration 22 and replay all 12 cases.
+- **Rejected:** weakening Armijo or `2^-70`, accepting an uncertified trial,
+  treating terminal selection as an ordinary progress step, adding a trial,
+  continuing after certification, timing or production promotion.
+- **Reconsider when:** R32 certifies 12/12 with exact state correspondence,
+  finds no in-trajectory certified trial, changes a historical root or fails a
+  fresh terminal audit.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4822,10 +4848,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R30 semantic `e1f807e9...1ff5`, R20R29 semantic
-   `3c4f5d51...ba7b`, candidate shear root `3f4798c8...e473` and all parents.
-   Implement only frozen R20R31; audit existing trials, add/apply none, and do
-   not change Armijo, the exact `2^-70` certificate, cap or tolerances.
+2. Preserve R20R31 semantic `3425772c...de5b`, R20R30 semantic
+   `e1f807e9...1ff5`, R20R29 semantic `3c4f5d51...ba7b`, candidate shear root
+   `3f4798c8...e473` and all parents. Implement only frozen R20R32. Select the
+   exact existing power-0 trial only as terminal KKT success after ordinary
+   line rejection; do not change Armijo, `2^-70`, cap, tolerances or trials.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.

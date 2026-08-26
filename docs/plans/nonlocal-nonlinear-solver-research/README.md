@@ -3221,3 +3221,13 @@ audited. The next
 and [merit-audit contract](03b4e2d7r20r31-terminal-certificate-contract.md)
 test whether an existing trial is already terminally certified and decompose
 the bounded Armijo comparison without applying it.
+The
+[R20R31 evidence](../../development/nonlocal-nsr3b4e2d7r20r31-terminal-certificate-evidence-2026-08-26.md)
+finds exactly one fully certified trial: the rejected full step. Its nominal
+Armijo margin is positive, but the rigorous merit bound burden is about
+`94,976x` larger than the nominal dual change. The next
+[terminal-trajectory research](../../development/nonlocal-nsr3b4e2d7r20r32-terminal-certificate-trajectory-research-2026-08-26.md)
+and [one-shot contract](03b4e2d7r20r32-terminal-certificate-trajectory-contract.md)
+select the first already evaluated KKT-certified trial only after ordinary
+line rejection, then replay the complete 12-case corpus without weakening
+Armijo or the certificate.
