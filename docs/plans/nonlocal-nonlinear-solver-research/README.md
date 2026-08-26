@@ -3256,3 +3256,12 @@ and [one-shot contract](03b4e2d7r20r35-v4-generalization-contract.md) execute a
 case-agnostic R32 policy once: terminal certificate first, then at most one
 unique forward-certified zero-bound recovery per case, with all other
 rejections fail-closed.
+The
+[R20R35 evidence](../../development/nonlocal-nsr3b4e2d7r20r35-v4-generalization-evidence-2026-08-26.md)
+certifies 3/5 blind cases by the ordinary path. Torsion stops at a rejected
+verified-inverse audit; counterflow has an exact NNQP but its global slope bound
+dominates nominal slope. Neither reaches recovery or terminal selection. The
+next [failure-budget research](../../development/nonlocal-nsr3b4e2d7r20r36-v4-failure-budget-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r36-v4-failure-budget-contract.md) expose
+the existing inverse certificate and decompose counterflow's slope bound before
+any remedy is selected.
