@@ -3463,3 +3463,8 @@ The
 passes that exact matrix and certifies 5/5 ordinarily. Since v4 is now a
 development corpus, the next generalization cycle must commit new source-only
 v5 fixtures before constructing operators or observing the solver.
+The new blind family is frozen by the
+[R20R57 research](../../development/nonlocal-nsr3b4e2d7r20r57-v5-source-manifest-research-2026-08-26.md)
+and [source-only contract](03b4e2d7r20r57-v5-source-manifest-contract.md): six
+new 96--120-particle fields and literal zero operator/solver work must be
+committed before any input preflight.

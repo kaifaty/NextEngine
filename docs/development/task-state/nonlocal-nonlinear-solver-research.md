@@ -5302,7 +5302,7 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    columns, unchanged direction and
    ordinary certification at 701 transitions. Preserve R20R56 semantic
    `daf7c2ce...20b7`, 5/5 ordinary routes, exact independent trigger matrix and
-   work ledger. Research and freeze R20R57 as a source-only blind v5 manifest;
+   work ledger. Implement frozen R20R57 as a source-only blind v5 manifest;
    add no operator/solver observation or unrelated
    fallback, root-selected branch,
    prodK, unrelated solve, counterflow retry,
