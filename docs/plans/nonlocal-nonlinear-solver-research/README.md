@@ -3265,3 +3265,13 @@ next [failure-budget research](../../development/nonlocal-nsr3b4e2d7r20r36-v4-fa
 and [report-only contract](03b4e2d7r20r36-v4-failure-budget-contract.md) expose
 the existing inverse certificate and decompose counterflow's slope bound before
 any remedy is selected.
+The
+[R20R36 evidence](../../development/nonlocal-nsr3b4e2d7r20r36-v4-failure-budget-evidence-2026-08-26.md)
+identifies two independent certificate limits. Torsion solves all 65 inverse
+columns but its residual enclosure has `rho=37.54`; counterflow's accumulated
+direction-error term is `108,818x` its positive global slope while residual and
+rounding terms are negligible. The next
+[exact-residual research](../../development/nonlocal-nsr3b4e2d7r20r37-exact-inverse-residual-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r37-exact-inverse-residual-contract.md) use an
+exact dyadic oracle on the already computed torsion inverse candidate to
+distinguish genuine noncontraction from an overly wide arithmetic enclosure.

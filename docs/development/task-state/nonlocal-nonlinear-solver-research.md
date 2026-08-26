@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_FAILURE_BUDGET_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_EXACT_DYADIC_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -152,6 +152,15 @@
 - **R20R36 frozen:** replay only those two exact failures. Report every existing
   torsion inverse audit and decompose counterflow slope bound into residual,
   direction-error and rounding terms. Add no solve, trial or state.
+- **R20R36 result:** implementation `cc1d40fc`, semantic
+  `448a9b8b...b90f`, route `V4_FAILURE_BUDGET_IDENTIFIED`. Torsion completes
+  all 65 inverse columns but its norm enclosure has `rho=37.54`. Counterflow's
+  direction-error term is `108,818x` nominal slope; its residual and rounding
+  terms are negligible. Both stored bounds reproduce bit for bit.
+- **R20R37 frozen:** capture the sole already executed torsion inverse candidate
+  and compute `||I-AX||_inf` with exact dyadic integer arithmetic. This
+  distinguishes genuine noncontraction from arithmetic enclosure width; add no
+  factorization, inverse column, solver decision, state or timing.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4882,6 +4891,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R36 identifies inverse-norm/column failure and the
   dominant counterflow slope term, or either decomposition fails parity.
 
+### D-165 -- Prove the inverse candidate before replacing its verifier
+
+- **Observation:** R36 shows a finite 65-column torsion inverse candidate with
+  maximum observed column residual `3.90e-4`, yet the sufficient residual-norm
+  enclosure is `37.54`. This alone neither proves the matrix singular nor the
+  represented inverse candidate noncontractive.
+- **Decision:** capture that exact existing candidate and compute
+  `||I-AX||_inf` as dyadic rationals. Only exact contraction may authorize
+  research into compensated `Dot2`/Krawczyk verification; exact
+  noncontraction redirects research to scaling/factorization/support geometry.
+- **Rejected:** weakening `rho<1`, fitting a precision/tolerance, installing a
+  compensated verifier before the discriminator, adding inverse columns,
+  continuing torsion, refining counterflow concurrently, timing or production
+  promotion.
+- **Reconsider when:** R37 proves exact contraction/noncontraction or rejects
+  its capture/dyadic apparatus.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4935,10 +4961,13 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R35 semantic `59c32c19...37b3`, both failed case/step roots,
-   R20R34 semantic `811ac231...02ab`, R20R32 semantic `e7b9acaf...0f73` and all
-   parents. Implement only report-only R20R36; add no inverse, solve, trial,
-   state, tolerance/cap/Armijo change, retry, tuning or timing.
+2. Preserve R20R36 semantic `448a9b8b...b90f`, R20R35 semantic
+   `59c32c19...37b3`, both failed case/step roots, R20R34 semantic
+   `811ac231...02ab`, R20R32 semantic `e7b9acaf...0f73` and all parents.
+   Implement only report-only R20R37 exact dyadic torsion audit; capture the
+   already executed 65 inverse columns and add no factorization/right-hand-side
+   solve, counterflow replay, solver decision, state, tolerance/cap/Armijo
+   change, retry, tuning or timing.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.

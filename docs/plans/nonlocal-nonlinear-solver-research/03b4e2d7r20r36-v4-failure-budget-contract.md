@@ -29,6 +29,10 @@ direction_error_term = sum abs(r_i) * direction_error
 rounding_term = gamma(16*rows+512) * sum abs(r_i*d_i)
 ```
 
+Here `direction_error` is the parent's per-row enclosure: the stored scalar on
+the reconstructed natural face and exact zero outside it. Require natural-face
+size/root parity before evaluating the decomposition.
+
 Require their binary128 ordered sum to equal the stored step slope bound.
 Report the three terms, nominal slope, NNQP-local slope/bound, direction error,
 dominance ratios and all roots. Classify residual-bound, direction-error,
