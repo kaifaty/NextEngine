@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-11 |
 | Статус | Accepted |
-| Версия | 2.6 |
-| Последняя проверка | 2026-08-20 |
+| Версия | 2.7 |
+| Последняя проверка | 2026-08-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V2.5 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V2.6 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
-| Заменяет | SPEC-11 2.5; adds bounded current-only replay input, exact project compatibility and path-free one-tick domain projections |
+| Заменяет | SPEC-11 2.6; adds future remote generative-authoring privacy, spend, resume and rights guardrails without changing current network/runtime policy |
 
 ## Назначение
 
@@ -141,6 +141,28 @@ telemetry, voice или remote tools включаются явной настр�
 минимальный endpoint scope и имеют локальный fallback. Их absence, timeout или
 protocol mismatch не блокируют simulation tick и не меняют обязательный
 gameplay outcome.
+
+### Future generative-provider boundary
+
+The `Proposed` SPEC-46/ADR-095 authoring path treats every prompt, reference,
+remote response and generated output as untrusted developer input. Remote
+submission is explicit opt-in and records the endpoint/adapter profile, classes
+and exact hashes of content leaving the machine, declared retention/privacy
+mode, positive billable-cost ceiling and attempt limit before transmission.
+Prompt instructions are not security or spend enforcement.
+
+Credentials, authorization headers, raw provider responses and opaque task
+handles cannot enter source control, project/package content, default logs or
+public reports. Protected Gothic-derived data, secrets, unknown-license input
+and references without transmission/derivation rights cannot be submitted.
+
+Every billable attempt has an idempotency key when the provider supports it.
+After an ambiguous timeout without a safe status query, the tool records
+`UnknownRemoteState` and forbids automatic resubmission. Downloaded output is
+quarantined, hash-verified, bounded and scanned before structural validation.
+Promotion additionally requires a positive rights/redistribution decision for
+the complete reference/derivation chain; otherwise the candidate remains local
+and excluded from package closure.
 
 ## License hygiene
 

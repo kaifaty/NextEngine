@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.64 |
+| Версия | 2.65 |
 | Последняя проверка | 2026-08-26 |
-| Заменяет | INDEX-001 2.63; indexes the Proposed physical sound-synthesis presentation track without changing the current audio baseline |
+| Заменяет | INDEX-001 2.64; indexes the independent Proposed physical-sound and provider-neutral generative-authoring tracks without changing current runtime baselines |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -196,6 +196,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-43 | [Proposed thermochemical material processes](43-thermochemical-material-processes.md) | Proposed enthalpy/phase owner with per-interface sub-LSB residuals and atomic parcel topology; numeric/profile T0B remains open |
 | SPEC-44 | [Proposed neural-assisted world simulation](44-neural-assisted-world-simulation.md) | Proposed N0/N1 report/shadow-only research; runtime advice requires a later safety-certificate-backed Accepted ADR |
 | SPEC-45 | [Proposed physical sound synthesis and acoustic presentation](45-physical-sound-synthesis-and-acoustic-presentation.md) | Proposed presentation-only modal rigid-impact source track; current clip audio and deterministic gameplay acoustic facts remain authoritative fallbacks |
+| SPEC-46 | [Proposed generative content authoring and candidate promotion](46-generative-content-authoring-and-candidate-promotion.md) | Proposed offline provider-neutral brief/derivation/receipt/candidate boundary for materials, static assets and bounded maps; no current command/schema/provider/runtime dependency |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -299,6 +300,7 @@ traceability — навигационная карта, не admission authority
 | ADR-092 | [Dimensional relative performance comparison](adr/092-dimensional-relative-performance-comparison.md) | Accepted Performance V6/methodology v10 direct-relative and normalized-ratio absolute-only comparison classes |
 | ADR-093 | [Deterministic R5 worker placement](adr/093-deterministic-r5-worker-placement.md) | Accepted deterministic physical-core placement for the `r5-physics-16` workload through one reviewed `next_cpu_affinity` boundary; workload identity advances to v3 |
 | ADR-094 | [Confidence-gated relative warnings](adr/094-confidence-gated-relative-warnings.md) | Accepted CI95-lower-bound gating for relative warnings under methodology v11 with stderr-only failure diagnostics |
+| ADR-095 | [Provider-neutral generative content authoring boundary](adr/095-provider-neutral-generative-content-authoring-boundary.md) | Proposed quarantined-candidate and explicit-promotion boundary; ordinary exact authored source remains the complete fallback |
 
 ## Proposed tracks
 
@@ -320,6 +322,10 @@ traceability — навигационная карта, не admission authority
 - SPEC-45 — optional presentation-only physical sound-source synthesis;
   modal rigid impact is the first bounded candidate, while current clip audio,
   gameplay acoustic facts and engine-native propagation remain unchanged.
+- SPEC-46/ADR-095 — optional offline generative authoring before the existing
+  cooker: typed briefs, bounded derivation/receipts, quarantined exact
+  candidates, structural validation and atomic promotion. Material is the first
+  consumer; no provider, command, public schema or runtime dependency is current.
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
 - Broader navigation sections of SPEC-08 — navmesh cooking, dynamic overlays,
   tactical/physical path following and optional Recast adapter remain Proposed

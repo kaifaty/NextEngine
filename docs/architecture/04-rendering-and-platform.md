@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.11 |
-| Последняя проверка | 2026-08-24 |
+| Версия | 2.12 |
+| Последняя проверка | 2026-08-26 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-091](adr/091-linux-release-performance-authority.md) |
 | Дополнительные зависимости V2.9 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
 | Дополнительные зависимости V2.10 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
-| Заменяет | SPEC-04 2.10; aligns the current R2 workload identity with the methodology-v11 executable boundary |
+| Заменяет | SPEC-04 2.11; adds the future SPEC-46 standardized candidate-preview boundary without changing current renderer or capture authority |
 
 ## Technical authority boundary
 
@@ -43,6 +43,17 @@ extent/format/color metadata из developer-selected capture request. `headless`
 Screenshots, video capture, GPU traces and visual comparison MAY be used as
 developer diagnostics or playtesting tools. Their absence does not break the
 product contract and they never become gameplay authority.
+
+Future generated-content previews follow
+[SPEC-46](46-generative-content-authoring-and-candidate-promotion.md): a pinned
+developer plan declares the B0 profile, camera, light/environment, extent,
+background, scale reference and primitive/turntable subject before capture.
+The preview consumes quarantined or promoted exact candidate bytes through the
+same render/material interpretation used by ordinary content, but its pixels,
+similarity score and provider metadata remain report-only. Structural content
+validation and existing B0 fallback closure decide admission; lack of capture
+must never make an invalid candidate valid or block the ordinary authored
+source path. This is `Proposed` tooling scope, not a current capture command.
 
 ## Capability tiers
 
