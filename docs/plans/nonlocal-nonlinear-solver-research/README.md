@@ -13,7 +13,8 @@ Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS 
 
 Current bounded frontier: `NSR3B4E2D7R20R27_PASS_LINE_ENVELOPE_EXHAUSTED /
 NSR3B4E2D7R20R28_PASS_BIDIRECTIONAL_ACCEPTANCE /
-NSR3B4E2D7R20R29_FROZEN / REPORT_ONLY`.
+NSR3B4E2D7R20R29_PASS_LATER_GLOBALIZATION_REJECTED /
+NSR3B4E2D7R20R30_FROZEN / REPORT_ONLY`.
 
 Candidate identity:
 
@@ -3202,3 +3203,11 @@ have positive Armijo margins. The next
 and [trajectory contract](03b4e2d7r20r29-exhausted-line-recovery-contract.md)
 commit only the exact new-side R28 point after the exact R26 prefix, then run
 the unchanged remaining trajectory with no second recovery.
+The
+[R20R29 evidence](../../development/nonlocal-nsr3b4e2d7r20r29-exhausted-line-recovery-evidence-2026-08-26.md)
+shows the one recovery followed by a full Newton step reduces dual mapping to
+`1.78e-18`, but three metrics remain above the exact `2^-70` certificate and
+iteration 22 rejects globalization. The next
+[terminal audit research](../../development/nonlocal-nsr3b4e2d7r20r30-post-recovery-globalization-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r30-post-recovery-globalization-contract.md)
+classify every iteration-22 margin and mask regime before a second candidate.
