@@ -3299,3 +3299,12 @@ global inverse-norm product still leaves six signs unresolved. The next
 and [frozen contract](03b4e2d7r20r40-directional-krawczyk-contract.md) certify
 the actual `Xr` correction and left defect `I-XA` before considering a solver
 repair.
+The
+[R20R40 evidence](../../development/nonlocal-nsr3b4e2d7r20r40-directional-krawczyk-evidence-2026-08-26.md)
+proves the left defect contractive at `rho_bound=0.131768` and improves the
+uniform error about `35.9x`, but the actual correction is `2.499e14` and the
+same six signs remain unresolved. The next
+[centered research](../../development/nonlocal-nsr3b4e2d7r20r41-centered-neumann-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r41-centered-neumann-contract.md) build a
+shadow fixed-point center at fixed depths and independently certify its
+remaining residual before any refined solution may affect NNQP state.
