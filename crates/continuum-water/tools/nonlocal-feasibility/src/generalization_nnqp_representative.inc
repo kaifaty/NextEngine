@@ -23,6 +23,24 @@ struct ALR20VerifiedInverse {
     std::string root;
 };
 
+struct ALR20VerifiedInverseCapture {
+    std::size_t calls = 0U;
+    std::size_t total_column_solves = 0U;
+    std::vector<std::string> audit_roots;
+    std::string selected_root;
+    bool factor_passed = false;
+    std::string matrix_root;
+    std::string factor_root;
+    std::vector<Binary128> matrix;
+    std::vector<Binary128> lower;
+    std::vector<Binary128> inverse;
+    std::vector<Binary128> column_bound;
+    ALR20VerifiedInverse audit;
+};
+
+thread_local ALR20VerifiedInverseCapture*
+    al_r20_verified_inverse_capture = nullptr;
+
 struct ALR20NNQPSolve {
     bool exact = false;
     bool terminated = false;
@@ -328,6 +346,24 @@ ALR20VerifiedInverse al_r20_verified_inverse(
              << al_binary128_hex(result.maximum_column_bound) << ':'
              << result.norm.root;
     result.root = sha256_hex(material.str());
+    if (al_r20_verified_inverse_capture != nullptr) {
+        ALR20VerifiedInverseCapture& capture =
+            *al_r20_verified_inverse_capture;
+        ++capture.calls;
+        capture.total_column_solves += result.column_solves;
+        capture.audit_roots.push_back(result.root);
+        if (capture.selected_root.empty()
+            || capture.selected_root == result.root) {
+            capture.factor_passed = factor.passed;
+            capture.matrix_root = factor.matrix_root;
+            capture.factor_root = factor.factor_root;
+            capture.matrix = factor.matrix;
+            capture.lower = factor.lower;
+            capture.inverse = inverse;
+            capture.column_bound = column_bound;
+            capture.audit = result;
+        }
+    }
     return result;
 }
 
