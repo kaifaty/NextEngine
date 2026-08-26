@@ -3345,3 +3345,12 @@ artifact. The next
 and [report-only contract](03b4e2d7r20r45-second-centered-solution-contract.md)
 apply the fixed R41 checkpoint schedule to the new RHS without changing NNQP
 state.
+The
+[R20R45 evidence](../../development/nonlocal-nsr3b4e2d7r20r45-second-centered-solution-evidence-2026-08-26.md)
+contains the new exact RHS throughout and resolves all 65 signs at depth four;
+depth 16 is its first arithmetic-floor checkpoint at radius `3.17e-14`. The
+next
+[two-refinement research](../../development/nonlocal-nsr3b4e2d7r20r46-two-refinement-trajectory-research-2026-08-26.md)
+and [default-off contract](03b4e2d7r20r46-two-refinement-trajectory-contract.md)
+allow the original depth-eight and second depth-16 certificates to be consumed
+once each, preserving the next exact boundary.
