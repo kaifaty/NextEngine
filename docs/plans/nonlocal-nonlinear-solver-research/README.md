@@ -1,8 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63J_EXPORTED_FACTOR_REFINED_RHS_CANDIDATE /
-NSR3B4E2D7R20R63K_FACTOR_STANDARD_REFINEMENT_FROZEN /
-NSR3B4E2D7R20R63K_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63K_WIDE_FACTOR_STANDARD_REFINEMENT_REJECTED /
+NSR3B4E2D7R20R63L_WIDE_CONVERGENCE_FRONTIER_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3694,6 +3693,15 @@ Every update solves the original residual through that factor; the dense
 verified inverse is restricted to independent certificates at iterations
 `1/2/4/8/16`. This distinguishes an ordinary mixed-precision correction from
 the more complex GMRES-IR/PCG/low-rank branches before implementation.
+
+The
+[R20R63K evidence](../../development/nonlocal-nsr3b4e2d7r20r63k-factor-standard-refinement-evidence-2026-08-26.md)
+selects `WIDE_FACTOR_STANDARD_REFINEMENT_REJECTED`. Retained-wide correction
+contracts monotonically but still has error `144` and four unresolved signs at
+iteration 16; export/wide reaches `5.06e4`. Strict binary64 correction is
+nonmonotone and remains order `1e15`. Research a separate frozen 17--32
+convergence frontier for the two wide lanes before choosing GMRES-IR/PCG; do
+not amend the closed R63K budget.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)

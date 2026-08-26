@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63K factor standard-refinement research
 
-Status: `FROZEN FOR IMPLEMENTATION`.
+Status: `IMPLEMENTED / WIDE_FACTOR_STANDARD_REFINEMENT_REJECTED`.
 
 ## Question
 
@@ -107,3 +107,15 @@ regularization.
 
 R63K performs no replacement, following transition, trajectory, timing,
 runtime/GPU or production inference. R64 and R65 remain blocked.
+
+## Result
+
+The frozen apparatus selects `WIDE_FACTOR_STANDARD_REFINEMENT_REJECTED` at
+semantic `61c739a2...4ade`; stdout repeats at `7b13fa40...73c8`. Retained-wide
+error falls monotonically to `144.035` at iteration 16 but still leaves four
+unresolved signs. Export/wide reaches `5.06e4`; strict binary64 oscillates at
+order `1e15..1e16`. See the
+[evidence record](nonlocal-nsr3b4e2d7r20r63k-factor-standard-refinement-evidence-2026-08-26.md).
+
+The next research stage may extend only the two wide lanes to a frozen
+iteration-32 frontier. Strict binary64 standard refinement is rejected.
