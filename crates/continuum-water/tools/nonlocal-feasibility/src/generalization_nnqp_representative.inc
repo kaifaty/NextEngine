@@ -64,6 +64,7 @@ struct ALR20VerifiedInverseCapture {
     std::vector<Binary128> rhs;
     std::vector<Binary128> solution;
     std::vector<std::size_t> source_rows;
+    ALR20ProjectorState projector;
     Binary128 solve_residual = static_cast<Binary128>(0.0);
     Binary128 solve_bound = static_cast<Binary128>(0.0);
     Binary128 cheap_error = static_cast<Binary128>(0.0);
@@ -72,6 +73,8 @@ struct ALR20VerifiedInverseCapture {
 
 thread_local ALR20VerifiedInverseCapture*
     al_r20_verified_inverse_capture = nullptr;
+thread_local const ALR20ProjectorState*
+    al_r20_verified_inverse_projector_context = nullptr;
 
 struct ALR20DirectSolutionCapture {
     std::size_t calls = 0U;
@@ -449,6 +452,9 @@ ALR20VerifiedInverse al_r20_verified_inverse(
             capture.solution = solution;
             capture.source_rows = source_rows == nullptr
                 ? std::vector<std::size_t>{} : *source_rows;
+            if (al_r20_verified_inverse_projector_context != nullptr)
+                capture.projector =
+                    *al_r20_verified_inverse_projector_context;
             capture.solve_residual = solve_residual;
             capture.solve_bound = solve_bound;
             capture.cheap_error = cheap_error;

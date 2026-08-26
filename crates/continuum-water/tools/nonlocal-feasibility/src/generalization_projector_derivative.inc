@@ -435,6 +435,7 @@ struct ALR20PivotedRank {
     Binary128 reconstruction_bound = static_cast<Binary128>(0.0);
     Binary128 dependency_residual = static_cast<Binary128>(0.0);
     std::vector<std::size_t> permutation;
+    std::vector<Binary128> witness;
     std::string dependency_root;
     std::string root;
 };
@@ -553,6 +554,7 @@ ALR20PivotedRank al_r20_projector_pivoted_rank(
         }
     }
     result.dependency_root = al_r20_q_scalar_root(witness);
+    result.witness = witness;
     Binary128 witness_scale = static_cast<Binary128>(1.0);
     for (Binary128 item : witness)
         witness_scale += fabsq(item);

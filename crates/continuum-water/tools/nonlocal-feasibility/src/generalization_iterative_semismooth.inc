@@ -152,9 +152,17 @@ ALR20SemismoothStep al_r20_semismooth_step(
         && al_r20_direct_solution_capture == nullptr;
     if (slope_capture_armed)
         al_r20_direct_solution_capture = &slope_direct;
+    const bool projector_context_armed =
+        al_r20_verified_inverse_capture != nullptr
+        && al_r20_verified_inverse_projector_context == nullptr;
+    if (projector_context_armed)
+        al_r20_verified_inverse_projector_context = &current.projector;
     result.solve = al_r20_nnqp_solve(
         principal, rhs, rhs_bound, natural_face,
         verified_inverse, dual_ratio_refinement);
+    if (projector_context_armed
+        && al_r20_verified_inverse_projector_context == &current.projector)
+        al_r20_verified_inverse_projector_context = nullptr;
     if (slope_capture_armed
         && al_r20_direct_solution_capture == &slope_direct)
         al_r20_direct_solution_capture = nullptr;
