@@ -392,6 +392,7 @@ struct ALR20R37ExactResidual {
     std::size_t worst_row = 0U;
     ALR20R37Dyadic norm;
     Binary128 outward_norm = static_cast<Binary128>(0.0);
+    std::vector<ALR20R37Dyadic> residual;
     std::string residual_root;
     std::string root;
 };
@@ -434,6 +435,7 @@ ALR20R37ExactResidual al_r20_r37_exact_residual(
                 row == column ? ALR20R37Integer(1) : ALR20R37Integer(0), 0};
             const ALR20R37Dyadic residual = al_r20_r37_add(
                 identity, {-image.numerator, image.exponent});
+            result.residual.push_back(residual);
             row_sum = al_r20_r37_add(
                 row_sum, al_r20_r37_absolute(residual));
             residual_material << al_r20_r37_dyadic_text(residual) << ';';

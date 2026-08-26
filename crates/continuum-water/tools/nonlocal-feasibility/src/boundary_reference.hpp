@@ -285,6 +285,7 @@ SplitBoundaryReport run_al_generalization_v4_preflight_controls();
 SplitBoundaryReport run_al_generalization_v4_solver_controls();
 SplitBoundaryReport run_al_generalization_v4_failure_budget_controls();
 SplitBoundaryReport run_al_generalization_v4_exact_inverse_residual_controls();
+SplitBoundaryReport run_al_generalization_v4_dot2_inverse_certificate_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
