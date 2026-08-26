@@ -9,7 +9,7 @@ NSR3B4E2D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE /
 NSR3B4E2D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED /
 NSR3B4E2D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED /
 NSR3B4E2D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE /
-NSR3B4E2D7R20R63V_EARLIEST_IMAGE_CERTIFICATE_RESEARCH_NEXT /
+NSR3B4E2D7R20R63V_EARLIEST_IMAGE_CERTIFICATE_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3885,6 +3885,12 @@ candidate, exact image radii tighten from order `1e14` to
 root. Locate the earliest stable R63S iterate under this certificate next,
 then research a bounded finite residual-image verifier before sparse or
 performance work.
+
+The earliest-state replay is now frozen by the
+[R20R63V research](../../development/nonlocal-nsr3b4e2d7r20r63v-earliest-residual-image-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63v-earliest-residual-image-contract.md). It
+certifies both immutable state ladders `0..8`, continues after pass and
+requires state-8 certificates to reproduce R63U exactly.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
