@@ -3478,3 +3478,8 @@ The
 and [contract](03b4e2d7r20r58-v5-preflight-contract.md) now freeze that
 input-only observation: structural/scaling/excitation roots are recorded once,
 with zero nonlinear or certificate work.
+The
+[R20R58 evidence](../../development/nonlocal-nsr3b4e2d7r20r58-v5-preflight-evidence-2026-08-26.md)
+admits all six distinct problems with `53/75/84/73/55/77` certified-positive
+rows and zero solver work. A one-shot blind replay of the unchanged composed
+policy is now the next gate.

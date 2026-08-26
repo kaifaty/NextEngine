@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R58 v5 input preflight research
 
-Status: `RESEARCH COMPLETE / INPUT-ONLY ADMISSION SELECTED`.
+Status: `PASS / ALL SIX V5 INPUTS ADMITTED`.
 
 ## Question
 
@@ -22,3 +22,9 @@ valid immutable excitation rejection and must not be edited.
 Success with all six excited authorizes a separately frozen one-shot composed
 policy replay; any quiet case redirects research to corpus interpretation, not
 source tuning.
+
+## Outcome
+
+All six inputs are distinct, structurally exact and rigorously excited. No
+solver work ran. The immutable problem roots now authorize one R59 blind replay
+of the already frozen composed policy.
