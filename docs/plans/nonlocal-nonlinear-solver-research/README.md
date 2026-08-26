@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63E_CLAMP_METRIC_NUMERICAL_RANK_LOSS /
-NSR3B4E2D7R20R63F_PROJECTION_EQUIVALENT_REPRESENTATIVE_RESEARCH_NEXT /
+Current milestone: `NSR3B4E2D7R20R63F_LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED /
+NSR3B4E2D7R20R63G_NO_DROP_RECTANGULAR_ARITHMETIC_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3604,3 +3604,16 @@ almost all on 141 clamped coordinates; only order `4e-30` remains free and the
 ball-radial term is order `2.5e-32`. Research/freeze projection-equivalent dual
 representative semantics next. Do not infer exact rank 101, delete a row or
 apply wider arithmetic/RHS work first.
+
+The
+[R20R63F research](../../development/nonlocal-nsr3b4e2d7r20r63f-representative-injectivity-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63f-representative-injectivity-contract.md) test the
+premise required by that representative path on the direct `102 x 315`
+tangent operator. The
+[R20R63F evidence](../../development/nonlocal-nsr3b4e2d7r20r63f-representative-injectivity-evidence-2026-08-26.md)
+proves represented rank 102 under both fixed primes and a strictly nonzero
+direct image for the inherited near-null witness. This selects
+`LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED`: stop representative correction for
+this face and research/freeze no-drop rectangular arithmetic before any RHS.
+Do not choose numerical rank 101, remove a row, regularize or infer that
+binary64 QR/LSQR is already sufficient.
