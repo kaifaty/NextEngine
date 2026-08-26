@@ -279,6 +279,7 @@ run_al_generalization_v3_exhausted_line_recovery_controls();
 SplitBoundaryReport
 run_al_generalization_v3_post_recovery_globalization_controls();
 SplitBoundaryReport run_al_generalization_v3_terminal_certificate_controls();
+SplitBoundaryReport run_al_generalization_v3_terminal_trajectory_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

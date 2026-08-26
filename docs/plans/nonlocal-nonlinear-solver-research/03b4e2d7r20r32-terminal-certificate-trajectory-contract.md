@@ -6,8 +6,9 @@ Status: `FROZEN / ONE-SHOT 12-CASE TERMINAL TRAJECTORY AUTHORIZED`.
 
 - R31 implementation `7bb3c886`, semantic
   `3425772c1e7480d690a31b52e2456857b17feb15f9967892e3830b01c907de5b`;
-- exact R31 power-0 trial root `e36e8d5e...26d7` and metrics root
-  `05b71f6f...9b53`;
+- exact R31 power-0 audit root `e36e8d5e...26d7` and metrics root
+  `05b71f6f...9b53` (the audit root transitively binds the dual and inherited
+  trial roots);
 - R29 semantic `3c4f5d51...ba7b`, shear root `3f4798c8...e473` and exact
   21-step accepted trajectory with one exhausted-line recovery;
 - exact KKT tolerance `2^-70`, Armijo rule and 32-step cap remain unchanged.

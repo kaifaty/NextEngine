@@ -80109,6 +80109,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_v3_exhausted_line_recovery.inc"
 #include "generalization_v3_post_recovery_globalization.inc"
 #include "generalization_v3_terminal_certificate.inc"
+#include "generalization_v3_terminal_trajectory.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

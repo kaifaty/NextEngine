@@ -29,6 +29,82 @@ struct ALR20R31TrialAudit {
     std::string root;
 };
 
+ALR20R31TrialAudit al_r20_r31_trial_audit(
+    const ALR20NewtonDualEvaluation& current,
+    const ALR20SemismoothStep& step,
+    const ALR20NewtonTrial& trial) {
+    const Binary128 tolerance = ldexpq(static_cast<Binary128>(1.0), -70);
+    const Binary128 coefficient = ldexpq(static_cast<Binary128>(1.0), -10);
+    const Binary128 slope_lower = step.slope - step.slope_bound;
+    ALR20R31TrialAudit audit;
+    audit.power = trial.power;
+    audit.alpha = trial.alpha;
+    audit.finite_pass = trial.metrics.finite;
+    audit.primal_pass = trial.metrics.primal <= tolerance;
+    audit.dual_pass = trial.metrics.dual_mapping <= tolerance;
+    audit.complementarity_pass =
+        trial.metrics.complementarity <= tolerance;
+    audit.stationarity_pass = trial.metrics.stationarity <= tolerance;
+    audit.gap_sign_pass = trial.metrics.gap >= -trial.metrics.gap_bound;
+    audit.gap_scaled_pass = trial.metrics.gap_scaled <= tolerance;
+    const bool composed_certificate = audit.finite_pass
+        && audit.primal_pass && audit.dual_pass
+        && audit.complementarity_pass && audit.stationarity_pass
+        && audit.gap_sign_pass && audit.gap_scaled_pass;
+    audit.certificate_consistent =
+        composed_certificate == trial.metrics.certified;
+    audit.nominal_dual_change = trial.dual.value - current.value;
+    audit.nominal_armijo_margin = audit.nominal_dual_change
+        - coefficient * trial.alpha * step.slope;
+    audit.old_bound = current.bound;
+    audit.new_bound = trial.dual.bound;
+    audit.slope_term = coefficient * trial.alpha * slope_lower;
+    audit.rhs_round_bound = al_r20_q_gamma(128U)
+        * (fabsq(current.value) + current.bound
+            + coefficient * trial.alpha * fabsq(slope_lower));
+    audit.bound_burden = audit.old_bound + audit.new_bound
+        + audit.slope_term + audit.rhs_round_bound;
+    audit.dual_increase_lower = trial.dual_increase_lower;
+    audit.margin = al_r20_r19_armijo_margin(current, step, trial);
+    const Binary128 recomposed_margin = trial.dual.value
+        - trial.dual.bound
+        - (current.value + current.bound + audit.slope_term)
+        - audit.rhs_round_bound;
+    audit.armijo_recomposition_exact =
+        al_binary128_hex(recomposed_margin) == al_binary128_hex(audit.margin);
+    audit.bound_dominated =
+        audit.bound_burden >= fabsq(audit.nominal_dual_change);
+    audit.exact = trial.exact && !trial.accepted
+        && trial.mask_changes == 0U
+        && !trial.ball_activity_changed
+        && audit.armijo_recomposition_exact
+        && finiteq(audit.nominal_dual_change) != 0
+        && finiteq(audit.nominal_armijo_margin) != 0
+        && finiteq(audit.bound_burden) != 0
+        && finiteq(audit.margin) != 0;
+    std::ostringstream material;
+    material << audit.exact << ':' << audit.certificate_consistent << ':'
+        << audit.finite_pass << ':' << audit.primal_pass << ':'
+        << audit.dual_pass << ':' << audit.complementarity_pass << ':'
+        << audit.stationarity_pass << ':' << audit.gap_sign_pass << ':'
+        << audit.gap_scaled_pass << ':'
+        << audit.armijo_recomposition_exact << ':'
+        << audit.bound_dominated << ':'
+        << audit.power << ':' << al_binary128_hex(audit.alpha) << ':'
+        << al_binary128_hex(audit.nominal_dual_change) << ':'
+        << al_binary128_hex(audit.nominal_armijo_margin) << ':'
+        << al_binary128_hex(audit.old_bound) << ':'
+        << al_binary128_hex(audit.new_bound) << ':'
+        << al_binary128_hex(audit.slope_term) << ':'
+        << al_binary128_hex(audit.rhs_round_bound) << ':'
+        << al_binary128_hex(audit.bound_burden) << ':'
+        << al_binary128_hex(audit.dual_increase_lower) << ':'
+        << al_binary128_hex(audit.margin) << ':'
+        << trial.dual.root << ':' << trial.metrics.root;
+    audit.root = sha256_hex(material.str());
+    return audit;
+}
+
 } // namespace
 
 SplitBoundaryReport run_al_generalization_v3_terminal_certificate_controls() {
@@ -40,7 +116,6 @@ SplitBoundaryReport run_al_generalization_v3_terminal_certificate_controls() {
 #endif
     const Binary128 zero = static_cast<Binary128>(0.0);
     const Binary128 tolerance = ldexpq(static_cast<Binary128>(1.0), -70);
-    const Binary128 coefficient = ldexpq(static_cast<Binary128>(1.0), -10);
     const bool profile_exact = frozen_platform
         && sizeof(Binary128) == 16U && FLT_RADIX == 2
         && FLT128_MANT_DIG == 113;
@@ -97,55 +172,8 @@ SplitBoundaryReport run_al_generalization_v3_terminal_certificate_controls() {
     std::size_t certificate_contradictions = 0U;
     bool audit_values_exact = reproduction_exact && slope_lower > zero;
     for (const ALR20NewtonTrial& trial : final.trials) {
-        ALR20R31TrialAudit audit;
-        audit.power = trial.power;
-        audit.alpha = trial.alpha;
-        audit.finite_pass = trial.metrics.finite;
-        audit.primal_pass = trial.metrics.primal <= tolerance;
-        audit.dual_pass = trial.metrics.dual_mapping <= tolerance;
-        audit.complementarity_pass =
-            trial.metrics.complementarity <= tolerance;
-        audit.stationarity_pass = trial.metrics.stationarity <= tolerance;
-        audit.gap_sign_pass =
-            trial.metrics.gap >= -trial.metrics.gap_bound;
-        audit.gap_scaled_pass = trial.metrics.gap_scaled <= tolerance;
-        const bool composed_certificate = audit.finite_pass
-            && audit.primal_pass && audit.dual_pass
-            && audit.complementarity_pass && audit.stationarity_pass
-            && audit.gap_sign_pass && audit.gap_scaled_pass;
-        audit.certificate_consistent = composed_certificate
-            == trial.metrics.certified;
-        audit.nominal_dual_change = trial.dual.value - current.value;
-        audit.nominal_armijo_margin = audit.nominal_dual_change
-            - coefficient * trial.alpha * final.slope;
-        audit.old_bound = current.bound;
-        audit.new_bound = trial.dual.bound;
-        audit.slope_term = coefficient * trial.alpha * slope_lower;
-        audit.rhs_round_bound = al_r20_q_gamma(128U)
-            * (fabsq(current.value) + current.bound
-                + coefficient * trial.alpha * fabsq(slope_lower));
-        audit.bound_burden = audit.old_bound + audit.new_bound
-            + audit.slope_term + audit.rhs_round_bound;
-        audit.dual_increase_lower = trial.dual_increase_lower;
-        audit.margin =
-            al_r20_r19_armijo_margin(current, final, trial);
-        const Binary128 recomposed_margin = trial.dual.value
-            - trial.dual.bound
-            - (current.value + current.bound + audit.slope_term)
-            - audit.rhs_round_bound;
-        audit.armijo_recomposition_exact =
-            al_binary128_hex(recomposed_margin)
-            == al_binary128_hex(audit.margin);
-        audit.bound_dominated = audit.bound_burden
-            >= fabsq(audit.nominal_dual_change);
-        audit.exact = trial.exact && !trial.accepted
-            && trial.mask_changes == 0U
-            && !trial.ball_activity_changed
-            && audit.armijo_recomposition_exact
-            && finiteq(audit.nominal_dual_change) != 0
-            && finiteq(audit.nominal_armijo_margin) != 0
-            && finiteq(audit.bound_burden) != 0
-            && finiteq(audit.margin) != 0;
+        ALR20R31TrialAudit audit =
+            al_r20_r31_trial_audit(current, final, trial);
         if (trial.metrics.certified) {
             ++certified_trials;
             if (first_certified_power == AL_R20_NEWTON_LINE_TRIALS)
@@ -154,26 +182,6 @@ SplitBoundaryReport run_al_generalization_v3_terminal_certificate_controls() {
         if (audit.bound_dominated) ++bound_dominated_trials;
         if (!audit.certificate_consistent) ++certificate_contradictions;
         audit_values_exact = audit_values_exact && audit.exact;
-        std::ostringstream material;
-        material << audit.exact << ':' << audit.certificate_consistent << ':'
-            << audit.finite_pass << ':' << audit.primal_pass << ':'
-            << audit.dual_pass << ':' << audit.complementarity_pass << ':'
-            << audit.stationarity_pass << ':' << audit.gap_sign_pass << ':'
-            << audit.gap_scaled_pass << ':'
-            << audit.armijo_recomposition_exact << ':'
-            << audit.bound_dominated << ':'
-            << audit.power << ':' << al_binary128_hex(audit.alpha) << ':'
-            << al_binary128_hex(audit.nominal_dual_change) << ':'
-            << al_binary128_hex(audit.nominal_armijo_margin) << ':'
-            << al_binary128_hex(audit.old_bound) << ':'
-            << al_binary128_hex(audit.new_bound) << ':'
-            << al_binary128_hex(audit.slope_term) << ':'
-            << al_binary128_hex(audit.rhs_round_bound) << ':'
-            << al_binary128_hex(audit.bound_burden) << ':'
-            << al_binary128_hex(audit.dual_increase_lower) << ':'
-            << al_binary128_hex(audit.margin) << ':'
-            << trial.dual.root << ':' << trial.metrics.root;
-        audit.root = sha256_hex(material.str());
         audits.push_back(std::move(audit));
     }
 

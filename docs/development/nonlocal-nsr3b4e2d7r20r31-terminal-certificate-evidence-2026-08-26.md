@@ -32,8 +32,10 @@ All residual and gap predicates pass the unchanged
 `2^-70 = 8.4703294725430034e-22` certificate. Its metrics root is
 `05b71f6f...9b53` and R31 trial root is `e36e8d5e...26d7`. Powers 1 through
 20 are finite with valid primal, stationarity and gap sign, but fail dual
-mapping, complementarity and scaled gap; therefore the full step is not a
-rounded-display accident.
+mapping, complementarity and scaled gap. The `e36e8d5e...26d7` value is the
+R31 audit root (which binds the inherited trial/dual/metrics roots), not the
+underlying Newton-trial root; therefore the full step is not a rounded-display
+accident.
 
 The full-step nominal dual change is positive,
 `1.0833355937178202e-34`, and its nominal Armijo margin is also positive,
