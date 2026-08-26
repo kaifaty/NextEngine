@@ -3,19 +3,35 @@ use std::path::{Component, Path, PathBuf};
 
 use next_contracts::canonical::sha256;
 use next_contracts::ids::ContentHash;
-use next_presentation::physical_sound_lab::{OfflineModalMode, render_offline_modal_recurrence};
+use next_presentation::audio_mix::{AudioMixProfileV1, encode_canonical_wav};
+use next_presentation::physical_sound_lab::{
+    OfflineModalMode, cook_offline_q30_modal_bank, normalize_offline_q30_samples,
+    render_offline_modal_recurrence, render_offline_q30_modal_recurrence,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::physical_sound_eval_command::audio_analysis::{WavAudio, parse_wav};
 
+mod transfer_math;
+
+use transfer_math::{
+    calculate_residual, calculate_residual_f32, concatenate_audition_pair,
+    normalized_mono_to_stereo_s16, resample_zero_extended_linear, scale_sample_count,
+};
+
 const PROFILE_SCHEMA: &str = "nextengine.external-diffsound-checkpoint.v0";
-const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-reproduction.report.v0";
+const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-reproduction.report.v1";
 const QUALITY_MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-quality.manifest.v0";
 const MAX_PROFILE_BYTES: u64 = 1024 * 1024;
 const MAX_MODE_COUNT: usize = 128;
 const MAX_TRANSIENT_SAMPLES: usize = 8_192;
 const RMS_RESIDUAL_LIMIT: f64 = 1.0e-3;
 const CORRELATION_MINIMUM: f64 = 0.999;
+const Q30_SAMPLE_RATE_HZ: u32 = 48_000;
+const Q30_RMS_RESIDUAL_LIMIT: f64 = 1.0e-4;
+const Q30_MAXIMUM_ABSOLUTE_RESIDUAL_LIMIT: f64 = 1.0e-3;
+const Q30_CORRELATION_MINIMUM: f64 = 0.999_99;
+const AUDITION_SILENCE_MILLISECONDS: u32 = 250;
 
 pub(super) struct Request {
     profile: PathBuf,
@@ -108,6 +124,7 @@ struct ReproductionReport {
     acceptance: AcceptanceReport,
     modal_only: AudioReproductionReport,
     modal_with_transient: AudioReproductionReport,
+    fixed_point_48khz: FixedPointTransferReport,
     quality_manifest_file: &'static str,
 }
 
@@ -134,6 +151,46 @@ struct ResidualReport {
     rms: f64,
     signal_to_noise_db: Option<f64>,
     correlation: f64,
+}
+
+#[derive(Serialize)]
+struct FixedPointTransferReport {
+    status: &'static str,
+    claim: &'static str,
+    renderer: &'static str,
+    q_format: &'static str,
+    sample_rate_hz: u32,
+    frame_count: usize,
+    mode_count: usize,
+    source_transient_sample_count: usize,
+    resampled_transient_sample_count: usize,
+    repeated_render_identical: bool,
+    acceptance: FixedPointAcceptanceReport,
+    modal_only: FixedPointAudioReport,
+    modal_with_transient: FixedPointAudioReport,
+    audition_a_file: &'static str,
+    audition_a_sha256: String,
+    audition_b_file: &'static str,
+    audition_b_sha256: String,
+    audition_ab_file: &'static str,
+    audition_ab_sha256: String,
+}
+
+#[derive(Serialize)]
+struct FixedPointAcceptanceReport {
+    maximum_absolute_residual_at_most: f64,
+    rms_residual_at_most: f64,
+    correlation_at_least: f64,
+}
+
+#[derive(Serialize)]
+struct FixedPointAudioReport {
+    reference_file: &'static str,
+    reference_sha256: String,
+    output_file: &'static str,
+    output_sha256: String,
+    residual: ResidualReport,
+    accepted: bool,
 }
 
 #[derive(Serialize)]
@@ -227,20 +284,98 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         )
         .map_err(|error| error.to_string())?;
 
+    let q30_frame_count = scale_sample_count(frame_count, sample_rate_hz, Q30_SAMPLE_RATE_HZ)?;
+    let resampled_transient = resample_zero_extended_linear(
+        &profile.transient_values,
+        sample_rate_hz,
+        Q30_SAMPLE_RATE_HZ,
+    )?;
+    let q30_modal_reference =
+        render_offline_modal_recurrence(Q30_SAMPLE_RATE_HZ, q30_frame_count, &modes, &[])
+            .map_err(|error| error.to_string())?;
+    let q30_transient_reference = render_offline_modal_recurrence(
+        Q30_SAMPLE_RATE_HZ,
+        q30_frame_count,
+        &modes,
+        &resampled_transient,
+    )
+    .map_err(|error| error.to_string())?;
+    let q30_modal_bank = cook_offline_q30_modal_bank(Q30_SAMPLE_RATE_HZ, &modes, &[])
+        .map_err(|error| error.to_string())?;
+    let q30_transient_bank =
+        cook_offline_q30_modal_bank(Q30_SAMPLE_RATE_HZ, &modes, &resampled_transient)
+            .map_err(|error| error.to_string())?;
+    let q30_modal_raw = render_offline_q30_modal_recurrence(q30_frame_count, &q30_modal_bank)
+        .map_err(|error| error.to_string())?;
+    let q30_transient_raw =
+        render_offline_q30_modal_recurrence(q30_frame_count, &q30_transient_bank)
+            .map_err(|error| error.to_string())?;
+    let q30_modal_samples =
+        normalize_offline_q30_samples(&q30_modal_raw).map_err(|error| error.to_string())?;
+    let q30_transient_samples =
+        normalize_offline_q30_samples(&q30_transient_raw).map_err(|error| error.to_string())?;
+    let repeated_q30_render_identical = q30_transient_raw
+        == render_offline_q30_modal_recurrence(q30_frame_count, &q30_transient_bank)
+            .map_err(|error| error.to_string())?;
+
     let output = resolve_external_output(root, &request.output)?;
     require_empty_output(&output)?;
     fs::create_dir_all(&output).map_err(|error| format!("create {}: {error}", output.display()))?;
     let modal_output_file = "engine-ridge-amplitude.wav";
     let transient_output_file = "engine-ridge-amplitude-transient.wav";
+    let q30_modal_reference_file = "reference-48khz-ridge-amplitude.wav";
+    let q30_transient_reference_file = "reference-48khz-ridge-amplitude-transient.wav";
+    let q30_modal_output_file = "engine-q30-48khz-ridge-amplitude.wav";
+    let q30_transient_output_file = "engine-q30-48khz-ridge-amplitude-transient.wav";
+    let audition_a_file = "audition-a-high-precision.wav";
+    let audition_b_file = "audition-b-q30.wav";
+    let audition_ab_file = "audition-ab-high-precision-then-q30.wav";
     let modal_wav = encode_float32_mono_wav(sample_rate_hz, &modal_samples)?;
     let transient_wav = encode_float32_mono_wav(sample_rate_hz, &transient_samples)?;
+    let q30_modal_reference_wav =
+        encode_float32_mono_wav(Q30_SAMPLE_RATE_HZ, &q30_modal_reference)?;
+    let q30_transient_reference_wav =
+        encode_float32_mono_wav(Q30_SAMPLE_RATE_HZ, &q30_transient_reference)?;
+    let q30_modal_wav = encode_float32_mono_wav(Q30_SAMPLE_RATE_HZ, &q30_modal_samples)?;
+    let q30_transient_wav = encode_float32_mono_wav(Q30_SAMPLE_RATE_HZ, &q30_transient_samples)?;
+    let audio_profile =
+        AudioMixProfileV1::stereo_baseline_v1().map_err(|error| error.to_string())?;
+    let audition_a = normalized_mono_to_stereo_s16(&q30_transient_reference)?;
+    let audition_b = normalized_mono_to_stereo_s16(&q30_transient_samples)?;
+    let audition_ab = concatenate_audition_pair(
+        &audition_a,
+        &audition_b,
+        Q30_SAMPLE_RATE_HZ,
+        AUDITION_SILENCE_MILLISECONDS,
+    )?;
+    let audition_a_wav = encode_canonical_wav(&audio_profile, &audition_a);
+    let audition_b_wav = encode_canonical_wav(&audio_profile, &audition_b);
+    let audition_ab_wav = encode_canonical_wav(&audio_profile, &audition_ab);
     fs::write(output.join(modal_output_file), &modal_wav)
         .map_err(|error| format!("write {modal_output_file}: {error}"))?;
     fs::write(output.join(transient_output_file), &transient_wav)
         .map_err(|error| format!("write {transient_output_file}: {error}"))?;
+    for (file, bytes) in [
+        (q30_modal_reference_file, &q30_modal_reference_wav),
+        (q30_transient_reference_file, &q30_transient_reference_wav),
+        (q30_modal_output_file, &q30_modal_wav),
+        (q30_transient_output_file, &q30_transient_wav),
+        (audition_a_file, &audition_a_wav),
+        (audition_b_file, &audition_b_wav),
+        (audition_ab_file, &audition_ab_wav),
+    ] {
+        fs::write(output.join(file), bytes).map_err(|error| format!("write {file}: {error}"))?;
+    }
 
     let modal_output_sha256 = sha256_hex(&modal_wav);
     let transient_output_sha256 = sha256_hex(&transient_wav);
+    let q30_modal_reference_sha256 = sha256_hex(&q30_modal_reference_wav);
+    let q30_transient_reference_sha256 = sha256_hex(&q30_transient_reference_wav);
+    let q30_modal_output_sha256 = sha256_hex(&q30_modal_wav);
+    let q30_transient_output_sha256 = sha256_hex(&q30_transient_wav);
+    let audition_a_sha256 = sha256_hex(&audition_a_wav);
+    let audition_b_sha256 = sha256_hex(&audition_b_wav);
+    let audition_ab_sha256 = sha256_hex(&audition_ab_wav);
     let modal_report = compare_render(
         &modal_reference,
         &modal_samples,
@@ -253,48 +388,110 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         transient_output_file,
         transient_output_sha256.clone(),
     )?;
-    let status = if repeated_render_identical && modal_report.accepted && transient_report.accepted
+    let q30_modal_report = compare_fixed_point_render(
+        &q30_modal_reference,
+        &q30_modal_samples,
+        q30_modal_reference_file,
+        q30_modal_reference_sha256.clone(),
+        q30_modal_output_file,
+        q30_modal_output_sha256.clone(),
+    )?;
+    let q30_transient_report = compare_fixed_point_render(
+        &q30_transient_reference,
+        &q30_transient_samples,
+        q30_transient_reference_file,
+        q30_transient_reference_sha256.clone(),
+        q30_transient_output_file,
+        q30_transient_output_sha256.clone(),
+    )?;
+    let q30_status = if repeated_q30_render_identical
+        && q30_modal_report.accepted
+        && q30_transient_report.accepted
+    {
+        "PASS"
+    } else {
+        "RESIDUAL_TOO_LARGE"
+    };
+    let status = if repeated_render_identical
+        && modal_report.accepted
+        && transient_report.accepted
+        && q30_status == "PASS"
     {
         "PASS"
     } else {
         "RESIDUAL_TOO_LARGE"
     };
 
+    let mut manifest_entries = vec![
+        QualityManifestEntry {
+            id: format!("step-{:04}-ridge", profile.step),
+            object_id: "external-diffsound-glass-proxy",
+            material: "glass",
+            impact_position: "proxy",
+            force_band: "normalized",
+            candidate: QualityAudioRef {
+                path: output.join(modal_output_file).display().to_string(),
+                sha256: modal_output_sha256,
+            },
+            reference: Some(QualityAudioRef {
+                path: modal_reference.path.display().to_string(),
+                sha256: modal_reference.sha256.clone(),
+            }),
+        },
+        QualityManifestEntry {
+            id: format!("step-{:04}-ridge-transient", profile.step),
+            object_id: "external-diffsound-glass-proxy",
+            material: "glass",
+            impact_position: "proxy",
+            force_band: "normalized",
+            candidate: QualityAudioRef {
+                path: output.join(transient_output_file).display().to_string(),
+                sha256: transient_output_sha256,
+            },
+            reference: Some(QualityAudioRef {
+                path: transient_reference.path.display().to_string(),
+                sha256: transient_reference.sha256.clone(),
+            }),
+        },
+        QualityManifestEntry {
+            id: format!("step-{:04}-q30-48khz-ridge", profile.step),
+            object_id: "external-diffsound-glass-proxy",
+            material: "glass",
+            impact_position: "proxy",
+            force_band: "normalized",
+            candidate: QualityAudioRef {
+                path: output.join(q30_modal_output_file).display().to_string(),
+                sha256: q30_modal_output_sha256.clone(),
+            },
+            reference: Some(QualityAudioRef {
+                path: output.join(q30_modal_reference_file).display().to_string(),
+                sha256: q30_modal_reference_sha256.clone(),
+            }),
+        },
+        QualityManifestEntry {
+            id: format!("step-{:04}-q30-48khz-ridge-transient", profile.step),
+            object_id: "external-diffsound-glass-proxy",
+            material: "glass",
+            impact_position: "proxy",
+            force_band: "normalized",
+            candidate: QualityAudioRef {
+                path: output.join(q30_transient_output_file).display().to_string(),
+                sha256: q30_transient_output_sha256.clone(),
+            },
+            reference: Some(QualityAudioRef {
+                path: output
+                    .join(q30_transient_reference_file)
+                    .display()
+                    .to_string(),
+                sha256: q30_transient_reference_sha256.clone(),
+            }),
+        },
+    ];
+    manifest_entries.sort_by(|left, right| left.id.cmp(&right.id));
     let manifest = QualityManifest {
         schema: QUALITY_MANIFEST_SCHEMA,
         split: "q1-diffsound-recurrence-reproduction",
-        entries: vec![
-            QualityManifestEntry {
-                id: format!("step-{:04}-ridge", profile.step),
-                object_id: "external-diffsound-glass-proxy",
-                material: "glass",
-                impact_position: "proxy",
-                force_band: "normalized",
-                candidate: QualityAudioRef {
-                    path: output.join(modal_output_file).display().to_string(),
-                    sha256: modal_output_sha256,
-                },
-                reference: Some(QualityAudioRef {
-                    path: modal_reference.path.display().to_string(),
-                    sha256: modal_reference.sha256.clone(),
-                }),
-            },
-            QualityManifestEntry {
-                id: format!("step-{:04}-ridge-transient", profile.step),
-                object_id: "external-diffsound-glass-proxy",
-                material: "glass",
-                impact_position: "proxy",
-                force_band: "normalized",
-                candidate: QualityAudioRef {
-                    path: output.join(transient_output_file).display().to_string(),
-                    sha256: transient_output_sha256,
-                },
-                reference: Some(QualityAudioRef {
-                    path: transient_reference.path.display().to_string(),
-                    sha256: transient_reference.sha256.clone(),
-                }),
-            },
-        ],
+        entries: manifest_entries,
     };
     let manifest_json = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
     fs::write(output.join("quality-manifest.json"), manifest_json)
@@ -322,6 +519,31 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         },
         modal_only: modal_report,
         modal_with_transient: transient_report,
+        fixed_point_48khz: FixedPointTransferReport {
+            status: q30_status,
+            claim: "ISOLATED_FIXED_POINT_TRANSFER_ONLY / CURRENT_DEMO_GLASS_UNCHANGED",
+            renderer: "engine-owned integer second-order recurrence with checked i128 multiply-accumulate; final audition normalization only uses float",
+            q_format: "signed Q30 coefficients, per-mode state and resampled transient",
+            sample_rate_hz: Q30_SAMPLE_RATE_HZ,
+            frame_count: q30_frame_count,
+            mode_count: q30_transient_bank.mode_count(),
+            source_transient_sample_count: profile.transient_values.len(),
+            resampled_transient_sample_count: q30_transient_bank.transient_sample_count(),
+            repeated_render_identical: repeated_q30_render_identical,
+            acceptance: FixedPointAcceptanceReport {
+                maximum_absolute_residual_at_most: Q30_MAXIMUM_ABSOLUTE_RESIDUAL_LIMIT,
+                rms_residual_at_most: Q30_RMS_RESIDUAL_LIMIT,
+                correlation_at_least: Q30_CORRELATION_MINIMUM,
+            },
+            modal_only: q30_modal_report,
+            modal_with_transient: q30_transient_report,
+            audition_a_file,
+            audition_a_sha256,
+            audition_b_file,
+            audition_b_sha256,
+            audition_ab_file,
+            audition_ab_sha256,
+        },
         quality_manifest_file: "quality-manifest.json",
     };
     let report_json = serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?;
@@ -332,7 +554,10 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         String::from_utf8(report_json).map_err(|error| error.to_string())?
     );
     if status != "PASS" {
-        return Err("physical-sound-reproduce recurrence residual exceeded its bounds".to_owned());
+        return Err(
+            "physical-sound-reproduce high-precision or Q30 residual exceeded its bounds"
+                .to_owned(),
+        );
     }
     Ok(())
 }
@@ -384,50 +609,40 @@ fn compare_render(
     output_file: &'static str,
     output_sha256: String,
 ) -> Result<AudioReproductionReport, String> {
-    if reference.audio.mono_samples.len() != rendered.len() {
-        return Err("rendered/reference sample counts differ".to_owned());
-    }
-    let mut exact_sample_count = 0_usize;
-    let mut error_energy = 0.0_f64;
-    let mut reference_energy = 0.0_f64;
-    let mut rendered_energy = 0.0_f64;
-    let mut cross = 0.0_f64;
-    let mut maximum_absolute = 0.0_f64;
-    for (reference, rendered) in reference.audio.mono_samples.iter().zip(rendered) {
-        let rendered = f64::from(*rendered);
-        if reference.to_bits() == rendered.to_bits() {
-            exact_sample_count = exact_sample_count.saturating_add(1);
-        }
-        let error = rendered - reference;
-        maximum_absolute = maximum_absolute.max(error.abs());
-        error_energy += error * error;
-        reference_energy += reference * reference;
-        rendered_energy += rendered * rendered;
-        cross += reference * rendered;
-    }
-    let rms = (error_energy / rendered.len() as f64).sqrt();
-    let signal_to_noise_db = if error_energy > f64::EPSILON {
-        Some(10.0 * (reference_energy / error_energy).log10())
-    } else {
-        None
-    };
-    let correlation = cross / (reference_energy * rendered_energy).sqrt();
-    if !maximum_absolute.is_finite() || !rms.is_finite() || !correlation.is_finite() {
-        return Err("non-finite reproduction residual".to_owned());
-    }
+    let (exact_sample_count, residual) =
+        calculate_residual(&reference.audio.mono_samples, rendered)?;
+    let accepted =
+        residual.rms <= RMS_RESIDUAL_LIMIT && residual.correlation >= CORRELATION_MINIMUM;
     Ok(AudioReproductionReport {
         reference_file: reference.path.display().to_string(),
         reference_sha256: reference.sha256.clone(),
         output_file,
         output_sha256,
         exact_sample_count,
-        residual: ResidualReport {
-            maximum_absolute,
-            rms,
-            signal_to_noise_db,
-            correlation,
-        },
-        accepted: rms <= RMS_RESIDUAL_LIMIT && correlation >= CORRELATION_MINIMUM,
+        residual,
+        accepted,
+    })
+}
+
+fn compare_fixed_point_render(
+    reference: &[f32],
+    rendered: &[f32],
+    reference_file: &'static str,
+    reference_sha256: String,
+    output_file: &'static str,
+    output_sha256: String,
+) -> Result<FixedPointAudioReport, String> {
+    let (_, residual) = calculate_residual_f32(reference, rendered)?;
+    let accepted = residual.maximum_absolute <= Q30_MAXIMUM_ABSOLUTE_RESIDUAL_LIMIT
+        && residual.rms <= Q30_RMS_RESIDUAL_LIMIT
+        && residual.correlation >= Q30_CORRELATION_MINIMUM;
+    Ok(FixedPointAudioReport {
+        reference_file,
+        reference_sha256,
+        output_file,
+        output_sha256,
+        residual,
+        accepted,
     })
 }
 
@@ -712,6 +927,33 @@ mod tests {
         profile.audio.ridge_amplitude_transient.sha256 =
             profile.audio.ridge_amplitude.sha256.clone();
         assert!(validate_profile(&profile).is_err());
+    }
+
+    #[test]
+    fn transient_resampling_preserves_duration_and_uses_a_zero_boundary() {
+        let resampled = resample_zero_extended_linear(&[0.0, 1.0, 0.0, 1.0], 32_000, 48_000)
+            .expect("resample exact three-to-two duration");
+        assert_eq!(resampled.len(), 6);
+        let expected = [0.0, 2.0 / 3.0, 2.0 / 3.0, 0.0, 2.0 / 3.0, 2.0 / 3.0];
+        for (actual, expected) in resampled.iter().zip(expected) {
+            assert!((actual - expected).abs() <= f64::EPSILON);
+        }
+        assert_eq!(
+            scale_sample_count(16_000, 32_000, 48_000).expect("exact half second"),
+            24_000
+        );
+        assert!(scale_sample_count(1, 32_000, 48_000).is_err());
+    }
+
+    #[test]
+    fn audition_pair_is_stereo_and_separates_a_from_b() {
+        let a = normalized_mono_to_stereo_s16(&[1.0, -1.0]).expect("valid normalized A");
+        let b = normalized_mono_to_stereo_s16(&[0.5]).expect("valid normalized B");
+        let combined =
+            concatenate_audition_pair(&a, &b, 48_000, 250).expect("valid stereo audition pair");
+        assert_eq!(&combined[..4], a.as_slice());
+        assert!(combined[4..4 + 24_000].iter().all(|sample| *sample == 0));
+        assert_eq!(&combined[4 + 24_000..], b.as_slice());
     }
 
     fn valid_profile() -> ExternalProfile {

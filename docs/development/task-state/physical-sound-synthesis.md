@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_WOOD_ACCEPTED / GLASS_09_RECURRENCE_PASS / Q30_DEMO_TRANSFER_OPEN / P1_BLOCKED` |
+| Status | `P0_WOOD_ACCEPTED / GLASS_09_Q30_PASS / HUMAN_AB_OPEN / P1_BLOCKED` |
 | Updated | `2026-08-26` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact audition and feature-gated reference-demo experiment |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Engine-owned recurrence reproduces selected
-  DiffSound `09` as a fairly thin-walled glass-container hit.
-- **Why:** RMS PCM residual is `3.45e-6`, SNR `86.04 dB`, correlation
-  `0.9999999990`, and matched attack/modal/envelope descriptors agree.
-- **Next action:** Compare and quantize the 32-kHz 16-mode profile into the
-  isolated 48-kHz fixed-point path, then audition that materially new transfer.
+- **Current conclusion:** All 16 selected DiffSound `09` modes and its onset
+  survive the isolated 48-kHz Q30 transfer numerically; demo wiring is unchanged.
+- **Why:** Versus the aligned f64 render, onset Q30 RMS is `1.136e-7`, SNR
+  `115.43 dB`, correlation `0.9999999999986` and no evaluator tag fires.
+- **Next action:** Audition 48-kHz f64 A against Q30 B; only if identity is
+  preserved, add an explicit opt-in 16-mode demo candidate and measure cost.
 - **Current blocker:** No controlled matched-reference corpus, held-out human
   preference labels, calibrated threshold, measured
   whole-mixer budget, Accepted consumer ADR or complete impulse/effective-mass/
@@ -31,7 +31,7 @@
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| [Research report](../physical-sound-synthesis-research-2026-08-26.md) and [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md) | `GLASS_09_SELECTED / ENGINE_RECURRENCE_PASS / PHYSICAL_ID_OPEN` | Engine-owned high-precision recurrence preserves the preferred thin-wall-vessel archetype at `86.04 dB` SNR; wrong geometry keeps material and wall thickness non-physical. |
+| [Research report](../physical-sound-synthesis-research-2026-08-26.md) and [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md) | `GLASS_09_SELECTED / F64_AND_Q30_RECURRENCE_PASS / PHYSICAL_ID_OPEN` | Engine-owned 32-kHz f64 recurrence preserves the selected archetype at `86.04 dB` SNR; aligned 48-kHz Q30 then tracks f64 at `115.43 dB` SNR. Wrong geometry keeps material and wall thickness non-physical. |
 | [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md) | `CLASSICAL_Q0_Q1_IMPLEMENTED / HUMAN_CALIBRATION_OPEN` | Matched classical descriptors and blind A/B are available; no single automatic metric or uncalibrated control run is an admissible quality judge. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
@@ -131,7 +131,7 @@
   adaptation.
 - **Consequences:** Network/model/provider failure cannot affect the first
   track; any later learned path needs immutable lineage and non-neural fallback.
-- **Uncertainty:** H is only weakly preferred; the best upper-partial balance
+- **Uncertainty:** Q30 passes numerically, but human A/B, upper-partial balance
   and tail length remain unmeasured without a controlled object recording.
 - **Reconsider when:** A controlled target justifies a materially separated
   residual experiment; neural runtime remains deferred.
@@ -178,12 +178,12 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A compact modal core plus fused transient can evoke glass | Product-owner selected `09`; engine recurrence reproduces it at `86.04 dB` SNR and `0.9999999990` correlation | 48-kHz Q30/demo and physical transfer beyond this archetype remain unmeasured | Quantize/resample the 16-mode anchor into the isolated demo path and A/B it against the frozen recurrence |
+| H1: A compact modal core plus fused transient can evoke glass | Product-owner selected `09`; 48-kHz Q30 tracks f64 at `115.43 dB` SNR and `0.9999999999986` correlation | Human A/B, demo voice/cost and physical transfer beyond this archetype remain unmeasured | Audition f64 A versus Q30 B; on acceptance, wire one explicit opt-in 16-mode demo candidate |
 | H2: The complete SPEC-26 contact projection is sufficient for impact excitation | It includes identity, point, velocity, impulse bounds, effective mass and tags | Current implementation omits the decisive numeric fields; solver-force fidelity is untested | Close one fixture projection and compare against exact synthetic excitation/control PCM |
-| H3: Fixed-point reference resonators can meet both exact PCM and quality | Repeated scalar renders are byte-exact and profiles/impact points are distinct | Quality, detuning and damping error against a high-precision reference remain unmeasured | Compare the frozen Q30 recurrence with a high-precision solver across the P0 stability envelope |
+| H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; Q30 onset has `1.136e-7` RMS error, no matched-analysis tags and negligible descriptor drift | One archetype is not a stability envelope or whole-mixer cost result | Human A/B, then sweep bounded frequencies/damping/durations before any promotion claim |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | Modal banks are compact and admit explicit LOD | Current engine has no measured physical-voice/model/callback cost | Profile P0/P1 with declared modes, voices, queue and whole-mixer p95/p99 before setting a budget |
-| H6: A calibrated ensemble can rank candidates well enough for mostly autonomous iteration | Impact perception has interpretable spectral/temporal cues; automatic embedding/aesthetic models and human protocols exist | No local reference corpus, preference labels or held-out agreement measurement exists | Implement Q0/Q1, compare each single metric and the ensemble on leave-one-object/position-out human judgments |
+| H6: A calibrated ensemble can rank candidates well enough for mostly autonomous iteration | Impact perception has interpretable spectral/temporal cues; automatic embedding/aesthetic models and human protocols exist | No local reference corpus, preference labels or held-out agreement measurement exists | Collect labels, then compare each metric and ensemble on leave-one-object/position-out human judgments |
 
 ## Required context
 
@@ -200,8 +200,9 @@ Read these sources in precedence order before acting:
 
 1. Preserve all frozen baselines, references and reports; freeze wood-B and
    retain glass-D/F only as rejected metal-like anchors.
-2. Keep selected `09` external; compare and quantize its engine-owned
-   high-precision recurrence into the isolated 48-kHz fixed-point demo path.
+2. Keep selected `09` external; audition the emitted f64 A and Q30 B. If
+   indistinguishable in identity, add one explicit opt-in demo candidate without
+   replacing current glass-H or the authored-clip fallback.
 3. Exact geometry and controlled impacts remain prerequisites for physical
    transfer. Collect human
    labels, validate leave-one-object or
@@ -231,19 +232,19 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** fixed-point presentation laboratory, engine-owned
-  high-precision external-profile recurrence, classical quality evaluator and
-  feature-gated demo adapter implemented; no public schema or owner added.
+- **Workspace state:** fixed-point presentation laboratory now includes an
+  isolated 16-mode 48-kHz Q30 cooker/renderer and A/B output; current glass-H,
+  feature-gated demo adapter, public schemas and ownership are unchanged.
 - **Checks:** local synthesis determinism/distinction, demo enabled/disabled
   authoritative-state regression, 120-frame SDL functional launch,
   `audio-scene`, `play`, focused clippy/tests, boundary scan and broad
   `host-check` pass. Candidate `AUDIO-PHYS-*`, content, persistence, formal
   platform and performance promotion checks remain not promoted or not run.
 - **Remaining risk:** acoustic quality, calibration, complete contact-signal
-  sufficiency, cooker design, callback/whole-mixer cost, propagation
+  sufficiency, runtime cooker design, callback/whole-mixer cost, propagation
   integration and content-author workflow are all unmeasured.
 - **Quality status:** wood-B passed informal identity; glass-D/F failed; G/H
-  improved weakly. Selected DiffSound `09` is reproduced independently at
-  `86.04 dB` SNR; no broader or autonomous-ranking evidence exists.
+  improved weakly. Selected DiffSound `09` is reproduced at `86.04 dB` SNR and
+  transferred to Q30 at `115.43 dB`; human A/B and broader ranking remain open.
 - **Promotion needed:** Concrete consumer plus later Accepted ADR under ADR-046;
   then exact content/contact/DSP profiles and ProductChecks.

@@ -316,14 +316,65 @@ archetype. It does not yet prove that the existing 48-kHz Q30 demo bank can
 retain the same identity after coefficient quantization, resampling and its
 bounded mode-count/voice path.
 
+## Isolated 48-kHz Q30 transfer
+
+The selected 16 modes were next rerendered at 48 kHz rather than reduced to the
+current demo bank's 12-mode limit. The 96-sample, 32-kHz onset was resampled to
+144 samples with deterministic linear interpolation and an explicit zero sample
+beyond the source boundary. The same resampled onset fed both the f64 reference
+and Q30 candidate, isolating fixed-point error from sample-rate conversion.
+
+The offline cooker quantized recurrence coefficients, per-mode initial state
+and onset samples to signed Q30. After cooking, the recurrence and transient
+sum use integer state with checked `i128` multiply-accumulate; floating point
+returns only for final peak normalization and WAV comparison. This is a
+clean-room engine-owned transfer and imports no DiffSound code or dependency.
+It is not yet the current demo voice, runtime content or a shipping asset.
+
+Before execution, the transfer limits were fixed at maximum PCM residual
+`0.001`, RMS residual `0.0001` and normalized correlation `0.99999`. The
+500-ms render passed with substantial margin:
+
+| Measurement | Modal only | Modal plus resampled onset |
+| --- | ---: | ---: |
+| Maximum absolute PCM residual | `6.448e-7` | `6.271e-7` |
+| RMS PCM residual | `1.168e-7` | `1.136e-7` |
+| Signal-to-noise ratio | `115.524 dB` | `115.429 dB` |
+| Zero-lag normalized correlation | `0.9999999999987` | `0.9999999999986` |
+| Repeated integer render | exact | exact |
+
+The independent evaluator found no failure tag for either Q30 pair. For the
+onset candidate it measured zero attack delta, `0.0000080 ms` temporal-centroid
+delta, `-0.000637 Hz` spectral-centroid delta, modal-assignment cost
+`1.379e-7` and gain-matched log-spectrum RMSE `0.480821 dB`. As before,
+`NeedsHumanAudit` is correct: numerical equivalence cannot by itself decide
+whether sample-rate conversion preserved the selected glass identity.
+
+Exact external evidence:
+
+| Evidence | Location or SHA-256 |
+| --- | --- |
+| Transfer root | `/home/kaifaty/.cache/nextengine-research/diffsound-3a0be14/engine-q30-step150-v2/` |
+| transfer `report.json` | `90d115bb2d15129b3bf16561c14dd0770f9771175605d7301fad7de2c37d3a8e` |
+| quality manifest | `ebcb43cbdab70ecee4d0bbdcd3eae14f06f67e54b9852c1f8a2990c2f5c60fdc` |
+| independent evaluator `report.json` | `4e52089ca70d858cfc1042c6484e12bb21f53b327e7a76e471db71409f7c9667` |
+| 48-kHz Q30 onset WAV | `176d7cd50576f681607057a4917184ae4f16a74695e2455d19a47a2b8657c61a` |
+| audition A, f64 reference | `1a648511fc02cc6dd551fb64624c295cd838588e48df97cb61197c1e2db2cca3` |
+| audition B, Q30 | `10bb7fdd5c75223d643f01ef4c127a4329c9cc417e4f0ec3e02b3e45ccc0a218` |
+| sequential A/B | `169c5009f3bbda2888e26788d81be6dd38fbc9c5091f4de21f4d9704face3b93` |
+
+The first generated transfer directory used an unsorted quality-manifest entry
+order and was rejected before analysis. Version `v2` sorts identifiers before
+publication; only `v2` is retained as evidence. The failed evaluator invocation
+did not alter any engine or external source artifact.
+
 ## Revised decision and smallest next experiment
 
-The engine-owned high-precision renderer is now the numerical reference for
-this one selected archetype. The smallest next experiment is to quantize all 16
-modes and their onset into an isolated 48-kHz Q30 candidate, compare it against
-the high-precision renderer after sample-rate alignment, and ask for one A/B
-audition only if the transfer clears the numeric envelope. It must not silently
-replace the current demo glass profile.
+The 48-kHz Q30 candidate clears its numeric envelope and is ready for one A/B
+audition against the aligned f64 reference. If the product owner hears no loss
+of glass identity, the smallest implementation experiment is an explicit
+opt-in 16-mode demo candidate plus a bounded voice-cost measurement. It must
+not silently replace the current demo glass profile or authored-clip fallback.
 
 Broader vessel variation waits until that transfer preserves identity. Physical
 material or shape claims still wait for exact geometry, density and controlled

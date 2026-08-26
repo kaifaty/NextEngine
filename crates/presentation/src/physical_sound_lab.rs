@@ -7,11 +7,16 @@
 
 mod glass_body_profiles;
 mod offline_modal_recurrence;
+mod offline_q30_modal_recurrence;
 
 use glass_body_profiles::glass_body_profile;
 
 pub use offline_modal_recurrence::{
     OfflineModalMode, OfflineModalRenderError, render_offline_modal_recurrence,
+};
+pub use offline_q30_modal_recurrence::{
+    OfflineQ30ModalBank, OfflineQ30ModalRenderError, cook_offline_q30_modal_bank,
+    normalize_offline_q30_samples, render_offline_q30_modal_recurrence,
 };
 
 const SAMPLE_RATE_HZ: u32 = 48_000;
