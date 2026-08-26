@@ -327,6 +327,8 @@ SplitBoundaryReport
 run_al_generalization_v5_original_residual_refinement_controls();
 SplitBoundaryReport
 run_al_generalization_v5_factor_standard_refinement_controls();
+SplitBoundaryReport
+run_al_generalization_v5_wide_refinement_frontier_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
