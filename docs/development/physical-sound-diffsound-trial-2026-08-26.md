@@ -413,10 +413,14 @@ and the explicit demo/cost experiment is complete. Glass-H remains the default
 control and authored clips remain the fallback.
 
 The next coherent experiment is no longer another near-neighbor coefficient
-tune. Broader physical transfer requires one exact scaled glass mesh, fixed or
-measured density, and controlled held-out strikes with force/position metadata.
-Runtime promotion still waits for the contact projection, content closure,
-whole-mixer budget and Accepted consumer ADR required by SPEC-45.
+tune. The exact-geometry synthetic checkpoint is now complete and documented
+in the [controlled glass corpus report](physical-sound-controlled-glass-corpus-2026-08-27.md):
+15 force/position conditions pass numeric and physical controls, while the
+held-out spatial-IDW baseline reaches only `0.907523` correlation and
+`5.858210 dB` signal-to-residual ratio. Continue with surface mode-shape
+interpolation and matched real recordings, not another preset search. Runtime
+promotion still waits for the contact projection, content closure, whole-mixer
+budget and Accepted consumer ADR required by SPEC-45.
 
 Clarify upstream licensing or use a clean-room/licensed implementation before
 shipping code. Until then, keep DiffSound and all generated assets external and

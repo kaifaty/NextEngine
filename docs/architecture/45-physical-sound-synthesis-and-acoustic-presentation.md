@@ -7,7 +7,7 @@
 | Version | 0.1 |
 | Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
-| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md) |
+| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md) |
 | Replaces | None; first candidate revision |
 
 ## Status and decision boundary
@@ -57,6 +57,15 @@ matched references. Its Q0 baseline and self/mismatch controls are evidence
 tooling only: no reviewed real corpus or human calibration has run, every
 matched candidate remains `NeedsHumanAudit`, and the command creates no public
 content schema, runtime dependency or promotion evidence.
+
+A later external P0 checkpoint adds one exact-geometry synthetic glass-vessel
+corpus with 15 train/force/position holdout conditions. The clean-room offline
+FEM solve, source arrays and WAVs stay outside the repository; only its recipe,
+validators and engine-owned recurrence are retained. Q30 numeric transfer and
+declared force/position controls pass, while a simple spatial-IDW baseline is
+measurably insufficient and all perceptual judgments remain human-gated. This
+adds controlled evidence only; it does not identify real glass, implement the
+candidate content records or satisfy a P1 ProductCheck.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

@@ -17,6 +17,7 @@ mod performance_baseline_command;
 mod performance_codegen_command;
 mod performance_command;
 mod physical_character_command;
+mod physical_sound_corpus_command;
 mod physical_sound_eval_command;
 mod physical_sound_lab_command;
 mod physical_sound_reproduce_command;
@@ -110,7 +111,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-eval, physical-sound-lab, physical-sound-reproduce, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
+        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-reproduce, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "animation-lod" => {
@@ -180,6 +181,10 @@ fn run() -> Result<(), String> {
         "physical-character" => {
             reject_extra_arguments(arguments)?;
             physical_character_command::run()
+        }
+        "physical-sound-corpus" => {
+            let request = physical_sound_corpus_command::parse_arguments(arguments)?;
+            physical_sound_corpus_command::run(&root, &request)
         }
         "physical-sound-eval" => {
             let request = physical_sound_eval_command::parse_arguments(arguments)?;

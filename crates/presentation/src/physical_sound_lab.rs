@@ -15,10 +15,11 @@ use selected_glass_q30::SelectedGlassQ30Voice;
 
 pub use offline_modal_recurrence::{
     OfflineModalMode, OfflineModalRenderError, render_offline_modal_recurrence,
+    render_offline_modal_recurrence_unscaled,
 };
 pub use offline_q30_modal_recurrence::{
     OfflineQ30ModalBank, OfflineQ30ModalRenderError, cook_offline_q30_modal_bank,
-    normalize_offline_q30_samples, render_offline_q30_modal_recurrence,
+    decode_offline_q30_samples, normalize_offline_q30_samples, render_offline_q30_modal_recurrence,
 };
 
 const SAMPLE_RATE_HZ: u32 = 48_000;

@@ -376,3 +376,17 @@ glass ranking.
 The next coherent work package is an external, human-calibrated
 `PhysicalSoundQualityOracleP0`; its success means reliable held-out ranking of
 candidate sounds, not production promotion.
+
+## Controlled glass-corpus checkpoint — 2026-08-27
+
+The [exact-geometry glass corpus](physical-sound-controlled-glass-corpus-2026-08-27.md)
+now supplies 15 synthetic force/position conditions plus three deliberately
+weak held-out spatial predictions. Q30 direct residual and modal metrics agree
+that the fixed-point transfer is numerically faithful, but the peak-normalized
+log-spectrum and late-decay descriptors magnify its quantized noise floor. The
+spatial-IDW baseline exposes a real timbral error, including a roughly
+`−999 Hz` spectral-centroid shift, yet still receives no automatic rejection
+under the uncalibrated thresholds. All 18 matched pairs therefore remain
+`NeedsHumanAudit`. This is positive evidence for the ensemble/disagreement
+design and negative evidence for treating its present thresholds as an
+autonomous judge.

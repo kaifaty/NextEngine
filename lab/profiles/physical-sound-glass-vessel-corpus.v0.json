@@ -1,0 +1,90 @@
+{
+  "schema": "nextengine.experimental-physical-sound-glass-corpus.recipe.v0",
+  "object_id": "glass-vessel-rectangular-thin-wall-v0",
+  "claim": "EXTERNAL_CONTROLLED_P0_ONLY / NO_PHYSICAL_IDENTIFICATION_OR_P1_PROMOTION",
+  "geometry": {
+    "kind": "open_rectangular_vessel",
+    "outer_size_m": [0.084, 0.12, 0.072],
+    "wall_thickness_m": 0.003,
+    "bottom_thickness_m": 0.006,
+    "cell_size_m": 0.003,
+    "axes": "+X right, +Y up, +Z forward",
+    "tetrahedra_per_cell": 6
+  },
+  "material": {
+    "name": "homogeneous_soda_lime_glass_proxy",
+    "density_kg_m3": 2500.0,
+    "youngs_modulus_pa": 70000000000.0,
+    "poisson_ratio": 0.22,
+    "damping": {
+      "kind": "explicit_frequency_calibration",
+      "base_per_second": 50.0,
+      "slope_per_hz": 0.002
+    }
+  },
+  "boundary": {
+    "kind": "fixed_bottom_back_left_patch",
+    "patch_size_m": 0.003
+  },
+  "solver": {
+    "kind": "linear_tetrahedral_elasticity_generalized_eigenproblem",
+    "eigensolve_mode_count": 24,
+    "retained_mode_count": 16,
+    "minimum_frequency_hz": 500.0,
+    "maximum_frequency_hz": 18000.0,
+    "relative_tolerance": 1e-08,
+    "maximum_iterations": 20000
+  },
+  "render": {
+    "sample_rate_hz": 48000,
+    "duration_seconds": 0.4,
+    "target_global_peak": 0.65
+  },
+  "pickup": {
+    "point_m": [-0.042, 0.06, 0.0],
+    "direction": [1.0, 0.0, 0.0]
+  },
+  "impulses": [
+    {"id": "low", "newton_seconds": 0.01},
+    {"id": "medium", "newton_seconds": 0.02},
+    {"id": "high", "newton_seconds": 0.04}
+  ],
+  "strikes": [
+    {
+      "id": "lower-center",
+      "role": "train",
+      "point_m": [0.042, 0.03, 0.0],
+      "direction": [-1.0, 0.0, 0.0]
+    },
+    {
+      "id": "middle-back",
+      "role": "train",
+      "point_m": [0.042, 0.06, -0.021],
+      "direction": [-1.0, 0.0, 0.0]
+    },
+    {
+      "id": "middle-front",
+      "role": "train",
+      "point_m": [0.042, 0.06, 0.021],
+      "direction": [-1.0, 0.0, 0.0]
+    },
+    {
+      "id": "upper-center",
+      "role": "train",
+      "point_m": [0.042, 0.09, 0.0],
+      "direction": [-1.0, 0.0, 0.0]
+    },
+    {
+      "id": "heldout-upper-middle",
+      "role": "heldout",
+      "point_m": [0.042, 0.075, 0.0],
+      "direction": [-1.0, 0.0, 0.0]
+    }
+  ],
+  "heldout": {
+    "position_interpolator": "inverse_distance_squared",
+    "train_force_ids": ["low", "high"],
+    "force_holdout_id": "medium",
+    "position_holdout_strike_id": "heldout-upper-middle"
+  }
+}

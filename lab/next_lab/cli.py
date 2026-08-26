@@ -20,6 +20,10 @@ from next_lab.motor_lab_client import (
     FLAT_LOCOMOTION_PROFILE_ID,
     STANDING_PROFILE_ID,
 )
+from next_lab.physical_sound_glass_corpus import (
+    default_recipe_path as default_physical_sound_glass_recipe_path,
+)
+from next_lab.physical_sound_glass_corpus import solve_controlled_glass_corpus
 from next_lab.motor_mirror import (
     BIOMECHANICS_TRANSLATOR_ID,
     load_json,
@@ -251,6 +255,16 @@ def parser() -> argparse.ArgumentParser:
         "--baseline", choices=["zero_residual", "random_residual"], required=True
     )
 
+    glass_corpus_parser = commands.add_parser(
+        "physical-sound-glass-corpus-solve"
+    )
+    glass_corpus_parser.add_argument(
+        "--profile",
+        type=Path,
+        default=default_physical_sound_glass_recipe_path(),
+    )
+    glass_corpus_parser.add_argument("--output", type=Path, required=True)
+
     return root
 
 
@@ -450,6 +464,13 @@ def main() -> int:
                 sort_keys=True,
             )
         )
+        return 0
+    if arguments.command == "physical-sound-glass-corpus-solve":
+        report, _ = solve_controlled_glass_corpus(
+            profile_path=arguments.profile,
+            output=arguments.output,
+        )
+        print(json.dumps(report, indent=2, sort_keys=True))
         return 0
     raise AssertionError(f"unhandled command: {arguments.command}")
 

@@ -58,6 +58,27 @@ struct RecurrenceState {
     amplitude: f64,
 }
 
+/// Renders `sum(A_i * exp(-d_i*t) * sin(2*pi*f_i*t))` and adds the supplied
+/// already bounded onset transient without per-clip normalization.
+///
+/// The unscaled result is used by controlled corpora where force relationships
+/// would be destroyed by normalizing every condition independently.
+pub fn render_offline_modal_recurrence_unscaled(
+    sample_rate_hz: u32,
+    frame_count: usize,
+    modes: &[OfflineModalMode],
+    transient: &[f64],
+) -> Result<Vec<f64>, OfflineModalRenderError> {
+    let output = render_validated_recurrence(sample_rate_hz, frame_count, modes, transient)?;
+    let peak = output
+        .iter()
+        .fold(0.0_f64, |peak, sample| peak.max(sample.abs()));
+    if !peak.is_finite() || peak <= f64::EPSILON {
+        return Err(OfflineModalRenderError::SilentOutput);
+    }
+    Ok(output)
+}
+
 /// Renders `sum(A_i * exp(-d_i*t) * sin(2*pi*f_i*t))`, adds the supplied
 /// already bounded onset transient, then peak-normalizes to mono float32.
 ///
@@ -69,6 +90,23 @@ pub fn render_offline_modal_recurrence(
     modes: &[OfflineModalMode],
     transient: &[f64],
 ) -> Result<Vec<f32>, OfflineModalRenderError> {
+    let output =
+        render_offline_modal_recurrence_unscaled(sample_rate_hz, frame_count, modes, transient)?;
+    let peak = output
+        .iter()
+        .fold(0.0_f64, |peak, sample| peak.max(sample.abs()));
+    Ok(output
+        .into_iter()
+        .map(|sample| (sample / peak) as f32)
+        .collect())
+}
+
+fn render_validated_recurrence(
+    sample_rate_hz: u32,
+    frame_count: usize,
+    modes: &[OfflineModalMode],
+    transient: &[f64],
+) -> Result<Vec<f64>, OfflineModalRenderError> {
     if !(MIN_SAMPLE_RATE_HZ..=MAX_SAMPLE_RATE_HZ).contains(&sample_rate_hz) {
         return Err(OfflineModalRenderError::InvalidSampleRate);
     }
@@ -124,16 +162,7 @@ pub fn render_offline_modal_recurrence(
         *sample += transient;
     }
 
-    let peak = output
-        .iter()
-        .fold(0.0_f64, |peak, sample| peak.max(sample.abs()));
-    if !peak.is_finite() || peak <= f64::EPSILON {
-        return Err(OfflineModalRenderError::SilentOutput);
-    }
-    Ok(output
-        .into_iter()
-        .map(|sample| (sample / peak) as f32)
-        .collect())
+    Ok(output)
 }
 
 #[cfg(test)]
@@ -235,5 +264,25 @@ mod tests {
             ),
             Err(OfflineModalRenderError::SilentOutput)
         );
+    }
+
+    #[test]
+    fn unscaled_recurrence_preserves_force_ratio() {
+        let low = OfflineModalMode {
+            damped_frequency_hz: 1_600.0,
+            damping_per_second: 55.0,
+            amplitude: 0.125,
+        };
+        let high = OfflineModalMode {
+            amplitude: low.amplitude * 4.0,
+            ..low
+        };
+        let low_signal = render_offline_modal_recurrence_unscaled(48_000, 4_800, &[low], &[])
+            .expect("render low-force signal");
+        let high_signal = render_offline_modal_recurrence_unscaled(48_000, 4_800, &[high], &[])
+            .expect("render high-force signal");
+        for (low_sample, high_sample) in low_signal.iter().zip(high_signal) {
+            assert!((high_sample - 4.0 * low_sample).abs() <= 1.0e-12);
+        }
     }
 }

@@ -216,6 +216,22 @@ pub fn normalize_offline_q30_samples(
         .collect())
 }
 
+/// Converts raw signed-Q30 recurrence samples without per-clip normalization.
+///
+/// Controlled corpus tooling uses this path to preserve relative impact-force
+/// levels while comparing the integer recurrence with its floating reference.
+pub fn decode_offline_q30_samples(
+    samples_q30: &[i64],
+) -> Result<Vec<f64>, OfflineQ30ModalRenderError> {
+    if samples_q30.is_empty() || samples_q30.iter().all(|sample| *sample == 0) {
+        return Err(OfflineQ30ModalRenderError::SilentOutput);
+    }
+    Ok(samples_q30
+        .iter()
+        .map(|sample| *sample as f64 / Q30_ONE_F64)
+        .collect())
+}
+
 fn quantize_q30(value: f64) -> Option<i64> {
     let scaled = value * Q30_ONE_F64;
     if !scaled.is_finite() || scaled < i64::MIN as f64 || scaled > i64::MAX as f64 {
@@ -312,6 +328,17 @@ mod tests {
         );
         assert_eq!(
             normalize_offline_q30_samples(&[]),
+            Err(OfflineQ30ModalRenderError::SilentOutput)
+        );
+    }
+
+    #[test]
+    fn raw_q30_decode_preserves_relative_level() {
+        let decoded = decode_offline_q30_samples(&[1 << 28, -(1 << 29)])
+            .expect("decode non-silent Q30 samples");
+        assert_eq!(decoded, vec![0.25, -0.5]);
+        assert_eq!(
+            decode_offline_q30_samples(&[0, 0]),
             Err(OfflineQ30ModalRenderError::SilentOutput)
         );
     }
