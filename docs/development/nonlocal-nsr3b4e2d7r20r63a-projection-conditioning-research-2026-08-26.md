@@ -72,3 +72,8 @@ or stop the binary64 route.
 R63A authorizes no factorization, inverse construction, refinement, centered
 iteration, trajectory, timing, runtime/GPU work or production conclusion.
 
+## Result pointer
+
+The exact experiment classifies the failure as mixed and exposes a genuine
+conditioning barrier; see the
+[R63A evidence](nonlocal-nsr3b4e2d7r20r63a-projection-conditioning-evidence-2026-08-26.md).

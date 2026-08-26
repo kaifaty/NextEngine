@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63_BINARY64_PROJECTED_INVERSE_NONCONTRACTIVE /
-NSR3B4E2D7R20R63A_PROJECTION_CONDITIONING_DECOMPOSITION_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63A_MIXED_PROJECTION_CONTRIBUTION /
+NSR3B4E2D7R20R63B_GRAM_RANK_REFORMULATION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3535,3 +3535,12 @@ and [contract](03b4e2d7r20r63a-projection-conditioning-contract.md). It requires
 eight exact defect products, two componentwise decomposition identities and
 scale/structure facts before it may classify matrix, inverse or mixed
 projection dominance. It selects no equilibration formula and adds no solve.
+
+The
+[R20R63A evidence](../../development/nonlocal-nsr3b4e2d7r20r63a-projection-conditioning-evidence-2026-08-26.md)
+closes all exact decompositions and selects `MIXED_PROJECTION_CONTRIBUTION`.
+Matrix and inverse projection independently create order-`1e15` defects. The
+matrix row/diagonal ranges are only `3.65x/2.50x`, while the inverse-norm proxy
+is `2.64e32` and `u64*proxy` is `2.93e16`. Research the underlying Gram/rank
+structure and a rank-revealing reformulation before any scaling, new inverse or
+center experiment.
