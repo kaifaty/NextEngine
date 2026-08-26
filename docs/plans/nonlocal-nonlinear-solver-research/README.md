@@ -3283,3 +3283,11 @@ proves the represented candidate contractive at exact outward
 and [frozen contract](03b4e2d7r20r38-dot2-inverse-certificate-contract.md)
 test a same-binary128 ORO compensated residual certificate against every exact
 R37 entry before any solver decision is changed.
+The
+[R20R38 evidence](../../development/nonlocal-nsr3b4e2d7r20r38-dot2-inverse-certificate-evidence-2026-08-26.md)
+contains all `4225/4225` exact residual entries and certifies
+`rho_bound=0.00444364` without underflow. The next
+[solution-error research](../../development/nonlocal-nsr3b4e2d7r20r39-dot2-solution-error-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r39-dot2-solution-error-contract.md) apply the
+same compensated certificate to the already solved passive RHS and test whether
+the resulting infinity error strictly resolves every active-set sign.
