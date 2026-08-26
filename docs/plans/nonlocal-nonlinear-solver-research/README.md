@@ -1,7 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63I_WIDE_RHS_SIGN_CERTIFICATE_REJECTED /
-NSR3B4E2D7R20R63J_ORIGINAL_RESIDUAL_REFINEMENT_RESEARCH_NEXT /
+NSR3B4E2D7R20R63J_ORIGINAL_RESIDUAL_REFINEMENT_FROZEN /
+NSR3B4E2D7R20R63J_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3665,6 +3666,16 @@ Export/wide and export/binary64 fail similarly. Thus triangular precision is
 not the first boundary: weak-image preservation did not make the rounded
 operator safe to invert. Research a pre-bounded original-residual refinement
 next; do not publish state or infer runtime/production readiness.
+
+The
+[R20R63J research](../../development/nonlocal-nsr3b4e2d7r20r63j-original-residual-refinement-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63j-original-residual-refinement-contract.md) freeze
+one bounded centered correction per R63I lane. A common verified
+`C=I-XH` drives 16 fixed Neumann terms; depths `4/8/9/10/12/16` are each
+recertified independently against original `H,b` and the R60 componentwise
+sign vector. The experiment may prove mathematical recoverability only; dense
+`X`, binary128 correction, runtime integration and production inference remain
+out of scope.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
