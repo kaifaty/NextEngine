@@ -1,8 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE /
-NSR3B4E2D7R20R63N_MATRIX_FREE_CORRESPONDENCE_FROZEN /
-NSR3B4E2D7R20R63N_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED /
+NSR3B4E2D7R20R63O_CANONICAL_DEFECT_TRANSPORT_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3750,6 +3750,15 @@ canonical basis products, then replays both eight-update PCG lanes with
 bounded comparator/verifier. The full rectangular reference is deliberately
 not called faster; sparse zero elision, precision engineering, timing and
 production remain later stages.
+
+The
+[R20R63N evidence](../../development/nonlocal-nsr3b4e2d7r20r63n-matrix-free-correspondence-evidence-2026-08-26.md)
+selects `DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED`. All 10,404 canonical basis
+components are contained, but both large R63I starts fail before an initial
+residual at minimum slack near `-3.34e-19`. This is not a PCG rejection. The
+raw direct-product bound omits propagation of the certified per-column
+representation defect through `|p_j|`. Research that exact defect transport
+next; do not fit a tolerance or relabel R63N.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)

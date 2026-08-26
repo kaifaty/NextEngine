@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63N matrix-free correspondence research
 
-Status: `FROZEN FOR IMPLEMENTATION`.
+Status: `IMPLEMENTED / DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED`.
 
 ## Question
 
@@ -132,3 +132,19 @@ binary64/compensated arithmetic is sufficient, that iteration 2 is a runtime
 stop rule, or that the solver may replace state. No following NNQP transition,
 trajectory, timing, runtime/GPU or production inference occurs. R64 and R65
 remain blocked.
+
+## Result
+
+The canonical identity closes for all 10,404 components with maximum center
+residual `3.01e-36` and positive minimum slack `9.10e-49`. Both original R63I
+starts then fail the frozen arbitrary-vector containment before an initial
+residual or factor solve, at minimum slacks approximately `-3.337e-19`.
+
+The selected route is `DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED` at semantic
+`b8d0c708...f02772`; stdout repeats byte-identically at
+`db8cf957...2fdd70`. See the
+[evidence record](nonlocal-nsr3b4e2d7r20r63n-matrix-free-correspondence-evidence-2026-08-26.md).
+
+R63N refutes raw local-bound correspondence, not matrix-free PCG. Research a
+separate canonical-defect transport `sum_j E_ij |p_j|`; do not amend this
+contract or fit a tolerance after observing the failure.
