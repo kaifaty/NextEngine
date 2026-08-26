@@ -63,6 +63,7 @@ struct ALR20VerifiedInverseCapture {
     std::vector<Binary128> column_bound;
     std::vector<Binary128> rhs;
     std::vector<Binary128> solution;
+    std::vector<std::size_t> source_rows;
     Binary128 solve_residual = static_cast<Binary128>(0.0);
     Binary128 solve_bound = static_cast<Binary128>(0.0);
     Binary128 cheap_error = static_cast<Binary128>(0.0);
@@ -341,7 +342,8 @@ ALR20VerifiedInverse al_r20_verified_inverse(
     Binary128 solve_residual, Binary128 solve_bound,
     const std::vector<Binary128>& solution,
     Binary128 cheap_error, ALR20ADMMWork* work,
-    const std::vector<Binary128>* rhs = nullptr) {
+    const std::vector<Binary128>* rhs = nullptr,
+    const std::vector<std::size_t>* source_rows = nullptr) {
     ALR20VerifiedInverse result;
     result.dimension = factor.dimension;
     result.cheap_error = cheap_error;
@@ -445,6 +447,8 @@ ALR20VerifiedInverse al_r20_verified_inverse(
             capture.rhs = rhs == nullptr
                 ? std::vector<Binary128>{} : *rhs;
             capture.solution = solution;
+            capture.source_rows = source_rows == nullptr
+                ? std::vector<std::size_t>{} : *source_rows;
             capture.solve_residual = solve_residual;
             capture.solve_bound = solve_bound;
             capture.cheap_error = cheap_error;
@@ -600,10 +604,14 @@ ALR20NNQPSolve al_r20_nnqp_solve(
                         && passive_value[local] - passive_error
                             <= static_cast<Binary128>(0.0));
             if (passive_ambiguous && verified_inverse) {
+                std::vector<std::size_t> passive_source_rows;
+                passive_source_rows.reserve(passive_dimension);
+                for (std::size_t index : indices)
+                    passive_source_rows.push_back(source_rows[index]);
                 ALR20VerifiedInverse audit = al_r20_verified_inverse(
                     factor, solve_residual, solve_bound,
                     passive_value, passive_error, &result.work,
-                    &principal_rhs);
+                    &principal_rhs, &passive_source_rows);
                 if (!audit.passed) {
                     exact = false;
                     result.failure = "VERIFIED_INVERSE_AUDIT_REJECTED";

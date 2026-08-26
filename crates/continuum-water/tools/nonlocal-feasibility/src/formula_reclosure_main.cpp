@@ -285,6 +285,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v5-projection-conditioning|"
                          "--nonlocal-al-generalization-v5-factor-space|"
                          "--nonlocal-al-generalization-v5-orientation-matched-factor|"
+                         "--nonlocal-al-generalization-v5-active-row-rank|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2397,6 +2398,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v5_orientation_matched_factor_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command ==
+            "--nonlocal-al-generalization-v5-active-row-rank") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v5_active_row_rank_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
