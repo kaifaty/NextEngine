@@ -5,7 +5,7 @@ NSR3B4E2D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED /
 NSR3B4E2D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED /
 NSR3B4E2D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED /
 NSR3B4E2D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE /
-NSR3B4E2D7R20R63R_COMMON_OPERATOR_INVERSE_RESEARCH_NEXT /
+NSR3B4E2D7R20R63R_COMMON_OPERATOR_INVERSE_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3814,6 +3814,13 @@ selects `TANGENT_GRAM_FULL_OPERATOR_CANDIDATE`. Tangent Gram is strictly better
 in exact infinity and squared-Frobenius error norms and wins 6,899 of 10,404
 entries. The ideal `P_d^2-P_d` infinity defect is only `4.95e-49`. Build a
 contractive inverse verifier against exact `H*` next; do not apply the RHS yet.
+
+The
+[R20R63R research](../../development/nonlocal-nsr3b4e2d7r20r63r-common-operator-inverse-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63r-common-operator-inverse-contract.md) freeze a
+raw canonical-column inverse from the original binary128 tangent QR. Exact
+rational left and right defects against `H*` must both contract before any RHS
+is admitted; dense `X`, symmetrization and refinement are forbidden.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
