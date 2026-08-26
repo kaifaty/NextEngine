@@ -1,7 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63L_EXPORTED_FACTOR_WIDE_STANDARD_REFINEMENT_CANDIDATE /
-NSR3B4E2D7R20R63M_PRECONDITIONED_CG_RESEARCH_NEXT /
+NSR3B4E2D7R20R63M_PRECONDITIONED_CG_FROZEN /
+NSR3B4E2D7R20R63M_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3720,6 +3721,15 @@ iterate through 32 remains certified. This is the exact stationary work
 baseline, not a production recommendation. Research an eight-step SPD
 preconditioned-CG discriminator next and compare deterministic factor/operator
 work before considering GMRES-IR or low-rank correction.
+
+The
+[R20R63M research](../../development/nonlocal-nsr3b4e2d7r20r63m-preconditioned-cg-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63m-preconditioned-cg-contract.md) freeze two
+eight-update PCG lanes from the original rejected R63I starts. Each budget has
+eight factor preconditioner solves and nine original-`H` applications versus
+the stationary 17/21 baselines. Every iterate is independently sign-certified
+and recurrence/direct-residual drift is bound; no wall timing, strict
+binary64, restart or production inference is admitted.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
