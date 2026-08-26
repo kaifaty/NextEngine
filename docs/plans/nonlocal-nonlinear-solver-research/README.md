@@ -3275,3 +3275,11 @@ rounding terms are negligible. The next
 and [frozen contract](03b4e2d7r20r37-exact-inverse-residual-contract.md) use an
 exact dyadic oracle on the already computed torsion inverse candidate to
 distinguish genuine noncontraction from an overly wide arithmetic enclosure.
+The
+[R20R37 evidence](../../development/nonlocal-nsr3b4e2d7r20r37-exact-inverse-residual-evidence-2026-08-26.md)
+proves the represented candidate contractive at exact outward
+`rho=0.00444364`; the inherited enclosure is about `8,448x` wider. The next
+[Dot2 research](../../development/nonlocal-nsr3b4e2d7r20r38-dot2-inverse-certificate-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r38-dot2-inverse-certificate-contract.md)
+test a same-binary128 ORO compensated residual certificate against every exact
+R37 entry before any solver decision is changed.

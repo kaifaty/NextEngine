@@ -13,10 +13,13 @@ Status: `FROZEN / REPORT-ONLY EXACT DYADIC AUDIT AUTHORIZED`.
 ## Frozen audit
 
 Replay only the exact torsion case through the unchanged R35 policy. Add an
-observer capture to the already executed sole verified-inverse call. Require
-the parent case, step, inverse and norm roots and exactly 65 existing column
-solves. The capture may expose matrix, factor, inverse and per-column roots; it
-may not execute an additional factorization or right-hand-side solve.
+observer to the already executed verified-inverse calls. The first apparatus
+run exposed two such calls although only one is retained in final
+`inverse_audits`; require exactly two captured call roots and a unique match to
+the frozen R36 inverse root. Capture full matrix/factor/inverse payload only for
+that selected 65-column audit. Require the parent case, step, inverse and norm
+roots. The observer may not execute an additional factorization or
+right-hand-side solve.
 
 Represent every finite binary128 operand canonically as signed
 `integer * 2^exponent`. With arbitrary-size integers, compute each entry of
