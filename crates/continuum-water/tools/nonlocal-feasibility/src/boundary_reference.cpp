@@ -80126,6 +80126,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_v4_two_refinement_trajectory.inc"
 #include "generalization_v4_third_inverse_contraction.inc"
 #include "generalization_v4_third_centered_solution.inc"
+#include "generalization_v4_three_refinement_trajectory.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);
