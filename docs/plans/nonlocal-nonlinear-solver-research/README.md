@@ -5,7 +5,8 @@ NSR3B4E2D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED /
 NSR3B4E2D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED /
 NSR3B4E2D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED /
 NSR3B4E2D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE /
-NSR3B4E2D7R20R63R_COMMON_OPERATOR_INVERSE_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE /
+NSR3B4E2D7R20R63S_COMMON_OPERATOR_PCG_CERTIFICATE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3821,6 +3822,13 @@ and [contract](03b4e2d7r20r63r-common-operator-inverse-contract.md) freeze a
 raw canonical-column inverse from the original binary128 tangent QR. Exact
 rational left and right defects against `H*` must both contract before any RHS
 is admitted; dense `X`, symmetrization and refinement are forbidden.
+
+The
+[R20R63R evidence](../../development/nonlocal-nsr3b4e2d7r20r63r-common-operator-inverse-evidence-2026-08-27.md)
+selects `COMMON_OPERATOR_TWO_SIDED_CANDIDATE`. Exact common-operator defects
+contract at `rho_left=9.06e-3` and `rho_right=3.57e-3`, yielding a strict left
+amplification bound `1.05019e33`. Replay the immutable RHS through direct
+tangent PCG next and certify exact common residual/signs without dense `H/X`.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)

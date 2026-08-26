@@ -65,3 +65,16 @@ No immutable RHS, solution sign, PCG update, iterative refinement, sparse
 realization, timing, state update, runtime/GPU or production authority is
 admitted. R64 and R65 remain blocked.
 
+## Result
+
+The raw original-tangent inverse is contractive on both sides of exact `H*`:
+`rho_left=9.06e-3` and `rho_right=3.57e-3`. Its exact left amplification bound
+is `1.05019e33`; no symmetrization or refinement is used.
+
+The selected route is `COMMON_OPERATOR_TWO_SIDED_CANDIDATE` at semantic
+`b8783c53...f382`; stdout repeats byte-identically at `bdf1ae68...d5ca`.
+See the
+[evidence record](nonlocal-nsr3b4e2d7r20r63r-common-operator-inverse-evidence-2026-08-27.md).
+
+Freeze an immutable-RHS direct-PCG replay with exact common residual and signs
+next. Dense `H`, dense `X` and legacy signs cannot certify that stage.
