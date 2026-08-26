@@ -3363,3 +3363,12 @@ audit. The next
 and [report-only contract](03b4e2d7r20r47-third-inverse-contraction-contract.md)
 test exact/Dot2 right and left contraction before any third RHS audit or
 trajectory replacement is considered.
+The
+[R20R47 evidence](../../development/nonlocal-nsr3b4e2d7r20r47-third-inverse-contraction-evidence-2026-08-26.md)
+contains all 8450 exact defects and proves right/left `rho` values
+`0.00591/0.24176`; the inherited `66.36` rejection is the third independent
+cancellation artifact. The next
+[third-solution research](../../development/nonlocal-nsr3b4e2d7r20r48-third-centered-solution-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r48-third-centered-solution-contract.md)
+apply the unchanged fixed checkpoint schedule to the third RHS without
+changing NNQP state.
