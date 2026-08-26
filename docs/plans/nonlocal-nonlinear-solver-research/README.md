@@ -3392,3 +3392,12 @@ and [root-agnostic contract](03b4e2d7r20r50-generic-centered-verifier-contract.m
 evaluate the same fixed depth-16 compensated certificate on every failed
 legacy audit under the inherited 32-iteration structural cap. Object roots are
 regression evidence only and never policy selectors.
+The
+[R20R50 evidence](../../development/nonlocal-nsr3b4e2d7r20r50-generic-centered-verifier-evidence-2026-08-26.md)
+applies five root-agnostic depth-16 certificates and closes torsion ordinarily
+after 887 transitions, using only 5/32 of the structural certificate cap. The
+next
+[generic-corpus research](../../development/nonlocal-nsr3b4e2d7r20r51-generic-corpus-research-2026-08-26.md)
+and [five-case contract](03b4e2d7r20r51-generic-corpus-contract.md) replay the
+same policy independently on all immutable v4 cases, preserving the unrelated
+counterflow direction certificate.
