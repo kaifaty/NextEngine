@@ -45,6 +45,9 @@ The global certificate/replacement cap is the inherited semismooth accepted-
 iteration cap, 32, rather than an observed target count. One 65-row depth-16
 certificate executes 5525 compensated dots and 360,490 dot input pairs; the
 frozen worst-case ledger is therefore 176,800 dots and 11,535,680 input pairs.
+Because the first historical repair used depth eight, R50 compares its tuple
+identity but records a new depth-16 certificate root. The already depth-16
+second and third roots remain exact post-decision regressions.
 
 ## Hypotheses
 

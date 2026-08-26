@@ -24,10 +24,12 @@ exact, no-underflow, left-contractive, has `65/65` resolved signs and strictly
 positive minimum separation. Fail closed otherwise; do not retry.
 
 Record every tuple/certificate root after the decision, bounds, sign counts,
-dot counts and input-pair ledger. Require the first three observed tuple and
-certificate roots to reproduce R49 only as a post-decision regression. Report
-the first generic failure or final trajectory boundary. Clear the hook and
-regress R49/R48.
+dot counts and input-pair ledger. Require the first four observed tuple roots
+to reproduce R49 only as a post-decision regression. The second/third depth-16
+certificate roots must reproduce R49; the original target's newly evaluated
+depth-16 root is recorded rather than compared with R49's depth-eight root.
+Report the first generic failure or final trajectory boundary. Clear the hook
+and regress R49/R48.
 
 Frozen per-certificate work at dimension 65/depth 16 is 5525 compensated dots
 and 360,490 input pairs. Cap 32 implies at most 176,800 dots and 11,535,680
