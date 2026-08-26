@@ -3317,3 +3317,13 @@ and minimum separation above `1054`. The next
 and [default-off contract](03b4e2d7r20r42-centered-refinement-trajectory-contract.md)
 allow that practical four-step certificate to replace only the exact rejected
 torsion passive vector and expose the unchanged subsequent NNQP boundary.
+The
+[R20R42 evidence](../../development/nonlocal-nsr3b4e2d7r20r42-centered-refinement-trajectory-evidence-2026-08-26.md)
+consumes exactly one depth-four certificate, removes the inverse-audit failure
+and exposes a row-61/row-13 `RATIO_ORDER_AMBIGUOUS` boundary. Input uncertainty,
+not rounding, dominates; the candidate error is about 829x the current error.
+The next
+[depth-eight research](../../development/nonlocal-nsr3b4e2d7r20r43-depth8-ratio-trajectory-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r43-depth8-ratio-trajectory-contract.md) reuse
+the predeclared R41 arithmetic-floor checkpoint to test that ratio ordering
+without changing its formula.
