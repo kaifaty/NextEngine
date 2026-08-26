@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_TERMINAL_TRAJECTORY_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
+| Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_FROZEN / SHARED_HOST_PERFORMANCE_STOP` |
 | Updated | `2026-08-26` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -122,6 +122,13 @@
   first already evaluated, fully KKT-certified trial as a terminal result.
   Replay all 12 R29 cases; the sole permitted intervention is exact shear
   iteration 22 power 0. Do not alter ordinary Armijo, `2^-70`, cap or trials.
+- **R20R32 result:** implementation `86515ea9`, semantic
+  `e7b9acaf...0f73`, route `TERMINAL_CERTIFICATE_TRAJECTORY_CANDIDATE`.
+  All 12 cases certify, eleven parent roots remain exact and shear returns one
+  freshly re-audited terminal state after ordinary line rejection.
+- **R20R33 frozen:** construct only five new v4 source fixtures with 404 total
+  samples and exact predeclared velocity fields. Hash positions, velocities,
+  ownership and parent R32; execute zero operator/projection/solver work.
 
 - **R64 result:** clean stdout `ec83c0b9...e886`, semantic
   `793597c8...6ff2`, route `SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`.
@@ -4795,6 +4802,20 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   finds no in-trajectory certified trial, changes a historical root or fails a
   fresh terminal audit.
 
+### D-161 -- Freeze new sources before testing R32 generalization
+
+- **Observation:** R32 certifies all 12 exact cases without changing ordinary
+  Armijo, but the v2/v3 failures selected every material solver mechanism and
+  therefore no longer provide blind generalization credit.
+- **Decision:** freeze five v4 lattices and velocity fields as source-only
+  manifests. Do not construct their operators or inspect excitation until the
+  source roots are committed.
+- **Rejected:** declaring R32 generalized from its development corpus,
+  generating cases after solver observation, random retry-to-green, editing a
+  quiet holdout, timing or production promotion.
+- **Reconsider when:** R33 fails source ownership/identity before observation,
+  or committed R34 preflight later admits/rejects the immutable sources.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -4848,11 +4869,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 ## Exact next action
 
 1. Do not run another CPU/wall candidate A/B on this shared host.
-2. Preserve R20R31 semantic `3425772c...de5b`, R20R30 semantic
-   `e1f807e9...1ff5`, R20R29 semantic `3c4f5d51...ba7b`, candidate shear root
-   `3f4798c8...e473` and all parents. Implement only frozen R20R32. Select the
-   exact existing power-0 trial only as terminal KKT success after ordinary
-   line rejection; do not change Armijo, `2^-70`, cap, tolerances or trials.
+2. Preserve R20R32 semantic `e7b9acaf...0f73`, R20R31 semantic
+   `3425772c...de5b`, R20R30 semantic `e1f807e9...1ff5`, R20R29 semantic
+   `3c4f5d51...ba7b` and all parents. Implement only frozen source-only R20R33;
+   run no operator, projection, preflight, solver or timing before its source
+   roots are committed.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
 4. Preserve B4E2D3's exact step-one prefix and step-two strain failure.
 5. Preserve B4E2D7's convergent dense AL result and hard state-commit failure.

@@ -3231,3 +3231,11 @@ and [one-shot contract](03b4e2d7r20r32-terminal-certificate-trajectory-contract.
 select the first already evaluated KKT-certified trial only after ordinary
 line rejection, then replay the complete 12-case corpus without weakening
 Armijo or the certificate.
+The
+[R20R32 evidence](../../development/nonlocal-nsr3b4e2d7r20r32-terminal-certificate-trajectory-evidence-2026-08-26.md)
+certifies 12/12 with exact R29/non-shear roots, one freshly re-audited terminal
+state and no ordinary Armijo change. Since v2/v3 are now development data, the
+next [v4 holdout research](../../development/nonlocal-nsr3b4e2d7r20r33-v4-holdout-research-2026-08-26.md)
+and [source-only contract](03b4e2d7r20r33-v4-holdout-manifest-contract.md)
+freeze five new source fixtures before any operator, excitation or solver
+observation.
