@@ -4,7 +4,8 @@ Current milestone: `NSR3B4E2D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE /
 NSR3B4E2D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED /
 NSR3B4E2D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED /
 NSR3B4E2D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED /
-NSR3B4E2D7R20R63Q_FULL_OPERATOR_MATERIALIZATION_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE /
+NSR3B4E2D7R20R63R_COMMON_OPERATOR_INVERSE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3806,6 +3807,13 @@ freeze an exhaustive exact-rational audit of all 10,404 common-operator
 entries. Dense and tangent materializations are compared by exact infinity and
 squared-Frobenius error norms, with no RHS solve, relative tolerance or fitted
 entry-win percentage.
+
+The
+[R20R63Q evidence](../../development/nonlocal-nsr3b4e2d7r20r63q-full-operator-materialization-evidence-2026-08-27.md)
+selects `TANGENT_GRAM_FULL_OPERATOR_CANDIDATE`. Tangent Gram is strictly better
+in exact infinity and squared-Frobenius error norms and wins 6,899 of 10,404
+entries. The ideal `P_d^2-P_d` infinity defect is only `4.95e-49`. Build a
+contractive inverse verifier against exact `H*` next; do not apply the RHS yet.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)

@@ -86,3 +86,18 @@ No RHS, inverse, factor, triangular solve, PCG, rank change, sparse
 realization, timing, state update, runtime/GPU or production work is admitted.
 R64 and R65 remain blocked.
 
+## Result
+
+Tangent Gram wins the exact full-operator comparison: infinity error is
+`5.87e-36` versus dense `1.12e-35`, and squared Frobenius error is `3.83e-71`
+versus `1.47e-70`. It wins 6,899 of 10,404 entries; no entry ties. The ideal
+`P_d^2-P_d` infinity defect is only `4.95e-49`.
+
+The selected route is `TANGENT_GRAM_FULL_OPERATOR_CANDIDATE` at semantic
+`48ec75fe...e345`; stdout repeats byte-identically at `8a64c841...16c59`.
+See the
+[evidence record](nonlocal-nsr3b4e2d7r20r63q-full-operator-materialization-evidence-2026-08-27.md).
+
+Build a contractive inverse verifier against exact `H*` before applying an RHS.
+Stored dense `H` remains a historical comparator, not the future correctness
+oracle.
