@@ -345,15 +345,19 @@ The later product-owner audition accepted wood-B but rejected Glass-D as
 strongly metal-like. A bounded correction selected a sparse six-mode Glass-F
 over E on four short-clink anchors plus an auxiliary fixed-prompt CLAP screen;
 the learned screen visibly misclassified some real and synthetic controls, so
-it remains secondary evidence only. Like the steel screen, this permits only
-an experimental preset replacement. Every comparison remains
-`NeedsHumanAudit`; no calibrated or autonomous quality claim follows.
+it remains secondary evidence only. Glass-F then also failed human material
+identity despite its strong glass-over-metal CLAP result. This is direct local
+evidence that the uncalibrated classical/CLAP ensemble cannot autonomously
+select this glass residual. Every comparison remains `NeedsHumanAudit`; no
+calibrated or autonomous quality claim follows.
 
 ## Decision
 
-Treat Glass-D as `PERCEPTUAL_FAIL`, preserve wood-B, and expose Glass-F only as
-the next audition candidate. Preserve modal impact as a candidate model family,
-but block further quality claims and blind coefficient tuning. The next
-coherent work package is an external, human-calibrated
+Treat Glass-D/F as `PERCEPTUAL_FAIL`, preserve wood-B, and stop another
+modal-only glass coefficient loop. Glass-G is one research-backed hybrid
+counterfactual, not an evaluator-selected winner; it still needs product-owner
+audition. Preserve modal impact where it has human support, but block further
+quality claims and blind coefficient tuning. The next coherent work package is
+an external, human-calibrated
 `PhysicalSoundQualityOracleP0`; its success means reliable held-out ranking of
 candidate sounds, not production promotion.

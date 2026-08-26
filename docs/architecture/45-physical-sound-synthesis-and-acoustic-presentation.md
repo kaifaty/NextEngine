@@ -30,10 +30,11 @@ Non-normative implementation note (2026-08-26): an isolated P0/P0.5
 laboratory now exists in `next_presentation::physical_sound_lab`. The `xtask
 physical-sound-lab` command emits external 48 kHz audition WAVs, and the
 reference demo can mix committed `Begin` contacts behind the explicit Cargo
-feature `physical-sound-lab`. It uses separately screened 12-mode steel,
-dry-hardwood-block and thick-glass-plate candidates, plus a provisional
-adjacent-snapshot speed estimator because the current contact record lacks
-impulse/effective-mass and material fields. The small heterogeneous CC0 screens
+feature `physical-sound-lab`. It uses 12-mode steel/dry-hardwood banks and one
+three-mode small-glass clink with a fused sub-1.5 ms non-fracture onset, plus a
+provisional adjacent-snapshot speed estimator because the current contact
+record lacks impulse/effective-mass and material fields. The small
+heterogeneous CC0 screens
 improved bounded descriptor sets but are not a controlled corpus, universal
 material profiles or substitutes for human audition. This experiment does not
 implement the candidate content records, does not satisfy a P1 ProductCheck and

@@ -2,16 +2,17 @@
 
 ## Status and bounded claim
 
-`WOOD-B_ACCEPTED / GLASS-D_REJECTED / GLASS-F_AUDITION_REQUIRED / NO_P1_PROMOTION`
+`WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_AUDITION_REQUIRED / NO_P1_PROMOTION`
 
 This report records one frozen P0 screen for two concrete experimental targets:
 
 - a dry, solid hardwood block struck once;
-- a deliberately short glass clink struck once without fracture.
+- a deliberately short clink from a small glass object struck once without
+  fracture.
 
-The selected 12-mode wood and six-mode Glass-F profiles replace the failed
-five-mode presets only inside the off-by-default laboratory and feature-gated
-reference demo.
+The accepted 12-mode wood profile and hybrid three-mode Glass-G
+counterfactual exist only inside the off-by-default laboratory and
+feature-gated reference demo.
 They do not establish universal material sounds, calibrate the quality
 evaluator, close SPEC-45 P1, or alter the shipped clip fallback.
 
@@ -101,8 +102,9 @@ a 10 ms deterministic strike and a bounded 700 ms voice.
 
 ## Product-owner result and glass correction
 
-The product-owner audition accepted wood-B as normal and rejected Glass-D as
-strongly metal-like. That judgement outranks the descriptor gains above.
+The product-owner audition accepted wood-B as normal and rejected Glass-D and
+Glass-F as strongly metal-like. Those judgements outrank every descriptor and
+CLAP gain above.
 Published listening work explains why the miss was plausible: glass and steel
 form a frequently confused hard-material group, while glass is associated with
 higher signal frequencies in fine-grained identification. Frequency-specific
@@ -112,8 +114,8 @@ categorization. Sources: [Giordano and McAdams
 [Hjortkjær and McAdams
 2016](https://orbit.dtu.dk/en/publications/spectral-and-temporal-cues-for-perception-of-material-and-action-/).
 
-The correction therefore freezes wood-B, retains D only as a rejected
-metal-like control, and narrows the new target to the four short-clink anchors.
+The first correction therefore froze wood-B, retained D as a rejected
+metal-like control, and narrowed F to the four short-clink anchors.
 The long-ring `sfx100v2_glass_05.wav` remains frozen evidence but is excluded
 from this discriminative split; results below must not be compared as though
 the five-anchor and four-anchor medians were the same evaluation split.
@@ -140,6 +142,37 @@ it does not override audition or establish calibrated autonomous ranking.
 The discriminative manifest/report hashes are `2fd6b068…534e` and
 `492a43a1…a9f`; the CLAP report hash is `cd1be134…0f1a`.
 
+Glass-F then failed the product-owner audition too. This falsifies the bounded
+strategy of selecting another ordinary modal bank from the current automatic
+screens; it does not falsify modal synthesis for accepted steel/wood or every
+possible glass object.
+
+## Model-family escalation and Glass-G
+
+Three competing explanations were checked before another implementation:
+
+| Hypothesis | Evidence | Decision |
+| --- | --- | --- |
+| F still encodes metal-like spectral roughness | Aramaki et al. report that glass often has only a few distinct spectral components, while metal's dissonant aspect and roughness help separate it; onset alone does not define material | Leading: replace six simultaneous modes and a 4 ms full-gain broadband strike with three sparse partials and one fused, low-gain micro-contact onset |
+| A thick/free plate is the wrong glass object hypothesis | Giordano and McAdams found real steel and glass plates perceptually equivalent inside the hard-material group; listeners instead followed size/frequency | Leading: target a small-object clink, not a universal glass plate |
+| Recognizability requires audible shard/breaking pulses | Warren and Verbrugge show that asynchronous multiple pulse trains strongly identify the *breaking action* even with fixed spectra | Rejected for this experiment: it would change the event and violate the impact-only/no-fracture scope |
+
+Sources: [Aramaki et al. 2011](https://doi.org/10.1109/TASL.2010.2047755),
+[Giordano and McAdams
+2006](https://www.mcgill.ca/mpcl/files/mpcl/blg_smc_2006_jasa.pdf),
+[Warren and Verbrugge
+1984](https://cspeech.ucd.ie/Fred/docs/warrenandverbrugge.pdf), and
+[Hjortkjær and McAdams
+2016](https://www.mcgill.ca/mpcl/files/mpcl/hjortkjaer_2016_jasa.pdf).
+
+Glass-G is exactly one counterfactual: partials at 4,320/6,480/8,640 Hz with
+T20 values of 45/32/22 ms, followed by no audible fracture train. Its
+non-modal residual is three high-passed deterministic microbursts ending at
+1.375 ms, short enough to fuse into one contact onset. Center descriptors are
+spectral centroid `4,438.190 Hz`, broadband T20 `36.687 ms`, flatness
+`-47.249 dB` and temporal centroid `7.387 ms`. They diagnose the intended
+sparse/short relation but confer no perceptual pass.
+
 ## Exact selected outputs
 
 | Output | WAV SHA-256 |
@@ -147,10 +180,10 @@ The discriminative manifest/report hashes are `2fd6b068…534e` and
 | `wood-center.wav` | `bff56a532b254fff1e18e7d5896643a92f0be4308d3979969c76d81a38d47fc9` |
 | `wood-edge.wav` | `d10538c2b77dd5a9a47a60bebe4833fc1e376c278780dc675aeff1d676317f62` |
 | `wood-corner.wav` | `9bdb766f77359a376ee01e3cf9e78d3b27cab0decca1bf865be499345e1e0242` |
-| `glass-center.wav` | `d3976180a5b21f68410d135d4e3974e959218d4feff0d21eb51e4419fc39866d` |
-| `glass-edge.wav` | `116f226635f171708c837aea2785986c7273b91a7c644852497e0c93ce2205b7` |
-| `glass-corner.wav` | `6dcd5d7f75625105582f408271adb9c10f67f12af1cb1906741a12b8b938b125` |
-| `demo-sequence.wav` | `83356b06c86145a765464cd41df8240ccbdeea1da67b677875bcc9b27cf8bc73` |
+| `glass-center.wav` | `1f24caaf8fd22c1b77d1d406245e3db44bd8d00914c7c26960ac9fcffb4c0727` |
+| `glass-edge.wav` | `67312a21dbf3e1ccb90d52e7c0c5565f0f9504e9144e1f862f419c32dd5e92ef` |
+| `glass-corner.wav` | `0bd95169e6e2e8a25b42803294fe903d5f79ba9c4610405b1a83548080e71eda` |
+| `demo-sequence.wav` | `f31e1ce291eb9802951646a3a7f9b301b014b7948f6c620f279e3a5edf53395f` |
 
 The center raw interleaved PCM hashes are pinned in focused Rust tests. Steel's
 existing exact PCM hash remains unchanged. Center/edge/corner share frequencies
@@ -159,13 +192,13 @@ position relation.
 
 ## Decision and remaining uncertainty
 
-Keep accepted wood-B bit-exact and replace rejected Glass-D with Glass-F for the
-current laboratory/demo audition. Keep all reference audio, blind bundles,
-model weights and evaluator artifacts external. Preserve the ordinary clip
-mixer as the shipping/fault fallback.
+Keep accepted wood-B bit-exact and expose Glass-G as the sole new demo
+counterfactual. Keep rejected D/F, reference audio, blind bundles, model weights
+and evaluator artifacts external. Preserve the ordinary clip mixer as the
+shipping/fault fallback.
 
-The next discriminator is the product-owner audition of Glass-F in the demo;
-failure rejects or revises it without touching wood-B. A controlled recording
-of one known glass body at repeated positions/forces is still required before
-held-out ranking, autonomous quality iteration, a generic material claim or
-any P1 promotion.
+The next discriminator is the product-owner audition of Glass-G in the demo;
+failure rejects it without another same-family tuning loop. A controlled
+recording of one known glass body at repeated positions/forces is still
+required before held-out ranking, autonomous quality iteration, a generic
+material claim or any P1 promotion.

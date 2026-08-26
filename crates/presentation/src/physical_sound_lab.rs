@@ -147,16 +147,29 @@ struct ModeState {
     current: i64,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct FusedClinkPulse {
+    offset_frames: u32,
+    duration_frames: u32,
+    gain_q15: i64,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum StrikeTransientProfile {
+    WhiteNoise { gain_q15: i64, frames: u32 },
+    FusedGlassClink { pulses: &'static [FusedClinkPulse] },
+}
+
 #[derive(Clone, Debug)]
 struct ModalVoice {
     modes: [ModeState; MAX_MODE_COUNT],
     profiles: &'static [ModeProfile],
     pan_q16: i32,
     energy_q16: u32,
-    noise_gain_q15: i64,
+    strike_transient: StrikeTransientProfile,
     noise_state: u32,
-    noise_frames_remaining: u32,
-    noise_frames_total: u32,
+    previous_noise: i64,
+    frames_elapsed: u32,
     frames_remaining: u32,
 }
 
@@ -185,10 +198,10 @@ impl ModalVoice {
             profiles: profile.modes,
             pan_q16: excitation.pan_q16,
             energy_q16: excitation.energy_q16,
-            noise_gain_q15: profile.noise_gain_q15,
+            strike_transient: profile.strike_transient,
             noise_state: seed,
-            noise_frames_remaining: profile.noise_frames,
-            noise_frames_total: profile.noise_frames,
+            previous_noise: 0,
+            frames_elapsed: 0,
             frames_remaining: profile.duration_frames,
         }
     }
@@ -202,32 +215,61 @@ impl ModalVoice {
             state.previous = state.current;
             state.current = next;
         }
-        if self.noise_frames_remaining > 0 {
-            self.noise_state ^= self.noise_state << 13;
-            self.noise_state ^= self.noise_state >> 17;
-            self.noise_state ^= self.noise_state << 5;
-            let noise = i64::from(self.noise_state as i16);
-            sample += noise
-                * i64::from(self.energy_q16)
-                * self.noise_gain_q15
-                * i64::from(self.noise_frames_remaining)
-                / Q16_ONE
-                / Q15_ONE
-                / i64::from(self.noise_frames_total);
-            self.noise_frames_remaining -= 1;
+        match self.strike_transient {
+            StrikeTransientProfile::WhiteNoise { gain_q15, frames }
+                if self.frames_elapsed < frames =>
+            {
+                let noise = self.next_noise_sample();
+                let frames_remaining = frames - self.frames_elapsed;
+                sample +=
+                    noise * i64::from(self.energy_q16) * gain_q15 * i64::from(frames_remaining)
+                        / Q16_ONE
+                        / Q15_ONE
+                        / i64::from(frames);
+            }
+            StrikeTransientProfile::FusedGlassClink { pulses } => {
+                if let Some(pulse) = pulses.iter().find(|pulse| {
+                    self.frames_elapsed >= pulse.offset_frames
+                        && self.frames_elapsed < pulse.offset_frames + pulse.duration_frames
+                }) {
+                    if self.frames_elapsed == pulse.offset_frames {
+                        self.previous_noise = 0;
+                    }
+                    let noise = self.next_noise_sample();
+                    let high_passed_noise = noise - self.previous_noise;
+                    self.previous_noise = noise;
+                    let pulse_frame = self.frames_elapsed - pulse.offset_frames;
+                    let pulse_frames_remaining = pulse.duration_frames - pulse_frame;
+                    sample += high_passed_noise
+                        * i64::from(self.energy_q16)
+                        * pulse.gain_q15
+                        * i64::from(pulse_frames_remaining)
+                        / Q16_ONE
+                        / Q15_ONE
+                        / i64::from(pulse.duration_frames);
+                }
+            }
+            _ => {}
         }
         if self.frames_remaining < FINAL_FADE_FRAMES {
             sample = sample * i64::from(self.frames_remaining) / i64::from(FINAL_FADE_FRAMES);
         }
+        self.frames_elapsed = self.frames_elapsed.saturating_add(1);
         self.frames_remaining = self.frames_remaining.saturating_sub(1);
         sample
+    }
+
+    fn next_noise_sample(&mut self) -> i64 {
+        self.noise_state ^= self.noise_state << 13;
+        self.noise_state ^= self.noise_state >> 17;
+        self.noise_state ^= self.noise_state << 5;
+        i64::from(self.noise_state as i16)
     }
 }
 
 struct MaterialProfile {
     modes: &'static [ModeProfile],
-    noise_gain_q15: i64,
-    noise_frames: u32,
+    strike_transient: StrikeTransientProfile,
     duration_frames: u32,
 }
 
@@ -411,52 +453,49 @@ const WOOD_MODES: [ModeProfile; MAX_MODE_COUNT] = [
     },
 ];
 
-// A deliberately sparse, short glass-clink candidate screened against small
-// external CC0 glass impacts. It keeps the primary energy above the steel
-// body's register and avoids the dense, long-lived tail that made Glass-D read
-// as another metal plate. Impact position still changes participation only.
-const GLASS_MODES: [ModeProfile; 6] = [
-    // 2,760 Hz / T20 60 ms
+// Glass-G changes the bounded object hypothesis from a thick plate to a small
+// glass clink. Three consonant, widely separated partials keep the spectrum
+// sparse and low-roughness; a sub-1.5 ms fused onset below adds non-modal
+// micro-contact detail without representing fracture or additional contacts.
+const GLASS_MODES: [ModeProfile; 3] = [
+    // 4,320 Hz / T20 45 ms
     ModeProfile {
-        coefficient_a_q30: 2_007_245_308,
-        coefficient_b_q30: 1_072_026_264,
-        gain_q15: 18_000,
-        initial_sine_q15: 11_583,
-    },
-    // 3,814 Hz / T20 75 ms
-    ModeProfile {
-        coefficient_a_q30: 1_884_158_861,
-        coefficient_b_q30: 1_072_369_157,
-        gain_q15: 22_000,
-        initial_sine_q15: 15_688,
-    },
-    // 4,690 Hz / T20 60 ms
-    ModeProfile {
-        coefficient_a_q30: 1_753_942_414,
-        coefficient_b_q30: 1_072_026_264,
-        gain_q15: 18_000,
-        initial_sine_q15: 18_877,
-    },
-    // 6,539 Hz / T20 45 ms
-    ModeProfile {
-        coefficient_a_q30: 1_406_173_655,
+        coefficient_a_q30: 1_811_248_572,
         coefficient_b_q30: 1_071_455_020,
-        gain_q15: 12_000,
-        initial_sine_q15: 24_746,
+        gain_q15: 23_000,
+        initial_sine_q15: 17_558,
     },
-    // 7,450 Hz / T20 38 ms
+    // 6,480 Hz / T20 32 ms
     ModeProfile {
-        coefficient_a_q30: 1_203_218_983,
-        coefficient_b_q30: 1_071_034_298,
-        gain_q15: 9_000,
-        initial_sine_q15: 27_126,
+        coefficient_a_q30: 1_418_029_085,
+        coefficient_b_q30: 1_070_527_398,
+        gain_q15: 13_000,
+        initial_sine_q15: 24_580,
     },
-    // 8,875 Hz / T20 30 ms
+    // 8,640 Hz / T20 22 ms
     ModeProfile {
-        coefficient_a_q30: 852_793_622,
-        coefficient_b_q30: 1_070_313_445,
-        gain_q15: 6_000,
-        initial_sine_q15: 30_064,
+        coefficient_a_q30: 912_362_509,
+        coefficient_b_q30: 1_069_069_478,
+        gain_q15: 7_000,
+        initial_sine_q15: 29_649,
+    },
+];
+
+const GLASS_CLINK_PULSES: [FusedClinkPulse; 3] = [
+    FusedClinkPulse {
+        offset_frames: 0,
+        duration_frames: 24,
+        gain_q15: 10_000,
+    },
+    FusedClinkPulse {
+        offset_frames: 30,
+        duration_frames: 18,
+        gain_q15: 6_500,
+    },
+    FusedClinkPulse {
+        offset_frames: 54,
+        duration_frames: 12,
+        gain_q15: 4_000,
     },
 ];
 
@@ -464,21 +503,26 @@ const fn material_profile(material: PhysicalSoundMaterial) -> MaterialProfile {
     match material {
         PhysicalSoundMaterial::Steel => MaterialProfile {
             modes: &STEEL_MODES,
-            noise_gain_q15: 8_192,
-            noise_frames: 960,
+            strike_transient: StrikeTransientProfile::WhiteNoise {
+                gain_q15: 8_192,
+                frames: 960,
+            },
             duration_frames: 24_000,
         },
         PhysicalSoundMaterial::Wood => MaterialProfile {
             modes: &WOOD_MODES,
-            noise_gain_q15: 8_192,
-            noise_frames: 480,
+            strike_transient: StrikeTransientProfile::WhiteNoise {
+                gain_q15: 8_192,
+                frames: 480,
+            },
             duration_frames: 16_800,
         },
         PhysicalSoundMaterial::Glass => MaterialProfile {
             modes: &GLASS_MODES,
-            noise_gain_q15: 32_767,
-            noise_frames: 192,
-            duration_frames: 9_600,
+            strike_transient: StrikeTransientProfile::FusedGlassClink {
+                pulses: &GLASS_CLINK_PULSES,
+            },
+            duration_frames: 8_000,
         },
     }
 }
@@ -691,7 +735,7 @@ mod tests {
     }
 
     #[test]
-    fn screened_wood_and_glass_profiles_retain_exact_pcm_and_position_response() {
+    fn accepted_wood_and_hybrid_glass_profiles_retain_exact_pcm_and_position_response() {
         let assert_profile = |material, seed, expected_len, expected_hash: &str| {
             let render = |impact_point| {
                 render_physical_sound_impact(PhysicalSoundExcitation::new(
@@ -725,9 +769,27 @@ mod tests {
         assert_profile(
             PhysicalSoundMaterial::Glass,
             0x61a5_0101,
-            19_200,
-            "0673411cedd963ce55d503400761ad3e0a2d9d2c099429fda1775d6456c429f3",
+            16_000,
+            "3cb2d0294ebe660c361105f1442842982fafb56ecaeceee3702fb09cbc999237",
         );
+    }
+
+    #[test]
+    fn glass_clink_keeps_microbursts_inside_one_fused_onset() {
+        let profile = material_profile(PhysicalSoundMaterial::Glass);
+        assert_eq!(profile.modes.len(), 3);
+        let StrikeTransientProfile::FusedGlassClink { pulses } = profile.strike_transient else {
+            panic!("glass must use the bounded fused-clink transient");
+        };
+        assert!(pulses.iter().all(|pulse| pulse.duration_frames > 0));
+        assert!(pulses.windows(2).all(|pair| {
+            pair[0].offset_frames + pair[0].duration_frames <= pair[1].offset_frames
+        }));
+        let final_frame = pulses
+            .last()
+            .map(|pulse| pulse.offset_frames + pulse.duration_frames)
+            .expect("glass clink pulse");
+        assert!(final_frame <= 72, "onset must end within 1.5 ms at 48 kHz");
     }
 
     #[test]
