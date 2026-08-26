@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R56 composed v4 corpus research
 
-Status: `RESEARCH COMPLETE / INDEPENDENT-CAP COMPOSITION SELECTED`.
+Status: `PASS / COMPOSED POLICY CERTIFIES V4 5 OF 5`.
 
 ## Question
 
@@ -30,3 +30,10 @@ trigger neither hook and retain their R51 roots.
 C1 would close the current v4 correctness corpus for this default-off research
 policy. It would authorize production-roadmap design and broader blind-source
 validation, not immediate default/runtime promotion.
+
+## Outcome
+
+C1 is confirmed exactly. The trigger matrix matches the contract, all five
+cases certify ordinarily, and no mechanism triggers outside its intended
+numeric predicate. Broader validation now requires a newly committed blind
+source corpus.

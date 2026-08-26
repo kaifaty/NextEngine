@@ -3458,3 +3458,8 @@ That gate is frozen by the
 and [contract](03b4e2d7r20r56-composed-v4-corpus-contract.md): replay all five
 immutable cases with independent per-case caps and require the exact trigger
 matrix `5/0, 0/0, 0/1, 0/0, 0/0` before claiming composition.
+The
+[R20R56 evidence](../../development/nonlocal-nsr3b4e2d7r20r56-composed-v4-corpus-evidence-2026-08-26.md)
+passes that exact matrix and certifies 5/5 ordinarily. Since v4 is now a
+development corpus, the next generalization cycle must commit new source-only
+v5 fixtures before constructing operators or observing the solver.
