@@ -30,12 +30,15 @@ Non-normative implementation note (2026-08-26): an isolated P0/P0.5
 laboratory now exists in `next_presentation::physical_sound_lab`. The `xtask
 physical-sound-lab` command emits external 48 kHz audition WAVs, and the
 reference demo can mix committed `Begin` contacts behind the explicit Cargo
-feature `physical-sound-lab`. It uses five frozen fixed-point resonators per
-steel/wood/glass heuristic profile and a provisional adjacent-snapshot speed
-estimator because the current contact record lacks impulse/effective-mass and
-material fields. This experiment does not implement the candidate content
-records, does not satisfy a P1 ProductCheck and does not relax the production
-block below. Disabling the feature preserves the ordinary clip baseline.
+feature `physical-sound-lab`. It uses a 12-mode plate-like steel profile fitted
+against an external reference screen while preserving the five-mode heuristic
+wood and glass profiles, plus a provisional adjacent-snapshot speed estimator
+because the current contact record lacks impulse/effective-mass and material
+fields. The small heterogeneous CC0 screen improved spectral/decay descriptors
+but is not a controlled corpus or a substitute for human audition. This
+experiment does not implement the candidate content records, does not satisfy
+a P1 ProductCheck and does not relax the production block below. Disabling the
+feature preserves the ordinary clip baseline.
 
 The same isolated experiment now includes `xtask physical-sound-eval`. It
 consumes only external hash-frozen WAV manifests, emits deterministic classical

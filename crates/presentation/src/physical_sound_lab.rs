@@ -8,6 +8,7 @@
 const SAMPLE_RATE_HZ: u32 = 48_000;
 const FRAMES_PER_TICK: usize = 1_600;
 const CHANNEL_COUNT: usize = 2;
+const MAX_MODE_COUNT: usize = 12;
 const Q15_ONE: i64 = 32_768;
 const Q16_ONE: i64 = 65_536;
 const MAX_VOICES: usize = 16;
@@ -49,11 +50,23 @@ impl PhysicalSoundImpactPoint {
         }
     }
 
-    const fn factors_q15(self) -> [i16; 5] {
-        match self {
-            Self::Center => [32_767, 8_192, -22_938, 6_554, 18_022],
-            Self::Edge => [14_746, 32_767, 11_469, -26_214, 21_299],
-            Self::Corner => [9_830, 24_576, 32_767, 19_661, -16_384],
+    const fn factors_q15(self, material: PhysicalSoundMaterial) -> [i16; MAX_MODE_COUNT] {
+        match (material, self) {
+            (PhysicalSoundMaterial::Steel, Self::Center) => [
+                32_767, 18_000, -22_000, 14_000, 28_000, 24_000, -26_000, 30_000, 22_000, -28_000,
+                32_767, 26_000,
+            ],
+            (PhysicalSoundMaterial::Steel, Self::Edge) => [
+                16_000, 32_767, 25_000, -30_000, 18_000, 32_767, 24_000, -22_000, 30_000, 26_000,
+                -18_000, 32_767,
+            ],
+            (PhysicalSoundMaterial::Steel, Self::Corner) => [
+                10_000, 22_000, 32_767, 28_000, -20_000, -18_000, 30_000, 26_000, -26_000, 32_767,
+                28_000, -24_000,
+            ],
+            (_, Self::Center) => [32_767, 8_192, -22_938, 6_554, 18_022, 0, 0, 0, 0, 0, 0, 0],
+            (_, Self::Edge) => [14_746, 32_767, 11_469, -26_214, 21_299, 0, 0, 0, 0, 0, 0, 0],
+            (_, Self::Corner) => [9_830, 24_576, 32_767, 19_661, -16_384, 0, 0, 0, 0, 0, 0, 0],
         }
     }
 }
@@ -115,8 +128,8 @@ struct ModeState {
 
 #[derive(Clone, Debug)]
 struct ModalVoice {
-    modes: [ModeState; 5],
-    profiles: &'static [ModeProfile; 5],
+    modes: [ModeState; MAX_MODE_COUNT],
+    profiles: &'static [ModeProfile],
     pan_q16: i32,
     energy_q16: u32,
     noise_gain_q15: i64,
@@ -129,9 +142,9 @@ struct ModalVoice {
 impl ModalVoice {
     fn new(excitation: PhysicalSoundExcitation) -> Self {
         let profile = material_profile(excitation.material);
-        let point_factors = excitation.impact_point.factors_q15();
-        let mut modes = [ModeState::default(); 5];
-        for (index, mode) in modes.iter_mut().enumerate() {
+        let point_factors = excitation.impact_point.factors_q15(excitation.material);
+        let mut modes = [ModeState::default(); MAX_MODE_COUNT];
+        for (index, mode) in modes.iter_mut().take(profile.modes.len()).enumerate() {
             let modal_amplitude = STRIKE_AMPLITUDE
                 * i64::from(excitation.energy_q16)
                 * profile.modes[index].gain_q15
@@ -191,42 +204,99 @@ impl ModalVoice {
 }
 
 struct MaterialProfile {
-    modes: &'static [ModeProfile; 5],
+    modes: &'static [ModeProfile],
     noise_gain_q15: i64,
     noise_frames: u32,
     duration_frames: u32,
 }
 
-const STEEL_MODES: [ModeProfile; 5] = [
+// A bounded plate-like steel profile fitted to the modal/decay envelope of a
+// small external CC0 metal-impact screen. Frequencies stay fixed across impact
+// positions; only participation changes. This remains experimental P0 data.
+const STEEL_MODES: [ModeProfile; MAX_MODE_COUNT] = [
+    // 215.3 Hz / T20 270 ms
     ModeProfile {
-        coefficient_a_q30: 2_144_050_799,
-        coefficient_b_q30: 1_073_709_868,
-        gain_q15: 19_661,
-        initial_sine_q15: 1_843,
+        coefficient_a_q30: 2_146_249_514,
+        coefficient_b_q30: 1_073_360_351,
+        gain_q15: 6_554,
+        initial_sine_q15: 923,
     },
+    // 409.1 Hz / T20 240 ms
     ModeProfile {
-        coefficient_a_q30: 2_121_438_291,
-        coefficient_b_q30: 1_073_697_086,
-        gain_q15: 13_763,
-        initial_sine_q15: 5_084,
-    },
-    ModeProfile {
-        coefficient_a_q30: 2_044_051_860,
-        coefficient_b_q30: 1_073_682_173,
+        coefficient_a_q30: 2_143_976_622,
+        coefficient_b_q30: 1_073_312_677,
         gain_q15: 8_192,
-        initial_sine_q15: 10_044,
+        initial_sine_q15: 1_754,
     },
+    // 710.6 Hz / T20 195 ms
     ModeProfile {
-        coefficient_a_q30: 1_835_353_467,
-        coefficient_b_q30: 1_073_660_483,
-        gain_q15: 5_243,
-        initial_sine_q15: 17_011,
+        coefficient_a_q30: 2_137_674_153,
+        coefficient_b_q30: 1_073_213_667,
+        gain_q15: 10_486,
+        initial_sine_q15: 3_044,
     },
+    // 807.5 Hz / T20 180 ms
     ModeProfile {
-        coefficient_a_q30: 1_333_825_304,
-        coefficient_b_q30: 1_073_614_005,
-        gain_q15: 3_277,
-        initial_sine_q15: 25_680,
+        coefficient_a_q30: 2_134_929_062,
+        coefficient_b_q30: 1_073_169_666,
+        gain_q15: 9_830,
+        initial_sine_q15: 3_457,
+    },
+    // 1,076.7 Hz / T20 150 ms
+    ModeProfile {
+        coefficient_a_q30: 2_125_510_270,
+        coefficient_b_q30: 1_073_055_271,
+        gain_q15: 18_022,
+        initial_sine_q15: 4_603,
+    },
+    // 1,453.5 Hz / T20 135 ms
+    ModeProfile {
+        coefficient_a_q30: 2_107_982_241,
+        coefficient_b_q30: 1_072_979_014,
+        gain_q15: 15_729,
+        initial_sine_q15: 6_197,
+    },
+    // 1,857.2 Hz / T20 120 ms
+    ModeProfile {
+        coefficient_a_q30: 2_083_503_335,
+        coefficient_b_q30: 1_072_883_701,
+        gain_q15: 13_763,
+        initial_sine_q15: 7_888,
+    },
+    // 2,153.3 Hz / T20 135 ms
+    ModeProfile {
+        coefficient_a_q30: 2_062_006_809,
+        coefficient_b_q30: 1_072_979_014,
+        gain_q15: 20_316,
+        initial_sine_q15: 9_114,
+    },
+    // 2,659.4 Hz / T20 112.5 ms
+    ModeProfile {
+        coefficient_a_q30: 2_017_811_680,
+        coefficient_b_q30: 1_072_826_517,
+        gain_q15: 18_022,
+        initial_sine_q15: 11_178,
+    },
+    // 3,203.1 Hz / T20 97.5 ms
+    ModeProfile {
+        coefficient_a_q30: 1_960_504_514,
+        coefficient_b_q30: 1_072_685_770,
+        gain_q15: 16_384,
+        initial_sine_q15: 13_340,
+    },
+    // 3,644.5 Hz / T20 82.5 ms
+    ModeProfile {
+        coefficient_a_q30: 1_906_601_530,
+        coefficient_b_q30: 1_072_493_872,
+        gain_q15: 14_746,
+        initial_sine_q15: 15_046,
+    },
+    // 5,695.5 Hz / T20 60 ms
+    ModeProfile {
+        coefficient_a_q30: 1_576_543_008,
+        coefficient_b_q30: 1_072_026_264,
+        gain_q15: 10_486,
+        initial_sine_q15: 22_229,
     },
 ];
 
@@ -300,9 +370,9 @@ const fn material_profile(material: PhysicalSoundMaterial) -> MaterialProfile {
     match material {
         PhysicalSoundMaterial::Steel => MaterialProfile {
             modes: &STEEL_MODES,
-            noise_gain_q15: 1_638,
-            noise_frames: 144,
-            duration_frames: 96_000,
+            noise_gain_q15: 8_192,
+            noise_frames: 960,
+            duration_frames: 24_000,
         },
         PhysicalSoundMaterial::Wood => MaterialProfile {
             modes: &WOOD_MODES,
@@ -465,6 +535,7 @@ pub fn render_physical_sound_lab_sequence() -> Vec<i16> {
 #[cfg(test)]
 mod tests {
     use next_contracts::canonical::sha256;
+    use next_contracts::ids::ContentHash;
 
     use super::*;
 
@@ -498,6 +569,31 @@ mod tests {
         assert!(steel.iter().any(|sample| *sample != 0));
         assert!(wood.iter().any(|sample| *sample != 0));
         assert!(glass.iter().any(|sample| *sample != 0));
+    }
+
+    #[test]
+    fn calibrated_steel_profile_retains_exact_pcm_and_position_response() {
+        let render = |impact_point| {
+            render_physical_sound_impact(PhysicalSoundExcitation::new(
+                PhysicalSoundMaterial::Steel,
+                impact_point,
+                49_152,
+                0,
+                0x51ee_0101,
+            ))
+        };
+        let center = render(PhysicalSoundImpactPoint::Center);
+        let edge = render(PhysicalSoundImpactPoint::Edge);
+        let corner = render(PhysicalSoundImpactPoint::Corner);
+
+        assert_eq!(center.len(), 48_000);
+        assert_eq!(
+            ContentHash::from_bytes(sha256(&samples_as_bytes(&center))).to_hex(),
+            "319befa843e591e936ccf8da531626146312721ac820e56029a07fed5bae896a"
+        );
+        assert_ne!(center, edge);
+        assert_ne!(center, corner);
+        assert_ne!(edge, corner);
     }
 
     #[test]

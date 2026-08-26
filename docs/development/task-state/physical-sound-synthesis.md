@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_DEMO_PERCEPTUAL_FAIL / Q0_EVALUATOR_IMPLEMENTED / Q1_CONTROLS_PASS / HUMAN_CALIBRATION_OPEN / P1_BLOCKED` |
+| Status | `P0_STEEL_REFERENCE_SCREEN_FITTED / HUMAN_AUDITION_OPEN / Q1_CONTROLS_PASS / P1_BLOCKED` |
 | Updated | `2026-08-26` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact audition and feature-gated reference-demo experiment |
@@ -11,19 +11,16 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The fixed-point demo remains a perceptual failure,
-  but `xtask physical-sound-eval` now provides the classical Q0/Q1 evidence
-  layer: hash-frozen external manifests, signal/modal/spectrum/decay reports,
-  matched-reference distances and a seeded blind A/B browser. It is not yet a
-  calibrated quality oracle.
-- **Why:** Q0 reproduced all nine baseline WAV descriptors, a repeated Q1
-  control report was byte-identical, identical audio scored zero and a
-  steel-versus-glass mismatch was separated. No reviewed real reference or
-  human label has tested whether that ordering matches product perception.
-- **Next action:** Acquire or record a reviewed external metal/wood/glass
-  reference subset, add exact reference hashes to the generated manifest and
-  run the blind seed comparison before changing the synthesizer.
-- **Current blocker:** No reviewed matched-reference corpus, held-out human
+- **Current conclusion:** A bounded seven-file CC0 screen moved the experimental
+  steel impact away from its low, multi-second drone: candidate D halves median
+  spectral error and matches the screen's decay envelope far better. Modal
+  identity remains mixed and the result still needs blind human audition.
+- **Why:** The frozen evaluator compared four candidates with the same external hashes. Candidate D reduced median spectrum RMSE from `44.5951` to `21.9281`
+  dB and median absolute mean-T20 delta from `6606.82` to `49.17` ms, while
+  modal cost worsened from `1.04514` to `1.36658`.
+- **Next action:** Blind-audition old versus candidate D and D versus named CC0
+  anchors; record the artifact before any further coefficient change.
+- **Current blocker:** No controlled matched-reference corpus, held-out human
   preference labels, calibrated threshold, measured
   whole-mixer budget, Accepted consumer ADR or complete impulse/effective-mass/
   acoustic-material contact projection exists.
@@ -39,6 +36,7 @@
 | --- | --- | --- |
 | [Research report](../physical-sound-synthesis-research-2026-08-26.md) | `REPORT_PLUS_LOCAL_EXPERIMENT` | Modal rigid impact is technically integrated; acoustic quality and promotion evidence remain open. |
 | [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md) | `CLASSICAL_Q0_Q1_IMPLEMENTED / HUMAN_CALIBRATION_OPEN` | Matched classical descriptors and blind A/B are available; no single automatic metric or uncalibrated control run is an admissible quality judge. |
+| [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) | `BOUNDED_REFERENCE_SCREEN_PASS / HUMAN_AUDITION_OPEN` | A 12-mode candidate repairs the baseline spectral/decay failure against seven frozen CC0 references; heterogeneous-object modal agreement remains mixed, so no generic steel or Q2 claim follows. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
@@ -47,7 +45,7 @@
 | `xtask physical-sound-eval` Q0 run | `PASS / UNCALIBRATED` | Nine hash-frozen WAVs produce bounded signal, multiresolution spectrum, modal-assignment and per-band decay reports under evaluator profile hash `e1e57d9b…66af1`; every entry correctly remains `NeedsReference`. |
 | Q1 self/mismatch controls and blind bundle | `PASS / CONTROL_ONLY` | Self-match is zero on every matched distance; steel-center versus glass-corner yields `28.7939 dB` spectral RMSE, `0.642964` modal cost and spectral/modal/high-band-decay tags. Seed `42` emits two blinded pairs; repeated report SHA-256 is `65a6d437…da81`. |
 | Feature-gated demo enabled/disabled regression | `PASS` | Committed `Begin` contact changes only PCM; runtime, RPG and physics checkpoint state remain identical. |
-| 120-frame SDL/Ash reference demo with `physical-sound-lab` | `PASS / DEBUG_FUNCTIONAL` | 79 simulation ticks, active audio device, 144,000 queued samples, zero drops/faults; 64 debug underruns grant no platform/performance credit. |
+| 120-frame SDL/Ash reference demo with `physical-sound-lab` | `PASS / DEBUG_FUNCTIONAL` | 73 simulation ticks, active audio device, 118,400 queued samples, zero drops/faults; 74 debug underruns grant no platform/performance credit. |
 | `audio-scene`, `play`, `host-check` | `PASS` | Baseline audio/play roots remain valid; workspace fmt/clippy/tests and boundary policy pass on Rust 1.97.1. |
 | Candidate `AUDIO-PHYS-*` checks | `NOT_RUN / NOT_PROMOTED` | Local experiment checks do not create source/content/platform/performance or P1 admissibility. |
 
@@ -165,9 +163,10 @@
 - **Rejected alternatives:** A single FAD/CLAP/ViSQOL/aesthetic score, direct
   prose judgment by a general audio model, or fitting and evaluating on the same
   object/impact split.
-- **Consequences:** Q0/Q1 classical tooling is now implemented; the next work
-  package is reference acquisition and human calibration, not another synth
-  preset. Datasets, model weights and candidate batches remain external.
+- **Consequences:** Q0/Q1 classical tooling is implemented and one bounded
+  reference-screen cycle selected a better steel candidate. The next work is
+  blind human review and controlled reference acquisition, not another
+  unrecorded synth preset. Data and candidate batches remain external.
 - **Uncertainty:** The smallest local reference corpus and human-label count are
   chosen only after measuring recording and label variance.
 - **Reconsider when:** A frozen single metric demonstrably outperforms the
@@ -178,7 +177,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A compact reference-fitted modal model is perceptually useful for the first three object profiles | Controlled studies show matched low-parameter modal sounds can be difficult to distinguish from recordings | The current unfitted five-mode presets failed product-owner audition | Fit against frozen real references, then run real-versus-synth and held-out preference tests |
+| H1: A compact reference-fitted modal model is perceptually useful for the first three object profiles | A 12-mode steel candidate materially improves spectrum/decay against a frozen external screen | Modal identity is mixed and the candidate has not passed blind human audition | Run old/new/reference blind audition, then controlled-object held-out preference tests |
 | H2: The complete SPEC-26 contact projection is sufficient for impact excitation | It includes identity, point, velocity, impulse bounds, effective mass and tags | Current implementation omits the decisive numeric fields; solver-force fidelity is untested | Close one fixture projection and compare against exact synthetic excitation/control PCM |
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Repeated scalar renders are byte-exact and profiles/impact points are distinct | Quality, detuning and damping error against a high-precision reference remain unmeasured | Compare the frozen Q30 recurrence with a high-precision solver across the P0 stability envelope |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
@@ -198,12 +197,12 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Preserve the now hash-frozen nine-WAV Q0 negative baseline and evaluator
-   profile; do not change the synth.
-2. Populate the generated manifest with an external reviewed RealImpact subset
-   or three engine-owned controlled objects, preserving raw dynamics while the
-   evaluator reports level separately from gain-matched timbre.
-3. Use the generated blind browser to calibrate pairwise/MUSHRA-like human
+1. Preserve the hash-frozen negative baseline, evaluator profile, CC0 reference
+   hashes and candidate-D report; do not tune again before blind audition.
+2. Blind-audition old versus D and D versus the representative reference
+   anchors, recording the named artifact and decision.
+3. Acquire a licensed controlled subset or three engine-owned objects, then
+   use the generated browser to calibrate pairwise/MUSHRA-like human
    labels, validate leave-one-object or
    leave-one-position-out ranking and only then run bounded parameter search.
 4. Compare reference-fitted candidates and select or reject a bounded quality/
@@ -243,8 +242,9 @@ Read these sources in precedence order before acting:
 - **Remaining risk:** acoustic quality, calibration, complete contact-signal
   sufficiency, cooker design, callback/whole-mixer cost, propagation
   integration and content-author workflow are all unmeasured.
-- **Quality status:** product-owner audition is `PERCEPTUAL_FAIL`; Q0 and
-  synthetic Q1 controls pass, but no reviewed real corpus, human calibration
-  or held-out autonomous-ranking evidence has run.
+- **Quality status:** the original product-owner audition remains a recorded
+  `PERCEPTUAL_FAIL`; candidate D passes a heterogeneous external reference
+  screen but has no blind human verdict, controlled corpus or held-out
+  autonomous-ranking evidence.
 - **Promotion needed:** Concrete consumer plus later Accepted ADR under ADR-046;
   then exact content/contact/DSP profiles and ProductChecks.

@@ -310,6 +310,24 @@ real reference, human-preference calibration, relational-physics gate,
 embedding adapter or held-out ranker has run, so autonomous tuning remains
 blocked at Q2.
 
+## Steel reference-screen checkpoint
+
+A subsequent bounded P0 cycle used seven hash-frozen CC0 metal-impact WAVs as
+a broad timbral screen, not as a controlled matched corpus. The selected
+12-mode candidate reduced median multiresolution spectrum RMSE from
+`44.5951 dB` to `21.9281 dB` and median absolute mean-T20 delta from
+`6606.82 ms` to `49.17 ms`. Median modal cost worsened from `1.04514` to
+`1.36658`, consistent with the pack containing several different bodies rather
+than one plate identity. The exact provenance, hashes, candidates and known
+edge-decay diagnostic are recorded in the
+[steel calibration report](physical-sound-steel-calibration-2026-08-26.md).
+
+This result permits the selected candidate to replace the failed steel preset
+inside the off-by-default laboratory/demo. It does not calibrate the evaluator,
+establish autonomous quality ranking, or authorize a generic steel/P1 claim.
+The next discriminator remains a blind product-owner audition, followed by a
+controlled small object corpus if the candidate is worth pursuing.
+
 ## Decision
 
 Treat the current P0 audition as `PERCEPTUAL_FAIL`. Preserve modal impact as a

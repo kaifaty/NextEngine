@@ -150,7 +150,7 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         schema: "nextengine.experimental-physical-sound-lab.report.v0",
         status: "PASS",
         claim: "EXPERIMENT_ONLY / NOT_A_SHIPPED_AUDIO_CONTRACT",
-        model: "fixed-point damped modal resonators plus bounded deterministic strike noise",
+        model: "bounded fixed-point damped modal banks (12-mode fitted steel; 5-mode heuristic wood/glass) plus deterministic strike noise",
         fallback: "ordinary AudioMixerV1 output with the physical-sound-lab feature disabled",
         sample_rate_hz: ExperimentalPhysicalSoundMixer::sample_rate_hz(),
         channel_count: 2,
