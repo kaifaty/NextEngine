@@ -3354,3 +3354,12 @@ next
 and [default-off contract](03b4e2d7r20r46-two-refinement-trajectory-contract.md)
 allow the original depth-eight and second depth-16 certificates to be consumed
 once each, preserving the next exact boundary.
+The
+[R20R46 evidence](../../development/nonlocal-nsr3b4e2d7r20r46-two-refinement-trajectory-evidence-2026-08-26.md)
+consumes both target-bound certificates once, advances the unchanged NNQP to
+`602` principal solves/transitions and stops at a third distinct 65-row inverse
+audit. The next
+[third-inverse research](../../development/nonlocal-nsr3b4e2d7r20r47-third-inverse-contraction-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r47-third-inverse-contraction-contract.md)
+test exact/Dot2 right and left contraction before any third RHS audit or
+trajectory replacement is considered.
