@@ -259,6 +259,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v4-exact-inverse-residual|"
                          "--nonlocal-al-generalization-v4-dot2-inverse-certificate|"
                          "--nonlocal-al-generalization-v4-dot2-solution-error|"
+                         "--nonlocal-al-generalization-v4-directional-krawczyk|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2169,6 +2170,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v4_dot2_solution_error_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-generalization-v4-directional-krawczyk") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v4_directional_krawczyk_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
