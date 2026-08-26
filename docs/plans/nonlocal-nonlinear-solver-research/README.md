@@ -1,7 +1,8 @@
 # Nonlocal nonlinear solver research roadmap
 
 Current milestone: `NSR3B4E2D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE /
-NSR3B4E2D7R20R63N_MATRIX_FREE_CORRESPONDENCE_RESEARCH_NEXT /
+NSR3B4E2D7R20R63N_MATRIX_FREE_CORRESPONDENCE_FROZEN /
+NSR3B4E2D7R20R63N_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3739,6 +3740,16 @@ versus 38/38 for R63L. This selects PCG for the captured RHS but retains dense
 `H`, binary128 arithmetic and an offline dense-inverse certificate. Research
 dense-versus-rectangular matrix-free product correspondence next; do not infer
 a runtime stop rule, GPU throughput or production authority.
+
+The
+[R20R63N research](../../development/nonlocal-nsr3b4e2d7r20r63n-matrix-free-correspondence-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63n-matrix-free-correspondence-contract.md) freeze
+the dense-versus-direct product gate. It exhaustively compares all 102
+canonical basis products, then replays both eight-update PCG lanes with
+`(1/(1+eta))T(T^T p)` driving the recurrence and dense `H` serving only as a
+bounded comparator/verifier. The full rectangular reference is deliberately
+not called faster; sparse zero elision, precision engineering, timing and
+production remain later stages.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
