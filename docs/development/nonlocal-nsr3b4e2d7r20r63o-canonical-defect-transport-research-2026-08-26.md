@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63O canonical-defect transport research
 
-Status: `FROZEN FOR IMPLEMENTATION`.
+Status: `IMPLEMENTED / RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED`.
 
 ## Question
 
@@ -105,3 +105,21 @@ A failure preserves the R63N boundary and selects a different operator
 representation or dense-block residual path. No tolerance fit, start removal,
 precision change, state replacement, following transition, trajectory, timing,
 runtime/GPU or production inference occurs. R64 and R65 remain blocked.
+
+## Result
+
+The immutable defect transport contains both raw R63N failures and all 18
+initial/Krylov products. Its maximum entry is `1.36e-35`; no inflation factor
+is used. Both matrix-free PCG lanes then complete eight updates, but neither
+certifies any iterate against original dense `H`: all retain 66 unresolved
+signs and plateau near original-system error `3.746e13`.
+
+The selected route is
+`RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED` at semantic
+`4b2434fa...2f270`; stdout repeats byte-identically at
+`97011922...c131f`. See the
+[evidence record](nonlocal-nsr3b4e2d7r20r63o-canonical-defect-transport-evidence-2026-08-26.md).
+
+The next stage must arbitrate stored dense `H` versus direct Gram `K` against
+an exact/higher-precision evaluation of `A DPi A^T`. Do not widen the bound or
+add a weak-direction patch before that semantic question is answered.

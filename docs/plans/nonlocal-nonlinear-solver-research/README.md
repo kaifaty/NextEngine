@@ -2,8 +2,8 @@
 
 Current milestone: `NSR3B4E2D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE /
 NSR3B4E2D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED /
-NSR3B4E2D7R20R63O_CANONICAL_DEFECT_TRANSPORT_FROZEN /
-NSR3B4E2D7R20R63O_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED /
+NSR3B4E2D7R20R63P_OPERATOR_SEMANTIC_ARBITRATION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3769,6 +3769,15 @@ canonical center difference and both arithmetic bounds, then transported as
 the exact upward `sum_j E_ij |p_j|` at every initial/Krylov product. `E` never
 enters PCG. No tolerance multiplier, sparse/precision change, timing or
 production inference is admitted.
+
+The
+[R20R63O evidence](../../development/nonlocal-nsr3b4e2d7r20r63o-canonical-defect-transport-evidence-2026-08-26.md)
+shows that the exact transported enclosure contains every product, but both
+matrix-free PCG lanes plateau near original-`H` error `3.746e13` with 66 signs
+unresolved. Thus the issue is no longer a missing bound: `H` and direct
+`K=sigma T T^T` have materially different inverses in the weak direction.
+Research an exact/higher-precision `A DPi A^T` semantic arbitration before
+choosing dense reproduction, low-rank correction or direct-operator authority.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
