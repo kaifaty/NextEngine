@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R63C_BINARY64_LOWER_LEFT_NONCONTRACTIVE /
-NSR3B4E2D7R20R63D_ACTIVE_ROW_RANK_RESEARCH_NEXT /
+Current milestone: `NSR3B4E2D7R20R63D_PROJECTOR_METRIC_NUMERICAL_RANK_LOSS /
+NSR3B4E2D7R20R63E_PROJECTOR_RANGE_NULLSPACE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3580,3 +3580,15 @@ is about `1.87e-13`; the required upper/transpose gate passes at `1.09e-14`.
 Thus projection was not the sole cause. Stop ordinary binary64 factor-inverse
 work and research the rank of the underlying active projector rows before any
 RHS, row removal or extended-precision fallback.
+
+The
+[R20R63D research](../../development/nonlocal-nsr3b4e2d7r20r63d-active-row-rank-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63d-active-row-rank-contract.md) freeze exact
+modular rank separately from numerical pivot rank. The
+[R20R63D evidence](../../development/nonlocal-nsr3b4e2d7r20r63d-active-row-rank-evidence-2026-08-26.md)
+proves that the 102 source rows and represented projected block are both
+algebraically full-rank. The source normalized Gram remains binary64 rank 102,
+while the projected block is numerical rank 101 in both binary64 and
+binary128 profiles. This selects projector-metric near-null geometry, not a
+duplicate-row policy. Research/freeze an R63E projector range/nullspace witness
+before QR, row removal, extended precision or any RHS solve.
