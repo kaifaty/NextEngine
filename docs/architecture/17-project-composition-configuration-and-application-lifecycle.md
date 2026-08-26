@@ -125,7 +125,7 @@ data, never as mutation or activation authority.
 
 ## Future generated-candidate promotion
 
-SPEC-45/ADR-095 promotion occurs strictly before the current authoring → cook
+SPEC-46/ADR-095 promotion occurs strictly before the current authoring → cook
 boundary. A provider adapter cannot write `project.authoring.json`, a
 ContentStore generation, `ProjectLockV3` or an active package directly.
 Promotion selects one immutable hash-verified candidate, requires structural

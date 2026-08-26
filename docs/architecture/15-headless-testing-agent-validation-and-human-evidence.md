@@ -180,7 +180,7 @@ loss, encoder absence или quota overflow оставляет replay/diagnostic
 
 ### Future generated-content evidence
 
-SPEC-45 candidate checks separate three facts: structural admission, optional
+SPEC-46 candidate checks separate three facts: structural admission, optional
 standardized preview and explicit promotion review. Structural validators are
 the correctness oracle. A pinned B0 preview may help inspect a material, prop
 or map, but a screenshot, similarity score or model critique cannot prove

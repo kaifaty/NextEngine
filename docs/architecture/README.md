@@ -195,7 +195,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-42 | [Proposed arcane substrate and physical magic](42-arcane-substrate-and-physical-magic.md) | Proposed fixed-point Arcane owner with analytical maximum debit, successor-stage PhysX coupling and epoch persistence; numeric A0B remains open |
 | SPEC-43 | [Proposed thermochemical material processes](43-thermochemical-material-processes.md) | Proposed enthalpy/phase owner with per-interface sub-LSB residuals and atomic parcel topology; numeric/profile T0B remains open |
 | SPEC-44 | [Proposed neural-assisted world simulation](44-neural-assisted-world-simulation.md) | Proposed N0/N1 report/shadow-only research; runtime advice requires a later safety-certificate-backed Accepted ADR |
-| SPEC-45 | [Proposed generative content authoring and candidate promotion](45-generative-content-authoring-and-candidate-promotion.md) | Proposed offline provider-neutral brief/derivation/receipt/candidate boundary for materials, static assets and bounded maps; no current command/schema/provider/runtime dependency |
+| SPEC-46 | [Proposed generative content authoring and candidate promotion](46-generative-content-authoring-and-candidate-promotion.md) | Proposed offline provider-neutral brief/derivation/receipt/candidate boundary for materials, static assets and bounded maps; no current command/schema/provider/runtime dependency |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -318,7 +318,7 @@ traceability — навигационная карта, не admission authority
 - SPEC-44/ADR-080 — optional N0/N1 report/shadow assistance downstream of a
   promoted classical owner; models own no state and cannot affect production
   work, roots or failure classes under ADR-081.
-- SPEC-45/ADR-095 — optional offline generative authoring before the existing
+- SPEC-46/ADR-095 — optional offline generative authoring before the existing
   cooker: typed briefs, bounded derivation/receipts, quarantined exact
   candidates, structural validation and atomic promotion. Material is the first
   consumer; no provider, command, public schema or runtime dependency is current.

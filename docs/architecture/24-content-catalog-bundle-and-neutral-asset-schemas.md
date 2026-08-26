@@ -148,7 +148,7 @@ from version 1.2.
 
 ## Future generated candidates
 
-The `Proposed` SPEC-45 candidate/brief/derivation/receipt records are not
+The `Proposed` SPEC-46 candidate/brief/derivation/receipt records are not
 `NeutralRecordV1`, content-manifest entries or runtime schemas. A generator may
 produce images, material maps, meshes or typed map-source candidates only in a
 quarantined tooling workspace. Candidate IDs, provider task IDs and derivation

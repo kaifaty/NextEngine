@@ -7,7 +7,7 @@
 | Version | 1.0 |
 | Decision date | 2026-08-26 |
 | Last verified | 2026-08-26 |
-| Normative dependencies | [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-45](../45-generative-content-authoring-and-candidate-promotion.md), [ADR-001](001-product-repository-license-and-platforms.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md), [ADR-083](083-public-creator-project-cli-vertical.md), [ADR-089](089-governed-external-creator-sdk-workflow.md) |
+| Normative dependencies | [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-46](../46-generative-content-authoring-and-candidate-promotion.md), [ADR-001](001-product-repository-license-and-platforms.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md), [ADR-083](083-public-creator-project-cli-vertical.md), [ADR-089](089-governed-external-creator-sdk-workflow.md) |
 | Supersedes | None; proposes a future pre-cook authoring boundary without changing the current creator/cook/runtime baseline |
 | Superseded by | Not superseded |
 
@@ -30,11 +30,11 @@ promotion.
 Godogen demonstrates useful authoring and resumable-job patterns, while its
 own simplification also shows that a rigid prompt/planner pipeline is not a
 stable engine contract. The project remains a monitored upstream reference in
-SPEC-45 rather than a dependency.
+SPEC-46 rather than a dependency.
 
 ## Proposed decision
 
-Adopt SPEC-45 as a `Proposed` provider-neutral, offline creator boundary.
+Adopt SPEC-46 as a `Proposed` provider-neutral, offline creator boundary.
 
 1. Generators produce quarantined immutable candidates, never active project
    content or gameplay state.
@@ -104,7 +104,7 @@ drive repeatable verification.
 
 ## Consequences
 
-- SPEC-45 and ADR-095 remain `Proposed`; no implementation, public wire format,
+- SPEC-46 and ADR-095 remain `Proposed`; no implementation, public wire format,
   provider dependency or v1 obligation is created.
 - Existing SPEC-03/17/24 exact-source and activation contracts gain an explicit
   future rule: they consume promoted bytes and never call a generator.
@@ -119,5 +119,5 @@ drive repeatable verification.
 ## Supersession
 
 This ADR supersedes no Accepted decision. If a future consumer promotes any
-part of SPEC-45, a successor ADR must name the exact current schemas/commands,
+part of SPEC-46, a successor ADR must name the exact current schemas/commands,
 fallback and checks while preserving the provider-neutral candidate boundary.

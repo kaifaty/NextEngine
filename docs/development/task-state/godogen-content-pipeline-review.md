@@ -11,7 +11,7 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** SPEC-45/ADR-095 now record a `Proposed` provider-neutral, offline pre-cook boundary. Related Accepted SPECs constrain any future consumer without claiming implementation or altering the current runtime/cook baseline.
+- **Current conclusion:** SPEC-46/ADR-095 now record a `Proposed` provider-neutral, offline pre-cook boundary. Related Accepted SPECs constrain any future consumer without claiming implementation or altering the current runtime/cook baseline.
 - **Why:** A new cross-context contract is now authorized, but ADR-046 still requires a concrete consumer before public schemas or commands become current.
 - **Next action:** If implementation is explicitly scheduled, write the smallest `GEN-MATERIAL-P1` plan and freeze its concrete formats/bounds before adding public schemas or commands.
 - **Current blocker:** None.
@@ -36,7 +36,7 @@
 ### D-001 — Promote the review only as a Proposed architecture track
 
 - **Observation:** The follow-up request explicitly authorized SPEC updates, while ADR-046 still forbids claiming unconsumed formats as current.
-- **Decision:** Add SPEC-45/ADR-095 as `Proposed`, connect future guardrails to the affected Accepted SPECs, routing, traceability and roadmap, and make no implementation/current-format claim.
+- **Decision:** Add SPEC-46/ADR-095 as `Proposed`, connect future guardrails to the affected Accepted SPECs, routing, traceability and roadmap, and make no implementation/current-format claim.
 - **Consequence:** The architecture now preserves the candidate/promotion boundary and Godogen watchpoint; a later consumer-backed Accepted successor decision is still required for public schemas/commands.
 
 ### D-002 — Define a future provider-neutral pre-cook boundary
@@ -64,9 +64,15 @@
 
 The order is intentional: it exercises existing neutral material/texture records first, then one mesh, then spatial composition. A general world generator or full editor is not the first consumer.
 
+### D-005 — Preserve the concurrent SPEC-45 allocation
+
+- **Observation:** Before integration, the default branch advanced to `e4846275` and allocated SPEC-45 to Proposed physical sound synthesis.
+- **Decision:** Renumber this generative-authoring track to SPEC-46 while retaining ADR-095, whose ID remained free.
+- **Consequence:** Merge must combine both index/routing/traceability changes and advance their versions once; physical sound and generative authoring remain independent Proposed tracks.
+
 ## Promoted architecture changes
 
-- [SPEC-45](../../architecture/45-generative-content-authoring-and-candidate-promotion.md): owns the proposed brief, derivation, receipt, candidate, preview and promotion contracts and the monitored Godogen upstream.
+- [SPEC-46](../../architecture/46-generative-content-authoring-and-candidate-promotion.md): owns the proposed brief, derivation, receipt, candidate, preview and promotion contracts and the monitored Godogen upstream.
 - [ADR-095](../../architecture/adr/095-provider-neutral-generative-content-authoring-boundary.md): records the provider-neutral quarantined-candidate decision and ordinary authored-source fallback.
 - SPEC-09: add future `next content generate|resume|inspect|preview|validate|promote` semantics with JSON stdout and progress on stderr; keep editor/MCP breadth consumer-driven.
 - SPEC-24: classify generated files as untrusted candidates and bind selected source bytes, derivation and provenance into existing neutral records.
@@ -98,7 +104,7 @@ The order is intentional: it exercises existing neutral material/texture records
 
 ## Handoff
 
-- **Workspace state:** SPEC-45/ADR-095 plus nine affected subsystem SPECs, routing/index/traceability, roadmap and this task-state form one documentation-only architecture change; executable implementation remains unchanged.
+- **Workspace state:** SPEC-46/ADR-095 plus nine affected subsystem SPECs, routing/index/traceability, roadmap and this task-state form one documentation-only architecture change; executable implementation remains unchanged.
 - **Checks:** `git diff --check` and direct local-link/ID plus exact Godogen HEAD validation pass; Cargo/ProductChecks are `NotRun(NoExecutableChange)`.
 - **Remaining risk:** Godogen is a fast-moving experimental project with no tagged releases at the inspected commit; provider behavior and pricing remain external and unstable.
 - **Promotion needed:** A concrete material consumer, frozen bounds/schema/report shapes, `GEN-MATERIAL-P1`/resume/promotion evidence and a later Accepted successor ADR before any public current command or schema.

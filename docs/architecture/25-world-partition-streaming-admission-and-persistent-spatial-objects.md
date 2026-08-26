@@ -104,7 +104,7 @@ production bounded path; eager activation не превращается в lazy 
 
 ## Future generated-map admission
 
-SPEC-45 proposes one first map consumer: a single region with three chunks and
+SPEC-46 proposes one first map consumer: a single region with three chunks and
 an authored `entrance → objective → exit` route. Its output is an untrusted
 typed project-source candidate, not a screenshot, provider scene graph or
 direct `WorldPartitionManifestV1` publication. Persistent region/chunk/object

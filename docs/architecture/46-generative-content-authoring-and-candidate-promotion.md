@@ -1,8 +1,8 @@
-# SPEC-45: Proposed generative content authoring and candidate promotion
+# SPEC-46: Proposed generative content authoring and candidate promotion
 
 | Field | Value |
 |---|---|
-| ID | SPEC-45 |
+| ID | SPEC-46 |
 | Status | Proposed |
 | Version | 1.0 |
 | Last verified | 2026-08-26 |

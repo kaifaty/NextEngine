@@ -7,7 +7,7 @@
 | Версия | 2.9 |
 | Последняя проверка | 2026-08-26 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-03 2.8; adds the future SPEC-45 generated-candidate admission guardrail without changing current authoring, cook, package or runtime formats |
+| Заменяет | SPEC-03 2.8; adds the future SPEC-46 generated-candidate admission guardrail without changing current authoring, cook, package or runtime formats |
 
 ## Sources of truth
 
@@ -47,7 +47,7 @@ hashes. Cooker caches are reconstructible and never authority.
 
 ## Future generative source admission
 
-Under the `Proposed` [SPEC-45](45-generative-content-authoring-and-candidate-promotion.md)
+Under the `Proposed` [SPEC-46](46-generative-content-authoring-and-candidate-promotion.md)
 and [ADR-095](adr/095-provider-neutral-generative-content-authoring-boundary.md),
 a generator may create only quarantined untrusted candidate bytes. It cannot
 write an active project generation, issue a runtime command or become an

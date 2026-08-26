@@ -144,7 +144,7 @@ gameplay outcome.
 
 ### Future generative-provider boundary
 
-The `Proposed` SPEC-45/ADR-095 authoring path treats every prompt, reference,
+The `Proposed` SPEC-46/ADR-095 authoring path treats every prompt, reference,
 remote response and generated output as untrusted developer input. Remote
 submission is explicit opt-in and records the endpoint/adapter profile, classes
 and exact hashes of content leaving the machine, declared retention/privacy

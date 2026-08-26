@@ -15,7 +15,7 @@
 | Дополнительные зависимости V5.3 | [ADR-092](adr/092-dimensional-relative-performance-comparison.md) |
 | Дополнительные зависимости V5.4 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
 | Дополнительные зависимости V5.5 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
-| Заменяет | SPEC-09 5.6; records the future SPEC-45 generative-authoring command/report boundary without adding a current public command |
+| Заменяет | SPEC-09 5.6; records the future SPEC-46 generative-authoring command/report boundary without adding a current public command |
 
 ## Scope and authority
 
@@ -41,7 +41,7 @@ required by current runtime.
 
 ## Future generative authoring surface
 
-[SPEC-45](45-generative-content-authoring-and-candidate-promotion.md) and
+[SPEC-46](46-generative-content-authoring-and-candidate-promotion.md) and
 [ADR-095](adr/095-provider-neutral-generative-content-authoring-boundary.md)
 reserve one future consumer-driven command family:
 `next content generate|resume|inspect|preview|validate|promote`. It is

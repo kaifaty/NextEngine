@@ -9,7 +9,7 @@
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-091](adr/091-linux-release-performance-authority.md) |
 | Дополнительные зависимости V2.9 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
 | Дополнительные зависимости V2.10 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
-| Заменяет | SPEC-04 2.11; adds the future SPEC-45 standardized candidate-preview boundary without changing current renderer or capture authority |
+| Заменяет | SPEC-04 2.11; adds the future SPEC-46 standardized candidate-preview boundary without changing current renderer or capture authority |
 
 ## Technical authority boundary
 
@@ -45,7 +45,7 @@ developer diagnostics or playtesting tools. Their absence does not break the
 product contract and they never become gameplay authority.
 
 Future generated-content previews follow
-[SPEC-45](45-generative-content-authoring-and-candidate-promotion.md): a pinned
+[SPEC-46](46-generative-content-authoring-and-candidate-promotion.md): a pinned
 developer plan declares the B0 profile, camera, light/environment, extent,
 background, scale reference and primitive/turntable subject before capture.
 The preview consumes quarantined or promoted exact candidate bytes through the

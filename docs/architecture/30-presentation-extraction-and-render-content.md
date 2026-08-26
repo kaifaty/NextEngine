@@ -158,7 +158,7 @@ migration or second runtime catalog/snapshot family.
 
 ## Future generated material and asset preview
 
-Under SPEC-45, generation intent such as real-world extent, texel density or
+Under SPEC-46, generation intent such as real-world extent, texel density or
 physical tile scale, map-channel/color-space/normal convention, pivot/axes and
 LOD/collider expectation is pre-cook authoring metadata. It does not widen
 `NeutralMaterialV1`, `NeutralTextureV1`, `NeutralMeshV1` or
