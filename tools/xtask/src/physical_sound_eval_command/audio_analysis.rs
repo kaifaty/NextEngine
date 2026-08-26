@@ -5,11 +5,11 @@ use super::{
     ModalPeakReport, SignalReport, SpectrumReport,
 };
 
-pub(super) struct WavAudio {
-    pub sample_format: String,
-    pub sample_rate_hz: u32,
-    pub channel_count: u16,
-    pub mono_samples: Vec<f64>,
+pub(crate) struct WavAudio {
+    pub(crate) sample_format: String,
+    pub(crate) sample_rate_hz: u32,
+    pub(crate) channel_count: u16,
+    pub(crate) mono_samples: Vec<f64>,
 }
 
 pub(super) struct Analysis {
@@ -17,7 +17,7 @@ pub(super) struct Analysis {
     pub log_spectra: Vec<Vec<f64>>,
 }
 
-pub(super) fn parse_wav(bytes: &[u8]) -> Result<WavAudio, String> {
+pub(crate) fn parse_wav(bytes: &[u8]) -> Result<WavAudio, String> {
     if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
         return Err("expected RIFF/WAVE header".to_owned());
     }

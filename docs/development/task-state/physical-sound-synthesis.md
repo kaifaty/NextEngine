@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_WOOD_ACCEPTED / DIFFSOUND_GLASS_09_SELECTED / ENGINE_RECURRENCE_OPEN / P1_BLOCKED` |
+| Status | `P0_WOOD_ACCEPTED / GLASS_09_RECURRENCE_PASS / Q30_DEMO_TRANSFER_OPEN / P1_BLOCKED` |
 | Updated | `2026-08-26` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact audition and feature-gated reference-demo experiment |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Product-owner audition selected checkpoint-150 ridge
-  amplitude plus transient (`09`) as a fairly thin-walled glass-container hit.
-- **Why:** Preference favors the combined ridge modal balance and bounded
-  three-millisecond transient; their individual contributions remain unisolated.
-- **Next action:** Freeze `09` and reproduce its exported modes, damping, gains
-  and transient in an engine-owned offline recurrence with matched analysis.
+- **Current conclusion:** Engine-owned recurrence reproduces selected
+  DiffSound `09` as a fairly thin-walled glass-container hit.
+- **Why:** RMS PCM residual is `3.45e-6`, SNR `86.04 dB`, correlation
+  `0.9999999990`, and matched attack/modal/envelope descriptors agree.
+- **Next action:** Compare and quantize the 32-kHz 16-mode profile into the
+  isolated 48-kHz fixed-point path, then audition that materially new transfer.
 - **Current blocker:** No controlled matched-reference corpus, held-out human
   preference labels, calibrated threshold, measured
   whole-mixer budget, Accepted consumer ADR or complete impulse/effective-mass/
@@ -31,7 +31,7 @@
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| [Research report](../physical-sound-synthesis-research-2026-08-26.md) and [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md) | `CHECKPOINT_RUN_PASS / GLASS_09_SELECTED / PHYSICAL_ID_OPEN` | Ridge amplitude plus transient is the preferred thin-wall-vessel archetype; wrong geometry keeps material and wall-thickness values non-physical. |
+| [Research report](../physical-sound-synthesis-research-2026-08-26.md) and [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md) | `GLASS_09_SELECTED / ENGINE_RECURRENCE_PASS / PHYSICAL_ID_OPEN` | Engine-owned high-precision recurrence preserves the preferred thin-wall-vessel archetype at `86.04 dB` SNR; wrong geometry keeps material and wall thickness non-physical. |
 | [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md) | `CLASSICAL_Q0_Q1_IMPLEMENTED / HUMAN_CALIBRATION_OPEN` | Matched classical descriptors and blind A/B are available; no single automatic metric or uncalibrated control run is an admissible quality judge. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
@@ -178,7 +178,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A compact modal core plus fused transient can evoke glass | Product-owner selected 16-mode ridge amplitude plus transient as a thin-wall glass-container hit | Engine-owned recurrence fidelity and transfer beyond this archetype remain unmeasured | Reproduce candidate `09` from exported parameters and compare PCM/descriptors against its frozen WAV |
+| H1: A compact modal core plus fused transient can evoke glass | Product-owner selected `09`; engine recurrence reproduces it at `86.04 dB` SNR and `0.9999999990` correlation | 48-kHz Q30/demo and physical transfer beyond this archetype remain unmeasured | Quantize/resample the 16-mode anchor into the isolated demo path and A/B it against the frozen recurrence |
 | H2: The complete SPEC-26 contact projection is sufficient for impact excitation | It includes identity, point, velocity, impulse bounds, effective mass and tags | Current implementation omits the decisive numeric fields; solver-force fidelity is untested | Close one fixture projection and compare against exact synthetic excitation/control PCM |
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Repeated scalar renders are byte-exact and profiles/impact points are distinct | Quality, detuning and damping error against a high-precision reference remain unmeasured | Compare the frozen Q30 recurrence with a high-precision solver across the P0 stability envelope |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
@@ -200,8 +200,8 @@ Read these sources in precedence order before acting:
 
 1. Preserve all frozen baselines, references and reports; freeze wood-B and
    retain glass-D/F only as rejected metal-like anchors.
-2. Freeze selected candidate `09` and its exported modal/transient parameters
-   externally; reproduce it with the engine-owned offline recurrence.
+2. Keep selected `09` external; compare and quantize its engine-owned
+   high-precision recurrence into the isolated 48-kHz fixed-point demo path.
 3. Exact geometry and controlled impacts remain prerequisites for physical
    transfer. Collect human
    labels, validate leave-one-object or
@@ -231,10 +231,9 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** fixed-point presentation laboratory, external-audition
-  renderer, classical external quality evaluator and feature-gated
-  reference-demo adapter implemented; no public schema, acoustic content role
-  or authoritative owner added.
+- **Workspace state:** fixed-point presentation laboratory, engine-owned
+  high-precision external-profile recurrence, classical quality evaluator and
+  feature-gated demo adapter implemented; no public schema or owner added.
 - **Checks:** local synthesis determinism/distinction, demo enabled/disabled
   authoritative-state regression, 120-frame SDL functional launch,
   `audio-scene`, `play`, focused clippy/tests, boundary scan and broad
@@ -244,7 +243,7 @@ Read these sources in precedence order before acting:
   sufficiency, cooker design, callback/whole-mixer cost, propagation
   integration and content-author workflow are all unmeasured.
 - **Quality status:** wood-B passed informal identity; glass-D/F failed; G/H
-  improved weakly. DiffSound `09` is selected for a fairly thin-walled glass
-  container; no broader or autonomous-ranking evidence exists.
+  improved weakly. Selected DiffSound `09` is reproduced independently at
+  `86.04 dB` SNR; no broader or autonomous-ranking evidence exists.
 - **Promotion needed:** Concrete consumer plus later Accepted ADR under ADR-046;
   then exact content/contact/DSP profiles and ProductChecks.

@@ -5,7 +5,7 @@ use next_contracts::canonical::sha256;
 use next_contracts::ids::ContentHash;
 use serde::{Deserialize, Serialize};
 
-mod audio_analysis;
+pub(super) mod audio_analysis;
 #[cfg(test)]
 mod tests;
 

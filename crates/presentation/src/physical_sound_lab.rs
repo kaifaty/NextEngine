@@ -6,8 +6,13 @@
 //! feature in the reference game, mixed after the ordinary baseline mixer.
 
 mod glass_body_profiles;
+mod offline_modal_recurrence;
 
 use glass_body_profiles::glass_body_profile;
+
+pub use offline_modal_recurrence::{
+    OfflineModalMode, OfflineModalRenderError, render_offline_modal_recurrence,
+};
 
 const SAMPLE_RATE_HZ: u32 = 48_000;
 const FRAMES_PER_TICK: usize = 1_600;

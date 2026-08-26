@@ -240,7 +240,7 @@ it as a strike on a glass container with a fairly thin wall. Its SHA-256 is
 This is positive identity evidence for that bounded archetype, not for a
 universal glass material or physically identified wall thickness.
 
-## Decision and smallest next experiment
+## Pre-reproduction decision
 
 DiffSound is viable for two distinct purposes. As a perceptual baker, its modal
 bank may be treated as an artistic glass archetype even with proxy geometry.
@@ -268,6 +268,67 @@ requiring one exact scaled glass mesh, measured or fixed density, multiple
 controlled impacts with force/position metadata, and held-out strikes. Modal
 frequencies primarily constrain `E / density`; absolute Young's modulus is not
 identifiable if scale and density float simultaneously.
+
+## Engine-owned recurrence reproduction
+
+The selected checkpoint-150 profile was then consumed as untrusted external
+input by the new `xtask physical-sound-reproduce` command. The command validates
+the external schema, hashes, sibling WAVs, modal relations, sample-rate poles,
+Nyquist bounds, transient length and output location. It runs an engine-owned
+floating-point second-order damped recurrence; it imports no DiffSound source,
+dependency or model state. Both the pure ridge-modal signal and the selected
+ridge-modal-plus-transient signal are rendered twice, compared sample by sample
+with the frozen DiffSound WAV and emitted only to the external research store.
+
+The 32-kHz, 16-mode, 500-ms reproduction passed its declared `0.001` RMS-error
+and `0.999` correlation limits by a wide margin:
+
+| Measurement | Ridge modal | Ridge modal + transient (`09`) |
+| --- | ---: | ---: |
+| Maximum absolute PCM residual | `0.00004901` | `0.00004901` |
+| RMS PCM residual | `0.000003455` | `0.000003455` |
+| Signal-to-noise ratio | `86.186 dB` | `86.045 dB` |
+| Zero-lag normalized correlation | `0.99999999903` | `0.99999999900` |
+| Repeated engine render | exact | exact |
+
+For selected `09`, the independent evaluator measured zero attack delta,
+`0.000251 ms` temporal-centroid delta, `0.010295 Hz` spectral-centroid delta,
+modal-assignment cost `0.000001236` and no failure tag. Its gain-matched
+log-spectrum RMSE remained `5.0086 dB` because the metric includes extremely
+low-energy log-spectrum bins; the direct 86-dB sample SNR and matching
+modal/envelope descriptors bound the reproduction claim more directly. The
+evaluator still correctly returns `NeedsHumanAudit`: this run proves numerical
+reproduction of the already selected sound, not autonomous glass-quality
+judgment.
+
+Exact external evidence:
+
+| Evidence | Location or SHA-256 |
+| --- | --- |
+| Reproduction root | `/home/kaifaty/.cache/nextengine-research/diffsound-3a0be14/engine-recurrence-step150-v2/` |
+| reproduction `report.json` | `b076ff54098d819a5ec390bd63a421677d647bc03e135898fa297939709b97a8` |
+| matched quality manifest | `b3ec41279783a99e9c7e96b35ee828bf5d95493a30da678956b47e4987dae37e` |
+| engine `09` WAV | `8db48ed8bd61b3bc44787efa418899e286e5c3efbf4d79f1974f6dbcc81baeb7` |
+| independent evaluator report | `20571ac7b90264d6137f90fbd3b277de6d1f17aa8de62ae391415dceea26c2b4` |
+
+This closes the high-precision offline recurrence question for the selected
+archetype. It does not yet prove that the existing 48-kHz Q30 demo bank can
+retain the same identity after coefficient quantization, resampling and its
+bounded mode-count/voice path.
+
+## Revised decision and smallest next experiment
+
+The engine-owned high-precision renderer is now the numerical reference for
+this one selected archetype. The smallest next experiment is to quantize all 16
+modes and their onset into an isolated 48-kHz Q30 candidate, compare it against
+the high-precision renderer after sample-rate alignment, and ask for one A/B
+audition only if the transfer clears the numeric envelope. It must not silently
+replace the current demo glass profile.
+
+Broader vessel variation waits until that transfer preserves identity. Physical
+material or shape claims still wait for exact geometry, density and controlled
+held-out impacts; runtime promotion still waits for the contact projection,
+content closure, cost evidence and Accepted consumer ADR required by SPEC-45.
 
 Clarify upstream licensing or use a clean-room/licensed implementation before
 shipping code. Until then, keep DiffSound and all generated assets external and
