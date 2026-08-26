@@ -368,18 +368,55 @@ order and was rejected before analysis. Version `v2` sorts identifiers before
 publication; only `v2` is retained as evidence. The failed evaluator invocation
 did not alter any engine or external source artifact.
 
+## Product-owner Q30 acceptance and explicit demo cut
+
+The product owner auditioned the aligned pair and judged B, the 48-kHz Q30
+render, good and possibly better. This closes the human transfer gate for the
+selected thin-container archetype. It does not rank Q30 numerics above f64 in
+general or establish physical glass parameters.
+
+The laboratory now contains a pre-cooked voice for the selected 16 recurrence
+modes and 144 Q30 onset samples. The constants retain the external
+source-profile hash but embed no DiffSound code, dependency, generated PCM or
+model state. `physical-sound-lab` still defaults to Glass-H. The separate Cargo
+feature `physical-sound-selected-glass` explicitly routes the reference demo's
+committed `Begin` contacts to the selected voice so the candidate is actually
+audible in that scene. Disabling the laboratory still returns to the
+authored-clip baseline.
+
+The lab's full-scale demo render is 24,000 stereo frames with peak `29,490` and
+WAV SHA-256 `c912806c...b9c823`. Against the accepted audition B, its integer
+post-scale differs by at most one S16 least-significant bit, with RMS residual
+`0.470859` S16 units and correlation `0.9999999749`. The exact committed PCM
+regression hash is `a85dee33...abde0`.
+
+A 500-run alternating release measurement on an AMD Ryzen 9 3950X with Rust
+1.97.1 reports a selected-voice full-render p50/p99 of `1.471/1.753 ms` and
+`61.306 ns` p50 per stereo frame, `5.504x` the Glass-H per-frame result. At the
+laboratory's 16-voice bound, one 1,600-frame selected-glass tick measured
+`1.483 ms` p50 and `1.683 ms` p99, or `5.05%` of its 33.333-ms audio window.
+This excludes the rest of the engine mixer and OS callback, is not a product
+budget and grants no performance promotion. External report:
+`/home/kaifaty/.cache/nextengine-research/diffsound-3a0be14/engine-selected-glass-demo-q30-v1/report.json`,
+SHA-256 `ad02bc6e...fce43e`.
+
+The feature-enabled reference demo completed 120 SDL/Ash frames and 56
+simulation ticks with active audio, 112,000 queued samples, zero audio drops or
+faults and 49 debug underruns. It is functional evidence only. The focused
+enabled/disabled regression observes selected-glass admission and different
+PCM while preserving runtime, RPG and physics checkpoint state exactly.
+
 ## Revised decision and smallest next experiment
 
-The 48-kHz Q30 candidate clears its numeric envelope and is ready for one A/B
-audition against the aligned f64 reference. If the product owner hears no loss
-of glass identity, the smallest implementation experiment is an explicit
-opt-in 16-mode demo candidate plus a bounded voice-cost measurement. It must
-not silently replace the current demo glass profile or authored-clip fallback.
+The 48-kHz Q30 candidate now clears both its numerical and human transfer gates,
+and the explicit demo/cost experiment is complete. Glass-H remains the default
+control and authored clips remain the fallback.
 
-Broader vessel variation waits until that transfer preserves identity. Physical
-material or shape claims still wait for exact geometry, density and controlled
-held-out impacts; runtime promotion still waits for the contact projection,
-content closure, cost evidence and Accepted consumer ADR required by SPEC-45.
+The next coherent experiment is no longer another near-neighbor coefficient
+tune. Broader physical transfer requires one exact scaled glass mesh, fixed or
+measured density, and controlled held-out strikes with force/position metadata.
+Runtime promotion still waits for the contact projection, content closure,
+whole-mixer budget and Accepted consumer ADR required by SPEC-45.
 
 Clarify upstream licensing or use a clean-room/licensed implementation before
 shipping code. Until then, keep DiffSound and all generated assets external and

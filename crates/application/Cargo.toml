@@ -12,6 +12,10 @@ default = []
 profile-tracy = ["next_runtime/profile-tracy"]
 # Explicit SPEC-45 P0.5 reference-demo experiment; never enabled by default.
 physical-sound-lab = ["next_reference_game/physical-sound-lab"]
+physical-sound-selected-glass = [
+    "physical-sound-lab",
+    "next_reference_game/physical-sound-selected-glass",
+]
 
 [dependencies]
 next_assets.workspace = true

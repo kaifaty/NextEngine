@@ -41,6 +41,10 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
     let options = GameOptions::parse(arguments)?;
     #[cfg(feature = "physical-sound-lab")]
     eprintln!("next_game: SPEC-45 experimental physical-sound-lab enabled (presentation only)");
+    #[cfg(feature = "physical-sound-selected-glass")]
+    eprintln!(
+        "next_game: selected 16-mode Q30 thin-container glass candidate enabled (experiment only)"
+    );
     if options.help {
         eprintln!(
             "usage: next_game [--interactive [--maximum-frames <positive-integer>]] [--project <cooked-store>] [--lock <sha256>] [--state-root <directory>]"

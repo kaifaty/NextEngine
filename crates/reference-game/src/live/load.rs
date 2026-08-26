@@ -164,7 +164,7 @@ impl ReferenceGameDriverV2 {
             audio_listener_binding,
             audio_mixer,
             #[cfg(feature = "physical-sound-lab")]
-            physical_sound_lab: ExperimentalPhysicalSoundMixer::default(),
+            physical_sound_lab: super::physical_sound_lab::demo_mixer(),
             #[cfg(feature = "physical-sound-lab")]
             physical_sound_lab_enabled: true,
             audio_scene,

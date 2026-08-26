@@ -5,7 +5,7 @@
 | ID | SPEC-45 |
 | Status | Proposed |
 | Version | 0.1 |
-| Last verified | 2026-08-26 |
+| Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md) |
 | Replaces | None; first candidate revision |
@@ -35,7 +35,12 @@ four-mode small-glass clink with a fused sub-1.5 ms non-fracture onset, plus a
 same-excitation external audition set for thin-goblet, bottle and thick-jar
 body hypotheses. The latter is deliberately separated diagnostic content, not
 three promoted material classes or a replacement for the current glass
-profile. The laboratory also uses a
+profile. A second off-by-default feature, `physical-sound-selected-glass`,
+explicitly routes the reference demo's committed `Begin` contacts to the
+product-owner-accepted 16-mode, 48 kHz Q30 thin-container calibration with a
+144-sample cooked onset. The base feature still selects Glass-H, and no
+generated WAV, DiffSound dependency or external model state enters the
+repository. The laboratory also uses a
 provisional adjacent-snapshot speed estimator because the current contact
 record lacks impulse/effective-mass and material fields. The small
 heterogeneous CC0 screens

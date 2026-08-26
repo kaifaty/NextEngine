@@ -9,6 +9,9 @@ publish = false
 [features]
 default = []
 physical-sound-lab = []
+# Explicitly selects the human-approved 16-mode Q30 glass candidate inside the
+# already off-by-default presentation laboratory.
+physical-sound-selected-glass = ["physical-sound-lab"]
 
 [dependencies]
 next_agent.workspace = true

@@ -368,6 +368,11 @@ The follow-up goblet/bottle/thick-jar set deliberately changes body modes and
 duration under one excitation instead. Q0 confirms that its spectral and
 temporal descriptors separate; this only makes it a useful human target-choice
 experiment and does not calibrate Q0 or rank the three sounds.
+The later DiffSound `09` thin-container selection and its 48-kHz Q30 transfer
+both received positive product-owner audition evidence. That validates one
+bounded archetype and its numeric transfer, but it supplies only one preference
+label and therefore still does not calibrate the oracle or authorize autonomous
+glass ranking.
 The next coherent work package is an external, human-calibrated
 `PhysicalSoundQualityOracleP0`; its success means reliable held-out ranking of
 candidate sounds, not production promotion.

@@ -8,8 +8,10 @@
 mod glass_body_profiles;
 mod offline_modal_recurrence;
 mod offline_q30_modal_recurrence;
+mod selected_glass_q30;
 
 use glass_body_profiles::glass_body_profile;
+use selected_glass_q30::SelectedGlassQ30Voice;
 
 pub use offline_modal_recurrence::{
     OfflineModalMode, OfflineModalRenderError, render_offline_modal_recurrence,
@@ -126,6 +128,25 @@ impl GlassBodyVariant {
     }
 }
 
+/// Explicit demo-only glass selection. The default remains the provisional
+/// Glass-H profile; the selected Q30 calibration never activates implicitly.
+#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+pub enum ExperimentalGlassProfile {
+    #[default]
+    GlassH,
+    SelectedThinContainerQ30,
+}
+
+impl ExperimentalGlassProfile {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::GlassH => "glass-h",
+            Self::SelectedThinContainerQ30 => "selected-thin-container-q30",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PhysicalSoundExcitation {
     pub material: PhysicalSoundMaterial,
@@ -205,6 +226,35 @@ struct ModalVoice {
     previous_noise: i64,
     frames_elapsed: u32,
     frames_remaining: u32,
+}
+
+#[derive(Clone, Debug)]
+enum ExperimentalVoice {
+    Modal(ModalVoice),
+    SelectedGlassQ30(SelectedGlassQ30Voice),
+}
+
+impl ExperimentalVoice {
+    fn next_mono_sample(&mut self) -> i64 {
+        match self {
+            Self::Modal(voice) => voice.next_mono_sample(),
+            Self::SelectedGlassQ30(voice) => voice.next_mono_sample(),
+        }
+    }
+
+    const fn pan_q16(&self) -> i32 {
+        match self {
+            Self::Modal(voice) => voice.pan_q16,
+            Self::SelectedGlassQ30(voice) => voice.pan_q16(),
+        }
+    }
+
+    const fn frames_remaining(&self) -> u32 {
+        match self {
+            Self::Modal(voice) => voice.frames_remaining,
+            Self::SelectedGlassQ30(voice) => voice.frames_remaining(),
+        }
+    }
 }
 
 impl ModalVoice {
@@ -577,13 +627,32 @@ const fn material_profile(material: PhysicalSoundMaterial) -> MaterialProfile {
 /// the feature-gated reference demo integration.
 #[derive(Clone, Debug, Default)]
 pub struct ExperimentalPhysicalSoundMixer {
-    voices: Vec<ModalVoice>,
+    voices: Vec<ExperimentalVoice>,
+    glass_profile: ExperimentalGlassProfile,
     admitted_impacts: u64,
+    selected_glass_impacts: u64,
     dropped_impacts: u64,
     clipped_samples: u64,
 }
 
 impl ExperimentalPhysicalSoundMixer {
+    #[must_use]
+    pub const fn with_glass_profile(glass_profile: ExperimentalGlassProfile) -> Self {
+        Self {
+            voices: Vec::new(),
+            glass_profile,
+            admitted_impacts: 0,
+            selected_glass_impacts: 0,
+            dropped_impacts: 0,
+            clipped_samples: 0,
+        }
+    }
+
+    #[must_use]
+    pub const fn glass_profile(&self) -> ExperimentalGlassProfile {
+        self.glass_profile
+    }
+
     #[must_use]
     pub const fn sample_rate_hz() -> u32 {
         SAMPLE_RATE_HZ
@@ -595,6 +664,11 @@ impl ExperimentalPhysicalSoundMixer {
     }
 
     #[must_use]
+    pub const fn max_voice_count() -> usize {
+        MAX_VOICES
+    }
+
+    #[must_use]
     pub const fn active_voice_count(&self) -> usize {
         self.voices.len()
     }
@@ -602,6 +676,11 @@ impl ExperimentalPhysicalSoundMixer {
     #[must_use]
     pub const fn admitted_impacts(&self) -> u64 {
         self.admitted_impacts
+    }
+
+    #[must_use]
+    pub const fn selected_glass_impacts(&self) -> u64 {
+        self.selected_glass_impacts
     }
 
     #[must_use]
@@ -627,7 +706,18 @@ impl ExperimentalPhysicalSoundMixer {
                 self.voices.remove(0);
                 self.dropped_impacts = self.dropped_impacts.saturating_add(1);
             }
-            self.voices.push(ModalVoice::new(*excitation));
+            let voice = if excitation.material == PhysicalSoundMaterial::Glass
+                && self.glass_profile == ExperimentalGlassProfile::SelectedThinContainerQ30
+            {
+                self.selected_glass_impacts = self.selected_glass_impacts.saturating_add(1);
+                ExperimentalVoice::SelectedGlassQ30(SelectedGlassQ30Voice::new(
+                    excitation.energy_q16,
+                    excitation.pan_q16,
+                ))
+            } else {
+                ExperimentalVoice::Modal(ModalVoice::new(*excitation))
+            };
+            self.voices.push(voice);
             self.admitted_impacts = self.admitted_impacts.saturating_add(1);
         }
 
@@ -637,7 +727,7 @@ impl ExperimentalPhysicalSoundMixer {
             let mut right = 0_i64;
             for voice in &mut self.voices {
                 let mono = voice.next_mono_sample();
-                let pan = i64::from(voice.pan_q16);
+                let pan = i64::from(voice.pan_q16());
                 left += mono * (Q16_ONE - pan) / (Q16_ONE * 2);
                 right += mono * (Q16_ONE + pan) / (Q16_ONE * 2);
             }
@@ -649,7 +739,7 @@ impl ExperimentalPhysicalSoundMixer {
                 output.push(clamped as i16);
             }
         }
-        self.voices.retain(|voice| voice.frames_remaining > 0);
+        self.voices.retain(|voice| voice.frames_remaining() > 0);
         output
     }
 }
@@ -695,11 +785,34 @@ pub fn render_glass_body_variant_impact(
         strike_seed,
     );
     let mut mixer = ExperimentalPhysicalSoundMixer::default();
-    mixer.voices.push(ModalVoice::new_with_profile(
-        excitation,
-        glass_body_profile(variant),
-    ));
+    mixer
+        .voices
+        .push(ExperimentalVoice::Modal(ModalVoice::new_with_profile(
+            excitation,
+            glass_body_profile(variant),
+        )));
     let mut samples = mixer.mix_tick(&[]);
+    while mixer.active_voice_count() > 0 {
+        samples.extend(mixer.mix_tick(&[]));
+    }
+    samples
+}
+
+/// Renders the product-owner-selected thin-container calibration through the
+/// exact opt-in demo voice. This does not replace Glass-H or authored clips.
+#[must_use]
+pub fn render_selected_glass_q30_impact(energy_q16: u32) -> Vec<i16> {
+    let excitation = PhysicalSoundExcitation::new(
+        PhysicalSoundMaterial::Glass,
+        PhysicalSoundImpactPoint::Center,
+        energy_q16,
+        0,
+        0,
+    );
+    let mut mixer = ExperimentalPhysicalSoundMixer::with_glass_profile(
+        ExperimentalGlassProfile::SelectedThinContainerQ30,
+    );
+    let mut samples = mixer.mix_tick(std::slice::from_ref(&excitation));
     while mixer.active_voice_count() > 0 {
         samples.extend(mixer.mix_tick(&[]));
     }
@@ -745,182 +858,4 @@ pub fn render_physical_sound_lab_sequence() -> Vec<i16> {
 }
 
 #[cfg(test)]
-mod tests {
-    use next_contracts::canonical::sha256;
-    use next_contracts::ids::ContentHash;
-
-    use super::*;
-
-    #[test]
-    fn fixed_point_render_is_byte_exact_and_profiles_are_distinct() {
-        let render = |material| {
-            render_physical_sound_impact(PhysicalSoundExcitation::new(
-                material,
-                PhysicalSoundImpactPoint::Edge,
-                49_152,
-                0,
-                7,
-            ))
-        };
-        let steel = render(PhysicalSoundMaterial::Steel);
-        let wood = render(PhysicalSoundMaterial::Wood);
-        let glass = render(PhysicalSoundMaterial::Glass);
-        assert_eq!(steel, render(PhysicalSoundMaterial::Steel));
-        assert_ne!(
-            sha256(&samples_as_bytes(&steel)),
-            sha256(&samples_as_bytes(&wood))
-        );
-        assert_ne!(
-            sha256(&samples_as_bytes(&steel)),
-            sha256(&samples_as_bytes(&glass))
-        );
-        assert_ne!(
-            sha256(&samples_as_bytes(&wood)),
-            sha256(&samples_as_bytes(&glass))
-        );
-        assert!(steel.iter().any(|sample| *sample != 0));
-        assert!(wood.iter().any(|sample| *sample != 0));
-        assert!(glass.iter().any(|sample| *sample != 0));
-    }
-
-    #[test]
-    fn calibrated_steel_profile_retains_exact_pcm_and_position_response() {
-        let render = |impact_point| {
-            render_physical_sound_impact(PhysicalSoundExcitation::new(
-                PhysicalSoundMaterial::Steel,
-                impact_point,
-                49_152,
-                0,
-                0x51ee_0101,
-            ))
-        };
-        let center = render(PhysicalSoundImpactPoint::Center);
-        let edge = render(PhysicalSoundImpactPoint::Edge);
-        let corner = render(PhysicalSoundImpactPoint::Corner);
-
-        assert_eq!(center.len(), 48_000);
-        assert_eq!(
-            ContentHash::from_bytes(sha256(&samples_as_bytes(&center))).to_hex(),
-            "319befa843e591e936ccf8da531626146312721ac820e56029a07fed5bae896a"
-        );
-        assert_ne!(center, edge);
-        assert_ne!(center, corner);
-        assert_ne!(edge, corner);
-    }
-
-    #[test]
-    fn accepted_wood_and_hybrid_glass_profiles_retain_exact_pcm_and_position_response() {
-        let assert_profile = |material, seed, expected_len, expected_hash: &str| {
-            let render = |impact_point| {
-                render_physical_sound_impact(PhysicalSoundExcitation::new(
-                    material,
-                    impact_point,
-                    49_152,
-                    0,
-                    seed,
-                ))
-            };
-            let center = render(PhysicalSoundImpactPoint::Center);
-            let edge = render(PhysicalSoundImpactPoint::Edge);
-            let corner = render(PhysicalSoundImpactPoint::Corner);
-
-            assert_eq!(center.len(), expected_len);
-            assert_eq!(
-                ContentHash::from_bytes(sha256(&samples_as_bytes(&center))).to_hex(),
-                expected_hash
-            );
-            assert_ne!(center, edge);
-            assert_ne!(center, corner);
-            assert_ne!(edge, corner);
-        };
-
-        assert_profile(
-            PhysicalSoundMaterial::Wood,
-            0x700d_0101,
-            35_200,
-            "5c536dfda9e4529c0dda14e854b5718e50d1860dd6a2ca47fc58809762e7f186",
-        );
-        assert_profile(
-            PhysicalSoundMaterial::Glass,
-            0x61a5_0101,
-            16_000,
-            "4cd5e61da43d34e71715bef6d11a51522cfd5ab4ac9b0ec3d25920b8d79bb34c",
-        );
-    }
-
-    #[test]
-    fn glass_clink_keeps_microbursts_inside_one_fused_onset() {
-        let profile = material_profile(PhysicalSoundMaterial::Glass);
-        assert_eq!(profile.modes.len(), 4);
-        let StrikeTransientProfile::FusedGlassClink { pulses } = profile.strike_transient else {
-            panic!("glass must use the bounded fused-clink transient");
-        };
-        assert!(pulses.iter().all(|pulse| pulse.duration_frames > 0));
-        assert!(pulses.windows(2).all(|pair| {
-            pair[0].offset_frames + pair[0].duration_frames <= pair[1].offset_frames
-        }));
-        let final_frame = pulses
-            .last()
-            .map(|pulse| pulse.offset_frames + pulse.duration_frames)
-            .expect("glass clink pulse");
-        assert!(final_frame <= 72, "onset must end within 1.5 ms at 48 kHz");
-    }
-
-    #[test]
-    fn glass_body_variants_repeat_exactly_and_stay_materially_separated() {
-        let render = |variant| render_glass_body_variant_impact(variant, 49_152, 0x61a5_b0d1);
-        let thin_goblet = render(GlassBodyVariant::ThinGoblet);
-        let bottle = render(GlassBodyVariant::Bottle);
-        let thick_jar = render(GlassBodyVariant::ThickJar);
-
-        assert_eq!(thin_goblet, render(GlassBodyVariant::ThinGoblet));
-        assert_eq!(bottle, render(GlassBodyVariant::Bottle));
-        assert_eq!(thick_jar, render(GlassBodyVariant::ThickJar));
-        assert_eq!(thin_goblet.len(), 48_000);
-        assert_eq!(bottle.len(), 22_400);
-        assert_eq!(thick_jar.len(), 16_000);
-        assert_eq!(
-            ContentHash::from_bytes(sha256(&samples_as_bytes(&thin_goblet))).to_hex(),
-            "47fc42095a7bffcd6a1562d9e2095265a76ff3e1e3ac10fc2ac79f444f145bb5"
-        );
-        assert_eq!(
-            ContentHash::from_bytes(sha256(&samples_as_bytes(&bottle))).to_hex(),
-            "07c0de35ad35ee9f8760165f94a9245cef3ed84cab145e57a379936a22564515"
-        );
-        assert_eq!(
-            ContentHash::from_bytes(sha256(&samples_as_bytes(&thick_jar))).to_hex(),
-            "acb94f263d9de25e50ab2e5dcead69c129dc457c05852cc19cc143b29a1e10c7"
-        );
-        assert_ne!(thin_goblet, bottle);
-        assert_ne!(thin_goblet, thick_jar);
-        assert_ne!(bottle, thick_jar);
-        assert!(thin_goblet.iter().any(|sample| *sample != 0));
-        assert!(bottle.iter().any(|sample| *sample != 0));
-        assert!(thick_jar.iter().any(|sample| *sample != 0));
-    }
-
-    #[test]
-    fn excitation_and_voice_bounds_are_fail_bounded() {
-        let excitation = PhysicalSoundExcitation::new(
-            PhysicalSoundMaterial::Glass,
-            PhysicalSoundImpactPoint::Corner,
-            u32::MAX,
-            i32::MAX,
-            0,
-        );
-        assert_eq!(excitation.energy_q16, 65_536);
-        assert_eq!(excitation.pan_q16, 65_536);
-        let mut mixer = ExperimentalPhysicalSoundMixer::default();
-        let window = mixer.mix_tick(&vec![excitation; MAX_VOICES + 2]);
-        assert_eq!(window.len(), FRAMES_PER_TICK * CHANNEL_COUNT);
-        assert_eq!(mixer.active_voice_count(), MAX_VOICES);
-        assert_eq!(mixer.dropped_impacts(), 2);
-    }
-
-    fn samples_as_bytes(samples: &[i16]) -> Vec<u8> {
-        samples
-            .iter()
-            .flat_map(|sample| sample.to_le_bytes())
-            .collect()
-    }
-}
+mod tests;

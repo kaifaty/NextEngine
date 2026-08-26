@@ -10,6 +10,10 @@ publish = false
 default = []
 desktop-sdl-ash = ["dep:next_desktop_sdl_ash"]
 physical-sound-lab = ["next_application/physical-sound-lab"]
+physical-sound-selected-glass = [
+    "physical-sound-lab",
+    "next_application/physical-sound-selected-glass",
+]
 
 [dependencies]
 next_application.workspace = true

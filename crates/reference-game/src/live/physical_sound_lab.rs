@@ -8,13 +8,23 @@ use next_contracts::physics::{
 };
 use next_contracts::presentation::audio_scene::AudioSceneSnapshotV1;
 use next_presentation::physical_sound_lab::{
-    PhysicalSoundExcitation, PhysicalSoundImpactPoint, PhysicalSoundMaterial,
+    ExperimentalGlassProfile, ExperimentalPhysicalSoundMixer, PhysicalSoundExcitation,
+    PhysicalSoundImpactPoint, PhysicalSoundMaterial,
 };
 
 const MAX_IMPACTS_PER_TICK: usize = 4;
 const ENERGY_SPEED_FULL_SCALE_MICROMETRES_PER_SECOND: u64 = 3_000_000;
 const MINIMUM_BEGIN_ENERGY_Q16: u64 = 8_192;
 const PAN_RANGE_MICROMETRES: i64 = 5_000_000;
+
+pub(super) fn demo_mixer() -> ExperimentalPhysicalSoundMixer {
+    let profile = if cfg!(feature = "physical-sound-selected-glass") {
+        ExperimentalGlassProfile::SelectedThinContainerQ30
+    } else {
+        ExperimentalGlassProfile::GlassH
+    };
+    ExperimentalPhysicalSoundMixer::with_glass_profile(profile)
+}
 
 pub(super) fn excitations_from_committed_contacts(
     previous: &PhysicsCanonicalSnapshotV2,
@@ -70,6 +80,12 @@ fn body_velocity(snapshot: &PhysicsCanonicalSnapshotV2, body_id: PhysicsBodyIdV1
 /// Temporary material proxy for the reference scene, whose canonical physics
 /// catalog currently uses one zero-material descriptor for every shape.
 fn material_proxy(contact: &ContactEventV1) -> PhysicalSoundMaterial {
+    // The second explicit laboratory feature is an audition route: every
+    // committed Begin contact demonstrates the selected glass voice. The
+    // ordinary physical-sound-lab feature retains the three-way proxy below.
+    if cfg!(feature = "physical-sound-selected-glass") {
+        return PhysicalSoundMaterial::Glass;
+    }
     let low = contact.participant_low.body_id.subject_id.as_bytes()[0];
     let high = contact.participant_high.body_id.subject_id.as_bytes()[0];
     let selector = low
@@ -107,10 +123,21 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use next_assets::ContentStore;
+    use next_presentation::physical_sound_lab::ExperimentalGlassProfile;
 
     use crate::live::ReferenceGameDriverV2;
 
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn demo_glass_profile_matches_the_explicit_feature() {
+        let expected = if cfg!(feature = "physical-sound-selected-glass") {
+            ExperimentalGlassProfile::SelectedThinContainerQ30
+        } else {
+            ExperimentalGlassProfile::GlassH
+        };
+        assert_eq!(super::demo_mixer().glass_profile(), expected);
+    }
 
     #[test]
     fn demo_contact_changes_only_presentation_pcm_and_repeats_exactly() {
@@ -136,7 +163,21 @@ mod tests {
         repeated.advance(&[]).expect("repeated advance");
         disabled.advance(&[]).expect("disabled advance");
 
+        if cfg!(feature = "physical-sound-selected-glass") {
+            for _ in 1..120 {
+                if enabled.physical_sound_lab.selected_glass_impacts() > 0 {
+                    break;
+                }
+                enabled.advance(&[]).expect("enabled advance");
+                repeated.advance(&[]).expect("repeated advance");
+                disabled.advance(&[]).expect("disabled advance");
+            }
+        }
+
         assert!(enabled.physical_sound_lab.admitted_impacts() > 0);
+        if cfg!(feature = "physical-sound-selected-glass") {
+            assert!(enabled.physical_sound_lab.selected_glass_impacts() > 0);
+        }
         assert_eq!(enabled.audio_mixed_pcm(), repeated.audio_mixed_pcm());
         assert_ne!(enabled.audio_mixed_pcm(), disabled.audio_mixed_pcm());
         let enabled_state = enabled.state().expect("enabled state");
