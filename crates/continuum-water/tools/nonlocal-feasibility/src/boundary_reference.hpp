@@ -337,6 +337,8 @@ SplitBoundaryReport
 run_al_generalization_v5_canonical_defect_transport_controls();
 SplitBoundaryReport
 run_al_generalization_v5_projector_idempotence_controls();
+SplitBoundaryReport
+run_al_generalization_v5_full_operator_materialization_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
