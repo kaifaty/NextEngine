@@ -254,6 +254,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v3-terminal-trajectory|"
                          "--nonlocal-al-generalization-v4-manifest|"
                          "--nonlocal-al-generalization-v4-preflight|"
+                         "--nonlocal-al-generalization-v4-solver|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2126,6 +2127,13 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v4_preflight_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--nonlocal-al-generalization-v4-solver") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v4_solver_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
