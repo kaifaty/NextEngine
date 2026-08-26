@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R54 counterflow legacy-slope research
 
-Status: `RESEARCH COMPLETE / MINIMAL VERIFIER-PLACEMENT AUDIT SELECTED`.
+Status: `PASS / MINIMAL LEGACY SLOPE CERTIFIED`.
 
 ## Question
 
@@ -36,3 +36,10 @@ state update is admitted.
 L1 authorizes a separately frozen default-off trajectory that invokes verified
 inverse only after an otherwise exact/KKT direction fails solely its slope
 certificate. It does not authorize unconditional inverse work or production.
+
+## Outcome
+
+L1 is confirmed. The direction root and nominal slope remain byte-identical;
+the verified error alone reduces the bound to `2.48507e-36` and produces a
+strictly positive lower slope. Centered refinement is unnecessary for this
+counterflow boundary.

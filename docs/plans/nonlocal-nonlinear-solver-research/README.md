@@ -3435,3 +3435,9 @@ and [contract](03b4e2d7r20r54-counterflow-legacy-slope-contract.md) freeze that
 minimal discriminator: retain the old direct solution, invoke exactly the
 existing 66-column verified-inverse and recompose only its slope enclosure,
 with no compensated or centered work.
+The
+[R20R54 evidence](../../development/nonlocal-nsr3b4e2d7r20r54-counterflow-legacy-slope-evidence-2026-08-26.md)
+preserves the old direction exactly and reduces its bound to `2.4851e-36`,
+certifying positive slope with no compensated work. The next experiment may
+place this existing verifier behind a default-off slope-rejection fallback and
+observe the unchanged counterflow trajectory once.
