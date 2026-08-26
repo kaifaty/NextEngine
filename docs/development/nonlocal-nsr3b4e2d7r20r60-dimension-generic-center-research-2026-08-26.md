@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R60 dimension-generic centered certificate research
 
-Status: `RESEARCH COMPLETE / REPORT-ONLY TUPLE AUDIT SELECTED`.
+Status: `SUPPORTED_BOUNDED / DIMENSION_GENERIC_CENTER_CANDIDATE`.
 
 ## Question
 
@@ -67,3 +67,8 @@ Even a positive result is `SUPPORTED_BOUNDED + EXACT_CERTIFICATE` for one
 immutable tuple. It does not prove all dimensions, remove R50's guard, apply a
 correction, certify 6/6 trajectories, authorize runtime/GPU code or establish
 production readiness.
+
+## Result pointer
+
+The frozen experiment passed for dimension 102. See
+[R60 evidence](nonlocal-nsr3b4e2d7r20r60-dimension-generic-center-evidence-2026-08-26.md).
