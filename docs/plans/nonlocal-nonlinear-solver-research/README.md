@@ -8,7 +8,8 @@ NSR3B4E2D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE /
 NSR3B4E2D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE /
 NSR3B4E2D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED /
 NSR3B4E2D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED /
-NSR3B4E2D7R20R63U_EXACT_RESIDUAL_IMAGE_CERTIFICATE_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE /
+NSR3B4E2D7R20R63V_EARLIEST_IMAGE_CERTIFICATE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3875,6 +3876,15 @@ It converts the R63R verifier once, computes `Zr` entirely in exact dyadics for
 the two unchanged R63S finals and derives signs from
 `||Zr||inf/(1-rho_left)`. R63T rounded corrections are causal evidence only
 and cannot enter the certificate.
+
+The
+[R20R63U evidence](../../development/nonlocal-nsr3b4e2d7r20r63u-exact-residual-image-certificate-evidence-2026-08-27.md)
+selects `TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE`. Without changing either
+candidate, exact image radii tighten from order `1e14` to
+`4.51e-4/1.10e-3`; both independently resolve `24+/78-/0?` with the same sign
+root. Locate the earliest stable R63S iterate under this certificate next,
+then research a bounded finite residual-image verifier before sparse or
+performance work.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
