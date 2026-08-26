@@ -3,7 +3,8 @@
 Current milestone: `NSR3B4E2D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE /
 NSR3B4E2D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED /
 NSR3B4E2D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED /
-NSR3B4E2D7R20R63P_PROJECTOR_IDEMPOTENCE_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED /
+NSR3B4E2D7R20R63Q_FULL_OPERATOR_MATERIALIZATION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3788,6 +3789,15 @@ smallest causal operator arbitration. The stored active-ball derivative uses
 with exact dyadic/rational cross-products and asks whether dense `H` represents
 `sigma A P_d A^T` while the tangent Gram represents the distinct
 `sigma A P_d^2 A^T`. No RHS solve or empirical rank-one repair is admitted.
+
+The
+[R20R63P evidence](../../development/nonlocal-nsr3b4e2d7r20r63p-projector-idempotence-evidence-2026-08-27.md)
+selects `PROJECTOR_RANK_ONE_EXPLANATION_REJECTED`. Exact `s-d` is nonzero, but
+its weak rank-one effect is only `8.73e-68`, not the observed `3.48e-34` gap.
+Instead, tangent Gram is about `1.83e17` closer than stored dense `H` to the
+common exact oracle on the inherited weak witness. Research the complete exact
+`102 x 102` materialization error before another RHS solve or any operator-
+authority decision.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)

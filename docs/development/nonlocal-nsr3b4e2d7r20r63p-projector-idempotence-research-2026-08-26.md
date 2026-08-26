@@ -91,3 +91,19 @@ operator oracle; do not inflate the transport bound or add PCG iterations.
 No RHS solve, PCG, sparse realization, precision change, state update, timing,
 runtime/GPU or production authority is admitted. R64 and R65 remain blocked.
 
+## Result
+
+The stored projector is exactly non-idempotent, but its derived rank-one weak
+defect is only `8.73e-68` versus the observed dense/direct gap `3.48e-34`.
+Therefore the causal hypothesis is rejected. The same exact oracle shows a
+more consequential result: tangent Gram's weak-form error to `H*` is
+`1.91e-51`, while stored dense `H` errs by `3.48e-34`.
+
+The selected route is `PROJECTOR_RANK_ONE_EXPLANATION_REJECTED` at semantic
+`b7cae513...e3e1`; stdout repeats byte-identically at `e4cffa7d...71f0`.
+See the
+[evidence record](nonlocal-nsr3b4e2d7r20r63p-projector-idempotence-evidence-2026-08-27.md).
+
+Research a complete exact-rational operator materialization audit next. Do not
+patch tangent Gram toward the noisier dense matrix, and do not select operator
+authority from the single witness alone.
