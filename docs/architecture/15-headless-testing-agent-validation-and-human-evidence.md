@@ -4,15 +4,15 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 3.9 |
-| Последняя проверка | 2026-08-20 |
+| Версия | 4.0 |
+| Последняя проверка | 2026-08-26 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V3.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V3.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V3.7 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
 | Дополнительные зависимости V3.8 | [ADR-089](adr/089-governed-external-creator-sdk-workflow.md) |
 | Дополнительные зависимости V3.9 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
-| Заменяет | SPEC-15 3.8; makes native Linux the only current interactive/release scenario target and removes Windows evidence from R7/v1 requirements |
+| Заменяет | SPEC-15 3.9; defines future generated-content structural/preview evidence without turning live providers or pixels into ProductCheck authority |
 
 ## Назначение
 
@@ -177,6 +177,24 @@ Worker сначала воспроизводит exact replay и сверяет 
 loss, encoder absence или quota overflow оставляет replay/diagnostics
 доступными и удаляет incomplete media file. Media MAY иметь SHA-256 для
 удобного сравнения, но остаётся disposable local debug output.
+
+### Future generated-content evidence
+
+SPEC-45 candidate checks separate three facts: structural admission, optional
+standardized preview and explicit promotion review. Structural validators are
+the correctness oracle. A pinned B0 preview may help inspect a material, prop
+or map, but a screenshot, similarity score or model critique cannot prove
+units, topology, collider/navigation closure, dependencies, provenance or
+rights and cannot override a structural failure.
+
+Repeatable tests use recorded provider responses plus captured exact candidate
+bytes. Live local/remote provider smoke is explicit, bounded and
+`REPORT_ONLY`; network, account, quota, price or provider availability never
+turns into a product gate. Future negative scenarios cover output tamper,
+path/base-hash race, missing rights, invalid dimensions/topology, ambiguous
+timeout/resume and duplicate-billable-attempt prevention. Repeated cook from
+one promoted candidate must match byte-for-byte under the existing content
+check.
 
 ## Current command surface
 

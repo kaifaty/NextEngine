@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-30 |
 | Статус | Accepted |
-| Версия | 3.8 |
-| Последняя проверка | 2026-08-18 |
+| Версия | 3.9 |
+| Последняя проверка | 2026-08-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
 | Дополнительные зависимости V3.5 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-30 3.7; records the R5i animation-work projection, explicit no-pose publication and atomic LOD fault retention over unchanged V3 contracts |
+| Заменяет | SPEC-30 3.8; adds future generated material/asset intent and standardized preview evidence without changing current render records or authority |
 
 ## Authority boundary
 
@@ -155,6 +155,25 @@ developer capture profile.
 alpha contracts under ADR-046. R5g replaces their prior in-tree shapes; R5i
 uses those shapes unchanged and introduces no compatibility alias, persisted
 migration or second runtime catalog/snapshot family.
+
+## Future generated material and asset preview
+
+Under SPEC-45, generation intent such as real-world extent, texel density or
+physical tile scale, map-channel/color-space/normal convention, pivot/axes and
+LOD/collider expectation is pre-cook authoring metadata. It does not widen
+`NeutralMaterialV1`, `NeutralTextureV1`, `NeutralMeshV1` or
+`PresentationSnapshotV3` with prompts, provider types or receipts. Promotion
+produces ordinary exact source and the current cooker remains responsible for
+the final render records and B0 fallback closure.
+
+A standardized material preview uses a pinned B0 profile and known sphere,
+cube and plane; a static-prop preview adds a scale reference and turntable.
+Camera, light/environment, extent, frame count and output quota are explicit.
+Preview media may be hashed and compared as human/agent evidence, but exact
+pixels and similarity scores are not content admission, gameplay identity or
+renderer conformance. Structural record validation remains authoritative and
+an unavailable preview uses the ordinary authored-source fallback rather than
+promoting an invalid candidate.
 
 ## Device loss and failure semantics
 

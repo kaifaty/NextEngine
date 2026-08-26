@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-25 |
 | Статус | Accepted |
-| Версия | 2.6 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.7 |
+| Последняя проверка | 2026-08-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-25 2.5; updates the current V7 activation/V9 replay closure while retaining the unchanged partition and population binding |
+| Заменяет | SPEC-25 2.6; defines future generated-map structural admission before the unchanged current partition/runtime boundary |
 
 ## Назначение
 
@@ -101,6 +101,28 @@ catalog, scan ambient files or repair a partial closure.
 Activation по-прежнему eager и проверяет все 64 alpha chunks целиком. World затем
 использует pinned generation, чтобы повторно fetch/decode target chunk через
 production bounded path; eager activation не превращается в lazy project loader.
+
+## Future generated-map admission
+
+SPEC-45 proposes one first map consumer: a single region with three chunks and
+an authored `entrance → objective → exit` route. Its output is an untrusted
+typed project-source candidate, not a screenshot, provider scene graph or
+direct `WorldPartitionManifestV1` publication. Persistent region/chunk/object
+IDs are allocated by the authored brief and cannot be derived from triangle
+order, provider node indices, filenames or generation completion order.
+
+Before promotion, the candidate must prove unique IDs, finite world-unit
+bounds, exact asset/cross-chunk dependency closure, required-route connectivity
+and reachability, render/collider coherence, declared navigation inputs and
+bounded chunk/streaming limits. After promotion, current cook/activation
+revalidates the ordinary partition/content closure; play plus save/reload proves
+the bounded route. Regeneration that omits or silently renumbers a durable ID
+is a rejected new candidate, never an implicit migration.
+
+This future authoring check does not add a runtime world generator, lazy
+partition repair, generic spatial database or second navigation authority.
+The existing manifest, World Services owner and exact streaming commit remain
+the only current runtime path.
 
 ## Persistence and replay
 

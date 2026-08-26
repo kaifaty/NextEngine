@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 3.1 |
-| Последняя проверка | 2026-08-19 |
+| Версия | 3.2 |
+| Последняя проверка | 2026-08-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V3.1 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
-| Заменяет | SPEC-24 3.0; records the R6d reusable RPG starter as ordinary namespaced Project Authoring V7 content without changing neutral schemas or package bytes |
+| Заменяет | SPEC-24 3.1; distinguishes future generated candidates from current neutral content and binds only promoted exact source into existing closure |
 
 ## Scope
 
@@ -145,6 +145,29 @@ The reference alpha's scene/collider/RPG/world definitions use the generic
 `NeutralRecordV1`; this SPEC does not promise the detailed future neutral
 navigation, general collision, scene graph or bundle-container schemas removed
 from version 1.2.
+
+## Future generated candidates
+
+The `Proposed` SPEC-45 candidate/brief/derivation/receipt records are not
+`NeutralRecordV1`, content-manifest entries or runtime schemas. A generator may
+produce images, material maps, meshes or typed map-source candidates only in a
+quarantined tooling workspace. Candidate IDs, provider task IDs and derivation
+node order cannot become `AssetId`, `PersistentId` or durable object identity.
+
+Explicit promotion converts selected exact bytes into ordinary project source
+with existing engine-owned IDs, canonical units, dependency declarations and
+positive provenance/license/NOTICE facts. The cooker then validates the same
+neutral mesh/material/texture/collider/world records and constructs the same
+content closure as for hand-authored/imported input. Raw prompts, credentials,
+discarded alternatives, mutable price estimates and provider-private metadata
+are excluded from `ContentManifestV1` and distributable packages.
+
+For generated materials, the pre-cook brief owns intended physical tile scale
+or texel density plus channel/color/normal conventions; the promoted neutral
+records still own only the final validated material/texture values. For a
+generated prop or map, scale, pivot/topology/collider or spatial acceptance is
+validated before promotion and again through the applicable current cooker
+boundary. No current neutral wire shape changes in this SPEC version.
 
 ## Localization
 

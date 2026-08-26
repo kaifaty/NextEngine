@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.63 |
-| Последняя проверка | 2026-08-24 |
-| Заменяет | INDEX-001 2.62; aligns current performance specifications with ADR-094 methodology v11 and executable workload identities |
+| Версия | 2.64 |
+| Последняя проверка | 2026-08-26 |
+| Заменяет | INDEX-001 2.63; indexes the Proposed provider-neutral generative content authoring and candidate-promotion track |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -195,6 +195,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-42 | [Proposed arcane substrate and physical magic](42-arcane-substrate-and-physical-magic.md) | Proposed fixed-point Arcane owner with analytical maximum debit, successor-stage PhysX coupling and epoch persistence; numeric A0B remains open |
 | SPEC-43 | [Proposed thermochemical material processes](43-thermochemical-material-processes.md) | Proposed enthalpy/phase owner with per-interface sub-LSB residuals and atomic parcel topology; numeric/profile T0B remains open |
 | SPEC-44 | [Proposed neural-assisted world simulation](44-neural-assisted-world-simulation.md) | Proposed N0/N1 report/shadow-only research; runtime advice requires a later safety-certificate-backed Accepted ADR |
+| SPEC-45 | [Proposed generative content authoring and candidate promotion](45-generative-content-authoring-and-candidate-promotion.md) | Proposed offline provider-neutral brief/derivation/receipt/candidate boundary for materials, static assets and bounded maps; no current command/schema/provider/runtime dependency |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -298,6 +299,7 @@ traceability — навигационная карта, не admission authority
 | ADR-092 | [Dimensional relative performance comparison](adr/092-dimensional-relative-performance-comparison.md) | Accepted Performance V6/methodology v10 direct-relative and normalized-ratio absolute-only comparison classes |
 | ADR-093 | [Deterministic R5 worker placement](adr/093-deterministic-r5-worker-placement.md) | Accepted deterministic physical-core placement for the `r5-physics-16` workload through one reviewed `next_cpu_affinity` boundary; workload identity advances to v3 |
 | ADR-094 | [Confidence-gated relative warnings](adr/094-confidence-gated-relative-warnings.md) | Accepted CI95-lower-bound gating for relative warnings under methodology v11 with stderr-only failure diagnostics |
+| ADR-095 | [Provider-neutral generative content authoring boundary](adr/095-provider-neutral-generative-content-authoring-boundary.md) | Proposed quarantined-candidate and explicit-promotion boundary; ordinary exact authored source remains the complete fallback |
 
 ## Proposed tracks
 
@@ -316,6 +318,10 @@ traceability — навигационная карта, не admission authority
 - SPEC-44/ADR-080 — optional N0/N1 report/shadow assistance downstream of a
   promoted classical owner; models own no state and cannot affect production
   work, roots or failure classes under ADR-081.
+- SPEC-45/ADR-095 — optional offline generative authoring before the existing
+  cooker: typed briefs, bounded derivation/receipts, quarantined exact
+  candidates, structural validation and atomic promotion. Material is the first
+  consumer; no provider, command, public schema or runtime dependency is current.
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
 - Broader navigation sections of SPEC-08 — navmesh cooking, dynamic overlays,
   tactical/physical path following and optional Recast adapter remain Proposed
