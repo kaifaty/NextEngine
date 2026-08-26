@@ -3416,3 +3416,9 @@ executes and stores no verified-inverse audit. Its 66/66 support is resolved by
 the direct solve, while the cheap error has passed through 86 affine-shadow
 updates. The next experiment must capture the final direct principal solve and
 explicitly budget a new report-only inverse; it may not reuse an absent audit.
+That successor is now frozen by the
+[R20R53 research](../../development/nonlocal-nsr3b4e2d7r20r53-counterflow-direct-center-research-2026-08-26.md)
+and [contract](03b4e2d7r20r53-counterflow-direct-center-contract.md): observe
+the final direct 66-row tuple, construct exactly 66 inverse columns, certify one
+depth-16 center, and recompute the shadow slope around that new center rather
+than attaching its radius to the old solution.

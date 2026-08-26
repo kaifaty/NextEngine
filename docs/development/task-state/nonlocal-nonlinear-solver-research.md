@@ -5235,10 +5235,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    `e7b9acaf...0f73` and all parents. Preserve R20R52 exact
    FAIL/`COUNTERFLOW_CENTER_CAPTURE_REJECTED`, semantic
    `86d2dcd4...17a6`, zero observer calls and zero final inverse-audit records;
-   do not repeat its false successful-audit premise. Research and freeze R20R53
-   as one report-only capture of the exact final 66-row direct principal solve,
-   with an explicit single factorization/inverse-column budget and a centered
-   slope recomposition but no applied direction/trial, root-selected branch,
+   do not repeat its false successful-audit premise. Implement frozen R20R53 as
+   one report-only capture of the exact final 66-row direct principal solve,
+   with exactly 66 new inverse columns, 5,676 compensated dots and 376,002
+   input pairs. Recompute the shadow slope around the certified center, not the
+   old direct solution; add no applied direction/trial, root-selected branch,
    prodK, unrelated solve, counterflow retry,
    state, tolerance/cap/ratio/Armijo change, retry, tuning or timing.
 3. Preserve SIRDI, Q2 structural evidence and the Q3/Q4 negative results.
