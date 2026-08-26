@@ -144,3 +144,8 @@ projection nor that a binary64 center preserves an active-set trajectory. The
 next executable claim is deliberately limited to interval containment and
 two-sided contraction of one immutable projected tuple.
 
+## Result pointer
+
+The arithmetic intervals passed exact correspondence, but the naively
+projected inverse itself is noncontractive. See the
+[R63 negative evidence](nonlocal-nsr3b4e2d7r20r63-binary64-dot2err-evidence-2026-08-26.md).

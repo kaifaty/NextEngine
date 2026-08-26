@@ -281,6 +281,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v5-blind-replay|"
                          "--nonlocal-al-generalization-v5-dimension-generic-center|"
                          "--nonlocal-al-generalization-v5-profile-bounded-callback|"
+                         "--nonlocal-al-generalization-v5-binary64-dot2err|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2362,6 +2363,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v5_profile_bounded_callback_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command
+            == "--nonlocal-al-generalization-v5-binary64-dot2err") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v5_binary64_dot2err_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

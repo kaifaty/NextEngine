@@ -1,7 +1,7 @@
 # Nonlocal nonlinear solver research roadmap
 
-Current milestone: `NSR3B4E2D7R20R62_STRICT_BINARY64_DOT2ERR_ARCHITECTURE_SELECTED /
-NSR3B4E2D7R20R63_BINARY64_PROJECTED_INVERSE_FROZEN_IMPLEMENTATION_NEXT /
+Current milestone: `NSR3B4E2D7R20R63_BINARY64_PROJECTED_INVERSE_NONCONTRACTIVE /
+NSR3B4E2D7R20R63A_PROJECTION_CONDITIONING_DECOMPOSITION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3519,3 +3519,12 @@ runtime binary128 is rejected. The next executable gate is frozen by the
 [R20R63 contract](03b4e2d7r20r63-binary64-dot2err-contract.md): project only
 the immutable R60 dimension-102 tuple to binary64 and require exact containment
 plus two-sided contraction before evaluating any centered correction.
+
+The
+[R20R63 evidence](../../development/nonlocal-nsr3b4e2d7r20r63-binary64-dot2err-evidence-2026-08-26.md)
+validates all 20,808 candidate intervals against exact dyadics but rejects the
+projected inverse itself. Exact right/left defect norms are approximately
+`1.82e15/3.15e15`, so bound tightening cannot repair the direct projection
+route. R64 is not authorized. Research and freeze R63A to decompose matrix
+versus inverse projection error and conditioning/scaling before constructing
+any new inverse or center.
