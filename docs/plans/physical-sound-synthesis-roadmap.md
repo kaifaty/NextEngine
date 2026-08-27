@@ -2,9 +2,9 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_INTERNET_CORPUS_PIPELINE_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_SOURCE_REGISTRY_IMPLEMENTED / PS-2_REAL_ADAPTER_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [acquisition import bundle](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md), [REALIMPACT pilot](../development/physical-sound-realimpact-pilot-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [acquisition import bundle](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md), [REALIMPACT pilot](../development/physical-sound-realimpact-pilot-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -94,7 +94,7 @@ frozen `ValidatorRelease`:
 ```mermaid
 flowchart LR
     PS0["PS-0 Foundation<br/>COMPLETE"] --> PS1["PS-1 Envelope specialist<br/>COMPLETE"]
-    PS1 --> PS2["PS-2 Corpus and risk policy<br/>INTERNET SOURCE PIPELINE NEXT"]
+    PS1 --> PS2["PS-2 Corpus and risk policy<br/>SOURCE REGISTRY COMPLETE / REAL ADAPTER NEXT"]
     PS2 --> PS3["PS-3 Validator Release V1<br/>BLOCKED"]
     PS3 --> PS4["PS-4 AV-P0D autonomous search<br/>BLOCKED"]
     PS4 --> PS5["PS-5 Formula Base V1<br/>BLOCKED"]
@@ -109,7 +109,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / INTERNET_SOURCE_PIPELINE_NEXT` | L | Power policy and `E1` synchronized import are executable. Next are official-source discovery, bounded external fetch/cache, format adapters and claim-scoped `E1`–`E4` capability accounting; no local capture is required. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / SOURCE_REGISTRY_IMPLEMENTED / REAL_ADAPTER_NEXT` | L | Power policy, `E1` synchronized import, official-source registry, bounded fetch/cache and claim-scoped `E1`–`E4` accounting are executable. Next is one source-specific `E2`/`E3` adapter plus a bounded hash-closed real payload; no local capture is required. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -192,6 +192,15 @@ pilot report remains byte-identical fallback. This is now an `E1` import shape,
 not a local recording plan. The active [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md)
 requires published sources, bounded external fetch/cache, source adapters and
 claim-scoped capability accounting. Local force hardware is not a blocker.
+
+PS-2 internet-source checkpoint: `physical-sound-registry internet-sources`
+now validates source revisions, provenance reviews, exact hashes/byte counts,
+bounded HTTPS fetch, a content-addressed external cache and artifact-backed
+`E1`--`E4` claims. Two fresh online caches and an offline rerun produced the
+same report. Small ObjectFolder files validate synthetic lineage only; the
+36.37 GB ObjectFolder-Real acoustic archive remains `DiscoveryOnly` because the
+publisher supplies no SHA-256, so it was not downloaded and grants no `E1`--`E3`
+credit. See the [source/cache evidence](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md).
 
 ## PS-2 — Сделать риск статистически измеримым
 
@@ -334,7 +343,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot и `E1` bundle import — `COMPLETE`; реализовать internet source registry, bounded fetch/cache, adapters и capability matrix | PS-2 evidence expansion |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache/capability matrix — `COMPLETE`; добавить один real-source `E2`/`E3` adapter и bounded hash-closed payload | PS-2 evidence expansion |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 

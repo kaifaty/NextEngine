@@ -135,7 +135,7 @@ cargo run -p xtask -- physical-sound-benchmark \
   --output /external/controlled-mutation-evaluation
 ```
 
-### 3. Selective specialist calibration — PS-2 internet-source pipeline next
+### 3. Selective specialist calibration — PS-2 real-source adapter next
 
 Deliver:
 
@@ -213,13 +213,22 @@ capture requirement. See [bundle evidence](../development/physical-sound-acquisi
 
 The active [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md)
 retires product-owner/local physical recording and removes force hardware as a
-roadmap blocker. Package 3 must now add an official-source registry, bounded
-external content-addressed fetch/cache, source-format adapters and an auditable
-`E1` synchronized / `E2` transfer / `E3` identified-real / `E4` synthetic
-capability matrix. Separate internet sources may support separate specialist
-claims, but unavailable axes remain unavailable and the grouped split/risk
-policy is unchanged. Insufficient published coverage keeps the domain
-fallback-only; it does not trigger local capture.
+roadmap blocker. The generic official-source registry, bounded external
+content-addressed fetch/cache and auditable `E1` synchronized / `E2` transfer /
+`E3` identified-real / `E4` synthetic capability matrix are implemented by
+`physical-sound-registry internet-sources`.
+
+The measured [internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md)
+repeats byte-identically across two fresh online caches and one offline run.
+Hash-closed ObjectFolder metadata supports only `E4` synthetic lineage. The
+first 36,367,088,523-byte ObjectFolder-Real acoustic archive is discovery-only
+because the publisher provides no SHA-256; it was not downloaded and grants no
+`E1`--`E3` credit. Package 3 must next implement exactly one source-specific
+real-data adapter and import a bounded hash-closed `E2` or `E3` payload.
+Separate internet sources may support separate specialist claims, but
+unavailable axes remain unavailable and the grouped split/risk policy is
+unchanged. Insufficient published coverage keeps the domain fallback-only; it
+does not trigger local capture.
 
 ### 4. AV-P0D autonomous formula search
 

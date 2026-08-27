@@ -7,7 +7,7 @@
 | Version | 0.7 |
 | Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
-| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md) |
+| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md) |
 | Replaces | SPEC-45 0.6; makes internet-source evidence and claim-scoped capability the active PS-2 acquisition boundary without promoting quality acceptance or a runtime/content contract |
 
 ## Status and decision boundary
@@ -116,6 +116,17 @@ shadow false-pass risk. The first three-object-per-split measurement has only
 require a separate amplitude-envelope specialist and broader real families. The
 [implementation plan](../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md)
 defines the remaining P0C/P0D and production-promotion boundaries.
+
+The external-only `physical-sound-registry internet-sources` checkpoint now
+validates official-source metadata, exact artifact hashes and byte counts,
+bounded credential-free HTTPS retrieval, content-addressed caching and
+artifact-backed `E1`--`E4` capability claims. Only an implemented adapter may
+validate a claim; opaque or discovery-only bytes grant no acoustic evidence.
+The first pilot verifies small hash-closed ObjectFolder metadata and its `E4`
+synthetic lineage. ObjectFolder-Real remains discovery-only because its first
+official acoustic archive is 36.37 GB and has no publisher-provided SHA-256;
+the archive was not downloaded. This checkpoint has no corpus-admission
+authority and does not alter the clip fallback or production block.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

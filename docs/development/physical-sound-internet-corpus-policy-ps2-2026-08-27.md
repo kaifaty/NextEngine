@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet corpus acquisition policy
 
 Date: 2026-08-27
-Status: `ACTIVE_CONSTRAINT / INTERNET_DATA_ONLY / LOCAL_CAPTURE_RETIRED / PASS_DISABLED`
+Status: `ACTIVE_CONSTRAINT / SOURCE_REGISTRY_IMPLEMENTED / REAL_ADAPTER_NEXT / PASS_DISABLED`
 
 ## Decision
 
@@ -45,7 +45,7 @@ remain mandatory.
 
 ## Internet-data pipeline
 
-The next executable work package is a bounded external source pipeline:
+The external source pipeline now implements these stages:
 
 1. discover candidate sources through official dataset pages, papers and
    repositories;
@@ -66,6 +66,8 @@ non-distributable; they do not permit copying it into the repository or shipped
 content. Provenance, attribution and source identity remain attached to every
 derived feature and report.
 
+See the measured [internet source/cache pilot](physical-sound-internet-source-pipeline-ps2-2026-08-27.md).
+
 ## Current consequence
 
 REALIMPACT GlassGoblet is useful `E2 transfer response` evidence because its
@@ -75,7 +77,9 @@ composition, repeat identity and fixture revision still prohibit `E1` credit.
 ObjectFolder remains `E4` synthetic/generated comparison evidence unless a
 separate published real recording supplies the missing real-response claims.
 
-The immediate blocker is therefore `INTERNET_SOURCE_DISCOVERY_AND_ADAPTERS`,
-not force hardware. If published evidence cannot satisfy a domain's required
-claims and grouped sample sizes, that domain remains fallback-only. The project
-does not resolve the gap by asking the user to make physical recordings.
+The generic registry, bounded HTTPS fetch/cache and capability matrix are now
+implemented. The immediate blocker is `REAL_SOURCE_FORMAT_ADAPTER_AND_PAYLOAD`,
+not force hardware or generic networking. If published evidence cannot satisfy
+a domain's required claims and grouped sample sizes, that domain remains
+fallback-only. The project does not resolve the gap by asking the user to make
+physical recordings.
