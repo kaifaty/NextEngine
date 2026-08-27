@@ -23,10 +23,22 @@
 - **Review budget:** the repository mathematical-research skill now permits
   only initial review plus one batched-repair re-review. A remaining
   load-bearing defect ends that experiment as `INCONCLUSIVE`.
-- **Next:** add a strict-FP `nonlocal-formula-reclosure-dev` target optimized
-  for compile latency, verify its current stdout byte-for-byte against Release,
-  then design a stable parent-fixture API so successor probes compile as
-  separate translation units. Release remains mandatory for frozen evidence.
+- **Build-loop result:** strict-FP `nonlocal-formula-reclosure-dev` reduces the
+  observed last-probe rebuild from about three minutes to about 34 seconds and
+  is byte-identical to Release on the current R63ZC snapshot. The CLI now
+  links a reusable static core. A separate probe-smoke rebuild touches only its
+  own TU plus link (about 0.3 seconds observed) and preserves the exact quick
+  regression hash `d6ba5f8e...69d9`.
+- **Build-loop result:** the self-sealed R63ZC parent DTO, versioned external
+  cache and stable kernel API now close. Cache fixture root is
+  `7780543a...4553`; cache read plus solve/products/certificate smoke is
+  deterministic at `bc14a153...f5b1b3`. Editing the smoke recompiles one
+  small TU plus link (about 0.5 seconds observed) without rebuilding
+  `boundary_reference.cpp`.
+- **Next:** compile the next successor probe as its own translation unit over
+  the cached fixture and stable kernel API. A frozen scientific run must first
+  regenerate the fixture with Release and compare its root/file hash; build
+  observations and dev output have no solver-performance or route authority.
 - **Current result:** R20R63Z passes at semantic
   `e27ee861...3e4be`, route `TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE`; final
   stdout is byte-identical at `de22f5f6...da54`. All 10,404 common-operator
@@ -6443,10 +6455,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    `a1056719...8c1176`, its exact fixed-work ledger and narrow
    `TWOFOLD_RECURRENCE_LADDER_REJECTED` interpretation. Keep the R63ZC
    revision-3 author snapshot as `NOT_REVIEWED`; do not interpret its route or
-   start another review loop. First add and validate the fast strict-FP author
-   build target, then freeze a stable parent-fixture API for independently
-   compiled successor probes. Release and bounded independent review remain
-   mandatory before any later scientific interpretation.
+   start another review loop. The fast strict-FP target, self-sealed cached
+   parent fixture and stable probe-kernel API now pass their build-tooling
+   controls. Put the next successor probe in its own translation unit. Release
+   fixture regeneration and bounded independent review remain mandatory before
+   any later scientific interpretation.
 4. Preserve R20R51 semantic `48df3b26...adca` and all five case roots,
    R20R50 semantic `190ac441...d86e`, all five generic certificate
    roots and the exact work ledger, R20R49 semantic `719e0d50...f3cc`, all three practical roots and

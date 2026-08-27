@@ -41,34 +41,48 @@ target_compile_options(
 )
 
 set(
-    NEXTENGINE_NONLOCAL_FORMULA_RECLOSURE_SOURCES
+    NEXTENGINE_NONLOCAL_FORMULA_RECLOSURE_CORE_SOURCES
     src/balanced_canonical.cpp
     src/boundary_reference.cpp
     src/canonical.cpp
     src/dimensional_profile.cpp
     src/formula_discriminators.cpp
     src/formula_reclosure.cpp
-    src/formula_reclosure_main.cpp
     src/reference_attestation.cpp
     src/sha256.cpp
     src/variational_reference.cpp
 )
 
+find_package(OpenMP REQUIRED COMPONENTS CXX)
+
+function(nextengine_configure_formula_reclosure_target target optimization)
+    target_compile_features(${target} PRIVATE cxx_std_17)
+    target_compile_definitions(
+        ${target} PRIVATE NEXTENGINE_NONLOCAL_OPENMP=1)
+    target_compile_options(
+        ${target}
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:${optimization};-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+    )
+endfunction()
+
+add_library(
+    nonlocal-formula-reclosure-core STATIC
+    ${NEXTENGINE_NONLOCAL_FORMULA_RECLOSURE_CORE_SOURCES}
+)
+nextengine_configure_formula_reclosure_target(
+    nonlocal-formula-reclosure-core -O3)
+target_link_libraries(
+    nonlocal-formula-reclosure-core PUBLIC OpenMP::OpenMP_CXX quadmath)
+
 add_executable(
     nonlocal-formula-reclosure
-    ${NEXTENGINE_NONLOCAL_FORMULA_RECLOSURE_SOURCES}
+    src/formula_reclosure_main.cpp
 )
-find_package(OpenMP REQUIRED COMPONENTS CXX)
-target_compile_features(nonlocal-formula-reclosure PRIVATE cxx_std_17)
+nextengine_configure_formula_reclosure_target(
+    nonlocal-formula-reclosure -O3)
 target_link_libraries(
-    nonlocal-formula-reclosure PRIVATE OpenMP::OpenMP_CXX quadmath)
-target_compile_definitions(
-    nonlocal-formula-reclosure PRIVATE NEXTENGINE_NONLOCAL_OPENMP=1)
-target_compile_options(
-    nonlocal-formula-reclosure
-    PRIVATE
-        $<$<CXX_COMPILER_ID:GNU,Clang>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
-)
+    nonlocal-formula-reclosure PRIVATE nonlocal-formula-reclosure-core)
 
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
@@ -76,23 +90,89 @@ option(
     ON
 )
 if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
+    add_library(
+        nonlocal-formula-reclosure-dev-core STATIC
+        EXCLUDE_FROM_ALL
+        ${NEXTENGINE_NONLOCAL_FORMULA_RECLOSURE_CORE_SOURCES}
+    )
+    nextengine_configure_formula_reclosure_target(
+        nonlocal-formula-reclosure-dev-core -O0)
+    target_compile_definitions(
+        nonlocal-formula-reclosure-dev-core PRIVATE
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
+    target_link_libraries(
+        nonlocal-formula-reclosure-dev-core
+        PUBLIC OpenMP::OpenMP_CXX quadmath)
+
     add_executable(
         nonlocal-formula-reclosure-dev
         EXCLUDE_FROM_ALL
-        ${NEXTENGINE_NONLOCAL_FORMULA_RECLOSURE_SOURCES}
+        src/formula_reclosure_main.cpp
     )
-    target_compile_features(
-        nonlocal-formula-reclosure-dev PRIVATE cxx_std_17)
+    nextengine_configure_formula_reclosure_target(
+        nonlocal-formula-reclosure-dev -O0)
     target_link_libraries(
-        nonlocal-formula-reclosure-dev PRIVATE OpenMP::OpenMP_CXX quadmath)
+        nonlocal-formula-reclosure-dev
+        PRIVATE nonlocal-formula-reclosure-dev-core)
     target_compile_definitions(
         nonlocal-formula-reclosure-dev PRIVATE
-            NEXTENGINE_NONLOCAL_OPENMP=1
-            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
+
+    add_executable(
+        nonlocal-formula-probe-api-smoke
+        EXCLUDE_FROM_ALL
+        src/formula_probe_api_smoke_main.cpp
     )
-    target_compile_options(
-        nonlocal-formula-reclosure-dev
-        PRIVATE
-            $<$<CXX_COMPILER_ID:GNU,Clang>:-O0;-g0;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+    nextengine_configure_formula_reclosure_target(
+        nonlocal-formula-probe-api-smoke -O0)
+    target_link_libraries(
+        nonlocal-formula-probe-api-smoke
+        PRIVATE nonlocal-formula-reclosure-dev-core)
+    target_compile_definitions(
+        nonlocal-formula-probe-api-smoke PRIVATE
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
+
+    add_executable(
+        nonlocal-formula-parent-fixture-smoke
+        EXCLUDE_FROM_ALL
+        src/formula_parent_fixture_smoke_main.cpp
     )
+    nextengine_configure_formula_reclosure_target(
+        nonlocal-formula-parent-fixture-smoke -O0)
+    target_link_libraries(
+        nonlocal-formula-parent-fixture-smoke
+        PRIVATE nonlocal-formula-reclosure-dev-core)
+    target_compile_definitions(
+        nonlocal-formula-parent-fixture-smoke PRIVATE
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
+
+    add_executable(
+        nonlocal-formula-parent-fixture-cache
+        EXCLUDE_FROM_ALL
+        src/formula_parent_fixture_cache_main.cpp
+        src/formula_probe_cache.cpp
+    )
+    nextengine_configure_formula_reclosure_target(
+        nonlocal-formula-parent-fixture-cache -O0)
+    target_link_libraries(
+        nonlocal-formula-parent-fixture-cache
+        PRIVATE nonlocal-formula-reclosure-dev-core)
+    target_compile_definitions(
+        nonlocal-formula-parent-fixture-cache PRIVATE
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
+
+    add_executable(
+        nonlocal-formula-probe-kernel-smoke
+        EXCLUDE_FROM_ALL
+        src/formula_probe_kernel_smoke_main.cpp
+        src/formula_probe_cache.cpp
+    )
+    nextengine_configure_formula_reclosure_target(
+        nonlocal-formula-probe-kernel-smoke -O0)
+    target_link_libraries(
+        nonlocal-formula-probe-kernel-smoke
+        PRIVATE nonlocal-formula-reclosure-dev-core)
+    target_compile_definitions(
+        nonlocal-formula-probe-kernel-smoke PRIVATE
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
 endif()

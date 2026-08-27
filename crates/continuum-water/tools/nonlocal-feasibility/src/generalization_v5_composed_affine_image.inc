@@ -445,6 +445,12 @@ struct ALR20R63XFixture {
     std::vector<ALR20R37Dyadic> rhs;
     ALR20R63QExactMatrix matrix;
     ALR20R63RDefect defect;
+    // Observational operator endpoint for later representation-factorial
+    // gates. Excluded from the frozen R63X semantic and lane roots.
+    std::vector<Binary128> tangent;
+    std::size_t tangent_columns = 0U;
+    Binary128 sigma = static_cast<Binary128>(0.0);
+    std::string tangent_root;
     std::vector<std::vector<Binary128>> wide_solutions;
     std::vector<std::vector<Binary128>> exported_solutions;
     std::vector<ALR20R63UCertificate> wide_oracles;
@@ -1037,6 +1043,10 @@ SplitBoundaryReport run_al_generalization_v5_composed_affine_image_controls() {
     al_r20_r63x_last_fixture.rhs = exact_rhs;
     al_r20_r63x_last_fixture.matrix = common_audit.matrix;
     al_r20_r63x_last_fixture.defect = verifier_audit.defect;
+    al_r20_r63x_last_fixture.tangent = tangent.values;
+    al_r20_r63x_last_fixture.tangent_columns = tangent.columns;
+    al_r20_r63x_last_fixture.sigma = sigma;
+    al_r20_r63x_last_fixture.tangent_root = tangent.value_root;
     al_r20_r63x_last_fixture.wide_solutions = wide_solutions;
     al_r20_r63x_last_fixture.exported_solutions = exported_solutions;
     al_r20_r63x_last_fixture.wide_oracles = wide_oracles;

@@ -310,6 +310,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v5-active-block-operator|"
                          "--nonlocal-al-generalization-v5-finite-factor-consumption|"
                          "--nonlocal-al-generalization-v5-twofold-recurrence|"
+                         "--nonlocal-al-generalization-v5-operator-input-factorial|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2622,6 +2623,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v5_twofold_recurrence_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command ==
+            "--nonlocal-al-generalization-v5-operator-input-factorial") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v5_operator_input_factorial_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

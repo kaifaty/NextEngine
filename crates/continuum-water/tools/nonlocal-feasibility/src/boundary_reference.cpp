@@ -1,4 +1,5 @@
 #include "boundary_reference.hpp"
+#include "formula_probe_api.hpp"
 
 #include "balanced_canonical.hpp"
 #include "canonical.hpp"
@@ -80169,6 +80170,449 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_v5_active_block_operator.inc"
 #include "generalization_v5_finite_factor_consumption.inc"
 #include "generalization_v5_twofold_recurrence.inc"
+#include "generalization_v5_operator_input_factorial.inc"
+
+namespace {
+
+FormulaProbeProfile al_formula_probe_profile(
+    const ALR20R63YProfile& source) {
+    FormulaProbeProfile result;
+    result.exact = source.exact;
+    result.contained = source.contained;
+    result.contractive = source.contractive;
+    result.width = source.width;
+    result.dimension = source.dimension;
+    result.vector_containments = source.vector_containments;
+    result.matrix_containments = source.matrix_containments;
+    result.nonzero_vector_lows = source.nonzero_vector_lows;
+    result.nonzero_matrix_lows = source.nonzero_matrix_lows;
+    result.vector_components = source.vector_components;
+    result.vector_radius = source.vector_radius;
+    result.matrix_components = source.matrix_components;
+    result.matrix_radius = source.matrix_radius;
+    result.rho_upper = source.rho_upper;
+    result.maximum_vector_radius = source.maximum_vector_radius;
+    result.maximum_matrix_radius = source.maximum_matrix_radius;
+    result.exact_root = source.exact_root;
+    result.component_root = source.component_root;
+    result.radius_root = source.radius_root;
+    result.root = source.root;
+    return result;
+}
+
+ALR20R63YProfile al_formula_probe_internal_profile(
+    const FormulaProbeProfile& source) {
+    ALR20R63YProfile result;
+    result.exact = source.exact;
+    result.contained = source.contained;
+    result.contractive = source.contractive;
+    result.width = source.width;
+    result.dimension = source.dimension;
+    result.vector_containments = source.vector_containments;
+    result.matrix_containments = source.matrix_containments;
+    result.nonzero_vector_lows = source.nonzero_vector_lows;
+    result.nonzero_matrix_lows = source.nonzero_matrix_lows;
+    result.vector_components = source.vector_components;
+    result.vector_radius = source.vector_radius;
+    result.matrix_components = source.matrix_components;
+    result.matrix_radius = source.matrix_radius;
+    result.rho_upper = source.rho_upper;
+    result.maximum_vector_radius = source.maximum_vector_radius;
+    result.maximum_matrix_radius = source.maximum_matrix_radius;
+    result.exact_root = source.exact_root;
+    result.component_root = source.component_root;
+    result.radius_root = source.radius_root;
+    result.root = source.root;
+    return result;
+}
+
+FormulaProbeCertificate al_formula_probe_certificate(
+    const ALR20R63YCertificate& source) {
+    FormulaProbeCertificate result;
+    result.exact = source.exact;
+    result.passed = source.passed;
+    result.positive = source.positive;
+    result.negative = source.negative;
+    result.unresolved = source.unresolved;
+    result.error_upper = source.error_upper;
+    result.solution_root = source.solution_root;
+    result.sign_root = source.sign_root;
+    result.root = source.root;
+    return result;
+}
+
+std::string al_formula_probe_certificate_set_root(
+    const std::vector<FormulaProbeCertificate>& certificates) {
+    std::ostringstream material;
+    material << certificates.size() << '|';
+    for (const FormulaProbeCertificate& certificate : certificates)
+        material << certificate.exact << ':' << certificate.passed << ':'
+            << certificate.positive << ':' << certificate.negative << ':'
+            << certificate.unresolved << ':'
+            << binary64_bits(certificate.error_upper) << ':'
+            << certificate.solution_root << ':' << certificate.sign_root
+            << ':' << certificate.root << ';';
+    return sha256_hex(material.str());
+}
+
+} // namespace
+
+std::string formula_probe_parent_fixture_root(
+    const FormulaProbeParentFixture& fixture) {
+    std::ostringstream material;
+    material << fixture.exact << ':' << fixture.schema << ':'
+        << fixture.dimension << ':' << fixture.tangent_columns << '|'
+        << fixture.r63y_stdout_sha256 << ':' << fixture.r63z_stdout_sha256
+        << ':' << fixture.r63za_stdout_sha256 << ':'
+        << fixture.r63zb_stdout_sha256 << ':'
+        << fixture.r63zb_result_sha256 << '|'
+        << fixture.r63x_semantic << ':' << fixture.r63x_profile_root << ':'
+        << fixture.r63x_endpoint_root << ':'
+        << fixture.r63x_solution_set_root << ':'
+        << al_r20_r63zc_solution_set_root(fixture.baseline_solutions) << ':'
+        << al_formula_probe_certificate_set_root(
+            fixture.baseline_certificates) << '|'
+        << al_r20_q_scalar_root(fixture.tangent) << ':'
+        << al_binary128_hex(fixture.sigma) << ':' << fixture.tangent_root
+        << '|' << al_r20_double_root(fixture.factor_upper) << ':'
+        << al_r20_r63g_index_root(fixture.permutation) << ':'
+        << al_binary128_hex(fixture.inverse_scale) << ':'
+        << fixture.factor_fixture_root << ':' << fixture.factor_root << ':'
+        << fixture.permutation_root << '|'
+        << al_r20_q_scalar_root(fixture.original_rhs) << ':'
+        << al_r20_q_scalar_root(fixture.projected_rhs) << ':'
+        << al_binary128_hex(fixture.projected_scale) << ':'
+        << fixture.original_rhs_root << ':' << fixture.projected_rhs_root
+        << '|' << al_r20_double_root(fixture.common_components) << ':'
+        << fixture.common_semantic << ':' << fixture.common_component_root
+        << ':' << fixture.common_root << '|'
+        << fixture.verifier_profile.root << ':' << fixture.verifier_semantic
+        << ':' << fixture.verifier_profile_root << '|'
+        << al_r20_r63zc_solution_set_root(
+            fixture.common_projected_solutions) << ':'
+        << al_formula_probe_certificate_set_root(
+            fixture.common_projected_certificates) << ':'
+        << fixture.finite_transaction_root << ':'
+        << fixture.common_projected_comparator_root;
+    return sha256_hex(material.str());
+}
+
+bool formula_probe_parent_fixture_valid(
+    const FormulaProbeParentFixture& fixture) {
+    if (!fixture.exact
+        || fixture.schema
+            != "nextengine.nonlocal.formula_probe_parent_fixture.r63zc.v1"
+        || fixture.dimension != AL_R20_R63ZC_DIMENSION
+        || fixture.tangent_columns != AL_R20_R63ZC_TANGENT_COLUMNS
+        || fixture.r63y_stdout_sha256 != AL_R20_R63ZC_R63Y_STDOUT_SHA256
+        || fixture.r63z_stdout_sha256 != AL_R20_R63ZC_R63Z_STDOUT_SHA256
+        || fixture.r63za_stdout_sha256 != AL_R20_R63ZC_R63ZA_STDOUT_SHA256
+        || fixture.r63zb_stdout_sha256 != AL_R20_R63ZC_PARENT_STDOUT_SHA256
+        || fixture.r63zb_result_sha256 != AL_R20_R63ZC_PARENT_RESULT_SHA256
+        || fixture.r63x_semantic != AL_R20_R63ZC_R63X_SEMANTIC_SHA256
+        || fixture.r63x_profile_root != AL_R20_R63ZC_R63X_PROFILE_SHA256
+        || fixture.r63x_endpoint_root != AL_R20_R63ZC_R63X_EXPORTED_SHA256
+        || fixture.r63x_solution_set_root
+            != AL_R20_R63ZC_R63X_SOLUTION_SET_SHA256
+        || fixture.baseline_solutions.size() != 3U
+        || al_r20_r63zc_solution_set_root(fixture.baseline_solutions)
+            != fixture.r63x_solution_set_root
+        || fixture.baseline_certificates.size() != 3U
+        || fixture.tangent.size()
+            != fixture.dimension * fixture.tangent_columns
+        || fixture.tangent_root != AL_R20_R63ZC_TANGENT_SHA256
+        || fixture.tangent_root != al_r20_q_scalar_root(fixture.tangent)
+        || fixture.sigma <= static_cast<FormulaProbeBinary128>(0.0)
+        || fixture.factor_upper.size()
+            != fixture.dimension * fixture.dimension
+        || fixture.permutation.size() != fixture.dimension
+        || fixture.factor_fixture_root != AL_R20_R63ZB_FIXTURE_SHA256
+        || fixture.factor_root != AL_R20_R63ZC_FACTOR_SHA256
+        || fixture.factor_root != al_r20_double_root(fixture.factor_upper)
+        || fixture.permutation_root != AL_R20_R63ZC_PERMUTATION_SHA256
+        || fixture.permutation_root
+            != al_r20_r63g_index_root(fixture.permutation)
+        || fixture.sigma
+            != static_cast<FormulaProbeBinary128>(1.0)
+                / fixture.inverse_scale
+        || fixture.original_rhs.size() != fixture.dimension
+        || fixture.projected_rhs.size() != fixture.dimension
+        || fixture.original_rhs_root
+            != al_r20_q_scalar_root(fixture.original_rhs)
+        || fixture.projected_rhs_root
+            != al_r20_q_scalar_root(fixture.projected_rhs)
+        || fixture.common_components.size()
+            != 2U * fixture.dimension * fixture.dimension
+        || fixture.common_semantic != AL_R20_R63ZB_OPERATOR_SEMANTIC_SHA256
+        || fixture.common_component_root
+            != al_r20_double_root(fixture.common_components)
+        || fixture.common_root != AL_R20_R63ZB_OPERATOR_ARTIFACT_SHA256
+        || fixture.verifier_semantic
+            != AL_R20_R63ZB_VERIFIER_SEMANTIC_SHA256
+        || fixture.verifier_profile_root
+            != AL_R20_R63ZB_VERIFIER_PROFILE_SHA256
+        || fixture.verifier_profile.root != fixture.verifier_profile_root
+        || !al_r20_r63zb_profile_valid(
+            al_formula_probe_internal_profile(fixture.verifier_profile))
+        || fixture.common_projected_solutions.size() != 3U
+        || fixture.common_projected_certificates.size() != 3U
+        || fixture.finite_transaction_root
+            != AL_R20_R63ZC_FINITE_TRANSACTION_SHA256
+        || fixture.common_projected_comparator_root
+            != AL_R20_R63ZC_COMBINED_COMPARATOR_SHA256)
+        return false;
+    for (std::size_t state = 0U; state < 3U; ++state) {
+        const FormulaProbeCertificate& baseline =
+            fixture.baseline_certificates[state];
+        const FormulaProbeCertificate& combined =
+            fixture.common_projected_certificates[state];
+        const ALR20R63YCertificate expected_baseline =
+            al_r20_r63y_certificate(
+                al_formula_probe_internal_profile(fixture.verifier_profile),
+                al_r20_r63y_solution(
+                    fixture.baseline_solutions[state], 2U));
+        const ALR20R63YCertificate expected_combined =
+            al_r20_r63y_certificate(
+                al_formula_probe_internal_profile(fixture.verifier_profile),
+                al_r20_r63y_solution(
+                    fixture.common_projected_solutions[state], 2U));
+        if (!baseline.exact
+            || baseline.root != expected_baseline.root
+            || baseline.solution_root != expected_baseline.solution_root
+            || baseline.sign_root != expected_baseline.sign_root
+            || (state < 2U && (baseline.passed || baseline.unresolved == 0U))
+            || (state == 2U && (!baseline.passed
+                || baseline.positive != 24U || baseline.negative != 78U
+                || baseline.unresolved != 0U))
+            || !combined.exact || combined.passed
+            || combined.root != expected_combined.root
+            || combined.solution_root != expected_combined.solution_root
+            || combined.sign_root != expected_combined.sign_root
+            || combined.positive != 12U || combined.negative != 24U
+            || combined.unresolved != 66U)
+            return false;
+    }
+    std::vector<FormulaProbeBinary128> expected_projected;
+    expected_projected.reserve(fixture.original_rhs.size());
+    for (FormulaProbeBinary128 value : fixture.original_rhs) {
+        const ALR20R63ZAScalar projected = al_r20_r63zb_project(value);
+        if (!al_r20_r63zb_operand(projected)) return false;
+        expected_projected.push_back(
+            static_cast<FormulaProbeBinary128>(projected.high)
+            + static_cast<FormulaProbeBinary128>(projected.low));
+    }
+    const ALR20R63ZAScalar projected_scale =
+        al_r20_r63zb_project(fixture.inverse_scale);
+    return al_r20_q_scalar_root(expected_projected)
+            == fixture.projected_rhs_root
+        && al_r20_r63zb_operand(projected_scale)
+        && fixture.projected_scale
+            == static_cast<FormulaProbeBinary128>(projected_scale.high)
+                + static_cast<FormulaProbeBinary128>(projected_scale.low)
+        && fixture.root == formula_probe_parent_fixture_root(fixture);
+}
+
+FormulaProbeParentFixture capture_formula_probe_parent_fixture() {
+    FormulaProbeParentFixture result;
+    result.schema =
+        "nextengine.nonlocal.formula_probe_parent_fixture.r63zc.v1";
+    result.dimension = AL_R20_R63ZC_DIMENSION;
+    result.tangent_columns = AL_R20_R63ZC_TANGENT_COLUMNS;
+    const SplitBoundaryReport parent =
+        run_al_generalization_v5_twofold_recurrence_controls();
+    const ALR20R63XFixture source = al_r20_r63x_last_fixture;
+    const ALR20R63ZALastResult factor = al_r20_r63za_last_result;
+    const ALR20R63ZLastResult common = al_r20_r63z_last_result;
+    const ALR20R63YLastResult verifier = al_r20_r63y_last_result;
+    result.r63y_stdout_sha256 = sha256_hex(al_r20_r63y_last_json + "\n");
+    result.r63z_stdout_sha256 = sha256_hex(al_r20_r63z_last_json + "\n");
+    result.r63za_stdout_sha256 = sha256_hex(al_r20_r63za_last_json + "\n");
+    result.r63zb_stdout_sha256 = sha256_hex(parent.json + "\n");
+    result.r63zb_result_sha256 = AL_R20_R63ZC_PARENT_RESULT_SHA256;
+    const bool parent_exact = !parent.passed
+        && result.r63y_stdout_sha256 == AL_R20_R63ZC_R63Y_STDOUT_SHA256
+        && result.r63z_stdout_sha256 == AL_R20_R63ZC_R63Z_STDOUT_SHA256
+        && result.r63za_stdout_sha256 == AL_R20_R63ZC_R63ZA_STDOUT_SHA256
+        && result.r63zb_stdout_sha256 == AL_R20_R63ZC_PARENT_STDOUT_SHA256
+        && parent.json.find(AL_R20_R63ZC_PARENT_RESULT_SHA256)
+            != std::string::npos
+        && source.exact && factor.exact && common.exact && verifier.exact;
+    if (!parent_exact || factor.fixture.sources.empty()) return result;
+
+    result.r63x_semantic = source.semantic;
+    result.r63x_profile_root = source.profile_root;
+    result.r63x_endpoint_root = source.exported_root;
+    result.baseline_solutions = source.exported_solutions;
+    result.r63x_solution_set_root =
+        al_r20_r63zc_solution_set_root(result.baseline_solutions);
+    result.tangent = source.tangent;
+    result.sigma = source.sigma;
+    result.tangent_root = source.tangent_root;
+
+    result.factor_upper = factor.fixture.exported_upper;
+    result.permutation = factor.fixture.permutation;
+    result.inverse_scale = factor.fixture.inverse_scale;
+    result.factor_fixture_root = factor.fixture.root;
+    result.factor_root = al_r20_double_root(result.factor_upper);
+    result.permutation_root = al_r20_r63g_index_root(result.permutation);
+    result.original_rhs = factor.fixture.sources[0U];
+    result.original_rhs_root = al_r20_q_scalar_root(result.original_rhs);
+    std::vector<ALR20R63ZAScalar> projected_rhs_k2;
+    projected_rhs_k2.reserve(result.original_rhs.size());
+    result.projected_rhs.reserve(result.original_rhs.size());
+    for (FormulaProbeBinary128 value : result.original_rhs) {
+        const ALR20R63ZAScalar projected = al_r20_r63zb_project(value);
+        projected_rhs_k2.push_back(projected);
+        result.projected_rhs.push_back(
+            static_cast<FormulaProbeBinary128>(projected.high)
+            + static_cast<FormulaProbeBinary128>(projected.low));
+    }
+    const ALR20R63ZAScalar projected_scale_k2 =
+        al_r20_r63zb_project(result.inverse_scale);
+    result.projected_scale =
+        static_cast<FormulaProbeBinary128>(projected_scale_k2.high)
+        + static_cast<FormulaProbeBinary128>(projected_scale_k2.low);
+    result.projected_rhs_root = al_r20_q_scalar_root(result.projected_rhs);
+
+    result.common_components = common.artifact.components;
+    result.common_semantic = common.semantic;
+    result.common_component_root =
+        al_r20_double_root(result.common_components);
+    result.common_root = common.artifact.root;
+    result.verifier_profile = al_formula_probe_profile(
+        verifier.selected_profile);
+    result.verifier_semantic = verifier.semantic;
+    result.verifier_profile_root = verifier.selected_profile.root;
+
+    for (const std::vector<FormulaProbeBinary128>& solution :
+         result.baseline_solutions) {
+        const ALR20R63YSolution projected =
+            al_r20_r63y_solution(solution, 2U);
+        result.baseline_certificates.push_back(al_formula_probe_certificate(
+            al_r20_r63y_certificate(verifier.selected_profile, projected)));
+    }
+    const ALR20R63ZBTransaction finite = al_r20_r63zb_transaction(
+        common.artifact, result.factor_upper, result.permutation,
+        projected_scale_k2, projected_rhs_k2);
+    const ALR20R63ZBComparator comparator = finite.complete
+        ? al_r20_r63zb_binary128_comparator(common.artifact,
+            projected_rhs_k2, projected_scale_k2, result.factor_upper,
+            result.permutation, verifier.selected_profile, finite.states,
+            result.baseline_solutions)
+        : ALR20R63ZBComparator{};
+    result.finite_transaction_root = finite.root;
+    result.common_projected_solutions = comparator.states;
+    for (const ALR20R63YCertificate& certificate : comparator.certificates)
+        result.common_projected_certificates.push_back(
+            al_formula_probe_certificate(certificate));
+    result.common_projected_comparator_root = comparator.root;
+    result.exact = finite.complete && comparator.exact && !comparator.ladder;
+    result.root = formula_probe_parent_fixture_root(result);
+    if (!formula_probe_parent_fixture_valid(result)) {
+        result.exact = false;
+        result.root = formula_probe_parent_fixture_root(result);
+    }
+    return result;
+}
+
+FormulaProbeProduct formula_probe_tangent_product(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& input) {
+    FormulaProbeProduct result;
+    if (fixture.dimension == 0U || input.size() != fixture.dimension
+        || fixture.tangent_columns == 0U
+        || fixture.tangent.size()
+            != fixture.dimension * fixture.tangent_columns
+        || !(fixture.sigma > static_cast<FormulaProbeBinary128>(0.0))
+        || finiteq(fixture.sigma) == 0)
+        return result;
+    const ALR20R63NProduct product = al_r20_r63n_product(
+        fixture.tangent, fixture.dimension, fixture.tangent_columns,
+        fixture.sigma, input);
+    result.exact = product.exact;
+    result.value = product.value;
+    result.inner_dots = product.inner_dots;
+    result.outer_dots = product.outer_dots;
+    result.inner_terms = product.inner_terms;
+    result.outer_terms = product.outer_terms;
+    result.scale_products = product.scale_products;
+    result.root = product.root;
+    return result;
+}
+
+FormulaProbeProduct formula_probe_common_product(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& input) {
+    FormulaProbeProduct result;
+    if (fixture.dimension == 0U || input.size() != fixture.dimension
+        || fixture.common_components.size()
+            != 2U * fixture.dimension * fixture.dimension)
+        return result;
+    std::vector<FormulaProbeBinary128> matrix(
+        fixture.dimension * fixture.dimension);
+    for (std::size_t index = 0U; index < matrix.size(); ++index) {
+        matrix[index] =
+            static_cast<FormulaProbeBinary128>(
+                fixture.common_components[2U * index])
+            + static_cast<FormulaProbeBinary128>(
+                fixture.common_components[2U * index + 1U]);
+    }
+    const ALR20R63MProduct product = al_r20_r63m_product(matrix, input);
+    result.exact = product.exact;
+    result.value = product.value;
+    result.inner_dots = product.dots;
+    result.inner_terms = product.dots * fixture.dimension;
+    result.root = product.root;
+    return result;
+}
+
+FormulaProbeSolve formula_probe_factor_solve(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& source,
+    FormulaProbeBinary128 inverse_scale) {
+    FormulaProbeSolve result;
+    if (fixture.dimension == 0U || source.size() != fixture.dimension
+        || fixture.factor_upper.size()
+            != fixture.dimension * fixture.dimension
+        || fixture.permutation.size() != fixture.dimension
+        || !(inverse_scale > static_cast<FormulaProbeBinary128>(0.0))
+        || finiteq(inverse_scale) == 0)
+        return result;
+    const ALR20R63IQSolve solve = al_r20_r63i_q_solve(
+        al_r20_r63g_q_from_double(fixture.factor_upper),
+        fixture.permutation, source, inverse_scale);
+    result.exact = solve.exact;
+    result.intermediate = solve.intermediate;
+    result.solution = solve.solution;
+    result.forward_terms = solve.forward_terms;
+    result.backward_terms = solve.backward_terms;
+    result.divisions = solve.divisions;
+    result.root = solve.root;
+    return result;
+}
+
+FormulaProbeScalar formula_probe_scalar_dot(
+    const std::vector<FormulaProbeBinary128>& left,
+    const std::vector<FormulaProbeBinary128>& right) {
+    FormulaProbeScalar result;
+    if (left.empty() || left.size() != right.size()) return result;
+    const ALR20R63MScalar scalar = al_r20_r63m_scalar(left, right);
+    result.exact = scalar.exact;
+    result.positive = scalar.positive;
+    result.value = scalar.value;
+    result.root = scalar.root;
+    return result;
+}
+
+FormulaProbeCertificate formula_probe_certificate(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& solution) {
+    if (fixture.dimension == 0U || solution.size() != fixture.dimension)
+        return {};
+    return al_formula_probe_certificate(al_r20_r63y_certificate(
+        al_formula_probe_internal_profile(fixture.verifier_profile),
+        al_r20_r63y_solution(solution, 2U)));
+}
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

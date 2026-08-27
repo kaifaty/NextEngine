@@ -25,6 +25,33 @@ This correspondence is a regression check for the current snapshot, not a
 general theorem that optimization level cannot change future floating-point
 results.
 
+The implementation core is now a reusable static target. A thin
+`nonlocal-formula-probe-api-smoke` executable links the dev core, reproduces
+the pre-split CLI regression hash
+`d6ba5f8e802966c25283d0c8384ed01beec20b347acb343cf5c7c2bf360d69d9`,
+and proves the intended incremental build graph: after changing only its
+source, Ninja compiles that one source and relinks without rebuilding
+`boundary_reference.cpp`. The first smoke observed about 0.3 s and the final
+kernel-smoke rebuild observed about 0.5 s on the current host.
+
+The versioned R63ZC parent fixture is now self-sealed by live payload roots,
+ancestor identities and reconstructed endpoint certificates. Its external
+author cache has fixture root
+`7780543a21d3b32e39a1fd18e5056f61c610d69929b4c6b69640075d1e7c4553`,
+file SHA-256
+`23dbf605ad7b6ae12c4cf6a80404ead9617354ff2848bd010b52c7fa7f83bb84`
+and size `1,033,625` bytes. A validated cache read observed about 2.2 s instead
+of replaying the roughly 100-second parent capture. Truncation is rejected.
+The cache remains outside Git and has no evidence authority by itself.
+
+`nonlocal-formula-probe-kernel-smoke` consumes only that cache plus the stable
+API. It verifies the frozen factor solve, tangent/common products, scalar dot,
+R63Y certificate and invalid-dimension controls. Two executions are
+byte-identical at stdout SHA-256
+`bc14a15369732aede17108e7acf3c89ca1d3cfaeed7a5246dc318a3d2ef5b1b3`.
+The observed process wall time was about 2.7 s. These values describe the
+developer loop only and are not solver-performance evidence.
+
 ## Usage and evidence boundary
 
 Author iteration:
@@ -49,14 +76,14 @@ runtime, GPU or production authority.
 
 ## Remaining debt roadmap
 
-### BLT2 -- Stable core target
+### BLT2 -- Stable core target (`COMPLETE`)
 
 Move the unchanged formula-reclosure sources into a reusable static/object
 core and keep CLI dispatch in a thin executable. Preserve every existing CLI
 stdout/exit code. This prepares reuse but does not by itself remove the
 monolithic `boundary_reference.cpp` invalidation.
 
-### BLT3 -- Frozen parent-fixture API
+### BLT3 -- Frozen parent-fixture API (`COMPLETE`)
 
 Expose one narrow, versioned DTO/API for successor probes:
 
@@ -70,13 +97,13 @@ The API must be self-sealed and mutation-tested. Do not expose anonymous
 namespace implementation types or make a successor include
 `boundary_reference.cpp`.
 
-### BLT4 -- One successor probe per translation unit
+### BLT4 -- One successor probe per translation unit (`NEXT`)
 
 Compile R63ZD and later experiments as separate source files linked to the
 stable core/API. Editing one probe must not rebuild the ancestor implementation
 object. Keep one CLI route per probe and a dedicated focused target when useful.
 
-### BLT5 -- Parent fixture cache
+### BLT5 -- Parent fixture cache (`COMPLETE FOR AUTHOR LOOP`)
 
 Serialize the immutable parent DTO outside Git with a schema/version/hash and
 load it during author iteration. Regenerate it only from a frozen Release
@@ -86,6 +113,11 @@ or prove byte identity with its frozen producer hash.
 This removes the second cost currently hidden by the build problem: every
 process repeats the unchanged R63Y--R63ZB parent chain before exercising the
 new lane.
+
+The author cache is now implemented. Before scientific interpretation, a
+Release producer must regenerate it and reproduce both the fixture root and
+file hash above; the current cached file is not committed and does not replace
+that evidence step.
 
 ## Stop rules
 

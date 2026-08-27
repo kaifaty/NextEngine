@@ -438,6 +438,7 @@ struct ALR20R63ZALastResult {
 };
 
 ALR20R63ZALastResult al_r20_r63za_last_result;
+std::string al_r20_r63za_last_json;
 
 ALR20R63ZAControls al_r20_r63za_controls() {
     ALR20R63ZAControls result;
@@ -560,6 +561,7 @@ ALR20R63ZAControls al_r20_r63za_controls() {
 SplitBoundaryReport
 run_al_generalization_v5_finite_factor_consumption_controls() {
     al_r20_r63za_last_result = ALR20R63ZALastResult{};
+    al_r20_r63za_last_json.clear();
 #if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) \
     && defined(__SIZEOF_FLOAT128__) && !defined(__FAST_MATH__)
     constexpr bool frozen_platform = true;
@@ -704,5 +706,7 @@ run_al_generalization_v5_finite_factor_consumption_controls() {
         << ",\"timing_admitted\":false,\"runtime_authority\":false"
         << ",\"gpu_authority\":false,\"production_authority\":false"
         << ",\"result_sha256\":\"" << result_sha << "\"}";
-    return {exact, report.str()};
+    const std::string report_json = report.str();
+    al_r20_r63za_last_json = report_json;
+    return {exact, report_json};
 }
