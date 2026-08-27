@@ -771,6 +771,19 @@ fn normalize_source(
                 .map(|recording| &recording.audio)
                 .collect::<Vec<_>>(),
         ),
+        Some(AdapterEvidenceReport::ObjectfolderRealDemoIdentifiedRecordingV1 {
+            object_id,
+            material_label,
+            recordings,
+            ..
+        }) if source.adapter_id == "objectfolder-real-demo-identified-recording-v1" => (
+            object_id,
+            material_label,
+            recordings
+                .iter()
+                .map(|recording| &recording.audio)
+                .collect::<Vec<_>>(),
+        ),
         _ => {
             return Err(format!(
                 "source {} has no matching typed E3 adapter evidence",

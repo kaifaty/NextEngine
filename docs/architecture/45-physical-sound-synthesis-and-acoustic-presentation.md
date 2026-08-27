@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.18 |
+| Version | 0.19 |
 | Last verified | 2026-08-28 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
-| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md) |
-| Replaces | SPEC-45 0.17; records a fail-closed declarative Freesound E3 adapter and compatibility evidence without changing measured coverage, corpus admission, quality acceptance or runtime/content contracts |
-| Latest evidence | [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md) |
+| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md) |
+| Replaces | SPEC-45 0.18; records the bounded ObjectFolder-Real interactive-demo E3 route and measured coverage increment without changing corpus admission, quality acceptance or runtime/content contracts |
+| Latest evidence | [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md) |
 
 ## Status and decision boundary
 
@@ -124,9 +124,9 @@ bounded credential-free HTTPS retrieval, content-addressed caching and
 artifact-backed `E1`--`E4` capability claims. Only an implemented adapter may
 validate a claim; opaque or discovery-only bytes grant no acoustic evidence.
 The first pilot verifies small hash-closed ObjectFolder metadata and its `E4`
-synthetic lineage. ObjectFolder-Real remains discovery-only because its first
-official acoustic archive is 36.37 GB and has no publisher-provided SHA-256;
-the archive was not downloaded. A second typed adapter validates one immutable
+synthetic lineage. The first ObjectFolder-Real monolithic archive route remains
+discovery-only because its first official acoustic archive is 36.37 GB and has
+no publisher-provided SHA-256; the archive was not downloaded. A second typed adapter validates one immutable
 AV-MSF page card and two finite float32 recordings for Object 95 (`Glass`), and
 grants exactly `E3IdentifiedRecording`. It does not grant force, geometry,
 position, support, calibration or transfer-response evidence. Both checkpoints
@@ -212,8 +212,9 @@ another object requires a separately reviewed frozen profile. GreenGoblet is a
 second E2 geometry/transfer target, not an E3 group, so Glass coverage remains
 `5/16`, `Pass` remains disabled and PS-2 remains open.
 
-The next bounded discriminator rejects ObjectFolder-Real as the immediate E3
-acquisition route despite its strong object/force/coordinate metadata. Its
+The next bounded discriminator rejects the monolithic ObjectFolder-Real archive
+as the immediate E3 acquisition route despite its strong object/force/
+coordinate metadata. Its
 official acoustic batches are 34–39 GB single-stream gzip tar archives, and a
 256 MiB bounded prefix remained inside one object's embedded media before a
 second impact recording. Prefix growth is not retried unless an official
@@ -268,6 +269,19 @@ discovered Glass-bottle pack candidates are not imported because current raw
 Freesound access fails closed with HTTP 403; search-index text cannot supply
 canonical bytes or hashes. This checkpoint reduces the next source to a
 manifest/evidence operation but adds no object, recording, split or risk credit.
+
+`objectfolder-real-demo-identified-recording-v1` now uses a distinct bounded
+route through the official ObjectFolder-Real interactive demos; the rejected
+34–39 GB single-stream gzip route remains rejected. Official object-table and
+demo-card bindings, immutable repository commits/root trees, exact raw paths,
+SHA-256, computed Git blob SHA-1 and bounded ISO BMFF/MP3 structure validate
+five objects and fifteen recordings. Two Glass objects and three non-Glass
+parents raise the explicit corpus to six project/revision groups, twenty
+objects/fifty-nine recordings, Glass `9/16` and reject parents `11/35`. All
+groups remain in development; seven target and twenty-four reject-parent groups
+remain open. Unknown redistribution terms keep the bytes external, and the
+checkpoint grants no force, geometry, position, support, split, admission,
+quality or production credit.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

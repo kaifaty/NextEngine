@@ -14,6 +14,8 @@ pub(super) mod freesound_pack;
 pub(super) mod freesound_wine_glass;
 pub(super) mod heller_impact;
 mod mp3;
+mod mp4;
+pub(super) mod objectfolder_real_demo;
 mod wav;
 pub(super) mod ycb_impact;
 mod zip_archive;
@@ -41,6 +43,15 @@ pub(super) enum AdapterProfile {
         material_label: String,
         event_label: String,
         recordings: Vec<heller_impact::RecordingProfile>,
+    },
+    ObjectfolderRealDemoIdentifiedRecordingV1 {
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        repository_name: String,
+        repository_commit: String,
+        repository_tree_sha1: String,
+        recordings: Vec<objectfolder_real_demo::RecordingProfile>,
     },
     FreesoundGlassBowlIdentifiedRecordingV1 {
         pack_id: String,
@@ -107,6 +118,14 @@ pub(super) enum AdapterEvidenceReport {
         event_label: String,
         recordings: Vec<heller_impact::RecordingEvidenceReport>,
     },
+    ObjectfolderRealDemoIdentifiedRecordingV1 {
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        repository_name: String,
+        repository_commit: String,
+        recordings: Vec<objectfolder_real_demo::RecordingEvidenceReport>,
+    },
     FreesoundGlassBowlIdentifiedRecordingV1 {
         pack_id: String,
         object_id: String,
@@ -164,6 +183,14 @@ pub(super) fn validate_profile_declaration(source: &InternetSource) -> Result<()
         ) => heller_impact::validate_declaration(source),
         (heller_impact::ADAPTER_ID, None) => Err(format!(
             "source {} requires a Heller Impact adapter profile",
+            source.id
+        )),
+        (
+            objectfolder_real_demo::ADAPTER_ID,
+            Some(AdapterProfile::ObjectfolderRealDemoIdentifiedRecordingV1 { .. }),
+        ) => objectfolder_real_demo::validate_declaration(source),
+        (objectfolder_real_demo::ADAPTER_ID, None) => Err(format!(
+            "source {} requires an ObjectFolder-Real demo adapter profile",
             source.id
         )),
         (
@@ -232,6 +259,7 @@ pub(super) fn audit(
         freesound_pack::ADAPTER_ID => freesound_pack::audit(cache, source),
         freesound_wine_glass::ADAPTER_ID => freesound_wine_glass::audit(cache, source),
         heller_impact::ADAPTER_ID => heller_impact::audit(cache, source),
+        objectfolder_real_demo::ADAPTER_ID => objectfolder_real_demo::audit(cache, source),
         ycb_impact::ADAPTER_ID => ycb_impact::audit(cache, source),
         _ => Ok(AdapterAudit {
             validated_capabilities: BTreeSet::new(),
