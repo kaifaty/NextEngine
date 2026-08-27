@@ -351,6 +351,8 @@ SplitBoundaryReport
 run_al_generalization_v5_earliest_residual_image_controls();
 SplitBoundaryReport
 run_al_generalization_v5_finite_residual_image_controls();
+SplitBoundaryReport
+run_al_generalization_v5_composed_affine_image_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
