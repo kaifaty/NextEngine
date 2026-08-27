@@ -190,6 +190,10 @@ struct ALR20R63SLane {
     std::vector<Binary128> solution;
     std::vector<Binary128> residual;
     std::vector<Binary128> direction;
+    // Observational fixtures for later portable-consumption gates. They are
+    // deliberately excluded from the frozen R63S root and report.
+    std::vector<std::vector<Binary128>> preconditioner_sources;
+    std::vector<ALR20R63IQSolve> preconditioner_references;
     ALR20R63SCertificate initial_certificate;
     std::vector<ALR20R63SStep> steps;
     std::string failure_stage;
@@ -275,6 +279,7 @@ ALR20R63SLane al_r20_r63s_lane(
     }
     ALR20R63IQSolve preconditioned;
     if (finite) {
+        result.preconditioner_sources.push_back(result.residual);
         preconditioned = al_r20_r63i_q_solve(
             upper, permutation, result.residual, inverse_scale);
         result.forward_terms += preconditioned.forward_terms;
@@ -286,6 +291,7 @@ ALR20R63SLane al_r20_r63s_lane(
             result.failure_stage = "initial_preconditioner";
         } else {
             result.direction = preconditioned.solution;
+            result.preconditioner_references.push_back(preconditioned);
         }
     }
     ALR20R63MScalar rho;
@@ -386,6 +392,10 @@ ALR20R63SLane al_r20_r63s_lane(
                 result.failure_stage = "preconditioner";
                 break;
             }
+            if (iteration == 1U) {
+                result.preconditioner_sources.push_back(result.residual);
+                result.preconditioner_references.push_back(preconditioned);
+            }
             const ALR20R63MScalar rho_new = al_r20_r63m_scalar(
                 result.residual, preconditioned.solution);
             ++result.rho_dots;
@@ -477,6 +487,34 @@ ALR20R63SLane al_r20_r63s_lane(
         material << step.root << ';';
     result.root = sha256_hex(material.str());
     return result;
+}
+
+struct ALR20R63SConsumptionFixture {
+    bool exact = false;
+    std::size_t dimension = 0U;
+    std::vector<double> exported_upper;
+    std::vector<std::size_t> permutation;
+    Binary128 inverse_scale = static_cast<Binary128>(0.0);
+    std::vector<std::vector<Binary128>> sources;
+    std::vector<ALR20R63IQSolve> references;
+    std::string exported_lane_root;
+    std::string root;
+};
+
+ALR20R63SConsumptionFixture al_r20_r63s_consumption_fixture;
+
+std::string al_r20_r63s_consumption_fixture_root(
+    const ALR20R63SConsumptionFixture& fixture) {
+    std::ostringstream material;
+    material << fixture.dimension << ':'
+        << al_r20_double_root(fixture.exported_upper) << ':'
+        << al_r20_r63g_index_root(fixture.permutation) << ':'
+        << al_binary128_hex(fixture.inverse_scale) << ':'
+        << fixture.exported_lane_root << '|';
+    for (std::size_t index = 0U; index < fixture.sources.size(); ++index)
+        material << al_r20_q_scalar_root(fixture.sources[index]) << ':'
+            << fixture.references[index].root << ';';
+    return sha256_hex(material.str());
 }
 
 std::string al_r20_r63s_classify(
@@ -580,6 +618,7 @@ ALR20R63SControls al_r20_r63s_controls() {
 
 SplitBoundaryReport
 run_al_generalization_v5_common_operator_pcg_controls() {
+    al_r20_r63s_consumption_fixture = ALR20R63SConsumptionFixture{};
 #if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) \
     && defined(__SIZEOF_FLOAT128__) && !defined(__FAST_MATH__)
     constexpr bool frozen_platform = true;
@@ -776,6 +815,34 @@ run_al_generalization_v5_common_operator_pcg_controls() {
             exact_rhs, common_audit.matrix, verifier_audit.defect,
             export_start.solution)
         : ALR20R63SLane{};
+    if (exported.exact && export_start.exact
+        && exported.preconditioner_sources.size() == 2U
+        && exported.preconditioner_references.size() == 2U) {
+        al_r20_r63s_consumption_fixture.dimension = tangent.rows;
+        al_r20_r63s_consumption_fixture.exported_upper = exported_d;
+        al_r20_r63s_consumption_fixture.permutation = permutation;
+        al_r20_r63s_consumption_fixture.inverse_scale = inverse_scale;
+        al_r20_r63s_consumption_fixture.sources = {
+            factor_capture.rhs,
+            exported.preconditioner_sources[0U],
+            exported.preconditioner_sources[1U]};
+        al_r20_r63s_consumption_fixture.references = {
+            export_start,
+            exported.preconditioner_references[0U],
+            exported.preconditioner_references[1U]};
+        al_r20_r63s_consumption_fixture.exported_lane_root = exported.root;
+        al_r20_r63s_consumption_fixture.exact =
+            al_r20_r63s_consumption_fixture.dimension == 102U
+            && al_r20_double_root(exported_d)
+                == AL_R20_R63I_EXPORT_R_SHA256
+            && al_r20_r63g_index_root(permutation)
+                == AL_R20_R63R_PERMUTATION_SHA256
+            && exported.root
+                == "5dcc65f74b8769d5a53cf5db2937f4c2013dc4b92f0333bb42a791006bc3c255";
+        al_r20_r63s_consumption_fixture.root =
+            al_r20_r63s_consumption_fixture_root(
+                al_r20_r63s_consumption_fixture);
+    }
     if (problem_materialized)
         release_al_normalized_workspace(problem.workspace, &sparse_work);
     const bool lifecycle_exact = sparse_work.workspace_releases == 1U

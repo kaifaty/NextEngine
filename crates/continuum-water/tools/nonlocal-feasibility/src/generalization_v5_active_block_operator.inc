@@ -478,6 +478,16 @@ struct ALR20R63ZControls {
     std::string root;
 };
 
+struct ALR20R63ZLastResult {
+    bool exact = false;
+    std::string route;
+    std::string semantic;
+    std::string artifact_root;
+    std::string identity_root;
+};
+
+ALR20R63ZLastResult al_r20_r63z_last_result;
+
 ALR20R63QExactMatrix al_r20_r63z_control_matrix(
     const std::vector<ALR20R37Dyadic>& numerator,
     const ALR20R37Dyadic& d, std::size_t dimension) {
@@ -783,6 +793,7 @@ ALR20R63ZControls al_r20_r63z_controls() {
 } // namespace
 
 SplitBoundaryReport run_al_generalization_v5_active_block_operator_controls() {
+    al_r20_r63z_last_result = ALR20R63ZLastResult{};
 #if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) \
     && defined(__SIZEOF_FLOAT128__) && !defined(__FAST_MATH__)
     constexpr bool frozen_platform = true;
@@ -859,6 +870,11 @@ SplitBoundaryReport run_al_generalization_v5_active_block_operator_controls() {
         << ':' << identity.root << ':' << artifact.root << ':'
         << retained.root << ':' << exported.root;
     const std::string result_sha = sha256_hex(semantic.str());
+    al_r20_r63z_last_result.exact = exact;
+    al_r20_r63z_last_result.route = route;
+    al_r20_r63z_last_result.semantic = result_sha;
+    al_r20_r63z_last_result.artifact_root = artifact.root;
+    al_r20_r63z_last_result.identity_root = identity.root;
     auto lane_json = [](const char* name, const ALR20R63ZLane& lane) {
         std::ostringstream stream;
         stream << std::setprecision(17)

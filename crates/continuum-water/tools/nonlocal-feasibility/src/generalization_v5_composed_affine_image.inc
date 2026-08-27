@@ -640,6 +640,7 @@ ALR20R63XControls al_r20_r63x_controls() {
 
 SplitBoundaryReport run_al_generalization_v5_composed_affine_image_controls() {
     al_r20_r63x_last_fixture = ALR20R63XFixture{};
+    al_r20_r63s_consumption_fixture = ALR20R63SConsumptionFixture{};
 #if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) \
     && defined(__SIZEOF_FLOAT128__) && !defined(__FAST_MATH__)
     constexpr bool frozen_platform = true;
@@ -836,6 +837,34 @@ SplitBoundaryReport run_al_generalization_v5_composed_affine_image_controls() {
             exact_rhs, common_audit.matrix, verifier_audit.defect,
             export_start.solution)
         : ALR20R63SLane{};
+    if (parent_exported.exact && export_start.exact
+        && parent_exported.preconditioner_sources.size() == 2U
+        && parent_exported.preconditioner_references.size() == 2U) {
+        al_r20_r63s_consumption_fixture.dimension = tangent.rows;
+        al_r20_r63s_consumption_fixture.exported_upper = exported_d;
+        al_r20_r63s_consumption_fixture.permutation = permutation;
+        al_r20_r63s_consumption_fixture.inverse_scale = inverse_scale;
+        al_r20_r63s_consumption_fixture.sources = {
+            factor_capture.rhs,
+            parent_exported.preconditioner_sources[0U],
+            parent_exported.preconditioner_sources[1U]};
+        al_r20_r63s_consumption_fixture.references = {
+            export_start,
+            parent_exported.preconditioner_references[0U],
+            parent_exported.preconditioner_references[1U]};
+        al_r20_r63s_consumption_fixture.exported_lane_root =
+            parent_exported.root;
+        al_r20_r63s_consumption_fixture.exact = tangent.rows == 102U
+            && al_r20_double_root(exported_d)
+                == AL_R20_R63I_EXPORT_R_SHA256
+            && al_r20_r63g_index_root(permutation)
+                == AL_R20_R63R_PERMUTATION_SHA256
+            && parent_exported.root
+                == "5dcc65f74b8769d5a53cf5db2937f4c2013dc4b92f0333bb42a791006bc3c255";
+        al_r20_r63s_consumption_fixture.root =
+            al_r20_r63s_consumption_fixture_root(
+                al_r20_r63s_consumption_fixture);
+    }
     const std::string parent_r63s_route = al_r20_r63s_classify(true, true,
         parent_wide.passed, parent_exported.passed);
     std::ostringstream parent_r63s_material;
