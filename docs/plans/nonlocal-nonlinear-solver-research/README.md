@@ -3908,6 +3908,21 @@ independent containment oracle only. Sparse realization, timing and production
 remain blocked until this finite boundary closes.
 
 The
+[R20R63W evidence](../../development/nonlocal-nsr3b4e2d7r20r63w-finite-residual-image-evidence-2026-08-27.md)
+selects `RETAINED_WIDE_FINITE_IMAGE_REJECTED`. All 1,224 exact residual/image
+entries are contained, but componentwise residual radii lose correlation when
+multiplied by `|Z|`; both state-2 error bounds return to `5.80e14` and leave 66
+signs unresolved. This refutes the selected interval factorization, not finite
+containment or ordinary Dot2 arithmetic.
+
+The correlation-preserving successor is frozen by the
+[R20R63X research](../../development/nonlocal-nsr3b4e2d7r20r63x-composed-affine-image-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63x-composed-affine-image-contract.md). It evaluates
+the equivalent affine form `Zb-(ZH*)x` in one compensated dot per row, with
+exact arithmetic restricted to profile construction and independent
+containment. Dense success would still require a later factorized/sparse gate.
+
+The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
 selects `BINARY64_RECTANGULAR_FACTOR_FLOOR`. Rounding the operator to binary64
 preserves the immutable weak signal, and the binary128 factor preserves it by
