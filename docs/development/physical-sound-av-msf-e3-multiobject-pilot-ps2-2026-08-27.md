@@ -111,8 +111,11 @@ that adding the remaining AV-MSF cards could by itself close PS-2: ten objects
 are still one project/revision group, and only two objects carry the target
 Glass label.
 
-The next PS-2 package must discover and adapt independent published E3
-publishers/projects and implement the bounded REALIMPACT E2 transfer adapter.
-Only then can the corpus plan be revised with honest group counts. Until the
+The bounded
+[REALIMPACT E2 adapter](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md)
+now validates one exact transfer row without changing this E3 group count. The
+next PS-2 package must discover and adapt independent published E3
+publishers/projects; then the corpus plan can be revised with honest group
+counts. Until the
 required claims and grouped support exist, Glass remains
 `FallbackOutOfDomain`, `Pass` remains disabled and PS-3 stays blocked.

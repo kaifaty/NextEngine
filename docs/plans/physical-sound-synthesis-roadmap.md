@@ -2,9 +2,9 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_AV_MSF_E3_CATALOG_MEASURED / INDEPENDENT_SOURCE_AND_E2_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_REALIMPACT_E2_ADAPTER_READY / INDEPENDENT_E3_AND_REPLAN_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [AV-MSF multi-object E3 pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [acquisition import bundle](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md), [REALIMPACT pilot](../development/physical-sound-realimpact-pilot-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [AV-MSF multi-object E3 pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [REALIMPACT typed E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [acquisition import bundle](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -94,7 +94,7 @@ frozen `ValidatorRelease`:
 ```mermaid
 flowchart LR
     PS0["PS-0 Foundation<br/>COMPLETE"] --> PS1["PS-1 Envelope specialist<br/>COMPLETE"]
-    PS1 --> PS2["PS-2 Corpus and risk policy<br/>AV-MSF CATALOG MEASURED / INDEPENDENT SOURCE + E2 NEXT"]
+    PS1 --> PS2["PS-2 Corpus and risk policy<br/>REALIMPACT E2 READY / INDEPENDENT E3 + REPLAN NEXT"]
     PS2 --> PS3["PS-3 Validator Release V1<br/>BLOCKED"]
     PS3 --> PS4["PS-4 AV-P0D autonomous search<br/>BLOCKED"]
     PS4 --> PS5["PS-5 Formula Base V1<br/>BLOCKED"]
@@ -109,7 +109,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / AV_MSF_E3_CATALOG_MEASURED / INDEPENDENT_SOURCE_AND_E2_NEXT` | L | Power policy, `E1` synchronized import, official-source registry, bounded fetch/cache and claim-scoped `E1`–`E4` accounting are executable. The complete AV-MSF page yields 10 objects/20 E3 recordings but one project/revision group; Glass is `2/16` required object groups. Next is independent published E3 sources plus the bounded REALIMPACT E2 adapter; no local capture is required. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / REALIMPACT_E2_ADAPTER_READY / INDEPENDENT_E3_AND_REPLAN_NEXT` | L | Power policy, `E1` import, bounded source/cache and claim-scoped `E1`–`E4` accounting are executable. One frozen REALIMPACT row now has typed E2 transfer/geometry/position evidence but remains fallback. AV-MSF yields 10 objects/20 E3 recordings in one project group; Glass is `2/16`. Next is independent published E3 sources and a coverage re-plan; no local capture is required. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -219,6 +219,16 @@ share one project/revision group and therefore remain in `dev`; Glass contribute
 2 object groups/4 recordings against the planned minimum of 16. This is
 `DevelopmentCoverageMeasured`, not corpus admission. See the
 [multi-object evidence](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md).
+
+PS-2 typed E2 checkpoint: corpus-inventory V2 requires a source-specific
+adapter for deconvolved transfers. The first REALIMPACT profile freezes one
+official repository commit, five source artifacts and the exact GlassGoblet row
+0 metadata/audio/provenance hashes. Three V2 runs repeat byte-identically and
+the old V1 report is unchanged. The row receives scoped transfer, geometry,
+impact/listener, object and real-recording E2 capabilities, but remains
+`FallbackOutOfDomain` because raw force, composition, repeat and fixture
+revisions are absent. See the
+[typed E2 evidence](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md).
 
 ## PS-2 — Сделать риск статистически измеримым
 
@@ -361,7 +371,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache/capability matrix, AV-MSF E3 adapter and complete-card normalization/coverage audit — `COMPLETE`; next add independent published E3 sources and the bounded REALIMPACT E2 adapter | PS-2 independent evidence expansion |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, AV-MSF E3 normalization/coverage and one frozen REALIMPACT E2 adapter — `COMPLETE`; next add independent published E3 sources and re-plan measurable grouped coverage | PS-2 independent evidence expansion |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 

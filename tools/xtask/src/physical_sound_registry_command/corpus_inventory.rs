@@ -10,12 +10,18 @@ use super::{
     resolve_output_path, sha256_hex, validate_file_ref, validate_label,
 };
 
+mod audio;
 mod complete_acquisition;
+mod source_adapters;
 
 use complete_acquisition::{CompleteAcquisition, CompleteAcquisitionReport};
+use source_adapters::{AdapterEvidenceReport, SourceAdapterProfile};
 
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-inventory.manifest.v1";
+const MANIFEST_SCHEMA_V2: &str =
+    "nextengine.experimental-physical-sound-corpus-inventory.manifest.v2";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-inventory.report.v1";
+const REPORT_SCHEMA_V2: &str = "nextengine.experimental-physical-sound-corpus-inventory.report.v2";
 const MAX_ENTRIES: usize = 1_000_000;
 const MAX_UNAVAILABLE_COMPONENTS: usize = 64;
 
@@ -101,6 +107,8 @@ struct InventoryEntry {
     acquisition_metadata: FileRef,
     provenance_review: FileRef,
     unavailable_components: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_adapter: Option<SourceAdapterProfile>,
     #[serde(default)]
     complete_acquisition: Option<CompleteAcquisition>,
 }
@@ -162,6 +170,8 @@ struct InventoryReport {
     manifest_sha256: String,
     corpus_plan_report_sha256: String,
     entry_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    adapter_backed_e2_entry_count: Option<usize>,
     partition_counts: Vec<PartitionCount>,
     independent_group_counts: IndependentGroupCounts,
     entries: Vec<EntryReport>,
@@ -208,6 +218,8 @@ struct EntryReport {
     acquisition_metadata_sha256: String,
     provenance_review_sha256: String,
     unavailable_components: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_adapter_evidence: Option<AdapterEvidenceReport>,
     #[serde(skip_serializing_if = "Option::is_none")]
     complete_acquisition: Option<CompleteAcquisitionReport>,
 }
@@ -256,12 +268,16 @@ fn run(root: &Path, request: &Request) -> Result<(), String> {
 }
 
 fn validate_manifest(manifest: &InventoryManifest) -> Result<(), String> {
-    if manifest.schema != MANIFEST_SCHEMA {
-        return Err(format!(
-            "unsupported physical sound corpus inventory schema: {}",
-            manifest.schema
-        ));
-    }
+    let require_typed_e2_adapter = match manifest.schema.as_str() {
+        MANIFEST_SCHEMA => false,
+        MANIFEST_SCHEMA_V2 => true,
+        _ => {
+            return Err(format!(
+                "unsupported physical sound corpus inventory schema: {}",
+                manifest.schema
+            ));
+        }
+    };
     validate_label(&manifest.inventory_id, "inventory id")?;
     validate_label(&manifest.revision, "inventory revision")?;
     validate_file_ref(&manifest.corpus_plan_report, "corpus plan report")?;
@@ -273,7 +289,7 @@ fn validate_manifest(manifest: &InventoryManifest) -> Result<(), String> {
     let mut partitions = GroupPartitionAudit::default();
     let mut repeat_keys = BTreeSet::new();
     for entry in &manifest.entries {
-        validate_entry(entry)?;
+        validate_entry(entry, require_typed_e2_adapter)?;
         if previous_id.is_some_and(|previous| previous >= entry.id.as_str()) {
             return Err(format!(
                 "inventory entries must be strictly sorted by id; offending id {}",
@@ -300,7 +316,7 @@ fn validate_manifest(manifest: &InventoryManifest) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_entry(entry: &InventoryEntry) -> Result<(), String> {
+fn validate_entry(entry: &InventoryEntry, require_typed_e2_adapter: bool) -> Result<(), String> {
     for (value, role) in [
         (&entry.id, "entry id"),
         (&entry.domain_id, "domain id"),
@@ -336,6 +352,7 @@ fn validate_entry(entry: &InventoryEntry) -> Result<(), String> {
     validate_file_ref(&entry.acquisition_metadata, "acquisition metadata")?;
     validate_file_ref(&entry.provenance_review, "provenance review")?;
     validate_optional_sorted_labels(&entry.unavailable_components, "unavailable component ids")?;
+    source_adapters::validate_declaration(entry, require_typed_e2_adapter)?;
     match (entry.recording_kind, &entry.complete_acquisition) {
         (RecordingKind::ControlledRealForceDeconvolvedTransfer, None)
             if !entry.unavailable_components.is_empty() => {}
@@ -465,6 +482,12 @@ fn build_report(
     manifest: InventoryManifest,
     manifest_sha256: String,
 ) -> Result<InventoryReport, String> {
+    let report_schema = if manifest.schema == MANIFEST_SCHEMA_V2 {
+        REPORT_SCHEMA_V2
+    } else {
+        REPORT_SCHEMA
+    };
+    let adapter_backed_e2_entry_count = (report_schema == REPORT_SCHEMA_V2).then_some(0_usize);
     let corpus_plan_report_sha256 = resolve_artifact(
         root,
         manifest_directory,
@@ -479,6 +502,7 @@ fn build_report(
     let mut generator_revisions = BTreeSet::new();
     let mut mutation_parents = BTreeSet::new();
     let mut entry_reports = Vec::with_capacity(manifest.entries.len());
+    let mut adapter_backed_e2_entry_count = adapter_backed_e2_entry_count;
 
     for entry in manifest.entries {
         *partition_counts.entry(entry.partition).or_default() += 1;
@@ -491,7 +515,7 @@ fn build_report(
         if let Some(parent) = &entry.mutation_parent_entry_id {
             mutation_parents.insert(parent.clone());
         }
-        let audio = analyse_audio(root, manifest_directory, &entry)?;
+        let audio = audio::analyse(root, manifest_directory, &entry)?;
         let acquisition_metadata_sha256 = resolve_artifact(
             root,
             manifest_directory,
@@ -506,6 +530,13 @@ fn build_report(
             "provenance review",
         )?
         .sha256;
+        let source_adapter_evidence =
+            source_adapters::audit(root, manifest_directory, &entry, &audio)?;
+        if source_adapter_evidence.is_some()
+            && let Some(count) = &mut adapter_backed_e2_entry_count
+        {
+            *count += 1;
+        }
         let complete_acquisition = entry
             .complete_acquisition
             .as_ref()
@@ -544,12 +575,13 @@ fn build_report(
             acquisition_metadata_sha256,
             provenance_review_sha256,
             unavailable_components: entry.unavailable_components,
+            source_adapter_evidence,
             complete_acquisition,
         });
     }
 
     Ok(InventoryReport {
-        schema: REPORT_SCHEMA,
+        schema: report_schema,
         status: "Validated",
         decision: "DevelopmentPilotOnly",
         claim: "INVENTORY_AND_PARTITION_AUDIT_ONLY / NO_CORPUS_ADMISSION_AUTHORITY",
@@ -560,6 +592,7 @@ fn build_report(
         manifest_sha256,
         corpus_plan_report_sha256,
         entry_count: entry_reports.len(),
+        adapter_backed_e2_entry_count,
         partition_counts: [
             Partition::Dev,
             Partition::Calibration,
@@ -580,56 +613,6 @@ fn build_report(
             mutation_parents: mutation_parents.len(),
         },
         entries: entry_reports,
-    })
-}
-
-fn analyse_audio(
-    root: &Path,
-    manifest_directory: &Path,
-    entry: &InventoryEntry,
-) -> Result<AudioReport, String> {
-    let artifact = resolve_artifact(
-        root,
-        manifest_directory,
-        &entry.audio_payload,
-        "inventory audio payload",
-    )?;
-    let expected_bytes = entry
-        .sample_count
-        .checked_mul(4)
-        .ok_or_else(|| format!("entry {} sample byte count overflow", entry.id))?;
-    if artifact.byte_count != expected_bytes {
-        return Err(format!(
-            "entry {} audio byte count mismatch: expected {expected_bytes}, got {}",
-            entry.id, artifact.byte_count
-        ));
-    }
-    let path = canonical_external_file(
-        root,
-        &manifest_directory.join(&entry.audio_payload.path),
-        "inventory audio payload",
-    )?;
-    let bytes = read_bounded_file(&path, MAX_REFERENCED_FILE_BYTES, "inventory audio payload")?;
-    let mut peak_abs = 0.0_f64;
-    let mut square_sum = 0.0_f64;
-    for sample in bytes.chunks_exact(4) {
-        let value = f32::from_le_bytes(sample.try_into().expect("four-byte chunk"));
-        if !value.is_finite() {
-            return Err(format!(
-                "entry {} audio contains non-finite samples",
-                entry.id
-            ));
-        }
-        let value = f64::from(value);
-        peak_abs = peak_abs.max(value.abs());
-        square_sum += value * value;
-    }
-    Ok(AudioReport {
-        format: "f32_le_mono",
-        sha256: artifact.sha256,
-        byte_count: artifact.byte_count,
-        peak_abs,
-        rms: (square_sum / entry.sample_count as f64).sqrt(),
     })
 }
 
@@ -939,6 +922,7 @@ mod tests {
                 acquisition_metadata: file_ref("metadata.json"),
                 provenance_review: file_ref("provenance.md"),
                 unavailable_components: vec!["force-profile".to_owned()],
+                source_adapter: None,
                 complete_acquisition: None,
             }],
         }

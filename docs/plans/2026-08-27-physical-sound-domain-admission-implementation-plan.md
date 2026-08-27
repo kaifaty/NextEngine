@@ -244,12 +244,21 @@ All objects share one source group and remain in development; Glass contributes
 2 of the required 16 object groups. The report has only
 `DevelopmentCoverageMeasured / NO_CORPUS_ADMISSION_AUTHORITY`.
 
-Package 3 must next add independent published E3 publishers/projects and
-implement the bounded REALIMPACT E2 adapter, then recompute actual group
-availability before calibration/holdout/shadow open. Separate internet sources
-may support separate specialist claims, but unavailable axes remain unavailable
-and the grouped split/risk policy is unchanged. Insufficient published coverage
-keeps the domain fallback-only; it does not trigger local capture.
+The bounded REALIMPACT E2 increment is now implemented by corpus-inventory V2.
+The first typed profile freezes the official repository revision, five exact
+source files and one GlassGoblet transfer row with exact metadata/audio/
+provenance hashes. It grants only transfer, geometry, impact/listener, object
+and real-recording E2 capabilities. Three V2 reports repeat byte-identically;
+the historical V1 report is unchanged. Missing raw force, composition, repeat
+and fixture axes preserve `FallbackOutOfDomain`; see
+[typed E2 evidence](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md).
+
+Package 3 must next add independent published E3 publishers/projects, then
+recompute actual group availability before calibration/holdout/shadow open.
+Separate internet sources may support separate specialist claims, but
+unavailable axes remain unavailable and the grouped split/risk policy is
+unchanged. Insufficient published coverage keeps the domain fallback-only; it
+does not trigger local capture.
 
 ### 4. AV-P0D autonomous formula search
 

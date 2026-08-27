@@ -90,8 +90,10 @@ The follow-up
 [multi-object pilot](physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md)
 has now normalized the complete ten-card AV-MSF surface. It measures ten object
 groups/twenty recordings but only two Glass groups and one shared
-publisher/project/revision source group. Next, add independent published E3
-publishers/projects and the REALIMPACT E2 adapter before re-planning or opening
+publisher/project/revision source group. The
+[REALIMPACT E2 adapter](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md)
+now closes one exact transfer row while preserving fallback. Next, add
+independent published E3 publishers/projects before re-planning or opening
 calibration, holdout or shadow. The pre-registered requirements remain at least
 35 independent reject-parent groups and 16 in-domain groups; insufficient
 internet coverage remains `FallbackOutOfDomain`, never a request for local

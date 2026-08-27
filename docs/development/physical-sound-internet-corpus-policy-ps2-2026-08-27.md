@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet corpus acquisition policy
 
 Date: 2026-08-27
-Status: `ACTIVE_CONSTRAINT / AV_MSF_E3_CATALOG_MEASURED / INDEPENDENT_SOURCE_EXPANSION_NEXT / PASS_DISABLED`
+Status: `ACTIVE_CONSTRAINT / REALIMPACT_E2_ADAPTER_READY / INDEPENDENT_E3_EXPANSION_NEXT / PASS_DISABLED`
 
 ## Decision
 
@@ -66,15 +66,18 @@ non-distributable; they do not permit copying it into the repository or shipped
 content. Provenance, attribution and source identity remain attached to every
 derived feature and report.
 
-See the measured [internet source/cache pilot](physical-sound-internet-source-pipeline-ps2-2026-08-27.md)
-and [AV-MSF multi-object E3 pilot](physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md).
+See the measured [internet source/cache pilot](physical-sound-internet-source-pipeline-ps2-2026-08-27.md),
+[AV-MSF multi-object E3 pilot](physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md)
+and [REALIMPACT E2 adapter](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md).
 
 ## Current consequence
 
 REALIMPACT GlassGoblet is useful `E2 transfer response` evidence because its
 published archive exposes force-deconvolved 48 kHz responses, mesh, impact
-vertices and listener coordinates. Its unavailable raw force, material
-composition, repeat identity and fixture revision still prohibit `E1` credit.
+vertices and listener coordinates. A typed adapter now freezes the official
+repository and one exact row instead of trusting generic metadata. Its
+unavailable raw force, material composition, repeat identity and fixture
+revision still prohibit `E1` or corpus-admission credit.
 The complete frozen AV-MSF demo-card surface supplies ten typed-adapter-backed
 `E3 identified recording` object groups and twenty impacts. It contains two
 Glass objects/four recordings, but every card shares one
@@ -83,11 +86,12 @@ partition. ObjectFolder remains `E4` synthetic/generated comparison evidence
 unless a separate published real recording supplies the missing real-response
 claims.
 
-The generic registry, bounded HTTPS fetch/cache, capability matrix, E3 adapter
-and leakage-safe identified-corpus normalizer are implemented. Measured Glass
-coverage is `2/16` required object groups, so the immediate blocker is
-`INDEPENDENT_PUBLISHER_COVERAGE_AND_REALIMPACT_E2_ADAPTER`, not force hardware,
-generic networking or more cards from the same AV-MSF revision. If published
+The generic registry, bounded HTTPS fetch/cache, capability matrix, E2/E3
+adapters and leakage-safe identified-corpus normalizer are implemented.
+Measured Glass coverage is `2/16` required object groups, so the immediate
+blocker is `INDEPENDENT_E3_PUBLISHER_COVERAGE_AND_REPLAN`, not force hardware,
+generic networking, REALIMPACT adapter existence or more cards from the same
+AV-MSF revision. If published
 evidence cannot satisfy a domain's required claims and grouped sample sizes,
 that domain remains fallback-only. The project does not resolve the gap by
 asking the user to make physical recordings.
