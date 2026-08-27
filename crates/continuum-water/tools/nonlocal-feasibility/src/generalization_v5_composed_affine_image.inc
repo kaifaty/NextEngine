@@ -439,6 +439,24 @@ struct ALR20R63XControls {
     std::string root;
 };
 
+struct ALR20R63XFixture {
+    bool exact = false;
+    std::vector<ALR20R37Dyadic> inverse;
+    std::vector<ALR20R37Dyadic> rhs;
+    ALR20R63QExactMatrix matrix;
+    ALR20R63RDefect defect;
+    std::vector<std::vector<Binary128>> wide_solutions;
+    std::vector<std::vector<Binary128>> exported_solutions;
+    std::vector<ALR20R63UCertificate> wide_oracles;
+    std::vector<ALR20R63UCertificate> exported_oracles;
+    std::string semantic;
+    std::string profile_root;
+    std::string wide_root;
+    std::string exported_root;
+};
+
+ALR20R63XFixture al_r20_r63x_last_fixture;
+
 ALR20R63XControls al_r20_r63x_controls() {
     ALR20R63XControls result;
     const ALR20R37Dyadic zero = al_r20_r63p_control_dyadic(0);
@@ -621,6 +639,7 @@ ALR20R63XControls al_r20_r63x_controls() {
 } // namespace
 
 SplitBoundaryReport run_al_generalization_v5_composed_affine_image_controls() {
+    al_r20_r63x_last_fixture = ALR20R63XFixture{};
 #if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) \
     && defined(__SIZEOF_FLOAT128__) && !defined(__FAST_MATH__)
     constexpr bool frozen_platform = true;
@@ -984,6 +1003,19 @@ SplitBoundaryReport run_al_generalization_v5_composed_affine_image_controls() {
         << parent_r63w_semantic << ':' << route << ':' << controls.root << ':'
         << affine_profile.root << ':' << wide.root << ':' << exported.root;
     const std::string result_sha = sha256_hex(semantic.str());
+    al_r20_r63x_last_fixture.exact = exact;
+    al_r20_r63x_last_fixture.inverse = exact_inverse;
+    al_r20_r63x_last_fixture.rhs = exact_rhs;
+    al_r20_r63x_last_fixture.matrix = common_audit.matrix;
+    al_r20_r63x_last_fixture.defect = verifier_audit.defect;
+    al_r20_r63x_last_fixture.wide_solutions = wide_solutions;
+    al_r20_r63x_last_fixture.exported_solutions = exported_solutions;
+    al_r20_r63x_last_fixture.wide_oracles = wide_oracles;
+    al_r20_r63x_last_fixture.exported_oracles = exported_oracles;
+    al_r20_r63x_last_fixture.semantic = result_sha;
+    al_r20_r63x_last_fixture.profile_root = affine_profile.root;
+    al_r20_r63x_last_fixture.wide_root = wide.root;
+    al_r20_r63x_last_fixture.exported_root = exported.root;
     auto lane_json = [](const char* name, const ALR20R63XLane& lane) {
         std::ostringstream stream;
         stream << "\"" << name << "\":{\"exact\":"

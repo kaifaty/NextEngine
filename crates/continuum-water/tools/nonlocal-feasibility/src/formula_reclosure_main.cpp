@@ -306,6 +306,7 @@ int main(int argc, char** argv) {
                          "--nonlocal-al-generalization-v5-earliest-residual-image|"
                          "--nonlocal-al-generalization-v5-finite-residual-image|"
                          "--nonlocal-al-generalization-v5-composed-affine-image|"
+                         "--nonlocal-al-generalization-v5-portable-expansion-affine|"
                          "--nominal-dam-first-output-preflight|"
                          "--nominal-dam-reference-binary64-topology\n";
             return 2;
@@ -2586,6 +2587,14 @@ int main(int argc, char** argv) {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_al_generalization_v5_composed_affine_image_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command ==
+            "--nonlocal-al-generalization-v5-portable-expansion-affine") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_al_generalization_v5_portable_expansion_affine_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
