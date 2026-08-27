@@ -83,6 +83,7 @@ fn test_ycb_source() -> SourceReport {
                 id: format!("impact-{recording_id}"),
                 role: "audio_payload",
                 url: format!("https://example.invalid/{recording_id}"),
+                normalization_policy: None,
                 maximum_bytes: 2_097_152,
                 expected_byte_count: Some(1_920_058),
                 expected_sha256: Some("ab".repeat(32)),

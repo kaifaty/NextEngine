@@ -9,16 +9,23 @@ use next_contracts::ids::ContentHash;
 use sha2::{Digest, Sha256};
 
 use super::{
-    CacheStatus, FetchRedirectPolicy, canonical_https_host_and_path, verify_cache_artifact,
+    CacheStatus, FetchNormalizationPolicy, FetchRedirectPolicy, canonical_https_host_and_path,
+    verify_cache_artifact,
 };
 
 mod figshare;
+mod freesound;
 mod osf;
 
 const DOWNLOAD_BUFFER_BYTES: usize = 128 * 1024;
 const DOWNLOAD_TIMEOUT_SECONDS: &str = "120";
 
 static NEXT_STAGING_FILE: AtomicU64 = AtomicU64::new(0);
+
+pub(super) struct FetchPolicies {
+    pub(super) redirect: Option<FetchRedirectPolicy>,
+    pub(super) normalization: Option<FetchNormalizationPolicy>,
+}
 
 struct StagingFileGuard {
     path: PathBuf,
@@ -53,12 +60,12 @@ pub(super) fn fetch_exact_artifact(
     cache: &Path,
     target: &Path,
     url: &str,
-    redirect_policy: Option<FetchRedirectPolicy>,
+    policies: FetchPolicies,
     expected_sha256: &str,
     expected_bytes: u64,
     maximum_bytes: u64,
 ) -> Result<CacheStatus, String> {
-    let download_url = match redirect_policy {
+    let download_url = match policies.redirect {
         None => url.to_owned(),
         Some(FetchRedirectPolicy::FigshareKiltHubV1) => {
             match figshare::resolve_kilthub_download(url)? {
@@ -81,6 +88,17 @@ pub(super) fn fetch_exact_artifact(
             }
         }
     };
+    if let Some(policy) = policies.normalization {
+        return fetch_normalized_artifact(
+            cache,
+            target,
+            &download_url,
+            policy,
+            expected_sha256,
+            expected_bytes,
+            maximum_bytes,
+        );
+    }
     let Some(curl_resolve) = resolve_public_https_endpoint(&download_url)? else {
         return Ok(CacheStatus::FetchFailed);
     };
@@ -192,6 +210,131 @@ pub(super) fn fetch_exact_artifact(
         Err(error) => {
             return Err(format!("publish cached artifact: {error}"));
         }
+    }
+    staging.cleanup()?;
+    verify_cache_artifact(target, expected_sha256, expected_bytes)?;
+    Ok(CacheStatus::CachedVerified)
+}
+
+fn fetch_normalized_artifact(
+    cache: &Path,
+    target: &Path,
+    url: &str,
+    policy: FetchNormalizationPolicy,
+    expected_sha256: &str,
+    expected_bytes: u64,
+    maximum_transfer_bytes: u64,
+) -> Result<CacheStatus, String> {
+    let Some(curl_resolve) = resolve_public_https_endpoint(url)? else {
+        return Ok(CacheStatus::FetchFailed);
+    };
+    let mut child = match Command::new("curl")
+        .args([
+            "--fail",
+            "--silent",
+            "--proto",
+            "=https",
+            "--noproxy",
+            "*",
+            "--connect-timeout",
+            "30",
+            "--max-time",
+            DOWNLOAD_TIMEOUT_SECONDS,
+            "--resolve",
+            &curl_resolve,
+            "--output",
+            "-",
+            url,
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(CacheStatus::FetchToolUnavailable);
+        }
+        Err(error) => return Err(format!("start bounded normalized HTTPS fetch: {error}")),
+    };
+    let Some(mut stdout) = child.stdout.take() else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err("bounded normalized HTTPS fetch has no stdout".to_owned());
+    };
+    let capacity = usize::try_from(maximum_transfer_bytes.min(1024 * 1024))
+        .map_err(|_| "normalized transfer capacity overflow".to_owned())?;
+    let mut raw = Vec::with_capacity(capacity);
+    let mut buffer = [0_u8; DOWNLOAD_BUFFER_BYTES];
+    loop {
+        let count = match stdout.read(&mut buffer) {
+            Ok(count) => count,
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("read bounded normalized HTTPS response: {error}"));
+            }
+        };
+        if count == 0 {
+            break;
+        }
+        let next = raw
+            .len()
+            .checked_add(count)
+            .ok_or_else(|| "normalized transfer byte count overflow".to_owned())?;
+        if u64::try_from(next).map_or(true, |value| value > maximum_transfer_bytes) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Ok(CacheStatus::DownloadLimitExceeded);
+        }
+        raw.extend_from_slice(&buffer[..count]);
+    }
+    let status = child
+        .wait()
+        .map_err(|error| format!("wait for bounded normalized HTTPS fetch: {error}"))?;
+    if !status.success() {
+        return Ok(CacheStatus::FetchFailed);
+    }
+    let normalized = match policy {
+        FetchNormalizationPolicy::FreesoundPackIdentityV1 => {
+            freesound::normalize_pack_identity(url, &raw)?
+        }
+    };
+    let actual_bytes = u64::try_from(normalized.len())
+        .map_err(|_| "normalized artifact byte count overflow".to_owned())?;
+    let actual_sha256 = {
+        let digest: [u8; 32] = Sha256::digest(&normalized).into();
+        ContentHash::from_bytes(digest).to_hex()
+    };
+    if actual_bytes != expected_bytes || actual_sha256 != expected_sha256 {
+        return Err(format!(
+            "normalized download integrity mismatch: expected {expected_bytes} bytes/{expected_sha256}, got {actual_bytes} bytes/{actual_sha256}"
+        ));
+    }
+
+    let sequence = NEXT_STAGING_FILE.fetch_add(1, Ordering::Relaxed);
+    let staging = cache
+        .join("staging")
+        .join(format!("normalized-{}-{sequence}", std::process::id()));
+    let staging = StagingFileGuard::new(staging);
+    let mut output = fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(staging.path())
+        .map_err(|error| format!("create normalized staging file: {error}"))?;
+    output
+        .write_all(&normalized)
+        .map_err(|error| format!("write normalized staging file: {error}"))?;
+    output
+        .sync_all()
+        .map_err(|error| format!("sync normalized staging file: {error}"))?;
+    drop(output);
+    match fs::hard_link(staging.path(), target) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            verify_cache_artifact(target, expected_sha256, expected_bytes)?;
+        }
+        Err(error) => return Err(format!("publish normalized cached artifact: {error}")),
     }
     staging.cleanup()?;
     verify_cache_artifact(target, expected_sha256, expected_bytes)?;

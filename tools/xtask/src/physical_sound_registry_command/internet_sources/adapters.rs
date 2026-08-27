@@ -9,7 +9,9 @@ use super::{
     cache_artifact_path,
 };
 
+pub(super) mod freesound_glass_bowl;
 pub(super) mod heller_impact;
+mod mp3;
 mod wav;
 pub(super) mod ycb_impact;
 mod zip_archive;
@@ -37,6 +39,13 @@ pub(super) enum AdapterProfile {
         material_label: String,
         event_label: String,
         recordings: Vec<heller_impact::RecordingProfile>,
+    },
+    FreesoundGlassBowlIdentifiedRecordingV1 {
+        pack_id: String,
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        recordings: Vec<freesound_glass_bowl::RecordingProfile>,
     },
     YcbImpactIdentifiedRecordingV1 {
         object_id: String,
@@ -75,6 +84,13 @@ pub(super) enum AdapterEvidenceReport {
         event_label: String,
         recordings: Vec<heller_impact::RecordingEvidenceReport>,
     },
+    FreesoundGlassBowlIdentifiedRecordingV1 {
+        pack_id: String,
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        recordings: Vec<freesound_glass_bowl::RecordingEvidenceReport>,
+    },
     YcbImpactIdentifiedRecordingV1 {
         object_id: String,
         object_name: String,
@@ -111,6 +127,14 @@ pub(super) fn validate_profile_declaration(source: &InternetSource) -> Result<()
         ) => heller_impact::validate_declaration(source),
         (heller_impact::ADAPTER_ID, None) => Err(format!(
             "source {} requires a Heller Impact adapter profile",
+            source.id
+        )),
+        (
+            freesound_glass_bowl::ADAPTER_ID,
+            Some(AdapterProfile::FreesoundGlassBowlIdentifiedRecordingV1 { .. }),
+        ) => freesound_glass_bowl::validate_declaration(source),
+        (freesound_glass_bowl::ADAPTER_ID, None) => Err(format!(
+            "source {} requires a Freesound glass-bowl adapter profile",
             source.id
         )),
         (ycb_impact::ADAPTER_ID, Some(AdapterProfile::YcbImpactIdentifiedRecordingV1 { .. })) => {
@@ -151,6 +175,7 @@ pub(super) fn audit(
     }
     match source.adapter_id.as_str() {
         AV_MSF_ADAPTER_ID => audit_av_msf(cache, source),
+        freesound_glass_bowl::ADAPTER_ID => freesound_glass_bowl::audit(cache, source),
         heller_impact::ADAPTER_ID => heller_impact::audit(cache, source),
         ycb_impact::ADAPTER_ID => ycb_impact::audit(cache, source),
         _ => Ok(AdapterAudit {

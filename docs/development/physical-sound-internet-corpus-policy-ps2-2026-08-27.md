@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet corpus acquisition policy
 
 Date: 2026-08-27
-Status: `ACTIVE_CONSTRAINT / THREE_E3_PROJECT_GROUPS / GLASS_5_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_EXPANSION_NEXT / PASS_DISABLED`
+Status: `ACTIVE_CONSTRAINT / FOUR_E3_PROJECT_GROUPS / GLASS_6_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_EXPANSION_NEXT / PASS_DISABLED`
 
 ## Decision
 
@@ -51,6 +51,9 @@ The external source pipeline now implements these stages:
    repositories;
 2. freeze canonical source URL, publisher/project identity, retrieval date,
    declared revision, attribution/license review and expected hashes/sizes;
+   when an official page contains dynamic operational fields, freeze a
+   source-specific bounded canonical identity projection rather than pretending
+   that volatile HTML is an immutable artifact;
 3. fetch into an external content-addressed cache with bounded archive and
    payload validation; recordings, models and generated features never enter
    the repository;
@@ -69,10 +72,11 @@ derived feature and report.
 See the measured [internet source/cache pilot](physical-sound-internet-source-pipeline-ps2-2026-08-27.md),
 [AV-MSF multi-object E3 pilot](physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md),
 [independent YCB Impact E3 pilot](physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md),
-[independent Heller Impact E3 pilot](physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md)
+[independent Heller Impact E3 pilot](physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md),
 [Greatest Hits discriminator](physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md),
-[REALIMPACT E2 adapter](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md)
-and [GreenGoblet bounded-range E2 pilot](physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md).
+[REALIMPACT E2 adapter](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md),
+[GreenGoblet bounded-range E2 pilot](physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md)
+and the [Freesound glass-bowl E3 pilot](physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md).
 
 ## Current consequence
 
@@ -104,12 +108,20 @@ group and five repeated PCM16 recordings through a bounded archive adapter.
 Mirror, red-vase and different-impactor variants are excluded rather than
 receiving inferred material/object identity.
 
+Freesound pack 14905 supplies a fourth project group and one explicitly named
+medium-pitched Glass bowl. Eight wood-strike HQ MP3 previews are exact-hash
+bound and validated as gapless 44.1 kHz stereo streams. A bounded canonical
+page-identity projection removes volatile CSRF/download fields while retaining
+the author, pack, description, sound-card and license identities. The source
+is CC BY-NC 4.0 and remains external research only; it receives no geometry,
+support, force, position, listener or transfer-response credit.
+
 The generic registry, bounded HTTPS fetch/cache, capability matrix, E2/E3
 adapters and leakage-safe identified-corpus normalizer are implemented.
-The combined measurement has three independent publisher/project/revision
-groups, thirteen objects and thirty-three recordings. Glass coverage is now
-`5/16` required object groups and seventeen recordings, so the immediate
-blocker is `REMAINING_11_INDEPENDENT_E3_GROUPS_AND_REJECT_PARENTS`, not force
+The combined measurement has four independent publisher/project/revision
+groups, fourteen objects and forty-one recordings. Glass coverage is now
+`6/16` required object groups and twenty-five recordings, so the immediate
+blocker is `REMAINING_10_INDEPENDENT_E3_GROUPS_AND_REJECT_PARENTS`, not force
 hardware, generic networking, OSF/Figshare redirects, REALIMPACT adapter
 existence, bounded REALIMPACT row retrieval or unqualified variants from the
 same source revisions. Greatest
@@ -119,7 +131,11 @@ for the archive host currently fails; it therefore receives no E3 credit and
 must not be downloaded or grouped by video. The GreenGoblet ranged ZIP package
 is now validated and adds a second E2 object but no E3 group. The next bounded
 package resumes internet search for stable object-level Glass identities and
-repeats from another published E3 project. If published
+repeats from another published E3 project. ObjectFolder-Real remains a strong
+candidate but its official 34–39 GB per-batch gzip tar streams do not expose a
+bounded path to a second repeat after large embedded media; do not retry
+growing archive prefixes unless an official per-object audio-only or seekable
+route appears. If published
 evidence cannot satisfy a domain's required claims and grouped sample sizes,
 that domain remains fallback-only. The project does not resolve the gap by
 asking the user to make physical recordings.

@@ -605,6 +605,19 @@ fn normalize_source(
                 .map(|recording| &recording.audio)
                 .collect::<Vec<_>>(),
         ),
+        Some(AdapterEvidenceReport::FreesoundGlassBowlIdentifiedRecordingV1 {
+            object_id,
+            material_label,
+            recordings,
+            ..
+        }) if source.adapter_id == "freesound-glass-bowl-identified-recording-v1" => (
+            object_id,
+            material_label,
+            recordings
+                .iter()
+                .map(|recording| &recording.audio)
+                .collect::<Vec<_>>(),
+        ),
         _ => {
             return Err(format!(
                 "source {} has no matching typed E3 adapter evidence",
@@ -881,6 +894,7 @@ mod tests {
                 id: format!("impact-{recording_id}"),
                 role: "audio_payload",
                 url: format!("https://example.invalid/{object_id}/{recording_id}.wav"),
+                normalization_policy: None,
                 maximum_bytes: 1_000_000,
                 expected_byte_count: Some(529_258),
                 expected_sha256: Some(recording_id.repeat(21).chars().take(64).collect()),
@@ -891,6 +905,7 @@ mod tests {
             id: "project-page".to_owned(),
             role: "project_page",
             url: "https://example.invalid/index.html".to_owned(),
+            normalization_policy: None,
             maximum_bytes: 1_000_000,
             expected_byte_count: Some(1_024),
             expected_sha256: Some("cc".repeat(32)),

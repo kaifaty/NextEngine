@@ -475,6 +475,7 @@ mod tests {
                     recording.osf_file_id
                 ),
                 redirect_policy: Some(FetchRedirectPolicy::OsfStorageV1),
+                normalization_policy: None,
                 maximum_bytes: RECORDING_MAXIMUM_BYTES,
                 expected_byte_count: Some(RECORDING_BYTES),
                 expected_sha256: Some(recording.sha256.to_owned()),
@@ -485,6 +486,7 @@ mod tests {
             role: ArtifactRole::Metadata,
             url: format!("{OSF_STORAGE_PREFIX}/4tcp6/providers/osfstorage/{METADATA_FILE_ID}"),
             redirect_policy: Some(FetchRedirectPolicy::OsfStorageV1),
+            normalization_policy: None,
             maximum_bytes: METADATA_MAXIMUM_BYTES,
             expected_byte_count: Some(METADATA_BYTES),
             expected_sha256: Some(METADATA_SHA256.to_owned()),

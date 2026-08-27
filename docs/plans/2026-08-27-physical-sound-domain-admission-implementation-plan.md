@@ -281,11 +281,27 @@ Because video-as-object would invent E3 identity, the path is rejected and no
 download adapter is added. See the
 [bounded rejection](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md).
 
-Package 3 must next inspect the official REALIMPACT `93_GreenGoblet.zip`
-central directory and prove one exact selected E2-row retrieval path without
-downloading its complete 2.31 GB response, or reject that path. It must also
-expand complementary E2/E1 arrays before
-calibration/holdout/shadow open.
+The second REALIMPACT object path is now complete. `physical-sound-registry
+realimpact-row` retrieves EOCD, central directory, six small arrays, the mesh
+and a fixed transfer prefix for GreenGoblet through exact HTTPS ranges. The
+1.61 MB bounded path reproduces the selected E2 row without downloading the
+2.31 GB archive and preserves `FallbackOutOfDomain` for missing raw force,
+composition, repeat and fixture evidence.
+
+The next source discriminator is complete too. ObjectFolder-Real has strong
+object/force/coordinate metadata, but its 34–39 GB single-stream gzip batches
+do not expose a bounded path to repeated audio after large embedded media; the
+archive-prefix route is rejected pending an official per-object or seekable
+surface. The `freesound-glass-bowl-identified-recording-v1` adapter instead
+freezes one explicitly named Glass bowl, eight repeated wood-strike HQ MP3
+previews and one canonical pack-page identity projection. Two independent
+online caches and offline audits repeat byte-identically. Combined E3 coverage
+is now four publisher/project/revision groups, 14 objects and 41 recordings;
+Glass contributes 6 groups/25 recordings, leaving 10 of 16 groups open. See
+the [bounded evidence](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md).
+
+Package 3 must continue stable-object E3 and complementary E2/E1 expansion
+before calibration/holdout/shadow open.
 Separate internet sources may support separate specialist claims, but
 unavailable axes remain unavailable and the grouped split/risk policy is
 unchanged. Insufficient published coverage keeps the domain fallback-only; it

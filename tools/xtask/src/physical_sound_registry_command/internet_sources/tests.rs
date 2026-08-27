@@ -94,6 +94,16 @@ fn manifest_rejects_unsafe_url_missing_artifact_and_unsorted_capabilities() {
             .expect_err("unsorted capabilities reject")
             .contains("strictly sorted")
     );
+
+    let mut manifest = test_manifest();
+    manifest.sources[0].artifacts[0].redirect_policy = Some(FetchRedirectPolicy::OsfStorageV1);
+    manifest.sources[0].artifacts[0].normalization_policy =
+        Some(FetchNormalizationPolicy::FreesoundPackIdentityV1);
+    assert!(
+        validate_manifest(&manifest)
+            .expect_err("combined redirect and normalization policies reject")
+            .contains("cannot combine redirect and normalization policies")
+    );
 }
 
 #[test]
@@ -416,6 +426,7 @@ fn write_av_msf_fixture(
             role: ArtifactRole::AudioPayload,
             url: format!("{raw}/data/demo/95/contact/impact{recording_id}.wav"),
             redirect_policy: None,
+            normalization_policy: None,
             maximum_bytes: bytes.len() as u64,
             expected_byte_count: Some(bytes.len() as u64),
             expected_sha256: Some(sha256_hex(bytes)),
@@ -426,6 +437,7 @@ fn write_av_msf_fixture(
         role: ArtifactRole::ProjectDescription,
         url: format!("{raw}/index.html"),
         redirect_policy: None,
+        normalization_policy: None,
         maximum_bytes: page.len() as u64,
         expected_byte_count: Some(page.len() as u64),
         expected_sha256: Some(sha256_hex(page)),
@@ -555,6 +567,7 @@ fn test_manifest() -> InternetSourceManifest {
                     role: ArtifactRole::SourceArchive,
                     url: "https://example.org/generator.tar".to_owned(),
                     redirect_policy: None,
+                    normalization_policy: None,
                     maximum_bytes: 1024,
                     expected_byte_count: None,
                     expected_sha256: None,
@@ -564,6 +577,7 @@ fn test_manifest() -> InternetSourceManifest {
                     role: ArtifactRole::Metadata,
                     url: "https://example.org/metadata.json".to_owned(),
                     redirect_policy: None,
+                    normalization_policy: None,
                     maximum_bytes: 1024,
                     expected_byte_count: None,
                     expected_sha256: None,

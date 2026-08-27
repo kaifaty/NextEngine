@@ -125,6 +125,7 @@ mod tests {
                 id: "impact-audio-archive".to_owned(),
                 role: "audio_archive",
                 url: "https://ndownloader.figshare.com/files/36113411".to_owned(),
+                normalization_policy: None,
                 maximum_bytes: 40 * 1024 * 1024,
                 expected_byte_count: Some(38_059_995),
                 expected_sha256: Some("ef".repeat(32)),

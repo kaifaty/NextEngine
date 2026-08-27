@@ -164,6 +164,8 @@ struct RemoteArtifact {
     url: String,
     #[serde(default)]
     redirect_policy: Option<FetchRedirectPolicy>,
+    #[serde(default)]
+    normalization_policy: Option<FetchNormalizationPolicy>,
     maximum_bytes: u64,
     #[serde(default)]
     expected_byte_count: Option<u64>,
@@ -176,6 +178,20 @@ struct RemoteArtifact {
 enum FetchRedirectPolicy {
     FigshareKiltHubV1,
     OsfStorageV1,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum FetchNormalizationPolicy {
+    FreesoundPackIdentityV1,
+}
+
+impl FetchNormalizationPolicy {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::FreesoundPackIdentityV1 => "freesound_pack_identity_v1",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -359,6 +375,8 @@ struct RemoteArtifactReport {
     id: String,
     role: &'static str,
     url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    normalization_policy: Option<&'static str>,
     maximum_bytes: u64,
     expected_byte_count: Option<u64>,
     expected_sha256: Option<String>,
@@ -490,6 +508,12 @@ fn validate_source(source: &InternetSource) -> Result<(), String> {
         if artifact.maximum_bytes == 0 || artifact.maximum_bytes > HARD_MAXIMUM_DOWNLOAD_BYTES {
             return Err(format!(
                 "artifact {} maximum_bytes must be 1..={HARD_MAXIMUM_DOWNLOAD_BYTES}",
+                artifact.id
+            ));
+        }
+        if artifact.redirect_policy.is_some() && artifact.normalization_policy.is_some() {
+            return Err(format!(
+                "artifact {} cannot combine redirect and normalization policies",
                 artifact.id
             ));
         }
@@ -672,6 +696,7 @@ fn build_report(
                 id: artifact.id.clone(),
                 role: artifact.role.as_str(),
                 url: artifact.url.clone(),
+                normalization_policy: artifact.normalization_policy.map(|value| value.as_str()),
                 maximum_bytes: artifact.maximum_bytes,
                 expected_byte_count: artifact.expected_byte_count,
                 expected_sha256: artifact.expected_sha256.clone(),
@@ -779,7 +804,10 @@ fn audit_or_fetch_artifact(
         cache,
         &target,
         &artifact.url,
-        artifact.redirect_policy,
+        fetch::FetchPolicies {
+            redirect: artifact.redirect_policy,
+            normalization: artifact.normalization_policy,
+        },
         expected_sha256,
         expected_byte_count,
         download_bound,
