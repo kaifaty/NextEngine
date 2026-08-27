@@ -211,6 +211,12 @@ microphone/force calibrations by hash. Complete controls become only
 The remaining package-3/PS-2 blocker is physical capture and scale, not schema
 design. See [bundle evidence](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md).
 
+Active-host preflight finds ordinary ALC1220 microphone/line capture but no
+identified calibrated force-transducer/hammer channel. Microphone-only capture
+is not a valid substitute. Physical PS-2 evidence waits for synchronized force
+hardware or an already recorded complete bundle; validator and shadow work do
+not advance around that blocker.
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:

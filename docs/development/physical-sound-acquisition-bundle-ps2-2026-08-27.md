@@ -78,6 +78,14 @@ incomplete public pilot.
 The software acquisition boundary is ready. The remaining PS-2 blocker is now
 physical evidence, not another metadata/schema iteration.
 
+Host preflight on 2026-08-27 found two ALSA capture devices on the integrated
+ALC1220 codec, with rear microphone, front microphone and line inputs. No
+calibrated force-transducer or instrumented-hammer channel is identified on the
+host. An ordinary microphone-only recording would violate the synchronized
+bundle and receives no evidence credit. Capture therefore waits for an
+instrumented hammer/force sensor connected to a synchronized input path, or an
+already recorded bundle with the same evidence.
+
 Record one glass object with the frozen PS-2 fixture and instrumented hammer:
 
 1. retain synchronized raw microphone and calibrated-newton arrays;

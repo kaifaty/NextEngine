@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_ACQUISITION_CONTRACT_COMPLETE / PS2_PHYSICAL_CAPTURE_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_ACQUISITION_CONTRACT_COMPLETE / CAPTURE_BLOCKED_ON_FORCE_HARDWARE / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-27` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -15,10 +15,10 @@
   executable; the incomplete real pilot remains byte-stable fallback.
 - **Why:** Code requires raw microphone/force equality, repeat identity and all
   four metrology/provenance artifacts instead of inferring missing axes.
-- **Next action:** Physically record one complete controlled glass bundle, then
-  scale it to the frozen 40-object/35-parent/16-coverage target.
-- **Current blocker:** Insufficient corpus scale/domain axes,
-  spatial/force evidence, mixer budget, Accepted ADR and complete contact signal.
+- **Next action:** Connect calibrated force/hammer capture beside the available
+  ALC1220 audio input, then record one complete controlled glass bundle.
+- **Current blocker:** Host has ordinary ALC1220 mic/line capture but no
+  identified calibrated force-transducer/hammer channel; corpus scale remains open.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound and raw PhysX-callback mixing.
@@ -211,8 +211,8 @@ Read these sources in precedence order before acting:
    negative evidence; do not start a v5 gain grid.
 5. Preserve PS-1 profile/report hashes and the closest rejected sentinel;
    change corpus revision rather than reopening the frozen shadow.
-6. Preserve PS-2 plan/pilot hashes and complete-bundle contract; physically
-   acquire one glass bundle, then 40 objects before `Pass`, PS-3 or AV-P0D.
+6. Preserve PS-2 hashes/contract; connect synchronized calibrated force capture,
+   then acquire one glass bundle and 40 objects before `Pass`, PS-3 or AV-P0D.
 7. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 8. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
@@ -243,7 +243,7 @@ Read these sources in precedence order before acting:
   are implemented; defaults/public schemas/assets/ownership unchanged.
 - **Checks:** sound `48/48`, Clippy `-D warnings`, fmt, boundary scan and byte
   repeat pass; candidate product/platform/performance checks remain not run.
-- **Remaining risk:** corpus scale/scope, calibration/OOD,
+- **Remaining risk:** force-capture hardware, corpus scale/scope, calibration/OOD,
   spatial transfer, contact sufficiency, mixer cost and authoring are open.
 - **Quality status:** complete bundle has only synthetic controls; no quality,
   corpus admission or production claim exists until physical acquisition passes.
