@@ -2,9 +2,9 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_FIVE_E3_PROJECT_GROUPS / GLASS_7_OF_16 / REJECT_PARENTS_8_OF_35 / TWO_REALIMPACT_E2_OBJECTS / E3_AND_REJECT_EXPANSION_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_DECLARATIVE_FREESOUND_IMPORT_READY / FIVE_E3_PROJECT_GROUPS / GLASS_7_OF_16 / REJECT_PARENTS_8_OF_35 / TWO_REALIMPACT_E2_OBJECTS / E3_AND_REJECT_EXPANSION_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [AV-MSF multi-object E3 pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [REALIMPACT typed E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [GreenGoblet bounded-range E2 pilot](../development/physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md), [ObjectFolder discriminator and Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [acquisition import bundle](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [AV-MSF multi-object E3 pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [REALIMPACT typed E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [GreenGoblet bounded-range E2 pilot](../development/physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md), [ObjectFolder discriminator and Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [acquisition import bundle](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -302,6 +302,18 @@ reject parents. The report measures `8/35`, leaving 27 parent groups; it does
 not claim generated negatives, validator rejection or false-pass risk. The
 historical implicit report remains byte-identical. See the
 [explicit-role evidence](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md).
+
+PS-2 declarative-Freesound checkpoint: `freesound-pack-identified-recording-v1`
+derives canonical publisher/pack/CDN/license identities and requires exact
+pack metadata, preview hashes, gapless MP3 counts and material-bearing
+publisher phrases while moving pack-specific values out of Rust. Both frozen
+Freesound families repeat from two cache roots; the explicit corpus remains 15
+objects/44 recordings, Glass `7/16`, reject parents `8/35`, and the legacy
+reports stay byte-identical. Strong Glass-bottle candidates were discovered,
+but current canonical raw access returns HTTP 403, so no guessed metadata or
+new coverage is claimed. Next source acquisition is now a reviewed manifest
+operation when an exact-download route exists. See the [declarative adapter
+evidence](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md).
 
 ## PS-2 — Сделать риск статистически измеримым
 
