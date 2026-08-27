@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet corpus acquisition policy
 
 Date: 2026-08-27
-Status: `ACTIVE_CONSTRAINT / FIVE_E3_PROJECT_GROUPS / GLASS_7_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_AND_REJECT_EXPANSION_NEXT / PASS_DISABLED`
+Status: `ACTIVE_CONSTRAINT / FIVE_E3_PROJECT_GROUPS / GLASS_7_OF_16 / REJECT_PARENTS_8_OF_35 / TWO_REALIMPACT_E2_OBJECTS / E3_AND_REJECT_EXPANSION_NEXT / PASS_DISABLED`
 
 ## Decision
 
@@ -76,8 +76,9 @@ See the measured [internet source/cache pilot](physical-sound-internet-source-pi
 [Greatest Hits discriminator](physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md),
 [REALIMPACT E2 adapter](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md),
 [GreenGoblet bounded-range E2 pilot](physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md),
-the [Freesound glass-bowl E3 pilot](physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md)
-and the [Freesound wine-glass cached E3 increment](physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md).
+the [Freesound glass-bowl E3 pilot](physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md),
+the [Freesound wine-glass cached E3 increment](physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md)
+and the [explicit reject-parent import](physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md).
 
 ## Current consequence
 
@@ -131,8 +132,12 @@ The generic registry, bounded HTTPS fetch/cache, capability matrix, E2/E3
 adapters and leakage-safe identified-corpus normalizer are implemented.
 The combined measurement has five publisher/project/revision groups, fifteen
 objects and forty-four recordings. Glass coverage is now `7/16` required
-object/family groups and twenty-eight recordings, so the immediate blocker is
-`REMAINING_9_INDEPENDENT_E3_GROUPS_AND_REJECT_PARENTS`, not force
+object/family groups and twenty-eight recordings. Explicit role mode
+cross-checks every `target` or `reject_parent` assignment against adapter
+material evidence: eight non-Glass object groups/sixteen recordings are now
+development-only reject parents. Twenty-seven of the required thirty-five
+reject parents and nine Glass groups remain open, so the immediate blocker is
+`REMAINING_9_INDEPENDENT_E3_GROUPS_AND_27_REJECT_PARENTS`, not force
 hardware, generic networking, OSF/Figshare redirects, REALIMPACT adapter
 existence, bounded REALIMPACT row retrieval or unqualified variants from the
 same source revisions. Greatest
@@ -142,8 +147,9 @@ for the archive host currently fails; it therefore receives no E3 credit and
 must not be downloaded or grouped by video. The GreenGoblet ranged ZIP package
 is now validated and adds a second E2 object but no E3 group. The next bounded
 package resumes internet search for stable object-level Glass identities and
-repeats from another published E3 project and defines an explicit reject-parent
-import instead of silently reusing non-target material labels. ObjectFolder-Real remains a strong
+repeats plus hard non-Glass parents from another published E3 project. It must
+not move the current small development set into calibration/holdout/shadow or
+treat parent availability as measured validator rejection. ObjectFolder-Real remains a strong
 candidate but its official 34–39 GB per-batch gzip tar streams do not expose a
 bounded path to a second repeat after large embedded media; do not retry
 growing archive prefixes unless an official per-object audio-only or seekable
