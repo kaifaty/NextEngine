@@ -146,6 +146,20 @@ for:
 - a reference oracle that is not actually independent;
 - an experiment whose observable cannot distinguish the hypotheses.
 
+For executable research evidence, compilation and author-written tests are
+necessary but never sufficient. Before interpreting a decisive `PASS` or
+`FAIL`, freeze the candidate diff, command and raw output hashes, then give a
+fresh reviewer the contract, relevant source/diff and raw output without the
+author's diagnosis or intended result. Require the reviewer to inspect both
+candidate and controls for shared defects, exact operation/count/order/sign
+correspondence, oracle independence, identity sealing, mutation/failure
+precedence and whether the observable actually supports the claimed boundary.
+The reviewer must report findings and must not silently repair the candidate.
+After a material fix, rerun the evidence and repeat review of the changed
+surface. If an independent reviewer is unavailable, record code-review
+correspondence as `NOT_TESTED` and cap the result; do not substitute a second
+self-review or a successful build.
+
 Recompute load-bearing steps or use a different representation. If an
 objection survives two coherent repair cycles, replace the approach or return
 an explicit unresolved gap rather than adding more ceremonial review.
