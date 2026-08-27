@@ -3923,6 +3923,15 @@ exact arithmetic restricted to profile construction and independent
 containment. Dense success would still require a later factorized/sparse gate.
 
 The
+[R20R63X evidence](../../development/nonlocal-nsr3b4e2d7r20r63x-composed-affine-image-evidence-2026-08-27.md)
+selects `TWO_LANE_AFFINE_IMAGE_CANDIDATE`. All 612 finite image intervals
+contain the independent exact images; states 0--1 reject, while both state-2
+candidates resolve `24+/78-/0?` at `4.44e-4/1.01e-3`. This recovers roughly
+18 orders relative to R63W without changing precision and identifies lost
+residual correlation as the causal boundary. Research a factorized/sparse
+affine enclosure next; dense exact `ZH*`, timing and production remain blocked.
+
+The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
 selects `BINARY64_RECTANGULAR_FACTOR_FLOOR`. Rounding the operator to binary64
 preserves the immutable weak signal, and the binary128 factor preserves it by

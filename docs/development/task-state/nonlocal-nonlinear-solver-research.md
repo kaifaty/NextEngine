@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_65_OF_65_CENTERED_CANDIDATE / D7R20R42_RATIO_ORDER_BOUNDARY / D7R20R43_SECOND_INVERSE_BOUNDARY / D7R20R44_TWO_SIDED_CONTRACTIVE / D7R20R45_65_OF_65_SECOND_CENTER / D7R20R46_THIRD_INVERSE_BOUNDARY / D7R20R47_TWO_SIDED_CONTRACTIVE / D7R20R48_65_OF_65_THIRD_CENTER / D7R20R49_FOURTH_INVERSE_BOUNDARY / D7R20R50_TORSION_GENERIC_CANDIDATE / D7R20R51_COUNTERFLOW_ONLY_BOUNDARY / D7R20R52_CAPTURE_PREMISE_REFUTED / D7R20R53_CENTERED_SLOPE_CANDIDATE / D7R20R54_LEGACY_SLOPE_CANDIDATE / D7R20R55_COUNTERFLOW_CERTIFIED / D7R20R56_V4_5_OF_5 / D7R20R57_V5_MANIFEST_FROZEN / D7R20R58_V5_PREFLIGHT_PASS / D7R20R59_V5_DIMENSION_BOUNDARY / D7R20R60_DIMENSION_GENERIC_CENTER / D7R20R61_V5_6_OF_6 / D7R20R62_STRICT_BINARY64_DOT2ERR_SELECTED / D7R20R63_BINARY64_PROJECTED_INVERSE_NONCONTRACTIVE / D7R20R63A_MIXED_PROJECTION_CONTRIBUTION / D7R20R63B_FACTOR_LEFT_NONCONTRACTIVE / D7R20R63C_BINARY64_LOWER_LEFT_NONCONTRACTIVE / D7R20R63D_PROJECTOR_METRIC_NUMERICAL_RANK_LOSS / D7R20R63E_CLAMP_METRIC_NUMERICAL_RANK_LOSS / D7R20R63F_LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED / SHARED_HOST_PERFORMANCE_STOP` |
-| Current frontier | `D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE / D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED / D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED / D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED / D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE / D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE / D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED / D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED / D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE / D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE / D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED / D7R20R63X_AFFINE_IMAGE_FROZEN_IMPLEMENTATION_NEXT` |
+| Current frontier | `D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE / D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED / D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED / D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED / D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE / D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE / D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED / D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED / D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE / D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE / D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED / D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE / D7R20R63Y_FACTORIZED_AFFINE_RESEARCH_NEXT` |
 | Updated | `2026-08-27` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -12,30 +12,19 @@
 
 ## Resume in 60 seconds
 
-- **Current result:** R20R63W passes apparatus at semantic
-  `35a74726...b48d2c3`, route `RETAINED_WIDE_FINITE_IMAGE_REJECTED`; stdout
-  is byte-identical at `1e85677e...c2fe`. All 1,224 residual/image entries are
-  contained, but independent residual intervals propagated through `|Z|`
-  restore a `5.80e14` state-2 radius and leave 66 signs unresolved.
-- **Invalid run warning:** two earlier R63W apparatus executions used a
-  magnitude-only comparator on signed interval endpoints. They stopped before
-  solver work and have no scientific credit. The signed comparator and its
-  orientation/negative controls now pass.
-- **Next:** implement only frozen R63X, evaluating `Zb-(ZH*)x` as one
-  compensated affine dot per row so residual correlation is preserved. Exact
-  arithmetic may build/audit the profile but cannot enter finite
-  classification. No sparse/timing/runtime/GPU/production inference.
-
-- **Current result:** R20R63V passes at semantic
-  `905ce406...acad8`, route `TWO_LANE_EARLIEST_IMAGE_CANDIDATE`; stdout is
-  byte-identical at `62e1c376...e44`. Both independent direct-PCG lanes first
-  certify all `24+/78-` signs at state 2 and remain certified through state 8.
-  Final R63U certificate roots and all R63B--R63U stdout roots remain exact.
-- **Next:** implement only frozen R63W. Build a binary128 center/radius
-  enclosure for common `H*`, residual and `Zr`; exact R63U may audit
-  containment but cannot enter finite classification. Replay states `0..2`.
-  Do not infer a runtime state-2 stop, select runtime binary128, add sparse or
-  timing work, or claim GPU/production authority.
+- **Current result:** R20R63X passes at semantic
+  `904614d7...95a65`, route `TWO_LANE_AFFINE_IMAGE_CANDIDATE`; stdout is
+  byte-identical at `9e218dbd...bf7`. The correlation-preserving finite form
+  `Zb-(ZH*)x` contains all 612 exact images, rejects states 0--1 and resolves
+  both state-2 candidates at `4.44e-4/1.01e-3`, `24+/78-/0?`. All R63B--R63W
+  stdout hashes remain exact.
+- **Causal boundary:** R63W remains a valid negative result. Its componentwise
+  residual intervals lose roughly 18 orders under `|Z|`; R63X restores them
+  without wider arithmetic by delaying cancellation to one affine dot.
+- **Next:** research/freeze only a factorized or sparse finite affine-image
+  gate which preserves the R63X cancellation while removing dense `ZH*`
+  storage and cubic exact profile construction. Exact R63X is containment
+  oracle only. No timing, runtime/GPU path, corpus or production inference.
 
 - **Current result:** R20R61 passes at semantic `fcfb0653...ee9a`, route
   `PROFILE_BOUNDED_V5_6_OF_6_CANDIDATE`; stdout is byte-identical at
@@ -6172,6 +6161,26 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R63X either reproduces reject/reject/pass with all exact
   image containments or proves that composed-profile radius/cancellation also
   exceeds the state-2 margin.
+
+### D-213 -- Preserve affine cancellation while removing the dense composite
+
+- **Context:** R63X evaluates `Zb-(ZH*)x` as one compensated affine dot per
+  row. It contains all 612 exact images and reproduces reject/reject/pass on
+  both lanes; state-2 bounds are `4.44e-4/1.01e-3` with the frozen complete
+  sign root. The dense exact profile requires 1,061,208 `ZH*` products and
+  stores 10,404 composite coefficients.
+- **Decision:** accept correlation preservation as the selected finite
+  certificate mechanism. Research a factorized/sparse realization next. Any
+  factorization must keep the cancellation between `Zb` and the operator term
+  until the final outward affine reduction and independently contain every
+  exact R63X image.
+- **Rejected:** promoting dense binary128 `ZH*` to runtime; returning to an
+  independently widened residual; treating state 2 as a production stop;
+  measuring the shared host; corpus/runtime/GPU/production claims before a
+  factorized correspondence gate closes.
+- **Reconsider when:** a frozen factorized/sparse finite gate reproduces both
+  R63X lanes and exact image containment, or localizes a new intermediate-
+  representation dependency loss that requires a different expansion.
 
 ## Performance facts retained
 
