@@ -14,6 +14,8 @@ physx = ["next_motor/physx-sdk", "next_verification/physx"]
 physx-mock = ["next_motor/mock-abi", "next_verification/physx-mock"]
 
 [dependencies]
+crc32fast.workspace = true
+flate2.workspace = true
 goblin.workspace = true
 next_assets.workspace = true
 next_application.workspace = true

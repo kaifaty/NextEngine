@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet corpus acquisition policy
 
 Date: 2026-08-27
-Status: `ACTIVE_CONSTRAINT / THREE_E3_PROJECT_GROUPS / GLASS_5_OF_16 / GREATEST_HITS_E3_REJECTED / REALIMPACT_GREEN_GOBLET_NEXT / PASS_DISABLED`
+Status: `ACTIVE_CONSTRAINT / THREE_E3_PROJECT_GROUPS / GLASS_5_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_EXPANSION_NEXT / PASS_DISABLED`
 
 ## Decision
 
@@ -70,17 +70,20 @@ See the measured [internet source/cache pilot](physical-sound-internet-source-pi
 [AV-MSF multi-object E3 pilot](physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md),
 [independent YCB Impact E3 pilot](physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md),
 [independent Heller Impact E3 pilot](physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md)
-[Greatest Hits discriminator](physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md)
-and [REALIMPACT E2 adapter](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md).
+[Greatest Hits discriminator](physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md),
+[REALIMPACT E2 adapter](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md)
+and [GreenGoblet bounded-range E2 pilot](physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md).
 
 ## Current consequence
 
-REALIMPACT GlassGoblet is useful `E2 transfer response` evidence because its
-published archive exposes force-deconvolved 48 kHz responses, mesh, impact
-vertices and listener coordinates. A typed adapter now freezes the official
-repository and one exact row instead of trusting generic metadata. Its
-unavailable raw force, material composition, repeat identity and fixture
-revision still prohibit `E1` or corpus-admission credit.
+REALIMPACT GlassGoblet and GreenGoblet are useful `E2 transfer response`
+evidence because their published archives expose force-deconvolved 48 kHz
+responses, meshes, impact vertices and listener coordinates. A typed adapter
+now freezes the official repository and one exact row per object instead of
+trusting generic metadata. GreenGoblet is retrieved by a frozen 1.61 MB
+bounded-range path rather than a 2.31 GB full download. Their unavailable raw
+force, material composition, repeat identity and fixture revision still
+prohibit `E1` or corpus-admission credit.
 The complete frozen AV-MSF demo-card surface supplies ten typed-adapter-backed
 `E3 identified recording` object groups and twenty impacts. It contains two
 Glass objects/four recordings, but every card shares one
@@ -108,13 +111,15 @@ groups, thirteen objects and thirty-three recordings. Glass coverage is now
 `5/16` required object groups and seventeen recordings, so the immediate
 blocker is `REMAINING_11_INDEPENDENT_E3_GROUPS_AND_REJECT_PARENTS`, not force
 hardware, generic networking, OSF/Figshare redirects, REALIMPACT adapter
-existence or unqualified variants from the same source revisions. Greatest
+existence, bounded REALIMPACT row retrieval or unqualified variants from the
+same source revisions. Greatest
 Hits range inventory found 382 Glass-labelled actions across 31 videos, but the
 published labels have no stable object identity and ordinary TLS verification
 for the archive host currently fails; it therefore receives no E3 credit and
-must not be downloaded or grouped by video. The next bounded package is an
-exact ranged ZIP inventory and selected-row retrieval attempt for the official
-REALIMPACT `93_GreenGoblet.zip`. If published
+must not be downloaded or grouped by video. The GreenGoblet ranged ZIP package
+is now validated and adds a second E2 object but no E3 group. The next bounded
+package resumes internet search for stable object-level Glass identities and
+repeats from another published E3 project. If published
 evidence cannot satisfy a domain's required claims and grouped sample sizes,
 that domain remains fallback-only. The project does not resolve the gap by
 asking the user to make physical recordings.

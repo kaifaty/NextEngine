@@ -33,6 +33,13 @@ const REALIMPACT_TRANSFER_SHA256: &str =
     "15c87b87423e71177e9e3b2ffd3fb0b2ea8ab7c5cbff071f519b2ddda3df325b";
 const REALIMPACT_PROVENANCE_SHA256: &str =
     "d16716cafd8ad41d569415130dbdf82383f87d1025dac61c01ae2595f7f9cc51";
+const REALIMPACT_GREEN_GOBLET_DATASET_OBJECT_ID: &str = "93_GreenGoblet";
+const REALIMPACT_GREEN_GOBLET_METADATA_SHA256: &str =
+    "a5c129535823c1422885a4adc3f27dcab36e8f959893d13b63b2f8efbd1bb649";
+const REALIMPACT_GREEN_GOBLET_TRANSFER_SHA256: &str =
+    "104dd97391bf6319ccbd4dfdf48569be58097bf1f90cf8cea3ae3cb2f7498ec9";
+const REALIMPACT_GREEN_GOBLET_PROVENANCE_SHA256: &str =
+    "25f01b1c8fb5b3cf6a9aa474393d9b00393dc705937c7b4148fedb7d1c7a4262";
 const REALIMPACT_CAPABILITIES: [&str; 6] = [
     "force_deconvolved_transfer",
     "geometry",
@@ -46,6 +53,32 @@ const REALIMPACT_UNAVAILABLE: [&str; 4] = [
     "material-composition-revision",
     "repeat-recording-identity",
     "support-fixture-revision",
+];
+
+#[derive(Clone, Copy)]
+struct FrozenRealImpactPilot {
+    dataset_object_id: &'static str,
+    row_index: usize,
+    metadata_sha256: &'static str,
+    transfer_sha256: &'static str,
+    provenance_sha256: &'static str,
+}
+
+const REALIMPACT_PILOTS: [FrozenRealImpactPilot; 2] = [
+    FrozenRealImpactPilot {
+        dataset_object_id: REALIMPACT_DATASET_OBJECT_ID,
+        row_index: REALIMPACT_ROW_INDEX,
+        metadata_sha256: REALIMPACT_METADATA_SHA256,
+        transfer_sha256: REALIMPACT_TRANSFER_SHA256,
+        provenance_sha256: REALIMPACT_PROVENANCE_SHA256,
+    },
+    FrozenRealImpactPilot {
+        dataset_object_id: REALIMPACT_GREEN_GOBLET_DATASET_OBJECT_ID,
+        row_index: 0,
+        metadata_sha256: REALIMPACT_GREEN_GOBLET_METADATA_SHA256,
+        transfer_sha256: REALIMPACT_GREEN_GOBLET_TRANSFER_SHA256,
+        provenance_sha256: REALIMPACT_GREEN_GOBLET_PROVENANCE_SHA256,
+    },
 ];
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -146,34 +179,37 @@ pub(super) fn validate_declaration(
                 ));
             }
             validate_dataset_object_id(dataset_object_id)?;
-            if dataset_object_id != REALIMPACT_DATASET_OBJECT_ID
-                || *row_index != REALIMPACT_ROW_INDEX
-            {
-                return Err(format!(
-                    "REALIMPACT adapter v1 supports only {REALIMPACT_DATASET_OBJECT_ID} row {REALIMPACT_ROW_INDEX} on entry {}",
-                    entry.id
-                ));
-            }
+            let pilot = REALIMPACT_PILOTS
+                .iter()
+                .find(|pilot| {
+                    dataset_object_id == pilot.dataset_object_id && *row_index == pilot.row_index
+                })
+                .ok_or_else(|| {
+                    format!(
+                        "REALIMPACT adapter v1 has no frozen pilot for {dataset_object_id} row {row_index} on entry {}",
+                        entry.id
+                    )
+                })?;
             for (actual, expected, role) in [
                 (
                     entry.acquisition_metadata.sha256.as_str(),
-                    REALIMPACT_METADATA_SHA256,
+                    pilot.metadata_sha256,
                     "acquisition metadata",
                 ),
                 (
                     entry.audio_payload.sha256.as_str(),
-                    REALIMPACT_TRANSFER_SHA256,
+                    pilot.transfer_sha256,
                     "transfer payload",
                 ),
                 (
                     entry.provenance_review.sha256.as_str(),
-                    REALIMPACT_PROVENANCE_SHA256,
+                    pilot.provenance_sha256,
                     "provenance review",
                 ),
             ] {
                 if actual != expected {
                     return Err(format!(
-                        "REALIMPACT adapter v1 {role} is not the frozen GlassGoblet pilot on entry {}",
+                        "REALIMPACT adapter v1 {role} is not the frozen {dataset_object_id} pilot on entry {}",
                         entry.id
                     ));
                 }

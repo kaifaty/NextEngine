@@ -11,6 +11,7 @@ use sha2::{Digest, Sha256};
 mod corpus_inventory;
 mod corpus_plan;
 mod internet_sources;
+mod realimpact_row;
 
 const MANIFEST_SCHEMA: &str =
     "nextengine.experimental-physical-sound-research-registry.manifest.v1";
@@ -80,6 +81,13 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
     {
         arguments.next();
         return internet_sources::run_identified_corpus_cli(root, arguments);
+    }
+    if arguments
+        .peek()
+        .is_some_and(|argument| argument == "realimpact-row")
+    {
+        arguments.next();
+        return realimpact_row::run_cli(root, arguments);
     }
     let request = parse_arguments(arguments)?;
     run(root, &request)

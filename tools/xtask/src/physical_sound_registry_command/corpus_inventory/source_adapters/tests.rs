@@ -49,6 +49,35 @@ fn realimpact_metadata_grants_only_bound_transfer_axes() {
     );
 }
 
+#[test]
+fn declaration_accepts_the_independently_fetched_green_goblet_row() {
+    let mut entry = entry_fixture();
+    entry.id = "realimpact-greengoblet-row0000".to_owned();
+    entry.object_id = "realimpact-93-greengoblet".to_owned();
+    entry.audio_payload.sha256 = REALIMPACT_GREEN_GOBLET_TRANSFER_SHA256.to_owned();
+    entry.acquisition_metadata.sha256 = REALIMPACT_GREEN_GOBLET_METADATA_SHA256.to_owned();
+    entry.provenance_review.sha256 = REALIMPACT_GREEN_GOBLET_PROVENANCE_SHA256.to_owned();
+    let mut adapter = adapter_fixture();
+    let SourceAdapterProfile::RealImpactForceDeconvolvedTransferV1 {
+        dataset_object_id, ..
+    } = &mut adapter;
+    *dataset_object_id = REALIMPACT_GREEN_GOBLET_DATASET_OBJECT_ID.to_owned();
+    entry.source_adapter = Some(adapter);
+    validate_declaration(&entry, true).expect("frozen GreenGoblet source adapter validates");
+
+    let Some(SourceAdapterProfile::RealImpactForceDeconvolvedTransferV1 { row_index, .. }) =
+        &mut entry.source_adapter
+    else {
+        panic!("REALIMPACT adapter fixture");
+    };
+    *row_index = 1;
+    assert!(
+        validate_declaration(&entry, true)
+            .expect_err("unfrozen row rejects")
+            .contains("has no frozen pilot")
+    );
+}
+
 fn entry_fixture_with_adapter() -> InventoryEntry {
     let mut entry = entry_fixture();
     entry.source_adapter = Some(adapter_fixture());

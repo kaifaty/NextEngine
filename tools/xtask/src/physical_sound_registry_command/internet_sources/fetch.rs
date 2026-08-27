@@ -198,7 +198,7 @@ pub(super) fn fetch_exact_artifact(
     Ok(CacheStatus::CachedVerified)
 }
 
-fn resolve_public_https_endpoint(url: &str) -> Result<Option<String>, String> {
+pub(crate) fn resolve_public_https_endpoint(url: &str) -> Result<Option<String>, String> {
     let (host, _) = canonical_https_host_and_path(url, "remote artifact URL")?;
     let addresses = match (host, 443).to_socket_addrs() {
         Ok(addresses) => addresses.collect::<Vec<_>>(),

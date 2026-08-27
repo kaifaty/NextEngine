@@ -17,6 +17,8 @@ mod adapters;
 mod fetch;
 mod identified_corpus;
 
+pub(super) use fetch::resolve_public_https_endpoint;
+
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-internet-sources.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-internet-sources.report.v1";
 const DEFAULT_MAXIMUM_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;

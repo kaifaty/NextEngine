@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_THREE_E3_PROJECT_GROUPS / GLASS_5_OF_16 / GREATEST_HITS_E3_REJECTED / REALIMPACT_GREEN_GOBLET_RANGE_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_THREE_E3_PROJECT_GROUPS / GLASS_5_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_EXPANSION_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-27` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -12,14 +12,14 @@
 ## Resume in 60 seconds
 - **Current conclusion:** PS-2 uses published internet data only. AV-MSF, YCB
   Impact and CMU Heller validate as 13 E3 objects/33 recordings in three source
-  groups; Glass coverage is `5/16` and 17 recordings. One exact REALIMPACT row
-  has typed E2 evidence but remains fallback; `Pass` stays disabled.
+  groups; Glass coverage is `5/16` and 17 recordings. Two exact REALIMPACT
+  object rows have typed E2 evidence but remain fallback; `Pass` stays disabled.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Greatest Hits E3 is rejected after bounded range inventory;
-  inspect the official REALIMPACT `93_GreenGoblet.zip` central directory and
-  retrieve one exact E2 row without the full 2.31 GB download.
+- **Next action:** Preserve the byte-identical GreenGoblet bounded-range import,
+  then search another published project for stable object-level Glass E3
+  identities/repeats; do not count E2 objects as validator groups.
 - **Current blocker:** Eleven Glass object groups, 35 reject parents and
   complementary force/geometry/support E2/E1 claims remain open.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
@@ -38,7 +38,7 @@
 | [Steel residual v4](../physical-sound-steel-residual-v4-2026-08-27.md) | `V4_REJECTED / FALLBACK_OUT_OF_DOMAIN` | YCB adds aluminium-container and steel-skillet families. Real metal flatness is about `−16/−17 dB` versus v3 `−53 dB`; v4 reaches flatness but not real spectral dynamics. Original PANNs stays `0/39`, BEATs `7/39`; no joint profile or promotion. |
 | [Controlled glass corpus](../physical-sound-controlled-glass-corpus-2026-08-27.md) | `CONTROLLED_SYNTHETIC_CORPUS_PASS / HUMAN_REFERENCE_OPEN` | Exact geometry and 15 force/position conditions are reproducible; Q30 and physical controls pass, but whole-vector IDW is an inadequate spatial model and the corpus has no real matched recording. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
-| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [AV-MSF multi-object pilot](../physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [independent YCB E3 pilot](../physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [independent Heller E3 pilot](../physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [Greatest Hits discriminator](../physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [typed REALIMPACT E2 adapter](../physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md) and [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) | `PS2_THREE_E3_PROJECT_GROUPS / GLASS_5_OF_16 / GREATEST_HITS_E3_REJECTED` | Three E3 projects repeat at 13 objects/33 recordings; Glass is `5/16`. Greatest Hits range inventory proves material events but no stable object identity. REALIMPACT remains one typed fallback E2 row; no source has admission credit. |
+| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [AV-MSF multi-object pilot](../physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [independent YCB E3 pilot](../physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [independent Heller E3 pilot](../physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [Greatest Hits discriminator](../physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [typed REALIMPACT E2 adapter](../physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [GreenGoblet range pilot](../physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md) and [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) | `PS2_THREE_E3_PROJECT_GROUPS / GLASS_5_OF_16 / TWO_REALIMPACT_E2_OBJECTS` | Three E3 projects repeat at 13 objects/33 recordings; Glass is `5/16`. Greatest Hits proves material events but no stable object identity. Two REALIMPACT objects now have typed fallback E2 rows; GreenGoblet uses only 1.61 MB of ranges from its 2.31 GB archive. No source has admission credit. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -165,7 +165,7 @@
 - **Rejected alternatives:** Local mic/hammer acquisition, a live human queue,
   one general score/model, or inventing absent axes across datasets.
 - **Consequences:** Force hardware is no blocker. Bounded fetch/cache/archive
-  handling, three-project E3 normalization and one REALIMPACT E2 adapter are
+  handling, three-project E3 normalization and two REALIMPACT E2 object rows are
   complete. Glass is `5/16`; expand only explicitly identified independent E3/E2
   evidence, and keep insufficient evidence fallback-only.
 - **Uncertainty:** Published sources may not cover every force/geometry/support
@@ -182,7 +182,7 @@
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | PS-2 rejects invented axes; three E3 projects validate 13 objects/33 recordings and one REALIMPACT E2 row validates repeatably | Glass is only `5/16`; Greatest Hits has material events but no object identity, REALIMPACT is one fallback row and no powered partitioned corpus exists | Range-inspect GreenGoblet, expand exact E2/E3 evidence, then run one sealed shadow only after the plan freezes |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | PS-2 rejects invented axes; three E3 projects validate 13 objects/33 recordings and two REALIMPACT E2 objects validate repeatably | Glass is only `5/16`; Greatest Hits has material events but no object identity, both E2 rows are fallback and no powered partitioned corpus exists | Expand stable-object E3 and complementary E2/E1 evidence, then run one sealed shadow only after the plan freezes |
 
 ## Required context
 
@@ -201,9 +201,9 @@ Read these sources in precedence order before acting:
    source/generated artifacts external and do not reinterpret a control pass as
    subjective quality or P1 evidence.
 2. Preserve PS-2 hashes/import contract, AV-MSF/YCB/Heller E3 catalog,
-   Greatest Hits rejection and REALIMPACT E2 report; prove or reject bounded
-   GreenGoblet row retrieval, then expand from Glass `5/16` before `Pass`, PS-3
-   or AV-P0D.
+   Greatest Hits rejection and both REALIMPACT E2 reports; GreenGoblet bounded
+   retrieval is complete, so expand stable-object E3 from Glass `5/16` before
+   `Pass`, PS-3 or AV-P0D.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
@@ -233,8 +233,8 @@ Read these sources in precedence order before acting:
 ## Handoff
 
 - **Workspace state:** Registry V1, PS-1, PS-2 plan/`E1` import, bounded
-  source/cache/archive audit, three-project E3 normalization and one frozen
-  REALIMPACT E2 adapter exist; public schemas/assets/ownership are unchanged.
+  source/cache/archive audit, three-project E3 normalization, one typed
+  REALIMPACT adapter and two frozen E2 object rows exist; public schemas/assets/ownership are unchanged.
 - **Checks:** sound tests, Clippy `-D warnings`, fmt, boundary scan and online/
   offline report repeat pass; candidate product/platform/performance checks remain not run.
 - **Remaining risk:** eleven missing Glass groups, broader E2 arrays, corpus scale/scope, calibration/OOD,
