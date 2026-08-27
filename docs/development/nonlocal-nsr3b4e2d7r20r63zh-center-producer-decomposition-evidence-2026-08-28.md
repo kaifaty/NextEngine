@@ -40,7 +40,8 @@ bounded claim because no independent reviewer was available in this task.
 | Artifact | SHA-256 or identity |
 |---|---|
 | Parent commit before executable diff | `7a09048d0050202c4b329e25cd63eba446d786b4` |
-| Author executable diff | `4e88ae304130b288822e46cff7b357330e95e82df0ca66863dbf26740d68f962` |
+| Author snapshot commit | `12bd39864931278c5598c3342cbc9cdb1f2bd041` |
+| Frozen executable diff, parent to author snapshot | `74fbb15c104369356c0f9c1bb17abbbd204d15a95b8862b17494ec020f62f986` |
 | Center-producer main source | `d94a223af13125fd0256fc5e3cefb5ce311db3e8c29d0de84c280cdc43f3d950` |
 | Guarded R63ZG main source | `9575e7b107ee1a63b915e085249883d3242384fdc7ae6467af91d66cd48513bc` |
 | Private API | `d316d5c399b69cffb735b9896865031afcbecdc0ff21cae0407602cdad593b65` |

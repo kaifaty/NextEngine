@@ -79,9 +79,10 @@
   R63ZF, R63ZG, kernel-smoke and cache hashes remain exact.
 - **R63ZH review boundary:** independent review is `NOT_TESTED`; retain the
   author result as `CLAIM_INCONCLUSIVE`. The only next action is one fresh
-  adversarial review of the frozen diff/hashes/output. Do not close the
-  certificate-repair lineage, apply a repair or open a deeper factorial before
-  `GO`.
+  adversarial review of author snapshot `12bd39864931278c5598c3342cbc9cdb1f2bd041`,
+  frozen executable diff `74fbb15c...2f986` and its hashes/output. Do not close
+  the certificate-repair lineage, apply a repair or open a deeper factorial
+  before `GO`.
 - **Current result:** R20R63Z passes at semantic
   `e27ee861...3e4be`, route `TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE`; final
   stdout is byte-identical at `de22f5f6...da54`. All 10,404 common-operator
@@ -6457,10 +6458,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   Independent correspondence review is nevertheless `NOT_TESTED`, so the
   decisive stop claim remains `INCONCLUSIVE` under the research protocol.
 - **Decision:** freeze the author diff, command, binary and output identities.
-  Run one fresh adversarial review next. On `GO`, stop certificate repair and
-  restrict common-operator work to original-equation-preserving acceleration
-  or preconditioning. On a load-bearing finding, permit at most one batched
-  repair and one re-review.
+  Author snapshot is `12bd39864931278c5598c3342cbc9cdb1f2bd041`; parent-to-
+  snapshot executable diff is `74fbb15c...2f986`. Run one fresh adversarial
+  review next. On `GO`, stop certificate repair and restrict common-operator
+  work to original-equation-preserving acceleration or preconditioning. On a
+  load-bearing finding, permit at most one batched repair and one re-review.
 - **Rejected:** self-review as a substitute for correspondence review;
   declaring `SUPPORTED_BOUNDED` from compilation and author controls;
   correcting/widening the certificate; opening a deeper term factorial;
