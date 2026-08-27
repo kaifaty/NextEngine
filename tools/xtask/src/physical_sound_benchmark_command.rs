@@ -23,16 +23,18 @@ use manifest::{
     BenchmarkManifest, DistanceMetric, ExternalFeatureSet, FeatureMatrix, FileRef, Partition,
     validate_feature_matrix, validate_manifest,
 };
-use selective_risk::{TemporalSelectiveRiskReport, evaluate_temporal_selective_risk};
+use selective_risk::{SelectiveRiskReport, evaluate_selective_risk};
 
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-benchmark.manifest.v1";
 const FEATURE_MATRIX_SCHEMA: &str =
     "nextengine.experimental-physical-sound-corpus-feature-matrix.v1";
-const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-benchmark.report.v3";
+const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-benchmark.report.v4";
 const EVALUATOR_PROFILE: &str =
-    "nextengine.experimental-physical-sound-corpus-benchmark.av-p0c-selective-risk.v2";
+    "nextengine.experimental-physical-sound-corpus-benchmark.ps-1-specialists.v3";
 const CLASSICAL_FEATURE_SET_ID: &str = "classical-av-p0b-v1";
 const TEMPORAL_FEATURE_SET_ID: &str = "temporal-dynamics-av-p0c-v1";
+const AMPLITUDE_ENVELOPE_FEATURE_SET_ID: &str = "amplitude-envelope-ps-1-v1";
+const TEMPORAL_AMPLITUDE_CONSENSUS_FEATURE_SET_ID: &str = "temporal-amplitude-consensus-ps-1-v1";
 const MAX_ENTRIES: usize = 8_192;
 const MAX_MANIFEST_BYTES: usize = 16 * 1024 * 1024;
 const MAX_WAV_BYTES: usize = 256 * 1024 * 1024;
@@ -96,7 +98,9 @@ struct BenchmarkReport {
     split_audit: SplitAuditReport,
     input_failures: Vec<InputFailureReport>,
     optional_feature_components: Vec<OptionalFeatureComponentReport>,
-    temporal_selective_risk: Option<TemporalSelectiveRiskReport>,
+    temporal_selective_risk: Option<SelectiveRiskReport>,
+    amplitude_envelope_selective_risk: Option<SelectiveRiskReport>,
+    temporal_amplitude_consensus_selective_risk: Option<SelectiveRiskReport>,
     tasks: Vec<TaskReport>,
     entries: Vec<EntryAudioReport>,
 }
@@ -191,6 +195,7 @@ pub(super) struct EntryAudioReport {
     rms_dbfs: f64,
     hard_failure_tags: Vec<String>,
     temporal_dynamics: crate::physical_sound_eval_command::audio_analysis::TemporalDynamicsReport,
+    amplitude_envelope: crate::physical_sound_eval_command::audio_analysis::AmplitudeEnvelopeReport,
 }
 
 pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
@@ -211,24 +216,29 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
 
     let sources = resolve_corpus_sources(&root, manifest_directory, &manifest)?;
     let mut entries = resolve_entries(&root, manifest_directory, &manifest)?;
-    let mut feature_profile_reports = [CLASSICAL_FEATURE_SET_ID, TEMPORAL_FEATURE_SET_ID]
-        .into_iter()
-        .map(|id| {
-            Ok(FeatureProfileReport {
-                id: id.to_owned(),
-                provenance: "built_in_deterministic_descriptor",
-                model_revision: None,
-                model_sha256: None,
-                matrix_sha256: None,
-                dimensions: entries
-                    .first()
-                    .and_then(|entry| entry.features.get(id))
-                    .map(Vec::len)
-                    .ok_or_else(|| format!("resolved corpus has no {id} features"))?,
-                distance: DistanceMetric::Euclidean.as_str(),
-            })
+    let mut feature_profile_reports = [
+        CLASSICAL_FEATURE_SET_ID,
+        TEMPORAL_FEATURE_SET_ID,
+        AMPLITUDE_ENVELOPE_FEATURE_SET_ID,
+        TEMPORAL_AMPLITUDE_CONSENSUS_FEATURE_SET_ID,
+    ]
+    .into_iter()
+    .map(|id| {
+        Ok(FeatureProfileReport {
+            id: id.to_owned(),
+            provenance: "built_in_deterministic_descriptor",
+            model_revision: None,
+            model_sha256: None,
+            matrix_sha256: None,
+            dimensions: entries
+                .first()
+                .and_then(|entry| entry.features.get(id))
+                .map(Vec::len)
+                .ok_or_else(|| format!("resolved corpus has no {id} features"))?,
+            distance: DistanceMetric::Euclidean.as_str(),
         })
-        .collect::<Result<Vec<_>, String>>()?;
+    })
+    .collect::<Result<Vec<_>, String>>()?;
     resolve_external_features(
         &root,
         manifest_directory,
@@ -239,14 +249,19 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
     let feature_profiles = feature_profile_reports
         .iter()
         .zip(
-            [DistanceMetric::Euclidean, DistanceMetric::Euclidean]
-                .into_iter()
-                .chain(
-                    manifest
-                        .external_feature_sets
-                        .iter()
-                        .map(|set| set.distance),
-                ),
+            [
+                DistanceMetric::Euclidean,
+                DistanceMetric::Euclidean,
+                DistanceMetric::Euclidean,
+                DistanceMetric::Euclidean,
+            ]
+            .into_iter()
+            .chain(
+                manifest
+                    .external_feature_sets
+                    .iter()
+                    .map(|set| set.distance),
+            ),
         )
         .map(|(report, distance)| FeatureProfile {
             id: report.id.clone(),
@@ -271,7 +286,21 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
     };
     let temporal_selective_risk = input_failures
         .is_empty()
-        .then(|| evaluate_temporal_selective_risk(&entries));
+        .then(|| evaluate_selective_risk(&entries, TEMPORAL_FEATURE_SET_ID, "temporal_dynamics"));
+    let amplitude_envelope_selective_risk = input_failures.is_empty().then(|| {
+        evaluate_selective_risk(
+            &entries,
+            AMPLITUDE_ENVELOPE_FEATURE_SET_ID,
+            "amplitude_envelope",
+        )
+    });
+    let temporal_amplitude_consensus_selective_risk = input_failures.is_empty().then(|| {
+        evaluate_selective_risk(
+            &entries,
+            TEMPORAL_AMPLITUDE_CONSENSUS_FEATURE_SET_ID,
+            "temporal_amplitude_consensus",
+        )
+    });
     let optional_feature_components = optional_feature_components(&manifest);
     let profile = EvaluatorProfileReport {
         id: EVALUATOR_PROFILE,
@@ -286,7 +315,17 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
             BuiltInFeatureDefinitionReport {
                 id: TEMPORAL_FEATURE_SET_ID,
                 definition: "bounded STFT spectral flux, adjacent/early-late cosine distance, centroid/flatness motion and active-bin turnover",
-                authority: "AV-P0C diagnostic substrate; no selective-risk threshold",
+                authority: "AV-P0C diagnostic specialist; no acceptance authority",
+            },
+            BuiltInFeatureDefinitionReport {
+                id: AMPLITUDE_ENVELOPE_FEATURE_SET_ID,
+                definition: "bounded frame log-RMS slope/curvature/monotonicity, early-middle-late energy distribution and energy/spectral-change coupling",
+                authority: "PS-1 amplitude-envelope diagnostic specialist; no acceptance authority",
+            },
+            BuiltInFeatureDefinitionReport {
+                id: TEMPORAL_AMPLITUDE_CONSENSUS_FEATURE_SET_ID,
+                definition: "concatenated temporal-dynamics and amplitude-envelope specialist coordinates under the unchanged standardized-distance rule",
+                authority: "PS-1 diagnostic consensus profile; no acceptance authority",
             },
         ],
         maximum_entries: MAX_ENTRIES,
@@ -320,6 +359,8 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         input_failures,
         optional_feature_components,
         temporal_selective_risk,
+        amplitude_envelope_selective_risk,
+        temporal_amplitude_consensus_selective_risk,
         tasks,
         entries: entries.into_iter().map(|entry| entry.audio).collect(),
     };
@@ -392,10 +433,24 @@ fn resolve_entries(
                 .map_err(|error| format!("parse corpus WAV {}: {error}", entry.audio.path))?;
             let analysis = analyze_benchmark_wav(&entry.audio.path, &entry.audio.sha256, wav)?;
             let mut features = BTreeMap::new();
+            let consensus_features = analysis
+                .temporal_feature_values
+                .iter()
+                .chain(&analysis.amplitude_envelope_feature_values)
+                .copied()
+                .collect::<Vec<_>>();
             features.insert(CLASSICAL_FEATURE_SET_ID.to_owned(), analysis.feature_values);
             features.insert(
                 TEMPORAL_FEATURE_SET_ID.to_owned(),
                 analysis.temporal_feature_values,
+            );
+            features.insert(
+                AMPLITUDE_ENVELOPE_FEATURE_SET_ID.to_owned(),
+                analysis.amplitude_envelope_feature_values,
+            );
+            features.insert(
+                TEMPORAL_AMPLITUDE_CONSENSUS_FEATURE_SET_ID.to_owned(),
+                consensus_features,
             );
             let audio = EntryAudioReport {
                 id: entry.id.clone(),
@@ -411,6 +466,7 @@ fn resolve_entries(
                     .map(str::to_owned)
                     .collect(),
                 temporal_dynamics: analysis.temporal_dynamics,
+                amplitude_envelope: analysis.amplitude_envelope,
             };
             Ok(ResolvedEntry {
                 manifest: entry,

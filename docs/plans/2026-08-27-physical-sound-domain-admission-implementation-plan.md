@@ -135,7 +135,7 @@ cargo run -p xtask -- physical-sound-benchmark \
   --output /external/controlled-mutation-evaluation
 ```
 
-### 3. Selective specialist calibration — in progress
+### 3. Selective specialist calibration — PS-1 implemented, PS-2 evidence open
 
 Deliver:
 
@@ -153,25 +153,27 @@ risk/coverage curve, all mutation ladders pass monotonically, and automatic
 `Pass` is enabled only for covered domains. Until then every candidate remains
 non-authoritative or fallback.
 
-Current checkpoint: benchmark report v3 standardizes temporal features from
-real development entries only, selects a provisional threshold only from
-calibration, groups controlled negatives by parent using the most permissive
-child, and reports observed plus 95% Wilson upper false-pass risk on calibration,
-holdout and shadow. The first measurement is deliberately non-promoting:
+Current checkpoint: benchmark report v4 retains the frozen temporal profile and
+adds a separate amplitude-envelope specialist plus temporal/amplitude consensus.
+All profiles standardize from real development entries only, select provisional
+thresholds only from calibration, group controlled negatives by parent using the
+most permissive child, and report observed plus 95% Wilson upper false-pass risk.
 
-- provisional threshold `0.40490598982279524`;
-- real coverage `1/3`, `1/3`, `0/3` on calibration/holdout/shadow;
-- grouped false passes `0/3`, `1/3`, `1/3`;
-- holdout and shadow Wilson upper risk `0.7923`;
-- both false passes are shuffled-envelope wood controls, while all exact
-  stationary/frozen controls reject at this threshold.
+On the unchanged AV-P0C pack the consensus threshold
+`0.9305864784564901` produces:
 
-The next smallest validator-only change keeps the corpus, splits and mutation
-pack frozen and adds amplitude-envelope trajectory features: frame log-RMS
-slope/curvature, monotonicity violations, early/mid/late energy ratios and
-energy/spectral-change coupling. After it closes the two counterexamples, add
-independent real object families so the grouped confidence bound is informative.
-Do not enable registry `Pass` or start AV-P0D while this exit criterion is open.
+- real coverage `2/3`, `1/3`, `2/3` on calibration/holdout/shadow;
+- grouped false passes `0/3`, `0/3`, `0/3`;
+- rejection of both frozen shuffled-envelope wood B4/B5 controls and every
+  stationary/frozen control;
+- byte-identical repeated reports.
+
+PS-1 is therefore complete. Automatic `Pass` remains disabled because only
+three mutation parent groups per partition leave the 95% Wilson upper risk at
+`0.5615`, real metal/glass coverage remains incomplete and exact domain axes
+are absent. PS-2 must add independent real object families and pre-register the
+numeric risk/coverage policy before a new shadow is opened. Do not start AV-P0D
+while that evidence gate is open. See the [PS-1 evidence](../development/physical-sound-validator-ps1-2026-08-27.md).
 
 ### 4. AV-P0D autonomous formula search
 

@@ -2,14 +2,15 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-use super::TEMPORAL_FEATURE_SET_ID;
 use super::evaluator::ResolvedEntry;
 use super::manifest::{EntryOrigin, MutationExpectedValidatorOutcome, Partition};
 
 const WILSON_95_Z: f64 = 1.959_963_984_540_054;
 
 #[derive(Clone, Debug, Serialize)]
-pub(super) struct TemporalSelectiveRiskReport {
+pub(super) struct SelectiveRiskReport {
+    specialist_id: &'static str,
+    feature_set_id: &'static str,
     status: &'static str,
     authority: &'static str,
     score_definition: &'static str,
@@ -62,7 +63,9 @@ struct QualityScoreReport {
     origin_group: String,
     expected_validator_outcome: &'static str,
     nearest_real_development_entry_id: String,
-    normalized_temporal_distance: f64,
+    normalized_feature_distance: f64,
+    provisional_outcome: &'static str,
+    failure_tags: Vec<&'static str>,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -89,9 +92,11 @@ struct ScoredEntry<'a> {
     score: f64,
 }
 
-pub(super) fn evaluate_temporal_selective_risk(
+pub(super) fn evaluate_selective_risk(
     entries: &[ResolvedEntry],
-) -> TemporalSelectiveRiskReport {
+    feature_set_id: &'static str,
+    specialist_id: &'static str,
+) -> SelectiveRiskReport {
     let development = entries
         .iter()
         .filter(|entry| {
@@ -99,17 +104,27 @@ pub(super) fn evaluate_temporal_selective_risk(
                 && matches!(&entry.manifest.origin, EntryOrigin::Real)
         })
         .collect::<Vec<_>>();
-    let Some((means, standard_deviations)) = normalization(&development) else {
-        return unavailable_report();
+    let Some((means, standard_deviations)) = normalization(&development, feature_set_id) else {
+        return unavailable_report(feature_set_id, specialist_id);
     };
     let scores = entries
         .iter()
         .filter(|entry| entry.manifest.partition != Partition::Development)
-        .filter_map(|entry| score_entry(entry, &development, &means, &standard_deviations))
+        .filter_map(|entry| {
+            score_entry(
+                entry,
+                &development,
+                &means,
+                &standard_deviations,
+                feature_set_id,
+            )
+        })
         .collect::<Vec<_>>();
     let calibration = grouped_scores(&scores, Partition::Calibration);
     if calibration.real.is_empty() || calibration.reject.is_empty() {
-        return TemporalSelectiveRiskReport {
+        return SelectiveRiskReport {
+            specialist_id,
+            feature_set_id,
             status: "UnavailableNoControlledCalibrationMutations",
             authority: "diagnostic only; cannot emit Pass or promote a formula family",
             score_definition: score_definition(),
@@ -118,7 +133,7 @@ pub(super) fn evaluate_temporal_selective_risk(
             provisional_threshold: None,
             calibration_curve: Vec::new(),
             partitions: Vec::new(),
-            scores: score_reports(&scores),
+            scores: score_reports(&scores, None),
         };
     }
     let curve = calibration_curve(&calibration);
@@ -131,7 +146,9 @@ pub(super) fn evaluate_temporal_selective_risk(
         })
         .map(|point| point.threshold)
         .expect("non-empty calibration curve");
-    TemporalSelectiveRiskReport {
+    SelectiveRiskReport {
+        specialist_id,
+        feature_set_id,
         status: "MeasuredControlledMutationsOnly",
         authority: "diagnostic only; cannot emit Pass or promote a formula family",
         score_definition: score_definition(),
@@ -147,12 +164,17 @@ pub(super) fn evaluate_temporal_selective_risk(
         .into_iter()
         .map(|partition| partition_risk(&scores, partition, threshold))
         .collect(),
-        scores: score_reports(&scores),
+        scores: score_reports(&scores, Some(threshold)),
     }
 }
 
-fn unavailable_report() -> TemporalSelectiveRiskReport {
-    TemporalSelectiveRiskReport {
+fn unavailable_report(
+    feature_set_id: &'static str,
+    specialist_id: &'static str,
+) -> SelectiveRiskReport {
+    SelectiveRiskReport {
+        specialist_id,
+        feature_set_id,
         status: "UnavailableNoRealDevelopmentNormalization",
         authority: "diagnostic only; cannot emit Pass or promote a formula family",
         score_definition: score_definition(),
@@ -177,15 +199,14 @@ const fn threshold_selection_definition() -> &'static str {
     "maximum grouped balanced accuracy on calibration real objects versus expected-reject mutation parent groups; lower threshold wins ties"
 }
 
-fn normalization(development: &[&ResolvedEntry]) -> Option<(Vec<f64>, Vec<f64>)> {
-    let dimensions = development
-        .first()?
-        .features
-        .get(TEMPORAL_FEATURE_SET_ID)?
-        .len();
+fn normalization(
+    development: &[&ResolvedEntry],
+    feature_set_id: &str,
+) -> Option<(Vec<f64>, Vec<f64>)> {
+    let dimensions = development.first()?.features.get(feature_set_id)?.len();
     let mut means = vec![0.0; dimensions];
     for entry in development {
-        let values = entry.features.get(TEMPORAL_FEATURE_SET_ID)?;
+        let values = entry.features.get(feature_set_id)?;
         for (mean, value) in means.iter_mut().zip(values) {
             *mean += value;
         }
@@ -195,7 +216,7 @@ fn normalization(development: &[&ResolvedEntry]) -> Option<(Vec<f64>, Vec<f64>)>
     }
     let mut deviations = vec![0.0; dimensions];
     for entry in development {
-        let values = entry.features.get(TEMPORAL_FEATURE_SET_ID)?;
+        let values = entry.features.get(feature_set_id)?;
         for ((deviation, value), mean) in deviations.iter_mut().zip(values).zip(&means) {
             *deviation += (value - mean).powi(2);
         }
@@ -211,14 +232,15 @@ fn score_entry<'a>(
     development: &[&'a ResolvedEntry],
     means: &[f64],
     deviations: &[f64],
+    feature_set_id: &str,
 ) -> Option<ScoredEntry<'a>> {
-    let target_features = target.features.get(TEMPORAL_FEATURE_SET_ID)?;
+    let target_features = target.features.get(feature_set_id)?;
     let (nearest, score) = development
         .iter()
         .copied()
         .filter(|entry| entry.manifest.material == target.manifest.material)
         .filter_map(|entry| {
-            let values = entry.features.get(TEMPORAL_FEATURE_SET_ID)?;
+            let values = entry.features.get(feature_set_id)?;
             let distance = standardized_distance(target_features, values, means, deviations);
             distance.is_finite().then_some((entry, distance))
         })
@@ -398,17 +420,35 @@ fn partition_risk(
     }
 }
 
-fn score_reports(scores: &[ScoredEntry<'_>]) -> Vec<QualityScoreReport> {
+fn score_reports(scores: &[ScoredEntry<'_>], threshold: Option<f64>) -> Vec<QualityScoreReport> {
     scores
         .iter()
-        .map(|score| QualityScoreReport {
-            entry_id: score.entry.manifest.id.clone(),
-            partition: score.entry.manifest.partition.as_str(),
-            material: score.entry.manifest.material.clone(),
-            origin_group: score.entry.manifest.origin.group_id(),
-            expected_validator_outcome: score.expected.as_str(),
-            nearest_real_development_entry_id: score.nearest_anchor_id.to_owned(),
-            normalized_temporal_distance: score.score,
+        .map(|score| {
+            let accepted = threshold.is_some_and(|threshold| score.score <= threshold);
+            let failure_tags = match (threshold, score.expected, accepted) {
+                (Some(_), ExpectedOutcome::Accept, false) => vec!["REAL_COVERAGE_REJECT"],
+                (Some(_), ExpectedOutcome::Reject, true) => {
+                    vec!["CONTROLLED_MUTATION_FALSE_PASS"]
+                }
+                _ => Vec::new(),
+            };
+            QualityScoreReport {
+                entry_id: score.entry.manifest.id.clone(),
+                partition: score.entry.manifest.partition.as_str(),
+                material: score.entry.manifest.material.clone(),
+                origin_group: score.entry.manifest.origin.group_id(),
+                expected_validator_outcome: score.expected.as_str(),
+                nearest_real_development_entry_id: score.nearest_anchor_id.to_owned(),
+                normalized_feature_distance: score.score,
+                provisional_outcome: threshold.map_or("not_evaluated", |threshold| {
+                    if score.score <= threshold {
+                        "accept"
+                    } else {
+                        "reject"
+                    }
+                }),
+                failure_tags,
+            }
         })
         .collect()
 }

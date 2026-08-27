@@ -2,9 +2,9 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-1_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-1_COMPLETE / PS-2_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [Physical sound task state](../development/task-state/physical-sound-synthesis.md) |
+| Текущий evidence | [PS-1 amplitude-envelope evidence](../development/physical-sound-validator-ps1-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -90,8 +90,8 @@ frozen `ValidatorRelease`:
 
 ```mermaid
 flowchart LR
-    PS0["PS-0 Foundation<br/>COMPLETE"] --> PS1["PS-1 Envelope specialist<br/>NEXT"]
-    PS1 --> PS2["PS-2 Corpus and risk policy<br/>PLANNED"]
+    PS0["PS-0 Foundation<br/>COMPLETE"] --> PS1["PS-1 Envelope specialist<br/>COMPLETE"]
+    PS1 --> PS2["PS-2 Corpus and risk policy<br/>NEXT"]
     PS2 --> PS3["PS-3 Validator Release V1<br/>BLOCKED"]
     PS3 --> PS4["PS-4 AV-P0D autonomous search<br/>BLOCKED"]
     PS4 --> PS5["PS-5 Formula Base V1<br/>BLOCKED"]
@@ -105,9 +105,9 @@ acquisition и внешняя model extraction могут занимать бо�
 | Milestone | Статус | Размер | Наблюдаемый outcome |
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
-| PS-1. Envelope-specialist closure | `NEXT` | S–M | Валидатор различает frozen shuffled-envelope failures, не теряя прежние stationary/frozen controls; `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `PLANNED` | L | Independent real object families имеют честные acoustic-domain axes; numeric risk/coverage policy pre-registered до shadow. |
-| PS-3. Validator Release V1 | `BLOCKED_BY_PS-1_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
+| PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
+| PS-2. Corpus and risk closure | `NEXT` | L | Independent real object families имеют честные acoustic-domain axes; numeric risk/coverage policy pre-registered до shadow. |
+| PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
 | PS-6. Production rigid-impact vertical | `POST_V1 / BLOCKED_BY_CONSUMER` | L–XL | Один player-visible object использует production contact/content/mixer path и проходит candidate `AUDIO-PHYS-*` checks. |
@@ -154,6 +154,15 @@ Exit criterion:
 Если два specialist variants лишь перемещают ошибки или обваливают real
 coverage, следующий шаг — research причин `envelope representation` против
 `corpus/acquisition mismatch`, а не изменение source model.
+
+Результат: `COMPLETE`. Профили `amplitude-envelope-ps-1-v1` и
+`temporal-amplitude-consensus-ps-1-v1` реализованы и измерены на неизменном
+AV-P0C pack. Consensus threshold `0.9305864784564901` отвергает все 36
+controlled mutations, включая B4/B5, при real coverage `2/3`, `1/3`, `2/3`.
+Report повторяется byte-identical; подробные hashes, margins и оставшиеся
+false rejects опубликованы в [PS-1 evidence](../development/physical-sound-validator-ps1-2026-08-27.md).
+Нулевой observed false pass не включает `Pass`: при трёх parent groups на split
+Wilson upper всё ещё `0.5615`, поэтому следующий шаг — PS-2 corpus/risk closure.
 
 ## PS-2 — Сделать риск статистически измеримым
 

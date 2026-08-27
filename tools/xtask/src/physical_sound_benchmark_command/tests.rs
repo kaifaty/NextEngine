@@ -164,6 +164,14 @@ fn external_matrix_must_match_every_sorted_entry() {
             .expect_err("built-in temporal feature collision rejects")
             .contains("collides")
     );
+
+    let mut manifest = test_manifest();
+    manifest.external_feature_sets[0].id = AMPLITUDE_ENVELOPE_FEATURE_SET_ID.to_owned();
+    assert!(
+        validate_manifest(&manifest)
+            .expect_err("built-in amplitude-envelope feature collision rejects")
+            .contains("collides")
+    );
 }
 
 #[test]
@@ -269,6 +277,14 @@ fn end_to_end_report_has_no_acceptance_authority() {
         report["temporal_selective_risk"]["status"],
         "UnavailableNoControlledCalibrationMutations"
     );
+    assert_eq!(
+        report["amplitude_envelope_selective_risk"]["status"],
+        "UnavailableNoControlledCalibrationMutations"
+    );
+    assert_eq!(
+        report["temporal_amplitude_consensus_selective_risk"]["status"],
+        "UnavailableNoControlledCalibrationMutations"
+    );
     assert_eq!(report["split_audit"]["status"], "Pass");
     assert_eq!(
         report["corpus"]["sources"][0]["review_status"],
@@ -293,7 +309,26 @@ fn end_to_end_report_has_no_acceptance_authority() {
             .any(|task| task["feature_set_id"] == TEMPORAL_FEATURE_SET_ID)
     );
     assert!(
+        report["tasks"]
+            .as_array()
+            .expect("tasks")
+            .iter()
+            .any(|task| task["feature_set_id"] == AMPLITUDE_ENVELOPE_FEATURE_SET_ID)
+    );
+    assert!(
+        report["tasks"]
+            .as_array()
+            .expect("tasks")
+            .iter()
+            .any(|task| task["feature_set_id"] == TEMPORAL_AMPLITUDE_CONSENSUS_FEATURE_SET_ID)
+    );
+    assert!(
         report["entries"][0]["temporal_dynamics"]["frame_count"]
+            .as_u64()
+            .is_some_and(|count| count > 1)
+    );
+    assert!(
+        report["entries"][0]["amplitude_envelope"]["frame_count"]
             .as_u64()
             .is_some_and(|count| count > 1)
     );
@@ -521,6 +556,21 @@ fn dummy_audio(id: &str) -> EntryAudioReport {
                 mean_flatness_motion_db: 0.0,
                 flatness_range_db: 0.0,
                 mean_active_bin_turnover: 0.0,
+            },
+        amplitude_envelope:
+            crate::physical_sound_eval_command::audio_analysis::AmplitudeEnvelopeReport {
+                frame_count: 1,
+                mean_abs_log_rms_slope_db: 0.0,
+                stddev_log_rms_slope_db: 0.0,
+                mean_abs_log_rms_curvature_db: 0.0,
+                monotonicity_violation_fraction: 0.0,
+                direction_change_fraction: 0.0,
+                early_energy_fraction: 1.0,
+                middle_energy_fraction: 0.0,
+                late_energy_fraction: 0.0,
+                early_to_late_energy_db: 0.0,
+                energy_spectral_change_correlation: 0.0,
+                mean_uncoupled_energy_change: 0.0,
             },
     }
 }

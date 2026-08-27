@@ -7,6 +7,10 @@ use super::{
     ModalPeakReport, SignalReport, SpectrumReport,
 };
 
+mod amplitude_envelope;
+
+pub(crate) use amplitude_envelope::AmplitudeEnvelopeReport;
+
 pub(crate) struct WavAudio {
     pub(crate) sample_format: String,
     pub(crate) sample_rate_hz: u32,
@@ -29,7 +33,9 @@ pub(crate) struct BenchmarkAudioAnalysis {
     pub(crate) hard_failure_tags: Vec<&'static str>,
     pub(crate) feature_values: Vec<f64>,
     pub(crate) temporal_feature_values: Vec<f64>,
+    pub(crate) amplitude_envelope_feature_values: Vec<f64>,
     pub(crate) temporal_dynamics: TemporalDynamicsReport,
+    pub(crate) amplitude_envelope: AmplitudeEnvelopeReport,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -290,7 +296,7 @@ pub(crate) fn analyze_benchmark_wav(
         .map(|sample| sample.abs())
         .fold(0.0, f64::max);
     let temporal_onset = detect_onset(&wav.mono_samples, peak).unwrap_or(0);
-    let temporal_dynamics =
+    let (temporal_dynamics, amplitude_envelope) =
         temporal_dynamics(&wav.mono_samples, temporal_onset, wav.sample_rate_hz)?;
     let analysis = analyze_wav(manifest_path, wav_sha256, wav)?;
     let report = &analysis.report;
@@ -360,6 +366,23 @@ pub(crate) fn analyze_benchmark_wav(
         (temporal_dynamics.flatness_range_db / 120.0).clamp(0.0, 1.0),
         temporal_dynamics.mean_active_bin_turnover.clamp(0.0, 1.0),
     ];
+    let amplitude_envelope_feature_values = vec![
+        (amplitude_envelope.mean_abs_log_rms_slope_db / 24.0).clamp(0.0, 1.0),
+        (amplitude_envelope.stddev_log_rms_slope_db / 24.0).clamp(0.0, 1.0),
+        (amplitude_envelope.mean_abs_log_rms_curvature_db / 48.0).clamp(0.0, 1.0),
+        amplitude_envelope
+            .monotonicity_violation_fraction
+            .clamp(0.0, 1.0),
+        amplitude_envelope.direction_change_fraction.clamp(0.0, 1.0),
+        amplitude_envelope.early_energy_fraction.clamp(0.0, 1.0),
+        amplitude_envelope.middle_energy_fraction.clamp(0.0, 1.0),
+        amplitude_envelope.late_energy_fraction.clamp(0.0, 1.0),
+        ((amplitude_envelope.early_to_late_energy_db + 120.0) / 240.0).clamp(0.0, 1.0),
+        ((amplitude_envelope.energy_spectral_change_correlation + 1.0) * 0.5).clamp(0.0, 1.0),
+        amplitude_envelope
+            .mean_uncoupled_energy_change
+            .clamp(0.0, 1.0),
+    ];
 
     Ok(BenchmarkAudioAnalysis {
         sample_rate_hz: report.sample_rate_hz,
@@ -370,7 +393,9 @@ pub(crate) fn analyze_benchmark_wav(
         hard_failure_tags,
         feature_values,
         temporal_feature_values,
+        amplitude_envelope_feature_values,
         temporal_dynamics,
+        amplitude_envelope,
     })
 }
 
@@ -378,7 +403,7 @@ fn temporal_dynamics(
     samples: &[f64],
     onset: usize,
     sample_rate_hz: u32,
-) -> Result<TemporalDynamicsReport, String> {
+) -> Result<(TemporalDynamicsReport, AmplitudeEnvelopeReport), String> {
     const WINDOW: usize = 1_024;
     const HOP: usize = 256;
     const MAX_FRAMES: usize = 256;
@@ -402,9 +427,19 @@ fn temporal_dynamics(
     let mut active_bins = Vec::with_capacity(frame_count);
     let mut centroids = Vec::with_capacity(frame_count);
     let mut flatness_db = Vec::with_capacity(frame_count);
+    let mut frame_rms = Vec::with_capacity(frame_count);
     let usable_nyquist_hz = (f64::from(sample_rate_hz) * 0.5).min(20_000.0);
     for frame in 0..frame_count {
-        let power = power_spectrum(samples, onset + frame * HOP, WINDOW)?;
+        let frame_start = onset + frame * HOP;
+        let power = power_spectrum(samples, frame_start, WINDOW)?;
+        let rms = (samples
+            .get(frame_start..frame_start.saturating_add(WINDOW))
+            .unwrap_or_else(|| samples.get(frame_start..).unwrap_or_default())
+            .iter()
+            .map(|sample| sample * sample)
+            .sum::<f64>()
+            / WINDOW as f64)
+            .sqrt();
         let selected = &power[start_bin..=end_bin];
         let total = selected.iter().sum::<f64>().max(1.0e-24);
         let maximum = selected.iter().copied().fold(1.0e-24, f64::max);
@@ -433,6 +468,7 @@ fn temporal_dynamics(
         active_bins.push(active);
         centroids.push((centroid_hz / usable_nyquist_hz).clamp(0.0, 1.0));
         flatness_db.push(10.0 * (geometric / arithmetic.max(1.0e-24)).log10());
+        frame_rms.push(rms);
     }
 
     let mut flux = Vec::with_capacity(frame_count.saturating_sub(1));
@@ -472,7 +508,7 @@ fn temporal_dynamics(
     let (mean_spectral_flux, stddev_spectral_flux) = mean_stddev(&flux);
     let (mean_adjacent_cosine_distance, stddev_adjacent_cosine_distance) =
         mean_stddev(&adjacent_distance);
-    Ok(TemporalDynamicsReport {
+    let temporal = TemporalDynamicsReport {
         frame_count,
         mean_spectral_flux,
         stddev_spectral_flux,
@@ -484,7 +520,9 @@ fn temporal_dynamics(
         mean_flatness_motion_db: mean_stddev(&flatness_motion).0,
         flatness_range_db: range(&flatness_db),
         mean_active_bin_turnover: mean_stddev(&active_turnover).0,
-    })
+    };
+    let amplitude = amplitude_envelope::analyze(&frame_rms, &adjacent_distance);
+    Ok((temporal, amplitude))
 }
 
 fn cosine_distance(left: &[f64], right: &[f64]) -> f64 {
@@ -856,6 +894,47 @@ mod tests {
             serde_json::to_vec(&first.temporal_dynamics).expect("serialize first"),
             serde_json::to_vec(&second.temporal_dynamics).expect("serialize second")
         );
+        assert_eq!(
+            first.amplitude_envelope_feature_values,
+            second.amplitude_envelope_feature_values
+        );
+        assert_eq!(
+            serde_json::to_vec(&first.amplitude_envelope).expect("serialize first envelope"),
+            serde_json::to_vec(&second.amplitude_envelope).expect("serialize second envelope")
+        );
+    }
+
+    #[test]
+    fn amplitude_descriptor_exposes_non_monotonic_envelope_control() {
+        let smooth = analyze_benchmark_wav("smooth.wav", &"0".repeat(64), test_audio(false))
+            .expect("smooth analysis");
+        let shuffled = analyze_benchmark_wav(
+            "shuffled.wav",
+            &"1".repeat(64),
+            test_audio_with_non_monotonic_envelope(),
+        )
+        .expect("shuffled analysis");
+
+        assert_eq!(smooth.amplitude_envelope_feature_values.len(), 11);
+        assert!(
+            smooth
+                .amplitude_envelope_feature_values
+                .iter()
+                .chain(&shuffled.amplitude_envelope_feature_values)
+                .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
+        );
+        assert!(
+            shuffled.amplitude_envelope.monotonicity_violation_fraction
+                > smooth.amplitude_envelope.monotonicity_violation_fraction + 0.1
+        );
+        assert!(
+            shuffled.amplitude_envelope.mean_abs_log_rms_curvature_db
+                > smooth.amplitude_envelope.mean_abs_log_rms_curvature_db + 0.5
+        );
+        assert!(
+            shuffled.amplitude_envelope.mean_uncoupled_energy_change
+                > smooth.amplitude_envelope.mean_uncoupled_energy_change
+        );
     }
 
     fn test_audio(evolving: bool) -> WavAudio {
@@ -878,5 +957,15 @@ mod tests {
             channel_count: 1,
             mono_samples,
         }
+    }
+
+    fn test_audio_with_non_monotonic_envelope() -> WavAudio {
+        let mut audio = test_audio(false);
+        const BLOCK: usize = 960;
+        const GAINS: [f64; 8] = [1.0, 0.2, 0.8, 0.15, 0.65, 0.1, 0.5, 0.08];
+        for (index, sample) in audio.mono_samples.iter_mut().enumerate() {
+            *sample *= GAINS[(index / BLOCK) % GAINS.len()];
+        }
+        audio
     }
 }
