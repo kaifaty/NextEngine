@@ -15,7 +15,7 @@ NSR3B4E2D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE /
 NSR3B4E2D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE /
-NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_RESEARCH_NEXT /
+NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3976,6 +3976,14 @@ binary128 references by at most `0.0424`, while sequential dependency radii
 grow to `1e24..1e25`; the latter are not admissible recurrence uncertainty.
 Research a sealed-center state-`0..2` K2 recurrence with final independent
 R63Y verification next.
+
+The
+[R20R63ZB research](../../development/nonlocal-nsr3b4e2d7r20r63zb-twofold-recurrence-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63zb-twofold-recurrence-contract.md) freeze one
+sealed-center exported K2 PCG lane through states `0..2`. The producer performs
+three operator products, three factor solves, four Krylov dots and 510 vector
+updates; R63Y independently requires reject/reject/pass. R63ZA dependency
+radii, binary128 candidates and adaptive stopping are excluded.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
