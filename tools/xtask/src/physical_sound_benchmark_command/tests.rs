@@ -199,6 +199,15 @@ fn grouped_material_tasks_never_train_on_held_out_entries() {
             .iter()
             .all(|prediction| prediction.nearest_entry_id.starts_with("dev-"))
     );
+    assert!(holdout.predictions.iter().all(|prediction| {
+        prediction
+            .expected_label_nearest_entry_id
+            .starts_with("dev-")
+            && prediction.nearest_competing_entry_id.is_some()
+            && prediction
+                .expected_label_margin
+                .is_some_and(|margin| margin > 0.0)
+    }));
 }
 
 #[test]

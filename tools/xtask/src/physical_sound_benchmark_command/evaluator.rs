@@ -62,6 +62,15 @@ pub(super) struct PredictionReport {
     pub(super) nearest_distance: f64,
     pub(super) second_nearest_distance: Option<f64>,
     pub(super) distance_margin: Option<f64>,
+    pub(super) expected_label_nearest_entry_id: String,
+    pub(super) expected_label_nearest_distance: f64,
+    pub(super) nearest_competing_label: Option<String>,
+    pub(super) nearest_competing_entry_id: Option<String>,
+    pub(super) nearest_competing_distance: Option<f64>,
+    /// Positive means the nearest expected-label anchor is closer than every
+    /// competing label; unlike `distance_margin`, same-label neighbors cannot
+    /// inflate this material/object separation diagnostic.
+    pub(super) expected_label_margin: Option<f64>,
 }
 
 #[derive(Clone, Copy)]
@@ -226,7 +235,7 @@ fn evaluate_task(
             skipped_missing_gallery_count += 1;
             continue;
         }
-        let Some(nearest) = nearest_match(target, &gallery, profile) else {
+        let Some(nearest) = nearest_match(target, &gallery, profile, task, expected) else {
             skipped_missing_gallery_count += 1;
             continue;
         };
@@ -255,6 +264,18 @@ fn evaluate_task(
             distance_margin: nearest
                 .second_distance
                 .map(|second| second - nearest.distance),
+            expected_label_nearest_entry_id: nearest.expected_entry.manifest.id.clone(),
+            expected_label_nearest_distance: nearest.expected_distance,
+            nearest_competing_label: nearest
+                .competing_entry
+                .map(|entry| task.predicted_label(&entry.manifest).to_owned()),
+            nearest_competing_entry_id: nearest
+                .competing_entry
+                .map(|entry| entry.manifest.id.clone()),
+            nearest_competing_distance: nearest.competing_distance,
+            expected_label_margin: nearest
+                .competing_distance
+                .map(|distance| distance - nearest.expected_distance),
         });
     }
 
@@ -306,12 +327,18 @@ struct NearestMatch<'a> {
     entry: &'a ResolvedEntry,
     distance: f64,
     second_distance: Option<f64>,
+    expected_entry: &'a ResolvedEntry,
+    expected_distance: f64,
+    competing_entry: Option<&'a ResolvedEntry>,
+    competing_distance: Option<f64>,
 }
 
 fn nearest_match<'a>(
     target: &ResolvedEntry,
     gallery: &[&'a ResolvedEntry],
     profile: &FeatureProfile,
+    task: TaskKind,
+    expected: &str,
 ) -> Option<NearestMatch<'a>> {
     let target_features = target.features.get(&profile.id)?;
     let mut ranked = gallery
@@ -335,10 +362,22 @@ fn nearest_match<'a>(
             .then_with(|| left.manifest.id.cmp(&right.manifest.id))
     });
     let (entry, distance) = ranked.first().copied()?;
+    let (expected_entry, expected_distance) = ranked
+        .iter()
+        .copied()
+        .find(|(entry, _)| task.predicted_label(&entry.manifest) == expected)?;
+    let competing = ranked
+        .iter()
+        .copied()
+        .find(|(entry, _)| task.predicted_label(&entry.manifest) != expected);
     Some(NearestMatch {
         entry,
         distance,
         second_distance: ranked.get(1).map(|(_, distance)| *distance),
+        expected_entry,
+        expected_distance,
+        competing_entry: competing.map(|(entry, _)| entry),
+        competing_distance: competing.map(|(_, distance)| distance),
     })
 }
 

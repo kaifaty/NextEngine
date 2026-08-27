@@ -9,6 +9,7 @@ mod glass_body_profiles;
 mod offline_modal_recurrence;
 mod offline_q30_modal_recurrence;
 mod selected_glass_q30;
+mod steel_search;
 
 use glass_body_profiles::glass_body_profile;
 use selected_glass_q30::SelectedGlassQ30Voice;
@@ -20,6 +21,10 @@ pub use offline_modal_recurrence::{
 pub use offline_q30_modal_recurrence::{
     OfflineQ30ModalBank, OfflineQ30ModalRenderError, cook_offline_q30_modal_bank,
     decode_offline_q30_samples, normalize_offline_q30_samples, render_offline_q30_modal_recurrence,
+};
+pub use steel_search::{
+    ExperimentalSteelSearchError, ExperimentalSteelSearchProfile,
+    render_experimental_steel_search_impact,
 };
 
 const SAMPLE_RATE_HZ: u32 = 48_000;
@@ -232,6 +237,7 @@ struct ModalVoice {
 #[derive(Clone, Debug)]
 enum ExperimentalVoice {
     Modal(ModalVoice),
+    SearchModal(steel_search::SearchModalVoice),
     SelectedGlassQ30(SelectedGlassQ30Voice),
 }
 
@@ -239,6 +245,7 @@ impl ExperimentalVoice {
     fn next_mono_sample(&mut self) -> i64 {
         match self {
             Self::Modal(voice) => voice.next_mono_sample(),
+            Self::SearchModal(voice) => voice.next_mono_sample(),
             Self::SelectedGlassQ30(voice) => voice.next_mono_sample(),
         }
     }
@@ -246,6 +253,7 @@ impl ExperimentalVoice {
     const fn pan_q16(&self) -> i32 {
         match self {
             Self::Modal(voice) => voice.pan_q16,
+            Self::SearchModal(voice) => voice.pan_q16(),
             Self::SelectedGlassQ30(voice) => voice.pan_q16(),
         }
     }
@@ -253,6 +261,7 @@ impl ExperimentalVoice {
     const fn frames_remaining(&self) -> u32 {
         match self {
             Self::Modal(voice) => voice.frames_remaining,
+            Self::SearchModal(voice) => voice.frames_remaining(),
             Self::SelectedGlassQ30(voice) => voice.frames_remaining(),
         }
     }

@@ -61,6 +61,53 @@ fn calibrated_steel_profile_retains_exact_pcm_and_position_response() {
 }
 
 #[test]
+fn steel_search_control_matches_current_fixed_point_profile_exactly() {
+    let expected = render_physical_sound_impact(PhysicalSoundExcitation::new(
+        PhysicalSoundMaterial::Steel,
+        PhysicalSoundImpactPoint::Center,
+        49_152,
+        0,
+        0x51ee_0101,
+    ));
+    let actual = render_experimental_steel_search_impact(
+        ExperimentalSteelSearchProfile::current_control(),
+        PhysicalSoundImpactPoint::Center,
+        49_152,
+        0x51ee_0101,
+    )
+    .expect("bounded steel search control");
+
+    assert_eq!(actual, expected);
+    assert_eq!(
+        render_experimental_steel_search_impact(
+            ExperimentalSteelSearchProfile::current_control(),
+            PhysicalSoundImpactPoint::Center,
+            49_152,
+            0x51ee_0101,
+        )
+        .expect("repeated steel search control"),
+        actual
+    );
+}
+
+#[test]
+fn steel_search_rejects_profiles_outside_the_frozen_bounds() {
+    let invalid = ExperimentalSteelSearchProfile {
+        frequency_scale_permille: 649,
+        ..ExperimentalSteelSearchProfile::current_control()
+    };
+    assert_eq!(
+        render_experimental_steel_search_impact(
+            invalid,
+            PhysicalSoundImpactPoint::Center,
+            49_152,
+            1,
+        ),
+        Err(ExperimentalSteelSearchError::ProfileOutsideBounds)
+    );
+}
+
+#[test]
 fn accepted_wood_and_hybrid_glass_profiles_retain_exact_pcm_and_position_response() {
     let assert_profile = |material, seed, expected_len, expected_hash: &str| {
         let render = |impact_point| {

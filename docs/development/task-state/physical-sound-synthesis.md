@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_WOOD_ACCEPTED / GLASS_EXACT_CORPUS_NUMERIC_PASS / AV_P0B_REAL_MATERIAL_MEASURED / SELECTIVE_RISK_OPEN / P1_BLOCKED` |
+| Status | `P0_WOOD_ACCEPTED / GLASS_EXACT_CORPUS_NUMERIC_PASS / STEEL_SEARCH_ENSEMBLE_FALLBACK_OOD / SELECTIVE_RISK_OPEN / P1_BLOCKED` |
 | Updated | `2026-08-27` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** AV-P0A validates controls; AV-P0B measures a frozen
-  real-material corpus with classical/BEATs, without acceptance authority.
-- **Why:** BEATs is `15/15` on frozen real objects but only `8/13` on engine
-  candidates: steel `0/3`, wood `3/3`, glass `5/7`.
-- **Next action:** Tune steel against frozen real metal anchors while retaining
-  wood/Q30 controls, then add an independent head and broader grouped corpus.
+- **Current conclusion:** Automated steel search found a BEATs `3/3` profile,
+  but independent PANNs rejects it `0/3`; decision is `FallbackOutOfDomain`.
+- **Why:** Roughness closes the BEATs glass/metal gap, while PANNs recognizes
+  real metal `5/5` and maps every v3 candidate away from metal.
+- **Next action:** Broaden real metal/object families and measure the missing
+  spectral/stochastic statistic before one frozen v4 counterfactual.
 - **Current blocker:** No calibrated selective-risk curve, sufficient grouped
   corpus, spatial/force evidence, mixer budget, Accepted ADR or complete contact signal.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
@@ -31,6 +31,7 @@
 | --- | --- | --- |
 | [Research report](../physical-sound-synthesis-research-2026-08-26.md) and [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md) | `GLASS_09_Q30_DEMO_PASS / PHYSICAL_ID_OPEN` | Q30 tracks aligned f64 at `115.43 dB` SNR; product-owner A/B accepted B. Demo post-scale stays within one S16 LSB. Wrong geometry keeps material and wall thickness non-physical. |
 | [Quality research](../physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0A](../physical-sound-validator-av-p0a-2026-08-27.md) and [AV-P0B](../physical-sound-corpus-benchmark-av-p0b-2026-08-27.md) | `AV_P0B_REAL_MATERIAL_BENCHMARK_MEASURED / NO_ACCEPTANCE_AUTHORITY` | External corpus: 15 real objects, 30 published variants and 13 engine candidates. BEATs real identity is `15/15`; engine shadow is `8/13`. Manifest/report hashes are frozen; recordings/models remain external and non-distributable. |
+| [Automated steel search](../physical-sound-steel-automated-search-2026-08-27.md) | `BEATS_3_OF_3 / PANNS_0_OF_3 / FALLBACK_OUT_OF_DOMAIN` | Sparse tuning failed `0/165`; critical-band roughness yielded a BEATs-positive profile, but independent PANNs rejects it. No steel/demo promotion; v3 report/WAV repeat is byte-identical. |
 | [Controlled glass corpus](../physical-sound-controlled-glass-corpus-2026-08-27.md) | `CONTROLLED_SYNTHETIC_CORPUS_PASS / HUMAN_REFERENCE_OPEN` | Exact geometry and 15 force/position conditions are reproducible; Q30 and physical controls pass, but whole-vector IDW is an inadequate spatial model and the corpus has no real matched recording. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
@@ -182,7 +183,7 @@
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out real/human evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Frozen BEATs is `15/15` on the small real split and exposes generator-specific failures; fallback remains available | One head, 15 material-only objects and `8/13` engine accuracy cannot bound false-pass risk or OOD | Add an independent head and broader frozen grouped corpus, then calibrate risk versus coverage |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | BEATs finds a roughness-driven steel candidate; PANNs recognizes real metal `5/5`; disagreement correctly selects fallback | Candidate agreement is `3/3` versus `0/3`; 15 material-only objects cannot bound false-pass risk or OOD | Broaden frozen object families, explain the head gap, then calibrate risk versus coverage |
 
 ## Required context
 
@@ -203,10 +204,10 @@ Read these sources in precedence order before acting:
    voice only as an explicit opt-in; do not replace Glass-H or authored clips.
 3. Preserve AV-P0A's current-only tri-state report and complete control matrix;
    do not reinterpret its `Pass` as subjective quality or P1 evidence.
-4. Tune steel against the frozen real-metal gallery while keeping wood/Q30 and
-   real `holdout`/`shadow` as non-regression controls; do not tune on shadow.
-5. Add an independent frozen head and broader real/mutation groups, then
-   calibrate `Pass/Reject/FallbackOutOfDomain` risk before adversarial search.
+4. Preserve the v3 steel search as `FallbackOutOfDomain`; do not tune on
+   holdout/shadow or promote the BEATs-only winner.
+5. Broaden real/mutation object families and explain the BEATs/PANNs gap, then
+   run one frozen v4 and calibrate selective risk before adversarial search.
 6. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 7. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
@@ -232,19 +233,18 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** laboratory includes the selected opt-in voice plus the
-  exact-geometry external corpus recipe/validator; Glass-H default, public
-  schemas, generated assets and ownership are unchanged.
-- **Checks:** AV-P0B real report/extraction repeat, full `xtask` tests, Clippy,
-  format and boundary scan pass. Earlier synthesis/demo/audio/play/host
-  evidence remains exact to its recorded commit; no runtime/content path
-  changed here. Candidate `AUDIO-PHYS-*`, persistence, platform and performance
-  promotion checks remain not promoted or not run.
+- **Workspace state:** laboratory adds an external-only bounded steel search;
+  current steel/wood/glass defaults, public schemas, assets and ownership are
+  unchanged. Detailed evidence is in the linked automated-search report.
+- **Checks:** presentation/xtask tests, Clippy, format, boundary scan and
+  diff/link checks pass. The post-split v3 rerun is byte-exact. Earlier
+  runtime/demo evidence remains exact because no
+  default runtime/content path changed. Candidate `AUDIO-PHYS-*`, persistence,
+  platform and performance promotion checks remain unpromoted/not run.
 - **Remaining risk:** corpus scale/scope, head agreement, calibration/OOD,
   spatial transfer, contact sufficiency, mixer cost and authoring are open.
-- **Quality status:** wood-B passed; glass-D/F failed; G/H improved weakly;
-  selected `09` passed human Q30 transfer. BEATs passes Q30 and wood, rejects
-  current steel as glass-like, and fails Glass-H edge/thick jar; grouped
-  real/mutation risk calibration remains open.
+- **Quality status:** wood-B and Q30 controls remain exact. Roughness v3 passes
+  BEATs `3/3`, fails PANNs `0/3`, and therefore falls back; grouped risk
+  calibration and a broader real corpus remain open.
 - **Promotion needed:** Concrete consumer plus later Accepted ADR under ADR-046;
   then exact content/contact/DSP profiles and ProductChecks.

@@ -22,6 +22,7 @@ mod physical_sound_corpus_command;
 mod physical_sound_eval_command;
 mod physical_sound_lab_command;
 mod physical_sound_reproduce_command;
+mod physical_sound_steel_search_command;
 mod physx;
 mod visual_smoke;
 
@@ -100,9 +101,8 @@ fn main() {
             diagnostic_code(&error),
             next_application::DiagnosticContextV1::message(&error),
         );
-        // Diagnostics stay on stderr so a failed command's stdout remains a
-        // single machine-readable channel; gate-member parents parse it even
-        // when the nested verdict is FAIL.
+        // Diagnostics stay on stderr, keeping failed-command stdout a single
+        // machine-readable channel for gate-member parents.
         eprintln!("{}", report.to_json().expect("diagnostic serializes"));
         std::process::exit(1);
     }
@@ -112,7 +112,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-benchmark, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-reproduce, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
+        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-benchmark, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-reproduce, physical-sound-steel-search, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "animation-lod" => {
@@ -202,6 +202,10 @@ fn run() -> Result<(), String> {
         "physical-sound-reproduce" => {
             let request = physical_sound_reproduce_command::parse_arguments(arguments)?;
             physical_sound_reproduce_command::run(&root, &request)
+        }
+        "physical-sound-steel-search" => {
+            let request = physical_sound_steel_search_command::parse_arguments(arguments)?;
+            physical_sound_steel_search_command::run(&root, &request)
         }
         "physx" => physx::run(physx::parse_command(arguments)?),
         "platform" => {
