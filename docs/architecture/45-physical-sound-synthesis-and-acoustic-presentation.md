@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.2 |
+| Version | 0.3 |
 | Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
-| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md) |
-| Replaces | SPEC-45 0.1; records the isolated deterministic AV-P0A validator without promoting a runtime/content contract |
+| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md) |
+| Replaces | SPEC-45 0.2; records the isolated AV-P0B grouped corpus-benchmark boundary without promoting quality acceptance or a runtime/content contract |
 
 ## Status and decision boundary
 
@@ -79,6 +79,16 @@ admission still requires grouped real-corpus holdouts, mutation/OOD calibration
 and bounded selective risk in AV-P0B/P0C. Historical `NeedsHumanAudit` reports
 remain accurate descriptions of the retired v0 evaluator, not current
 content-cooker state.
+
+The isolated `xtask physical-sound-benchmark` checkpoint now implements the
+AV-P0B external manifest and frozen-feature-matrix boundary. It verifies exact
+WAV/license-review/feature hashes, enforces object/family-disjoint development,
+calibration, holdout and shadow partitions, and measures classical or external
+features against a real-only development gallery. Every report is
+`NoAcceptanceAuthority`; no current real corpus is admitted because the
+recording-license scope for the leading public candidates still needs explicit
+review. This checkpoint therefore closes split/tooling mechanics only, not the
+real-corpus, perceptual-risk or AV-P0C acceptance gate.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

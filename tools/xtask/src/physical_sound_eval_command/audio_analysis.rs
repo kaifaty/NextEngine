@@ -17,6 +17,17 @@ pub(super) struct Analysis {
     pub log_spectra: Vec<Vec<f64>>,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct BenchmarkAudioAnalysis {
+    pub(crate) sample_rate_hz: u32,
+    pub(crate) channel_count: u16,
+    pub(crate) duration_ms: f64,
+    pub(crate) peak_dbfs: f64,
+    pub(crate) rms_dbfs: f64,
+    pub(crate) hard_failure_tags: Vec<&'static str>,
+    pub(crate) feature_values: Vec<f64>,
+}
+
 pub(crate) fn parse_wav(bytes: &[u8]) -> Result<WavAudio, String> {
     if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
         return Err("expected RIFF/WAVE header".to_owned());
@@ -246,6 +257,71 @@ pub(super) fn analyze_wav(
     Ok(Analysis {
         report,
         log_spectra,
+    })
+}
+
+pub(crate) fn analyze_benchmark_wav(
+    manifest_path: &str,
+    wav_sha256: &str,
+    wav: WavAudio,
+) -> Result<BenchmarkAudioAnalysis, String> {
+    let analysis = analyze_wav(manifest_path, wav_sha256, wav)?;
+    let report = &analysis.report;
+    let mut hard_failure_tags = Vec::new();
+    if report.signal.peak_dbfs <= -100.0 {
+        hard_failure_tags.push("SILENCE");
+    }
+    if report.signal.clipped_sample_count * 100 > report.frame_count {
+        hard_failure_tags.push("CLIPPING");
+    }
+    if report.signal.dc_offset.abs() > 0.02 {
+        hard_failure_tags.push("EXCESSIVE_DC");
+    }
+    if report.duration_ms < 50.0 {
+        hard_failure_tags.push("TOO_SHORT");
+    }
+    if report.signal.onset_frame.is_none() {
+        hard_failure_tags.push("ONSET_MISSING");
+    }
+
+    let mut feature_values = analysis
+        .log_spectra
+        .iter()
+        .flatten()
+        .map(|level| (level / 120.0).clamp(-1.0, 0.0))
+        .collect::<Vec<_>>();
+    let usable_nyquist_hz = (f64::from(report.sample_rate_hz) * 0.5).min(20_000.0);
+    feature_values.extend([
+        (report.spectrum.centroid_hz / usable_nyquist_hz).clamp(0.0, 1.0),
+        (report.spectrum.bandwidth_hz / usable_nyquist_hz).clamp(0.0, 1.0),
+        (report.spectrum.flatness_db / 120.0).clamp(-1.0, 0.0),
+        (report.signal.crest_db / 80.0).clamp(0.0, 1.0),
+        report
+            .signal
+            .attack_ms
+            .map(|value| (value / report.duration_ms).clamp(0.0, 1.0))
+            .unwrap_or(0.0),
+        report
+            .signal
+            .temporal_centroid_ms
+            .map(|value| (value / report.duration_ms).clamp(0.0, 1.0))
+            .unwrap_or(0.0),
+        (report.modal_peaks.len() as f64 / 12.0).clamp(0.0, 1.0),
+    ]);
+    feature_values.extend(report.decay.iter().map(|band| {
+        band.t20_ms
+            .map(|value| (value / report.duration_ms.max(1.0)).clamp(0.0, 4.0) / 4.0)
+            .unwrap_or(0.0)
+    }));
+
+    Ok(BenchmarkAudioAnalysis {
+        sample_rate_hz: report.sample_rate_hz,
+        channel_count: report.channel_count,
+        duration_ms: report.duration_ms,
+        peak_dbfs: report.signal.peak_dbfs,
+        rms_dbfs: report.signal.rms_dbfs,
+        hard_failure_tags,
+        feature_values,
     })
 }
 

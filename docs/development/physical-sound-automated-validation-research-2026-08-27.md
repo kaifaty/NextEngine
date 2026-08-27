@@ -123,18 +123,21 @@ The best public starting points for rigid impact are:
 - [REALIMPACT](https://graphics.stanford.edu/~djames/publication/realimpact-a-dataset-of-impact-sound-fields-for-real-objects/):
   150,000 controlled recordings of 50 objects with impact location, microphone
   location, contact-force profile, material and RGBD annotations;
-- [ObjectFolder Real](https://objectfolder.stanford.edu/): 100 real household
+- [ObjectFolder Real](https://objectfolder.stanford.edu/objectfolder-real-download): 100 real household
   objects recorded in an anechoic chamber at multiple surface locations with
   impact-hammer force and meshes. Its public project lists material
   classification and contact-localization benchmarks; the repository declares
-  CC BY 4.0 for ObjectFolder, subject to per-source asset review.
+  CC BY 4.0 for ObjectFolder, subject to per-source asset review. The Real
+  download page does not explicitly say that this grant covers its separate
+  recording archives, so the current adapter refuses to infer that coverage.
 
 They support matched physical tests that generic environmental-audio datasets
 cannot: force classification/regression, contact localization, material and
 object-family discrimination, and real-versus-simulation embedding distance.
 REALIMPACT's public repository currently says that some raw data/code packaging
-is incomplete, so acquisition and redistribution terms must be verified before
-freezing a corpus.
+is incomplete. Its MIT license names software rather than the recording
+archive, so acquisition and dataset terms must be verified before freezing a
+corpus.
 
 Candidate representations should be benchmarked rather than selected by
 reputation. The shortlist is:
@@ -280,6 +283,14 @@ Build an external adapter for a license-reviewed ObjectFolder Real subset and,
 if available under acceptable terms, REALIMPACT. Cache the current descriptors,
 BEATs, Human-CLAP and Audiobox features. Compare heads and feature combinations
 under grouped holdouts. Do not fit and evaluate on the same object.
+
+Implementation checkpoint: `xtask physical-sound-benchmark` now supplies the
+hash-closed external manifest/feature-matrix boundary, strict license-review
+record, object/family-disjoint four-way partitions, real-only development
+gallery and deterministic classical/external-feature baseline. It always emits
+`NoAcceptanceAuthority`. Actual real-corpus scoring remains blocked until one
+recording subset has explicit reviewed dataset terms; see the
+[AV-P0B report](physical-sound-corpus-benchmark-av-p0b-2026-08-27.md).
 
 ### AV-P0C — selective specialist validator
 

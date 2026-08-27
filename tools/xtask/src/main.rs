@@ -17,6 +17,7 @@ mod performance_baseline_command;
 mod performance_codegen_command;
 mod performance_command;
 mod physical_character_command;
+mod physical_sound_benchmark_command;
 mod physical_sound_corpus_command;
 mod physical_sound_eval_command;
 mod physical_sound_lab_command;
@@ -111,7 +112,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-reproduce, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
+        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-benchmark, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-reproduce, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "animation-lod" => {
@@ -181,6 +182,10 @@ fn run() -> Result<(), String> {
         "physical-character" => {
             reject_extra_arguments(arguments)?;
             physical_character_command::run()
+        }
+        "physical-sound-benchmark" => {
+            let request = physical_sound_benchmark_command::parse_arguments(arguments)?;
+            physical_sound_benchmark_command::run(&root, &request)
         }
         "physical-sound-corpus" => {
             let request = physical_sound_corpus_command::parse_arguments(arguments)?;
@@ -300,11 +305,9 @@ fn parse_v1_package_arguments(
         .ok_or_else(|| "--output requires a package directory".to_owned())?;
     Ok(PathBuf::from(output))
 }
-
 fn v1_package(root: &Path, requested_output: &Path) -> Result<(), String> {
     v1_package_report(root, requested_output)?.emit_report()
 }
-
 fn v1_package_report(
     root: &Path,
     requested_output: &Path,
@@ -315,7 +318,6 @@ fn v1_package_report(
         package.output.display().to_string(),
     ))
 }
-
 fn package_command_report(
     package: &xtask::package::PackageBuildResult,
     output: String,
@@ -410,11 +412,9 @@ fn target_status(status: &next_verification::TargetGateStatusV1) -> String {
         }
     }
 }
-
 fn platform() -> Result<(), String> {
     platform_report(None)?.emit_report()
 }
-
 fn platform_report(
     state_root: Option<&Path>,
 ) -> Result<CommandReportV1<PlatformDetailsV1>, String> {
@@ -674,11 +674,9 @@ fn play_report(state_root: Option<&Path>) -> Result<next_application::RunReportV
     .ok_or_else(|| "SESSION_TERMINAL_RECEIPT_MISSING".to_owned())?;
     Ok(report)
 }
-
 fn persistence_replay(backend: next_verification::PersistenceReplayBackend) -> Result<(), String> {
     persistence_replay_report(backend, None)?.emit_report()
 }
-
 fn persistence_replay_report(
     backend: next_verification::PersistenceReplayBackend,
     state_root: Option<&Path>,
