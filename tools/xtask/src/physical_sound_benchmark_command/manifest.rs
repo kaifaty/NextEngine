@@ -3,8 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    FEATURE_MATRIX_SCHEMA, MANIFEST_SCHEMA, MAX_ENTRIES, MAX_EXTERNAL_FEATURE_DIMENSIONS,
-    MAX_EXTERNAL_FEATURE_SETS,
+    CLASSICAL_FEATURE_SET_ID, FEATURE_MATRIX_SCHEMA, MANIFEST_SCHEMA, MAX_ENTRIES,
+    MAX_EXTERNAL_FEATURE_DIMENSIONS, MAX_EXTERNAL_FEATURE_SETS, TEMPORAL_FEATURE_SET_ID,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -273,7 +273,7 @@ fn validate_feature_sets(feature_sets: &[ExternalFeatureSet]) -> Result<(), Stri
     let mut previous: Option<&str> = None;
     for feature_set in feature_sets {
         validate_label(&feature_set.id, "feature set id")?;
-        if feature_set.id == "classical-av-p0b-v1" {
+        if [CLASSICAL_FEATURE_SET_ID, TEMPORAL_FEATURE_SET_ID].contains(&feature_set.id.as_str()) {
             return Err("external feature set id collides with the built-in profile".to_owned());
         }
         if previous.is_some_and(|value| value >= feature_set.id.as_str()) {
