@@ -274,10 +274,17 @@ repeats across two fresh caches and offline audits. AV-MSF + YCB + Heller now
 measure three publisher/project/revision groups, 13 objects and 33 recordings;
 Glass contributes 5 groups/17 recordings, leaving 11 of 16 groups open.
 
-Package 3 must next obtain a hash-closed object/material inventory and bounded
-object-level retrieval path for Greatest Hits before accepting its 20 GB
-minimum official package, or reject that path and select another source. It
-must also expand complementary E2/E1 arrays before
+The Greatest Hits discriminator is complete. Byte-range ZIP inspection recovers
+the complete label inventory without the 20 GB archive, but the labels bind
+material/action/reaction to scene videos rather than stable target objects.
+Because video-as-object would invent E3 identity, the path is rejected and no
+download adapter is added. See the
+[bounded rejection](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md).
+
+Package 3 must next inspect the official REALIMPACT `93_GreenGoblet.zip`
+central directory and prove one exact selected E2-row retrieval path without
+downloading its complete 2.31 GB response, or reject that path. It must also
+expand complementary E2/E1 arrays before
 calibration/holdout/shadow open.
 Separate internet sources may support separate specialist claims, but
 unavailable axes remain unavailable and the grouped split/risk policy is
