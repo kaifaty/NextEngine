@@ -13,7 +13,7 @@ NSR3B4E2D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED /
 NSR3B4E2D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE /
-NSR3B4E2D7R20R63Z_FACTORIZED_PRODUCER_RESEARCH_NEXT /
+NSR3B4E2D7R20R63Z_BLOCK_OPERATOR_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3955,6 +3955,17 @@ finite certificate contains no binary128 or exact value. Research a
 factorized/sparse candidate producer and immutable producer/verifier artifact
 boundary next; dense profile construction, candidate generation, corpus,
 timing, runtime, GPU and production remain blocked.
+
+The
+[R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63z-active-block-operator-contract.md) select a
+block-dense common-operator discriminator before a sparse rewrite. The current
+`102 x 315` tangent is 55.24% full: CSR/CSC `T(T^T p)` visits 35,496 stored
+coefficients per vector versus at most 10,404 for the complete common block.
+R63Z will build one identity-bound twofold `H*` artifact and independently
+contain all 612 products for both lanes at states `0..2`. It performs no PCG,
+candidate update, sparse build or timing.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
