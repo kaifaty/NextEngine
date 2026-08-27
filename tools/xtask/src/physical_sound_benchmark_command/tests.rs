@@ -156,6 +156,14 @@ fn external_matrix_must_match_every_sorted_entry() {
         .expect("complete matrix validates");
     matrix.entries[0].id = "wrong".to_owned();
     assert!(validate_feature_matrix(declaration, &matrix, &manifest.entries).is_err());
+
+    let mut manifest = test_manifest();
+    manifest.external_feature_sets[0].id = TEMPORAL_FEATURE_SET_ID.to_owned();
+    assert!(
+        validate_manifest(&manifest)
+            .expect_err("built-in temporal feature collision rejects")
+            .contains("collides")
+    );
 }
 
 #[test]
@@ -272,6 +280,18 @@ fn end_to_end_report_has_no_acceptance_authority() {
             .expect("tasks")
             .iter()
             .any(|task| task["id"] == "shadow_material_from_real_development")
+    );
+    assert!(
+        report["tasks"]
+            .as_array()
+            .expect("tasks")
+            .iter()
+            .any(|task| task["feature_set_id"] == TEMPORAL_FEATURE_SET_ID)
+    );
+    assert!(
+        report["entries"][0]["temporal_dynamics"]["frame_count"]
+            .as_u64()
+            .is_some_and(|count| count > 1)
     );
 
     let repeated_output = directory.path.join("report-repeated");
@@ -484,6 +504,20 @@ fn dummy_audio(id: &str) -> EntryAudioReport {
         peak_dbfs: -6.0,
         rms_dbfs: -18.0,
         hard_failure_tags: Vec::new(),
+        temporal_dynamics:
+            crate::physical_sound_eval_command::audio_analysis::TemporalDynamicsReport {
+                frame_count: 1,
+                mean_spectral_flux: 0.0,
+                stddev_spectral_flux: 0.0,
+                mean_adjacent_cosine_distance: 0.0,
+                stddev_adjacent_cosine_distance: 0.0,
+                early_late_cosine_distance: 0.0,
+                mean_centroid_motion_nyquist_fraction: 0.0,
+                centroid_range_nyquist_fraction: 0.0,
+                mean_flatness_motion_db: 0.0,
+                flatness_range_db: 0.0,
+                mean_active_bin_turnover: 0.0,
+            },
     }
 }
 

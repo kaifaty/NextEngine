@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.4 |
+| Version | 0.5 |
 | Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md) |
-| Replaces | SPEC-45 0.3; records the first external real-material AV-P0B measurement without promoting quality acceptance or a runtime/content contract |
+| Replaces | SPEC-45 0.4; defines the external acoustic-domain knowledge/admission loop without promoting quality acceptance or a runtime/content contract |
 
 ## Status and decision boundary
 
@@ -101,6 +101,15 @@ head disagrees on selected Q30, and no selective-risk threshold is calibrated.
 This checkpoint supplies real failure evidence, not a perceptual-risk or
 AV-P0C acceptance gate.
 
+The repository now also contains the first AV-P0C substrate. `xtask
+physical-sound-registry` validates an external hash-closed formula/domain index
+and deliberately has no `Pass` value or acceptance authority. The corpus
+benchmark retains the frozen AV-P0B descriptor as a separate feature profile
+and adds deterministic temporal-spectral evolution features; its report remains
+`NoAcceptanceAuthority` until grouped mutation/OOD risk is calibrated. The
+[implementation plan](../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md)
+defines the remaining P0C/P0D and production-promotion boundaries.
+
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,
 reference numeric profile and ProductChecks. Until then all record shapes and
@@ -160,6 +169,79 @@ Steam Audio or a similar adapter belongs after source synthesis. It models
 distance, directivity, occlusion, transmission and reflections; it does not
 replace the physical source model. Adapter handles and vendor types remain
 private under SPEC-08.
+
+## P0 acoustic knowledge and admission boundary
+
+The unit of research progress is an **acoustic domain**, not an unconstrained
+material label or one auditioned WAV. A domain is the bounded Cartesian product
+of:
+
+- source class, initially `RigidImpact`;
+- object and geometry family;
+- acoustic material family and exact profile revision;
+- support/boundary condition;
+- excitation ranges and declared impact-position set;
+- listener/radiation condition set;
+- source-model family and exact formula revision.
+
+For example, `thin steel vessel / freely supported / rim and wall impacts` is a
+candidate domain. `Steel` by itself is not. A passing domain revision never
+silently widens to another geometry, support or excitation range.
+
+The P0 source-model factorization is:
+
+```text
+source_pcm(t) = radiation(
+  sum(mode_participation(position, excitation)
+      * exp(-t / decay)
+      * sin(2*pi*frequency*t + phase))
+  + bounded_source_residual(t, condition, seed)
+)
+```
+
+Frequencies, decay and spatial participation are conditioned by the exact
+geometry/material/support model. Excitation controls modal amplitudes and any
+declared transient. The residual is source-model-specific and cannot be used as
+an unconstrained noise term to repair a failed material classifier. Propagation
+and listener mixing remain downstream under SPEC-08.
+
+P0 maintains four separately versioned, external-only research artifacts:
+
+1. **Corpus registry** — hash-closed recordings, object/family identity,
+   geometry/support/excitation/listener metadata, provenance and immutable
+   development/calibration/holdout/shadow partitions.
+2. **Formula registry** — source-model family/revision, parameter-schema
+   identity, bounded domain envelope, calibration inputs, cost envelope and
+   exact authored fallback.
+3. **Validator release** — frozen deterministic gates, specialist feature/model
+   revisions, mutation families, OOD policy, split identities and selective
+   risk/coverage policy.
+4. **Domain admission record** — formula and parameter revision, exact domain,
+   referenced evidence hashes, measured risk/coverage, cost result and one of
+   `Pass`, `Reject` or `FallbackOutOfDomain`.
+
+These records are research evidence, not `crates/contracts` schemas, project
+content or shipping assets. They MUST stay outside the repository when they
+refer to recordings, datasets, learned weights, generated audio or model
+outputs. Repository tooling MAY define and validate current-only experimental
+JSON shapes, bounds, ordering and hashes. An admitted production profile later
+becomes cooked PresentationOnly content only through a concrete consumer and a
+promoting ADR under ADR-046.
+
+`Pass` is permitted only for the exact declared domain and validator release.
+The validator used for admission MUST be frozen before evaluating a new
+generator revision, MUST NOT train or calibrate on that generator's holdout or
+shadow entries, and MUST publish a measured selective risk/coverage result.
+Missing coverage, an unsupported condition or insufficient confidence selects
+`FallbackOutOfDomain`; it never creates a human approval queue. A validator
+release may invalidate admission under a newer policy only by publishing a new
+record. Historical records remain immutable evidence rather than being
+rewritten.
+
+The research registry therefore accumulates conditional formula knowledge,
+not a universal table mapping `material -> coefficients`. Runtime fitting,
+training and validator inference are not implied: P1 cooks an admitted bounded
+record and evaluates only the deterministic source formula.
 
 ## Candidate content model
 
@@ -385,6 +467,32 @@ Cook or import a modal model for a tiny engine-owned primitive corpus. Drive it
 with exact synthetic impulses, render canonical 48 kHz PCM and compare modal
 frequencies, decay and bounded perceptual descriptors against reference
 recordings or a high-quality offline solver. P0 changes no runtime contract.
+
+P0 advances through four evidence checkpoints:
+
+1. `AV-P0A` keeps hard signal, deterministic repeat and causal/metamorphic
+   controls independent from subjective material identity.
+2. `AV-P0B` hash-closes grouped real/generated/mutation corpora and measures
+   frozen feature heads without acceptance authority.
+3. `AV-P0C` adds temporal-spectral dynamics, leave-family/source/generator/
+   mutation-out evaluation and calibrated selective risk. Automatic `Pass`
+   remains disabled until this checkpoint demonstrates its declared bound.
+4. `AV-P0D` may optimize formula parameters only against development/fit data;
+   the frozen validator release, mutation suite and untouched shadow decide
+   admission.
+
+Each research cycle changes one falsifiable source-model hypothesis or one
+validator release, not both. A generator failure adds a reproducible mutation
+or negative control before another similar tuning pass. Two coherent failures
+without a newly discriminating hypothesis trigger the repository research
+escalation rule rather than another coefficient grid.
+
+A domain is complete for P0 when one immutable revision has all hard and
+metamorphic controls passing, measured selective risk/coverage on grouped
+holdouts, untouched-shadow evidence, a bounded cost result and an exact
+fallback. Research may then add a new domain or validator release without
+reopening the completed domain silently. This is the stopping rule that turns
+ongoing research into monotonically growing, reviewable coverage.
 
 ### P1 — first product vertical: rigid impact
 

@@ -25,9 +25,11 @@ use manifest::{
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-benchmark.manifest.v1";
 const FEATURE_MATRIX_SCHEMA: &str =
     "nextengine.experimental-physical-sound-corpus-feature-matrix.v1";
-const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-benchmark.report.v1";
-const EVALUATOR_PROFILE: &str = "nextengine.experimental-physical-sound-corpus-benchmark.av-p0b.v1";
+const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-benchmark.report.v2";
+const EVALUATOR_PROFILE: &str =
+    "nextengine.experimental-physical-sound-corpus-benchmark.av-p0c-substrate.v1";
 const CLASSICAL_FEATURE_SET_ID: &str = "classical-av-p0b-v1";
+const TEMPORAL_FEATURE_SET_ID: &str = "temporal-dynamics-av-p0c-v1";
 const MAX_ENTRIES: usize = 8_192;
 const MAX_MANIFEST_BYTES: usize = 16 * 1024 * 1024;
 const MAX_WAV_BYTES: usize = 256 * 1024 * 1024;
@@ -96,11 +98,17 @@ struct EvaluatorProfileReport {
     id: &'static str,
     classifier: &'static str,
     tie_break: &'static str,
-    built_in_feature_set: &'static str,
-    built_in_feature_definition: &'static str,
+    built_in_feature_definitions: Vec<BuiltInFeatureDefinitionReport>,
     maximum_entries: usize,
     maximum_wav_bytes: usize,
     feature_profiles: Vec<FeatureProfileReport>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct BuiltInFeatureDefinitionReport {
+    id: &'static str,
+    definition: &'static str,
+    authority: &'static str,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -174,6 +182,7 @@ pub(super) struct EntryAudioReport {
     peak_dbfs: f64,
     rms_dbfs: f64,
     hard_failure_tags: Vec<String>,
+    temporal_dynamics: crate::physical_sound_eval_command::audio_analysis::TemporalDynamicsReport,
 }
 
 pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
@@ -194,19 +203,24 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
 
     let sources = resolve_corpus_sources(&root, manifest_directory, &manifest)?;
     let mut entries = resolve_entries(&root, manifest_directory, &manifest)?;
-    let mut feature_profile_reports = vec![FeatureProfileReport {
-        id: CLASSICAL_FEATURE_SET_ID.to_owned(),
-        provenance: "built_in_deterministic_descriptor",
-        model_revision: None,
-        model_sha256: None,
-        matrix_sha256: None,
-        dimensions: entries
-            .first()
-            .and_then(|entry| entry.features.get(CLASSICAL_FEATURE_SET_ID))
-            .map(Vec::len)
-            .ok_or_else(|| "resolved corpus has no classical features".to_owned())?,
-        distance: DistanceMetric::Euclidean.as_str(),
-    }];
+    let mut feature_profile_reports = [CLASSICAL_FEATURE_SET_ID, TEMPORAL_FEATURE_SET_ID]
+        .into_iter()
+        .map(|id| {
+            Ok(FeatureProfileReport {
+                id: id.to_owned(),
+                provenance: "built_in_deterministic_descriptor",
+                model_revision: None,
+                model_sha256: None,
+                matrix_sha256: None,
+                dimensions: entries
+                    .first()
+                    .and_then(|entry| entry.features.get(id))
+                    .map(Vec::len)
+                    .ok_or_else(|| format!("resolved corpus has no {id} features"))?,
+                distance: DistanceMetric::Euclidean.as_str(),
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
     resolve_external_features(
         &root,
         manifest_directory,
@@ -217,12 +231,14 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
     let feature_profiles = feature_profile_reports
         .iter()
         .zip(
-            std::iter::once(DistanceMetric::Euclidean).chain(
-                manifest
-                    .external_feature_sets
-                    .iter()
-                    .map(|set| set.distance),
-            ),
+            [DistanceMetric::Euclidean, DistanceMetric::Euclidean]
+                .into_iter()
+                .chain(
+                    manifest
+                        .external_feature_sets
+                        .iter()
+                        .map(|set| set.distance),
+                ),
         )
         .map(|(report, distance)| FeatureProfile {
             id: report.id.clone(),
@@ -250,8 +266,18 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         id: EVALUATOR_PROFILE,
         classifier: "deterministic one-nearest-neighbor baseline; benchmark only",
         tie_break: "minimum distance, then lexicographically smallest gallery entry id",
-        built_in_feature_set: CLASSICAL_FEATURE_SET_ID,
-        built_in_feature_definition: "three gain-normalized log spectra plus bounded spectrum/onset/modal-count/decay scalars",
+        built_in_feature_definitions: vec![
+            BuiltInFeatureDefinitionReport {
+                id: CLASSICAL_FEATURE_SET_ID,
+                definition: "three gain-normalized log spectra plus bounded spectrum/onset/modal-count/decay scalars",
+                authority: "frozen AV-P0B diagnostic baseline",
+            },
+            BuiltInFeatureDefinitionReport {
+                id: TEMPORAL_FEATURE_SET_ID,
+                definition: "bounded STFT spectral flux, adjacent/early-late cosine distance, centroid/flatness motion and active-bin turnover",
+                authority: "AV-P0C diagnostic substrate; no selective-risk threshold",
+            },
+        ],
         maximum_entries: MAX_ENTRIES,
         maximum_wav_bytes: MAX_WAV_BYTES,
         feature_profiles: feature_profile_reports,
@@ -355,6 +381,10 @@ fn resolve_entries(
             let analysis = analyze_benchmark_wav(&entry.audio.path, &entry.audio.sha256, wav)?;
             let mut features = BTreeMap::new();
             features.insert(CLASSICAL_FEATURE_SET_ID.to_owned(), analysis.feature_values);
+            features.insert(
+                TEMPORAL_FEATURE_SET_ID.to_owned(),
+                analysis.temporal_feature_values,
+            );
             let audio = EntryAudioReport {
                 id: entry.id.clone(),
                 wav_sha256: entry.audio.sha256.clone(),
@@ -368,6 +398,7 @@ fn resolve_entries(
                     .into_iter()
                     .map(str::to_owned)
                     .collect(),
+                temporal_dynamics: analysis.temporal_dynamics,
             };
             Ok(ResolvedEntry {
                 manifest: entry,

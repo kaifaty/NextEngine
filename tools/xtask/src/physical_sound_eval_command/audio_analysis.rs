@@ -1,5 +1,7 @@
 use std::f64::consts::PI;
 
+use serde::Serialize;
+
 use super::{
     DecayBandReport, FFT_SIZES, FileAnalysisReport, LOG_SPECTRUM_BINS, MAX_DURATION_SECONDS,
     ModalPeakReport, SignalReport, SpectrumReport,
@@ -26,6 +28,23 @@ pub(crate) struct BenchmarkAudioAnalysis {
     pub(crate) rms_dbfs: f64,
     pub(crate) hard_failure_tags: Vec<&'static str>,
     pub(crate) feature_values: Vec<f64>,
+    pub(crate) temporal_feature_values: Vec<f64>,
+    pub(crate) temporal_dynamics: TemporalDynamicsReport,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct TemporalDynamicsReport {
+    pub(crate) frame_count: usize,
+    pub(crate) mean_spectral_flux: f64,
+    pub(crate) stddev_spectral_flux: f64,
+    pub(crate) mean_adjacent_cosine_distance: f64,
+    pub(crate) stddev_adjacent_cosine_distance: f64,
+    pub(crate) early_late_cosine_distance: f64,
+    pub(crate) mean_centroid_motion_nyquist_fraction: f64,
+    pub(crate) centroid_range_nyquist_fraction: f64,
+    pub(crate) mean_flatness_motion_db: f64,
+    pub(crate) flatness_range_db: f64,
+    pub(crate) mean_active_bin_turnover: f64,
 }
 
 pub(crate) fn parse_wav(bytes: &[u8]) -> Result<WavAudio, String> {
@@ -265,6 +284,14 @@ pub(crate) fn analyze_benchmark_wav(
     wav_sha256: &str,
     wav: WavAudio,
 ) -> Result<BenchmarkAudioAnalysis, String> {
+    let peak = wav
+        .mono_samples
+        .iter()
+        .map(|sample| sample.abs())
+        .fold(0.0, f64::max);
+    let temporal_onset = detect_onset(&wav.mono_samples, peak).unwrap_or(0);
+    let temporal_dynamics =
+        temporal_dynamics(&wav.mono_samples, temporal_onset, wav.sample_rate_hz)?;
     let analysis = analyze_wav(manifest_path, wav_sha256, wav)?;
     let report = &analysis.report;
     let mut hard_failure_tags = Vec::new();
@@ -313,6 +340,26 @@ pub(crate) fn analyze_benchmark_wav(
             .map(|value| (value / report.duration_ms.max(1.0)).clamp(0.0, 4.0) / 4.0)
             .unwrap_or(0.0)
     }));
+    let temporal_feature_values = vec![
+        temporal_dynamics.mean_spectral_flux.clamp(0.0, 1.0),
+        temporal_dynamics.stddev_spectral_flux.clamp(0.0, 1.0),
+        temporal_dynamics
+            .mean_adjacent_cosine_distance
+            .clamp(0.0, 1.0),
+        temporal_dynamics
+            .stddev_adjacent_cosine_distance
+            .clamp(0.0, 1.0),
+        temporal_dynamics.early_late_cosine_distance.clamp(0.0, 1.0),
+        temporal_dynamics
+            .mean_centroid_motion_nyquist_fraction
+            .clamp(0.0, 1.0),
+        temporal_dynamics
+            .centroid_range_nyquist_fraction
+            .clamp(0.0, 1.0),
+        (temporal_dynamics.mean_flatness_motion_db / 120.0).clamp(0.0, 1.0),
+        (temporal_dynamics.flatness_range_db / 120.0).clamp(0.0, 1.0),
+        temporal_dynamics.mean_active_bin_turnover.clamp(0.0, 1.0),
+    ];
 
     Ok(BenchmarkAudioAnalysis {
         sample_rate_hz: report.sample_rate_hz,
@@ -322,7 +369,163 @@ pub(crate) fn analyze_benchmark_wav(
         rms_dbfs: report.signal.rms_dbfs,
         hard_failure_tags,
         feature_values,
+        temporal_feature_values,
+        temporal_dynamics,
     })
+}
+
+fn temporal_dynamics(
+    samples: &[f64],
+    onset: usize,
+    sample_rate_hz: u32,
+) -> Result<TemporalDynamicsReport, String> {
+    const WINDOW: usize = 1_024;
+    const HOP: usize = 256;
+    const MAX_FRAMES: usize = 256;
+    const ACTIVE_RELATIVE_POWER: f64 = 1.0e-4;
+
+    let available = samples.len().saturating_sub(onset);
+    let frame_count = if available <= WINDOW {
+        1
+    } else {
+        1 + (available - WINDOW) / HOP
+    }
+    .min(MAX_FRAMES);
+    let bin_hz = f64::from(sample_rate_hz) / WINDOW as f64;
+    let start_bin = (80.0 / bin_hz).ceil() as usize;
+    let end_bin = ((20_000.0 / bin_hz).floor() as usize).min(WINDOW / 2);
+    if start_bin > end_bin {
+        return Err("temporal dynamics has no usable spectrum bins".to_owned());
+    }
+
+    let mut spectra = Vec::with_capacity(frame_count);
+    let mut active_bins = Vec::with_capacity(frame_count);
+    let mut centroids = Vec::with_capacity(frame_count);
+    let mut flatness_db = Vec::with_capacity(frame_count);
+    let usable_nyquist_hz = (f64::from(sample_rate_hz) * 0.5).min(20_000.0);
+    for frame in 0..frame_count {
+        let power = power_spectrum(samples, onset + frame * HOP, WINDOW)?;
+        let selected = &power[start_bin..=end_bin];
+        let total = selected.iter().sum::<f64>().max(1.0e-24);
+        let maximum = selected.iter().copied().fold(1.0e-24, f64::max);
+        let normalized = selected
+            .iter()
+            .map(|value| value / total)
+            .collect::<Vec<_>>();
+        let active = selected
+            .iter()
+            .map(|value| *value >= maximum * ACTIVE_RELATIVE_POWER)
+            .collect::<Vec<_>>();
+        let centroid_hz = selected
+            .iter()
+            .enumerate()
+            .map(|(offset, value)| (start_bin + offset) as f64 * bin_hz * value)
+            .sum::<f64>()
+            / total;
+        let arithmetic = total / selected.len() as f64;
+        let geometric = (selected
+            .iter()
+            .map(|value| value.max(1.0e-24).ln())
+            .sum::<f64>()
+            / selected.len() as f64)
+            .exp();
+        spectra.push(normalized);
+        active_bins.push(active);
+        centroids.push((centroid_hz / usable_nyquist_hz).clamp(0.0, 1.0));
+        flatness_db.push(10.0 * (geometric / arithmetic.max(1.0e-24)).log10());
+    }
+
+    let mut flux = Vec::with_capacity(frame_count.saturating_sub(1));
+    let mut adjacent_distance = Vec::with_capacity(frame_count.saturating_sub(1));
+    let mut centroid_motion = Vec::with_capacity(frame_count.saturating_sub(1));
+    let mut flatness_motion = Vec::with_capacity(frame_count.saturating_sub(1));
+    let mut active_turnover = Vec::with_capacity(frame_count.saturating_sub(1));
+    for index in 1..frame_count {
+        let previous = &spectra[index - 1];
+        let current = &spectra[index];
+        flux.push(
+            current
+                .iter()
+                .zip(previous)
+                .map(|(now, prior)| (now - prior).max(0.0))
+                .sum::<f64>(),
+        );
+        adjacent_distance.push(cosine_distance(previous, current));
+        centroid_motion.push((centroids[index] - centroids[index - 1]).abs());
+        flatness_motion.push((flatness_db[index] - flatness_db[index - 1]).abs());
+        let (intersection, union) = active_bins[index].iter().zip(&active_bins[index - 1]).fold(
+            (0_usize, 0_usize),
+            |(intersection, union), (now, prior)| {
+                (
+                    intersection + usize::from(*now && *prior),
+                    union + usize::from(*now || *prior),
+                )
+            },
+        );
+        active_turnover.push(if union == 0 {
+            0.0
+        } else {
+            1.0 - intersection as f64 / union as f64
+        });
+    }
+
+    let (mean_spectral_flux, stddev_spectral_flux) = mean_stddev(&flux);
+    let (mean_adjacent_cosine_distance, stddev_adjacent_cosine_distance) =
+        mean_stddev(&adjacent_distance);
+    Ok(TemporalDynamicsReport {
+        frame_count,
+        mean_spectral_flux,
+        stddev_spectral_flux,
+        mean_adjacent_cosine_distance,
+        stddev_adjacent_cosine_distance,
+        early_late_cosine_distance: cosine_distance(&spectra[0], &spectra[frame_count - 1]),
+        mean_centroid_motion_nyquist_fraction: mean_stddev(&centroid_motion).0,
+        centroid_range_nyquist_fraction: range(&centroids),
+        mean_flatness_motion_db: mean_stddev(&flatness_motion).0,
+        flatness_range_db: range(&flatness_db),
+        mean_active_bin_turnover: mean_stddev(&active_turnover).0,
+    })
+}
+
+fn cosine_distance(left: &[f64], right: &[f64]) -> f64 {
+    let (dot, left_norm, right_norm) = left.iter().zip(right).fold(
+        (0.0_f64, 0.0_f64, 0.0_f64),
+        |(dot, left_norm, right_norm), (left, right)| {
+            (
+                dot + left * right,
+                left_norm + left * left,
+                right_norm + right * right,
+            )
+        },
+    );
+    if left_norm <= 1.0e-24 || right_norm <= 1.0e-24 {
+        0.0
+    } else {
+        (1.0 - dot / (left_norm * right_norm).sqrt()).clamp(0.0, 1.0)
+    }
+}
+
+fn mean_stddev(values: &[f64]) -> (f64, f64) {
+    if values.is_empty() {
+        return (0.0, 0.0);
+    }
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let variance = values
+        .iter()
+        .map(|value| (value - mean).powi(2))
+        .sum::<f64>()
+        / values.len() as f64;
+    (mean, variance.sqrt())
+}
+
+fn range(values: &[f64]) -> f64 {
+    let minimum = values.iter().copied().fold(f64::INFINITY, f64::min);
+    let maximum = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    if minimum.is_finite() && maximum.is_finite() {
+        maximum - minimum
+    } else {
+        0.0
+    }
 }
 
 fn detect_onset(samples: &[f64], peak: f64) -> Option<usize> {
@@ -609,4 +812,71 @@ fn decay_fit(energy: &[f64], sample_rate_hz: u32, hop: usize) -> (Option<f64>, O
         return (Some(slope), None);
     }
     (Some(slope), Some(-20.0 / slope * 1_000.0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn temporal_descriptor_separates_stationary_and_evolving_spectra() {
+        let stationary =
+            analyze_benchmark_wav("stationary.wav", &"0".repeat(64), test_audio(false))
+                .expect("stationary analysis");
+        let evolving = analyze_benchmark_wav("evolving.wav", &"1".repeat(64), test_audio(true))
+            .expect("evolving analysis");
+
+        assert_eq!(stationary.temporal_feature_values.len(), 10);
+        assert!(
+            stationary
+                .temporal_feature_values
+                .iter()
+                .chain(&evolving.temporal_feature_values)
+                .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
+        );
+        assert!(stationary.temporal_dynamics.early_late_cosine_distance < 0.05);
+        assert!(evolving.temporal_dynamics.early_late_cosine_distance > 0.8);
+        assert!(
+            evolving.temporal_dynamics.centroid_range_nyquist_fraction
+                > stationary.temporal_dynamics.centroid_range_nyquist_fraction + 0.05
+        );
+    }
+
+    #[test]
+    fn temporal_descriptor_repeats_exactly() {
+        let first = analyze_benchmark_wav("first.wav", &"0".repeat(64), test_audio(true))
+            .expect("first analysis");
+        let second = analyze_benchmark_wav("second.wav", &"0".repeat(64), test_audio(true))
+            .expect("second analysis");
+        assert_eq!(
+            first.temporal_feature_values,
+            second.temporal_feature_values
+        );
+        assert_eq!(
+            serde_json::to_vec(&first.temporal_dynamics).expect("serialize first"),
+            serde_json::to_vec(&second.temporal_dynamics).expect("serialize second")
+        );
+    }
+
+    fn test_audio(evolving: bool) -> WavAudio {
+        let sample_rate_hz = 48_000_u32;
+        let sample_count = 24_000_usize;
+        let mono_samples = (0..sample_count)
+            .map(|index| {
+                let time = index as f64 / f64::from(sample_rate_hz);
+                let frequency = if evolving && index >= sample_count / 2 {
+                    3_375.0
+                } else {
+                    562.5
+                };
+                (2.0 * PI * frequency * time).sin() * (-6.0 * time).exp() * 0.5
+            })
+            .collect();
+        WavAudio {
+            sample_format: "ieee-f32".to_owned(),
+            sample_rate_hz,
+            channel_count: 1,
+            mono_samples,
+        }
+    }
 }

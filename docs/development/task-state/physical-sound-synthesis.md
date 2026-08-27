@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_WOOD_ACCEPTED / GLASS_EXACT_CORPUS_NUMERIC_PASS / STEEL_V4_ENSEMBLE_FALLBACK_OOD / SELECTIVE_RISK_OPEN / P1_BLOCKED` |
+| Status | `P0_DOMAIN_REGISTRY_AND_TEMPORAL_SUBSTRATE_IMPLEMENTED / SELECTIVE_RISK_OPEN / P1_BLOCKED` |
 | Updated | `2026-08-27` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -14,8 +14,8 @@
 - **Current conclusion:** The one frozen stochastic-residual v4 still has no
   BEATs+PANNs `3/3` profile; decision remains `FallbackOutOfDomain`.
 - **Why:** Two real-metal sources are denser and more time-varying than v3; white residual reaches flatness but creates an overly stationary noise tail.
-- **Next action:** Expand grouped metal families and add a temporal-spectral
-  dynamics/mutation head before considering any new source-model counterfactual.
+- **Next action:** Run the new temporal profile over broadened grouped metal and
+  mutation families, then calibrate selective risk before a new source model.
 - **Current blocker:** No calibrated selective-risk curve, sufficient grouped
   corpus, spatial/force evidence, mixer budget, Accepted ADR or complete contact signal.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
@@ -34,7 +34,7 @@
 | [Steel residual v4](../physical-sound-steel-residual-v4-2026-08-27.md) | `V4_REJECTED / FALLBACK_OUT_OF_DOMAIN` | YCB adds aluminium-container and steel-skillet families. Real metal flatness is about `−16/−17 dB` versus v3 `−53 dB`; v4 reaches flatness but not real spectral dynamics. Original PANNs stays `0/39`, BEATs `7/39`; no joint profile or promotion. |
 | [Controlled glass corpus](../physical-sound-controlled-glass-corpus-2026-08-27.md) | `CONTROLLED_SYNTHETIC_CORPUS_PASS / HUMAN_REFERENCE_OPEN` | Exact geometry and 15 force/position conditions are reproducible; Q30 and physical controls pass, but whole-vector IDW is an inadequate spatial model and the corpus has no real matched recording. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
-| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
+| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) and [domain-admission plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md) | `P0_REGISTRY_AND_AV_P0C_SUBSTRATE_IMPLEMENTED / NO_ACCEPTANCE_AUTHORITY` | The unit of progress is a bounded material/object/geometry/support/excitation/listener domain. `physical-sound-registry` hash-closes formula/domain evidence and forbids `Pass`; the benchmark now emits an independent temporal-dynamics profile while retaining automatic fallback. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -157,10 +157,10 @@
 - **Observation:** Per-sound audition cannot scale to the intended source/parameter space; published metrics remain partial and exploitable.
 - **Evidence:** The automated-validation report combines local CLAP/FAD failure,
   public impact corpora, decomposed audio evaluators and selective risk control.
-- **Decision:** Build an offline oracle from hard signal checks, matched modal/
-  decay/spectral descriptors, metamorphic relations, frozen specialist heads,
-  grouped real holdouts and calibrated selective risk. Outcomes are `Pass`,
-  `Reject` or automatic clip `FallbackOutOfDomain`; no live human audit queue.
+- **Decision:** Build a versioned domain/formula registry plus an offline oracle
+  from hard checks, temporal/modal/spectral specialists, grouped holdouts and
+  calibrated selective risk. Outcomes are `Pass`, `Reject` or automatic clip
+  `FallbackOutOfDomain`; no live human audit queue.
 - **Rejected alternatives:** A single FAD/CLAP/ViSQOL/aesthetic score, direct
   prose judgment by a general audio model, or fitting and evaluating on the same
   object/impact split.
@@ -168,7 +168,8 @@
   DiffSound pair now falsifies reference fidelity as a glass-identity proxy.
   AV-P0A automates physical controls. AV-P0B and the YCB expansion show that
   BEATs/PANNs can recognize grouped real metal while white-residual v4 moves one
-  head toward metal and the other toward glass; neither is acceptance authority.
+  head toward metal and the other toward glass. Registry V1 now forbids a
+  forged `Pass`; the AV-P0C temporal head is diagnostic-only until calibration.
 - **Uncertainty:** The material-only corpus is small; selective false-pass risk,
   spatial/force behavior and subjective naturalness remain unmeasured.
 - **Reconsider when:** A frozen simpler validator matches the ensemble's grouped
@@ -193,7 +194,7 @@ Read these sources in precedence order before acting:
 2. [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md), [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../../architecture/30-presentation-extraction-and-render-content.md), ADR-027/046/058/071.
 3. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 4. [Research report](../physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../physical-sound-quality-evaluation-research-2026-08-26.md),
-   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B](../physical-sound-corpus-benchmark-av-p0b-2026-08-27.md) and [steel v4](../physical-sound-steel-residual-v4-2026-08-27.md).
+   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B](../physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [steel v4](../physical-sound-steel-residual-v4-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
 5. [Roadmap](../../roadmap.md) only for a future scheduling/scope decision.
 
 ## Next action
@@ -206,11 +207,11 @@ Read these sources in precedence order before acting:
    do not reinterpret its `Pass` as subjective quality or P1 evidence.
 4. Preserve v3 and rejected residual v4 as `FallbackOutOfDomain`; add the
    stationary-white tail to mutation controls and do not start a v5 gain grid.
-5. Broaden grouped metal families, validate a temporal-spectral dynamics head
-   across sources, then calibrate selective risk before adversarial search.
-6. Only on measured success, write the promoting consumer ADR and close the
+5. Populate Registry V1 externally; benchmark the temporal head against stationary/frozen/shuffled mutation families and broadened metal sources.
+6. Freeze grouped splits and calibrate false-pass risk versus coverage before enabling registry `Pass` or starting AV-P0D source-model search.
+7. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
-7. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
+8. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
    survives.
 
 ## Do not retry
@@ -234,13 +235,12 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** laboratory adds an external-only bounded v4 residual search; current steel/wood/glass defaults, public schemas, assets and ownership are
-  unchanged. Detailed evidence is in the linked v3/v4 search reports.
-- **Checks:** presentation/xtask tests, Clippy, format, boundary scan and
-  diff/link checks pass. The post-split v3 rerun is byte-exact. Earlier
-  runtime/demo evidence remains exact because no
-  default runtime/content path changed. Candidate `AUDIO-PHYS-*`, persistence,
-  platform and performance promotion checks remain unpromoted/not run.
+- **Workspace state:** external-only Registry V1 and the AV-P0C temporal
+  descriptor substrate are implemented; defaults, public schemas, assets and
+  ownership are unchanged.
+- **Checks:** focused registry, temporal-control and benchmark tests pass.
+  Clippy/boundary/diff/link checks remain to run for this checkpoint. Candidate
+  `AUDIO-PHYS-*`, persistence, platform and performance remain unpromoted/not run.
 - **Remaining risk:** corpus scale/scope, head agreement, calibration/OOD,
   spatial transfer, contact sufficiency, mixer cost and authoring are open.
 - **Quality status:** wood-B and Q30 controls remain exact. Residual v4 has
