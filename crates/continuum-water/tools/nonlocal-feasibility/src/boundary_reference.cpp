@@ -80258,6 +80258,34 @@ FormulaProbeCertificate al_formula_probe_certificate(
     return result;
 }
 
+FormulaProbeSolutionExpansion al_formula_probe_solution_expansion(
+    const std::vector<FormulaProbeBinary128>& source_solution,
+    const ALR20R63YSolution& source) {
+    FormulaProbeSolutionExpansion result;
+    result.width = source.width;
+    result.dimension = source.dimension;
+    result.containments = source.containments;
+    result.nonzero_lows = source.nonzero_lows;
+    result.components = source.components;
+    result.radius = source.radius;
+    result.source_solution_root = al_r20_q_scalar_root(source_solution);
+    result.component_root = al_r20_double_root(result.components);
+    result.radius_root = al_r20_double_root(result.radius);
+    result.exact = source.exact && result.width == 2U
+        && result.dimension == source_solution.size()
+        && result.dimension != 0U
+        && result.containments == result.dimension
+        && result.components.size() == result.dimension * result.width
+        && result.radius.size() == result.dimension;
+    std::ostringstream material;
+    material << result.exact << ':' << result.width << ':'
+        << result.dimension << ':' << result.containments << ':'
+        << result.nonzero_lows << ':' << result.source_solution_root << ':'
+        << result.component_root << ':' << result.radius_root;
+    result.root = sha256_hex(material.str());
+    return result;
+}
+
 FormulaProbeCertificateDetail al_formula_probe_certificate_detail(
     const ALR20R63YProfile& profile,
     const std::vector<FormulaProbeBinary128>& source_solution) {
@@ -80842,6 +80870,19 @@ FormulaProbeCertificateDetail formula_probe_certificate_detail(
         return {};
     return al_formula_probe_certificate_detail(
         al_formula_probe_internal_profile(fixture.verifier_profile), solution);
+}
+
+FormulaProbeSolutionExpansion formula_probe_solution_expansion(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& solution) {
+    if (!formula_probe_parent_fixture_valid(fixture)
+        || solution.size() != fixture.dimension)
+        return {};
+    const ALR20R63YSolution expansion = al_r20_r63y_solution(solution, 2U);
+    if (!expansion.exact || expansion.width != 2U
+        || expansion.dimension != fixture.dimension)
+        return {};
+    return al_formula_probe_solution_expansion(solution, expansion);
 }
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {

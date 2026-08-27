@@ -144,6 +144,18 @@ target_link_libraries(
     nonlocal-formula-certificate-detail-release
     PRIVATE nonlocal-formula-reclosure-core)
 
+add_executable(
+    nonlocal-formula-center-producer-release
+    EXCLUDE_FROM_ALL
+    src/formula_center_producer_main.cpp
+    src/formula_probe_cache.cpp
+)
+nextengine_configure_formula_reclosure_target(
+    nonlocal-formula-center-producer-release -O3)
+target_link_libraries(
+    nonlocal-formula-center-producer-release
+    PRIVATE nonlocal-formula-reclosure-core)
+
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
     "Build the strict-FP, compile-latency-oriented formula reclosure author target"
@@ -294,5 +306,20 @@ if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
         PRIVATE nonlocal-formula-reclosure-dev-core)
     target_compile_definitions(
         nonlocal-formula-certificate-detail-dev PRIVATE
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
+
+    add_executable(
+        nonlocal-formula-center-producer-dev
+        EXCLUDE_FROM_ALL
+        src/formula_center_producer_main.cpp
+        src/formula_probe_cache.cpp
+    )
+    nextengine_configure_formula_reclosure_target(
+        nonlocal-formula-center-producer-dev -O0)
+    target_link_libraries(
+        nonlocal-formula-center-producer-dev
+        PRIVATE nonlocal-formula-reclosure-dev-core)
+    target_compile_definitions(
+        nonlocal-formula-center-producer-dev PRIVATE
             NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
 endif()

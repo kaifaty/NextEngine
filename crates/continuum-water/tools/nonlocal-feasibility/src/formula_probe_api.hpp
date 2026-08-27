@@ -74,6 +74,20 @@ struct FormulaProbeCertificateDetail {
     std::string root;
 };
 
+struct FormulaProbeSolutionExpansion {
+    bool exact = false;
+    std::size_t width = 0U;
+    std::size_t dimension = 0U;
+    std::size_t containments = 0U;
+    std::size_t nonzero_lows = 0U;
+    std::vector<double> components;
+    std::vector<double> radius;
+    std::string source_solution_root;
+    std::string component_root;
+    std::string radius_root;
+    std::string root;
+};
+
 struct FormulaProbeProduct {
     bool exact = false;
     std::vector<FormulaProbeBinary128> value;
@@ -194,6 +208,9 @@ FormulaProbeCertificate formula_probe_certificate(
     const FormulaProbeParentFixture& fixture,
     const std::vector<FormulaProbeBinary128>& solution);
 FormulaProbeCertificateDetail formula_probe_certificate_detail(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& solution);
+FormulaProbeSolutionExpansion formula_probe_solution_expansion(
     const FormulaProbeParentFixture& fixture,
     const std::vector<FormulaProbeBinary128>& solution);
 

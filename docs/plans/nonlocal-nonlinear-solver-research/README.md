@@ -21,7 +21,7 @@ NSR3B4E2D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS /
 NSR3B4E2D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT /
 NSR3B4E2D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE /
 NSR3B4E2D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT /
-NSR3B4E2D7R20R63ZH_CENTER_PRODUCER_DECOMPOSITION_CONTRACT_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63ZH_AUTHOR_PASS_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_REVIEW_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4117,6 +4117,15 @@ finite center-enclosure defect or close all 102 identities
 `r_c-r_t=-M(x_c-x_t)`. The latter ends certificate repair and permits common
 operator research only as an original-equation-preserving accelerator or
 preconditioner. No deeper center factorial or correction is admitted first.
+
+The
+[R63ZH author evidence](../../development/nonlocal-nsr3b4e2d7r20r63zh-center-producer-decomposition-evidence-2026-08-28.md)
+returns `COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL`: all `204/204` exact
+centers are contained, exact and finite common maxima agree at row `65`, its
+interval excludes zero and all `102/102` transport identities close. Dev and
+two Release outputs are byte-identical. Independent review is `NOT_TESTED`, so
+the bounded claim and certificate-repair stop remain pending one fresh review;
+no repair, deeper factorial, timing or production work is authorized first.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

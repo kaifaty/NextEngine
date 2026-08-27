@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZH center-producer decomposition research
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_NEXT`.
+Status: `AUTHOR_EXECUTED / REVIEW_NOT_TESTED / CLAIM_INCONCLUSIVE`.
 
 ## Question
 
@@ -89,6 +89,14 @@ Independent review must verify operand order, signs, row-major indexing and
 that the exact oracle does not consume candidate centers.
 
 ## Stop decision
+
+The [author evidence](nonlocal-nsr3b4e2d7r20r63zh-center-producer-decomposition-evidence-2026-08-28.md)
+returns `COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL`: all `204/204`
+centers are contained, exact and finite common maxima both select row `65`,
+the common maximum interval excludes zero, and all `102/102` transport
+identities close. Dev and two Release outputs are byte-identical. Independent
+review is still `NOT_TESTED`, so this is an author result rather than the
+reviewed stop decision required below.
 
 - On `COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL`, stop decomposing or
   modifying the certificate. Preserve the original affine operator as the

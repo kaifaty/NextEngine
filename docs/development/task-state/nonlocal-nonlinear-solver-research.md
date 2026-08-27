@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_65_OF_65_CENTERED_CANDIDATE / D7R20R42_RATIO_ORDER_BOUNDARY / D7R20R43_SECOND_INVERSE_BOUNDARY / D7R20R44_TWO_SIDED_CONTRACTIVE / D7R20R45_65_OF_65_SECOND_CENTER / D7R20R46_THIRD_INVERSE_BOUNDARY / D7R20R47_TWO_SIDED_CONTRACTIVE / D7R20R48_65_OF_65_THIRD_CENTER / D7R20R49_FOURTH_INVERSE_BOUNDARY / D7R20R50_TORSION_GENERIC_CANDIDATE / D7R20R51_COUNTERFLOW_ONLY_BOUNDARY / D7R20R52_CAPTURE_PREMISE_REFUTED / D7R20R53_CENTERED_SLOPE_CANDIDATE / D7R20R54_LEGACY_SLOPE_CANDIDATE / D7R20R55_COUNTERFLOW_CERTIFIED / D7R20R56_V4_5_OF_5 / D7R20R57_V5_MANIFEST_FROZEN / D7R20R58_V5_PREFLIGHT_PASS / D7R20R59_V5_DIMENSION_BOUNDARY / D7R20R60_DIMENSION_GENERIC_CENTER / D7R20R61_V5_6_OF_6 / D7R20R62_STRICT_BINARY64_DOT2ERR_SELECTED / D7R20R63_BINARY64_PROJECTED_INVERSE_NONCONTRACTIVE / D7R20R63A_MIXED_PROJECTION_CONTRIBUTION / D7R20R63B_FACTOR_LEFT_NONCONTRACTIVE / D7R20R63C_BINARY64_LOWER_LEFT_NONCONTRACTIVE / D7R20R63D_PROJECTOR_METRIC_NUMERICAL_RANK_LOSS / D7R20R63E_CLAMP_METRIC_NUMERICAL_RANK_LOSS / D7R20R63F_LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED / SHARED_HOST_PERFORMANCE_STOP` |
-| Current frontier | `D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE / D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED / D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED / D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED / D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE / D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE / D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED / D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED / D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE / D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE / D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED / D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE / D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE / D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE / D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE / D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED / D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT / D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS / D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT / D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE / D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT / D7R20R63ZH_CENTER_PRODUCER_DECOMPOSITION_CONTRACT_FROZEN_IMPLEMENTATION_NEXT` |
-| Updated | `2026-08-27` |
+| Current frontier | `D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE / D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED / D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED / D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED / D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE / D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE / D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED / D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED / D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE / D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE / D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED / D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE / D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE / D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE / D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE / D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED / D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT / D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS / D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT / D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE / D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT / D7R20R63ZH_AUTHOR_PASS_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_REVIEW_NEXT` |
+| Updated | `2026-08-28` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
 | Definition of done | NSR0--NSR6 select a production-roadmap candidate or stop at an exact reproducible boundary |
@@ -71,15 +71,17 @@
   the common radius alone passes both and `U/G` classifications alias. Initial
   review found incomplete fixture admission and omitted zero work categories;
   one batched repair closed both and the single re-review returned `GO`.
-- **R63ZH frozen:** independently reconstruct all 204 component-center
-  residuals with exact canonical dyadics, require their existing R63Y interval
-  containments, and close all 102 identities
-  `r_c-r_t=-M(x_c-x_t)`. Success is a stop decision, not another open-ended
-  decomposition.
-- **Next:** implement only the private solution-expansion DTO and separate-TU
-  exact audit. On `COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL`, stop
-  certificate repair and return common-operator work to an
-  original-equation-preserving accelerator/preconditioner role.
+- **R63ZH author result:** dev and two Release outputs are byte-identical at
+  `181ac246...96722`, semantic `f1577fd4...a5ea`, route
+  `COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL`. All `204/204` exact centers
+  are contained, exact/finite common maxima both select row `65`, its interval
+  excludes zero and all `102/102` transport identities close. Parent R63ZE,
+  R63ZF, R63ZG, kernel-smoke and cache hashes remain exact.
+- **R63ZH review boundary:** independent review is `NOT_TESTED`; retain the
+  author result as `CLAIM_INCONCLUSIVE`. The only next action is one fresh
+  adversarial review of the frozen diff/hashes/output. Do not close the
+  certificate-repair lineage, apply a repair or open a deeper factorial before
+  `GO`.
 - **Current result:** R20R63Z passes at semantic
   `e27ee861...3e4be`, route `TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE`; final
   stdout is byte-identical at `de22f5f6...da54`. All 10,404 common-operator
@@ -6436,6 +6438,37 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   interaction, recurrence arithmetic, or an explicitly unresolved shared
   verifier boundary.
 
+### D-222 -- Hold the exact center stop at the independent-review boundary
+
+- **Observation:** the R63ZH author executable reproduces reviewed R63ZG and
+  independently reconstructs every fixed-profile component center with
+  canonical `cpp_int` dyadics. All `204/204` centers are inside the immutable
+  R63Y intervals, exact and finite common maxima agree at row `65`, the common
+  maximum interval is strictly positive, and all `102/102` identities
+  `r_c-r_t=-M(x_c-x_t)` close. Dev and two Release outputs are byte-identical
+  at `181ac246...96722`; semantic result is `f1577fd4...a5ea`.
+- **Evidence:**
+  `docs/development/nonlocal-nsr3b4e2d7r20r63zh-center-producer-decomposition-evidence-2026-08-28.md`;
+  audit `4c3255ed...f99f5`, work `40794c9c...0ab69`, controls
+  `9d8fc152...a920a`. R63ZE/R63ZF/R63ZG/kernel/cache regressions retain their
+  frozen hashes.
+- **Conclusion:** author arithmetic supports a true residual of the frozen
+  verifier affine model rather than a finite center-enclosure defect.
+  Independent correspondence review is nevertheless `NOT_TESTED`, so the
+  decisive stop claim remains `INCONCLUSIVE` under the research protocol.
+- **Decision:** freeze the author diff, command, binary and output identities.
+  Run one fresh adversarial review next. On `GO`, stop certificate repair and
+  restrict common-operator work to original-equation-preserving acceleration
+  or preconditioning. On a load-bearing finding, permit at most one batched
+  repair and one re-review.
+- **Rejected:** self-review as a substitute for correspondence review;
+  declaring `SUPPORTED_BOUNDED` from compilation and author controls;
+  correcting/widening the certificate; opening a deeper term factorial;
+  timing, runtime, GPU or production promotion.
+- **Reconsider when:** the frozen author snapshot receives independent `GO`,
+  or a reviewer identifies a concrete operand, sign, indexing, interval,
+  sealing or work-accounting defect.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -6509,14 +6542,16 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    `CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE` interpretation. Preserve
    reviewed R63ZG Release stdout `ca2a0f80...029c9`, result
    `989886a4...6a5e5`, work root `5ce8dd9c...dd0ed` and narrow
-   `AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT` interpretation. R63ZH is frozen:
-   implement only its private solution-expansion DTO and independent exact
-   dyadic audit of all component centers, interval containments and 102
-   identities `r_c-r_t=-M(x_c-x_t)`. On the outside-verifier-model route,
-   stop certificate repair and permit common-operator research only as an
-   original-equation-preserving accelerator/preconditioner. Do not apply a
-   correction, fit a threshold, run timing or infer runtime/GPU/production
-   authority.
+   `AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT` interpretation. Preserve R63ZH
+   author stdout `181ac246...96722`, result `f1577fd4...a5ea`, audit
+   `4c3255ed...f99f5`, `204/204` containments, common maximum row `65` and
+   `102/102` transport identities. Independent review is `NOT_TESTED`: the
+   only next action is one fresh adversarial review of the frozen author
+   snapshot. On `GO`, stop certificate repair and permit common-operator
+   research only as an original-equation-preserving accelerator/preconditioner.
+   On a load-bearing finding, use at most one batched repair and one re-review.
+   Do not apply a correction, fit a threshold, open a deeper factorial, run
+   timing or infer runtime/GPU/production authority.
 4. Preserve R20R51 semantic `48df3b26...adca` and all five case roots,
    R20R50 semantic `190ac441...d86e`, all five generic certificate
    roots and the exact work ledger, R20R49 semantic `719e0d50...f3cc`, all three practical roots and
