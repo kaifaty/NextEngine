@@ -10,6 +10,7 @@ use super::{
 };
 
 pub(super) mod freesound_glass_bowl;
+pub(super) mod freesound_wine_glass;
 pub(super) mod heller_impact;
 mod mp3;
 mod wav;
@@ -46,6 +47,13 @@ pub(super) enum AdapterProfile {
         object_name: String,
         material_label: String,
         recordings: Vec<freesound_glass_bowl::RecordingProfile>,
+    },
+    FreesoundWineGlassIdentifiedRecordingV1 {
+        pack_id: String,
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        recordings: Vec<freesound_wine_glass::RecordingProfile>,
     },
     YcbImpactIdentifiedRecordingV1 {
         object_id: String,
@@ -90,6 +98,13 @@ pub(super) enum AdapterEvidenceReport {
         object_name: String,
         material_label: String,
         recordings: Vec<freesound_glass_bowl::RecordingEvidenceReport>,
+    },
+    FreesoundWineGlassIdentifiedRecordingV1 {
+        pack_id: String,
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        recordings: Vec<freesound_wine_glass::RecordingEvidenceReport>,
     },
     YcbImpactIdentifiedRecordingV1 {
         object_id: String,
@@ -137,6 +152,14 @@ pub(super) fn validate_profile_declaration(source: &InternetSource) -> Result<()
             "source {} requires a Freesound glass-bowl adapter profile",
             source.id
         )),
+        (
+            freesound_wine_glass::ADAPTER_ID,
+            Some(AdapterProfile::FreesoundWineGlassIdentifiedRecordingV1 { .. }),
+        ) => freesound_wine_glass::validate_declaration(source),
+        (freesound_wine_glass::ADAPTER_ID, None) => Err(format!(
+            "source {} requires a Freesound wine-glass adapter profile",
+            source.id
+        )),
         (ycb_impact::ADAPTER_ID, Some(AdapterProfile::YcbImpactIdentifiedRecordingV1 { .. })) => {
             ycb_impact::validate_declaration(source)
         }
@@ -176,6 +199,7 @@ pub(super) fn audit(
     match source.adapter_id.as_str() {
         AV_MSF_ADAPTER_ID => audit_av_msf(cache, source),
         freesound_glass_bowl::ADAPTER_ID => freesound_glass_bowl::audit(cache, source),
+        freesound_wine_glass::ADAPTER_ID => freesound_wine_glass::audit(cache, source),
         heller_impact::ADAPTER_ID => heller_impact::audit(cache, source),
         ycb_impact::ADAPTER_ID => ycb_impact::audit(cache, source),
         _ => Ok(AdapterAudit {

@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet corpus acquisition policy
 
 Date: 2026-08-27
-Status: `ACTIVE_CONSTRAINT / FOUR_E3_PROJECT_GROUPS / GLASS_6_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_EXPANSION_NEXT / PASS_DISABLED`
+Status: `ACTIVE_CONSTRAINT / FIVE_E3_PROJECT_GROUPS / GLASS_7_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_AND_REJECT_EXPANSION_NEXT / PASS_DISABLED`
 
 ## Decision
 
@@ -75,8 +75,9 @@ See the measured [internet source/cache pilot](physical-sound-internet-source-pi
 [independent Heller Impact E3 pilot](physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md),
 [Greatest Hits discriminator](physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md),
 [REALIMPACT E2 adapter](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md),
-[GreenGoblet bounded-range E2 pilot](physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md)
-and the [Freesound glass-bowl E3 pilot](physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md).
+[GreenGoblet bounded-range E2 pilot](physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md),
+the [Freesound glass-bowl E3 pilot](physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md)
+and the [Freesound wine-glass cached E3 increment](physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md).
 
 ## Current consequence
 
@@ -116,12 +117,22 @@ the author, pack, description, sound-card and license identities. The source
 is CC BY-NC 4.0 and remains external research only; it receives no geometry,
 support, force, position, listener or transfer-response credit.
 
+Freesound pack 41981 supplies a fifth publisher/project/revision group and one
+pack-specific wine-glass family. Three numbered knife-strike HQ previews are
+exact-hash bound and validated as gapless 44.1 kHz stereo streams. The page has
+no authored pack description, so its canonical identity freezes an empty
+description plus the author, pack and all twelve sound-card identities. CC0
+permits redistribution with notice, but bytes remain external. Current-host
+direct bounded fetch receives HTTP 403; two imported cache roots validate
+byte-identically without weakening proxy/endpoint policy, so this is cached E3
+and not an online-repeat claim.
+
 The generic registry, bounded HTTPS fetch/cache, capability matrix, E2/E3
 adapters and leakage-safe identified-corpus normalizer are implemented.
-The combined measurement has four independent publisher/project/revision
-groups, fourteen objects and forty-one recordings. Glass coverage is now
-`6/16` required object groups and twenty-five recordings, so the immediate
-blocker is `REMAINING_10_INDEPENDENT_E3_GROUPS_AND_REJECT_PARENTS`, not force
+The combined measurement has five publisher/project/revision groups, fifteen
+objects and forty-four recordings. Glass coverage is now `7/16` required
+object/family groups and twenty-eight recordings, so the immediate blocker is
+`REMAINING_9_INDEPENDENT_E3_GROUPS_AND_REJECT_PARENTS`, not force
 hardware, generic networking, OSF/Figshare redirects, REALIMPACT adapter
 existence, bounded REALIMPACT row retrieval or unqualified variants from the
 same source revisions. Greatest
@@ -131,7 +142,8 @@ for the archive host currently fails; it therefore receives no E3 credit and
 must not be downloaded or grouped by video. The GreenGoblet ranged ZIP package
 is now validated and adds a second E2 object but no E3 group. The next bounded
 package resumes internet search for stable object-level Glass identities and
-repeats from another published E3 project. ObjectFolder-Real remains a strong
+repeats from another published E3 project and defines an explicit reject-parent
+import instead of silently reusing non-target material labels. ObjectFolder-Real remains a strong
 candidate but its official 34–39 GB per-batch gzip tar streams do not expose a
 bounded path to a second repeat after large embedded media; do not retry
 growing archive prefixes unless an official per-object audio-only or seekable
