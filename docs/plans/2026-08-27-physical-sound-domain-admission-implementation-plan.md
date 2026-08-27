@@ -311,9 +311,19 @@ objects and 44 recordings; Glass contributes 7 groups/28 recordings, leaving 9
 of 16 groups open. See the
 [cached evidence](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md).
 
+Explicit reject-parent import semantics are now implemented. Every source in
+explicit mode is labelled `target` or `reject_parent`, and the role must match
+exact adapter material evidence before report publication. The current corpus
+contains seven Glass target groups and eight development-only non-Glass parent
+groups/sixteen recordings; twenty-seven of the required thirty-five parents
+remain open. Partial roles and material-role mismatches reject, while the prior
+implicit report retains its byte-identical hash. This is parent inventory, not
+negative-control generation, validator success or measured false-pass risk. See
+the [explicit-role evidence](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md).
+
 Package 3 must continue stable-object E3 and complementary E2/E1 expansion
-and define explicit reject-parent import semantics before calibration/holdout/
-shadow open.
+for the nine missing Glass groups and twenty-seven missing reject parents
+before calibration/holdout/shadow open.
 Separate internet sources may support separate specialist claims, but
 unavailable axes remain unavailable and the grouped split/risk policy is
 unchanged. Insufficient published coverage keeps the domain fallback-only; it

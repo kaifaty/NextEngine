@@ -49,6 +49,7 @@ pub(super) fn normalize_source(
         .map(|recording| IdentifiedRecording {
             entry_id: format!("{}--impact-{}", source.id, recording.audio.recording_id),
             partition: partition.as_str(),
+            corpus_role: CorpusRole::Unassigned,
             evidence_tier: "E3IdentifiedRecording",
             publisher_id: source.publisher_id.clone(),
             project_id: source.project_id.clone(),
