@@ -238,9 +238,9 @@ Read these sources in precedence order before acting:
 - **Workspace state:** external-only Registry V1 and the AV-P0C temporal
   descriptor substrate are implemented; defaults, public schemas, assets and
   ownership are unchanged.
-- **Checks:** focused registry, temporal-control and benchmark tests pass.
-  Clippy/boundary/diff/link checks remain to run for this checkpoint. Candidate
-  `AUDIO-PHYS-*`, persistence, platform and performance remain unpromoted/not run.
+- **Checks:** final focused sound suite `36/36`, Clippy `-D warnings`, format,
+  boundary scan and diff/link checks pass. Candidate `AUDIO-PHYS-*`, persistence,
+  platform and performance remain unpromoted/not run.
 - **Remaining risk:** corpus scale/scope, head agreement, calibration/OOD,
   spatial transfer, contact sufficiency, mixer cost and authoring are open.
 - **Quality status:** wood-B and Q30 controls remain exact. Residual v4 has
