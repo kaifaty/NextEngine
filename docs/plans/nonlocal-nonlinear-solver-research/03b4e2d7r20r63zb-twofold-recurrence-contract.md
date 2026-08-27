@@ -40,8 +40,10 @@ states are private; no solver/world state is published.
 - Use R63ZA canonical K2 add/multiply/three-correction divide.
 - Use fixed K2 dot accumulation for `rho` and denominator; require its exact
   twofold value to be positive without comparator input.
-- Use the immutable R63Z K2 common block for all three products. Product
-  containment radii are audit-only and cannot enter recurrence operands.
+- Use the immutable R63Z K2 coefficient artifact for all three products and
+  accumulate a canonical K2 result directly in fixed row/column/component
+  order. The earlier R63Z one-component `Dot2Err` center and containment
+  radius are audit-only and cannot enter recurrence operands.
 - Use the immutable exported factor for start, `r0` and `r1` solves. R63ZA
   dependency radii are audit-only and cannot enter recurrence operands.
 - Build R63Y solution artifacts directly from sealed K2 words with zero

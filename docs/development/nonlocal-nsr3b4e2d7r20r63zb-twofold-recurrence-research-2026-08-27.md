@@ -10,7 +10,7 @@ generation discriminator. It combines only boundaries already selected:
 
 ```text
 K2 start/preconditioner centers     R63ZA
-K2 common operator product          R63Z
+immutable K2 common coefficients   R63Z
 K2 affine solution verifier         R63Y
 fixed recurrence shape              R63S/R63V
 ```
@@ -43,10 +43,12 @@ correlation failure and answer a different question.
    root.
 
 Every scalar/vector operation uses canonical twofold add/multiply/divide from
-R63ZA with radius zero on the deterministic operands. R63Z product centers are
-consumed only after their immutable artifact/product roots close; their
-containment radii remain audit telemetry. Positivity is decided from the
-sealed K2 scalar itself, never from a binary128 comparator.
+R63ZA with radius zero on the deterministic operands. Each matvec accumulates
+a new K2 center directly from the immutable R63Z K2 coefficient artifact in
+the same flattened order. R63Z's proof-oriented `Dot2Err` publishes a
+one-component center plus radius; both remain independent audit telemetry and
+are not recurrence operands. Positivity is decided from the sealed K2 scalar
+itself, never from a binary128 comparator.
 
 ## Fixed work
 

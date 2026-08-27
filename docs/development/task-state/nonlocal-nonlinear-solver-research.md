@@ -6319,7 +6319,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Decision:** freeze R63ZB as one exported K2 lane with exactly two updates
   and three sealed states. Require independent R63Y reject/reject/pass after
   complete recurrence work; comparator candidates and audit radii are absent
-  from producer and verifier signatures.
+  from producer and verifier signatures. Build each matvec K2 center directly
+  from the immutable R63Z K2 coefficients; the R63Z one-component
+  `Dot2Err` center is audit telemetry, not a recurrence operand.
 - **Rejected:** using R63ZA dependency radii as recurrence operands; retaining
   binary128 scalars/updates; stopping on the first pass; adding residual
   replacement/flexible CG/GMRES before the direct port is tested.
