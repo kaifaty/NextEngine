@@ -160,11 +160,19 @@ struct RemoteArtifact {
     id: String,
     role: ArtifactRole,
     url: String,
+    #[serde(default)]
+    redirect_policy: Option<FetchRedirectPolicy>,
     maximum_bytes: u64,
     #[serde(default)]
     expected_byte_count: Option<u64>,
     #[serde(default)]
     expected_sha256: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum FetchRedirectPolicy {
+    OsfStorageV1,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -768,6 +776,7 @@ fn audit_or_fetch_artifact(
         cache,
         &target,
         &artifact.url,
+        artifact.redirect_policy,
         expected_sha256,
         expected_byte_count,
         download_bound,

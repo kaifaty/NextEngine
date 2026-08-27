@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet source registry and cache pilot
 
 Date: 2026-08-27
-Status: `SOURCE_REGISTRY_IMPLEMENTED / REALIMPACT_E2_ADAPTER_READY / AV_MSF_E3_CATALOG_MEASURED / PASS_DISABLED`
+Status: `SOURCE_REGISTRY_IMPLEMENTED / OSF_POLICY_IMPLEMENTED / FIRST_INDEPENDENT_E3_SOURCE_ADDED / GLASS_4_OF_16 / PASS_DISABLED`
 
 ## Question
 
@@ -31,7 +31,10 @@ The fetch path is deliberately narrow:
 
 - only credential-free canonical HTTPS URLs are accepted;
 - redirects, query strings, URL userinfo, proxies and non-HTTPS protocols are
-  disabled;
+  disabled by default; the only exception is a manifest-declared
+  `osf_storage_v1` policy that validates one exact OSF `302`, approved bucket,
+  expected-hash object path and bounded signed query before a separately
+  resolved/pinned HTTPS download, with no second redirect;
 - the hostname is resolved before transfer, every returned address must be
   public, and curl is pinned to one deterministic public address while retaining
   TLS hostname verification;
@@ -103,6 +106,14 @@ source audit validates ten objects and twenty recordings. The separate
 `identified-corpus` normalizer derives leakage-safe source/object/recording
 groups and measures Glass coverage without inventing E1/E2 axes.
 
+The first independent E3 follow-up freezes the official
+[YCB Impact Sounds](https://osf.io/4tcp6/) robot component. The
+`ycb-impact-identified-recording-v1` adapter validates exact workbook identity
+for Wineglass and Skillet lid plus eight repeated horizontal-poke recordings.
+It recognizes their actual 48 kHz stereo float32 RIFF/WAVE structure despite
+the `.ogg` suffix and grants only E3 capabilities. See the
+[YCB independent-source pilot](physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md).
+
 ## Frozen result
 
 External evidence lives under:
@@ -138,6 +149,18 @@ Its source-manifest, source-report and identified-report SHA-256 values are
 and `9379faf957c7b428bb66883b694868282d0b9dbd34c35afd627f5c70d55c04f4`.
 Two fresh caches and an offline normalization are byte-identical.
 
+The independent YCB pilot lives under
+`/home/kaifaty/.codex/experiments/nextengine/physical-sound/ps2-independent-e3-ycb-v1/`.
+Its source-manifest, source-report, identified-manifest and identified-report
+SHA-256 values are
+`0d35c8566fe8440b1763bff69989f54ae6f9a1f1af758134d1d56ac7ed151788`,
+`6954710baff8af8209f011853c8443a9b8d2a9d67450e9dd44191423feba9f76`,
+`0caa8cce20144fcf0bbfc8e55e3c7804c8ee1b2922eb8d28c890b6d6ab986bde`
+and `12258a434034e878cd3d4f361ffbb08363d1ca9c4115e28854de7aa4d7b3ffc3`.
+Two fresh online caches and the offline source/identified reruns are
+byte-identical. The prior AV-MSF source and identified reports also remain
+byte-identical after the optional redirect and WAV-parser refactor.
+
 The separate
 [REALIMPACT E2 adapter pilot](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md)
 freezes the official repository at commit
@@ -149,17 +172,19 @@ transfer/geometry/position capabilities only, while the entry remains fallback.
 
 ## Decision and next action
 
-The generic source registry, bounded real-data adapter and multi-object E3
-normalizer are complete. The full AV-MSF public card surface contributes ten
-objects and twenty recordings but only one publisher/project/revision group;
-Glass contributes two object groups against the frozen minimum of sixteen.
+The generic source registry, bounded real-data adapters and multi-object E3
+normalizer are complete. AV-MSF plus YCB now contribute twelve objects,
+twenty-eight recordings and two publisher/project/revision groups. Glass
+contributes four object groups and twelve recordings against the frozen minimum
+of sixteen groups.
 The bounded REALIMPACT E2 adapter is now implemented for one exact transfer
-row. The blocker is independent-publisher grouped E3 coverage and subsequent
-coverage re-planning, not networking, adapter existence, AV-MSF card
-enumeration, REALIMPACT row 0 or local hardware.
+row. The blocker is the remaining twelve Glass groups, complementary E2/E1
+claims and coverage re-planning, not networking, generic redirects, adapter
+existence, AV-MSF/YCB enumeration, REALIMPACT row 0 or local hardware.
 
-Discover and adapt independent published E3 publishers/projects, then re-plan
-available groups before opening calibration, holdout or shadow. ObjectFolder-
+Re-plan from the measured `4/16` baseline, then discover/adapt the remaining
+independent published E3 objects and complementary E2 arrays before opening
+calibration, holdout or shadow. ObjectFolder-
 Real may be reconsidered if the publisher supplies cryptographic checksums or a
 bounded object-level download; do not download the 36.37 GB unhashed archive
 merely to advance the roadmap.

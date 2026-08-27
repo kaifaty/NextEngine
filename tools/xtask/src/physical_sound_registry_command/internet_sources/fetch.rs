@@ -8,7 +8,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use next_contracts::ids::ContentHash;
 use sha2::{Digest, Sha256};
 
-use super::{CacheStatus, canonical_https_host_and_path, verify_cache_artifact};
+use super::{
+    CacheStatus, FetchRedirectPolicy, canonical_https_host_and_path, verify_cache_artifact,
+};
+
+mod osf;
 
 const DOWNLOAD_BUFFER_BYTES: usize = 128 * 1024;
 const DOWNLOAD_TIMEOUT_SECONDS: &str = "120";
@@ -48,11 +52,24 @@ pub(super) fn fetch_exact_artifact(
     cache: &Path,
     target: &Path,
     url: &str,
+    redirect_policy: Option<FetchRedirectPolicy>,
     expected_sha256: &str,
     expected_bytes: u64,
     maximum_bytes: u64,
 ) -> Result<CacheStatus, String> {
-    let Some(curl_resolve) = resolve_public_https_endpoint(url)? else {
+    let download_url = match redirect_policy {
+        None => url.to_owned(),
+        Some(FetchRedirectPolicy::OsfStorageV1) => {
+            match osf::resolve_storage_download(url, expected_sha256)? {
+                osf::RedirectResolution::Ready(url) => url,
+                osf::RedirectResolution::FetchFailed => return Ok(CacheStatus::FetchFailed),
+                osf::RedirectResolution::FetchToolUnavailable => {
+                    return Ok(CacheStatus::FetchToolUnavailable);
+                }
+            }
+        }
+    };
+    let Some(curl_resolve) = resolve_public_https_endpoint(&download_url)? else {
         return Ok(CacheStatus::FetchFailed);
     };
     let sequence = NEXT_STAGING_FILE.fetch_add(1, Ordering::Relaxed);
@@ -81,7 +98,7 @@ pub(super) fn fetch_exact_artifact(
             &curl_resolve,
             "--output",
             "-",
-            url,
+            &download_url,
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

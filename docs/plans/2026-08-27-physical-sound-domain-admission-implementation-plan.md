@@ -135,7 +135,7 @@ cargo run -p xtask -- physical-sound-benchmark \
   --output /external/controlled-mutation-evaluation
 ```
 
-### 3. Selective specialist calibration — PS-2 grouped corpus expansion next
+### 3. Selective specialist calibration — PS-2 measured re-plan and grouped expansion next
 
 Deliver:
 
@@ -253,8 +253,20 @@ the historical V1 report is unchanged. Missing raw force, composition, repeat
 and fixture axes preserve `FallbackOutOfDomain`; see
 [typed E2 evidence](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md).
 
-Package 3 must next add independent published E3 publishers/projects, then
-recompute actual group availability before calibration/holdout/shadow open.
+The first independent E3 increment is now implemented too. The
+`ycb-impact-identified-recording-v1` adapter freezes the official YCB Impact
+robot component, exact Wineglass/Skillet lid metadata and eight repeated
+48 kHz recordings. Its source-specific OSF redirect policy binds the approved
+bucket path to the expected artifact hash without enabling generic redirects.
+The [combined pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md)
+repeats across two fresh online caches and offline audits. AV-MSF plus YCB now
+measure two publisher/project/revision groups, 12 objects and 28 recordings;
+Glass contributes 4 groups/12 recordings against the required 16 groups. All
+entries remain in development and no upstream split is promoted to holdout.
+
+Package 3 must next re-plan actual group availability from this measured
+`4/16` baseline, then add the remaining independent published E3 objects and
+complementary E2/E1 arrays before calibration/holdout/shadow open.
 Separate internet sources may support separate specialist claims, but
 unavailable axes remain unavailable and the grouped split/risk policy is
 unchanged. Insufficient published coverage keeps the domain fallback-only; it

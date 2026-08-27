@@ -556,8 +556,7 @@ fn normalize_source(
     source: &SourceReport,
     partition: Partition,
 ) -> Result<(String, String, Vec<IdentifiedRecording>), String> {
-    if source.adapter_id != "av-msf-identified-recording-v1"
-        || source.source_status != "EvidenceReady"
+    if source.source_status != "EvidenceReady"
         || source.supported_tiers != ["E3IdentifiedRecording"]
         || source.capabilities.len() != REQUIRED_CAPABILITIES.len()
     {
@@ -578,13 +577,35 @@ fn normalize_source(
             ));
         }
     }
-    let Some(AdapterEvidenceReport::AvMsfIdentifiedRecordingV1 {
-        object_id,
-        material_label,
-        recordings,
-    }) = &source.adapter_evidence
-    else {
-        return Err(format!("source {} has no typed AV-MSF evidence", source.id));
+    let (object_id, material_label, recordings) = match &source.adapter_evidence {
+        Some(AdapterEvidenceReport::AvMsfIdentifiedRecordingV1 {
+            object_id,
+            material_label,
+            recordings,
+        }) if source.adapter_id == "av-msf-identified-recording-v1" => (
+            object_id,
+            material_label,
+            recordings.iter().collect::<Vec<_>>(),
+        ),
+        Some(AdapterEvidenceReport::YcbImpactIdentifiedRecordingV1 {
+            object_id,
+            primary_material_label,
+            recordings,
+            ..
+        }) if source.adapter_id == "ycb-impact-identified-recording-v1" => (
+            object_id,
+            primary_material_label,
+            recordings
+                .iter()
+                .map(|recording| &recording.audio)
+                .collect::<Vec<_>>(),
+        ),
+        _ => {
+            return Err(format!(
+                "source {} has no matching typed E3 adapter evidence",
+                source.id
+            ));
+        }
     };
     if recordings.is_empty() {
         return Err(format!("source {} has no identified recordings", source.id));
@@ -916,3 +937,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod ycb_tests;

@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.10 |
+| Version | 0.11 |
 | Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
-| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md) |
-| Replaces | SPEC-45 0.9; records one frozen typed E2 transfer adapter without promoting corpus admission, quality acceptance or a runtime/content contract |
+| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md) |
+| Replaces | SPEC-45 0.10; records one independently grouped published E3 adapter and measured coverage without promoting corpus admission, quality acceptance or a runtime/content contract |
 
 ## Status and decision boundary
 
@@ -144,6 +144,22 @@ development, calibration/holdout/shadow remain unopened, and the result is
 `DevelopmentCoverageMeasured / NO_CORPUS_ADMISSION_AUTHORITY`. Missing force,
 geometry, position, support, composition and transfer axes remain unavailable
 rather than receiving placeholder metadata.
+
+The next current-only checkpoint adds the independently published YCB Impact
+Sounds robot component through `ycb-impact-identified-recording-v1`. The
+adapter freezes one exact object/material workbook plus Wineglass and Skillet
+lid identities, four repeated horizontal-poke recordings per object and their
+exact OSF file IDs, byte counts and SHA-256 values. The `.ogg`-named payloads
+are validated by their actual RIFF/WAVE float32 stereo 48 kHz structure. A
+source-specific `osf_storage_v1` fetch policy permits exactly one validated OSF
+redirect to the expected hash object in the approved Google storage bucket;
+generic redirects remain disabled. The two YCB objects grant only
+`E3IdentifiedRecording` and remain in development. Combined with AV-MSF the
+measured corpus has two publisher/project/revision groups, twelve objects and
+twenty-eight recordings; Glass reaches four object groups and twelve
+recordings against the frozen minimum of sixteen groups. Calibration, holdout
+and shadow remain unopened, and the result still has no corpus-admission
+authority.
 
 The current-only V2 `physical-sound-registry corpus-inventory` boundary now
 requires a typed source adapter for force-deconvolved transfer entries. Its

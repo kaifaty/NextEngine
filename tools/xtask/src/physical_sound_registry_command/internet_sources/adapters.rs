@@ -9,6 +9,9 @@ use super::{
     cache_artifact_path,
 };
 
+mod wav;
+pub(super) mod ycb_impact;
+
 const AV_MSF_ADAPTER_ID: &str = "av-msf-identified-recording-v1";
 const AV_MSF_PUBLISHER_ID: &str = "zisen-shao";
 const AV_MSF_PROJECT_ID: &str = "av-msf";
@@ -25,6 +28,15 @@ pub(super) enum AdapterProfile {
         object_id: String,
         material_label: String,
         recording_ids: Vec<String>,
+    },
+    YcbImpactIdentifiedRecordingV1 {
+        object_id: String,
+        object_name: String,
+        primary_material_label: String,
+        #[serde(default)]
+        secondary_material_label: Option<String>,
+        source_split: String,
+        recordings: Vec<ycb_impact::RecordingProfile>,
     },
 }
 
@@ -46,6 +58,14 @@ pub(super) enum AdapterEvidenceReport {
         object_id: String,
         material_label: String,
         recordings: Vec<RecordingReport>,
+    },
+    YcbImpactIdentifiedRecordingV1 {
+        object_id: String,
+        object_name: String,
+        primary_material_label: String,
+        secondary_material_label: Option<String>,
+        source_split: String,
+        recordings: Vec<ycb_impact::RecordingEvidenceReport>,
     },
 }
 
@@ -69,6 +89,13 @@ pub(super) fn validate_profile_declaration(source: &InternetSource) -> Result<()
             "source {} requires an AV-MSF adapter profile",
             source.id
         )),
+        (ycb_impact::ADAPTER_ID, Some(AdapterProfile::YcbImpactIdentifiedRecordingV1 { .. })) => {
+            ycb_impact::validate_declaration(source)
+        }
+        (ycb_impact::ADAPTER_ID, None) => Err(format!(
+            "source {} requires a YCB Impact adapter profile",
+            source.id
+        )),
         (_, Some(_)) => Err(format!(
             "source {} declares a profile for an unsupported adapter",
             source.id
@@ -88,12 +115,6 @@ pub(super) fn audit(
             evidence: None,
         });
     }
-    if source.adapter_id != AV_MSF_ADAPTER_ID {
-        return Ok(AdapterAudit {
-            validated_capabilities: BTreeSet::new(),
-            evidence: None,
-        });
-    }
     if source
         .artifacts
         .iter()
@@ -104,7 +125,14 @@ pub(super) fn audit(
             evidence: None,
         });
     }
-    audit_av_msf(cache, source)
+    match source.adapter_id.as_str() {
+        AV_MSF_ADAPTER_ID => audit_av_msf(cache, source),
+        ycb_impact::ADAPTER_ID => ycb_impact::audit(cache, source),
+        _ => Ok(AdapterAudit {
+            validated_capabilities: BTreeSet::new(),
+            evidence: None,
+        }),
+    }
 }
 
 fn validate_av_msf_declaration(source: &InternetSource) -> Result<(), String> {
@@ -139,7 +167,10 @@ fn validate_av_msf_declaration(source: &InternetSource) -> Result<(), String> {
     } = source
         .adapter_profile
         .as_ref()
-        .ok_or_else(|| format!("source {} has no AV-MSF profile", source.id))?;
+        .ok_or_else(|| format!("source {} has no AV-MSF profile", source.id))?
+    else {
+        return Err(format!("source {} has the wrong AV-MSF profile", source.id));
+    };
     validate_decimal_id(object_id, 1, 3, "AV-MSF object id")?;
     if material_label.is_empty()
         || material_label.len() > 64
@@ -251,13 +282,25 @@ fn audit_av_msf(cache: &Path, source: &InternetSource) -> Result<AdapterAudit, S
     } = source
         .adapter_profile
         .as_ref()
-        .ok_or_else(|| format!("source {} has no AV-MSF profile", source.id))?;
+        .ok_or_else(|| format!("source {} has no AV-MSF profile", source.id))?
+    else {
+        return Err(format!("source {} has the wrong AV-MSF profile", source.id));
+    };
     let page = read_cached(cache, artifact(source, "project-page")?)?;
     validate_project_page(&page, object_id, material_label, recording_ids)?;
     let mut recordings = Vec::with_capacity(recording_ids.len());
     for recording_id in recording_ids {
         let bytes = read_cached(cache, artifact(source, &format!("impact-{recording_id}"))?)?;
-        recordings.push(validate_float_wav(recording_id, &bytes)?);
+        recordings.push(wav::validate_float_wav(
+            recording_id,
+            &bytes,
+            wav::FloatWavExpectation {
+                source_label: "AV-MSF impact",
+                sample_rate_hz: 44_100,
+                channel_count: 1,
+                maximum_frames: MAX_AV_MSF_RECORDING_FRAMES,
+            },
+        )?);
     }
     Ok(AdapterAudit {
         validated_capabilities: BTreeSet::from([
@@ -338,138 +381,4 @@ fn validate_recording_attribute(
         ));
     }
     Ok(())
-}
-
-fn validate_float_wav(recording_id: &str, bytes: &[u8]) -> Result<RecordingReport, String> {
-    if bytes.len() < 12 || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
-        return Err(format!("AV-MSF impact {recording_id} is not RIFF/WAVE"));
-    }
-    let declared_size = u32::from_le_bytes(bytes[4..8].try_into().expect("four bytes")) as usize;
-    if declared_size.checked_add(8) != Some(bytes.len()) {
-        return Err(format!(
-            "AV-MSF impact {recording_id} RIFF length does not match the payload"
-        ));
-    }
-    let mut offset = 12_usize;
-    let mut format = None;
-    let mut fact_frames = None;
-    let mut data = None;
-    while offset < bytes.len() {
-        if bytes.len() - offset < 8 {
-            return Err(format!(
-                "AV-MSF impact {recording_id} has a truncated chunk"
-            ));
-        }
-        let chunk_id = &bytes[offset..offset + 4];
-        let chunk_bytes = u32::from_le_bytes(
-            bytes[offset + 4..offset + 8]
-                .try_into()
-                .expect("four bytes"),
-        ) as usize;
-        let start = offset + 8;
-        let end = start
-            .checked_add(chunk_bytes)
-            .filter(|end| *end <= bytes.len())
-            .ok_or_else(|| format!("AV-MSF impact {recording_id} chunk exceeds the payload"))?;
-        match chunk_id {
-            b"fmt " => {
-                if format.is_some() || chunk_bytes < 16 {
-                    return Err(format!(
-                        "AV-MSF impact {recording_id} has an invalid fmt chunk"
-                    ));
-                }
-                format = Some(parse_format(recording_id, &bytes[start..end])?);
-            }
-            b"fact" => {
-                if fact_frames.is_some() || chunk_bytes != 4 {
-                    return Err(format!(
-                        "AV-MSF impact {recording_id} has an invalid fact chunk"
-                    ));
-                }
-                fact_frames = Some(u32::from_le_bytes(
-                    bytes[start..end].try_into().expect("four bytes"),
-                ) as u64);
-            }
-            b"data" => {
-                if data.is_some() {
-                    return Err(format!(
-                        "AV-MSF impact {recording_id} has duplicate audio data"
-                    ));
-                }
-                data = Some(&bytes[start..end]);
-            }
-            _ => {}
-        }
-        offset = end
-            .checked_add(chunk_bytes & 1)
-            .filter(|offset| *offset <= bytes.len())
-            .ok_or_else(|| format!("AV-MSF impact {recording_id} has invalid chunk padding"))?;
-    }
-    let format = format.ok_or_else(|| format!("AV-MSF impact {recording_id} has no fmt chunk"))?;
-    let data = data.ok_or_else(|| format!("AV-MSF impact {recording_id} has no data chunk"))?;
-    if data.is_empty() || data.len() % usize::from(format.block_align) != 0 {
-        return Err(format!(
-            "AV-MSF impact {recording_id} has misaligned audio data"
-        ));
-    }
-    let sample_frames = (data.len() / usize::from(format.block_align)) as u64;
-    if sample_frames > MAX_AV_MSF_RECORDING_FRAMES || fact_frames != Some(sample_frames) {
-        return Err(format!(
-            "AV-MSF impact {recording_id} has an invalid bounded frame count"
-        ));
-    }
-    let mut any_nonzero = false;
-    for sample in data.chunks_exact(4) {
-        let value = f32::from_le_bytes(sample.try_into().expect("four bytes"));
-        if !value.is_finite() {
-            return Err(format!(
-                "AV-MSF impact {recording_id} contains a non-finite sample"
-            ));
-        }
-        any_nonzero |= value != 0.0;
-    }
-    if !any_nonzero {
-        return Err(format!("AV-MSF impact {recording_id} is silent"));
-    }
-    Ok(RecordingReport {
-        recording_id: recording_id.to_owned(),
-        sample_encoding: "ieee_float32_le",
-        sample_rate_hz: format.sample_rate_hz,
-        channel_count: format.channel_count,
-        bits_per_sample: format.bits_per_sample,
-        sample_frames,
-    })
-}
-
-struct WavFormat {
-    sample_rate_hz: u32,
-    channel_count: u16,
-    bits_per_sample: u16,
-    block_align: u16,
-}
-
-fn parse_format(recording_id: &str, bytes: &[u8]) -> Result<WavFormat, String> {
-    let audio_format = u16::from_le_bytes(bytes[0..2].try_into().expect("two bytes"));
-    let channel_count = u16::from_le_bytes(bytes[2..4].try_into().expect("two bytes"));
-    let sample_rate_hz = u32::from_le_bytes(bytes[4..8].try_into().expect("four bytes"));
-    let byte_rate = u32::from_le_bytes(bytes[8..12].try_into().expect("four bytes"));
-    let block_align = u16::from_le_bytes(bytes[12..14].try_into().expect("two bytes"));
-    let bits_per_sample = u16::from_le_bytes(bytes[14..16].try_into().expect("two bytes"));
-    if audio_format != 3
-        || channel_count != 1
-        || sample_rate_hz != 44_100
-        || bits_per_sample != 32
-        || block_align != 4
-        || byte_rate != 176_400
-    {
-        return Err(format!(
-            "AV-MSF impact {recording_id} must be mono 44.1 kHz IEEE float32"
-        ));
-    }
-    Ok(WavFormat {
-        sample_rate_hz,
-        channel_count,
-        bits_per_sample,
-        block_align,
-    })
 }
