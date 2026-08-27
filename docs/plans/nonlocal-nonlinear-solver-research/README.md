@@ -20,6 +20,7 @@ NSR3B4E2D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT /
 NSR3B4E2D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS /
 NSR3B4E2D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT /
 NSR3B4E2D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE /
+NSR3B4E2D7R20R63ZG_CERTIFICATE_DETAIL_DECOMPOSITION_CONTRACT_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4084,6 +4085,18 @@ defects; one batched repair closed them and the single re-review returned
 `GO`. Decompose affine-image center, representation radii and contraction
 amplification next. No operator/certificate repair or production authority
 follows.
+
+The
+[R20R63ZG research](../../development/nonlocal-nsr3b4e2d7r20r63zg-certificate-detail-decomposition-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63zg-certificate-detail-decomposition-contract.md)
+freeze that decomposition. The shared frozen profile has
+`rho_upper=0.00906152187947077`, so contraction contributes only about a
+`1.00914x` multiplier and cannot explain the observed `3.06e16` relative gap.
+R63ZG exposes unchanged R63Y image/solution detail, crosses two solution
+representations with tangent/common unamplified, center-only, radius-only and
+native global budgets, and requires native cells to reproduce R63ZF. This is
+synthetic boundary localization only; no modified certificate has authority.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
