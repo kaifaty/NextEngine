@@ -18,7 +18,7 @@ NSR3B4E2D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE /
 NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED /
 NSR3B4E2D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT /
 NSR3B4E2D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS /
-NSR3B4E2D7R20R63ZE_OPERATOR_DISCREPANCY_RESEARCH_NEXT /
+NSR3B4E2D7R20R63ZE_DENOMINATOR_RESIDUAL_FACTORIAL_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -2919,6 +2919,7 @@ checkpoint 8; after 2048 cycles ascending Hildreth still has maximum raw
 updates. Stationarity/reprojection/model are coherent. Research matrix-free
 SHQP/active-face block polish next; R65 remains unfrozen and has no solve
 authority.
+
 The [active-face FISTA research](../../development/nonlocal-nsr3b4e2d7r19r65-active-face-fista-research-2026-08-25.md)
 reduces the fixed-`p_C` density block to a nonnegative dual QP with gradient
 `A(A^T lambda)-b`. Probe 16 outer joint-set blocks with 16 projected-FISTA
@@ -4040,6 +4041,18 @@ controls; one batch repaired both and the single re-review returned `GO` with
 no load-bearing finding. The reviewed result selects research of the smallest
 operator-value discrepancy discriminator next. It selects no operator repair
 and has no timing, runtime, GPU or production authority.
+
+The
+[R20R63ZE research](../../development/nonlocal-nsr3b4e2d7r20r63ze-denominator-residual-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63ze-denominator-residual-contract.md)
+freeze that next minimal discriminator. It retains the passing tangent
+trajectory through `p1`, computes both final tangent/common products and both
+quadratic denominators, then crosses denominator selection with terminal
+residual-product selection. Equal work and exact solution/residual aliases
+distinguish scalar step-length sufficiency from residual-vector dependence.
+No operator value, factor, precision, depth, certificate or tolerance changes;
+implementation is next.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
