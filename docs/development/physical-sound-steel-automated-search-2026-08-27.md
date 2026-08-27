@@ -114,6 +114,10 @@ modal density/nonlinear or measured stochastic residual structure. It must be
 selected without shadow data and must pass both independently validated heads
 before any demo-profile proposal.
 
+That bounded next action is now complete in the
+[steel residual v4 report](physical-sound-steel-residual-v4-2026-08-27.md).
+The residual counterfactual also falls back; do not start another gain/T20 grid.
+
 ## Frozen external evidence
 
 Experiment root:

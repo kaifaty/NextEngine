@@ -108,6 +108,49 @@ fn steel_search_rejects_profiles_outside_the_frozen_bounds() {
 }
 
 #[test]
+fn steel_search_stochastic_residual_is_deterministic_and_requires_a_t20() {
+    let control = ExperimentalSteelSearchProfile::current_control();
+    let residual = ExperimentalSteelSearchProfile {
+        stochastic_residual_gain_q15: 128,
+        stochastic_residual_t20_ms: 300,
+        ..control
+    };
+    let render = |profile| {
+        render_experimental_steel_search_impact(
+            profile,
+            PhysicalSoundImpactPoint::Center,
+            49_152,
+            0x51ee_0101,
+        )
+    };
+
+    let first = render(residual).expect("bounded stochastic residual");
+    assert_eq!(
+        render(residual).expect("repeated stochastic residual"),
+        first
+    );
+    assert_ne!(render(control).expect("unchanged control"), first);
+
+    for invalid in [
+        ExperimentalSteelSearchProfile {
+            stochastic_residual_gain_q15: 128,
+            stochastic_residual_t20_ms: 0,
+            ..control
+        },
+        ExperimentalSteelSearchProfile {
+            stochastic_residual_gain_q15: 0,
+            stochastic_residual_t20_ms: 300,
+            ..control
+        },
+    ] {
+        assert_eq!(
+            render(invalid),
+            Err(ExperimentalSteelSearchError::ProfileOutsideBounds)
+        );
+    }
+}
+
+#[test]
 fn accepted_wood_and_hybrid_glass_profiles_retain_exact_pcm_and_position_response() {
     let assert_profile = |material, seed, expected_len, expected_hash: &str| {
         let render = |impact_point| {

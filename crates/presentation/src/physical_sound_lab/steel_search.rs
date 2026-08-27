@@ -39,6 +39,12 @@ pub struct ExperimentalSteelSearchProfile {
     /// AM-equivalent sideband strength in permille, where each sideband starts
     /// from half of this index before energy normalization.
     pub roughness_index_permille: u16,
+    /// Gain of one deterministic broadband residual in Q1.15. This remains an
+    /// offline counterfactual; zero disables the residual exactly.
+    pub stochastic_residual_gain_q15: u16,
+    /// Amplitude T20 of the broadband residual in milliseconds. It must be
+    /// zero exactly when the residual gain is zero.
+    pub stochastic_residual_t20_ms: u16,
 }
 
 impl ExperimentalSteelSearchProfile {
@@ -52,6 +58,8 @@ impl ExperimentalSteelSearchProfile {
             transient_frames: 960,
             roughness_sideband_fraction_permille: 0,
             roughness_index_permille: 0,
+            stochastic_residual_gain_q15: 0,
+            stochastic_residual_t20_ms: 0,
         }
     }
 
@@ -65,6 +73,10 @@ impl ExperimentalSteelSearchProfile {
             || self.roughness_index_permille > 1_000
             || (self.roughness_sideband_fraction_permille == 0)
                 != (self.roughness_index_permille == 0)
+            || self.stochastic_residual_gain_q15 > 2_048
+            || (self.stochastic_residual_gain_q15 == 0) != (self.stochastic_residual_t20_ms == 0)
+            || (self.stochastic_residual_gain_q15 > 0
+                && !(150..=2_000).contains(&self.stochastic_residual_t20_ms))
         {
             return Err(ExperimentalSteelSearchError::ProfileOutsideBounds);
         }
@@ -101,9 +113,20 @@ pub(super) struct SearchModalVoice {
     pan_q16: i32,
     energy_q16: u32,
     strike_transient: StrikeTransientProfile,
+    stochastic_residual: StochasticResidualProfile,
+    stochastic_residual_envelope_q30: i64,
     noise_state: u32,
     frames_elapsed: u32,
     frames_remaining: u32,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum StochasticResidualProfile {
+    None,
+    DecayingWhite {
+        gain_q15: i64,
+        decay_coefficient_q30: i64,
+    },
 }
 
 impl SearchModalVoice {
@@ -112,6 +135,7 @@ impl SearchModalVoice {
         profiles: Box<[ModeProfile]>,
         point_factors: &[i16],
         strike_transient: StrikeTransientProfile,
+        stochastic_residual: StochasticResidualProfile,
         duration_frames: u32,
     ) -> Self {
         debug_assert_eq!(profiles.len(), point_factors.len());
@@ -137,6 +161,8 @@ impl SearchModalVoice {
             pan_q16: excitation.pan_q16,
             energy_q16: excitation.energy_q16,
             strike_transient,
+            stochastic_residual,
+            stochastic_residual_envelope_q30: Q30_ONE_F64 as i64,
             noise_state: seed,
             frames_elapsed: 0,
             frames_remaining: duration_frames,
@@ -161,6 +187,17 @@ impl SearchModalVoice {
                 / Q16_ONE
                 / Q15_ONE
                 / i64::from(frames);
+        }
+        if let StochasticResidualProfile::DecayingWhite {
+            gain_q15,
+            decay_coefficient_q30,
+        } = self.stochastic_residual
+        {
+            let noise = self.next_noise_sample();
+            let residual = noise * i64::from(self.energy_q16) / Q16_ONE * gain_q15 / Q15_ONE;
+            sample += residual * self.stochastic_residual_envelope_q30 / Q30_ONE_F64 as i64;
+            self.stochastic_residual_envelope_q30 =
+                self.stochastic_residual_envelope_q30 * decay_coefficient_q30 / Q30_ONE_F64 as i64;
         }
         if self.frames_remaining < FINAL_FADE_FRAMES {
             sample = sample * i64::from(self.frames_remaining) / i64::from(FINAL_FADE_FRAMES);
@@ -196,6 +233,7 @@ pub fn render_experimental_steel_search_impact(
 ) -> Result<Vec<i16>, ExperimentalSteelSearchError> {
     search_profile.validate()?;
     let (profiles, point_factors) = cook_profiles(search_profile, impact_point)?;
+    let stochastic_residual = cook_stochastic_residual(search_profile)?;
     let excitation = PhysicalSoundExcitation::new(
         PhysicalSoundMaterial::Steel,
         impact_point,
@@ -216,6 +254,7 @@ pub fn render_experimental_steel_search_impact(
                 gain_q15: i64::from(search_profile.transient_gain_q15),
                 frames: u32::from(search_profile.transient_frames),
             },
+            stochastic_residual,
             duration_frames,
         )));
     let mut samples = mixer.mix_tick(&[]);
@@ -223,6 +262,21 @@ pub fn render_experimental_steel_search_impact(
         samples.extend(mixer.mix_tick(&[]));
     }
     Ok(samples)
+}
+
+fn cook_stochastic_residual(
+    search_profile: ExperimentalSteelSearchProfile,
+) -> Result<StochasticResidualProfile, ExperimentalSteelSearchError> {
+    if search_profile.stochastic_residual_gain_q15 == 0 {
+        return Ok(StochasticResidualProfile::None);
+    }
+    let t20_seconds = f64::from(search_profile.stochastic_residual_t20_ms) / 1_000.0;
+    let damping_per_second = 10.0_f64.ln() / t20_seconds;
+    let decay = (-damping_per_second / f64::from(SAMPLE_RATE_HZ)).exp();
+    Ok(StochasticResidualProfile::DecayingWhite {
+        gain_q15: i64::from(search_profile.stochastic_residual_gain_q15),
+        decay_coefficient_q30: quantize(decay, Q30_ONE_F64)?,
+    })
 }
 
 fn cook_profiles(

@@ -21,6 +21,7 @@ enum ProfileSet {
     SparseGridV1,
     RoughnessGridV2,
     RoughnessRefinementV3,
+    StochasticResidualV4,
 }
 
 impl ProfileSet {
@@ -29,6 +30,7 @@ impl ProfileSet {
             Self::SparseGridV1 => "sparse-grid-v1",
             Self::RoughnessGridV2 => "roughness-grid-v2",
             Self::RoughnessRefinementV3 => "roughness-refinement-v3",
+            Self::StochasticResidualV4 => "stochastic-residual-v4",
         }
     }
 
@@ -37,6 +39,18 @@ impl ProfileSet {
             Self::SparseGridV1 => "nextengine-steel-search-grid.v1",
             Self::RoughnessGridV2 => "nextengine-steel-roughness-grid.v2",
             Self::RoughnessRefinementV3 => "nextengine-steel-roughness-refinement.v3",
+            Self::StochasticResidualV4 => "nextengine-steel-stochastic-residual.v4",
+        }
+    }
+
+    const fn development_objective(self) -> &'static str {
+        match self {
+            Self::SparseGridV1 | Self::RoughnessGridV2 | Self::RoughnessRefinementV3 => {
+                "maximize expected-label margin to real development metal anchors across center/edge/corner"
+            }
+            Self::StochasticResidualV4 => {
+                "test one frozen decaying-white residual grid against real-metal spectral-dynamics gaps; require both learned heads across center/edge/corner"
+            }
         }
     }
 }
@@ -63,6 +77,7 @@ pub(super) fn parse_arguments(
                         "sparse-grid-v1" => ProfileSet::SparseGridV1,
                         "roughness-grid-v2" => ProfileSet::RoughnessGridV2,
                         "roughness-refinement-v3" => ProfileSet::RoughnessRefinementV3,
+                        "stochastic-residual-v4" => ProfileSet::StochasticResidualV4,
                         value => {
                             return Err(format!("unsupported steel search profile set: {value}"));
                         }
@@ -91,6 +106,20 @@ struct ProfileReport {
     transient_frames: u16,
     roughness_sideband_fraction_permille: u16,
     roughness_index_permille: u16,
+    #[serde(skip_serializing_if = "residual_is_none")]
+    stochastic_residual: &'static str,
+    #[serde(skip_serializing_if = "is_zero_u16")]
+    stochastic_residual_gain_q15: u16,
+    #[serde(skip_serializing_if = "is_zero_u16")]
+    stochastic_residual_t20_ms: u16,
+}
+
+fn residual_is_none(value: &&'static str) -> bool {
+    *value == "none"
+}
+
+const fn is_zero_u16(value: &u16) -> bool {
+    *value == 0
 }
 
 impl ProfileReport {
@@ -103,6 +132,8 @@ impl ProfileReport {
             transient_frames: self.transient_frames,
             roughness_sideband_fraction_permille: self.roughness_sideband_fraction_permille,
             roughness_index_permille: self.roughness_index_permille,
+            stochastic_residual_gain_q15: self.stochastic_residual_gain_q15,
+            stochastic_residual_t20_ms: self.stochastic_residual_t20_ms,
         }
     }
 }
@@ -215,7 +246,7 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         generator_profile_sha256,
         sample_rate_hz: ExperimentalPhysicalSoundMixer::sample_rate_hz(),
         channel_count: 2,
-        development_objective: "maximize expected-label margin to real development metal anchors across center/edge/corner",
+        development_objective: request.profile_set.development_objective(),
         selection_partition: "calibration",
         forbidden_tuning_partitions: ["holdout", "shadow"],
         unchanged_controls: [
@@ -241,6 +272,7 @@ fn frozen_search_profiles(profile_set: ProfileSet) -> Vec<ProfileReport> {
         ProfileSet::SparseGridV1 => sparse_grid_v1(),
         ProfileSet::RoughnessGridV2 => roughness_grid_v2(),
         ProfileSet::RoughnessRefinementV3 => roughness_refinement_v3(),
+        ProfileSet::StochasticResidualV4 => stochastic_residual_v4(),
     }
 }
 
@@ -255,6 +287,9 @@ fn sparse_grid_v1() -> Vec<ProfileReport> {
         transient_frames: 960,
         roughness_sideband_fraction_permille: 0,
         roughness_index_permille: 0,
+        stochastic_residual: "none",
+        stochastic_residual_gain_q15: 0,
+        stochastic_residual_t20_ms: 0,
     }];
     let transients = [
         ("short", 4_096, 240),
@@ -277,6 +312,9 @@ fn sparse_grid_v1() -> Vec<ProfileReport> {
                         transient_frames,
                         roughness_sideband_fraction_permille: 0,
                         roughness_index_permille: 0,
+                        stochastic_residual: "none",
+                        stochastic_residual_gain_q15: 0,
+                        stochastic_residual_t20_ms: 0,
                     });
                 }
             }
@@ -296,6 +334,9 @@ fn roughness_grid_v2() -> Vec<ProfileReport> {
         transient_frames: 240,
         roughness_sideband_fraction_permille: 0,
         roughness_index_permille: 0,
+        stochastic_residual: "none",
+        stochastic_residual_gain_q15: 0,
+        stochastic_residual_t20_ms: 0,
     }];
     for frequency in [750, 1_000] {
         for decay in [2_600, 4_000] {
@@ -313,6 +354,9 @@ fn roughness_grid_v2() -> Vec<ProfileReport> {
                         transient_frames: 240,
                         roughness_sideband_fraction_permille: sideband_fraction,
                         roughness_index_permille: roughness_index,
+                        stochastic_residual: "none",
+                        stochastic_residual_gain_q15: 0,
+                        stochastic_residual_t20_ms: 0,
                     });
                 }
             }
@@ -338,8 +382,47 @@ fn roughness_refinement_v3() -> Vec<ProfileReport> {
                     transient_frames: 240,
                     roughness_sideband_fraction_permille: sideband_fraction,
                     roughness_index_permille: roughness_index,
+                    stochastic_residual: "none",
+                    stochastic_residual_gain_q15: 0,
+                    stochastic_residual_t20_ms: 0,
                 });
             }
+        }
+    }
+    profiles
+}
+
+fn stochastic_residual_v4() -> Vec<ProfileReport> {
+    let mut profiles = vec![ProfileReport {
+        id: "steel-residual-v3-control".to_owned(),
+        frequency_scale_permille: 650,
+        decay_scale_permille: 4_000,
+        high_mode_gain_permille: 1_200,
+        transient: "short",
+        transient_gain_q15: 4_096,
+        transient_frames: 240,
+        roughness_sideband_fraction_permille: 350,
+        roughness_index_permille: 900,
+        stochastic_residual: "none",
+        stochastic_residual_gain_q15: 0,
+        stochastic_residual_t20_ms: 0,
+    }];
+    for gain_q15 in [128, 256, 512, 1_024] {
+        for t20_ms in [300, 600, 1_200] {
+            profiles.push(ProfileReport {
+                id: format!("steel-residual-g{gain_q15:04}-t{t20_ms:04}"),
+                frequency_scale_permille: 650,
+                decay_scale_permille: 4_000,
+                high_mode_gain_permille: 1_200,
+                transient: "short",
+                transient_gain_q15: 4_096,
+                transient_frames: 240,
+                roughness_sideband_fraction_permille: 350,
+                roughness_index_permille: 900,
+                stochastic_residual: "decaying-white",
+                stochastic_residual_gain_q15: gain_q15,
+                stochastic_residual_t20_ms: t20_ms,
+            });
         }
     }
     profiles
@@ -468,6 +551,50 @@ mod tests {
         assert_eq!(ids.len(), profiles.len());
         assert!(profiles.iter().all(|profile| {
             profile.decay_scale_permille == 4_000 && profile.roughness_index_permille >= 900
+        }));
+        let serialized = serde_json::to_value(&profiles).expect("serialize v3 profiles");
+        assert!(
+            serialized
+                .as_array()
+                .is_some_and(|values| values.iter().all(|profile| profile
+                    .get("stochastic_residual")
+                    .is_none()
+                    && profile.get("stochastic_residual_gain_q15").is_none()
+                    && profile.get("stochastic_residual_t20_ms").is_none()))
+        );
+    }
+
+    #[test]
+    fn stochastic_residual_v4_is_one_frozen_counterfactual() {
+        let profiles = frozen_search_profiles(ProfileSet::StochasticResidualV4);
+        let ids = profiles
+            .iter()
+            .map(|profile| profile.id.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(profiles.len(), 13);
+        assert_eq!(ids.len(), profiles.len());
+        assert_eq!(
+            profiles
+                .iter()
+                .filter(|profile| profile.stochastic_residual == "none")
+                .count(),
+            1
+        );
+        assert!(profiles.iter().skip(1).all(|profile| {
+            profile.frequency_scale_permille == 650
+                && profile.decay_scale_permille == 4_000
+                && profile.roughness_sideband_fraction_permille == 350
+                && profile.roughness_index_permille == 900
+                && profile.stochastic_residual_gain_q15 > 0
+                && profile.stochastic_residual_t20_ms > 0
+        }));
+        let serialized = serde_json::to_value(&profiles).expect("serialize v4 profiles");
+        let values = serialized.as_array().expect("v4 profile array");
+        assert!(values[0].get("stochastic_residual").is_none());
+        assert!(values.iter().skip(1).all(|profile| {
+            profile.get("stochastic_residual").is_some()
+                && profile.get("stochastic_residual_gain_q15").is_some()
+                && profile.get("stochastic_residual_t20_ms").is_some()
         }));
     }
 }
