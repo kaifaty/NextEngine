@@ -390,3 +390,13 @@ under the uncalibrated thresholds. All 18 matched pairs therefore remain
 `NeedsHumanAudit`. This is positive evidence for the ensemble/disagreement
 design and negative evidence for treating its present thresholds as an
 autonomous judge.
+
+## Automated-validation addendum — 2026-08-27
+
+The next-step recommendation above is superseded by the
+[automated-validation research](physical-sound-automated-validation-research-2026-08-27.md).
+Per-candidate human audition is not a scalable target workflow. Existing
+`NeedsHumanAudit` values remain exact descriptions of the uncalibrated v0
+evaluator, but the successor target is an automatic selective decision:
+`Pass`, `Reject` or authored `FallbackOutOfDomain`. Human-labelled evidence may
+remain frozen optional training/audit data; it is not a live asset gate.

@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_WOOD_ACCEPTED / GLASS_EXACT_CORPUS_NUMERIC_PASS / HUMAN_REFERENCE_OPEN / P1_BLOCKED` |
+| Status | `P0_WOOD_ACCEPTED / GLASS_EXACT_CORPUS_NUMERIC_PASS / AUTOMATED_VALIDATOR_RESEARCH_COMPLETE / P1_BLOCKED` |
 | Updated | `2026-08-27` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
-| Definition of done | Calibrate an external quality oracle that ranks held-out matched impact candidates better than any single uncalibrated metric while preserving the completed demo isolation and no P1/shipping claim |
+| Definition of done | Demonstrate an external selective validator whose automatic pass has measured bounded false-pass risk on grouped real/mutation holdouts, with automatic clip fallback for OOD and no per-sound human gate |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
@@ -15,10 +15,10 @@
   force/position controls and Q30; spatial IDW fails held-out position fidelity.
 - **Why:** Two independent runs are byte-identical; 15 conditions reach Q30
   correlation `0.999999999928`, versus IDW `0.907523` and `5.858210 dB` SNR.
-- **Next action:** Cook surface mode-shape interpolation, then acquire matched
-  real recordings and held-out human preference labels.
-- **Current blocker:** No controlled real reference, held-out human labels,
-  calibrated threshold, mixer budget, Accepted ADR or complete contact signal.
+- **Next action:** Implement deterministic domain/metamorphic/mutation gates, then benchmark specialist learned heads on grouped real-impact holdouts.
+- **Current blocker:** No license-reviewed real corpus, grouped learned-evaluator
+  benchmark, risk-calibrated threshold, mixer budget, Accepted ADR or complete
+  contact signal.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound and raw PhysX-callback mixing.
@@ -30,7 +30,7 @@
 | Evidence | Result | Consequence |
 | --- | --- | --- |
 | [Research report](../physical-sound-synthesis-research-2026-08-26.md) and [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md) | `GLASS_09_Q30_DEMO_PASS / PHYSICAL_ID_OPEN` | Q30 tracks aligned f64 at `115.43 dB` SNR; product-owner A/B accepted B. Demo post-scale stays within one S16 LSB. Wrong geometry keeps material and wall thickness non-physical. |
-| [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md) | `CLASSICAL_Q0_Q1_IMPLEMENTED / HUMAN_CALIBRATION_OPEN` | Matched classical descriptors and blind A/B are available; no single automatic metric or uncalibrated control run is an admissible quality judge. |
+| [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md) and [automated-validation research](../physical-sound-automated-validation-research-2026-08-27.md) | `CLASSICAL_Q0_Q1_IMPLEMENTED / SELECTIVE_VALIDATOR_RESEARCH_COMPLETE` | Validate declared generator domains with hard, causal, reference and specialist learned gates; target `Pass/Reject/FallbackOutOfDomain`, not per-sound human approval. |
 | [Controlled glass corpus](../physical-sound-controlled-glass-corpus-2026-08-27.md) | `CONTROLLED_SYNTHETIC_CORPUS_PASS / HUMAN_REFERENCE_OPEN` | Exact geometry and 15 force/position conditions are reproducible; Q30 and physical controls pass, but whole-vector IDW is an inadequate spatial model and the corpus has no real matched recording. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
@@ -151,28 +151,27 @@
   decision.
 - **Reconsider when:** A roadmap slot and concrete player-visible impact
   consumer are chosen.
-### D-007 — Quality needs a human-calibrated ensemble, not one metric
+### D-007 — Quality needs an automatic selective ensemble, not per-sound approval
 
-- **Observation:** The current exact PCM failed human audition; published audio
-  metrics measure different and exploitable notions of quality.
-- **Evidence:** The quality-evaluation report records impact-perception studies,
-  FAD sample/embedding dependence, ViSQOL's generative limits and DCASE's final
-  human ranking after automatic shortlisting.
+- **Observation:** Per-sound audition cannot scale to the intended source/parameter space; published metrics remain partial and exploitable.
+- **Evidence:** The automated-validation report combines local CLAP/FAD failure,
+  public impact corpora, decomposed audio evaluators and selective risk control.
 - **Decision:** Build an offline oracle from hard signal checks, matched modal/
-  decay/spectral descriptors, physical control relations, frozen embeddings,
-  held-out human preference and separate cost. Codex consumes the report and
-  asks for human review on uncertainty/disagreement.
+  decay/spectral descriptors, metamorphic relations, frozen specialist heads,
+  grouped real holdouts and calibrated selective risk. Outcomes are `Pass`,
+  `Reject` or automatic clip `FallbackOutOfDomain`; no live human audit queue.
 - **Rejected alternatives:** A single FAD/CLAP/ViSQOL/aesthetic score, direct
   prose judgment by a general audio model, or fitting and evaluating on the same
   object/impact split.
 - **Consequences:** Q0/Q1 selected useful steel/wood candidates, but the
   DiffSound pair now falsifies reference fidelity as a glass-identity proxy.
   The controlled synthetic corpus also exposes quantized-noise sensitivity in
-  log-spectrum/decay metrics. All screens remain diagnostic until calibration.
-- **Uncertainty:** Real recording and human-label variance remain unmeasured.
-- **Reconsider when:** A frozen single metric demonstrably outperforms the
-  ensemble on held-out local human judgments without losing failure diagnosis;
-  current evidence gives no reason to expect that.
+  log-spectrum/decay metrics. Existing screens remain diagnostic until grouped
+  corpus, mutation and OOD calibration pass.
+- **Uncertainty:** Real-corpus coverage and attainable false-pass risk remain
+  unmeasured; without perceptual labels the claim excludes subjective naturalness.
+- **Reconsider when:** A frozen simpler validator matches the ensemble's grouped
+  holdout risk, OOD behavior and failure diagnosis.
 
 ## Open hypotheses
 
@@ -183,7 +182,7 @@
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out real/human evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A calibrated ensemble can rank candidates well enough for mostly autonomous iteration | Controlled Q1 exposes both a real IDW spectral shift and Q30 noise-floor metric disagreement | No real reference corpus, preference labels or held-out agreement measurement exists | Collect labels, then compare metrics/ensemble on leave-one-object/position-out human judgments |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Controlled Q1 exposes IDW error; public real-impact corpora carry object/location/force labels; selective risk permits fallback | No grouped local benchmark, calibrated acceptance curve or OOD evidence exists | Run leave-object/position/generator-out real and mutation controls, then measure risk versus automatic coverage |
 
 ## Required context
 
@@ -192,8 +191,8 @@ Read these sources in precedence order before acting:
 1. [Agent routing](../../architecture/agent-routing.md), [SPEC-00](../../architecture/00-product-contract.md) and [SPEC-01](../../architecture/01-system-architecture.md).
 2. [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md), [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../../architecture/30-presentation-extraction-and-render-content.md), ADR-027/046/058/071.
 3. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-4. [Research report](../physical-sound-synthesis-research-2026-08-26.md) and
-   [quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md).
+4. [Research report](../physical-sound-synthesis-research-2026-08-26.md), [quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md)
+   and [automated-validation research](../physical-sound-automated-validation-research-2026-08-27.md).
 5. [Roadmap](../../roadmap.md) only for a future scheduling/scope decision.
 
 ## Next action
@@ -202,12 +201,13 @@ Read these sources in precedence order before acting:
    retain glass-D/F only as rejected metal-like anchors.
 2. Keep source/generated `09` artifacts external and retain the implemented Q30
    voice only as an explicit opt-in; do not replace Glass-H or authored clips.
-3. Replace whole-vector IDW with cooked surface mode-shape interpolation;
-   preserve the exact synthetic holdout as a non-regression control.
-4. Acquire matched real impacts and human labels, validate leave-one-object or
-   leave-one-position-out ranking and only then run bounded parameter search.
-5. Compare reference-fitted candidates and select or reject a bounded quality/
-   cost point.
+3. Extend the external evaluator with domain probes, hard numerical checks,
+   metamorphic relations and deterministic mutation severity ladders.
+4. Freeze a license-reviewed real-impact subset and benchmark descriptors,
+   BEATs/Human-CLAP/Audiobox auxiliaries and a small specialist ranker under
+   leave-object/position/generator-out splits.
+5. Calibrate `Pass/Reject/FallbackOutOfDomain` from a separate split, then run
+   adversarial parameter search and select or reject a bounded quality/cost point.
 6. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 7. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
@@ -222,10 +222,12 @@ Read these sources in precedence order before acting:
 - Runtime eigensolver/FEM — preprocessing provides the compact runtime model.
 - Runtime neural residual first — there is no measured residual or bounded
   classical comparator yet.
-- Blind acoustic tuning after the failed audition — without frozen references
-  and held-out human calibration it only optimizes the latest impression.
+- Blind acoustic tuning after the failed audition — without frozen references,
+  grouped holdouts and a shadow validator it only optimizes the current score.
 - Single-metric or single-model judge — FAD/CLAP/ViSQOL/aesthetic/audio-language
   outputs are complementary diagnostics and individually gameable.
+- Per-sound `NeedsHumanAudit` as the end-state — uncertainty must select the
+  authored fallback; human evidence is optional frozen data/audit, not an asset gate.
 - “Thousands of synthesized birds” based on Lyrebird — the cited repository is
   mostly field-audio data, not evidence for that claim.
 
@@ -239,10 +241,10 @@ Read these sources in precedence order before acting:
   `audio-scene`, `play`, focused clippy/tests, boundary scan and broad
   `host-check` pass. Candidate `AUDIO-PHYS-*`, content, persistence, formal
   platform and performance promotion checks remain not promoted or not run.
-- **Remaining risk:** real identity, human calibration, spatial transfer,
-  contact sufficiency, whole-mixer cost, propagation and authoring are open.
+- **Remaining risk:** real identity, validator calibration/OOD, spatial transfer,
+  contact sufficiency, mixer cost, propagation and authoring are open.
 - **Quality status:** wood-B passed; glass-D/F failed; G/H improved weakly;
   selected `09` passed human Q30 transfer. Exact synthetic Q30/force/position
-  controls pass, but real held-out human ranking remains open.
+  controls pass, but grouped real/mutation risk calibration remains open.
 - **Promotion needed:** Concrete consumer plus later Accepted ADR under ADR-046;
   then exact content/contact/DSP profiles and ProductChecks.
