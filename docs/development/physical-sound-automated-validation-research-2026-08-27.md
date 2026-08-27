@@ -279,17 +279,29 @@ already removes manual review for provable failures and physical-control bugs.
 
 ### AV-P0B — corpus benchmark, no acceptance authority
 
-Build an external adapter for a license-reviewed ObjectFolder Real subset and,
-if available under acceptable terms, REALIMPACT. Cache the current descriptors,
-BEATs, Human-CLAP and Audiobox features. Compare heads and feature combinations
-under grouped holdouts. Do not fit and evaluate on the same object.
+Build an external adapter for attributed, hash-frozen public research sounds;
+keep any unreviewed recording terms explicit and forbid repository or product
+distribution. Add ObjectFolder Real or REALIMPACT when spatial/force coverage
+becomes the next discriminator. Cache the current descriptors and independently
+versioned learned features. Compare heads under grouped holdouts; do not fit and
+evaluate on the same object.
 
 Implementation checkpoint: `xtask physical-sound-benchmark` now supplies the
-hash-closed external manifest/feature-matrix boundary, strict license-review
-record, object/family-disjoint four-way partitions, real-only development
-gallery and deterministic classical/external-feature baseline. It always emits
-`NoAcceptanceAuthority`. Actual real-corpus scoring remains blocked until one
-recording subset has explicit reviewed dataset terms; see the
+hash-closed external manifest/feature-matrix boundary, explicit provenance and
+measurement scope, object/family-disjoint four-way partitions, real-only
+development gallery and deterministic classical/external-feature baseline. It
+always emits `NoAcceptanceAuthority`.
+
+The first real measurement uses the 15 recorded wood/metal/glass objects and 30
+published resynthesis/tuning variants from Aramaki et al. An official pretrained
+BEATs representation classifies all six leave-object development recordings
+and all nine non-development real recordings correctly, but only `5/9` of the
+published modal-resynthesis and `6/9` of the perceptually tuned variants. On 13
+Next Engine shadow candidates it classifies `8/13`: wood is `3/3`, current
+steel-as-broad-metal is `0/3` and glass is `5/7`. The classical head reaches
+`6/13` and disagrees with BEATs on the selected Q30 glass sound. This is useful
+failure clustering and direct evidence against a single-head judge; the corpus
+is too small and material-only to calibrate acceptance risk. See the
 [AV-P0B report](physical-sound-corpus-benchmark-av-p0b-2026-08-27.md).
 
 ### AV-P0C — selective specialist validator

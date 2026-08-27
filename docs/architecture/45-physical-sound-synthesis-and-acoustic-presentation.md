@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.3 |
+| Version | 0.4 |
 | Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md) |
-| Replaces | SPEC-45 0.2; records the isolated AV-P0B grouped corpus-benchmark boundary without promoting quality acceptance or a runtime/content contract |
+| Replaces | SPEC-45 0.3; records the first external real-material AV-P0B measurement without promoting quality acceptance or a runtime/content contract |
 
 ## Status and decision boundary
 
@@ -82,13 +82,24 @@ content-cooker state.
 
 The isolated `xtask physical-sound-benchmark` checkpoint now implements the
 AV-P0B external manifest and frozen-feature-matrix boundary. It verifies exact
-WAV/license-review/feature hashes, enforces object/family-disjoint development,
-calibration, holdout and shadow partitions, and measures classical or external
-features against a real-only development gallery. Every report is
-`NoAcceptanceAuthority`; no current real corpus is admitted because the
-recording-license scope for the leading public candidates still needs explicit
-review. This checkpoint therefore closes split/tooling mechanics only, not the
-real-corpus, perceptual-risk or AV-P0C acceptance gate.
+WAV/provenance-review/feature hashes, enforces object/family-disjoint
+development, calibration, holdout and shadow partitions, and measures
+classical or external features against a real-only development gallery.
+Material-identity sources explicitly carry `material_identity_only` scope and
+cannot fabricate spatial/listener/force evidence. Public research recordings
+whose redistribution terms are not reviewed may be measured only as attributed
+external local inputs with `NOASSERTION` and
+`no_repository_or_distribution`; they are not distributable content.
+
+The first frozen measurement uses 15 real wood/metal/glass recordings, 30
+published generated variants, an official pretrained BEATs representation and
+13 Next Engine shadow candidates. BEATs separates the 15 real objects under the
+frozen split but classifies only `8/13` engine candidates; current wood is
+`3/3`, steel-as-broad-metal is `0/3` and glass is `5/7`. Every report remains
+`NoAcceptanceAuthority`. The corpus is small and material-only, the classical
+head disagrees on selected Q30, and no selective-risk threshold is calibrated.
+This checkpoint supplies real failure evidence, not a perceptual-risk or
+AV-P0C acceptance gate.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

@@ -25,7 +25,26 @@ pub(super) struct CorpusSource {
     pub(super) revision: String,
     pub(super) source_url: String,
     pub(super) attribution: String,
+    #[serde(default)]
+    pub(super) measurement_scope: MeasurementScope,
     pub(super) license: LicenseDeclaration,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum MeasurementScope {
+    #[default]
+    ControlledImpact,
+    MaterialIdentityOnly,
+}
+
+impl MeasurementScope {
+    pub(super) const fn as_str(self) -> &'static str {
+        match self {
+            Self::ControlledImpact => "controlled_impact",
+            Self::MaterialIdentityOnly => "material_identity_only",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -41,12 +60,32 @@ pub(super) struct LicenseDeclaration {
 #[serde(rename_all = "snake_case")]
 pub(super) enum LicenseReviewStatus {
     ApprovedExternalBenchmarkOnly,
+    UnreviewedPublicResearchSource,
+}
+
+impl LicenseReviewStatus {
+    pub(super) const fn as_str(self) -> &'static str {
+        match self {
+            Self::ApprovedExternalBenchmarkOnly => "approved_external_benchmark_only",
+            Self::UnreviewedPublicResearchSource => "unreviewed_public_research_source",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum RedistributionPolicy {
     ExternalOnly,
+    NoRepositoryOrDistribution,
+}
+
+impl RedistributionPolicy {
+    pub(super) const fn as_str(self) -> &'static str {
+        match self {
+            Self::ExternalOnly => "external_only",
+            Self::NoRepositoryOrDistribution => "no_repository_or_distribution",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -211,6 +250,14 @@ fn validate_sources(sources: &[CorpusSource]) -> Result<(), String> {
         }
         validate_text(&source.attribution, "corpus attribution", 1_024)?;
         validate_spdx_id(&source.license.spdx_id)?;
+        if source.license.review_status == LicenseReviewStatus::UnreviewedPublicResearchSource
+            && source.license.redistribution != RedistributionPolicy::NoRepositoryOrDistribution
+        {
+            return Err(format!(
+                "unreviewed public research source {} requires no_repository_or_distribution",
+                source.id
+            ));
+        }
         validate_file_ref(&source.license.review_record, "license review record")?;
     }
     Ok(())
@@ -330,10 +377,15 @@ fn validate_entries(manifest: &BenchmarkManifest) -> Result<(), String> {
 }
 
 fn validate_partitions(manifest: &BenchmarkManifest) -> Result<(), String> {
+    let source_scopes = manifest
+        .corpus_sources
+        .iter()
+        .map(|source| (source.id.as_str(), source.measurement_scope))
+        .collect::<BTreeMap<_, _>>();
     let mut partition_counts = BTreeMap::<Partition, usize>::new();
     let mut object_partitions = BTreeMap::<&str, Partition>::new();
     let mut family_partitions = BTreeMap::<&str, Partition>::new();
-    let mut object_identity = BTreeMap::<&str, (&str, &str)>::new();
+    let mut object_identity = BTreeMap::<&str, (&str, &str, &str)>::new();
     let mut family_material = BTreeMap::<&str, &str>::new();
     let mut development_materials = BTreeSet::new();
     let mut development_objects_by_material = BTreeMap::<&str, BTreeSet<&str>>::new();
@@ -341,6 +393,17 @@ fn validate_partitions(manifest: &BenchmarkManifest) -> Result<(), String> {
     let mut development_positions_by_object = BTreeMap::<&str, BTreeSet<&str>>::new();
     let mut non_development_materials = BTreeSet::new();
     for entry in &manifest.entries {
+        let measurement_scope = source_scopes[entry.source_id.as_str()];
+        if measurement_scope == MeasurementScope::MaterialIdentityOnly
+            && (entry.impact_position_id != "unspecified"
+                || entry.listener_position_id != "unspecified"
+                || entry.force_band != "unspecified")
+        {
+            return Err(format!(
+                "material-identity-only source {} requires unspecified impact/listener/force labels on entry {}",
+                entry.source_id, entry.id
+            ));
+        }
         *partition_counts.entry(entry.partition).or_default() += 1;
         require_one_partition(
             &mut object_partitions,
@@ -354,12 +417,15 @@ fn validate_partitions(manifest: &BenchmarkManifest) -> Result<(), String> {
             entry.partition,
             "object_family_id",
         )?;
-        if let Some((family, material)) =
-            object_identity.insert(&entry.object_id, (&entry.object_family_id, &entry.material))
-            && (family != entry.object_family_id || material != entry.material)
+        if let Some((family, material, source_id)) = object_identity.insert(
+            &entry.object_id,
+            (&entry.object_family_id, &entry.material, &entry.source_id),
+        ) && (family != entry.object_family_id
+            || material != entry.material
+            || source_id != entry.source_id)
         {
             return Err(format!(
-                "object {} changes family or material across entries",
+                "object {} changes family, material or source across entries",
                 entry.object_id
             ));
         }
@@ -382,10 +448,12 @@ fn validate_partitions(manifest: &BenchmarkManifest) -> Result<(), String> {
                     .entry(&entry.material)
                     .or_default()
                     .insert(&entry.object_family_id);
-                development_positions_by_object
-                    .entry(&entry.object_id)
-                    .or_default()
-                    .insert(&entry.impact_position_id);
+                if measurement_scope == MeasurementScope::ControlledImpact {
+                    development_positions_by_object
+                        .entry(&entry.object_id)
+                        .or_default()
+                        .insert(&entry.impact_position_id);
+                }
             }
         } else {
             non_development_materials.insert(entry.material.as_str());

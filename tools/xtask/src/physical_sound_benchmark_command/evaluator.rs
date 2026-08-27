@@ -33,6 +33,7 @@ pub(super) struct TaskReport {
     pub(super) leakage_guard: &'static str,
     pub(super) confusion: Vec<ConfusionCount>,
     pub(super) origin_groups: Vec<GroupMetric>,
+    pub(super) predictions: Vec<PredictionReport>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -48,6 +49,19 @@ pub(super) struct GroupMetric {
     pub(super) evaluated_count: usize,
     pub(super) correct_count: usize,
     pub(super) accuracy: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct PredictionReport {
+    pub(super) entry_id: String,
+    pub(super) expected: String,
+    pub(super) predicted: String,
+    pub(super) correct: bool,
+    pub(super) origin_group: String,
+    pub(super) nearest_entry_id: String,
+    pub(super) nearest_distance: f64,
+    pub(super) second_nearest_distance: Option<f64>,
+    pub(super) distance_margin: Option<f64>,
 }
 
 #[derive(Clone, Copy)]
@@ -197,6 +211,7 @@ fn evaluate_task(
     let mut confusion = BTreeMap::<(String, String), usize>::new();
     let mut labels = BTreeMap::<String, (usize, usize)>::new();
     let mut groups = BTreeMap::<String, (usize, usize)>::new();
+    let mut predictions = Vec::new();
 
     for target in &targets {
         let expected = task.expected_label(&target.manifest);
@@ -211,11 +226,11 @@ fn evaluate_task(
             skipped_missing_gallery_count += 1;
             continue;
         }
-        let Some(nearest) = nearest_entry(target, &gallery, profile) else {
+        let Some(nearest) = nearest_match(target, &gallery, profile) else {
             skipped_missing_gallery_count += 1;
             continue;
         };
-        let predicted = task.predicted_label(&nearest.manifest);
+        let predicted = task.predicted_label(&nearest.entry.manifest);
         let correct = predicted == expected;
         evaluated_count += 1;
         correct_count += usize::from(correct);
@@ -228,6 +243,19 @@ fn evaluate_task(
         let group = groups.entry(target.manifest.origin.group_id()).or_default();
         group.0 += 1;
         group.1 += usize::from(correct);
+        predictions.push(PredictionReport {
+            entry_id: target.manifest.id.clone(),
+            expected: expected.to_owned(),
+            predicted: predicted.to_owned(),
+            correct,
+            origin_group: target.manifest.origin.group_id(),
+            nearest_entry_id: nearest.entry.manifest.id.clone(),
+            nearest_distance: nearest.distance,
+            second_nearest_distance: nearest.second_distance,
+            distance_margin: nearest
+                .second_distance
+                .map(|second| second - nearest.distance),
+        });
     }
 
     let accuracy = ratio(correct_count, evaluated_count);
@@ -270,34 +298,47 @@ fn evaluate_task(
                 accuracy: correct as f64 / count as f64,
             })
             .collect(),
+        predictions,
     }
 }
 
-fn nearest_entry<'a>(
+struct NearestMatch<'a> {
+    entry: &'a ResolvedEntry,
+    distance: f64,
+    second_distance: Option<f64>,
+}
+
+fn nearest_match<'a>(
     target: &ResolvedEntry,
     gallery: &[&'a ResolvedEntry],
     profile: &FeatureProfile,
-) -> Option<&'a ResolvedEntry> {
+) -> Option<NearestMatch<'a>> {
     let target_features = target.features.get(&profile.id)?;
-    gallery.iter().copied().min_by(|left, right| {
-        let left_distance = feature_distance(
-            target_features,
-            left.features
-                .get(&profile.id)
-                .expect("validated feature set"),
-            profile.distance,
-        );
-        let right_distance = feature_distance(
-            target_features,
-            right
-                .features
-                .get(&profile.id)
-                .expect("validated feature set"),
-            profile.distance,
-        );
+    let mut ranked = gallery
+        .iter()
+        .copied()
+        .filter_map(|entry| {
+            let distance = feature_distance(
+                target_features,
+                entry
+                    .features
+                    .get(&profile.id)
+                    .expect("validated feature set"),
+                profile.distance,
+            );
+            distance.is_finite().then_some((entry, distance))
+        })
+        .collect::<Vec<_>>();
+    ranked.sort_by(|(left, left_distance), (right, right_distance)| {
         left_distance
-            .total_cmp(&right_distance)
+            .total_cmp(right_distance)
             .then_with(|| left.manifest.id.cmp(&right.manifest.id))
+    });
+    let (entry, distance) = ranked.first().copied()?;
+    Some(NearestMatch {
+        entry,
+        distance,
+        second_distance: ranked.get(1).map(|(_, distance)| *distance),
     })
 }
 

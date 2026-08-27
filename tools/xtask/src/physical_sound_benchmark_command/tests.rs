@@ -10,8 +10,8 @@ use serde_json::Value;
 use super::evaluator::{FeatureProfile, ResolvedEntry, evaluate_tasks};
 use super::manifest::{
     BenchmarkManifest, CorpusEntry, CorpusSource, DistanceMetric, EntryOrigin, ExternalFeatureSet,
-    FeatureMatrix, FeatureMatrixEntry, FileRef, LicenseDeclaration, LicenseReviewStatus, Partition,
-    RedistributionPolicy, validate_feature_matrix, validate_manifest,
+    FeatureMatrix, FeatureMatrixEntry, FileRef, LicenseDeclaration, LicenseReviewStatus,
+    MeasurementScope, Partition, RedistributionPolicy, validate_feature_matrix, validate_manifest,
 };
 use super::*;
 
@@ -99,6 +99,41 @@ fn manifest_rejects_partition_leakage_and_generated_training() {
 }
 
 #[test]
+fn material_identity_source_needs_no_fake_spatial_repeats() {
+    let mut manifest = test_manifest_without_external_features();
+    manifest.corpus_sources[0].measurement_scope = MeasurementScope::MaterialIdentityOnly;
+    for entry in &mut manifest.entries {
+        entry.impact_position_id = "unspecified".to_owned();
+        entry.listener_position_id = "unspecified".to_owned();
+        entry.force_band = "unspecified".to_owned();
+    }
+    validate_manifest(&manifest).expect("material-only corpus validates without fake repeats");
+
+    manifest.entries[0].impact_position_id = "invented-position".to_owned();
+    assert!(
+        validate_manifest(&manifest)
+            .expect_err("material-only corpus rejects invented spatial labels")
+            .contains("requires unspecified")
+    );
+}
+
+#[test]
+fn unreviewed_public_source_cannot_declare_external_redistribution() {
+    let mut manifest = test_manifest_without_external_features();
+    manifest.corpus_sources[0].license.review_status =
+        LicenseReviewStatus::UnreviewedPublicResearchSource;
+    assert!(
+        validate_manifest(&manifest)
+            .expect_err("unreviewed public source needs the non-distribution boundary")
+            .contains("requires no_repository_or_distribution")
+    );
+
+    manifest.corpus_sources[0].license.redistribution =
+        RedistributionPolicy::NoRepositoryOrDistribution;
+    validate_manifest(&manifest).expect("explicit non-distribution boundary validates");
+}
+
+#[test]
 fn external_matrix_must_match_every_sorted_entry() {
     let manifest = test_manifest();
     let declaration = manifest
@@ -157,6 +192,13 @@ fn grouped_material_tasks_never_train_on_held_out_entries() {
     assert_eq!(holdout.status, "Measured");
     assert_eq!(holdout.accuracy, Some(1.0));
     assert!(holdout.leakage_guard.contains("never train"));
+    assert_eq!(holdout.predictions.len(), holdout.evaluated_count);
+    assert!(
+        holdout
+            .predictions
+            .iter()
+            .all(|prediction| prediction.nearest_entry_id.starts_with("dev-"))
+    );
 }
 
 #[test]
@@ -168,6 +210,10 @@ fn end_to_end_report_has_no_acceptance_authority() {
 
     let mut manifest = test_manifest_without_external_features();
     manifest.corpus_sources[0].license.review_record.sha256 = sha256_hex(license_bytes);
+    manifest.corpus_sources[0].license.review_status =
+        LicenseReviewStatus::UnreviewedPublicResearchSource;
+    manifest.corpus_sources[0].license.redistribution =
+        RedistributionPolicy::NoRepositoryOrDistribution;
     for entry in &mut manifest.entries {
         let frequency = if entry.material == "glass" {
             2_400.0
@@ -203,6 +249,14 @@ fn end_to_end_report_has_no_acceptance_authority() {
     assert_eq!(report["decision"], "NoAcceptanceAuthority");
     assert_eq!(report["benchmark_status"], "Measured");
     assert_eq!(report["split_audit"]["status"], "Pass");
+    assert_eq!(
+        report["corpus"]["sources"][0]["review_status"],
+        "unreviewed_public_research_source"
+    );
+    assert_eq!(
+        report["corpus"]["sources"][0]["redistribution"],
+        "no_repository_or_distribution"
+    );
     assert!(
         report["tasks"]
             .as_array()
@@ -369,6 +423,7 @@ fn test_manifest_without_external_features() -> BenchmarkManifest {
             revision: "test-source-v1".to_owned(),
             source_url: "https://example.invalid/test-source".to_owned(),
             attribution: "Next Engine test fixture".to_owned(),
+            measurement_scope: MeasurementScope::ControlledImpact,
             license: LicenseDeclaration {
                 spdx_id: "CC0-1.0".to_owned(),
                 review_status: LicenseReviewStatus::ApprovedExternalBenchmarkOnly,

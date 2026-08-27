@@ -129,6 +129,7 @@ struct CorpusSourceReport {
     revision: String,
     source_url: String,
     attribution: String,
+    measurement_scope: &'static str,
     spdx_id: String,
     review_status: &'static str,
     redistribution: &'static str,
@@ -262,7 +263,7 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         entry_count: entries.len(),
         identities: grouped_identity_counts(&entries),
         sources,
-        license_boundary: "manifest declares a reviewed external-only record; the tool verifies its bytes/hash but makes no independent legal judgment",
+        license_boundary: "manifest declares reviewed or explicitly unreviewed research provenance; the tool verifies bytes/hash, forbids repository inputs, and makes no independent legal judgment",
     };
     let report = BenchmarkReport {
         schema: REPORT_SCHEMA,
@@ -322,9 +323,10 @@ fn resolve_corpus_sources(
                 revision: source.revision.clone(),
                 source_url: source.source_url.clone(),
                 attribution: source.attribution.clone(),
+                measurement_scope: source.measurement_scope.as_str(),
                 spdx_id: source.license.spdx_id.clone(),
-                review_status: "approved_external_benchmark_only",
-                redistribution: "external_only",
+                review_status: source.license.review_status.as_str(),
+                redistribution: source.license.redistribution.as_str(),
                 review_record_sha256: source.license.review_record.sha256.clone(),
             })
         })
