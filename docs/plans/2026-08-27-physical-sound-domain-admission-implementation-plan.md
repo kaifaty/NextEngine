@@ -8,6 +8,9 @@ clip fallback for uncertainty. The plan implements SPEC-45 P0 evidence first;
 it does not activate a roadmap stage, add a shipping content schema or replace
 the current `AudioMixerV1` clip path.
 
+Milestone order, activation gates and the product handoff are summarized in the
+[physical-sound subsystem roadmap](physical-sound-synthesis-roadmap.md).
+
 The first target matrix is deliberately bounded:
 
 - rigid impacts only;
