@@ -135,7 +135,7 @@ cargo run -p xtask -- physical-sound-benchmark \
   --output /external/controlled-mutation-evaluation
 ```
 
-### 3. Selective specialist calibration — PS-2 real-source adapter next
+### 3. Selective specialist calibration — PS-2 grouped corpus expansion next
 
 Deliver:
 
@@ -223,8 +223,19 @@ repeats byte-identically across two fresh online caches and one offline run.
 Hash-closed ObjectFolder metadata supports only `E4` synthetic lineage. The
 first 36,367,088,523-byte ObjectFolder-Real acoustic archive is discovery-only
 because the publisher provides no SHA-256; it was not downloaded and grants no
-`E1`--`E3` credit. Package 3 must next implement exactly one source-specific
-real-data adapter and import a bounded hash-closed `E2` or `E3` payload.
+`E1`--`E3` credit.
+
+The first real-source adapter and payload are now implemented. The
+[AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md)
+validates one official glass object and two real 44.1 kHz recordings from an
+immutable Git commit. Two fresh online caches and an offline run produce the
+same report, and the adapter grants only `E3IdentifiedRecording`. This closes
+adapter existence, not Package 3: the sample has one object group and no E2
+spatial transfer or E1 excitation evidence.
+
+Package 3 must next normalize multiple independent E3 objects/sources into the
+external inventory and implement the bounded REALIMPACT E2 adapter, then
+recompute actual group availability before calibration/holdout/shadow open.
 Separate internet sources may support separate specialist claims, but
 unavailable axes remain unavailable and the grouped split/risk policy is
 unchanged. Insufficient published coverage keeps the domain fallback-only; it

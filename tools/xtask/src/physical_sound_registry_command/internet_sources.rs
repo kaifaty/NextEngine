@@ -13,6 +13,7 @@ use super::{
     sha256_hex, validate_file_ref, validate_label,
 };
 
+mod adapters;
 mod fetch;
 
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-internet-sources.manifest.v1";
@@ -118,6 +119,8 @@ struct InternetSource {
     #[serde(default)]
     terms_url: Option<String>,
     adapter_id: String,
+    #[serde(default)]
+    adapter_profile: Option<adapters::AdapterProfile>,
     license_expression: String,
     redistribution_policy: RedistributionPolicy,
     provenance_review: FileRef,
@@ -156,7 +159,7 @@ struct RemoteArtifact {
     expected_sha256: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum ArtifactRole {
     AudioArchive,
@@ -321,6 +324,8 @@ struct SourceReport {
     landing_page_url: String,
     terms_url: Option<String>,
     adapter_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    adapter_evidence: Option<adapters::AdapterEvidenceReport>,
     license_expression: String,
     redistribution_policy: &'static str,
     provenance_review: ArtifactReport,
@@ -451,6 +456,7 @@ fn validate_source(source: &InternetSource) -> Result<(), String> {
     }
     validate_bounded_text(&source.license_expression, "license expression")?;
     validate_file_ref(&source.provenance_review, "source provenance review")?;
+    adapters::validate_profile_declaration(source)?;
     if source.artifacts.is_empty() || source.artifacts.len() > MAX_ARTIFACTS_PER_SOURCE {
         return Err(format!(
             "source {} artifact count must be 1..={MAX_ARTIFACTS_PER_SOURCE}",
@@ -640,19 +646,21 @@ fn build_report(
         )?;
         let mut artifact_statuses = BTreeMap::<String, CacheStatus>::new();
         let mut artifact_reports = Vec::with_capacity(source.artifacts.len());
-        for artifact in source.artifacts {
-            let status = audit_or_fetch_artifact(cache, &artifact, request)?;
+        for artifact in &source.artifacts {
+            let status = audit_or_fetch_artifact(cache, artifact, request)?;
             artifact_statuses.insert(artifact.id.clone(), status);
             artifact_reports.push(RemoteArtifactReport {
-                id: artifact.id,
+                id: artifact.id.clone(),
                 role: artifact.role.as_str(),
-                url: artifact.url,
+                url: artifact.url.clone(),
                 maximum_bytes: artifact.maximum_bytes,
                 expected_byte_count: artifact.expected_byte_count,
-                expected_sha256: artifact.expected_sha256,
+                expected_sha256: artifact.expected_sha256.clone(),
                 cache_status: status.as_str(),
             });
         }
+
+        let adapter_audit = adapters::audit(cache, &source, &artifact_statuses)?;
 
         let mut available_capabilities = BTreeSet::new();
         let mut capability_reports = Vec::with_capacity(source.capability_evidence.len());
@@ -660,11 +668,7 @@ fn build_report(
             let bytes_available = evidence.artifact_ids.iter().all(|artifact_id| {
                 artifact_statuses.get(artifact_id) == Some(&CacheStatus::CachedVerified)
             });
-            let adapter_validated = adapter_validates_capability(
-                &source.adapter_id,
-                evidence.capability,
-                bytes_available,
-            );
+            let adapter_validated = bytes_available && adapter_audit.validates(evidence.capability);
             let available = bytes_available && adapter_validated;
             if available {
                 available_capabilities.insert(evidence.capability);
@@ -701,6 +705,7 @@ fn build_report(
             landing_page_url: source.landing_page_url,
             terms_url: source.terms_url,
             adapter_id: source.adapter_id,
+            adapter_evidence: adapter_audit.evidence,
             license_expression: source.license_expression,
             redistribution_policy: source.redistribution_policy.as_str(),
             provenance_review,
@@ -727,21 +732,6 @@ fn build_report(
         ready_source_count,
         sources: source_reports,
     })
-}
-
-fn adapter_validates_capability(
-    adapter_id: &str,
-    capability: EvidenceCapability,
-    bytes_available: bool,
-) -> bool {
-    bytes_available
-        && matches!(
-            (adapter_id, capability),
-            (
-                "hash-closed-synthetic-v1",
-                EvidenceCapability::SyntheticLineage
-            )
-        )
 }
 
 fn audit_or_fetch_artifact(

@@ -1,7 +1,7 @@
 # Physical sound PS-2 — REALIMPACT GlassGoblet pilot
 
 Date: 2026-08-27
-Status: `DEVELOPMENT_PILOT_COMPLETE / E2_TRANSFER_EVIDENCE / INTERNET_ADAPTER_NEXT`
+Status: `DEVELOPMENT_PILOT_COMPLETE / E2_TRANSFER_EVIDENCE / REALIMPACT_ADAPTER_NEXT`
 
 The [active PS-2 internet corpus policy](physical-sound-internet-corpus-policy-ps2-2026-08-27.md)
 retains this pilot as claim-scoped transfer-response evidence. Its original
@@ -109,9 +109,11 @@ holdout, shadow, risk or coverage credit.
 
 ## Next action
 
-Keep REALIMPACT as development `E2` spatial/transfer evidence. Implement an
-official-source adapter that preserves its exact mesh, impact/listener and
-transfer identities, then search published sources for the missing `E1` and
-`E3` claims. Do not infer raw force, fixture, composition or repeat data, and do
-not ask the user to record them. Revise the multi-source corpus plan before
-opening shadow or starting PS-3/AV-P0D.
+Keep REALIMPACT as development `E2` spatial/transfer evidence. The independent
+[AV-MSF pilot](physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md) now supplies
+one adapter-backed `E3` glass object, but does not close this archive's E2
+adapter or the missing `E1` claims. Implement an official REALIMPACT adapter
+that preserves its exact mesh, impact/listener and transfer identities. Do not
+infer raw force, fixture, composition or repeat data, and do not ask the user to
+record them. Revise the multi-source corpus plan before opening shadow or
+starting PS-3/AV-P0D.

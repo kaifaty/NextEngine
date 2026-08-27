@@ -248,6 +248,128 @@ fn corrupt_cached_artifact_rejects_without_report() {
     assert!(!output.exists());
 }
 
+#[test]
+fn av_msf_adapter_grants_only_identified_recording_evidence_and_repeats() {
+    let directory = TestDirectory::new();
+    let recordings = [
+        ("012", test_float_wav(&[0.25, -0.125, 0.0625])),
+        ("036", test_float_wav(&[-0.5, 0.25, -0.125])),
+    ];
+    let (manifest, cache) = write_av_msf_fixture(&directory.0, &recordings);
+    let manifest_path = directory.0.join("sources.json");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).expect("serialize AV-MSF manifest"),
+    )
+    .expect("write AV-MSF manifest");
+
+    let first = directory.0.join("first-report");
+    run(
+        workspace_root(),
+        &Request {
+            manifest: manifest_path.clone(),
+            cache: cache.clone(),
+            output: first.clone(),
+            fetch_missing: false,
+            maximum_download_bytes: DEFAULT_MAXIMUM_DOWNLOAD_BYTES,
+        },
+    )
+    .expect("AV-MSF source validates");
+    let report: Value =
+        serde_json::from_slice(&fs::read(first.join("report.json")).expect("read AV-MSF report"))
+            .expect("parse AV-MSF report");
+    assert_eq!(report["decision"], "SourceSetComplete");
+    assert_eq!(
+        report["sources"][0]["supported_tiers"],
+        serde_json::json!(["E3IdentifiedRecording"])
+    );
+    assert_eq!(
+        report["sources"][0]["adapter_evidence"]["schema"],
+        "av_msf_identified_recording_v1"
+    );
+    assert_eq!(report["sources"][0]["adapter_evidence"]["object_id"], "95");
+    assert_eq!(
+        report["sources"][0]["adapter_evidence"]["material_label"],
+        "Glass"
+    );
+    assert_eq!(
+        report["sources"][0]["adapter_evidence"]["recordings"][0]["sample_frames"],
+        3
+    );
+    assert!(
+        report["sources"][0]["capabilities"]
+            .as_array()
+            .expect("capability array")
+            .iter()
+            .all(|capability| capability["available"] == true)
+    );
+
+    let repeated = directory.0.join("repeated-report");
+    run(
+        workspace_root(),
+        &Request {
+            manifest: manifest_path,
+            cache,
+            output: repeated.clone(),
+            fetch_missing: false,
+            maximum_download_bytes: DEFAULT_MAXIMUM_DOWNLOAD_BYTES,
+        },
+    )
+    .expect("AV-MSF source repeats");
+    assert_eq!(
+        fs::read(first.join("report.json")).expect("read first AV-MSF report"),
+        fs::read(repeated.join("report.json")).expect("read repeated AV-MSF report")
+    );
+}
+
+#[test]
+fn av_msf_adapter_rejects_noncanonical_artifact_url_before_fetch() {
+    let directory = TestDirectory::new();
+    let recordings = [
+        ("012", test_float_wav(&[0.25])),
+        ("036", test_float_wav(&[-0.25])),
+    ];
+    let (mut manifest, _) = write_av_msf_fixture(&directory.0, &recordings);
+    manifest.sources[0].artifacts[0].url = "https://example.org/AV-MSF/impact012.wav".to_owned();
+    assert!(
+        validate_manifest(&manifest)
+            .expect_err("noncanonical AV-MSF URL rejects")
+            .contains("wrong role or immutable URL")
+    );
+}
+
+#[test]
+fn av_msf_adapter_rejects_nonfinite_audio_without_a_report() {
+    let directory = TestDirectory::new();
+    let recordings = [
+        ("012", test_float_wav(&[f32::NAN])),
+        ("036", test_float_wav(&[-0.25])),
+    ];
+    let (manifest, cache) = write_av_msf_fixture(&directory.0, &recordings);
+    let manifest_path = directory.0.join("sources.json");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).expect("serialize AV-MSF manifest"),
+    )
+    .expect("write AV-MSF manifest");
+    let output = directory.0.join("report");
+    assert!(
+        run(
+            workspace_root(),
+            &Request {
+                manifest: manifest_path,
+                cache,
+                output: output.clone(),
+                fetch_missing: false,
+                maximum_download_bytes: DEFAULT_MAXIMUM_DOWNLOAD_BYTES,
+            },
+        )
+        .expect_err("non-finite samples reject")
+        .contains("contains a non-finite sample")
+    );
+    assert!(!output.exists());
+}
+
 fn workspace_root() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -276,6 +398,134 @@ fn write_cached_artifacts(cache: &Path, manifest: &mut InternetSourceManifest) {
     }
 }
 
+fn write_av_msf_fixture(
+    directory: &Path,
+    recordings: &[(&str, Vec<u8>); 2],
+) -> (InternetSourceManifest, PathBuf) {
+    let page = br#"<section>Experiments on two real-world datasets</section>
+<h3>Impact recordings</h3>
+<button data-name="Object 95" data-original-material="Glass" data-demo-path="data/demo/95" data-contact-impacts="012,036"></button>"#;
+    let provenance = b"official AV-MSF page-branch fixture review";
+    fs::write(directory.join("provenance.md"), provenance).expect("write AV-MSF provenance");
+    let commit = "723df64a94480fc8f8e592c66c0d916e8b0054d1";
+    let raw = format!("https://raw.githubusercontent.com/ZisenShao/AV-MSF/{commit}");
+    let mut artifacts = recordings
+        .iter()
+        .map(|(recording_id, bytes)| RemoteArtifact {
+            id: format!("impact-{recording_id}"),
+            role: ArtifactRole::AudioPayload,
+            url: format!("{raw}/data/demo/95/contact/impact{recording_id}.wav"),
+            maximum_bytes: bytes.len() as u64,
+            expected_byte_count: Some(bytes.len() as u64),
+            expected_sha256: Some(sha256_hex(bytes)),
+        })
+        .collect::<Vec<_>>();
+    artifacts.push(RemoteArtifact {
+        id: "project-page".to_owned(),
+        role: ArtifactRole::ProjectDescription,
+        url: format!("{raw}/index.html"),
+        maximum_bytes: page.len() as u64,
+        expected_byte_count: Some(page.len() as u64),
+        expected_sha256: Some(sha256_hex(page)),
+    });
+    let all_artifact_ids = vec![
+        "impact-012".to_owned(),
+        "impact-036".to_owned(),
+        "project-page".to_owned(),
+    ];
+    let manifest = InternetSourceManifest {
+        schema: MANIFEST_SCHEMA.to_owned(),
+        registry_id: "internet-source-test".to_owned(),
+        revision: "av-msf-v1".to_owned(),
+        sources: vec![InternetSource {
+            id: "av-msf-object-95-glass".to_owned(),
+            publisher_id: "zisen-shao".to_owned(),
+            project_id: "av-msf".to_owned(),
+            declared_revision: format!("commit-{commit}"),
+            review_date: "2026-08-27".to_owned(),
+            landing_page_url: "https://zisenshao.github.io/AV-MSF/".to_owned(),
+            terms_url: None,
+            adapter_id: "av-msf-identified-recording-v1".to_owned(),
+            adapter_profile: Some(adapters::AdapterProfile::AvMsfIdentifiedRecordingV1 {
+                object_id: "95".to_owned(),
+                material_label: "Glass".to_owned(),
+                recording_ids: vec!["012".to_owned(), "036".to_owned()],
+            }),
+            license_expression: "NOASSERTION".to_owned(),
+            redistribution_policy: RedistributionPolicy::ExternalResearchOnly,
+            provenance_review: FileRef {
+                path: "provenance.md".to_owned(),
+                sha256: sha256_hex(provenance),
+            },
+            artifacts,
+            capability_evidence: vec![
+                CapabilityEvidence {
+                    capability: EvidenceCapability::MaterialIdentity,
+                    artifact_ids: all_artifact_ids.clone(),
+                },
+                CapabilityEvidence {
+                    capability: EvidenceCapability::ObjectIdentity,
+                    artifact_ids: all_artifact_ids.clone(),
+                },
+                CapabilityEvidence {
+                    capability: EvidenceCapability::RealRecording,
+                    artifact_ids: all_artifact_ids.clone(),
+                },
+                CapabilityEvidence {
+                    capability: EvidenceCapability::RepeatIdentity,
+                    artifact_ids: all_artifact_ids,
+                },
+            ],
+        }],
+    };
+    let cache = directory.join("cache");
+    fs::create_dir(&cache).expect("create AV-MSF cache");
+    for artifact in &manifest.sources[0].artifacts {
+        let bytes: &[u8] = match artifact.id.as_str() {
+            "impact-012" => &recordings[0].1,
+            "impact-036" => &recordings[1].1,
+            "project-page" => page,
+            _ => unreachable!("known AV-MSF fixture artifact"),
+        };
+        let hash = artifact.expected_sha256.as_ref().expect("AV-MSF hash");
+        let object_directory = cache.join("objects").join(&hash[..2]);
+        fs::create_dir_all(&object_directory).expect("create AV-MSF cache object directory");
+        fs::write(object_directory.join(hash), bytes).expect("write AV-MSF cache object");
+    }
+    (manifest, cache)
+}
+
+fn test_float_wav(samples: &[f32]) -> Vec<u8> {
+    let data_bytes = u32::try_from(samples.len() * 4).expect("bounded test WAV");
+    let riff_bytes = 4 + (8 + 18) + (8 + 4) + (8 + data_bytes);
+    let mut bytes = Vec::with_capacity((riff_bytes + 8) as usize);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&riff_bytes.to_le_bytes());
+    bytes.extend_from_slice(b"WAVE");
+    bytes.extend_from_slice(b"fmt ");
+    bytes.extend_from_slice(&18_u32.to_le_bytes());
+    bytes.extend_from_slice(&3_u16.to_le_bytes());
+    bytes.extend_from_slice(&1_u16.to_le_bytes());
+    bytes.extend_from_slice(&44_100_u32.to_le_bytes());
+    bytes.extend_from_slice(&176_400_u32.to_le_bytes());
+    bytes.extend_from_slice(&4_u16.to_le_bytes());
+    bytes.extend_from_slice(&32_u16.to_le_bytes());
+    bytes.extend_from_slice(&0_u16.to_le_bytes());
+    bytes.extend_from_slice(b"fact");
+    bytes.extend_from_slice(&4_u32.to_le_bytes());
+    bytes.extend_from_slice(
+        &u32::try_from(samples.len())
+            .expect("bounded frames")
+            .to_le_bytes(),
+    );
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data_bytes.to_le_bytes());
+    for sample in samples {
+        bytes.extend_from_slice(&sample.to_le_bytes());
+    }
+    bytes
+}
+
 fn test_manifest() -> InternetSourceManifest {
     InternetSourceManifest {
         schema: MANIFEST_SCHEMA.to_owned(),
@@ -290,6 +540,7 @@ fn test_manifest() -> InternetSourceManifest {
             landing_page_url: "https://example.org/dataset".to_owned(),
             terms_url: Some("https://example.org/license".to_owned()),
             adapter_id: "hash-closed-synthetic-v1".to_owned(),
+            adapter_profile: None,
             license_expression: "CC-BY-4.0".to_owned(),
             redistribution_policy: RedistributionPolicy::ExternalResearchOnly,
             provenance_review: FileRef {

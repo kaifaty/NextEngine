@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet source registry and cache pilot
 
 Date: 2026-08-27
-Status: `SOURCE_REGISTRY_IMPLEMENTED / E4_READY / OBJECTFOLDER_REAL_DISCOVERY_ONLY / PASS_DISABLED`
+Status: `SOURCE_REGISTRY_IMPLEMENTED / AV_MSF_E3_READY / E4_READY / PASS_DISABLED`
 
 ## Question
 
@@ -51,10 +51,12 @@ paths. A corrupt existing cache entry is a typed failure, not a refetch or
 warning.
 
 Capabilities map to exact artifact IDs and separately report byte availability
-and adapter validation. The first implemented adapter,
-`hash-closed-synthetic-v1`, may validate only `synthetic_lineage`; arbitrary or
-future adapter IDs grant no acoustic capability. `E1`–`E3` therefore cannot be
-forged by labelling opaque bytes. The report has
+and adapter validation. `hash-closed-synthetic-v1` may validate only
+`synthetic_lineage`. The typed `av-msf-identified-recording-v1` profile checks
+an exact immutable project page, its object/material/recording metadata and
+bounded finite float32 WAV payloads before validating only material/object/real
+recording/repeat identity. Arbitrary or future adapter IDs grant no acoustic
+capability. Opaque bytes therefore cannot forge `E1`–`E3`; the report has
 `NO_CORPUS_ADMISSION_AUTHORITY` regardless of tier.
 
 ## Official-source pilot
@@ -84,6 +86,16 @@ the page publishes no SHA-256. The pipeline therefore assigns
 `E1`–`E3` capability. This is the intended fail-closed result, not a dataset
 quality rejection.
 
+The second official-source pilot freezes the
+[AV-MSF](https://zisenshao.github.io/AV-MSF/) page branch at Git commit
+`723df64a94480fc8f8e592c66c0d916e8b0054d1`. Object 95 is explicitly labelled
+`Glass` with contact recordings `012` and `036`. The adapter validates the
+27,239-byte page and two 529,258-byte, mono 44.1 kHz float32 WAVs by exact
+SHA-256, page card and audio structure. It grants exactly
+`E3IdentifiedRecording`; missing force, geometry, positions, support and
+calibration receive no credit. See the
+[AV-MSF pilot](physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md).
+
 ## Frozen result
 
 External evidence lives under:
@@ -103,15 +115,24 @@ Online reports from two fresh content-addressed caches and a later offline repor
 are byte-identical. External source bytes, cache objects and reports remain out
 of the repository.
 
+The separate AV-MSF E3 pilot lives under
+`/home/kaifaty/.codex/experiments/nextengine/physical-sound/ps2-av-msf-e3-glass-v1/`.
+Its manifest/report hashes are
+`a1de51fdd8f3bdcca0e7a11551b45ea91a6bf43520439da2708729351f667480` and
+`d762c92e8bd3210944ee7802fa7fef71e10776a62b4da132eb92cb0d33c56231`.
+Two fresh online caches and one offline audit again produced byte-identical
+reports.
+
 ## Decision and next action
 
-The generic source registry, bounded fetch/cache and claim matrix are complete.
-The current blocker is now a source-specific real-data adapter plus a bounded
-hash-closed published real payload, not generic networking or local hardware.
+The generic source registry and first bounded real-data adapter are complete;
+one glass object with two recordings is E3-ready. The blocker has moved to
+multi-object/source grouped coverage plus complementary E2 spatial/transfer
+evidence, not networking, adapter existence or local hardware.
 
-Search official dataset releases for an object-level or otherwise bounded
-`E2`/`E3` artifact with published SHA-256. Implement exactly one format adapter,
-then import one glass/steel/wood real source through it. ObjectFolder-Real may be
+Normalize multiple independent E3 objects/sources into the external corpus
+inventory, implement the bounded REALIMPACT E2 adapter, then re-plan available
+groups before opening calibration, holdout or shadow. ObjectFolder-Real may be
 reconsidered if the publisher supplies cryptographic checksums or a bounded
 object-level download; do not download the 36.37 GB unhashed archive merely to
 advance the roadmap.

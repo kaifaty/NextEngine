@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet corpus acquisition policy
 
 Date: 2026-08-27
-Status: `ACTIVE_CONSTRAINT / SOURCE_REGISTRY_IMPLEMENTED / REAL_ADAPTER_NEXT / PASS_DISABLED`
+Status: `ACTIVE_CONSTRAINT / FIRST_E3_SOURCE_READY / GROUPED_CORPUS_EXPANSION_NEXT / PASS_DISABLED`
 
 ## Decision
 
@@ -66,7 +66,8 @@ non-distributable; they do not permit copying it into the repository or shipped
 content. Provenance, attribution and source identity remain attached to every
 derived feature and report.
 
-See the measured [internet source/cache pilot](physical-sound-internet-source-pipeline-ps2-2026-08-27.md).
+See the measured [internet source/cache pilot](physical-sound-internet-source-pipeline-ps2-2026-08-27.md)
+and [AV-MSF E3 pilot](physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md).
 
 ## Current consequence
 
@@ -74,12 +75,14 @@ REALIMPACT GlassGoblet is useful `E2 transfer response` evidence because its
 published archive exposes force-deconvolved 48 kHz responses, mesh, impact
 vertices and listener coordinates. Its unavailable raw force, material
 composition, repeat identity and fixture revision still prohibit `E1` credit.
-ObjectFolder remains `E4` synthetic/generated comparison evidence unless a
-separate published real recording supplies the missing real-response claims.
+The AV-MSF Object 95 pilot now supplies one typed-adapter-backed `E3 identified
+recording` group with two glass impacts. ObjectFolder remains `E4`
+synthetic/generated comparison evidence unless a separate published real
+recording supplies the missing real-response claims.
 
-The generic registry, bounded HTTPS fetch/cache and capability matrix are now
-implemented. The immediate blocker is `REAL_SOURCE_FORMAT_ADAPTER_AND_PAYLOAD`,
-not force hardware or generic networking. If published evidence cannot satisfy
-a domain's required claims and grouped sample sizes, that domain remains
-fallback-only. The project does not resolve the gap by asking the user to make
-physical recordings.
+The generic registry, bounded HTTPS fetch/cache, capability matrix and first E3
+adapter are implemented. The immediate blocker is
+`MULTI_SOURCE_GROUPED_COVERAGE_AND_E2_ADAPTER`, not force hardware or generic
+networking. If published evidence cannot satisfy a domain's required claims and
+grouped sample sizes, that domain remains fallback-only. The project does not
+resolve the gap by asking the user to make physical recordings.
