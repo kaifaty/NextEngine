@@ -347,6 +347,8 @@ SplitBoundaryReport
 run_al_generalization_v5_common_residual_recoverability_controls();
 SplitBoundaryReport
 run_al_generalization_v5_exact_residual_image_controls();
+SplitBoundaryReport
+run_al_generalization_v5_earliest_residual_image_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 

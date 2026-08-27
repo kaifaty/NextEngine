@@ -147,6 +147,10 @@ struct ALR20R63SStep {
     Binary128 denominator = static_cast<Binary128>(0.0);
     Binary128 alpha = static_cast<Binary128>(0.0);
     Binary128 beta = static_cast<Binary128>(0.0);
+    // Observational snapshot for later independently certified replay gates.
+    // It is deliberately excluded from the frozen R63S root; the existing
+    // certificate solution_root already binds these exact values.
+    std::vector<Binary128> solution;
     ALR20R63SCertificate certificate;
     std::string root;
 };
@@ -355,6 +359,7 @@ ALR20R63SLane al_r20_r63s_lane(
         result.solution = std::move(updated_solution);
         result.residual = std::move(updated_residual);
         ++result.completed_iterations;
+        step.solution = result.solution;
         step.certificate = al_r20_r63s_certificate(
             exact_rhs, matrix, inverse_defect, result.solution);
         record_certificate(step.certificate, iteration);
