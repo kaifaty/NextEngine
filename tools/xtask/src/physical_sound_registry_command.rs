@@ -8,6 +8,7 @@ use next_contracts::ids::ContentHash;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+mod corpus_inventory;
 mod corpus_plan;
 
 const MANIFEST_SCHEMA: &str =
@@ -57,6 +58,13 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
     {
         arguments.next();
         return corpus_plan::run_cli(root, arguments);
+    }
+    if arguments
+        .peek()
+        .is_some_and(|argument| argument == "corpus-inventory")
+    {
+        arguments.next();
+        return corpus_inventory::run_cli(root, arguments);
     }
     let request = parse_arguments(arguments)?;
     run(root, &request)

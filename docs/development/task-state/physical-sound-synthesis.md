@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_CONTRACT_COMPLETE / PS2_CONTROLLED_ACQUISITION_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_REAL_PILOT_COMPLETE / PS2_FULL_ACQUISITION_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-27` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** PS-2 exact axes, split/fallback policy and numeric
-  power plan are frozen; `Pass` stays disabled.
-- **Why:** The 40/40 plan exceeds required 35 reject parents and 16 coverage
-  groups, but controlled recordings and independent real evidence do not exist.
-- **Next action:** Run the smallest controlled glass-family acquisition/import
-  pilot without opening shadow or weakening the frozen release-size target.
+- **Current conclusion:** One real REALIMPACT transfer passes inventory audit
+  but correctly yields `FallbackOutOfDomain`; `Pass` stays disabled.
+- **Why:** Exact geometry/spatial/audio hashes exist, but force bytes,
+  composition, repeat identity and support-fixture revision are unavailable.
+- **Next action:** Record one complete controlled glass acquisition bundle,
+  then scale it to the frozen 40-object/35-parent/16-coverage target.
 - **Current blocker:** Insufficient corpus scale/domain axes,
   spatial/force evidence, mixer budget, Accepted ADR and complete contact signal.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
@@ -35,7 +35,7 @@
 | [Steel residual v4](../physical-sound-steel-residual-v4-2026-08-27.md) | `V4_REJECTED / FALLBACK_OUT_OF_DOMAIN` | YCB adds aluminium-container and steel-skillet families. Real metal flatness is about `−16/−17 dB` versus v3 `−53 dB`; v4 reaches flatness but not real spectral dynamics. Original PANNs stays `0/39`, BEATs `7/39`; no joint profile or promotion. |
 | [Controlled glass corpus](../physical-sound-controlled-glass-corpus-2026-08-27.md) | `CONTROLLED_SYNTHETIC_CORPUS_PASS / HUMAN_REFERENCE_OPEN` | Exact geometry and 15 force/position conditions are reproducible; Q30 and physical controls pass, but whole-vector IDW is an inadequate spatial model and the corpus has no real matched recording. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
-| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [PS-2 contract](../physical-sound-corpus-plan-ps2-2026-08-27.md), [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) and [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md) | `PS2_CONTRACT_COMPLETE / CONTROLLED_ACQUISITION_OPEN` | Exact axes and policy are pre-registered; risk sizing requires 35 reject parents and 16 coverage groups. The 40/40 plan is sufficient on paper only, so clip fallback remains mandatory. |
+| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [PS-2 contract](../physical-sound-corpus-plan-ps2-2026-08-27.md), [REALIMPACT pilot](../physical-sound-realimpact-pilot-ps2-2026-08-27.md), [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) and [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md) | `PS2_REAL_PILOT_COMPLETE / FALLBACK_OUT_OF_DOMAIN` | One 48 kHz real transfer has exact mesh/listener/audio hashes and repeatable audit; four unavailable acquisition components prevent matched-domain credit. The 40/40 plan remains future work. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -172,8 +172,8 @@
   head toward metal and the other toward glass. Registry V1 forbids a forged
   `Pass`; PS-1 closes the known shuffled-envelope blind spot with a separate
   amplitude head and consensus, without making either a complete quality judge.
-- **Uncertainty:** The power-sufficient PS-2 plan is not yet acquired;
-  spatial/force behavior and subjective naturalness remain unmeasured.
+- **Uncertainty:** The pilot lacks raw force/repeats/support revision and the
+  power-sufficient PS-2 corpus is not acquired; quality remains unmeasured.
 - **Reconsider when:** A frozen simpler validator matches the ensemble's grouped
   holdout risk, OOD behavior and failure diagnosis.
 
@@ -186,7 +186,7 @@
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out real/human evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | PS-1 rejects all 36 mutations; PS-2 freezes exact axes and a power-sufficient 40/40 plan | The planned controlled real objects have not been acquired; current measured risk is still underpowered | Controlled pilot, then full frozen acquisition before one shadow evaluation |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | PS-2 automatically rejects an incomplete real pilot instead of inventing axes | No complete real acquisition bundle or powered release corpus exists | Record one full bundle, then scale before one shadow evaluation |
 
 ## Required context
 
@@ -196,7 +196,7 @@ Read these sources in precedence order before acting:
 2. [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md), [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../../architecture/30-presentation-extraction-and-render-content.md), ADR-027/046/058/071.
 3. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 4. [Research report](../physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../physical-sound-quality-evaluation-research-2026-08-26.md),
-   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [PS-2](../physical-sound-corpus-plan-ps2-2026-08-27.md), [steel v4](../physical-sound-steel-residual-v4-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
+   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md), [PS-2 pilot](../physical-sound-realimpact-pilot-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
 5. [Roadmap](../../roadmap.md) only for a future scheduling/scope decision.
 
 ## Next action
@@ -211,8 +211,8 @@ Read these sources in precedence order before acting:
    negative evidence; do not start a v5 gain grid.
 5. Preserve PS-1 profile/report hashes and the closest rejected sentinel;
    change corpus revision rather than reopening the frozen shadow.
-6. Preserve the PS-2 manifest/report hashes; execute a controlled glass pilot,
-   then the full 40-object acquisition before `Pass`, PS-3 or AV-P0D.
+6. Preserve PS-2 plan/pilot hashes; acquire one complete controlled glass
+   bundle, then 40 objects before `Pass`, PS-3 or AV-P0D.
 7. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 8. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
@@ -239,12 +239,12 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Registry V1, PS-1 specialists and PS-2 corpus-plan
-  contract are implemented; defaults/public schemas/assets/ownership unchanged.
-- **Checks:** sound `44/44`, Clippy `-D warnings`, fmt, boundary scan and byte
+- **Workspace state:** Registry V1, PS-1, PS-2 plan and real-inventory pilot are
+  implemented; defaults/public schemas/assets/ownership unchanged.
+- **Checks:** sound `47/47`, Clippy `-D warnings`, fmt, boundary scan and byte
   repeat pass; candidate product/platform/performance checks remain not run.
 - **Remaining risk:** corpus scale/scope, calibration/OOD,
   spatial transfer, contact sufficiency, mixer cost and authoring are open.
-- **Quality status:** PS-2 sizing is sufficient only as a plan; no new quality,
-  corpus admission or production claim exists until real acquisition passes.
+- **Quality status:** real pilot is fallback-only; no quality, corpus admission
+  or production claim exists until complete controlled acquisition passes.
 - **Promotion needed:** Concrete consumer, later ADR-046 promotion, then exact content/contact/DSP profiles and ProductChecks.

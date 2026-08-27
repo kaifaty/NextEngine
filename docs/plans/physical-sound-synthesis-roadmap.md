@@ -2,9 +2,9 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_CONTRACT_COMPLETE / PS-2_ACQUISITION_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_PILOT_COMPLETE / PS-2_FULL_ACQUISITION_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 corpus-plan evidence](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Текущий evidence | [PS-2 REALIMPACT pilot](../development/physical-sound-realimpact-pilot-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -91,7 +91,7 @@ frozen `ValidatorRelease`:
 ```mermaid
 flowchart LR
     PS0["PS-0 Foundation<br/>COMPLETE"] --> PS1["PS-1 Envelope specialist<br/>COMPLETE"]
-    PS1 --> PS2["PS-2 Corpus and risk policy<br/>CONTRACT COMPLETE / ACQUISITION NEXT"]
+    PS1 --> PS2["PS-2 Corpus and risk policy<br/>PILOT COMPLETE / FULL ACQUISITION NEXT"]
     PS2 --> PS3["PS-3 Validator Release V1<br/>BLOCKED"]
     PS3 --> PS4["PS-4 AV-P0D autonomous search<br/>BLOCKED"]
     PS4 --> PS5["PS-5 Formula Base V1<br/>BLOCKED"]
@@ -106,7 +106,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / CONTRACT_COMPLETE` | L | Numeric risk/coverage, exact axes, split keys and fallback policy pre-registered; controlled real-family acquisition remains open. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / PILOT_COMPLETE` | L | Policy is frozen and one real spatial/geometry row is audited; missing force/support/repeat/composition evidence forces fallback, so full controlled acquisition remains open. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -172,6 +172,14 @@ confidence инструмент требует минимум 35 reject-parent g
 coverage lower bound `0.80` — 16 in-domain groups. Frozen glass-vessel plan на
 40/40 groups получает только `PlanPowerSufficient`; recordings ещё не собраны,
 `Pass` и AV-P0D остаются выключены. См. [PS-2 evidence](../development/physical-sound-corpus-plan-ps2-2026-08-27.md).
+
+PS-2 pilot checkpoint: `physical-sound-registry corpus-inventory` импортировал
+один real 48 kHz REALIMPACT GlassGoblet transfer с exact mesh vertex, listener
+position и audio hash. Finite/byte-count и partition-leakage audit повторяются,
+но downloadable archive не содержит force-profile bytes, material composition,
+repeat identity и support-fixture revision. Автоматический outcome —
+`FallbackOutOfDomain`; pilot не получает calibration/holdout/shadow credit. См.
+[pilot evidence](../development/physical-sound-realimpact-pilot-ps2-2026-08-27.md).
 
 ## PS-2 — Сделать риск статистически измеримым
 
@@ -310,7 +318,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Добавить controlled pilot, затем первую полную independent real object family с честными axes и hashes — `NEXT` | PS-2 evidence expansion |
+| 4 | Добавить controlled pilot — `COMPLETE`; затем первую полную independent real object family с честными axes и hashes — `NEXT` | PS-2 evidence expansion |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 

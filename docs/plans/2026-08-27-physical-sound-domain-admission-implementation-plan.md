@@ -194,6 +194,15 @@ requires 35 reject parents and 16 in-domain groups; the declared 40/40 plan is
 `PlanPowerSufficient`. This is planning authority only. The recordings and
 matched real-family evidence remain open; see [PS-2 evidence](../development/physical-sound-corpus-plan-ps2-2026-08-27.md).
 
+The next bounded pilot is also implemented. `physical-sound-registry
+corpus-inventory` verifies external float32 transfer bytes, acquisition and
+provenance hashes, exact impact/listener positions, finite samples and
+cross-partition group leakage. One REALIMPACT GlassGoblet row validates as
+`DevelopmentPilotOnly` and automatically becomes `FallbackOutOfDomain` because
+the downloadable archive lacks force-profile bytes, composition revision,
+repeat identity and support-fixture revision. It opens no calibration, holdout
+or shadow and gives no PS-2 release credit. See [pilot evidence](../development/physical-sound-realimpact-pilot-ps2-2026-08-27.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:
