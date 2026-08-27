@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_65_OF_65_CENTERED_CANDIDATE / D7R20R42_RATIO_ORDER_BOUNDARY / D7R20R43_SECOND_INVERSE_BOUNDARY / D7R20R44_TWO_SIDED_CONTRACTIVE / D7R20R45_65_OF_65_SECOND_CENTER / D7R20R46_THIRD_INVERSE_BOUNDARY / D7R20R47_TWO_SIDED_CONTRACTIVE / D7R20R48_65_OF_65_THIRD_CENTER / D7R20R49_FOURTH_INVERSE_BOUNDARY / D7R20R50_TORSION_GENERIC_CANDIDATE / D7R20R51_COUNTERFLOW_ONLY_BOUNDARY / D7R20R52_CAPTURE_PREMISE_REFUTED / D7R20R53_CENTERED_SLOPE_CANDIDATE / D7R20R54_LEGACY_SLOPE_CANDIDATE / D7R20R55_COUNTERFLOW_CERTIFIED / D7R20R56_V4_5_OF_5 / D7R20R57_V5_MANIFEST_FROZEN / D7R20R58_V5_PREFLIGHT_PASS / D7R20R59_V5_DIMENSION_BOUNDARY / D7R20R60_DIMENSION_GENERIC_CENTER / D7R20R61_V5_6_OF_6 / D7R20R62_STRICT_BINARY64_DOT2ERR_SELECTED / D7R20R63_BINARY64_PROJECTED_INVERSE_NONCONTRACTIVE / D7R20R63A_MIXED_PROJECTION_CONTRIBUTION / D7R20R63B_FACTOR_LEFT_NONCONTRACTIVE / D7R20R63C_BINARY64_LOWER_LEFT_NONCONTRACTIVE / D7R20R63D_PROJECTOR_METRIC_NUMERICAL_RANK_LOSS / D7R20R63E_CLAMP_METRIC_NUMERICAL_RANK_LOSS / D7R20R63F_LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED / SHARED_HOST_PERFORMANCE_STOP` |
-| Current frontier | `D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE / D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED / D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED / D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED / D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE / D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE / D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED / D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED / D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE / D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE / D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED / D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE / D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE / D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE / D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE / D7R20R63ZB_TWOFOLD_RECURRENCE_FROZEN_IMPLEMENTATION_NEXT` |
+| Current frontier | `D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE / D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED / D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED / D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED / D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE / D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE / D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED / D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED / D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE / D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE / D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED / D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE / D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE / D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE / D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE / D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED / D7R20R63ZC_OPERATOR_INPUT_FACTORIAL_FROZEN_IMPLEMENTATION_NEXT` |
 | Updated | `2026-08-27` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -27,11 +27,25 @@
   `ed251161...25f72`. All three solves and 612 containments close. Maximum
   center/reference difference is `0.0424`; dependency radii reach `1e25` and
   are not admitted as recurrence uncertainty.
-- **R63ZB frozen:** execute one deterministic exported K2 PCG lane through
-  states `0..2`: three common products, three factor solves, four Krylov dots
-  and 510 vector updates. Seal all states, then require R63Y
-  reject/reject/pass. R63ZA dependency radii and binary128 candidates are
-  forbidden recurrence inputs.
+- **Current result:** R20R63ZB is reviewed bounded-negative evidence at
+  result semantic `acfe6baf...a709ebf`, route
+  `TWOFOLD_RECURRENCE_LADDER_REJECTED`; three author/reviewer executions are
+  byte-identical at `a1056719...8c1176`. Apparatus, identity, arithmetic,
+  positivity, verifier, work and comparator-isolation controls close. States
+  `0..2` each remain `12+/24-/66?`; state-2 error is about `1.07e15`.
+- **Review boundary:** compilation and author tests were insufficient. Three
+  independent review cycles forced repair of payload sealing, synthetic
+  positivity/comparator controls and collapsed top-level route precedence.
+  The final repaired source/binary received focused review `GO`.
+- **Next:** research/freeze R63ZC as a fixed `2x2` tangent/common-operator by
+  original/projected-RHS-and-scale discriminator. The exported factor remains
+  identical. Keep the recurrence and R63Y certificate fixed; do not retry the
+  same R63Z/R63ZA pair, fit a tolerance, add a third word, change Krylov
+  method, run timing or infer production authority.
+- **R63ZC frozen:** four observational binary128 lanes execute the same two
+  updates and factor. The tangent/original and common/projected endpoints must
+  reproduce R63X and the R63ZB comparator; the two hybrids classify operator,
+  input, independent or interaction causality without a fitted threshold.
 
 - **Current result:** R20R63X passes at semantic
   `904614d7...95a65`, route `TWO_LANE_AFFINE_IMAGE_CANDIDATE`; stdout is
@@ -6328,6 +6342,32 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R63ZB selects a state-2 candidate or localizes the first
   arithmetic/positivity/verifier boundary.
 
+### D-221 -- Reject the sealed artifact pair and require reviewed perturbation localization
+
+- **Context:** final reviewed R63ZB executes the complete fixed K2 recurrence,
+  but states `x0,x1,x2` all remain `12+/24-/66?`; state-2 affine error is
+  about `1.07e15`. An observational binary128 replay of the same finite
+  common-block/exported-factor artifacts also rejects. It shares R63Y and is
+  not an independent end-to-end oracle.
+- **Decision:** retain R63ZB as `SUPPORTED_BOUNDED / REVIEWED_NEGATIVE` for
+  exactly one sealed operator/factor/RHS transaction. R63S and the comparator
+  already share the exported factor. The next R63ZC research must cross
+  tangent/common operator action with original/projected RHS and inverse scale
+  under the unchanged recurrence/certificate and localize the first product,
+  solve or state divergence before selecting a repair.
+- **Review rule:** compilation and author tests are never sufficient for a
+  decisive executable research result. Freeze diff/command/output hashes and
+  require fresh adversarial review; every material repair invalidates the
+  prior review snapshot.
+- **Rejected:** retrying the same artifact pair; interpreting the result as a
+  general PCG/K2/Nonlocal failure; fitting tolerance; post-run third words;
+  changing Krylov method; timing, GPU/runtime integration or production
+  inference.
+- **Reconsider when:** the crossed discriminator attributes loss of the R63X/
+  R63M state-2 lineage to operator representation, input projection, their
+  interaction, recurrence arithmetic, or an explicitly unresolved shared
+  verifier boundary.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -6384,11 +6424,13 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 2. Preserve R20R63Z semantic `e27ee861...3e4be`, stdout
    `de22f5f6...da54`, all 612 containments and its zero candidate-update,
    PCG, sparse-build, timing, GPU/runtime/production authority ledger.
-3. Implement frozen R20R63ZB sealed-center K2 PCG for the exported lane and
-   states `0..2`. Use R63Z for operator products, R63ZA for preconditioner
-   centers and R63Y only as an independent final affine verifier. Do not use
-   R63ZA dependency radii as recurrence state or add adaptive stopping,
-   corpus, timing or integration.
+3. Preserve reviewed R20R63ZB result semantic `acfe6baf...a709ebf`, stdout
+   `a1056719...8c1176`, its exact fixed-work ledger and narrow
+   `TWOFOLD_RECURRENCE_LADDER_REJECTED` interpretation. Research and freeze
+   R20R63ZC as a fixed tangent/common-operator by original/projected-input
+   discriminator under the same recurrence order and final R63Y certificate.
+   Keep the exported factor identical. Localize before changing arithmetic or
+   method; do not retry, fit, time or integrate.
 4. Preserve R20R51 semantic `48df3b26...adca` and all five case roots,
    R20R50 semantic `190ac441...d86e`, all five generic certificate
    roots and the exact work ledger, R20R49 semantic `719e0d50...f3cc`, all three practical roots and

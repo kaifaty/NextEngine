@@ -1,6 +1,13 @@
 # NSR3-B4E2D7R20R63ZB twofold recurrence research
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN`.
+Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / REVIEWED_NEGATIVE`.
+
+Evidence: the final reviewed producer takes
+`TWOFOLD_RECURRENCE_LADDER_REJECTED` at result semantic
+`acfe6bafe9569eba101ed1e352cc01e149023e295bd8c082bdac58e49a709ebf`.
+All finite apparatus, identity, arithmetic, positivity, verifier and work
+boundaries close, but states `x0,x1,x2` each remain `12+/24-/66?`. See the
+[R63ZB evidence](nonlocal-nsr3b4e2d7r20r63zb-twofold-recurrence-evidence-2026-08-27.md).
 
 ## Strongest bounded conclusion
 
@@ -89,16 +96,19 @@ certificate cannot change the recurrence already executed.
 
 ## Result interpretation and next boundary
 
-If state 2 passes, R63ZB selects a portable arithmetic candidate producer for
-one frozen active block/RHS. The next work is not timing. It is portable
-dynamic construction of the K2 common block and exported-factor equivalent
-from the binary64 tangent, followed by a failure-atomic producer/verifier
-transaction and a broader face/RHS corpus.
+State 2 fails under both the finite producer and an observational binary128
+replay of the same finite artifacts. This selects neither a portable
+arithmetic producer nor a general failure of PCG/K2. It localizes the next
+question to the changed operator/input lineage rather than recurrence
+rounding alone.
 
-If state 2 fails, compare sealed K2 states to the observational binary128
-lineage and localize the first operator, preconditioner, scalar or vector-
-update divergence. Do not fit a tolerance, add a third word after observing
-the result, use exact signs, or change the algorithm in the same gate.
+R63S and the comparator already use the same exported factor, so cross tangent
+versus K2 common-block products with original versus projected RHS/inverse-
+scale inputs under the same recurrence and final R63Y certificate. The fixed
+`2x2` experiment must identify the first state/product/solve at which the
+selected state-2 lineage is lost. Do not fit a tolerance, add a third word
+after observing the result, use exact signs, change Krylov method, or start
+timing in the same gate.
 
 No result authorizes an adaptive two-update runtime stop, nonlinear state
 commit, timing, GPU or production.

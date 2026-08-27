@@ -15,7 +15,8 @@ NSR3B4E2D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE /
 NSR3B4E2D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE /
-NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED /
+NSR3B4E2D7R20R63ZC_OPERATOR_INPUT_FACTORIAL_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3984,6 +3985,31 @@ sealed-center exported K2 PCG lane through states `0..2`. The producer performs
 three operator products, three factor solves, four Krylov dots and 510 vector
 updates; R63Y independently requires reject/reject/pass. R63ZA dependency
 radii, binary128 candidates and adaptive stopping are excluded.
+
+The
+[R20R63ZB evidence](../../development/nonlocal-nsr3b4e2d7r20r63zb-twofold-recurrence-evidence-2026-08-27.md)
+closes as reviewed bounded-negative evidence at
+`TWOFOLD_RECURRENCE_LADDER_REJECTED`. Apparatus, identity, arithmetic,
+positivity, verifier and fixed-work controls close, but every finite state
+remains `12+/24-/66?`; the state-2 error upper is about `1.07e15`. A
+binary128 replay of the same finite operator/factor artifacts also rejects,
+but shares R63Y and is localization-only. Research a fixed `2x2`
+tangent/common-operator by original/projected-input discriminator next; the
+exported factor is common to both lineages. Do not retry the same artifact
+pair, infer general PCG/K2 failure, or begin timing/runtime/GPU/production
+work.
+
+The
+[R20R63ZC research](../../development/nonlocal-nsr3b4e2d7r20r63zc-operator-input-factorial-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63zc-operator-input-factorial-contract.md) freeze the
+minimal causal discriminator. Four binary128 lanes cross tangent/common-block
+operator action with original/projected RHS and inverse scale while retaining
+the identical exported factor, recurrence and R63Y profile. The two known
+diagonal endpoints must reproduce R63X and the R63ZB comparator before the
+hybrids classify operator sufficiency, input sufficiency, independent effects
+or interaction. This is observational localization only; finite repair,
+timing and integration remain blocked.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
