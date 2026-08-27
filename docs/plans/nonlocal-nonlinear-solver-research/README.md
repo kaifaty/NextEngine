@@ -13,7 +13,8 @@ NSR3B4E2D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED /
 NSR3B4E2D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE /
-NSR3B4E2D7R20R63Z_BLOCK_OPERATOR_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE /
+NSR3B4E2D7R20R63ZA_FINITE_CONSUMPTION_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3966,6 +3967,17 @@ coefficients per vector versus at most 10,404 for the complete common block.
 R63Z will build one identity-bound twofold `H*` artifact and independently
 contain all 612 products for both lanes at states `0..2`. It performs no PCG,
 candidate update, sparse build or timing.
+
+The
+[R20R63Z evidence](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-evidence-2026-08-27.md)
+selects `TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE`. All `10,404` operator
+entries have nonzero low words, all `612/612` independent exact products are
+contained, and the immutable artifact/lane/state lifecycle controls pass.
+For this dimension-102 block, the selected direct action visits 10,404
+coefficients rather than 35,496 in sparse two-stage `T(T^T x)`; this is a
+structural selection, not timing evidence. Research a fixed finite
+factor/preconditioner consumption recurrence next. Candidate updates, corpus,
+timing, runtime, GPU and production remain blocked.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
