@@ -160,9 +160,31 @@ surface. If an independent reviewer is unavailable, record code-review
 correspondence as `NOT_TESTED` and cap the result; do not substitute a second
 self-review or a successful build.
 
-Recompute load-bearing steps or use a different representation. If an
-objection survives two coherent repair cycles, replace the approach or return
-an explicit unresolved gap rather than adding more ceremonial review.
+Bound review cost per executable experiment lineage:
+
+- allow at most two independent passes: one initial review and one re-review
+  after a single batched repair;
+- batch all initial findings into that repair instead of opening one loop per
+  finding;
+- if the re-review still finds a load-bearing defect, stop the experiment as
+  `INCONCLUSIVE`; do not start a third repair/review loop under the same
+  contract or research ID;
+- open a new revision or successor experiment only when the engineering
+  consumer still needs the result and the apparatus/discriminator changes
+  materially, not merely to chase a clean verdict;
+- ask the reviewer to verify hashes first and budget at most one clean rebuild
+  plus one focused rerun. Re-execute ancestor chains only when their captured
+  hash mismatches or their live behavior is itself load-bearing and otherwise
+  unverified.
+
+Document non-load-bearing review notes without recursively re-reviewing them.
+A reviewer may accept a bounded result with explicit limitations when those
+notes cannot alter the declared observable, route, identity or claim ceiling.
+
+Recompute load-bearing steps or use a different representation. If a
+load-bearing objection remains after the allowed re-review, replace the
+approach or return an explicit unresolved gap rather than adding more
+ceremonial review.
 
 ### 7. Escalate formal verification selectively
 
