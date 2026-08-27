@@ -12,7 +12,8 @@ NSR3B4E2D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED /
 NSR3B4E2D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE /
-NSR3B4E2D7R20R63Y_PORTABLE_EXPANSION_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE /
+NSR3B4E2D7R20R63Z_FACTORIZED_PRODUCER_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3943,6 +3944,17 @@ sparse-verification range established in the 2026 literature. R63Y therefore
 executes fixed onefold and twofold binary64 expansions of the R63X affine form
 before changing the verifier theorem or sparse operator. Both widths run the
 complete two-lane state `0..2` corpus; exact images are containment-only.
+
+The
+[R20R63Y evidence](../../development/nonlocal-nsr3b4e2d7r20r63y-portable-expansion-affine-evidence-2026-08-27.md)
+selects `TWOFOLD_AFFINE_IMAGE_CANDIDATE`. Onefold binary64 contains every
+exact image but leaves one state-2 sign unresolved in each lane at error near
+`48.45`. Twofold contains all `1,224` images and reproduces both R63X state-2
+certificates at `4.44e-4/1.01e-3` with the frozen `24+/78-/0?` sign root. The
+finite certificate contains no binary128 or exact value. Research a
+factorized/sparse candidate producer and immutable producer/verifier artifact
+boundary next; dense profile construction, candidate generation, corpus,
+timing, runtime, GPU and production remain blocked.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
