@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.5 |
+| Version | 0.6 |
 | Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
-| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md) |
-| Replaces | SPEC-45 0.4; defines the external acoustic-domain knowledge/admission loop without promoting quality acceptance or a runtime/content contract |
+| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md) |
+| Replaces | SPEC-45 0.5; records the controlled-mutation/grouped-risk boundary without promoting quality acceptance or a runtime/content contract |
 
 ## Status and decision boundary
 
@@ -101,12 +101,19 @@ head disagrees on selected Q30, and no selective-risk threshold is calibrated.
 This checkpoint supplies real failure evidence, not a perceptual-risk or
 AV-P0C acceptance gate.
 
-The repository now also contains the first AV-P0C substrate. `xtask
+The repository now also contains the first measured AV-P0C substrate. `xtask
 physical-sound-registry` validates an external hash-closed formula/domain index
-and deliberately has no `Pass` value or acceptance authority. The corpus
-benchmark retains the frozen AV-P0B descriptor as a separate feature profile
-and adds deterministic temporal-spectral evolution features; its report remains
-`NoAcceptanceAuthority` until grouped mutation/OOD risk is calibrated. The
+and deliberately has no `Pass` value or acceptance authority. `xtask
+physical-sound-mutations` builds external hash-closed controlled negatives for
+stationary white/coloured tails, frozen spectral evolution and shuffled
+amplitude envelopes. The corpus benchmark retains the frozen AV-P0B descriptor
+as a separate feature profile, adds deterministic temporal-spectral evolution
+features and reports calibration-only thresholds plus parent-grouped holdout/
+shadow false-pass risk. The first three-object-per-split measurement has only
+`1/3` holdout real coverage, `1/3` grouped holdout and shadow false passes and a
+`0.7923` 95% Wilson upper risk bound. It therefore remains
+`NoAcceptanceAuthority`; in particular, the shuffled-envelope counterexamples
+require a separate amplitude-envelope specialist and broader real families. The
 [implementation plan](../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md)
 defines the remaining P0C/P0D and production-promotion boundaries.
 
@@ -228,10 +235,21 @@ JSON shapes, bounds, ordering and hashes. An admitted production profile later
 becomes cooked PresentationOnly content only through a concrete consumer and a
 promoting ADR under ADR-046.
 
+Controlled mutations used as negative evidence MUST declare their expected
+validator outcome explicitly. Published resynthesis, perceptual tuning or other
+unlabelled transformations MUST NOT be inferred to be failures merely because
+their origin is a mutation. A controlled mutation MUST preserve its parent's
+partition, object/family, material and source identity, and related mutations
+MUST be grouped by parent when estimating false-pass risk.
+
 `Pass` is permitted only for the exact declared domain and validator release.
 The validator used for admission MUST be frozen before evaluating a new
 generator revision, MUST NOT train or calibrate on that generator's holdout or
-shadow entries, and MUST publish a measured selective risk/coverage result.
+shadow entries, and MUST publish a measured confidence-bounded selective risk/
+coverage result on independent parent/object groups. Threshold choice uses only
+the declared calibration partition; holdout and shadow cannot select features,
+weights or thresholds. A point estimate with insufficient grouped support is
+not an admission bound.
 Missing coverage, an unsupported condition or insufficient confidence selects
 `FallbackOutOfDomain`; it never creates a human approval queue. A validator
 release may invalidate admission under a newer policy only by publishing a new
@@ -475,8 +493,10 @@ P0 advances through four evidence checkpoints:
 2. `AV-P0B` hash-closes grouped real/generated/mutation corpora and measures
    frozen feature heads without acceptance authority.
 3. `AV-P0C` adds temporal-spectral dynamics, leave-family/source/generator/
-   mutation-out evaluation and calibrated selective risk. Automatic `Pass`
-   remains disabled until this checkpoint demonstrates its declared bound.
+   mutation-out evaluation, explicitly labelled controlled negatives and
+   calibration-only selective risk measured on parent-grouped holdout/shadow.
+   Automatic `Pass` remains disabled until this checkpoint demonstrates its
+   declared confidence bound and coverage.
 4. `AV-P0D` may optimize formula parameters only against development/fit data;
    the frozen validator release, mutation suite and untouched shadow decide
    admission.

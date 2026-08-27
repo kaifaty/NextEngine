@@ -92,7 +92,7 @@ cargo run -p xtask -- physical-sound-registry \
   --output /external/empty-report-directory
 ```
 
-### 2. AV-P0C temporal-spectral descriptor substrate — in progress
+### 2. AV-P0C temporal-spectral descriptor and mutation substrate — implemented
 
 Deliver:
 
@@ -110,11 +110,29 @@ Exit criterion: descriptor repetition is exact, signal bounds hold, positive
 controls separate from stationary controls, and the benchmark still emits
 `NoAcceptanceAuthority`.
 
-Current checkpoint: the deterministic descriptor and stationary/evolving unit
-controls are implemented. External stationary-coloured/frozen/shuffled/modal-
-birth mutation families and the grouped real-corpus measurement remain open.
+Current checkpoint: the deterministic descriptor, stationary/evolving unit
+controls and `physical-sound-mutations` external pack generator are
+implemented. The frozen pack copies 19 real entries and derives 36 hash-closed
+controlled negatives across stationary-white, stationary-coloured,
+frozen-spectrum and shuffled-envelope families. Controlled negatives explicitly
+declare `expected_validator_outcome: reject`; existing published transformations
+remain `unspecified`. Mutation parent identity and partition are validated.
+Repeated generation is deterministic by parent WAV hash and mutation family.
 
-### 3. Selective specialist calibration
+Run the frozen mutation and measurement sequence with separate empty external
+directories:
+
+```text
+cargo run -p xtask -- physical-sound-mutations \
+  --manifest /external/corpus-manifest.json \
+  --output /external/controlled-mutation-pack
+
+cargo run -p xtask -- physical-sound-benchmark \
+  --manifest /external/controlled-mutation-pack/manifest.json \
+  --output /external/controlled-mutation-evaluation
+```
+
+### 3. Selective specialist calibration — in progress
 
 Deliver:
 
@@ -131,6 +149,26 @@ Exit criterion: the chosen numeric policy is pre-registered from the measured
 risk/coverage curve, all mutation ladders pass monotonically, and automatic
 `Pass` is enabled only for covered domains. Until then every candidate remains
 non-authoritative or fallback.
+
+Current checkpoint: benchmark report v3 standardizes temporal features from
+real development entries only, selects a provisional threshold only from
+calibration, groups controlled negatives by parent using the most permissive
+child, and reports observed plus 95% Wilson upper false-pass risk on calibration,
+holdout and shadow. The first measurement is deliberately non-promoting:
+
+- provisional threshold `0.40490598982279524`;
+- real coverage `1/3`, `1/3`, `0/3` on calibration/holdout/shadow;
+- grouped false passes `0/3`, `1/3`, `1/3`;
+- holdout and shadow Wilson upper risk `0.7923`;
+- both false passes are shuffled-envelope wood controls, while all exact
+  stationary/frozen controls reject at this threshold.
+
+The next smallest validator-only change keeps the corpus, splits and mutation
+pack frozen and adds amplitude-envelope trajectory features: frame log-RMS
+slope/curvature, monotonicity violations, early/mid/late energy ratios and
+energy/spectral-change coupling. After it closes the two counterexamples, add
+independent real object families so the grouped confidence bound is informative.
+Do not enable registry `Pass` or start AV-P0D while this exit criterion is open.
 
 ### 4. AV-P0D autonomous formula search
 
