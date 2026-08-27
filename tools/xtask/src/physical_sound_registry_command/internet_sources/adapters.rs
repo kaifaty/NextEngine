@@ -16,6 +16,7 @@ pub(super) mod heller_impact;
 mod mp3;
 mod mp4;
 pub(super) mod objectfolder_real_demo;
+mod ogg_vorbis;
 mod wav;
 pub(super) mod ycb_impact;
 mod zip_archive;
