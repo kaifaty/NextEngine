@@ -80166,6 +80166,7 @@ SplitBoundaryReport run_al_v2_envelope_validation_controls_impl(
 #include "generalization_v5_finite_residual_image.inc"
 #include "generalization_v5_composed_affine_image.inc"
 #include "generalization_v5_portable_expansion_affine.inc"
+#include "generalization_v5_active_block_operator.inc"
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {
     return run_al_total_hvp_boundary_diagnostic_controls_impl(nullptr);

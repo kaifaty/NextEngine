@@ -688,6 +688,18 @@ struct ALR20R63YControls {
     std::string root;
 };
 
+struct ALR20R63YLastResult {
+    bool exact = false;
+    std::size_t selected_width = 0U;
+    std::string route;
+    std::string semantic;
+    std::string controls_root;
+    std::string onefold_profile_root;
+    std::string twofold_profile_root;
+};
+
+ALR20R63YLastResult al_r20_r63y_last_result;
+
 ALR20R63YControls al_r20_r63y_controls() {
     ALR20R63YControls result;
     const ALR20R37Dyadic zero = al_r20_r63p_control_dyadic(0);
@@ -866,6 +878,7 @@ ALR20R63YControls al_r20_r63y_controls() {
 } // namespace
 
 SplitBoundaryReport run_al_generalization_v5_portable_expansion_affine_controls() {
+    al_r20_r63y_last_result = ALR20R63YLastResult{};
 #if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) \
     && defined(__SIZEOF_FLOAT128__) && !defined(__FAST_MATH__)
     constexpr bool frozen_platform = true;
@@ -953,6 +966,13 @@ SplitBoundaryReport run_al_generalization_v5_portable_expansion_affine_controls(
         << onefold_exported.root << ':' << twofold_wide.root << ':'
         << twofold_exported.root;
     const std::string result_sha = sha256_hex(semantic.str());
+    al_r20_r63y_last_result.exact = exact;
+    al_r20_r63y_last_result.selected_width = selected_width;
+    al_r20_r63y_last_result.route = route;
+    al_r20_r63y_last_result.semantic = result_sha;
+    al_r20_r63y_last_result.controls_root = controls.root;
+    al_r20_r63y_last_result.onefold_profile_root = onefold_profile.root;
+    al_r20_r63y_last_result.twofold_profile_root = twofold_profile.root;
     auto lane_json = [](const char* name, const ALR20R63YLane& lane) {
         std::ostringstream stream;
         stream << "\"" << name << "\":{\"finite_exact\":"
