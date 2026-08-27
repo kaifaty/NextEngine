@@ -40,8 +40,8 @@ target_compile_options(
         $<$<CXX_COMPILER_ID:GNU,Clang>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
 )
 
-add_executable(
-    nonlocal-formula-reclosure
+set(
+    NEXTENGINE_NONLOCAL_FORMULA_RECLOSURE_SOURCES
     src/balanced_canonical.cpp
     src/boundary_reference.cpp
     src/canonical.cpp
@@ -52,6 +52,11 @@ add_executable(
     src/reference_attestation.cpp
     src/sha256.cpp
     src/variational_reference.cpp
+)
+
+add_executable(
+    nonlocal-formula-reclosure
+    ${NEXTENGINE_NONLOCAL_FORMULA_RECLOSURE_SOURCES}
 )
 find_package(OpenMP REQUIRED COMPONENTS CXX)
 target_compile_features(nonlocal-formula-reclosure PRIVATE cxx_std_17)
@@ -64,3 +69,30 @@ target_compile_options(
     PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
 )
+
+option(
+    NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
+    "Build the strict-FP, compile-latency-oriented formula reclosure author target"
+    ON
+)
+if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
+    add_executable(
+        nonlocal-formula-reclosure-dev
+        EXCLUDE_FROM_ALL
+        ${NEXTENGINE_NONLOCAL_FORMULA_RECLOSURE_SOURCES}
+    )
+    target_compile_features(
+        nonlocal-formula-reclosure-dev PRIVATE cxx_std_17)
+    target_link_libraries(
+        nonlocal-formula-reclosure-dev PRIVATE OpenMP::OpenMP_CXX quadmath)
+    target_compile_definitions(
+        nonlocal-formula-reclosure-dev PRIVATE
+            NEXTENGINE_NONLOCAL_OPENMP=1
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1
+    )
+    target_compile_options(
+        nonlocal-formula-reclosure-dev
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:-O0;-g0;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+    )
+endif()
