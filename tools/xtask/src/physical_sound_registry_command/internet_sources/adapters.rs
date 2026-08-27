@@ -10,6 +10,7 @@ use super::{
 };
 
 pub(super) mod freesound_glass_bowl;
+pub(super) mod freesound_pack;
 pub(super) mod freesound_wine_glass;
 pub(super) mod heller_impact;
 mod mp3;
@@ -47,6 +48,20 @@ pub(super) enum AdapterProfile {
         object_name: String,
         material_label: String,
         recordings: Vec<freesound_glass_bowl::RecordingProfile>,
+    },
+    FreesoundPackIdentifiedRecordingV1 {
+        author: String,
+        author_id: String,
+        pack_id: String,
+        pack_title: String,
+        pack_description: String,
+        object_id: String,
+        object_name: String,
+        object_evidence_phrase: String,
+        recording_evidence_phrase: String,
+        material_label: String,
+        license_label: String,
+        recordings: Vec<freesound_pack::RecordingProfile>,
     },
     FreesoundWineGlassIdentifiedRecordingV1 {
         pack_id: String,
@@ -98,6 +113,13 @@ pub(super) enum AdapterEvidenceReport {
         object_name: String,
         material_label: String,
         recordings: Vec<freesound_glass_bowl::RecordingEvidenceReport>,
+    },
+    FreesoundPackIdentifiedRecordingV1 {
+        pack_id: String,
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        recordings: Vec<freesound_pack::RecordingEvidenceReport>,
     },
     FreesoundWineGlassIdentifiedRecordingV1 {
         pack_id: String,
@@ -153,6 +175,14 @@ pub(super) fn validate_profile_declaration(source: &InternetSource) -> Result<()
             source.id
         )),
         (
+            freesound_pack::ADAPTER_ID,
+            Some(AdapterProfile::FreesoundPackIdentifiedRecordingV1 { .. }),
+        ) => freesound_pack::validate_declaration(source),
+        (freesound_pack::ADAPTER_ID, None) => Err(format!(
+            "source {} requires a declarative Freesound pack adapter profile",
+            source.id
+        )),
+        (
             freesound_wine_glass::ADAPTER_ID,
             Some(AdapterProfile::FreesoundWineGlassIdentifiedRecordingV1 { .. }),
         ) => freesound_wine_glass::validate_declaration(source),
@@ -199,6 +229,7 @@ pub(super) fn audit(
     match source.adapter_id.as_str() {
         AV_MSF_ADAPTER_ID => audit_av_msf(cache, source),
         freesound_glass_bowl::ADAPTER_ID => freesound_glass_bowl::audit(cache, source),
+        freesound_pack::ADAPTER_ID => freesound_pack::audit(cache, source),
         freesound_wine_glass::ADAPTER_ID => freesound_wine_glass::audit(cache, source),
         heller_impact::ADAPTER_ID => heller_impact::audit(cache, source),
         ycb_impact::ADAPTER_ID => ycb_impact::audit(cache, source),
