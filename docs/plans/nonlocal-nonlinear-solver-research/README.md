@@ -14,7 +14,8 @@ NSR3B4E2D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED /
 NSR3B4E2D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE /
-NSR3B4E2D7R20R63ZA_FINITE_CONSUMPTION_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE /
+NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3966,6 +3967,15 @@ the iteration-1 residual. Each triangular row receives an a-posteriori
 equation enclosure; both intermediate and output reference components are
 audited independently. No PCG scalar/update or new operator product is
 admitted.
+
+The
+[R20R63ZA evidence](../../development/nonlocal-nsr3b4e2d7r20r63za-finite-factor-consumption-evidence-2026-08-27.md)
+selects `TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE`. All three solves and
+`612/612` intermediate/output containments close. K2 centers differ from the
+binary128 references by at most `0.0424`, while sequential dependency radii
+grow to `1e24..1e25`; the latter are not admissible recurrence uncertainty.
+Research a sealed-center state-`0..2` K2 recurrence with final independent
+R63Y verification next.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
