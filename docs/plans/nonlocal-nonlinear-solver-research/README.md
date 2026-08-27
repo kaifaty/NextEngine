@@ -14,7 +14,7 @@ NSR3B4E2D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED /
 NSR3B4E2D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE /
-NSR3B4E2D7R20R63ZA_FINITE_CONSUMPTION_RESEARCH_NEXT /
+NSR3B4E2D7R20R63ZA_FINITE_CONSUMPTION_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3956,6 +3956,16 @@ finite certificate contains no binary128 or exact value. Research a
 factorized/sparse candidate producer and immutable producer/verifier artifact
 boundary next; dense profile construction, candidate generation, corpus,
 timing, runtime, GPU and production remain blocked.
+
+The
+[R20R63ZA research](../../development/nonlocal-nsr3b4e2d7r20r63za-finite-factor-consumption-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63za-finite-factor-consumption-contract.md) freeze three
+twofold exported-factor solves: start generation, the initial PCG residual and
+the iteration-1 residual. Each triangular row receives an a-posteriori
+equation enclosure; both intermediate and output reference components are
+audited independently. No PCG scalar/update or new operator product is
+admitted.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
