@@ -300,8 +300,20 @@ is now four publisher/project/revision groups, 14 objects and 41 recordings;
 Glass contributes 6 groups/25 recordings, leaving 10 of 16 groups open. See
 the [bounded evidence](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md).
 
+The next cached E3 increment is implemented by
+`freesound-wine-glass-identified-recording-v1`. It freezes a second Freesound
+publisher/project, one pack-specific wine-glass family and three numbered
+knife-strike HQ previews. Two imported cache roots and three offline audits are
+byte-identical; the current-host bounded direct route receives HTTP 403, so no
+independent-online-fetch claim is made and the fetch security boundary remains
+unchanged. Combined E3 coverage is now five project/revision groups, 15
+objects and 44 recordings; Glass contributes 7 groups/28 recordings, leaving 9
+of 16 groups open. See the
+[cached evidence](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md).
+
 Package 3 must continue stable-object E3 and complementary E2/E1 expansion
-before calibration/holdout/shadow open.
+and define explicit reject-parent import semantics before calibration/holdout/
+shadow open.
 Separate internet sources may support separate specialist claims, but
 unavailable axes remain unavailable and the grouped split/risk policy is
 unchanged. Insufficient published coverage keeps the domain fallback-only; it

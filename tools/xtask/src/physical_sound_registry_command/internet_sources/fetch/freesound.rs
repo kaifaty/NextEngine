@@ -43,18 +43,19 @@ pub(super) fn normalize_pack_identity(url: &str, bytes: &[u8]) -> Result<Vec<u8>
         .ok_or_else(|| "Freesound pack title does not match its author".to_owned())?;
     let title = bounded_plain_text(&page[title_start..title_end], "Freesound pack title")?;
 
-    let description_start_marker = "<p>This pack contains ";
-    let description_start = page
-        .find(description_start_marker)
-        .ok_or_else(|| "Freesound pack page has no object description".to_owned())?;
-    let description_end = page[description_start..]
-        .find("</p>")
-        .map(|offset| description_start + offset)
-        .ok_or_else(|| "Freesound pack description is incomplete".to_owned())?;
-    let description = bounded_plain_text(
-        &page[description_start + 3..description_end],
-        "Freesound pack description",
-    )?;
+    let description = match page.find("<p>This pack contains ") {
+        Some(description_start) => {
+            let description_end = page[description_start..]
+                .find("</p>")
+                .map(|offset| description_start + offset)
+                .ok_or_else(|| "Freesound pack description is incomplete".to_owned())?;
+            bounded_plain_text(
+                &page[description_start + 3..description_end],
+                "Freesound pack description",
+            )?
+        }
+        None => String::new(),
+    };
 
     let blocks = page
         .split("class=\"bw-player\"")
@@ -220,6 +221,17 @@ mod tests {
     fn duplicate_sound_identity_fails_closed() {
         let raw = fixture("csrf-a", "79").replace("242459", "242460");
         assert!(normalize_pack_identity(URL, raw.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn absent_optional_description_has_a_stable_empty_identity() {
+        let raw = fixture("csrf-a", "79").replace(
+            "<p>This pack contains the sounds of a medium-pitched glass bowl.</p>",
+            "",
+        );
+        let identity = normalize_pack_identity(URL, raw.as_bytes()).expect("identity");
+        let json: serde_json::Value = serde_json::from_slice(&identity).expect("identity JSON");
+        assert_eq!(json["description"], "");
     }
 
     fn fixture(csrf: &str, downloads: &str) -> String {

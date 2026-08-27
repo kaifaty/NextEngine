@@ -2,9 +2,9 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_FOUR_E3_PROJECT_GROUPS / GLASS_6_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_EXPANSION_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_FIVE_E3_PROJECT_GROUPS / GLASS_7_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_AND_REJECT_EXPANSION_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [AV-MSF multi-object E3 pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [REALIMPACT typed E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [GreenGoblet bounded-range E2 pilot](../development/physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md), [ObjectFolder discriminator and Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [acquisition import bundle](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [AV-MSF multi-object E3 pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [REALIMPACT typed E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [GreenGoblet bounded-range E2 pilot](../development/physical-sound-realimpact-green-goblet-range-pilot-ps2-2026-08-27.md), [ObjectFolder discriminator and Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [acquisition import bundle](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -94,7 +94,7 @@ frozen `ValidatorRelease`:
 ```mermaid
 flowchart LR
     PS0["PS-0 Foundation<br/>COMPLETE"] --> PS1["PS-1 Envelope specialist<br/>COMPLETE"]
-    PS1 --> PS2["PS-2 Corpus and risk policy<br/>4 E3 PROJECT GROUPS / GLASS 6/16 / 2 E2 OBJECTS"]
+    PS1 --> PS2["PS-2 Corpus and risk policy<br/>5 E3 PROJECT GROUPS / GLASS 7/16 / 2 E2 OBJECTS"]
     PS2 --> PS3["PS-3 Validator Release V1<br/>BLOCKED"]
     PS3 --> PS4["PS-4 AV-P0D autonomous search<br/>BLOCKED"]
     PS4 --> PS5["PS-5 Formula Base V1<br/>BLOCKED"]
@@ -109,7 +109,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / FOUR_E3_PROJECT_GROUPS / GLASS_6_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_EXPANSION_NEXT` | L | Power policy, `E1` import, bounded source/cache/archive handling and claim-scoped `E1`–`E4` accounting are executable. REALIMPACT contributes two typed fallback E2 object rows. AV-MSF + YCB + Heller + Freesound validate 14 objects/41 E3 recordings in four project groups; Glass is `6/16` and 25 recordings. ObjectFolder-Real is retained as discovery-only because its monolithic gzip archives expose no bounded repeat path. The next package resumes stable-object E3 expansion; no local capture is required. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / FIVE_E3_PROJECT_GROUPS / GLASS_7_OF_16 / TWO_REALIMPACT_E2_OBJECTS / E3_AND_REJECT_EXPANSION_NEXT` | L | Power policy, `E1` import, bounded source/cache/archive handling and claim-scoped `E1`–`E4` accounting are executable. REALIMPACT contributes two typed fallback E2 object rows. AV-MSF + YCB + Heller + two Freesound projects validate 15 objects/44 E3 recordings in five project groups; Glass is `7/16` and 28 recordings. The newest family is cache-validated because the current-host direct Freesound route returns HTTP 403; fetch policy was not weakened. The next package continues stable-object E3 expansion and defines explicit reject-parent import; no local capture is required. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -284,6 +284,16 @@ audits are byte-identical. Combined coverage is four project revisions,
 and all 35 reject parents remain open. See the
 [Freesound evidence](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md).
 
+PS-2 fifth-project-group checkpoint: a different Freesound publisher provides
+three numbered knife strikes on a wine-glass family. The typed adapter validates
+the exact HQ MP3 streams and canonical pack identity in two imported cache
+roots; source and identified-corpus reports repeat byte-identically. Direct
+bounded fetch currently receives HTTP 403 and therefore remains an explicit
+transport recheck, not a reason to add a proxy bypass. Combined coverage is 5
+project revisions, 15 objects/44 recordings; Glass is `7/16` and 28
+recordings. Nine Glass groups and all 35 reject parents remain open. See the
+[cached evidence](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -425,7 +435,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, AV-MSF/YCB/Heller/Freesound E3 normalization, two REALIMPACT E2 rows and bounded Greatest Hits/ObjectFolder rejection — `FOUR_E3_PROJECT_GROUPS / GLASS_6_OF_16 / TWO_E2_OBJECTS`; next continue stable-object E3 expansion and complementary E2/E1 evidence | PS-2 remaining evidence expansion |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, AV-MSF/YCB/Heller/two-Freesound E3 normalization, two REALIMPACT E2 rows and bounded Greatest Hits/ObjectFolder rejection — `FIVE_E3_PROJECT_GROUPS / GLASS_7_OF_16 / TWO_E2_OBJECTS`; next continue stable-object E3, explicit reject-parent and complementary E2/E1 expansion | PS-2 remaining evidence expansion |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
