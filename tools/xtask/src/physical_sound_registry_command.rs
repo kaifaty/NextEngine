@@ -8,6 +8,8 @@ use next_contracts::ids::ContentHash;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+mod corpus_plan;
+
 const MANIFEST_SCHEMA: &str =
     "nextengine.experimental-physical-sound-research-registry.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-research-registry.report.v1";
@@ -48,6 +50,14 @@ pub(super) fn parse_arguments(
 }
 
 pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> Result<(), String> {
+    let mut arguments = arguments.peekable();
+    if arguments
+        .peek()
+        .is_some_and(|argument| argument == "corpus-plan")
+    {
+        arguments.next();
+        return corpus_plan::run_cli(root, arguments);
+    }
     let request = parse_arguments(arguments)?;
     run(root, &request)
 }

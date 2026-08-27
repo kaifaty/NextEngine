@@ -135,7 +135,7 @@ cargo run -p xtask -- physical-sound-benchmark \
   --output /external/controlled-mutation-evaluation
 ```
 
-### 3. Selective specialist calibration — PS-1 implemented, PS-2 evidence open
+### 3. Selective specialist calibration — PS-2 contract implemented, acquisition open
 
 Deliver:
 
@@ -171,9 +171,28 @@ On the unchanged AV-P0C pack the consensus threshold
 PS-1 is therefore complete. Automatic `Pass` remains disabled because only
 three mutation parent groups per partition leave the 95% Wilson upper risk at
 `0.5615`, real metal/glass coverage remains incomplete and exact domain axes
-are absent. PS-2 must add independent real object families and pre-register the
-numeric risk/coverage policy before a new shadow is opened. Do not start AV-P0D
+are absent from the measured corpus. PS-2 must still add independent real object
+families; the numeric policy is now pre-registered below. Do not start AV-P0D
 while that evidence gate is open. See the [PS-1 evidence](../development/physical-sound-validator-ps1-2026-08-27.md).
+
+PS-2 now adds an external-only pre-registration command without changing the
+public/runtime contract:
+
+```text
+cargo run -p xtask -- physical-sound-registry corpus-plan \
+  --manifest /external/ps2-corpus-plan/manifest.json \
+  --output /external/ps2-corpus-plan-report
+```
+
+The frozen glass-vessel planning revision binds exact acquisition axes,
+controlled-real source and provenance hashes, canonical grouping keys,
+calibration-only threshold selection, sealed shadow, mutation monotonicity and
+mandatory OOD/unavailable fallback. Its policy requires zero false-pass parents,
+a 95% Wilson upper risk at most `0.10`, power `0.95` against unsafe risk `0.20`
+and useful-coverage Wilson lower bound at least `0.80`. Deterministic sizing
+requires 35 reject parents and 16 in-domain groups; the declared 40/40 plan is
+`PlanPowerSufficient`. This is planning authority only. The recordings and
+matched real-family evidence remain open; see [PS-2 evidence](../development/physical-sound-corpus-plan-ps2-2026-08-27.md).
 
 ### 4. AV-P0D autonomous formula search
 
