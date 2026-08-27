@@ -3893,6 +3893,21 @@ certifies both immutable state ladders `0..8`, continues after pass and
 requires state-8 certificates to reproduce R63U exactly.
 
 The
+[R20R63V evidence](../../development/nonlocal-nsr3b4e2d7r20r63v-earliest-residual-image-evidence-2026-08-27.md)
+selects `TWO_LANE_EARLIEST_IMAGE_CANDIDATE`. Both lanes first resolve all
+`24+/78-` signs at state 2 and remain certified through state 8. The complete
+R63B--R63U stdout lineage remains byte-exact. State 2 is an offline common-
+operator correctness baseline, not a runtime iteration cap.
+
+The next finite-arithmetic discriminator is frozen by the
+[R20R63W research](../../development/nonlocal-nsr3b4e2d7r20r63w-finite-residual-image-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63w-finite-residual-image-contract.md). It encloses
+states `0..2` using compensated binary128 residual/image dots plus outward
+representation and interval propagation. Exact R63U arithmetic is an
+independent containment oracle only. Sparse realization, timing and production
+remain blocked until this finite boundary closes.
+
+The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
 selects `BINARY64_RECTANGULAR_FACTOR_FLOOR`. Rounding the operator to binary64
 preserves the immutable weak signal, and the binary128 factor preserves it by
