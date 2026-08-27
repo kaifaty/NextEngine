@@ -74,6 +74,13 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         arguments.next();
         return internet_sources::run_cli(root, arguments);
     }
+    if arguments
+        .peek()
+        .is_some_and(|argument| argument == "identified-corpus")
+    {
+        arguments.next();
+        return internet_sources::run_identified_corpus_cli(root, arguments);
+    }
     let request = parse_arguments(arguments)?;
     run(root, &request)
 }

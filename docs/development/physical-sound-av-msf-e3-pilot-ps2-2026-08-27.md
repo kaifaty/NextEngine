@@ -86,11 +86,13 @@ source. It does not close PS-2: one object and two recordings have no useful
 grouped statistical power, no exact glass-vessel domain axes and no matched E2
 spatial transfer.
 
-Next, normalize several independent E3 objects/sources into a leakage-safe
-external corpus inventory and implement the existing REALIMPACT E2 adapter for
-geometry/impact/listener/transfer claims. Re-plan available groups before
-opening calibration, holdout or shadow. The pre-registered requirements remain
-at least 35 independent reject-parent groups and 16 in-domain groups for the
-declared risk/coverage policy; insufficient internet coverage remains
-`FallbackOutOfDomain`, never a request for local capture or human per-sound
-approval.
+The follow-up
+[multi-object pilot](physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md)
+has now normalized the complete ten-card AV-MSF surface. It measures ten object
+groups/twenty recordings but only two Glass groups and one shared
+publisher/project/revision source group. Next, add independent published E3
+publishers/projects and the REALIMPACT E2 adapter before re-planning or opening
+calibration, holdout or shadow. The pre-registered requirements remain at least
+35 independent reject-parent groups and 16 in-domain groups; insufficient
+internet coverage remains `FallbackOutOfDomain`, never a request for local
+capture or human per-sound approval.

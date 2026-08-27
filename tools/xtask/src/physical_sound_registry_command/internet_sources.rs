@@ -15,6 +15,7 @@ use super::{
 
 mod adapters;
 mod fetch;
+mod identified_corpus;
 
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-internet-sources.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-internet-sources.report.v1";
@@ -37,6 +38,13 @@ pub(super) struct Request {
 pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> Result<(), String> {
     let request = parse_arguments(arguments)?;
     run(root, &request)
+}
+
+pub(super) fn run_identified_corpus_cli(
+    root: &Path,
+    arguments: impl Iterator<Item = String>,
+) -> Result<(), String> {
+    identified_corpus::run_cli(root, arguments)
 }
 
 fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Request, String> {

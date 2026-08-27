@@ -233,13 +233,23 @@ same report, and the adapter grants only `E3IdentifiedRecording`. This closes
 adapter existence, not Package 3: the sample has one object group and no E2
 spatial transfer or E1 excitation evidence.
 
-Package 3 must next normalize multiple independent E3 objects/sources into the
-external inventory and implement the bounded REALIMPACT E2 adapter, then
-recompute actual group availability before calibration/holdout/shadow open.
-Separate internet sources may support separate specialist claims, but
-unavailable axes remain unavailable and the grouped split/risk policy is
-unchanged. Insufficient published coverage keeps the domain fallback-only; it
-does not trigger local capture.
+The E3 normalization increment is now implemented by
+`physical-sound-registry identified-corpus`. It reruns the source audit against
+exact cached bytes, requires all four adapter-backed E3 capabilities, derives
+publisher/project/revision, object and recording groups, rejects partition
+leakage and measures target coverage against the frozen power report. The
+[complete-card AV-MSF pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md)
+validates 10 objects/20 recordings in two fresh caches plus an offline repeat.
+All objects share one source group and remain in development; Glass contributes
+2 of the required 16 object groups. The report has only
+`DevelopmentCoverageMeasured / NO_CORPUS_ADMISSION_AUTHORITY`.
+
+Package 3 must next add independent published E3 publishers/projects and
+implement the bounded REALIMPACT E2 adapter, then recompute actual group
+availability before calibration/holdout/shadow open. Separate internet sources
+may support separate specialist claims, but unavailable axes remain unavailable
+and the grouped split/risk policy is unchanged. Insufficient published coverage
+keeps the domain fallback-only; it does not trigger local capture.
 
 ### 4. AV-P0D autonomous formula search
 

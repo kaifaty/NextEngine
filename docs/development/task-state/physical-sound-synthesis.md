@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_FIRST_E3_SOURCE_READY / GROUPED_CORPUS_EXPANSION_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_AV_MSF_E3_CATALOG_MEASURED / INDEPENDENT_SOURCE_AND_E2_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-27` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,16 +10,16 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** PS-2 uses published internet data only. Its generic
-  source registry and first AV-MSF E3 glass adapter are implemented; `Pass`
-  stays disabled.
+- **Current conclusion:** PS-2 uses published internet data only. The complete
+  AV-MSF page validates as 10 E3 objects/20 recordings but one source group;
+  Glass coverage is `2/16`, so `Pass` stays disabled.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Normalize multiple independent E3 object/source groups,
-  implement the bounded REALIMPACT E2 adapter, then re-plan grouped coverage.
-- **Current blocker:** One glass object/two E3 recordings have no statistical
-  credit; multi-source scale and complementary E2/E1 claims remain open.
+- **Next action:** Add independent published E3 publishers/projects, implement
+  the bounded REALIMPACT E2 adapter, then re-plan grouped coverage.
+- **Current blocker:** AV-MSF is exhausted at two Glass objects in one source
+  group; independent-source scale and complementary E2/E1 claims remain open.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording.
@@ -36,15 +36,12 @@
 | [Steel residual v4](../physical-sound-steel-residual-v4-2026-08-27.md) | `V4_REJECTED / FALLBACK_OUT_OF_DOMAIN` | YCB adds aluminium-container and steel-skillet families. Real metal flatness is about `−16/−17 dB` versus v3 `−53 dB`; v4 reaches flatness but not real spectral dynamics. Original PANNs stays `0/39`, BEATs `7/39`; no joint profile or promotion. |
 | [Controlled glass corpus](../physical-sound-controlled-glass-corpus-2026-08-27.md) | `CONTROLLED_SYNTHETIC_CORPUS_PASS / HUMAN_REFERENCE_OPEN` | Exact geometry and 15 force/position conditions are reproducible; Q30 and physical controls pass, but whole-vector IDW is an inadequate spatial model and the corpus has no real matched recording. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
-| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [source/cache pilot](../physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [AV-MSF E3 pilot](../physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md), [REALIMPACT pilot](../physical-sound-realimpact-pilot-ps2-2026-08-27.md), [acquisition bundle](../physical-sound-acquisition-bundle-ps2-2026-08-27.md) and [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) | `PS2_FIRST_E3_SOURCE_READY / GROUPED_CORPUS_EXPANSION_NEXT` | Bounded HTTPS/cache and artifact-backed tiers are executable. One AV-MSF glass object/two recordings pass E3; ObjectFolder remains E4/discovery-only and no source has admission credit. |
+| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [source/cache pilot](../physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [AV-MSF multi-object pilot](../physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md), [REALIMPACT pilot](../physical-sound-realimpact-pilot-ps2-2026-08-27.md) and [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) | `PS2_AV_MSF_E3_CATALOG_MEASURED / INDEPENDENT_SOURCE_AND_E2_NEXT` | Exact E3 normalization is executable and reproducible. AV-MSF gives 10 objects/20 recordings but one project/revision group; Glass is `2/16`. No source has admission credit. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
 | Glass-object set and DiffSound audition | `DIFFSOUND_AND_Q30_PERCEPTUAL_ACCEPT / UNCALIBRATED` | Selected `09` and transferred Q30 B sound glass-like; identity and reference fidelity remain separate, and one archetype is not a generic glass model. |
-| Product-owner audition, 2026-08-26 | `PERCEPTUAL_FAIL` | The current output only remotely resembles the target; engineering checks cannot support an acoustic-quality claim. |
 | Product-owner wood/glass audition, 2026-08-26 | `WOOD-B ACCEPT / GLASS-D-F FAIL / G PARTIAL_ACCEPT / H WEAK_PREFERENCE` | H is tentatively better but hard to distinguish from G; preserve both and require a stronger discriminator. |
-| `xtask physical-sound-eval` Q0 run | `PASS / UNCALIBRATED` | Nine hash-frozen WAVs produce bounded signal, multiresolution spectrum, modal-assignment and per-band decay reports under evaluator profile hash `e1e57d9b…66af1`; every entry correctly remains `NeedsReference`. |
-| Q1 self/mismatch controls and blind bundle | `PASS / CONTROL_ONLY` | Self-match is zero on every matched distance; steel-center versus glass-corner yields `28.7939 dB` spectral RMSE, `0.642964` modal cost and spectral/modal/high-band-decay tags. Seed `42` emits two blinded pairs; repeated report SHA-256 is `65a6d437…da81`. |
 | Feature-gated demo enabled/disabled regression | `PASS` | Committed `Begin` contact changes only PCM; runtime, RPG and physics checkpoint state remain identical. |
 | 120-frame SDL/Ash reference demo with `physical-sound-selected-glass` | `PASS / DEBUG_FUNCTIONAL` | Selected-Q30 run: 56 simulation ticks, active audio, 112,000 queued samples, zero drops/faults; 49 debug underruns grant no platform/performance credit. |
 | `audio-scene`, `play`, `host-check` | `PASS` | Baseline audio/play roots remain valid; workspace fmt/clippy/tests and boundary policy pass on Rust 1.97.1. |
@@ -165,10 +162,10 @@
   holdouts and calibrated risk. Outcomes remain `Pass`, `Reject` or clip fallback.
 - **Rejected alternatives:** Local mic/hammer acquisition, a live human queue,
   one general score/model, or inventing absent axes across datasets.
-- **Consequences:** Force hardware is no blocker. Generic bounded external
-  fetch/cache and the first real E3 adapter are complete; grouped multi-source
-  coverage and the REALIMPACT E2 adapter are next. Insufficient internet
-  evidence leaves the claim fallback-only.
+- **Consequences:** Force hardware is no blocker. Bounded fetch/cache, the E3
+  adapter and complete-card normalizer are complete; independent published
+  sources and the REALIMPACT E2 adapter are next. Insufficient evidence leaves
+  the claim fallback-only.
 - **Uncertainty:** Published sources may not cover every force/geometry/support
   axis or the powered group count.
 - **Reconsider when:** Only an explicit product-owner reversal permits local
@@ -183,7 +180,7 @@
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | PS-2 rejects invented axes; one AV-MSF glass object/two recordings now pass a typed E3 adapter | No powered multi-source real internet corpus exists | Normalize independent E3 groups, add the REALIMPACT E2 adapter, re-plan groups, then run one sealed shadow |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | PS-2 rejects invented axes; all 10 AV-MSF objects/20 recordings normalize repeatably | AV-MSF is one source group and Glass is `2/16`; no powered multi-source corpus exists | Add independent E3 publishers and REALIMPACT E2, re-plan groups, then run one sealed shadow |
 
 ## Required context
 
@@ -193,27 +190,20 @@ Read these sources in precedence order before acting:
 2. [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md), [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../../architecture/30-presentation-extraction-and-render-content.md), ADR-027/046/058/071.
 3. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 4. [Research report](../physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../physical-sound-quality-evaluation-research-2026-08-26.md),
-   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [source/cache pilot](../physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [AV-MSF E3 pilot](../physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md), [pilot](../physical-sound-realimpact-pilot-ps2-2026-08-27.md), [bundle](../physical-sound-acquisition-bundle-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
+   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [source/cache pilot](../physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [AV-MSF multi-object pilot](../physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md), [REALIMPACT pilot](../physical-sound-realimpact-pilot-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
 5. [Roadmap](../../roadmap.md) only for a future scheduling/scope decision.
 
 ## Next action
 
-1. Preserve all frozen baselines, references and reports; freeze wood-B and
-   retain glass-D/F only as rejected metal-like anchors.
-2. Keep source/generated `09` artifacts external and retain the implemented Q30
-   voice only as an explicit opt-in; do not replace Glass-H or authored clips.
-3. Preserve AV-P0A's current-only tri-state report and complete control matrix;
-   do not reinterpret its `Pass` as subjective quality or P1 evidence.
-4. Preserve v3/v4 as `FallbackOutOfDomain` and the exact AV-P0C pack/report as
-   negative evidence; do not start a v5 gain grid.
-5. Preserve PS-1 profile/report hashes and the closest rejected sentinel;
-   change corpus revision rather than reopening the frozen shadow.
-6. Preserve PS-2 hashes/import contract, source registry/cache and AV-MSF E3
-   pilot; normalize independent E3 groups and add the bounded REALIMPACT E2
+1. Preserve frozen Q30, AV-P0A/C, PS-1 and rejected-v3/v4 evidence; keep all
+   source/generated artifacts external and do not reinterpret a control pass as
+   subjective quality or P1 evidence.
+2. Preserve PS-2 hashes/import contract, source registry/cache and AV-MSF E3
+   catalog report; add independent E3 publishers and the bounded REALIMPACT E2
    adapter, then freeze a powered plan before `Pass`, PS-3 or AV-P0D.
-7. Only on measured success, write the promoting consumer ADR and close the
+3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
-8. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
+4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
    survives.
 
 ## Do not retry
@@ -240,10 +230,10 @@ Read these sources in precedence order before acting:
 ## Handoff
 
 - **Workspace state:** Registry V1, PS-1, PS-2 plan/pilot/`E1` import, internet
-  source/cache audit and one AV-MSF E3 adapter exist; public schemas/assets/ownership are unchanged.
+  source/cache audit, AV-MSF E3 adapter and full-card normalizer exist; public schemas/assets/ownership are unchanged.
 - **Checks:** sound tests, Clippy `-D warnings`, fmt, boundary scan and online/
   offline report repeat pass; candidate product/platform/performance checks remain not run.
-- **Remaining risk:** multi-source coverage, REALIMPACT E2 adapter, corpus scale/scope, calibration/OOD,
+- **Remaining risk:** independent-source coverage, REALIMPACT E2 adapter, corpus scale/scope, calibration/OOD,
   spatial transfer, contact sufficiency, mixer cost and authoring are open.
 - **Quality status:** no powered multi-source internet corpus exists; no quality,
   corpus admission or production claim exists until claim-scoped evidence passes.

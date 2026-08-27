@@ -51,12 +51,12 @@ pub(super) enum AdapterEvidenceReport {
 
 #[derive(Serialize)]
 pub(super) struct RecordingReport {
-    recording_id: String,
-    sample_encoding: &'static str,
-    sample_rate_hz: u32,
-    channel_count: u16,
-    bits_per_sample: u16,
-    sample_frames: u64,
+    pub(super) recording_id: String,
+    pub(super) sample_encoding: &'static str,
+    pub(super) sample_rate_hz: u32,
+    pub(super) channel_count: u16,
+    pub(super) bits_per_sample: u16,
+    pub(super) sample_frames: u64,
 }
 
 pub(super) fn validate_profile_declaration(source: &InternetSource) -> Result<(), String> {
@@ -302,17 +302,40 @@ fn validate_project_page(
         .split_once("</button>")
         .map(|(card, _)| card)
         .ok_or_else(|| format!("AV-MSF Object {object_id} card is incomplete"))?;
-    let recording_list = recording_ids.join(",");
     for expected in [
         format!("data-original-material=\"{material_label}\""),
         format!("data-demo-path=\"data/demo/{object_id}\""),
-        format!("data-contact-impacts=\"{recording_list}\""),
     ] {
         if !card.contains(&expected) {
             return Err(format!(
                 "AV-MSF Object {object_id} card is missing {expected}"
             ));
         }
+    }
+    validate_recording_attribute(card, object_id, recording_ids)?;
+    Ok(())
+}
+
+fn validate_recording_attribute(
+    card: &str,
+    object_id: &str,
+    recording_ids: &[String],
+) -> Result<(), String> {
+    let marker = "data-contact-impacts=\"";
+    let values = card
+        .split_once(marker)
+        .and_then(|(_, remainder)| remainder.split_once('\"'))
+        .map(|(values, _)| values)
+        .ok_or_else(|| format!("AV-MSF Object {object_id} has no contact-impact identity"))?;
+    let mut page_ids = values.split(',').map(str::to_owned).collect::<Vec<_>>();
+    for recording_id in &page_ids {
+        validate_decimal_id(recording_id, 3, 3, "AV-MSF page recording id")?;
+    }
+    page_ids.sort();
+    if page_ids != recording_ids {
+        return Err(format!(
+            "AV-MSF Object {object_id} contact-impact identities do not match the profile"
+        ));
     }
     Ok(())
 }

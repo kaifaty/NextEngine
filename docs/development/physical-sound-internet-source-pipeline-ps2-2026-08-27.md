@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet source registry and cache pilot
 
 Date: 2026-08-27
-Status: `SOURCE_REGISTRY_IMPLEMENTED / AV_MSF_E3_READY / E4_READY / PASS_DISABLED`
+Status: `SOURCE_REGISTRY_IMPLEMENTED / AV_MSF_E3_CATALOG_MEASURED / E4_READY / PASS_DISABLED`
 
 ## Question
 
@@ -96,6 +96,13 @@ SHA-256, page card and audio structure. It grants exactly
 calibration receive no credit. See the
 [AV-MSF pilot](physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md).
 
+The follow-up
+[multi-object pilot](physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md)
+freezes the complete ten-card public demo surface at the same revision. Its
+source audit validates ten objects and twenty recordings. The separate
+`identified-corpus` normalizer derives leakage-safe source/object/recording
+groups and measures Glass coverage without inventing E1/E2 axes.
+
 ## Frozen result
 
 External evidence lives under:
@@ -123,16 +130,26 @@ Its manifest/report hashes are
 Two fresh online caches and one offline audit again produced byte-identical
 reports.
 
+The complete-card pilot lives under
+`/home/kaifaty/.codex/experiments/nextengine/physical-sound/ps2-av-msf-e3-multiobject-v1/`.
+Its source-manifest, source-report and identified-report SHA-256 values are
+`91fe4dd05277fbed9592a9a614210c8d62546954ce9e62701133cbe1f5f667d5`,
+`203f8dce49c0bd5943c07d064651fb4fed39d7a73f9122d0eb0e2a31969d47b9`
+and `9379faf957c7b428bb66883b694868282d0b9dbd34c35afd627f5c70d55c04f4`.
+Two fresh caches and an offline normalization are byte-identical.
+
 ## Decision and next action
 
-The generic source registry and first bounded real-data adapter are complete;
-one glass object with two recordings is E3-ready. The blocker has moved to
-multi-object/source grouped coverage plus complementary E2 spatial/transfer
-evidence, not networking, adapter existence or local hardware.
+The generic source registry, bounded real-data adapter and multi-object E3
+normalizer are complete. The full AV-MSF public card surface contributes ten
+objects and twenty recordings but only one publisher/project/revision group;
+Glass contributes two object groups against the frozen minimum of sixteen.
+The blocker is now independent-publisher grouped coverage plus complementary
+E2 spatial/transfer evidence, not networking, adapter existence, AV-MSF card
+enumeration or local hardware.
 
-Normalize multiple independent E3 objects/sources into the external corpus
-inventory, implement the bounded REALIMPACT E2 adapter, then re-plan available
-groups before opening calibration, holdout or shadow. ObjectFolder-Real may be
-reconsidered if the publisher supplies cryptographic checksums or a bounded
-object-level download; do not download the 36.37 GB unhashed archive merely to
-advance the roadmap.
+Discover and adapt independent published E3 publishers/projects, implement the
+bounded REALIMPACT E2 adapter, then re-plan available groups before opening
+calibration, holdout or shadow. ObjectFolder-Real may be reconsidered if the
+publisher supplies cryptographic checksums or a bounded object-level download;
+do not download the 36.37 GB unhashed archive merely to advance the roadmap.

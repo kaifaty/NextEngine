@@ -404,7 +404,7 @@ fn write_av_msf_fixture(
 ) -> (InternetSourceManifest, PathBuf) {
     let page = br#"<section>Experiments on two real-world datasets</section>
 <h3>Impact recordings</h3>
-<button data-name="Object 95" data-original-material="Glass" data-demo-path="data/demo/95" data-contact-impacts="012,036"></button>"#;
+<button data-name="Object 95" data-original-material="Glass" data-demo-path="data/demo/95" data-contact-impacts="036,012"></button>"#;
     let provenance = b"official AV-MSF page-branch fixture review";
     fs::write(directory.join("provenance.md"), provenance).expect("write AV-MSF provenance");
     let commit = "723df64a94480fc8f8e592c66c0d916e8b0054d1";
