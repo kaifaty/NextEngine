@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.11 |
+| Version | 0.12 |
 | Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
-| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md) |
-| Replaces | SPEC-45 0.10; records one independently grouped published E3 adapter and measured coverage without promoting corpus admission, quality acceptance or a runtime/content contract |
+| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md) |
+| Replaces | SPEC-45 0.11; records a third independently grouped E3 source and bounded archive-backed evidence without promoting corpus admission, quality acceptance or a runtime/content contract |
 
 ## Status and decision boundary
 
@@ -160,6 +160,23 @@ twenty-eight recordings; Glass reaches four object groups and twelve
 recordings against the frozen minimum of sixteen groups. Calibration, holdout
 and shadow remain unopened, and the result still has no corpus-admission
 authority.
+
+The following current-only checkpoint adds the CMU AuditoryLab Sound Events
+Database through `heller-impact-identified-recording-v1`. It freezes the
+versioned KiltHub Impact Events item, one exact audio archive and its recording
+notes, and credits only the explicitly named `Marbles Dropped in Glass Vase`
+event as one Glass object group with five repeats. Mirror and red-vase events
+are excluded because their reviewed metadata does not explicitly identify
+Glass, and different impactors on one target do not create new object groups.
+A source-specific `figshare_kilt_hub_v1` policy validates one exact redirect to
+the approved CMU bucket, while a bounded in-process ZIP reader validates unique
+safe paths, compression/size limits and exact per-WAV hashes before PCM16
+inspection. Combined AV-MSF, YCB and Heller coverage is three
+publisher/project/revision groups, thirteen objects and thirty-three E3
+recordings; Glass is five object groups/seventeen recordings against the
+minimum sixteen groups. All entries remain in development, eleven Glass groups
+and all reject-parent coverage remain open, and the result has no
+corpus-admission authority.
 
 The current-only V2 `physical-sound-registry corpus-inventory` boundary now
 requires a typed source adapter for force-deconvolved transfer entries. Its

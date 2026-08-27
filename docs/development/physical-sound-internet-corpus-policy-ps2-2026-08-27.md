@@ -1,7 +1,7 @@
 # Physical sound PS-2 — internet corpus acquisition policy
 
 Date: 2026-08-27
-Status: `ACTIVE_CONSTRAINT / FIRST_INDEPENDENT_E3_SOURCE_ADDED / GLASS_4_OF_16 / REPLAN_NEXT / PASS_DISABLED`
+Status: `ACTIVE_CONSTRAINT / THREE_E3_PROJECT_GROUPS / GLASS_5_OF_16 / EXPAND_NEXT / PASS_DISABLED`
 
 ## Decision
 
@@ -67,8 +67,9 @@ content. Provenance, attribution and source identity remain attached to every
 derived feature and report.
 
 See the measured [internet source/cache pilot](physical-sound-internet-source-pipeline-ps2-2026-08-27.md),
-[AV-MSF multi-object E3 pilot](physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md)
-[independent YCB Impact E3 pilot](physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md)
+[AV-MSF multi-object E3 pilot](physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md),
+[independent YCB Impact E3 pilot](physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md),
+[independent Heller Impact E3 pilot](physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md)
 and [REALIMPACT E2 adapter](physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md).
 
 ## Current consequence
@@ -93,14 +94,23 @@ recordings. Its OSF-specific fetch policy validates one hash-bound redirect;
 generic redirects remain disabled. The upstream `train`/`test` labels are
 preserved as source metadata and do not become NextEngine holdout assignments.
 
+The CMU Heller Impact Events item supplies a third project group. Its explicit
+`Marbles Dropped in Glass Vase` directory contributes one Glass object/event
+group and five repeated PCM16 recordings through a bounded archive adapter.
+Mirror, red-vase and different-impactor variants are excluded rather than
+receiving inferred material/object identity.
+
 The generic registry, bounded HTTPS fetch/cache, capability matrix, E2/E3
 adapters and leakage-safe identified-corpus normalizer are implemented.
-The combined measurement has two independent publisher/project/revision groups,
-twelve objects and twenty-eight recordings. Glass coverage is now `4/16`
-required object groups and twelve recordings, so the immediate blocker is
-`REMAINING_INDEPENDENT_E3_COVERAGE_AND_REPLAN`, not force hardware, generic
-networking, OSF redirects, REALIMPACT adapter existence or more cards from the
-same AV-MSF/YCB revisions. If published
+The combined measurement has three independent publisher/project/revision
+groups, thirteen objects and thirty-three recordings. Glass coverage is now
+`5/16` required object groups and seventeen recordings, so the immediate
+blocker is `REMAINING_11_INDEPENDENT_E3_GROUPS_AND_REJECT_PARENTS`, not force
+hardware, generic networking, OSF/Figshare redirects, REALIMPACT adapter
+existence or unqualified variants from the same source revisions. The next
+bounded candidate is Greatest Hits, but its official 20 GB minimum package must
+first expose a hash-closed material/object inventory and bounded retrieval path
+before a full download. If published
 evidence cannot satisfy a domain's required claims and grouped sample sizes,
 that domain remains fallback-only. The project does not resolve the gap by
 asking the user to make physical recordings.

@@ -172,6 +172,7 @@ struct RemoteArtifact {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum FetchRedirectPolicy {
+    FigshareKiltHubV1,
     OsfStorageV1,
 }
 

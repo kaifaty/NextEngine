@@ -12,6 +12,8 @@ use super::super::{
 use super::adapters::AdapterEvidenceReport;
 use super::{InternetSourceManifest, InternetSourceReport, SourceReport};
 
+mod heller;
+
 const MANIFEST_SCHEMA: &str =
     "nextengine.experimental-physical-sound-identified-corpus.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-identified-corpus.report.v1";
@@ -576,6 +578,9 @@ fn normalize_source(
                 source.id
             ));
         }
+    }
+    if source.adapter_id == "heller-impact-identified-recording-v1" {
+        return heller::normalize_source(source, partition);
     }
     let (object_id, material_label, recordings) = match &source.adapter_evidence {
         Some(AdapterEvidenceReport::AvMsfIdentifiedRecordingV1 {

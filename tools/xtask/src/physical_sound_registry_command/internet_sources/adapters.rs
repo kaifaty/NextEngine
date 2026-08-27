@@ -9,8 +9,10 @@ use super::{
     cache_artifact_path,
 };
 
+pub(super) mod heller_impact;
 mod wav;
 pub(super) mod ycb_impact;
+mod zip_archive;
 
 const AV_MSF_ADAPTER_ID: &str = "av-msf-identified-recording-v1";
 const AV_MSF_PUBLISHER_ID: &str = "zisen-shao";
@@ -28,6 +30,13 @@ pub(super) enum AdapterProfile {
         object_id: String,
         material_label: String,
         recording_ids: Vec<String>,
+    },
+    HellerImpactIdentifiedRecordingV1 {
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        event_label: String,
+        recordings: Vec<heller_impact::RecordingProfile>,
     },
     YcbImpactIdentifiedRecordingV1 {
         object_id: String,
@@ -59,6 +68,13 @@ pub(super) enum AdapterEvidenceReport {
         material_label: String,
         recordings: Vec<RecordingReport>,
     },
+    HellerImpactIdentifiedRecordingV1 {
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        event_label: String,
+        recordings: Vec<heller_impact::RecordingEvidenceReport>,
+    },
     YcbImpactIdentifiedRecordingV1 {
         object_id: String,
         object_name: String,
@@ -87,6 +103,14 @@ pub(super) fn validate_profile_declaration(source: &InternetSource) -> Result<()
         }
         (AV_MSF_ADAPTER_ID, None) => Err(format!(
             "source {} requires an AV-MSF adapter profile",
+            source.id
+        )),
+        (
+            heller_impact::ADAPTER_ID,
+            Some(AdapterProfile::HellerImpactIdentifiedRecordingV1 { .. }),
+        ) => heller_impact::validate_declaration(source),
+        (heller_impact::ADAPTER_ID, None) => Err(format!(
+            "source {} requires a Heller Impact adapter profile",
             source.id
         )),
         (ycb_impact::ADAPTER_ID, Some(AdapterProfile::YcbImpactIdentifiedRecordingV1 { .. })) => {
@@ -127,6 +151,7 @@ pub(super) fn audit(
     }
     match source.adapter_id.as_str() {
         AV_MSF_ADAPTER_ID => audit_av_msf(cache, source),
+        heller_impact::ADAPTER_ID => heller_impact::audit(cache, source),
         ycb_impact::ADAPTER_ID => ycb_impact::audit(cache, source),
         _ => Ok(AdapterAudit {
             validated_capabilities: BTreeSet::new(),

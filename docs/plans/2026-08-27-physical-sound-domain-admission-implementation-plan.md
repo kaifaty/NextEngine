@@ -135,7 +135,7 @@ cargo run -p xtask -- physical-sound-benchmark \
   --output /external/controlled-mutation-evaluation
 ```
 
-### 3. Selective specialist calibration — PS-2 measured re-plan and grouped expansion next
+### 3. Selective specialist calibration — PS-2 grouped evidence expansion active
 
 Deliver:
 
@@ -264,9 +264,21 @@ measure two publisher/project/revision groups, 12 objects and 28 recordings;
 Glass contributes 4 groups/12 recordings against the required 16 groups. All
 entries remain in development and no upstream split is promoted to holdout.
 
-Package 3 must next re-plan actual group availability from this measured
-`4/16` baseline, then add the remaining independent published E3 objects and
-complementary E2/E1 arrays before calibration/holdout/shadow open.
+The measured re-plan and next independent E3 increment are now implemented.
+`heller-impact-identified-recording-v1` freezes the versioned CMU KiltHub
+Impact Events archive/notes and grants only one explicitly named Glass-vase
+object/event group with five repeats. Its Figshare redirect and ZIP extraction
+are source-specific and bounded; mirror/red-vase rows and multiple impactors on
+one target are excluded. The [combined pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md)
+repeats across two fresh caches and offline audits. AV-MSF + YCB + Heller now
+measure three publisher/project/revision groups, 13 objects and 33 recordings;
+Glass contributes 5 groups/17 recordings, leaving 11 of 16 groups open.
+
+Package 3 must next obtain a hash-closed object/material inventory and bounded
+object-level retrieval path for Greatest Hits before accepting its 20 GB
+minimum official package, or reject that path and select another source. It
+must also expand complementary E2/E1 arrays before
+calibration/holdout/shadow open.
 Separate internet sources may support separate specialist claims, but
 unavailable axes remain unavailable and the grouped split/risk policy is
 unchanged. Insufficient published coverage keeps the domain fallback-only; it

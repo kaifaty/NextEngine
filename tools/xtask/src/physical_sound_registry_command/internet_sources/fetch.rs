@@ -12,6 +12,7 @@ use super::{
     CacheStatus, FetchRedirectPolicy, canonical_https_host_and_path, verify_cache_artifact,
 };
 
+mod figshare;
 mod osf;
 
 const DOWNLOAD_BUFFER_BYTES: usize = 128 * 1024;
@@ -59,6 +60,17 @@ pub(super) fn fetch_exact_artifact(
 ) -> Result<CacheStatus, String> {
     let download_url = match redirect_policy {
         None => url.to_owned(),
+        Some(FetchRedirectPolicy::FigshareKiltHubV1) => {
+            match figshare::resolve_kilthub_download(url)? {
+                figshare::RedirectResolution::Ready(url) => url,
+                figshare::RedirectResolution::FetchFailed => {
+                    return Ok(CacheStatus::FetchFailed);
+                }
+                figshare::RedirectResolution::FetchToolUnavailable => {
+                    return Ok(CacheStatus::FetchToolUnavailable);
+                }
+            }
+        }
         Some(FetchRedirectPolicy::OsfStorageV1) => {
             match osf::resolve_storage_download(url, expected_sha256)? {
                 osf::RedirectResolution::Ready(url) => url,
