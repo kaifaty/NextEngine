@@ -696,6 +696,7 @@ struct ALR20R63YLastResult {
     std::string controls_root;
     std::string onefold_profile_root;
     std::string twofold_profile_root;
+    ALR20R63YProfile selected_profile;
 };
 
 ALR20R63YLastResult al_r20_r63y_last_result;
@@ -973,6 +974,8 @@ SplitBoundaryReport run_al_generalization_v5_portable_expansion_affine_controls(
     al_r20_r63y_last_result.controls_root = controls.root;
     al_r20_r63y_last_result.onefold_profile_root = onefold_profile.root;
     al_r20_r63y_last_result.twofold_profile_root = twofold_profile.root;
+    al_r20_r63y_last_result.selected_profile = selected_width == 2U
+        ? twofold_profile : ALR20R63YProfile{};
     auto lane_json = [](const char* name, const ALR20R63YLane& lane) {
         std::ostringstream stream;
         stream << "\"" << name << "\":{\"finite_exact\":"

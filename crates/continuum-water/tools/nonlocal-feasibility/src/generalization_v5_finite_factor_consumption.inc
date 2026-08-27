@@ -427,6 +427,18 @@ struct ALR20R63ZAControls {
     std::string root;
 };
 
+struct ALR20R63ZALastResult {
+    bool exact = false;
+    std::string route;
+    std::string semantic;
+    std::string controls_root;
+    ALR20R63ZAIdentity identity;
+    ALR20R63SConsumptionFixture fixture;
+    std::vector<ALR20R63ZASolve> solves;
+};
+
+ALR20R63ZALastResult al_r20_r63za_last_result;
+
 ALR20R63ZAControls al_r20_r63za_controls() {
     ALR20R63ZAControls result;
     const Binary128 one_q = static_cast<Binary128>(1.0);
@@ -547,6 +559,7 @@ ALR20R63ZAControls al_r20_r63za_controls() {
 
 SplitBoundaryReport
 run_al_generalization_v5_finite_factor_consumption_controls() {
+    al_r20_r63za_last_result = ALR20R63ZALastResult{};
 #if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) \
     && defined(__SIZEOF_FLOAT128__) && !defined(__FAST_MATH__)
     constexpr bool frozen_platform = true;
@@ -624,6 +637,13 @@ run_al_generalization_v5_finite_factor_consumption_controls() {
     for (const ALR20R63ZASolve& solve : solves)
         semantic << solve.root << ';';
     const std::string result_sha = sha256_hex(semantic.str());
+    al_r20_r63za_last_result.exact = exact;
+    al_r20_r63za_last_result.route = route;
+    al_r20_r63za_last_result.semantic = result_sha;
+    al_r20_r63za_last_result.controls_root = controls.root;
+    al_r20_r63za_last_result.identity = identity;
+    al_r20_r63za_last_result.fixture = fixture;
+    al_r20_r63za_last_result.solves = solves;
     std::ostringstream report;
     report << std::setprecision(17)
         << "{\"schema\":\"nextengine.nonlocal.nsr3b4e2d7r20r63za_finite_factor_consumption.v1\""

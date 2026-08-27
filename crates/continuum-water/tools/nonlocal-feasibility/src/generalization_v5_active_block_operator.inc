@@ -484,6 +484,7 @@ struct ALR20R63ZLastResult {
     std::string semantic;
     std::string artifact_root;
     std::string identity_root;
+    ALR20R63ZArtifact artifact;
 };
 
 ALR20R63ZLastResult al_r20_r63z_last_result;
@@ -875,6 +876,7 @@ SplitBoundaryReport run_al_generalization_v5_active_block_operator_controls() {
     al_r20_r63z_last_result.semantic = result_sha;
     al_r20_r63z_last_result.artifact_root = artifact.root;
     al_r20_r63z_last_result.identity_root = identity.root;
+    al_r20_r63z_last_result.artifact = artifact;
     auto lane_json = [](const char* name, const ALR20R63ZLane& lane) {
         std::ostringstream stream;
         stream << std::setprecision(17)

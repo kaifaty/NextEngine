@@ -359,6 +359,8 @@ SplitBoundaryReport
 run_al_generalization_v5_active_block_operator_controls();
 SplitBoundaryReport
 run_al_generalization_v5_finite_factor_consumption_controls();
+SplitBoundaryReport
+run_al_generalization_v5_twofold_recurrence_controls();
 SplitBoundaryReport run_nominal_dam_first_output_preflight_controls();
 SplitBoundaryReport run_nominal_dam_reference_binary64_topology_controls();
 
