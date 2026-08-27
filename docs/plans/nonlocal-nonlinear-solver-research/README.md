@@ -9,7 +9,10 @@ NSR3B4E2D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE /
 NSR3B4E2D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED /
 NSR3B4E2D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED /
 NSR3B4E2D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE /
-NSR3B4E2D7R20R63V_EARLIEST_IMAGE_CERTIFICATE_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE /
+NSR3B4E2D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED /
+NSR3B4E2D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE /
+NSR3B4E2D7R20R63Y_PORTABLE_EXPANSION_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -3930,6 +3933,16 @@ candidates resolve `24+/78-/0?` at `4.44e-4/1.01e-3`. This recovers roughly
 18 orders relative to R63W without changing precision and identifies lost
 residual correlation as the causal boundary. Research a factorized/sparse
 affine enclosure next; dense exact `ZH*`, timing and production remain blocked.
+
+The next route is frozen by the
+[R20R63Y research](../../development/nonlocal-nsr3b4e2d7r20r63y-portable-expansion-affine-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63y-portable-expansion-affine-contract.md). The local
+condition lower estimate near `2.58e32` lies far beyond the generic binary64
+sparse-verification range established in the 2026 literature. R63Y therefore
+executes fixed onefold and twofold binary64 expansions of the R63X affine form
+before changing the verifier theorem or sparse operator. Both widths run the
+complete two-lane state `0..2` corpus; exact images are containment-only.
 
 The
 [R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
