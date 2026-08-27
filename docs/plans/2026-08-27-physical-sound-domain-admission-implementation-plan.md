@@ -203,6 +203,14 @@ the downloadable archive lacks force-profile bytes, composition revision,
 repeat identity and support-fixture revision. It opens no calibration, holdout
 or shadow and gives no PS-2 release credit. See [pilot evidence](../development/physical-sound-realimpact-pilot-ps2-2026-08-27.md).
 
+The complete acquisition block is now executable too. A new raw synchronized
+entry requires equal microphone/force dimensions, calibrated-newton force with
+a positive impact, unique repeat identity, composition/fixture evidence and
+microphone/force calibrations by hash. Complete controls become only
+`ResearchEligible`; the old REALIMPACT pilot remains byte-identical fallback.
+The remaining package-3/PS-2 blocker is physical capture and scale, not schema
+design. See [bundle evidence](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:

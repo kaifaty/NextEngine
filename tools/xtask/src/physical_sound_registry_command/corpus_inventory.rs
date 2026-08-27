@@ -10,6 +10,10 @@ use super::{
     resolve_output_path, sha256_hex, validate_file_ref, validate_label,
 };
 
+mod complete_acquisition;
+
+use complete_acquisition::{CompleteAcquisition, CompleteAcquisitionReport};
+
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-inventory.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-inventory.report.v1";
 const MAX_ENTRIES: usize = 1_000_000;
@@ -97,6 +101,8 @@ struct InventoryEntry {
     acquisition_metadata: FileRef,
     provenance_review: FileRef,
     unavailable_components: Vec<String>,
+    #[serde(default)]
+    complete_acquisition: Option<CompleteAcquisition>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -123,6 +129,7 @@ impl Partition {
 #[serde(rename_all = "snake_case")]
 enum RecordingKind {
     ControlledRealForceDeconvolvedTransfer,
+    ControlledRealRawSynchronizedImpact,
 }
 
 impl RecordingKind {
@@ -131,6 +138,7 @@ impl RecordingKind {
             Self::ControlledRealForceDeconvolvedTransfer => {
                 "controlled_real_force_deconvolved_transfer"
             }
+            Self::ControlledRealRawSynchronizedImpact => "controlled_real_raw_synchronized_impact",
         }
     }
 }
@@ -200,6 +208,8 @@ struct EntryReport {
     acquisition_metadata_sha256: String,
     provenance_review_sha256: String,
     unavailable_components: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    complete_acquisition: Option<CompleteAcquisitionReport>,
 }
 
 #[derive(Debug, Serialize)]
@@ -261,6 +271,7 @@ fn validate_manifest(manifest: &InventoryManifest) -> Result<(), String> {
 
     let mut previous_id: Option<&str> = None;
     let mut partitions = GroupPartitionAudit::default();
+    let mut repeat_keys = BTreeSet::new();
     for entry in &manifest.entries {
         validate_entry(entry)?;
         if previous_id.is_some_and(|previous| previous >= entry.id.as_str()) {
@@ -271,6 +282,20 @@ fn validate_manifest(manifest: &InventoryManifest) -> Result<(), String> {
         }
         previous_id = Some(&entry.id);
         partitions.insert(entry)?;
+        if let Some(complete) = &entry.complete_acquisition {
+            let key = (
+                entry.object_id.as_str(),
+                entry.impact_position_id.as_str(),
+                entry.listener_condition_id.as_str(),
+                complete.repeat_id.as_str(),
+            );
+            if !repeat_keys.insert(key) {
+                return Err(format!(
+                    "duplicate synchronized repeat identity in entry {}",
+                    entry.id
+                ));
+            }
+        }
     }
     Ok(())
 }
@@ -311,6 +336,32 @@ fn validate_entry(entry: &InventoryEntry) -> Result<(), String> {
     validate_file_ref(&entry.acquisition_metadata, "acquisition metadata")?;
     validate_file_ref(&entry.provenance_review, "provenance review")?;
     validate_optional_sorted_labels(&entry.unavailable_components, "unavailable component ids")?;
+    match (entry.recording_kind, &entry.complete_acquisition) {
+        (RecordingKind::ControlledRealForceDeconvolvedTransfer, None)
+            if !entry.unavailable_components.is_empty() => {}
+        (RecordingKind::ControlledRealRawSynchronizedImpact, Some(complete))
+            if entry.unavailable_components.is_empty() =>
+        {
+            complete_acquisition::validate(
+                &entry.id,
+                entry.sample_rate_hz,
+                entry.sample_count,
+                complete,
+            )?;
+        }
+        (RecordingKind::ControlledRealForceDeconvolvedTransfer, _) => {
+            return Err(format!(
+                "deconvolved pilot entry {} must declare unavailable components and no complete acquisition",
+                entry.id
+            ));
+        }
+        (RecordingKind::ControlledRealRawSynchronizedImpact, _) => {
+            return Err(format!(
+                "raw synchronized entry {} requires complete acquisition and no unavailable components",
+                entry.id
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -455,11 +506,19 @@ fn build_report(
             "provenance review",
         )?
         .sha256;
-        let provisional_outcome = if entry.unavailable_components.is_empty() {
-            "ResearchEligible"
-        } else {
-            "FallbackOutOfDomain"
-        };
+        let complete_acquisition = entry
+            .complete_acquisition
+            .as_ref()
+            .map(|complete| {
+                complete_acquisition::build_report(root, manifest_directory, &entry.id, complete)
+            })
+            .transpose()?;
+        let provisional_outcome =
+            if complete_acquisition.is_some() && entry.unavailable_components.is_empty() {
+                "ResearchEligible"
+            } else {
+                "FallbackOutOfDomain"
+            };
         entry_reports.push(EntryReport {
             id: entry.id,
             partition: entry.partition.as_str(),
@@ -485,6 +544,7 @@ fn build_report(
             acquisition_metadata_sha256,
             provenance_review_sha256,
             unavailable_components: entry.unavailable_components,
+            complete_acquisition,
         });
     }
 
@@ -673,6 +733,68 @@ mod tests {
     }
 
     #[test]
+    fn complete_synchronized_acquisition_reports_force_and_rejects_mismatch() {
+        let directory = TestDirectory::new();
+        let mut manifest = test_manifest();
+        manifest.entries[0].recording_kind = RecordingKind::ControlledRealRawSynchronizedImpact;
+        manifest.entries[0].unavailable_components.clear();
+        manifest.entries[0].complete_acquisition = Some(CompleteAcquisition {
+            repeat_id: "repeat-001".to_owned(),
+            force_profile_sample_rate_hz: 48_000,
+            force_profile_sample_count: 4,
+            force_profile_f32le_newtons: file_ref("force.f32le"),
+            material_composition: file_ref("material.json"),
+            support_fixture_revision: file_ref("fixture.json"),
+            microphone_calibration: file_ref("microphone.json"),
+            force_calibration: file_ref("force-calibration.json"),
+        });
+        write_artifacts(&directory.0, &mut manifest);
+        write_complete_artifacts(&directory.0, &mut manifest);
+        let manifest_path = directory.0.join("complete.json");
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).expect("serialize complete inventory"),
+        )
+        .expect("write complete inventory");
+        let output = directory.0.join("complete-report");
+        run(
+            workspace_root(),
+            &Request {
+                manifest: manifest_path,
+                output: output.clone(),
+            },
+        )
+        .expect("complete acquisition validates");
+        let report: Value = serde_json::from_slice(
+            &fs::read(output.join("report.json")).expect("read complete report"),
+        )
+        .expect("parse complete report");
+        assert_eq!(
+            report["entries"][0]["provisional_outcome"],
+            "ResearchEligible"
+        );
+        assert_eq!(
+            report["entries"][0]["complete_acquisition"]["repeat_id"],
+            "repeat-001"
+        );
+        assert_eq!(
+            report["entries"][0]["complete_acquisition"]["force_profile"]["positive_impulse_newton_seconds"],
+            0.000625
+        );
+
+        manifest.entries[0]
+            .complete_acquisition
+            .as_mut()
+            .expect("complete acquisition")
+            .force_profile_sample_count = 3;
+        assert!(
+            validate_manifest(&manifest)
+                .expect_err("force dimension mismatch rejects")
+                .contains("must match exactly")
+        );
+    }
+
+    #[test]
     fn inventory_rejects_wrong_audio_size_and_repository_local_input() {
         let directory = TestDirectory::new();
         let mut manifest = test_manifest();
@@ -748,6 +870,38 @@ mod tests {
         manifest.entries[0].provenance_review.sha256 = hash_file(directory, "provenance.md");
     }
 
+    fn write_complete_artifacts(directory: &Path, manifest: &mut InventoryManifest) {
+        let force = [0.0_f32, 10.0, 20.0, 0.0]
+            .into_iter()
+            .flat_map(f32::to_le_bytes)
+            .collect::<Vec<_>>();
+        let artifacts = [
+            ("force.f32le", force.as_slice()),
+            (
+                "material.json",
+                b"{\"composition\":\"measured\"}".as_slice(),
+            ),
+            ("fixture.json", b"{\"fixture\":\"revision-1\"}".as_slice()),
+            ("microphone.json", b"{\"calibration\":\"mic\"}".as_slice()),
+            (
+                "force-calibration.json",
+                b"{\"calibration\":\"force\"}".as_slice(),
+            ),
+        ];
+        for (name, bytes) in artifacts {
+            fs::write(directory.join(name), bytes).expect("write complete acquisition artifact");
+        }
+        let complete = manifest.entries[0]
+            .complete_acquisition
+            .as_mut()
+            .expect("complete acquisition");
+        complete.force_profile_f32le_newtons.sha256 = hash_file(directory, "force.f32le");
+        complete.material_composition.sha256 = hash_file(directory, "material.json");
+        complete.support_fixture_revision.sha256 = hash_file(directory, "fixture.json");
+        complete.microphone_calibration.sha256 = hash_file(directory, "microphone.json");
+        complete.force_calibration.sha256 = hash_file(directory, "force-calibration.json");
+    }
+
     fn hash_file(directory: &Path, name: &str) -> String {
         sha256_hex(&fs::read(directory.join(name)).expect("read inventory artifact"))
     }
@@ -785,6 +939,7 @@ mod tests {
                 acquisition_metadata: file_ref("metadata.json"),
                 provenance_review: file_ref("provenance.md"),
                 unavailable_components: vec!["force-profile".to_owned()],
+                complete_acquisition: None,
             }],
         }
     }
