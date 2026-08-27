@@ -1,6 +1,13 @@
 # NSR3-B4E2D7R20R63ZF quadratic-step/sign-boundary research
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_NEXT`.
+Status: `SUPPORTED_BOUNDED / REVIEWED`.
+
+Captured evidence: [R63ZF quadratic-step/sign evidence](nonlocal-nsr3b4e2d7r20r63zf-quadratic-step-sign-evidence-2026-08-27.md).
+
+The reviewed route is `CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE`: all
+102 raw binary128 signs alias with no zero component, while the common R63Y
+`error_upper` is about `3.06e16` times the tangent value. This selects
+certificate-detail decomposition next; it does not select a repair.
 
 ## Question
 

@@ -73,6 +73,8 @@ struct FormulaProbeScalar {
     bool positive = false;
     FormulaProbeBinary128 value =
         static_cast<FormulaProbeBinary128>(0.0);
+    FormulaProbeBinary128 bound =
+        static_cast<FormulaProbeBinary128>(0.0);
     std::string root;
 };
 

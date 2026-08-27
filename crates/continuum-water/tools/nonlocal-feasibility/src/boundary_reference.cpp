@@ -80715,6 +80715,7 @@ FormulaProbeScalar formula_probe_scalar_dot(
     result.exact = scalar.exact;
     result.positive = scalar.positive;
     result.value = scalar.value;
+    result.bound = scalar.bound;
     result.root = scalar.root;
     return result;
 }

@@ -19,7 +19,7 @@ NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED /
 NSR3B4E2D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT /
 NSR3B4E2D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS /
 NSR3B4E2D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT /
-NSR3B4E2D7R20R63ZF_QUADRATIC_STEP_SIGN_CONTRACT_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4072,7 +4072,18 @@ then compares raw binary128 sign roots with the two immutable R63Y certificates
 and their error bounds. This distinguishes a real raw-solution sign change
 from loss of enclosure proof. Only the private scalar DTO exposes its already
 computed Dot2 bound; arithmetic, cache schema and recurrence remain unchanged.
-Implementation is next and has no operator-repair or production authority.
+The
+[reviewed evidence](../../development/nonlocal-nsr3b4e2d7r20r63zf-quadratic-step-sign-evidence-2026-08-27.md)
+returns `CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE`. The two quadratic
+discrepancy intervals are positive and overlap, the induced step displacement
+is contained componentwise, and all 102 raw binary128 solution signs alias
+without zeros. The certificate `error_upper` nevertheless grows by about
+`3.06e16`, changing `24+/78-/0?` to `12+/24-/66?`. Initial review found
+producer-validity, work-classification, classifier-coverage and control-sealing
+defects; one batched repair closed them and the single re-review returned
+`GO`. Decompose affine-image center, representation radii and contraction
+amplification next. No operator/certificate repair or production authority
+follows.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
