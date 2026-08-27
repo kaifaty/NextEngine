@@ -169,7 +169,17 @@ pub(super) enum EntryOrigin {
     Mutation {
         mutation_family: String,
         parent_entry_id: String,
+        #[serde(default)]
+        expected_validator_outcome: MutationExpectedValidatorOutcome,
     },
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum MutationExpectedValidatorOutcome {
+    #[default]
+    Unspecified,
+    Reject,
 }
 
 impl EntryOrigin {
@@ -308,11 +318,11 @@ fn validate_entries(manifest: &BenchmarkManifest) -> Result<(), String> {
         .iter()
         .map(|source| source.id.as_str())
         .collect::<BTreeSet<_>>();
-    let entry_ids = manifest
+    let entries_by_id = manifest
         .entries
         .iter()
-        .map(|entry| entry.id.as_str())
-        .collect::<BTreeSet<_>>();
+        .map(|entry| (entry.id.as_str(), entry))
+        .collect::<BTreeMap<_, _>>();
     let mut previous: Option<&str> = None;
     for entry in &manifest.entries {
         validate_label(&entry.id, "entry id")?;
@@ -354,13 +364,27 @@ fn validate_entries(manifest: &BenchmarkManifest) -> Result<(), String> {
             EntryOrigin::Mutation {
                 mutation_family,
                 parent_entry_id,
+                expected_validator_outcome: _,
             } => {
                 validate_label(mutation_family, "mutation family")?;
                 validate_label(parent_entry_id, "mutation parent entry id")?;
-                if parent_entry_id == &entry.id || !entry_ids.contains(parent_entry_id.as_str()) {
+                let parent = entries_by_id.get(parent_entry_id.as_str()).copied();
+                if parent_entry_id == &entry.id || parent.is_none() {
                     return Err(format!(
                         "mutation entry {} references invalid parent {}",
                         entry.id, parent_entry_id
+                    ));
+                }
+                let parent = parent.expect("checked mutation parent");
+                if parent.partition != entry.partition
+                    || parent.object_id != entry.object_id
+                    || parent.object_family_id != entry.object_family_id
+                    || parent.material != entry.material
+                    || parent.source_id != entry.source_id
+                {
+                    return Err(format!(
+                        "mutation entry {} must preserve its parent's partition, object, family, material and source identity",
+                        entry.id
                     ));
                 }
                 if entry.partition == Partition::Development {

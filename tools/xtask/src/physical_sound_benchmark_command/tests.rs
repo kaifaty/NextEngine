@@ -265,6 +265,10 @@ fn end_to_end_report_has_no_acceptance_authority() {
     .expect("parse benchmark report");
     assert_eq!(report["decision"], "NoAcceptanceAuthority");
     assert_eq!(report["benchmark_status"], "Measured");
+    assert_eq!(
+        report["temporal_selective_risk"]["status"],
+        "UnavailableNoControlledCalibrationMutations"
+    );
     assert_eq!(report["split_audit"]["status"], "Pass");
     assert_eq!(
         report["corpus"]["sources"][0]["review_status"],

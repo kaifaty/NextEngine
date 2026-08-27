@@ -10,6 +10,8 @@ use crate::physical_sound_eval_command::audio_analysis::{analyze_benchmark_wav, 
 
 mod evaluator;
 mod manifest;
+mod mutations;
+mod selective_risk;
 #[cfg(test)]
 mod tests;
 
@@ -21,13 +23,14 @@ use manifest::{
     BenchmarkManifest, DistanceMetric, ExternalFeatureSet, FeatureMatrix, FileRef, Partition,
     validate_feature_matrix, validate_manifest,
 };
+use selective_risk::{TemporalSelectiveRiskReport, evaluate_temporal_selective_risk};
 
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-benchmark.manifest.v1";
 const FEATURE_MATRIX_SCHEMA: &str =
     "nextengine.experimental-physical-sound-corpus-feature-matrix.v1";
-const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-benchmark.report.v2";
+const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-corpus-benchmark.report.v3";
 const EVALUATOR_PROFILE: &str =
-    "nextengine.experimental-physical-sound-corpus-benchmark.av-p0c-substrate.v1";
+    "nextengine.experimental-physical-sound-corpus-benchmark.av-p0c-selective-risk.v2";
 const CLASSICAL_FEATURE_SET_ID: &str = "classical-av-p0b-v1";
 const TEMPORAL_FEATURE_SET_ID: &str = "temporal-dynamics-av-p0c-v1";
 const MAX_ENTRIES: usize = 8_192;
@@ -41,6 +44,10 @@ const MAX_EXTERNAL_FEATURE_DIMENSIONS: usize = 4_096;
 pub(super) struct Request {
     manifest: PathBuf,
     output: PathBuf,
+}
+
+pub(super) fn mutate(root: &Path, arguments: impl Iterator<Item = String>) -> Result<(), String> {
+    mutations::run_cli(root, arguments)
 }
 
 pub(super) fn parse_arguments(
@@ -89,6 +96,7 @@ struct BenchmarkReport {
     split_audit: SplitAuditReport,
     input_failures: Vec<InputFailureReport>,
     optional_feature_components: Vec<OptionalFeatureComponentReport>,
+    temporal_selective_risk: Option<TemporalSelectiveRiskReport>,
     tasks: Vec<TaskReport>,
     entries: Vec<EntryAudioReport>,
 }
@@ -261,6 +269,9 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
     } else {
         Vec::new()
     };
+    let temporal_selective_risk = input_failures
+        .is_empty()
+        .then(|| evaluate_temporal_selective_risk(&entries));
     let optional_feature_components = optional_feature_components(&manifest);
     let profile = EvaluatorProfileReport {
         id: EVALUATOR_PROFILE,
@@ -308,6 +319,7 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         split_audit,
         input_failures,
         optional_feature_components,
+        temporal_selective_risk,
         tasks,
         entries: entries.into_iter().map(|entry| entry.audio).collect(),
     };

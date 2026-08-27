@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -111,7 +110,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-benchmark, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-registry, physical-sound-reproduce, physical-sound-steel-search, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
+        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-benchmark, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-mutations, physical-sound-registry, physical-sound-reproduce, physical-sound-steel-search, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "animation-lod" => {
@@ -198,6 +197,7 @@ fn run() -> Result<(), String> {
             let request = physical_sound_lab_command::parse_arguments(arguments)?;
             physical_sound_lab_command::run(&root, &request)
         }
+        "physical-sound-mutations" => physical_sound_benchmark_command::mutate(&root, arguments),
         "physical-sound-registry" => physical_sound_registry_command::run_cli(&root, arguments),
         "physical-sound-reproduce" => {
             let request = physical_sound_reproduce_command::parse_arguments(arguments)?;
