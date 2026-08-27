@@ -18,7 +18,8 @@ NSR3B4E2D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE /
 NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED /
 NSR3B4E2D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT /
 NSR3B4E2D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS /
-NSR3B4E2D7R20R63ZE_DENOMINATOR_RESIDUAL_FACTORIAL_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT /
+NSR3B4E2D7R20R63ZF_QUADRATIC_DISCREPANCY_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4045,14 +4046,21 @@ and has no timing, runtime, GPU or production authority.
 The
 [R20R63ZE research](../../development/nonlocal-nsr3b4e2d7r20r63ze-denominator-residual-research-2026-08-27.md)
 and
-[contract](03b4e2d7r20r63ze-denominator-residual-contract.md)
-freeze that next minimal discriminator. It retains the passing tangent
+[contract](03b4e2d7r20r63ze-denominator-residual-contract.md) freeze that next
+minimal discriminator. It retains the passing tangent
 trajectory through `p1`, computes both final tangent/common products and both
 quadratic denominators, then crosses denominator selection with terminal
 residual-product selection. Equal work and exact solution/residual aliases
 distinguish scalar step-length sufficiency from residual-vector dependence.
-No operator value, factor, precision, depth, certificate or tolerance changes;
-implementation is next.
+The
+[reviewed evidence](../../development/nonlocal-nsr3b4e2d7r20r63ze-denominator-residual-evidence-2026-08-27.md)
+returns `1100` / `DENOMINATOR_STEP_SUFFICIENT`: solution/certificate roots
+depend only on the selected denominator while the independently differing
+residual roots prove that the terminal vector selector executed. Initial
+review found unsafe incomplete-lane precedence; one batched repair closed it
+and the single re-review returned `GO`. Research the exact/twofold quadratic
+denominator and induced step/certificate discrepancy next. Do not change an
+operator, factor, precision, depth, certificate or tolerance.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

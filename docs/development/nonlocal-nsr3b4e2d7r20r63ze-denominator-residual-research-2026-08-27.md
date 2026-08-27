@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZE denominator/residual research
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_NEXT`.
+Status: `SUPPORTED_BOUNDED / REVIEWED / DENOMINATOR_STEP_SUFFICIENT`.
 
 ## Question
 
@@ -95,3 +95,13 @@ R63ZE changes no operator value, factor, RHS, scale, precision, recurrence
 depth, certificate or tolerance. It is one fixed Linux x86-64 strict-binary128
 causal discriminator. It performs no timing, corpus, nonlinear state,
 CPU/GPU runtime or production work and authorizes no operator repair.
+
+## Reviewed outcome
+
+The [captured evidence](nonlocal-nsr3b4e2d7r20r63ze-denominator-residual-evidence-2026-08-27.md)
+returns byte-exact pattern `1100` and route
+`DENOMINATOR_STEP_SUFFICIENT`. Solution/certificate roots alias within each
+denominator pair while residual and full state roots differ, so the terminal
+residual consumer is observably active but cannot explain the certificate
+change. Initial review found unsafe incomplete-lane precedence; one batched
+repair closed it and the single re-review returned `GO`.
