@@ -19,7 +19,7 @@ NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED /
 NSR3B4E2D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT /
 NSR3B4E2D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS /
 NSR3B4E2D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT /
-NSR3B4E2D7R20R63ZF_QUADRATIC_DISCREPANCY_RESEARCH_NEXT /
+NSR3B4E2D7R20R63ZF_QUADRATIC_STEP_SIGN_CONTRACT_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4061,6 +4061,18 @@ review found unsafe incomplete-lane precedence; one batched repair closed it
 and the single re-review returned `GO`. Research the exact/twofold quadratic
 denominator and induced step/certificate discrepancy next. Do not change an
 operator, factor, precision, depth, certificate or tolerance.
+
+The
+[R20R63ZF research](../../development/nonlocal-nsr3b4e2d7r20r63zf-quadratic-step-sign-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63zf-quadratic-step-sign-contract.md) freeze the next
+minimal audit. It reproduces both R63ZE endpoints once, encloses
+`p1^T(c-t)` against `d_c-d_t`, verifies the componentwise step displacement,
+then compares raw binary128 sign roots with the two immutable R63Y certificates
+and their error bounds. This distinguishes a real raw-solution sign change
+from loss of enclosure proof. Only the private scalar DTO exposes its already
+computed Dot2 bound; arithmetic, cache schema and recurrence remain unchanged.
+Implementation is next and has no operator-repair or production authority.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
