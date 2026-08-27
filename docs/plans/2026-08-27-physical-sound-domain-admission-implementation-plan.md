@@ -135,7 +135,7 @@ cargo run -p xtask -- physical-sound-benchmark \
   --output /external/controlled-mutation-evaluation
 ```
 
-### 3. Selective specialist calibration — PS-2 contract implemented, acquisition open
+### 3. Selective specialist calibration — PS-2 internet-source pipeline next
 
 Deliver:
 
@@ -203,19 +203,23 @@ the downloadable archive lacks force-profile bytes, composition revision,
 repeat identity and support-fixture revision. It opens no calibration, holdout
 or shadow and gives no PS-2 release credit. See [pilot evidence](../development/physical-sound-realimpact-pilot-ps2-2026-08-27.md).
 
-The complete acquisition block is now executable too. A new raw synchronized
-entry requires equal microphone/force dimensions, calibrated-newton force with
-a positive impact, unique repeat identity, composition/fixture evidence and
+The complete acquisition block is now executable too. A raw synchronized entry
+requires equal microphone/force dimensions, calibrated-newton force with a
+positive impact, unique repeat identity, composition/fixture evidence and
 microphone/force calibrations by hash. Complete controls become only
 `ResearchEligible`; the old REALIMPACT pilot remains byte-identical fallback.
-The remaining package-3/PS-2 blocker is physical capture and scale, not schema
-design. See [bundle evidence](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md).
+This is an `E1` import contract for already published evidence, not a local
+capture requirement. See [bundle evidence](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md).
 
-Active-host preflight finds ordinary ALC1220 microphone/line capture but no
-identified calibrated force-transducer/hammer channel. Microphone-only capture
-is not a valid substitute. Physical PS-2 evidence waits for synchronized force
-hardware or an already recorded complete bundle; validator and shadow work do
-not advance around that blocker.
+The active [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md)
+retires product-owner/local physical recording and removes force hardware as a
+roadmap blocker. Package 3 must now add an official-source registry, bounded
+external content-addressed fetch/cache, source-format adapters and an auditable
+`E1` synchronized / `E2` transfer / `E3` identified-real / `E4` synthetic
+capability matrix. Separate internet sources may support separate specialist
+claims, but unavailable axes remain unavailable and the grouped split/risk
+policy is unchanged. Insufficient published coverage keeps the domain
+fallback-only; it does not trigger local capture.
 
 ### 4. AV-P0D autonomous formula search
 

@@ -2,9 +2,9 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_ACQUISITION_CONTRACT_COMPLETE / PS-2_CAPTURE_BLOCKED_ON_FORCE_HARDWARE / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_INTERNET_CORPUS_PIPELINE_NEXT / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 acquisition bundle](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md), [REALIMPACT pilot](../development/physical-sound-realimpact-pilot-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [acquisition import bundle](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md), [REALIMPACT pilot](../development/physical-sound-realimpact-pilot-ps2-2026-08-27.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -81,6 +81,9 @@ frozen `ValidatorRelease`:
 - Один `Pass` не расширяется с конкретной геометрии, опоры, диапазона силы,
   позиции или listener condition до общего «стекло», «металл» или «дерево».
 - Source-model и validator hypothesis не меняются в одном research cycle.
+- Real evidence добывается из опубликованных internet sources; пользователь и
+  local operator не записывают удары, а microphone/force hardware не является
+  prerequisite или fallback.
 - Две последовательные недискриминирующие попытки запускают bounded research,
   а не ещё один coefficient grid.
 - R&D может идти изолированно, но production P1 остаётся post-v1/неактивным,
@@ -91,7 +94,7 @@ frozen `ValidatorRelease`:
 ```mermaid
 flowchart LR
     PS0["PS-0 Foundation<br/>COMPLETE"] --> PS1["PS-1 Envelope specialist<br/>COMPLETE"]
-    PS1 --> PS2["PS-2 Corpus and risk policy<br/>ACQUISITION CONTRACT COMPLETE / PHYSICAL CAPTURE NEXT"]
+    PS1 --> PS2["PS-2 Corpus and risk policy<br/>INTERNET SOURCE PIPELINE NEXT"]
     PS2 --> PS3["PS-3 Validator Release V1<br/>BLOCKED"]
     PS3 --> PS4["PS-4 AV-P0D autonomous search<br/>BLOCKED"]
     PS4 --> PS5["PS-5 Formula Base V1<br/>BLOCKED"]
@@ -106,7 +109,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / BLOCKED_ON_FORCE_CAPTURE` | L | Policy and complete synchronized bundle are executable; host has ordinary audio capture but no identified calibrated force/hammer channel, so physical evidence is blocked. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / INTERNET_SOURCE_PIPELINE_NEXT` | L | Power policy and `E1` synchronized import are executable. Next are official-source discovery, bounded external fetch/cache, format adapters and claim-scoped `E1`–`E4` capability accounting; no local capture is required. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -185,20 +188,23 @@ PS-2 acquisition-contract checkpoint: a raw synchronized entry now requires
 equal microphone/force dimensions, explicit repeat ID, positive calibrated
 force, material composition, fixture revision and both calibrations by hash.
 Complete test data becomes only `ResearchEligible`; the unchanged REALIMPACT
-pilot report remains byte-identical fallback. Software ingestion is ready; the
-next blocker is one physical capture bundle, then the full 40-object corpus. См.
-[bundle evidence](../development/physical-sound-acquisition-bundle-ps2-2026-08-27.md).
+pilot report remains byte-identical fallback. This is now an `E1` import shape,
+not a local recording plan. The active [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md)
+requires published sources, bounded external fetch/cache, source adapters and
+claim-scoped capability accounting. Local force hardware is not a blocker.
 
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
 
-- acquisition/import plan для нескольких independent objects и families в
-  каждом выбранном domain;
+- internet discovery/import plan для нескольких independent objects, publishers
+  и families в каждом выбранном domain;
+- bounded external fetch/cache, source URL/revision/hash/provenance registry и
+  adapters для опубликованных formats;
 - точные geometry/support/excitation/impact-position/listener axes вместо
   `unspecified` material-only metadata;
-- matched real recordings либо independently governed exact acquisition для
-  первой domain family;
+- published matched real recordings/transfer responses с claim-scoped `E1`–`E3`
+  capability для первой domain family;
 - frozen development/calibration/holdout/shadow partitions grouped по object,
   family, source, generator и mutation parent;
 - power analysis, после которого numeric maximum false-pass risk и minimum
@@ -213,9 +219,11 @@ Deliverables:
 | Dry hardwood block | Wood-B perceptually accepted; known frozen envelope counterexamples | Нет exact domain metadata, matched position/force corpus и safe risk bound |
 | Thin metal vessel/shell | Несколько independent real-metal families и ясный rejected residual | Material-only metadata; source model и evolving spectral dynamics не закрыты |
 
-Первым становится не любимый материал, а domain с первой полной строкой exact
-metadata и достаточным grouped evidence. Material-only AV-P0B/YCB rows не
-получают выдуманную геометрию.
+Первым становится не любимый материал, а domain, где совокупность независимых
+internet sources покрывает required claims и grouped evidence. Одна запись не
+обязана притворяться полным bundle: `E2` может закрывать modes/spatial transfer,
+а `E3` — real identity/envelope. Material-only AV-P0B/YCB rows не получают
+выдуманную геометрию, а отсутствие online coverage оставляет domain fallback-only.
 
 ## PS-3 — Заморозить Validator Release V1
 
@@ -326,7 +334,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot и bundle contract — `COMPLETE`; физическая real family — `BLOCKED_ON_FORCE_CAPTURE_HARDWARE` | PS-2 evidence expansion |
+| 4 | Controlled pilot и `E1` bundle import — `COMPLETE`; реализовать internet source registry, bounded fetch/cache, adapters и capability matrix | PS-2 evidence expansion |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
@@ -339,6 +347,7 @@ recordings, WAVs, features, weights and reports в commit не входят.
 | --- | --- |
 | PS-1 не закрывает B4/B5 после двух coherent variants | Bounded research cycle; source tuning запрещён |
 | Corpus не позволяет pre-register meaningful confidence/coverage | Расширить independent groups или оставить validator fallback-only |
+| Published internet evidence не закрывает required claim/axis | Оставить claim/domain fallback-only; не требовать local capture и не придумывать metadata |
 | AV-P0D улучшает fit, но проигрывает frozen validator/shadow | `Reject`, сохранить counterexample, сменить одну hypothesis |
 | Ни одна formula family не даёт bounded quality/cost point | Остановить domain и использовать authored clips |
 | SPEC-26 projection недостаточна для production excitation | Не обходить raw callback; уточнить consumer-driven projection или остановить P1 |

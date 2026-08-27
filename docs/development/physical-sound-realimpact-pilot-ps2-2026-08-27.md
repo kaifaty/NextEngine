@@ -1,7 +1,12 @@
 # Physical sound PS-2 — REALIMPACT GlassGoblet pilot
 
 Date: 2026-08-27
-Status: `DEVELOPMENT_PILOT_COMPLETE / FALLBACK_OUT_OF_DOMAIN / FULL_ACQUISITION_NEXT`
+Status: `DEVELOPMENT_PILOT_COMPLETE / E2_TRANSFER_EVIDENCE / INTERNET_ADAPTER_NEXT`
+
+The [active PS-2 internet corpus policy](physical-sound-internet-corpus-policy-ps2-2026-08-27.md)
+retains this pilot as claim-scoped transfer-response evidence. Its original
+overall `FallbackOutOfDomain` result and frozen hashes do not change; local
+recording is no longer the next action.
 
 ## Question
 
@@ -104,9 +109,9 @@ holdout, shadow, risk or coverage credit.
 
 ## Next action
 
-Keep REALIMPACT as development spatial/transfer evidence. The next full PS-2
-source must use the frozen controlled acquisition protocol and retain raw force
-traces, fixture revision, material/composition evidence and independent repeats.
-Start with one newly recorded glass object to prove the acquisition bundle,
-then scale to the pre-registered 40 objects/four families/four sources. Do not
-open shadow or start PS-3/AV-P0D before the full grouped target exists.
+Keep REALIMPACT as development `E2` spatial/transfer evidence. Implement an
+official-source adapter that preserves its exact mesh, impact/listener and
+transfer identities, then search published sources for the missing `E1` and
+`E3` claims. Do not infer raw force, fixture, composition or repeat data, and do
+not ask the user to record them. Revise the multi-source corpus plan before
+opening shadow or starting PS-3/AV-P0D.

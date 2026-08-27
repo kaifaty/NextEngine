@@ -1,7 +1,13 @@
 # Physical sound PS-2 — corpus pre-registration and power plan
 
 Date: 2026-08-27
-Status: `PS_2_CONTRACT_COMPLETE / REAL_ACQUISITION_OPEN / PASS_DISABLED`
+Status: `FROZEN_POWER_EVIDENCE / EXECUTION_SUPERSEDED_BY_INTERNET_DATA_POLICY / PASS_DISABLED`
+
+The [active PS-2 internet corpus policy](physical-sound-internet-corpus-policy-ps2-2026-08-27.md)
+supersedes local execution of this acquisition design. Its hashes and numeric
+power result remain immutable evidence; the instrumented-hammer fixture is now
+a description of what an externally published `E1` source would contain, not a
+request for local hardware or user-operated capture.
 
 ## Question
 
@@ -107,9 +113,11 @@ generator/OOD comparison, not matched-real evidence: its official format is an
 implicit multisensory object representation queried by surface coordinate and
 force vector.
 
-The first admitted-family candidate is therefore a new independently governed
-controlled acquisition. REALIMPACT may become a second source only after its
-actual archive metadata passes the same exact manifest and provenance review.
+The former choice of a new independently governed local acquisition is retired.
+The first admitted-family candidate must now be assembled from published
+internet sources through claim-scoped evidence tiers. REALIMPACT remains a
+transfer-response candidate; it receives only the capabilities established by
+its downloadable bytes and metadata.
 
 ## Verification and next action
 
@@ -118,9 +126,10 @@ decisions, split leakage, missing real source, external path enforcement and
 byte-repeat. All 44 focused physical-sound tests, Clippy with warnings denied,
 format check and boundary scan pass.
 
-PS-2 is not complete. The next evidence boundary is the smallest controlled
-real-family pilot that exercises the frozen manifest without opening shadow:
-one acquisition source/session, one object family and enough repetitions to
-validate geometry/support/force/listener ingestion. Pilot data can debug the
-pipeline but cannot reduce the pre-registered 40-object/35-parent release
-requirement. Automatic `Pass` and AV-P0D remain disabled.
+PS-2 is not complete. The next evidence boundary is an internet-source registry,
+bounded external fetch/cache path, format adapters and an explicit capability
+matrix. A new corpus-plan revision must show how published `E1`–`E4` sources
+cover the required claims while retaining the 35 reject-parent and 16 in-domain
+group minima before shadow opens. If internet evidence cannot cover them, the
+domain remains fallback-only; local capture is not the fallback. Automatic
+`Pass` and AV-P0D remain disabled.

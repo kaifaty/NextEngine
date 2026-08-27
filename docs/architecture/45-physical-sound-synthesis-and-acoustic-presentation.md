@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.6 |
+| Version | 0.7 |
 | Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
-| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md) |
-| Replaces | SPEC-45 0.5; records the controlled-mutation/grouped-risk boundary without promoting quality acceptance or a runtime/content contract |
+| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md) |
+| Replaces | SPEC-45 0.6; makes internet-source evidence and claim-scoped capability the active PS-2 acquisition boundary without promoting quality acceptance or a runtime/content contract |
 
 ## Status and decision boundary
 
@@ -234,6 +234,42 @@ outputs. Repository tooling MAY define and validate current-only experimental
 JSON shapes, bounds, ordering and hashes. An admitted production profile later
 becomes cooked PresentationOnly content only through a concrete consumer and a
 promoting ADR under ADR-046.
+
+For the active PS-2 track, real corpus construction MUST use already published
+internet-accessible datasets, papers, project archives and official metadata.
+It MUST NOT require the product owner or another local operator to strike,
+handle or record physical objects, and local microphones, force transducers or
+instrumented hammers MUST NOT be roadmap prerequisites. Offline research tools
+MAY access the network to discover and retrieve external inputs into an
+external content-addressed cache; production runtime, cooked playback and
+mandatory product checks MUST NOT depend on network access or that cache.
+
+Every retrieved source MUST bind its canonical URL, publisher/project identity,
+declared revision, retrieval date, byte hashes, provenance and
+attribution/license review. Unknown or incompatible redistribution terms keep
+the bytes external and non-distributable. Archive extraction and format
+conversion MUST be bounded and MUST preserve the source identity of every
+derived feature or report.
+
+Evidence credit is claim-scoped rather than all-or-nothing:
+
+- synchronized raw microphone/force/metrology data MAY establish absolute
+  excitation-response and the supported modal/spatial claims;
+- force-deconvolved or normalized transfer responses MAY establish modal,
+  decay, relative participation and spatial claims, but not absolute
+  force-to-amplitude mapping;
+- identified real recordings MAY establish material/object, envelope and
+  spectral-evolution evidence, but not undeclared geometry, force or position;
+- synthetic/generated sources MAY establish numeric controls, mutations, OOD
+  and source-model regressions, but not real identity or naturalness.
+
+A complete synchronized acquisition bundle remains a supported import shape
+when an external publisher supplies one; it is not an instruction to construct
+a local capture rig. Multiple source tiers MAY support different specialists
+inside one domain only when every claim retains exact source/capability lineage
+and the grouped split remains leakage-free. Missing evidence selects
+`FallbackOutOfDomain` for the dependent claim/domain instead of inventing an
+axis or opening a human/local-capture queue.
 
 Controlled mutations used as negative evidence MUST declare their expected
 validator outcome explicitly. Published resynthesis, perceptual tuning or other

@@ -1,11 +1,11 @@
 # Physical sound PS-2 — complete acquisition bundle contract
 
 Date: 2026-08-27
-Status: `ACQUISITION_BUNDLE_READY / PHYSICAL_CAPTURE_NEXT / PASS_DISABLED`
+Status: `E1_IMPORT_CONTRACT_READY / LOCAL_CAPTURE_RETIRED / PASS_DISABLED`
 
 ## Question
 
-Can the external inventory distinguish a complete newly recorded impact bundle
+Can the external inventory distinguish a complete published raw impact bundle
 from a force-deconvolved public pilot without changing historical pilot bytes or
 allowing missing metrology to become implied metadata?
 
@@ -45,8 +45,8 @@ The state machine is intentionally asymmetric:
   `NO_CORPUS_ADMISSION_AUTHORITY`.
 
 This does not open calibration, holdout, shadow, registry `Pass`, PS-3 or
-AV-P0D. It only proves that the next physical capture can be accepted or rejected
-without modifying code or inventing missing axes.
+AV-P0D. It only proves that a future published complete bundle can be accepted or
+rejected without modifying code or inventing missing axes.
 
 ## Controls
 
@@ -75,28 +75,19 @@ incomplete public pilot.
 
 ## Decision and next action
 
-The software acquisition boundary is ready. The remaining PS-2 blocker is now
-physical evidence, not another metadata/schema iteration.
+The software boundary is retained as the highest `E1 synchronized response`
+import contract, but the [active internet corpus policy](physical-sound-internet-corpus-policy-ps2-2026-08-27.md)
+retires local physical capture. The host's microphone inputs and lack of a force
+channel are no longer relevant blockers, and the user is not expected to strike
+or record an object.
 
-Host preflight on 2026-08-27 found two ALSA capture devices on the integrated
-ALC1220 codec, with rear microphone, front microphone and line inputs. No
-calibrated force-transducer or instrumented-hammer channel is identified on the
-host. An ordinary microphone-only recording would violate the synchronized
-bundle and receives no evidence credit. Capture therefore waits for an
-instrumented hammer/force sensor connected to a synchronized input path, or an
-already recorded bundle with the same evidence.
+The next implementation must discover and fetch already published sources into
+an external cache, audit their actual capabilities and adapt complete `E1`
+bundles when available. `E2` transfer responses and `E3` identified recordings
+remain useful for their narrower claims rather than being upgraded to this
+contract. Acquisition/provenance failures create a new source revision or
+claim-scoped fallback; they never weaken the contract or trigger local capture.
 
-Record one glass object with the frozen PS-2 fixture and instrumented hammer:
-
-1. retain synchronized raw microphone and calibrated-newton arrays;
-2. retain the object geometry measurement, material/composition record and all
-   calibration/fixture revisions;
-3. capture both declared impact positions and listener conditions with at least
-   three explicit repeats;
-4. import every row only into development and verify one deterministic report;
-5. repair acquisition/provenance failures by making a new source revision, not
-   by weakening the contract.
-
-Only after that one-object bundle passes should acquisition scale to 40 objects,
-four families and four sources. The pre-registered 35 reject-parent and 16
-coverage-group targets, sealed shadow and fallback policy remain unchanged.
+The pre-registered 35 reject-parent and 16 coverage-group statistical minima,
+sealed shadow and fallback policy remain unchanged. A new multi-source plan must
+show internet evidence coverage before PS-3 can begin.
