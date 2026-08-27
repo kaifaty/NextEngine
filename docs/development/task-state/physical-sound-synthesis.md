@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `P0_WOOD_ACCEPTED / GLASS_EXACT_CORPUS_NUMERIC_PASS / AUTOMATED_VALIDATOR_RESEARCH_COMPLETE / P1_BLOCKED` |
+| Status | `P0_WOOD_ACCEPTED / GLASS_EXACT_CORPUS_NUMERIC_PASS / AV_P0A_IMPLEMENTED / P1_BLOCKED` |
 | Updated | `2026-08-27` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -11,14 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** One exact-geometry synthetic glass corpus passes FEM,
-  force/position controls and Q30; spatial IDW fails held-out position fidelity.
-- **Why:** Two independent runs are byte-identical; 15 conditions reach Q30
-  correlation `0.999999999928`, versus IDW `0.907523` and `5.858210 dB` SNR.
-- **Next action:** Implement deterministic domain/metamorphic/mutation gates, then benchmark specialist learned heads on grouped real-impact holdouts.
+- **Current conclusion:** AV-P0A now automatically separates deterministic
+  physical-control `Pass`, diagnosed `Reject` and clip `FallbackOutOfDomain`.
+- **Why:** Hard/mutation gates repeat exactly; complete rigid-impact controls
+  pass, force inversion rejects and an incomplete/foreign domain abstains.
+- **Next action:** Freeze a licensed real-impact subset and benchmark grouped
+  holdouts before enabling any perceptual or learned automatic acceptance.
 - **Current blocker:** No license-reviewed real corpus, grouped learned-evaluator
-  benchmark, risk-calibrated threshold, mixer budget, Accepted ADR or complete
-  contact signal.
+  benchmark, risk-calibrated threshold, mixer budget, Accepted ADR or complete contact signal.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound and raw PhysX-callback mixing.
@@ -30,7 +30,7 @@
 | Evidence | Result | Consequence |
 | --- | --- | --- |
 | [Research report](../physical-sound-synthesis-research-2026-08-26.md) and [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md) | `GLASS_09_Q30_DEMO_PASS / PHYSICAL_ID_OPEN` | Q30 tracks aligned f64 at `115.43 dB` SNR; product-owner A/B accepted B. Demo post-scale stays within one S16 LSB. Wrong geometry keeps material and wall thickness non-physical. |
-| [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md) and [automated-validation research](../physical-sound-automated-validation-research-2026-08-27.md) | `CLASSICAL_Q0_Q1_IMPLEMENTED / SELECTIVE_VALIDATOR_RESEARCH_COMPLETE` | Validate declared generator domains with hard, causal, reference and specialist learned gates; target `Pass/Reject/FallbackOutOfDomain`, not per-sound human approval. |
+| [Quality-evaluation research](../physical-sound-quality-evaluation-research-2026-08-26.md), [automated-validation research](../physical-sound-automated-validation-research-2026-08-27.md) and [AV-P0A implementation](../physical-sound-validator-av-p0a-2026-08-27.md) | `AV_P0A_IMPLEMENTED / LEARNED_ACCEPTANCE_DISABLED` | Current v1 proves hard and rigid-impact control conformance only; grouped real-corpus risk remains the next admission boundary. |
 | [Controlled glass corpus](../physical-sound-controlled-glass-corpus-2026-08-27.md) | `CONTROLLED_SYNTHETIC_CORPUS_PASS / HUMAN_REFERENCE_OPEN` | Exact geometry and 15 force/position conditions are reproducible; Q30 and physical controls pass, but whole-vector IDW is an inadequate spatial model and the corpus has no real matched recording. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md) | `Proposed` | Candidate presentation ownership, content split, excitation boundary, fallback and P0–P2 sequence are explicit. |
@@ -166,8 +166,8 @@
 - **Consequences:** Q0/Q1 selected useful steel/wood candidates, but the
   DiffSound pair now falsifies reference fidelity as a glass-identity proxy.
   The controlled synthetic corpus also exposes quantized-noise sensitivity in
-  log-spectrum/decay metrics. Existing screens remain diagnostic until grouped
-  corpus, mutation and OOD calibration pass.
+  log-spectrum/decay metrics. AV-P0A now automates hard, repeat/zero-force,
+  force and position controls; perceptual/reference screens remain diagnostic.
 - **Uncertainty:** Real-corpus coverage and attainable false-pass risk remain
   unmeasured; without perceptual labels the claim excludes subjective naturalness.
 - **Reconsider when:** A frozen simpler validator matches the ensemble's grouped
@@ -201,8 +201,8 @@ Read these sources in precedence order before acting:
    retain glass-D/F only as rejected metal-like anchors.
 2. Keep source/generated `09` artifacts external and retain the implemented Q30
    voice only as an explicit opt-in; do not replace Glass-H or authored clips.
-3. Extend the external evaluator with domain probes, hard numerical checks,
-   metamorphic relations and deterministic mutation severity ladders.
+3. Preserve AV-P0A's current-only tri-state report and complete control matrix;
+   do not reinterpret its `Pass` as subjective quality or P1 evidence.
 4. Freeze a license-reviewed real-impact subset and benchmark descriptors,
    BEATs/Human-CLAP/Audiobox auxiliaries and a small specialist ranker under
    leave-object/position/generator-out splits.
@@ -236,11 +236,11 @@ Read these sources in precedence order before acting:
 - **Workspace state:** laboratory includes the selected opt-in voice plus the
   exact-geometry external corpus recipe/validator; Glass-H default, public
   schemas, generated assets and ownership are unchanged.
-- **Checks:** local synthesis determinism/distinction, demo enabled/disabled
-  authoritative-state regression, 120-frame SDL functional launch,
-  `audio-scene`, `play`, focused clippy/tests, boundary scan and broad
-  `host-check` pass. Candidate `AUDIO-PHYS-*`, content, persistence, formal
-  platform and performance promotion checks remain not promoted or not run.
+- **Checks:** final AV-P0A full `xtask` tests, Clippy, format, boundary scan and
+  external q0 fallback smoke pass. Earlier synthesis/demo/audio/play/host
+  evidence remains exact to its recorded commit; no runtime/content path
+  changed here. Candidate `AUDIO-PHYS-*`, persistence, platform and performance
+  promotion checks remain not promoted or not run.
 - **Remaining risk:** real identity, validator calibration/OOD, spatial transfer,
   contact sufficiency, mixer cost, propagation and authoring are open.
 - **Quality status:** wood-B passed; glass-D/F failed; G/H improved weakly;

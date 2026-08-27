@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.1 |
+| Version | 0.2 |
 | Last verified | 2026-08-27 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md) |
-| Replaces | None; first candidate revision |
+| Replaces | SPEC-45 0.1; records the isolated deterministic AV-P0A validator without promoting a runtime/content contract |
 
 ## Status and decision boundary
 
@@ -50,13 +50,18 @@ implement the candidate content records, does not satisfy a P1 ProductCheck and
 does not relax the production block below. Disabling the feature preserves the
 ordinary clip baseline.
 
-The same isolated experiment now includes `xtask physical-sound-eval`. It
-consumes only external hash-frozen WAV manifests, emits deterministic classical
-signal/modal/spectrum/decay reports and can build a seeded blind A/B browser for
-matched references. Its Q0 baseline and self/mismatch controls are evidence
-tooling only: no reviewed real corpus or human calibration has run, every
-matched candidate remains `NeedsHumanAudit`, and the command creates no public
-content schema, runtime dependency or promotion evidence.
+The same isolated experiment now includes `xtask physical-sound-eval`. Its
+current-only external AV-P0A manifest declares one generator/source domain,
+an exact authored fallback, expected impact/silence probes and bounded
+`exact_wav_repeat`, `force_response` and `position_continuity` relations. The
+command runs deterministic hard-signal mutation ladders and emits only `Pass`,
+`Reject` or `FallbackOutOfDomain`. `Pass` means that the complete rigid-impact
+control matrix and hard gates passed; it does not claim subjective naturalness,
+material identity, real-corpus fidelity or P1 readiness. Missing controls,
+unsupported source families and invalid reference evidence cannot request a
+person to approve the candidate; they select `FallbackOutOfDomain`. A seeded
+blind A/B bundle remains an explicit opt-in diagnostic and never affects the
+decision.
 
 A later external P0 checkpoint adds one exact-geometry synthetic glass-vessel
 corpus with 15 train/force/position holdout conditions. The clean-room offline
@@ -68,11 +73,12 @@ adds controlled evidence only; it does not identify real glass, implement the
 candidate content records or satisfy a P1 ProductCheck.
 
 Follow-up automated-validation research rejects per-candidate human audition as
-the target promotion workflow. A future P0 validator should admit only a
-declared generator domain through hard, causal/metamorphic, grouped real-corpus
-and selective-risk gates, with automatic authored fallback for uncertain or
-out-of-domain cases. The current `NeedsHumanAudit` results remain accurate
-uncalibrated evidence; they are not the intended final content-cooker state.
+the target promotion workflow. AV-P0A now implements the deterministic first
+layer, but learned acceptance remains disabled. Automatic acoustic-quality
+admission still requires grouped real-corpus holdouts, mutation/OOD calibration
+and bounded selective risk in AV-P0B/P0C. Historical `NeedsHumanAudit` reports
+remain accurate descriptions of the retired v0 evaluator, not current
+content-cooker state.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

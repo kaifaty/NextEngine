@@ -21,7 +21,8 @@ use transfer_math::{
 
 const PROFILE_SCHEMA: &str = "nextengine.external-diffsound-checkpoint.v0";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-reproduction.report.v1";
-const QUALITY_MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-quality.manifest.v0";
+const QUALITY_MANIFEST_SCHEMA: &str =
+    "nextengine.experimental-physical-sound-validator.manifest.v1";
 const MAX_PROFILE_BYTES: u64 = 1024 * 1024;
 const MAX_MODE_COUNT: usize = 128;
 const MAX_TRANSIENT_SAMPLES: usize = 8_192;

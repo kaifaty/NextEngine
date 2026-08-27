@@ -3,27 +3,45 @@ use std::path::{Path, PathBuf};
 
 use next_contracts::canonical::sha256;
 use next_contracts::ids::ContentHash;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 pub(super) mod audio_analysis;
+mod automated_validator;
+mod manifest;
 #[cfg(test)]
 mod tests;
 
 use audio_analysis::{Analysis, analyze_wav, parse_wav};
+use automated_validator::{
+    CoverageReport, DomainReport, MutationSuiteReport, RelationReport, ValidatorDecisionInputs,
+    build_domain_report, evaluate_coverage, evaluate_mutation_suite, evaluate_relations,
+    validator_decision,
+};
+use manifest::{
+    AudioFileRef, ExpectedSignal, ImpactControl, ManifestEntry, QualityManifest, RelationSpec,
+    ValidatorDeclaration, validate_manifest,
+};
 
-const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-quality.manifest.v0";
-const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-quality.report.v0";
-const EVALUATOR_PROFILE: &str = "nextengine.experimental-physical-sound-quality.classical.v0";
+const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-validator.manifest.v1";
+const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-validator.report.v1";
+const EVALUATOR_PROFILE: &str = "nextengine.experimental-physical-sound-validator.av-p0a.v1";
 const MAX_ENTRIES: usize = 512;
 const MAX_WAV_BYTES: usize = 256 * 1024 * 1024;
 const MAX_DURATION_SECONDS: usize = 30;
 const LOG_SPECTRUM_BINS: usize = 96;
 const FFT_SIZES: [usize; 3] = [2_048, 8_192, 32_768];
+const FORCE_MINIMUM_RMS_STEP_DB: f64 = 1.0;
+const FORCE_MAXIMUM_MODAL_ASSIGNMENT_COST: f64 = 0.2;
+const POSITION_MINIMUM_ABSOLUTE_RMS_DELTA_DB: f64 = 0.1;
+const POSITION_MAXIMUM_LOG_SPECTRUM_RMSE_DB: f64 = 8.0;
+const POSITION_MAXIMUM_MODAL_ASSIGNMENT_COST: f64 = 0.25;
+const POSITION_MAXIMUM_NEIGHBOR_DISTANCE_MICROMETRES: u64 = 250_000;
 
 pub(super) struct Request {
     manifest: PathBuf,
     output: PathBuf,
     blind_seed: u64,
+    write_blind_bundle: bool,
 }
 
 pub(super) fn parse_arguments(
@@ -32,7 +50,15 @@ pub(super) fn parse_arguments(
     let mut manifest = None;
     let mut output = None;
     let mut blind_seed = 0x51a7_2026_0826_u64;
+    let mut write_blind_bundle = false;
     while let Some(flag) = arguments.next() {
+        if flag == "--write-blind-bundle" {
+            if write_blind_bundle {
+                return Err("duplicate argument: --write-blind-bundle".to_owned());
+            }
+            write_blind_bundle = true;
+            continue;
+        }
         let value = arguments
             .next()
             .ok_or_else(|| format!("{flag} requires a value"))?;
@@ -54,6 +80,7 @@ pub(super) fn parse_arguments(
             "physical-sound-eval requires --output <external-empty-directory>".to_owned()
         })?,
         blind_seed,
+        write_blind_bundle,
     })
 }
 
@@ -62,30 +89,6 @@ fn set_once<T>(slot: &mut Option<T>, value: T, flag: &str) -> Result<(), String>
         return Err(format!("duplicate argument: {flag}"));
     }
     Ok(())
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct QualityManifest {
-    schema: String,
-    split: String,
-    entries: Vec<ManifestEntry>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct ManifestEntry {
-    id: String,
-    object_id: String,
-    material: String,
-    impact_position: String,
-    force_band: String,
-    candidate: AudioFileRef,
-    reference: Option<AudioFileRef>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct AudioFileRef {
-    path: String,
-    sha256: String,
 }
 
 #[derive(Clone, Debug)]
@@ -108,6 +111,8 @@ pub(super) fn write_q0_manifest(
     let manifest = QualityManifest {
         schema: MANIFEST_SCHEMA.to_owned(),
         split: "q0-negative-baseline".to_owned(),
+        validator: None,
+        relations: Vec::new(),
         entries: candidates
             .iter()
             .map(|candidate| ManifestEntry {
@@ -116,6 +121,8 @@ pub(super) fn write_q0_manifest(
                 material: candidate.material.clone(),
                 impact_position: candidate.impact_position.clone(),
                 force_band: candidate.force_band.clone(),
+                expected_signal: ExpectedSignal::Impact,
+                control: None,
                 candidate: AudioFileRef {
                     path: candidate.file.clone(),
                     sha256: candidate.sha256.clone(),
@@ -142,6 +149,12 @@ struct EvaluatorProfileReport {
     maximum_entries: usize,
     maximum_wav_bytes: usize,
     maximum_duration_seconds: usize,
+    force_minimum_rms_step_db: f64,
+    force_maximum_modal_assignment_cost: f64,
+    position_minimum_absolute_rms_delta_db: f64,
+    position_maximum_log_spectrum_rmse_db: f64,
+    position_maximum_modal_assignment_cost: f64,
+    position_maximum_neighbor_distance_micrometres: u64,
 }
 
 impl EvaluatorProfileReport {
@@ -158,6 +171,13 @@ impl EvaluatorProfileReport {
             maximum_entries: MAX_ENTRIES,
             maximum_wav_bytes: MAX_WAV_BYTES,
             maximum_duration_seconds: MAX_DURATION_SECONDS,
+            force_minimum_rms_step_db: FORCE_MINIMUM_RMS_STEP_DB,
+            force_maximum_modal_assignment_cost: FORCE_MAXIMUM_MODAL_ASSIGNMENT_COST,
+            position_minimum_absolute_rms_delta_db: POSITION_MINIMUM_ABSOLUTE_RMS_DELTA_DB,
+            position_maximum_log_spectrum_rmse_db: POSITION_MAXIMUM_LOG_SPECTRUM_RMSE_DB,
+            position_maximum_modal_assignment_cost: POSITION_MAXIMUM_MODAL_ASSIGNMENT_COST,
+            position_maximum_neighbor_distance_micrometres:
+                POSITION_MAXIMUM_NEIGHBOR_DISTANCE_MICROMETRES,
         }
     }
 }
@@ -165,7 +185,7 @@ impl EvaluatorProfileReport {
 #[derive(Clone, Debug, Serialize)]
 struct QualityReport {
     schema: &'static str,
-    status: String,
+    decision: &'static str,
     claim: &'static str,
     split: String,
     manifest_sha256: String,
@@ -173,6 +193,10 @@ struct QualityReport {
     evaluator_profile_sha256: String,
     entry_count: usize,
     matched_reference_count: usize,
+    domain: Option<DomainReport>,
+    mutation_suite: MutationSuiteReport,
+    coverage: CoverageReport,
+    relations: Vec<RelationReport>,
     blind_bundle: Option<BlindBundleReport>,
     entries: Vec<EntryReport>,
 }
@@ -184,6 +208,8 @@ struct EntryReport {
     material: String,
     impact_position: String,
     force_band: String,
+    expected_signal: &'static str,
+    control: Option<ImpactControl>,
     candidate: FileAnalysisReport,
     reference: Option<FileAnalysisReport>,
     matched: Option<MatchedReport>,
@@ -324,8 +350,33 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         });
     }
 
+    let resolved_validator = if let Some(declaration) = &manifest.validator {
+        let (_, fallback) = read_analysis(
+            &root,
+            manifest_directory,
+            &declaration.fallback,
+            "declared fallback",
+        )?;
+        Some((declaration, fallback))
+    } else {
+        None
+    };
+
+    let mutation_suite = evaluate_mutation_suite()?;
+    let relations = evaluate_relations(&manifest.relations, &resolved);
+    let coverage = evaluate_coverage(&manifest, &relations);
+    let domain = build_domain_report(
+        resolved_validator
+            .as_ref()
+            .map(|(declaration, fallback)| (*declaration, fallback)),
+    )?;
+
     fs::create_dir_all(&output).map_err(|error| format!("create {}: {error}", output.display()))?;
-    let blind_bundle = write_blind_bundle(&output, request.blind_seed, &resolved)?;
+    let blind_bundle = if request.write_blind_bundle {
+        write_blind_bundle(&output, request.blind_seed, &resolved)?
+    } else {
+        None
+    };
     let matched_reference_count = resolved
         .iter()
         .filter(|entry| entry.reference.is_some())
@@ -334,19 +385,29 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
         .into_iter()
         .map(build_entry_report)
         .collect::<Vec<_>>();
-    let status = report_status(&entries, matched_reference_count);
+    let decision = validator_decision(ValidatorDecisionInputs {
+        entries: &entries,
+        domain: domain.as_ref(),
+        mutation_suite: &mutation_suite,
+        coverage: &coverage,
+        relations: &relations,
+    });
     let profile = EvaluatorProfileReport::current();
     let profile_bytes = serde_json::to_vec(&profile).map_err(|error| error.to_string())?;
     let report = QualityReport {
         schema: REPORT_SCHEMA,
-        status,
-        claim: "OFFLINE_EXPERIMENT_ONLY / UNCALIBRATED / NO_P1_OR_SHIPPING_PROMOTION",
+        decision,
+        claim: "DETERMINISTIC_PHYSICAL_CONTROL_CONFORMANCE_ONLY / NO_SUBJECTIVE_NATURALNESS_OR_P1_PROMOTION",
         split: manifest.split,
         manifest_sha256: sha256_hex(&manifest_bytes),
         evaluator_profile: profile,
         evaluator_profile_sha256: sha256_hex(&profile_bytes),
         entry_count: entries.len(),
         matched_reference_count,
+        domain,
+        mutation_suite,
+        coverage,
+        relations,
         blind_bundle,
         entries,
     };
@@ -436,71 +497,6 @@ fn require_empty_output(output: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_manifest(manifest: &QualityManifest) -> Result<(), String> {
-    if manifest.schema != MANIFEST_SCHEMA {
-        return Err(format!(
-            "unsupported physical sound quality manifest schema: {}",
-            manifest.schema
-        ));
-    }
-    validate_label(&manifest.split, "split")?;
-    if manifest.entries.is_empty() || manifest.entries.len() > MAX_ENTRIES {
-        return Err(format!(
-            "manifest entry count must be 1..={MAX_ENTRIES}, got {}",
-            manifest.entries.len()
-        ));
-    }
-    let mut previous = None;
-    for entry in &manifest.entries {
-        validate_label(&entry.id, "entry id")?;
-        validate_label(&entry.object_id, "object_id")?;
-        validate_label(&entry.material, "material")?;
-        validate_label(&entry.impact_position, "impact_position")?;
-        validate_label(&entry.force_band, "force_band")?;
-        if previous.is_some_and(|value: &String| value >= &entry.id) {
-            return Err(format!(
-                "manifest entries must be strictly sorted by id; offending id {}",
-                entry.id
-            ));
-        }
-        previous = Some(&entry.id);
-        validate_audio_ref(&entry.candidate, "candidate")?;
-        if let Some(reference) = &entry.reference {
-            validate_audio_ref(reference, "reference")?;
-        }
-    }
-    Ok(())
-}
-
-fn validate_label(value: &str, field: &str) -> Result<(), String> {
-    if value.is_empty()
-        || value.len() > 96
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
-    {
-        return Err(format!(
-            "{field} must be 1..=96 ASCII [A-Za-z0-9._-] characters: {value:?}"
-        ));
-    }
-    Ok(())
-}
-
-fn validate_audio_ref(value: &AudioFileRef, role: &str) -> Result<(), String> {
-    if value.path.is_empty() || value.path.len() > 4_096 {
-        return Err(format!("{role} path length is invalid"));
-    }
-    if value.sha256.len() != 64
-        || !value
-            .sha256
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    {
-        return Err(format!("{role} sha256 must be 64 lowercase hex digits"));
-    }
-    Ok(())
-}
-
 fn read_analysis(
     root: &Path,
     manifest_directory: &Path,
@@ -558,12 +554,24 @@ fn build_entry_report(entry: ResolvedEntry) -> EntryReport {
             &mut failure_tags,
         );
     }
-    let decision = if failure_tags.iter().any(|tag| is_hard_signal_failure(tag)) {
-        "Reject"
-    } else if entry.reference.is_none() {
-        "NeedsReference"
-    } else {
-        "NeedsHumanAudit"
+    let candidate_hard_failures = failure_tags
+        .iter()
+        .filter(|tag| !tag.starts_with("REFERENCE_"))
+        .any(|tag| is_hard_signal_failure(tag));
+    let reference_hard_failures = failure_tags
+        .iter()
+        .filter(|tag| tag.starts_with("REFERENCE_"))
+        .any(|tag| is_hard_signal_failure(tag));
+    let decision = match entry.manifest.expected_signal {
+        ExpectedSignal::Impact if candidate_hard_failures => "Reject",
+        ExpectedSignal::Silence
+            if !expected_silence_passes(&entry.candidate.report, &failure_tags) =>
+        {
+            push_unique(&mut failure_tags, "EXPECTED_SILENCE_VIOLATION");
+            "Reject"
+        }
+        _ if reference_hard_failures => "FallbackOutOfDomain",
+        _ => "Pass",
     };
     EntryReport {
         id: entry.manifest.id,
@@ -571,12 +579,26 @@ fn build_entry_report(entry: ResolvedEntry) -> EntryReport {
         material: entry.manifest.material,
         impact_position: entry.manifest.impact_position,
         force_band: entry.manifest.force_band,
+        expected_signal: entry.manifest.expected_signal.as_str(),
+        control: entry.manifest.control,
         candidate: entry.candidate.report,
         reference: entry.reference.map(|analysis| analysis.report),
         matched,
         failure_tags,
         decision,
     }
+}
+
+fn expected_silence_passes(report: &FileAnalysisReport, tags: &[String]) -> bool {
+    report.duration_ms >= 50.0
+        && report.signal.peak_dbfs <= -100.0
+        && report.signal.onset_frame.is_none()
+        && tags.iter().all(|tag| {
+            !matches!(
+                tag.as_str(),
+                "CLIPPING" | "EXCESSIVE_DC" | "TOO_SHORT" | "EXPECTED_SILENCE_VIOLATION"
+            )
+        })
 }
 
 fn signal_failure_tags(report: &FileAnalysisReport) -> Vec<String> {
@@ -778,16 +800,6 @@ fn add_matched_failure_tags(
 fn push_unique(tags: &mut Vec<String>, tag: &str) {
     if !tags.iter().any(|existing| existing == tag) {
         tags.push(tag.to_owned());
-    }
-}
-
-fn report_status(entries: &[EntryReport], matched_reference_count: usize) -> String {
-    if entries.iter().any(|entry| entry.decision == "Reject") {
-        "ANALYZED_WITH_SIGNAL_REJECTS".to_owned()
-    } else if matched_reference_count == 0 {
-        "Q0_BASELINE_FROZEN / REFERENCES_REQUIRED".to_owned()
-    } else {
-        "Q1_MATCHED_ANALYSIS / HUMAN_CALIBRATION_REQUIRED".to_owned()
     }
 }
 

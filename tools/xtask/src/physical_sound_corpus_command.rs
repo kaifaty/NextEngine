@@ -17,7 +17,8 @@ use support::*;
 const PROFILE_SCHEMA: &str = "nextengine.external-controlled-glass-modal-corpus.v0";
 const REPORT_SCHEMA: &str =
     "nextengine.experimental-physical-sound-controlled-glass-corpus.report.v0";
-const QUALITY_MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-quality.manifest.v0";
+const QUALITY_MANIFEST_SCHEMA: &str =
+    "nextengine.experimental-physical-sound-validator.manifest.v1";
 const REQUIRED_CLAIM: &str =
     "EXTERNAL_CONTROLLED_P0_ONLY / NO_PHYSICAL_IDENTIFICATION_OR_P1_PROMOTION";
 const MAX_PROFILE_BYTES: u64 = 2 * 1024 * 1024;
