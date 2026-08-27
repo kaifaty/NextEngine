@@ -47,6 +47,33 @@ struct FormulaProbeCertificate {
     std::string root;
 };
 
+struct FormulaProbeCertificateDetail {
+    bool exact = false;
+    std::size_t width = 0U;
+    std::size_t dimension = 0U;
+    std::size_t dots = 0U;
+    std::size_t dot_products = 0U;
+    std::size_t radius_terms = 0U;
+    std::size_t solution_dots = 0U;
+    std::size_t sign_comparisons = 0U;
+    std::size_t detail_solution_dots = 0U;
+    std::size_t detail_solution_products = 0U;
+    double rho_upper = 0.0;
+    double image_infinity_upper = 0.0;
+    double denominator_lower = 0.0;
+    double error_upper = 0.0;
+    double minimum_separation = 0.0;
+    std::vector<double> image_center;
+    std::vector<double> image_radius;
+    std::vector<double> solution_center;
+    std::vector<double> solution_local_radius;
+    FormulaProbeCertificate certificate;
+    std::string profile_root;
+    std::string component_root;
+    std::string radius_root;
+    std::string root;
+};
+
 struct FormulaProbeProduct {
     bool exact = false;
     std::vector<FormulaProbeBinary128> value;
@@ -164,6 +191,9 @@ FormulaProbeScalar formula_probe_scalar_dot(
     const std::vector<FormulaProbeBinary128>& left,
     const std::vector<FormulaProbeBinary128>& right);
 FormulaProbeCertificate formula_probe_certificate(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& solution);
+FormulaProbeCertificateDetail formula_probe_certificate_detail(
     const FormulaProbeParentFixture& fixture,
     const std::vector<FormulaProbeBinary128>& solution);
 

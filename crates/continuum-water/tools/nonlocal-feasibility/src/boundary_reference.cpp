@@ -80258,6 +80258,109 @@ FormulaProbeCertificate al_formula_probe_certificate(
     return result;
 }
 
+FormulaProbeCertificateDetail al_formula_probe_certificate_detail(
+    const ALR20R63YProfile& profile,
+    const std::vector<FormulaProbeBinary128>& source_solution) {
+    FormulaProbeCertificateDetail result;
+    const ALR20R63YSolution solution =
+        al_r20_r63y_solution(source_solution, profile.width);
+    const ALR20R63YCertificate certificate =
+        al_r20_r63y_certificate(profile, solution);
+    if (!profile.exact || !solution.exact || !certificate.exact
+        || profile.width == 0U || profile.dimension == 0U
+        || solution.width != profile.width
+        || solution.dimension != profile.dimension
+        || solution.components.size()
+            != profile.width * profile.dimension
+        || solution.radius.size() != profile.dimension
+        || certificate.image_center.size() != profile.dimension
+        || certificate.image_radius.size() != profile.dimension)
+        return result;
+
+    std::vector<double> solution_center;
+    std::vector<double> solution_local_radius;
+    solution_center.reserve(profile.dimension);
+    solution_local_radius.reserve(profile.dimension);
+    bool exact = true;
+    std::size_t detail_solution_dots = 0U;
+    std::size_t detail_solution_products = 0U;
+    for (std::size_t index = 0U; index < profile.dimension; ++index) {
+        const ALR20R63Dot2Err center = al_r20_r63_dot2err(
+            profile.width,
+            [&](std::size_t part) {
+                return solution.components[index * profile.width + part];
+            },
+            [](std::size_t) { return 1.0; });
+        const double local_radius = al_r20_r63y_up_add(
+            center.error, solution.radius[index]);
+        exact = exact && center.exact && std::isfinite(center.result)
+            && std::isfinite(local_radius) && local_radius >= 0.0;
+        solution_center.push_back(center.result);
+        solution_local_radius.push_back(local_radius);
+        ++detail_solution_dots;
+        detail_solution_products += profile.width;
+    }
+    if (!exact || solution_center.size() != profile.dimension
+        || solution_local_radius.size() != profile.dimension)
+        return result;
+
+    result.width = profile.width;
+    result.dimension = profile.dimension;
+    result.dots = certificate.dots;
+    result.dot_products = certificate.dot_products;
+    result.radius_terms = certificate.radius_terms;
+    result.solution_dots = certificate.solution_dots;
+    result.sign_comparisons = certificate.sign_comparisons;
+    result.detail_solution_dots = detail_solution_dots;
+    result.detail_solution_products = detail_solution_products;
+    result.rho_upper = profile.rho_upper;
+    result.image_infinity_upper = certificate.image_infinity_upper;
+    result.denominator_lower = certificate.denominator_lower;
+    result.error_upper = certificate.error_upper;
+    result.minimum_separation = certificate.minimum_separation;
+    result.image_center = certificate.image_center;
+    result.image_radius = certificate.image_radius;
+    result.solution_center = std::move(solution_center);
+    result.solution_local_radius = std::move(solution_local_radius);
+    result.certificate = al_formula_probe_certificate(certificate);
+    result.profile_root = profile.root;
+    result.component_root = sha256_hex(
+        al_r20_double_root(result.image_center) + ":"
+        + al_r20_double_root(result.solution_center));
+    result.radius_root = sha256_hex(
+        al_r20_double_root(result.image_radius) + ":"
+        + al_r20_double_root(result.solution_local_radius));
+    result.exact = result.certificate.exact
+        && result.dots == result.dimension
+        && result.dot_products
+            == result.dimension
+                * (result.width
+                    + result.dimension * result.width * result.width)
+        && result.radius_terms
+            == 3U * result.dimension * result.dimension
+        && result.solution_dots == result.dimension
+        && result.sign_comparisons == result.dimension
+        && result.detail_solution_dots == result.dimension
+        && result.detail_solution_products
+            == result.dimension * result.width;
+    std::ostringstream material;
+    material << result.exact << ':' << result.width << ':'
+        << result.dimension << ':' << result.dots << ':'
+        << result.dot_products << ':' << result.radius_terms << ':'
+        << result.solution_dots << ':' << result.sign_comparisons << ':'
+        << result.detail_solution_dots << ':'
+        << result.detail_solution_products << ':'
+        << binary64_bits(result.rho_upper) << ':'
+        << binary64_bits(result.image_infinity_upper) << ':'
+        << binary64_bits(result.denominator_lower) << ':'
+        << binary64_bits(result.error_upper) << ':'
+        << binary64_bits(result.minimum_separation) << ':'
+        << result.certificate.root << ':' << result.profile_root << ':'
+        << result.component_root << ':' << result.radius_root;
+    result.root = sha256_hex(material.str());
+    return result;
+}
+
 std::string al_formula_probe_certificate_set_root(
     const std::vector<FormulaProbeCertificate>& certificates) {
     std::ostringstream material;
@@ -80729,6 +80832,16 @@ FormulaProbeCertificate formula_probe_certificate(
     return al_formula_probe_certificate(al_r20_r63y_certificate(
         al_formula_probe_internal_profile(fixture.verifier_profile),
         al_r20_r63y_solution(solution, 2U)));
+}
+
+FormulaProbeCertificateDetail formula_probe_certificate_detail(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& solution) {
+    if (!formula_probe_parent_fixture_valid(fixture)
+        || solution.size() != fixture.dimension)
+        return {};
+    return al_formula_probe_certificate_detail(
+        al_formula_probe_internal_profile(fixture.verifier_profile), solution);
 }
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {

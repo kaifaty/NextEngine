@@ -728,6 +728,7 @@ std::string result_identity(const std::string& route,
 
 } // namespace
 
+#ifndef NEXTENGINE_R63ZF_EMBEDDED
 int main(int argc, char** argv) {
     try {
         if (argc != 2) {
@@ -1034,3 +1035,4 @@ int main(int argc, char** argv) {
         return 2;
     }
 }
+#endif

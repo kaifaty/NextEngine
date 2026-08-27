@@ -1,6 +1,9 @@
 # NSR3-B4E2D7R20R63ZG certificate-detail decomposition research
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_NEXT`.
+Status: `SUPPORTED_BOUNDED / REVIEWED`.
+
+Reviewed implementation evidence is recorded in
+[the R63ZG evidence report](nonlocal-nsr3b4e2d7r20r63zg-certificate-detail-evidence-2026-08-27.md).
 
 ## Question
 
