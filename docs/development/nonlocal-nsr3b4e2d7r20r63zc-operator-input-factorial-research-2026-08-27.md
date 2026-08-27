@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZC operator/input factorial research
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN`.
+Status: `REVIEWED / SUPPORTED_BOUNDED / COMMON_OPERATOR_PERTURBATION_SUFFICIENT`.
 
 ## Question
 
@@ -93,3 +93,6 @@ No result authorizes a new factor, more iterations, adaptive precision,
 changed Krylov method, nonlinear state commit, corpus, timing, GPU, runtime or
 production work. The final executable evidence must pass the repository's
 fresh independent code/evidence review gate before interpretation.
+
+That gate now passes for revision 3. See the
+[frozen evidence](nonlocal-nsr3b4e2d7r20r63zc-operator-input-factorial-evidence-2026-08-27.md).

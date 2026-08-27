@@ -84,6 +84,30 @@ nextengine_configure_formula_reclosure_target(
 target_link_libraries(
     nonlocal-formula-reclosure PRIVATE nonlocal-formula-reclosure-core)
 
+add_executable(
+    nonlocal-formula-parent-fixture-cache-release
+    EXCLUDE_FROM_ALL
+    src/formula_parent_fixture_cache_main.cpp
+    src/formula_probe_cache.cpp
+)
+nextengine_configure_formula_reclosure_target(
+    nonlocal-formula-parent-fixture-cache-release -O3)
+target_link_libraries(
+    nonlocal-formula-parent-fixture-cache-release
+    PRIVATE nonlocal-formula-reclosure-core)
+
+add_executable(
+    nonlocal-formula-operator-schedule-release
+    EXCLUDE_FROM_ALL
+    src/formula_operator_schedule_main.cpp
+    src/formula_probe_cache.cpp
+)
+nextengine_configure_formula_reclosure_target(
+    nonlocal-formula-operator-schedule-release -O3)
+target_link_libraries(
+    nonlocal-formula-operator-schedule-release
+    PRIVATE nonlocal-formula-reclosure-core)
+
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
     "Build the strict-FP, compile-latency-oriented formula reclosure author target"
@@ -174,5 +198,20 @@ if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
         PRIVATE nonlocal-formula-reclosure-dev-core)
     target_compile_definitions(
         nonlocal-formula-probe-kernel-smoke PRIVATE
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
+
+    add_executable(
+        nonlocal-formula-operator-schedule-dev
+        EXCLUDE_FROM_ALL
+        src/formula_operator_schedule_main.cpp
+        src/formula_probe_cache.cpp
+    )
+    nextengine_configure_formula_reclosure_target(
+        nonlocal-formula-operator-schedule-dev -O0)
+    target_link_libraries(
+        nonlocal-formula-operator-schedule-dev
+        PRIVATE nonlocal-formula-reclosure-dev-core)
+    target_compile_definitions(
+        nonlocal-formula-operator-schedule-dev PRIVATE
             NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
 endif()

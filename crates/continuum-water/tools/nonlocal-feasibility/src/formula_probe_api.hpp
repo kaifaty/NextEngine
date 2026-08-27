@@ -137,11 +137,22 @@ std::string formula_probe_parent_fixture_root(
     const FormulaProbeParentFixture& fixture);
 bool formula_probe_parent_fixture_valid(
     const FormulaProbeParentFixture& fixture);
+std::string formula_probe_binary128_vector_root(
+    const std::vector<FormulaProbeBinary128>& values);
+std::string formula_probe_binary64_vector_root(
+    const std::vector<double>& values);
+std::string formula_probe_solution_set_root(
+    const std::vector<std::vector<FormulaProbeBinary128>>& solutions);
+std::string formula_probe_certificate_set_root(
+    const std::vector<FormulaProbeCertificate>& certificates);
 FormulaProbeProduct formula_probe_tangent_product(
     const FormulaProbeParentFixture& fixture,
     const std::vector<FormulaProbeBinary128>& input);
 FormulaProbeProduct formula_probe_common_product(
     const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& input);
+FormulaProbeProduct formula_probe_control_dense_product(
+    const std::vector<FormulaProbeBinary128>& matrix,
     const std::vector<FormulaProbeBinary128>& input);
 FormulaProbeSolve formula_probe_factor_solve(
     const FormulaProbeParentFixture& fixture,

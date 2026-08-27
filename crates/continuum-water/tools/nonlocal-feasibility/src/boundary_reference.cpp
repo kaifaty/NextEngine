@@ -31,6 +31,23 @@
 namespace nextengine::nonlocal::fcr {
 namespace {
 
+constexpr const char* AL_FORMULA_PROBE_ORIGINAL_RHS_SHA256 =
+    "64be49510b51f8e9898ed2d021fb2d41d98690cecebe5d95e0a108406cf192b1";
+constexpr const char* AL_FORMULA_PROBE_PROJECTED_RHS_SHA256 =
+    "0df32db6fb6c7b3a6fb5e3760c7ff810f92e31baa1544a0911a8e0b6a11274ef";
+constexpr const char* AL_FORMULA_PROBE_COMMON_COMPONENT_SHA256 =
+    "9ecbea11c9c7c9659a3ab445bafc8079bf671939e42e8d0c678b65dbdc3cc20e";
+constexpr const char* AL_FORMULA_PROBE_COMMON_SOLUTION_SET_SHA256 =
+    "a87e14f8d7c545d1c9640b3157dc548511686795ac928fb494d908358f5fa2b2";
+constexpr const char* AL_FORMULA_PROBE_COMMON_CERTIFICATE_SET_SHA256 =
+    "884bd59a38d5d8b51b51a0159745ec21ed5623c9ac9fb2f569c99d43ba10d31c";
+constexpr const char* AL_FORMULA_PROBE_PARENT_FIXTURE_SHA256 =
+    "7780543a21d3b32e39a1fd18e5056f61c610d69929b4c6b69640075d1e7c4553";
+constexpr const char* AL_FORMULA_PROBE_INVERSE_SCALE_HEX =
+    "0x1.624bd73cb7ab659062c1b0cefe41p+1";
+constexpr const char* AL_FORMULA_PROBE_PROJECTED_SCALE_HEX =
+    "0x1.624bd73cb7ab659062c1b0cefe4p+1";
+
 constexpr double PI = 3.141592653589793238462643383279502884;
 constexpr double REST_DENSITY = 1000.0;
 constexpr double SPACING = 0.05;
@@ -80255,7 +80272,105 @@ std::string al_formula_probe_certificate_set_root(
     return sha256_hex(material.str());
 }
 
+bool al_formula_probe_scale_payload_valid(
+    const FormulaProbeParentFixture& fixture) {
+    const FormulaProbeBinary128 frozen_inverse_scale = strtoflt128(
+        AL_FORMULA_PROBE_INVERSE_SCALE_HEX, nullptr);
+    const FormulaProbeBinary128 frozen_projected_scale = strtoflt128(
+        AL_FORMULA_PROBE_PROJECTED_SCALE_HEX, nullptr);
+    return fixture.inverse_scale == frozen_inverse_scale
+        && fixture.projected_scale == frozen_projected_scale
+        && fixture.sigma > static_cast<FormulaProbeBinary128>(0.0)
+        && finiteq(fixture.sigma) != 0
+        && fixture.sigma
+            == static_cast<FormulaProbeBinary128>(1.0)
+                / frozen_inverse_scale;
+}
+
+bool al_formula_probe_tangent_payload_valid(
+    const FormulaProbeParentFixture& fixture) {
+    return fixture.dimension == AL_R20_R63ZC_DIMENSION
+        && fixture.tangent_columns == AL_R20_R63ZC_TANGENT_COLUMNS
+        && fixture.tangent.size()
+            == fixture.dimension * fixture.tangent_columns
+        && fixture.tangent_root == AL_R20_R63ZC_TANGENT_SHA256
+        && fixture.tangent_root == al_r20_q_scalar_root(fixture.tangent)
+        && al_formula_probe_scale_payload_valid(fixture);
+}
+
+bool al_formula_probe_common_payload_valid(
+    const FormulaProbeParentFixture& fixture) {
+    return fixture.dimension == AL_R20_R63ZC_DIMENSION
+        && fixture.common_components.size()
+            == 2U * fixture.dimension * fixture.dimension
+        && fixture.common_semantic == AL_R20_R63ZB_OPERATOR_SEMANTIC_SHA256
+        && fixture.common_component_root
+            == AL_FORMULA_PROBE_COMMON_COMPONENT_SHA256
+        && fixture.common_component_root
+            == al_r20_double_root(fixture.common_components)
+        && fixture.common_root == AL_R20_R63ZB_OPERATOR_ARTIFACT_SHA256;
+}
+
+bool al_formula_probe_factor_payload_valid(
+    const FormulaProbeParentFixture& fixture,
+    FormulaProbeBinary128 inverse_scale) {
+    if (fixture.dimension != AL_R20_R63ZC_DIMENSION
+        || fixture.factor_upper.size()
+            != fixture.dimension * fixture.dimension
+        || fixture.permutation.size() != fixture.dimension
+        || fixture.factor_fixture_root != AL_R20_R63ZB_FIXTURE_SHA256
+        || fixture.factor_root != AL_R20_R63ZC_FACTOR_SHA256
+        || fixture.factor_root != al_r20_double_root(fixture.factor_upper)
+        || fixture.permutation_root != AL_R20_R63ZC_PERMUTATION_SHA256
+        || fixture.permutation_root
+            != al_r20_r63g_index_root(fixture.permutation)
+        || !al_formula_probe_scale_payload_valid(fixture)
+        || !(inverse_scale > static_cast<FormulaProbeBinary128>(0.0))
+        || finiteq(inverse_scale) == 0)
+        return false;
+    const ALR20R63ZAScalar projected =
+        al_r20_r63zb_project(fixture.inverse_scale);
+    if (!al_r20_r63zb_operand(projected)) return false;
+    const FormulaProbeBinary128 projected_scale =
+        static_cast<FormulaProbeBinary128>(projected.high)
+        + static_cast<FormulaProbeBinary128>(projected.low);
+    return fixture.projected_scale == projected_scale
+        && (inverse_scale == fixture.inverse_scale
+            || inverse_scale == projected_scale);
+}
+
+bool al_formula_probe_profile_payload_valid(
+    const FormulaProbeParentFixture& fixture) {
+    return fixture.verifier_semantic
+            == AL_R20_R63ZB_VERIFIER_SEMANTIC_SHA256
+        && fixture.verifier_profile_root
+            == AL_R20_R63ZB_VERIFIER_PROFILE_SHA256
+        && fixture.verifier_profile.root == fixture.verifier_profile_root
+        && al_r20_r63zb_profile_valid(
+            al_formula_probe_internal_profile(fixture.verifier_profile));
+}
+
 } // namespace
+
+std::string formula_probe_binary128_vector_root(
+    const std::vector<FormulaProbeBinary128>& values) {
+    return al_r20_q_scalar_root(values);
+}
+
+std::string formula_probe_binary64_vector_root(
+    const std::vector<double>& values) {
+    return al_r20_double_root(values);
+}
+
+std::string formula_probe_solution_set_root(
+    const std::vector<std::vector<FormulaProbeBinary128>>& solutions) {
+    return al_r20_r63zc_solution_set_root(solutions);
+}
+
+std::string formula_probe_certificate_set_root(
+    const std::vector<FormulaProbeCertificate>& certificates) {
+    return al_formula_probe_certificate_set_root(certificates);
+}
 
 std::string formula_probe_parent_fixture_root(
     const FormulaProbeParentFixture& fixture) {
@@ -80300,6 +80415,7 @@ std::string formula_probe_parent_fixture_root(
 bool formula_probe_parent_fixture_valid(
     const FormulaProbeParentFixture& fixture) {
     if (!fixture.exact
+        || fixture.root != AL_FORMULA_PROBE_PARENT_FIXTURE_SHA256
         || fixture.schema
             != "nextengine.nonlocal.formula_probe_parent_fixture.r63zc.v1"
         || fixture.dimension != AL_R20_R63ZC_DIMENSION
@@ -80318,11 +80434,7 @@ bool formula_probe_parent_fixture_valid(
         || al_r20_r63zc_solution_set_root(fixture.baseline_solutions)
             != fixture.r63x_solution_set_root
         || fixture.baseline_certificates.size() != 3U
-        || fixture.tangent.size()
-            != fixture.dimension * fixture.tangent_columns
-        || fixture.tangent_root != AL_R20_R63ZC_TANGENT_SHA256
-        || fixture.tangent_root != al_r20_q_scalar_root(fixture.tangent)
-        || fixture.sigma <= static_cast<FormulaProbeBinary128>(0.0)
+        || !al_formula_probe_tangent_payload_valid(fixture)
         || fixture.factor_upper.size()
             != fixture.dimension * fixture.dimension
         || fixture.permutation.size() != fixture.dimension
@@ -80332,30 +80444,27 @@ bool formula_probe_parent_fixture_valid(
         || fixture.permutation_root != AL_R20_R63ZC_PERMUTATION_SHA256
         || fixture.permutation_root
             != al_r20_r63g_index_root(fixture.permutation)
-        || fixture.sigma
-            != static_cast<FormulaProbeBinary128>(1.0)
-                / fixture.inverse_scale
+        || !al_formula_probe_scale_payload_valid(fixture)
         || fixture.original_rhs.size() != fixture.dimension
         || fixture.projected_rhs.size() != fixture.dimension
         || fixture.original_rhs_root
+            != AL_FORMULA_PROBE_ORIGINAL_RHS_SHA256
+        || fixture.original_rhs_root
             != al_r20_q_scalar_root(fixture.original_rhs)
         || fixture.projected_rhs_root
+            != AL_FORMULA_PROBE_PROJECTED_RHS_SHA256
+        || fixture.projected_rhs_root
             != al_r20_q_scalar_root(fixture.projected_rhs)
-        || fixture.common_components.size()
-            != 2U * fixture.dimension * fixture.dimension
-        || fixture.common_semantic != AL_R20_R63ZB_OPERATOR_SEMANTIC_SHA256
-        || fixture.common_component_root
-            != al_r20_double_root(fixture.common_components)
-        || fixture.common_root != AL_R20_R63ZB_OPERATOR_ARTIFACT_SHA256
-        || fixture.verifier_semantic
-            != AL_R20_R63ZB_VERIFIER_SEMANTIC_SHA256
-        || fixture.verifier_profile_root
-            != AL_R20_R63ZB_VERIFIER_PROFILE_SHA256
-        || fixture.verifier_profile.root != fixture.verifier_profile_root
-        || !al_r20_r63zb_profile_valid(
-            al_formula_probe_internal_profile(fixture.verifier_profile))
+        || !al_formula_probe_common_payload_valid(fixture)
+        || !al_formula_probe_profile_payload_valid(fixture)
         || fixture.common_projected_solutions.size() != 3U
+        || al_r20_r63zc_solution_set_root(
+            fixture.common_projected_solutions)
+            != AL_FORMULA_PROBE_COMMON_SOLUTION_SET_SHA256
         || fixture.common_projected_certificates.size() != 3U
+        || al_formula_probe_certificate_set_root(
+            fixture.common_projected_certificates)
+            != AL_FORMULA_PROBE_COMMON_CERTIFICATE_SET_SHA256
         || fixture.finite_transaction_root
             != AL_R20_R63ZC_FINITE_TRANSACTION_SHA256
         || fixture.common_projected_comparator_root
@@ -80519,12 +80628,8 @@ FormulaProbeProduct formula_probe_tangent_product(
     const FormulaProbeParentFixture& fixture,
     const std::vector<FormulaProbeBinary128>& input) {
     FormulaProbeProduct result;
-    if (fixture.dimension == 0U || input.size() != fixture.dimension
-        || fixture.tangent_columns == 0U
-        || fixture.tangent.size()
-            != fixture.dimension * fixture.tangent_columns
-        || !(fixture.sigma > static_cast<FormulaProbeBinary128>(0.0))
-        || finiteq(fixture.sigma) == 0)
+    if (!al_formula_probe_tangent_payload_valid(fixture)
+        || input.size() != fixture.dimension)
         return result;
     const ALR20R63NProduct product = al_r20_r63n_product(
         fixture.tangent, fixture.dimension, fixture.tangent_columns,
@@ -80544,9 +80649,8 @@ FormulaProbeProduct formula_probe_common_product(
     const FormulaProbeParentFixture& fixture,
     const std::vector<FormulaProbeBinary128>& input) {
     FormulaProbeProduct result;
-    if (fixture.dimension == 0U || input.size() != fixture.dimension
-        || fixture.common_components.size()
-            != 2U * fixture.dimension * fixture.dimension)
+    if (!al_formula_probe_common_payload_valid(fixture)
+        || input.size() != fixture.dimension)
         return result;
     std::vector<FormulaProbeBinary128> matrix(
         fixture.dimension * fixture.dimension);
@@ -80566,17 +80670,28 @@ FormulaProbeProduct formula_probe_common_product(
     return result;
 }
 
+FormulaProbeProduct formula_probe_control_dense_product(
+    const std::vector<FormulaProbeBinary128>& matrix,
+    const std::vector<FormulaProbeBinary128>& input) {
+    FormulaProbeProduct result;
+    if (input.empty() || matrix.size() != input.size() * input.size())
+        return result;
+    const ALR20R63MProduct product = al_r20_r63m_product(matrix, input);
+    result.exact = product.exact;
+    result.value = product.value;
+    result.inner_dots = product.dots;
+    result.inner_terms = product.dots * input.size();
+    result.root = product.root;
+    return result;
+}
+
 FormulaProbeSolve formula_probe_factor_solve(
     const FormulaProbeParentFixture& fixture,
     const std::vector<FormulaProbeBinary128>& source,
     FormulaProbeBinary128 inverse_scale) {
     FormulaProbeSolve result;
-    if (fixture.dimension == 0U || source.size() != fixture.dimension
-        || fixture.factor_upper.size()
-            != fixture.dimension * fixture.dimension
-        || fixture.permutation.size() != fixture.dimension
-        || !(inverse_scale > static_cast<FormulaProbeBinary128>(0.0))
-        || finiteq(inverse_scale) == 0)
+    if (!al_formula_probe_factor_payload_valid(fixture, inverse_scale)
+        || source.size() != fixture.dimension)
         return result;
     const ALR20R63IQSolve solve = al_r20_r63i_q_solve(
         al_r20_r63g_q_from_double(fixture.factor_upper),
@@ -80607,7 +80722,8 @@ FormulaProbeScalar formula_probe_scalar_dot(
 FormulaProbeCertificate formula_probe_certificate(
     const FormulaProbeParentFixture& fixture,
     const std::vector<FormulaProbeBinary128>& solution) {
-    if (fixture.dimension == 0U || solution.size() != fixture.dimension)
+    if (!al_formula_probe_profile_payload_valid(fixture)
+        || solution.size() != fixture.dimension)
         return {};
     return al_formula_probe_certificate(al_r20_r63y_certificate(
         al_formula_probe_internal_profile(fixture.verifier_profile),

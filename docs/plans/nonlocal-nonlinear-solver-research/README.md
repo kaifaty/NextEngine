@@ -16,7 +16,9 @@ NSR3B4E2D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE /
 NSR3B4E2D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE /
 NSR3B4E2D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE /
 NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED /
-NSR3B4E2D7R20R63ZC_OPERATOR_INPUT_FACTORIAL_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT /
+NSR3B4E2D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS /
+NSR3B4E2D7R20R63ZE_OPERATOR_DISCREPANCY_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4010,6 +4012,34 @@ diagonal endpoints must reproduce R63X and the R63ZB comparator before the
 hybrids classify operator sufficiency, input sufficiency, independent effects
 or interaction. This is observational localization only; finite repair,
 timing and integration remain blocked.
+
+The
+[R20R63ZC evidence](../../development/nonlocal-nsr3b4e2d7r20r63zc-operator-input-factorial-evidence-2026-08-27.md)
+is reviewed bounded support for
+`COMMON_OPERATOR_PERTURBATION_SUFFICIENT`: tangent/original and
+tangent/projected both retain reject/reject/pass, while common/original and
+common/projected both reject all three states. This attributes the fixed
+certificate loss to the operator representation without selecting a repair.
+Before an R63ZD successor consumes the fast external fixture, repair its
+frozen-parent sealing and kernel admission controls. Then freeze an exhaustive
+three-product tangent/common schedule over unchanged original inputs; no
+precision, factor, iteration, tolerance, timing or production change is
+admitted.
+
+The sealing repair now binds the cached original/projected RHS, common payload
+and common endpoint sets to frozen parent roots, and relevant kernels validate
+their consumed payload. The
+[R20R63ZD research](../../development/nonlocal-nsr3b4e2d7r20r63zd-operator-use-schedule-research-2026-08-27.md),
+[contract](03b4e2d7r20r63zd-operator-use-schedule-contract.md) and
+[captured evidence](../../development/nonlocal-nsr3b4e2d7r20r63zd-operator-use-schedule-evidence-2026-08-27.md)
+enumerate all eight schedules for `Hx0`, `Hp0` and `Hp1`. The Release pass mask
+is `10000000` and the authoritative inclusion-minimal rejecting masks are
+`{1,2,4}`: each common-operator use is independently sufficient to lose the
+state-2 certificate. Initial review rejected scale sealing and negative
+controls; one batch repaired both and the single re-review returned `GO` with
+no load-bearing finding. The reviewed result selects research of the smallest
+operator-value discrepancy discriminator next. It selects no operator repair
+and has no timing, runtime, GPU or production authority.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

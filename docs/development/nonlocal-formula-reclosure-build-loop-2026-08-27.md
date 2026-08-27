@@ -46,11 +46,19 @@ The cache remains outside Git and has no evidence authority by itself.
 
 `nonlocal-formula-probe-kernel-smoke` consumes only that cache plus the stable
 API. It verifies the frozen factor solve, tangent/common products, scalar dot,
-R63Y certificate and invalid-dimension controls. Two executions are
-byte-identical at stdout SHA-256
-`bc14a15369732aede17108e7acf3c89ca1d3cfaeed7a5246dc318a3d2ef5b1b3`.
-The observed process wall time was about 2.7 s. These values describe the
-developer loop only and are not solver-performance evidence.
+R63Y certificate, invalid-dimension controls and consistently resealed
+RHS/common/endpoint and tangent/factor/scale/profile mutations. The final
+repaired smoke stdout SHA-256 is
+`e4ff7dc634c04338d980d61214de0ca95dd9480ee34f4a139e62feb26cd381d3`.
+This describes build/integrity tooling only and is not solver-performance
+evidence.
+
+R63ZD now proves the intended successor build graph. Its source is a separate
+translation unit with dedicated dev and Release targets. Editing it compiles
+only that source and relinks against the stable core. The Release producer
+regenerated a cache byte-identical at file SHA-256 `23dbf605...bb84`; two
+R63ZD Release runs and the author run are byte-identical at stdout SHA-256
+`90c73a8a...9461` for the repaired frozen snapshot.
 
 ## Usage and evidence boundary
 
@@ -58,18 +66,21 @@ Author iteration:
 
 ```text
 cmake --build /tmp/nextengine-r20r4-build \
-  --target nonlocal-formula-reclosure-dev -j 8
+  --target nonlocal-formula-operator-schedule-dev -j 8
 
-/tmp/nextengine-r20r4-build/nonlocal-formula-reclosure-dev \
-  --nonlocal-al-generalization-v5-operator-input-factorial
+/tmp/nextengine-r20r4-build/nonlocal-formula-operator-schedule-dev \
+  /tmp/nextengine-r63zc-parent-v1.bin
 ```
 
 Before interpreting or independently reviewing executable research evidence:
 
-1. build `nonlocal-formula-reclosure` with the frozen Release profile;
-2. run the focused command twice and freeze diff/source/binary/stdout hashes;
-3. compare dev and Release stdout for the exact candidate snapshot;
-4. submit only the Release binary/output as decisive evidence.
+1. build the Release cache producer and focused successor target;
+2. regenerate the parent cache and require byte identity with its frozen
+   fixture root and file hash;
+3. run the focused command twice and freeze source/binary/cache/command/stdout
+   hashes;
+4. compare dev and Release stdout for the exact candidate snapshot;
+5. submit only the Release binary/output as decisive evidence.
 
 The dev target is excluded from the default build and has no scientific,
 runtime, GPU or production authority.
@@ -97,13 +108,13 @@ The API must be self-sealed and mutation-tested. Do not expose anonymous
 namespace implementation types or make a successor include
 `boundary_reference.cpp`.
 
-### BLT4 -- One successor probe per translation unit (`NEXT`)
+### BLT4 -- One successor probe per translation unit (`COMPLETE`)
 
 Compile R63ZD and later experiments as separate source files linked to the
 stable core/API. Editing one probe must not rebuild the ancestor implementation
 object. Keep one CLI route per probe and a dedicated focused target when useful.
 
-### BLT5 -- Parent fixture cache (`COMPLETE FOR AUTHOR LOOP`)
+### BLT5 -- Parent fixture cache (`COMPLETE`)
 
 Serialize the immutable parent DTO outside Git with a schema/version/hash and
 load it during author iteration. Regenerate it only from a frozen Release
@@ -114,10 +125,10 @@ This removes the second cost currently hidden by the build problem: every
 process repeats the unchanged R63Y--R63ZB parent chain before exercising the
 new lane.
 
-The author cache is now implemented. Before scientific interpretation, a
-Release producer must regenerate it and reproduce both the fixture root and
-file hash above; the current cached file is not committed and does not replace
-that evidence step.
+The Release producer now regenerates the external cache. For R63ZD it
+reproduced both fixture root and file hash exactly before the two decisive
+Release executions. The cache remains uncommitted and has no standalone
+evidence authority.
 
 ## Stop rules
 
