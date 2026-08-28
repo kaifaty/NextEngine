@@ -5,10 +5,61 @@ use serde::Serialize;
 
 use super::{Fixture, Solver};
 
-const QUADRATURE_BARYCENTRIC: [[f64; 3]; 3] = [
-    [2.0 / 3.0, 1.0 / 6.0, 1.0 / 6.0],
-    [1.0 / 6.0, 2.0 / 3.0, 1.0 / 6.0],
-    [1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0],
+const THREE_POINT_QUADRATURE: [QuadraturePoint; 3] = [
+    QuadraturePoint::new([2.0 / 3.0, 1.0 / 6.0, 1.0 / 6.0], 1.0 / 3.0),
+    QuadraturePoint::new([1.0 / 6.0, 2.0 / 3.0, 1.0 / 6.0], 1.0 / 3.0),
+    QuadraturePoint::new([1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0], 1.0 / 3.0),
+];
+const SEVEN_POINT_QUADRATURE: [QuadraturePoint; 7] = [
+    QuadraturePoint::new([1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0], 0.225),
+    QuadraturePoint::new(
+        [
+            0.059_715_871_789_77,
+            0.470_142_064_105_115,
+            0.470_142_064_105_115,
+        ],
+        0.132_394_152_788_506,
+    ),
+    QuadraturePoint::new(
+        [
+            0.470_142_064_105_115,
+            0.059_715_871_789_77,
+            0.470_142_064_105_115,
+        ],
+        0.132_394_152_788_506,
+    ),
+    QuadraturePoint::new(
+        [
+            0.470_142_064_105_115,
+            0.470_142_064_105_115,
+            0.059_715_871_789_77,
+        ],
+        0.132_394_152_788_506,
+    ),
+    QuadraturePoint::new(
+        [
+            0.797_426_985_353_087,
+            0.101_286_507_323_456,
+            0.101_286_507_323_456,
+        ],
+        0.125_939_180_544_827,
+    ),
+    QuadraturePoint::new(
+        [
+            0.101_286_507_323_456,
+            0.797_426_985_353_087,
+            0.101_286_507_323_456,
+        ],
+        0.125_939_180_544_827,
+    ),
+    QuadraturePoint::new(
+        [
+            0.101_286_507_323_456,
+            0.101_286_507_323_456,
+            0.797_426_985_353_087,
+        ],
+        0.125_939_180_544_827,
+    ),
 ];
 
 pub(super) fn solve_fixture(fixture: &Fixture, solver: &Solver) -> Result<SolverResult, String> {
@@ -25,6 +76,7 @@ fn solve_level(
     solver: &Solver,
     subdivision_level: usize,
 ) -> Result<LevelResult, String> {
+    let quadrature = Quadrature::parse(&solver.off_diagonal_panel_quadrature)?;
     let mesh = Mesh::icosphere(fixture.radius_metres, subdivision_level)?;
     let panels = mesh.panels()?;
     let mut conditions = Vec::new();
@@ -40,6 +92,7 @@ fn solve_level(
             wave_number,
             boundary_derivative,
             solver.pivot_floor,
+            quadrature,
         )?;
         for listener_radius_multiplier in &fixture.listener_radius_multipliers {
             for (direction_index, direction) in fixture.listener_directions.iter().enumerate() {
@@ -47,7 +100,8 @@ fn solve_level(
                     *direction,
                     fixture.radius_metres * listener_radius_multiplier,
                 )?;
-                let computed = evaluate_potential(&panels, &density, listener, wave_number)?;
+                let computed =
+                    evaluate_potential(&panels, &density, listener, wave_number, quadrature)?;
                 let analytical = analytical_pulsating_sphere(
                     fixture.radius_metres,
                     listener_radius_multiplier * fixture.radius_metres,
@@ -92,6 +146,7 @@ fn solve_density(
     wave_number: f64,
     boundary_derivative: Complex,
     pivot_floor: f64,
+    quadrature: Quadrature,
 ) -> Result<Vec<Complex>, String> {
     let count = panels.len();
     let mut matrix = vec![Complex::ZERO; count * count];
@@ -104,7 +159,7 @@ fn solve_density(
                     imaginary: 0.0,
                 }
             } else {
-                integrate_normal_derivative(target, source, wave_number)?
+                integrate_normal_derivative(target, source, wave_number, quadrature)?
             };
         }
     }
@@ -115,9 +170,11 @@ fn integrate_normal_derivative(
     target: &Panel,
     source: &Panel,
     wave_number: f64,
+    quadrature: Quadrature,
 ) -> Result<Complex, String> {
     let mut value = Complex::ZERO;
-    for point in source.quadrature_points() {
+    for sample in quadrature.points() {
+        let point = source.quadrature_point(sample.barycentric);
         let delta = subtract(target.centroid, point);
         let distance = norm(delta);
         if distance <= 1.0e-12 {
@@ -129,7 +186,11 @@ fn integrate_normal_derivative(
             real: -1.0,
             imaginary: phase,
         } * (dot(target.normal, delta) / (4.0 * PI * distance.powi(3)));
-        value += exponential * factor * (source.area / 3.0);
+        let panel_weight = match quadrature {
+            Quadrature::ThreePoint => source.area / 3.0,
+            Quadrature::SevenPoint => source.area * sample.weight,
+        };
+        value += exponential * factor * panel_weight;
     }
     value
         .is_finite()
@@ -142,6 +203,7 @@ fn evaluate_potential(
     density: &[Complex],
     listener: [f64; 3],
     wave_number: f64,
+    quadrature: Quadrature,
 ) -> Result<Complex, String> {
     if panels.len() != density.len() {
         return Err("BEM density length changed".to_owned());
@@ -149,13 +211,17 @@ fn evaluate_potential(
     let mut field = Complex::ZERO;
     for (panel, coefficient) in panels.iter().zip(density) {
         let mut integral = Complex::ZERO;
-        for point in panel.quadrature_points() {
+        for sample in quadrature.points() {
+            let point = panel.quadrature_point(sample.barycentric);
             let distance = norm(subtract(listener, point));
             if distance <= 1.0e-12 {
                 return Err("BEM listener reached the boundary".to_owned());
             }
-            integral +=
-                Complex::exp_i(wave_number * distance) * (panel.area / (3.0 * 4.0 * PI * distance));
+            let potential_weight = match quadrature {
+                Quadrature::ThreePoint => panel.area / (3.0 * 4.0 * PI * distance),
+                Quadrature::SevenPoint => panel.area * sample.weight / (4.0 * PI * distance),
+            };
+            integral += Complex::exp_i(wave_number * distance) * potential_weight;
         }
         field += integral * *coefficient;
     }
@@ -393,20 +459,56 @@ struct Panel {
 }
 
 impl Panel {
-    fn quadrature_points(self) -> [[f64; 3]; 3] {
-        QUADRATURE_BARYCENTRIC.map(|weights| {
-            [
-                weights[0] * self.vertices[0][0]
-                    + weights[1] * self.vertices[1][0]
-                    + weights[2] * self.vertices[2][0],
-                weights[0] * self.vertices[0][1]
-                    + weights[1] * self.vertices[1][1]
-                    + weights[2] * self.vertices[2][1],
-                weights[0] * self.vertices[0][2]
-                    + weights[1] * self.vertices[1][2]
-                    + weights[2] * self.vertices[2][2],
-            ]
-        })
+    fn quadrature_point(self, weights: [f64; 3]) -> [f64; 3] {
+        [
+            weights[0] * self.vertices[0][0]
+                + weights[1] * self.vertices[1][0]
+                + weights[2] * self.vertices[2][0],
+            weights[0] * self.vertices[0][1]
+                + weights[1] * self.vertices[1][1]
+                + weights[2] * self.vertices[2][1],
+            weights[0] * self.vertices[0][2]
+                + weights[1] * self.vertices[1][2]
+                + weights[2] * self.vertices[2][2],
+        ]
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct QuadraturePoint {
+    barycentric: [f64; 3],
+    weight: f64,
+}
+
+impl QuadraturePoint {
+    const fn new(barycentric: [f64; 3], weight: f64) -> Self {
+        Self {
+            barycentric,
+            weight,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Quadrature {
+    ThreePoint,
+    SevenPoint,
+}
+
+impl Quadrature {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "symmetric-three-point-triangle" => Ok(Self::ThreePoint),
+            "symmetric-seven-point-triangle" => Ok(Self::SevenPoint),
+            _ => Err(format!("unsupported BEM panel quadrature: {value}")),
+        }
+    }
+
+    fn points(self) -> &'static [QuadraturePoint] {
+        match self {
+            Self::ThreePoint => &THREE_POINT_QUADRATURE,
+            Self::SevenPoint => &SEVEN_POINT_QUADRATURE,
+        }
     }
 }
 
@@ -666,5 +768,23 @@ mod tests {
                 .expect("above");
         let finite_difference = (above - below) * (1.0 / step);
         assert!((finite_difference - derivative).magnitude() < 1.0e-4);
+    }
+
+    #[test]
+    fn frozen_quadrature_rules_integrate_a_constant() {
+        for quadrature in [Quadrature::ThreePoint, Quadrature::SevenPoint] {
+            let weight = quadrature
+                .points()
+                .iter()
+                .map(|point| point.weight)
+                .sum::<f64>();
+            assert!((weight - 1.0).abs() < 1.0e-14);
+            assert!(
+                quadrature
+                    .points()
+                    .iter()
+                    .all(|point| { (point.barycentric.iter().sum::<f64>() - 1.0).abs() < 1.0e-14 })
+            );
+        }
     }
 }

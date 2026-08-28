@@ -476,6 +476,16 @@ from a boundary-equation defect using added resolution or independent
 classical output. See the [analytical-control
 evidence](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md).
 
+The frozen seven-point panel-quadrature discriminator is rejected too.
+Manifest `b9ff02c9…dff47` regenerates the exact V1 report before changing only
+the regular triangle rule. Candidate fine/coarse median ratio is `2.6109`
+against `0.8`, and fine median error is `1.0447x` the control against `0.75`;
+reports repeat at `7460750e…b48d`. Stop local quadrature variants. The next
+package freezes an independent Bempp-cl Galerkin/singular-quadrature sphere
+control in an external Python 3.12 environment before non-spherical modes or
+fresh REALIMPACT access. See the [quadrature
+evidence](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:

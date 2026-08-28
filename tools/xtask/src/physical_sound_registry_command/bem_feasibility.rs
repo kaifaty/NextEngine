@@ -10,6 +10,7 @@ use super::{
     resolve_output_path, sha256_hex,
 };
 
+mod convergence;
 mod model;
 
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-bem-feasibility.manifest.v1";
@@ -20,10 +21,12 @@ const MANIFEST_SHA256: &str = "9a26ca137681b319b2ffb490dd1e4b897aeaf4de19349c7cb
 const MAX_MANIFEST_BYTES: usize = 128 * 1024;
 static NEXT_STAGING: AtomicU64 = AtomicU64::new(0);
 
-pub(super) fn run_cli(
-    root: &Path,
-    mut arguments: impl Iterator<Item = String>,
-) -> Result<(), String> {
+pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> Result<(), String> {
+    let mut arguments = arguments.peekable();
+    if arguments.peek().is_some_and(|value| value == "quadrature") {
+        arguments.next();
+        return convergence::run_cli(root, arguments);
+    }
     let mut manifest = None;
     let mut output = None;
     while let Some(flag) = arguments.next() {
@@ -345,7 +348,7 @@ pub(super) struct Manifest {
     data_policy: DataPolicy,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Fixture {
     id: String,
@@ -359,7 +362,7 @@ pub(super) struct Fixture {
     pub(super) listener_directions: Vec<[f64; 3]>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Solver {
     family: String,
@@ -392,7 +395,7 @@ struct SourceLineage {
     url: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 struct DataPolicy {
     generated_analytical_fixture_only: bool,
