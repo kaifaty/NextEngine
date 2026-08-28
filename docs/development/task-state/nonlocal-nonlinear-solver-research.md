@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_65_OF_65_CENTERED_CANDIDATE / D7R20R42_RATIO_ORDER_BOUNDARY / D7R20R43_SECOND_INVERSE_BOUNDARY / D7R20R44_TWO_SIDED_CONTRACTIVE / D7R20R45_65_OF_65_SECOND_CENTER / D7R20R46_THIRD_INVERSE_BOUNDARY / D7R20R47_TWO_SIDED_CONTRACTIVE / D7R20R48_65_OF_65_THIRD_CENTER / D7R20R49_FOURTH_INVERSE_BOUNDARY / D7R20R50_TORSION_GENERIC_CANDIDATE / D7R20R51_COUNTERFLOW_ONLY_BOUNDARY / D7R20R52_CAPTURE_PREMISE_REFUTED / D7R20R53_CENTERED_SLOPE_CANDIDATE / D7R20R54_LEGACY_SLOPE_CANDIDATE / D7R20R55_COUNTERFLOW_CERTIFIED / D7R20R56_V4_5_OF_5 / D7R20R57_V5_MANIFEST_FROZEN / D7R20R58_V5_PREFLIGHT_PASS / D7R20R59_V5_DIMENSION_BOUNDARY / D7R20R60_DIMENSION_GENERIC_CENTER / D7R20R61_V5_6_OF_6 / D7R20R62_STRICT_BINARY64_DOT2ERR_SELECTED / D7R20R63_BINARY64_PROJECTED_INVERSE_NONCONTRACTIVE / D7R20R63A_MIXED_PROJECTION_CONTRIBUTION / D7R20R63B_FACTOR_LEFT_NONCONTRACTIVE / D7R20R63C_BINARY64_LOWER_LEFT_NONCONTRACTIVE / D7R20R63D_PROJECTOR_METRIC_NUMERICAL_RANK_LOSS / D7R20R63E_CLAMP_METRIC_NUMERICAL_RANK_LOSS / D7R20R63F_LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED / SHARED_HOST_PERFORMANCE_STOP` |
-| Current frontier | `D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE / D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED / D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED / D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED / D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE / D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE / D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED / D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED / D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE / D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE / D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED / D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE / D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE / D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE / D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE / D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED / D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT / D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS / D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT / D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE / D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT / D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED / D7R20R63ZI_ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_FROZEN_IMPLEMENTATION_NEXT` |
+| Current frontier | `D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE / D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED / D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED / D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED / D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE / D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE / D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED / D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED / D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE / D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE / D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED / D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE / D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE / D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE / D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE / D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED / D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT / D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS / D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT / D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE / D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT / D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED / D7R20R63ZI_ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_AUTHOR_REJECTED / D7R20R63ZJ_PRODUCT_PRECISION_LOCALIZATION_RESEARCH_NEXT` |
 | Updated | `2026-08-28` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -84,12 +84,14 @@
   and binary `05f2ff12...52f0`. R63ZH is `SUPPORTED_BOUNDED / REVIEWED`;
   stop certificate repair. Common-operator work may continue only as an
   original-equation-preserving accelerator or preconditioner.
-- **R63ZI frozen:** materialize the passing tangent-Gram operator as one
-  width-two binary64 block, consume the exported factor only as preconditioner
-  and replay projected-input states `0..2` under the original R63Y verifier.
-  Require `10,404/10,404` exact coefficient containments, all 306 exact product
-  rows, fixed work, the common-K2 rejecting control and reject/reject/pass.
-  No dynamic builder, corpus, timing or integration precedes this gate.
+- **R63ZI author-rejected:** two Release runs are byte identical and all
+  `10,404` coefficients plus `306` executed product rows are exactly
+  contained, but tangent K2 states `0..2` all remain `12+/24-/66?`. The lane
+  differs from the common negative. Independent review is not tested.
+- **R63ZJ research next:** preserve the complete K2 factor/dot/divide/update
+  recurrence and replace only the three stored-matrix products by frozen
+  binary128 tangent application followed by immediate K2 projection. This
+  localizes operator storage/product loss before considering width three.
 - **Current result:** R20R63Z passes at semantic
   `e27ee861...3e4be`, route `TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE`; final
   stdout is byte-identical at `de22f5f6...da54`. All 10,404 common-operator
@@ -6502,6 +6504,27 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** R63ZI localizes a first coefficient/product/recurrence
   failure, or reviewed success permits the separate dynamic-builder contract.
 
+### D-224 -- Reject width-two dense tangent storage and localize product precision
+
+- **Observation:** R63ZI contains all exact coefficients and executed products,
+  closes fixed work/controls and reproduces two Release outputs, yet its state
+  certificates are reject/reject/reject (`12+/24-/66?`). The state values are
+  not equal to the common-negative lane, so the result is not an identity
+  alias. Binary128 tangent-product recurrence remains a passing parent.
+- **Conclusion:** interval containment is correspondence evidence, not evidence
+  that the interval center preserves the weak PCG direction. A width-two dense
+  tangent-Gram producer is insufficient for this frozen profile.
+- **Decision:** stop dynamic-builder and integration work. Freeze a product-
+  only hybrid next: all K2 preconditioner, recurrence, inputs and verification
+  remain unchanged; only each operator call uses the frozen binary128 tangent
+  product and immediately projects its output to canonical K2.
+- **Rejected:** treating contained centers as automatically admissible;
+  increasing iteration count; changing the factor/verifier; jumping directly
+  to a width-three whole recurrence; timing or production promotion.
+- **Reconsider when:** the hybrid either restores the state-2 ladder, localizing
+  the failure to dense storage/product precision, or still rejects, localizing
+  the remaining loss to product projection/K2 recurrence.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -6584,10 +6607,15 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    research only as an original-equation-preserving accelerator/preconditioner;
    do not apply a correction, fit a threshold, open a deeper factorial, run
    timing or infer runtime/GPU/production authority from R63ZH.
-   Implement only frozen R63ZI revision 1 next: K2 tangent-Gram operator,
-   exported factor as preconditioner, projected RHS/scale, unchanged two-update
-   recurrence and original R63Y verification. Stop before dynamic building,
-   corpus, timing, runtime/GPU or production integration.
+   Preserve R63ZI author snapshot `994efc5a...b91bac`, stdout
+   `98736993...080a1e`, result `844a07a0...27329`, all `10,404/10,404`
+   coefficient and `306/306` product containments, exact work and controls, and
+   its narrow `R63ZI_STATE2_REJECTED` interpretation. Independent review is
+   `NOT_TESTED`. Research and freeze only the R63ZJ product-precision hybrid
+   next: unchanged K2 factor/dot/divide/update recurrence with binary128
+   tangent application immediately projected to K2 at the three operator
+   sites. Stop before width increase, dynamic building, corpus, timing,
+   runtime/GPU or production integration.
 4. Preserve R20R51 semantic `48df3b26...adca` and all five case roots,
    R20R50 semantic `190ac441...d86e`, all five generic certificate
    roots and the exact work ledger, R20R49 semantic `719e0d50...f3cc`, all three practical roots and

@@ -151,3 +151,15 @@ portable expansion width or continuum physics.
 - Production promotion still requires the SPEC-38/ADR-076/ADR-081 consumer,
   deterministic execution, corpus, persistence/coupling, platform and
   performance gates independently.
+
+## Author resolution
+
+The revision-1 apparatus resolves through its exact-negation branch as
+`R63ZI_STATE2_REJECTED`. All coefficient/product containments, fixed work,
+controls and two byte-identical Release repeats close, but state 2 remains
+`12+/24-/66?`. The width-two dense tangent-Gram producer is therefore
+`AUTHOR_PASS / REVIEW_NOT_TESTED / BOUNDED_REJECTED` for this profile. See the
+[evidence](../../development/nonlocal-nsr3b4e2d7r20r63zi-original-operator-twofold-recurrence-evidence-2026-08-28.md).
+
+The stop rule selects product-precision localization next; it does not permit
+more iterations, a fitted threshold, a wider whole recurrence or integration.

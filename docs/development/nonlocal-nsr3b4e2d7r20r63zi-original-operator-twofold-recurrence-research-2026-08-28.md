@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZI original-operator twofold recurrence research
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_NEXT`.
+Status: `AUTHOR_PASS / REVIEW_NOT_TESTED / BOUNDED_REJECTED`.
 
 ## Decision
 
@@ -52,3 +52,17 @@ count, verifier, nonlinear state or runtime owner. It authorizes no adaptive
 stop, dynamic builder, corpus, timing, GPU, Rust/runtime integration or
 production claim. SPEC-38 and ADR-076 remain `Proposed`; ADR-081 promotion
 guardrails and all continuum ProductChecks remain in force.
+
+## Resolution
+
+The frozen implementation returns `R63ZI_STATE2_REJECTED`: all `10,404`
+coefficients and all `306` executed product rows are exactly contained, fixed
+work and controls close, but all three states remain `12+/24-/66?`. Two
+Release runs are byte identical. The complete hashes and work ledger are in
+the [R63ZI evidence](nonlocal-nsr3b4e2d7r20r63zi-original-operator-twofold-recurrence-evidence-2026-08-28.md).
+
+Therefore a width-two dense tangent-Gram materialization is rejected for this
+profile. The next discriminator holds the K2 factor, recurrence, projected
+inputs and verifier fixed and substitutes only binary128 tangent application
+followed by K2 product projection. It must run before any wider representation
+or integration work.
