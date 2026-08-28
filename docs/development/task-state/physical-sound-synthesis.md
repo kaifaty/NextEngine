@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_REPAIR_PREFLIGHT_SUPPORTED / OFFLINE_ANALYSIS_RERUN_NEXT / PLANTER_AUDIO_SEALED / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_LINEAGE_REPAIR_PREFLIGHT_SUPPORTED / OFFLINE_ANALYSIS_RERUN_NEXT / PLANTER_AUDIO_SEALED / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -12,8 +12,9 @@
 ## Resume in 60 seconds
 - **Current conclusion:** The one request produced prefix `a0dd7006…6cf5` and
   decoded block `182f2010…1e0f`. First analysis published no decision after a
-  JSON-bool serialization failure; repair manifest `603c1185…28e3` and local
-  preflight `b24e7c90…5036` repeat with acquire/decode disabled.
+  JSON-bool serialization failure. Repair `603c1185…28e3` then rejected the
+  correct parent lineage; successor `f51a6046…db7e` and preflight
+  `9c5c9ca8…471c` repeat with acquire/decode disabled.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
@@ -61,7 +62,7 @@
 | [REALIMPACT Pitcher calibration preregistration](../physical-sound-realimpact-pitcher-calibration-preregistration-ps2-2026-08-28.md), report `2ae1bc0b…9c72` | `PITCHER_CALIBRATION_PROTOCOL_FROZEN / BYTE_IDENTICAL_REPORTS / RESERVED_AUDIO_BYTES_ZERO` | Exact Pitcher geometry, one 512 MiB prefix, 600-row decoder, extractor/mapping, solver, `90/510` split, controls, gates and stop-before-Planter fallback are immutable. Next implement parity controls and execute the bounded calibration. |
 | [REALIMPACT Pitcher runner preflight](../physical-sound-realimpact-pitcher-runner-preflight-ps2-2026-08-28.md), report `6e60d71f…fd2d` | `PITCHER_RUNNER_PREFLIGHT_SUPPORTED / EXTRACTOR_PARITY_PROVEN / RESERVED_AUDIO_BYTES_ZERO` | Exact Rust fixture repeats; Python recovers all 16 modes within `3.03e-12`; geometry/mapping/split pass and the bound Rust spatial projector is implemented. Audio execution stays disabled until a final execution manifest closes Bempp/cooker choices. |
 | [REALIMPACT Pitcher execution preflight](../physical-sound-realimpact-pitcher-execution-preflight-ps2-2026-08-28.md), report `94d5e1e6…9b32` | `PITCHER_EXECUTION_PREFLIGHT_SUPPORTED / ONE_PREFIX_REQUEST_AUTHORIZED / RESERVED_AUDIO_BYTES_ZERO` | Manifest `8e791327…ba45` binds script, environment, original bbox centre, directions, Bempp/cooker, exact range/decoder and all frozen gates. The local full-angular control and extractor parity repeat; the one exact Pitcher request is next, while Planter remains sealed. |
-| [REALIMPACT Pitcher serializer repair](../physical-sound-realimpact-pitcher-serializer-repair-ps2-2026-08-28.md), report `b24e7c90…5036` | `PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_REPAIR_PREFLIGHT_SUPPORTED / CALIBRATION_DECISION_NOT_PUBLISHED` | One request yielded prefix `a0dd7006…6cf5` and block `182f2010…1e0f`. Analysis failed only at JSON serialization and published no decision. Repair `603c1185…28e3` changes bool representation only, binds the old lineage, disables acquire/decode and repeats locally. |
+| [REALIMPACT Pitcher serializer repair](../physical-sound-realimpact-pitcher-serializer-repair-ps2-2026-08-28.md), report `9c5c9ca8…471c` | `PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_LINEAGE_REPAIR_PREFLIGHT_SUPPORTED / CALIBRATION_DECISION_NOT_PUBLISHED` | One request yielded prefix `a0dd7006…6cf5` and block `182f2010…1e0f`. Analysis failed at JSON serialization; repair `603c1185…28e3` then rejected correct parent lineage before block access. Successor `f51a6046…db7e` binds both failures, changes no numeric path, disables acquire/decode and repeats locally. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
