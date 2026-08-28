@@ -121,6 +121,16 @@ fn fetch_endpoint_policy_rejects_private_and_documentation_addresses() {
 }
 
 #[test]
+fn fetch_endpoint_order_prefers_ipv4_before_ipv6() {
+    let mut addresses = [
+        IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0, 0, 0, 0, 0, 1)),
+        IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
+    ];
+    addresses.sort_by_key(fetch::public_address_preference);
+    assert!(matches!(addresses[0], IpAddr::V4(_)));
+}
+
+#[test]
 fn cached_e4_source_is_hash_closed_claim_scoped_and_repeatable() {
     let directory = TestDirectory::new();
     let mut manifest = test_manifest();
