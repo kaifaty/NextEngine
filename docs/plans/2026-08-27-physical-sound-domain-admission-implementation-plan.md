@@ -527,6 +527,22 @@ elastic FEM eigenmode, project its surface-normal velocity into Bempp and
 repeat the convergence/cooker gates. See the [triaxial
 evidence](../development/physical-sound-bempp-triaxial-full-angular-cooker-ps2-2026-08-28.md).
 
+That FEM coupling package now passes without opening fresh data. The initial
+coarse manifest `eaff559d…79d4` is preserved as a rejection at report
+`a58f28b9…90ef`; it fails eigenfrequency, surface-profile and BEM-field
+convergence under the frozen gates. The separately registered refined manifest
+`1adfe3d6…abf7` uses nested `128/512/2048` surface meshes, tracks mode index 3
+with `0.976082` minimum cross-level correlation and converges to `355.651 Hz`.
+All 16 FEM/Bempp gates pass and reports repeat at `a71515fa…a667`. The frozen
+full-near-shell cooker then rejects `m=0`, selects full degree 2 and predicts
+112 held `4L/10L` conditions with `0.030975` maximum peak error and
+`0.9996932` minimum correlation; reports repeat at `c3101130…b476`. Credit is
+one synthetic elastic eigenmode and its near-to-far representation only. The
+next package must preregister a fresh object-disjoint real-data spatial-transfer
+calibration—including payload identities, split, candidate, controls, gates
+and fallback—before opening any reserved REALIMPACT row. See the [FEM/Bempp
+evidence](../development/physical-sound-fem-eigenmode-bempp-cooker-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:
