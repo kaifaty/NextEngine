@@ -257,6 +257,7 @@ pub(super) fn audit(cache: &Path, source: &InternetSource) -> Result<AdapterAudi
                         sample_rate_hz: 48_000,
                         channel_count: 2,
                         maximum_frames: WAVE_RECORDING_FRAMES,
+                        require_fact_frames: true,
                     },
                 )?;
                 if audio.sample_frames != WAVE_RECORDING_FRAMES {
@@ -502,6 +503,7 @@ mod tests {
                 sample_rate_hz: 48_000,
                 channel_count: 2,
                 maximum_frames: 2,
+                require_fact_frames: true,
             },
         )
         .expect("valid YCB source format");
@@ -516,6 +518,7 @@ mod tests {
                     sample_rate_hz: 48_000,
                     channel_count: 1,
                     maximum_frames: 4,
+                    require_fact_frames: true,
                 },
             )
             .is_err()

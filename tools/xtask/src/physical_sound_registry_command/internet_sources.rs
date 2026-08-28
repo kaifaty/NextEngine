@@ -177,6 +177,7 @@ struct RemoteArtifact {
 #[serde(rename_all = "snake_case")]
 enum FetchRedirectPolicy {
     FigshareKiltHubV1,
+    MediafireFileV1,
     OsfStorageV1,
 }
 
@@ -184,12 +185,14 @@ enum FetchRedirectPolicy {
 #[serde(rename_all = "snake_case")]
 enum FetchNormalizationPolicy {
     FreesoundPackIdentityV1,
+    SoundpacksGlassRecordingsIdentityV1,
 }
 
 impl FetchNormalizationPolicy {
     const fn as_str(self) -> &'static str {
         match self {
             Self::FreesoundPackIdentityV1 => "freesound_pack_identity_v1",
+            Self::SoundpacksGlassRecordingsIdentityV1 => "soundpacks_glass_recordings_identity_v1",
         }
     }
 }
