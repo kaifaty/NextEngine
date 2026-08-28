@@ -95,6 +95,30 @@ fn declaration_accepts_the_cross_tier_blue_bowl_row() {
     validate_declaration(&entry, true).expect("frozen Blue Bowl source adapter validates");
 }
 
+#[test]
+fn declaration_accepts_the_independently_fetched_shell_plate_row() {
+    let mut entry = entry_fixture();
+    entry.id = "realimpact-shell-plate-row0000".to_owned();
+    entry.object_id = "realimpact-51-shellplate".to_owned();
+    entry.audio_payload.sha256 = REALIMPACT_SHELL_PLATE_TRANSFER_SHA256.to_owned();
+    entry.acquisition_metadata.sha256 = REALIMPACT_SHELL_PLATE_METADATA_SHA256.to_owned();
+    entry.provenance_review.sha256 = REALIMPACT_SHELL_PLATE_PROVENANCE_SHA256.to_owned();
+    let mut adapter = adapter_fixture();
+    let SourceAdapterProfile::RealImpactForceDeconvolvedTransferV1 {
+        dataset_object_id, ..
+    } = &mut adapter;
+    *dataset_object_id = REALIMPACT_SHELL_PLATE_DATASET_OBJECT_ID.to_owned();
+    entry.source_adapter = Some(adapter);
+    validate_declaration(&entry, true).expect("frozen Shell Plate source adapter validates");
+
+    entry.audio_payload.sha256 = REALIMPACT_BLUE_BOWL_TRANSFER_SHA256.to_owned();
+    assert!(
+        validate_declaration(&entry, true)
+            .expect_err("cross-object transfer hash rejects")
+            .contains("transfer payload is not the frozen 51_ShellPlate pilot")
+    );
+}
+
 fn entry_fixture_with_adapter() -> InventoryEntry {
     let mut entry = entry_fixture();
     entry.source_adapter = Some(adapter_fixture());

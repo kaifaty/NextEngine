@@ -2,6 +2,7 @@ use super::EntrySpec;
 
 pub(super) const GREEN_GOBLET_PROFILE_ID: &str = "green-goblet-row-0-v1";
 pub(super) const BLUE_BOWL_PROFILE_ID: &str = "blue-bowl-row-0-v1";
+pub(super) const SHELL_PLATE_PROFILE_ID: &str = "shell-plate-row-0-v1";
 
 const GREEN_GOBLET_ENTRIES: [EntrySpec; 8] = [
     EntrySpec::new(
@@ -153,6 +154,81 @@ const BLUE_BOWL_ENTRIES: [EntrySpec; 8] = [
     ),
 ];
 
+const SHELL_PLATE_ENTRIES: [EntrySpec; 8] = [
+    EntrySpec::new(
+        "51_ShellPlate/preprocessed/vertexXYZ.npy",
+        6_339_960,
+        6_340_058,
+        438,
+        72_128,
+        0xdcc6_91b9,
+        "0f908b0d8d3b7980706c4af658d7667716a939bd43fa5d5aee032a87a62b2d4f",
+    ),
+    EntrySpec::new(
+        "51_ShellPlate/preprocessed/micID.npy",
+        6_339_641,
+        6_339_735,
+        225,
+        24_128,
+        0x082e_c0c6,
+        "d603b6155b4bad60d9ed6633734b8f52fcad208d5320f925911fc7c463224d6b",
+    ),
+    EntrySpec::new(
+        "51_ShellPlate/preprocessed/transformed.obj",
+        6_340_496,
+        6_340_596,
+        645_991,
+        3_524_013,
+        0xa7b5_97ab,
+        "6c34b4350c2c3ce22722435d3baf7cc486a8a3a02b7da7d105910c811f79afd0",
+    ),
+    EntrySpec::new(
+        "51_ShellPlate/preprocessed/vertexID.npy",
+        2_342_732_437,
+        2_342_732_534,
+        165,
+        24_128,
+        0xa360_bbd0,
+        "9145fcb65ada0de0434f0319a0f9529eb1fd802bf3da293ac8097f3fa8fd3d16",
+    ),
+    EntrySpec::new(
+        "51_ShellPlate/preprocessed/listenerXYZ.npy",
+        2_342_729_414,
+        2_342_729_514,
+        2_923,
+        72_128,
+        0xee42_6e91,
+        "83fa3f27780ab2f56e1b33afa4fbcb25fb712ac0b3731d5343a42ecff7d94dd4",
+    ),
+    EntrySpec::new(
+        "51_ShellPlate/preprocessed/distance.npy",
+        6_339_250,
+        6_339_347,
+        294,
+        24_128,
+        0x570b_48dd,
+        "95dbc48e33263762a9d0c6233902e53ba754dc5e53943b17043491827dc7188a",
+    ),
+    EntrySpec::new(
+        "51_ShellPlate/preprocessed/deconvolved_0db.npy",
+        6_987_167,
+        6_987_271,
+        2_335_742_143,
+        2_525_088_128,
+        0x7cdd_814d,
+        "",
+    ),
+    EntrySpec::new(
+        "51_ShellPlate/preprocessed/angle.npy",
+        6_986_781,
+        6_986_875,
+        292,
+        24_128,
+        0xfabb_9a2e,
+        "ed65ac28e45cc119b5d42c49293546f2749aa5f9629f6ffa9e0f35f2420874a3",
+    ),
+];
+
 #[derive(Clone, Copy)]
 pub(super) struct FrozenProfile {
     pub(super) id: &'static str,
@@ -169,6 +245,7 @@ pub(super) struct FrozenProfile {
     pub(super) audio_prefix_sha256: &'static str,
     pub(super) entries: &'static [EntrySpec],
     pub(super) dataset_object_id: &'static str,
+    pub(super) material_family: &'static str,
     pub(super) audio_entry_name: &'static str,
     pub(super) audio_crc32: &'static str,
     pub(super) audio_sample_count: usize,
@@ -189,7 +266,7 @@ pub(super) struct FrozenProfile {
     pub(super) audition_file_name: &'static str,
 }
 
-const PROFILES: [FrozenProfile; 2] = [
+const PROFILES: [FrozenProfile; 3] = [
     FrozenProfile {
         id: GREEN_GOBLET_PROFILE_ID,
         archive_url: "https://downloads.cs.stanford.edu/viscam/RealImpact/93_GreenGoblet.zip",
@@ -205,6 +282,7 @@ const PROFILES: [FrozenProfile; 2] = [
         audio_prefix_sha256: "a9b68287eaa622455d3aa78de18b9dbf315e7fa3d5f719f9d67797b529ee270a",
         entries: &GREEN_GOBLET_ENTRIES,
         dataset_object_id: "93_GreenGoblet",
+        material_family: "glass",
         audio_entry_name: "93_GreenGoblet/preprocessed/deconvolved_0db.npy",
         audio_crc32: "d41ca14a",
         audio_sample_count: 208_323,
@@ -239,6 +317,7 @@ const PROFILES: [FrozenProfile; 2] = [
         audio_prefix_sha256: "eb066d85b0d6eca55a31be5b7cb7228099c998f9a985fa178919a5e8e3fef496",
         entries: &BLUE_BOWL_ENTRIES,
         dataset_object_id: "6_Bowl",
+        material_family: "glass",
         audio_entry_name: "6_Bowl/preprocessed/deconvolved_0db.npy",
         audio_crc32: "e13a8db1",
         audio_sample_count: 230_215,
@@ -258,6 +337,41 @@ const PROFILES: [FrozenProfile; 2] = [
         row_file_name: "blue-bowl-row0000-deconvolved.f32le",
         audition_file_name: "blue-bowl-row0000-audition.wav",
     },
+    FrozenProfile {
+        id: SHELL_PLATE_PROFILE_ID,
+        archive_url: "https://downloads.cs.stanford.edu/viscam/RealImpact/51_ShellPlate.zip",
+        archive_bytes: 2_342_734_004,
+        archive_etag: "6433e570-8ba348b4",
+        archive_last_modified_http: "Mon, 10 Apr 2023 10:31:12 GMT",
+        archive_last_modified_iso: "2023-04-10T10:31:12Z",
+        central_offset: 2_342_732_699,
+        central_bytes: 1_283,
+        central_sha256: "b1633df3edddefac7a4a35dc4f8da5d00d14fc41c56d60d7d44a94dc91ee9645",
+        entry_count: 12,
+        audio_prefix_bytes: 1_048_576,
+        audio_prefix_sha256: "8f29023d305e2b434d9cc3daae5ae1e85d94f906427c70057974f4e492faabd6",
+        entries: &SHELL_PLATE_ENTRIES,
+        dataset_object_id: "51_ShellPlate",
+        material_family: "glass",
+        audio_entry_name: "51_ShellPlate/preprocessed/deconvolved_0db.npy",
+        audio_crc32: "7cdd814d",
+        audio_sample_count: 210_424,
+        audio_row_sha256: "e795d04f6bfe12414dd6499d2e29f2772f63ce1784f4d5f6ecdda681b0c31219",
+        expected_impact_vertex_id: 15_341,
+        expected_impact_position: [0.061_313_11, -0.075_802_42, 0.023_944_72],
+        expected_listener_position: [0.23, -0.043_45, -0.91],
+        expected_mesh_vertex_count: 48_070,
+        retrieved_at: "2026-08-28",
+        inventory_id: "ps2-realimpact-shell-plate-e2-range-v1",
+        inventory_entry_id: "realimpact-shell-plate-row0000",
+        domain_id: "realimpact-shell-plate-thread-mesh-transfer",
+        object_family_id: "realimpact-shell-plate",
+        object_id: "realimpact-51-shellplate",
+        geometry_revision: "mesh-6c34b4350c2c-v1",
+        impact_position_id: "mesh-vertex-15341",
+        row_file_name: "shell-plate-row0000-deconvolved.f32le",
+        audition_file_name: "shell-plate-row0000-audition.wav",
+    },
 ];
 
 pub(super) fn frozen_profile(id: &str) -> Result<&'static FrozenProfile, String> {
@@ -266,7 +380,7 @@ pub(super) fn frozen_profile(id: &str) -> Result<&'static FrozenProfile, String>
         .find(|profile| profile.id == id)
         .ok_or_else(|| {
             format!(
-                "unsupported REALIMPACT row profile {id}; expected {GREEN_GOBLET_PROFILE_ID} or {BLUE_BOWL_PROFILE_ID}"
+                "unsupported REALIMPACT row profile {id}; expected {GREEN_GOBLET_PROFILE_ID}, {BLUE_BOWL_PROFILE_ID}, or {SHELL_PLATE_PROFILE_ID}"
             )
         })
 }
