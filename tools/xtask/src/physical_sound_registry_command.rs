@@ -86,6 +86,7 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
             return realimpact_row::run_cli(root, arguments);
         }
         Some("source-feasibility") => return source_feasibility::run_cli(root, arguments.skip(1)),
+        Some("spatial-calibration") => return realimpact_row::run_spatial(root, arguments.skip(1)),
         Some("split-feasibility") => return split_feasibility::run_cli(root, arguments.skip(1)),
         Some("split-freeze") => return split_freeze::run_cli(root, arguments.skip(1)),
         Some("transfer-calibration") => {

@@ -401,6 +401,20 @@ metrics, gates and exact bounded ranges before opening any new Shell Plate or
 Skull Cup listener rows. See the [multi-listener acquisition
 evidence](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md).
 
+The preregistered multi-object discriminator is now executable too. External
+manifest `077b9a46…f2cb` freezes Green development, Shell calibration, Skull
+holdout, listener split, normalization, transfer-V2 frequency seeds, four
+candidate families, six gates and exact bounded archive ranges before Shell or
+Skull rows `1..14` are read. Shell selects
+`vertical-rbf-sigma052-ridge001-v1`, and selection hash `0aea2b62…0320` is
+formed before Skull access. Two complete reports repeat at `abc13a9c…989d`.
+The Skull holdout crosses all gates, but improved-component fraction is exactly
+the `0.5` threshold. Credit is therefore limited to relative selected-mode
+magnitude along one vertical line at a fixed angle/distance. The next Package
+3 increment keeps the RBF frozen, adds at least two object-disjoint impact
+blocks and introduces explicit angle/distance partitions before any 3D spatial
+representation. See the [spatial-calibration evidence](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:
