@@ -27,6 +27,20 @@ using nextengine::nonlocal::fcr::FormulaProbeTwofoldRecurrence;
 constexpr std::size_t DIMENSION = 102U;
 constexpr const char* EXPECTED_SIGN_ROOT =
     "89b2908b21369cf77a376287ed8142026827815c45a59aa70d2e831aac406094";
+constexpr const char* EXPECTED_REJECT_SIGN_ROOT =
+    "4dc6f1bc8ba00c9bcfa22589b4b586324aa71cc9c811af04cd49d0b70f04150c";
+constexpr const char* EXPECTED_DENSE_RECURRENCE_ROOT =
+    "510a5f00982719f5a9ed7558d11361bb9617d73bdcdee706f7bc1fd731ff7281";
+constexpr const char* EXPECTED_COMMON_RECURRENCE_ROOT =
+    "bc5fb32208d5b321ab65f50537b03e1f45ba325fd194e808c76445041e18d5b7";
+constexpr std::array<const char*, 3U> EXPECTED_DENSE_CERTIFICATE_ROOTS{
+    "13cebecce215df2047e3ae770f8c1bddbbff49245e1ad1b82d7206cf730acc72",
+    "4f3b3024772953c901cd21081260dc463bd1638dda9b44ae0157e4352390c08b",
+    "bc14e8cb5b704849abe20b24bad09344f41210f2a9308cb44326d4179c900033"};
+constexpr std::array<const char*, 3U> EXPECTED_COMMON_CERTIFICATE_ROOTS{
+    "13cebecce215df2047e3ae770f8c1bddbbff49245e1ad1b82d7206cf730acc72",
+    "ec1de36985f4d8bbfa89ed5595ffa8d575fd0247426335d37ec0104713451127",
+    "fdcf25871a14c4456c0d97291a190d05629af9f21edf6f8515e0d22873cdcacf"};
 
 struct BuilderWork {
     std::size_t products = 0U;
@@ -91,17 +105,75 @@ std::vector<FormulaProbeCertificate> certificates(
     return result;
 }
 
-bool rejecting_endpoint(const FormulaProbeTwofoldRecurrence& recurrence) {
-    return nextengine::nonlocal::fcr::formula_probe_twofold_recurrence_valid(
+std::string endpoint_certificates_json(
+    const FormulaProbeTwofoldRecurrence& recurrence) {
+    std::ostringstream result;
+    result << '[';
+    for (std::size_t index = 0U; index < recurrence.states.size(); ++index) {
+        if (index != 0U) result << ',';
+        const FormulaProbeCertificate& certificate =
+            recurrence.states[index].certificate;
+        result << "{\"state\":" << index << ",\"sign_root\":\""
+            << certificate.sign_root << "\",\"root\":\""
+            << certificate.root << "\"}";
+    }
+    result << ']';
+    return result.str();
+}
+
+std::string callback_products_json(
+    const FormulaProbeHybridRecurrence& hybrid) {
+    std::ostringstream result;
+    result << '[';
+    for (std::size_t index = 0U;
+         index < hybrid.recurrence.products.size(); ++index) {
+        if (index != 0U) result << ',';
+        const auto& product = hybrid.recurrence.products[index];
+        result << "{\"site\":\"" << product.site
+            << "\",\"input_root\":\"" << product.input_root
+            << "\",\"high_product_root\":\""
+            << product.high_product_root << "\",\"low_product_root\":\""
+            << product.low_product_root << "\",\"value_root\":\""
+            << product.value_root << "\",\"execution_root\":\""
+            << product.execution_root << "\",\"callback_root\":\""
+            << product.callback_root << "\"}";
+    }
+    result << ']';
+    return result.str();
+}
+
+bool rejecting_endpoint(const FormulaProbeTwofoldRecurrence& recurrence,
+    const std::string& expected_recurrence_root,
+    const std::array<std::string, 3U>& expected_certificate_roots) {
+    if (!nextengine::nonlocal::fcr::formula_probe_twofold_recurrence_valid(
             recurrence)
-        && recurrence.states.size() == 3U
-        && std::all_of(recurrence.states.begin(), recurrence.states.end(),
-            [](const auto& state) {
-                return state.certificate.exact && !state.certificate.passed
-                    && state.certificate.positive == 12U
-                    && state.certificate.negative == 24U
-                    && state.certificate.unresolved == 66U;
-            });
+        || recurrence.root != expected_recurrence_root
+        || recurrence.states.size() != expected_certificate_roots.size())
+        return false;
+    for (std::size_t index = 0U; index < recurrence.states.size(); ++index) {
+        const FormulaProbeCertificate& certificate =
+            recurrence.states[index].certificate;
+        if (!certificate.exact || certificate.passed
+            || certificate.positive != 12U || certificate.negative != 24U
+            || certificate.unresolved != 66U
+            || certificate.sign_root != EXPECTED_REJECT_SIGN_ROOT
+            || certificate.root != expected_certificate_roots[index])
+            return false;
+    }
+    return true;
+}
+
+void reseal_hybrid(FormulaProbeHybridRecurrence& value) {
+    using namespace nextengine::nonlocal::fcr;
+    for (FormulaProbeTwofoldProduct& product : value.recurrence.products) {
+        product.callback_root = formula_probe_hybrid_product_callback_root(
+            value.callback_identity_root, product);
+        product.root = formula_probe_twofold_product_root(product);
+    }
+    value.recurrence.root =
+        formula_probe_twofold_recurrence_root(value.recurrence);
+    value.callback_root = formula_probe_hybrid_callback_root(value);
+    value.root = formula_probe_hybrid_twofold_recurrence_root(value);
 }
 
 std::string classify(bool apparatus, bool identity, bool work,
@@ -173,7 +245,7 @@ int main(int argc, char** argv) {
         const FormulaProbeHybridRecurrence hybrid =
             formula_probe_hybrid_twofold_recurrence(fixture);
         const bool hybrid_exact =
-            formula_probe_hybrid_twofold_recurrence_valid(hybrid);
+            formula_probe_hybrid_twofold_recurrence_valid(fixture, hybrid);
         const FormulaProbeTwofoldProductAudit audit =
             formula_probe_twofold_product_exact_audit(
                 fixture, hybrid.recurrence);
@@ -191,12 +263,24 @@ int main(int argc, char** argv) {
             formula_probe_tangent_twofold_operator(fixture, materialized);
         const FormulaProbeTwofoldRecurrence dense =
             formula_probe_twofold_recurrence(fixture, dense_artifact);
-        const bool dense_reject = rejecting_endpoint(dense);
+        std::array<std::string, 3U> dense_certificate_roots;
+        for (std::size_t index = 0U;
+             index < dense_certificate_roots.size(); ++index)
+            dense_certificate_roots[index] =
+                EXPECTED_DENSE_CERTIFICATE_ROOTS[index];
+        const bool dense_reject = rejecting_endpoint(dense,
+            EXPECTED_DENSE_RECURRENCE_ROOT, dense_certificate_roots);
         const FormulaProbeTwofoldOperator common_artifact =
             formula_probe_common_twofold_operator(fixture);
         const FormulaProbeTwofoldRecurrence common =
             formula_probe_twofold_recurrence(fixture, common_artifact);
-        const bool common_reject = rejecting_endpoint(common);
+        std::array<std::string, 3U> common_certificate_roots;
+        for (std::size_t index = 0U;
+             index < common_certificate_roots.size(); ++index)
+            common_certificate_roots[index] =
+                EXPECTED_COMMON_CERTIFICATE_ROOTS[index];
+        const bool common_reject = rejecting_endpoint(common,
+            EXPECTED_COMMON_RECURRENCE_ROOT, common_certificate_roots);
         const bool wide_parent = ladder(fixture.baseline_certificates);
 
         FormulaProbeParentFixture tangent_mutation = fixture;
@@ -210,31 +294,77 @@ int main(int argc, char** argv) {
             !formula_probe_hybrid_twofold_recurrence(nonfinite).exact;
         FormulaProbeHybridRecurrence work_mutation = hybrid;
         ++work_mutation.hybrid_work.output_projections;
+        work_mutation.root =
+            formula_probe_hybrid_twofold_recurrence_root(work_mutation);
         const bool work_control =
-            !formula_probe_hybrid_twofold_recurrence_valid(work_mutation);
+            !formula_probe_hybrid_twofold_recurrence_valid(
+                fixture, work_mutation);
         FormulaProbeHybridRecurrence result_mutation = hybrid;
         result_mutation.root = nextengine::nonlocal::sha256_hex(
             result_mutation.root + ":bad");
         const bool result_control =
-            !formula_probe_hybrid_twofold_recurrence_valid(result_mutation);
-        FormulaProbeTwofoldRecurrence product_mutation = hybrid.recurrence;
+            !formula_probe_hybrid_twofold_recurrence_valid(
+                fixture, result_mutation);
+        FormulaProbeHybridRecurrence callback_mutation = hybrid;
+        callback_mutation.callback_identity_root =
+            nextengine::nonlocal::sha256_hex(
+                callback_mutation.callback_identity_root + ":stale");
+        reseal_hybrid(callback_mutation);
+        const bool callback_control =
+            !formula_probe_hybrid_twofold_recurrence_valid(
+                fixture, callback_mutation);
+        FormulaProbeHybridRecurrence input_mutation = hybrid;
+        bool input_control = false;
+        if (!input_mutation.recurrence.products.empty()
+            && !input_mutation.recurrence.products[0U]
+                    .input_components.empty()) {
+            FormulaProbeTwofoldProduct& product =
+                input_mutation.recurrence.products[0U];
+            product.input_components[0U] = std::nextafter(
+                product.input_components[0U],
+                std::numeric_limits<double>::infinity());
+            product.input_root =
+                formula_probe_binary64_vector_root(product.input_components);
+            reseal_hybrid(input_mutation);
+            input_control = !formula_probe_hybrid_twofold_recurrence_valid(
+                fixture, input_mutation);
+        }
+        FormulaProbeHybridRecurrence product_mutation = hybrid;
         bool product_control = false;
-        if (!product_mutation.products.empty()
-            && !product_mutation.products[0U].value_components.empty()) {
-            product_mutation.products[0U].value_components[0U] =
+        if (!product_mutation.recurrence.products.empty()
+            && !product_mutation.recurrence.products[0U]
+                    .value_components.empty()) {
+            FormulaProbeTwofoldProduct& product =
+                product_mutation.recurrence.products[0U];
+            product.value_components[0U] =
                 std::nextafter(
-                    product_mutation.products[0U].value_components[0U],
+                    product.value_components[0U],
                     std::numeric_limits<double>::infinity());
-            product_control = !formula_probe_twofold_product_exact_audit(
-                fixture, product_mutation).exact;
+            product.value_root =
+                formula_probe_binary64_vector_root(product.value_components);
+            reseal_hybrid(product_mutation);
+            product_control = !formula_probe_hybrid_twofold_recurrence_valid(
+                fixture, product_mutation);
+        }
+        FormulaProbeTwofoldRecurrence audit_mutation = hybrid.recurrence;
+        bool audit_control = false;
+        if (!audit_mutation.products.empty()
+            && !audit_mutation.products[0U].value_components.empty()) {
+            audit_mutation.products[0U].value_components[0U] = std::nextafter(
+                audit_mutation.products[0U].value_components[0U],
+                std::numeric_limits<double>::infinity());
+            audit_control = !formula_probe_twofold_product_exact_audit(
+                fixture, audit_mutation).exact;
         }
         const bool classifier = classifier_control();
         const bool controls = tangent_control && nonfinite_control
-            && work_control && result_control && product_control && classifier;
+            && work_control && result_control && callback_control
+            && input_control && product_control && audit_control && classifier;
         std::ostringstream controls_material;
         controls_material << tangent_control << ':' << nonfinite_control << ':'
-            << work_control << ':' << result_control << ':' << product_control
-            << ':' << classifier;
+            << work_control << ':' << result_control << ':' << callback_control
+            << ':' << input_control << ':' << product_control << ':'
+            << audit_control << ':' << classifier;
         const std::string controls_root =
             nextengine::nonlocal::sha256_hex(controls_material.str());
 
@@ -250,6 +380,7 @@ int main(int argc, char** argv) {
             && hybrid.hybrid_work.output_additions == 306U;
         const bool apparatus = fixture_exact && hybrid_exact && build_exact;
         const bool identity = hybrid.recurrence.fixture_root == fixture.root
+            && !hybrid.callback_identity_root.empty()
             && !hybrid.callback_root.empty()
             && audit.exact_operator_root == dense_artifact.source_root;
         const std::string route = classify(apparatus, identity, work,
@@ -269,6 +400,8 @@ int main(int argc, char** argv) {
             << ",\"route\":\"" << route << "\""
             << ",\"fixture_root\":\"" << fixture.root << "\""
             << ",\"hybrid\":{\"root\":\"" << hybrid.root
+            << "\",\"callback_identity_root\":\""
+            << hybrid.callback_identity_root
             << "\",\"callback_root\":\"" << hybrid.callback_root
             << "\",\"recurrence_root\":\"" << hybrid.recurrence.root
             << "\",\"exact\":" << (hybrid.exact ? "true" : "false")
@@ -279,6 +412,8 @@ int main(int argc, char** argv) {
             << ",\"failure_stage\":\""
             << hybrid.recurrence.failure_stage << "\""
             << ",\"products\":" << hybrid.recurrence.products.size()
+            << ",\"callback_products\":"
+            << callback_products_json(hybrid)
             << ",\"ladder\":" << (hybrid_ladder ? "true" : "false")
             << ",\"certificates\":[";
         for (std::size_t index = 0U;
@@ -305,9 +440,13 @@ int main(int argc, char** argv) {
             << ",\"dense_k2_reject\":"
             << (dense_reject ? "true" : "false")
             << ",\"dense_root\":\"" << dense.root
-            << "\",\"common_k2_reject\":"
+            << "\",\"dense_certificates\":"
+            << endpoint_certificates_json(dense)
+            << ",\"common_k2_reject\":"
             << (common_reject ? "true" : "false")
-            << ",\"common_root\":\"" << common.root << "\"}"
+            << ",\"common_root\":\"" << common.root
+            << "\",\"common_certificates\":"
+            << endpoint_certificates_json(common) << "}"
             << ",\"work\":{\"operator_products\":"
             << hybrid.hybrid_work.operator_products
             << ",\"tangent_kernel_calls\":"
@@ -336,7 +475,11 @@ int main(int argc, char** argv) {
             << (nonfinite_control ? "true" : "false")
             << ",\"work\":" << (work_control ? "true" : "false")
             << ",\"result\":" << (result_control ? "true" : "false")
+            << ",\"callback\":"
+            << (callback_control ? "true" : "false")
+            << ",\"input\":" << (input_control ? "true" : "false")
             << ",\"product\":" << (product_control ? "true" : "false")
+            << ",\"audit\":" << (audit_control ? "true" : "false")
             << ",\"classifier\":" << (classifier ? "true" : "false")
             << ",\"root\":\"" << controls_root << "\"}"
             << ",\"claim_status\":\"AUTHOR_PASS_REVIEW_NOT_TESTED\""

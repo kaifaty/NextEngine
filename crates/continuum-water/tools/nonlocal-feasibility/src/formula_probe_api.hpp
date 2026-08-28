@@ -206,6 +206,14 @@ struct FormulaProbeTwofoldProduct {
     std::string artifact_root;
     std::string input_root;
     std::string value_root;
+    // Optional execution trace.  Legacy dense products leave these empty so
+    // their frozen roots remain unchanged; callback-backed products bind the
+    // actual wide-kernel applications and the recurrence state that consumed
+    // their projected value.
+    std::string execution_root;
+    std::string high_product_root;
+    std::string low_product_root;
+    std::string callback_root;
     std::string root;
 };
 
@@ -297,6 +305,7 @@ struct FormulaProbeHybridRecurrence {
     bool exact = false;
     FormulaProbeTwofoldRecurrence recurrence;
     FormulaProbeHybridWork hybrid_work;
+    std::string callback_identity_root;
     std::string callback_root;
     std::string root;
 };
@@ -328,6 +337,17 @@ std::string formula_probe_binary128_vector_root(
     const std::vector<FormulaProbeBinary128>& values);
 std::string formula_probe_binary64_vector_root(
     const std::vector<double>& values);
+std::string formula_probe_twofold_product_root(
+    const FormulaProbeTwofoldProduct& value);
+std::string formula_probe_twofold_recurrence_root(
+    const FormulaProbeTwofoldRecurrence& value);
+std::string formula_probe_hybrid_product_callback_root(
+    const std::string& callback_identity_root,
+    const FormulaProbeTwofoldProduct& value);
+std::string formula_probe_hybrid_callback_root(
+    const FormulaProbeHybridRecurrence& value);
+std::string formula_probe_hybrid_twofold_recurrence_root(
+    const FormulaProbeHybridRecurrence& value);
 std::string formula_probe_solution_set_root(
     const std::vector<std::vector<FormulaProbeBinary128>>& solutions);
 std::string formula_probe_certificate_set_root(
@@ -380,6 +400,7 @@ bool formula_probe_twofold_exact_audit_valid(
 FormulaProbeHybridRecurrence formula_probe_hybrid_twofold_recurrence(
     const FormulaProbeParentFixture& fixture);
 bool formula_probe_hybrid_twofold_recurrence_valid(
+    const FormulaProbeParentFixture& fixture,
     const FormulaProbeHybridRecurrence& value);
 FormulaProbeTwofoldProductAudit formula_probe_twofold_product_exact_audit(
     const FormulaProbeParentFixture& fixture,
