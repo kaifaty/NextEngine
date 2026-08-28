@@ -784,6 +784,14 @@ fn normalize_source(
                 .map(|recording| &recording.audio)
                 .collect::<Vec<_>>(),
         ),
+        Some(AdapterEvidenceReport::KronlandMaterialIdentifiedRecordingV1 {
+            object_id,
+            material_label,
+            recording,
+            ..
+        }) if source.adapter_id == "kronland-material-identified-recording-v1" => {
+            (object_id, material_label, vec![recording])
+        }
         _ => {
             return Err(format!(
                 "source {} has no matching typed E3 adapter evidence",

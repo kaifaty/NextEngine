@@ -13,6 +13,7 @@ pub(super) mod freesound_glass_bowl;
 pub(super) mod freesound_pack;
 pub(super) mod freesound_wine_glass;
 pub(super) mod heller_impact;
+pub(super) mod kronland_material;
 mod mp3;
 mod mp4;
 pub(super) mod objectfolder_real_demo;
@@ -44,6 +45,13 @@ pub(super) enum AdapterProfile {
         material_label: String,
         event_label: String,
         recordings: Vec<heller_impact::RecordingProfile>,
+    },
+    KronlandMaterialIdentifiedRecordingV1 {
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        recording_id: String,
+        source_file_name: String,
     },
     ObjectfolderRealDemoIdentifiedRecordingV1 {
         object_id: String,
@@ -119,6 +127,13 @@ pub(super) enum AdapterEvidenceReport {
         event_label: String,
         recordings: Vec<heller_impact::RecordingEvidenceReport>,
     },
+    KronlandMaterialIdentifiedRecordingV1 {
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        source_file_name: String,
+        recording: RecordingReport,
+    },
     ObjectfolderRealDemoIdentifiedRecordingV1 {
         object_id: String,
         object_name: String,
@@ -184,6 +199,14 @@ pub(super) fn validate_profile_declaration(source: &InternetSource) -> Result<()
         ) => heller_impact::validate_declaration(source),
         (heller_impact::ADAPTER_ID, None) => Err(format!(
             "source {} requires a Heller Impact adapter profile",
+            source.id
+        )),
+        (
+            kronland_material::ADAPTER_ID,
+            Some(AdapterProfile::KronlandMaterialIdentifiedRecordingV1 { .. }),
+        ) => kronland_material::validate_declaration(source),
+        (kronland_material::ADAPTER_ID, None) => Err(format!(
+            "source {} requires a Kronland material adapter profile",
             source.id
         )),
         (
@@ -260,6 +283,7 @@ pub(super) fn audit(
         freesound_pack::ADAPTER_ID => freesound_pack::audit(cache, source),
         freesound_wine_glass::ADAPTER_ID => freesound_wine_glass::audit(cache, source),
         heller_impact::ADAPTER_ID => heller_impact::audit(cache, source),
+        kronland_material::ADAPTER_ID => kronland_material::audit(cache, source),
         objectfolder_real_demo::ADAPTER_ID => objectfolder_real_demo::audit(cache, source),
         ycb_impact::ADAPTER_ID => ycb_impact::audit(cache, source),
         _ => Ok(AdapterAudit {

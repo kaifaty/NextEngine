@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_DISTINCT_SHELL_E2_READY / SIX_E3_PROJECT_GROUPS / GLASS_9_OF_16 / REJECT_PARENTS_38_OF_35 / FOUR_REALIMPACT_E2_OBJECTS / GLASS_AND_E2_EXPANSION_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_KRONLAND_E3_READY / SEVEN_E3_PROJECT_GROUPS / GLASS_14_OF_16 / REJECT_PARENTS_38_OF_35 / FOUR_REALIMPACT_E2_OBJECTS / TWO_GLASS_TARGETS_AND_E2_EXPANSION_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -11,17 +11,17 @@
 
 ## Resume in 60 seconds
 - **Current conclusion:** PS-2 uses published internet data only. AV-MSF, YCB,
-  Heller, two Freesound projects and the bounded ObjectFolder-Real demo subset
-  validate 47 E3 objects/113 recordings in six source groups; Glass is `9/16`,
+  Heller, two Freesound projects, ObjectFolder-Real demos and Kronland originals
+  validate 52 E3 objects/118 recordings in seven source groups; Glass is `14/16`,
   reject parents `38/35`, all in `dev`. Four REALIMPACT E2 rows exist; object 6
   is the first E2/E3 anchor and object 51 adds a distinct shell. `Pass` is off.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Continue exact-download search for seven Glass E3 targets;
+- **Next action:** Find two exact Glass E3 targets, preferably in another project;
   when none is bounded, audit `60_SkullCup` as the next numbered Glass E2
   candidate. Do not repartition `dev` or count E2 as E3.
-- **Current blocker:** Seven Glass object groups, project-disjoint split
+- **Current blocker:** Two Glass object groups, project-disjoint split
   feasibility and complementary force/geometry/support E2/E1 claims remain
   open.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
@@ -42,7 +42,7 @@
 | [Steel residual v4](../physical-sound-steel-residual-v4-2026-08-27.md) | `V4_REJECTED / FALLBACK_OUT_OF_DOMAIN` | YCB adds aluminium-container and steel-skillet families. Real metal flatness is about `−16/−17 dB` versus v3 `−53 dB`; v4 reaches flatness but not real spectral dynamics. Original PANNs stays `0/39`, BEATs `7/39`; no joint profile or promotion. |
 | [Controlled glass corpus](../physical-sound-controlled-glass-corpus-2026-08-27.md) | `CONTROLLED_SYNTHETIC_CORPUS_PASS / HUMAN_REFERENCE_OPEN` | Exact geometry and 15 force/position conditions are reproducible; Q30 and physical controls pass, but whole-vector IDW is an inadequate spatial model and the corpus has no real matched recording. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
-| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [YCB vertical evidence](../physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), prior E3/E2 pilots and [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) | `PS2_YCB_VERTICAL_REJECT_MINIMUM_READY / GLASS_9_OF_16 / REJECT_PARENTS_38_OF_35` | Six E3 projects repeat at 47 objects/113 recordings. The balanced YCB vertical subset adds 27 parents/54 files and meets only the development parent-count minimum; 7 Glass targets and all project-disjoint splits remain open. |
+| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [Kronland E3 evidence](../physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md), prior E3/E2 pilots and [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) | `PS2_KRONLAND_E3_READY / GLASS_14_OF_16 / REJECT_PARENTS_38_OF_35` | Seven E3 projects repeat at 52 objects/118 recordings. Five hash-matched Kronland originals add five Glass targets; two targets and all project-disjoint splits remain open. |
 | [Blue Bowl](../physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md) and [Shell Plate](../physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md) evidence | `FOUR_REALIMPACT_E2_OBJECTS / CROSS_TIER_AND_DISTINCT_SHELL` | Both bounded profiles reproduce twice. Object 6 links E3 to E2; object 51 adds a broad shell transfer. Neither adds an E3 group and all four rows remain fallback-only. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
@@ -170,8 +170,8 @@
 - **Rejected alternatives:** Local mic/hammer acquisition, a live human queue,
   one general score/model, or inventing absent axes across datasets.
 - **Consequences:** Force hardware is no blocker. Bounded fetch/cache/archive
-  handling, six-project E3 normalization and four REALIMPACT E2 object rows are
-  complete. Explicit roles measure Glass `9/16` and reject parents `38/35`, all
+  handling, seven-project E3 normalization and four REALIMPACT E2 object rows are
+  complete. Explicit roles measure Glass `14/16` and reject parents `38/35`, all
   in `dev`; the large ObjectFolder gzip and horizontally aggregated non-Glass
   YCB routes remain rejected, while the vertical route adds scoped evidence.
   Expand Glass E3/E2 and keep gaps fallback-only.
@@ -189,7 +189,7 @@
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Six E3 projects validate 47 objects/113 recordings, parent count is `38/35`, object 6 links E3 to E2 and object 51 adds shell geometry | Glass is `9/16`; all current data is `dev`, 27 new objects share one existing YCB project, all four E2 rows are fallback and no powered partitioned corpus exists | Add seven exact Glass targets plus complementary E2/E1 evidence, then freeze project-disjoint splits and run one sealed shadow |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Seven E3 projects validate 52 objects/118 recordings, Glass is `14/16`, parent count is `38/35`, object 6 links E3 to E2 and object 51 adds shell geometry | All current data is `dev`; Kronland adds one project but only one recording per object, all four E2 rows are fallback and no powered partitioned corpus exists | Add two exact Glass targets plus complementary E2/E1 evidence, then freeze project-disjoint splits and run one sealed shadow |
 
 ## Required context
 
@@ -199,7 +199,7 @@ Read these sources in precedence order before acting:
 2. [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md), [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../../architecture/30-presentation-extraction-and-render-content.md), ADR-027/046/058/071.
 3. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 4. [Research report](../physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../physical-sound-quality-evaluation-research-2026-08-26.md),
-   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [ObjectFolder-Real demo pilot](../physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [YCB vertical expansion](../physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [Blue Bowl](../physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md) and [Shell Plate](../physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md) evidence, [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
+   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [ObjectFolder-Real demo](../physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [YCB vertical](../physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [Blue Bowl](../physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [Shell Plate](../physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md) and [Kronland](../physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md) evidence, [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
 5. [Roadmap](../../roadmap.md) only for a future scheduling/scope decision.
 
 ## Next action
@@ -207,8 +207,8 @@ Read these sources in precedence order before acting:
 1. Preserve frozen Q30, AV-P0A/C, PS-1 and rejected-v3/v4 evidence; keep all
    source/generated artifacts external and do not reinterpret a control pass as
    subjective quality or P1 evidence.
-2. Preserve PS-2 hashes, source rejections, Freesound/ObjectFolder/YCB
-   adapters, explicit roles and all four REALIMPACT E2 reports; add 7 Glass
+2. Preserve PS-2 hashes, source rejections, Freesound/ObjectFolder/YCB/Kronland
+   adapters, explicit roles and all four REALIMPACT E2 reports; add 2 Glass
    target groups plus complementary E2/E1 evidence before `Pass`, PS-3 or AV-P0D.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
@@ -239,11 +239,11 @@ Read these sources in precedence order before acting:
 ## Handoff
 
 - **Workspace state:** Registry V1, PS-1, PS-2 plan/`E1`, bounded source/cache
-  audit, six-project E3, Freesound/ObjectFolder/YCB imports, explicit roles and
+  audit, seven-project E3, Freesound/ObjectFolder/YCB/Kronland imports, explicit roles and
   four typed REALIMPACT E2 rows exist; public schemas/assets/ownership are unchanged.
 - **Checks:** focused sound tests plus independent external A/B audits pass so far;
   combined source and identified reports repeat byte-identically.
-- **Remaining risk:** seven missing Glass groups, independent split groups, broader E2 arrays, corpus scale/scope, calibration/OOD,
+- **Remaining risk:** two missing Glass groups, independent split groups, broader E2 arrays, corpus scale/scope, calibration/OOD,
   spatial transfer, contact sufficiency, mixer cost and authoring are open.
 - **Quality status:** no powered multi-source internet corpus exists; no quality,
   corpus admission or production claim exists until claim-scoped evidence passes.

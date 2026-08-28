@@ -359,7 +359,7 @@ pub(crate) fn resolve_public_https_endpoint(url: &str) -> Result<Option<String>,
         .into_iter()
         .map(|address| address.ip())
         .collect::<Vec<_>>();
-    addresses.sort_by_key(ToString::to_string);
+    addresses.sort_by_key(public_address_preference);
     addresses.dedup();
     let address = addresses[0];
     let rendered = match address {
@@ -367,6 +367,10 @@ pub(crate) fn resolve_public_https_endpoint(url: &str) -> Result<Option<String>,
         IpAddr::V6(address) => format!("[{address}]"),
     };
     Ok(Some(format!("{host}:443:{rendered}")))
+}
+
+pub(super) fn public_address_preference(address: &IpAddr) -> (bool, IpAddr) {
+    (matches!(address, IpAddr::V6(_)), *address)
 }
 
 pub(super) fn is_public_ip(address: IpAddr) -> bool {
