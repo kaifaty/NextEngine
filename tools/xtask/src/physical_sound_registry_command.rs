@@ -16,6 +16,7 @@ mod realimpact_row;
 mod source_feasibility;
 mod split_feasibility;
 mod split_freeze;
+mod transfer_calibration;
 
 const MANIFEST_SCHEMA: &str =
     "nextengine.experimental-physical-sound-research-registry.manifest.v1";
@@ -86,9 +87,9 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         }
         Some("source-feasibility") => return source_feasibility::run_cli(root, arguments.skip(1)),
         Some("split-feasibility") => return split_feasibility::run_cli(root, arguments.skip(1)),
-        Some("split-freeze") => {
-            arguments.next();
-            return split_freeze::run_cli(root, arguments);
+        Some("split-freeze") => return split_freeze::run_cli(root, arguments.skip(1)),
+        Some("transfer-calibration") => {
+            return transfer_calibration::run_cli(root, arguments.skip(1));
         }
         _ => {}
     }

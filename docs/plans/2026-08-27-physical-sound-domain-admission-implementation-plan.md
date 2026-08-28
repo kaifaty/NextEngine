@@ -377,8 +377,17 @@ The evidence-backed internet-native revision is
 frequency, damping and spatial participation from the five typed REALIMPACT E2
 rows, but it may not claim absolute amplitude, exact composition/support,
 matched E2/E3 conditions, corpus admission, `Pass` or runtime content. The
-next Package 3 increment is to preregister its object-disjoint split, objective
-and held-out report before fitting. See the [feasibility evidence](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md).
+object-disjoint transfer experiment is now executable. Frozen V1 is retained
+as `INVALID_METRIC_CONFOUND` because non-injective fit-to-tail assignments and
+shared coarse damping bins inflated its apparent recall. Separately
+hash-closed V2 fixes those confounds before opening Skull Cup, selects the
+16-mode injective extractor on Shell Plate and crosses all relative
+modal/damping gates on the fresh Skull Cup holdout. It still has one listener
+row per object, so spatial participation is unavailable and none of the eight
+exact-domain blockers closes. The next Package 3 increment is a typed,
+hash-closed multi-listener acquisition pilot and then a preregistered
+object-disjoint spatial-participation discriminator. See the [transfer
+calibration evidence](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md).
 
 ### 4. AV-P0D autonomous formula search
 
