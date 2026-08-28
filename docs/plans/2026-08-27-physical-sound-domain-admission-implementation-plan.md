@@ -389,6 +389,18 @@ hash-closed multi-listener acquisition pilot and then a preregistered
 object-disjoint spatial-participation discriminator. See the [transfer
 calibration evidence](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md).
 
+The first multi-listener acquisition increment is also executable. The frozen
+Green Goblet profile validates the official nested microphone-row order and
+the published annotation arrays, then retrieves rows `0..14` from one bounded
+archive prefix. Two runs repeat byte-identically and prove 15 distinct
+listeners for the same impact vertex, angle and distance. The decision remains
+`MultiListenerAcquisitionPilotOnly`: no spatial participation candidate,
+calibration or holdout has run. The next Package 3 increment must preregister
+the Green Goblet/Shell Plate/Skull Cup split, candidates, normalization,
+metrics, gates and exact bounded ranges before opening any new Shell Plate or
+Skull Cup listener rows. See the [multi-listener acquisition
+evidence](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:
