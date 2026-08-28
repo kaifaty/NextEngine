@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_CUP_SHARED_DECAY_MISMATCH_SUPPORTED / LISTENER_LOCAL_REJECTED / SIMPLE_LOW_FREQUENCY_CAUSE_REJECTED / MULTIOUTPUT_SYNTHETIC_CONTROL_NEXT / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_CUP_SHARED_DECAY_MISMATCH_SUPPORTED / LISTENER_LOCAL_REJECTED / SIMPLE_LOW_FREQUENCY_CAUSE_REJECTED / MULTIOUTPUT_SYNTHETIC_CONTROL_FROZEN / TWO_SYNTHETIC_RUNS_AUTHORIZED / REAL_REUSE_BLOCKED / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -16,9 +16,9 @@
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Freeze a synthetic 15-output spatial-energy decay control
-  with known modes and a node-contaminated single-output comparator. Do not
-  reuse real rows until it passes; do not run physics or access Planter.
+- **Next action:** Execute the frozen synthetic 15-output spatial-modal-power
+  control twice. On failure reject it; only a full repeatable pass may authorize
+  a separately frozen read-only real-row counterfactual.
 - **Current blocker:** No admissible fresh observation exists, and two objects
   expose a possible low-frequency/decay-statistic mismatch. Real 3D transfer
   and every exact-domain claim remain unproven.
@@ -65,6 +65,7 @@
 | [REALIMPACT Pitcher calibration](../physical-sound-realimpact-pitcher-calibration-ps2-2026-08-28.md) and [causal audit](../physical-sound-pitcher-causal-audit-ps2-2026-08-28.md), reports `8bd5323c…1aea` / `68c79a37…5a57` | `PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / BYTE_IDENTICAL_AUDIT / PLANTER_SEALED` | Frequency/field comparisons fail strongly, but the consumed observation also fails the earlier V2 decay gate and selects `11/16` peaks below `500 Hz`. Preserve the combined rejection without uniquely blaming mechanics; test observation first on unopened `78_CeramicCup`. |
 | [REALIMPACT Ceramic Cup observation result](../physical-sound-realimpact-ceramic-cup-observation-result-ps2-2026-08-28.md), reports `b6d25bc6…6a0c` / `9f1c2311…daf0` / `56591bb8…3fd9` | `CERAMIC_CUP_OBSERVATION_REJECTED / REPEATED_DECAY_GATE_FAILURE / MECHANICS_BLOCKED / PLANTER_SEALED` | Exact acquisition and 600-row decode repeat. Four V2 gates pass; decay is `0.25 < 0.50`, with `13/16` peaks below `500 Hz`. Freeze a fixed-axis offline diagnostic; do not try another object, tune or run physics. |
 | [Ceramic Cup observation diagnostic result](../physical-sound-ceramic-cup-observation-diagnostic-result-ps2-2026-08-28.md), report `47b578ac…2603` | `SHARED_DECAY_MISMATCH_SUPPORTED / LISTENER_LOCAL_REJECTED / SIMPLE_LOW_FREQUENCY_CAUSE_REJECTED / NO_NEW_PAYLOAD_OR_PHYSICS` | `23/27` rows fail; every axis exceeds the frozen shared threshold. Low/high fitted-decay fractions are `0.3583/0.2252`, rejecting the cutoff hypothesis. Next prove a multi-output estimator synthetically before reusing real rows. |
+| [Multi-output decay control preflight](../physical-sound-multioutput-decay-control-preflight-ps2-2026-08-28.md), report `88b017a1…1153` | `MULTIOUTPUT_SYNTHETIC_CONTROL_FROZEN / TWO_SYNTHETIC_RUNS_AUTHORIZED / REAL_REUSE_BLOCKED` | Manifest `cd8ee856…2078` binds 15 outputs, 16 known decays, a node/delayed single-output comparator, spatial power aggregation and eight conjunctive gates. Any failure rejects the revision. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -206,8 +207,8 @@ Read these sources in precedence order before acting:
 
 1. Preserve every frozen evidence hash externally; never retune opened data or
    reinterpret a control pass as quality, causality or P1 evidence.
-2. Freeze and run a synthetic multi-output decay control before any real-row
-   counterfactual; do not tune, fetch, run physics or access Planter audio.
+2. Execute the frozen synthetic multi-output decay control twice; do not tune,
+   reuse real rows, fetch, run physics or access Planter audio.
 3. Promote only after measured success and a consumer ADR; otherwise retain the
    unchanged authored-clip fallback.
 
