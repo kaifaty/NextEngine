@@ -14,6 +14,7 @@ mod corpus_plan;
 mod domain_claims;
 mod internet_sources;
 mod realimpact_row;
+mod realimpact_transfer_preregistration;
 mod source_feasibility;
 mod split_feasibility;
 mod split_freeze;
@@ -32,7 +33,6 @@ pub(super) struct Request {
     manifest: PathBuf,
     output: PathBuf,
 }
-
 pub(super) fn parse_arguments(
     mut arguments: impl Iterator<Item = String>,
 ) -> Result<Request, String> {
@@ -57,7 +57,6 @@ pub(super) fn parse_arguments(
         })?,
     })
 }
-
 pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> Result<(), String> {
     let mut arguments = arguments.peekable();
     let subcommand = arguments.peek().cloned();
@@ -84,6 +83,9 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
             arguments.next();
             return realimpact_row::run_cli(root, arguments);
         }
+        Some("realimpact-transfer-preregister") => {
+            return realimpact_transfer_preregistration::run_cli(root, arguments.skip(1));
+        }
         Some("source-feasibility") => return source_feasibility::run_cli(root, arguments.skip(1)),
         Some("spatial-calibration") => return realimpact_row::run_spatial(root, arguments.skip(1)),
         Some("spatial-extension") => return realimpact_row::run_extension(root, arguments.skip(1)),
@@ -96,7 +98,6 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
     let request = parse_arguments(arguments)?;
     run(root, &request)
 }
-
 fn set_once<T>(slot: &mut Option<T>, value: T, flag: &str) -> Result<(), String> {
     if slot.replace(value).is_some() {
         return Err(format!("duplicate argument: {flag}"));

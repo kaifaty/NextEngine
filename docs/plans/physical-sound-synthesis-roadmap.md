@@ -111,7 +111,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / ELASTIC_FEM_BEMPP_COOKER_SUPPORTED / COARSE_FEM_PROTOCOL_REJECTED / BYTE_IDENTICAL_REPEATS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / FRESH_OBJECT_DISJOINT_SPATIAL_TRANSFER_PREREGISTRATION_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | The coarse FEM schedule remains rejected at `a58f28b9…90ef`. The refined elastic eigenmode passes all 16 FEM/Bempp gates at `a71515fa…a667`; the full-shell cooker rejects `m=0`, selects degree 2 and predicts 112 held `4L/10L` conditions with `3.0975%` maximum error at `c3101130…b476`. Credit is synthetic FEM coupling only. Next preregister a fresh object-disjoint real spatial-transfer calibration before opening reserved payloads or advancing PS-3. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / REAL_SPATIAL_TRANSFER_PROTOCOL_FROZEN / RESERVED_AUDIO_BYTES_ZERO / GEOMETRY_PREFLIGHT_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | Manifest `5be5f195…e576` freezes Pitcher calibration, Planter one-shot holdout, payload identities, `90/510` 3D split, geometry-spectral Bempp/cooker candidate, controls, gates and fallback. Reports repeat at `c2f51cff…01ef` with zero reserved audio bytes. This is protocol only. Next implement and repeat the geometry-only preflight; failure stops before calibration audio. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -626,6 +626,23 @@ quality, admission or runtime evidence. Next preregister one fresh
 object-disjoint real spatial-transfer calibration before opening any reserved
 REALIMPACT rows; preserve per-object/clip fallback. See the [FEM/Bempp
 evidence](../development/physical-sound-fem-eigenmode-bempp-cooker-ps2-2026-08-28.md).
+
+PS-2 REALIMPACT geometry-spatial-transfer preregistration checkpoint:
+manifest `5be5f195…e576` binds the exact prior rejection and synthetic-positive
+lineage, assigns `65_PitcherCeramic` to calibration and
+`63_SmallPlanterCeramic` to a one-shot holdout, and freezes their ZIP/mesh/audio
+identities before payload access. The candidate uses a declared non-elastic
+cotangent-biharmonic surface proxy, pinned Bempp and the full-angular cooker;
+the fixed coordinate RBF and normalization constant remain controls/fallbacks.
+Ninety coordinates are anchors and 510 are held across height, angle and
+distance. Every frequency, solver, per-stratum and RBF-comparison gate is
+conjunctive. The new repository validator reads only eight prerequisite JSON
+artifacts and the manifest; two reports repeat at `c2f51cff…01ef`, recording
+zero network requests and zero reserved audio bytes. This freezes only the
+protocol and opening order. Next implement the deterministic `8192/2048`-face
+geometry preflight twice; any topology/numeric/repeat failure returns the clip
+fallback before Pitcher audio. See the [preregistration
+evidence](../development/physical-sound-realimpact-geometry-spatial-transfer-preregistration-ps2-2026-08-28.md).
 
 ## PS-2 — Сделать риск статистически измеримым
 
