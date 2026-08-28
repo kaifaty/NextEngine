@@ -24,7 +24,7 @@ NSR3B4E2D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT /
 NSR3B4E2D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED /
 NSR3B4E2D7R20R63ZI_ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_AUTHOR_REJECTED /
 NSR3B4E2D7R20R63ZJ_PRODUCT_PRECISION_LOCALIZATION_INCONCLUSIVE /
-NSR3B4E2D7R20R63ZK_INDEPENDENT_RECURRENCE_CHECKER_CONTRACT_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63ZK_INDEPENDENT_RECURRENCE_CHECKER_AUTHOR_PASS_REVIEW_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4192,6 +4192,16 @@ certificates from the fixture, compares complete traces, and owns a separate
 replay ledger. Opaque author roots, route, certificate fields and work are
 never expected-value oracles. Implementation must stop if this dataflow cannot
 remain independent of the author transaction scheduler.
+
+The
+[R63ZK author evidence](../../development/nonlocal-nsr3b4e2d7r20r63zk-independent-recurrence-checker-evidence-2026-08-28.md)
+returns `AUTHOR_PASS / REVIEW_NOT_TESTED`. Dev and two Release outputs are
+byte-identical at `37129010...9041`; the independent scheduler matches every
+state/product component, scalar identity, certificate semantic and
+candidate-work field, and derives the same reject/reject/pass ladder. All 18
+controls close, including three resealed drifts still accepted by the old
+author validator. This is not yet a reviewed correspondence claim and does not
+authorize representation or production work.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

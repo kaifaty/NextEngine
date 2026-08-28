@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZK independent recurrence checker research
 
-Status: `CONTRACT_FROZEN / IMPLEMENTATION_NEXT`.
+Status: `IMPLEMENTED / AUTHOR_PASS / INDEPENDENT_REVIEW_NEXT`.
 
 ## Decision
 
@@ -63,6 +63,24 @@ The first preflight is a feasibility stop: if the public boundary cannot
 reconstruct every state vector, scalar and certificate without calling the
 author transaction scheduler, stop and export an immutable full trace before
 writing any classifier.
+
+## Author result
+
+The feasibility stop passed without a new serialized format. Generic K2
+projection, factor-solve, dot, divide, update and certificate-from-components
+primitives are sufficient; the independent scheduler lives in a separate
+translation unit and does not call the author transaction validator or
+classifier.
+
+Dev and two Release outputs are byte-identical at `37129010...9041`. The
+checker independently reproduces all state/product components, scalar
+identities, certificates and candidate work; state 2 is `24+/78-/0?`. All 18
+controls pass, including the three fully resealed drifts accepted by the old
+author validator. Result semantic is `e8cd812c...c95e2`.
+
+See the [author evidence](nonlocal-nsr3b4e2d7r20r63zk-independent-recurrence-checker-evidence-2026-08-28.md).
+R63ZK remains `REVIEW_NOT_TESTED`; no bounded claim promotion occurs before a
+fresh independent review.
 
 ## Authority ceiling
 
