@@ -4237,6 +4237,13 @@ private-constructor/no-mutator context, six admitted products with all kernel
 and hash paths owned, and a separately accounted six-call legacy reference.
 R63ZL is only an API/work-boundary experiment; it cannot revive the R63ZK
 correspondence claim or authorize representation, timing or production work.
+The
+[author evidence](../../development/nonlocal-nsr3b4e2d7r20r63zl-admitted-tangent-work-boundary-evidence-2026-08-28.md)
+records byte-identical Dev/two-Release stdout `329ee21f...f28c`, exact
+`612/612` legacy component correspondence, closed typed receipts and seven
+controls. The neutral
+[independent review request](../../development/nonlocal-nsr3b4e2d7r20r63zl-independent-review-request-2026-08-28.md)
+is frozen; no new recurrence checker is permitted before its verdict.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

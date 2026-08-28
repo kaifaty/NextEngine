@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZL admitted tangent work-boundary research
 
-Status: `SELECTED / CONTRACT_FROZEN / NOT_RUN`.
+Status: `AUTHOR_PASS / INDEPENDENT_REVIEW_REQUIRED`.
 
 ## Problem
 
@@ -90,6 +90,13 @@ guards and `7506` nested dot witness roots.
 
 The full scope and stop rules are frozen in the
 [R63ZL contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r20r63zl-admitted-tangent-work-boundary-contract.md).
+
+The author implementation passes Dev and two byte-identical Release runs at
+stdout `329ee21f...f28c`, matches all `612` reference components, closes seven
+controls and preserves all five R63ZI/R63ZG/R63ZH/R63ZJ/R63ZK regressions.
+See the [author evidence](nonlocal-nsr3b4e2d7r20r63zl-admitted-tangent-work-boundary-evidence-2026-08-28.md)
+and neutral
+[review request](nonlocal-nsr3b4e2d7r20r63zl-independent-review-request-2026-08-28.md).
 
 ## Authority ceiling
 
