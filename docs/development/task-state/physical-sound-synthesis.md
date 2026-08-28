@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_PITCHER_GEOMETRY_SPATIAL_CALIBRATION_REJECTED / BYTE_IDENTICAL_REPEAT / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / BOUNDED_RESEARCH_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / BYTE_IDENTICAL_AUDIT / PLANTER_AUDIO_SEALED / CERAMIC_CUP_OBSERVATION_PROTOCOL_NEXT / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,19 +10,19 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Pitcher calibration report `8bd5323c…1aea` repeats
-  byte-identically and rejects the geometry proxy. Mapping misses by
-  `0.566/1.626` octave median/p90; every held stratum fails and the candidate
-  is `2.70×` worse than RBF. Planter remains sealed.
+- **Current conclusion:** Pitcher report `8bd5323c…1aea` still rejects the
+  combined protocol. Audit `68c79a37…5a57` repeats byte-identically and proves
+  its observation failed the pre-existing V2 decay gate (`0.4375 < 0.50`), so
+  the run cannot uniquely blame mechanics. Planter remains sealed.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Freeze no new data opening. Run a bounded research cycle to
-  discriminate missing thickness/interior shell mechanics, support/excitation
-  coupling and metadata/observation mismatch; use an unopened development
-  object only after its counterfactual protocol is frozen.
-- **Current blocker:** Measured Pitcher calibration, real 3D transfer and every
-  exact-domain admission claim remain unproven.
+- **Next action:** Freeze `78_CeramicCup` archive/metadata/one-impact access and
+  run unchanged V2 observation admission before any physics. Only on admission
+  freeze a separate vector shell/hollow-volume FEM discriminator.
+- **Current blocker:** No admissible fresh observation exists for the next
+  mechanics comparison; real 3D transfer and every exact-domain claim remain
+  unproven.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -63,7 +63,7 @@
 | [REALIMPACT Pitcher runner preflight](../physical-sound-realimpact-pitcher-runner-preflight-ps2-2026-08-28.md), report `6e60d71f…fd2d` | `PITCHER_RUNNER_PREFLIGHT_SUPPORTED / EXTRACTOR_PARITY_PROVEN / RESERVED_AUDIO_BYTES_ZERO` | Exact Rust fixture repeats; Python recovers all 16 modes within `3.03e-12`; geometry/mapping/split pass and the bound Rust spatial projector is implemented. Audio execution stays disabled until a final execution manifest closes Bempp/cooker choices. |
 | [REALIMPACT Pitcher execution preflight](../physical-sound-realimpact-pitcher-execution-preflight-ps2-2026-08-28.md), report `94d5e1e6…9b32` | `PITCHER_EXECUTION_PREFLIGHT_SUPPORTED / ONE_PREFIX_REQUEST_AUTHORIZED / RESERVED_AUDIO_BYTES_ZERO` | Manifest `8e791327…ba45` binds script, environment, original bbox centre, directions, Bempp/cooker, exact range/decoder and all frozen gates. The local full-angular control and extractor parity repeat; the one exact Pitcher request is next, while Planter remains sealed. |
 | [REALIMPACT Pitcher serializer repair](../physical-sound-realimpact-pitcher-serializer-repair-ps2-2026-08-28.md), report `9c5c9ca8…471c` | `PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_LINEAGE_REPAIR_PREFLIGHT_SUPPORTED / CALIBRATION_DECISION_NOT_PUBLISHED` | One request yielded prefix `a0dd7006…6cf5` and block `182f2010…1e0f`. Analysis failed at JSON serialization; repair `603c1185…28e3` then rejected correct parent lineage before block access. Successor `f51a6046…db7e` binds both failures, changes no numeric path, disables acquire/decode and repeats locally. |
-| [REALIMPACT Pitcher calibration](../physical-sound-realimpact-pitcher-calibration-ps2-2026-08-28.md), report `8bd5323c…1aea` | `PITCHER_GEOMETRY_SPATIAL_CALIBRATION_REJECTED / BYTE_IDENTICAL_REPEAT / PLANTER_SEALED / AUTHORED_CLIP_FALLBACK` | Thirteen modes pass coverage and solver residuals are healthy. Frequency mapping, all three held strata and every comparison fail strongly: `22.73 dB` overall median, `2.70×` RBF median and `+27.58 dB` p90 regression. Retire this proxy; do not tune Pitcher or open Planter. |
+| [REALIMPACT Pitcher calibration](../physical-sound-realimpact-pitcher-calibration-ps2-2026-08-28.md) and [causal audit](../physical-sound-pitcher-causal-audit-ps2-2026-08-28.md), reports `8bd5323c…1aea` / `68c79a37…5a57` | `PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / BYTE_IDENTICAL_AUDIT / PLANTER_SEALED` | Frequency/field comparisons fail strongly, but the consumed observation also fails the earlier V2 decay gate and selects `11/16` peaks below `500 Hz`. Preserve the combined rejection without uniquely blaming mechanics; test observation first on unopened `78_CeramicCup`. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -188,7 +188,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Synthetic controls and exact-weld execution are reproducible | Repeated Pitcher calibration rejects frequency mapping, every held stratum and RBF comparison; no Planter/shadow risk exists | Research thickness/interior, excitation and metadata counterfactuals on an unopened development object; keep fallback |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Synthetic controls and exact-weld execution are reproducible | Pitcher rejects the combined protocol, but its target observation fails the pre-existing decay gate; no Planter/shadow risk exists | Preregister `78_CeramicCup`, admit observation first, then test vector elastic mechanics without changing the extractor |
 
 ## Required context
 
@@ -211,7 +211,7 @@ Read these sources in precedence order before acting:
    BEM hashes, real-transfer protocol, V1 rejection, V2 geometry blocks and
    Pitcher calibration preregistration, runner parity, execution/repair lineage
    and repeated rejection. Do not tune the opened object or open Planter; freeze
-   a new development-only discriminator after the bounded research cycle.
+   `78_CeramicCup` observation-only discriminator before any payload access.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
