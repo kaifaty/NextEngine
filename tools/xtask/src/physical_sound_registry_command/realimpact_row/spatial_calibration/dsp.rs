@@ -24,6 +24,7 @@ enum CandidateKind {
     PolynomialDegree2,
     PolynomialDegree3,
     RbfSigma052,
+    RbfDynamic(f64),
 }
 
 pub(super) const CANDIDATES: [CandidateProfile; 4] = [
@@ -184,6 +185,52 @@ pub(super) fn evaluate(
     })
 }
 
+pub(super) fn evaluate_rbf(
+    rows: &[Vec<f64>],
+    modes: &[ModeSeed],
+    sample_rate_hz: u32,
+    sigma: f64,
+) -> Result<Evaluation, String> {
+    if !sigma.is_finite() || sigma <= 0.0 {
+        return Err("spatial RBF sigma must be finite and positive".to_owned());
+    }
+    evaluate(
+        rows,
+        modes,
+        sample_rate_hz,
+        CandidateProfile {
+            id: "dynamic-rbf",
+            kind: CandidateKind::RbfDynamic(sigma),
+        },
+    )
+}
+
+pub(super) fn improved_component_fraction(
+    candidate: &Evaluation,
+    control: &Evaluation,
+) -> Result<f64, String> {
+    if candidate.components.len() != control.components.len() || candidate.components.is_empty() {
+        return Err("spatial candidate/control component lineage differs".to_owned());
+    }
+    if candidate
+        .components
+        .iter()
+        .zip(&control.components)
+        .any(|(candidate, control)| candidate.frequency_hz != control.frequency_hz)
+    {
+        return Err("spatial candidate/control frequency lineage differs".to_owned());
+    }
+    let improved = candidate
+        .components
+        .iter()
+        .zip(&control.components)
+        .filter(|(candidate, control)| {
+            candidate.candidate_median_abs_error_db < control.candidate_median_abs_error_db
+        })
+        .count();
+    Ok(improved as f64 / candidate.components.len() as f64)
+}
+
 fn onset(samples: &[f64]) -> Result<usize, String> {
     let peak = samples
         .iter()
@@ -268,6 +315,7 @@ fn predict(
         CandidateKind::PolynomialDegree2 => polynomial_prediction(z, target, 2),
         CandidateKind::PolynomialDegree3 => polynomial_prediction(z, target, 3),
         CandidateKind::RbfSigma052 => rbf_prediction(z, target, 0.52),
+        CandidateKind::RbfDynamic(sigma) => rbf_prediction(z, target, sigma),
     }
 }
 

@@ -25,6 +25,7 @@ mod evidence;
 mod listener_block;
 mod profiles;
 mod spatial_calibration;
+pub(super) use spatial_calibration::run_shape;
 
 const CORPUS_PLAN_SHA256: &str = "e082610c90dabff3c7a328df94671dca4f84f46cd629952c3e914ce600a3ea01";
 const REPOSITORY_REVISION: &str = "commit-fca2bd6cbb7e9f96ac61328d2a0d51594bf01987";

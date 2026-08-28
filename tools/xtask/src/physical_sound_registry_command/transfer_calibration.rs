@@ -193,6 +193,15 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
     run(root, &request)
 }
 
+pub(super) fn extract_v2_spatial_modes(samples: &[f64]) -> Result<Vec<(f64, bool)>, String> {
+    let analysis = dsp::analyze_v2(samples, 48_000, CANDIDATES_V2[2])?;
+    Ok(analysis
+        .modes
+        .into_iter()
+        .map(|mode| (mode.frequency_hz, mode.matched_tail_frequency_hz.is_some()))
+        .collect())
+}
+
 fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Request, String> {
     let mut manifest = None;
     let mut output = None;

@@ -15,6 +15,8 @@ use super::*;
 
 mod dsp;
 mod extension;
+mod shape;
+pub(in crate::physical_sound_registry_command) use shape::run_cli as run_shape;
 
 pub(super) fn run_extension_cli(
     root: &Path,

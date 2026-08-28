@@ -427,6 +427,19 @@ increment inventories a fresh object-disjoint split and preregisters a
 coordinate-only control against one shape-conditioned spatial model with
 per-object/clip fallback. See the [extension evidence](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md).
 
+The first shape-conditioned discriminator is now executable. Official roster
+hash ordering freezes `10 development / 2 calibration / 2 holdout` objects
+before selected audio access. Development reports repeat at
+`3d18358b…4962f`; a bbox/aspect/impact-conditioned object bandwidth is then
+evaluated unchanged under calibration manifest `2f8ea9b…e578`. Both candidate
+condition gates pass and p90 improves, but median ratio to the fixed control is
+`1.0122` against `0.95` and maximum object ratio is `1.0242` against `1.0`.
+Calibration reports repeat at `ffb17687…aad6`; no holdout audio is opened. Do
+not retune this candidate. The next Package 3 increment preregisters one
+per-mode bandwidth conditioned on frequency/acoustic scale plus mesh/impact
+features, uses fresh calibration objects and preserves the current holdout. See
+the [shape-calibration evidence](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:
