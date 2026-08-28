@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_AGGREGATE_E3_COVERAGE_COMPLETE / GLASS_16_OF_16 / REJECT_PARENTS_38_OF_35 / SPLIT_INFEASIBLE_3_OF_4_REJECT_PROJECTS / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PROJECT_SPLIT_FROZEN / GLASS_16_OF_16 / REJECT_PARENTS_48_OF_35 / FOUR_PARTITIONS_ROLE_COMPLETE / DOMAIN_AXIS_CLOSURE_OPEN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,17 +10,17 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Eight internet E3 projects validate 54 objects/125
-  recordings; Glass is `16/16` (46 recordings), reject parents `38/35` (79), all
-  in `dev`. Five REALIMPACT E2 rows remain fallback-only. `Pass` is off.
+- **Current conclusion:** Eight internet E3 projects validate 64 objects/135
+  recordings; Glass is `16/16` (46), reject parents `48/35` (89). A verified
+  `2/2/2/2` project split gives every partition both roles. `Pass` is off.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Import at least one independent project with object-bound
-  non-Glass reject-parent recordings, then rerun `split-feasibility`. Do not
-  repartition `dev`, reuse processed spectrograms or count E2 as E3.
-- **Current blocker:** Only 3 projects carry reject parents for 4 required
-  partitions; complementary force/geometry/support E2/E1 claims remain open.
+- **Next action:** Build an exact-domain E2/E3 claim matrix without moving the
+  frozen partitions; keep absent geometry/support/excitation/listener axes
+  unavailable and select a PS-3 candidate only if one bounded domain closes.
+- **Current blocker:** Split structure is closed, but no domain yet combines
+  enough claim-scoped physical axes with calibrated grouped risk.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -39,7 +39,7 @@
 | [Steel residual v4](../physical-sound-steel-residual-v4-2026-08-27.md) | `V4_REJECTED / FALLBACK_OUT_OF_DOMAIN` | YCB adds aluminium-container and steel-skillet families. Real metal flatness is about `−16/−17 dB` versus v3 `−53 dB`; v4 reaches flatness but not real spectral dynamics. Original PANNs stays `0/39`, BEATs `7/39`; no joint profile or promotion. |
 | [Controlled glass corpus](../physical-sound-controlled-glass-corpus-2026-08-27.md) | `CONTROLLED_SYNTHETIC_CORPUS_PASS / HUMAN_REFERENCE_OPEN` | Exact geometry and 15 force/position conditions are reproducible; Q30 and physical controls pass, but whole-vector IDW is an inadequate spatial model and the corpus has no real matched recording. |
 | [Steel calibration](../physical-sound-steel-calibration-2026-08-26.md) and [wood/glass calibration](../physical-sound-wood-glass-calibration-2026-08-26.md) | `WOOD-B_ACCEPTED / GLASS-D-F_REJECTED / GLASS-G_PARTIAL_ACCEPT / GLASS-H_WEAK_PREFERENCE` | Keep H as provisional baseline and G as its close control; stop near-neighbor tuning. |
-| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [SoundPacks/split evidence](../physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md) and [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) | `GLASS_16_OF_16 / REJECT_PARENTS_38_OF_35 / SPLIT_INFEASIBLE` | Eight E3 projects repeat at 54 objects/125 recordings. Aggregate counts pass, but only 3 projects carry reject parents for 4 partitions; all stay `dev`. |
+| [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [Kronland/split evidence](../physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md) and [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) | `GLASS_16_OF_16 / REJECT_PARENTS_48_OF_35 / PROJECT_DISJOINT_SPLIT_VERIFIED` | Eight E3 projects repeat at 64 objects/135 recordings. Four dual-role projects support a frozen `2/2/2/2` split; every partition has target and reject evidence, but no domain admission or quality credit. |
 | [Blue Bowl](../physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [Shell Plate](../physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md) and [Skull Cup](../physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md) evidence | `FIVE_REALIMPACT_E2_OBJECTS / CROSS_TIER_SHELL_AND_VESSEL` | All bounded profiles reproduce twice. Object 6 links E3 to E2; 51 adds a broad shell and 60 a narrow Beer_Glass/SkullCup transfer. No E3 group is added and all five rows remain fallback-only. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
@@ -168,9 +168,8 @@
   one general score/model, or inventing absent axes across datasets.
 - **Consequences:** Force hardware is no blocker. Bounded fetch/cache/archive
   handling, eight-project E3 normalization and five REALIMPACT E2 rows exist.
-  Glass `16/16` and reject parents `38/35` close aggregate counts, but the exact
-  split audit rejects 3 reject-bearing projects for 4 partitions. Keep all in
-  `dev` and acquire one independent reject-bearing project.
+  Glass `16/16`, reject parents `48/35` and the verified four-partition split
+  close corpus structure. Exact-domain axes and calibrated risk remain open.
 - **Uncertainty:** Published sources may not cover every force/geometry/support
   axis or the powered group count.
 - **Reconsider when:** Only an explicit product-owner reversal permits local
@@ -185,7 +184,7 @@
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects validate 54 objects/125 recordings; Glass is `16/16`, parents `38/35`; five E2 rows cover anchor, shell and vessel transfers | All data is `dev`; only 3 projects carry reject parents for 4 partitions, all E2 rows are fallback and no powered partitioned corpus exists | Add one independent reject-bearing project, rerun split feasibility, then freeze eligible splits and run one sealed shadow |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects validate 64 objects/135 recordings; Glass is `16/16`, parents `48/35`; a verified four-partition split and five E2 transfer rows exist | The split is structural only; E2 rows are fallback, exact domain axes and calibrated holdout/shadow risk are unmeasured | Build the exact-domain claim matrix, then freeze one eligible Validator Release before a single sealed shadow |
 
 ## Required context
 
@@ -195,7 +194,7 @@ Read these sources in precedence order before acting:
 2. [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md), [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../../architecture/30-presentation-extraction-and-render-content.md), ADR-027/046/058/071.
 3. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 4. [Research report](../physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../physical-sound-quality-evaluation-research-2026-08-26.md),
-   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [SoundPacks/split audit](../physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
+   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [Kronland/split freeze](../physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
 5. [Roadmap](../../roadmap.md) only for a future scheduling/scope decision.
 
 ## Next action
@@ -204,8 +203,8 @@ Read these sources in precedence order before acting:
    source/generated artifacts external and do not reinterpret a control pass as
    subjective quality or P1 evidence.
 2. Preserve PS-2 hashes, source rejections, all eight E3 projects, explicit
-   roles and five E2 reports; add one independent reject-bearing project and
-   rerun split feasibility before any partition freeze, `Pass`, PS-3 or AV-P0D.
+   roles, five E2 reports and frozen partitions. Build the exact-domain claim
+   matrix before `Pass`, PS-3 or AV-P0D; do not expose shadow to the optimizer.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
@@ -217,7 +216,6 @@ Read these sources in precedence order before acting:
   not cover rigid contact, cloth, fluids, fire and biological sources.
 - Raw PhysX callback to mixer — violates engine-owned stable projection and
   leaves replay/order/backend semantics undefined.
-- Runtime eigensolver/FEM — preprocessing provides the compact runtime model.
 - Runtime neural residual first — there is no measured residual or bounded
   classical comparator yet.
 - Blind acoustic tuning or more stationary-white residual gain/T20 — without
@@ -235,12 +233,12 @@ Read these sources in precedence order before acting:
 ## Handoff
 
 - **Workspace state:** Registry V1, PS-1, PS-2 plan/`E1`, eight-project E3,
-  explicit roles, five typed E2 rows and deterministic split feasibility exist;
-  public schemas/assets/ownership are unchanged.
+  explicit roles, five typed E2 rows and a verified project split exist; public
+  schemas/assets/ownership are unchanged.
 - **Checks:** focused sound tests plus independent external A/B audits pass so far;
   combined source and identified reports repeat byte-identically.
-- **Remaining risk:** one reject-bearing project, frozen splits, broader E2/E1
-  axes, calibration/OOD, contact sufficiency, mixer cost and authoring are open.
-- **Quality status:** no powered multi-source internet corpus exists; no quality,
-  corpus admission or production claim exists until claim-scoped evidence passes.
+- **Remaining risk:** exact domain axes, calibration/OOD, sealed shadow risk,
+  contact sufficiency, mixer cost and authoring are open.
+- **Quality status:** partitions are frozen but no calibrated validator release
+  exists; no quality, corpus admission or production claim exists.
 - **Promotion needed:** Concrete consumer, later ADR-046 promotion, then exact content/contact/DSP profiles and ProductChecks.

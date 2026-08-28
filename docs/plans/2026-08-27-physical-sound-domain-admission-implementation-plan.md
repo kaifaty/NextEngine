@@ -332,17 +332,26 @@ measures eight project revisions, 54 objects and 125 recordings; Glass reaches
 `16/16` objects and 46 recordings, while reject parents remain `38/35` objects
 and 79 recordings.
 
-Package 3 now continues on measured split structure rather than aggregate
-counts. `physical-sound-registry split-feasibility` hash-closes the complete
-identified report and frozen corpus plan, applies the `20/30/25/25` shares to
-whole project/revision groups and requires both explicit roles in every
-partition. The current result is `ProjectDisjointSplitInfeasible`: only three
-of eight projects carry reject parents, fewer than the four required
-partitions. Add at least one independent reject-bearing project, rerun this
-gate, and freeze no calibration/holdout/shadow assignment until it reports
-feasible. Separate sources may support separate specialist claims, but
-unavailable axes remain unavailable and insufficient published coverage stays
-fallback-only rather than triggering local capture.
+Package 3 then moved from aggregate counts to measured split structure.
+`physical-sound-registry split-feasibility` initially rejected the corpus
+because only three of eight projects carried reject parents. The next increment
+expanded the already identified Kronland project with its five Wood originals
+and five Metal originals through a stable publication-page projection. Two
+online caches, one offline replay and the legacy five-Glass report repeat
+byte-identically. The combined evidence now measures 64 objects/135 recordings;
+Glass remains `16/16` and 46 recordings, while reject parents reach `48/35` and
+89. Four dual-role projects make the `20/30/25/25` project split feasible.
+
+`physical-sound-registry split-freeze` binds the pre-split corpus, plan and
+feasibility hashes, applies the frozen seed with bounded deterministic
+backtracking and verifies every post-split entry. Two complete partitioned
+audits and two verification reports repeat byte-identically. Each of
+`dev/calibration/holdout/shadow` has two whole projects plus target and reject
+evidence. The [split evidence](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md)
+closes partition structure only. Package 3 now requires an exact-domain E2/E3
+claim matrix; unavailable geometry, support, excitation, position,
+listener/radiation or real-identity axes remain unavailable and keep that
+domain fallback-only rather than triggering local capture or premature PS-3.
 
 ### 4. AV-P0D autonomous formula search
 
