@@ -2,11 +2,11 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_MULTIOUTPUT_COUNTERFACTUAL_REJECTED / ADAPTIVE_DECAY_SYNTHETIC_CONTROL_SUPPORTED / CERAMIC_ADAPTIVE_COUNTERFACTUAL_FREEZE_NEXT / REAL_ANALYSIS_BLOCKED / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_PITCHER_COMBINED_PROTOCOL_REJECTED / ADAPTIVE_DECAY_SYNTHETIC_CONTROL_SUPPORTED / CERAMIC_ADAPTIVE_COUNTERFACTUAL_FROZEN / TWO_READ_ONLY_ANALYSES_AUTHORIZED / INDEPENDENT_VALIDATION_REQUIRED / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Актуальное evidence | [PS-2 adaptive modal-decay control result](../development/physical-sound-adaptive-decay-control-result-ps2-2026-08-28.md) |
+| Актуальное evidence | [PS-2 Ceramic Cup adaptive counterfactual preflight](../development/physical-sound-ceramic-cup-adaptive-counterfactual-preflight-ps2-2026-08-28.md) |
 | Текущий evidence | [PS-2 Bempp quadrupole surface mode and Rust cooker](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), [PS-2 independent Bempp analytical control](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md), [BEM panel-quadrature discriminator](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md), [analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [REALIMPACT modal-radiation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [Adaptive modal-decay control result](../development/physical-sound-adaptive-decay-control-result-ps2-2026-08-28.md) |
+| Последний пакет | [Ceramic Cup adaptive counterfactual preflight](../development/physical-sound-ceramic-cup-adaptive-counterfactual-preflight-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -111,7 +111,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_MULTIOUTPUT_COUNTERFACTUAL_REJECTED / ADAPTIVE_DECAY_SYNTHETIC_CONTROL_SUPPORTED / CERAMIC_ADAPTIVE_COUNTERFACTUAL_FREEZE_NEXT / REAL_ANALYSIS_BLOCKED / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN` | L | Repeated report `9fabc2bd…0297f` passes all adaptive synthetic checks with error `0.68081 dB/s` and `R² 0.999812`. Freeze the Ceramic adaptive counterfactual before real reuse. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_COMBINED_PROTOCOL_REJECTED / ADAPTIVE_DECAY_SYNTHETIC_CONTROL_SUPPORTED / CERAMIC_ADAPTIVE_COUNTERFACTUAL_FROZEN / TWO_READ_ONLY_ANALYSES_AUTHORIZED / INDEPENDENT_VALIDATION_REQUIRED / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN` | L | Manifest `48001fb7…ff9a` and preflight `4358d4da…220f` freeze the same Ceramic rows, adaptive method, fixed comparator and seven checks. Execute twice after commit. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -819,6 +819,12 @@ passes all checks. All 16 fits are valid, median known-decay error is
 freeze a separate Ceramic adaptive counterfactual. See the [adaptive control
 result](../development/physical-sound-adaptive-decay-control-result-ps2-2026-08-28.md).
 
+PS-2 Ceramic Cup adaptive counterfactual preflight: manifest
+`48001fb7…ff9a`, runner `e50bec23…056b` and repeated report
+`4358d4da…220f` bind the same rows `0..14`, the synthetic-pass estimator,
+fixed comparator `0.1875` and seven checks. Execute twice after commit; each
+run rehashes the full block. See the [adaptive counterfactual preflight](../development/physical-sound-ceramic-cup-adaptive-counterfactual-preflight-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -960,7 +966,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_MULTIOUTPUT_COUNTERFACTUAL_REJECTED / ADAPTIVE_DECAY_SYNTHETIC_CONTROL_SUPPORTED / CERAMIC_ADAPTIVE_COUNTERFACTUAL_FREEZE_NEXT / REAL_ANALYSIS_BLOCKED / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN`; next freeze Ceramic adaptive counterfactual, not physics | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `PITCHER_COMBINED_PROTOCOL_REJECTED / ADAPTIVE_DECAY_SYNTHETIC_CONTROL_SUPPORTED / CERAMIC_ADAPTIVE_COUNTERFACTUAL_FROZEN / TWO_READ_ONLY_ANALYSES_AUTHORIZED / INDEPENDENT_VALIDATION_REQUIRED / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN`; next execute Ceramic adaptive counterfactual twice, not physics | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
