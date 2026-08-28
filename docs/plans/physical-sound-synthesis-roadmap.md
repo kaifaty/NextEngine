@@ -2,10 +2,10 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_FIXED_RBF_MULTIOBJECT_AXIS_REJECTED / NARROW_VERTICAL_PILOT_RETAINED / SHAPE_CONDITIONED_PREREGISTRATION_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_BBOX_CONDITIONED_BANDWIDTH_CALIBRATION_REJECTED / TWO_HOLDOUT_OBJECTS_PRESERVED / FREQUENCY_CONDITIONED_PREREGISTRATION_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 REALIMPACT multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [REALIMPACT two-object axis-stratified RBF rejection](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md) |
+| Текущий evidence | [PS-2 REALIMPACT shape-conditioned spatial calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Последний пакет | [REALIMPACT bbox-conditioned bandwidth calibration rejection](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -110,7 +110,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / FIXED_RBF_MULTIOBJECT_AXIS_REJECTED / NARROW_VERTICAL_PILOT_RETAINED / SHAPE_CONDITIONED_PREREGISTRATION_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | Power policy, `E1` import, bounded source/cache/archive handling and claim-scoped `E1`–`E4` accounting are executable. Eight projects validate 64 objects/135 E3 recordings; Glass is `16/16` and 46 recordings, reject parents `48/35` and 89. Transfer V1 is invalid; injective V2 crosses modal/damping gates. The narrow Green/Shell/Skull vertical pilot remains positive, but the unchanged RBF fails the next Blue/Glass two-object axis-stratified rule: Glass passes `4/6`, Blue `3/6` and its base block fails. Preserve the reject; next inventory a fresh object-disjoint split and preregister coordinate-only control versus one shape-conditioned model. Do not tune on Blue/Glass or open PS-3. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / BBOX_CONDITIONED_BANDWIDTH_CALIBRATION_REJECTED / TWO_HOLDOUT_OBJECTS_PRESERVED / FREQUENCY_CONDITIONED_PREREGISTRATION_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | Power policy, `E1` import, bounded source/cache/archive handling and claim-scoped `E1`–`E4` accounting are executable. Transfer V1 is invalid; injective V2 crosses modal/damping gates. The narrow Green/Shell/Skull vertical pilot remains positive, but fixed RBF fails Blue/Glass. A fresh 10/2/2 split then rejects one bbox/aspect/impact-conditioned object bandwidth during calibration: both condition gates pass and p90 improves, while median ratio `1.0122` fails the `0.95` rule. Holdout stays unopened. Next preregister a frequency/acoustic-scale-conditioned per-mode bandwidth on fresh calibration; do not retune either rejection or open PS-3. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -508,6 +508,18 @@ cannot become development data. Next preregister a fresh object-disjoint split
 and compare a coordinate-only control against one shape-conditioned model;
 retain per-object/clip fallback. See the [extension evidence](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md).
 
+PS-2 shape-conditioned calibration checkpoint: official-roster hash ordering
+freezes ten development, two calibration and two holdout objects before audio
+access. Development reports repeat at `3d18358b…4962f`. The single preregistered
+bbox/aspect/impact-conditioned object bandwidth is then evaluated unchanged;
+calibration reports repeat at `ffb17687…aad6`. Both candidate condition gates
+pass and p90 improves, but median ratio `1.0122` fails `0.95` and maximum object
+ratio `1.0242` fails `1.0`. Decision:
+`MeshConditionedBandwidthCalibrationRejected`. No holdout payload is opened.
+Next test one per-mode bandwidth conditioned on frequency/acoustic scale with
+fresh calibration; preserve per-object/clip fallback. See the
+[shape-calibration evidence](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -649,7 +661,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five REALIMPACT E2 rows, deterministic split, exact-domain/source gates, transfer calibration and multi-object axis evaluation — `FIXED_RBF_MULTIOBJECT_AXIS_REJECTED / SHAPE_CONDITIONED_PREREGISTRATION_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next freeze a fresh object split and compare coordinate-only versus shape-conditioned spatial models | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `BBOX_CONDITIONED_BANDWIDTH_CALIBRATION_REJECTED / FREQUENCY_CONDITIONED_PREREGISTRATION_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next freeze one per-mode acoustic-scale model on fresh calibration while preserving current holdout | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 

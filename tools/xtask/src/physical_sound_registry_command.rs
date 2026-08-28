@@ -19,8 +19,7 @@ mod split_freeze;
 mod transfer_calibration;
 use transfer_calibration::run_cli as run_transfer;
 
-const MANIFEST_SCHEMA: &str =
-    "nextengine.experimental-physical-sound-research-registry.manifest.v1";
+const SCHEMA: &str = "nextengine.experimental-physical-sound-research-registry.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-research-registry.report.v1";
 const MAX_MANIFEST_BYTES: usize = 16 * 1024 * 1024;
 const MAX_REFERENCED_FILE_BYTES: usize = 512 * 1024 * 1024;
@@ -89,6 +88,7 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         Some("source-feasibility") => return source_feasibility::run_cli(root, arguments.skip(1)),
         Some("spatial-calibration") => return realimpact_row::run_spatial(root, arguments.skip(1)),
         Some("spatial-extension") => return realimpact_row::run_extension(root, arguments.skip(1)),
+        Some("spatial-shape") => return realimpact_row::run_shape(root, arguments.skip(1)),
         Some("split-feasibility") => return split_feasibility::run_cli(root, arguments.skip(1)),
         Some("split-freeze") => return split_freeze::run_cli(root, arguments.skip(1)),
         Some("transfer-calibration") => return run_transfer(root, arguments.skip(1)),
@@ -304,7 +304,7 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
 }
 
 fn validate_manifest(manifest: &RegistryManifest) -> Result<(), String> {
-    if manifest.schema != MANIFEST_SCHEMA {
+    if manifest.schema != SCHEMA {
         return Err(format!(
             "unsupported physical sound research registry schema: {}",
             manifest.schema
@@ -951,7 +951,7 @@ mod tests {
 
     fn test_manifest() -> RegistryManifest {
         RegistryManifest {
-            schema: MANIFEST_SCHEMA.to_owned(),
+            schema: SCHEMA.to_owned(),
             registry_id: "physical-sound-p0".to_owned(),
             formula_families: vec![FormulaFamily {
                 id: "modal-residual".to_owned(),
