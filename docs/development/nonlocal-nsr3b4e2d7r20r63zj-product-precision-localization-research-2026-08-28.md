@@ -1,6 +1,7 @@
 # NSR3-B4E2D7R20R63ZJ product-precision localization research
 
-Status: `RESEARCH_COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_NEXT`.
+Status: `IMPLEMENTED / AUTHOR_PASS / INITIAL_REVIEW_NO_GO_REPAIRED /
+RE_REVIEW_NEXT`.
 
 ## Decision
 
@@ -42,3 +43,34 @@ pair to one binary128 value is therefore not exact. Revision 1 stopped at
 `initial_arithmetic` before any tangent product and carries no endpoint claim.
 Revision 2 uses linear component decomposition, the smallest correction that
 preserves the frozen K2 input and operator equation.
+
+## Author result and review repair
+
+Revision 2 restores the frozen reject/reject/pass ladder. State 2 is exactly
+`24+/78-/0?` with sign root `89b2908b...6094`; the dense and common K2
+endpoints retain their exact rejecting recurrence and certificate roots. All
+`306/306` exact product rows are contained. Dev and two Release stdout
+captures are byte-identical at `b9ded7d7...7f8a`, with sealed result
+`35a57274...d0d2`.
+
+The initial independent review correctly returned `NO-GO`: snapshot
+`caaa16b4` did not bind the callback trace to its products and recurrence
+states, a resealed finite callback drift could evade the self-derived
+containment audit, endpoint rejection checked only sign counts, and this note
+still advertised implementation as future work.
+
+Repair snapshot `9d3482bf` now:
+
+- seals one frozen callback identity plus independent high/low kernel roots at
+  each of `Kx0`, `Kp0` and `Kp1`;
+- links each product input to the exact recurrence state, its projected value
+  to the deterministic callback replay, and its execution root to the state
+  that consumed it;
+- rejects fully resealed callback-identity, finite-input and finite-product
+  mutations, in addition to tangent, nonfinite, work, result and audit faults;
+- requires exact frozen dense/common recurrence, certificate and sign roots.
+
+R63ZJ remains author evidence until the single independent re-review returns
+`GO`. Even then it supports only fixed-profile localization: the binary128
+callback is an offline discriminator, not a portable representation or a
+runtime/production candidate.

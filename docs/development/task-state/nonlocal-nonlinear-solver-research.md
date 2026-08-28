@@ -88,11 +88,14 @@
   `10,404` coefficients plus `306` executed product rows are exactly
   contained, but tangent K2 states `0..2` all remain `12+/24-/66?`. The lane
   differs from the common negative. Independent review is not tested.
-- **R63ZJ revision 2 frozen:** preserve the complete K2 factor/dot/divide/
-  update recurrence. At each logical product site, apply the frozen binary128
-  tangent kernel separately to exact high/low vectors, project both outputs to
-  K2 and combine them with canonical K2 addition. Revision 1 stopped because
-  one K2 pair cannot collapse exactly into a 113-bit binary128 significand.
+- **R63ZJ repaired author candidate:** revision 2 restores the exact
+  reject/reject/pass ladder with state 2 `24+/78-/0?`; Dev and two Release
+  stdout captures are byte-identical at `b9ded7d7...7f8a`, sealed result
+  `35a57274...d0d2`. Initial review returned `NO-GO` because callback/products,
+  state inputs and frozen endpoint roots were not fully bound. Repair snapshot
+  `9d3482bf` seals and independently replays all three high/low callbacks,
+  rejects resealed callback/input/product drift and freezes exact endpoint
+  roots. One re-review is next; no reviewed claim exists yet.
 - **Current result:** R20R63Z passes at semantic
   `e27ee861...3e4be`, route `TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE`; final
   stdout is byte-identical at `de22f5f6...da54`. All 10,404 common-operator
@@ -6543,6 +6546,28 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** revision 2 closes all six tangent calls, 306 product-row
   audits and the frozen endpoint controls.
 
+### D-226 -- Repair callback correspondence before accepting localization
+
+- **Observation:** initial independent review of `caaa16b4` reproduced the
+  numerical ladder but found that callback identity was only nonempty,
+  products were not linked to the `Kx0/Kp0/Kp1` states, containment radii were
+  derived from observed error, and negative endpoints admitted any equal sign
+  counts. The review returned `NO-GO`.
+- **Decision:** snapshot `9d3482bf` seals a frozen callback identity, each
+  high/low kernel trace, projected value and consuming state; independently
+  replays the callback from the frozen fixture; adds fully resealed callback,
+  input and product mutations; and requires exact dense/common recurrence,
+  certificate and sign roots.
+- **Evidence:** strict Dev plus two Release outputs are byte-identical at
+  `b9ded7d7...7f8a`; R63ZI/R63ZG/R63ZH regressions remain exact. The repaired
+  result is still author-only until the single allowed re-review returns `GO`.
+- **Rejected:** accepting successful reruns as correspondence proof; weakening
+  the audit; interpreting initial `NO-GO` as a numerical refutation; beginning
+  matrix-free representation work before review closure.
+- **Reconsider when:** re-review finds a remaining load-bearing defect, which
+  closes R63ZJ as `INCONCLUSIVE`, or returns `GO`, which permits only the
+  portable operator-representation discriminator.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -6629,12 +6654,14 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    `98736993...080a1e`, result `844a07a0...27329`, all `10,404/10,404`
    coefficient and `306/306` product containments, exact work and controls, and
    its narrow `R63ZI_STATE2_REJECTED` interpretation. Independent review is
-   `NOT_TESTED`. Implement only frozen R63ZJ revision 2 next: unchanged K2
-   factor/dot/divide/update recurrence with separate binary128 tangent
-   applications for exact high/low vectors, immediate K2 projection and
-   canonical K2 addition at the three logical operator sites. Stop before
-   width increase, dynamic building, corpus, timing, runtime/GPU or production
-   integration.
+   `NOT_TESTED`. Preserve repaired R63ZJ snapshot `9d3482bf`, stdout
+   `b9ded7d7...7f8a`, result `35a57274...d0d2`, all three callback traces,
+   `306/306` product containments, exact frozen endpoint roots and resealed
+   negative controls. Execute only the single independent re-review next. On
+   `GO`, research a portable matrix-free K2 tangent representation without
+   widening the recurrence; on any remaining load-bearing finding, close
+   R63ZJ as `INCONCLUSIVE`. Stop before dynamic building, corpus, timing,
+   runtime/GPU or production integration.
 4. Preserve R20R51 semantic `48df3b26...adca` and all five case roots,
    R20R50 semantic `190ac441...d86e`, all five generic certificate
    roots and the exact work ledger, R20R49 semantic `719e0d50...f3cc`, all three practical roots and
