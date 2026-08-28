@@ -77,6 +77,13 @@ pub(super) fn run_spatial(
     spatial_calibration::run_cli(root, arguments)
 }
 
+pub(super) fn run_extension(
+    root: &Path,
+    arguments: impl Iterator<Item = String>,
+) -> Result<(), String> {
+    spatial_calibration::run_extension_cli(root, arguments)
+}
+
 fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Request, String> {
     let mut profile = None;
     let mut source_bundle = None;
@@ -104,7 +111,7 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
     }
     Ok(Request {
         profile: profile.ok_or_else(|| {
-            "physical-sound-registry realimpact-row requires --profile <green-goblet-row-0-v1|blue-bowl-row-0-v1|shell-plate-row-0-v1|skull-cup-row-0-v1|green-goblet-listener-block-0-v1>"
+            "physical-sound-registry realimpact-row requires --profile <glass-goblet-row-0-v1|green-goblet-row-0-v1|blue-bowl-row-0-v1|shell-plate-row-0-v1|skull-cup-row-0-v1|green-goblet-listener-block-0-v1>"
                 .to_owned()
         })?,
         source_bundle: source_bundle.ok_or_else(|| {
@@ -930,6 +937,12 @@ mod tests {
         )
         .expect("arguments parse");
         assert_eq!(request.profile, GREEN_GOBLET_PROFILE_ID);
+        assert_eq!(
+            frozen_profile(profiles::GLASS_GOBLET_PROFILE_ID)
+                .expect("Glass Goblet profile")
+                .audio_row_sha256,
+            "15c87b87423e71177e9e3b2ffd3fb0b2ea8ab7c5cbff071f519b2ddda3df325b"
+        );
         assert_eq!(
             frozen_profile(BLUE_BOWL_PROFILE_ID)
                 .expect("Blue Bowl profile")

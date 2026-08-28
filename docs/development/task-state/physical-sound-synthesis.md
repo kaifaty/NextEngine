@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_VERTICAL_SPECTRAL_HOLDOUT_PASS / TRANSFER_V2_MODAL_DAMPING_HOLDOUT_PASS / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / TWO_ADDITIONAL_OBJECT_HOLDOUTS_NEXT / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_FIXED_RBF_MULTIOBJECT_AXIS_REJECTED / NARROW_VERTICAL_PILOT_RETAINED / SHAPE_CONDITIONED_PREREGISTRATION_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,21 +10,21 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** REALIMPACT transfer V1 remains invalid; V2 passes its
-  relative modal/damping holdout. A preregistered Green/Shell/Skull experiment
-  selects one RBF candidate and passes a narrow object-disjoint vertical
-  spectral-participation holdout. It is not a 3D field, material/quality proof,
-  admission or runtime authority; `Pass` remains off.
+- **Current conclusion:** REALIMPACT transfer V1 remains invalid; V2 passes
+  relative modal/damping. The narrow Green/Shell/Skull RBF pilot remains
+  positive, but its unchanged two-object axis extension is rejected: Glass
+  passes `4/6`, Blue `3/6` and its base block fails. No generic/3D spatial,
+  material/quality, admission or runtime authority exists; `Pass` remains off.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Keep `vertical-rbf-sigma052-ridge001-v1` frozen and
-  preregister at least two additional object-disjoint impact blocks. Add
-  explicit angle/distance partitions before proposing any 3D representation.
-- **Current blocker:** The positive Skull result has exactly zero margin on the
-  `0.5` improved-component gate and covers one vertical line only. Raw force,
-  exact material/support, matched cross-tier axes, eight exact-domain claims
-  and calibrated admission risk remain open.
+- **Next action:** Preserve Blue/Glass as immutable rejection evidence.
+  Inventory fresh unopened REALIMPACT objects, freeze a new split and compare
+  coordinate-only control against one shape-conditioned spatial model with
+  per-object/clip fallback.
+- **Current blocker:** Listener coordinates alone do not generalize across body
+  shapes/conditions. Raw force, exact material/support, matched cross-tier
+  axes, eight exact-domain claims and calibrated admission risk remain open.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -51,6 +51,7 @@
 | [REALIMPACT transfer calibration](../physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md) and V2 reports `01346767…c444` | `RELATIVE_MODAL_DAMPING_SUPPORTED / SPATIAL_UNAVAILABLE / BYTE_IDENTICAL_REPEAT` | Injective V2 selected 16 modes on Shell Plate and passed the fresh Skull Cup gates: recall `0.5625`, frequency error `28.0099` cents, decaying fraction `0.5625`, tail RMSE `6.0133` dB. One listener row per object prevents spatial credit. This is extractor-transfer evidence, not material identity, quality, admission or runtime authority. |
 | [REALIMPACT multi-listener acquisition](../physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md) and reports `cef5d381…7680` | `MULTILISTENER_DEV_BLOCK_VERIFIED / SPATIAL_MODEL_NOT_EVALUATED` | Two bounded runs prove Green Goblet rows `0..14` share vertex/angle/distance and span microphone IDs `0..14`; manifest `fcf44d41…50de` and raw block `8bcffd0a…75ca` repeat exactly. No calibration/holdout or spatial claim exists. |
 | [REALIMPACT vertical spatial calibration](../physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md) and reports `abc13a9c…989d` | `RELATIVE_VERTICAL_SPECTRAL_PARTICIPATION_SUPPORTED / BYTE_IDENTICAL_REPEAT` | Manifest `077b9a46…f2cb` freezes Green/Shell/Skull before new row access. Shell selects RBF; selection `0aea2b62…0320` precedes Skull. Skull passes median `4.6881 dB`, p90 `13.0040 dB`, persistent median `4.0082 dB`, baseline ratio `0.7623` and improved fraction exactly `0.5`. Credit is one fixed-angle/distance vertical line only. |
+| [REALIMPACT multi-object spatial-axis extension](../physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md) and reports `77a1f9e9…356a` | `FIXED_RBF_MULTIOBJECT_AXIS_REJECTED / BYTE_IDENTICAL_REPEAT` | Green passes `6/6`; frozen Blue/Glass evaluation requires both. Glass passes `4/6`; Blue `3/6` and its base ratio `0.9923`/improved fraction `0.4375` reject the generic RBF. Preserve Blue/Glass as holdout evidence; next use a fresh split for shape conditioning. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -134,9 +135,8 @@ resume-critical consequences are:
   Shell/Skull blocks before freezing the decision rule.
 - **Consequences:** Green is development, Shell calibration and Skull the
   one-shot holdout. Rows `1..14` are now opened under the frozen manifest and
-  repeat exactly. Improved-component fraction touches its gate at `0.5`, so two
-  additional object-disjoint blocks and angle/distance partitions are required
-  before any wider spatial representation.
+  repeat exactly. The later Blue/Glass axis extension rejects the generic RBF;
+  those objects remain holdout evidence and cannot be used for retuning.
 - **Reconsider when:** Only a new source revision changes preprocessing order or
   a preregistered experiment proves the current split cannot test the intended
   spatial claim.
@@ -157,9 +157,8 @@ resume-critical consequences are:
   Glass `16/16`, reject parents `48/35` and the verified four-partition split
   close corpus structure. The matrix proves one cross-tier link; the source
   gate closes zero V1 blockers. REALIMPACT V2 supports relative modal/damping;
-  the preregistered RBF supports relative selected-mode magnitude on one
-  object-disjoint vertical-line holdout only.
-- **Uncertainty:** Generalization beyond one spatial holdout, angle/distance/3D
+  the RBF is only a narrow conditional pilot after the multi-object reject.
+- **Uncertainty:** Shape-conditioned spatial transfer, angle/distance/3D
   radiation, material identity and every exact-domain admission claim remain
   unevaluated or unsupported.
 - **Reconsider when:** Only an explicit product-owner reversal permits local
@@ -174,7 +173,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects, verified partitions and claim/source gates exist; injective V2 passes modal/damping; preregistered RBF passes one object-disjoint vertical spectral holdout | The source review closes zero exact blockers; V1 is metric-confounded; the spatial improvement gate has zero margin and no angle/distance/3D or calibrated domain shadow risk exists | Keep RBF frozen; test two additional object-disjoint impacts and explicit angle/distance partitions before any wider spatial claim |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects and claim/source gates exist; V2 passes modal/damping; narrow RBF pilot passes | Source review closes zero exact blockers; fixed RBF fails Blue/Glass axis extension; no 3D or calibrated shadow risk exists | Fresh object split: coordinate-only control versus one shape-conditioned spatial model, with selective fallback |
 
 ## Required context
 
@@ -184,7 +183,7 @@ Read these sources in precedence order before acting:
 2. [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md), [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../../architecture/30-presentation-extraction-and-render-content.md), ADR-027/046/058/071.
 3. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 4. [Research report](../physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../physical-sound-quality-evaluation-research-2026-08-26.md),
-   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [Kronland/split freeze](../physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [exact-domain matrix](../physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet-source feasibility](../physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [transfer calibration](../physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [vertical spatial calibration](../physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
+   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [Kronland/split freeze](../physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [exact-domain matrix](../physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet-source feasibility](../physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [transfer calibration](../physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [vertical spatial calibration](../physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-object extension](../physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
 5. [Roadmap](../../roadmap.md) only for a future scheduling/scope decision.
 
 ## Next action
@@ -192,10 +191,10 @@ Read these sources in precedence order before acting:
 1. Preserve frozen Q30, AV-P0A/C, PS-1 and rejected-v3/v4 evidence; keep all
    source/generated artifacts external and do not reinterpret a control pass as
    subjective quality or P1 evidence.
-2. Preserve PS-2, transfer-V1/V2, Green multi-listener and spatial-calibration
-   hashes. Keep the RBF candidate frozen; preregister at least two additional
-   object-disjoint impacts and explicit angle/distance partitions. Keep
-   absolute amplitude, exact-domain admission and shadow outside it.
+2. Preserve PS-2, transfer-V1/V2, spatial calibration and extension hashes.
+   Never tune on Blue/Glass. Inventory fresh objects and preregister one
+   coordinate-only control versus one shape-conditioned spatial model; keep
+   absolute amplitude, admission and shadow outside it.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
@@ -225,18 +224,16 @@ Read these sources in precedence order before acting:
 
 - **Workspace state:** Registry V1, PS-1, PS-2 plan/`E1`, eight-project E3,
   explicit roles, five typed E2 rows, a verified project split, executable
-  exact-domain/source gates, V1/V2 transfer calibration and a preregistered
-  Green/Shell/Skull vertical spectral holdout exist; public schemas/assets/
+  exact-domain/source gates, V1/V2 transfer calibration, narrow spatial pilot
+  and a repeated two-object RBF rejection exist; public schemas/assets/
   ownership are unchanged.
-- **Checks:** two spatial reports are byte-identical at `abc13a9c…989d`, with
-  selection `0aea2b62…0320`, Shell block `c1bd696b…5eab` and Skull block
-  `ca2260c3…07dd`. Final package checks are recorded in the commit handoff.
-- **Remaining risk:** eight exact domain claims, two additional object
-  holdouts, angle/distance/3D radiation, calibrated domain/OOD/shadow risk,
-  contact sufficiency, mixer cost and authoring are open.
+- **Checks:** extension reports repeat at `77a1f9e9…356a`; Blue/Glass blocks are
+  `60f26294…6da6` and `52bea7e9…1e82`. Final checks are in the commit handoff.
+- **Remaining risk:** eight exact-domain claims, shape-conditioned/3D transfer,
+  calibrated domain/OOD/shadow risk, contact sufficiency, mixer cost and
+  authoring are open.
 - **Quality status:** V2 supports relative modal/damping extractor transfer;
-  the spatial result supports one fixed-angle/distance vertical line and
-  touches its `0.5` improvement gate exactly. The matrix remains fallback-only
-  and no calibrated validator release, perceptual quality, corpus admission or
-  production claim exists.
+  the RBF supports only a narrow pilot and fails the generic extension. The
+  matrix remains fallback-only, and no calibrated validator release,
+  perceptual quality, corpus admission or production claim exists.
 - **Promotion needed:** Concrete consumer, later ADR-046 promotion, then exact content/contact/DSP profiles and ProductChecks.

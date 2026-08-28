@@ -415,6 +415,18 @@ magnitude along one vertical line at a fixed angle/distance. The next Package
 blocks and introduces explicit angle/distance partitions before any 3D spatial
 representation. See the [spatial-calibration evidence](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md).
 
+The fixed-candidate extension is also complete. Green development crosses all
+six declared angle/distance condition gates. Evaluation manifest
+`dbc958bd…6912` then freezes Blue Bowl and Glass Goblet before rows `1..134`
+are opened and requires both objects to pass. Two reports repeat at
+`77a1f9e9…356a`: Glass passes `4/6`, Blue `3/6`, and Blue fails its required
+base block. The decision is
+`FixedVerticalCandidateTwoObjectAxisStratificationRejected`. Do not retune on
+those objects or generalize the narrow RBF by material name. The next Package 3
+increment inventories a fresh object-disjoint split and preregisters a
+coordinate-only control against one shape-conditioned spatial model with
+per-object/clip fallback. See the [extension evidence](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:
