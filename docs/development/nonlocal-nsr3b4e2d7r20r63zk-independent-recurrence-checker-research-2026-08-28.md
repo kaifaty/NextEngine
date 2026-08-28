@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZK independent recurrence checker research
 
-Status: `REVISION_2_AUTHOR_PASS / SINGLE_RE_REVIEW_NEXT`.
+Status: `INCONCLUSIVE / SINGLE_RE_REVIEW_NO_GO / CLOSED`.
 
 ## Decision
 
@@ -99,10 +99,17 @@ regressions remain exact. See the
 and neutral
 [re-review request](nonlocal-nsr3b4e2d7r20r63zk-independent-rereview-request-2026-08-28.md).
 
+The single re-review returned `NO-GO`: six targeted tangent-payload
+validations and their six complete-payload hash derivations execute inside the
+shared kernel wrapper but are absent from the checker receipt. See the
+[re-review evidence](nonlocal-nsr3b4e2d7r20r63zk-independent-rereview-evidence-2026-08-28.md).
+R63ZK is closed `INCONCLUSIVE`; there is no second repair.
+
 ## Authority ceiling
 
-R63ZK can at most recover a reviewed fixed-fixture correspondence claim for
-the raw hybrid trace. It cannot rehabilitate R63ZJ itself, select a portable
-representation, authorize width three, or grant timing, corpus, runtime, GPU
-or production authority. SPEC-38/ADR-076 remain `Proposed`; later continuum
-ProductChecks remain `NOT_RUN`.
+R63ZK permits only mechanical build, deterministic-output, semantic-comparison
+and regression facts. It does not establish fixed-fixture correspondence and
+cannot rehabilitate R63ZJ, select a portable representation, authorize width
+three, or grant timing, corpus, runtime, GPU or production authority. Any work
+closure is a new package, not another R63ZK repair. SPEC-38/ADR-076 remain
+`Proposed`; later continuum ProductChecks remain `NOT_RUN`.

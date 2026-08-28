@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZK revision-2 repair evidence
 
-Status: `AUTHOR_REPAIR_PASS / SINGLE_RE_REVIEW_NEXT`.
+Status: `AUTHOR_REPAIR_PASS / RE_REVIEW_NO_GO / R63ZK_INCONCLUSIVE`.
 
 ## Bounded result
 
@@ -20,6 +20,11 @@ HYBRID_K2_RECURRENCE_CORRESPONDENCE_CANDIDATE
 
 This is author evidence only until the single re-review returns `GO`. R63ZJ
 remains `INCONCLUSIVE` and is neither repaired nor promoted.
+
+The single re-review later returned `NO-GO` because six tangent-payload
+validations and hashes were absent from the checker receipt. This report is
+retained as author evidence only; see the
+[re-review evidence](nonlocal-nsr3b4e2d7r20r63zk-independent-rereview-evidence-2026-08-28.md).
 
 ## Frozen identities
 
