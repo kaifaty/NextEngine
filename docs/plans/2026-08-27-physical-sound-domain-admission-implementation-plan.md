@@ -569,6 +569,16 @@ nonmanifold edges). The next package preregisters only that exact-weld assembly
 change, then repeats the same `8192/2048` preflight before any Pitcher audio.
 See the [geometry-preflight evidence](../development/physical-sound-realimpact-geometry-preflight-ps2-2026-08-28.md).
 
+Exact-weld V2 is now separately frozen and supported without audio. Manifest
+`85ca065b…f46f` changes only bitwise-identical coordinate assembly. Both
+`8192/2048` reduced meshes remain connected/closed; 64 modes pass with maximum
+residuals `3.141e-13/4.446e-13`. Report `c1c86f78…7e5d` and geometry blocks
+`bcd54087…9acc` / `9310910f…5431` repeat byte-identically, with zero reserved
+audio bytes. Next freeze a Pitcher-only calibration manifest binding the exact
+block, 512 MiB prefix/decoder, frequency mapping, Bempp/cooker evaluation,
+`90/510` split, controls, gates and stop-before-Planter fallback. See the
+[V2 evidence](../development/physical-sound-realimpact-exact-weld-geometry-preflight-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:

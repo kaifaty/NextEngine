@@ -111,7 +111,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / GEOMETRY_PREFLIGHT_V1_REJECTED / BYTE_IDENTICAL_REPEATS / RESERVED_AUDIO_BYTES_ZERO / EXACT_WELD_V2_PREREGISTRATION_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | V1 reports repeat at `2fb9fd0f…e25d`: both published OBJ files are disconnected triangle soup and fail the closed-manifold gate before audio. An exact-coordinate-weld mesh-only discriminator recovers closed connected surfaces without tolerance or repair. Next preregister only that V2 assembly change and repeat the same preflight. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / EXACT_WELD_GEOMETRY_PREFLIGHT_SUPPORTED / V1_TRIANGLE_SOUP_REJECTED / BYTE_IDENTICAL_BLOCKS / RESERVED_AUDIO_BYTES_ZERO / PITCHER_CALIBRATION_MANIFEST_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | V2 manifest `85ca065b…f46f` changes only exact coordinate welding. Report `c1c86f78…7e5d` and both geometry blocks repeat; all topology/64-mode/residual gates pass with zero audio. Next freeze the Pitcher-only calibration manifest before its payload. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -656,6 +656,17 @@ repair or audio. Next preregister only exact-coordinate welding before the
 unchanged `8192/2048` reduction and repeat geometry preflight; Pitcher and
 Planter audio remain sealed. See the [preflight
 evidence](../development/physical-sound-realimpact-geometry-preflight-ps2-2026-08-28.md).
+
+PS-2 exact-weld geometry V2 checkpoint: manifest `85ca065b…f46f` changes only
+bitwise coordinate welding before the unchanged V1 reduction/eigenmode path.
+Pitcher/Planter become closed `8070/7958`-vertex surfaces; all welded,
+`8192`-face and `2048`-face topology gates pass. Sixty-four modes have maximum
+residuals `3.141e-13/4.446e-13`. Report `c1c86f78…7e5d` and blocks
+`bcd54087…9acc` / `9310910f…5431` repeat byte-identically with zero audio.
+This closes geometry setup only. Next freeze a Pitcher-only calibration
+manifest binding its exact block, bounded audio prefix/decoder, mapping,
+Bempp/cooker, `90/510` split, controls, gates and stop-before-Planter fallback.
+See the [V2 evidence](../development/physical-sound-realimpact-exact-weld-geometry-preflight-ps2-2026-08-28.md).
 
 ## PS-2 — Сделать риск статистически измеримым
 
