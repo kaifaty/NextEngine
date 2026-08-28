@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / V6_CURRENT_LINE_INTEGRATED / FOCUSED_PASS / FINAL_A_B_NATIVE_PENDING` |
+| Status | `COMPLETE / V6_REPRODUCIBLE_PASS / NATIVE_RELEASE_READY` |
 | Updated | 2026-08-28 |
 | Task key | `r7e-linux-distribution-closure` |
 | Scope | Close Linux v1 versioning, user documentation, third-party dependency/license inventory, protected-data absence and reproducible package evidence, then run final Linux acceptance |
@@ -11,24 +11,22 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** PackageManifest V6 is integrated on the current v11
-  R7c line under ADR-097. Locked offline metadata, format, package `22/22`,
-  xtask-bin `45/45` and strict xtask Clippy pass after preserving the current
-  CPU-affinity dependency and regenerating the exact lockfile offline.
-- **Why:** The post-fix real package probe reached `next_game` smoke. That call
-  is ordered strictly after the complete staging byte scan, and the failed
-  build removed staging without publishing the requested package.
-- **Next action:** Close frozen R7c on the admitted current kernel, advance this integration
-  branch to its closing commit, then build clean package A/B, compare every
-  file byte/mode, validate both and run final Linux native acceptance.
-- **Current blocker:** R7c's unified exact-kernel campaign is intentionally
-  ahead of distribution publication. The physical display is available; no
-  final V6 package is built from a pre-R7c successor.
+- **Current conclusion:** R7e is complete under ADR-097. Exact code commit
+  `919663ff…` produces two byte/mode-identical PackageManifest V6 trees and a
+  final Linux native report with all eight checks `PASS` and
+  `release_ready=true`.
+- **Why:** Independent package A/B each contain 266 files and bind the same
+  manifest `47beaf91…`, composition lock `2c5b466d…` and copied binaries. The
+  protected-data scan, dependency/license inventory, all three copied-root
+  launches, physical desktop smoke and native acceptance pass.
+- **Next action:** None for R7e; preserve the exact receipts and hand off the
+  release-ready Linux package.
+- **Current blocker:** None.
 - **Do not retry:** Preserve the 2026-08-21 display-unavailable V6 probe as
-  historical negative evidence; the next package attempt belongs only to the
-  final post-R7c successor now that the display is available.
-- **Reconsider when:** R7c closes or final V6/package/native verification finds
-  a concrete distribution defect.
+  historical negative evidence; the final successor receipt supersedes it, so
+  no unchanged rerun is useful.
+- **Reconsider when:** A dependency, release feature, toolchain or package input
+  changes, or a concrete distribution regression is observed.
 
 ## Current evidence
 
@@ -42,11 +40,14 @@
 | V6 focused package suite | `PASS`: 22/22 tests, including exact inventory, offline dependency/license corpus, protected-marker rejection, ABI-before-smoke and post-smoke byte identity | The new package boundary is fail closed in isolation |
 | Current-line integration plus lock repair | ADR-097 preserves ADR-095 generative authoring and ADR-096 active-kernel authority; `cargo fmt`, locked offline metadata, package `22/22`, xtask-bin `45/45` and strict xtask Clippy historically pass | V6 is ready for final post-R7c package/native evidence on the current architecture line |
 | Post-R7c native gate on `b14a2e73…` | First attempt exhausted rebuildable Cargo disk state; the bounded retry with incremental disabled reached host-check and exposed `PROTECTED_DATA_DETECTED` only in the package test tool fixture because gate-local `TMPDIR` was under `/home/...` | Preserve both failures as typed pre-publication evidence; keep the scanner strict and remap the generated fixture source prefix instead of weakening protected-data detection |
-| Package fixture under repository-local `TMPDIR` after remap | `PASS`: exact pipeline test compiles and scans the fixture with `/nextengine/test-fixture`; real A/B packages on the predecessor were already protected-scan `PASS` | Advance to one new exact commit, rebuild A/B and rerun the bounded native gate without incremental state |
+| Package fixture under repository-local `TMPDIR` after remap | `PASS`: exact pipeline test compiles and scans the fixture with `/nextengine/test-fixture`; real A/B packages on the predecessor were already protected-scan `PASS` | The fixture fix is retained in the final passing candidate |
 | Native host-check on `dfa9d6ed…` | The remapped package fixture passed, then 11 external-input tests rejected gate-local manifests because host-check still exported its repository-local state directory as `TMPDIR` | Treat this as one native-gate isolation defect, not 11 test defects: keep check state under staging but create and clean a unique child temporary under the external OS temp base |
-| `cargo run --locked -q -p xtask -- v1-package --output artifacts/r7e/package-probe` after scan-order/path fix | `PROTECTED_SCAN_PASS / DESKTOP_BLOCKED`: release build and all pre-smoke distribution checks passed; outer `NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING` preserved inner `PLATFORM_DESKTOP_RUNTIME_UNAVAILABLE`; no package or staging survived | Do not weaken or repeat the package path until display state changes |
+| Native host-check isolation fix on `919663ff…` | Unique child `TMPDIR` is created below the external OS temp base, rejected if repository-local, passed to child checks and removed afterward; xtask-bin `218/218`, strict Clippy and boundary scan pass | The systematic host-check failure is fixed without weakening any external-input or protected-data rule |
+| Final PackageManifest V6 A/B on `919663ff…` | `PASS`: `artifacts/r7e/final-919663ff-package-a` and `-b` are byte/mode-identical, 266 files each, manifest `47beaf91…`, composition lock `2c5b466d…`; copied `game`, `headless` and `next` launch successfully | Reproducible clean distribution closure is complete |
+| Final native gate on `919663ff…` | `artifacts/r7e/final-native-gate-919663ff/targets/x86_64-unknown-linux-gnu/target-report.json` is `PASS / release_ready=true`: all eight checks, target runtime and desktop smoke pass; SHA-256 `144c3ab2…`, package descriptor `3e689039…`, closure `72105952…` | Linux native acceptance and R7e are complete |
+| `cargo run --locked -q -p xtask -- v1-package --output artifacts/r7e/package-probe` after scan-order/path fix | `PROTECTED_SCAN_PASS / DESKTOP_BLOCKED`: release build and all pre-smoke distribution checks passed; outer `NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING` preserved inner `PLATFORM_DESKTOP_RUNTIME_UNAVAILABLE`; no package or staging survived | Historical negative control; the unchanged strict path later passes on the final candidate |
 | Fresh release ELF byte/string scan | `PASS`: all three binaries contain no local-user/private-key/token marker; expected remapped Cargo paths begin `/nextengine/build-user/` | H1 is closed for the current Linux build products |
-| Linux display probe | `AVAILABLE`: physical 1920×1080 output and the production Wayland/Vulkan path are active | Package A/B and final native gate may run on the post-R7c successor |
+| Linux display probe | `AVAILABLE`: physical 1920×1080 output and the production Wayland/Vulkan path are active | Final package and native-gate desktop smoke pass on that production path |
 | `cargo test --locked -p xtask --lib` / `--bin xtask` | `PASS`: 114/114 lib and 45/45 bin; focused package subset is 22/22 | V6/report/native-gate positive, tamper, retired-schema and closure-oracle coverage pass |
 | `cargo clippy --locked -p xtask --all-targets -- -D warnings`; `boundary-scan` | `PASS` | New package modules preserve lint and repository boundaries |
 | `content-package`; `play`; `persistence-replay` | `PASS`: 123 records/64 chunks; state `1e1498bd…bf4e`; replay state `62013d24…da6` | Distribution/version work preserves exact content, gameplay and persistence roots |
@@ -66,7 +67,8 @@
   validators accept an incomplete distribution under the current version.
 - **Consequences:** Package report parsing, native gate validation, SPEC-04 and
   the package fixture tests advance coherently.
-- **Uncertainty:** Exact final dependency/license counts until implementation.
+- **Uncertainty:** None for the frozen release closure: 44 selected dependency
+  records and 105 copied license files are bound in the final package.
 - **Reconsider when:** No current shipped V5 compatibility consumer exists;
   any future need requires an explicit reader/migration contract.
 
@@ -84,7 +86,7 @@
 - **Consequences:** Missing checksum, license expression or license file blocks
   publication before atomic rename.
 - **Uncertainty:** Build-only tools may be conservatively included when they
-  are on the selected non-dev closure; the inventory will state that scope.
+  are on the selected non-dev closure; the inventory states that scope.
 - **Reconsider when:** Cargo gains a more precise stable shipped-object graph
   that preserves the same offline, locked evidence.
 
@@ -101,8 +103,7 @@
 - **Rejected alternatives:** A repository-only grep cannot prove generated
   binaries and cooked package bytes; a human attestation is not reproducible.
 - **Consequences:** A hit aborts staging and publishes no package.
-- **Uncertainty:** Native third-party build products may reveal another path
-  prefix; the first V6 real build is the discriminator.
+- **Uncertainty:** None observed in the final V6 A/B and native-gate products.
 - **Reconsider when:** A stronger reproducible binary provenance scanner
   supersedes the bounded marker scan.
 
@@ -125,11 +126,8 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Close the active-kernel R7c campaign on its frozen exact commit.
-2. Advance `codex/r7de-port` to the R7c closing commit and rerun the
-   affected validation matrix.
-3. Build two exact V6 packages, compare complete bytes/modes and run final
-   Linux acceptance against their bound receipt.
+None. Preserve the final A/B packages and exact-commit native report; rebuild
+only after a release input changes or a distribution regression is observed.
 
 ## Do not retry
 
@@ -152,13 +150,11 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Current integration lives in
-  `/home/kaifaty/.codex/worktrees/r7de-port/NextEngine` on `codex/r7de-port`;
-  `codex/r7c-active-kernel-authority` remains the frozen R7c candidate.
-- **Checks:** fmt, locked offline metadata, V6 package `22/22`, xtask-bin
-  `45/45` and strict xtask Clippy pass on the integrated current line; retained
-  staging/protected-scan evidence remains historical until final repetition.
-- **Remaining risk:** Post-R7c package A/B byte/mode equality, copied-root
-  smoke and total native-gate runtime.
-- **Promotion needed:** Exact final V6 package/native receipts; ADR-097 and
-  affected SPEC/roadmap updates are integrated but not yet final evidence.
+- **Workspace state:** Exact release code is commit `919663ff…` on
+  `codex/r7c-active-kernel-authority`; the following documentation-only commit
+  records completion without changing the validated package inputs.
+- **Checks:** V6 package `22/22`, xtask-bin `218/218`, strict Clippy,
+  boundary-scan, complete A/B comparison, copied-root launches and final
+  eight-check native acceptance pass.
+- **Remaining risk:** None observed within R7e scope.
+- **Promotion needed:** None; R7e and R7 are complete.

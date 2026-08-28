@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / CURRENT_R7C_LINE_INTEGRATED / FINAL_POST_R7C_PLATFORM_PENDING` |
+| Status | `COMPLETE / FINAL_LINUX_PASS` |
 | Updated | 2026-08-28 |
 | Task key | `r7d-final-product-hardening` |
 | Scope | Close release-blocking Linux gameplay, persistence/replay, corrupted-input, long-session, renderer/input/audio, lifecycle/recovery and offline-fallback defects without adding new product scope |
@@ -11,24 +11,21 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The retained CPU/offline R7d matrix has no known
-  release-blocking defect. Its state and the R7e V6 implementation are now
-  integrated on the current v11 R7c line without importing the obsolete
-  owner-deferred performance history.
-- **Why:** Application `26/26`, verification `83/83` plus one declared ignored
-  diagnostic, `play`, `persistence-replay`, `audio-scene` and the clean release
-  long-session report all pass. The soak completes 3,600 driver/application
-  ticks with exact roots and zero diagnostics.
-- **Next action:** Close R7c on its frozen active-kernel candidate, advance this
-  integration branch to the resulting closing commit, then repeat the physical
-  Linux `platform` row and affected CPU/offline matrix on that successor.
-- **Current blocker:** R7c is collecting its unified R2–R5 campaign on the
-  admitted current kernel cohort. The physical display is available; no final
-  successor check is run ahead of that evidence boundary.
+- **Current conclusion:** R7d is complete on the current Linux product
+  boundary. No release-blocking gameplay, persistence/replay, long-session,
+  renderer/input/audio, lifecycle/recovery or offline-fallback defect is known.
+- **Why:** The retained application `26/26`, verification `83/83` plus one
+  declared ignored diagnostic, `play`, `persistence-replay`, `audio-scene` and
+  3,600-tick release soak all pass. Exact code commit `919663ff…` additionally
+  passes the physical Vulkan `platform` row and the complete eight-check native
+  gate with `release_ready=true`.
+- **Next action:** None for R7d; preserve the exact receipts and hand off the
+  release-ready Linux candidate.
+- **Current blocker:** None.
 - **Do not retry:** Do not substitute a virtual/software display, create a
   duplicate mega-check, or rerun unchanged negative performance evidence.
-- **Reconsider when:** The R7c campaign closes or a final-candidate check proves
-  an actual coverage or product defect.
+- **Reconsider when:** A new observed release regression or explicitly scoped
+  post-v1 change invalidates one of these receipts.
 
 ## Current evidence
 
@@ -37,14 +34,14 @@
 | `crates/verification/src/persistence_replay/runner/finalize.rs` | Directly corrupts RPG and physics generations, requires fallback to the prior generation and proves corrupt bytes remain unchanged | `persistence-replay` is the R7d corrupted-input and persistence-recovery authority |
 | `crates/verification/src/live_runtime_performance.rs` and `prepared/*` | Long-session workload drives 3,600 ticks, three 1,200-tick windows, 120 state samples and periodic camera events; finalization requires authoritative/application completion and roots | `performance --scenario long-session-soak --mode report` is the bounded soak authority, independent of R7c hard-gate statistics |
 | `crates/verification/src/platform_check.rs` | Production desktop candidate requires normalized controls, resize/focus/fullscreen, device-loss recovery, audio-device reopen and UI overlay success | `platform` remains the renderer/input/audio/lifecycle authority once a physical display is visible |
-| Current Linux display probes | Physical 1920×1080 output and production Vulkan path are available; earlier disconnected probes remain historical | Final `platform` may run on the post-R7c successor without virtual/software substitution |
-| Current-line integration | R7d state and PackageManifest V6 were transplanted onto the active-kernel R7c line; distribution authority is ADR-097, preserving ADR-095 generative authoring and ADR-096 performance authority | The obsolete exact-old-kernel history is excluded by construction |
+| Final physical Vulkan `platform` on `919663ff…` | `PASS`: production desktop, lifecycle/recovery, input, audio-device reopen and UI overlay close with state `1e1498bd…bf4e`, ledger `e66f0788…3167` and presentation `773df608…a5a` | The only previously open R7d row is closed on the exact release candidate |
+| Final native gate on `919663ff…` | `artifacts/r7e/final-native-gate-919663ff/targets/x86_64-unknown-linux-gnu/target-report.json` is `PASS / release_ready=true`: all eight checks pass; SHA-256 `144c3ab2…`; packaged runtime and desktop smoke pass | R7d is complete on the coherent Linux release candidate |
 | `cargo test --locked -p next_application` | `PASS`: 26/26 including manual save/load/close, crash resume, pause-menu lifecycle, preference quarantine and close retry | Application lifecycle and recovery rows are closed for this candidate |
 | `cargo test --locked -p next_verification` | `PASS`: 83 tests across unit/integration suites, zero failures; one declared report-only history diagnostic ignored | Replay tamper/corruption, production parity and verification cleanup remain green |
 | `xtask play` on `fec8d9d…` | `PASS`: 32 ticks, 52 events, 23 RPG events, state `1e1498bd…bf4e`, ledger `e66f0788…3167` | Representative gameplay and offline deterministic composition pass |
 | `xtask persistence-replay` on `fec8d9d…` | `PASS`: 20 ticks, two generations, state `62013d24…da6`, ledger `ad6234b7…08b` | Save/load/replay and corrupt-generation fallback pass |
 | `xtask audio-scene` on `fec8d9d…` | `PASS`: 12 cues/facts, 13 non-silent windows, repeated run identical | Displayless audio/fallback row passes |
-| Clean release `long-session-soak` on `fec8d9d…` | `PASS / REPORT_ONLY`: 3,600 ticks, 3,617 command bodies, windows `4,019,784/4,751,431/5,582,732 us`, state `d51e9841…f10`, peak RSS `52,228,096`, ready boundaries and zero diagnostics | Long-session degradation/root closure passes; this does not claim R7c/B-12 |
+| Final retained `long-session-soak` on `0ca1f2e9…` | `target/perf/r7d-0ca1f2e9-long-session-final/performance-report-v6.json` is `PASS / REPORT_ONLY`: 3,600 ticks, 3,617 command bodies, state `d51e9841…f10`, peak RSS `58,384,384` and zero diagnostics | Long-session degradation/root closure passes; later release changes do not alter the exercised hot path |
 | Post-V6 workspace `host-check` | `PASS`: Linux format, Clippy, workspace tests and doc-tests on pinned Rust 1.97.1 | Distribution/version integration introduces no CPU/offline hardening regression |
 
 ## Decisions that still constrain the work
@@ -63,32 +60,30 @@
   boundary failed.
 - **Consequences:** Evidence remains composable and failures remain locally
   actionable; final release closure can cite the exact report for each risk.
-- **Uncertainty:** Only the physical-desktop row has not executed on this
-  candidate; every CPU/offline row is closed by the evidence above.
+- **Uncertainty:** None within the bounded R7d risk matrix.
 - **Reconsider when:** A roadmap risk cannot be represented by an existing
   report or focused production-path test.
 
 ### D-002 — Keep display-dependent acceptance exact
 
-- **Observation:** The Linux host now exposes a physical `1920×1080` display and
+- **Observation:** The Linux host exposes a physical `1920×1080` display and
   the production Wayland/Vulkan path is runnable.
-- **Evidence:** R7c's six-window R2 control rendered every required extent and
-  invariant; the earlier disconnected probes remain exact historical facts.
-- **Decision:** Run the real Vulkan desktop row on the post-R7c successor rather
-  than consuming final hardening evidence from the frozen performance commit.
+- **Evidence:** The final `platform` report on `919663ff…` passes the real Vulkan
+  desktop path; earlier disconnected probes remain exact historical facts.
+- **Decision:** Accept the real Vulkan desktop receipt as final R7d evidence.
 - **Rejected alternatives:** Virtual displays and headless substitutions do not
   exercise the production Vulkan presentation path and cannot close R2 or the
   desktop platform row.
-- **Consequences:** The exact R7c worktree remains uncontaminated; desktop
-  hardening is executable immediately after the successor is assembled.
-- **Uncertainty:** Only the final successor result remains unknown.
-- **Reconsider when:** The post-R7c `platform` row reports a concrete defect.
+- **Consequences:** R7d closes without virtual/software substitution.
+- **Uncertainty:** None for the current release candidate.
+- **Reconsider when:** A future production `platform` run reports a concrete
+  regression.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Existing checks fully cover R7d without new product code | Retained CPU/offline rows pass and the physical desktop path is now runnable | Final successor `platform` has not run yet | Resolve with final physical-display platform acceptance |
+| H1: Existing checks fully cover R7d without new product code | Closed: retained CPU/offline rows and final physical `platform` all pass | None observed | Reopen only if a named risk loses its production-path owner |
 | H2: Long-session behavior remains bounded and root-stable | Clean release report completes 3,600 ticks with exact root and zero diagnostics | None observed | Closed for this candidate; repeat only after a material hot-path change |
 
 ## Required context
@@ -106,10 +101,8 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Close the frozen R7c campaign on the current admitted kernel cohort.
-2. Advance this integration branch to the R7c closing commit and repeat the
-   release desktop `platform` plus risk-scoped CPU/offline matrix.
-3. Complete the R7e package/native acceptance receipts on that successor.
+None. Preserve the final exact-commit reports and hand off the release-ready
+Linux candidate.
 
 ## Do not retry
 
@@ -122,13 +115,11 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Current-line preparation lives in
-  `/home/kaifaty/.codex/worktrees/r7de-port/NextEngine` on `codex/r7de-port`;
-  the separate `codex/r7c-active-kernel-authority` worktree remains the frozen
-  performance evidence candidate.
-- **Checks:** Retained application/verification/product evidence passes;
-  current integration adds fmt, package `22/22`, xtask-bin `45/45`, locked
-  offline metadata and strict Clippy `PASS`.
-- **Remaining risk:** Exact R7c closure, final successor `platform` and the
-  risk-scoped matrix; no CPU/offline release blocker is currently known.
-- **Promotion needed:** Post-R7c physical-desktop receipt before R7d closure.
+- **Workspace state:** Exact release code is commit `919663ff…` on
+  `codex/r7c-active-kernel-authority`; the following documentation-only commit
+  records completion without changing the validated binaries.
+- **Checks:** Retained application/verification/gameplay/replay/audio/soak
+  evidence and final physical `platform` pass; the native gate reports all
+  eight checks `PASS` and `release_ready=true`.
+- **Remaining risk:** None observed within R7d scope.
+- **Promotion needed:** None; R7d is complete.

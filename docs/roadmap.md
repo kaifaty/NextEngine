@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-28 |
-| Текущая точка | R1–R6 и R7a–R7c завершены на current Linux product boundary. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) closed B-12 on exact commit `e48f2eac…`, profile `ref-linux-b550i-3950x-rtx3080-v2` and active kernel `7.0.0-30-generic` with four ten-run baselines plus fixed three-run `PASS` gates. [R7d final hardening](development/task-state/r7d-final-product-hardening.md) retains its passing CPU/offline matrix, and [R7e distribution closure](development/task-state/r7e-linux-distribution-closure.md) now implements PackageManifest V6 under ADR-097. Final successor `platform`, reproducible A/B packages and native acceptance remain. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
+| Текущая точка | R1–R7 завершены на current Linux product boundary. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) closed B-12 on exact commit `e48f2eac…`; [R7d final hardening](development/task-state/r7d-final-product-hardening.md) and [R7e distribution closure](development/task-state/r7e-linux-distribution-closure.md) close on exact code commit `919663ff…`. The final native target report is `PASS / release_ready=true` with all eight checks passing, and two independently built PackageManifest V6 trees are byte/mode-identical at manifest `47beaf91…`. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
 | Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
 | R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v4` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. Final R7c V2 evidence closes the R2 hard-performance gap and B-12. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -224,7 +224,7 @@ flowchart LR
 | R4. Systemic living world | `COMPLETE / LOCAL FUNCTIONAL` | XL | R4a routine, R4b population/navigation, R4c cognition and bounded R4d systemic owners pass production/failure/persistence/tier/bulk checks; the separate R7c B-12 gate is now closed. |
 | R5. Physical character integration | `COMPLETE / PROCEDURAL_BASELINE / R5A–R5J_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a–R5i provide the current exact animation, motor, skinning and bounded-LOD path. R5j closes mandatory `PHYS-P6` trip/carry/contact-driven-melee evidence with actual compound-shape contacts, positive capsule clearance and exact blocked-contact restart. General graph/non-identity retarget/physical IK, active articulation and learned routes remain optional or post-baseline. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
 | R6. Creator beta | `COMPLETE / R6G_SDK_WORKFLOW` | L–XL | Canonical external guide plus governed edited cold-start, project/package lifecycle, scenario minimization, Replay V10 first-divergence/domain inspection and externally visible Luau/Wasm examples close the bounded beta without a private bootstrap. |
-| R7. V1 release candidate | `IN_PROGRESS / LINUX_ONLY / R7A–R7C_COMPLETE / R7D_MATRIX_READY / R7E_V6_IMPLEMENTED / FINAL_CHECKS_PENDING` | L | Linux authority, reproducible V5 clean install and exact-kernel R2–R5 performance evidence are complete. R7d retains a green CPU/offline matrix; R7e implements V6 distribution closure. Final successor physical `platform`, reproducible A/B and native acceptance remain. Windows does not block or participate. |
+| R7. V1 release candidate | `COMPLETE / LINUX_ONLY / RELEASE_READY` | L | Exact code commit `919663ff…` passes the eight-check native gate, physical Vulkan platform path, packaged runtime/desktop smoke and V6 distribution closure. Two 266-file V6 package trees are byte/mode-identical at manifest `47beaf91…`. Windows does not block or participate. |
 | R8. Post-v1 tracks | `DEFERRED` | отдельные программы | Optional AI/narrative/importer/advanced rendering не размывают v1. |
 
 ## R0 — Walking skeleton
@@ -296,8 +296,10 @@ developer package.
   R2–R5 each have one compatible ten-run V6/v11 baseline plus a fixed
   three-run `PASS` gate on profile `ref-linux-b550i-3950x-rtx3080-v2` and
   kernel `7.0.0-30-generic`, with exact roots and zero diagnostics;
-- R7d retains a passing CPU/offline matrix; R7e implements PackageManifest V6
-  under ADR-097, with final successor platform/A/B/native receipts pending.
+- R7d and R7e close on exact code commit `919663ff…`: the physical Vulkan
+  platform row and all eight native-gate checks pass, `release_ready=true`, and
+  two complete V6 package trees are byte/mode-identical at manifest
+  `47beaf91…`.
 
 **Не блокируют этап:** PhysX, Slang, RT, learned policy, `ai-host`, capture и
 Gothic importer.
@@ -452,10 +454,10 @@ current scope.
 Automated production path, lawful content/provenance, отсутствие hidden
 UI/camera mutation и ручной representative loop подтверждены. Архитектурный
 cleanup, R3, functional R4a–R4d, procedural R5a–R5j and R6a–R6g Creator SDK
-beta are complete. R7 is active: R7a/R7b are complete, R7c R3–R5 and all
-runnable R7d rows pass, R7c final exact-kernel evidence is complete, and R7e
-V6 distribution implementation is present. The remaining work is the final
-successor physical-display/A-B/native evidence boundary.
+beta and R7 are complete. Exact code commit `919663ff…` passes the physical
+Vulkan platform row and the complete eight-check Linux native gate with
+`release_ready=true`; reproducible PackageManifest V6 A/B trees close the
+distribution boundary.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -1854,7 +1856,7 @@ ADR-087, ADR-088, ADR-089.
 
 ## R7 — V1 release candidate and release
 
-**Статус:** `IN_PROGRESS / LINUX_ONLY / PHYSICAL_DISPLAY_EVIDENCE_REMAINS`.
+**Статус:** `COMPLETE / LINUX_ONLY / RELEASE_READY`.
 
 **Цель:** стабилизировать и выпустить выбранный Linux product scope, а не
 добавлять новые архитектурные подсистемы. Windows находится вне current scope
@@ -1891,17 +1893,18 @@ indefinitely under ADR-090 and does not gate any R7 package.
    pre-workload environment `NOT_RUN` attempts remain preserved and were not
    treated as calibration or metric verdicts. No old-kernel boot was required;
    historical THOTH/V1 evidence was not inherited.
-4. **R7d — final product hardening
-   (`IN_PROGRESS / CPU_OFFLINE_PASS / FINAL_SUCCESSOR_PENDING`):** application 26/26,
-   verification 83/83, `play`, `persistence-replay`, `audio-scene` and a clean
-   3,600-tick release soak passed on the retained checkpoint. Repeat the
-   physical Vulkan `platform` row on the post-R7c successor candidate.
-5. **R7e — distribution closure
-   (`IN_PROGRESS / V6_IMPLEMENTED / FINAL_A_B_PENDING`):** ADR-097 and strict
-   PackageManifest V6 bind release 1.0.0, notices/provenance, locked selected
-   dependency/license evidence, packaged guides, portable release paths and a
-   reproducible protected-data receipt. Exact clean A/B packages and final
-   Linux acceptance remain on the post-R7c successor.
+4. **R7d — final product hardening (`COMPLETE / FINAL_LINUX_PASS`):** the
+   retained application, verification, gameplay, replay, audio and 3,600-tick
+   soak matrix remains green. Exact code commit `919663ff…` additionally passes
+   the physical Vulkan `platform` row and complete native acceptance without
+   an open release-blocking defect.
+5. **R7e — distribution closure (`COMPLETE / V6_REPRODUCIBLE_PASS`):** ADR-097
+   and strict PackageManifest V6 bind release 1.0.0, notices/provenance, 44
+   selected dependency records, 105 copied license files, packaged guides,
+   portable release paths and a passing protected-data receipt. Independent
+   266-file package trees A/B are byte/mode-identical at manifest
+   `47beaf91…`; exact code commit `919663ff…` passes all eight native checks
+   with target-report `144c3ab2…` and `release_ready=true`.
 
 **Основной scope:**
 
@@ -1930,13 +1933,11 @@ indefinitely under ADR-090 and does not gate any R7 package.
 - все `NOT_RUN` перечислены как non-claims; required Linux check не может
   оставаться `NOT_RUN`. Windows is not a required target/non-claim.
 
-**Hard blockers:**
-
-- незакрытый physical-display остаток R7c/R7d/R7e;
-- незавершённый representative content slice;
-- incompatible save without migration/export path;
-- P0/P1 data-loss, security, determinism, offline or installation defect;
-- неизвестная provenance любого distributed artifact.
+**Hard blocker status:** `NONE OBSERVED`. The representative slice, save/replay,
+physical display, installation, provenance and protected-data boundaries all
+pass on the exact release candidate. Any future P0/P1 data-loss, security,
+determinism, offline or installation defect reopens release readiness as a new
+observed regression, not as unfinished R7 ceremony.
 
 **Основные источники:** SPEC-00, SPEC-04, SPEC-09, SPEC-11, SPEC-12, SPEC-15,
 SPEC-17, SPEC-29, ADR-001, ADR-030, ADR-090.
@@ -2110,10 +2111,10 @@ LNX-003/004/005 are complete. Linux-specific checks now run inline with each
 affected work package. Native Windows/THOTH and paired actions are outside the
 current roadmap indefinitely; the former
 [Windows validation backlog](development/windows-validation-backlog.md) is
-dormant historical context, not active debt. R1/B-01 are closed on the
-Linux-only product boundary. R7a/R7b are complete; R7c R3–R5 and every
-runnable R7d row pass, while R7e V6 implementation is in verification. The
-next evidence action starts only after a physical connector becomes OS-visible.
+dormant historical context, not active debt. R1/B-01 and R7 are closed on the
+Linux-only product boundary. The active v1 implementation queue is empty:
+further work must enter an explicitly selected R8 program and cannot
+retroactively add release ceremony to R7.
 
 Следующие work packages рекомендуется выполнять в этом порядке:
 
@@ -2734,23 +2735,21 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    exact commit `e48f2eac…` on `7.0.0-30-generic` closes B-12 with four
    compatible ten-run baselines and four fixed three-run `PASS` gates under the
    V2 active-kernel authority; historical THOTH/V1 evidence is not inherited.
-18. **R7d final product hardening
-   (`IN_PROGRESS / CPU_OFFLINE_PASS / FINAL_SUCCESSOR_PENDING`):** preserve the green
-   application/replay/audio/long-session matrix and close the production
-   desktop row on the final post-R7c successor.
-19. **R7e Linux distribution closure
-   (`IN_PROGRESS / V6_IMPLEMENTED / A_B_PENDING`):** finish broad checks for
-   PackageManifest V6, then build/compare two clean packages and run final
-   native acceptance on the same successor.
+18. **R7d final product hardening (`COMPLETE / FINAL_LINUX_PASS`):** the green
+   application/replay/audio/long-session matrix and final physical Vulkan
+   desktop row close on the current Linux candidate.
+19. **R7e Linux distribution closure (`COMPLETE / V6_REPRODUCIBLE_PASS`):** two
+   exact 266-file V6 package trees are byte/mode-identical; final exact-commit
+   native acceptance passes all eight checks with `release_ready=true`.
 
 Каждый package должен быть отдельным product increment с focused checks. R6a
 creator validate/cook, R6b creator run/package and R6c read-only project
 inspect/diff and R6d reusable template/cold-authoring exercise are complete;
 R6e public scenario validate/run/minimize, R6f Replay V10 first-divergence/
 bounded domain inspection and R6g external SDK workflow/documentation are also
-complete. R7 is active under ADR-090: R7a–R7c are complete, R7d CPU/offline
-and R7e V6 implementation are green, and final successor physical-display,
-A/B package and native acceptance checks remain.
+complete. R7 is complete under ADR-090: R7a–R7e are closed on the current Linux
+product boundary, including physical display, reproducible V6 A/B packages and
+final exact-commit native acceptance.
 Bounded training lineage remains stopped and does not run in parallel. SPEC-23 stays
 Proposed: завершённый R3/R4
 начинает универсальный scheduler design без второго concrete production
