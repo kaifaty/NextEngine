@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | `ACTIVE / V6_CURRENT_LINE_INTEGRATED / FOCUSED_PASS / FINAL_A_B_NATIVE_PENDING` |
-| Updated | 2026-08-24 |
+| Updated | 2026-08-28 |
 | Task key | `r7e-linux-distribution-closure` |
 | Scope | Close Linux v1 versioning, user documentation, third-party dependency/license inventory, protected-data absence and reproducible package evidence, then run final Linux acceptance |
 | Definition of done | A versioned Linux package and strict manifest bind getting-started/troubleshooting, exact selected dependency versions/sources/checksums/licenses, copied license texts, a reproducible protected-data scan and isolated product receipts; two clean packages and the final native acceptance gate pass |
@@ -12,21 +12,21 @@
 ## Resume in 60 seconds
 
 - **Current conclusion:** PackageManifest V6 is integrated on the current v11
-  R7c line under ADR-095. Locked offline metadata, format, package `22/22`,
+  R7c line under ADR-097. Locked offline metadata, format, package `22/22`,
   xtask-bin `45/45` and strict xtask Clippy pass after preserving the current
   CPU-affinity dependency and regenerating the exact lockfile offline.
 - **Why:** The post-fix real package probe reached `next_game` smoke. That call
   is ordered strictly after the complete staging byte scan, and the failed
   build removed staging without publishing the requested package.
-- **Next action:** Close frozen R7c on exact kernel 29, advance this integration
+- **Next action:** Close frozen R7c on the admitted current kernel, advance this integration
   branch to its closing commit, then build clean package A/B, compare every
   file byte/mode, validate both and run final Linux native acceptance.
 - **Current blocker:** R7c's unified exact-kernel campaign is intentionally
   ahead of distribution publication. The physical display is available; no
   final V6 package is built from a pre-R7c successor.
-- **Do not retry:** Do not rerun `v1-package` while display state is unchanged;
-  the 2026-08-21 real V6 probe already proved CPU/staging/scan progress and
-  failed only at the first desktop smoke.
+- **Do not retry:** Preserve the 2026-08-21 display-unavailable V6 probe as
+  historical negative evidence; the next package attempt belongs only to the
+  final post-R7c successor now that the display is available.
 - **Reconsider when:** R7c closes or final V6/package/native verification finds
   a concrete distribution defect.
 
@@ -40,10 +40,10 @@
 | Cargo metadata plus Cargo.lock | Every selected crate has pinned version/source/license metadata and registry checksums are locked | Generate a canonical selected release dependency inventory offline |
 | V6 packaged documents | Root notices/provenance plus bounded `GETTING_STARTED.md` and `TROUBLESHOOTING.md` exist and are mandatory inventory paths | User startup and recovery guidance now travels with the exact package |
 | V6 focused package suite | `PASS`: 22/22 tests, including exact inventory, offline dependency/license corpus, protected-marker rejection, ABI-before-smoke and post-smoke byte identity | The new package boundary is fail closed in isolation |
-| Current-line integration `f4d53de…` plus lock repair | ADR-095 preserves current ADR-093/094; `cargo fmt`, locked offline metadata, package `22/22`, xtask-bin `45/45` and strict xtask Clippy pass | V6 is ready for final post-R7c package/native evidence on the current architecture line |
+| Current-line integration plus lock repair | ADR-097 preserves ADR-095 generative authoring and ADR-096 active-kernel authority; `cargo fmt`, locked offline metadata, package `22/22`, xtask-bin `45/45` and strict xtask Clippy historically pass | V6 is ready for final post-R7c package/native evidence on the current architecture line |
 | `cargo run --locked -q -p xtask -- v1-package --output artifacts/r7e/package-probe` after scan-order/path fix | `PROTECTED_SCAN_PASS / DESKTOP_BLOCKED`: release build and all pre-smoke distribution checks passed; outer `NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING` preserved inner `PLATFORM_DESKTOP_RUNTIME_UNAVAILABLE`; no package or staging survived | Do not weaken or repeat the package path until display state changes |
 | Fresh release ELF byte/string scan | `PASS`: all three binaries contain no local-user/private-key/token marker; expected remapped Cargo paths begin `/nextengine/build-user/` | H1 is closed for the current Linux build products |
-| Linux display probe | `NOT_AVAILABLE`: X screen `0x0`; all enumerated physical DRM connectors are `disconnected` | Package A/B and final native gate remain honest `NOT_RUN` |
+| Linux display probe | `AVAILABLE`: physical 1920×1080 output and the production Wayland/Vulkan path are active | Package A/B and final native gate may run on the post-R7c successor |
 | `cargo test --locked -p xtask --lib` / `--bin xtask` | `PASS`: 114/114 lib and 45/45 bin; focused package subset is 22/22 | V6/report/native-gate positive, tamper, retired-schema and closure-oracle coverage pass |
 | `cargo clippy --locked -p xtask --all-targets -- -D warnings`; `boundary-scan` | `PASS` | New package modules preserve lint and repository boundaries |
 | `content-package`; `play`; `persistence-replay` | `PASS`: 123 records/64 chunks; state `1e1498bd…bf4e`; replay state `62013d24…da6` | Distribution/version work preserves exact content, gameplay and persistence roots |
@@ -116,14 +116,14 @@ Read these sources in precedence order before acting:
 
 1. `AGENTS.md`, `docs/architecture/agent-routing.md`, ADR-090
 2. SPEC-00, SPEC-04, SPEC-09, SPEC-11, SPEC-12, SPEC-15 and SPEC-29
-3. ADR-001, ADR-003, ADR-028, ADR-030, ADR-035 and ADR-095
+3. ADR-001, ADR-003, ADR-028, ADR-030, ADR-035 and ADR-097
 4. `docs/roadmap.md` R7/R7e and R7a-R7d task states
 5. Current package manifest, inventory, runtime, smoke, native-gate and report code
 
 ## Next action
 
-1. Close the exact-kernel R7c campaign on frozen `ce2df7a…`.
-2. Advance `codex/r7de-integration` to the R7c closing commit and rerun the
+1. Close the active-kernel R7c campaign on its frozen exact commit.
+2. Advance `codex/r7de-port` to the R7c closing commit and rerun the
    affected validation matrix.
 3. Build two exact V6 packages, compare complete bytes/modes and run final
    Linux acceptance against their bound receipt.
@@ -141,12 +141,12 @@ Read these sources in precedence order before acting:
 ## Handoff
 
 - **Workspace state:** Current integration lives in
-  `/home/kaifaty/Documents/NextEngine-r7de-integration` on
-  `codex/r7de-integration`; frozen `ce2df7a…` remains the R7c candidate.
+  `/home/kaifaty/.codex/worktrees/r7de-port/NextEngine` on `codex/r7de-port`;
+  `codex/r7c-active-kernel-authority` remains the frozen R7c candidate.
 - **Checks:** fmt, locked offline metadata, V6 package `22/22`, xtask-bin
   `45/45` and strict xtask Clippy pass on the integrated current line; retained
   staging/protected-scan evidence remains historical until final repetition.
 - **Remaining risk:** Post-R7c package A/B byte/mode equality, copied-root
   smoke and total native-gate runtime.
-- **Promotion needed:** Exact final V6 package/native receipts; ADR-095 and
+- **Promotion needed:** Exact final V6 package/native receipts; ADR-097 and
   affected SPEC/roadmap updates are integrated but not yet final evidence.

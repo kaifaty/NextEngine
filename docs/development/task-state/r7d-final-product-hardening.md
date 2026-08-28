@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | `ACTIVE / CURRENT_R7C_LINE_INTEGRATED / FINAL_POST_R7C_PLATFORM_PENDING` |
-| Updated | 2026-08-24 |
+| Updated | 2026-08-28 |
 | Task key | `r7d-final-product-hardening` |
 | Scope | Close release-blocking Linux gameplay, persistence/replay, corrupted-input, long-session, renderer/input/audio, lifecycle/recovery and offline-fallback defects without adding new product scope |
 | Definition of done | Existing production checks and focused tests cover every R7d risk class on one coherent Linux candidate; every required runnable check passes, every unavailable check remains an explicit non-claim, and only observed release blockers are changed |
@@ -19,12 +19,12 @@
   diagnostic, `play`, `persistence-replay`, `audio-scene` and the clean release
   long-session report all pass. The soak completes 3,600 driver/application
   ticks with exact roots and zero diagnostics.
-- **Next action:** Close R7c on its frozen exact-kernel candidate, advance this
+- **Next action:** Close R7c on its frozen active-kernel candidate, advance this
   integration branch to the resulting closing commit, then repeat the physical
   Linux `platform` row and affected CPU/offline matrix on that successor.
-- **Current blocker:** R7c still requires the authenticated boot into installed
-  kernel `7.0.0-29-generic` and its unified R2–R5 campaign. The physical display
-  is available; no final successor check is run ahead of that evidence boundary.
+- **Current blocker:** R7c is collecting its unified R2–R5 campaign on the
+  admitted current kernel cohort. The physical display is available; no final
+  successor check is run ahead of that evidence boundary.
 - **Do not retry:** Do not substitute a virtual/software display, create a
   duplicate mega-check, or rerun unchanged negative performance evidence.
 - **Reconsider when:** The R7c campaign closes or a final-candidate check proves
@@ -38,7 +38,7 @@
 | `crates/verification/src/live_runtime_performance.rs` and `prepared/*` | Long-session workload drives 3,600 ticks, three 1,200-tick windows, 120 state samples and periodic camera events; finalization requires authoritative/application completion and roots | `performance --scenario long-session-soak --mode report` is the bounded soak authority, independent of R7c hard-gate statistics |
 | `crates/verification/src/platform_check.rs` | Production desktop candidate requires normalized controls, resize/focus/fullscreen, device-loss recovery, audio-device reopen and UI overlay success | `platform` remains the renderer/input/audio/lifecycle authority once a physical display is visible |
 | Current Linux display probes | Physical 1920×1080 output and production Vulkan path are available; earlier disconnected probes remain historical | Final `platform` may run on the post-R7c successor without virtual/software substitution |
-| Current-line integration `f4d53de…` | R7d state and PackageManifest V6 were transplanted onto `ce2df7a…`; distribution ADR was renumbered to ADR-095 so current ADR-093/094 performance authority remains intact | The alternative owner-deferred R7c history is excluded by construction |
+| Current-line integration | R7d state and PackageManifest V6 were transplanted onto the active-kernel R7c line; distribution authority is ADR-097, preserving ADR-095 generative authoring and ADR-096 performance authority | The obsolete exact-old-kernel history is excluded by construction |
 | `cargo test --locked -p next_application` | `PASS`: 26/26 including manual save/load/close, crash resume, pause-menu lifecycle, preference quarantine and close retry | Application lifecycle and recovery rows are closed for this candidate |
 | `cargo test --locked -p next_verification` | `PASS`: 83 tests across unit/integration suites, zero failures; one declared report-only history diagnostic ignored | Replay tamper/corruption, production parity and verification cleanup remain green |
 | `xtask play` on `fec8d9d…` | `PASS`: 32 ticks, 52 events, 23 RPG events, state `1e1498bd…bf4e`, ledger `e66f0788…3167` | Representative gameplay and offline deterministic composition pass |
@@ -70,25 +70,25 @@
 
 ### D-002 — Keep display-dependent acceptance exact
 
-- **Observation:** The Linux host currently has no OS-visible physical display.
-- **Evidence:** `xrandr --current` is 0x0, `nvidia-smi` reports display inactive
-  and `/sys/class/drm/card1-*/status` is disconnected.
-- **Decision:** Continue CPU/offline R7d rows now and defer only the real Vulkan
-  desktop row until hotplug/EDID becomes visible.
+- **Observation:** The Linux host now exposes a physical `1920×1080` display and
+  the production Wayland/Vulkan path is runnable.
+- **Evidence:** R7c's six-window R2 control rendered every required extent and
+  invariant; the earlier disconnected probes remain exact historical facts.
+- **Decision:** Run the real Vulkan desktop row on the post-R7c successor rather
+  than consuming final hardening evidence from the frozen performance commit.
 - **Rejected alternatives:** Virtual displays and headless substitutions do not
   exercise the production Vulkan presentation path and cannot close R2 or the
   desktop platform row.
-- **Consequences:** CPU/offline defects can be found without contaminating the
-  exact R7c worktree; desktop remains an explicit non-claim.
-- **Uncertainty:** Whether the connector will become visible during this run.
-- **Reconsider when:** Any DRM connector reports `connected` and the desktop
-  session publishes a non-zero drawable extent.
+- **Consequences:** The exact R7c worktree remains uncontaminated; desktop
+  hardening is executable immediately after the successor is assembled.
+- **Uncertainty:** Only the final successor result remains unknown.
+- **Reconsider when:** The post-R7c `platform` row reports a concrete defect.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Existing checks fully cover R7d without new product code | All runnable candidate rows pass and expose the named roots/failure semantics | Physical desktop row is not currently runnable | Resolve with final physical-display platform acceptance |
+| H1: Existing checks fully cover R7d without new product code | Retained CPU/offline rows pass and the physical desktop path is now runnable | Final successor `platform` has not run yet | Resolve with final physical-display platform acceptance |
 | H2: Long-session behavior remains bounded and root-stable | Clean release report completes 3,600 ticks with exact root and zero diagnostics | None observed | Closed for this candidate; repeat only after a material hot-path change |
 
 ## Required context
@@ -106,7 +106,7 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Close the frozen `ce2df7a…` R7c campaign on exact kernel 29.
+1. Close the frozen R7c campaign on the current admitted kernel cohort.
 2. Advance this integration branch to the R7c closing commit and repeat the
    release desktop `platform` plus risk-scoped CPU/offline matrix.
 3. Complete the R7e package/native acceptance receipts on that successor.
@@ -114,7 +114,7 @@ Read these sources in precedence order before acting:
 ## Do not retry
 
 - Virtual/software presentation for R2 or `platform` — it cannot prove the
-  physical Vulkan path; reconsider only after an OS-visible physical connector.
+  physical Vulkan path; the real connector is available and must be used.
 - A new aggregate R7d runtime command — existing authorities are more precise;
   reconsider only if one named roadmap risk has no executable owner.
 - Unchanged completed R7c negative batches — no-retry evidence policy forbids
@@ -123,8 +123,9 @@ Read these sources in precedence order before acting:
 ## Handoff
 
 - **Workspace state:** Current-line preparation lives in
-  `/home/kaifaty/Documents/NextEngine-r7de-integration` on
-  `codex/r7de-integration`; frozen `ce2df7a…` remains the R7c evidence candidate.
+  `/home/kaifaty/.codex/worktrees/r7de-port/NextEngine` on `codex/r7de-port`;
+  the separate `codex/r7c-active-kernel-authority` worktree remains the frozen
+  performance evidence candidate.
 - **Checks:** Retained application/verification/product evidence passes;
   current integration adds fmt, package `22/22`, xtask-bin `45/45`, locked
   offline metadata and strict Clippy `PASS`.
