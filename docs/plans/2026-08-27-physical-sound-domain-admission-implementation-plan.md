@@ -497,6 +497,20 @@ mode and cross-check its Bempp field with the repository cooker before any
 fresh REALIMPACT access. See the [independent-control
 evidence](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md).
 
+The next surface-mode package now passes too. Final Bempp V3 report
+`e8e1d4d5…6437` evaluates the analytical quadrupole across three `ka`, three
+radii and 22 directions; its 512-panel field has `4.5546%` maximum
+peak-normalized error, `1.293e-6` nodal leakage, `0.9999978` minimum
+directional correlation and `0.2713` refinement ratio. The repository
+outgoing-multipole cooker fits only seven near-field directions and predicts
+132 held far-field conditions. Report `054901ee…f871` repeats byte-identically,
+places at least `99.9907%` coefficient energy in degree two and limits held
+peak-normalized error to `0.7856%`. This closes one axisymmetric synthetic
+representation prerequisite, not non-spherical geometry, FEM coupling or real
+3D transfer. Next freeze a genuinely non-spherical closed-mesh prescribed mode
+and require Bempp mesh convergence plus cooker transfer before fresh REALIMPACT
+access. See the [surface-mode evidence](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:

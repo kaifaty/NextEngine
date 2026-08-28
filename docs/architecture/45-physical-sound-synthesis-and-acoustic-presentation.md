@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.38 |
+| Version | 0.39 |
 | Last verified | 2026-08-28 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [PS-2 YCB vertical reject-parent expansion](../development/physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Blue Bowl cross-tier E2 increment](../development/physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [PS-2 REALIMPACT Shell Plate bounded-range E2 pilot](../development/physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md), [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Skull Cup bounded-range E2 pilot](../development/physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md), [PS-2 SoundPacks Glass E3 and split audit](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md), [PS-2 Kronland reject expansion and split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [PS-2 exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [PS-2 internet-source feasibility and transfer route](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [PS-2 REALIMPACT transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [PS-2 REALIMPACT vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [PS-2 REALIMPACT shape-conditioned spatial calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT frequency-conditioned spatial calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT modal-radiation representation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [PS-2 analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md) |
-| Replaces | SPEC-45 0.37; records a convergent independent Bempp analytical sphere control and limits its credit before a non-spherical surface-mode target exists |
-| Latest evidence | [PS-2 independent Bempp analytical control](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md) |
+| Replaces | SPEC-45 0.38; records a convergent quadrupole surface-mode field and repository near-to-far cooker while retaining the non-spherical-geometry and real-data blocks |
+| Latest evidence | [PS-2 Bempp quadrupole surface mode and Rust cooker](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md) |
 
 ## Status and decision boundary
 
@@ -547,6 +547,21 @@ byte-identical at `ba638a21…01f1`. Credit is limited to a pinned analytical
 sphere oracle. Before fresh REALIMPACT access, freeze one non-spherical
 prescribed surface mode and require the repository cooker to reproduce its
 near/far directional field.
+
+That directional surface-mode checkpoint now passes without real-data access.
+The final V3 protocol applies `P2(cos(theta))` through a radial pullback on
+`128/512`-panel spheres, covers 22 directions including exact nodes, and
+repeats at report `e8e1d4d5…6437`. Fine maximum peak-normalized error is
+`4.5546%`, nodal leakage `1.293e-6`, directional correlation `0.9999978` and
+fine/coarse ratio `0.2713`; all frozen field gates pass. A repository-owned
+order-three outgoing-multipole cooker then fits seven directions only at
+`1.5a` and predicts all 22 directions at `3a/10a`. Its repeated report
+`054901ee…f871` concentrates at least `99.9907%` coefficient energy in degree
+two and reaches `0.7856%` maximum held peak-normalized error. Credit is limited
+to one analytical axisymmetric surface-mode class. Before fresh REALIMPACT
+access, freeze one genuinely non-spherical closed mesh, require coarse/fine
+Bempp field agreement and cross-check the same cooker boundary. FEM coupling,
+real 3D transfer, quality, admission and runtime remain blocked.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

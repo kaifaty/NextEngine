@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_INDEPENDENT_BEMPP_ANALYTICAL_CONTROL_SUPPORTED / ALL_SEVEN_GATES_PASS / BYTE_IDENTICAL_REPEAT / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / NONSPHERICAL_SURFACE_MODE_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_QUADRUPOLE_SURFACE_MODE_COOKER_SUPPORTED / ALL_FROZEN_FIELD_AND_COOKER_GATES_PASS / BYTE_IDENTICAL_REPEATS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / NONSPHERICAL_CLOSED_MESH_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,17 +10,17 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Independent Bempp-cl Galerkin/singular treatment
-  passes the analytical sphere: fine max error `1.2710%`, refinement `0.2625x`,
-  all seven gates and byte-identical repeat. Credit is sphere-only.
+- **Current conclusion:** Bempp V3 passes a directional analytical quadrupole;
+  the Rust cooker fitted at `1.5a` predicts 132 held `3a/10a` conditions with
+  `0.7856%` maximum peak-normalized error. Both reports repeat exactly.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Freeze one synthetic non-spherical prescribed surface mode,
-  publish its independent Bempp near/far field and cross-check the repository
-  cooker. Access no new REALIMPACT payload.
-- **Current blocker:** A converged sphere oracle exists, but non-spherical mode
-  coupling, FEM eigenmodes and real transfer remain unproven.
+- **Next action:** Freeze one genuinely non-spherical closed mesh with a
+  prescribed surface mode; require coarse/fine Bempp and cooker agreement.
+  Access no new REALIMPACT payload.
+- **Current blocker:** Axisymmetric spherical modes now work, but non-spherical
+  geometry, FEM eigenmode coupling and real 3D transfer remain unproven.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -53,7 +53,7 @@
 | [REALIMPACT modal-radiation representation diagnostic](../physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md) and reports `7cbf7c59…f25` | `COMPLEX_MULTIPOLE_REPRESENTATION_REJECTED / BYTE_IDENTICAL_REPEAT / NO_FRESH_DATA_OPENED` | Order-3 axisymmetric complex multipoles pass `14/14` absolute gates but lose all comparison gates: median ratio `1.2506`, max `2.0861`, p90 `+7.2513 dB`, improved fraction `0.3482`. Do not raise order on opened rows; prove a classical surface-mode/BEM target first. |
 | [Analytical boundary-solver control](../physical-sound-bem-analytical-control-ps2-2026-08-28.md) and reports `6f74a309…a689` | `CLASSICAL_BOUNDARY_SOLVER_ANALYTICAL_CONTROL_REJECTED / FOUR_OF_FIVE_NUMERIC_GATES_PASS / BYTE_IDENTICAL_REPEAT` | The 320-panel sphere stays within `2.1251%`, `0.1827 dB`, `0.2993°` and `0.0002 dB` direction span, but median error is `2.8589x` the 80-panel result. Preserve the harness; diagnose convergence synthetically before BEM/FFAT oracle credit. |
 | [BEM panel-quadrature discriminator](../physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md) and reports `7460750e…b48d` | `SEVEN_POINT_PANEL_QUADRATURE_HYPOTHESIS_REJECTED / V1_REPORT_PRESERVED / BYTE_IDENTICAL_REPEAT` | Fine median error is `1.0447x` control and fine/coarse ratio is `2.6109`; ordinary higher regular-panel quadrature is not the missing control. Escalate to independent Galerkin/singular treatment. |
-| [Independent Bempp analytical control](../physical-sound-bempp-independent-control-ps2-2026-08-28.md) and reports `ba638a21…01f1` | `INDEPENDENT_BEMPP_ANALYTICAL_CONTROL_SUPPORTED / ALL_SEVEN_GATES_PASS / BYTE_IDENTICAL_REPEAT` | On 512 panels max complex error is `1.2710%`, magnitude `0.1111 dB`, phase `0.4844°`, direction span `0.0074 dB`, refinement `0.2625x`; six GMRES solves pass. Credit is analytical sphere only. |
+| [Independent Bempp sphere](../physical-sound-bempp-independent-control-ps2-2026-08-28.md) and [quadrupole surface-mode cooker](../physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), reports `ba638a21…01f1` / `e8e1d4d5…6437` / `054901ee…f871` | `QUADRUPOLE_SURFACE_MODE_AND_OUTGOING_MULTIPOLE_COOKER_SUPPORTED / BYTE_IDENTICAL_REPEATS` | The independent solver converges from monopole to directional `P2`; final V3 covers intended active/nodal rows. Rust fits seven `1.5a` directions and predicts 132 held `3a/10a` conditions with `0.7856%` max error and `99.9907%` minimum degree-2 energy. Credit remains synthetic and spherical. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -164,9 +164,9 @@ resume-critical consequences are:
   gate closes zero V1 blockers. REALIMPACT V2 supports relative modal/damping;
   the RBF is only a narrow conditional pilot after fixed, bbox/frequency and
   complex-multipole generalization failures.
-- **Uncertainty:** Converged classical surface-mode/BEM feasibility, angle/distance/3D
-  radiation, material identity and every exact-domain admission claim remain
-  unevaluated or unsupported.
+- **Uncertainty:** Non-spherical closed-mesh convergence, FEM mode coupling,
+  real angle/distance/3D radiation, material identity and every exact-domain
+  admission claim remain unevaluated or unsupported.
 - **Reconsider when:** Only an explicit product-owner reversal permits local
   capture; validator simplification still requires equal bounded risk/coverage.
 
@@ -179,7 +179,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects and claim/source gates exist; independent Bempp sphere field converges and passes all controls | No non-spherical surface mode, real 3D transfer or calibrated shadow risk exists | Cross-check one frozen non-spherical Bempp mode field before fresh real-data validation |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects and claim/source gates exist; independent Bempp quadrupole and Rust near-to-far cooker pass frozen controls | No genuinely non-spherical geometry, real 3D transfer or calibrated shadow risk exists | Cross-check one frozen non-spherical closed-mesh mode before fresh real-data validation |
 
 ## Required context
 
@@ -227,16 +227,14 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Registry V1, PS-1, PS-2 plan/`E1`, eight-project E3,
-  explicit roles, five typed E2 rows, a verified project split, executable
-  exact-domain/source gates, V1/V2 transfer calibration, narrow spatial pilot,
-  repeated empirical-representation rejections and a converged independent
-  analytical sphere control exist; public schemas/assets/ownership are unchanged.
-- **Checks:** independent reports repeat at `ba638a21…01f1`; all seven gates
-  pass, no fresh data opens and holdouts remain sealed. Final checks are in the
-  handoff.
-- **Remaining risk:** eight exact-domain claims, converged BEM/3D transfer,
-  calibrated domain/OOD/shadow risk, contact sufficiency, mixer cost and
+- **Workspace state:** Registry V1, PS-1, PS-2 corpus/evidence paths, repeated
+  empirical rejections, a converged independent sphere/quadrupole solver and a
+  Rust near-to-far cooker exist; public schemas/assets/ownership are unchanged.
+- **Checks:** Bempp report `e8e1d4d5…6437` and cooker report
+  `054901ee…f871` repeat; all frozen gates pass, no fresh data opens and
+  holdouts remain sealed. Final checks are in the handoff.
+- **Remaining risk:** eight exact-domain claims, non-spherical/FEM/real 3D
+  transfer, calibrated OOD/shadow risk, contact sufficiency, mixer cost and
   authoring are open.
 - **Quality status:** V2 supports relative modal/damping extractor transfer;
   the RBF supports only a narrow pilot; wider kernels and compact multipoles
