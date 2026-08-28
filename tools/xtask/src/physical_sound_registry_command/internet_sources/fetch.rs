@@ -15,6 +15,7 @@ use super::{
 
 mod figshare;
 mod freesound;
+mod kronland;
 mod mediafire;
 mod osf;
 mod soundpacks;
@@ -311,6 +312,9 @@ fn fetch_normalized_artifact(
     let normalized = match policy {
         FetchNormalizationPolicy::FreesoundPackIdentityV1 => {
             freesound::normalize_pack_identity(url, &raw)?
+        }
+        FetchNormalizationPolicy::KronlandMaterialPageIdentityV1 => {
+            kronland::normalize_material_page_identity(url, &raw)?
         }
         FetchNormalizationPolicy::SoundpacksGlassRecordingsIdentityV1 => {
             soundpacks::normalize_glass_recordings_identity(url, &raw)?

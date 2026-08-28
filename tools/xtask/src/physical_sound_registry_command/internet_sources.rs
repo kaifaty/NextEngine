@@ -185,6 +185,7 @@ enum FetchRedirectPolicy {
 #[serde(rename_all = "snake_case")]
 enum FetchNormalizationPolicy {
     FreesoundPackIdentityV1,
+    KronlandMaterialPageIdentityV1,
     SoundpacksGlassRecordingsIdentityV1,
 }
 
@@ -192,6 +193,7 @@ impl FetchNormalizationPolicy {
     const fn as_str(self) -> &'static str {
         match self {
             Self::FreesoundPackIdentityV1 => "freesound_pack_identity_v1",
+            Self::KronlandMaterialPageIdentityV1 => "kronland_material_page_identity_v1",
             Self::SoundpacksGlassRecordingsIdentityV1 => "soundpacks_glass_recordings_identity_v1",
         }
     }

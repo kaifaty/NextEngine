@@ -5,8 +5,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    ArtifactRole, CacheStatus, EvidenceCapability, InternetSource, RemoteArtifact,
-    cache_artifact_path,
+    ArtifactRole, CacheStatus, EvidenceCapability, FetchNormalizationPolicy, InternetSource,
+    RemoteArtifact, cache_artifact_path,
 };
 
 pub(super) mod freesound_glass_bowl;

@@ -2,10 +2,10 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_AGGREGATE_E3_COVERAGE_COMPLETE / GLASS_16_OF_16 / REJECT_PARENTS_38_OF_35 / SPLIT_INFEASIBLE_3_OF_4_REJECT_PROJECTS / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_PROJECT_SPLIT_FROZEN / GLASS_16_OF_16 / REJECT_PARENTS_48_OF_35 / FOUR_PARTITIONS_ROLE_COMPLETE / DOMAIN_AXIS_CLOSURE_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [SoundPacks Glass E3 and split audit](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [SoundPacks Glass E3 and split-feasibility audit](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md) |
+| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [Kronland reject expansion and project split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Последний пакет | [Kronland reject expansion and project split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -95,7 +95,7 @@ frozen `ValidatorRelease`:
 ```mermaid
 flowchart LR
     PS0["PS-0 Foundation<br/>COMPLETE"] --> PS1["PS-1 Envelope specialist<br/>COMPLETE"]
-    PS1 --> PS2["PS-2 Corpus and risk policy<br/>COUNTS COMPLETE / SPLIT BLOCKED 3/4 REJECT PROJECTS"]
+    PS1 --> PS2["PS-2 Corpus and risk policy<br/>SPLIT FROZEN / DOMAIN AXES OPEN"]
     PS2 --> PS3["PS-3 Validator Release V1<br/>BLOCKED"]
     PS3 --> PS4["PS-4 AV-P0D autonomous search<br/>BLOCKED"]
     PS4 --> PS5["PS-5 Formula Base V1<br/>BLOCKED"]
@@ -110,7 +110,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / AGGREGATE_E3_COVERAGE_COMPLETE / GLASS_16_OF_16 / REJECT_PARENTS_38_OF_35 / SPLIT_INFEASIBLE_3_OF_4_REJECT_PROJECTS` | L | Power policy, `E1` import, bounded source/cache/archive handling and claim-scoped `E1`–`E4` accounting are executable. Eight projects validate 54 objects/125 E3 recordings; Glass reaches `16/16` and 46 recordings, reject parents `38/35` and 79. Five typed REALIMPACT E2 rows remain fallback-only. The deterministic `20/30/25/25` split audit finds only three reject-bearing projects for four partitions, so every entry stays `dev`. Next add at least one independent reject-bearing project and rerun the gate; local capture remains retired. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / PROJECT_SPLIT_FROZEN / GLASS_16_OF_16 / REJECT_PARENTS_48_OF_35 / FOUR_PARTITIONS_ROLE_COMPLETE / DOMAIN_AXIS_CLOSURE_OPEN` | L | Power policy, `E1` import, bounded source/cache/archive handling and claim-scoped `E1`–`E4` accounting are executable. Eight projects validate 64 objects/135 E3 recordings; Glass is `16/16` and 46 recordings, reject parents `48/35` and 89. The deterministic `20/30/25/25` project split is hash-closed as `2/2/2/2`, with target and reject evidence in every partition. Five typed REALIMPACT E2 rows remain fallback-only. Next construct the exact-domain claim matrix; missing geometry/support/excitation/listener axes still block PS-3 and `Pass`. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -406,6 +406,26 @@ therefore remains in `dev`; `Pass`, PS-3 and AV-P0D stay disabled. The next
 Package 3 increment is at least one independent reject-bearing project, not
 more target-only Glass. See the [SoundPacks and split evidence](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md).
 
+PS-2 project-split checkpoint: the official Kronland page also publishes five
+numbered Wood originals and five numbered Metal originals. The expanded typed
+adapter grants only object/material/real-recording identity, and a stable page
+projection excludes rotating WordPress state while preserving all original,
+synthesized and tuned track bindings. Two online caches and one offline replay
+repeat byte-identically; the legacy five-Glass report is unchanged. The
+combined E3 corpus is eight projects, 64 objects and 135 recordings; Glass
+remains `16/16` and 46 recordings, while reject parents reach `48/35` and 89.
+Kronland becomes the fourth dual-role project, closing the prior feasibility
+blocker.
+
+`physical-sound-registry split-freeze` now binds the corpus, feasibility and
+plan hashes, applies the frozen seed with bounded deterministic backtracking,
+and assigns two whole projects to each partition. Two post-split corpus audits
+and two entry-level verifications repeat byte-identically. Every partition has
+target and reject evidence; `dev/calibration/holdout/shadow` contain
+`30/6/12/16` objects and `70/20/27/18` recordings. This is split evidence only:
+domain-axis closure, calibrated selective risk, sealed shadow evaluation,
+`Pass`, PS-3 and AV-P0D remain open. See the [Kronland/split evidence](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -547,7 +567,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization through AV-MSF/YCB/Heller/two-Freesound/ObjectFolder-Real-demo/Kronland/SoundPacks, explicit roles, balanced YCB vertical reject expansion, five REALIMPACT E2 rows, bounded negative source discriminators and deterministic split-feasibility audit — `GLASS_16_OF_16 / REJECT_PARENTS_38_OF_35 / PROJECT_SPLIT_INFEASIBLE_3_OF_4_REJECT_PROJECTS`; next add at least one independent reject-bearing project and rerun the split gate | PS-2 project-disjoint split readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization through AV-MSF/YCB/Heller/two-Freesound/ObjectFolder-Real-demo/Kronland/SoundPacks, explicit roles, five REALIMPACT E2 rows, bounded negative source discriminators and deterministic split freeze — `GLASS_16_OF_16 / REJECT_PARENTS_48_OF_35 / PROJECT_DISJOINT_SPLIT_VERIFIED`; next build an exact-domain E2/E3 claim matrix without moving frozen partitions | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 

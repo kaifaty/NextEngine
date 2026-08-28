@@ -13,6 +13,7 @@ mod corpus_plan;
 mod internet_sources;
 mod realimpact_row;
 mod split_feasibility;
+mod split_freeze;
 
 const MANIFEST_SCHEMA: &str =
     "nextengine.experimental-physical-sound-research-registry.manifest.v1";
@@ -80,6 +81,10 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         Some("split-feasibility") => {
             arguments.next();
             return split_feasibility::run_cli(root, arguments);
+        }
+        Some("split-freeze") => {
+            arguments.next();
+            return split_freeze::run_cli(root, arguments);
         }
         _ => {}
     }
