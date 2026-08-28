@@ -452,6 +452,18 @@ representation success may authorize fresh validation and an offline
 surface-mode plus PAT/BEM-style cooker. See the [frequency-calibration
 evidence](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md).
 
+The complex representation diagnostic is complete and rejected too. Manifest
+`686c1d42…0ff` freezes fourteen already-open blocks before complex modal
+responses are inspected. An order-three axisymmetric outgoing multipole basis
+passes `14/14` absolute condition gates but loses median `1.2506x`, maximum
+`2.0861x`, p90 `+7.2513 dB` and improved fraction `0.3482`; reports repeat at
+`7cbf7c59…f25`. No fresh data opens. Do not raise empirical basis order on
+these rows. The next bounded package freezes one analytical synthetic fixture
+and exact external solver revision, then requires repeated classical modal
+analysis plus BEM/FFAT output before neural acceleration or REALIMPACT
+validation. See the [modal-radiation
+evidence](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:

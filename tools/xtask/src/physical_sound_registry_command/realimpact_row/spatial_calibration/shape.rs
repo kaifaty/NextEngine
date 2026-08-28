@@ -54,6 +54,9 @@ pub(in crate::physical_sound_registry_command) fn run_cli(
         ("physical-sound-realimpact-frequency-conditioned-vertical", "calibration") => {
             run_frequency_calibration(root, &manifest, &output)
         }
+        ("physical-sound-realimpact-complex-modal-radiation", "development") => {
+            run_radiation_development(root, &manifest, &output)
+        }
         (study, phase) => Err(format!(
             "unsupported spatial-shape study/phase: {study}/{phase}"
         )),
@@ -106,6 +109,24 @@ fn run_frequency_calibration(
         "REALIMPACT frequency-spatial calibration manifest",
     )?;
     frequency::run_calibration(root, &path, &bytes, output_argument)
+}
+
+fn run_radiation_development(
+    root: &Path,
+    manifest_argument: &Path,
+    output_argument: &Path,
+) -> Result<(), String> {
+    let path = canonical_external_file(
+        root,
+        &resolve_cli_path(root, manifest_argument),
+        "REALIMPACT modal-radiation development manifest",
+    )?;
+    let bytes = read_bounded_file(
+        &path,
+        16 * 1024 * 1024,
+        "REALIMPACT modal-radiation development manifest",
+    )?;
+    frequency::run_radiation_development(root, &path, &bytes, output_argument)
 }
 
 fn read_ref(root: &Path, base: &Path, reference: &manifest::FileRef) -> Result<Vec<u8>, String> {
