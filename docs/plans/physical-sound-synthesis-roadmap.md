@@ -2,11 +2,11 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / BYTE_IDENTICAL_AUDIT / PLANTER_AUDIO_SEALED / CERAMIC_CUP_OBSERVATION_PROTOCOL_NEXT / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / CERAMIC_CUP_DISCOVERY_PREFLIGHT_SUPPORTED / TWO_NONPAYLOAD_REQUESTS_AUTHORIZED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Актуальное evidence | [PS-2 REALIMPACT Pitcher causal audit](../development/physical-sound-pitcher-causal-audit-ps2-2026-08-28.md) |
+| Актуальное evidence | [PS-2 REALIMPACT Ceramic Cup discovery preflight](../development/physical-sound-realimpact-ceramic-cup-discovery-preflight-ps2-2026-08-28.md) |
 | Текущий evidence | [PS-2 Bempp quadrupole surface mode and Rust cooker](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), [PS-2 independent Bempp analytical control](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md), [BEM panel-quadrature discriminator](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md), [analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [REALIMPACT modal-radiation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [Pitcher causal audit](../development/physical-sound-pitcher-causal-audit-ps2-2026-08-28.md) |
+| Последний пакет | [Ceramic Cup observation discovery preflight](../development/physical-sound-realimpact-ceramic-cup-discovery-preflight-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -111,7 +111,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / BYTE_IDENTICAL_AUDIT / PLANTER_AUDIO_SEALED / CERAMIC_CUP_OBSERVATION_PROTOCOL_NEXT / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | Parent `8bd5323c…1aea` rejects the combined protocol. Audit `68c79a37…5a57` reuses the prior V2 thresholds and fails observation decay `0.4375 < 0.50`; `11/16` peaks are below `500 Hz`. Freeze `78_CeramicCup` and run observation admission before any new mechanics comparison; do not open Planter. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / CERAMIC_CUP_DISCOVERY_PREFLIGHT_SUPPORTED / TWO_NONPAYLOAD_REQUESTS_AUTHORIZED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | Parent `8bd5323c…1aea` rejects the combined protocol; audit `68c79a37…5a57` exposes observation failure. Manifest `cf2b72ee…a6a9` and preflight `5fa54efe…17ee` now authorize only one ZIP-tail and one fixed local-header request for unopened `78_CeramicCup`. Audit that cache, then freeze observation access before physics; do not open Planter. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -735,6 +735,15 @@ combined-protocol rejection, but do not uniquely blame mechanics. The next
 package freezes official unopened `78_CeramicCup` and runs complete observation
 admission before any scalar/shell/volume comparison. See the [causal-audit evidence](../development/physical-sound-pitcher-causal-audit-ps2-2026-08-28.md).
 
+PS-2 Ceramic Cup discovery-preflight checkpoint: manifest
+`cf2b72ee…a6a9` binds official unopened development object `78_CeramicCup`,
+archive HTTP identity, runner `3a574c6e…2f74`, one exact `65536`-byte ZIP-tail
+range, one exact `30`-byte audio local header and at most two HTTPS requests.
+Preflight A/B repeats at `5fa54efe…17ee` with zero network and payload bytes.
+Only this discovery is authorized next; metadata, geometry, audio and Planter
+remain prohibited until cached audit and a separate manifest. See the
+[discovery-preflight evidence](../development/physical-sound-realimpact-ceramic-cup-discovery-preflight-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -876,7 +885,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / BYTE_IDENTICAL_AUDIT / PLANTER_AUDIO_SEALED / CERAMIC_CUP_OBSERVATION_PROTOCOL_NEXT / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next freeze `78_CeramicCup` and admit observation before physics | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / CERAMIC_CUP_DISCOVERY_PREFLIGHT_SUPPORTED / TWO_NONPAYLOAD_REQUESTS_AUTHORIZED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next execute/cache-audit discovery, then freeze observation before physics | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
