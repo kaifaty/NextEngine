@@ -543,6 +543,21 @@ calibration—including payload identities, split, candidate, controls, gates
 and fallback—before opening any reserved REALIMPACT row. See the [FEM/Bempp
 evidence](../development/physical-sound-fem-eigenmode-bempp-cooker-ps2-2026-08-28.md).
 
+That preregistration package is complete without reserved audio access.
+Manifest `5be5f195…e576` assigns `65_PitcherCeramic` to calibration and
+`63_SmallPlanterCeramic` to one-shot holdout by their frozen hash order. It
+binds exact archive/mesh/audio identities, geometry-only preflight, a
+cotangent-biharmonic surface proxy through Bempp/full-angular cooking, fixed
+RBF and constant controls, `90` anchor and `510` held 3D listener positions,
+conjunctive gates and per-mode/object fallback. The repository command
+`physical-sound-registry realimpact-transfer-preregister` reads only the
+manifest and eight hash-closed JSON prerequisites. Two reports repeat at
+`c2f51cff…01ef` with zero network requests and zero reserved payload bytes.
+This is an immutable protocol/open-order checkpoint, not transfer evidence.
+The following bounded package implements and repeats the geometry-only
+preflight; it must stop before Pitcher audio if either mesh/setup gate fails.
+See the [preregistration evidence](../development/physical-sound-realimpact-geometry-spatial-transfer-preregistration-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:

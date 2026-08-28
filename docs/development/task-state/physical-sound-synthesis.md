@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_ELASTIC_FEM_BEMPP_COOKER_SUPPORTED / COARSE_FEM_PROTOCOL_REJECTED / BYTE_IDENTICAL_REPEATS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / FRESH_OBJECT_DISJOINT_SPATIAL_TRANSFER_PREREGISTRATION_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_REAL_SPATIAL_TRANSFER_PROTOCOL_FROZEN / BYTE_IDENTICAL_REPEATS / RESERVED_AUDIO_BYTES_ZERO / PITCHER_CALIBRATION_SEALED / PLANTER_ONE_SHOT_HOLDOUT_SEALED / GEOMETRY_PREFLIGHT_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,18 +10,16 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** One synthetic non-axisymmetric elastic FEM eigenmode
-  now converges into Bempp. The unchanged full-near-shell cooker rejects
-  `m=0`, selects degree 2 and predicts 112 held `4L/10L` conditions with
-  `3.0975%` maximum error. Reports repeat exactly.
+- **Current conclusion:** Manifest `5be5f195…e576` now freezes the first fresh
+  real spatial-transfer protocol. Reports repeat at `c2f51cff…01ef` with zero
+  reserved audio bytes; this grants protocol/open-order credit only.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Freeze a fresh object-disjoint REALIMPACT spatial-transfer
-  protocol—payload identities, split, candidate, controls, gates and fallback—
-  before opening any reserved row.
-- **Current blocker:** Synthetic FEM coupling works, but real 3D transfer and
-  every exact-domain admission claim remain unproven.
+- **Next action:** Implement and repeat the frozen geometry-only `8192/2048`
+  face preflight; fail to clip fallback before Pitcher audio on any setup gate.
+- **Current blocker:** Geometry preflight, real 3D transfer and every
+  exact-domain admission claim remain unproven.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -55,6 +53,7 @@
 | [Analytical boundary-solver control](../physical-sound-bem-analytical-control-ps2-2026-08-28.md) and reports `6f74a309…a689` | `CLASSICAL_BOUNDARY_SOLVER_ANALYTICAL_CONTROL_REJECTED / FOUR_OF_FIVE_NUMERIC_GATES_PASS / BYTE_IDENTICAL_REPEAT` | The 320-panel sphere stays within `2.1251%`, `0.1827 dB`, `0.2993°` and `0.0002 dB` direction span, but median error is `2.8589x` the 80-panel result. Preserve the harness; diagnose convergence synthetically before BEM/FFAT oracle credit. |
 | [BEM panel-quadrature discriminator](../physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md) and reports `7460750e…b48d` | `SEVEN_POINT_PANEL_QUADRATURE_HYPOTHESIS_REJECTED / V1_REPORT_PRESERVED / BYTE_IDENTICAL_REPEAT` | Fine median error is `1.0447x` control and fine/coarse ratio is `2.6109`; ordinary higher regular-panel quadrature is not the missing control. Escalate to independent Galerkin/singular treatment. |
 | [Triaxial prescribed-mode evidence](../physical-sound-bempp-triaxial-full-angular-cooker-ps2-2026-08-28.md) and [elastic FEM/Bempp evidence](../physical-sound-fem-eigenmode-bempp-cooker-ps2-2026-08-28.md), reports `a58f28b9…90ef` / `a71515fa…a667` / `c3101130…b476` | `ELASTIC_FEM_MODE_TO_BEMPP_SUPPORTED / FULL_ANGULAR_NEAR_TO_FAR_COOKER_SUPPORTED / COARSE_PROTOCOL_REJECTED / BYTE_IDENTICAL_REPEATS` | Coarse FEM is an immutable negative. The refined `128/512/2048` schedule passes all 16 FEM/Bempp gates; the cooker rejects `m=0` and selects degree 2 at `0.030975` max error across 112 held far conditions. Credit remains synthetic only. |
+| [REALIMPACT geometry-spatial-transfer preregistration](../physical-sound-realimpact-geometry-spatial-transfer-preregistration-ps2-2026-08-28.md), report `c2f51cff…01ef` | `REAL_SPATIAL_TRANSFER_PROTOCOL_FROZEN / RESERVED_AUDIO_BYTES_ZERO / BYTE_IDENTICAL_REPEATS` | Pitcher calibration and Planter one-shot holdout, payload identities, `90/510` 3D split, geometry-spectral Bempp/cooker candidate, controls, gates and fallback are immutable. Next run geometry-only preflight; no real-transfer credit exists. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -179,7 +178,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects and claim/source gates exist; elastic FEM→Bempp and full-angular near-to-far cooker pass frozen controls | No real 3D transfer or calibrated shadow risk exists | Preregister one fresh object-disjoint real spatial-transfer calibration before payload access |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects, claim/source gates, elastic FEM→Bempp/full-angular controls and a sealed real-transfer protocol exist | No geometry preflight, measured real 3D transfer or calibrated shadow risk exists | Repeat geometry-only preflight before any Pitcher calibration payload |
 
 ## Required context
 
@@ -199,7 +198,8 @@ Read these sources in precedence order before acting:
    subjective quality or P1 evidence.
 2. Preserve PS-2, transfer-V1/V2 and all spatial rejection hashes. Never retune
    empirical spatial bases on opened data. Preserve the converged elastic FEM/
-   BEM hashes; preregister the fresh real spatial-transfer split before access.
+   BEM hashes and frozen real-transfer protocol; run geometry-only preflight
+   before any Pitcher calibration access.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
@@ -230,9 +230,9 @@ Read these sources in precedence order before acting:
 - **Workspace state:** Registry V1, PS-1, PS-2 corpus/evidence paths, repeated
   empirical rejections, converged elastic FEM→Bempp and a full-angular Rust
   near-to-far cooker exist; public schemas/assets/ownership are unchanged.
-- **Checks:** Coarse FEM reject `a58f28b9…90ef`, refined FEM/Bempp pass
-  `a71515fa…a667` and cooker pass `c3101130…b476` repeat; historical cooker
-  hashes remain exact. No fresh data opens and holdouts remain sealed.
+- **Checks:** Preregistration manifest `5be5f195…e576` and report
+  `c2f51cff…01ef` repeat with zero reserved audio bytes; prior FEM/Bempp/cooker
+  hashes remain exact. Pitcher and Planter payloads remain sealed.
 - **Remaining risk:** eight exact-domain claims, real 3D transfer, calibrated
   OOD/shadow risk, contact sufficiency, mixer cost and authoring are open.
 - **Quality status:** V2 supports relative modal/damping extractor transfer;
