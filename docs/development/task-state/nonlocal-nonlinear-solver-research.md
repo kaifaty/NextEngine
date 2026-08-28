@@ -6689,7 +6689,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Decision:** freeze R63ZL as a new API/work-boundary experiment. A
   private-constructor/no-mutator tangent context is created after one direct
   ten-predicate admission and one full payload hash. Six products accept only
-  that type and return typed work owning all kernel arithmetic and hashes. Six
+  that type and return typed work owning all kernel arithmetic and hashes.
+  Pre-review audit found `417` legacy dot calls per product each execute two
+  guards and three unused witness-root paths; revision 2 preserves their exact
+  arithmetic but removes those unconsumed roots from the admitted path and
+  counts all `5004` guards/`7506` roots in the separate legacy receipt. Six
   separately accounted legacy calls provide bit-exact reference outputs.
 - **Rejected:** a second R63ZK repair; a free `unchecked(fixture, input)`
   function after an unrelated boolean validation; trusting mutable

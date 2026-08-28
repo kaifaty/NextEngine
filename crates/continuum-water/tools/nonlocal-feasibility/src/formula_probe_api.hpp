@@ -1,7 +1,10 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace nextengine::nonlocal::fcr {
@@ -224,6 +227,135 @@ struct FormulaProbeParentFixture {
     std::string root;
 };
 
+struct FormulaProbeTangentAdmissionWork {
+    std::size_t predicate_checks = 0U;
+    std::size_t tangent_payload_hashes = 0U;
+    std::size_t frozen_scalar_parses = 0U;
+    std::size_t tangent_components_copied = 0U;
+    std::size_t context_root_derivations = 0U;
+    std::size_t receipt_root_derivations = 0U;
+    std::size_t result_root_derivations = 0U;
+    std::string root;
+};
+
+struct FormulaProbeAdmittedProductWork {
+    std::size_t input_guard_checks = 0U;
+    std::size_t kernel_calls = 0U;
+    std::size_t inner_dots = 0U;
+    std::size_t outer_dots = 0U;
+    std::size_t inner_terms = 0U;
+    std::size_t outer_terms = 0U;
+    std::size_t scale_products = 0U;
+    std::size_t kernel_root_derivations = 0U;
+    std::size_t receipt_root_derivations = 0U;
+    std::size_t result_root_derivations = 0U;
+    std::string root;
+};
+
+class FormulaProbeTangentAdmission;
+class FormulaProbeAdmittedProduct;
+
+class FormulaProbeAdmittedTangent final {
+public:
+    FormulaProbeAdmittedTangent(const FormulaProbeAdmittedTangent&) = default;
+    FormulaProbeAdmittedTangent(FormulaProbeAdmittedTangent&&) = delete;
+    FormulaProbeAdmittedTangent& operator=(
+        const FormulaProbeAdmittedTangent&) = delete;
+    FormulaProbeAdmittedTangent& operator=(
+        FormulaProbeAdmittedTangent&&) = delete;
+
+    std::size_t dimension() const noexcept;
+    std::size_t tangent_columns() const noexcept;
+    const std::string& tangent_root() const noexcept;
+    const std::string& context_root() const noexcept;
+
+private:
+    FormulaProbeAdmittedTangent(
+        std::size_t dimension, std::size_t tangent_columns,
+        std::shared_ptr<const std::vector<FormulaProbeBinary128>> tangent,
+        FormulaProbeBinary128 sigma, std::string tangent_root,
+        std::string context_root);
+
+    std::size_t dimension_ = 0U;
+    std::size_t tangent_columns_ = 0U;
+    std::shared_ptr<const std::vector<FormulaProbeBinary128>> tangent_;
+    FormulaProbeBinary128 sigma_ =
+        static_cast<FormulaProbeBinary128>(0.0);
+    std::string tangent_root_;
+    std::string context_root_;
+
+    friend FormulaProbeTangentAdmission formula_probe_admit_tangent(
+        const FormulaProbeParentFixture& fixture);
+    friend FormulaProbeAdmittedProduct formula_probe_admitted_tangent_product(
+        const FormulaProbeAdmittedTangent& context,
+        const std::vector<FormulaProbeBinary128>& input);
+};
+
+class FormulaProbeTangentAdmission final {
+public:
+    FormulaProbeTangentAdmission(const FormulaProbeTangentAdmission&) = default;
+    FormulaProbeTangentAdmission(FormulaProbeTangentAdmission&&) = delete;
+    FormulaProbeTangentAdmission& operator=(
+        const FormulaProbeTangentAdmission&) = delete;
+    FormulaProbeTangentAdmission& operator=(
+        FormulaProbeTangentAdmission&&) = delete;
+
+    bool exact() const noexcept;
+    bool has_context() const noexcept;
+    const std::string& failure_stage() const noexcept;
+    const FormulaProbeTangentAdmissionWork& work() const noexcept;
+    const FormulaProbeAdmittedTangent& context() const;
+    const std::string& root() const noexcept;
+
+private:
+    FormulaProbeTangentAdmission(bool exact, std::string failure_stage,
+        FormulaProbeTangentAdmissionWork work,
+        const std::optional<FormulaProbeAdmittedTangent>& context,
+        std::string root);
+
+    bool exact_ = false;
+    std::string failure_stage_;
+    FormulaProbeTangentAdmissionWork work_;
+    std::optional<FormulaProbeAdmittedTangent> context_;
+    std::string root_;
+
+    friend FormulaProbeTangentAdmission formula_probe_admit_tangent(
+        const FormulaProbeParentFixture& fixture);
+};
+
+class FormulaProbeAdmittedProduct final {
+public:
+    FormulaProbeAdmittedProduct(const FormulaProbeAdmittedProduct&) = default;
+    FormulaProbeAdmittedProduct(FormulaProbeAdmittedProduct&&) = delete;
+    FormulaProbeAdmittedProduct& operator=(
+        const FormulaProbeAdmittedProduct&) = delete;
+    FormulaProbeAdmittedProduct& operator=(
+        FormulaProbeAdmittedProduct&&) = delete;
+
+    bool exact() const noexcept;
+    const std::string& failure_stage() const noexcept;
+    const FormulaProbeProduct& product() const noexcept;
+    const FormulaProbeAdmittedProductWork& work() const noexcept;
+    const std::string& context_root() const noexcept;
+    const std::string& root() const noexcept;
+
+private:
+    FormulaProbeAdmittedProduct(bool exact, std::string failure_stage,
+        FormulaProbeProduct product, FormulaProbeAdmittedProductWork work,
+        std::string context_root, std::string root);
+
+    bool exact_ = false;
+    std::string failure_stage_;
+    FormulaProbeProduct product_;
+    FormulaProbeAdmittedProductWork work_;
+    std::string context_root_;
+    std::string root_;
+
+    friend FormulaProbeAdmittedProduct formula_probe_admitted_tangent_product(
+        const FormulaProbeAdmittedTangent& context,
+        const std::vector<FormulaProbeBinary128>& input);
+};
+
 struct FormulaProbeTwofoldOperator {
     bool exact = false;
     bool contained = false;
@@ -425,6 +557,11 @@ std::string formula_probe_certificate_set_root(
     const std::vector<FormulaProbeCertificate>& certificates);
 FormulaProbeProduct formula_probe_tangent_product(
     const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& input);
+FormulaProbeTangentAdmission formula_probe_admit_tangent(
+    const FormulaProbeParentFixture& fixture);
+FormulaProbeAdmittedProduct formula_probe_admitted_tangent_product(
+    const FormulaProbeAdmittedTangent& context,
     const std::vector<FormulaProbeBinary128>& input);
 FormulaProbeProduct formula_probe_common_product(
     const FormulaProbeParentFixture& fixture,

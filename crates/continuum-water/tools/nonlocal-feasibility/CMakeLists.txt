@@ -192,6 +192,18 @@ target_link_libraries(
     nonlocal-formula-independent-recurrence-checker-release
     PRIVATE nonlocal-formula-reclosure-core)
 
+add_executable(
+    nonlocal-formula-admitted-tangent-boundary-release
+    EXCLUDE_FROM_ALL
+    src/formula_admitted_tangent_boundary_main.cpp
+    src/formula_probe_cache.cpp
+)
+nextengine_configure_formula_reclosure_target(
+    nonlocal-formula-admitted-tangent-boundary-release -O3)
+target_link_libraries(
+    nonlocal-formula-admitted-tangent-boundary-release
+    PRIVATE nonlocal-formula-reclosure-core)
+
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
     "Build the strict-FP, compile-latency-oriented formula reclosure author target"
@@ -402,5 +414,20 @@ if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
         PRIVATE nonlocal-formula-reclosure-dev-core)
     target_compile_definitions(
         nonlocal-formula-independent-recurrence-checker-dev PRIVATE
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
+
+    add_executable(
+        nonlocal-formula-admitted-tangent-boundary-dev
+        EXCLUDE_FROM_ALL
+        src/formula_admitted_tangent_boundary_main.cpp
+        src/formula_probe_cache.cpp
+    )
+    nextengine_configure_formula_reclosure_target(
+        nonlocal-formula-admitted-tangent-boundary-dev -O0)
+    target_link_libraries(
+        nonlocal-formula-admitted-tangent-boundary-dev
+        PRIVATE nonlocal-formula-reclosure-dev-core)
+    target_compile_definitions(
+        nonlocal-formula-admitted-tangent-boundary-dev PRIVATE
             NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
 endif()

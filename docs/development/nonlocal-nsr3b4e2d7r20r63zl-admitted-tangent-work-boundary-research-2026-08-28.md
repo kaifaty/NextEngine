@@ -77,11 +77,16 @@ and cannot call `formula_probe_tangent_product`; it accepts only the admitted
 type and a vector.
 
 The product receipt explicitly owns its input guard, one numerical kernel,
-kernel dot/term/scale counts, the four kernel vector hashes, the kernel result
-hash, its receipt hash and its result hash. Six frozen inputs are evaluated by
-both the admitted and legacy paths and compared component-by-component. The
-legacy comparison work is separate and explicitly owns its six repeated
-payload validations and hashes.
+kernel dot/term/scale counts, the four final kernel vector hashes, the kernel
+result hash, its receipt hash and its result hash. Pre-review source audit also
+found that the legacy dot2 primitive derives three unused witness roots and
+checks two size guards on every one of `417` dots per product. Revision 2 keeps
+the same dot2 arithmetic in the admitted path but removes those unconsumed
+witness roots and relies on the admitted context/input size invariant. Six
+frozen inputs are evaluated by both paths and compared component-by-component.
+The legacy comparison work is separate and explicitly owns its six repeated
+payload validations/hashes, `36` kernel structural guards, `5004` nested dot
+guards and `7506` nested dot witness roots.
 
 The full scope and stop rules are frozen in the
 [R63ZL contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r20r63zl-admitted-tangent-work-boundary-contract.md).

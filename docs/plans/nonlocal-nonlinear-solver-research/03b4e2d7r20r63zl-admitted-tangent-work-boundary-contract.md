@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZL admitted tangent work-boundary contract
 
-Revision: `1`.
+Revision: `2`.
 
 | Field | Value |
 |---|---|
@@ -56,11 +56,12 @@ in order:
 9. sigma is finite;
 10. sigma is the exact reciprocal of the frozen inverse scale.
 
-The valid receipt owns `10` predicate checks, `1` tangent-payload hash,
-`32130` copied tangent components, `1` context-root derivation, `1` receipt-root
-derivation and `1` admission-result-root derivation. Failure stops at the first
-failed predicate, never constructs a context, never performs work after that
-stage, and still returns a sealed failure receipt/result.
+The valid receipt owns `10` predicate checks, `1` tangent-payload hash, `2`
+frozen binary128 constant parses, `32130` copied tangent components, `1`
+context-root derivation, `1` receipt-root derivation and `1`
+admission-result-root derivation. Failure stops at the first failed predicate,
+never constructs a context, never performs work after that stage, and still
+returns a sealed failure receipt/result.
 
 ## Product semantics and exact work
 
@@ -76,12 +77,15 @@ Use exactly six immutable fixture vectors, in this order:
 Each must contain `102` binary128 values. For each input, the admitted path:
 
 1. checks the input size once;
-2. invokes exactly one frozen `T(T^T x) * sigma` binary128 numerical kernel
-   without calling the legacy payload-validating wrapper;
+2. invokes exactly one `T(T^T x) * sigma` binary128 numerical kernel without
+   calling the legacy payload-validating wrapper; its dot arithmetic must stay
+   bit-identical to the frozen dot2 arithmetic but must not derive the unused
+   per-dot witness roots;
 3. owns the kernel's `315` inner dots, `102` outer dots, `32130` inner terms,
    `32130` outer terms and `102` scale products;
-4. owns the kernel's four vector-root derivations and one result-root
-   derivation;
+4. owns the kernel's four final vector-root derivations and one result-root
+   derivation; all `417` admitted dot calls execute with sizes established by
+   the admitted context/input guard and derive no per-dot witness roots;
 5. derives one typed product-receipt root and one admitted-result root.
 
 Across six admitted products the exact totals are `6` input guards, `6`
@@ -92,11 +96,12 @@ hash may execute after admission.
 
 Run the legacy wrapper on the same six inputs only as reference. Its distinct
 reference receipt owns `6` targeted tangent/scale validations, `60` predicate
-checks, `6` full tangent hashes, the same six numerical kernels and their `30`
-kernel root paths. Compare exact/product guards, all `612` binary128 output
-components, all numerical work fields and all six legacy product roots with
-the admitted outputs. The candidate receipt and reference receipt must never
-be merged.
+checks, `6` full tangent hashes, `12` frozen-scalar parses, the same six
+numerical kernels, `36` legacy kernel structural guards, `5004` nested dot
+guard checks, `7506` nested dot witness root paths and `30` final kernel root
+paths. Compare exact/product guards, all `612` binary128 output components, all
+numerical work fields and all six legacy product roots with the admitted
+outputs. The candidate receipt and reference receipt must never be merged.
 
 ## Checker and controls
 
@@ -127,9 +132,9 @@ receipts, controls, result sealing, Dev/Release determinism and legacy
 regressions pass, select `ADMITTED_TANGENT_WORK_BOUNDARY_CANDIDATE`.
 
 This permits only the claim that, for the frozen fixture and six frozen inputs,
-the admitted type removes five repeated full tangent validations/hashes from
-the candidate path while preserving bit-exact legacy products and exposing all
-remaining declared work.
+the admitted type removes five repeated full tangent validations/hashes and
+unused nested dot witness hashes from the candidate path while preserving
+bit-exact legacy products and exposing all remaining declared work.
 
 Admission failure selects `ADMITTED_TANGENT_ADMISSION_REJECTED`; product or
 semantic mismatch selects `ADMITTED_TANGENT_PRODUCT_REJECTED`; work mismatch
