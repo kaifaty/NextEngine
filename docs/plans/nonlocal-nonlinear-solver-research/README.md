@@ -4227,6 +4227,17 @@ bounded comparison of immutable once-admitted context versus compositional
 primitive receipts; portable representation and production work remain
 blocked.
 
+The bounded
+[R63ZL work-boundary research](../../development/nonlocal-nsr3b4e2d7r20r63zl-admitted-tangent-work-boundary-research-2026-08-28.md)
+selects a hybrid of one-time immutable admission and small typed product
+receipts. The frozen
+[contract](03b4e2d7r20r63zl-admitted-tangent-work-boundary-contract.md)
+requires one direct tangent/scale validation and payload hash, a
+private-constructor/no-mutator context, six admitted products with all kernel
+and hash paths owned, and a separately accounted six-call legacy reference.
+R63ZL is only an API/work-boundary experiment; it cannot revive the R63ZK
+correspondence claim or authorize representation, timing or production work.
+
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
 and
