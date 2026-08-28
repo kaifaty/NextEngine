@@ -11,7 +11,8 @@ use self::evidence::{
     publish_output, read_source_bundle,
 };
 use self::profiles::{
-    BLUE_BOWL_PROFILE_ID, FrozenProfile, GREEN_GOBLET_PROFILE_ID, frozen_profile,
+    BLUE_BOWL_PROFILE_ID, FrozenProfile, GREEN_GOBLET_PROFILE_ID, SHELL_PLATE_PROFILE_ID,
+    frozen_profile,
 };
 
 use super::internet_sources::resolve_public_https_endpoint;
@@ -87,7 +88,7 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
     }
     Ok(Request {
         profile: profile.ok_or_else(|| {
-            "physical-sound-registry realimpact-row requires --profile <green-goblet-row-0-v1|blue-bowl-row-0-v1>"
+            "physical-sound-registry realimpact-row requires --profile <green-goblet-row-0-v1|blue-bowl-row-0-v1|shell-plate-row-0-v1>"
                 .to_owned()
         })?,
         source_bundle: source_bundle.ok_or_else(|| {
@@ -909,6 +910,12 @@ mod tests {
                 .expect("Blue Bowl profile")
                 .dataset_object_id,
             "6_Bowl"
+        );
+        assert_eq!(
+            frozen_profile(SHELL_PLATE_PROFILE_ID)
+                .expect("Shell Plate profile")
+                .dataset_object_id,
+            "51_ShellPlate"
         );
         assert!(frozen_profile("arbitrary").is_err());
         assert!(parse_arguments(std::iter::empty()).is_err());

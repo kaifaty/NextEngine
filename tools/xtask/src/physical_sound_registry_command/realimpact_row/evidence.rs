@@ -103,7 +103,7 @@ pub(super) fn acquisition_metadata<'a>(
         },
         object: ObjectMetadata {
             dataset_object_id: profile.dataset_object_id,
-            material_label: "glass",
+            material_label: profile.material_family,
             mesh_entry: profile
                 .entries
                 .iter()
@@ -249,7 +249,7 @@ pub(super) fn inventory_manifest<'a>(
             partition: "dev",
             recording_kind: "controlled_real_force_deconvolved_transfer",
             domain_id: profile.domain_id,
-            material_family: "glass",
+            material_family: profile.material_family,
             object_family_id: profile.object_family_id,
             object_id: profile.object_id,
             source_id: "realimpact-fca2bd6cbb7e-archive-2023-04-10",
@@ -384,6 +384,40 @@ downloading the 2397750726-byte archive. The row's impact coordinate matches\n\
 mesh vertex 35950 exactly. Archive HTTP identity, central directory, entry\n\
 metadata, decoded members, row payload and normalized audition WAV are all\n\
 hash-closed.\n\n\
+The repository's MIT file applies to the published repository code. This review\n\
+does not infer matching redistribution permission for the recording archive;\n\
+all extracted bytes stay outside Git and are used only for local research.\n"
+        }
+        SHELL_PLATE_PROFILE_ID => {
+            "# REALIMPACT Shell Plate bounded-range provenance review\n\n\
+Status: development-only external E2 transfer pilot; corpus admission and\n\
+redistribution are not authorized.\n\n\
+Primary sources:\n\n\
+- https://samuelpclarke.com/realimpact/\n\
+- https://github.com/samuel-clarke/RealImpact\n\
+- https://jiajunwu.com/papers/realimpact_cvpr.pdf\n\
+- https://objectfolder.stanford.edu/objectfolder-real-download\n\
+- https://downloads.cs.stanford.edu/viscam/RealImpact/51_ShellPlate.zip\n\n\
+The REALIMPACT paper states that its 50 physical objects were purchased from\n\
+the ObjectFolder collection. The official ObjectFolder-Real table identifies\n\
+numeric object 51 as Fruit_Bowl / Glass; REALIMPACT publishes the same numeric\n\
+object under the alternate archive label 51_ShellPlate. The material family is\n\
+therefore bound to the official ObjectFolder label, while material composition\n\
+and revision remain unavailable.\n\n\
+The official preprocessing code converts the synchronized hammer trace to\n\
+newtons and deconvolves it from the 48 kHz microphone recordings. The published\n\
+archive contains the object mesh, impact/listener coordinates and a 3000 x\n\
+210424 float32 deconvolved transfer array. It does not contain the raw force\n\
+profile, material-composition revision, repeat identity or a versioned support\n\
+fixture, so the row remains fallback-only.\n\n\
+This acquisition reads the 1283-byte ZIP central directory, six small NPY\n\
+members, the compressed mesh and a fixed 1048576-byte prefix of the large raw-\n\
+deflate transfer member. The prefix yields the NPY header and row 0 without\n\
+downloading the 2342734004-byte archive. The row's impact coordinate matches\n\
+mesh vertex 15341 exactly. The mesh spans about 298 x 299 x 41 mm and is\n\
+geometrically distinct from the two goblets and Blue Bowl pilots. Archive HTTP\n\
+identity, central directory, entry metadata, decoded members, row payload and\n\
+normalized audition WAV are all hash-closed.\n\n\
 The repository's MIT file applies to the published repository code. This review\n\
 does not infer matching redistribution permission for the recording archive;\n\
 all extracted bytes stay outside Git and are used only for local research.\n"
