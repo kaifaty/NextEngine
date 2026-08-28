@@ -2,11 +2,11 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_PITCHER_CALIBRATION_PROTOCOL_FROZEN / EXACT_WELD_GEOMETRY_SUPPORTED / BYTE_IDENTICAL_PREREGISTRATION / RESERVED_AUDIO_BYTES_ZERO / BOUNDED_CALIBRATION_RUNNER_NEXT / PITCHER_AND_PLANTER_AUDIO_SEALED / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_PITCHER_RUNNER_PREFLIGHT_SUPPORTED / EXTRACTOR_PARITY_PROVEN / EXACT_RUST_SPATIAL_PROJECTOR_IMPLEMENTED / RESERVED_AUDIO_BYTES_ZERO / EXECUTION_MANIFEST_NEXT / PITCHER_AND_PLANTER_AUDIO_SEALED / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Актуальное evidence | [PS-2 REALIMPACT Pitcher calibration preregistration](../development/physical-sound-realimpact-pitcher-calibration-preregistration-ps2-2026-08-28.md) |
+| Актуальное evidence | [PS-2 REALIMPACT Pitcher runner preflight](../development/physical-sound-realimpact-pitcher-runner-preflight-ps2-2026-08-28.md) |
 | Текущий evidence | [PS-2 Bempp quadrupole surface mode and Rust cooker](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), [PS-2 independent Bempp analytical control](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md), [BEM panel-quadrature discriminator](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md), [analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [REALIMPACT modal-radiation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [Pitcher-only calibration preregistration](../development/physical-sound-realimpact-pitcher-calibration-preregistration-ps2-2026-08-28.md) |
+| Последний пакет | [Pitcher calibration runner preflight](../development/physical-sound-realimpact-pitcher-runner-preflight-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -111,7 +111,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_CALIBRATION_PROTOCOL_FROZEN / EXACT_WELD_GEOMETRY_SUPPORTED / BYTE_IDENTICAL_PREREGISTRATION / RESERVED_AUDIO_BYTES_ZERO / BOUNDED_CALIBRATION_RUNNER_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | Calibration manifest `c60621cc…4a7` and report `2ae1bc0b…9c72` bind the exact Pitcher block, 512 MiB prefix, decoder, mapping, solver, split, controls and stop-before-Planter fallback with zero audio. Next implement parity controls and execute the bounded Pitcher calibration; Planter remains sealed. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_RUNNER_PREFLIGHT_SUPPORTED / EXTRACTOR_PARITY_PROVEN / EXACT_RUST_SPATIAL_PROJECTOR_IMPLEMENTED / RESERVED_AUDIO_BYTES_ZERO / EXECUTION_MANIFEST_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | Fixture `2e3db2d3…5572` and preflight `6e60d71f…fd2d` repeat; Python/Rust extractor error is `3.03e-12`, geometry/mapping/split pass and the exact bound spatial projector exists. Next hash-close Bempp/cooker/acquisition execution details before the one Pitcher request. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -681,6 +681,18 @@ the single Pitcher request and repeat from its immutable cache. This package
 does not establish real transfer or open the one-shot holdout. See the
 [calibration preregistration evidence](../development/physical-sound-realimpact-pitcher-calibration-preregistration-ps2-2026-08-28.md).
 
+PS-2 Pitcher runner preflight checkpoint: the exact frozen Rust extractor emits
+fixture report `2e3db2d3…5572` and samples `c8316f81…0477` byte-identically.
+Python revision `cf93b1fc…6772` recovers all 16 modes with maximum absolute
+error `3.02336e-12`, validates the Pitcher geometry arrays, exercises the
+one-refit dynamic program and reproduces the `90/510` split. Its two reports
+repeat at `6e60d71f…fd2d`. A new Rust projection helper includes the exact
+bound spatial DSP and accepts only the future `600 × 230470` block. All runs
+read zero network and audio bytes; audio mode stays disabled. Next freeze the
+execution script/manifest including expansion origin, Bempp environment,
+direction source and staged acquisition/decode before the one prefix request.
+See the [runner evidence](../development/physical-sound-realimpact-pitcher-runner-preflight-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -822,7 +834,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `PITCHER_CALIBRATION_PROTOCOL_FROZEN / EXACT_WELD_GEOMETRY_SUPPORTED / RESERVED_AUDIO_BYTES_ZERO / BOUNDED_CALIBRATION_RUNNER_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next implement parity controls and execute the one-request Pitcher calibration while Planter stays sealed | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `PITCHER_RUNNER_PREFLIGHT_SUPPORTED / EXTRACTOR_PARITY_PROVEN / EXACT_RUST_SPATIAL_PROJECTOR_IMPLEMENTED / RESERVED_AUDIO_BYTES_ZERO / EXECUTION_MANIFEST_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next hash-close Bempp/cooker/acquisition execution and only then make the single Pitcher request | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
