@@ -113,6 +113,7 @@ pub enum RpgAggregateKindV1 {
     DivineStanding = 10,
     InteractiveObject = 11,
     Commitment = 12,
+    BodyCondition = 13,
 }
 
 impl RpgAggregateKindV1 {
@@ -130,6 +131,7 @@ impl RpgAggregateKindV1 {
             10 => Ok(Self::DivineStanding),
             11 => Ok(Self::InteractiveObject),
             12 => Ok(Self::Commitment),
+            13 => Ok(Self::BodyCondition),
             _ => Err(RpgContractErrorV1::UnknownAggregateKind(tag)),
         }
     }
@@ -305,6 +307,51 @@ pub struct CommitmentPayloadV1 {
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct BodyConditionPayloadV1 {
+    pub character_id: PersistentId,
+    pub body_schema_hash: ContentHash,
+    pub anatomy_profile_hash: ContentHash,
+    pub region_id: SchemaId,
+    pub impairment: BodyImpairmentV1,
+    pub recovery_stage: BodyRecoveryStageV1,
+    pub systemic_condition: SystemicConditionV1,
+}
+
+impl BodyConditionPayloadV1 {
+    pub fn validate(&self) -> Result<(), RpgContractErrorV1> {
+        let identity_valid = self.character_id != PersistentId::default()
+            && self.body_schema_hash != ContentHash::default()
+            && self.anatomy_profile_hash != ContentHash::default();
+        let state_valid = match self.impairment {
+            BodyImpairmentV1::Intact => {
+                self.systemic_condition == SystemicConditionV1::Stable
+                    && matches!(
+                        self.recovery_stage,
+                        BodyRecoveryStageV1::Untreated | BodyRecoveryStageV1::Rehabilitated
+                    )
+            }
+            BodyImpairmentV1::PartialKneeExtensor
+            | BodyImpairmentV1::TendonTransmissionLost
+            | BodyImpairmentV1::NerveControlLost => {
+                self.systemic_condition == SystemicConditionV1::Impaired
+                    && self.recovery_stage != BodyRecoveryStageV1::Rehabilitated
+            }
+        };
+        if !identity_valid || !state_valid {
+            return Err(RpgContractErrorV1::PayloadInvariant(
+                "RPG_BODY_CONDITION_INVALID",
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn condition_state_hash(&self) -> Result<ContentHash, CanonicalError> {
+        let payload = RpgAggregatePayloadV1::BodyCondition(self.clone());
+        Ok(content_hash_from_bytes(sha256(&payload.canonical_bytes()?)))
+    }
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum RpgAggregatePayloadV1 {
     Character(CharacterPayloadV1),
     Item(ItemPayloadV1),
@@ -318,6 +365,7 @@ pub enum RpgAggregatePayloadV1 {
     DivineStanding(DivineStandingPayloadV1),
     InteractiveObject(InteractiveObjectPayloadV1),
     Commitment(CommitmentPayloadV1),
+    BodyCondition(BodyConditionPayloadV1),
 }
 
 impl RpgAggregatePayloadV1 {
@@ -336,6 +384,7 @@ impl RpgAggregatePayloadV1 {
             Self::DivineStanding(_) => RpgAggregateKindV1::DivineStanding,
             Self::InteractiveObject(_) => RpgAggregateKindV1::InteractiveObject,
             Self::Commitment(_) => RpgAggregateKindV1::Commitment,
+            Self::BodyCondition(_) => RpgAggregateKindV1::BodyCondition,
         }
     }
 
@@ -434,6 +483,15 @@ impl RpgAggregatePayloadV1 {
                 bytes.extend_from_slice(&payload.wage_amount.to_le_bytes());
                 bytes.push(payload.state as u8);
             }
+            Self::BodyCondition(payload) => {
+                bytes.extend_from_slice(payload.character_id.as_bytes());
+                bytes.extend_from_slice(payload.body_schema_hash.as_bytes());
+                bytes.extend_from_slice(payload.anatomy_profile_hash.as_bytes());
+                extend_schema_id(&mut bytes, &payload.region_id)?;
+                bytes.push(payload.impairment as u8);
+                bytes.push(payload.recovery_stage as u8);
+                bytes.push(payload.systemic_condition as u8);
+            }
         }
         Ok(bytes)
     }
@@ -517,6 +575,15 @@ impl RpgAggregatePayloadV1 {
                 currency_resource_id: read_schema_id(&mut cursor, limits)?,
                 wage_amount: read_i32(&mut cursor)?,
                 state: CommitmentStateV1::from_tag(cursor.read_u8()?)?,
+            }),
+            RpgAggregateKindV1::BodyCondition => Self::BodyCondition(BodyConditionPayloadV1 {
+                character_id: read_id(&mut cursor)?,
+                body_schema_hash: ContentHash::from_bytes(read_array(&mut cursor)?),
+                anatomy_profile_hash: ContentHash::from_bytes(read_array(&mut cursor)?),
+                region_id: read_schema_id(&mut cursor, limits)?,
+                impairment: BodyImpairmentV1::from_tag(cursor.read_u8()?)?,
+                recovery_stage: BodyRecoveryStageV1::from_tag(cursor.read_u8()?)?,
+                systemic_condition: SystemicConditionV1::from_tag(cursor.read_u8()?)?,
             }),
         };
         cursor.finish()?;

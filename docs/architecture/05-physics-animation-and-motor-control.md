@@ -4,13 +4,14 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 3.2 |
+| Версия | 3.3 |
 | Последняя проверка | 2026-08-28 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
 | Дополнительные зависимости V2.9 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 | Дополнительные зависимости V3.1 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-091](adr/091-linux-release-performance-authority.md), [ADR-093](adr/093-deterministic-r5-worker-placement.md), [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
 | Дополнительные зависимости V3.2 | [ADR-096](adr/096-active-kernel-linux-performance-cohort.md) |
-| Заменяет | SPEC-05 3.1; advances PHYS-P4 to the V2 active-kernel campaign profile without changing its workload or budgets |
+| Дополнительные зависимости V3.3 | [ADR-098](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) |
+| Заменяет | SPEC-05 3.2; admits the bounded revision-bound directional capability clamp before fixed-PD rate limiting without changing the default no-envelope path or physical topology |
 
 ## Source of truth и ownership
 
@@ -74,6 +75,13 @@ Units/right-handed axes соответствуют SPEC-03. Vendor enumerations 
 8. PhysicsBackend выполняет CPU substep и выдаёт raw contacts/state; adapter сначала строит `QuantizedPhysicsProjectionV1` по `PhysicsQuantizationProfileV1` [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), затем нормализует scene-query/contact records и сортирует contacts по определённому ниже полному canonical total key. Backend callback, worker completion, native handle, raw float bit pattern и manifold insertion order не участвуют в public ordering.
 9. Outcome resolver использует contact continuity для suppress repeated-hit/resting-contact exploits и предлагает `Outcome` WorldCommand для общего stage-9 validator [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md); контакт сам не меняет health/quest, а backend callback не коммитит gameplay.
 10. Pose bridge публикует RenderPose, telemetry и replay hash.
+
+ADR-098 adds one current intact-topology specialization to step 7. A validated
+`BodyCapabilityEnvelopeV1` reconstructs directional actuator capacity from the
+exact BodySchema/profile and committed RPG condition revision. The controller
+clamps effort and its previous-effort state into that interval before the rate
+limit, so declared zero transmission is immediate. The envelope is not durable
+physical state; malformed or foreign bindings reject the complete step.
 
 LLM, tokenizer/text encoder, free-form text, language embedding, `ai-host`,
 network и filesystem запрещены на шагах 3–9. Skill/primitive/style/constraint

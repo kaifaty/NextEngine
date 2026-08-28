@@ -1,7 +1,10 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::body::BodyActuatorDefinitionV1;
+use next_contracts::body::{
+    BodyActuatorDefinitionV1, BodyCapabilityEnvelopeV1, FUNCTIONAL_CAPACITY_FULL_Q16,
+};
+use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::physics::{AppliedActuatorEffortV1, PhysicsActuatorDescriptorV1};
 
 use crate::CompiledBodySchemaV1;
@@ -9,6 +12,7 @@ use crate::CompiledBodySchemaV1;
 pub const ACTUATOR_TARGET_CLAMPED: u16 = 1 << 0;
 pub const ACTUATOR_EFFORT_CLAMPED: u16 = 1 << 1;
 pub const ACTUATOR_RATE_CLAMPED: u16 = 1 << 2;
+pub const ACTUATOR_CAPABILITY_CLAMPED: u16 = 1 << 3;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct JointControlStateV1 {
@@ -24,6 +28,8 @@ struct ControlChannel {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FixedPdController {
+    subject_id: PersistentId,
+    body_schema_hash: ContentHash,
     channels: Vec<ControlChannel>,
     previous_efforts: Vec<i64>,
 }
@@ -47,6 +53,8 @@ impl FixedPdController {
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
+            subject_id: compiled.subject_id,
+            body_schema_hash: compiled.body_schema_hash,
             previous_efforts: vec![0; channels.len()],
             channels,
         })
@@ -85,10 +93,36 @@ impl FixedPdController {
         residual_targets_microradians: &[i64],
         joint_states: &[JointControlStateV1],
     ) -> Result<Vec<AppliedActuatorEffortV1>, MotorControlError> {
+        self.step_substep_with_capability(residual_targets_microradians, joint_states, None)
+    }
+
+    pub fn step_substep_with_capability(
+        &mut self,
+        residual_targets_microradians: &[i64],
+        joint_states: &[JointControlStateV1],
+        capability: Option<&BodyCapabilityEnvelopeV1>,
+    ) -> Result<Vec<AppliedActuatorEffortV1>, MotorControlError> {
         if residual_targets_microradians.len() != self.channels.len()
             || joint_states.len() != self.channels.len()
         {
             return Err(MotorControlError::ChannelCount);
+        }
+        if let Some(capability) = capability {
+            capability
+                .validate()
+                .map_err(|_| MotorControlError::CapabilityEnvelopeInvalid)?;
+            if capability.subject_id != self.subject_id
+                || capability.body_schema_hash != self.body_schema_hash
+                || capability.actuator_capabilities.iter().any(|candidate| {
+                    self.channels
+                        .binary_search_by(|channel| {
+                            channel.body.actuator_id.cmp(&candidate.actuator_id)
+                        })
+                        .is_err()
+                })
+            {
+                return Err(MotorControlError::CapabilityEnvelopeMismatch);
+            }
         }
         let mut output = Vec::with_capacity(self.channels.len());
         for (index, ((channel, residual), state)) in self
@@ -123,16 +157,37 @@ impl FixedPdController {
             if effort_limited != requested_effort {
                 flags |= ACTUATOR_EFFORT_CLAMPED;
             }
+            let (negative_capacity, positive_capacity) = capability
+                .and_then(|envelope| {
+                    envelope
+                        .actuator_capabilities
+                        .binary_search_by(|candidate| {
+                            candidate.actuator_id.cmp(&channel.body.actuator_id)
+                        })
+                        .ok()
+                        .map(|index| &envelope.actuator_capabilities[index])
+                })
+                .map_or(
+                    (FUNCTIONAL_CAPACITY_FULL_Q16, FUNCTIONAL_CAPACITY_FULL_Q16),
+                    |value| (value.negative_capacity_q16, value.positive_capacity_q16),
+                );
+            let negative_maximum = scale_effort_capacity(maximum, negative_capacity);
+            let positive_maximum = scale_effort_capacity(maximum, positive_capacity);
+            let capability_limited = effort_limited.clamp(-negative_maximum, positive_maximum);
+            if capability_limited != effort_limited {
+                flags |= ACTUATOR_CAPABILITY_CLAMPED;
+            }
             let maximum_rate = i128::from(
                 channel
                     .physics
                     .maximum_effort_rate_micronewton_metres_per_second,
             );
             let maximum_delta = round_div_ties_even(maximum_rate, 240);
-            let previous = i128::from(self.previous_efforts[index]);
+            let previous =
+                i128::from(self.previous_efforts[index]).clamp(-negative_maximum, positive_maximum);
             let rate_limited =
-                effort_limited.clamp(previous - maximum_delta, previous + maximum_delta);
-            if rate_limited != effort_limited {
+                capability_limited.clamp(previous - maximum_delta, previous + maximum_delta);
+            if rate_limited != capability_limited {
                 flags |= ACTUATOR_RATE_CLAMPED;
             }
             let effort =
@@ -151,6 +206,13 @@ impl FixedPdController {
     pub fn previous_efforts(&self) -> &[i64] {
         &self.previous_efforts
     }
+}
+
+fn scale_effort_capacity(maximum: i128, capacity_q16: u16) -> i128 {
+    round_div_ties_even(
+        maximum * i128::from(capacity_q16),
+        i128::from(FUNCTIONAL_CAPACITY_FULL_Q16),
+    )
 }
 
 fn round_div_ties_even(numerator: i128, denominator: i128) -> i128 {
@@ -174,6 +236,8 @@ pub enum MotorControlError {
     ChannelCount,
     NumericOverflow,
     EffortOutOfBounds,
+    CapabilityEnvelopeInvalid,
+    CapabilityEnvelopeMismatch,
 }
 
 impl MotorControlError {
@@ -184,6 +248,8 @@ impl MotorControlError {
             Self::ChannelCount => "MOTOR_CONTROL_CHANNEL_COUNT",
             Self::NumericOverflow => "MOTOR_CONTROL_NUMERIC_OVERFLOW",
             Self::EffortOutOfBounds => "MOTOR_CONTROL_EFFORT_OUT_OF_BOUNDS",
+            Self::CapabilityEnvelopeInvalid => "MOTOR_CONTROL_CAPABILITY_ENVELOPE_INVALID",
+            Self::CapabilityEnvelopeMismatch => "MOTOR_CONTROL_CAPABILITY_ENVELOPE_MISMATCH",
         }
     }
 }

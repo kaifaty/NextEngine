@@ -1,18 +1,30 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::canonical::sha256;
+use next_contracts::body::REFERENCE_LEFT_KNEE_ACTUATOR_ID;
+use next_contracts::canonical::{CanonicalDecodeLimits, sha256};
 use next_contracts::ids::{
-    CommandId, CommandLedgerHash, ContentHash, StateRoot, content_hash_from_bytes,
+    CommandBodyHash, CommandId, CommandLedgerHash, ContentHash, StateRoot, content_hash_from_bytes,
 };
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::{
     AcceptedLocomotionIntentV2, ContactPhaseV1, PHYSICS_STEP_INPUT_SCHEMA_VERSION,
     PhysicsGeometryV1, PhysicsShapeIdV1, PhysicsStepInputV2, PhysicsStepResultV1,
 };
-use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1};
+use next_contracts::rpg::{
+    BodyImpairmentV1, BodyRecoveryStageV1, BodyTreatmentChannelV1, RpgAggregateKindV1,
+    RpgAggregatePayloadV1, RpgSnapshotV2,
+};
+use next_mechanics::{BodyConditionEffectV1, compile_body_condition_effect_v1};
+use next_motor::{
+    CompiledBodySchemaV1, FixedPdController, JointControlStateV1,
+    compile_body_capability_envelope_v1,
+};
 use next_physics_api::ReferencePhysicsWorld;
 use next_reference_game::{ReferenceGameSession, ReferenceRunOutcomeV2};
+use next_rpg::{
+    RpgPlanningContextV1, RpgState, build_transaction_plan_v1, materialize_transaction_plan_v1,
+};
 
 use crate::player_fixture::prepare_fixture_project_package_with_scratch;
 use crate::scratch::ScratchContext;
@@ -28,6 +40,13 @@ pub struct PhysicalGameplayConformanceReportV1 {
     pub restored_contact_ticks: u64,
     pub melee_contact_events: u64,
     pub melee_npc_health: i32,
+    pub functional_anatomy_subjects: u64,
+    pub body_condition_transitions: u64,
+    pub intact_knee_effort_micronewton_metres: i64,
+    pub partial_knee_effort_micronewton_metres: i64,
+    pub zero_knee_effort_micronewton_metres: i64,
+    pub recovered_knee_effort_micronewton_metres: i64,
+    pub body_condition_matrix_digest: ContentHash,
     pub repeated_run_identical: bool,
     pub final_state_root: StateRoot,
     pub final_command_ledger_hash: CommandLedgerHash,
@@ -73,6 +92,13 @@ struct GenerationEvidenceV1 {
     restored_contact_ticks: u64,
     melee_contact_events: u64,
     melee_npc_health: i32,
+    functional_anatomy_subjects: u64,
+    body_condition_transitions: u64,
+    intact_knee_effort_micronewton_metres: i64,
+    partial_knee_effort_micronewton_metres: i64,
+    zero_knee_effort_micronewton_metres: i64,
+    recovered_knee_effort_micronewton_metres: i64,
+    body_condition_matrix_digest: ContentHash,
     final_state_root: StateRoot,
     final_command_ledger_hash: CommandLedgerHash,
     final_physics_checkpoint_hash: ContentHash,
@@ -109,6 +135,14 @@ pub fn run_physical_gameplay_conformance_check()
             restored_contact_ticks: first.restored_contact_ticks,
             melee_contact_events: first.melee_contact_events,
             melee_npc_health: first.melee_npc_health,
+            functional_anatomy_subjects: first.functional_anatomy_subjects,
+            body_condition_transitions: first.body_condition_transitions,
+            intact_knee_effort_micronewton_metres: first.intact_knee_effort_micronewton_metres,
+            partial_knee_effort_micronewton_metres: first.partial_knee_effort_micronewton_metres,
+            zero_knee_effort_micronewton_metres: first.zero_knee_effort_micronewton_metres,
+            recovered_knee_effort_micronewton_metres: first
+                .recovered_knee_effort_micronewton_metres,
+            body_condition_matrix_digest: first.body_condition_matrix_digest,
             repeated_run_identical: true,
             final_state_root: first.final_state_root,
             final_command_ledger_hash: first.final_command_ledger_hash,
@@ -139,6 +173,7 @@ fn run_generation(
         })?;
     let melee_contact_events = melee_contact_events(&melee, &session)?;
     let melee_npc_health = npc_health(&melee, &session)?;
+    let anatomy = run_functional_anatomy_matrix(&session)?;
     require(
         melee_contact_events > 0,
         "melee has committed player/NPC physical contact",
@@ -170,6 +205,13 @@ fn run_generation(
         restored_contact_ticks: carry.restored_contact_ticks,
         melee_contact_events,
         melee_npc_health,
+        functional_anatomy_subjects: anatomy.subjects,
+        body_condition_transitions: anatomy.transitions,
+        intact_knee_effort_micronewton_metres: anatomy.intact_knee_effort,
+        partial_knee_effort_micronewton_metres: anatomy.partial_knee_effort,
+        zero_knee_effort_micronewton_metres: anatomy.zero_knee_effort,
+        recovered_knee_effort_micronewton_metres: anatomy.recovered_knee_effort,
+        body_condition_matrix_digest: anatomy.digest,
         final_state_root: checkpoint.state_root,
         final_command_ledger_hash,
         final_physics_checkpoint_hash: carry.final_checkpoint_hash,
@@ -177,6 +219,260 @@ fn run_generation(
     };
     evidence.matrix_digest = evidence_digest(&evidence);
     Ok(evidence)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct FunctionalAnatomyEvidenceV1 {
+    subjects: u64,
+    transitions: u64,
+    intact_knee_effort: i64,
+    partial_knee_effort: i64,
+    zero_knee_effort: i64,
+    recovered_knee_effort: i64,
+    digest: ContentHash,
+}
+
+fn run_functional_anatomy_matrix(
+    session: &ReferenceGameSession,
+) -> Result<FunctionalAnatomyEvidenceV1, PhysicalGameplayConformanceErrorV1> {
+    let body_asset = &session.activated_project.body_schema_asset;
+    let profile = body_asset
+        .functional_anatomy_profile
+        .as_ref()
+        .ok_or_else(|| {
+            PhysicalGameplayConformanceErrorV1::condition(
+                "reference project declares functional anatomy",
+            )
+        })?;
+    let initial_snapshot = next_reference_game::cooked_project_rpg_snapshot(session);
+    let mut final_state_hashes = Vec::new();
+    let mut observed_efforts = Vec::new();
+
+    for (subject_ordinal, (subject_id, condition_id)) in [
+        (session.body_id, session.player_body_condition_id),
+        (session.npc_character_id, session.npc_body_condition_id),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let compiled = CompiledBodySchemaV1::compile(&body_asset.body_schema, subject_id).map_err(
+            |error| {
+                PhysicalGameplayConformanceErrorV1::new(
+                    "compile functional anatomy body projection",
+                    error.to_string(),
+                )
+            },
+        )?;
+        let mut state = RpgState::from_snapshot(initial_snapshot.clone()).map_err(|error| {
+            PhysicalGameplayConformanceErrorV1::new(
+                "activate functional anatomy RPG state",
+                error.to_string(),
+            )
+        })?;
+        let intact_effort = condition_knee_effort(&compiled, profile, &state, condition_id)?;
+        state = apply_body_condition_effect(
+            state,
+            profile,
+            condition_id,
+            BodyConditionEffectV1::Impair(BodyImpairmentV1::PartialKneeExtensor),
+            1,
+        )?;
+        let partial_effort = condition_knee_effort(&compiled, profile, &state, condition_id)?;
+        state = apply_body_condition_effect(
+            state,
+            profile,
+            condition_id,
+            BodyConditionEffectV1::Impair(BodyImpairmentV1::NerveControlLost),
+            2,
+        )?;
+        let zero_effort = condition_knee_effort(&compiled, profile, &state, condition_id)?;
+        for (transition_ordinal, (next_stage, channel)) in [
+            (
+                BodyRecoveryStageV1::Stabilized,
+                BodyTreatmentChannelV1::Medical,
+            ),
+            (
+                BodyRecoveryStageV1::Repaired,
+                if subject_ordinal == 0 {
+                    BodyTreatmentChannelV1::Medical
+                } else {
+                    BodyTreatmentChannelV1::Magical
+                },
+            ),
+            (
+                BodyRecoveryStageV1::Rehabilitated,
+                BodyTreatmentChannelV1::Medical,
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            state = apply_body_condition_effect(
+                state,
+                profile,
+                condition_id,
+                BodyConditionEffectV1::Treat {
+                    channel,
+                    next_stage,
+                },
+                u8::try_from(transition_ordinal).expect("three treatment transitions") + 3,
+            )?;
+        }
+        let recovered_effort = condition_knee_effort(&compiled, profile, &state, condition_id)?;
+        require(
+            intact_effort > partial_effort && partial_effort > zero_effort,
+            "intact partial and zero knee capabilities remain ordered",
+        )?;
+        require(
+            zero_effort == 0 && recovered_effort == intact_effort,
+            "zero loss and rehabilitation have exact effort outcomes",
+        )?;
+        let final_snapshot = state.snapshot();
+        verify_rpg_snapshot_round_trip(&final_snapshot)?;
+        let aggregate = state
+            .aggregate(RpgAggregateKindV1::BodyCondition, condition_id)
+            .ok_or_else(|| {
+                PhysicalGameplayConformanceErrorV1::condition(
+                    "final body condition aggregate exists",
+                )
+            })?;
+        final_state_hashes.push(aggregate.state_hash().map_err(|error| {
+            PhysicalGameplayConformanceErrorV1::new("hash final body condition", error.to_string())
+        })?);
+        observed_efforts.push([intact_effort, partial_effort, zero_effort, recovered_effort]);
+    }
+    require(
+        observed_efforts[0] == observed_efforts[1],
+        "player and NPC use one functional anatomy effort path",
+    )?;
+    let mut digest_bytes = b"nextengine.functional-anatomy-conformance.v1\0".to_vec();
+    for effort in observed_efforts[0] {
+        digest_bytes.extend_from_slice(&effort.to_le_bytes());
+    }
+    for state_hash in final_state_hashes {
+        digest_bytes.extend_from_slice(state_hash.as_bytes());
+    }
+    Ok(FunctionalAnatomyEvidenceV1 {
+        subjects: 2,
+        transitions: 10,
+        intact_knee_effort: observed_efforts[0][0],
+        partial_knee_effort: observed_efforts[0][1],
+        zero_knee_effort: observed_efforts[0][2],
+        recovered_knee_effort: observed_efforts[0][3],
+        digest: content_hash_from_bytes(sha256(&digest_bytes)),
+    })
+}
+
+fn apply_body_condition_effect(
+    state: RpgState,
+    profile: &next_contracts::body::FunctionalAnatomyProfileV1,
+    condition_id: next_contracts::ids::PersistentId,
+    effect: BodyConditionEffectV1,
+    causal_seed: u8,
+) -> Result<RpgState, PhysicalGameplayConformanceErrorV1> {
+    let command =
+        compile_body_condition_effect_v1(profile, &state.snapshot(), condition_id, effect)
+            .map_err(|error| {
+                PhysicalGameplayConformanceErrorV1::new(
+                    "compile body condition mechanics effect",
+                    error.to_string(),
+                )
+            })?;
+    let context = RpgPlanningContextV1 {
+        gameplay_tick: u64::from(causal_seed),
+        causal_command_id: CommandId::from_bytes([causal_seed; 16]),
+        canonical_command_body_hash: CommandBodyHash::from_bytes([causal_seed; 32]),
+        project_composition_lock_hash: ContentHash::from_bytes([1; 32]),
+        schema_registry_hash: ContentHash::from_bytes([2; 32]),
+        budget_policy_hash: ContentHash::from_bytes([3; 32]),
+        active_definition_policy_hashes: &[],
+        physical_contact_facts: &[],
+    };
+    let plan = build_transaction_plan_v1(&state, &command, context).map_err(|error| {
+        PhysicalGameplayConformanceErrorV1::new(
+            "build body condition transaction",
+            error.to_string(),
+        )
+    })?;
+    let next = materialize_transaction_plan_v1(&state, &plan).map_err(|error| {
+        PhysicalGameplayConformanceErrorV1::new(
+            "commit body condition transaction",
+            error.to_string(),
+        )
+    })?;
+    verify_rpg_snapshot_round_trip(&next.snapshot())?;
+    Ok(next)
+}
+
+fn verify_rpg_snapshot_round_trip(
+    snapshot: &RpgSnapshotV2,
+) -> Result<(), PhysicalGameplayConformanceErrorV1> {
+    let bytes = snapshot.canonical_bytes().map_err(|error| {
+        PhysicalGameplayConformanceErrorV1::new("encode body condition snapshot", error.to_string())
+    })?;
+    let decoded = RpgSnapshotV2::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+        .map_err(|error| {
+            PhysicalGameplayConformanceErrorV1::new(
+                "decode body condition snapshot",
+                error.to_string(),
+            )
+        })?;
+    require(
+        decoded == *snapshot,
+        "body condition snapshot round trip is byte exact",
+    )
+}
+
+fn condition_knee_effort(
+    compiled: &CompiledBodySchemaV1,
+    profile: &next_contracts::body::FunctionalAnatomyProfileV1,
+    state: &RpgState,
+    condition_id: next_contracts::ids::PersistentId,
+) -> Result<i64, PhysicalGameplayConformanceErrorV1> {
+    let condition = state
+        .aggregate(RpgAggregateKindV1::BodyCondition, condition_id)
+        .ok_or_else(|| {
+            PhysicalGameplayConformanceErrorV1::condition("body condition aggregate exists")
+        })?;
+    let capability =
+        compile_body_capability_envelope_v1(compiled, profile, condition).map_err(|error| {
+            PhysicalGameplayConformanceErrorV1::new(
+                "compile body capability envelope",
+                error.to_string(),
+            )
+        })?;
+    let mut controller = FixedPdController::new(compiled).map_err(|error| {
+        PhysicalGameplayConformanceErrorV1::new(
+            "activate body condition fixed PD",
+            error.to_string(),
+        )
+    })?;
+    let targets = vec![10_000_000; controller.channel_count()];
+    let states = vec![
+        JointControlStateV1 {
+            position_microradians: -1_500_000,
+            velocity_microradians_per_second: -20_000_000,
+        };
+        controller.channel_count()
+    ];
+    let mut efforts = Vec::new();
+    for _ in 0..512 {
+        efforts = controller
+            .step_substep_with_capability(&targets, &states, Some(&capability))
+            .map_err(|error| {
+                PhysicalGameplayConformanceErrorV1::new(
+                    "step body condition fixed PD",
+                    error.to_string(),
+                )
+            })?;
+    }
+    efforts
+        .into_iter()
+        .find(|effort| effort.actuator_id.as_str() == REFERENCE_LEFT_KNEE_ACTUATOR_ID)
+        .map(|effort| effort.effort_micronewton_metres)
+        .ok_or_else(|| {
+            PhysicalGameplayConformanceErrorV1::condition("left knee effort channel exists")
+        })
 }
 
 fn run_trip_lane(
@@ -540,6 +836,17 @@ fn evidence_digest(evidence: &GenerationEvidenceV1) -> ContentHash {
     }
     preimage.extend_from_slice(&evidence.capsule_clearance_micrometres.to_le_bytes());
     preimage.extend_from_slice(&evidence.melee_npc_health.to_le_bytes());
+    preimage.extend_from_slice(&evidence.functional_anatomy_subjects.to_le_bytes());
+    preimage.extend_from_slice(&evidence.body_condition_transitions.to_le_bytes());
+    for effort in [
+        evidence.intact_knee_effort_micronewton_metres,
+        evidence.partial_knee_effort_micronewton_metres,
+        evidence.zero_knee_effort_micronewton_metres,
+        evidence.recovered_knee_effort_micronewton_metres,
+    ] {
+        preimage.extend_from_slice(&effort.to_le_bytes());
+    }
+    preimage.extend_from_slice(evidence.body_condition_matrix_digest.as_bytes());
     preimage.extend_from_slice(evidence.final_state_root.as_bytes());
     preimage.extend_from_slice(evidence.final_command_ledger_hash.as_bytes());
     preimage.extend_from_slice(evidence.final_physics_checkpoint_hash.as_bytes());

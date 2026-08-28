@@ -2,19 +2,24 @@
 
 | Field | Value |
 |---|---|
-| Status | `PRODUCT_SPEC_COMPLETE / IMPLEMENTATION_NOT_STARTED` |
-| Updated | `2026-08-17` |
+| Status | `R8A_INTACT_TOPOLOGY_CONDITION_IMPLEMENTED / CROSS_CHECKS_PASS` |
+| Updated | `2026-08-28` |
 | Task key | `physical-embodiment-injury` |
-| Scope | Approved functional-anatomy product direction, lower-limb damage/treatment vertical and final visible 3D embodiment architecture. |
-| Definition of done | Product choices and acceptance examples are explicit; SPEC/ADR, routing/index/traceability/roadmap and validation encode them without claiming implementation. |
+| Scope | Current bounded intact-topology lower-limb condition/capability increment plus the remaining full injury/embodiment direction. |
+| Definition of done | R8a has one BodySchema-bound unilateral profile, RPG/Mechanics condition and treatment path, derived Motor capability, identical player/NPC evidence and cross-check closure without claiming fracture or full embodiment. |
 | Authority | Working context only; Accepted ADR/SPEC and `docs/roadmap.md` outrank this file. |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Functional muscle groups are condition/capability
-  abstractions over the existing joint-target fixed-PD path. They provide
-  tissue-specific damage without a second movement controller or mandatory
-  full musculoskeletal simulation.
+- **Current result:** ADR-098 promotes one exact unilateral left-knee profile,
+  separate RPG `BodyCondition`, shared Mechanics compiler and derived Motor
+  capability envelope through the existing fixed-PD path.
+- **Observed matrix:** Player and NPC both produce intact `150000000`, partial
+  `75001144`, tendon/nerve zero `0` and rehabilitated `150000000` µN·m positive
+  knee effort; ten transitions repeat with digest `2ce8bed4…d65b5`.
+- **Cross-checks:** workspace `host-check`, `play`, `persistence-replay`,
+  `content-package` and the bounded `physical-character` extension pass on
+  native Linux/Rust 1.97.1.
 - **Approved product:** A limb can remain attached but be structurally or
   neurologically unusable; ordinary player/NPC intention degrades into limp,
   load transfer, fall, crawl or drag. Treatment is stabilization → repair →
@@ -22,14 +27,14 @@
 - **Visible target:** Third-person anatomically plausible character with
   `Reduced`, `Realistic` and `Graphic` presentation, qualitative body UI and a
   complete authored skinning/corrective fallback.
-- **First vertical:** One neutral humanoid, one unilateral lower limb, intact/
-  partial/tendon-or-nerve/stable-fracture/retained-fracture/detached states,
-  staged treatment and one NPC using the same physical rules.
+- **Implemented boundary:** Intact/partial/tendon-loss/nerve-loss and staged
+  medical/magical stabilization, repair and rehabilitation only; topology and
+  tensor/action layout do not change.
 - **Scale target:** 16 nearby detailed, 64 active simplified, distant durable
   state-only; exact performance budgets are still Proposed.
-- **Next action:** When scheduled, create an implementation plan for the exact
-  lower-limb anatomy/content profile and consumer-driven schemas. Do not begin
-  with neural deformation, organs or true muscle actuation.
+- **Next action:** Add stable lower-leg fracture as a separate increment with an
+  explicit atomic RPG condition/Physics boundary and conservative procedural
+  fallback. Do not fold in retained fracture, detachment, UI or learned routes.
 
 ## Product decisions
 
@@ -48,10 +53,11 @@
 | NPC slice | Physical adaptation, fall and crawl; tactical/social response later |
 | Release | Approved post-baseline direction; not a current v1 gate |
 
-## Authority decision
+## Current authority decision
 
-ADR-075 establishes the first Accepted functional-anatomy decision and preserves
-these boundaries without changing the unrelated ADR-074 R4d authority:
+ADR-075 establishes the product direction. ADR-098 now makes only the bounded
+intact-topology R8a records and owner path current while preserving these
+boundaries:
 
 - RPG owns durable local/systemic condition and treatment stage;
 - Mechanics owns damage/treatment definitions and submits `WorldCommand`
@@ -59,7 +65,8 @@ these boundaries without changing the unrelated ADR-074 R4d authority:
 - Physical Embodiment owns active physics/topology and derives capability;
 - Motor consumes the capability envelope through the existing safety/PD path;
 - presentation and UI are immutable read-only consumers;
-- exact wire schemas remain Proposed until the production consumer exists.
+- the promoted R8a wire schemas are current-only under ADR-046; fracture,
+  surface, UI, LOD and learned-route schemas remain Proposed.
 
 ## Current evidence
 
@@ -68,9 +75,15 @@ these boundaries without changing the unrelated ADR-074 R4d authority:
 | User product discovery, completed 2026-08-17 | `APPROVED` | Product promise, first vertical, treatment, parity, UI/visual and scale choices are closed. |
 | `docs/product/functional-anatomy-and-character-embodiment.md` | `APPROVED_DIRECTION` | Provides player-facing brief and acceptance matrix. |
 | `docs/architecture/adr/075-product-grounded-functional-anatomy-and-character-embodiment.md` | `ACCEPTED` | Establishes the product-grounded decision without changing ADR-074 R4d authority. |
-| `docs/architecture/36-functional-tissue-condition-and-injury.md` | `ACCEPTED_SEMANTICS / PROPOSED_CONTRACTS` | Defines condition, deterministic damage, capability, agency, treatment and LOD. |
+| `docs/architecture/adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md` | `ACCEPTED / IMPLEMENTED` | Promotes only the unilateral intact-topology profile, condition/treatment operations and derived capability boundary. |
+| `docs/architecture/36-functional-tissue-condition-and-injury.md` | `PARTIAL CURRENT` | R8a condition/capability subset is current; fracture, topology, locomotion adaptation and visible embodiment remain Proposed. |
 | `docs/architecture/37-character-embodiment-and-surface-deformation.md` | `ACCEPTED_SEMANTICS / PROPOSED_CONTRACTS` | Defines realistic third-person surface, severity profiles, asset fallback and workload. |
-| Documentation-only validation | `PASS` | `git diff --check` and direct local-link/path/ID validation pass; ADR-074 and ADR-075 each retain one distinct Accepted decision. |
+| `physical-character` / `INJURY-CONDITION-P1` | `PASS` | Two subjects, ten transitions, exact intact/partial/zero/recovered effort matrix and repeated digest `2ce8bed4…d65b5`. |
+| `play` | `PASS` | 32 ticks, 52 events, 23 RPG events; the existing offline loop remains complete. |
+| `persistence-replay` | `PASS` | 20 ticks, two generations and exact current RPG owner replay closure. |
+| `content-package` | `PASS` | Reference profile cooks/activates; creator-smoke omits it and stays valid. |
+| `host-check` | `PASS` | Full workspace format, static analysis and tests pass on `x86_64-unknown-linux-gnu`, Rust 1.97.1. |
+| Full `INJURY-EMBODIMENT-P1` | `NOT_RUN` | No fracture/topology, adapted locomotion, UI/surface or workload-LOD credit is claimed. |
 
 ## Rejected approaches
 
@@ -104,16 +117,16 @@ these boundaries without changing the unrelated ADR-074 R4d authority:
 
 ## Remaining uncertainty
 
-- Exact current-only condition/command/treatment/content schemas.
-- Exact functional group count and reducer coefficients.
 - Stable PhysX retained-fracture representation.
 - Authored/procedural/trained split for limp and crawl.
 - Per-tier timing/memory budgets and visual technique on target hardware.
-- Whether a later release-scope decision promotes the vertical into v1.
+- Atomic stable-fracture condition/Physics transaction shape and conservative
+  fallback.
 
 ## Smallest next action
 
-Write a bounded implementation plan only when the work enters the roadmap WIP
-slot. Start by freezing one BodySchema-bound unilateral anatomy profile and its
-deterministic scenario corpus; then promote the smallest consumer-driven RPG/
-Mechanics schemas before topology or advanced rendering work.
+Plan the stable lower-leg fracture increment. Freeze one authored break site,
+one condition-to-Physics atomic transition and one no-partial-mutation failure
+case; retain the current procedural controller as fallback. Do not expand into
+retained fracture, detachment, generic cutting, UI or learned locomotion until
+that boundary passes its own product check.

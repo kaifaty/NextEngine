@@ -276,6 +276,8 @@ fn event_principal_subject(event: &DomainEventEnvelopeV2) -> Option<PersistentId
             RpgEventV1::InteractiveObjectTransitioned { object_id, .. } => Some(*object_id),
             RpgEventV1::CharacterResourceAdjusted { character_id, .. } => Some(*character_id),
             RpgEventV1::CommitmentTransitioned { commitment_id, .. } => Some(*commitment_id),
+            RpgEventV1::BodyConditionChanged { character_id, .. }
+            | RpgEventV1::BodyTreatmentAdvanced { character_id, .. } => Some(*character_id),
         },
         EventPayload::Physical(event) => match event {
             next_contracts::physics::PhysicalEventV1::CapsuleStepApplied { body_id, .. } => {

@@ -115,6 +115,36 @@ fn encode_event_payload(payload: &EventPayload) -> JcsValue {
             string(commitment_id.to_hex()),
             JcsValue::Number(u64::from(*state as u8)),
         ]),
+        EventPayload::Rpg(RpgEventV1::BodyConditionChanged {
+            condition_id,
+            character_id,
+            impairment,
+            recovery_stage,
+            systemic_condition,
+        }) => JcsValue::Array(vec![
+            string("rpg_body_condition"),
+            string(condition_id.to_hex()),
+            string(character_id.to_hex()),
+            JcsValue::Number(u64::from(*impairment as u8)),
+            JcsValue::Number(u64::from(*recovery_stage as u8)),
+            JcsValue::Number(u64::from(*systemic_condition as u8)),
+        ]),
+        EventPayload::Rpg(RpgEventV1::BodyTreatmentAdvanced {
+            condition_id,
+            character_id,
+            channel,
+            impairment,
+            recovery_stage,
+            systemic_condition,
+        }) => JcsValue::Array(vec![
+            string("rpg_body_treatment"),
+            string(condition_id.to_hex()),
+            string(character_id.to_hex()),
+            JcsValue::Number(u64::from(*channel as u8)),
+            JcsValue::Number(u64::from(*impairment as u8)),
+            JcsValue::Number(u64::from(*recovery_stage as u8)),
+            JcsValue::Number(u64::from(*systemic_condition as u8)),
+        ]),
         EventPayload::Physical(PhysicalEventV1::CapsuleStepApplied {
             body_id,
             physics_tick,
@@ -344,6 +374,42 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
                 "event.commitment_state",
             )?,
         }),
+        "rpg_body_condition" => EventPayload::Rpg(RpgEventV1::BodyConditionChanged {
+            condition_id: decode_persistent_id(next(&mut columns, "event.condition_id")?)?,
+            character_id: decode_persistent_id(next(&mut columns, "event.character_id")?)?,
+            impairment: decode_body_impairment(
+                next(&mut columns, "event.impairment")?,
+                "event.impairment",
+            )?,
+            recovery_stage: decode_body_recovery_stage(
+                next(&mut columns, "event.recovery_stage")?,
+                "event.recovery_stage",
+            )?,
+            systemic_condition: decode_systemic_condition(
+                next(&mut columns, "event.systemic_condition")?,
+                "event.systemic_condition",
+            )?,
+        }),
+        "rpg_body_treatment" => EventPayload::Rpg(RpgEventV1::BodyTreatmentAdvanced {
+            condition_id: decode_persistent_id(next(&mut columns, "event.condition_id")?)?,
+            character_id: decode_persistent_id(next(&mut columns, "event.character_id")?)?,
+            channel: decode_body_treatment_channel(
+                next(&mut columns, "event.treatment_channel")?,
+                "event.treatment_channel",
+            )?,
+            impairment: decode_body_impairment(
+                next(&mut columns, "event.impairment")?,
+                "event.impairment",
+            )?,
+            recovery_stage: decode_body_recovery_stage(
+                next(&mut columns, "event.recovery_stage")?,
+                "event.recovery_stage",
+            )?,
+            systemic_condition: decode_systemic_condition(
+                next(&mut columns, "event.systemic_condition")?,
+                "event.systemic_condition",
+            )?,
+        }),
         "physical_capsule_step" => EventPayload::Physical(PhysicalEventV1::CapsuleStepApplied {
             body_id: decode_persistent_id(next(&mut columns, "event.body_id")?)?,
             physics_tick: decode_u64_string(
@@ -497,6 +563,54 @@ fn decode_commitment_state(
         2 => Ok(CommitmentStateV1::Accepted),
         3 => Ok(CommitmentStateV1::Fulfilled),
         4 => Ok(CommitmentStateV1::Cancelled),
+        _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
+    }
+}
+
+fn decode_body_impairment(
+    value: JcsValue,
+    path: &'static str,
+) -> Result<crate::rpg::BodyImpairmentV1, ManifestCodecError> {
+    match decode_u32(value, path)? {
+        1 => Ok(crate::rpg::BodyImpairmentV1::Intact),
+        2 => Ok(crate::rpg::BodyImpairmentV1::PartialKneeExtensor),
+        3 => Ok(crate::rpg::BodyImpairmentV1::TendonTransmissionLost),
+        4 => Ok(crate::rpg::BodyImpairmentV1::NerveControlLost),
+        _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
+    }
+}
+
+fn decode_body_recovery_stage(
+    value: JcsValue,
+    path: &'static str,
+) -> Result<crate::rpg::BodyRecoveryStageV1, ManifestCodecError> {
+    match decode_u32(value, path)? {
+        1 => Ok(crate::rpg::BodyRecoveryStageV1::Untreated),
+        2 => Ok(crate::rpg::BodyRecoveryStageV1::Stabilized),
+        3 => Ok(crate::rpg::BodyRecoveryStageV1::Repaired),
+        4 => Ok(crate::rpg::BodyRecoveryStageV1::Rehabilitated),
+        _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
+    }
+}
+
+fn decode_body_treatment_channel(
+    value: JcsValue,
+    path: &'static str,
+) -> Result<crate::rpg::BodyTreatmentChannelV1, ManifestCodecError> {
+    match decode_u32(value, path)? {
+        1 => Ok(crate::rpg::BodyTreatmentChannelV1::Medical),
+        2 => Ok(crate::rpg::BodyTreatmentChannelV1::Magical),
+        _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
+    }
+}
+
+fn decode_systemic_condition(
+    value: JcsValue,
+    path: &'static str,
+) -> Result<crate::rpg::SystemicConditionV1, ManifestCodecError> {
+    match decode_u32(value, path)? {
+        1 => Ok(crate::rpg::SystemicConditionV1::Stable),
+        2 => Ok(crate::rpg::SystemicConditionV1::Impaired),
         _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
     }
 }

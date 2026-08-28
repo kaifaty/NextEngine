@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-36 |
 | Статус | Accepted |
-| Scope status | Product, ownership, projection, treatment, parity and fallback semantics are Accepted; exact wire schemas and the production vertical remain Proposed |
-| Версия | 1.1 |
-| Последняя проверка | 2026-08-17 |
+| Scope status | Product semantics and ADR-098 intact-topology condition/capability subset are current; fracture/topology, ordinary adapted locomotion, UI/presentation and scale verticals remain Proposed |
+| Версия | 1.2 |
+| Последняя проверка | 2026-08-28 |
 | Product decision | [PRODUCT-FA-001](../product/functional-anatomy-and-character-embodiment.md) |
 | Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-36 1.0; grounds the technical boundary in the approved player experience, treatment loop, parity/LOD and acceptance matrix |
+| Дополнительные зависимости V1.2 | [ADR-098](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) |
+| Заменяет | SPEC-36 1.1; promotes only the consumed BodySchema-bound unilateral condition/treatment and fixed-PD capability subset while retaining the full fracture/embodiment matrix as Proposed |
 
 ## Назначение и status boundary
 
@@ -32,11 +33,14 @@ current joint-target plus fixed safety/PD route remains the actuation baseline.
 Functional muscle groups describe how much directional capability remains.
 
 Accepted here are product semantics, ownership, deterministic transaction and
-projection rules, player/NPC parity, treatment stages and fallbacks. Current
-RPG operations, save/replay versions, `BodySchemaV1/V2`, Motor tensor layouts
-and content catalogs do not change. Exact body-condition, treatment, anatomy
-and topology contracts appear only with the first production consumer under
-ADR-046.
+projection rules, player/NPC parity, treatment stages and fallbacks. ADR-098
+admits the first exact consumed subset: optional `FunctionalAnatomyProfileV1`,
+RPG `BodyCondition`, impairment/treatment operations and events, reconstructible
+`BodyCapabilityEnvelopeV1` and its directional fixed-PD clamp on intact
+topology. RPG snapshot and command schemas are current version `4`.
+`BodySchemaV1/V2`, Motor tensor layouts and physical topology remain unchanged.
+Exact fracture, retained/detached topology, UI/presentation and scale contracts
+still require their first production consumer under ADR-046.
 
 ## Scope
 
@@ -86,8 +90,11 @@ or commit hidden injury.
 
 ## Immutable functional anatomy
 
-The future `BodyTissueSchemaV1` is an immutable content-addressed member of one
-`PhysicalArchetypeBundle`, bound to an exact BodySchema hash. It contains stable
+The current bounded `FunctionalAnatomyProfileV1` is an optional exact member of
+`BodySchemaAssetV1`, bound to the existing BodySchema hash. It names one
+unilateral region/group/current actuator direction plus partial/post-repair
+capacity. The wider future `BodyTissueSchemaV1` remains an immutable
+content-addressed member of one `PhysicalArchetypeBundle` and may contain stable
 schema-scoped IDs and canonical records for:
 
 - tissue/anatomical regions and physical body-node mapping;
@@ -359,7 +366,14 @@ encounter cover:
 9. save/load/replay at every state and malformed/stale failures;
 10. 16/64/distant tier permutations under a future measured profile.
 
-The future `INJURY-EMBODIMENT-P1` passes only when:
+The narrower current `INJURY-CONDITION-P1` subset passes through
+`physical-character` when two production reference subjects use the same
+profile/compiler/transaction/controller path, ten staged transitions repeat
+exactly and intact/partial/zero/recovered positive knee effort is ordered and
+byte-stable across current RPG snapshot round trips. This does not claim
+ordinary adapted locomotion, topology or presentation.
+
+The future full `INJURY-EMBODIMENT-P1` passes only when:
 
 - canonical evidence deterministically produces exact condition/capability/
   topology/treatment/event roots;
@@ -372,9 +386,10 @@ The future `INJURY-EMBODIMENT-P1` passes only when:
 - presentation/UI/severity/cadence/deformer permutations change zero
   authoritative roots.
 
-`play`, `persistence-replay` and `content-package` are required when the
-consumer exists. `platform`/`performance` are conditional. Until then all
-executable checks are `NotRun(NoProductionConsumer)`.
+`play`, `persistence-replay` and `content-package` are current required checks
+for the ADR-098 subset. `platform`/`performance` are conditional and are not
+credited by the first subset. All remaining full-vertical checks stay
+`NotRun(NoProductionConsumer)`.
 
 ## Full muscle-actuated future profile
 

@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-22 |
 | Статус | Accepted |
-| Версия | 2.6 |
-| Последняя проверка | 2026-08-20 |
+| Версия | 2.7 |
+| Последняя проверка | 2026-08-28 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
 | Дополнительные зависимости V2.6 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
-| Заменяет | SPEC-22 2.5; exposes Replay V10 through a bounded current-only public validator/inspector while retaining exact wire and migration policy |
+| Дополнительные зависимости V2.7 | [ADR-098](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) |
+| Заменяет | SPEC-22 2.6; advances current RPG snapshot/command schemas to V4 and the reference BodySchema asset shape without changing the current-only migration policy |
 
 ## Current policy
 
@@ -22,7 +23,7 @@ formats that have no public support promise.
 | Project authoring | `nextengine.project-authoring.v7` | authoring v6 and earlier | typed `UNSUPPORTED_PROJECT_AUTHORING_FORMAT` |
 | Project activation | `ProjectLockV3`, `ActivatedProjectV8` | `ActivatedProjectV7` and earlier, resolver/composition locks | typed `UNSUPPORTED_PROJECT_FORMAT` or `PROJECT_LOCK_INVALID` |
 | Schema registry | `SchemaRegistryManifestV2` | registry V1 | typed unsupported project/registry result |
-| Runtime/save | `RuntimeSnapshotV3`, `WorldCheckpointV4`, `SaveManifestV2` | retired alpha state forms | family-specific typed unsupported result |
+| Runtime/save | `RuntimeSnapshotV3`, `WorldCheckpointV4`, `SaveManifestV2`; RPG aggregate snapshot/command schema `4` | RPG schema 3 and retired alpha state forms | family-specific typed unsupported result |
 | Replay | `ReplayManifestV10` | `ReplayManifestV9` and earlier | `UNSUPPORTED_REPLAY_MANIFEST_VERSION` |
 | Input mapping | `InputMappingReceiptV2` | V1 | typed unsupported mapping/version result |
 | Package | current package manifest with `project_lock_sha256` | pre-direct-lock packages | typed `UNSUPPORTED_PACKAGE_FORMAT` |
@@ -36,6 +37,12 @@ deleted or rewritten.
 policy. `ReplayManifestV10` validates the current nine-or-ten-owner full-tuple
 closure, with only the routine slot optional and Agent/Memory always paired;
 it is not projected through a retired replay generation.
+
+ADR-098 changes only current nested RPG/body-asset bytes: the RPG aggregate
+snapshot and command schema are `4`, and the reference `BodySchemaAssetV1`
+record carries its exact optional anatomy profile. Outer save/replay forms and
+owner arity do not change. Older nested alpha bytes are rejected rather than
+defaulting the profile or body condition.
 
 Public ADR-088 `replay validate/inspect` applies this same boundary: Replay V9
 and earlier reject at the outer version probe, current V10 must decode and bind

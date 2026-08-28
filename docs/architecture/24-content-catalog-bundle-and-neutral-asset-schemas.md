@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 3.2 |
-| Последняя проверка | 2026-08-26 |
+| Версия | 3.3 |
+| Последняя проверка | 2026-08-28 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V3.1 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
-| Заменяет | SPEC-24 3.1; distinguishes future generated candidates from current neutral content and binds only promoted exact source into existing closure |
+| Дополнительные зависимости V3.3 | [ADR-098](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) |
+| Заменяет | SPEC-24 3.2; adds one optional exact BodySchema-bound functional-anatomy profile to the current asset while creator projects without a consumer omit it |
 
 ## Scope
 
@@ -122,8 +123,11 @@ The implemented specialized neutral records are:
   and bound to an existing population subject.
 - `BodySchemaAssetV1`, carried as one DomainRelevant root with exact asset
   revision, frozen `BodySchemaV1` bytes and the admitted deterministic compiler
-  profile. The reference CharacterDefinition has one required dependency on
-  this asset.
+  profile. Under ADR-098 it may additionally carry one exact
+  `FunctionalAnatomyProfileV1` bound to that BodySchema hash. The reference
+  project declares the current unilateral profile; creator projects without an
+  injury consumer omit it. The reference CharacterDefinition has one required
+  dependency on this asset.
 
 These contracts use engine-owned fixed-width/canonical values, exact asset
 revisions and checked bounds. Render records validate index/attribute lengths,
@@ -218,7 +222,8 @@ inputs.
 - exact activity catalog revision, systemic-work profile, worker/commitment/
   workplace/item bindings and their population/RPG/bootstrap closure.
 - exact `BodySchemaAssetV1` record/hash, frozen reference schema generation,
-  admitted compiler profile, required root and CharacterDefinition dependency.
+  admitted compiler profile, optional anatomy-profile ID/hash/reference
+  closure, required root and CharacterDefinition dependency.
 
 Only the complete candidate publishes. Failure leaves the prior activated
 project/content untouched. Equal canonical inputs produce byte-identical
@@ -238,6 +243,11 @@ public persisted ABI. R5f added the base-skinning family and R5g adds its exact
 pose-corrective field to that current shape; an older catalog must be recooked
 by its matching toolchain and is never silently decoded or migrated as the new
 shape.
+
+ADR-098 likewise advances the current `BodySchemaAssetV1` canonical shape with
+an optional anatomy profile and advances the reference record revision. An old
+asset is not decoded by assuming `None`; it must be recooked with its matching
+toolchain.
 
 ## Public boundary and checks
 

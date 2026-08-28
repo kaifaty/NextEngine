@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-19 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-08-17 |
+| Версия | 2.4 |
+| Последняя проверка | 2026-08-28 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
 | Дополнительные зависимости V2.3 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-19 2.2; retains the current R4d commitment/settlement owner and records future local/systemic condition and treatment ownership without changing current aggregate or operation sets |
+| Дополнительные зависимости V2.4 | [ADR-098](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) |
+| Заменяет | SPEC-19 2.3; admits the bounded intact-topology BodyCondition aggregate and two staged operations while keeping fracture/topology/systemic breadth Proposed |
 
 ## Authority
 
@@ -49,7 +50,8 @@ transaction.
 
 The current closed payload enum contains `Character`, `Item`, `Inventory`,
 `Equipment`, `Quest`, `Dialogue`, `Faction`, `FactionMembership`,
-`Relationship`, `DivineStanding`, `InteractiveObject` and `Commitment` records.
+`Relationship`, `DivineStanding`, `InteractiveObject`, `Commitment` and
+`BodyCondition` records.
 This list is the current serialized envelope surface, not a promise that every high-level
 feature is implemented. In particular, the small `DivineStandingPayloadV1`
 record does not imply the narrative director, pantheon, offers/covenants or
@@ -70,6 +72,9 @@ Current payload ownership is simple:
 - Commitment owns issuer, recipient, work and workplace IDs, currency, wage
   and the closed `Offered -> Accepted -> Fulfilled` lifecycle with cancellation
   permitted from Offered or Accepted.
+- BodyCondition owns one Character/BodySchema/anatomy-profile/region binding,
+  the current intact/partial/tendon-loss/nerve-loss impairment, untreated/
+  stabilized/repaired/rehabilitated stage and stable/impaired systemic band.
 - Calendar/population, physical pose, mechanics reducer state, AI memory,
   localized text and presentation are not copied into RPG authority.
 
@@ -90,7 +95,9 @@ handle, database row, task/future or OS object.
 6. `AssignEquipment`;
 7. `TransitionInteractiveObject`;
 8. `AdjustCharacterResource`;
-9. `TransitionCommitment`.
+9. `TransitionCommitment`;
+10. `ApplyBodyImpairment`;
+11. `AdvanceBodyTreatment`.
 
 Each operation binds stable target IDs and exact expected revisions. Operation
 slots are `0..n-1`; target sets and definition/policy hashes are sorted unique.
@@ -137,29 +144,29 @@ Every failure retains the previous state/ledger roots.
 
 `play` exercises the implemented dialogue, quest, relationship, inventory,
 equipment, interactive-object, character-resource and commitment operations
-through the reference loop. `persistence-replay` proves current snapshot/save/replay roots,
-typed rejection of retired formats and no partial mutation. Focused RPG tests
-cover all nine operations, canonical order, stale/conflict and atomic-fault
-cases.
+through the reference loop. `physical-character` additionally exercises the
+BodyCondition Mechanics → RPG transition sequence for player and NPC.
+`persistence-replay` proves current snapshot/save/replay roots, typed rejection
+of retired formats and no partial mutation. Focused RPG tests cover all eleven
+operations, canonical order, body-condition staging, stale/conflict and
+atomic-fault cases.
 
 Future autonomous quest/narrative/divine behavior is Proposed in SPEC-31 and
 is not a prerequisite, current check or accepted feature contract here.
 
-## Future body-condition ownership
+## Current bounded body-condition ownership
 
-SPEC-36/ADR-075 assign a future durable `BodyConditionState`-equivalent and its
-simplified systemic band to the RPG transaction boundary so tissue integrity,
-continuity, fracture, consciousness/death semantics and recovery cannot be
-owned by Physics, Motor, animation, renderer or a package. Mechanics may
-propose damage/treatment; only RPG validation may commit the typed owner
-replacement and ordered events, atomically with a required staged physics
-topology transaction.
+SPEC-36/ADR-075/098 assign the current bounded `BodyCondition` aggregate and
+simplified stable/impaired band to the RPG transaction boundary. Mechanics may
+propose damage/treatment; only RPG validation commits the typed replacement
+and ordered event. The current subset changes no Physics topology, so no staged
+topology transaction exists yet. A later fracture/retained/detached consumer
+must add that atomic cross-owner boundary explicitly rather than extending this
+operation silently.
 
-The current closed `RpgAggregateEnvelopeV1` payload enum and nine operation
-variants above do not gain a body-condition kind or operation in this
-documentation change. Exact records are admitted only with the first
-production injury consumer, a current-only schema/save/replay update and
-focused failure coverage under ADR-046.
+`RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION` and the RPG command schema are current
+version `4`. Earlier alpha bytes reject under ADR-046/SPEC-22 without default,
+migration or partial mutation.
 
 ## Current bounded Strategic Agent reciprocal ownership
 

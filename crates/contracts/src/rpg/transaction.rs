@@ -45,6 +45,21 @@ pub enum RpgEventV1 {
         commitment_id: PersistentId,
         state: CommitmentStateV1,
     },
+    BodyConditionChanged {
+        condition_id: PersistentId,
+        character_id: PersistentId,
+        impairment: BodyImpairmentV1,
+        recovery_stage: BodyRecoveryStageV1,
+        systemic_condition: SystemicConditionV1,
+    },
+    BodyTreatmentAdvanced {
+        condition_id: PersistentId,
+        character_id: PersistentId,
+        channel: BodyTreatmentChannelV1,
+        impairment: BodyImpairmentV1,
+        recovery_stage: BodyRecoveryStageV1,
+        systemic_condition: SystemicConditionV1,
+    },
 }
 
 impl RpgEventV1 {
@@ -64,6 +79,8 @@ impl RpgEventV1 {
                 RPG_EVENT_CHARACTER_RESOURCE_ADJUSTED_SCHEMA_ID
             }
             Self::CommitmentTransitioned { .. } => RPG_EVENT_COMMITMENT_TRANSITIONED_SCHEMA_ID,
+            Self::BodyConditionChanged { .. } => RPG_EVENT_BODY_CONDITION_CHANGED_SCHEMA_ID,
+            Self::BodyTreatmentAdvanced { .. } => RPG_EVENT_BODY_TREATMENT_ADVANCED_SCHEMA_ID,
         }
     }
 
@@ -92,6 +109,10 @@ impl RpgEventV1 {
             }
             Self::CommitmentTransitioned { commitment_id, .. } => {
                 (RpgAggregateKindV1::Commitment, *commitment_id)
+            }
+            Self::BodyConditionChanged { condition_id, .. }
+            | Self::BodyTreatmentAdvanced { condition_id, .. } => {
+                (RpgAggregateKindV1::BodyCondition, *condition_id)
             }
         }
     }
@@ -180,6 +201,36 @@ impl RpgEventV1 {
                 bytes.extend_from_slice(commitment_id.as_bytes());
                 bytes.push(*state as u8);
             }
+            Self::BodyConditionChanged {
+                condition_id,
+                character_id,
+                impairment,
+                recovery_stage,
+                systemic_condition,
+            } => {
+                bytes.push(10);
+                bytes.extend_from_slice(condition_id.as_bytes());
+                bytes.extend_from_slice(character_id.as_bytes());
+                bytes.push(*impairment as u8);
+                bytes.push(*recovery_stage as u8);
+                bytes.push(*systemic_condition as u8);
+            }
+            Self::BodyTreatmentAdvanced {
+                condition_id,
+                character_id,
+                channel,
+                impairment,
+                recovery_stage,
+                systemic_condition,
+            } => {
+                bytes.push(11);
+                bytes.extend_from_slice(condition_id.as_bytes());
+                bytes.extend_from_slice(character_id.as_bytes());
+                bytes.push(*channel as u8);
+                bytes.push(*impairment as u8);
+                bytes.push(*recovery_stage as u8);
+                bytes.push(*systemic_condition as u8);
+            }
         }
         Ok(bytes)
     }
@@ -233,6 +284,21 @@ impl RpgEventV1 {
             9 => Self::CommitmentTransitioned {
                 commitment_id: read_id(&mut cursor)?,
                 state: CommitmentStateV1::from_tag(cursor.read_u8()?)?,
+            },
+            10 => Self::BodyConditionChanged {
+                condition_id: read_id(&mut cursor)?,
+                character_id: read_id(&mut cursor)?,
+                impairment: BodyImpairmentV1::from_tag(cursor.read_u8()?)?,
+                recovery_stage: BodyRecoveryStageV1::from_tag(cursor.read_u8()?)?,
+                systemic_condition: SystemicConditionV1::from_tag(cursor.read_u8()?)?,
+            },
+            11 => Self::BodyTreatmentAdvanced {
+                condition_id: read_id(&mut cursor)?,
+                character_id: read_id(&mut cursor)?,
+                channel: BodyTreatmentChannelV1::from_tag(cursor.read_u8()?)?,
+                impairment: BodyImpairmentV1::from_tag(cursor.read_u8()?)?,
+                recovery_stage: BodyRecoveryStageV1::from_tag(cursor.read_u8()?)?,
+                systemic_condition: SystemicConditionV1::from_tag(cursor.read_u8()?)?,
             },
             tag => return Err(RpgContractErrorV1::UnknownEventTag(tag)),
         };

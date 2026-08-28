@@ -103,6 +103,8 @@ pub struct ReferenceGameSession {
     pub r5b_course: ReferenceCapsuleCourseV1,
     pub interactive_object_id: PersistentId,
     pub npc_character_id: PersistentId,
+    pub player_body_condition_id: PersistentId,
+    pub npc_body_condition_id: PersistentId,
     pub body_projections: ReferenceBodyProjectionSetV1,
     pub procedural_motor: next_motor::CapsuleProceduralMotorControllerV1,
     pub quest_giver_character_id: PersistentId,
@@ -350,6 +352,8 @@ pub fn build_reference_game_session_with_profile(
     let r5b_course = ReferenceCapsuleCourseV1::production_v1();
     let interactive_object_id = PersistentId::from_bytes([0x58; 16]);
     let npc_character_id = PersistentId::from_bytes([0x59; 16]);
+    let player_body_condition_id = PersistentId::from_bytes([0xc0; 16]);
+    let npc_body_condition_id = PersistentId::from_bytes([0xc1; 16]);
     let body_projections =
         ReferenceBodyProjectionSetV1::compile(&activated_project, body_id, npc_character_id)?;
     let procedural_motor = next_motor::CapsuleProceduralMotorControllerV1::activate(
@@ -391,6 +395,8 @@ pub fn build_reference_game_session_with_profile(
         npc_inventory_id,
         npc_equipment_id,
         npc_weapon_item_id,
+        player_body_condition_id,
+        npc_body_condition_id,
         PersistentId::from_bytes([0x57; 16]),
         PersistentId::from_bytes([0x71; 16]),
         PersistentId::from_bytes([0x72; 16]),
@@ -443,6 +449,8 @@ pub fn build_reference_game_session_with_profile(
         r5b_course,
         interactive_object_id,
         npc_character_id,
+        player_body_condition_id,
+        npc_body_condition_id,
         body_projections,
         procedural_motor,
         quest_giver_character_id,
