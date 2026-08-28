@@ -43,6 +43,7 @@
 | Current-line integration plus lock repair | ADR-097 preserves ADR-095 generative authoring and ADR-096 active-kernel authority; `cargo fmt`, locked offline metadata, package `22/22`, xtask-bin `45/45` and strict xtask Clippy historically pass | V6 is ready for final post-R7c package/native evidence on the current architecture line |
 | Post-R7c native gate on `b14a2e73…` | First attempt exhausted rebuildable Cargo disk state; the bounded retry with incremental disabled reached host-check and exposed `PROTECTED_DATA_DETECTED` only in the package test tool fixture because gate-local `TMPDIR` was under `/home/...` | Preserve both failures as typed pre-publication evidence; keep the scanner strict and remap the generated fixture source prefix instead of weakening protected-data detection |
 | Package fixture under repository-local `TMPDIR` after remap | `PASS`: exact pipeline test compiles and scans the fixture with `/nextengine/test-fixture`; real A/B packages on the predecessor were already protected-scan `PASS` | Advance to one new exact commit, rebuild A/B and rerun the bounded native gate without incremental state |
+| Native host-check on `dfa9d6ed…` | The remapped package fixture passed, then 11 external-input tests rejected gate-local manifests because host-check still exported its repository-local state directory as `TMPDIR` | Treat this as one native-gate isolation defect, not 11 test defects: keep check state under staging but create and clean a unique child temporary under the external OS temp base |
 | `cargo run --locked -q -p xtask -- v1-package --output artifacts/r7e/package-probe` after scan-order/path fix | `PROTECTED_SCAN_PASS / DESKTOP_BLOCKED`: release build and all pre-smoke distribution checks passed; outer `NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING` preserved inner `PLATFORM_DESKTOP_RUNTIME_UNAVAILABLE`; no package or staging survived | Do not weaken or repeat the package path until display state changes |
 | Fresh release ELF byte/string scan | `PASS`: all three binaries contain no local-user/private-key/token marker; expected remapped Cargo paths begin `/nextengine/build-user/` | H1 is closed for the current Linux build products |
 | Linux display probe | `AVAILABLE`: physical 1920×1080 output and the production Wayland/Vulkan path are active | Package A/B and final native gate may run on the post-R7c successor |
@@ -145,6 +146,9 @@ Read these sources in precedence order before acting:
 - A package test fixture compiled from an unremapped gate-local temporary path.
   The protected-data scanner correctly rejects that path; the fixture compiler
   must retain its neutral source-prefix remap.
+- Per-test exemptions for repository-local physical-sound inputs. Those tests
+  correctly enforce the external evidence boundary; native host-check owns the
+  responsibility to provide an external child `TMPDIR`.
 
 ## Handoff
 

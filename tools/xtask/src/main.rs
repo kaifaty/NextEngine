@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
 use std::env;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 mod animation_lod_command;
+mod native_gate_environment;
 mod native_gate_projection;
 mod native_gate_publish;
 mod native_gate_runner;
@@ -24,6 +24,7 @@ mod physical_sound_reproduce_command;
 mod physical_sound_steel_search_command;
 mod physx;
 mod visual_smoke;
+use native_gate_environment::run_output_with_state;
 use serde::{Serialize, Serializer};
 use xtask::native_gate::{
     LINUX_TARGET_TRIPLE, NATIVE_GATE_SCHEMA_VERSION, NativeGateCheckNameV1,
@@ -884,45 +885,6 @@ fn run_checked(
             output.status,
         ))
     }
-}
-
-fn run_output_with_state(
-    root: &Path,
-    program: &str,
-    arguments: &[&str],
-    state_root: Option<&Path>,
-) -> Result<Output, String> {
-    let mut command = Command::new(program);
-    command.args(arguments).current_dir(root);
-    if let Some(state_root) = state_root {
-        let local_app_data = state_root.join("local-app-data");
-        let xdg_state_home = state_root.join("xdg-state");
-        let roaming_app_data = state_root.join("roaming-app-data");
-        let temporary = state_root.join("temp");
-        for directory in [
-            &local_app_data,
-            &xdg_state_home,
-            &roaming_app_data,
-            &temporary,
-        ] {
-            fs::create_dir_all(directory).map_err(|error| {
-                format!(
-                    "failed to create isolated host-check directory {}: {error}",
-                    directory.display()
-                )
-            })?;
-        }
-        command
-            .env("LOCALAPPDATA", local_app_data)
-            .env("APPDATA", roaming_app_data)
-            .env("XDG_STATE_HOME", xdg_state_home)
-            .env("TMP", &temporary)
-            .env("TEMP", &temporary)
-            .env("TMPDIR", temporary);
-    }
-    command
-        .output()
-        .map_err(|error| format!("failed to run {program}: {error}"))
 }
 
 fn diagnostic_code(error: &str) -> &'static str {
