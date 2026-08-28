@@ -14,7 +14,9 @@ mod corpus_plan;
 mod domain_claims;
 mod internet_sources;
 mod realimpact_row;
+mod realimpact_transfer_fixture;
 mod realimpact_transfer_preregistration;
+mod realimpact_transfer_projection;
 mod source_feasibility;
 mod split_feasibility;
 mod split_freeze;
@@ -85,6 +87,12 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         }
         Some("realimpact-transfer-preregister") => {
             return realimpact_transfer_preregistration::run_cli(root, arguments.skip(1));
+        }
+        Some("realimpact-transfer-fixture") => {
+            return realimpact_transfer_fixture::run_cli(root, arguments.skip(1));
+        }
+        Some("realimpact-transfer-project") => {
+            return realimpact_transfer_projection::run_cli(root, arguments.skip(1));
         }
         Some("source-feasibility") => return source_feasibility::run_cli(root, arguments.skip(1)),
         Some("spatial-calibration") => return realimpact_row::run_spatial(root, arguments.skip(1)),
