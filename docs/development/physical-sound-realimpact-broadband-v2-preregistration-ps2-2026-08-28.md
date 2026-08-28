@@ -74,7 +74,17 @@ numeric analysis. Analysis runs twice without threshold or variant changes.
 
 ## Frozen evidence identity
 
-Runner, manifest and preflight hashes are filled only after the runner is
-committed and the zero-analysis preflight repeats. External artifacts remain
-under
+Runner SHA-256:
+`3f1c07b501dec97645cc0f1ad2fec5b3960312eacde88a291b64cc740a056aa5`.
+
+External manifest SHA-256:
+`876e125dcef4a8c38e5bf7630b1115013cc02deb0c1dd5303d5bed244a5aa4bf`.
+Preflight A/B are byte-identical at
+`81f1b0898b1fdc72642700e9d2ff5d71e6e02d2cc4e012a61fe83ea9240f3fcf`
+and decide `ExistingIronBroadbandV2CounterfactualFrozen`. They bind the exact
+31-region/91-bin V1 discovery, the supported dense partial-SVD parent, all
+unchanged controls and the no-ranking/no-new-data policy.
+
+External artifacts remain under
 `~/.codex/experiments/nextengine/physical-sound/ps2-realimpact-iron-skillet-broadband-v2-counterfactual-v1/`.
+This preregistration and runner MUST be committed before numeric analysis.
