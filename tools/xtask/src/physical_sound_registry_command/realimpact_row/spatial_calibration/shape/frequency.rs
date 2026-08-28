@@ -12,6 +12,7 @@ use super::manifest::{ArchiveProfile, Manifest, MeshDescriptor, SIGMA_GRID};
 
 mod model;
 mod publish;
+mod radiation;
 
 const SCHEMA: &str =
     "nextengine.experimental-realimpact-frequency-spatial-preregistration.manifest.v1";
@@ -43,6 +44,15 @@ const DEVELOPMENT_OBJECTS: [&str; 12] = [
 ];
 const CALIBRATION_OBJECTS: [&str; 2] = ["100_Frisbee", "32_WoodChalice"];
 const HOLDOUT_OBJECTS: [&str; 2] = ["65_PitcherCeramic", "63_SmallPlanterCeramic"];
+
+pub(super) fn run_radiation_development(
+    root: &Path,
+    manifest_path: &Path,
+    manifest_bytes: &[u8],
+    output_argument: &Path,
+) -> Result<(), String> {
+    radiation::run_development(root, manifest_path, manifest_bytes, output_argument)
+}
 
 pub(super) fn run_development(
     root: &Path,

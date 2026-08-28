@@ -52,6 +52,45 @@ pub(super) struct ModeSeed {
     pub(super) persistent: bool,
 }
 
+#[derive(Clone, Copy, Debug, Serialize)]
+pub(super) struct ComplexValue {
+    pub(super) real: f64,
+    pub(super) imaginary: f64,
+}
+
+impl ComplexValue {
+    pub(super) const ZERO: Self = Self {
+        real: 0.0,
+        imaginary: 0.0,
+    };
+
+    pub(super) fn magnitude(self) -> f64 {
+        self.real.hypot(self.imaginary)
+    }
+
+    pub(super) fn divide(self, divisor: Self) -> Result<Self, String> {
+        let denominator = divisor
+            .real
+            .mul_add(divisor.real, divisor.imaginary.powi(2));
+        if !denominator.is_finite() || denominator <= AMPLITUDE_EPSILON.powi(2) {
+            return Err("spatial complex normalization reference is zero".to_owned());
+        }
+        let result = Self {
+            real: (self.real * divisor.real + self.imaginary * divisor.imaginary) / denominator,
+            imaginary: (self.imaginary * divisor.real - self.real * divisor.imaginary)
+                / denominator,
+        };
+        result
+            .is_finite()
+            .then_some(result)
+            .ok_or_else(|| "spatial complex normalization is non-finite".to_owned())
+    }
+
+    pub(super) fn is_finite(self) -> bool {
+        self.real.is_finite() && self.imaginary.is_finite()
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub(super) struct Evaluation {
     pub(super) component_count: usize,
@@ -90,14 +129,9 @@ fn evaluate_candidates(
     sample_rate_hz: u32,
     candidates: &[CandidateProfile],
 ) -> Result<Evaluation, String> {
-    if rows.len() != LISTENER_COUNT || modes.is_empty() {
-        return Err("spatial evaluation dimensions are not frozen".to_owned());
-    }
+    validate_projection_dimensions(rows, modes)?;
     if candidates.len() != modes.len() {
         return Err("spatial evaluation candidate lineage differs from modes".to_owned());
-    }
-    if rows.iter().any(|row| row.len() < WINDOW_SAMPLES) {
-        return Err("spatial evaluation row is shorter than the frozen window".to_owned());
     }
     let window = hann_window();
     let mut participation = vec![vec![0.0_f64; LISTENER_COUNT]; modes.len()];
@@ -148,6 +182,34 @@ fn evaluate_candidates(
             candidate_median_abs_error_db: candidate_median,
         });
     }
+    build_evaluation(
+        modes,
+        all_errors,
+        persistent_errors,
+        constant_errors,
+        improved,
+        components,
+    )
+}
+
+fn validate_projection_dimensions(rows: &[Vec<f64>], modes: &[ModeSeed]) -> Result<(), String> {
+    if rows.len() != LISTENER_COUNT || modes.is_empty() {
+        return Err("spatial evaluation dimensions are not frozen".to_owned());
+    }
+    if rows.iter().any(|row| row.len() < WINDOW_SAMPLES) {
+        return Err("spatial evaluation row is shorter than the frozen window".to_owned());
+    }
+    Ok(())
+}
+
+fn build_evaluation(
+    modes: &[ModeSeed],
+    all_errors: Vec<f64>,
+    persistent_errors: Vec<f64>,
+    constant_errors: Vec<f64>,
+    improved: usize,
+    components: Vec<ComponentEvaluation>,
+) -> Result<Evaluation, String> {
     if persistent_errors.is_empty() {
         return Err("spatial evaluation has no persistent component".to_owned());
     }
@@ -253,6 +315,109 @@ pub(super) fn component_candidate_median_errors(evaluation: &Evaluation) -> Vec<
         .collect()
 }
 
+pub(super) fn relative_complex_participation(
+    rows: &[Vec<f64>],
+    modes: &[ModeSeed],
+    sample_rate_hz: u32,
+) -> Result<Vec<Vec<ComplexValue>>, String> {
+    validate_projection_dimensions(rows, modes)?;
+    let window = hann_window();
+    let mut participation = vec![vec![ComplexValue::ZERO; LISTENER_COUNT]; modes.len()];
+    for (listener_index, row) in rows.iter().enumerate() {
+        let onset = onset(row)?;
+        for (mode_index, mode) in modes.iter().enumerate() {
+            participation[mode_index][listener_index] =
+                projection_complex(row, onset, &window, mode.frequency_hz, sample_rate_hz)?;
+        }
+    }
+    for component in &mut participation {
+        let reference = component[REFERENCE_LISTENER];
+        for value in component {
+            *value = value.divide(reference)?;
+        }
+    }
+    Ok(participation)
+}
+
+pub(super) fn relative_db_participation(
+    rows: &[Vec<f64>],
+    modes: &[ModeSeed],
+    sample_rate_hz: u32,
+) -> Result<Vec<Vec<f64>>, String> {
+    validate_projection_dimensions(rows, modes)?;
+    let window = hann_window();
+    let mut participation = vec![vec![0.0_f64; LISTENER_COUNT]; modes.len()];
+    for (listener_index, row) in rows.iter().enumerate() {
+        let onset = onset(row)?;
+        for (mode_index, mode) in modes.iter().enumerate() {
+            participation[mode_index][listener_index] =
+                projection_db(row, onset, &window, mode.frequency_hz, sample_rate_hz)?;
+        }
+    }
+    for component in &mut participation {
+        let reference = component[REFERENCE_LISTENER];
+        for value in component {
+            *value -= reference;
+        }
+    }
+    Ok(participation)
+}
+
+pub(super) fn evaluate_db_predictions(
+    modes: &[ModeSeed],
+    target_db: &[Vec<f64>],
+    predicted_db: &[Vec<f64>],
+) -> Result<Evaluation, String> {
+    if modes.is_empty()
+        || target_db.len() != modes.len()
+        || predicted_db.len() != modes.len()
+        || target_db.iter().chain(predicted_db).any(|component| {
+            component.len() != LISTENER_COUNT || component.iter().any(|value| !value.is_finite())
+        })
+    {
+        return Err("spatial predicted-participation lineage is invalid".to_owned());
+    }
+    let mut all_errors = Vec::new();
+    let mut persistent_errors = Vec::new();
+    let mut constant_errors = Vec::new();
+    let mut improved = 0_usize;
+    let mut components = Vec::new();
+    for ((mode, target), predicted) in modes.iter().zip(target_db).zip(predicted_db) {
+        let errors = HELD_LISTENERS
+            .iter()
+            .map(|index| (predicted[*index] - target[*index]).abs())
+            .collect::<Vec<_>>();
+        let baseline = HELD_LISTENERS
+            .iter()
+            .map(|index| target[*index].abs())
+            .collect::<Vec<_>>();
+        let candidate_median = median(&errors)?;
+        let constant_median = median(&baseline)?;
+        if candidate_median < constant_median {
+            improved += 1;
+        }
+        if mode.persistent {
+            persistent_errors.extend(errors.iter().copied());
+        }
+        all_errors.extend(errors);
+        constant_errors.extend(baseline);
+        components.push(ComponentEvaluation {
+            frequency_hz: mode.frequency_hz,
+            persistent: mode.persistent,
+            constant_median_abs_error_db: constant_median,
+            candidate_median_abs_error_db: candidate_median,
+        });
+    }
+    build_evaluation(
+        modes,
+        all_errors,
+        persistent_errors,
+        constant_errors,
+        improved,
+        components,
+    )
+}
+
 pub(super) fn improved_component_fraction(
     candidate: &Evaluation,
     control: &Evaluation,
@@ -307,6 +472,22 @@ fn projection_db(
     frequency_hz: f64,
     sample_rate_hz: u32,
 ) -> Result<f64, String> {
+    let projection = projection_complex(samples, onset, window, frequency_hz, sample_rate_hz)?;
+    let magnitude = projection.magnitude().max(AMPLITUDE_EPSILON);
+    let decibels = 20.0 * magnitude.log10();
+    decibels
+        .is_finite()
+        .then_some(decibels)
+        .ok_or_else(|| "spatial projection is non-finite".to_owned())
+}
+
+fn projection_complex(
+    samples: &[f64],
+    onset: usize,
+    window: &[f64],
+    frequency_hz: f64,
+    sample_rate_hz: u32,
+) -> Result<ComplexValue, String> {
     if !frequency_hz.is_finite()
         || frequency_hz <= 0.0
         || frequency_hz >= f64::from(sample_rate_hz) * 0.5
@@ -338,11 +519,10 @@ fn projection_db(
             phase_sin = phase.sin();
         }
     }
-    let magnitude = real.hypot(imaginary).max(AMPLITUDE_EPSILON);
-    let decibels = 20.0 * magnitude.log10();
-    decibels
+    let result = ComplexValue { real, imaginary };
+    result
         .is_finite()
-        .then_some(decibels)
+        .then_some(result)
         .ok_or_else(|| "spatial projection is non-finite".to_owned())
 }
 
