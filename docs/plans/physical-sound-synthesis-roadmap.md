@@ -2,10 +2,10 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_SOURCE_FEASIBILITY_EXECUTABLE / V1_PUBLISHED_ROUTE_UNAVAILABLE / REALIMPACT_TRANSFER_ROUTE_SELECTED / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_TRANSFER_V2_MODAL_DAMPING_HOLDOUT_PASS / TRANSFER_V1_INVALID / SPATIAL_PARTICIPATION_UNAVAILABLE / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [Internet-source feasibility and transfer route](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md) |
+| Текущий evidence | [PS-2 REALIMPACT transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Последний пакет | [REALIMPACT V1/V2 transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -110,7 +110,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / DOMAIN_CLAIM_MATRIX_EXECUTABLE / PROJECT_SPLIT_FROZEN / ONE_CROSS_TIER_LINK / EIGHT_EXACT_CLAIMS_OPEN` | L | Power policy, `E1` import, bounded source/cache/archive handling and claim-scoped `E1`–`E4` accounting are executable. Eight projects validate 64 objects/135 E3 recordings; Glass is `16/16` and 46 recordings, reject parents `48/35` and 89. The deterministic `20/30/25/25` project split is hash-closed as `2/2/2/2`, with target and reject evidence in every partition. The executable E2/E3 matrix admits only the reviewed Blue Bowl object link and returns `DomainEvidenceIncomplete / FallbackOutOfDomain`: composition, exact geometry/support/excitation/impact/listener alignment, matched-condition lineage and four-partition domain coverage remain open. Next test published-source feasibility for those exact claims; do not tune formulas or open PS-3. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / TRANSFER_V2_MODAL_DAMPING_HOLDOUT_PASS / TRANSFER_V1_INVALID / SPATIAL_PARTICIPATION_UNAVAILABLE / EIGHT_EXACT_CLAIMS_OPEN` | L | Power policy, `E1` import, bounded source/cache/archive handling and claim-scoped `E1`–`E4` accounting are executable. Eight projects validate 64 objects/135 E3 recordings; Glass is `16/16` and 46 recordings, reject parents `48/35` and 89. The deterministic `20/30/25/25` project split is hash-closed as `2/2/2/2`, with target and reject evidence in every partition. The exact-domain matrix remains `DomainEvidenceIncomplete / FallbackOutOfDomain`. Transfer V1 is invalid metric lineage; injective V2 crosses its modal/damping gates on fresh Skull Cup but one listener row per object cannot estimate spatial participation. Next acquire and hash-close distinct published listener rows, then preregister an object-disjoint spatial discriminator; do not open PS-3. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -451,6 +451,23 @@ code/data publication. The next package preregisters and executes relative
 modal/spatial fitting on object-disjoint REALIMPACT E2 rows. See the
 [feasibility evidence](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md).
 
+PS-2 transfer-calibration checkpoint: `physical-sound-registry
+transfer-calibration` preserves its first frozen revision as
+`INVALID_METRIC_CONFOUND`; non-injective tail reuse and shared coarse damping
+bins invalidate the apparent Shell Plate gate. A separately hash-closed V2
+uses injective one-to-one matching, separated peaks and finer damping bins,
+selects `injective-modal-16-fft65536-v2` on Shell Plate and evaluates the
+previously unopened Skull Cup once. Two V2 reports are byte-identical and all
+five modal/damping gates pass: recall `0.5625`, median frequency error
+`28.0099` cents, decaying fraction `0.5625` and tail-prediction RMSE `6.0133`
+dB. The allowed result is relative modal/damping extractor transferability,
+not glass identity or naturalness. Spatial participation is
+`NotEvaluableSingleListenerRowPerObject`; all eight exact claims, admission,
+`Pass`, PS-3, AV-P0D and production remain open. The next bounded package is a
+typed multi-listener REALIMPACT acquisition pilot followed by a preregistered
+object-disjoint spatial discriminator. See the [transfer-calibration
+evidence](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -592,7 +609,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five REALIMPACT E2 rows, bounded source discriminators, deterministic split freeze and executable exact-domain E2/E3 matrix — `DOMAIN_EVIDENCE_INCOMPLETE / ONE_CROSS_TIER_LINK / EIGHT_EXACT_CLAIMS_OPEN`; next research published-source feasibility for the named claims without moving frozen partitions | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five REALIMPACT E2 rows, deterministic split, exact-domain matrix, source gate and transfer calibration — `TRANSFER_V1_INVALID / TRANSFER_V2_MODAL_DAMPING_HOLDOUT_PASS / SPATIAL_PARTICIPATION_UNAVAILABLE / EIGHT_EXACT_CLAIMS_OPEN`; next acquire distinct typed listener rows and preregister an object-disjoint spatial discriminator | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
