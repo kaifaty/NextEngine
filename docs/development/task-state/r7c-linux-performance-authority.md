@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ACTIVE_KERNEL_V2_IMPLEMENTATION / FINAL_ONE_COMMIT_CAMPAIGN_PENDING` |
+| Status | `ACTIVE / R2_POST_SUBMIT_ACCOUNTING_FIX / FINAL_ONE_COMMIT_CAMPAIGN_PENDING` |
 | Updated | 2026-08-28 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
@@ -11,11 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** ADR-096 replaces the kernel-29 boot pin with
-  `ref-linux-b550i-3950x-rtx3080-v2`: the active Ubuntu generic patch is
-  admissible, while every campaign report retains one exact full fingerprint.
-  R3/R4/R5 keep historical v11 `PASS` evidence and R2 is fixed; all four need
-  fresh V2 evidence on one exact clean commit.
+- **Current conclusion:** ADR-096 admits the active Ubuntu generic patch under
+  `ref-linux-b550i-3950x-rtx3080-v2` with one exact campaign fingerprint. Two
+  fresh R2 attempts exposed an engine-owned post-submit accounting defect:
+  out-of-date presentation retained GPU/cache/UI work but caused one replacement
+  submission. The minimal fix is implemented and has one complete six-window
+  control; all four workloads still need fresh evidence on its clean commit.
 - **Fix (product owner approved):** commit `df964af2` adds opt-in presentation
   stabilization to `DesktopRunOptions`
   (`prefer_borderless_fullscreen_when_display_matches`): when the declared
@@ -24,17 +25,22 @@
   pre-run window events, and fails closed with typed
   `PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE` if the extent never settles.
   Only the timing workload path enables it; the live game default is unchanged.
-- **Validation so far:** on quiet host, clean `df964af2`: Wayland soak
-  `PASS cache_miss=1`; x11 soak `PASS cache_miss=1`; full six-window
-  `r2-alpha-render` report run `REPORT_ONLY` with zero diagnostics.
+- **Validation so far:** diagnostic failure on dirty `9f239928` proved one
+  extra submitted frame (`8402` timestamps, `4201` UI/cache frames, one dropped
+  sample against public `rendered_frames=4200`). After retaining that submitted
+  frame across post-submit out-of-date recovery, a full six-window control
+  passed exact `4200/8400`, zero dropped and cache `4199/1` per window. Details:
+  [dated research](../r7c-r2-post-submit-out-of-date-research-2026-08-28.md).
 - **Invalid campaign:** the 2026-08-24 collector ran on kernel
   `7.0.0-30-generic`, omitted `--target` from calibration reports and passed a
   file name rather than a directory to `--output`. Runs 01/02 therefore record
   `observed-host-v1`; run 03 hung and was terminated with the parent shell after
   1h54m. All outputs remain preserved as invalid evidence.
-- **Next action:** commit ADR-096/V2 validation, rebuild release `xtask` on that
-  exact clean commit and recollect R2/R4/R5/R3 with the corrected collector.
-- **Current blocker:** none; each run still waits for preflight and sustained quiet.
+- **Next action:** run focused desktop/performance checks, commit the R2 fix,
+  rebuild release `xtask` from that exact clean commit and recollect
+  R2/R4/R5/R3 with a fresh campaign root.
+- **Current blocker:** none; the two incomplete attempts are preserved and may
+  not be resumed or assembled into a baseline.
 - **Do not retry:** Do not run `ref-win-thoth-v1`, reuse old reports as Linux
   evidence, use a virtual/software display for R2, rerun any recorded failed
   or warned baseline/gate set unchanged, assemble a baseline across an
@@ -84,6 +90,8 @@
 | R2 blocked by desktop session presentation state | Display is OS-visible (`HDMI-1 1920x1080@199.92`), Vulkan loader and devices healthy, but every production desktop workload fails identically under both SDL video drivers: default Wayland path renders no smoke frame; forced `SDL_VIDEODRIVER=x11` renders completely (240-frame soak PASS) yet R2's declared-profile extent check fails. Root environmental factor identified: Mutter experimental features `scale-monitor-framebuffer` + `xwayland-native-scaling` are enabled in this session; the Wayland breakage appeared after the display reconnection | Engine code is unchanged and not implicated (CPU scenarios pass end to end); R2 needs either mutter feature toggle or a fresh graphical session before its ten-run baseline/gate can be collected; user processes remain untouched per instruction |
 | Fullscreen-start fix on `df964af2` (2026-08-24) | Opt-in `prefer_borderless_fullscreen_when_display_matches` in `DesktopRunOptions`: borderless fullscreen start when declared extent equals display bounds, bounded stabilization for the initial configure, pre-run window-event flush, typed closed failure `PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE`; timing workloads enable it, live game default unchanged. Focused tests + clippy clean, xtask lib `113/113` (`desktop-sdl-ash,physx`). Probes on clean quiet host: Wayland soak `PASS cache_miss=1`, x11 soak `PASS cache_miss=1`, full six-window R2 report `PASS` zero diagnostics | Both presentation blockers are removed by construction; final R2–R5 evidence must be recollected on `df964af2` (one-commit rule) and the campaign may proceed whenever the desktop is sustained-quiet |
 | Invalid final campaign on `5b5011be` (2026-08-24) | Under then-current V1 it ran on non-admitted kernel 30; independently, the collector omitted exact `--target`, nested the report filename under the output directory and hung in R2 run 03 until its exact campaign PIDs received `SIGTERM`. Runs 01/02 carry only `observed-host-v1`. | Preserve `target/perf/findf964a-final/r2-cal-attempt1.invalid-observed-host-kernel30-hung`; ADR-096 does not relabel its wrong target/output/incomplete bytes. Use a fresh V2 campaign. |
+| Active-kernel R2 attempts 1–2 on `9f239928` | Attempt 1 stopped without a report; attempt 2 published two exact clean V2 reports then stopped in run 3 with the same generic desktop-finish error. Instrumented reproduction exposed `4201` submitted GPU/cache/UI frames versus `4200` public frames after post-submit `VK_ERROR_OUT_OF_DATE_KHR`; one timing sample dropped | Two-cycle research stop fired. Preserve both attempt roots, count an already-submitted frame exactly once during swapchain recovery, validate on a new commit and never assemble the two PASS reports into a baseline |
+| Post-submit accounting fix diagnostic | One dirty non-evidence six-window control passes every exact invariant after the out-of-date branch returns the already-submitted frame instead of requesting a replacement | Run focused checks and commit; all final evidence must move to the new clean commit |
 | Mutter features toggled off; x11 path heals, Wayland stays broken | Product owner approved disabling the features (previous value preserved in `/tmp/opencode/mutter-features-backup.txt`). After the toggle the x11 driver produces a fully clean soak on rebuilt binary `84980001` (`PASS`, zero diagnostics — the earlier extent mismatch is gone), while the default Wayland path still renders no smoke frame; that anomaly now requires a graphical-session restart to diagnose further and is recorded as an open host finding | Evidence collection proceeds pinned to `SDL_VIDEODRIVER=x11` (real display, real compositor presentation, production NVIDIA Vulkan); Wayland presentation remains an open host issue to recheck after the next session restart |
 | V11 campaign on `8498001` paused by legitimate CPU contention | R4 closed first-attempt **`PASS`** (baseline `fin8498-r4-baseline`, gate attempt1). Then two R5 calibration attempts produced immutable absolute-budget FAILs: `worker-8.scaling-inefficiency` `4582bp`/`4511bp` against the `4500bp` ceiling with zero diagnostics and ready preflight. Host at that moment: load average `~8`, a `python` process at `350%` CPU plus two 100% workers (user's important computation, untouched per instruction), `Tctl 81.6°C`; w1 motor-frame doubled to `~19 ms`. The `<40%` preflight cannot see topology-local contention or CPU thermal state | Both contaminated runs preserved as exact negative evidence under `.interrupted` sets; collection paused until the user's compute finishes. Resume script ready: rerun `collect_fin8498_resume.sh` unchanged on frozen HEAD `8498001` (binary already built there), then finalize docs; do not widen budgets or treat contaminated runs as calibration entries |
 | V11 campaign completed on `8498001`; R2 deferred | After the user's computation finished, the resumed admission-timed run closed R5 (ten clean runs; gate attempt1 **`PASS`**, baseline `6f1998de…4e3c`, gate `78c5f333…176`) and R3 (gate attempt1 **`PASS`**, baseline `e55020ed…3a8`, gate `06e7c6fa…e28`) with zero diagnostics, alongside R4 (baseline `47dc4717…e3c`, gate `bf1059ee…dfd`). The remaining R2 still failed under both drivers (`720p30` declared-extent mismatch persists under x11 even though the `1080p` soak is clean), and the product owner chose to defer it rather than restart the graphical session now | R3/R4/R5 hold hard v11 gates on one exact commit; B-12 stays open solely for R2, whose evidence requires a healthy desktop presentation path (session restart recommended before recollection) |
@@ -227,17 +235,17 @@ variance) was consulted; H-A rests on local evidence only.
 
 ## Handoff
 
-- **Workspace state:** ADR-096, V2 target/scenario identities, cohort validator,
-  mixed-kernel rejection and aligned SPEC/roadmap/task-state form one coherent
-  campaign-candidate change atop `77a665be`; report provenance records its
-  exact committed HEAD rather than a self-referential documentation hash.
+- **Workspace state:** branch `codex/r7c-active-kernel-authority` carries
+  Accepted ADR-096/V2 at `9f239928` plus the uncommitted one-branch R2
+  post-submit accounting fix and its dated research/task-state update. Separate
+  `codex/r7de-port` is clean and prepared for the post-R7c successor.
 - **Checks:** fmt, strict xtask Clippy, focused performance `25/25` and full
   xtask lib `114/114` pass under `desktop-sdl-ash,physx`; `git diff --check` and
   changed-link validation pass. Broad boundary-scan is blocked by the unrelated
   pre-existing Proposed physical-sound `realimpact_transfer_fixture.rs` escape
   hatch from base `77a665be`; R7c files are not named by that failure.
-- **Remaining risk:** Total clean V2 evidence runtime and sustained desktop
-  quiescence; a kernel change mid-campaign invalidates that set without
-  requiring rollback.
+- **Remaining risk:** Focused fix validation and total clean V2 evidence
+  runtime; a kernel change mid-campaign invalidates that set without requiring
+  rollback.
 - **Promotion needed:** Exact clean R2–R5 baselines/gates, then record their
   immutable evidence commit/hashes and close B-12.
