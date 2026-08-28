@@ -13,6 +13,7 @@ mod corpus_plan;
 mod domain_claims;
 mod internet_sources;
 mod realimpact_row;
+mod source_feasibility;
 mod split_feasibility;
 mod split_freeze;
 
@@ -83,10 +84,8 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
             arguments.next();
             return realimpact_row::run_cli(root, arguments);
         }
-        Some("split-feasibility") => {
-            arguments.next();
-            return split_feasibility::run_cli(root, arguments);
-        }
+        Some("source-feasibility") => return source_feasibility::run_cli(root, arguments.skip(1)),
+        Some("split-feasibility") => return split_feasibility::run_cli(root, arguments.skip(1)),
         Some("split-freeze") => {
             arguments.next();
             return split_freeze::run_cli(root, arguments);
