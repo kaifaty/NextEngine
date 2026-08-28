@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_EXACT_WELD_GEOMETRY_PREFLIGHT_SUPPORTED / V1_TRIANGLE_SOUP_REJECTED / BYTE_IDENTICAL_BLOCKS / RESERVED_AUDIO_BYTES_ZERO / PITCHER_CALIBRATION_MANIFEST_NEXT / PITCHER_AND_PLANTER_AUDIO_SEALED / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PITCHER_CALIBRATION_PROTOCOL_FROZEN / EXACT_WELD_GEOMETRY_SUPPORTED / BYTE_IDENTICAL_PREREGISTRATION / RESERVED_AUDIO_BYTES_ZERO / BOUNDED_CALIBRATION_RUNNER_NEXT / PITCHER_AND_PLANTER_AUDIO_SEALED / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,14 +10,15 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Exact-weld V2 report `c1c86f78…7e5d` and blocks
-  `bcd54087…9acc` / `9310910f…5431` repeat. All topology/64-mode gates pass;
-  audio bytes remain zero and credit is geometry setup only.
+- **Current conclusion:** Pitcher calibration manifest `c60621cc…4a7` and
+  report `2ae1bc0b…9c72` repeat, binding block `bcd54087…9acc`, one 512 MiB
+  prefix, decoder, mapping, solver, split and fallback. Audio bytes remain zero.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Freeze a Pitcher-only calibration manifest binding its exact
-  block, prefix/decoder, mapping, Bempp/cooker, split, gates and fallback.
+- **Next action:** Implement the bounded calibration runner and synthetic
+  Rust-parity fixture, then make the single Pitcher request and repeat from its
+  immutable cache. Planter remains sealed.
 - **Current blocker:** Measured Pitcher calibration, real 3D transfer and every
   exact-domain admission claim remain unproven.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
@@ -56,6 +57,7 @@
 | [REALIMPACT geometry-spatial-transfer preregistration](../physical-sound-realimpact-geometry-spatial-transfer-preregistration-ps2-2026-08-28.md), report `c2f51cff…01ef` | `REAL_SPATIAL_TRANSFER_PROTOCOL_FROZEN / RESERVED_AUDIO_BYTES_ZERO / BYTE_IDENTICAL_REPEATS` | Pitcher calibration and Planter one-shot holdout, payload identities, `90/510` 3D split, geometry-spectral Bempp/cooker candidate, controls, gates and fallback are immutable. Next run geometry-only preflight; no real-transfer credit exists. |
 | [REALIMPACT geometry-only preflight](../physical-sound-realimpact-geometry-preflight-ps2-2026-08-28.md), report `2fb9fd0f…e25d` | `GEOMETRY_PREFLIGHT_V1_REJECTED / RESERVED_AUDIO_BYTES_ZERO / BYTE_IDENTICAL_REPEATS` | Published OBJ indices form disconnected triangle soup. Exact-coordinate welding later recovers one closed manifold per object without tolerance/repair; preregister that single V2 change before reuse. |
 | [REALIMPACT exact-weld geometry V2](../physical-sound-realimpact-exact-weld-geometry-preflight-ps2-2026-08-28.md), report `c1c86f78…7e5d` | `EXACT_WELD_GEOMETRY_PREFLIGHT_SUPPORTED / BYTE_IDENTICAL_BLOCKS / RESERVED_AUDIO_BYTES_ZERO` | Exact welding closes both surfaces; `8192/2048` topology, 64 modes and residual gates pass. Geometry blocks are frozen; next preregister Pitcher calibration before audio. |
+| [REALIMPACT Pitcher calibration preregistration](../physical-sound-realimpact-pitcher-calibration-preregistration-ps2-2026-08-28.md), report `2ae1bc0b…9c72` | `PITCHER_CALIBRATION_PROTOCOL_FROZEN / BYTE_IDENTICAL_REPORTS / RESERVED_AUDIO_BYTES_ZERO` | Exact Pitcher geometry, one 512 MiB prefix, 600-row decoder, extractor/mapping, solver, `90/510` split, controls, gates and stop-before-Planter fallback are immutable. Next implement parity controls and execute the bounded calibration. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -180,7 +182,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Synthetic controls, sealed real-transfer protocol and exact-weld geometry V2 pass | No measured Pitcher/Planter 3D transfer or calibrated shadow risk exists | Freeze Pitcher calibration manifest before its bounded prefix opens |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Synthetic controls, exact-weld geometry and the sealed Pitcher calibration protocol pass | No measured Pitcher/Planter 3D transfer or calibrated shadow risk exists | Implement parity controls and execute the one-request Pitcher calibration |
 
 ## Required context
 
@@ -200,8 +202,9 @@ Read these sources in precedence order before acting:
    subjective quality or P1 evidence.
 2. Preserve PS-2, transfer-V1/V2 and all spatial rejection hashes. Never retune
    empirical spatial bases on opened data. Preserve the converged elastic FEM/
-   BEM hashes, real-transfer protocol, V1 rejection and V2 geometry blocks;
-   freeze Pitcher calibration manifest before any audio access.
+   BEM hashes, real-transfer protocol, V1 rejection, V2 geometry blocks and
+   Pitcher calibration preregistration; execute only through the frozen
+   one-request runner and keep Planter sealed.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile

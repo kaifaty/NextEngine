@@ -9,6 +9,7 @@ use super::{
     resolve_output_path, set_once, sha256_hex,
 };
 
+mod calibration;
 mod schema;
 use self::schema::*;
 
@@ -180,9 +181,13 @@ fn run(root: &Path, manifest_argument: &Path, output_argument: &Path) -> Result<
         "REALIMPACT geometry-spatial-transfer preregistration manifest",
     )?;
     let manifest_sha256 = sha256_hex(&manifest_bytes);
+    if manifest_sha256 == calibration::MANIFEST_SHA256 {
+        return calibration::run(root, &manifest_path, &manifest_bytes, output_argument);
+    }
     if manifest_sha256 != MANIFEST_SHA256 {
         return Err(format!(
-            "REALIMPACT geometry-spatial-transfer preregistration manifest hash changed: expected {MANIFEST_SHA256}, got {manifest_sha256}"
+            "REALIMPACT geometry-spatial-transfer manifest hash changed: expected protocol {MANIFEST_SHA256} or Pitcher calibration {}, got {manifest_sha256}",
+            calibration::MANIFEST_SHA256
         ));
     }
     let manifest: Manifest = serde_json::from_slice(&manifest_bytes)
