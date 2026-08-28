@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_NEXT / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_INPUTS_FROZEN / REGISTRY_BUILD_NEXT / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,17 +10,15 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Repeated Iron Mortar report `64bc63aa…d0cc` supports
-  object-disjoint real method transfer: 13 modes, spatial matches
-  `0.846154/0.846154`; absolute predictive quality remains open.
+- **Current conclusion:** Repeated preflight `fbffbe1e…441c0` freezes exact
+  Skillet/Mortar reports and fallback-only V0 registry states before build.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Build a report-only modal observation registry from exact
-  Skillet/Mortar reports with residual/admission facts, then batch it.
-- **Current blocker:** Synthetic method support has no independent real-object
-  validation. Real observation, mechanics and every exact-domain claim remain
-  unproven.
+- **Next action:** Run the frozen registry builder twice; require byte-identical
+  registry/report, then freeze an object-grouped batch manifest.
+- **Current blocker:** Method transfer now replicates on one independent object,
+  but absolute prediction, mechanics and every exact-domain claim remain open.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -65,7 +63,7 @@
 | [REALIMPACT Ceramic Cup observation result](../physical-sound-realimpact-ceramic-cup-observation-result-ps2-2026-08-28.md), reports `b6d25bc6…6a0c` / `9f1c2311…daf0` / `56591bb8…3fd9` | `CERAMIC_CUP_OBSERVATION_REJECTED / REPEATED_DECAY_GATE_FAILURE / MECHANICS_BLOCKED / PLANTER_SEALED` | Exact acquisition and 600-row decode repeat. Four V2 gates pass; decay is `0.25 < 0.50`, with `13/16` peaks below `500 Hz`. Freeze a fixed-axis offline diagnostic; do not try another object, tune or run physics. |
 | [Ceramic Cup observation diagnostic result](../physical-sound-ceramic-cup-observation-diagnostic-result-ps2-2026-08-28.md), report `47b578ac…2603` | `SHARED_DECAY_MISMATCH_SUPPORTED / LISTENER_LOCAL_REJECTED / SIMPLE_LOW_FREQUENCY_CAUSE_REJECTED / NO_NEW_PAYLOAD_OR_PHYSICS` | `23/27` rows fail; every axis exceeds the frozen shared threshold. Low/high fitted-decay fractions are `0.3583/0.2252`, rejecting the cutoff hypothesis. Next prove a multi-output estimator synthetically before reusing real rows. |
 | [Ceramic Cup adaptive counterfactual result](../physical-sound-ceramic-cup-adaptive-counterfactual-result-ps2-2026-08-28.md), report `2ec3b03e…d6b7` | `CERAMIC_ADAPTIVE_COUNTERFACTUAL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / SALIENCE_SELECTOR_SYNTHETIC_CONTROL_NEXT` | Only `6/16` fits are valid; decay/improvement are `0.375/0.1875`. Primary source uses ±`10%` salience suppression rather than V2's dense low-frequency selection. |
-| [Iron V2 result](../physical-sound-realimpact-broadband-v2-result-ps2-2026-08-28.md) and [Iron Mortar holdout](../physical-sound-realimpact-broadband-holdout-result-ps2-2026-08-28.md), reports `f2fb359f…6a73` / `64bc63aa…d0cc` | `INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_NEXT / ABSOLUTE_PREDICTION_QUALITY_OPEN` | Holdout passes method gates with 13 modes and spatial replication, but predictive absolute NRMSE is about `1.0`. Store method/residual facts report-only; fallback remains mandatory. |
+| [Iron V2 result](../physical-sound-realimpact-broadband-v2-result-ps2-2026-08-28.md), [Iron Mortar holdout](../physical-sound-realimpact-broadband-holdout-result-ps2-2026-08-28.md) and [registry preregistration](../physical-sound-modal-observation-registry-preregistration-ps2-2026-08-28.md), reports `f2fb359f…6a73` / `64bc63aa…d0cc` / `fbffbe1e…441c0` | `MODAL_OBSERVATION_REGISTRY_INPUTS_FROZEN / REGISTRY_BUILD_NEXT / ABSOLUTE_PREDICTION_QUALITY_OPEN` | Exact two-entry report registry and fallback-only states are frozen. Run the builder twice; no threshold may be derived from these opened seeds. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -207,10 +205,10 @@ Read these sources in precedence order before acting:
 
 1. Preserve every frozen evidence hash externally; never retune opened data or
    reinterpret a control pass as quality, causality or P1 evidence.
-2. Freeze new-seed synthetic broad-band band selection, duplicate clustering,
-   amplitude/pruning and reconstruction; no real object, physics or Planter.
-3. Promote only after measured success and a consumer ADR; otherwise retain the
-   unchanged authored-clip fallback.
+2. Run the frozen two-entry report-only registry build twice, then freeze an
+   object-grouped batch manifest; no waveform, physics or Planter access.
+3. Promote only after measured quality/risk and a consumer ADR; otherwise keep
+   the unchanged authored-clip fallback.
 
 ## Do not retry
 
