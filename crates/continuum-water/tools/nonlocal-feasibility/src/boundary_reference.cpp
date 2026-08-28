@@ -81262,6 +81262,45 @@ FormulaProbeProduct formula_probe_tangent_product(
     return result;
 }
 
+FormulaProbeProduct formula_probe_tangent_product(
+    const FormulaProbeTangentBoundaryFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& input) {
+    FormulaProbeProduct result;
+    const FormulaProbeBinary128 frozen_inverse_scale = strtoflt128(
+        AL_FORMULA_PROBE_INVERSE_SCALE_HEX, nullptr);
+    const FormulaProbeBinary128 frozen_projected_scale = strtoflt128(
+        AL_FORMULA_PROBE_PROJECTED_SCALE_HEX, nullptr);
+    const bool payload_valid = fixture.dimension == AL_R20_R63ZC_DIMENSION
+        && fixture.tangent_columns == AL_R20_R63ZC_TANGENT_COLUMNS
+        && fixture.tangent.size()
+            == fixture.dimension * fixture.tangent_columns
+        && fixture.tangent_root == AL_R20_R63ZC_TANGENT_SHA256
+        && fixture.tangent_root == al_r20_q_scalar_root(fixture.tangent)
+        && fixture.inverse_scale == frozen_inverse_scale
+        && fixture.projected_scale == frozen_projected_scale
+        && fixture.sigma > static_cast<FormulaProbeBinary128>(0.0)
+        && finiteq(fixture.sigma) != 0
+        && fixture.sigma
+            == static_cast<FormulaProbeBinary128>(1.0) / frozen_inverse_scale;
+    if (!payload_valid || input.size() != fixture.dimension) return result;
+    ALR20R63NProduct product = al_r20_r63n_product(fixture.tangent,
+        fixture.dimension, fixture.tangent_columns, fixture.sigma, input);
+    result.exact = product.exact;
+    result.value = std::move(product.value);
+    result.inner_dots = product.inner_dots;
+    result.outer_dots = product.outer_dots;
+    result.inner_terms = product.inner_terms;
+    result.outer_terms = product.outer_terms;
+    result.scale_products = product.scale_products;
+    result.kernel_buffer_allocations = 4U;
+    result.temporary_operand_allocations =
+        fixture.tangent_columns + fixture.dimension;
+    result.operand_components_copied =
+        2U * fixture.dimension * fixture.tangent_columns;
+    result.root = std::move(product.root);
+    return result;
+}
+
 FormulaProbeAdmittedTangent::FormulaProbeAdmittedTangent(
     std::size_t dimension, std::size_t tangent_columns,
     std::shared_ptr<const std::vector<FormulaProbeBinary128>> tangent,
@@ -81330,12 +81369,15 @@ const std::string& FormulaProbeTangentAdmission::root() const noexcept {
 FormulaProbeAdmittedProduct::FormulaProbeAdmittedProduct(
     bool exact, std::string failure_stage, FormulaProbeProduct product,
     FormulaProbeAdmittedProductWork work, std::string context_root,
+    FormulaProbeTangentInputRole input_role, std::string input_root,
     std::string root)
     : exact_(exact),
       failure_stage_(std::move(failure_stage)),
       product_(std::move(product)),
       work_(std::move(work)),
       context_root_(std::move(context_root)),
+      input_role_(input_role),
+      input_root_(std::move(input_root)),
       root_(std::move(root)) {}
 
 bool FormulaProbeAdmittedProduct::exact() const noexcept {
@@ -81357,6 +81399,15 @@ FormulaProbeAdmittedProduct::work() const noexcept {
 
 const std::string& FormulaProbeAdmittedProduct::context_root() const noexcept {
     return context_root_;
+}
+
+FormulaProbeTangentInputRole FormulaProbeAdmittedProduct::input_role()
+    const noexcept {
+    return input_role_;
+}
+
+const std::string& FormulaProbeAdmittedProduct::input_root() const noexcept {
+    return input_root_;
 }
 
 const std::string& FormulaProbeAdmittedProduct::root() const noexcept {
@@ -81381,19 +81432,65 @@ std::string al_formula_probe_tangent_admission_work_root(
 std::string al_formula_probe_admitted_product_work_root(
     const FormulaProbeAdmittedProductWork& work) {
     std::ostringstream material;
-    material << work.input_guard_checks << ':' << work.kernel_calls << ':'
+    material << work.input_guard_checks << ':' << work.input_payload_hashes
+        << ':' << work.input_identity_checks << ':' << work.kernel_calls << ':'
         << work.inner_dots << ':' << work.outer_dots << ':'
         << work.inner_terms << ':' << work.outer_terms << ':'
-        << work.scale_products << ':' << work.kernel_root_derivations << ':'
+        << work.scale_products << ':' << work.kernel_buffer_allocations << ':'
+        << work.temporary_operand_allocations << ':'
+        << work.operand_components_copied << ':'
+        << work.kernel_root_derivations << ':'
         << work.receipt_root_derivations << ':'
         << work.result_root_derivations;
     return sha256_hex(material.str());
 }
 
+const char* al_formula_probe_tangent_input_role_name(
+    FormulaProbeTangentInputRole role) {
+    switch (role) {
+        case FormulaProbeTangentInputRole::ProjectedRhs:
+            return "projected_rhs";
+        case FormulaProbeTangentInputRole::OriginalRhs:
+            return "original_rhs";
+        case FormulaProbeTangentInputRole::Baseline0:
+            return "baseline_0";
+        case FormulaProbeTangentInputRole::Baseline1:
+            return "baseline_1";
+        case FormulaProbeTangentInputRole::Baseline2:
+            return "baseline_2";
+        case FormulaProbeTangentInputRole::CommonProjected2:
+            return "common_projected_2";
+        case FormulaProbeTangentInputRole::Unknown:
+            return "unknown";
+    }
+    return "unknown";
+}
+
+const char* al_formula_probe_tangent_input_expected_root(
+    FormulaProbeTangentInputRole role) {
+    switch (role) {
+        case FormulaProbeTangentInputRole::ProjectedRhs:
+            return AL_FORMULA_PROBE_PROJECTED_RHS_SHA256;
+        case FormulaProbeTangentInputRole::OriginalRhs:
+            return AL_FORMULA_PROBE_ORIGINAL_RHS_SHA256;
+        case FormulaProbeTangentInputRole::Baseline0:
+            return "11170afba73f379a19c02f4a9a1514944cc8f9f18bf7c79872d77abc3f478292";
+        case FormulaProbeTangentInputRole::Baseline1:
+            return "f6118706ae0f5190861396eefb97fab1c9b9b3d4052c6d23029b85e9e212f42b";
+        case FormulaProbeTangentInputRole::Baseline2:
+            return "38f8d0b2c99126ff046d2bd6471c3c0a018b50fba66f38b418a8e3eb0600baea";
+        case FormulaProbeTangentInputRole::CommonProjected2:
+            return "bc4b4f31ca17c84fb21eeb6239f29169d1187b0c65671b829fe6a0dda7e32c15";
+        case FormulaProbeTangentInputRole::Unknown:
+            return "";
+    }
+    return "";
+}
+
 } // namespace
 
 FormulaProbeTangentAdmission formula_probe_admit_tangent(
-    const FormulaProbeParentFixture& fixture) {
+    const FormulaProbeTangentBoundaryFixture& fixture) {
     FormulaProbeTangentAdmissionWork work;
     auto finish = [&](bool exact, const std::string& failure_stage,
                       const std::optional<FormulaProbeAdmittedTangent>& context) {
@@ -81467,25 +81564,36 @@ FormulaProbeTangentAdmission formula_probe_admit_tangent(
 
 FormulaProbeAdmittedProduct formula_probe_admitted_tangent_product(
     const FormulaProbeAdmittedTangent& context,
+    FormulaProbeTangentInputRole role,
     const std::vector<FormulaProbeBinary128>& input) {
     FormulaProbeAdmittedProductWork work;
     FormulaProbeProduct result;
+    std::string input_root;
     auto finish = [&](bool exact, const std::string& failure_stage) {
         ++work.receipt_root_derivations;
         ++work.result_root_derivations;
         work.root = al_formula_probe_admitted_product_work_root(work);
         std::ostringstream material;
         material << exact << ':' << failure_stage << ':'
-            << context.context_root_ << ':' << result.root << ':'
+            << context.context_root_ << ':'
+            << al_formula_probe_tangent_input_role_name(role) << ':'
+            << input_root << ':' << result.root << ':'
             << work.root;
         return FormulaProbeAdmittedProduct(exact, failure_stage,
-            std::move(result), std::move(work), context.context_root_,
+            std::move(result), std::move(work), context.context_root_, role,
+            std::move(input_root),
             sha256_hex(material.str()));
     };
 
     ++work.input_guard_checks;
     if (input.size() != context.dimension_)
         return finish(false, "input_size");
+    ++work.input_payload_hashes;
+    input_root = al_r20_q_scalar_root(input);
+    ++work.input_identity_checks;
+    if (role == FormulaProbeTangentInputRole::Unknown
+        || input_root != al_formula_probe_tangent_input_expected_root(role))
+        return finish(false, "input_identity");
 
     ++work.kernel_calls;
     struct AdmittedDot2 {
@@ -81498,19 +81606,19 @@ FormulaProbeAdmittedProduct formula_probe_admitted_tangent_product(
         FormulaProbeBinary128 absolute_products =
             static_cast<FormulaProbeBinary128>(0.0);
     };
-    auto admitted_dot2 = [](const std::vector<FormulaProbeBinary128>& left,
-                            const std::vector<FormulaProbeBinary128>& right) {
+    auto admitted_dot2 = [](std::size_t count, const auto& left_at,
+                            const auto& right_at) {
         AdmittedDot2 dot;
         const ALR20R38Pair first =
-            al_r20_r38_two_product(left[0U], right[0U]);
+            al_r20_r38_two_product(left_at(0U), right_at(0U));
         FormulaProbeBinary128 primary = first.high;
         FormulaProbeBinary128 correction = first.low;
         bool no_underflow = first.no_underflow;
         dot.absolute_products = al_r20_r38_up_multiply(
-            fabsq(left[0U]), fabsq(right[0U]));
-        for (std::size_t index = 1U; index < left.size(); ++index) {
+            fabsq(left_at(0U)), fabsq(right_at(0U)));
+        for (std::size_t index = 1U; index < count; ++index) {
             const ALR20R38Pair product =
-                al_r20_r38_two_product(left[index], right[index]);
+                al_r20_r38_two_product(left_at(index), right_at(index));
             const ALR20R38Pair sum =
                 al_r20_r38_two_sum(primary, product.high);
             const FormulaProbeBinary128 local = sum.low + product.low;
@@ -81521,7 +81629,7 @@ FormulaProbeAdmittedProduct formula_probe_admitted_tangent_product(
                 && al_r20_r38_normal_or_zero(correction);
             dot.absolute_products = al_r20_r38_up_add(
                 dot.absolute_products, al_r20_r38_up_multiply(
-                    fabsq(left[index]), fabsq(right[index])));
+                    fabsq(left_at(index)), fabsq(right_at(index))));
         }
         dot.value = primary + correction;
         no_underflow = no_underflow
@@ -81529,7 +81637,7 @@ FormulaProbeAdmittedProduct formula_probe_admitted_tangent_product(
         const FormulaProbeBinary128 unit = ldexpq(
             static_cast<FormulaProbeBinary128>(1.0), -112);
         const FormulaProbeBinary128 count_unit =
-            static_cast<FormulaProbeBinary128>(left.size()) * unit;
+            static_cast<FormulaProbeBinary128>(count) * unit;
         const FormulaProbeBinary128 gamma = al_r20_r38_up_divide(
             count_unit, static_cast<FormulaProbeBinary128>(1.0) - count_unit);
         const FormulaProbeBinary128 numerator = al_r20_r38_up_add(
@@ -81551,14 +81659,16 @@ FormulaProbeAdmittedProduct formula_probe_admitted_tangent_product(
     product.columns = context.tangent_columns_;
     product.intermediate.resize(product.columns);
     product.intermediate_bound.resize(product.columns);
+    work.kernel_buffer_allocations += 2U;
     bool exact = true;
     bool no_underflow = true;
     for (std::size_t scalar = 0U; scalar < product.columns; ++scalar) {
-        std::vector<FormulaProbeBinary128> left(product.rows);
-        for (std::size_t row = 0U; row < product.rows; ++row)
-            left[row] = (*context.tangent_)[
-                row * product.columns + scalar];
-        const AdmittedDot2 dot = admitted_dot2(left, input);
+        const AdmittedDot2 dot = admitted_dot2(product.rows,
+            [&](std::size_t row) {
+                return (*context.tangent_)[
+                    row * product.columns + scalar];
+            },
+            [&](std::size_t row) { return input[row]; });
         product.intermediate[scalar] = dot.value;
         product.intermediate_bound[scalar] = dot.bound;
         exact = exact && dot.exact && finiteq(dot.value) != 0
@@ -81569,17 +81679,21 @@ FormulaProbeAdmittedProduct formula_probe_admitted_tangent_product(
     }
     product.value.resize(product.rows);
     product.bound.resize(product.rows);
+    work.kernel_buffer_allocations += 2U;
     for (std::size_t row = 0U; row < product.rows; ++row) {
-        std::vector<FormulaProbeBinary128> left(product.columns);
-        for (std::size_t scalar = 0U; scalar < product.columns; ++scalar)
-            left[scalar] = (*context.tangent_)[
-                row * product.columns + scalar];
-        const AdmittedDot2 dot = admitted_dot2(
-            left, product.intermediate);
+        const AdmittedDot2 dot = admitted_dot2(product.columns,
+            [&](std::size_t scalar) {
+                return (*context.tangent_)[
+                    row * product.columns + scalar];
+            },
+            [&](std::size_t scalar) {
+                return product.intermediate[scalar];
+            });
         FormulaProbeBinary128 propagated = dot.bound;
         for (std::size_t scalar = 0U; scalar < product.columns; ++scalar)
             propagated = al_r20_r38_up_add(propagated,
-                al_r20_r38_up_multiply(fabsq(left[scalar]),
+                al_r20_r38_up_multiply(fabsq((*context.tangent_)[
+                    row * product.columns + scalar]),
                     product.intermediate_bound[scalar]));
         const ALR20R38Pair scaled =
             al_r20_r38_two_product(context.sigma_, dot.value);
@@ -81621,6 +81735,10 @@ FormulaProbeAdmittedProduct formula_probe_admitted_tangent_product(
     result.inner_terms = product.inner_terms;
     result.outer_terms = product.outer_terms;
     result.scale_products = product.scale_products;
+    result.kernel_buffer_allocations = work.kernel_buffer_allocations;
+    result.temporary_operand_allocations =
+        work.temporary_operand_allocations;
+    result.operand_components_copied = work.operand_components_copied;
     result.root = product.root;
     work.inner_dots = result.inner_dots;
     work.outer_dots = result.outer_dots;

@@ -1,9 +1,12 @@
 #include "formula_probe_cache.hpp"
+#include "sha256.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <fstream>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -377,6 +380,334 @@ FormulaProbeParentFixture read_formula_probe_parent_fixture(
     if (!formula_probe_parent_fixture_valid(fixture))
         throw std::runtime_error("formula probe cache fixture validation failed");
     return fixture;
+}
+
+namespace {
+
+class TangentBoundaryCacheReader {
+public:
+    TangentBoundaryCacheReader(const std::string& path,
+        FormulaProbeTangentBoundaryReadWork& work)
+        : stream_(path, std::ios::binary), work_(work) {
+        if (!stream_) throw std::runtime_error(
+            "cannot open formula probe cache for selective reading: " + path);
+    }
+
+    template <typename T>
+    T pod() {
+        static_assert(std::is_trivially_copyable_v<T>);
+        T value{};
+        stream_.read(reinterpret_cast<char*>(&value), sizeof(T));
+        require();
+        return value;
+    }
+
+    std::size_t size(std::uint64_t maximum = FORMULA_PROBE_MAX_VECTOR) {
+        ++work_.bounded_length_reads;
+        const std::uint64_t value = pod<std::uint64_t>();
+        if (value > maximum
+            || value > std::numeric_limits<std::size_t>::max())
+            throw std::runtime_error(
+                "oversized selective formula probe cache field");
+        return static_cast<std::size_t>(value);
+    }
+
+    std::size_t selected_size(
+        std::uint64_t maximum = FORMULA_PROBE_MAX_VECTOR) {
+        ++work_.selected_size_fields;
+        return size(maximum);
+    }
+
+    template <typename T>
+    T selected_scalar() {
+        ++work_.selected_scalar_fields;
+        return pod<T>();
+    }
+
+    std::string selected_string() {
+        const std::size_t count = size(FORMULA_PROBE_MAX_STRING);
+        ++work_.selected_string_fields;
+        work_.selected_string_bytes += count;
+        std::string result(count, '\0');
+        if (!result.empty()) {
+            stream_.read(result.data(), static_cast<std::streamsize>(count));
+            require();
+        }
+        return result;
+    }
+
+    template <typename T>
+    std::vector<T> selected_vector(
+        std::uint64_t maximum = FORMULA_PROBE_MAX_VECTOR) {
+        static_assert(std::is_trivially_copyable_v<T>);
+        const std::size_t count = size(maximum);
+        ++work_.selected_vector_fields;
+        ++work_.selected_vector_allocations;
+        work_.selected_vector_components += count;
+        std::vector<T> result(count);
+        if (!result.empty()) {
+            stream_.read(reinterpret_cast<char*>(result.data()),
+                static_cast<std::streamsize>(count * sizeof(T)));
+            require();
+        }
+        return result;
+    }
+
+    void skip_boolean() {
+        ++work_.skipped_boolean_fields;
+        const std::uint8_t value = pod<std::uint8_t>();
+        if (value > 1U) throw std::runtime_error(
+            "invalid skipped boolean in formula probe cache");
+    }
+
+    template <typename T>
+    void skip_scalar() {
+        ++work_.skipped_scalar_fields;
+        static_cast<void>(pod<T>());
+    }
+
+    void skip_size(std::uint64_t maximum = FORMULA_PROBE_MAX_VECTOR) {
+        ++work_.skipped_scalar_fields;
+        static_cast<void>(size(maximum));
+    }
+
+    void skip_string() {
+        const std::size_t count = size(FORMULA_PROBE_MAX_STRING);
+        ++work_.skipped_string_fields;
+        skip_bytes(count);
+    }
+
+    template <typename T>
+    void skip_vector(std::uint64_t maximum = FORMULA_PROBE_MAX_VECTOR) {
+        static_assert(std::is_trivially_copyable_v<T>);
+        const std::size_t count = size(maximum);
+        ++work_.skipped_vector_fields;
+        if (count > std::numeric_limits<std::size_t>::max() / sizeof(T))
+            throw std::runtime_error(
+                "oversized selective formula probe cache vector");
+        skip_bytes(count * sizeof(T));
+    }
+
+    void skip_index_vector() {
+        const std::size_t count = size(FORMULA_PROBE_MAX_DIMENSION);
+        ++work_.skipped_vector_fields;
+        for (std::size_t index = 0U; index < count; ++index)
+            skip_size(FORMULA_PROBE_MAX_VECTOR);
+    }
+
+    void require_eof() {
+        ++work_.eof_checks;
+        char trailing = 0;
+        if (stream_.read(&trailing, 1)) throw std::runtime_error(
+            "trailing bytes in selective formula probe cache");
+        if (!stream_.eof()) throw std::runtime_error(
+            "failed while finalizing selective formula probe cache read");
+    }
+
+private:
+    void skip_bytes(std::size_t count) {
+        std::array<char, 4096U> buffer{};
+        work_.skipped_payload_bytes += count;
+        while (count != 0U) {
+            const std::size_t chunk = std::min(count, buffer.size());
+            stream_.read(buffer.data(), static_cast<std::streamsize>(chunk));
+            require();
+            count -= chunk;
+        }
+    }
+
+    void require() {
+        if (!stream_) throw std::runtime_error(
+            "truncated selective formula probe cache");
+    }
+
+    std::ifstream stream_;
+    FormulaProbeTangentBoundaryReadWork& work_;
+};
+
+void skip_tangent_boundary_certificate(TangentBoundaryCacheReader& reader) {
+    reader.skip_boolean();
+    reader.skip_boolean();
+    reader.skip_size();
+    reader.skip_size();
+    reader.skip_size();
+    reader.skip_scalar<double>();
+    reader.skip_string();
+    reader.skip_string();
+    reader.skip_string();
+}
+
+void skip_tangent_boundary_certificates(TangentBoundaryCacheReader& reader,
+    FormulaProbeTangentBoundaryReadWork& work) {
+    const std::size_t count = reader.size(FORMULA_PROBE_MAX_COLLECTION);
+    work.skipped_collection_elements += count;
+    for (std::size_t index = 0U; index < count; ++index)
+        skip_tangent_boundary_certificate(reader);
+}
+
+void skip_tangent_boundary_profile(TangentBoundaryCacheReader& reader) {
+    reader.skip_boolean();
+    reader.skip_boolean();
+    reader.skip_boolean();
+    for (std::size_t index = 0U; index < 6U; ++index)
+        reader.skip_size();
+    reader.skip_vector<double>();
+    reader.skip_vector<double>();
+    reader.skip_vector<double>();
+    reader.skip_vector<double>();
+    reader.skip_scalar<double>();
+    reader.skip_scalar<double>();
+    reader.skip_scalar<double>();
+    reader.skip_string();
+    reader.skip_string();
+    reader.skip_string();
+    reader.skip_string();
+}
+
+std::string tangent_boundary_read_work_root(
+    const FormulaProbeTangentBoundaryReadWork& work) {
+    std::ostringstream material;
+    material << work.header_predicate_checks << ':'
+        << work.projection_predicate_checks << ':'
+        << work.bounded_length_reads << ':' << work.selected_size_fields << ':'
+        << work.selected_scalar_fields << ':' << work.selected_string_fields
+        << ':' << work.selected_string_bytes << ':'
+        << work.selected_vector_fields << ':'
+        << work.selected_vector_allocations << ':'
+        << work.selected_vector_components << ':'
+        << work.skipped_boolean_fields << ':' << work.skipped_scalar_fields
+        << ':' << work.skipped_string_fields << ':'
+        << work.skipped_vector_fields << ':'
+        << work.skipped_collection_elements << ':'
+        << work.skipped_payload_bytes << ':' << work.eof_checks << ':'
+        << work.receipt_root_derivations << ':'
+        << work.result_root_derivations;
+    return sha256_hex(material.str());
+}
+
+FormulaProbeTangentBoundaryRead finish_tangent_boundary_read(bool exact,
+    const std::string& failure_stage,
+    std::optional<FormulaProbeTangentBoundaryFixture> fixture,
+    FormulaProbeTangentBoundaryReadWork work) {
+    ++work.receipt_root_derivations;
+    ++work.result_root_derivations;
+    work.root = tangent_boundary_read_work_root(work);
+    std::ostringstream material;
+    material << exact << ':' << failure_stage << ':';
+    if (fixture.has_value()) {
+        material << fixture->dimension << ':' << fixture->tangent_columns << ':'
+            << fixture->tangent_root << ':' << fixture->projected_rhs_root
+            << ':' << fixture->original_rhs_root;
+    }
+    material << ':' << work.root;
+    FormulaProbeTangentBoundaryRead result;
+    result.exact = exact;
+    result.failure_stage = failure_stage;
+    result.fixture = std::move(fixture);
+    result.work = std::move(work);
+    result.root = sha256_hex(material.str());
+    return result;
+}
+
+} // namespace
+
+FormulaProbeTangentBoundaryRead read_formula_probe_tangent_boundary_fixture(
+    const std::string& path) {
+    FormulaProbeTangentBoundaryReadWork work;
+    try {
+        TangentBoundaryCacheReader reader(path, work);
+        for (char expected : FORMULA_PROBE_CACHE_MAGIC) {
+            ++work.header_predicate_checks;
+            if (reader.pod<char>() != expected)
+                return finish_tangent_boundary_read(false, "cache_magic",
+                    std::nullopt, std::move(work));
+        }
+        ++work.header_predicate_checks;
+        if (reader.pod<std::uint32_t>() != FORMULA_PROBE_CACHE_VERSION)
+            return finish_tangent_boundary_read(false, "cache_version",
+                std::nullopt, std::move(work));
+        ++work.header_predicate_checks;
+        if (reader.pod<std::uint32_t>() != FORMULA_PROBE_ENDIAN_MARKER)
+            return finish_tangent_boundary_read(false, "cache_endian",
+                std::nullopt, std::move(work));
+        ++work.header_predicate_checks;
+        if (reader.pod<std::uint32_t>() != sizeof(double))
+            return finish_tangent_boundary_read(false, "cache_double_size",
+                std::nullopt, std::move(work));
+        ++work.header_predicate_checks;
+        if (reader.pod<std::uint32_t>() != sizeof(FormulaProbeBinary128))
+            return finish_tangent_boundary_read(false, "cache_binary128_size",
+                std::nullopt, std::move(work));
+
+        FormulaProbeTangentBoundaryFixture fixture;
+        reader.skip_boolean();
+        reader.skip_string();
+        fixture.dimension = reader.selected_size(FORMULA_PROBE_MAX_DIMENSION);
+        fixture.tangent_columns = reader.selected_size();
+        for (std::size_t index = 0U; index < 9U; ++index)
+            reader.skip_string();
+
+        const std::size_t baseline_count =
+            reader.size(FORMULA_PROBE_MAX_COLLECTION);
+        ++work.projection_predicate_checks;
+        if (baseline_count != 3U)
+            return finish_tangent_boundary_read(false,
+                "baseline_solution_count", std::nullopt, std::move(work));
+        fixture.baseline_solution_0 =
+            reader.selected_vector<FormulaProbeBinary128>();
+        fixture.baseline_solution_1 =
+            reader.selected_vector<FormulaProbeBinary128>();
+        fixture.baseline_solution_2 =
+            reader.selected_vector<FormulaProbeBinary128>();
+        skip_tangent_boundary_certificates(reader, work);
+
+        fixture.tangent = reader.selected_vector<FormulaProbeBinary128>();
+        fixture.sigma = reader.selected_scalar<FormulaProbeBinary128>();
+        fixture.tangent_root = reader.selected_string();
+        reader.skip_vector<double>();
+        reader.skip_index_vector();
+        fixture.inverse_scale = reader.selected_scalar<FormulaProbeBinary128>();
+        reader.skip_string();
+        reader.skip_string();
+        reader.skip_string();
+        fixture.original_rhs =
+            reader.selected_vector<FormulaProbeBinary128>();
+        fixture.projected_rhs =
+            reader.selected_vector<FormulaProbeBinary128>();
+        fixture.projected_scale =
+            reader.selected_scalar<FormulaProbeBinary128>();
+        fixture.original_rhs_root = reader.selected_string();
+        fixture.projected_rhs_root = reader.selected_string();
+        reader.skip_vector<double>();
+        reader.skip_string();
+        reader.skip_string();
+        reader.skip_string();
+        skip_tangent_boundary_profile(reader);
+        reader.skip_string();
+        reader.skip_string();
+
+        const std::size_t common_count =
+            reader.size(FORMULA_PROBE_MAX_COLLECTION);
+        ++work.projection_predicate_checks;
+        if (common_count != 3U)
+            return finish_tangent_boundary_read(false,
+                "common_solution_count", std::nullopt, std::move(work));
+        reader.skip_vector<FormulaProbeBinary128>();
+        reader.skip_vector<FormulaProbeBinary128>();
+        work.skipped_collection_elements += 2U;
+        fixture.common_projected_solution_2 =
+            reader.selected_vector<FormulaProbeBinary128>();
+        skip_tangent_boundary_certificates(reader, work);
+        reader.skip_string();
+        reader.skip_string();
+        reader.skip_string();
+        reader.require_eof();
+        return finish_tangent_boundary_read(true, "", std::move(fixture),
+            std::move(work));
+    } catch (const std::exception&) {
+        return finish_tangent_boundary_read(false, "cache_decode",
+            std::nullopt, std::move(work));
+    }
 }
 
 } // namespace nextengine::nonlocal::fcr
