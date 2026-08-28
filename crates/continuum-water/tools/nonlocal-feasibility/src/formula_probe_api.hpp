@@ -175,6 +175,111 @@ struct FormulaProbeParentFixture {
     std::string root;
 };
 
+struct FormulaProbeTwofoldOperator {
+    bool exact = false;
+    bool contained = false;
+    std::string role;
+    std::size_t dimension = 0U;
+    std::size_t width = 0U;
+    std::size_t entries = 0U;
+    std::size_t containments = 0U;
+    std::size_t nonzero_lows = 0U;
+    std::vector<double> components;
+    std::vector<double> radius;
+    double maximum_radius = 0.0;
+    std::string source_root;
+    std::string materialization_root;
+    std::string tangent_root;
+    std::string component_root;
+    std::string radius_root;
+    std::string carrier_root;
+    std::string root;
+};
+
+struct FormulaProbeTwofoldProduct {
+    bool exact = false;
+    std::string site;
+    std::size_t dimension = 0U;
+    std::size_t entries = 0U;
+    std::vector<double> input_components;
+    std::vector<double> value_components;
+    std::string artifact_root;
+    std::string input_root;
+    std::string value_root;
+    std::string root;
+};
+
+struct FormulaProbeTwofoldWork {
+    std::size_t certificates = 0U;
+    std::size_t operator_products = 0U;
+    std::size_t operator_entries = 0U;
+    std::size_t factor_solves = 0U;
+    std::size_t factor_terms = 0U;
+    std::size_t factor_divisions = 0U;
+    std::size_t rho_dots = 0U;
+    std::size_t denominator_dots = 0U;
+    std::size_t dot_terms = 0U;
+    std::size_t scalar_divisions = 0U;
+    std::size_t solution_updates = 0U;
+    std::size_t residual_updates = 0U;
+    std::size_t direction_updates = 0U;
+    std::size_t adaptive_stops = 0U;
+};
+
+struct FormulaProbeTwofoldState {
+    bool exact = false;
+    std::size_t index = 0U;
+    std::vector<double> solution_components;
+    std::vector<double> residual_components;
+    std::vector<double> direction_components;
+    std::vector<double> preconditioned_components;
+    FormulaProbeCertificate certificate;
+    std::string operator_root;
+    std::string solve_root;
+    std::string rho_root;
+    std::string denominator_root;
+    std::string alpha_root;
+    std::string beta_root;
+    std::string root;
+};
+
+struct FormulaProbeTwofoldRecurrence {
+    bool exact = false;
+    bool complete = false;
+    bool positivity_exact = false;
+    std::size_t sealed_states = 0U;
+    std::string failure_stage;
+    FormulaProbeTwofoldWork work;
+    std::vector<FormulaProbeTwofoldState> states;
+    std::vector<FormulaProbeTwofoldProduct> products;
+    std::string fixture_root;
+    std::string artifact_root;
+    std::string certificate_root;
+    std::string transaction_root;
+    std::string root;
+};
+
+struct FormulaProbeTwofoldExactAudit {
+    bool exact = false;
+    bool complete = false;
+    std::size_t operator_containments = 0U;
+    std::size_t operator_entries = 0U;
+    std::size_t product_containments = 0U;
+    std::size_t product_rows = 0U;
+    std::size_t exact_upper_dots = 0U;
+    std::size_t exact_gram_products = 0U;
+    std::size_t exact_mirrors = 0U;
+    std::size_t exact_product_rows = 0U;
+    std::size_t exact_product_products = 0U;
+    std::vector<double> product_radius;
+    std::string first_failure;
+    std::string exact_operator_root;
+    std::string operator_containment_root;
+    std::string product_containment_root;
+    std::string work_root;
+    std::string root;
+};
+
 FormulaProbeParentFixture capture_formula_probe_parent_fixture();
 std::string formula_probe_parent_fixture_root(
     const FormulaProbeParentFixture& fixture);
@@ -213,5 +318,25 @@ FormulaProbeCertificateDetail formula_probe_certificate_detail(
 FormulaProbeSolutionExpansion formula_probe_solution_expansion(
     const FormulaProbeParentFixture& fixture,
     const std::vector<FormulaProbeBinary128>& solution);
+FormulaProbeTwofoldOperator formula_probe_tangent_twofold_operator(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<FormulaProbeBinary128>& materialized_matrix);
+FormulaProbeTwofoldOperator formula_probe_common_twofold_operator(
+    const FormulaProbeParentFixture& fixture);
+FormulaProbeTwofoldOperator formula_probe_widen_twofold_operator_radius(
+    const FormulaProbeTwofoldOperator& source, double minimum_radius);
+bool formula_probe_twofold_operator_valid(
+    const FormulaProbeTwofoldOperator& value);
+FormulaProbeTwofoldRecurrence formula_probe_twofold_recurrence(
+    const FormulaProbeParentFixture& fixture,
+    const FormulaProbeTwofoldOperator& artifact);
+bool formula_probe_twofold_recurrence_valid(
+    const FormulaProbeTwofoldRecurrence& value);
+FormulaProbeTwofoldExactAudit formula_probe_twofold_exact_audit(
+    const FormulaProbeParentFixture& fixture,
+    const FormulaProbeTwofoldOperator& artifact,
+    const FormulaProbeTwofoldRecurrence& recurrence);
+bool formula_probe_twofold_exact_audit_valid(
+    const FormulaProbeTwofoldExactAudit& value);
 
 } // namespace nextengine::nonlocal::fcr

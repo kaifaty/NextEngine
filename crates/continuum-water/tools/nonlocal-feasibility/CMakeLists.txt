@@ -156,6 +156,18 @@ target_link_libraries(
     nonlocal-formula-center-producer-release
     PRIVATE nonlocal-formula-reclosure-core)
 
+add_executable(
+    nonlocal-formula-tangent-twofold-recurrence-release
+    EXCLUDE_FROM_ALL
+    src/formula_tangent_twofold_recurrence_main.cpp
+    src/formula_probe_cache.cpp
+)
+nextengine_configure_formula_reclosure_target(
+    nonlocal-formula-tangent-twofold-recurrence-release -O3)
+target_link_libraries(
+    nonlocal-formula-tangent-twofold-recurrence-release
+    PRIVATE nonlocal-formula-reclosure-core)
+
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
     "Build the strict-FP, compile-latency-oriented formula reclosure author target"
@@ -321,5 +333,20 @@ if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
         PRIVATE nonlocal-formula-reclosure-dev-core)
     target_compile_definitions(
         nonlocal-formula-center-producer-dev PRIVATE
+            NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
+
+    add_executable(
+        nonlocal-formula-tangent-twofold-recurrence-dev
+        EXCLUDE_FROM_ALL
+        src/formula_tangent_twofold_recurrence_main.cpp
+        src/formula_probe_cache.cpp
+    )
+    nextengine_configure_formula_reclosure_target(
+        nonlocal-formula-tangent-twofold-recurrence-dev -O0)
+    target_link_libraries(
+        nonlocal-formula-tangent-twofold-recurrence-dev
+        PRIVATE nonlocal-formula-reclosure-dev-core)
+    target_compile_definitions(
+        nonlocal-formula-tangent-twofold-recurrence-dev PRIVATE
             NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
 endif()
