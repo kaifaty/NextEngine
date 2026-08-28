@@ -55,7 +55,7 @@ PREFIX_BYTES = 536_870_912
 REFERENCE_ROW = 7
 MODE_COUNT = 16
 SOUND_SPEED = 343.0
-REPAIR_REVISION = "v2-numpy-bool-report-serialization-repair"
+REPAIR_REVISION = "v3-numpy-bool-and-parent-lineage-report-repair"
 ORIGINAL_EXECUTION_MANIFEST_SHA256 = (
     "8e791327595f43c672361e486ed50aa8512f1c8068de5efdbe6212a81df8ba45"
 )
@@ -275,8 +275,18 @@ def validate_report_serializer_repair(
             "sha256": ORIGINAL_EXECUTION_MANIFEST_SHA256,
         },
         "failed_stage": "analyze",
-        "failure": "numpy.bool_ comparison result was not JSON serializable after computation and before report publication",
-        "only_code_change": "cast gate comparison results to built-in bool before report assembly",
+        "failures": [
+            "numpy.bool_ comparison result was not JSON serializable after computation and before report publication",
+            "first serializer repair incorrectly expected the existing decode report to name the repair manifest instead of its immutable original execution manifest",
+        ],
+        "code_changes": [
+            "cast gate comparison results to built-in bool before report assembly",
+            "accept only the exact existing decode report bound to the immutable original execution manifest while binding the new analysis report to this repair manifest",
+        ],
+        "superseded_repair_manifest": {
+            "path": "pitcher-execution-report-serializer-repair-manifest.json",
+            "sha256": "603c1185884e50de0fda0df08ff98214d9ba56b70c325bb424c869e6f98128e3",
+        },
         "numeric_model_changed": False,
         "decoder_changed": False,
         "thresholds_changed": False,
@@ -308,7 +318,17 @@ def validate_report_serializer_repair(
     if manifest != expected:
         raise ExecutionError("repair manifest changes more than serialization lineage")
     for label in ["existing_acquisition_report", "existing_decode_report"]:
-        resolve_reference(base_dir, repair[label], label.replace("_", " "))
+        _, report_bytes = resolve_reference(
+            base_dir, repair[label], label.replace("_", " ")
+        )
+        report = json.loads(report_bytes)
+        if report.get("execution_manifest_sha256") != ORIGINAL_EXECUTION_MANIFEST_SHA256:
+            raise ExecutionError(f"{label} is not bound to the original execution manifest")
+    resolve_reference(
+        base_dir,
+        repair["superseded_repair_manifest"],
+        "superseded serializer repair manifest",
+    )
 
 
 def validate_manifest_derivation(
@@ -1144,7 +1164,8 @@ def analyze(
     if (
         decode_report.get("schema") != REPORT_SCHEMAS["decode"]
         or decode_report.get("decision") != "PitcherImpactZeroRowsDecoded"
-        or decode_report.get("execution_manifest_sha256") != sha256_bytes(execution_bytes)
+        or decode_report.get("execution_manifest_sha256")
+        != ORIGINAL_EXECUTION_MANIFEST_SHA256
         or decode_report.get("decoded_bytes") != DECODED_BYTES
         or decode_report.get("row_count") != ROW_COUNT
         or decode_report.get("sample_count") != SAMPLE_COUNT

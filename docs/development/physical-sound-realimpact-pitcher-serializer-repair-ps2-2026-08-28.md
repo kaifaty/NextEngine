@@ -8,12 +8,13 @@ completed its projection/Bempp/cooker computations but failed before report
 publication because Python's standard JSON encoder rejected one
 `numpy.bool_` comparison result. No calibration decision was published.
 
-A narrowly scoped repair revision now casts gate comparison results to built-in
-`bool`. It changes no decoder, input, numeric model, solver, threshold, split or
-gate. It prohibits both `acquire` and `decode`, so it cannot spend another
-request or replace the frozen decoded block. Two local repair preflights repeat
-at report SHA-256
-`b24e7c903089123462f4978771b7713e7a8605ab58e0940bbca207b012fc5036`.
+A narrowly scoped second repair revision now casts gate comparison results to
+built-in `bool` and accepts the existing decode report only under its immutable
+original execution-manifest lineage. It changes no decoder, input, numeric
+model, solver, threshold, split or gate. It prohibits both `acquire` and
+`decode`, so it cannot spend another request or replace the frozen decoded
+block. Two local repair preflights repeat at report SHA-256
+`9c5c9ca8b5ec410b6280aed8526ca0fb247f085256323aa3c71785e0d0c4471c`.
 
 ## Opened Pitcher lineage
 
@@ -54,19 +55,31 @@ runner's exception path removed the staging directory, so there is no partial
 report, projection or decision to admit. This failure is execution-harness
 evidence, not a physical-model rejection.
 
+The first serializer repair manifest `603c1185…28e3` then failed immediately,
+before reading the decoded block, because it incorrectly required the existing
+decode report to name the new repair manifest. The decode report correctly
+names original execution manifest `8e791327…ba45`; changing that immutable
+lineage would be wrong. This failed repair is preserved and superseded rather
+than overwritten.
+
 ## Repair identity and controls
 
-Repair manifest
-`pitcher-execution-report-serializer-repair-manifest.json` has SHA-256
-`603c1185884e50de0fda0df08ff98214d9ba56b70c325bb424c869e6f98128e3`.
-It references the original execution manifest, acquisition report, decode
-report and decoded block hashes. The repaired script SHA-256 is
-`3315a8ddaa4739aa14b502d78655d5311cdd4c647b05a6ae7dcea464491fa1c5`.
+Current repair manifest
+`pitcher-execution-report-serializer-repair-v2-manifest.json` has SHA-256
+`f51a60467e2b73245f0db397ad14e639d6fbe32bb447a8f31f93877fc5badb7e`.
+It references the original execution manifest, failed repair manifest,
+acquisition report, decode report and decoded block hashes. The repaired script
+SHA-256 is
+`0bd52a0b958137705b51e8254ab87a8fe3303a4a48be0cb6a7150ee239f2a500`.
 
 The script reconstructs the effective execution contract from the original
 manifest and rejects any change beyond the new script hash, repair revision and
 declared repair record. Its only numeric-path edits are `bool(...)` wrappers on
-cooker, held-stratum, comparison, frequency and final conjunction results.
+cooker, held-stratum, comparison, frequency and final conjunction results. The
+second edit is lineage-only: analysis accepts exact decode report
+`29496c6f…9eef` only when it names original execution manifest
+`8e791327…ba45`, while the new analysis report will name current repair manifest
+`f51a6046…db7e`.
 
 Both preflight runs retained:
 
@@ -83,7 +96,7 @@ decode`.
 ## Decision boundary and next action
 
 Current status is
-`PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_REPAIR_PREFLIGHT_SUPPORTED /
+`PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_LINEAGE_REPAIR_PREFLIGHT_SUPPORTED /
 CALIBRATION_DECISION_NOT_PUBLISHED`. Planter remains sealed. Run the repaired
 analysis twice, sequentially, from decoded block `182f2010…1e0f` and require
 byte-identical reports. Only a conjunctive calibration pass may trigger a

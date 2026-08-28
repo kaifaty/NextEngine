@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_REPAIR_PREFLIGHT_SUPPORTED / OFFLINE_ANALYSIS_RERUN_NEXT / PLANTER_AUDIO_SEALED / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_LINEAGE_REPAIR_PREFLIGHT_SUPPORTED / OFFLINE_ANALYSIS_RERUN_NEXT / PLANTER_AUDIO_SEALED / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Актуальное evidence | [PS-2 REALIMPACT Pitcher serializer repair](../development/physical-sound-realimpact-pitcher-serializer-repair-ps2-2026-08-28.md) |
 | Текущий evidence | [PS-2 Bempp quadrupole surface mode and Rust cooker](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), [PS-2 independent Bempp analytical control](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md), [BEM panel-quadrature discriminator](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md), [analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [REALIMPACT modal-radiation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
@@ -111,7 +111,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_REPAIR_PREFLIGHT_SUPPORTED / OFFLINE_ANALYSIS_RERUN_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | One request produced prefix `a0dd7006…6cf5` and block `182f2010…1e0f`. Analysis reached report serialization but published no decision; repair manifest `603c1185…28e3` and preflight `b24e7c90…5036` repeat with acquire/decode disabled. Next run the offline analysis twice; Planter remains sealed. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_LINEAGE_REPAIR_PREFLIGHT_SUPPORTED / OFFLINE_ANALYSIS_RERUN_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | One request produced prefix `a0dd7006…6cf5` and block `182f2010…1e0f`. Analysis published no decision; first repair `603c1185…28e3` rejected correct parent lineage, while successor `f51a6046…db7e` and preflight `9c5c9ca8…471c` repeat with acquire/decode disabled. Next run the offline analysis twice; Planter remains sealed. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -707,10 +707,12 @@ acquisition report `899fbbe9…c819`, prefix `a0dd7006…6cf5`, decode report
 `29496c6f…9eef` and exact 600-row block `182f2010…1e0f`. The first offline
 analysis completed its numeric work but published no report because a NumPy
 comparison boolean was not JSON serializable. Repair manifest
-`603c1185…28e3` changes only gate-result conversion to built-in bool, binds the
-original manifest/cache lineage and prohibits acquire/decode. Two preflights
-repeat at `b24e7c90…5036`; next run the analysis twice offline. Planter stays
-sealed. See the [repair evidence](../development/physical-sound-realimpact-pitcher-serializer-repair-ps2-2026-08-28.md).
+`603c1185…28e3` fixed bool conversion but rejected the correctly parent-bound
+decode report before block access. Successor `f51a6046…db7e` binds that failed
+repair, accepts only decode report `29496c6f…9eef` under original manifest
+`8e791327…ba45`, changes no numeric path and still prohibits acquire/decode.
+Two preflights repeat at `9c5c9ca8…471c`; next run the analysis twice offline.
+Planter stays sealed. See the [repair evidence](../development/physical-sound-realimpact-pitcher-serializer-repair-ps2-2026-08-28.md).
 
 ## PS-2 — Сделать риск статистически измеримым
 
@@ -853,7 +855,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_REPAIR_PREFLIGHT_SUPPORTED / OFFLINE_ANALYSIS_RERUN_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next run the repaired analysis twice offline | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_LINEAGE_REPAIR_PREFLIGHT_SUPPORTED / OFFLINE_ANALYSIS_RERUN_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next run the repaired analysis twice offline | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
