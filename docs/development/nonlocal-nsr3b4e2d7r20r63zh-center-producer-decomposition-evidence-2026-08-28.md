@@ -1,8 +1,8 @@
 # NSR3-B4E2D7R20R63ZH center-producer decomposition evidence
 
-Status: `AUTHOR_PASS / REVIEW_NOT_TESTED / CLAIM_INCONCLUSIVE`.
+Status: `SUPPORTED_BOUNDED / REVIEWED / GO`.
 
-## Author result
+## Reviewed result
 
 The fixed Linux x86-64 strict-binary128/twofold author execution returns:
 
@@ -30,10 +30,11 @@ identities close:
 r_c[i] - r_t[i] = -sum_j M[i,j] (x_c[j] - x_t[j])
 ```
 
-This author result supports H2 over H0 on the frozen fixture: the large common
-center is enclosed by the unchanged finite producer and exactly transported by
-the solution displacement. It does not yet receive the contract's decisive
-bounded claim because no independent reviewer was available in this task.
+This result supports H2 over H0 on the frozen fixture: the large common center
+is enclosed by the unchanged finite producer and exactly transported by the
+solution displacement. A fresh independent review returned `GO` with no
+findings and reproduced both stdout and Release-binary identities. The full
+review record is [preserved separately](nonlocal-nsr3b4e2d7r20r63zh-independent-review-evidence-2026-08-28.md).
 
 ## Frozen identities
 
@@ -135,20 +136,18 @@ The parent cache and reviewed regressions reproduce exactly:
 | R63ZE stdout | `4fcb94cd94c176e515aedcdb7d0d724e17bac77ec0a94c215ced2dbf4d8ef4a4` |
 | Kernel-smoke stdout | `e4ff7dc634c04338d980d61214de0ca95dd9480ee34f4a139e62feb26cd381d3` |
 
-## Review boundary and next action
+## Independent review and next action
 
-Compilation, author controls and deterministic Release reproduction are
-necessary but insufficient under the frozen mathematical-research protocol.
-No independent adversarial reviewer was available, so correspondence review
-is `NOT_TESTED`; this file must not be relabelled `SUPPORTED_BOUNDED` and the
-certificate-repair lineage must not be declared closed yet.
+The fresh reviewer verified all frozen identities, exact decode and
+canonicalization, signs, row-major indices, interval containment, maximum-row
+sealing, transport independence, work formulas, classifier/failure precedence
+and result sealing. One detached clean build and focused run reproduced stdout
+`181ac246...96722` and binary `05f2ff12...52f0`; no candidate edit or repair
+occurred. Correspondence review is `GO`.
 
-The only next action is one fresh independent review of the frozen author
-diff, hashes and Release output. The reviewer must verify the `cpp_int` decode,
-canonicalization, signs, row-major indices, maximum-row seal, interval tests,
-all work counts and that no exact center consumes a candidate center. On `GO`,
-promote the narrow R63ZH result and stop certificate repair; common-operator
-research may then continue only as original-equation-preserving acceleration
-or preconditioning. On a load-bearing finding, apply at most one batched repair
-and use the one permitted re-review. No deeper factorial, correction, timing,
-runtime, GPU or production work is authorized meanwhile.
+R63ZH is therefore `SUPPORTED_BOUNDED / REVIEWED` at
+`COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL`. Stop certificate repair and
+do not open a deeper center factorial, widen an interval or fit a correction.
+Any successor common-operator work must preserve the original affine equation
+and use the common operator only for acceleration or preconditioning. Timing,
+runtime, GPU and production authority remain outside this result.

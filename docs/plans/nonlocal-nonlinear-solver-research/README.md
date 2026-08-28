@@ -21,7 +21,7 @@ NSR3B4E2D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS /
 NSR3B4E2D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT /
 NSR3B4E2D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE /
 NSR3B4E2D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT /
-NSR3B4E2D7R20R63ZH_AUTHOR_PASS_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_REVIEW_NEXT /
+NSR3B4E2D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4118,14 +4118,18 @@ finite center-enclosure defect or close all 102 identities
 operator research only as an original-equation-preserving accelerator or
 preconditioner. No deeper center factorial or correction is admitted first.
 
-The
-[R63ZH author evidence](../../development/nonlocal-nsr3b4e2d7r20r63zh-center-producer-decomposition-evidence-2026-08-28.md)
+The reviewed
+[R63ZH evidence](../../development/nonlocal-nsr3b4e2d7r20r63zh-center-producer-decomposition-evidence-2026-08-28.md)
 returns `COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL`: all `204/204` exact
 centers are contained, exact and finite common maxima agree at row `65`, its
 interval excludes zero and all `102/102` transport identities close. Dev and
-two Release outputs are byte-identical. Independent review is `NOT_TESTED`, so
-the bounded claim and certificate-repair stop remain pending one fresh review;
-no repair, deeper factorial, timing or production work is authorized first.
+two Release outputs are byte-identical. The
+[fresh independent review](../../development/nonlocal-nsr3b4e2d7r20r63zh-independent-review-evidence-2026-08-28.md)
+verified the snapshot, returned `GO` with no findings and reproduced both
+stdout and binary hashes. Certificate repair stops here; any successor common
+operator must serve only as an original-equation-preserving accelerator or
+preconditioner. No deeper factorial, correction, timing or production
+authority follows from this result.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
