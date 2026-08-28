@@ -41,6 +41,8 @@
 | V6 packaged documents | Root notices/provenance plus bounded `GETTING_STARTED.md` and `TROUBLESHOOTING.md` exist and are mandatory inventory paths | User startup and recovery guidance now travels with the exact package |
 | V6 focused package suite | `PASS`: 22/22 tests, including exact inventory, offline dependency/license corpus, protected-marker rejection, ABI-before-smoke and post-smoke byte identity | The new package boundary is fail closed in isolation |
 | Current-line integration plus lock repair | ADR-097 preserves ADR-095 generative authoring and ADR-096 active-kernel authority; `cargo fmt`, locked offline metadata, package `22/22`, xtask-bin `45/45` and strict xtask Clippy historically pass | V6 is ready for final post-R7c package/native evidence on the current architecture line |
+| Post-R7c native gate on `b14a2e73…` | First attempt exhausted rebuildable Cargo disk state; the bounded retry with incremental disabled reached host-check and exposed `PROTECTED_DATA_DETECTED` only in the package test tool fixture because gate-local `TMPDIR` was under `/home/...` | Preserve both failures as typed pre-publication evidence; keep the scanner strict and remap the generated fixture source prefix instead of weakening protected-data detection |
+| Package fixture under repository-local `TMPDIR` after remap | `PASS`: exact pipeline test compiles and scans the fixture with `/nextengine/test-fixture`; real A/B packages on the predecessor were already protected-scan `PASS` | Advance to one new exact commit, rebuild A/B and rerun the bounded native gate without incremental state |
 | `cargo run --locked -q -p xtask -- v1-package --output artifacts/r7e/package-probe` after scan-order/path fix | `PROTECTED_SCAN_PASS / DESKTOP_BLOCKED`: release build and all pre-smoke distribution checks passed; outer `NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING` preserved inner `PLATFORM_DESKTOP_RUNTIME_UNAVAILABLE`; no package or staging survived | Do not weaken or repeat the package path until display state changes |
 | Fresh release ELF byte/string scan | `PASS`: all three binaries contain no local-user/private-key/token marker; expected remapped Cargo paths begin `/nextengine/build-user/` | H1 is closed for the current Linux build products |
 | Linux display probe | `AVAILABLE`: physical 1920×1080 output and the production Wayland/Vulkan path are active | Package A/B and final native gate may run on the post-R7c successor |
@@ -137,6 +139,12 @@ Read these sources in precedence order before acting:
   cache is the reproducible build authority.
 - The former `v1-package` probe while X was `0x0` and every physical connector
   was disconnected — preserve that exact negative result instead of rerunning it.
+- A full native gate with default incremental workspace rebuild state on a
+  nearly full volume. Keep `CARGO_INCREMENTAL=0`, bound Cargo jobs and preserve
+  `target/perf` while reclaiming only regenerable build cache.
+- A package test fixture compiled from an unremapped gate-local temporary path.
+  The protected-data scanner correctly rejects that path; the fixture compiler
+  must retain its neutral source-prefix remap.
 
 ## Handoff
 

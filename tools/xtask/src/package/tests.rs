@@ -866,6 +866,10 @@ fn compile_rust_fixture(directory: &Path, name: &str, source_text: &str) -> Path
         .unwrap_or_else(|| PathBuf::from("rustc"));
     let output = Command::new(rustc)
         .arg("--edition=2024")
+        .arg(format!(
+            "--remap-path-prefix={}=/nextengine/test-fixture",
+            directory.display()
+        ))
         .arg("-C")
         .arg("debuginfo=0")
         .arg(&source)
