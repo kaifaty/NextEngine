@@ -80947,6 +80947,24 @@ std::string formula_probe_hybrid_twofold_recurrence_root(
     return al_formula_probe_hybrid_recurrence_root(value);
 }
 
+std::string formula_probe_hybrid_carrier_root(
+    const FormulaProbeParentFixture& fixture) {
+    if (!formula_probe_parent_fixture_valid(fixture)) return {};
+    const ALR20R63ZArtifact carrier =
+        al_formula_probe_hybrid_carrier(fixture);
+    return al_r20_r63z_artifact_valid(carrier) ? carrier.root
+                                                : std::string{};
+}
+
+std::string formula_probe_hybrid_callback_identity_root(
+    const FormulaProbeParentFixture& fixture) {
+    if (!formula_probe_parent_fixture_valid(fixture)) return {};
+    const ALR20R63ZArtifact carrier =
+        al_formula_probe_hybrid_carrier(fixture);
+    if (!al_r20_r63z_artifact_valid(carrier)) return {};
+    return al_formula_probe_hybrid_callback_identity_root(fixture, carrier);
+}
+
 std::string formula_probe_solution_set_root(
     const std::vector<std::vector<FormulaProbeBinary128>>& solutions) {
     return al_r20_r63zc_solution_set_root(solutions);
@@ -81302,6 +81320,168 @@ FormulaProbeScalar formula_probe_scalar_dot(
     result.value = scalar.value;
     result.bound = scalar.bound;
     result.root = scalar.root;
+    return result;
+}
+
+namespace {
+
+FormulaProbeK2Scalar al_formula_probe_k2_scalar(
+    const ALR20R63ZAScalar& source) {
+    FormulaProbeK2Scalar result;
+    result.exact = al_r20_r63zb_operand(source);
+    result.high = source.high;
+    result.low = source.low;
+    result.root = source.root;
+    return result;
+}
+
+ALR20R63ZAScalar al_formula_probe_internal_k2_scalar(
+    const FormulaProbeK2Scalar& source) {
+    const ALR20R63ZAScalar result = al_r20_r63za_seal(
+        source.high, source.low, 0.0);
+    if (!source.exact || !al_r20_r63zb_operand(result)
+        || result.root != source.root)
+        return {};
+    return result;
+}
+
+} // namespace
+
+FormulaProbeK2Scalar formula_probe_k2_exact_double(double value) {
+    return al_formula_probe_k2_scalar(al_r20_r63za_exact_double(value));
+}
+
+FormulaProbeK2Scalar formula_probe_k2_project(FormulaProbeBinary128 value) {
+    return al_formula_probe_k2_scalar(al_r20_r63zb_project(value));
+}
+
+FormulaProbeK2Scalar formula_probe_k2_add(
+    const FormulaProbeK2Scalar& left,
+    const FormulaProbeK2Scalar& right,
+    double right_sign) {
+    return al_formula_probe_k2_scalar(al_r20_r63zb_add(
+        al_formula_probe_internal_k2_scalar(left),
+        al_formula_probe_internal_k2_scalar(right), right_sign));
+}
+
+FormulaProbeK2Scalar formula_probe_k2_divide(
+    const FormulaProbeK2Scalar& numerator,
+    const FormulaProbeK2Scalar& denominator) {
+    return al_formula_probe_k2_scalar(al_r20_r63zb_divide(
+        al_formula_probe_internal_k2_scalar(numerator),
+        al_formula_probe_internal_k2_scalar(denominator)));
+}
+
+std::string formula_probe_k2_vector_root(
+    const std::vector<double>& components) {
+    std::vector<ALR20R63ZAScalar> values;
+    if (!al_formula_probe_twofold_operands(
+            components, components.size() / 2U, values))
+        return {};
+    return al_r20_r63zb_vector_root(values);
+}
+
+FormulaProbeK2Solve formula_probe_k2_factor_solve(
+    const FormulaProbeParentFixture& fixture,
+    const std::string& role,
+    const FormulaProbeK2Scalar& inverse_scale,
+    const std::vector<double>& source_components) {
+    FormulaProbeK2Solve result;
+    result.role = role;
+    result.dimension = fixture.dimension;
+    std::vector<ALR20R63ZAScalar> source;
+    if (!formula_probe_parent_fixture_valid(fixture)
+        || !al_formula_probe_twofold_operands(
+            source_components, fixture.dimension, source))
+        return result;
+    const ALR20R63ZBSolve solve = al_r20_r63zb_solve(role,
+        fixture.factor_upper, fixture.permutation,
+        al_formula_probe_internal_k2_scalar(inverse_scale), source);
+    result.exact = solve.exact;
+    result.forward_terms = solve.forward_terms;
+    result.backward_terms = solve.backward_terms;
+    result.divisions = solve.divisions;
+    result.intermediate_components =
+        al_formula_probe_twofold_components(solve.intermediate);
+    result.solution_components =
+        al_formula_probe_twofold_components(solve.solution);
+    result.root = solve.root;
+    return result;
+}
+
+FormulaProbeK2Dot formula_probe_k2_dot(
+    const std::vector<double>& left_components,
+    const std::vector<double>& right_components) {
+    FormulaProbeK2Dot result;
+    const std::size_t dimension = left_components.size() / 2U;
+    std::vector<ALR20R63ZAScalar> left;
+    std::vector<ALR20R63ZAScalar> right;
+    if (!al_formula_probe_twofold_operands(
+            left_components, dimension, left)
+        || !al_formula_probe_twofold_operands(
+            right_components, dimension, right))
+        return result;
+    const ALR20R63ZBDot dot = al_r20_r63zb_dot(left, right);
+    result.exact = dot.exact;
+    result.terms = dot.terms;
+    result.value = al_formula_probe_k2_scalar(dot.value);
+    result.left_root = dot.left_root;
+    result.right_root = dot.right_root;
+    result.root = dot.root;
+    return result;
+}
+
+std::vector<double> formula_probe_k2_update(
+    const std::vector<double>& base_components,
+    const FormulaProbeK2Scalar& scale,
+    const std::vector<double>& direction_components,
+    double direction_sign) {
+    const std::size_t dimension = base_components.size() / 2U;
+    std::vector<ALR20R63ZAScalar> base;
+    std::vector<ALR20R63ZAScalar> direction;
+    if (!al_formula_probe_twofold_operands(
+            base_components, dimension, base)
+        || !al_formula_probe_twofold_operands(
+            direction_components, dimension, direction))
+        return {};
+    return al_formula_probe_twofold_components(al_r20_r63zb_update(
+        base, al_formula_probe_internal_k2_scalar(scale), direction,
+        direction_sign));
+}
+
+FormulaProbeK2CertificateCheck formula_probe_k2_certificate_check(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<double>& solution_components) {
+    FormulaProbeK2CertificateCheck result;
+    result.dimension = fixture.dimension;
+    std::vector<ALR20R63ZAScalar> values;
+    if (!formula_probe_parent_fixture_valid(fixture)
+        || !al_formula_probe_twofold_operands(
+            solution_components, fixture.dimension, values))
+        return result;
+    const ALR20R63YSolution solution = al_r20_r63zb_solution(values);
+    const ALR20R63YCertificate certificate = al_r20_r63y_certificate(
+        al_formula_probe_internal_profile(fixture.verifier_profile),
+        solution);
+    result.dots = certificate.dots;
+    result.dot_products = certificate.dot_products;
+    result.radius_terms = certificate.radius_terms;
+    result.solution_dots = certificate.solution_dots;
+    result.sign_comparisons = certificate.sign_comparisons;
+    result.certificate = al_formula_probe_certificate(certificate);
+    result.profile_root = fixture.verifier_profile.root;
+    result.component_root = al_r20_double_root(solution_components);
+    result.exact = solution.exact && certificate.exact
+        && result.dots == fixture.dimension
+        && result.solution_dots == fixture.dimension
+        && result.sign_comparisons == fixture.dimension;
+    std::ostringstream material;
+    material << result.exact << ':' << result.dimension << ':'
+        << result.dots << ':' << result.dot_products << ':'
+        << result.radius_terms << ':' << result.solution_dots << ':'
+        << result.sign_comparisons << ':' << result.profile_root << ':'
+        << result.component_root << ':' << result.certificate.root;
+    result.root = sha256_hex(material.str());
     return result;
 }
 

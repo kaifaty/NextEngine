@@ -119,6 +119,48 @@ struct FormulaProbeScalar {
     std::string root;
 };
 
+struct FormulaProbeK2Scalar {
+    bool exact = false;
+    double high = 0.0;
+    double low = 0.0;
+    std::string root;
+};
+
+struct FormulaProbeK2Solve {
+    bool exact = false;
+    std::string role;
+    std::size_t dimension = 0U;
+    std::size_t forward_terms = 0U;
+    std::size_t backward_terms = 0U;
+    std::size_t divisions = 0U;
+    std::vector<double> intermediate_components;
+    std::vector<double> solution_components;
+    std::string root;
+};
+
+struct FormulaProbeK2Dot {
+    bool exact = false;
+    std::size_t terms = 0U;
+    FormulaProbeK2Scalar value;
+    std::string left_root;
+    std::string right_root;
+    std::string root;
+};
+
+struct FormulaProbeK2CertificateCheck {
+    bool exact = false;
+    std::size_t dimension = 0U;
+    std::size_t dots = 0U;
+    std::size_t dot_products = 0U;
+    std::size_t radius_terms = 0U;
+    std::size_t solution_dots = 0U;
+    std::size_t sign_comparisons = 0U;
+    FormulaProbeCertificate certificate;
+    std::string profile_root;
+    std::string component_root;
+    std::string root;
+};
+
 struct FormulaProbeParentFixture {
     bool exact = false;
     std::string schema;
@@ -348,6 +390,10 @@ std::string formula_probe_hybrid_callback_root(
     const FormulaProbeHybridRecurrence& value);
 std::string formula_probe_hybrid_twofold_recurrence_root(
     const FormulaProbeHybridRecurrence& value);
+std::string formula_probe_hybrid_carrier_root(
+    const FormulaProbeParentFixture& fixture);
+std::string formula_probe_hybrid_callback_identity_root(
+    const FormulaProbeParentFixture& fixture);
 std::string formula_probe_solution_set_root(
     const std::vector<std::vector<FormulaProbeBinary128>>& solutions);
 std::string formula_probe_certificate_set_root(
@@ -368,6 +414,33 @@ FormulaProbeSolve formula_probe_factor_solve(
 FormulaProbeScalar formula_probe_scalar_dot(
     const std::vector<FormulaProbeBinary128>& left,
     const std::vector<FormulaProbeBinary128>& right);
+FormulaProbeK2Scalar formula_probe_k2_exact_double(double value);
+FormulaProbeK2Scalar formula_probe_k2_project(FormulaProbeBinary128 value);
+FormulaProbeK2Scalar formula_probe_k2_add(
+    const FormulaProbeK2Scalar& left,
+    const FormulaProbeK2Scalar& right,
+    double right_sign);
+FormulaProbeK2Scalar formula_probe_k2_divide(
+    const FormulaProbeK2Scalar& numerator,
+    const FormulaProbeK2Scalar& denominator);
+std::string formula_probe_k2_vector_root(
+    const std::vector<double>& components);
+FormulaProbeK2Solve formula_probe_k2_factor_solve(
+    const FormulaProbeParentFixture& fixture,
+    const std::string& role,
+    const FormulaProbeK2Scalar& inverse_scale,
+    const std::vector<double>& source_components);
+FormulaProbeK2Dot formula_probe_k2_dot(
+    const std::vector<double>& left_components,
+    const std::vector<double>& right_components);
+std::vector<double> formula_probe_k2_update(
+    const std::vector<double>& base_components,
+    const FormulaProbeK2Scalar& scale,
+    const std::vector<double>& direction_components,
+    double direction_sign);
+FormulaProbeK2CertificateCheck formula_probe_k2_certificate_check(
+    const FormulaProbeParentFixture& fixture,
+    const std::vector<double>& solution_components);
 FormulaProbeCertificate formula_probe_certificate(
     const FormulaProbeParentFixture& fixture,
     const std::vector<FormulaProbeBinary128>& solution);
