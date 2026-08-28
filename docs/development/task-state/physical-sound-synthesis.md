@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / CERAMIC_CUP_DISCOVERY_PREFLIGHT_SUPPORTED / TWO_NONPAYLOAD_REQUESTS_AUTHORIZED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / CERAMIC_CUP_DISCOVERY_VERIFIED / OBSERVATION_PROTOCOL_FROZEN / THREE_REQUESTS_AUTHORIZED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -17,9 +17,9 @@
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Spend the one frozen `78_CeramicCup` ZIP-tail/local-header
-  discovery, repeat it offline, then freeze metadata/geometry/one-impact access.
-  Run unchanged V2 observation admission before any physics.
+- **Next action:** Spend the frozen three-request `78_CeramicCup` observation
+  access once, decode its 600-row block and run unchanged V2 admission twice.
+  Run no physics unless the observation passes.
 - **Current blocker:** No admissible fresh observation exists for the next
   mechanics comparison; real 3D transfer and every exact-domain claim remain
   unproven.
@@ -64,7 +64,7 @@
 | [REALIMPACT Pitcher execution preflight](../physical-sound-realimpact-pitcher-execution-preflight-ps2-2026-08-28.md), report `94d5e1e6…9b32` | `PITCHER_EXECUTION_PREFLIGHT_SUPPORTED / ONE_PREFIX_REQUEST_AUTHORIZED / RESERVED_AUDIO_BYTES_ZERO` | Manifest `8e791327…ba45` binds script, environment, original bbox centre, directions, Bempp/cooker, exact range/decoder and all frozen gates. The local full-angular control and extractor parity repeat; the one exact Pitcher request is next, while Planter remains sealed. |
 | [REALIMPACT Pitcher serializer repair](../physical-sound-realimpact-pitcher-serializer-repair-ps2-2026-08-28.md), report `9c5c9ca8…471c` | `PITCHER_PREFIX_ACQUIRED / ROWS_DECODED / SERIALIZER_LINEAGE_REPAIR_PREFLIGHT_SUPPORTED / CALIBRATION_DECISION_NOT_PUBLISHED` | One request yielded prefix `a0dd7006…6cf5` and block `182f2010…1e0f`. Analysis failed at JSON serialization; repair `603c1185…28e3` then rejected correct parent lineage before block access. Successor `f51a6046…db7e` binds both failures, changes no numeric path, disables acquire/decode and repeats locally. |
 | [REALIMPACT Pitcher calibration](../physical-sound-realimpact-pitcher-calibration-ps2-2026-08-28.md) and [causal audit](../physical-sound-pitcher-causal-audit-ps2-2026-08-28.md), reports `8bd5323c…1aea` / `68c79a37…5a57` | `PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / BYTE_IDENTICAL_AUDIT / PLANTER_SEALED` | Frequency/field comparisons fail strongly, but the consumed observation also fails the earlier V2 decay gate and selects `11/16` peaks below `500 Hz`. Preserve the combined rejection without uniquely blaming mechanics; test observation first on unopened `78_CeramicCup`. |
-| [REALIMPACT Ceramic Cup discovery preflight](../physical-sound-realimpact-ceramic-cup-discovery-preflight-ps2-2026-08-28.md), report `5fa54efe…17ee` | `CERAMIC_CUP_DISCOVERY_PREFLIGHT_SUPPORTED / TWO_NONPAYLOAD_REQUESTS_AUTHORIZED / ZERO_PAYLOAD_BYTES` | Manifest `cf2b72ee…a6a9` binds unopened development object `78_CeramicCup`, one `65536`-byte ZIP tail and one `30`-byte local header. Metadata, geometry, audio and Planter remain prohibited until offline cache audit and a separate manifest. |
+| [REALIMPACT Ceramic Cup discovery and observation protocol](../physical-sound-realimpact-ceramic-cup-observation-preflight-ps2-2026-08-28.md), reports `2b183dae…782b` / `cd68ba79…1b0b` / `5f34993f…8f21` | `CERAMIC_CUP_DISCOVERY_VERIFIED / OBSERVATION_PROTOCOL_FROZEN / THREE_REQUESTS_AUTHORIZED / ZERO_PAYLOAD_BYTES` | Discovery resolves 12 entries and audio offset `2506735` without payload. Manifest `71123b21…cae5` binds two metadata ranges, one streamed `512 MiB` prefix, 600-row decode, parity and unchanged V2 gates. Physics and Planter remain prohibited. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -206,8 +206,8 @@ Read these sources in precedence order before acting:
 
 1. Preserve every frozen evidence hash externally; never retune opened data or
    reinterpret a control pass as quality, causality or P1 evidence.
-2. Freeze `78_CeramicCup` discovery/cache audit, then a separate observation-only
-   discriminator. Do not access Planter audio.
+2. Execute the frozen `78_CeramicCup` observation-only discriminator once and
+   repeat analysis offline. Do not access Planter audio.
 3. Promote only after measured success and a consumer ADR; otherwise retain the
    unchanged authored-clip fallback.
 
