@@ -85,6 +85,7 @@ struct PilotRowMetadata<'a> {
 }
 
 pub(super) fn acquisition_metadata<'a>(
+    profile: &'static FrozenProfile,
     derived: &'a DerivedMetadata,
     row: &'a AudioRow,
     wav_sha256: &'a str,
@@ -92,18 +93,23 @@ pub(super) fn acquisition_metadata<'a>(
     AcquisitionMetadata {
         schema: "nextengine.experimental-realimpact-bounded-import.metadata.v1",
         status: "development_pilot_partial_source",
-        retrieved_at: "2026-08-27",
+        retrieved_at: profile.retrieved_at,
         archive: ArchiveMetadata {
-            url: ARCHIVE_URL,
-            content_length: ARCHIVE_BYTES,
-            etag: ARCHIVE_ETAG,
-            last_modified: ARCHIVE_LAST_MODIFIED_ISO,
-            central_directory_sha256: CENTRAL_SHA256,
+            url: profile.archive_url,
+            content_length: profile.archive_bytes,
+            etag: profile.archive_etag,
+            last_modified: profile.archive_last_modified_iso,
+            central_directory_sha256: profile.central_sha256,
         },
         object: ObjectMetadata {
-            dataset_object_id: "93_GreenGoblet",
+            dataset_object_id: profile.dataset_object_id,
             material_label: "glass",
-            mesh_entry: "93_GreenGoblet/preprocessed/transformed.obj",
+            mesh_entry: profile
+                .entries
+                .iter()
+                .find(|entry| entry.name.ends_with("transformed.obj"))
+                .expect("frozen profile has a mesh")
+                .name,
             mesh_sha256: &derived.mesh_sha256,
             mesh_vertex_count: derived.mesh_vertex_count,
             mesh_bbox_min_metres: derived.mesh_bbox_min_metres,
@@ -122,12 +128,22 @@ pub(super) fn acquisition_metadata<'a>(
         },
         downloaded_npy_hashes: &derived.downloaded_hashes,
         audio_entry: AudioEntryMetadata {
-            path: "93_GreenGoblet/preprocessed/deconvolved_0db.npy",
-            zip_crc32: "d41ca14a",
-            compressed_bytes: 2_308_350_969,
-            uncompressed_bytes: 2_499_876_128,
+            path: profile.audio_entry_name,
+            zip_crc32: profile.audio_crc32,
+            compressed_bytes: profile
+                .entries
+                .iter()
+                .find(|entry| entry.name == profile.audio_entry_name)
+                .expect("frozen profile has an audio entry")
+                .compressed_bytes,
+            uncompressed_bytes: profile
+                .entries
+                .iter()
+                .find(|entry| entry.name == profile.audio_entry_name)
+                .expect("frozen profile has an audio entry")
+                .uncompressed_bytes,
             dtype: "f32_le",
-            shape: [3_000, 208_323],
+            shape: [3_000, profile.audio_sample_count],
         },
         pilot_row: PilotRowMetadata {
             row_index: 0,
@@ -212,6 +228,7 @@ struct StaticFileRef {
 }
 
 pub(super) fn inventory_manifest<'a>(
+    profile: &'static FrozenProfile,
     derived: &DerivedMetadata,
     row: &'a AudioRow,
     metadata_sha256: &'a str,
@@ -219,7 +236,7 @@ pub(super) fn inventory_manifest<'a>(
 ) -> InventoryManifest<'a> {
     InventoryManifest {
         schema: "nextengine.experimental-physical-sound-corpus-inventory.manifest.v2",
-        inventory_id: "ps2-realimpact-greengoblet-e2-range-v1",
+        inventory_id: profile.inventory_id,
         revision: "v1",
         source_class: "rigid_impact",
         scope: "development_pilot",
@@ -228,18 +245,18 @@ pub(super) fn inventory_manifest<'a>(
             sha256: CORPUS_PLAN_SHA256,
         },
         entries: [InventoryEntry {
-            id: "realimpact-greengoblet-row0000",
+            id: profile.inventory_entry_id,
             partition: "dev",
             recording_kind: "controlled_real_force_deconvolved_transfer",
-            domain_id: "realimpact-green-goblet-thread-mesh-transfer",
+            domain_id: profile.domain_id,
             material_family: "glass",
-            object_family_id: "realimpact-green-goblet",
-            object_id: "realimpact-93-greengoblet",
+            object_family_id: profile.object_family_id,
+            object_id: profile.object_id,
             source_id: "realimpact-fca2bd6cbb7e-archive-2023-04-10",
-            geometry_revision: "mesh-96252fe02006-v1",
+            geometry_revision: profile.geometry_revision,
             support_condition: "thread-mesh-unversioned-in-archive",
             excitation_method: "instrumented-hammer-force-deconvolved",
-            impact_position_id: "mesh-vertex-31676",
+            impact_position_id: profile.impact_position_id,
             impact_position_metres: derived.impact_position,
             listener_condition_id: "angle-000-distance-0230mm-mic-00",
             listener_position_metres: derived.listener_position,
@@ -247,7 +264,7 @@ pub(super) fn inventory_manifest<'a>(
             sample_count: row.sample_count,
             audio_format: "f32_le_mono",
             audio_payload: ManifestFileRef {
-                path: "greengoblet-row0000-deconvolved.f32le",
+                path: profile.row_file_name,
                 sha256: &row.sha256,
             },
             acquisition_metadata: ManifestFileRef {
@@ -262,7 +279,7 @@ pub(super) fn inventory_manifest<'a>(
             source_adapter: SourceAdapter {
                 schema: "realimpact_force_deconvolved_transfer_v1",
                 repository_revision: REPOSITORY_REVISION,
-                dataset_object_id: "93_GreenGoblet",
+                dataset_object_id: profile.dataset_object_id,
                 row_index: 0,
                 repository_readme: StaticFileRef {
                     path: "source/README.md",
@@ -310,8 +327,10 @@ pub(super) struct AcquisitionReport<'a> {
     pub(super) unavailable_components: &'static [&'static str],
 }
 
-pub(super) fn provenance_review() -> &'static str {
-    "# REALIMPACT GreenGoblet bounded-range provenance review\n\n\
+pub(super) fn provenance_review(profile: &FrozenProfile) -> String {
+    let review = match profile.id {
+        GREEN_GOBLET_PROFILE_ID => {
+            "# REALIMPACT GreenGoblet bounded-range provenance review\n\n\
 Status: development-only external E2 transfer pilot; corpus admission and\n\
 redistribution are not authorized.\n\n\
 Primary sources:\n\n\
@@ -335,6 +354,43 @@ hash-closed.\n\n\
 The repository's MIT file applies to the published repository code. This review\n\
 does not infer matching redistribution permission for the recording archive;\n\
 all extracted bytes stay outside Git and are used only for local research.\n"
+        }
+        BLUE_BOWL_PROFILE_ID => {
+            "# REALIMPACT Blue Bowl bounded-range provenance review\n\n\
+Status: development-only external E2 transfer pilot; corpus admission and\n\
+redistribution are not authorized.\n\n\
+Primary sources:\n\n\
+- https://samuelpclarke.com/realimpact/\n\
+- https://github.com/samuel-clarke/RealImpact\n\
+- https://jiajunwu.com/papers/realimpact_cvpr.pdf\n\
+- https://objectfolder.stanford.edu/objectfolder-real-download\n\
+- https://downloads.cs.stanford.edu/viscam/RealImpact/6_Bowl.zip\n\n\
+The REALIMPACT paper states that its 50 objects were purchased from the\n\
+ObjectFolder collection. The official ObjectFolder-Real table identifies object\n\
+6, Blue_Bowl, as Glass; REALIMPACT's frozen object list and archive identify the\n\
+same numeric object as 6_Bowl. This E2 row therefore complements the already\n\
+validated ObjectFolder demo E3 recordings for object 6 without counting a new\n\
+Glass target group.\n\n\
+The official preprocessing code converts the synchronized hammer trace to\n\
+newtons and deconvolves it from the 48 kHz microphone recordings. The published\n\
+archive contains the object mesh, impact/listener coordinates and a 3000 x\n\
+230215 float32 deconvolved transfer array. It does not contain the raw force\n\
+profile, material-composition revision, repeat identity or a versioned support\n\
+fixture, so the row remains fallback-only.\n\n\
+This acquisition reads the 1199-byte ZIP central directory, six small NPY\n\
+members, the compressed mesh and a fixed 1048576-byte prefix of the large raw-\n\
+deflate transfer member. The prefix yields the NPY header and row 0 without\n\
+downloading the 2397750726-byte archive. The row's impact coordinate matches\n\
+mesh vertex 35950 exactly. Archive HTTP identity, central directory, entry\n\
+metadata, decoded members, row payload and normalized audition WAV are all\n\
+hash-closed.\n\n\
+The repository's MIT file applies to the published repository code. This review\n\
+does not infer matching redistribution permission for the recording archive;\n\
+all extracted bytes stay outside Git and are used only for local research.\n"
+        }
+        _ => unreachable!("validated frozen profile"),
+    };
+    review.to_owned()
 }
 
 pub(super) fn read_source_bundle(
@@ -358,6 +414,7 @@ pub(super) fn read_source_bundle(
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn publish_output(
+    profile: &FrozenProfile,
     output: &Path,
     source_files: &[(&str, Vec<u8>)],
     corpus_plan: &[u8],
@@ -380,8 +437,8 @@ pub(super) fn publish_output(
         .map_err(|error| format!("create REALIMPACT staging directory: {error}"))?;
     let guard = StagingGuard(staging.clone());
     write_file(&staging.join("corpus-plan-report.json"), corpus_plan)?;
-    write_file(&staging.join("greengoblet-row0000-deconvolved.f32le"), row)?;
-    write_file(&staging.join("greengoblet-row0000-audition.wav"), wav)?;
+    write_file(&staging.join(profile.row_file_name), row)?;
+    write_file(&staging.join(profile.audition_file_name), wav)?;
     write_file(&staging.join("acquisition-metadata.json"), metadata)?;
     write_file(&staging.join("provenance-review.md"), provenance)?;
     write_file(&staging.join("manifest.json"), manifest)?;
