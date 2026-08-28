@@ -63,6 +63,17 @@ substitution, larger ranges or threshold tuning.
 
 ## Frozen evidence identity
 
-Runner, manifest and preflight hashes are filled after the implementation is
-committed and the zero-access preflight repeats. External artifacts remain under
+Runner SHA-256:
+`c59aea1d0fd8ae2dd565929120b207f33326c697d2daacaf82469e0830c679cd`.
+
+External manifest SHA-256:
+`931f6a72f16f9a52bc7386d40aad1b5e0d5f674bd0be410ed5d35a5c090bf5e7`.
+Preflight A/B are byte-identical at
+`3b4c5b6a6e79d5c9a69ff1bc017415e522874ca365a53741d831ffe10341c8bd`
+and decide `BroadbandIndependentHoldoutDiscoveryPreflightSupported`. They bind
+the Iron V2 parent, selection audit, archive identity and exact two future
+ranges while recording zero network and member-payload access.
+
+External artifacts remain under
 `~/.codex/experiments/nextengine/physical-sound/ps2-realimpact-iron-mortar-broadband-holdout-discovery-v1/`.
+This preregistration and runner MUST be committed before range acquisition.
