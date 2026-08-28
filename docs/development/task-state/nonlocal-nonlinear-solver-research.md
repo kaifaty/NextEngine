@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | `ACTIVE / D7R19R65_EQUAL_WORK_COMPOSED_DUAL_ACCELERATION_CANDIDATE / D7R20_V1_CORPUS_EXCITATION_FAIL / D7R20_V2_OPERATOR_PREFLIGHT_PASS / D7R20_ORACLE_UNRESOLVED / D7R20R1_PHASE1_WITHDRAWN / D7R20R2_GLOBAL_ADMM_ORACLE_UNRESOLVED / D7R20R3_MPSRA_INSTABILITY / D7R20R4_PROJECTOR_DERIVATIVE_PASS / D7R20R5_DUAL_CONE_INCOMPATIBILITY / D7R20R6_NNQP_REPRESENTATIVE_PASS / D7R20R7_EDGE_CERTIFIED_CORNER_ENCLOSURE_REJECTED / D7R20R8_DEVELOPMENT_CERTIFIED / D7R20R9_V3_MANIFEST_PASS / D7R20R10_V3_PREFLIGHT_PASS / D7R20R11_V3_GENERALIZATION_REFUTED / D7R20R12_RATIO_FAILURE_IDENTIFIED / D7R20R13_RATIO_ORDER_AMBIGUITY / D7R20R14_CANDIDATE_REFINEMENT_SUBSET / D7R20R15_AFFINE_SHADOW_SUBSET / D7R20R16_DUAL_REFINEMENT_ALL / D7R20R17_11_OF_12_CAP_UNRESOLVED / D7R20R18_CHATTER_AND_GLOBALIZATION / D7R20R19_MASK_CROSSING_FRONTIER / D7R20R20_SIMPLE_BREAKPOINT_OFFSET / D7R20R21_EVENT_PREDICTOR_CANDIDATE / D7R20R22_NEXT_REPRESENTABLE_REJECTED / D7R20R23_MULTI_EVENT_OBSERVED / D7R20R24_ZERO_BOUND_ROUNDING_FLUTTER / D7R20R25_EVENT_FORWARD_BOUND_CANDIDATE / D7R20R26_POST_EVENT_GLOBALIZATION_REJECTED / D7R20R27_LINE_ENVELOPE_EXHAUSTED / D7R20R28_BIDIRECTIONAL_ACCEPTANCE / D7R20R29_LATER_GLOBALIZATION_REJECTED / D7R20R30_SAME_FACE_REJECTION / D7R20R31_TERMINAL_CERTIFICATE_PRECEDES_ARMIJO / D7R20R32_12_OF_12_TERMINAL_CANDIDATE / D7R20R33_V4_MANIFEST_PASS / D7R20R34_V4_PREFLIGHT_PASS / D7R20R35_3_OF_5_TWO_CERTIFICATE_BOUNDARIES / D7R20R36_TWO_INDEPENDENT_CERTIFICATE_BUDGETS / D7R20R37_ARITHMETIC_ENCLOSURE_DOMINATES / D7R20R38_DOT2_INVERSE_CERTIFICATE / D7R20R39_59_OF_65_SIGN_UNRESOLVED / D7R20R40_59_OF_65_DIRECTIONAL_UNRESOLVED / D7R20R41_65_OF_65_CENTERED_CANDIDATE / D7R20R42_RATIO_ORDER_BOUNDARY / D7R20R43_SECOND_INVERSE_BOUNDARY / D7R20R44_TWO_SIDED_CONTRACTIVE / D7R20R45_65_OF_65_SECOND_CENTER / D7R20R46_THIRD_INVERSE_BOUNDARY / D7R20R47_TWO_SIDED_CONTRACTIVE / D7R20R48_65_OF_65_THIRD_CENTER / D7R20R49_FOURTH_INVERSE_BOUNDARY / D7R20R50_TORSION_GENERIC_CANDIDATE / D7R20R51_COUNTERFLOW_ONLY_BOUNDARY / D7R20R52_CAPTURE_PREMISE_REFUTED / D7R20R53_CENTERED_SLOPE_CANDIDATE / D7R20R54_LEGACY_SLOPE_CANDIDATE / D7R20R55_COUNTERFLOW_CERTIFIED / D7R20R56_V4_5_OF_5 / D7R20R57_V5_MANIFEST_FROZEN / D7R20R58_V5_PREFLIGHT_PASS / D7R20R59_V5_DIMENSION_BOUNDARY / D7R20R60_DIMENSION_GENERIC_CENTER / D7R20R61_V5_6_OF_6 / D7R20R62_STRICT_BINARY64_DOT2ERR_SELECTED / D7R20R63_BINARY64_PROJECTED_INVERSE_NONCONTRACTIVE / D7R20R63A_MIXED_PROJECTION_CONTRIBUTION / D7R20R63B_FACTOR_LEFT_NONCONTRACTIVE / D7R20R63C_BINARY64_LOWER_LEFT_NONCONTRACTIVE / D7R20R63D_PROJECTOR_METRIC_NUMERICAL_RANK_LOSS / D7R20R63E_CLAMP_METRIC_NUMERICAL_RANK_LOSS / D7R20R63F_LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED / SHARED_HOST_PERFORMANCE_STOP` |
-| Current frontier | `D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE / D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED / D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED / D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED / D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE / D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE / D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED / D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED / D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE / D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE / D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED / D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE / D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE / D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE / D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE / D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED / D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT / D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS / D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT / D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE / D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT / D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED / D7R20R63ZI_ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_AUTHOR_REJECTED / D7R20R63ZJ_PRODUCT_PRECISION_LOCALIZATION_FROZEN_IMPLEMENTATION_NEXT` |
+| Current frontier | `D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE / D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED / D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED / D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED / D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE / D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE / D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED / D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED / D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE / D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE / D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED / D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE / D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE / D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE / D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE / D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED / D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT / D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS / D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT / D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE / D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT / D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED / D7R20R63ZI_ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_AUTHOR_REJECTED / D7R20R63ZJ_PRODUCT_PRECISION_LOCALIZATION_INCONCLUSIVE / D7R20R63ZK_INDEPENDENT_RECURRENCE_CHECKER_RESEARCH_NEXT` |
 | Updated | `2026-08-28` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -88,14 +88,17 @@
   `10,404` coefficients plus `306` executed product rows are exactly
   contained, but tangent K2 states `0..2` all remain `12+/24-/66?`. The lane
   differs from the common negative. Independent review is not tested.
-- **R63ZJ repaired author candidate:** revision 2 restores the exact
-  reject/reject/pass ladder with state 2 `24+/78-/0?`; Dev and two Release
-  stdout captures are byte-identical at `b9ded7d7...7f8a`, sealed result
-  `35a57274...d0d2`. Initial review returned `NO-GO` because callback/products,
-  state inputs and frozen endpoint roots were not fully bound. Repair snapshot
-  `9d3482bf` seals and independently replays all three high/low callbacks,
-  rejects resealed callback/input/product drift and freezes exact endpoint
-  roots. One re-review is next; no reviewed claim exists yet.
+- **R63ZJ closed inconclusive:** repair snapshot `9d3482bf` reproduces
+  byte-identical author/reviewer stdout `b9ded7d7...7f8a` and correct callback
+  products, but the single re-review returned `NO-GO`. Fully resealed state or
+  certificate mutations remain valid while the route changes; recurrence work
+  can change from three to four factor solves and remain valid; validation
+  replay work is unsealed. R63ZJ therefore carries no product-precision
+  localization or portable-representation authority.
+- **R63ZK research next:** preserve R63ZJ output only as untrusted numerical
+  input. Freeze a separate verifier that independently derives all state
+  transitions and certificates from the fixture, compares complete traces and
+  owns distinct sealed candidate/replay work before any causal classifier.
 - **Current result:** R20R63Z passes at semantic
   `e27ee861...3e4be`, route `TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE`; final
   stdout is byte-identical at `de22f5f6...da54`. All 10,404 common-operator
@@ -6546,27 +6549,65 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Reconsider when:** revision 2 closes all six tangent calls, 306 product-row
   audits and the frozen endpoint controls.
 
-### D-226 -- Repair callback correspondence before accepting localization
+### D-226 -- Close R63ZJ when the single repair re-review still finds drift
 
 - **Observation:** initial independent review of `caaa16b4` reproduced the
   numerical ladder but found that callback identity was only nonempty,
   products were not linked to the `Kx0/Kp0/Kp1` states, containment radii were
   derived from observed error, and negative endpoints admitted any equal sign
   counts. The review returned `NO-GO`.
-- **Decision:** snapshot `9d3482bf` seals a frozen callback identity, each
+- **Repair decision:** snapshot `9d3482bf` seals a frozen callback identity, each
   high/low kernel trace, projected value and consuming state; independently
   replays the callback from the frozen fixture; adds fully resealed callback,
   input and product mutations; and requires exact dense/common recurrence,
   certificate and sign roots.
-- **Evidence:** strict Dev plus two Release outputs are byte-identical at
-  `b9ded7d7...7f8a`; R63ZI/R63ZG/R63ZH regressions remain exact. The repaired
-  result is still author-only until the single allowed re-review returns `GO`.
+- **Re-review evidence:** strict Dev, two author Release and two clean reviewer
+  Release outputs are byte-identical at `b9ded7d7...7f8a`; regressions remain
+  exact. Nevertheless a state-solution mutation, a route-bearing certificate
+  mutation and recurrence `factor_solves=4` each survive complete public
+  resealing and validation. The certificate mutation changes `ladder()`.
+- **Conclusion:** the numerical JSON is reproducible but the causal contract is
+  not. Per the one-re-review budget, R63ZJ is `INCONCLUSIVE` and cannot be
+  repaired or reviewed again.
 - **Rejected:** accepting successful reruns as correspondence proof; weakening
-  the audit; interpreting initial `NO-GO` as a numerical refutation; beginning
-  matrix-free representation work before review closure.
-- **Reconsider when:** re-review finds a remaining load-bearing defect, which
-  closes R63ZJ as `INCONCLUSIVE`, or returns `GO`, which permits only the
-  portable operator-representation discriminator.
+  the audit; interpreting either `NO-GO` as a numerical refutation; opening a
+  third R63ZJ repair; beginning matrix-free representation work from the
+  unreviewed route.
+- **Reconsider when:** never within R63ZJ. A new experiment may consume its raw
+  trace only as untrusted input and must earn independent correspondence.
+
+### D-227 -- Separate trace production from causal verification
+
+- **Observation:** R63ZJ's high/low callback products replay exactly, yet its
+  enclosing mutable DTO and nested self-roots do not prove state transition,
+  certificate or work correspondence. R63N/R63O also show that simply
+  returning to direct matrix-free `T(T^T p)` would repeat a rejected operator
+  path rather than discriminate the current observation.
+- **Competing hypotheses:** H0, the apparent ladder depends on stale or
+  resealable state/certificate data; H1, the raw hybrid states independently
+  satisfy the frozen K2 recurrence and verifier; H2, callback products are
+  correct but some non-product recurrence transition differs from R63ZI; H3,
+  the numerical path closes but candidate versus validation-replay work cannot
+  be owned without changing the claimed algorithm.
+- **Decision:** R63ZK will be verifier-first. It must independently derive the
+  initial state, both recurrence updates and all three certificates from the
+  frozen fixture and primitive callback outputs; compare every component and
+  semantic field; freeze candidate and replay work separately; and classify
+  only its independently derived trace. The R63ZJ `ladder`, certificate fields,
+  nested roots and author route are never oracle inputs.
+- **Negative controls:** mutate each state family, each transition scalar,
+  certificate fields and roots, product inputs/outputs, recurrence work and
+  replay work; reseal the untrusted producer DTO where possible; require the
+  independent checker to reject for the intended mismatch.
+- **Rejected:** another R63ZJ patch/re-review; accepting opaque root equality;
+  a direct R63N/R63O matrix-free retry; width three, dynamic building, corpus,
+  timing, runtime/GPU or production integration.
+- **Remaining uncertainty:** whether the existing API exposes enough primitive
+  data for an independent checker without adding a trace DTO, and whether a
+  complete second recurrence implementation is small enough to review.
+- **Reconsider when:** a frozen R63ZK contract cannot keep producer and checker
+  code/dataflow independent. Then stop and export an immutable full trace
+  before implementing any classifier.
 
 ## Performance facts retained
 
@@ -6655,13 +6696,15 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    coefficient and `306/306` product containments, exact work and controls, and
    its narrow `R63ZI_STATE2_REJECTED` interpretation. Independent review is
    `NOT_TESTED`. Preserve repaired R63ZJ snapshot `9d3482bf`, stdout
-   `b9ded7d7...7f8a`, result `35a57274...d0d2`, all three callback traces,
-   `306/306` product containments, exact frozen endpoint roots and resealed
-   negative controls. Execute only the single independent re-review next. On
-   `GO`, research a portable matrix-free K2 tangent representation without
-   widening the recurrence; on any remaining load-bearing finding, close
-   R63ZJ as `INCONCLUSIVE`. Stop before dynamic building, corpus, timing,
-   runtime/GPU or production integration.
+   `b9ded7d7...7f8a`, result `35a57274...d0d2` and all callback traces only as
+   deterministic untrusted observations. Preserve the independent `NO-GO`
+   counterexamples `dd0bb518...e068e` and `54a23054...8437`; R63ZJ is
+   `INCONCLUSIVE` and receives no third repair or review. Freeze R63ZK as a
+   separate verifier-first trace-correspondence experiment: independently
+   derive all recurrence transitions and certificates, compare full traces,
+   and seal candidate/replay work separately. Stop before portable
+   representation selection, dynamic building, corpus, timing, runtime/GPU or
+   production integration.
 4. Preserve R20R51 semantic `48df3b26...adca` and all five case roots,
    R20R50 semantic `190ac441...d86e`, all five generic certificate
    roots and the exact work ledger, R20R49 semantic `719e0d50...f3cc`, all three practical roots and

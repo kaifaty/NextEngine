@@ -1,7 +1,7 @@
 # NSR3-B4E2D7R20R63ZJ product-precision localization research
 
-Status: `IMPLEMENTED / AUTHOR_PASS / INITIAL_REVIEW_NO_GO_REPAIRED /
-RE_REVIEW_NEXT`.
+Status: `IMPLEMENTED / AUTHOR_PASS / INDEPENDENT_RE_REVIEW_NO_GO /
+INCONCLUSIVE`.
 
 ## Decision
 
@@ -70,7 +70,20 @@ Repair snapshot `9d3482bf` now:
   mutations, in addition to tangent, nonfinite, work, result and audit faults;
 - requires exact frozen dense/common recurrence, certificate and sign roots.
 
-R63ZJ remains author evidence until the single independent re-review returns
-`GO`. Even then it supports only fixed-profile localization: the binary128
-callback is an offline discriminator, not a portable representation or a
-runtime/production candidate.
+The single independent re-review returned `NO-GO`. The callback repair itself
+is reproducible, but the recurrence validator does not recompute certificates
+from state solutions and accepts resealed state/certificate drift; it also
+does not validate the frozen recurrence-work ledger and performs unsealed
+callback-replay work. Minimal public-API counterexamples preserve full
+validation while changing either a state solution, the route-bearing
+certificate fields or `factor_solves`.
+
+R63ZJ is therefore closed as `INCONCLUSIVE`; see the
+[final evidence](nonlocal-nsr3b4e2d7r20r63zj-product-precision-localization-evidence-2026-08-28.md).
+Its deterministic output remains an untrusted numerical observation only.
+The localization route, preservation of the rest of the K2 recurrence and a
+portable representation successor are not admitted. Any follow-up must be a
+separately frozen verifier-first experiment that independently derives state
+transitions, certificates and both candidate/replay work ledgers. The
+binary128 callback remains an offline discriminator, never a runtime or
+production candidate.

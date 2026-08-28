@@ -23,7 +23,8 @@ NSR3B4E2D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE /
 NSR3B4E2D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT /
 NSR3B4E2D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED /
 NSR3B4E2D7R20R63ZI_ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_AUTHOR_REJECTED /
-NSR3B4E2D7R20R63ZJ_PRODUCT_PRECISION_LOCALIZATION_FROZEN_IMPLEMENTATION_NEXT /
+NSR3B4E2D7R20R63ZJ_PRODUCT_PRECISION_LOCALIZATION_INCONCLUSIVE /
+NSR3B4E2D7R20R63ZK_INDEPENDENT_RECURRENCE_CHECKER_RESEARCH_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4167,6 +4168,19 @@ combines them with canonical K2 addition. Every factor solve, scalar operation,
 state update, input, iteration and verifier remains R63ZI. Pass localizes
 failure to dense operator storage/product precision; rejection requires
 product-width versus update localization before any width-three design.
+
+The
+[R63ZJ final evidence](../../development/nonlocal-nsr3b4e2d7r20r63zj-product-precision-localization-evidence-2026-08-28.md)
+closes that experiment as `INCONCLUSIVE`. The single repair re-review
+reproduced stdout and regressions exactly but demonstrated fully resealed
+state/certificate drift that changes the route, fully resealed recurrence-work
+drift, and unowned callback-replay work. Therefore the observed ladder is only
+an untrusted deterministic observation: it cannot localize dense product
+precision, prove the remaining K2 recurrence unchanged or authorize a portable
+representation. R63ZK must first freeze a separate verifier that derives every
+state transition and certificate from the fixture, compares the complete
+trace, and seals candidate/replay work independently. R63ZJ receives no third
+repair or review.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
