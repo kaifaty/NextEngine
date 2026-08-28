@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_SEVEN_POINT_QUADRATURE_REJECTED / ABSOLUTE_GATES_PASS / REFINEMENT_AND_COMPARISON_FAIL / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / INDEPENDENT_BEMPP_CONTROL_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_INDEPENDENT_BEMPP_ANALYTICAL_CONTROL_SUPPORTED / ALL_SEVEN_GATES_PASS / BYTE_IDENTICAL_REPEAT / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / NONSPHERICAL_SURFACE_MODE_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,18 +10,17 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Seven-point regular-panel quadrature does not repair
-  the analytical refinement failure. Candidate fine/coarse error is `2.6109x`
-  and fine median is `1.0447x` the three-point control; both comparison gates
-  fail while absolute field gates pass.
+- **Current conclusion:** Independent Bempp-cl Galerkin/singular treatment
+  passes the analytical sphere: fine max error `1.2710%`, refinement `0.2625x`,
+  all seven gates and byte-identical repeat. Credit is sphere-only.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Freeze an independent Bempp-cl `0.4.2` Galerkin/singular-
-  quadrature sphere control at revision `a1eaaef9…e1c0` in an external Python
-  3.12 environment. Access no new REALIMPACT payload.
-- **Current blocker:** Regular quadrature is falsified as the main cause;
-  planar geometry versus collocation/boundary formulation remains unresolved.
+- **Next action:** Freeze one synthetic non-spherical prescribed surface mode,
+  publish its independent Bempp near/far field and cross-check the repository
+  cooker. Access no new REALIMPACT payload.
+- **Current blocker:** A converged sphere oracle exists, but non-spherical mode
+  coupling, FEM eigenmodes and real transfer remain unproven.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -54,6 +53,7 @@
 | [REALIMPACT modal-radiation representation diagnostic](../physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md) and reports `7cbf7c59…f25` | `COMPLEX_MULTIPOLE_REPRESENTATION_REJECTED / BYTE_IDENTICAL_REPEAT / NO_FRESH_DATA_OPENED` | Order-3 axisymmetric complex multipoles pass `14/14` absolute gates but lose all comparison gates: median ratio `1.2506`, max `2.0861`, p90 `+7.2513 dB`, improved fraction `0.3482`. Do not raise order on opened rows; prove a classical surface-mode/BEM target first. |
 | [Analytical boundary-solver control](../physical-sound-bem-analytical-control-ps2-2026-08-28.md) and reports `6f74a309…a689` | `CLASSICAL_BOUNDARY_SOLVER_ANALYTICAL_CONTROL_REJECTED / FOUR_OF_FIVE_NUMERIC_GATES_PASS / BYTE_IDENTICAL_REPEAT` | The 320-panel sphere stays within `2.1251%`, `0.1827 dB`, `0.2993°` and `0.0002 dB` direction span, but median error is `2.8589x` the 80-panel result. Preserve the harness; diagnose convergence synthetically before BEM/FFAT oracle credit. |
 | [BEM panel-quadrature discriminator](../physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md) and reports `7460750e…b48d` | `SEVEN_POINT_PANEL_QUADRATURE_HYPOTHESIS_REJECTED / V1_REPORT_PRESERVED / BYTE_IDENTICAL_REPEAT` | Fine median error is `1.0447x` control and fine/coarse ratio is `2.6109`; ordinary higher regular-panel quadrature is not the missing control. Escalate to independent Galerkin/singular treatment. |
+| [Independent Bempp analytical control](../physical-sound-bempp-independent-control-ps2-2026-08-28.md) and reports `ba638a21…01f1` | `INDEPENDENT_BEMPP_ANALYTICAL_CONTROL_SUPPORTED / ALL_SEVEN_GATES_PASS / BYTE_IDENTICAL_REPEAT` | On 512 panels max complex error is `1.2710%`, magnitude `0.1111 dB`, phase `0.4844°`, direction span `0.0074 dB`, refinement `0.2625x`; six GMRES solves pass. Credit is analytical sphere only. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -179,7 +179,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects and claim/source gates exist; both boundary variants have small absolute sphere-field error | Refinement and quadrature-comparison gates fail; no converged surface-radiation target, 3D or calibrated shadow risk exists | Run a frozen independent Bempp-cl Galerkin/singular-quadrature sphere control before fresh real-data validation |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects and claim/source gates exist; independent Bempp sphere field converges and passes all controls | No non-spherical surface mode, real 3D transfer or calibrated shadow risk exists | Cross-check one frozen non-spherical Bempp mode field before fresh real-data validation |
 
 ## Required context
 
@@ -230,11 +230,11 @@ Read these sources in precedence order before acting:
 - **Workspace state:** Registry V1, PS-1, PS-2 plan/`E1`, eight-project E3,
   explicit roles, five typed E2 rows, a verified project split, executable
   exact-domain/source gates, V1/V2 transfer calibration, narrow spatial pilot,
-  repeated empirical-representation rejections and two analytical boundary
-  controls exist; public schemas/assets/ownership are unchanged.
-- **Checks:** quadrature reports repeat at `7460750e…b48d`, historical V1 stays
-  `6f74a309…a689`; absolute gates pass, refinement/comparison fail, no fresh
-  data opens and holdouts remain sealed. Final checks are in the handoff.
+  repeated empirical-representation rejections and a converged independent
+  analytical sphere control exist; public schemas/assets/ownership are unchanged.
+- **Checks:** independent reports repeat at `ba638a21…01f1`; all seven gates
+  pass, no fresh data opens and holdouts remain sealed. Final checks are in the
+  handoff.
 - **Remaining risk:** eight exact-domain claims, converged BEM/3D transfer,
   calibrated domain/OOD/shadow risk, contact sufficiency, mixer cost and
   authoring are open.
