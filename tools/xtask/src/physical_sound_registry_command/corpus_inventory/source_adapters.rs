@@ -40,6 +40,13 @@ const REALIMPACT_GREEN_GOBLET_TRANSFER_SHA256: &str =
     "104dd97391bf6319ccbd4dfdf48569be58097bf1f90cf8cea3ae3cb2f7498ec9";
 const REALIMPACT_GREEN_GOBLET_PROVENANCE_SHA256: &str =
     "25f01b1c8fb5b3cf6a9aa474393d9b00393dc705937c7b4148fedb7d1c7a4262";
+const REALIMPACT_BLUE_BOWL_DATASET_OBJECT_ID: &str = "6_Bowl";
+const REALIMPACT_BLUE_BOWL_METADATA_SHA256: &str =
+    "f3dc97454a5888ec4a33488703d19e8fa6d5827a76095543c61d3235d3dc5c10";
+const REALIMPACT_BLUE_BOWL_TRANSFER_SHA256: &str =
+    "2640223087e3c719f6c2175eba35a652941a09f98209aa2acf93e43b37f1aa23";
+const REALIMPACT_BLUE_BOWL_PROVENANCE_SHA256: &str =
+    "1e1a7c931fbfb227bffe0df39e684e401adacedf3d2fcafd42f5b989662efcc4";
 const REALIMPACT_CAPABILITIES: [&str; 6] = [
     "force_deconvolved_transfer",
     "geometry",
@@ -64,7 +71,7 @@ struct FrozenRealImpactPilot {
     provenance_sha256: &'static str,
 }
 
-const REALIMPACT_PILOTS: [FrozenRealImpactPilot; 2] = [
+const REALIMPACT_PILOTS: [FrozenRealImpactPilot; 3] = [
     FrozenRealImpactPilot {
         dataset_object_id: REALIMPACT_DATASET_OBJECT_ID,
         row_index: REALIMPACT_ROW_INDEX,
@@ -78,6 +85,13 @@ const REALIMPACT_PILOTS: [FrozenRealImpactPilot; 2] = [
         metadata_sha256: REALIMPACT_GREEN_GOBLET_METADATA_SHA256,
         transfer_sha256: REALIMPACT_GREEN_GOBLET_TRANSFER_SHA256,
         provenance_sha256: REALIMPACT_GREEN_GOBLET_PROVENANCE_SHA256,
+    },
+    FrozenRealImpactPilot {
+        dataset_object_id: REALIMPACT_BLUE_BOWL_DATASET_OBJECT_ID,
+        row_index: 0,
+        metadata_sha256: REALIMPACT_BLUE_BOWL_METADATA_SHA256,
+        transfer_sha256: REALIMPACT_BLUE_BOWL_TRANSFER_SHA256,
+        provenance_sha256: REALIMPACT_BLUE_BOWL_PROVENANCE_SHA256,
     },
 ];
 

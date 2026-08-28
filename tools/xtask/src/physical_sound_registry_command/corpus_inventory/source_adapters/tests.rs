@@ -78,6 +78,23 @@ fn declaration_accepts_the_independently_fetched_green_goblet_row() {
     );
 }
 
+#[test]
+fn declaration_accepts_the_cross_tier_blue_bowl_row() {
+    let mut entry = entry_fixture();
+    entry.id = "realimpact-blue-bowl-row0000".to_owned();
+    entry.object_id = "realimpact-6-bowl".to_owned();
+    entry.audio_payload.sha256 = REALIMPACT_BLUE_BOWL_TRANSFER_SHA256.to_owned();
+    entry.acquisition_metadata.sha256 = REALIMPACT_BLUE_BOWL_METADATA_SHA256.to_owned();
+    entry.provenance_review.sha256 = REALIMPACT_BLUE_BOWL_PROVENANCE_SHA256.to_owned();
+    let mut adapter = adapter_fixture();
+    let SourceAdapterProfile::RealImpactForceDeconvolvedTransferV1 {
+        dataset_object_id, ..
+    } = &mut adapter;
+    *dataset_object_id = REALIMPACT_BLUE_BOWL_DATASET_OBJECT_ID.to_owned();
+    entry.source_adapter = Some(adapter);
+    validate_declaration(&entry, true).expect("frozen Blue Bowl source adapter validates");
+}
+
 fn entry_fixture_with_adapter() -> InventoryEntry {
     let mut entry = entry_fixture();
     entry.source_adapter = Some(adapter_fixture());

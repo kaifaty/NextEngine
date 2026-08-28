@@ -10,6 +10,9 @@ use self::evidence::{
     AcquisitionReport, acquisition_metadata, inventory_manifest, pretty_json, provenance_review,
     publish_output, read_source_bundle,
 };
+use self::profiles::{
+    BLUE_BOWL_PROFILE_ID, FrozenProfile, GREEN_GOBLET_PROFILE_ID, frozen_profile,
+};
 
 use super::internet_sources::resolve_public_https_endpoint;
 use super::{
@@ -18,20 +21,8 @@ use super::{
 };
 
 mod evidence;
+mod profiles;
 
-const PROFILE: &str = "green-goblet-row-0-v1";
-const ARCHIVE_URL: &str = "https://downloads.cs.stanford.edu/viscam/RealImpact/93_GreenGoblet.zip";
-const ARCHIVE_BYTES: u64 = 2_311_697_935;
-const ARCHIVE_ETAG: &str = "6433e478-89c9b60f";
-const ARCHIVE_LAST_MODIFIED_HTTP: &str = "Mon, 10 Apr 2023 10:27:04 GMT";
-const ARCHIVE_LAST_MODIFIED_ISO: &str = "2023-04-10T10:27:04Z";
-const CENTRAL_OFFSET: u64 = 2_311_696_618;
-const CENTRAL_BYTES: usize = 1_295;
-const CENTRAL_SHA256: &str = "083a0677196ee18688c42379d869137fc48e2efd756cd418bf4ef0cfa40eb3a4";
-const ENTRY_COUNT: usize = 12;
-const AUDIO_PREFIX_BYTES: usize = 1_048_576;
-const AUDIO_PREFIX_SHA256: &str =
-    "a9b68287eaa622455d3aa78de18b9dbf315e7fa3d5f719f9d67797b529ee270a";
 const CORPUS_PLAN_SHA256: &str = "e082610c90dabff3c7a328df94671dca4f84f46cd629952c3e914ce600a3ea01";
 const REPOSITORY_REVISION: &str = "commit-fca2bd6cbb7e9f96ac61328d2a0d51594bf01987";
 const SOURCE_FILES: [SourceFile; 5] = [
@@ -62,81 +53,6 @@ const UNAVAILABLE_COMPONENTS: [&str; 4] = [
     "repeat-recording-identity",
     "support-fixture-revision",
 ];
-const ENTRIES: [EntrySpec; 8] = [
-    EntrySpec::new(
-        "93_GreenGoblet/preprocessed/vertexXYZ.npy",
-        159,
-        258,
-        441,
-        72_128,
-        0x695f_eafe,
-        "cbc94c54a7ed8f35fd9743c8725678811566f17fc97d9739d110d390d909151e",
-    ),
-    EntrySpec::new(
-        "93_GreenGoblet/preprocessed/micID.npy",
-        699,
-        794,
-        225,
-        24_128,
-        0x082e_c0c6,
-        "d603b6155b4bad60d9ed6633734b8f52fcad208d5320f925911fc7c463224d6b",
-    ),
-    EntrySpec::new(
-        "93_GreenGoblet/preprocessed/transformed.obj",
-        2_783_815,
-        2_783_916,
-        557_368,
-        3_528_966,
-        0x101b_1df8,
-        "96252fe0200699f06ae148d3eeeaf8eb67a1dc87dc4da94796bf375b5dd47192",
-    ),
-    EntrySpec::new(
-        "93_GreenGoblet/preprocessed/vertexID.npy",
-        3_341_284,
-        3_341_382,
-        164,
-        24_128,
-        0x4f58_b204,
-        "ad1a3143fda803aeaace7b225cfe86ecea5e9393b8eb9f5c99ff5b54513e282d",
-    ),
-    EntrySpec::new(
-        "93_GreenGoblet/preprocessed/listenerXYZ.npy",
-        3_341_546,
-        3_341_647,
-        2_923,
-        72_128,
-        0xee42_6e91,
-        "83fa3f27780ab2f56e1b33afa4fbcb25fb712ac0b3731d5343a42ecff7d94dd4",
-    ),
-    EntrySpec::new(
-        "93_GreenGoblet/preprocessed/distance.npy",
-        3_344_765,
-        3_344_863,
-        294,
-        24_128,
-        0x570b_48dd,
-        "95dbc48e33263762a9d0c6233902e53ba754dc5e53943b17043491827dc7188a",
-    ),
-    EntrySpec::new(
-        "93_GreenGoblet/preprocessed/deconvolved_0db.npy",
-        3_345_157,
-        3_345_262,
-        2_308_350_969,
-        2_499_876_128,
-        0xd41c_a14a,
-        "",
-    ),
-    EntrySpec::new(
-        "93_GreenGoblet/preprocessed/angle.npy",
-        2_311_696_231,
-        2_311_696_326,
-        292,
-        24_128,
-        0xfabb_9a2e,
-        "ed65ac28e45cc119b5d42c49293546f2749aa5f9629f6ffa9e0f35f2420874a3",
-    ),
-];
-
 #[derive(Debug)]
 pub(super) struct Request {
     profile: String,
@@ -171,7 +87,7 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
     }
     Ok(Request {
         profile: profile.ok_or_else(|| {
-            "physical-sound-registry realimpact-row requires --profile green-goblet-row-0-v1"
+            "physical-sound-registry realimpact-row requires --profile <green-goblet-row-0-v1|blue-bowl-row-0-v1>"
                 .to_owned()
         })?,
         source_bundle: source_bundle.ok_or_else(|| {
@@ -190,12 +106,7 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
 }
 
 fn run(root: &Path, request: &Request) -> Result<(), String> {
-    if request.profile != PROFILE {
-        return Err(format!(
-            "unsupported REALIMPACT row profile {}; expected {PROFILE}",
-            request.profile
-        ));
-    }
+    let profile = frozen_profile(&request.profile)?;
     let output = resolve_output_path(root, &request.output)?;
     require_empty_output(&output)?;
     let source_bundle = resolve_cli_path(root, &request.source_bundle);
@@ -212,59 +123,92 @@ fn run(root: &Path, request: &Request) -> Result<(), String> {
     )?;
     require_hash(&corpus_plan, CORPUS_PLAN_SHA256, "corpus-plan report")?;
 
-    let resolve = resolve_public_https_endpoint(ARCHIVE_URL)?
+    let resolve = resolve_public_https_endpoint(profile.archive_url)?
         .ok_or_else(|| "REALIMPACT archive host did not resolve".to_owned())?;
     let mut fetched_bytes = 0_u64;
-    let eocd = fetch_range(&resolve, ARCHIVE_BYTES - 22, 22, &mut fetched_bytes)?;
-    validate_archive_headers(&eocd)?;
-    validate_eocd(&eocd.body)?;
-    let central = fetch_range(&resolve, CENTRAL_OFFSET, CENTRAL_BYTES, &mut fetched_bytes)?;
-    validate_archive_headers(&central)?;
-    require_hash(&central.body, CENTRAL_SHA256, "ZIP central directory")?;
-    let central_entries = parse_central_directory(&central.body)?;
-    validate_central_entries(&central_entries)?;
+    let eocd = fetch_range(
+        profile,
+        &resolve,
+        profile.archive_bytes - 22,
+        22,
+        &mut fetched_bytes,
+    )?;
+    validate_archive_headers(profile, &eocd)?;
+    validate_eocd(profile, &eocd.body)?;
+    let central = fetch_range(
+        profile,
+        &resolve,
+        profile.central_offset,
+        profile.central_bytes,
+        &mut fetched_bytes,
+    )?;
+    validate_archive_headers(profile, &central)?;
+    require_hash(
+        &central.body,
+        profile.central_sha256,
+        "ZIP central directory",
+    )?;
+    let central_entries = parse_central_directory(profile, &central.body)?;
+    validate_central_entries(profile, &central_entries)?;
 
     let mut raw_entries = BTreeMap::new();
-    for spec in ENTRIES.iter().filter(|entry| !entry.raw_sha256.is_empty()) {
-        let response = fetch_entry(&resolve, spec, spec.compressed_bytes, &mut fetched_bytes)?;
+    for spec in profile
+        .entries
+        .iter()
+        .filter(|entry| !entry.raw_sha256.is_empty())
+    {
+        let response = fetch_entry(
+            profile,
+            &resolve,
+            spec,
+            spec.compressed_bytes,
+            &mut fetched_bytes,
+        )?;
         let raw = decompress_complete(spec, &response)?;
         raw_entries.insert(spec.name, raw);
     }
-    let audio_spec = entry("93_GreenGoblet/preprocessed/deconvolved_0db.npy")?;
+    let audio_spec = entry(profile, profile.audio_entry_name)?;
     let audio_response = fetch_entry(
+        profile,
         &resolve,
         audio_spec,
-        AUDIO_PREFIX_BYTES as u64,
+        profile.audio_prefix_bytes as u64,
         &mut fetched_bytes,
     )?;
     require_hash(
         &audio_response,
-        AUDIO_PREFIX_SHA256,
+        profile.audio_prefix_sha256,
         "deconvolved transfer compressed prefix",
     )?;
-    let row = extract_audio_row_zero(&audio_response)?;
-    let derived = validate_and_derive(&raw_entries, &row)?;
+    let row = extract_audio_row_zero(profile, &audio_response)?;
+    let derived = validate_and_derive(profile, &raw_entries, &row)?;
 
     let wav = normalized_wav(&row.bytes, row.peak_abs)?;
     let wav_sha256 = sha256_hex(&wav);
-    let metadata = acquisition_metadata(&derived, &row, &wav_sha256);
+    let metadata = acquisition_metadata(profile, &derived, &row, &wav_sha256);
     let metadata_bytes = pretty_json(&metadata)?;
-    let provenance = provenance_review();
+    let provenance = provenance_review(profile);
     let metadata_sha256 = sha256_hex(&metadata_bytes);
     let provenance_sha256 = sha256_hex(provenance.as_bytes());
-    let manifest = inventory_manifest(&derived, &row, &metadata_sha256, &provenance_sha256);
+    let manifest = inventory_manifest(
+        profile,
+        &derived,
+        &row,
+        &metadata_sha256,
+        &provenance_sha256,
+    );
     let manifest_bytes = pretty_json(&manifest)?;
     let report = AcquisitionReport {
         schema: "nextengine.experimental-realimpact-range-acquisition.report.v1",
         status: "Validated",
         decision: "E2TransferResponseFallbackOnly",
-        profile: PROFILE,
-        archive_url: ARCHIVE_URL,
-        archive_content_length: ARCHIVE_BYTES,
-        central_directory_sha256: CENTRAL_SHA256,
+        profile: profile.id,
+        archive_url: profile.archive_url,
+        archive_content_length: profile.archive_bytes,
+        central_directory_sha256: profile.central_sha256,
         http_range_payload_bytes: fetched_bytes,
-        full_archive_fraction: fetched_bytes as f64 / ARCHIVE_BYTES as f64,
-        dataset_object_id: "93_GreenGoblet",
+        full_archive_fraction: fetched_bytes as f64 / profile.archive_bytes as f64,
+        dataset_object_id: profile.dataset_object_id,
         row_index: 0,
         row_sha256: &row.sha256,
         metadata_sha256: &metadata_sha256,
@@ -276,6 +220,7 @@ fn run(root: &Path, request: &Request) -> Result<(), String> {
     let report_bytes = pretty_json(&report)?;
 
     publish_output(
+        profile,
         &output,
         &source_bytes,
         &corpus_plan,
@@ -341,6 +286,7 @@ struct RangeResponse {
 }
 
 fn fetch_range(
+    profile: &FrozenProfile,
     resolve: &str,
     start: u64,
     length: usize,
@@ -369,7 +315,7 @@ fn fetch_range(
             "--range",
             &format!("{start}-{end}"),
             "--include",
-            ARCHIVE_URL,
+            profile.archive_url,
         ])
         .output()
         .map_err(|error| format!("start bounded REALIMPACT HTTPS range fetch: {error}"))?;
@@ -404,7 +350,7 @@ fn fetch_range(
         .filter_map(|line| line.split_once(':'))
         .map(|(name, value)| (name.trim().to_ascii_lowercase(), value.trim().to_owned()))
         .collect::<BTreeMap<_, _>>();
-    let expected_content_range = format!("bytes {start}-{end}/{ARCHIVE_BYTES}");
+    let expected_content_range = format!("bytes {start}-{end}/{}", profile.archive_bytes);
     if headers.get("content-range") != Some(&expected_content_range) {
         return Err("REALIMPACT response Content-Range changed".to_owned());
     }
@@ -424,22 +370,27 @@ fn fetch_range(
     })
 }
 
-fn validate_archive_headers(response: &RangeResponse) -> Result<(), String> {
-    if response.etag != ARCHIVE_ETAG || response.last_modified != ARCHIVE_LAST_MODIFIED_HTTP {
+fn validate_archive_headers(
+    profile: &FrozenProfile,
+    response: &RangeResponse,
+) -> Result<(), String> {
+    if response.etag != profile.archive_etag
+        || response.last_modified != profile.archive_last_modified_http
+    {
         return Err("REALIMPACT archive HTTP identity changed".to_owned());
     }
     Ok(())
 }
 
-fn validate_eocd(bytes: &[u8]) -> Result<(), String> {
+fn validate_eocd(profile: &FrozenProfile, bytes: &[u8]) -> Result<(), String> {
     if bytes.len() != 22
         || &bytes[..4] != b"PK\x05\x06"
         || le_u16(bytes, 4)? != 0
         || le_u16(bytes, 6)? != 0
-        || usize::from(le_u16(bytes, 8)?) != ENTRY_COUNT
-        || usize::from(le_u16(bytes, 10)?) != ENTRY_COUNT
-        || usize::try_from(le_u32(bytes, 12)?).ok() != Some(CENTRAL_BYTES)
-        || u64::from(le_u32(bytes, 16)?) != CENTRAL_OFFSET
+        || usize::from(le_u16(bytes, 8)?) != profile.entry_count
+        || usize::from(le_u16(bytes, 10)?) != profile.entry_count
+        || usize::try_from(le_u32(bytes, 12)?).ok() != Some(profile.central_bytes)
+        || u64::from(le_u32(bytes, 16)?) != profile.central_offset
         || le_u16(bytes, 20)? != 0
     {
         return Err("REALIMPACT ZIP EOCD changed or is unsupported".to_owned());
@@ -447,7 +398,10 @@ fn validate_eocd(bytes: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
-fn parse_central_directory(bytes: &[u8]) -> Result<Vec<ParsedEntry>, String> {
+fn parse_central_directory(
+    profile: &FrozenProfile,
+    bytes: &[u8],
+) -> Result<Vec<ParsedEntry>, String> {
     let mut entries = Vec::new();
     let mut offset = 0_usize;
     while offset < bytes.len() {
@@ -482,10 +436,11 @@ fn parse_central_directory(bytes: &[u8]) -> Result<Vec<ParsedEntry>, String> {
         });
         offset += record_bytes;
     }
-    if entries.len() != ENTRY_COUNT {
+    if entries.len() != profile.entry_count {
         return Err(format!(
-            "REALIMPACT central directory has {} entries, expected {ENTRY_COUNT}",
-            entries.len()
+            "REALIMPACT central directory has {} entries, expected {}",
+            entries.len(),
+            profile.entry_count
         ));
     }
     Ok(entries)
@@ -502,8 +457,11 @@ struct ParsedEntry {
     local_offset: u64,
 }
 
-fn validate_central_entries(entries: &[ParsedEntry]) -> Result<(), String> {
-    for expected in ENTRIES {
+fn validate_central_entries(
+    profile: &FrozenProfile,
+    entries: &[ParsedEntry],
+) -> Result<(), String> {
+    for expected in profile.entries {
         let actual = entries
             .iter()
             .find(|entry| entry.name == expected.name)
@@ -525,6 +483,7 @@ fn validate_central_entries(entries: &[ParsedEntry]) -> Result<(), String> {
 }
 
 fn fetch_entry(
+    profile: &FrozenProfile,
     resolve: &str,
     spec: &EntrySpec,
     compressed_bytes: u64,
@@ -541,8 +500,8 @@ fn fetch_entry(
         .checked_add(compressed_bytes)
         .and_then(|value| usize::try_from(value).ok())
         .ok_or_else(|| "ZIP entry range length overflow".to_owned())?;
-    let response = fetch_range(resolve, spec.local_offset, length, fetched_bytes)?;
-    validate_archive_headers(&response)?;
+    let response = fetch_range(profile, resolve, spec.local_offset, length, fetched_bytes)?;
+    validate_archive_headers(profile, &response)?;
     let header_len =
         usize::try_from(header_bytes).map_err(|_| "ZIP header too large".to_owned())?;
     validate_local_header(&response.body[..header_len], spec)?;
@@ -584,8 +543,9 @@ fn decompress_complete(spec: &EntrySpec, compressed: &[u8]) -> Result<Vec<u8>, S
     Ok(raw)
 }
 
-fn entry(name: &str) -> Result<&'static EntrySpec, String> {
-    ENTRIES
+fn entry(profile: &'static FrozenProfile, name: &str) -> Result<&'static EntrySpec, String> {
+    profile
+        .entries
         .iter()
         .find(|entry| entry.name == name)
         .ok_or_else(|| format!("internal REALIMPACT entry is missing: {name}"))
@@ -600,22 +560,22 @@ struct AudioRow {
     rms: f64,
 }
 
-fn extract_audio_row_zero(compressed: &[u8]) -> Result<AudioRow, String> {
+fn extract_audio_row_zero(profile: &FrozenProfile, compressed: &[u8]) -> Result<AudioRow, String> {
     let mut decoder = DeflateDecoder::new(compressed);
     let mut header = [0_u8; 128];
     decoder
         .read_exact(&mut header)
         .map_err(|error| format!("decompress REALIMPACT transfer NPY header: {error}"))?;
-    validate_npy_header_prefix(&header, "<f4", &[3_000, 208_323])?;
-    let sample_count = 208_323_usize;
+    validate_npy_header_prefix(&header, "<f4", &[3_000, profile.audio_sample_count])?;
+    let sample_count = profile.audio_sample_count;
     let mut bytes = vec![0_u8; sample_count * 4];
     decoder
         .read_exact(&mut bytes)
         .map_err(|error| format!("decompress REALIMPACT transfer row 0: {error}"))?;
     require_hash(
         &bytes,
-        "104dd97391bf6319ccbd4dfdf48569be58097bf1f90cf8cea3ae3cb2f7498ec9",
-        "REALIMPACT GreenGoblet transfer row 0",
+        profile.audio_row_sha256,
+        "REALIMPACT transfer row 0",
     )?;
     let mut peak_abs = 0.0_f64;
     let mut sum_squared = 0.0_f64;
@@ -654,10 +614,11 @@ struct DerivedMetadata {
 }
 
 fn validate_and_derive(
+    profile: &FrozenProfile,
     raw_entries: &BTreeMap<&'static str, Vec<u8>>,
     row: &AudioRow,
 ) -> Result<DerivedMetadata, String> {
-    if row.sample_count != 208_323 {
+    if row.sample_count != profile.audio_sample_count {
         return Err("REALIMPACT transfer row sample count changed".to_owned());
     }
     let vertex_xyz = f64_array(raw(raw_entries, "vertexXYZ.npy")?, &[3_000, 3])?;
@@ -686,12 +647,15 @@ fn validate_and_derive(
         || angles[0] != 0
         || distances[0] != 0
         || microphone_ids[0] != 0
-        || impact_vertex_id != 31_676
-        || impact_position != [-0.020_581_99, -0.039_491_5, 0.156_666_2]
-        || listener_position != [0.23, -0.043_45, -0.91]
-        || vertices.len() != 48_174
+        || impact_vertex_id != profile.expected_impact_vertex_id
+        || impact_position != profile.expected_impact_position
+        || listener_position != profile.expected_listener_position
+        || vertices.len() != profile.expected_mesh_vertex_count
     {
-        return Err("REALIMPACT GreenGoblet acquisition axes changed".to_owned());
+        return Err(format!(
+            "REALIMPACT {} acquisition axes changed",
+            profile.dataset_object_id
+        ));
     }
     let listener_position_count = angle_axis
         .len()
@@ -923,11 +887,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn arguments_bind_the_only_frozen_profile() {
+    fn arguments_bind_a_frozen_profile() {
         let request = parse_arguments(
             [
                 "--profile",
-                PROFILE,
+                GREEN_GOBLET_PROFILE_ID,
                 "--source-bundle",
                 "/tmp/source",
                 "--corpus-plan-report",
@@ -939,7 +903,14 @@ mod tests {
             .map(str::to_owned),
         )
         .expect("arguments parse");
-        assert_eq!(request.profile, PROFILE);
+        assert_eq!(request.profile, GREEN_GOBLET_PROFILE_ID);
+        assert_eq!(
+            frozen_profile(BLUE_BOWL_PROFILE_ID)
+                .expect("Blue Bowl profile")
+                .dataset_object_id,
+            "6_Bowl"
+        );
+        assert!(frozen_profile("arbitrary").is_err());
         assert!(parse_arguments(std::iter::empty()).is_err());
     }
 
