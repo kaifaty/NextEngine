@@ -23,7 +23,7 @@ NSR3B4E2D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE /
 NSR3B4E2D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT /
 NSR3B4E2D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED /
 NSR3B4E2D7R20R63ZI_ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_AUTHOR_REJECTED /
-NSR3B4E2D7R20R63ZJ_PRODUCT_PRECISION_LOCALIZATION_RESEARCH_NEXT /
+NSR3B4E2D7R20R63ZJ_PRODUCT_PRECISION_LOCALIZATION_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4154,6 +4154,17 @@ The candidate is distinct from the common negative, so width-two dense
 tangent-Gram storage is rejected rather than aliased. Localize stored-product
 precision against a binary128-tangent/K2-projection hybrid next; do not widen
 the whole recurrence or begin dynamic/runtime work first.
+
+The
+[R63ZJ research](../../development/nonlocal-nsr3b4e2d7r20r63zj-product-precision-localization-research-2026-08-28.md)
+and
+[contract](03b4e2d7r20r63zj-product-precision-localization-contract.md)
+freeze that localization. Only the three operator calls change: each K2 input
+center is applied by the frozen binary128 tangent kernel and immediately
+projected back to K2. Every factor solve, scalar operation, state update,
+input, iteration and verifier remains R63ZI. Pass localizes failure to dense
+operator storage/product precision; rejection requires product-width versus
+update localization before any width-three design.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
