@@ -53,22 +53,22 @@ pub(super) struct ModeSeed {
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
-pub(super) struct ComplexValue {
-    pub(super) real: f64,
-    pub(super) imaginary: f64,
+pub(in super::super::super) struct ComplexValue {
+    pub(in super::super::super) real: f64,
+    pub(in super::super::super) imaginary: f64,
 }
 
 impl ComplexValue {
-    pub(super) const ZERO: Self = Self {
+    pub(in super::super::super) const ZERO: Self = Self {
         real: 0.0,
         imaginary: 0.0,
     };
 
-    pub(super) fn magnitude(self) -> f64 {
+    pub(in super::super::super) fn magnitude(self) -> f64 {
         self.real.hypot(self.imaginary)
     }
 
-    pub(super) fn divide(self, divisor: Self) -> Result<Self, String> {
+    pub(in super::super::super) fn divide(self, divisor: Self) -> Result<Self, String> {
         let denominator = divisor
             .real
             .mul_add(divisor.real, divisor.imaginary.powi(2));
@@ -444,7 +444,7 @@ pub(super) fn improved_component_fraction(
     Ok(improved as f64 / candidate.components.len() as f64)
 }
 
-fn onset(samples: &[f64]) -> Result<usize, String> {
+pub(in super::super::super) fn onset(samples: &[f64]) -> Result<usize, String> {
     let peak = samples
         .iter()
         .copied()
@@ -459,7 +459,7 @@ fn onset(samples: &[f64]) -> Result<usize, String> {
         .ok_or_else(|| "spatial evaluation onset was not found".to_owned())
 }
 
-fn hann_window() -> Vec<f64> {
+pub(in super::super::super) fn hann_window() -> Vec<f64> {
     (0..WINDOW_SAMPLES)
         .map(|index| 0.5 - 0.5 * (2.0 * PI * index as f64 / (WINDOW_SAMPLES - 1) as f64).cos())
         .collect()
@@ -481,7 +481,7 @@ fn projection_db(
         .ok_or_else(|| "spatial projection is non-finite".to_owned())
 }
 
-fn projection_complex(
+pub(in super::super::super) fn projection_complex(
     samples: &[f64],
     onset: usize,
     window: &[f64],

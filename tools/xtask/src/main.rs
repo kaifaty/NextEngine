@@ -3,7 +3,6 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
-
 mod animation_lod_command;
 mod native_gate_projection;
 mod native_gate_publish;
@@ -25,7 +24,6 @@ mod physical_sound_reproduce_command;
 mod physical_sound_steel_search_command;
 mod physx;
 mod visual_smoke;
-
 use serde::{Serialize, Serializer};
 use xtask::native_gate::{
     LINUX_TARGET_TRIPLE, NATIVE_GATE_SCHEMA_VERSION, NativeGateCheckNameV1,
@@ -35,7 +33,6 @@ use xtask::native_gate::{
     NativeGateTargetExecutionStatusV1, NativeGateTargetReportV1, WINDOWS_TARGET_TRIPLE,
 };
 use xtask::report::*;
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct NativeGateIdentity {
     git_commit: String,
@@ -45,31 +42,26 @@ struct NativeGateIdentity {
     rustc_host: String,
     target_triple: String,
 }
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct NativeGateCompareArguments {
     windows: PathBuf,
     linux: PathBuf,
     output: PathBuf,
 }
-
 struct NativeGateCheckFailure {
     records: Vec<NativeGateCheckRecordV1>,
     error: String,
 }
-
 struct NativeGateCheckExecutionFailure {
     record: NativeGateCheckRecordV1,
     error: String,
 }
-
 struct NativeGateMatrixSuccess {
     records: Vec<NativeGateCheckRecordV1>,
     release_target: NativeGateClosureTargetSummaryV1,
     release_roots: NativeGateReleaseRootsV2,
     package: NativeGatePackageSummaryV1,
 }
-
 struct NativeGateClosureCheckResult {
     report: CommandReportV2<V1ClosureDetailsV2>,
     release_target: NativeGateClosureTargetSummaryV1,

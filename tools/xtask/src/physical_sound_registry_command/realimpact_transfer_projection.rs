@@ -6,35 +6,31 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use super::realimpact_row::spatial_calibration::dsp as frozen_spatial;
 use super::{
     canonical_external_file, read_bounded_file, require_empty_output, resolve_cli_path,
     resolve_output_path, set_once, sha256_hex,
 };
 
-#[allow(dead_code, clippy::items_after_test_module)]
-mod frozen_spatial {
-    include!("realimpact_row/spatial_calibration/dsp.rs");
-
-    pub(super) fn project(
-        samples: &[f64],
-        frequencies_hz: &[f64],
-        sample_rate_hz: u32,
-    ) -> Result<Vec<ComplexValue>, String> {
-        let onset = onset(samples)?;
-        let window = hann_window();
-        frequencies_hz
-            .iter()
-            .map(|frequency| {
-                projection_complex(samples, onset, &window, *frequency, sample_rate_hz)
-            })
-            .collect()
-    }
+fn project(
+    samples: &[f64],
+    frequencies_hz: &[f64],
+    sample_rate_hz: u32,
+) -> Result<Vec<frozen_spatial::ComplexValue>, String> {
+    let onset = frozen_spatial::onset(samples)?;
+    let window = frozen_spatial::hann_window();
+    frequencies_hz
+        .iter()
+        .map(|frequency| {
+            frozen_spatial::projection_complex(samples, onset, &window, *frequency, sample_rate_hz)
+        })
+        .collect()
 }
 
 const FREQUENCY_SCHEMA: &str = "nextengine.experimental-realimpact-transfer-projection-input.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-realimpact-transfer-projection.report.v1";
 const BOUND_SPATIAL_DSP_SHA256: &str =
-    "f3de418974b8a7676151c5f0d616accd6fc46f854ebcb7a06d8e2acc9ee3f834";
+    "edfe237492f27075a2e3d4176314942ba4ee328b2d32c974aca072cd20b02e9f";
 const SAMPLE_RATE_HZ: u32 = 48_000;
 const SAMPLE_COUNT: usize = 230_470;
 const ROW_COUNT: usize = 600;
@@ -132,7 +128,7 @@ fn run(root: &Path, request: &Request) -> Result<(), String> {
             .map_err(|error| format!("read Pitcher row {row_index}: {error}"))?;
         row_hashes.push(sha256_hex(&bytes));
         let samples = decode_row(&bytes, row_index)?;
-        let projected = frozen_spatial::project(&samples, &frequencies_hz, SAMPLE_RATE_HZ)?;
+        let projected = project(&samples, &frequencies_hz, SAMPLE_RATE_HZ)?;
         for (mode_index, value) in projected.into_iter().enumerate() {
             mode_major[mode_index][row_index] = value;
         }
@@ -365,8 +361,7 @@ mod tests {
                 / f64::from(SAMPLE_RATE_HZ))
             .sin();
         }
-        let value =
-            frozen_spatial::project(&samples, &[1_000.0], SAMPLE_RATE_HZ).expect("project fixture");
+        let value = project(&samples, &[1_000.0], SAMPLE_RATE_HZ).expect("project fixture");
         assert_eq!(value.len(), 1);
         assert!(value[0].magnitude() > 1.0);
     }

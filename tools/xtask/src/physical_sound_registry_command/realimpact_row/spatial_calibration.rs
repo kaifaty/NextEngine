@@ -13,7 +13,7 @@ use self::dsp::{
 };
 use super::*;
 
-mod dsp;
+pub(in super::super) mod dsp;
 mod extension;
 mod shape;
 pub(in crate::physical_sound_registry_command) use shape::run_cli as run_shape;

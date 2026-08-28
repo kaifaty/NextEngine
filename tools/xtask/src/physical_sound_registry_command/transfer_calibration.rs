@@ -14,7 +14,7 @@ use super::{
     resolve_cli_path, resolve_output_path, set_once, sha256_hex,
 };
 
-mod dsp;
+pub(super) mod dsp;
 mod report;
 #[cfg(test)]
 mod tests;
