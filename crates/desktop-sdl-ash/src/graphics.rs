@@ -1,18 +1,14 @@
 use super::*;
 use crate::gpu_content::{B0GpuContent, DepthAttachment, UiOverlayState};
 use next_render::{B0FramePlannerMetricsV1, B0FramePlannerV1, RenderTargetV1};
-
 mod capabilities;
 mod overlay;
 mod profiling;
 mod setup;
-
 use capabilities::select_physical_device;
 use profiling::{CpuFramePhaseTimings, FrameProfilingReport, VulkanFrameProfiler};
 use setup::*;
-
 const FRAME_SLOT_COUNT: usize = 2;
-
 pub(super) struct GraphicsContext {
     _entry: ash::Entry,
     instance: ash::Instance,
@@ -33,7 +29,6 @@ pub(super) struct GraphicsContext {
     next_frame_slot: usize,
     frame_profiler: Option<VulkanFrameProfiler>,
 }
-
 #[derive(Clone, Copy)]
 struct FrameSlot {
     command_buffer: vk::CommandBuffer,
@@ -715,7 +710,12 @@ impl GraphicsContext {
         let presented = defer_out_of_date(presented)?;
         let Some(present_suboptimal) = presented else {
             self.recreate_swapchain(window)?;
-            return Ok(None);
+            // The command buffer and profiling queries were already submitted
+            // before presentation reported an out-of-date swapchain. Count
+            // that bounded frame exactly once; returning `None` here made the
+            // caller submit a replacement frame while cache, UI and profiler
+            // counters retained the completed submission.
+            return Ok(Some(submitted_frame));
         };
         let swapchain = self
             .swapchain

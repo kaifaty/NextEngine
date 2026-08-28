@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) fn package_manifest_from_summary(
     report: &NativeGateTargetReportV1,
-) -> crate::package::PackageManifestV5 {
+) -> crate::package::PackageManifestV6 {
     let summary = report.package.as_ref().expect("package summary");
     let roots = crate::package::PackageTargetNeutralRootsV3 {
         content_manifest_sha256: summary.content_manifest_sha256.clone(),
@@ -25,7 +25,7 @@ pub(super) fn package_manifest_from_summary(
             project_composition_lock_hash: summary.project_lock_sha256.clone(),
         }
     };
-    crate::package::PackageManifestV5 {
+    crate::package::PackageManifestV6 {
         binaries: crate::package::PackageBinariesV3 {
             game: packaged_run(
                 "Game",
@@ -57,6 +57,24 @@ pub(super) fn package_manifest_from_summary(
                 source_project_path: "source/reference-alpha".to_owned(),
                 world_chunk_count: 1,
             },
+        },
+        distribution: crate::package::PackageDistributionV1 {
+            cargo_lock_path: "Cargo.lock".to_owned(),
+            cargo_lock_sha256: "c".repeat(64),
+            dependency_count: 1,
+            dependency_inventory_path: "DEPENDENCY_INVENTORY.jcs".to_owned(),
+            dependency_inventory_sha256: "d".repeat(64),
+            getting_started_path: "GETTING_STARTED.md".to_owned(),
+            license_file_count: 1,
+            protected_data_scan: crate::package::PackageProtectedDataScanV1 {
+                scanned_byte_count: 1,
+                scanned_file_count: 1,
+                scanner_id: "nextengine-protected-data-v1".to_owned(),
+                status: "PASS".to_owned(),
+            },
+            release_name: "nextengine".to_owned(),
+            release_version: env!("CARGO_PKG_VERSION").to_owned(),
+            troubleshooting_path: "TROUBLESHOOTING.md".to_owned(),
         },
         file_inventory: Vec::new(),
         required_notices: Vec::new(),

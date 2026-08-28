@@ -26,7 +26,7 @@ const V2_DAMPING_FFT_SIZE: usize = 16_384;
 const V2_DAMPING_HOP_SIZE: usize = 2_048;
 
 #[derive(Clone, Copy, Debug, Serialize)]
-pub(super) struct CandidateProfile {
+pub(in super::super) struct CandidateProfile {
     pub(super) id: &'static str,
     pub(super) mode_limit: usize,
     pub(super) fft_size: usize,
@@ -50,7 +50,7 @@ pub(super) const CANDIDATES: [CandidateProfile; 3] = [
     },
 ];
 
-pub(super) const CANDIDATES_V2: [CandidateProfile; 3] = [
+pub(in super::super) const CANDIDATES_V2: [CandidateProfile; 3] = [
     CandidateProfile {
         id: "injective-modal-8-fft65536-v2",
         mode_limit: 8,
@@ -69,9 +69,9 @@ pub(super) const CANDIDATES_V2: [CandidateProfile; 3] = [
 ];
 
 #[derive(Clone, Debug, Serialize)]
-pub(super) struct TransferAnalysis {
-    pub(super) onset_sample: usize,
-    pub(super) selected_mode_count: usize,
+pub(in super::super) struct TransferAnalysis {
+    pub(in super::super) onset_sample: usize,
+    pub(in super::super) selected_mode_count: usize,
     pub(super) persistent_mode_count: usize,
     pub(super) persistent_mode_recall: f64,
     pub(super) median_frequency_error_cents: f64,
@@ -293,7 +293,7 @@ pub(super) fn analyze(
     })
 }
 
-pub(super) fn analyze_v2(
+pub(in super::super) fn analyze_v2(
     samples: &[f64],
     sample_rate_hz: u32,
     profile: CandidateProfile,

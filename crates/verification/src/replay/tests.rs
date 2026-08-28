@@ -904,6 +904,6 @@ fn scenario_final_root_pins_current_checkpoint_identity_ledger_archive_and_physi
             .final_state_root()
             .expect("scenario has ticks")
             .to_hex(),
-        "0edcc7d224b4f70f4ae3337d47e6b96df2808eae775ecabb2289283513b758d3"
+        "a772e3931550faa08368878748c38344ada37f8eafce8a38061938f8cbd60925"
     );
 }

@@ -60,6 +60,19 @@ pub enum RpgOperationPayloadV1 {
         expected_state: CommitmentStateV1,
         next_state: CommitmentStateV1,
     },
+    ApplyBodyImpairment {
+        condition_id: PersistentId,
+        anatomy_profile_hash: ContentHash,
+        expected_impairment: BodyImpairmentV1,
+        next_impairment: BodyImpairmentV1,
+    },
+    AdvanceBodyTreatment {
+        condition_id: PersistentId,
+        anatomy_profile_hash: ContentHash,
+        channel: BodyTreatmentChannelV1,
+        expected_stage: BodyRecoveryStageV1,
+        next_stage: BodyRecoveryStageV1,
+    },
 }
 
 impl RpgOperationPayloadV1 {
@@ -115,6 +128,10 @@ impl RpgOperationPayloadV1 {
             ],
             Self::TransitionCommitment { commitment_id, .. } => {
                 vec![(RpgAggregateKindV1::Commitment, *commitment_id)]
+            }
+            Self::ApplyBodyImpairment { condition_id, .. }
+            | Self::AdvanceBodyTreatment { condition_id, .. } => {
+                vec![(RpgAggregateKindV1::BodyCondition, *condition_id)]
             }
         };
         targets.sort_unstable();
@@ -225,6 +242,32 @@ impl RpgOperationPayloadV1 {
                 bytes.push(*expected_state as u8);
                 bytes.push(*next_state as u8);
             }
+            Self::ApplyBodyImpairment {
+                condition_id,
+                anatomy_profile_hash,
+                expected_impairment,
+                next_impairment,
+            } => {
+                bytes.push(10);
+                bytes.extend_from_slice(condition_id.as_bytes());
+                bytes.extend_from_slice(anatomy_profile_hash.as_bytes());
+                bytes.push(*expected_impairment as u8);
+                bytes.push(*next_impairment as u8);
+            }
+            Self::AdvanceBodyTreatment {
+                condition_id,
+                anatomy_profile_hash,
+                channel,
+                expected_stage,
+                next_stage,
+            } => {
+                bytes.push(11);
+                bytes.extend_from_slice(condition_id.as_bytes());
+                bytes.extend_from_slice(anatomy_profile_hash.as_bytes());
+                bytes.push(*channel as u8);
+                bytes.push(*expected_stage as u8);
+                bytes.push(*next_stage as u8);
+            }
         }
         Ok(bytes)
     }
@@ -284,6 +327,19 @@ impl RpgOperationPayloadV1 {
                 commitment_id: read_id(&mut cursor)?,
                 expected_state: CommitmentStateV1::from_tag(cursor.read_u8()?)?,
                 next_state: CommitmentStateV1::from_tag(cursor.read_u8()?)?,
+            },
+            10 => Self::ApplyBodyImpairment {
+                condition_id: read_id(&mut cursor)?,
+                anatomy_profile_hash: ContentHash::from_bytes(read_array(&mut cursor)?),
+                expected_impairment: BodyImpairmentV1::from_tag(cursor.read_u8()?)?,
+                next_impairment: BodyImpairmentV1::from_tag(cursor.read_u8()?)?,
+            },
+            11 => Self::AdvanceBodyTreatment {
+                condition_id: read_id(&mut cursor)?,
+                anatomy_profile_hash: ContentHash::from_bytes(read_array(&mut cursor)?),
+                channel: BodyTreatmentChannelV1::from_tag(cursor.read_u8()?)?,
+                expected_stage: BodyRecoveryStageV1::from_tag(cursor.read_u8()?)?,
+                next_stage: BodyRecoveryStageV1::from_tag(cursor.read_u8()?)?,
             },
             tag => return Err(RpgContractErrorV1::UnknownOperationTag(tag)),
         };
@@ -370,6 +426,30 @@ impl RpgOperationV1 {
             } if !expected_state.permits_transition_to(*next_state) => {
                 return Err(RpgContractErrorV1::PayloadInvariant(
                     "RPG_COMMITMENT_TRANSITION_INVALID",
+                ));
+            }
+            RpgOperationPayloadV1::ApplyBodyImpairment {
+                anatomy_profile_hash,
+                expected_impairment,
+                next_impairment,
+                ..
+            } if *anatomy_profile_hash == ContentHash::default()
+                || !expected_impairment.permits_damage_transition_to(*next_impairment) =>
+            {
+                return Err(RpgContractErrorV1::PayloadInvariant(
+                    "RPG_BODY_IMPAIRMENT_TRANSITION_INVALID",
+                ));
+            }
+            RpgOperationPayloadV1::AdvanceBodyTreatment {
+                anatomy_profile_hash,
+                expected_stage,
+                next_stage,
+                ..
+            } if *anatomy_profile_hash == ContentHash::default()
+                || !expected_stage.permits_transition_to(*next_stage) =>
+            {
+                return Err(RpgContractErrorV1::PayloadInvariant(
+                    "RPG_BODY_TREATMENT_TRANSITION_INVALID",
                 ));
             }
             _ => {}

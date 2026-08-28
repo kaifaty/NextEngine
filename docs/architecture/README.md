@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.65 |
-| Последняя проверка | 2026-08-26 |
-| Заменяет | INDEX-001 2.64; indexes the independent Proposed physical-sound and provider-neutral generative-authoring tracks without changing current runtime baselines |
+| Версия | 2.68 |
+| Последняя проверка | 2026-08-28 |
+| Заменяет | INDEX-001 2.67; adds ADR-098 bounded intact-topology functional-anatomy condition vertical after the immutable v1.0.0 release |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -81,7 +81,7 @@ durable publication, а `game`, `headless` и runtime-bearing `tools` входя
 | `persistence-replay` | Commands, IDs, authoritative state, scheduling, save schema или migrations | save→load продолжает мир; focused replay/deterministic comparison проходит; corrupt input отвергается до mutation |
 | `content-package` | Asset schema, cooker, importer boundary, package/plugin или distribution | representative content/package validates и cooks/loads; bounds/hash/version, protected-data и basic license-notice checks проходят |
 | `platform` | Только renderer, packaging, host integration или OS-specific change | targeted smoke на текущем Linux host; Windows target не входит в текущую release matrix |
-| `performance` | Только material hot-path, physics, renderer, I/O или model-runtime change | Linux targeted report без изменения authoritative result; R2–R5 release evidence uses ADR-091 Performance V6 baseline/gate on the exact accepted host |
+| `performance` | Только material hot-path, physics, renderer, I/O или model-runtime change | Linux targeted report без изменения authoritative result; R2–R5 release evidence uses ADR-091/096 Performance V6 baseline/gate on one exact accepted host/kernel cohort |
 
 Focused checks используются во время итерации; широкий local check запускается
 перед handoff, когда он существует и релевантен. Недоступная GPU, encoder, RTX
@@ -155,7 +155,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-02 | [Runtime, ECS и data model](02-runtime-ecs-and-data.md) | Accepted |
 | SPEC-03 | [Assets, current world streaming и persistence](03-assets-world-streaming-and-persistence.md) | Accepted |
 | SPEC-04 | [Rendering и platform](04-rendering-and-platform.md) | Accepted |
-| SPEC-05 | [Physics, animation и motor control](05-physics-animation-and-motor-control.md) | Accepted; R5j closes the bounded procedural PHYS-P6 gameplay profile through `physical-character` |
+| SPEC-05 | [Physics, animation и motor control](05-physics-animation-and-motor-control.md) | Accepted; R5j closes PHYS-P6 and ADR-098 adds the current optional directional capability clamp before fixed-PD rate limiting |
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
 | SPEC-07 | [RPG, scripting и plugins](07-rpg-scripting-and-plugins.md) | Accepted |
 | SPEC-08 | [Audio, navigation и world services](08-audio-navigation-and-world-services.md) | Accepted audio plus bounded engine-owned graph/query baseline; broader navmesh/traversal remains Proposed |
@@ -163,21 +163,21 @@ traceability — навигационная карта, не admission authority
 | SPEC-10 | [Gothic importer boundary](10-gothic-importer-boundary.md) | Accepted |
 | SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted; creator and replay inputs are bounded/current/exact, unsafe paths fail closed, and read-only projections expose no raw paths/private storage |
 | SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; risk-scoped validation plus bounded R5 and complete R6a–R6g milestone matrices |
-| SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
+| SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted; includes one current profile-bound BodyCondition effect compiler shared by player/NPC paths |
 | SPEC-14 | [Physical archetypes, BodySchema, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted hierarchy/ownership; fixed-humanoid BodySchema V1 is current through SPEC-35, advanced skill/adaptation/family profiles remain Proposed |
 | SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted; includes governed edited cold-start, creator scenario minimization and production Replay V10 inspection without a mutable backdoor |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed |
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted; creator project and scenario paths use the same exact V7 cook/activation, bounded headless tick/final-save lifecycle and source-neutral read-only projection |
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted; future qualitative body-status projection remains consumer-driven |
-| SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted |
+| SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted; current BodyCondition aggregate and staged impairment/treatment operations are admitted by ADR-098 |
 | SPEC-20 | [World calendar, authored routines and bounded population lifecycle](20-world-simulation-and-population-lifecycle.md) | Accepted R4a calendar/routine, R4b population/navigation, R4c cognition consumer and bounded R4d activity/tier/bulk-time vertical |
 | SPEC-21 | [Deterministic runtime primitives, command ledger и causal identity](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | Accepted |
-| SPEC-22 | [Current schema registry и format compatibility](22-schema-registry-compatibility-and-migration.md) | Accepted |
+| SPEC-22 | [Current schema registry и format compatibility](22-schema-registry-compatibility-and-migration.md) | Accepted; RPG aggregate snapshot/command schema 4 is current-only under ADR-098 |
 | SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
-| SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted; includes ordinary V7 RPG starter content, exact current Creator Project Package V1 envelope and stable-ID inspection projection |
+| SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted; includes optional exact BodySchema-bound anatomy profile, ordinary V7 RPG starter content, current creator package and stable-ID projection |
 | SPEC-25 | [Current bounded world partition и streaming boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
 | SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted; current capsule profile includes one bounded fixed-local carried box on the same body |
-| SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline; exact adaptation/reference profile evolution is Proposed |
+| SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline plus ADR-098 intact-topology capability envelope; learned injury routes remain Proposed |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted; bounded forward `ANIM-ROOT-MOTION-P1` and bounded-profile `ANIM-LOD-P1` are current through R5h/R5i, while general graph/retarget/physical-IK, creator-authored LOD breadth and hybrid articulation remain open |
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted; generic one-tick creator run and separately bounded scenario ticks share headless session and save-on-close |
 | SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted; R5i preserves atomic V3 complete-or-none animation-LOD publication and prior-snapshot retention |
@@ -186,7 +186,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
 | SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070; SPEC-44 does not yet add a world-solver lane |
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
-| SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted functional-anatomy product, ownership, treatment, player/NPC parity and fallback semantics; exact contracts/vertical remain Proposed |
+| SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted product semantics and current ADR-098 intact-topology condition/capability subset; fracture/topology/UI/LOD remain Proposed |
 | SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person target, current R5g exact base-rig/LBS/pose-corrective/deformation-LOD route and R5i bounded upstream animation-work projection; load/injury, severity matrix and advanced deformers remain Proposed |
 | SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 local water/deformable-terrain track; CPU DFSPH reference, GPU correspondence and MLS-MPM terrain are not current runtime contracts |
 | SPEC-39 | [Proposed layered physical-world model](39-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and thermochemical state without a universal solver or second writer |
@@ -301,6 +301,9 @@ traceability — навигационная карта, не admission authority
 | ADR-093 | [Deterministic R5 worker placement](adr/093-deterministic-r5-worker-placement.md) | Accepted deterministic physical-core placement for the `r5-physics-16` workload through one reviewed `next_cpu_affinity` boundary; workload identity advances to v3 |
 | ADR-094 | [Confidence-gated relative warnings](adr/094-confidence-gated-relative-warnings.md) | Accepted CI95-lower-bound gating for relative warnings under methodology v11 with stderr-only failure diagnostics |
 | ADR-095 | [Provider-neutral generative content authoring boundary](adr/095-provider-neutral-generative-content-authoring-boundary.md) | Proposed quarantined-candidate and explicit-promotion boundary; ordinary exact authored source remains the complete fallback |
+| ADR-096 | [Active-kernel Linux performance cohort](adr/096-active-kernel-linux-performance-cohort.md) | Accepted V2 profile; current Ubuntu generic patch kernel is admissible while every report in one campaign retains byte-exact full-fingerprint equality |
+| ADR-097 | [Linux v1 distribution closure](adr/097-linux-v1-distribution-closure.md) | Accepted PackageManifest V6, release 1.0.0, selected offline dependency/license inventory, packaged user docs, builder-path remapping and reproducible protected-data scan |
+| ADR-098 | [Bounded intact-topology functional-anatomy condition vertical](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) | Accepted R8a BodySchema-bound unilateral profile, RPG condition/treatment owner, derived directional capability envelope and fixed-PD clamp; fracture/topology/UI/LOD remain Proposed |
 
 ## Proposed tracks
 

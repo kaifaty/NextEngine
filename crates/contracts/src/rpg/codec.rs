@@ -194,6 +194,7 @@ pub(super) fn validate_payload(payload: &RpgAggregatePayloadV1) -> Result<(), Rp
                 ));
             }
         }
+        RpgAggregatePayloadV1::BodyCondition(payload) => payload.validate()?,
         RpgAggregatePayloadV1::Quest(_)
         | RpgAggregatePayloadV1::Dialogue(_)
         | RpgAggregatePayloadV1::InteractiveObject(_) => {}

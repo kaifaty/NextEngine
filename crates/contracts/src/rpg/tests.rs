@@ -88,6 +88,18 @@ fn aggregate_snapshot_round_trip_is_byte_exact() {
                     state: CommitmentStateV1::Offered,
                 }),
             ),
+            aggregate(
+                8,
+                RpgAggregatePayloadV1::BodyCondition(BodyConditionPayloadV1 {
+                    character_id: id(1),
+                    body_schema_hash: ContentHash::from_bytes([20; 32]),
+                    anatomy_profile_hash: ContentHash::from_bytes([21; 32]),
+                    region_id: schema("body-region.left-lower-limb"),
+                    impairment: BodyImpairmentV1::PartialKneeExtensor,
+                    recovery_stage: BodyRecoveryStageV1::Stabilized,
+                    systemic_condition: SystemicConditionV1::Impaired,
+                }),
+            ),
         ],
     };
 
@@ -275,6 +287,49 @@ fn commitment_transition_command_and_event_are_byte_exact() {
         Err(RpgContractErrorV1::PayloadInvariant(
             "RPG_COMMITMENT_TRANSITION_INVALID"
         ))
+    );
+}
+
+#[test]
+fn body_condition_command_and_event_are_byte_exact() {
+    let command = RpgCommandV1 {
+        operations: vec![RpgOperationV1 {
+            operation_slot: 0,
+            targets: vec![RpgAggregateRefV1 {
+                aggregate_kind: RpgAggregateKindV1::BodyCondition,
+                persistent_id: id(8),
+                expected_revision: 2,
+            }],
+            definition_policy_hashes: Vec::new(),
+            payload: RpgOperationPayloadV1::AdvanceBodyTreatment {
+                condition_id: id(8),
+                anatomy_profile_hash: ContentHash::from_bytes([21; 32]),
+                channel: BodyTreatmentChannelV1::Magical,
+                expected_stage: BodyRecoveryStageV1::Stabilized,
+                next_stage: BodyRecoveryStageV1::Repaired,
+            },
+        }],
+    };
+    let bytes = command.canonical_payload_bytes().expect("command encodes");
+    assert_eq!(
+        RpgCommandV1::from_canonical_payload_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("command decodes"),
+        command
+    );
+
+    let event = RpgEventV1::BodyTreatmentAdvanced {
+        condition_id: id(8),
+        character_id: id(1),
+        channel: BodyTreatmentChannelV1::Magical,
+        impairment: BodyImpairmentV1::PartialKneeExtensor,
+        recovery_stage: BodyRecoveryStageV1::Repaired,
+        systemic_condition: SystemicConditionV1::Impaired,
+    };
+    let bytes = event.canonical_payload_bytes().expect("event encodes");
+    assert_eq!(
+        RpgEventV1::from_canonical_payload_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("event decodes"),
+        event
     );
 }
 

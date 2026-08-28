@@ -5,16 +5,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::Serialize;
 
+use super::transfer_calibration::dsp as frozen_dsp;
 use super::{require_empty_output, resolve_output_path, set_once, sha256_hex};
-
-#[allow(dead_code, clippy::duplicate_mod)]
-#[path = "transfer_calibration/dsp.rs"]
-mod frozen_dsp;
 
 const REPORT_SCHEMA: &str =
     "nextengine.experimental-realimpact-transfer-extractor-parity-fixture.report.v1";
 const EXTRACTOR_ID: &str = "injective-modal-16-fft65536-v2";
-const BOUND_DSP_SHA256: &str = "131bbf42d01e633b6cac0c4e0340178f3f5a0a83324bb64630d8423da8179ca4";
+const BOUND_DSP_SHA256: &str = "bae1eb6f459d930e32effd8f45d5788867553b1991d832e5f6dcdc9e677284d0";
 const SAMPLE_RATE_HZ: u32 = 48_000;
 const SAMPLE_COUNT: usize = SAMPLE_RATE_HZ as usize * 4;
 const ONSET_SAMPLE: usize = 240;

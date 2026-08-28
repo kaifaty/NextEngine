@@ -12,7 +12,7 @@ use crate::ids::{
     PhysicsContactId, SchemaId, content_hash_from_bytes,
 };
 
-pub const RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION: u32 = 3;
+pub const RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION: u32 = 4;
 pub const RPG_AGGREGATE_SNAPSHOT_OWNER_ID: &str = "rpg";
 pub const RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID: &str = "nextengine.rpg.snapshot";
 pub const RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID: &str = "domain-state";
@@ -34,25 +34,33 @@ pub const RPG_EVENT_CHARACTER_RESOURCE_ADJUSTED_SCHEMA_ID: &str =
     "nextengine.event.rpg.character-resource-adjusted.v1";
 pub const RPG_EVENT_COMMITMENT_TRANSITIONED_SCHEMA_ID: &str =
     "nextengine.event.rpg.commitment-transitioned.v1";
-pub const RPG_TRANSACTION_COMMAND_SCHEMA_VERSION: u32 = 3;
+pub const RPG_EVENT_BODY_CONDITION_CHANGED_SCHEMA_ID: &str =
+    "nextengine.event.rpg.body-condition-changed.v1";
+pub const RPG_EVENT_BODY_TREATMENT_ADVANCED_SCHEMA_ID: &str =
+    "nextengine.event.rpg.body-treatment-advanced.v1";
+pub const RPG_TRANSACTION_COMMAND_SCHEMA_VERSION: u32 = 4;
 pub const RPG_MAX_OPERATIONS_PER_COMMAND: usize = 64;
 pub const RPG_MAX_AGGREGATES_PER_SNAPSHOT: usize = 16_384;
 pub const RPG_MAX_COLLECTION_ENTRIES: usize = 4_096;
 
 mod aggregate;
+mod body_condition;
 mod codec;
 mod command;
 mod core_profile;
 mod transaction;
 
 pub use aggregate::{
-    CharacterPayloadV1, CharacterResourceEntryV1, CommitmentPayloadV1, CommitmentStateV1,
-    DefinitionRefV1, DialoguePayloadV1, DivineStandingPayloadV1, EquipmentPayloadV1,
-    EquipmentSlotAssignmentV1, FactionMembershipPayloadV1, FactionPayloadV1,
+    BodyConditionPayloadV1, CharacterPayloadV1, CharacterResourceEntryV1, CommitmentPayloadV1,
+    CommitmentStateV1, DefinitionRefV1, DialoguePayloadV1, DivineStandingPayloadV1,
+    EquipmentPayloadV1, EquipmentSlotAssignmentV1, FactionMembershipPayloadV1, FactionPayloadV1,
     InteractiveObjectPayloadV1, InventoryPayloadV1, InventoryReservationV1, ItemPayloadV1,
     ProvenanceBindingV1, QuestPayloadV1, RelationshipDimensionV1, RelationshipPayloadV1,
     RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1,
     RpgRuntimeBindingsV1, RpgSnapshotV2, SkillProficiencyEntryV1,
+};
+pub use body_condition::{
+    BodyImpairmentV1, BodyRecoveryStageV1, BodyTreatmentChannelV1, SystemicConditionV1,
 };
 pub use codec::RpgContractErrorV1;
 pub use command::{RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1};

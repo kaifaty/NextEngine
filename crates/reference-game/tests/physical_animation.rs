@@ -78,7 +78,9 @@ fn live_normalized_controls_drive_player_animation_without_camera_authority() {
     tampered_project.body_schema_asset.body_schema.bodies[0].mass_microkilograms += 1;
     assert!(matches!(
         next_reference_game::build_reference_game_session(tampered_project),
-        Err(next_reference_game::ReferenceGameError::BodyProjectionInvalid)
+        Err(next_reference_game::ReferenceGameError::Body(
+            next_contracts::body::BodyContractError::InvalidReference
+        ))
     ));
 
     let mut movement = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)

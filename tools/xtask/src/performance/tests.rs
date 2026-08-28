@@ -13,7 +13,7 @@ fn fingerprint() -> PerformanceTargetFingerprintV1 {
         storage_model: "SAMSUNG MZVL2512HCJQ-00BH1".to_owned(),
         storage_bytes: 512_110_190_592,
         os_name: "Linux (Ubuntu 26.04 LTS)".to_owned(),
-        os_build: "26.04; kernel 7.0.0-29-generic".to_owned(),
+        os_build: "26.04; kernel 7.0.0-30-generic".to_owned(),
         bios_version: "F16e".to_owned(),
         gpu_driver: "610.43.02".to_owned(),
         power_plan: "linux-governor:performance".to_owned(),
@@ -55,6 +55,38 @@ fn linux_release_fingerprint_is_exact_on_invalidating_fields() {
     assert_eq!(
         validate_linux_release_fingerprint(&wrong),
         vec!["PERF_GPU_DRIVER_MISMATCH"]
+    );
+}
+
+#[test]
+fn linux_release_profile_admits_patch_cohorts_but_campaigns_remain_exact() {
+    let current = fingerprint();
+    assert!(validate_linux_release_fingerprint(&current).is_empty());
+
+    let mut prior_patch = current.clone();
+    prior_patch.os_build = "26.04; kernel 7.0.0-29-generic".to_owned();
+    assert!(validate_linux_release_fingerprint(&prior_patch).is_empty());
+
+    for os_build in [
+        "26.04; kernel 7.0.1-30-generic",
+        "26.04; kernel 7.0.0-30-lowlatency",
+        "26.04; kernel 7.0.0-030-generic",
+    ] {
+        let mut wrong = current.clone();
+        wrong.os_build = os_build.to_owned();
+        assert_eq!(
+            validate_linux_release_fingerprint(&wrong),
+            vec!["PERF_OS_MISMATCH"]
+        );
+    }
+
+    let mut runs = vec![clean_r3_calibration_report(); 10];
+    runs[9].target_fingerprint = Some(prior_patch);
+    let diagnostics = PerformanceBaselineV6::from_runs(&runs)
+        .expect_err("one campaign cannot mix admitted kernel patches");
+    assert!(
+        diagnostics.contains(&"PERF_BASELINE_RUN_INCOMPATIBLE: 9".to_owned()),
+        "expected exact fingerprint rejection, found {diagnostics:?}"
     );
 }
 
@@ -327,7 +359,7 @@ fn r5_physics_methodology_binds_the_production_humanoid_workload() {
     assert_eq!(
         performance_scenario_hash(scenario),
         sha256_hex(
-            b"nextengine.performance.r5-physics-16.v3:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:worker-placement=deterministic-physical-core-v1:fixed-standing-controller:fresh-scene-restore:adr062-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
+            b"nextengine.performance.r5-physics-16.v3:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:worker-placement=deterministic-physical-core-v1:fixed-standing-controller:fresh-scene-restore:adr062-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v2:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
         )
     );
 }
@@ -384,7 +416,7 @@ fn r2_alpha_render_is_an_available_six_window_workload() {
     assert_eq!(
         performance_scenario_hash(scenario),
         sha256_hex(
-            b"nextengine.performance.r2-alpha-render.v4:reference-alpha:frontier-relay:desktop-views=exploration+combat+ui-dialogue:hard-host=ref-linux-b550i-3950x-rtx3080-v1:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
+            b"nextengine.performance.r2-alpha-render.v4:reference-alpha:frontier-relay:desktop-views=exploration+combat+ui-dialogue:hard-host=ref-linux-b550i-3950x-rtx3080-v2:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
         )
     );
     let methodology = methodology_for(scenario);
@@ -409,7 +441,7 @@ fn r4_population_is_an_available_hard_production_workload() {
     assert_eq!(
         performance_scenario_hash(scenario),
         sha256_hex(
-            b"nextengine.performance.r4-100npc.v2:reference-alpha:npcs=100:cadence=16x3+32x15+52x60:warmup=1000:measured=10000:production-joint-world-services-tick:engine-graph-navigation:adr016-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-due-trace:no-starvation:logical-accounting=r4-100npc-v1"
+            b"nextengine.performance.r4-100npc.v2:reference-alpha:npcs=100:cadence=16x3+32x15+52x60:warmup=1000:measured=10000:production-joint-world-services-tick:engine-graph-navigation:adr016-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v2:exact-due-trace:no-starvation:logical-accounting=r4-100npc-v1"
         )
     );
     let methodology = methodology_for(scenario);

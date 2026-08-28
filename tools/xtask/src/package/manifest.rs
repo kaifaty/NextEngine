@@ -1,4 +1,21 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+#[derive(Deserialize)]
+pub(super) struct PackageManifestVersionProbe {
+    pub(super) schema_version: u32,
+}
+
+pub(super) const MAX_MANIFEST_BYTES: usize = 8 * 1024 * 1024;
+pub(super) const REQUIRED_NOTICE_PATHS: [&str; 4] = [
+    "LICENSE",
+    "MIGRATION_PROVENANCE.md",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md",
+];
+pub(super) const REFERENCE_PROJECT_DOCUMENT_PATHS: [(&str, &str); 2] = [
+    ("projects/reference-alpha/ACCEPTANCE.md", "ACCEPTANCE.md"),
+    ("projects/reference-alpha/NOTICE", "REFERENCE_ALPHA_NOTICE"),
+];
 
 pub(super) fn canonical_json_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
     let value = serde_json::to_value(value)

@@ -1,13 +1,11 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
-use std::io::Read;
-use std::path::{Path, PathBuf};
-
 use next_contracts::canonical::sha256;
 use next_contracts::ids::ContentHash;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 mod bem_feasibility;
 mod corpus_inventory;
 mod corpus_plan;
@@ -22,7 +20,6 @@ mod split_feasibility;
 mod split_freeze;
 mod transfer_calibration;
 use transfer_calibration::run_cli as run_transfer;
-
 const SCHEMA: &str = "nextengine.experimental-physical-sound-research-registry.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-research-registry.report.v1";
 const MAX_MANIFEST_BYTES: usize = 16 * 1024 * 1024;
@@ -30,7 +27,6 @@ const MAX_REFERENCED_FILE_BYTES: usize = 512 * 1024 * 1024;
 const MAX_FORMULA_FAMILIES: usize = 256;
 const MAX_DOMAINS: usize = 8_192;
 const MAX_CONDITIONS_PER_AXIS: usize = 256;
-
 pub(super) struct Request {
     manifest: PathBuf,
     output: PathBuf,
@@ -112,7 +108,6 @@ fn set_once<T>(slot: &mut Option<T>, value: T, flag: &str) -> Result<(), String>
     }
     Ok(())
 }
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct RegistryManifest {
@@ -121,7 +116,6 @@ struct RegistryManifest {
     formula_families: Vec<FormulaFamily>,
     domains: Vec<DomainRecord>,
 }
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct FormulaFamily {
@@ -132,13 +126,11 @@ struct FormulaFamily {
     model_definition: FileRef,
     parameter_schema: FileRef,
 }
-
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum SourceClass {
     RigidImpact,
 }
-
 impl SourceClass {
     const fn as_str(self) -> &'static str {
         match self {

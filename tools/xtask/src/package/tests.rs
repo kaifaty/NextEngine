@@ -1,3 +1,7 @@
+use super::distribution::{
+    CARGO_LOCK_PATH, DEPENDENCY_INVENTORY_PATH, GETTING_STARTED_PATH,
+    THIRD_PARTY_LICENSE_DIRECTORY, TROUBLESHOOTING_PATH,
+};
 use super::*;
 use std::env;
 use std::ffi::OsString;
@@ -6,15 +10,17 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 mod fixtures;
+mod manifest_fixture;
 mod publish;
 
 use fixtures::*;
+use manifest_fixture::fixture_manifest;
 
 #[test]
 fn manifest_encoding_is_canonical_and_round_trips() {
     let manifest = fixture_manifest();
     let bytes = canonical_json_bytes(&manifest).expect("canonical JSON");
-    let decoded: PackageManifestV5 = serde_json::from_slice(&bytes).expect("manifest decodes");
+    let decoded: PackageManifestV6 = serde_json::from_slice(&bytes).expect("manifest decodes");
     assert_eq!(decoded, manifest);
     assert!(bytes.starts_with(br#"{"binaries":"#));
 }
@@ -27,7 +33,7 @@ fn retired_manifest_and_unknown_fields_are_rejected_without_migration() {
     object.remove("runtime_profile");
     object.insert("schema_version".to_owned(), serde_json::json!(2));
     let bytes = serde_json::to_vec(&value).expect("legacy manifest");
-    assert!(serde_json::from_slice::<PackageManifestV5>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV6>(&bytes).is_err());
 
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     value["binaries"]
@@ -35,7 +41,7 @@ fn retired_manifest_and_unknown_fields_are_rejected_without_migration() {
         .expect("binary object")
         .remove("tools");
     let bytes = serde_json::to_vec(&value).expect("missing tools manifest");
-    assert!(serde_json::from_slice::<PackageManifestV5>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV6>(&bytes).is_err());
 
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     value
@@ -43,12 +49,12 @@ fn retired_manifest_and_unknown_fields_are_rejected_without_migration() {
         .expect("manifest object")
         .insert("unexpected".to_owned(), serde_json::json!(true));
     let bytes = serde_json::to_vec(&value).expect("unknown-field manifest");
-    assert!(serde_json::from_slice::<PackageManifestV5>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV6>(&bytes).is_err());
 
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     value["runtime_profile"]["abi"]["unexpected"] = serde_json::json!(true);
     let bytes = serde_json::to_vec(&value).expect("unknown nested field manifest");
-    assert!(serde_json::from_slice::<PackageManifestV5>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV6>(&bytes).is_err());
 
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     value["runtime_profile"]["binaries"][0]
@@ -56,7 +62,7 @@ fn retired_manifest_and_unknown_fields_are_rejected_without_migration() {
         .expect("runtime binary")
         .remove("direct_libraries");
     let bytes = serde_json::to_vec(&value).expect("missing nested field manifest");
-    assert!(serde_json::from_slice::<PackageManifestV5>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV6>(&bytes).is_err());
 
     let mut wrong_version = manifest;
     wrong_version.schema_version = PACKAGE_MANIFEST_SCHEMA_VERSION - 1;
@@ -132,8 +138,14 @@ fn package_root_requires_every_notice_and_rejects_smoke_or_state_objects() {
     fs::create_dir(temporary.path().join("bin")).expect("bin");
     fs::create_dir(temporary.path().join("project")).expect("project");
     fs::create_dir(temporary.path().join("source")).expect("source");
+    fs::create_dir(temporary.path().join(THIRD_PARTY_LICENSE_DIRECTORY))
+        .expect("third-party licenses");
     for file in [
         PACKAGE_MANIFEST_FILE,
+        CARGO_LOCK_PATH,
+        DEPENDENCY_INVENTORY_PATH,
+        GETTING_STARTED_PATH,
+        TROUBLESHOOTING_PATH,
         "LICENSE",
         "NOTICE",
         "THIRD_PARTY_NOTICES.md",
@@ -315,6 +327,19 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
         result.package_manifest_sha256,
         hash_file(&output.join(PACKAGE_MANIFEST_FILE)).expect("manifest hash")
     );
+    assert_eq!(
+        result.manifest.distribution.release_version,
+        env!("CARGO_PKG_VERSION")
+    );
+    assert!(result.manifest.distribution.dependency_count > 0);
+    assert!(
+        result.manifest.distribution.license_file_count
+            >= result.manifest.distribution.dependency_count
+    );
+    assert_eq!(
+        result.manifest.distribution.protected_data_scan.status,
+        "PASS"
+    );
     let executable_suffix = if target_triple == "x86_64-pc-windows-msvc" {
         ".exe"
     } else {
@@ -448,6 +473,18 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
         .expect_err("mismatched tool receipt must fail")
         .contains("tools validation receipt does not match")
     );
+    let dependency_inventory_path = output.join(DEPENDENCY_INVENTORY_PATH);
+    let dependency_inventory = fs::read(&dependency_inventory_path).expect("dependency inventory");
+    fs::write(&dependency_inventory_path, b"{\"schema_version\":1}")
+        .expect("tampered dependency inventory");
+    assert!(
+        validate_v1_package(&output)
+            .expect_err("tampered dependency inventory must fail")
+            .contains("file inventory does not exactly match")
+    );
+    fs::write(&dependency_inventory_path, dependency_inventory)
+        .expect("restore dependency inventory");
+
     fs::write(
         output.join("source/reference-alpha/unexpected.txt"),
         b"unexpected",
@@ -829,6 +866,10 @@ fn compile_rust_fixture(directory: &Path, name: &str, source_text: &str) -> Path
         .unwrap_or_else(|| PathBuf::from("rustc"));
     let output = Command::new(rustc)
         .arg("--edition=2024")
+        .arg(format!(
+            "--remap-path-prefix={}=/nextengine/test-fixture",
+            directory.display()
+        ))
         .arg("-C")
         .arg("debuginfo=0")
         .arg(&source)
@@ -843,105 +884,6 @@ fn compile_rust_fixture(directory: &Path, name: &str, source_text: &str) -> Path
         String::from_utf8_lossy(&output.stderr)
     );
     executable
-}
-
-fn fixture_manifest() -> PackageManifestV5 {
-    let project_lock = "1".repeat(64);
-    let state = "2".repeat(64);
-    let ledger = "3".repeat(64);
-    let game_hash = "4".repeat(64);
-    let headless_hash = "5".repeat(64);
-    let tool_hash = "a".repeat(64);
-    PackageManifestV5 {
-        binaries: PackageBinariesV3 {
-            game: PackagedRunV2 {
-                authoritative_state_root: state.clone(),
-                binary_path: "bin/next_game.exe".to_owned(),
-                binary_sha256: game_hash.clone(),
-                command_ledger_hash: ledger.clone(),
-                composition_root: "Game".to_owned(),
-                launch_status: "PASS".to_owned(),
-                project_composition_lock_hash: project_lock.clone(),
-            },
-            headless: PackagedRunV2 {
-                authoritative_state_root: state,
-                binary_path: "bin/next_headless.exe".to_owned(),
-                binary_sha256: headless_hash.clone(),
-                command_ledger_hash: ledger,
-                composition_root: "Headless".to_owned(),
-                launch_status: "PASS".to_owned(),
-                project_composition_lock_hash: project_lock.clone(),
-            },
-            tools: PackagedToolValidationV1 {
-                authoring_sha256: "b".repeat(64),
-                binary_path: "bin/next.exe".to_owned(),
-                binary_sha256: tool_hash.clone(),
-                command: "project.validate".to_owned(),
-                content_entry_count: 2,
-                launch_status: "PASS".to_owned(),
-                neutral_record_count: 3,
-                project_id: "reference-alpha".to_owned(),
-                project_composition_lock_hash: project_lock.clone(),
-                project_revision: 1,
-                publication_file_count: 4,
-                publication_state: "validated-not-written".to_owned(),
-                render_asset_count: 5,
-                root_asset_count: 1,
-                source_project_path: "source/reference-alpha".to_owned(),
-                world_chunk_count: 1,
-            },
-        },
-        file_inventory: vec![
-            PackageFileV2 {
-                path: "bin/next.exe".to_owned(),
-                sha256: tool_hash,
-                size_bytes: 12,
-            },
-            PackageFileV2 {
-                path: "bin/next_game.exe".to_owned(),
-                sha256: game_hash,
-                size_bytes: 10,
-            },
-            PackageFileV2 {
-                path: "bin/next_headless.exe".to_owned(),
-                sha256: headless_hash,
-                size_bytes: 11,
-            },
-        ],
-        required_notices: required_notice_paths(),
-        runtime_profile: PackageRuntimeProfileV3 {
-            abi: PackageRuntimeAbiV3::WindowsMsvcX64 {
-                crt: PackageWindowsCrtV3::DynamicSystem,
-            },
-            binaries: vec![
-                PackageBinaryRuntimeV3 {
-                    binary_path: "bin/next.exe".to_owned(),
-                    direct_libraries: vec!["kernel32.dll".to_owned()],
-                    maximum_required_glibc: None,
-                },
-                PackageBinaryRuntimeV3 {
-                    binary_path: "bin/next_game.exe".to_owned(),
-                    direct_libraries: vec!["kernel32.dll".to_owned()],
-                    maximum_required_glibc: None,
-                },
-                PackageBinaryRuntimeV3 {
-                    binary_path: "bin/next_headless.exe".to_owned(),
-                    direct_libraries: vec!["kernel32.dll".to_owned()],
-                    maximum_required_glibc: None,
-                },
-            ],
-            external_prerequisites: Vec::new(),
-        },
-        schema_version: PACKAGE_MANIFEST_SCHEMA_VERSION,
-        target_neutral_roots: PackageTargetNeutralRootsV3 {
-            content_manifest_sha256: "6".repeat(64),
-            mechanics_lock_sha256: "7".repeat(64),
-            project_lock_sha256: project_lock,
-            schema_registry_sha256: "8".repeat(64),
-            world_partition_sha256: "9".repeat(64),
-        },
-        target_triple: "x86_64-pc-windows-msvc".to_owned(),
-    }
 }
 
 static NEXT_TEST_DIRECTORY: AtomicU64 = AtomicU64::new(0);

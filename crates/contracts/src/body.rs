@@ -8,8 +8,10 @@ use crate::canonical::{CanonicalDecodeLimits, sha256};
 use crate::ids::{AssetId, ContentHash, SchemaId, content_hash_from_bytes};
 use crate::physics::{PhysicsGeometryV1, PhysicsPoseV1};
 
+mod functional_anatomy;
 mod reference;
 mod v2;
+pub use functional_anatomy::*;
 pub use reference::*;
 pub use v2::*;
 
@@ -323,6 +325,7 @@ pub struct BodySchemaAssetV1 {
     pub record_revision: u32,
     pub compiler_profile_id: SchemaId,
     pub body_schema: BodySchemaV1,
+    pub functional_anatomy_profile: Option<FunctionalAnatomyProfileV1>,
 }
 
 impl BodySchemaAssetV1 {
@@ -334,7 +337,11 @@ impl BodySchemaAssetV1 {
         {
             return Err(BodyContractError::InvalidBounds);
         }
-        self.body_schema.validate()
+        self.body_schema.validate()?;
+        if let Some(profile) = &self.functional_anatomy_profile {
+            profile.validate_against(&self.body_schema)?;
+        }
+        Ok(())
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, BodyContractError> {
@@ -346,6 +353,13 @@ impl BodySchemaAssetV1 {
         push_u32(&mut output, self.record_revision);
         push_id(&mut output, &self.compiler_profile_id)?;
         push_bytes(&mut output, &self.body_schema.canonical_bytes()?)?;
+        match &self.functional_anatomy_profile {
+            Some(profile) => {
+                output.push(1);
+                push_bytes(&mut output, &profile.canonical_bytes()?)?;
+            }
+            None => output.push(0),
+        }
         Ok(output)
     }
 
@@ -370,12 +384,21 @@ impl BodySchemaAssetV1 {
         let compiler_profile_id = cursor.id()?;
         let body_schema_bytes = cursor.bytes()?;
         let body_schema = BodySchemaV1::from_canonical_bytes(body_schema_bytes, limits)?;
+        let functional_anatomy_profile = match cursor.u8()? {
+            0 => None,
+            1 => Some(FunctionalAnatomyProfileV1::from_canonical_bytes(
+                cursor.bytes()?,
+                limits,
+            )?),
+            _ => return Err(BodyContractError::MalformedEncoding),
+        };
         let value = Self {
             schema_version,
             asset_id,
             record_revision,
             compiler_profile_id,
             body_schema,
+            functional_anatomy_profile,
         };
         cursor.finish()?;
         value.validate()?;

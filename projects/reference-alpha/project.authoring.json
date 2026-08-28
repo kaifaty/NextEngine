@@ -1762,9 +1762,10 @@
   ],
   "body_schema_asset": {
     "asset_id": "bdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbd",
-    "record_revision": 1,
+    "record_revision": 2,
     "profile_id": "nextengine.body.humanoid-stage0.v1",
     "compiler_profile_id": "nextengine.body-projection-compiler.stage0.v1",
+    "functional_anatomy_profile_id": "nextengine.anatomy.left-lower-limb.v1",
     "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
   },
   "world_routine_catalog": {

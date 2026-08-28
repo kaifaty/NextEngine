@@ -3,6 +3,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
+use next_contracts::body::FunctionalAnatomyProfileV1;
 use next_contracts::ids::{PersistentId, SchemaId};
 use next_contracts::mechanics::{
     AbilityDefinitionV1, AbilityTargetKindV1, EffectRequestV1, MechanicsContractError,
@@ -10,8 +11,9 @@ use next_contracts::mechanics::{
 };
 use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::rpg::{
-    DefinitionRefV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
-    RpgAggregateRefV1, RpgCommandV1, RpgContractErrorV1, RpgOperationPayloadV1, RpgOperationV1,
+    BodyImpairmentV1, BodyRecoveryStageV1, BodyTreatmentChannelV1, DefinitionRefV1,
+    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1,
+    RpgCommandV1, RpgContractErrorV1, RpgOperationPayloadV1, RpgOperationV1,
     RpgPhysicalContactFactV1, RpgSnapshotV2,
 };
 
@@ -29,6 +31,71 @@ pub struct CompiledAbilityEffectV1 {
     pub ability_definition_hash: next_contracts::ids::ContentHash,
     pub effect_request: EffectRequestV1,
     pub rpg_command: RpgCommandV1,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BodyConditionEffectV1 {
+    Impair(BodyImpairmentV1),
+    Treat {
+        channel: BodyTreatmentChannelV1,
+        next_stage: BodyRecoveryStageV1,
+    },
+}
+
+pub fn compile_body_condition_effect_v1(
+    anatomy_profile: &FunctionalAnatomyProfileV1,
+    snapshot: &RpgSnapshotV2,
+    condition_id: PersistentId,
+    effect: BodyConditionEffectV1,
+) -> Result<RpgCommandV1, MechanicsHostError> {
+    anatomy_profile.validate()?;
+    snapshot.validate()?;
+    let aggregate = aggregate(snapshot, RpgAggregateKindV1::BodyCondition, condition_id)
+        .ok_or(MechanicsHostError::BodyConditionMissing)?;
+    let RpgAggregatePayloadV1::BodyCondition(condition) = &aggregate.payload else {
+        return Err(MechanicsHostError::AggregateKindMismatch);
+    };
+    let profile_hash = anatomy_profile.profile_hash()?;
+    if condition.body_schema_hash != anatomy_profile.body_schema_hash
+        || condition.anatomy_profile_hash != profile_hash
+        || condition.region_id != anatomy_profile.region_id
+    {
+        return Err(MechanicsHostError::BodyConditionProfileMismatch);
+    }
+    let payload = match effect {
+        BodyConditionEffectV1::Impair(next_impairment) => {
+            RpgOperationPayloadV1::ApplyBodyImpairment {
+                condition_id,
+                anatomy_profile_hash: profile_hash,
+                expected_impairment: condition.impairment,
+                next_impairment,
+            }
+        }
+        BodyConditionEffectV1::Treat {
+            channel,
+            next_stage,
+        } => RpgOperationPayloadV1::AdvanceBodyTreatment {
+            condition_id,
+            anatomy_profile_hash: profile_hash,
+            channel,
+            expected_stage: condition.recovery_stage,
+            next_stage,
+        },
+    };
+    let command = RpgCommandV1 {
+        operations: vec![RpgOperationV1 {
+            operation_slot: 0,
+            targets: vec![RpgAggregateRefV1 {
+                aggregate_kind: RpgAggregateKindV1::BodyCondition,
+                persistent_id: condition_id,
+                expected_revision: aggregate.revision,
+            }],
+            definition_policy_hashes: Vec::new(),
+            payload,
+        }],
+    };
+    command.validate()?;
+    Ok(command)
 }
 
 pub fn compile_contact_ability_v1(
@@ -273,6 +340,9 @@ pub enum MechanicsHostError {
     ResourceBounds,
     CapabilityDenied,
     CooldownActive,
+    BodyConditionMissing,
+    BodyConditionProfileMismatch,
+    Body(next_contracts::body::BodyContractError),
 }
 
 impl Display for MechanicsHostError {
@@ -292,6 +362,11 @@ impl Display for MechanicsHostError {
             Self::ResourceBounds => formatter.write_str("effect exceeds resource bounds"),
             Self::CapabilityDenied => formatter.write_str("package capability denied"),
             Self::CooldownActive => formatter.write_str("ability cooldown is active"),
+            Self::BodyConditionMissing => formatter.write_str("body condition is missing"),
+            Self::BodyConditionProfileMismatch => {
+                formatter.write_str("body condition profile mismatch")
+            }
+            Self::Body(error) => write!(formatter, "body contract: {error}"),
         }
     }
 }
@@ -316,16 +391,27 @@ impl From<next_contracts::canonical::CanonicalError> for MechanicsHostError {
     }
 }
 
+impl From<next_contracts::body::BodyContractError> for MechanicsHostError {
+    fn from(value: next_contracts::body::BodyContractError) -> Self {
+        Self::Body(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use next_contracts::body::{
+        reference_humanoid_body_schema_v1, reference_lower_limb_anatomy_profile_v1,
+    };
     use next_contracts::ids::{AssetId, ContentHash, PersistentId, PhysicsContactId, SchemaId};
     use next_contracts::mechanics::{
         CooldownSpecV1, MechanicsContractError, MechanicsLockV1, RpgDefinitionRegistryV2,
     };
     use next_contracts::rpg::{
-        CharacterPayloadV1, CharacterResourceEntryV1, DefinitionRefV1, EquipmentPayloadV1,
-        EquipmentSlotAssignmentV1, InventoryPayloadV1, ItemPayloadV1, ProvenanceBindingV1,
-        RpgAggregateEnvelopeV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1, RpgSnapshotV2,
+        BodyConditionPayloadV1, BodyImpairmentV1, BodyRecoveryStageV1, CharacterPayloadV1,
+        CharacterResourceEntryV1, DefinitionRefV1, EquipmentPayloadV1, EquipmentSlotAssignmentV1,
+        InventoryPayloadV1, ItemPayloadV1, ProvenanceBindingV1, RpgAggregateEnvelopeV1,
+        RpgAggregateKindV1, RpgAggregatePayloadV1, RpgOperationPayloadV1, RpgPhysicalContactFactV1,
+        RpgSnapshotV2, SystemicConditionV1,
     };
 
     #[test]
@@ -404,6 +490,85 @@ mod tests {
             ),
             Err(MechanicsContractError::CapabilityDenied)
         );
+    }
+
+    #[test]
+    fn one_body_condition_effect_compiler_serves_player_and_npc_aggregates() {
+        let schema = reference_humanoid_body_schema_v1();
+        let profile = reference_lower_limb_anatomy_profile_v1(&schema).expect("profile");
+        let body_schema_hash = schema.schema_hash().expect("schema hash");
+        let anatomy_profile_hash = profile.profile_hash().expect("profile hash");
+        let player_id = PersistentId::from_bytes([1; 16]);
+        let npc_id = PersistentId::from_bytes([2; 16]);
+        let player_condition_id = PersistentId::from_bytes([0xc0; 16]);
+        let npc_condition_id = PersistentId::from_bytes([0xc1; 16]);
+        let intact_condition = |character_id| {
+            RpgAggregatePayloadV1::BodyCondition(BodyConditionPayloadV1 {
+                character_id,
+                body_schema_hash,
+                anatomy_profile_hash,
+                region_id: profile.region_id.clone(),
+                impairment: BodyImpairmentV1::Intact,
+                recovery_stage: BodyRecoveryStageV1::Untreated,
+                systemic_condition: SystemicConditionV1::Stable,
+            })
+        };
+        let mut aggregates = vec![
+            aggregate(
+                player_id,
+                DefinitionRefV1::None,
+                RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                    inventory_id: None,
+                    equipment_id: None,
+                    resources: Vec::new(),
+                    skills: Vec::new(),
+                }),
+            ),
+            aggregate(
+                npc_id,
+                DefinitionRefV1::None,
+                RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                    inventory_id: None,
+                    equipment_id: None,
+                    resources: Vec::new(),
+                    skills: Vec::new(),
+                }),
+            ),
+            aggregate(
+                player_condition_id,
+                DefinitionRefV1::None,
+                intact_condition(player_id),
+            ),
+            aggregate(
+                npc_condition_id,
+                DefinitionRefV1::None,
+                intact_condition(npc_id),
+            ),
+        ];
+        aggregates.sort_by_key(|value| (value.aggregate_kind, value.persistent_id));
+        let snapshot = RpgSnapshotV2 { aggregates };
+
+        for condition_id in [player_condition_id, npc_condition_id] {
+            let command = super::compile_body_condition_effect_v1(
+                &profile,
+                &snapshot,
+                condition_id,
+                super::BodyConditionEffectV1::Impair(BodyImpairmentV1::PartialKneeExtensor),
+            )
+            .expect("effect compiles");
+            assert_eq!(
+                command.operations[0].targets[0].aggregate_kind,
+                RpgAggregateKindV1::BodyCondition
+            );
+            assert_eq!(command.operations[0].targets[0].persistent_id, condition_id);
+            assert!(matches!(
+                command.operations[0].payload,
+                RpgOperationPayloadV1::ApplyBodyImpairment {
+                    next_impairment: BodyImpairmentV1::PartialKneeExtensor,
+                    ..
+                }
+            ));
+        }
     }
 
     fn cooked_registry() -> RpgDefinitionRegistryV2 {

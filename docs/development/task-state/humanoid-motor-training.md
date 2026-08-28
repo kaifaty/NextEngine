@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R141_INVALID / STOP_NO_RETRY / NO_DOWNSTREAM_AUTHORITY` |
-| Updated | 2026-08-15 |
+| Status | `SUPERSEDED / TRAIN-4 / R141_INVALID / STOP_NO_RETRY / NO_DOWNSTREAM_AUTHORITY` |
+| Updated | 2026-08-28 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
 | Definition of done | A hash-closed TRAIN-4 corpus/profile lineage passes the required optimizer-free gate and receives an evidence-backed decision |
@@ -13,14 +13,14 @@
 
 - **Current conclusion:** The sole clean R141 is `INVALID` at pre-solve R120 accepted-array closure and stops without retry; kinodynamic feasibility remains unknown.
 - **Why:** Five reconstructed R120 array hashes and the frozen graph inventory match, but the cache cannot byte-reproduce the accepted Q1.30 quaternion (`9b8a83dd...` expected, `501e84bc...` observed).
-- **Next action:** Preserve the R141 report and close this lineage; do not start R142, a candidate, PhysX, corpus work or training.
+- **Next action:** Preserve the R141 report and keep this lineage closed. Active work moves to the independent [R8b first learned locomotion](r8b-first-learned-locomotion.md) task; nothing in R8b may consume or repair R123–R141 artifacts.
 - **Current blocker:** R120 retained only rotation/delta state, not the accepted quaternion bytes, so its lossy cache round trip cannot satisfy the frozen R141 source contract.
 - **Do not retry:** Never restart R123/R127/R129/R130/R136/R141, tune a frozen tolerance, substitute a witness, or start KTO/kinodynamics/PPO/PhysX.
-- **Reconsider when:** A new explicit roadmap decision authorizes a separately hash-closed lineage with a byte-reversible accepted orientation artifact; current R142 authority was not earned.
+- **Reconsider when:** A later explicit roadmap decision separately reopens motion-reference tracking and supplies a byte-reversible accepted orientation artifact. The R8b standing/forward-command decision does not meet that condition and does not earn R142.
 
-All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
-TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
-pending. This file cannot change those facts by itself.
+All TRAIN-5 checkpoints remain rejected; no optimizer, multi-seed, TRAIN-5
+Advance or TRAIN-6 work is authorized from this lineage. R8b uses separate V1
+manifests and is not downstream evidence. Formal visual review remains pending.
 
 ## Current evidence
 
@@ -244,7 +244,7 @@ semantics.
 - **Workspace state:** Sole R141 implementation/execution commit `75661a1`; external canonical/file evidence `6933fea7...` / `2a42c1f4...` is immutable `INVALID`; R137–R140 remain immutable.
 - **Checks:** All six R141 validations PASS; canonical hash reproduces, graph inventory and five R120 arrays match, and every real-work counter is zero.
 - **Remaining risk:** Integrated feasibility is unknown; the repair family, fresh PhysX, full-corpus exact-zero coverage and visual review remain open.
-- **Execution authority:** None for R141 retry, R142 or downstream work; a new lineage requires a separate explicit roadmap decision.
+- **Execution authority:** None for R141 retry, R142 or downstream work; the independently selected R8b route grants no authority back to this task.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.

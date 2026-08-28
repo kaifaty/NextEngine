@@ -460,9 +460,16 @@ pub fn validate_linux_release_fingerprint(
     {
         diagnostics.push("PERF_STORAGE_MISMATCH".to_owned());
     }
-    if normalized_os != "linuxubuntu2604lts"
-        || fingerprint.os_build != "26.04; kernel 7.0.0-29-generic"
-    {
+    let admitted_kernel_patch = fingerprint
+        .os_build
+        .strip_prefix("26.04; kernel 7.0.0-")
+        .and_then(|revision| revision.strip_suffix("-generic"))
+        .is_some_and(|revision| {
+            !revision.is_empty()
+                && !revision.starts_with('0')
+                && revision.bytes().all(|byte| byte.is_ascii_digit())
+        });
+    if normalized_os != "linuxubuntu2604lts" || !admitted_kernel_patch {
         diagnostics.push("PERF_OS_MISMATCH".to_owned());
     }
     if fingerprint.bios_version != "F16e" {

@@ -31,11 +31,38 @@ pub const REFERENCE_INDICATOR_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([
 
 #[must_use]
 pub fn reference_alpha_project_directory() -> PathBuf {
+    reference_alpha_project_directory_for_build()
+}
+
+#[cfg(debug_assertions)]
+fn reference_alpha_project_directory_for_build() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
         .join("projects")
         .join("reference-alpha")
+}
+
+#[cfg(not(debug_assertions))]
+fn reference_alpha_project_directory_for_build() -> PathBuf {
+    const RELATIVE_CANDIDATES: [&str; 2] = ["source/reference-alpha", "projects/reference-alpha"];
+
+    for candidate in RELATIVE_CANDIDATES.map(PathBuf::from) {
+        if candidate.is_dir() {
+            return candidate;
+        }
+    }
+    if let Ok(executable) = std::env::current_exe() {
+        for ancestor in executable.ancestors().take(6) {
+            for relative in RELATIVE_CANDIDATES {
+                let candidate = ancestor.join(relative);
+                if candidate.is_dir() {
+                    return candidate;
+                }
+            }
+        }
+    }
+    PathBuf::from(RELATIVE_CANDIDATES[0])
 }
 
 pub fn project_source_v7() -> Result<NeutralProjectSourceV7, ProjectCookError> {

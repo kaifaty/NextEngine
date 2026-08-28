@@ -11,6 +11,7 @@ mod contact_classifier;
 #[cfg(test)]
 mod contact_classifier_tests;
 mod control;
+mod functional_anatomy;
 mod humanoid;
 mod mirror;
 mod mirror_v2;
@@ -68,9 +69,10 @@ pub use contact_classifier::{
     LOW_IMPULSE_GRACE_SUBSTEPS,
 };
 pub use control::{
-    ACTUATOR_EFFORT_CLAMPED, ACTUATOR_RATE_CLAMPED, ACTUATOR_TARGET_CLAMPED, FixedPdController,
-    JointControlStateV1, MotorControlError,
+    ACTUATOR_CAPABILITY_CLAMPED, ACTUATOR_EFFORT_CLAMPED, ACTUATOR_RATE_CLAMPED,
+    ACTUATOR_TARGET_CLAMPED, FixedPdController, JointControlStateV1, MotorControlError,
 };
+pub use functional_anatomy::{FunctionalAnatomyCompileError, compile_body_capability_envelope_v1};
 pub use humanoid::{
     REFERENCE_HUMANOID_DOF, REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES,
     neutral_body_instance_projection_v1, reference_humanoid_body_instance_projection_v1,

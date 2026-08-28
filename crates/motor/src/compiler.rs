@@ -44,6 +44,7 @@ pub struct CompiledPhysicsDescriptorsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompiledBodySchemaV1 {
+    pub subject_id: PersistentId,
     pub body_schema_hash: ContentHash,
     pub body_instance_projection_hash: ContentHash,
     pub projection_roots: BodyProjectionRootsV1,
@@ -326,6 +327,7 @@ impl CompiledBodySchemaV1 {
             &actuator_definitions,
         )?;
         let result = Self {
+            subject_id,
             body_schema_hash,
             body_instance_projection_hash,
             projection_roots,

@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-11 |
 | Статус | Accepted |
-| Версия | 2.7 |
-| Последняя проверка | 2026-08-26 |
+| Версия | 2.8 |
+| Последняя проверка | 2026-08-28 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V2.5 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V2.6 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
-| Заменяет | SPEC-11 2.6; adds future remote generative-authoring privacy, spend, resume and rights guardrails without changing current network/runtime policy |
+| Дополнительные зависимости V2.8 | [ADR-097](adr/097-linux-v1-distribution-closure.md) |
+| Заменяет | SPEC-11 2.7; adds the native Linux v1 selected dependency/license inventory, builder-path remapping and reproducible package protected-data receipt while retaining Proposed generative-authoring guardrails |
 
 ## Назначение
 
@@ -175,6 +176,15 @@ source, license expression и redistribution status.
 - Shipped packages включают требуемые license notices. SPDX/CycloneDX SBOM MAY
   генерироваться из lockfiles/package manifests, но не является отдельной
   архитектурной системой принятия решений.
+- Current native Linux `PackageManifestV6` includes exact `Cargo.lock`, an
+  offline selected non-dev/build dependency inventory with registry checksums
+  and license expressions, plus copied bounded license/notice/copyright files
+  for every selected external crate. Missing or unknown evidence aborts atomic
+  package publication.
+- Native release compilation remaps builder repository/user paths. The final
+  inventory is scanned byte-for-byte for high-confidence private-key,
+  credential and absolute-user-path markers; validation reruns the same
+  versioned scanner and requires exact file/byte counts.
 - Current Creator Project Package V1 включает проверенный nonempty project
   `NOTICE`; отсутствие, link или несовпадение inventory исключает package до
   публикации. Это минимальный R6b content-distribution contract, не native

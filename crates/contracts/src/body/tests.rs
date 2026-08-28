@@ -1,4 +1,5 @@
 use super::*;
+use crate::ids::PersistentId;
 
 fn id(value: &str) -> SchemaId {
     SchemaId::new(value).expect("test identifier")
@@ -87,12 +88,16 @@ fn topology_cycle_fails_closed() {
 
 #[test]
 fn body_schema_asset_round_trips_and_rejects_trailing_bytes() {
+    let body_schema = reference_humanoid_body_schema_v1();
     let asset = BodySchemaAssetV1 {
         schema_version: BODY_SCHEMA_ASSET_VERSION_V1,
         asset_id: AssetId::from_bytes([0xbd; 16]),
         record_revision: 1,
         compiler_profile_id: id(BODY_PROJECTION_COMPILER_PROFILE_ID_V1),
-        body_schema: reference_humanoid_body_schema_v1(),
+        functional_anatomy_profile: Some(
+            reference_lower_limb_anatomy_profile_v1(&body_schema).expect("profile"),
+        ),
+        body_schema,
     };
     let bytes = asset.canonical_bytes().expect("canonical asset");
     assert_eq!(
@@ -105,6 +110,29 @@ fn body_schema_asset_round_trips_and_rejects_trailing_bytes() {
     assert_eq!(
         BodySchemaAssetV1::from_canonical_bytes(&trailing, CanonicalDecodeLimits::default()),
         Err(BodyContractError::MalformedEncoding)
+    );
+}
+
+#[test]
+fn body_capability_envelope_round_trips_byte_exact() {
+    let envelope = BodyCapabilityEnvelopeV1 {
+        schema_version: BODY_CAPABILITY_ENVELOPE_VERSION_V1,
+        subject_id: PersistentId::from_bytes([0x54; 16]),
+        body_schema_hash: ContentHash::from_bytes([1; 32]),
+        anatomy_profile_hash: ContentHash::from_bytes([2; 32]),
+        condition_state_hash: ContentHash::from_bytes([3; 32]),
+        condition_revision: 7,
+        actuator_capabilities: vec![BodyActuatorCapabilityV1 {
+            actuator_id: id(REFERENCE_LEFT_KNEE_ACTUATOR_ID),
+            negative_capacity_q16: FUNCTIONAL_CAPACITY_FULL_Q16,
+            positive_capacity_q16: REFERENCE_PARTIAL_KNEE_CAPACITY_Q16,
+        }],
+    };
+    let bytes = envelope.canonical_bytes().expect("canonical envelope");
+    assert_eq!(
+        BodyCapabilityEnvelopeV1::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("decode"),
+        envelope
     );
 }
 

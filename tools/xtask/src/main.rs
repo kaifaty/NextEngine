@@ -1,10 +1,9 @@
 #![forbid(unsafe_code)]
 use std::env;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
-
 mod animation_lod_command;
+mod native_gate_environment;
 mod native_gate_projection;
 mod native_gate_publish;
 mod native_gate_runner;
@@ -25,7 +24,7 @@ mod physical_sound_reproduce_command;
 mod physical_sound_steel_search_command;
 mod physx;
 mod visual_smoke;
-
+use native_gate_environment::run_output_with_state;
 use serde::{Serialize, Serializer};
 use xtask::native_gate::{
     LINUX_TARGET_TRIPLE, NATIVE_GATE_SCHEMA_VERSION, NativeGateCheckNameV1,
@@ -35,7 +34,6 @@ use xtask::native_gate::{
     NativeGateTargetExecutionStatusV1, NativeGateTargetReportV1, WINDOWS_TARGET_TRIPLE,
 };
 use xtask::report::*;
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct NativeGateIdentity {
     git_commit: String,
@@ -45,31 +43,26 @@ struct NativeGateIdentity {
     rustc_host: String,
     target_triple: String,
 }
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct NativeGateCompareArguments {
     windows: PathBuf,
     linux: PathBuf,
     output: PathBuf,
 }
-
 struct NativeGateCheckFailure {
     records: Vec<NativeGateCheckRecordV1>,
     error: String,
 }
-
 struct NativeGateCheckExecutionFailure {
     record: NativeGateCheckRecordV1,
     error: String,
 }
-
 struct NativeGateMatrixSuccess {
     records: Vec<NativeGateCheckRecordV1>,
     release_target: NativeGateClosureTargetSummaryV1,
     release_roots: NativeGateReleaseRootsV2,
     package: NativeGatePackageSummaryV1,
 }
-
 struct NativeGateClosureCheckResult {
     report: CommandReportV2<V1ClosureDetailsV2>,
     release_target: NativeGateClosureTargetSummaryV1,
@@ -82,7 +75,7 @@ impl Serialize for NativeGateClosureCheckResult {
 }
 
 struct NativeGatePackageCheckResult {
-    report: CommandReportV2<PackageDetailsV2>,
+    report: CommandReportV3<PackageDetailsV3>,
     release_target: NativeGateClosureTargetSummaryV1,
     release_roots: NativeGateReleaseRootsV2,
     package: NativeGatePackageSummaryV1,
@@ -315,7 +308,7 @@ fn v1_package(root: &Path, requested_output: &Path) -> Result<(), String> {
 fn v1_package_report(
     root: &Path,
     requested_output: &Path,
-) -> Result<CommandReportV2<PackageDetailsV2>, String> {
+) -> Result<CommandReportV3<PackageDetailsV3>, String> {
     let package = xtask::package::build_v1_package(root, requested_output)?;
     Ok(package_command_report(
         &package,
@@ -325,12 +318,12 @@ fn v1_package_report(
 fn package_command_report(
     package: &xtask::package::PackageBuildResult,
     output: String,
-) -> CommandReportV2<PackageDetailsV2> {
+) -> CommandReportV3<PackageDetailsV3> {
     let manifest = &package.manifest;
-    CommandReportV2::new(
+    CommandReportV3::new(
         "v1-package",
         "PASS",
-        PackageDetailsV2 {
+        PackageDetailsV3 {
             target: manifest.target_triple.clone(),
             output,
             package_manifest_hash: package.package_manifest_sha256.clone(),
@@ -345,6 +338,14 @@ fn package_command_report(
             tool_authoring_hash: manifest.binaries.tools.authoring_sha256.clone(),
             tool_neutral_record_count: manifest.binaries.tools.neutral_record_count,
             tool_publication_file_count: manifest.binaries.tools.publication_file_count,
+            release_version: manifest.distribution.release_version.clone(),
+            cargo_lock_hash: manifest.distribution.cargo_lock_sha256.clone(),
+            dependency_inventory_hash: manifest.distribution.dependency_inventory_sha256.clone(),
+            dependency_count: manifest.distribution.dependency_count,
+            license_file_count: manifest.distribution.license_file_count,
+            protected_data_scan: manifest.distribution.protected_data_scan.status.clone(),
+            getting_started_path: manifest.distribution.getting_started_path.clone(),
+            troubleshooting_path: manifest.distribution.troubleshooting_path.clone(),
         },
     )
 }
@@ -884,45 +885,6 @@ fn run_checked(
             output.status,
         ))
     }
-}
-
-fn run_output_with_state(
-    root: &Path,
-    program: &str,
-    arguments: &[&str],
-    state_root: Option<&Path>,
-) -> Result<Output, String> {
-    let mut command = Command::new(program);
-    command.args(arguments).current_dir(root);
-    if let Some(state_root) = state_root {
-        let local_app_data = state_root.join("local-app-data");
-        let xdg_state_home = state_root.join("xdg-state");
-        let roaming_app_data = state_root.join("roaming-app-data");
-        let temporary = state_root.join("temp");
-        for directory in [
-            &local_app_data,
-            &xdg_state_home,
-            &roaming_app_data,
-            &temporary,
-        ] {
-            fs::create_dir_all(directory).map_err(|error| {
-                format!(
-                    "failed to create isolated host-check directory {}: {error}",
-                    directory.display()
-                )
-            })?;
-        }
-        command
-            .env("LOCALAPPDATA", local_app_data)
-            .env("APPDATA", roaming_app_data)
-            .env("XDG_STATE_HOME", xdg_state_home)
-            .env("TMP", &temporary)
-            .env("TEMP", &temporary)
-            .env("TMPDIR", temporary);
-    }
-    command
-        .output()
-        .map_err(|error| format!("failed to run {program}: {error}"))
 }
 
 fn diagnostic_code(error: &str) -> &'static str {

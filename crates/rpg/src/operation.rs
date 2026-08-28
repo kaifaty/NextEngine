@@ -287,6 +287,81 @@ pub(super) fn apply_operation(
                 state: *next_state,
             })
         }
+        RpgOperationPayloadV1::ApplyBodyImpairment {
+            condition_id,
+            anatomy_profile_hash,
+            expected_impairment,
+            next_impairment,
+        } => {
+            let key = RpgAggregateKeyV1::new(RpgAggregateKindV1::BodyCondition, *condition_id);
+            let payload = staged_payload_mut(state, staged_payloads, key)?;
+            let RpgAggregatePayloadV1::BodyCondition(condition) = payload else {
+                return Err(RpgPlanBuildError::TransactionAborted);
+            };
+            if condition.anatomy_profile_hash != *anatomy_profile_hash
+                || condition.impairment != *expected_impairment
+                || !expected_impairment.permits_damage_transition_to(*next_impairment)
+            {
+                return Err(RpgPlanBuildError::TransitionInvalid);
+            }
+            condition.impairment = *next_impairment;
+            condition.recovery_stage = next_contracts::rpg::BodyRecoveryStageV1::Untreated;
+            condition.systemic_condition = next_contracts::rpg::SystemicConditionV1::Impaired;
+            condition
+                .validate()
+                .map_err(|_| RpgPlanBuildError::TransitionInvalid)?;
+            Ok(RpgEventV1::BodyConditionChanged {
+                condition_id: *condition_id,
+                character_id: condition.character_id,
+                impairment: condition.impairment,
+                recovery_stage: condition.recovery_stage,
+                systemic_condition: condition.systemic_condition,
+            })
+        }
+        RpgOperationPayloadV1::AdvanceBodyTreatment {
+            condition_id,
+            anatomy_profile_hash,
+            channel,
+            expected_stage,
+            next_stage,
+        } => {
+            let key = RpgAggregateKeyV1::new(RpgAggregateKindV1::BodyCondition, *condition_id);
+            let payload = staged_payload_mut(state, staged_payloads, key)?;
+            let RpgAggregatePayloadV1::BodyCondition(condition) = payload else {
+                return Err(RpgPlanBuildError::TransactionAborted);
+            };
+            if condition.anatomy_profile_hash != *anatomy_profile_hash
+                || condition.impairment == next_contracts::rpg::BodyImpairmentV1::Intact
+                || condition.recovery_stage != *expected_stage
+                || !expected_stage.permits_transition_to(*next_stage)
+            {
+                return Err(RpgPlanBuildError::TransitionInvalid);
+            }
+            condition.recovery_stage = *next_stage;
+            match next_stage {
+                next_contracts::rpg::BodyRecoveryStageV1::Repaired => {
+                    condition.impairment =
+                        next_contracts::rpg::BodyImpairmentV1::PartialKneeExtensor;
+                }
+                next_contracts::rpg::BodyRecoveryStageV1::Rehabilitated => {
+                    condition.impairment = next_contracts::rpg::BodyImpairmentV1::Intact;
+                    condition.systemic_condition = next_contracts::rpg::SystemicConditionV1::Stable;
+                }
+                next_contracts::rpg::BodyRecoveryStageV1::Untreated
+                | next_contracts::rpg::BodyRecoveryStageV1::Stabilized => {}
+            }
+            condition
+                .validate()
+                .map_err(|_| RpgPlanBuildError::TransitionInvalid)?;
+            Ok(RpgEventV1::BodyTreatmentAdvanced {
+                condition_id: *condition_id,
+                character_id: condition.character_id,
+                channel: *channel,
+                impairment: condition.impairment,
+                recovery_stage: condition.recovery_stage,
+                systemic_condition: condition.systemic_condition,
+            })
+        }
     }
 }
 

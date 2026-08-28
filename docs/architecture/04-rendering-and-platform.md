@@ -4,12 +4,14 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.12 |
-| Последняя проверка | 2026-08-26 |
+| Версия | 2.14 |
+| Последняя проверка | 2026-08-28 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-091](adr/091-linux-release-performance-authority.md) |
 | Дополнительные зависимости V2.9 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
 | Дополнительные зависимости V2.10 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
-| Заменяет | SPEC-04 2.11; adds the future SPEC-46 standardized candidate-preview boundary without changing current renderer or capture authority |
+| Дополнительные зависимости V2.13 | [ADR-096](adr/096-active-kernel-linux-performance-cohort.md) |
+| Дополнительные зависимости V2.14 | [ADR-097](adr/097-linux-v1-distribution-closure.md) |
+| Заменяет | SPEC-04 2.13; advances the Linux package to V6 distribution closure while preserving the active-kernel methodology-v11 R2 and Vulkan/display authority |
 
 ## Technical authority boundary
 
@@ -125,7 +127,7 @@ Shader/interface/material/color mismatch является pre-use content failur
 
 ## Platform packaging
 
-Shipping package использует `PackageManifestV5`. Его `runtime_profile` MUST
+Shipping package использует `PackageManifestV6`. Его `runtime_profile` MUST
 объявлять target ABI, canonical direct-library list для `next_game`,
 `next_headless` и public `next`, maximum required GLIBC и все внешние runtime
 prerequisites. Manifest также связывает exact `project_lock_sha256`, frozen
@@ -133,6 +135,12 @@ prerequisites. Manifest также связывает exact `project_lock_sha256
 `next project validate`.
 Earlier package artifacts current runtime rejects typed unsupported and never
 migrates in place.
+
+V6 additionally binds release `1.0.0`, exact `Cargo.lock`, canonical selected
+non-dev/build dependency records, copied third-party license/copyright files,
+getting-started/troubleshooting documents and reproducible protected-data scan
+counts. Release compilation remaps checkout/user paths; any private-key,
+credential, absolute user path or protected legacy-asset hit aborts publication.
 
 Frozen source MUST содержать exact bounded `project.authoring.json`, referenced
 asset catalogs, project NOTICE и acceptance document без дополнительных files,
@@ -211,8 +219,8 @@ warm-up и 3 600 measured samples, exact Vulkan timestamp-query accounting,
 canonical logical resource charges, process/device counters и authoritative
 roots. Report mode завершает внешний ProductCheck с вложенным `REPORT_ONLY`.
 Hard timing `PASS` требует clean commit, exact
-`ref-linux-b550i-3950x-rtx3080-v1` fingerprint, compatible ten-run Performance
-V6 baseline, fixed three-run gate и всех ADR-091 preflight checks. Реальный
+`ref-linux-b550i-3950x-rtx3080-v2` fingerprint, compatible ten-run Performance
+V6 baseline, fixed three-run gate и всех ADR-091/096 preflight/cohort checks. Реальный
 X11/Wayland display и production NVIDIA Vulkan adapter обязательны; virtual or
 software display даёт `NOT_RUN`. Статические render fixtures остаются smoke и
 не подменяют этот workload.
@@ -228,5 +236,5 @@ software display даёт `NOT_RUN`. Статические render fixtures ос
 | `PLATFORM-P1` | Repeated create/resize/fullscreen/focus/input/surface lifecycle on supported desktop hosts. | No crash or leak; normalized event ordering is stable and native handles remain private. | Use the thin native adapter behind the same platform contract. |
 | `RENDER-02` | Force `no RT`, `no mesh shader` and bounded descriptors. | The representative scene remains complete and playable with no missing required material or geometry. Optional screenshots or image diffs may help diagnose regressions but are not the correctness oracle. | Disable the unsupported enhanced path and use the cooked B0 path. |
 | `RENDER-03` | Inject swapchain and device loss at representative frame boundaries. | Interactive target recreation or clean suspension/exit completes without authoritative-state corruption; incomplete private cache state is never exposed. | Stop recovery attempts, preserve the last complete save/session state and exit cleanly. |
-| `PACKAGE-01` | Install and run a clean Linux package twice from one exact commit. | Both `PackageManifestV5` trees are byte-identical; frozen source reproduces the exact project roots; ELF imports/glibc baseline match; isolated copied `game`/`headless` runtime launches and public `next project validate` authoring validation pass; missing runtime prerequisites have stable diagnostics. | Do not distribute the broken package; repair its source, reproducibility, loader/dependency declaration or copied-root execution. |
+| `PACKAGE-01` | Install and run a clean Linux package twice from one exact commit. | Both `PackageManifestV6` trees are byte/mode-identical; release version, frozen source/project roots, ELF/glibc profile, selected dependency checksums/licenses/files, packaged guides and protected-data receipt match; isolated copied `game`/`headless` and public `next project validate` pass. | Do not distribute the broken package; repair its source, reproducibility, loader/dependency/license declaration, protected bytes or copied-root execution. |
 | `RENDER-04` | Optionally run a developer capture through the displayless offscreen target. | No window/display/surface/swapchain dependency is created; replay gameplay hash remains unchanged and repeated normalized frame output is stable for the selected profile. | Disable capture tooling and fix the target abstraction; normal game/headless operation remains available. |

@@ -33,6 +33,8 @@ pub(super) struct AuthoringBodySchemaAssetV1 {
     pub record_revision: u32,
     pub profile_id: String,
     pub compiler_profile_id: String,
+    #[serde(default)]
+    pub functional_anatomy_profile_id: Option<String>,
     pub source_span: AuthoringSourceSpanV1,
 }
 

@@ -3,11 +3,12 @@ use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::rpg::CORE_INTERACTIVE_OBJECT_READY_STATE_ID;
 use next_contracts::rpg::{
-    CharacterPayloadV1, CharacterResourceEntryV1, CommitmentPayloadV1, CommitmentStateV1,
-    DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1, InteractiveObjectPayloadV1,
-    InventoryPayloadV1, ItemPayloadV1, ProvenanceBindingV1, QuestPayloadV1,
-    RelationshipDimensionV1, RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1,
-    RpgAggregatePayloadV1, RpgSnapshotV2,
+    BodyConditionPayloadV1, BodyImpairmentV1, BodyRecoveryStageV1, CharacterPayloadV1,
+    CharacterResourceEntryV1, CommitmentPayloadV1, CommitmentStateV1, DefinitionRefV1,
+    DialoguePayloadV1, EquipmentPayloadV1, InteractiveObjectPayloadV1, InventoryPayloadV1,
+    ItemPayloadV1, ProvenanceBindingV1, QuestPayloadV1, RelationshipDimensionV1,
+    RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
+    RpgSnapshotV2, SystemicConditionV1,
 };
 
 use crate::ReferenceGameSession;
@@ -41,6 +42,32 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
         current_value: 100,
         minimum_value: 0,
         maximum_value: 100,
+    };
+    let anatomy_profile = fixture
+        .activated_project
+        .body_schema_asset
+        .functional_anatomy_profile
+        .as_ref()
+        .expect("reference-alpha declares the functional-anatomy profile");
+    let body_schema_hash = fixture
+        .activated_project
+        .body_schema_asset
+        .body_schema
+        .schema_hash()
+        .expect("activated reference body schema is canonical");
+    let anatomy_profile_hash = anatomy_profile
+        .profile_hash()
+        .expect("activated functional-anatomy profile is canonical");
+    let intact_body_condition = |character_id| {
+        RpgAggregatePayloadV1::BodyCondition(BodyConditionPayloadV1 {
+            character_id,
+            body_schema_hash,
+            anatomy_profile_hash,
+            region_id: anatomy_profile.region_id.clone(),
+            impairment: BodyImpairmentV1::Intact,
+            recovery_stage: BodyRecoveryStageV1::Untreated,
+            systemic_condition: SystemicConditionV1::Stable,
+        })
     };
     let mut aggregates = vec![
         reference_aggregate(
@@ -93,6 +120,16 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
                 resources: vec![health_resource()],
                 skills: Vec::new(),
             }),
+        ),
+        reference_aggregate(
+            fixture.player_body_condition_id,
+            0xc0,
+            intact_body_condition(fixture.body_id),
+        ),
+        reference_aggregate(
+            fixture.npc_body_condition_id,
+            0xc1,
+            intact_body_condition(fixture.npc_character_id),
         ),
         reference_aggregate(
             fixture.quest_giver_character_id,

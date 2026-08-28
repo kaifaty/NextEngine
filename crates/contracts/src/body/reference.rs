@@ -1,12 +1,19 @@
 use super::{
     BODY_SCHEMA_VERSION_V1, BodyActuatorDefinitionV1, BodyColliderDefinitionV1, BodyDefinitionV1,
     BodyEffectorDefinitionV1, BodyJointDefinitionV1, BodySchemaV1, BodySymmetryPairV1,
+    FUNCTIONAL_ANATOMY_PROFILE_VERSION_V1, FunctionalActuatorDirectionV1,
+    FunctionalAnatomyProfileV1,
 };
 use crate::ids::SchemaId;
 use crate::physics::{PhysicsGeometryV1, PhysicsPoseV1};
 
 pub const REFERENCE_HUMANOID_DOF: usize = 23;
 pub const REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES: i64 = 1_050_000;
+pub const REFERENCE_LOWER_LIMB_ANATOMY_PROFILE_ID: &str = "nextengine.anatomy.left-lower-limb.v1";
+pub const REFERENCE_LOWER_LIMB_REGION_ID: &str = "body-region.left-lower-limb";
+pub const REFERENCE_LEFT_KNEE_EXTENSOR_GROUP_ID: &str = "functional-group.left-knee-extension";
+pub const REFERENCE_LEFT_KNEE_ACTUATOR_ID: &str = "actuator.left-knee";
+pub const REFERENCE_PARTIAL_KNEE_CAPACITY_Q16: u16 = 32_768;
 
 #[derive(Clone, Copy)]
 struct LinkSpec {
@@ -258,6 +265,25 @@ pub fn reference_humanoid_body_schema_v1() -> BodySchemaV1 {
     schema
 }
 
+pub fn reference_lower_limb_anatomy_profile_v1(
+    schema: &BodySchemaV1,
+) -> Result<FunctionalAnatomyProfileV1, super::BodyContractError> {
+    let profile = FunctionalAnatomyProfileV1 {
+        schema_version: FUNCTIONAL_ANATOMY_PROFILE_VERSION_V1,
+        profile_id: id(REFERENCE_LOWER_LIMB_ANATOMY_PROFILE_ID),
+        profile_revision: 1,
+        body_schema_hash: schema.schema_hash()?,
+        region_id: id(REFERENCE_LOWER_LIMB_REGION_ID),
+        functional_group_id: id(REFERENCE_LEFT_KNEE_EXTENSOR_GROUP_ID),
+        actuator_id: id(REFERENCE_LEFT_KNEE_ACTUATOR_ID),
+        affected_direction: FunctionalActuatorDirectionV1::Positive,
+        partial_capacity_q16: REFERENCE_PARTIAL_KNEE_CAPACITY_Q16,
+        post_repair_capacity_q16: REFERENCE_PARTIAL_KNEE_CAPACITY_Q16,
+    };
+    profile.validate_against(schema)?;
+    Ok(profile)
+}
+
 fn body(
     name: &str,
     parent: Option<&str>,
@@ -353,6 +379,24 @@ mod tests {
         assert_eq!(
             root.local_bind_pose.translation_micrometres,
             [0, 1_050_000, 0]
+        );
+    }
+
+    #[test]
+    fn unilateral_profile_is_bound_to_the_existing_left_knee_actuator() {
+        let schema = reference_humanoid_body_schema_v1();
+        let profile = reference_lower_limb_anatomy_profile_v1(&schema).expect("profile");
+        assert_eq!(
+            profile.body_schema_hash,
+            schema.schema_hash().expect("hash")
+        );
+        assert_eq!(
+            profile.actuator_id.as_str(),
+            REFERENCE_LEFT_KNEE_ACTUATOR_ID
+        );
+        assert_eq!(
+            profile.affected_direction,
+            FunctionalActuatorDirectionV1::Positive
         );
     }
 }

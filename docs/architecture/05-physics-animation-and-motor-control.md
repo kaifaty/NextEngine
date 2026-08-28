@@ -4,12 +4,14 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 3.1 |
-| Последняя проверка | 2026-08-24 |
+| Версия | 3.3 |
+| Последняя проверка | 2026-08-28 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
 | Дополнительные зависимости V2.9 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 | Дополнительные зависимости V3.1 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-091](adr/091-linux-release-performance-authority.md), [ADR-093](adr/093-deterministic-r5-worker-placement.md), [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
-| Заменяет | SPEC-05 3.0; aligns the current PHYS-P4 consumer with the Linux R5 v3 workload and deterministic worker placement |
+| Дополнительные зависимости V3.2 | [ADR-096](adr/096-active-kernel-linux-performance-cohort.md) |
+| Дополнительные зависимости V3.3 | [ADR-098](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) |
+| Заменяет | SPEC-05 3.2; admits the bounded revision-bound directional capability clamp before fixed-PD rate limiting without changing the default no-envelope path or physical topology |
 
 ## Source of truth и ownership
 
@@ -73,6 +75,13 @@ Units/right-handed axes соответствуют SPEC-03. Vendor enumerations 
 8. PhysicsBackend выполняет CPU substep и выдаёт raw contacts/state; adapter сначала строит `QuantizedPhysicsProjectionV1` по `PhysicsQuantizationProfileV1` [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), затем нормализует scene-query/contact records и сортирует contacts по определённому ниже полному canonical total key. Backend callback, worker completion, native handle, raw float bit pattern и manifold insertion order не участвуют в public ordering.
 9. Outcome resolver использует contact continuity для suppress repeated-hit/resting-contact exploits и предлагает `Outcome` WorldCommand для общего stage-9 validator [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md); контакт сам не меняет health/quest, а backend callback не коммитит gameplay.
 10. Pose bridge публикует RenderPose, telemetry и replay hash.
+
+ADR-098 adds one current intact-topology specialization to step 7. A validated
+`BodyCapabilityEnvelopeV1` reconstructs directional actuator capacity from the
+exact BodySchema/profile and committed RPG condition revision. The controller
+clamps effort and its previous-effort state into that interval before the rate
+limit, so declared zero transmission is immediate. The envelope is not durable
+physical state; malformed or foreign bindings reject the complete step.
 
 LLM, tokenizer/text encoder, free-form text, language embedding, `ai-host`,
 network и filesystem запрещены на шагах 3–9. Skill/primitive/style/constraint
@@ -225,7 +234,7 @@ articulation and learned control are independent future consumers.
 | PHYS-P1 | descriptor parity corpus | 100% bodies/axes/limits; mass/inertia ≤0.1%; torque conversion ≤1% | попробовать следующий backend через тот же contract |
 | PHYS-P2 | contact/query/topology suite | 100% required contacts в canonical total order; query/contact output exact under callback, manifold, worker and registration permutations; все key-field vectors проходят `NUMERIC-P1`; 1 000 topology cycles без invalid handle/leak | отвергнуть backend и сохранить последнюю canonical world state |
 | PHYS-P3 | same-target replay и cross-target quantized projection | full authoritative `state_root`, applied canonical actions, contact/outcome sequences exact over 100 repeats; Windows/Linux `physics_projection_root`, canonical contact/query order и gameplay outcomes byte-identical | исправить deterministic boundary или выбрать другой backend |
-| PHYS-P4 | `r5-physics-16.v3`: 16 independent 23-DoF PhysX humanoids на exact `ref-linux-b550i-3950x-rtx3080-v1` with ADR-093 deterministic physical-core placement | physics 240 Hz, motor 60 Hz, 1/4/8 workers; lockstep 8-worker physics+motor frame p95 ≤4 ms, p99 ≤6 ms; throughput/scaling, restore and resource budgets exactly follow ADR-062/091; roots exact across worker/profiler permutations; no missed critical steps; learned inference budget applies only after evaluator promotion | offline tuning следующего manifest integer LOD budget; safe-tier pin |
+| PHYS-P4 | `r5-physics-16.v3`: 16 independent 23-DoF PhysX humanoids на exact `ref-linux-b550i-3950x-rtx3080-v2` campaign cohort with ADR-093 deterministic physical-core placement | physics 240 Hz, motor 60 Hz, 1/4/8 workers; lockstep 8-worker physics+motor frame p95 ≤4 ms, p99 ≤6 ms; throughput/scaling, restore and resource budgets exactly follow ADR-062/091; roots exact across worker/profiler permutations; no missed critical steps; learned inference budget applies only after evaluator promotion | offline tuning следующего manifest integer LOD budget; safe-tier pin |
 | MOTOR-P1 | 10 000 golden observations | ONNX vs training max abs raw action error ≤1e-5; applied safety-clamped/quantized `MotorAction` exact; 0 schema mismatch accepted | reference CPU evaluator или heuristic controller |
 | PHYS-P5 | runtime/training golden trajectories | normalized RMSE ≤0.05; contact F1 ≥0.98; outcome pass-rate delta ≤2 percentage points | retrain, mapping fix или backend fallback |
 | PHYS-P6 | push, slope, stair, trip, carry, fall/recovery and contact-driven melee | current procedural baseline: `physical-character` plus production capsule-course regressions observe every bounded behavior, exact contact IDs and restart continuation; future broader profiles declare their own thresholds and still require aggregate ≥95% with 0 safety violation | recovery controller; unsupported learned route остаётся отключён |

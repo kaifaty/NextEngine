@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / R2_ROOT_CAUSE_FIXED / FINAL_ONE_COMMIT_CAMPAIGN_WAITING_FOR_EXACT_KERNEL_7.0.0-29` |
-| Updated | 2026-08-24 |
+| Status | `COMPLETE / V2_KERNEL30_EXACT_COMMIT_PASS` |
+| Updated | 2026-08-28 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
 | Definition of done | One Accepted Linux performance contract and one exact clean Linux commit produce strict compatible baselines plus `PASS` gates for every required workload, with unchanged roots, pre/post environment evidence and no retry-to-green |
@@ -11,32 +11,23 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** ADR-091/092/093/094 form the accepted Linux release
-  authority. R3/R4/R5 retain hard v11 `PASS` evidence on `8498001`, and the R2
-  presentation root cause is fixed by `df964af2`. Final evidence still requires
-  all four workloads on one newer exact clean commit.
-- **Fix (product owner approved):** commit `df964af2` adds opt-in presentation
-  stabilization to `DesktopRunOptions`
-  (`prefer_borderless_fullscreen_when_display_matches`): when the declared
-  extent equals the display bounds the adapter starts borderless fullscreen,
-  absorbs the initial compositor configure before swapchain creation, flushes
-  pre-run window events, and fails closed with typed
-  `PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE` if the extent never settles.
-  Only the timing workload path enables it; the live game default is unchanged.
-- **Validation so far:** on quiet host, clean `df964af2`: Wayland soak
-  `PASS cache_miss=1`; x11 soak `PASS cache_miss=1`; full six-window
-  `r2-alpha-render` report run `REPORT_ONLY` with zero diagnostics.
-- **Invalid campaign:** the 2026-08-24 collector ran on kernel
-  `7.0.0-30-generic`, omitted `--target` from calibration reports and passed a
-  file name rather than a directory to `--output`. Runs 01/02 therefore record
-  `observed-host-v1`; run 03 hung and was terminated with the parent shell after
-  1h54m. All outputs remain preserved as invalid evidence.
-- **Next action:** boot the already-installed exact kernel `7.0.0-29-generic`,
-  rebuild release `xtask` on the resulting clean documentation commit, verify
-  exact provenance/fingerprint, then recollect R2/R4/R5/R3 with the corrected
-  collector. Close B-12 only after all ten-run baselines and fixed gates pass.
-- **Current blocker:** selecting the older installed kernel needs an
-  authenticated graphical reboot; this session has no non-interactive sudo.
+- **Current conclusion:** R7c and B-12 are complete. Exact clean commit
+  `e48f2eac1f3dfbce096bea1d6f68ef735e177ef7`, profile
+  `ref-linux-b550i-3950x-rtx3080-v2`, kernel `7.0.0-30-generic` and methodology
+  `nextengine-performance-v11` produced compatible ten-run baselines plus fixed
+  three-run `PASS` gates for R2, R3, R4 and R5.
+- **R2 fix:** post-submit `VK_ERROR_OUT_OF_DATE_KHR` recovery now counts the
+  already-submitted frame exactly once instead of submitting a replacement.
+  The final R2 series and gate retain exact frame/timestamp/cache/UI accounting;
+  detailed causal evidence remains in the
+  [dated research](../r7c-r2-post-submit-out-of-date-research-2026-08-28.md).
+- **Environment handling:** typed pre-workload GPU-load `NOT_RUN` artifacts and
+  incomplete gate batches were preserved separately. They contain zero metrics
+  and roots and were retried only under the Accepted environment policy; no
+  completed calibration run or metric verdict was selected or repeated.
+- **Next action:** hand the exact R7c successor to R7d final Linux hardening,
+  then R7e distribution closure.
+- **Current blocker:** none.
 - **Do not retry:** Do not run `ref-win-thoth-v1`, reuse old reports as Linux
   evidence, use a virtual/software display for R2, rerun any recorded failed
   or warned baseline/gate set unchanged, assemble a baseline across an
@@ -49,7 +40,7 @@
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| ADR-091/092/093/094 | Accepted exact Linux fingerprint, preflight, canonical R2–R5 budgets, deterministic R5 placement and V6/v11 dimensional/CI-gated evidence semantics | Normative authority is complete; Windows/THOTH stays historical |
+| ADR-091/092/093/094/096 | Accepted Linux V2 host family, exact within-campaign full fingerprint, preflight, canonical R2–R5 budgets, deterministic R5 placement and V6/v11 dimensional/CI-gated evidence semantics | Current kernel may run without rollback; Windows/THOTH and V1 evidence stay historical |
 | Performance V6 implementation | Linux-only baseline/gate prerequisites, budget-bearing baseline V2 metrics, canonical hard/diagnostic policy and R2–R5 gate routing compile and pass focused tests | Clean evidence may now be collected without relabelling V5 |
 | R3/R5 diagnostics | R3 completes in `868,855 us`; R5 passes every existing row with exact worker roots and clean environment boundaries | Accepted budgets have observed headroom |
 | R4 pre-optimization diagnostic | Exact roots and zero defer/drop/starvation/fabrication, but navigation `4,236/4,793 us` and integrated `15,425/16,100 us` exceed ADR-016 | Optimize; do not widen budgets |
@@ -85,11 +76,14 @@
 | V11 R3/R4/R5 closure on `4827ca1` | Admission-timed collection with sustained-quiet gate precondition: R4 baseline `e67316a9…4e06` / gate attempt2 `c9190cdc…8d32…` **PASS** (attempt1 was a typed environment `NOT_RUN`, retried per policy); R5 baseline `cfc427c7…453ca…` / gate `062de9fb…448b…` **PASS**; R3 baseline `8ffff7ac…453ca…` / gate `9a4b07cf…f924f…` **PASS** — all zero diagnostics on one exact clean v11 commit | The three CPU-side portions of R7c are closed under the final authority |
 | R2 blocked by desktop session presentation state | Display is OS-visible (`HDMI-1 1920x1080@199.92`), Vulkan loader and devices healthy, but every production desktop workload fails identically under both SDL video drivers: default Wayland path renders no smoke frame; forced `SDL_VIDEODRIVER=x11` renders completely (240-frame soak PASS) yet R2's declared-profile extent check fails. Root environmental factor identified: Mutter experimental features `scale-monitor-framebuffer` + `xwayland-native-scaling` are enabled in this session; the Wayland breakage appeared after the display reconnection | Engine code is unchanged and not implicated (CPU scenarios pass end to end); R2 needs either mutter feature toggle or a fresh graphical session before its ten-run baseline/gate can be collected; user processes remain untouched per instruction |
 | Fullscreen-start fix on `df964af2` (2026-08-24) | Opt-in `prefer_borderless_fullscreen_when_display_matches` in `DesktopRunOptions`: borderless fullscreen start when declared extent equals display bounds, bounded stabilization for the initial configure, pre-run window-event flush, typed closed failure `PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE`; timing workloads enable it, live game default unchanged. Focused tests + clippy clean, xtask lib `113/113` (`desktop-sdl-ash,physx`). Probes on clean quiet host: Wayland soak `PASS cache_miss=1`, x11 soak `PASS cache_miss=1`, full six-window R2 report `PASS` zero diagnostics | Both presentation blockers are removed by construction; final R2–R5 evidence must be recollected on `df964af2` (one-commit rule) and the campaign may proceed whenever the desktop is sustained-quiet |
-| Invalid final campaign on `5b5011be` (2026-08-24) | Host booted kernel `7.0.0-30-generic` although ADR-091/code require `7.0.0-29-generic`; collector also omitted exact `--target` and nested the report filename under the output directory. R2 runs 01/02 completed only as `observed-host-v1`; run 03 hung until its exact campaign PIDs received `SIGTERM`. | Preserve `target/perf/findf964a-final/r2-cal-attempt1.invalid-observed-host-kernel30-hung`; none of it is calibration evidence. Boot installed kernel 29 and use corrected paths/target before any new measurement. |
+| Invalid final campaign on `5b5011be` (2026-08-24) | Under then-current V1 it ran on non-admitted kernel 30; independently, the collector omitted exact `--target`, nested the report filename under the output directory and hung in R2 run 03 until its exact campaign PIDs received `SIGTERM`. Runs 01/02 carry only `observed-host-v1`. | Preserve `target/perf/findf964a-final/r2-cal-attempt1.invalid-observed-host-kernel30-hung`; ADR-096 does not relabel its wrong target/output/incomplete bytes. Use a fresh V2 campaign. |
+| Active-kernel R2 attempts 1–2 on `9f239928` | Attempt 1 stopped without a report; attempt 2 published two exact clean V2 reports then stopped in run 3 with the same generic desktop-finish error. Instrumented reproduction exposed `4201` submitted GPU/cache/UI frames versus `4200` public frames after post-submit `VK_ERROR_OUT_OF_DATE_KHR`; one timing sample dropped | Two-cycle research stop fired. Preserve both attempt roots, count an already-submitted frame exactly once during swapchain recovery, validate on a new commit and never assemble the two PASS reports into a baseline |
+| Post-submit accounting fix diagnostic | One dirty non-evidence six-window control passes every exact invariant after the out-of-date branch returns the already-submitted frame instead of requesting a replacement | Run focused checks and commit; all final evidence must move to the new clean commit |
 | Mutter features toggled off; x11 path heals, Wayland stays broken | Product owner approved disabling the features (previous value preserved in `/tmp/opencode/mutter-features-backup.txt`). After the toggle the x11 driver produces a fully clean soak on rebuilt binary `84980001` (`PASS`, zero diagnostics — the earlier extent mismatch is gone), while the default Wayland path still renders no smoke frame; that anomaly now requires a graphical-session restart to diagnose further and is recorded as an open host finding | Evidence collection proceeds pinned to `SDL_VIDEODRIVER=x11` (real display, real compositor presentation, production NVIDIA Vulkan); Wayland presentation remains an open host issue to recheck after the next session restart |
 | V11 campaign on `8498001` paused by legitimate CPU contention | R4 closed first-attempt **`PASS`** (baseline `fin8498-r4-baseline`, gate attempt1). Then two R5 calibration attempts produced immutable absolute-budget FAILs: `worker-8.scaling-inefficiency` `4582bp`/`4511bp` against the `4500bp` ceiling with zero diagnostics and ready preflight. Host at that moment: load average `~8`, a `python` process at `350%` CPU plus two 100% workers (user's important computation, untouched per instruction), `Tctl 81.6°C`; w1 motor-frame doubled to `~19 ms`. The `<40%` preflight cannot see topology-local contention or CPU thermal state | Both contaminated runs preserved as exact negative evidence under `.interrupted` sets; collection paused until the user's compute finishes. Resume script ready: rerun `collect_fin8498_resume.sh` unchanged on frozen HEAD `8498001` (binary already built there), then finalize docs; do not widen budgets or treat contaminated runs as calibration entries |
 | V11 campaign completed on `8498001`; R2 deferred | After the user's computation finished, the resumed admission-timed run closed R5 (ten clean runs; gate attempt1 **`PASS`**, baseline `6f1998de…4e3c`, gate `78c5f333…176`) and R3 (gate attempt1 **`PASS`**, baseline `e55020ed…3a8`, gate `06e7c6fa…e28`) with zero diagnostics, alongside R4 (baseline `47dc4717…e3c`, gate `bf1059ee…dfd`). The remaining R2 still failed under both drivers (`720p30` declared-extent mismatch persists under x11 even though the `1080p` soak is clean), and the product owner chose to defer it rather than restart the graphical session now | R3/R4/R5 hold hard v11 gates on one exact commit; B-12 stays open solely for R2, whose evidence requires a healthy desktop presentation path (session restart recommended before recollection) |
 | Post-restart R2 diagnosis (`2026-08-23`, temp-instrumented, discarded) | Machine rebooted for the session restart. Temporary env-gated instrumentation in the desktop smoke (committed as `cb22abde`, then `git reset --hard 901e5046`; never evidence) revealed, on the Wayland driver: all frames render (`rendered=240 timings=240 tsq=480 dropped=0 ui_frames=240`) yet the run fails because the **frame plan is built twice** (`cache_miss=2 cache_hit=238` against the required exactly-one-build invariant) — a late compositor-side surface change rebuilds the plan mid-run. On the x11 driver the drawable arrives pre-shrunk by Mutter decoration chrome (`1853x1011` inside a `1903x1098` frame; horizontal clamp matched Ubuntu Dock's reserved `67px`, dock-fixed) so declared extents can never match. Neither mutter features, extensions (all disabled for a probe), dock autohide nor session restart removed either effect; user environment was restored afterwards | The blocker is an interaction between this desktop session's late surface reconfiguration/decorations and the strict single-frame-plan-build invariant — not engine rendering correctness. Next escalation level is adapter-internal instrumentation of the plan-rebuild trigger (which input changed), or a product-owner decision on that invariant; do not rerun blind driver/extension probes |
+| Final V2 kernel-30 campaign on `e48f2eac` | `target/perf/r7c-v2-e48f2eac-kernel30-attempt3`: every workload has 10/10 clean compatible report runs and a fixed three-run `PASS` gate with six ready environment boundaries, exact roots, profiler parity and zero diagnostics. Baseline/gate SHA-256: R2 `c335dc45…f03ca` / `7694747c…edff`; R4 `154ca97f…7cc` / `c3b46264…6335`; R5 `b9aa0fa5…c010` / `d02ac284…4373`; R3 `6ef77eac…86ef` / `61c3c7b3…13ed`. Representative gate p95: R2 primary windows `1502/1503/1546 us`, R4 navigation/cognition/integrated `696/25/2378 us`, R5 w8 motor frame `1391 us` and peak RSS `207,130,624 bytes`, R3 total `916,166 us` | R7c and B-12 close on the active current kernel without rollback. Preserve the external evidence tree; R7d is next. |
 
 ## Decisions that constrain the work
 
@@ -127,28 +121,29 @@
 - **Reconsider when:** A later Accepted methodology ADR provides stronger
   equivalent controls.
 
-### D-003 — Restore the accepted kernel instead of revising the profile
+### D-003 — Treat kernel patch as exact campaign identity, not a boot pin
 
-- **Observation:** both kernel 29 and 30 are installed; the host currently runs
-  30 while ADR-091 and the strict fingerprint intentionally name 29.
-- **Decision:** boot installed `7.0.0-29-generic` for final evidence. Do not
-  amend the Accepted profile merely to admit an automatic host update.
-- **Reconsider when:** kernel 29 cannot boot or no longer provides the exact
-  fingerprint; that would require a separate superseding ADR/profile revision.
+- **Observation:** kernel 29 forced a rollback although baseline/gate already
+  compares the full kernel-bearing fingerprint byte-for-byte.
+- **Decision:** ADR-096 admits the active Ubuntu generic patch under V2; all 13
+  workload units and the unified R2–R5 claim keep one exact fingerprint.
+- **Rejected alternatives:** boot rollback, omitting the kernel field, mixing
+  patch revisions or relabelling V1 reports.
+- **Reconsider when:** OS/kernel family or another non-patch profile field changes.
 
 ## Resolved hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: the current host exposes a stable exact Linux fingerprint through existing probes | Probe records exact CPU/GPU/RAM/storage/OS/kernel/BIOS/driver/governor values across diagnostics | None observed | Resolved by ADR-091 exact profile |
-| H2: R2 product frame deadlines can remain absolute Linux gates | SPEC-04 deadlines are product-facing and ADR-091 accepts them independently | R2 measurement still awaits an active display | Authority resolved; evidence pending |
-| H3: R3/R4/R5 can use explicit Linux budgets without weakening product behavior | ADR-091 accepts R3 ceiling and unchanged ADR-016/062 rows; diagnostics show headroom after R4 optimization | None after optimized R4 diagnostic | Resolved; clean evidence pending |
+| H2: R2 product frame deadlines can remain absolute Linux gates | SPEC-04 deadlines are product-facing and the final V2 gate passes every primary/safe window | None in the final exact campaign | Resolved by final R2 evidence |
+| H3: R3/R4/R5 can use explicit Linux budgets without weakening product behavior | Final V2 gates pass every hard row with exact roots and zero diagnostics | None in the final exact campaign | Resolved by final R3/R4/R5 evidence |
 
 ## Required context
 
 Read these sources in precedence order before acting:
 
-1. `AGENTS.md`, `docs/architecture/agent-routing.md`, ADR-090 through ADR-092
+1. `AGENTS.md`, `docs/architecture/agent-routing.md`, ADR-090 through ADR-096
 2. SPEC-00, SPEC-04, SPEC-09, SPEC-12, SPEC-15, SPEC-29 and SPEC-35
 3. ADR-001, ADR-003, ADR-016, ADR-028, ADR-030, ADR-035, ADR-036,
    ADR-038, ADR-045, ADR-049, ADR-060 through ADR-063 and ADR-074
@@ -157,16 +152,10 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-After booting exact kernel `7.0.0-29-generic`, rebuild release `xtask` on the
-new exact clean documentation commit and run the corrected final campaign: for
-each of
-R2 (`r2-alpha-render`), R4 (`r4-100npc`), R5 (`r5-physics-16`) and R3
-(`r3-multiregion-streaming`), collect a ten-run calibration set with
-admission-timed runs, publish the baseline, then run one isolated fixed
-three-run gate against it. Collect R2 first while the freshly fixed
-presentation path is stable; any cleanly assembled negative verdict is
-immutable and stops that workload per policy. After all four gates `PASS`,
-close B-12 in `docs/roadmap.md`, mark R7c complete, and hand off to R7d.
+Advance from exact R7c evidence commit `e48f2eac` to the prepared R7d Linux
+hardening matrix. Do not recollect or relabel the completed V2 evidence unless
+the exact release candidate changes and a later roadmap decision explicitly
+requires a new performance cohort.
 
 ## Do not retry
 
@@ -177,7 +166,7 @@ close B-12 in `docs/roadmap.md`, mark R7c complete, and hand off to R7d.
   production presentation path.
 - Any unchanged calibration/gate retry after a completed negative result.
 - The invalid `5b5011be` collector: it omitted exact target identity, used the
-  wrong output shape and hung in R2 run 03 on the wrong kernel.
+  wrong output shape and hung in R2 run 03; ADR-096 does not repair its bytes.
 - Baseline publication from the rejected `368d216` R3 set after changing only
   the publisher. The workload must emit complete evidence itself on a new clean
   commit.
@@ -229,21 +218,15 @@ variance) was consulted; H-A rests on local evidence only.
 
 ## Handoff
 
-- **Workspace state:** The ADR-091/V6/R4 boundary is commit `368d216`. Its first
-  clean R3 set found a missing CPU-only device declaration. Commit `2bdd20c`
-  fixes that boundary and closes v9 R3/R4 evidence, but its first R5 report
-  fails only the process peak. Commit `57739ea` contains the verified
-  optimization, but its first ten-entry R5 set was rejected before execution
-  because the post-build one-minute CPU load was 41%. Clean `feae4f0` publishes
-  a valid R5 baseline and one immutable `WARNING` gate; fresh-process member
-  isolation is implemented by `3bbc19e`, whose immutable R5 gate exposes the
-  percent-over-percent derived-ratio defect. Commits `22c8049`/`26097e2`/
-  `896e000` implement and test-verify ADR-092/methodology v10.
-- **Checks:** Focused contracts/world/agent/verification tests pass; xtask lib
-  tests pass `113/113` under `desktop-sdl-ash,physx`; workspace clippy is
-  warning-free; fmt is clean. The broad Linux `host-check` passed earlier in
-  R7c and has not been rerun after the test-only commits.
-- **Remaining risk:** Authenticated reboot into exact kernel 29, then total
-  clean evidence runtime and sustained desktop quiescence.
-- **Promotion needed:** Exact clean R2–R5 baselines/gates, then record their
-  immutable evidence commit/hashes and close B-12.
+- **Workspace state:** branch `codex/r7c-active-kernel-authority` carries the
+  committed R2 accounting fix and complete V2 evidence on `e48f2eac`. Separate
+  `codex/r7de-port` is clean and prepared for the post-R7c successor.
+- **Checks:** fmt, strict xtask Clippy, focused performance `25/25` and full
+  xtask lib `114/114` pass under `desktop-sdl-ash,physx`; `git diff --check` and
+  changed-link validation pass. Broad boundary-scan is blocked by the unrelated
+  pre-existing Proposed physical-sound `realimpact_transfer_fixture.rs` escape
+  hatch from base `77a665be`; R7c files are not named by that failure.
+- **Remaining risk:** none inside R7c. A future release-candidate or exact host
+  change does not rewrite this campaign; it may require a separately scoped
+  successor cohort.
+- **Promotion needed:** R7d hardening, then R7e distribution closure.

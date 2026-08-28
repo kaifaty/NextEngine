@@ -3,8 +3,8 @@ use std::path::Path;
 use serde::Deserialize;
 
 use crate::report::{
-    CommandReportV1, CommandReportV2, ContentPackageDetailsV1, HostCheckDetailsV1,
-    PackageDetailsV1, PackageDetailsV2, PerformanceDetailsV1, PersistenceReplayDetailsV1,
+    CommandReportV1, CommandReportV2, CommandReportV3, ContentPackageDetailsV1, HostCheckDetailsV1,
+    PackageDetailsV1, PackageDetailsV3, PerformanceDetailsV1, PersistenceReplayDetailsV1,
     PlatformDetailsV1, V1ClosureDetailsV1, V1ClosureDetailsV2,
 };
 
@@ -115,7 +115,7 @@ enum ValidatedCheckReportV1 {
     V1Closure(Box<CommandReportV1<V1ClosureDetailsV1>>),
     V1ClosureV2(Box<CommandReportV2<V1ClosureDetailsV2>>),
     V1Package(Box<CommandReportV1<PackageDetailsV1>>),
-    V1PackageV2(Box<CommandReportV2<PackageDetailsV2>>),
+    V1PackageV3(Box<CommandReportV3<PackageDetailsV3>>),
 }
 
 pub(super) fn validate_check_reports(

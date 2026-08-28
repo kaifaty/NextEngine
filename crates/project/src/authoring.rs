@@ -40,7 +40,8 @@ use next_contracts::audio::{
 };
 use next_contracts::body::{
     BODY_PROJECTION_COMPILER_PROFILE_ID_V1, BODY_SCHEMA_ASSET_VERSION_V1, BodySchemaAssetV1,
-    reference_humanoid_body_schema_v1,
+    REFERENCE_LOWER_LIMB_ANATOMY_PROFILE_ID, reference_humanoid_body_schema_v1,
+    reference_lower_limb_anatomy_profile_v1,
 };
 use next_contracts::cognition::{
     AgentCognitionCatalogV1, BeliefContradictionV1, BeliefSourceV1, COGNITION_Q16_ONE,
@@ -174,12 +175,25 @@ fn load_project_authoring_with_override(
     {
         return Err(ProjectAuthoringError::InvalidValue);
     }
+    let functional_anatomy_profile = match manifest
+        .body_schema_asset
+        .functional_anatomy_profile_id
+        .as_deref()
+    {
+        Some(REFERENCE_LOWER_LIMB_ANATOMY_PROFILE_ID) => Some(
+            reference_lower_limb_anatomy_profile_v1(&body_schema)
+                .map_err(|_| ProjectAuthoringError::InvalidValue)?,
+        ),
+        Some(_) => return Err(ProjectAuthoringError::InvalidValue),
+        None => None,
+    };
     let body_schema_asset = BodySchemaAssetV1 {
         schema_version: BODY_SCHEMA_ASSET_VERSION_V1,
         asset_id: asset_id(&manifest.body_schema_asset.asset_id)?,
         record_revision: manifest.body_schema_asset.record_revision,
         compiler_profile_id: SchemaId::new(&manifest.body_schema_asset.compiler_profile_id)?,
         body_schema,
+        functional_anatomy_profile,
     };
     body_schema_asset
         .validate()

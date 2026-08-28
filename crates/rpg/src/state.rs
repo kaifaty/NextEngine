@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use next_contracts::ids::PersistentId;
 use next_contracts::rpg::{
-    CharacterPayloadV1, DialoguePayloadV1, EquipmentPayloadV1, FactionMembershipPayloadV1,
-    InventoryPayloadV1, QuestPayloadV1, RelationshipPayloadV1, RpgAggregateEnvelopeV1,
-    RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2,
+    BodyConditionPayloadV1, CharacterPayloadV1, DialoguePayloadV1, EquipmentPayloadV1,
+    FactionMembershipPayloadV1, InventoryPayloadV1, QuestPayloadV1, RelationshipPayloadV1,
+    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2,
 };
 
 use crate::RpgStateError;
@@ -72,6 +72,17 @@ impl RpgState {
     pub fn character(&self, id: PersistentId) -> Option<&CharacterPayloadV1> {
         match &self.aggregate(RpgAggregateKindV1::Character, id)?.payload {
             RpgAggregatePayloadV1::Character(payload) => Some(payload),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn body_condition(&self, id: PersistentId) -> Option<&BodyConditionPayloadV1> {
+        match &self
+            .aggregate(RpgAggregateKindV1::BodyCondition, id)?
+            .payload
+        {
+            RpgAggregatePayloadV1::BodyCondition(payload) => Some(payload),
             _ => None,
         }
     }
@@ -146,6 +157,7 @@ impl RpgState {
 
     pub(super) fn validate_cross_references(&self) -> Result<(), RpgStateError> {
         let mut inventory_membership = BTreeMap::new();
+        let mut condition_membership = BTreeMap::new();
         for (key, aggregate) in &self.aggregates {
             aggregate.validate().map_err(RpgStateError::Contract)?;
             match &aggregate.payload {
@@ -165,6 +177,17 @@ impl RpgState {
                         if equipment.character_id != key.persistent_id {
                             return Err(RpgStateError::OwnerReferenceMismatch);
                         }
+                    }
+                }
+                RpgAggregatePayloadV1::BodyCondition(payload) => {
+                    if self
+                        .aggregate(RpgAggregateKindV1::Character, payload.character_id)
+                        .is_none()
+                        || condition_membership
+                            .insert(payload.character_id, key.persistent_id)
+                            .is_some()
+                    {
+                        return Err(RpgStateError::OwnerReferenceMismatch);
                     }
                 }
                 RpgAggregatePayloadV1::Inventory(payload) => {

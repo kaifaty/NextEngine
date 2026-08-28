@@ -2,15 +2,16 @@ use next_contracts::ids::{
     AssetId, CommandBodyHash, CommandId, ContentHash, PhysicsContactId, SchemaId,
 };
 use next_contracts::rpg::{
-    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
-};
-use next_contracts::rpg::{
+    BodyConditionPayloadV1, BodyImpairmentV1, BodyRecoveryStageV1, BodyTreatmentChannelV1,
     CharacterPayloadV1, CharacterResourceEntryV1, CommitmentPayloadV1, CommitmentStateV1,
     DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1, InteractiveObjectPayloadV1,
     InventoryPayloadV1, ItemPayloadV1, ProvenanceBindingV1, QuestPayloadV1,
     RelationshipDimensionV1, RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1,
     RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1,
-    RpgPhysicalContactFactV1, RpgSnapshotV2,
+    RpgPhysicalContactFactV1, RpgSnapshotV2, SystemicConditionV1,
+};
+use next_contracts::rpg::{
+    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
 };
 
 use super::{
@@ -146,6 +147,18 @@ fn fixture_with_capacity(capacity: u32) -> RpgState {
                 state: CommitmentStateV1::Offered,
             }),
         ),
+        aggregate(
+            12,
+            RpgAggregatePayloadV1::BodyCondition(BodyConditionPayloadV1 {
+                character_id: id(1),
+                body_schema_hash: ContentHash::from_bytes([20; 32]),
+                anatomy_profile_hash: ContentHash::from_bytes([21; 32]),
+                region_id: schema("body-region.left-lower-limb"),
+                impairment: BodyImpairmentV1::Intact,
+                recovery_stage: BodyRecoveryStageV1::Untreated,
+                systemic_condition: SystemicConditionV1::Stable,
+            }),
+        ),
     ];
     aggregates.sort_by_key(|aggregate| (aggregate.aggregate_kind, aggregate.persistent_id));
     RpgState::from_snapshot(RpgSnapshotV2 { aggregates }).expect("fixture is valid")
@@ -275,6 +288,21 @@ fn assign_equipment_command(policy: ContentHash, equipment_revision: u64) -> Rpg
                 item_id: id(5),
                 slot_id: schema("rpg.equipment.main-hand"),
             },
+        }],
+    }
+}
+
+fn body_condition_command(
+    policy: ContentHash,
+    revision: u64,
+    payload: RpgOperationPayloadV1,
+) -> RpgCommandV1 {
+    RpgCommandV1 {
+        operations: vec![RpgOperationV1 {
+            operation_slot: 0,
+            targets: vec![target(RpgAggregateKindV1::BodyCondition, 12, revision)],
+            definition_policy_hashes: vec![policy],
+            payload,
         }],
     }
 }
@@ -429,6 +457,78 @@ fn commitment_becomes_authoritative_only_through_a_valid_transition_plan() {
     assert_eq!(
         state.commitment(id(11)).expect("commitment").state,
         CommitmentStateV1::Offered
+    );
+}
+
+#[test]
+fn body_condition_follows_damage_stabilize_repair_rehabilitate_sequence() {
+    let policy = ContentHash::from_bytes([9; 32]);
+    let active = [policy];
+    let profile_hash = ContentHash::from_bytes([21; 32]);
+    let state = fixture();
+    let damage = body_condition_command(
+        policy,
+        0,
+        RpgOperationPayloadV1::ApplyBodyImpairment {
+            condition_id: id(12),
+            anatomy_profile_hash: profile_hash,
+            expected_impairment: BodyImpairmentV1::Intact,
+            next_impairment: BodyImpairmentV1::NerveControlLost,
+        },
+    );
+    let plan = build_transaction_plan_v1(&state, &damage, context(&active)).expect("damage plan");
+    let state = materialize_transaction_plan_v1(&state, &plan).expect("damage commits");
+    let damaged = state.body_condition(id(12)).expect("condition");
+    assert_eq!(damaged.impairment, BodyImpairmentV1::NerveControlLost);
+    assert_eq!(damaged.recovery_stage, BodyRecoveryStageV1::Untreated);
+    assert_eq!(damaged.systemic_condition, SystemicConditionV1::Impaired);
+
+    let treatment_steps = [
+        (
+            BodyRecoveryStageV1::Untreated,
+            BodyRecoveryStageV1::Stabilized,
+            BodyTreatmentChannelV1::Medical,
+        ),
+        (
+            BodyRecoveryStageV1::Stabilized,
+            BodyRecoveryStageV1::Repaired,
+            BodyTreatmentChannelV1::Magical,
+        ),
+        (
+            BodyRecoveryStageV1::Repaired,
+            BodyRecoveryStageV1::Rehabilitated,
+            BodyTreatmentChannelV1::Medical,
+        ),
+    ];
+    let mut state = state;
+    for (ordinal, (expected_stage, next_stage, channel)) in treatment_steps.into_iter().enumerate()
+    {
+        let revision = u64::try_from(ordinal).expect("small ordinal") + 1;
+        let command = body_condition_command(
+            policy,
+            revision,
+            RpgOperationPayloadV1::AdvanceBodyTreatment {
+                condition_id: id(12),
+                anatomy_profile_hash: profile_hash,
+                channel,
+                expected_stage,
+                next_stage,
+            },
+        );
+        let plan =
+            build_transaction_plan_v1(&state, &command, context(&active)).expect("treatment plan");
+        state = materialize_transaction_plan_v1(&state, &plan).expect("treatment commits");
+    }
+    let recovered = state.body_condition(id(12)).expect("condition");
+    assert_eq!(recovered.impairment, BodyImpairmentV1::Intact);
+    assert_eq!(recovered.recovery_stage, BodyRecoveryStageV1::Rehabilitated);
+    assert_eq!(recovered.systemic_condition, SystemicConditionV1::Stable);
+    assert_eq!(
+        state
+            .aggregate(RpgAggregateKindV1::BodyCondition, id(12))
+            .expect("aggregate")
+            .revision,
+        4
     );
 }
 
