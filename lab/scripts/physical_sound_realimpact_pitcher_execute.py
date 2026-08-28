@@ -35,6 +35,9 @@ import physical_sound_realimpact_pitcher_calibration as base  # noqa: E402
 MANIFEST_SCHEMA = (
     "nextengine.experimental-realimpact-pitcher-calibration-execution.manifest.v1"
 )
+REPAIR_MANIFEST_SCHEMA = (
+    "nextengine.experimental-realimpact-pitcher-calibration-report-serializer-repair.manifest.v1"
+)
 REPORT_SCHEMAS = {
     "preflight": "nextengine.experimental-realimpact-pitcher-calibration-execution-preflight.report.v1",
     "acquire": "nextengine.experimental-realimpact-pitcher-calibration-prefix-acquisition.report.v1",
@@ -52,6 +55,10 @@ PREFIX_BYTES = 536_870_912
 REFERENCE_ROW = 7
 MODE_COUNT = 16
 SOUND_SPEED = 343.0
+REPAIR_REVISION = "v2-numpy-bool-report-serialization-repair"
+ORIGINAL_EXECUTION_MANIFEST_SHA256 = (
+    "8e791327595f43c672361e486ed50aa8512f1c8068de5efdbe6212a81df8ba45"
+)
 
 
 class ExecutionError(RuntimeError):
@@ -104,21 +111,58 @@ def read_hashed_json(
 
 def load_execution_manifest(path: Path) -> tuple[bytes, dict[str, Any]]:
     data = path.read_bytes()
-    manifest = json.loads(data)
+    repair_manifest = json.loads(data)
+    repair = repair_manifest.get("report_serializer_repair")
+    parent_ref = repair.get("parent_execution_manifest") if isinstance(repair, dict) else None
     if (
-        manifest.get("schema") != MANIFEST_SCHEMA
-        or manifest.get("study_id") != "physical-sound-realimpact-geometry-spatial-transfer"
-        or manifest.get("phase") != "pitcher-calibration-execution"
-        or manifest.get("opening_protocol", {}).get("planter_audio_allowed") is not False
+        repair_manifest.get("schema") != REPAIR_MANIFEST_SCHEMA
+        or repair_manifest.get("study_id")
+        != "physical-sound-realimpact-geometry-spatial-transfer"
+        or repair_manifest.get("phase") != "pitcher-calibration-report-serializer-repair"
+        or repair_manifest.get("revision") != REPAIR_REVISION
+        or parent_ref
+        != {
+            "path": "pitcher-execution-manifest.json",
+            "sha256": ORIGINAL_EXECUTION_MANIFEST_SHA256,
+        }
     ):
-        raise ExecutionError("Pitcher execution manifest contract changed")
-    expected_script = manifest.get("implementation", {}).get("execution_script_sha256")
+        raise ExecutionError("Pitcher serializer-repair manifest contract changed")
+    expected_script = repair_manifest.get("implementation", {}).get(
+        "execution_script_sha256"
+    )
     actual_script = sha256_file(Path(__file__).resolve())
     if expected_script != actual_script:
         raise ExecutionError(
             f"execution script hash changed: expected {expected_script}, got {actual_script}"
         )
-    return data, manifest
+    parent_path = (path.parent / parent_ref["path"]).resolve()
+    parent_bytes, parent = read_hashed_json(
+        parent_path, parent_ref["sha256"], "original execution manifest"
+    )
+    if (
+        sha256_bytes(parent_bytes) != ORIGINAL_EXECUTION_MANIFEST_SHA256
+        or parent.get("schema") != MANIFEST_SCHEMA
+        or parent.get("study_id")
+        != "physical-sound-realimpact-geometry-spatial-transfer"
+        or parent.get("phase") != "pitcher-calibration-execution"
+        or parent.get("opening_protocol", {}).get("planter_audio_allowed") is not False
+    ):
+        raise ExecutionError("original Pitcher execution manifest changed")
+    expected_repair_manifest = {
+        "schema": REPAIR_MANIFEST_SCHEMA,
+        "study_id": "physical-sound-realimpact-geometry-spatial-transfer",
+        "phase": "pitcher-calibration-report-serializer-repair",
+        "revision": REPAIR_REVISION,
+        "implementation": {"execution_script_sha256": actual_script},
+        "report_serializer_repair": repair,
+    }
+    if repair_manifest != expected_repair_manifest:
+        raise ExecutionError("serializer-repair manifest has undeclared fields")
+    effective = json.loads(json.dumps(parent))
+    effective["revision"] = REPAIR_REVISION
+    effective["implementation"]["execution_script_sha256"] = actual_script
+    effective["report_serializer_repair"] = repair
+    return data, effective
 
 
 def validate_repository_sources(
@@ -173,6 +217,7 @@ def validate_prerequisites(
 ) -> tuple[dict[str, Any], np.ndarray, list[dict[str, Any]]]:
     base_dir = execution_path.parent
     reports = []
+    validate_report_serializer_repair(base_dir, manifest)
     parent_ref = manifest["parent_calibration_manifest"]
     parent_path, parent_bytes = resolve_reference(
         base_dir, parent_ref, "parent calibration manifest"
@@ -218,6 +263,52 @@ def validate_prerequisites(
         raise ExecutionError("frozen cooker directions changed")
     validate_manifest_derivation(manifest, parent, geometry)
     return parent, directions, reports
+
+
+def validate_report_serializer_repair(
+    base_dir: Path, manifest: dict[str, Any]
+) -> None:
+    repair = manifest.get("report_serializer_repair")
+    expected_repair = {
+        "parent_execution_manifest": {
+            "path": "pitcher-execution-manifest.json",
+            "sha256": ORIGINAL_EXECUTION_MANIFEST_SHA256,
+        },
+        "failed_stage": "analyze",
+        "failure": "numpy.bool_ comparison result was not JSON serializable after computation and before report publication",
+        "only_code_change": "cast gate comparison results to built-in bool before report assembly",
+        "numeric_model_changed": False,
+        "decoder_changed": False,
+        "thresholds_changed": False,
+        "additional_network_access_allowed": False,
+        "acquire_or_decode_stage_allowed": False,
+        "existing_acquisition_report": {
+            "path": "pitcher-prefix-acquisition/report.json",
+            "sha256": "899fbbe9b6f098f72438817d27d701d0eabc5b5c4a7a0cbbd45de1ad74a5c819",
+        },
+        "existing_decode_report": {
+            "path": "pitcher-rows000-599/report.json",
+            "sha256": "29496c6f8f8f5aebb0525d056b7bdf40575ea2b66fc04f1687e449e13e359eef",
+        },
+        "decoded_block_sha256": "182f2010410bf3061176830309b83c3dad482447c8dd2e5f40346f81e0591e0f",
+    }
+    if repair != expected_repair:
+        raise ExecutionError("Pitcher report-serializer repair contract changed")
+    parent_ref = repair["parent_execution_manifest"]
+    _, parent_bytes = resolve_reference(
+        base_dir, parent_ref, "original execution manifest"
+    )
+    parent = json.loads(parent_bytes)
+    expected = json.loads(json.dumps(parent))
+    expected["revision"] = REPAIR_REVISION
+    expected["implementation"]["execution_script_sha256"] = manifest[
+        "implementation"
+    ]["execution_script_sha256"]
+    expected["report_serializer_repair"] = repair
+    if manifest != expected:
+        raise ExecutionError("repair manifest changes more than serialization lineage")
+    for label in ["existing_acquisition_report", "existing_decode_report"]:
+        resolve_reference(base_dir, repair[label], label.replace("_", " "))
 
 
 def validate_manifest_derivation(
@@ -487,7 +578,7 @@ def held_cooker_metrics(target: np.ndarray, predicted: np.ndarray) -> dict[str, 
 
 
 def cooker_pass(metrics: dict[str, Any], gates: dict[str, Any]) -> bool:
-    return (
+    return bool(
         metrics["held_max_peak_normalized_complex_error"]
         <= gates["held_max_peak_normalized_complex_error"]
         and metrics["held_max_active_relative_complex_error"]
@@ -566,8 +657,10 @@ def preflight_report(
         "network_requests": 0,
         "reserved_audio_payload_bytes_read": 0,
         "planter_audio_payload_bytes_read": 0,
-        "audio_acquisition_authorized": True,
-        "next_action": "acquire the one exact Pitcher compressed prefix into an immutable external cache; no retry or prefix growth",
+        "audio_acquisition_authorized": False,
+        "offline_analysis_authorized": True,
+        "report_serializer_repair": manifest["report_serializer_repair"],
+        "next_action": "analyze the already decoded immutable Pitcher block twice without network, acquire or decode access",
     }
 
 
@@ -969,7 +1062,7 @@ def metric_summary(
 
 
 def condition_gate(summary: dict[str, Any], gates: dict[str, Any]) -> bool:
-    return (
+    return bool(
         summary["median_abs_error_db"] <= gates["maximum_median_abs_error_db"]
         and summary["p90_abs_error_db"] <= gates["maximum_p90_abs_error_db"]
         and summary["persistent_median_abs_error_db"]
@@ -1235,7 +1328,7 @@ def analyze(
                     np.mean(candidate_per_mode < rbf_per_mode)
                 ),
             }
-            comparison["passed"] = (
+            comparison["passed"] = bool(
                 comparison["candidate_to_rbf_median_error_ratio"]
                 <= manifest["comparison_gate"]["maximum_candidate_to_rbf_median_error_ratio"]
                 and comparison["p90_regression_db"]
@@ -1249,13 +1342,18 @@ def analyze(
             rbf_overall = None
             comparison = {"passed": False}
             all_condition_pass = False
-        frequency_gate = (
+        frequency_gate = bool(
             mapping["median_frequency_error_octaves"]
             <= manifest["frequency_mapping_gate"]["maximum_median_frequency_error_octaves"]
             and mapping["p90_frequency_error_octaves"]
             <= manifest["frequency_mapping_gate"]["maximum_p90_frequency_error_octaves"]
         )
-        passed = enough_modes and frequency_gate and all_condition_pass and comparison["passed"]
+        passed = bool(
+            enough_modes
+            and frequency_gate
+            and all_condition_pass
+            and comparison["passed"]
+        )
         decision = (
             "PitcherGeometrySpatialCalibrationSupported"
             if passed
@@ -1338,6 +1436,10 @@ def main() -> int:
         else Path(__file__).resolve().parents[2]
     )
     output = args.output.resolve()
+    if args.stage in {"acquire", "decode"}:
+        raise ExecutionError(
+            "serializer-repair revision prohibits acquire and decode; use the frozen existing cache"
+        )
     if args.stage == "preflight":
         if args.rust_fixture is None:
             raise ExecutionError("preflight requires --rust-fixture")
@@ -1349,17 +1451,6 @@ def main() -> int:
             args.rust_fixture.resolve(),
         )
         publish_small(output, execution_bytes, report)
-    elif args.stage == "acquire":
-        validate_repository_sources(root, manifest)
-        validate_environment(manifest)
-        validate_prerequisites(execution_path, manifest)
-        report = acquire_prefix(execution_path, execution_bytes, manifest, output)
-    elif args.stage == "decode":
-        if args.input is None:
-            raise ExecutionError("decode requires --input <acquisition-directory>")
-        report = decode_prefix(
-            execution_bytes, manifest, args.input.resolve(), output
-        )
     else:
         if args.input is None:
             raise ExecutionError("analyze requires --input <decode-directory>")
