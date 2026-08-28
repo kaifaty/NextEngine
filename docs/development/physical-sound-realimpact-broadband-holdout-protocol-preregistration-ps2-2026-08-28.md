@@ -62,6 +62,18 @@ prefix growth, object substitution, new physics or Planter access is allowed.
 
 ## Frozen evidence identity
 
-Runner, manifest and preflight hashes are filled after the protocol is committed
-and its zero-access preflight repeats. External artifacts remain under
+Runner SHA-256:
+`219c62797b3ccb0494da5079f30922ea150c3ac759f8bcd24293cfc8911fae85`.
+
+External manifest SHA-256:
+`73c218edb57f42aa6b6ee9adae6f7ff84e6b1158e1ab47069c156b68f9caa824`.
+Protocol preflight A/B are byte-identical at
+`c6943d129b8be337390ffcde1cd5aa4ad4eb1bceee83c5912ea88e063f1734fd`
+and decide `BroadbandIndependentHoldoutObservationProtocolFrozen`. They bind
+the verified discovery, V2 parent, exact four ranges, 15-row decode and all
+unchanged controls while recording zero network and object-payload access.
+
+External artifacts remain under
 `~/.codex/experiments/nextengine/physical-sound/ps2-realimpact-iron-mortar-broadband-holdout-v1/`.
+This preregistration and protocol runner MUST be committed before execution-
+runner implementation.
