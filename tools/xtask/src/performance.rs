@@ -36,7 +36,7 @@ pub const PERFORMANCE_PINNED_RUSTC_RELEASE: &str = "1.97.1";
 pub const PERFORMANCE_PINNED_RUSTC_COMMIT_HASH: &str = "8bab26f4f68e0e26f0bb7960be334d5b520ea452";
 pub const PERFORMANCE_WINDOWS_TARGET_TRIPLE: &str = "x86_64-pc-windows-msvc"; // legacy reports
 pub const PERFORMANCE_LINUX_TARGET_TRIPLE: &str = "x86_64-unknown-linux-gnu";
-pub const LINUX_RELEASE_TARGET_ID: &str = "ref-linux-b550i-3950x-rtx3080-v1";
+pub const LINUX_RELEASE_TARGET_ID: &str = "ref-linux-b550i-3950x-rtx3080-v2";
 pub const PREFLIGHT_LOAD_PERCENT_EXCLUSIVE: u32 = 40;
 pub const MINIMUM_FREE_RAM_BYTES: u64 = 10 * 1024 * 1024 * 1024;
 pub const MAX_PROFILER_BYTES: u64 = 64 * 1024 * 1024;
@@ -125,16 +125,16 @@ pub fn performance_scenario_hash(scenario: PerformanceScenarioV1) -> String {
             b"nextengine.performance.production-worker-soak.v3:240-fifo-main-callbacks:60hz:bounded-sync-queue:next-simulation-worker:fixed-step-application:shared-presentation-publication:main-snapshot-read:resource-observation=production-worker-diagnostic-only"
         }
         PerformanceScenarioV1::R2AlphaRender => {
-            b"nextengine.performance.r2-alpha-render.v4:reference-alpha:frontier-relay:desktop-views=exploration+combat+ui-dialogue:hard-host=ref-linux-b550i-3950x-rtx3080-v1:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
+            b"nextengine.performance.r2-alpha-render.v4:reference-alpha:frontier-relay:desktop-views=exploration+combat+ui-dialogue:hard-host=ref-linux-b550i-3950x-rtx3080-v2:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
         }
         PerformanceScenarioV1::R3MultiregionStreaming => {
-            b"nextengine.performance.r3-multiregion-streaming.v2:reference-alpha:regions=4:chunks=64:cycles=1000:canonical-cyclic-route:two-fixed-ticks-per-transition:packaged-io:bounded-workers=2:absolute-total-us=1500000:hard-host=ref-linux-b550i-3950x-rtx3080-v1:logical-staging-charge:resource-observation=streaming-only"
+            b"nextengine.performance.r3-multiregion-streaming.v2:reference-alpha:regions=4:chunks=64:cycles=1000:canonical-cyclic-route:two-fixed-ticks-per-transition:packaged-io:bounded-workers=2:absolute-total-us=1500000:hard-host=ref-linux-b550i-3950x-rtx3080-v2:logical-staging-charge:resource-observation=streaming-only"
         }
         PerformanceScenarioV1::R4_100Npc => {
-            b"nextengine.performance.r4-100npc.v2:reference-alpha:npcs=100:cadence=16x3+32x15+52x60:warmup=1000:measured=10000:production-joint-world-services-tick:engine-graph-navigation:adr016-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-due-trace:no-starvation:logical-accounting=r4-100npc-v1"
+            b"nextengine.performance.r4-100npc.v2:reference-alpha:npcs=100:cadence=16x3+32x15+52x60:warmup=1000:measured=10000:production-joint-world-services-tick:engine-graph-navigation:adr016-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v2:exact-due-trace:no-starvation:logical-accounting=r4-100npc-v1"
         }
         PerformanceScenarioV1::R5Physics16 => {
-            b"nextengine.performance.r5-physics-16.v3:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:worker-placement=deterministic-physical-core-v1:fixed-standing-controller:fresh-scene-restore:adr062-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
+            b"nextengine.performance.r5-physics-16.v3:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:worker-placement=deterministic-physical-core-v1:fixed-standing-controller:fresh-scene-restore:adr062-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v2:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
         }
     };
     sha256_hex(preimage)

@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-28 |
-| Текущая точка | R1–R6 завершены на current Linux product boundary. [R7a Linux release authority](development/task-state/r7a-linux-release-authority.md) и [R7b release package/clean install](development/task-state/r7b-linux-release-package.md) завершены exact Linux bundles с `PASS / release_ready=true`. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) has Accepted ADR-091/092/093/094, strict Performance V6/v11 tooling and deterministic R5 worker placement; R3/R4/R5 retain hard `PASS` evidence on `8498001`, and the R2 presentation blocker is fixed. The final one-commit R2–R5 campaign now waits for an authenticated reboot into the installed exact-profile kernel `7.0.0-29-generic`; the wrong-kernel/observed-host attempt is preserved as invalid. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
+| Текущая точка | R1–R6 завершены на current Linux product boundary. [R7a Linux release authority](development/task-state/r7a-linux-release-authority.md) и [R7b release package/clean install](development/task-state/r7b-linux-release-package.md) завершены exact Linux bundles с `PASS / release_ready=true`. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) has Accepted ADR-091/092/093/094/096, strict Performance V6/v11 tooling and deterministic R5 worker placement. ADR-096 advances the hard host to `ref-linux-b550i-3950x-rtx3080-v2`: the active Ubuntu generic patch kernel is admissible without rollback, while the entire final R2–R5 campaign must keep one byte-exact observed fingerprint and clean commit. R3/R4/R5 retain historical `PASS` evidence, R2 is fixed, and fresh unified V2 evidence remains. The omitted-target/wrong-output/incomplete collector attempt stays invalid. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
 | Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
 | R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v4` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. B-12 is now the R7c Linux hard-performance authority gap. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -1872,18 +1872,20 @@ indefinitely under ADR-090 and does not gate any R7 package.
    `4ece6d7c…`; the exact native gate passed all eight checks with
    `release_ready=true` and target-report `2a928661…`.
 3. **R7c — Linux performance authority
-   (`IN_PROGRESS / V6_IMPLEMENTED / FINAL_EXACT_KERNEL_CAMPAIGN_PENDING`):** ADR-091 accepts
-   exact `ref-linux-b550i-3950x-rtx3080-v1`, canonical R2–R5 numeric policy and
+   (`IN_PROGRESS / V2_ACTIVE_KERNEL_AUTHORITY / FINAL_COHORT_CAMPAIGN_PENDING`):** ADR-091/096 accept
+   `ref-linux-b550i-3950x-rtx3080-v2`, canonical R2–R5 numeric policy and
    Performance V6/methodology v10. ADR-092 makes normalized R5 ratios
    absolute-only; ADR-093 places every R5 worker on a deterministic physical
    core and advances the workload to `r5-physics-16.v3`; ADR-094 gates
    relative warnings on the bootstrap lower bound under methodology v11. The
    R3, R4 and R5 portions hold hard `PASS` ten-run baselines plus isolated
    fixed gates on `8498001`; the R2 presentation blocker is fixed on a newer
-   commit. The final one-commit R2–R5 recollection requires the installed exact
-   kernel `7.0.0-29-generic`; a kernel-30 collector attempt lacked exact target
-   identity and is retained only as invalid evidence. Historical THOTH
-   budgets/evidence are not inherited.
+   commit. The final one-commit R2–R5 recollection runs on the current active
+   Ubuntu `7.0.0-<revision>-generic` kernel and requires the full observed
+   fingerprint to remain byte-exact across every calibration/gate member; no
+   old-kernel boot is required. The earlier collector attempt lacked exact
+   target identity, used the wrong output shape and remained incomplete, so it
+   is retained only as invalid evidence. Historical THOTH/V1 evidence is not inherited.
 4. **R7d — final product hardening:** close only release-blocking gameplay,
    save/load/replay, corrupted-input, long-session, renderer/input/audio,
    lifecycle/recovery and offline-fallback defects.
@@ -2071,7 +2073,7 @@ reference, coupling or persistence path.
 | B-09 | `CLOSED / R6G_CREATOR_SDK_WORKFLOW`: public path-free project create/validate/cook/run/package/inspect/diff, scenario validate/run/minimize and Replay V10 validate/inspect cover an independent project lifecycle, exact source/package closure, shortest failure-preserving action prefix, production first divergence and bounded runtime/world/physics/owner projections. The canonical external guide is governed by a real post-create JSON edit through the complete public lifecycle, and exact Luau/Wasm sources are externally visible without changing package identity. No tool-only replay model, private owner bytes, ID override, assertion weakening or mutable inspector backdoor exists. | — | Closed under ADR-089. Broader inspectors, GUI/MCP, replay capture and arbitrary project-local extension ingestion require concrete future consumers and do not reopen R6 by default. |
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Current creator examples are governed by R6/B-09 and do not create a staffing gate. | R2, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
-| B-12 | `OPEN / FINAL_EXACT_KERNEL_CAMPAIGN_PENDING`: ADR-091/092/093/094 accept exact Linux authority, Performance V6/v11 CI-gated warnings, canonical R2–R5 budgets, dimensional comparison and deterministic R5 worker placement (`r5-physics-16.v3`). R3/R4/R5 retain hard `PASS` evidence on `8498001`; the R2 presentation blocker is fixed, but final same-commit evidence waits for boot into installed exact kernel `7.0.0-29-generic`. The kernel-30/observed-host attempt is invalid and preserved. | R7c | On one exact clean commit and exact profile collect compatible ten-run baselines plus one isolated fixed three-run hard gate for R2–R5, without retry-to-green. Historical/invalid reports cannot be relabelled; virtual/software R2 does not count. |
+| B-12 | `OPEN / FINAL_V2_COHORT_CAMPAIGN_PENDING`: ADR-091/092/093/094/096 accept the Linux V2 active-kernel authority, Performance V6/v11 CI-gated warnings, canonical R2–R5 budgets, dimensional comparison and deterministic R5 worker placement (`r5-physics-16.v3`). R3/R4/R5 retain historical hard `PASS` evidence and R2 is fixed, but the final same-commit V2 campaign remains. The omitted-target/wrong-output/incomplete attempt is invalid and preserved. | R7c | On one exact clean commit and one byte-exact observed host/kernel fingerprint collect compatible ten-run baselines plus one isolated fixed three-run hard gate for R2–R5, without retry-to-green. Routine Ubuntu patch updates require a fresh campaign cohort, not boot rollback or evidence relabelling; virtual/software R2 does not count. |
 | B-13 | `OPTIONAL R8 GAP / NOT V1 BLOCKER`: нет canonical behavior-training data plane, vendor-neutral evaluator, trained strategic/tactical bundles и runtime-training parity. | — | Возвращается только для optional R8 production profile. Каждая activated role проходит applicable SPEC-33/34 and ADR-050/053/054 data/provenance/export/multi-seed/parity/fallback checks; joint suite нужна только профилю с обеими roles. Отсутствие этого трека не блокирует R4/v1 и сохраняет deterministic ADR-056 path. |
 
 ## Решения, которые нужно принять вовремя
@@ -2715,10 +2717,11 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    public `next`; two 157-file builds are byte/mode-identical at manifest
    `4ece6d7c…`. Exact native gate target-report `2a928661…` records all eight
    checks `PASS` and `release_ready=true`.
-17. **R7c Linux performance authority (`PLANNED / NEXT`):** accept the exact
-   Linux release host fingerprint and numeric policy, then collect compatible
-   clean baselines and fixed hard gates for every required representative
-   workload without inheriting historical THOTH budgets.
+17. **R7c Linux performance authority (`IN_PROGRESS / V2_CAMPAIGN_NEXT`):**
+   ADR-091/092/093/094/096 accept the V2 active-kernel host family, exact
+   within-campaign fingerprint, numeric policy and methodology. Next collect
+   compatible clean baselines and fixed hard gates for every R2–R5 workload
+   without inheriting historical THOTH/V1 evidence.
 
 Каждый package должен быть отдельным product increment с focused checks. R6a
 creator validate/cook, R6b creator run/package and R6c read-only project

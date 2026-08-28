@@ -9,6 +9,13 @@
 | Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-29](../29-platform-host-and-application-session.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-045](045-low-overhead-hard-performance-evidence.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md), [ADR-062](062-r5-physx-humanoid-performance-authority.md), [ADR-063](063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md) |
 | Заменяет | Linux `REPORT_ONLY` clauses of ADR-036/062/063/090 for the exact profile below; historical Windows/THOTH authority remains outside current scope. [ADR-092](092-dimensional-relative-performance-comparison.md) narrowly supersedes generic relative comparison for normalized R5 ratios and advances methodology to v10. |
+| Заменён | Profile ID, exact patch-kernel admission и kernel-change revision policy узко заменены [ADR-096](096-active-kernel-linux-performance-cohort.md); budgets, preflight, exact full-fingerprint campaign equality и evidence semantics сохраняются |
+
+> Supersession note: `ref-linux-b550i-3950x-rtx3080-v1` and its exact
+> `7.0.0-29-generic` pin below are historical. Current authority is V2 under
+> ADR-096: one Ubuntu `7.0.0-<revision>-generic` patch cohort is admitted at a
+> time, and every report/baseline/gate member still matches its full observed
+> fingerprint byte-for-byte.
 
 ## Контекст
 

@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.65 |
-| Последняя проверка | 2026-08-26 |
-| Заменяет | INDEX-001 2.64; indexes the independent Proposed physical-sound and provider-neutral generative-authoring tracks without changing current runtime baselines |
+| Версия | 2.66 |
+| Последняя проверка | 2026-08-28 |
+| Заменяет | INDEX-001 2.65; replaces the Linux performance patch-kernel boot pin with exact active-kernel campaign cohorts under ADR-096 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -81,7 +81,7 @@ durable publication, а `game`, `headless` и runtime-bearing `tools` входя
 | `persistence-replay` | Commands, IDs, authoritative state, scheduling, save schema или migrations | save→load продолжает мир; focused replay/deterministic comparison проходит; corrupt input отвергается до mutation |
 | `content-package` | Asset schema, cooker, importer boundary, package/plugin или distribution | representative content/package validates и cooks/loads; bounds/hash/version, protected-data и basic license-notice checks проходят |
 | `platform` | Только renderer, packaging, host integration или OS-specific change | targeted smoke на текущем Linux host; Windows target не входит в текущую release matrix |
-| `performance` | Только material hot-path, physics, renderer, I/O или model-runtime change | Linux targeted report без изменения authoritative result; R2–R5 release evidence uses ADR-091 Performance V6 baseline/gate on the exact accepted host |
+| `performance` | Только material hot-path, physics, renderer, I/O или model-runtime change | Linux targeted report без изменения authoritative result; R2–R5 release evidence uses ADR-091/096 Performance V6 baseline/gate on one exact accepted host/kernel cohort |
 
 Focused checks используются во время итерации; широкий local check запускается
 перед handoff, когда он существует и релевантен. Недоступная GPU, encoder, RTX
@@ -301,6 +301,7 @@ traceability — навигационная карта, не admission authority
 | ADR-093 | [Deterministic R5 worker placement](adr/093-deterministic-r5-worker-placement.md) | Accepted deterministic physical-core placement for the `r5-physics-16` workload through one reviewed `next_cpu_affinity` boundary; workload identity advances to v3 |
 | ADR-094 | [Confidence-gated relative warnings](adr/094-confidence-gated-relative-warnings.md) | Accepted CI95-lower-bound gating for relative warnings under methodology v11 with stderr-only failure diagnostics |
 | ADR-095 | [Provider-neutral generative content authoring boundary](adr/095-provider-neutral-generative-content-authoring-boundary.md) | Proposed quarantined-candidate and explicit-promotion boundary; ordinary exact authored source remains the complete fallback |
+| ADR-096 | [Active-kernel Linux performance cohort](adr/096-active-kernel-linux-performance-cohort.md) | Accepted V2 profile; current Ubuntu generic patch kernel is admissible while every report in one campaign retains byte-exact full-fingerprint equality |
 
 ## Proposed tracks
 

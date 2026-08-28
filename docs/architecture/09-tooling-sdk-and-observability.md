@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 5.7 |
-| Последняя проверка | 2026-08-26 |
+| Версия | 5.8 |
+| Последняя проверка | 2026-08-28 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.7 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V4.8 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
@@ -15,7 +15,8 @@
 | Дополнительные зависимости V5.3 | [ADR-092](adr/092-dimensional-relative-performance-comparison.md) |
 | Дополнительные зависимости V5.4 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
 | Дополнительные зависимости V5.5 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
-| Заменяет | SPEC-09 5.6; records the future SPEC-46 generative-authoring command/report boundary without adding a current public command |
+| Дополнительные зависимости V5.8 | [ADR-096](adr/096-active-kernel-linux-performance-cohort.md) |
+| Заменяет | SPEC-09 5.7; advances Linux performance admission to a V2 active-kernel cohort while preserving exact full-fingerprint campaign compatibility |
 
 ## Scope and authority
 
@@ -289,8 +290,9 @@ lower-is-better gating. A baseline consists of exactly ten clean release
 reports with one independent run each. One hard-gate command executes a fixed
 three-run batch and publishes one aggregate V6 report. Relative statistics use
 per-run p95 observations; raw frames are never treated as independent runs.
-Only complete evidence from `ref-linux-b550i-3950x-rtx3080-v1` with a
-compatible V6 baseline may produce the current hard verdict. Historical
+Only complete evidence from `ref-linux-b550i-3950x-rtx3080-v2` with one
+byte-exact observed fingerprint cohort and a compatible V6 baseline may
+produce the current hard verdict. Historical
 THOTH/V5 evidence remains outside current v1/R7 authority.
 
 ADR-091 Linux preflight admits CPU and GPU load strictly below 40% and at least

@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.12 |
-| Последняя проверка | 2026-08-26 |
+| Версия | 2.13 |
+| Последняя проверка | 2026-08-28 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-091](adr/091-linux-release-performance-authority.md) |
 | Дополнительные зависимости V2.9 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
 | Дополнительные зависимости V2.10 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
-| Заменяет | SPEC-04 2.11; adds the future SPEC-46 standardized candidate-preview boundary without changing current renderer or capture authority |
+| Дополнительные зависимости V2.13 | [ADR-096](adr/096-active-kernel-linux-performance-cohort.md) |
+| Заменяет | SPEC-04 2.12; advances the R2 hard host to the active-kernel V2 campaign profile without changing renderer budgets or presentation authority |
 
 ## Technical authority boundary
 
@@ -211,8 +212,8 @@ warm-up и 3 600 measured samples, exact Vulkan timestamp-query accounting,
 canonical logical resource charges, process/device counters и authoritative
 roots. Report mode завершает внешний ProductCheck с вложенным `REPORT_ONLY`.
 Hard timing `PASS` требует clean commit, exact
-`ref-linux-b550i-3950x-rtx3080-v1` fingerprint, compatible ten-run Performance
-V6 baseline, fixed three-run gate и всех ADR-091 preflight checks. Реальный
+`ref-linux-b550i-3950x-rtx3080-v2` fingerprint, compatible ten-run Performance
+V6 baseline, fixed three-run gate и всех ADR-091/096 preflight/cohort checks. Реальный
 X11/Wayland display и production NVIDIA Vulkan adapter обязательны; virtual or
 software display даёт `NOT_RUN`. Статические render fixtures остаются smoke и
 не подменяют этот workload.

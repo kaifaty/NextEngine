@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 5.5 |
-| Последняя проверка | 2026-08-24 |
+| Версия | 5.6 |
+| Последняя проверка | 2026-08-28 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V4.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
@@ -16,7 +16,8 @@
 | Дополнительные зависимости V5.2 | [ADR-092](adr/092-dimensional-relative-performance-comparison.md) |
 | Дополнительные зависимости V5.3 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
 | Дополнительные зависимости V5.4 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
-| Заменяет | SPEC-12 5.4; aligns current methodology-v11 workload identities and CI-gated warning semantics with ADR-093/094 |
+| Дополнительные зависимости V5.6 | [ADR-096](adr/096-active-kernel-linux-performance-cohort.md) |
+| Заменяет | SPEC-12 5.5; advances the Linux performance profile to exact active-kernel campaign cohorts without changing budgets or gate statistics |
 
 ## Назначение
 
@@ -334,8 +335,9 @@ variance MAY привести к повторному измерению по т
 
 Current development timing выполняется на Linux в report mode; Linux native
 build/platform/replay/hash correctness обязательны для затронутой области.
-ADR-091 принимает `ref-linux-b550i-3950x-rtx3080-v1`, canonical R2–R5 budgets
-и Performance V6 baseline/gate как current release authority. Historical
+ADR-091/096 принимают `ref-linux-b550i-3950x-rtx3080-v2`, canonical R2–R5
+budgets и Performance V6 baseline/gate on one byte-exact observed fingerprint
+cohort как current release authority. Historical
 `ref-win-thoth-v1`/V5 evidence не участвует в v1/R7.
 Несовместимый host, driver/BIOS/power plan/toolchain/content/
 methodology, недостаточный idle/free-memory/thermal preflight или
