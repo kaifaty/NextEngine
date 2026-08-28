@@ -111,7 +111,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / REAL_SPATIAL_TRANSFER_PROTOCOL_FROZEN / RESERVED_AUDIO_BYTES_ZERO / GEOMETRY_PREFLIGHT_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | Manifest `5be5f195…e576` freezes Pitcher calibration, Planter one-shot holdout, payload identities, `90/510` 3D split, geometry-spectral Bempp/cooker candidate, controls, gates and fallback. Reports repeat at `c2f51cff…01ef` with zero reserved audio bytes. This is protocol only. Next implement and repeat the geometry-only preflight; failure stops before calibration audio. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / GEOMETRY_PREFLIGHT_V1_REJECTED / BYTE_IDENTICAL_REPEATS / RESERVED_AUDIO_BYTES_ZERO / EXACT_WELD_V2_PREREGISTRATION_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | V1 reports repeat at `2fb9fd0f…e25d`: both published OBJ files are disconnected triangle soup and fail the closed-manifold gate before audio. An exact-coordinate-weld mesh-only discriminator recovers closed connected surfaces without tolerance or repair. Next preregister only that V2 assembly change and repeat the same preflight. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -643,6 +643,19 @@ protocol and opening order. Next implement the deterministic `8192/2048`-face
 geometry preflight twice; any topology/numeric/repeat failure returns the clip
 fallback before Pitcher audio. See the [preregistration
 evidence](../development/physical-sound-realimpact-geometry-spatial-transfer-preregistration-ps2-2026-08-28.md).
+
+PS-2 REALIMPACT geometry-only preflight checkpoint: V1 reports repeat at
+`2fb9fd0f…e25d`, read exactly `1308328` compressed mesh bytes and zero reserved
+audio bytes, and reject both objects. Their published OBJ indices are
+triangle soup: Pitcher/Planter have `16139/15910` connected components before
+simplification, so the closed-manifold gate correctly prevents eigensolver and
+Bempp input publication. After that immutable rejection, an exact bitwise
+coordinate-weld diagnostic reduces the meshes to `8070/7958` unique vertices
+with one component and zero boundary/nonmanifold edges. It uses no tolerance,
+repair or audio. Next preregister only exact-coordinate welding before the
+unchanged `8192/2048` reduction and repeat geometry preflight; Pitcher and
+Planter audio remain sealed. See the [preflight
+evidence](../development/physical-sound-realimpact-geometry-preflight-ps2-2026-08-28.md).
 
 ## PS-2 — Сделать риск статистически измеримым
 

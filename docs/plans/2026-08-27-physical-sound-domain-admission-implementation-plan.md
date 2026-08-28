@@ -558,6 +558,17 @@ The following bounded package implements and repeats the geometry-only
 preflight; it must stop before Pitcher audio if either mesh/setup gate fails.
 See the [preregistration evidence](../development/physical-sound-realimpact-geometry-spatial-transfer-preregistration-ps2-2026-08-28.md).
 
+The first geometry-only execution is now an immutable setup rejection. Reports
+repeat at `2fb9fd0f…e25d` with zero reserved audio bytes. The published OBJ
+indices describe disconnected triangle soup (`16139/15910` components), and
+unmodified simplification cannot satisfy the closed-manifold gate. The gate and
+V1 decision remain unchanged. A post-rejection mesh-only discriminator shows
+that exact bitwise coordinate welding, without tolerance or repair, recovers
+one closed manifold for each object (`8070/7958` vertices, zero boundary or
+nonmanifold edges). The next package preregisters only that exact-weld assembly
+change, then repeats the same `8192/2048` preflight before any Pitcher audio.
+See the [geometry-preflight evidence](../development/physical-sound-realimpact-geometry-preflight-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:
