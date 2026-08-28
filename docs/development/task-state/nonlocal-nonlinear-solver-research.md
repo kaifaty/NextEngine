@@ -88,10 +88,11 @@
   `10,404` coefficients plus `306` executed product rows are exactly
   contained, but tangent K2 states `0..2` all remain `12+/24-/66?`. The lane
   differs from the common negative. Independent review is not tested.
-- **R63ZJ frozen:** preserve the complete K2 factor/dot/divide/update
-  recurrence and replace only the three stored-matrix products by frozen
-  binary128 tangent application followed by immediate K2 projection. This
-  localizes operator storage/product loss before considering width three.
+- **R63ZJ revision 2 frozen:** preserve the complete K2 factor/dot/divide/
+  update recurrence. At each logical product site, apply the frozen binary128
+  tangent kernel separately to exact high/low vectors, project both outputs to
+  K2 and combine them with canonical K2 addition. Revision 1 stopped because
+  one K2 pair cannot collapse exactly into a 113-bit binary128 significand.
 - **Current result:** R20R63Z passes at semantic
   `e27ee861...3e4be`, route `TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE`; final
   stdout is byte-identical at `de22f5f6...da54`. All 10,404 common-operator
@@ -6525,6 +6526,23 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   the failure to dense storage/product precision, or still rejects, localizing
   the remaining loss to product projection/K2 recurrence.
 
+### D-225 -- Preserve K2 input by component-linear wide application
+
+- **Observation:** R63ZJ revision-1 dev preflight found one initial K2 input
+  whose high/low exponent gap exceeds binary128's significand. Exact
+  `binary128(high+low)` reconstruction is impossible; the apparatus stopped at
+  `initial_arithmetic` with zero tangent work.
+- **Conclusion:** that path cannot discriminate operator precision from input
+  collapse and has no recurrence endpoint.
+- **Decision:** revision 2 applies the linear tangent operator separately to
+  exact binary64 high and low vectors, projects both outputs to K2 and combines
+  them with the existing canonical K2 addition. All other recurrence work is
+  unchanged.
+- **Rejected:** rounding the K2 center into one binary128 value; interpreting
+  the revision-1 apparatus stop as a solver failure; widening unrelated state.
+- **Reconsider when:** revision 2 closes all six tangent calls, 306 product-row
+  audits and the frozen endpoint controls.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -6611,11 +6629,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    `98736993...080a1e`, result `844a07a0...27329`, all `10,404/10,404`
    coefficient and `306/306` product containments, exact work and controls, and
    its narrow `R63ZI_STATE2_REJECTED` interpretation. Independent review is
-   `NOT_TESTED`. Implement only frozen R63ZJ revision 1 next: unchanged K2
-   factor/dot/divide/update recurrence with binary128
-   tangent application immediately projected to K2 at the three operator
-   sites. Stop before width increase, dynamic building, corpus, timing,
-   runtime/GPU or production integration.
+   `NOT_TESTED`. Implement only frozen R63ZJ revision 2 next: unchanged K2
+   factor/dot/divide/update recurrence with separate binary128 tangent
+   applications for exact high/low vectors, immediate K2 projection and
+   canonical K2 addition at the three logical operator sites. Stop before
+   width increase, dynamic building, corpus, timing, runtime/GPU or production
+   integration.
 4. Preserve R20R51 semantic `48df3b26...adca` and all five case roots,
    R20R50 semantic `190ac441...d86e`, all five generic certificate
    roots and the exact work ledger, R20R49 semantic `719e0d50...f3cc`, all three practical roots and

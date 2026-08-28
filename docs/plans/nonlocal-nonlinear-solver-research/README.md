@@ -4159,12 +4159,14 @@ The
 [R63ZJ research](../../development/nonlocal-nsr3b4e2d7r20r63zj-product-precision-localization-research-2026-08-28.md)
 and
 [contract](03b4e2d7r20r63zj-product-precision-localization-contract.md)
-freeze that localization. Only the three operator calls change: each K2 input
-center is applied by the frozen binary128 tangent kernel and immediately
-projected back to K2. Every factor solve, scalar operation, state update,
-input, iteration and verifier remains R63ZI. Pass localizes failure to dense
-operator storage/product precision; rejection requires product-width versus
-update localization before any width-three design.
+freeze that localization. Revision 1 correctly stopped because one K2 input
+cannot be collapsed exactly into a 113-bit binary128 significand. Revision 2
+keeps the three logical operator sites but applies the frozen binary128 tangent
+kernel separately to exact high/low vectors, projects both outputs to K2 and
+combines them with canonical K2 addition. Every factor solve, scalar operation,
+state update, input, iteration and verifier remains R63ZI. Pass localizes
+failure to dense operator storage/product precision; rejection requires
+product-width versus update localization before any width-three design.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

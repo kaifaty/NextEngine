@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZJ product-precision localization contract
 
-Revision: `1`.
+Revision: `2`.
 
 | Field | Value |
 |---|---|
@@ -16,11 +16,13 @@ Use the frozen R63ZI projected K2 RHS/inverse scale, exported factor,
 permutation, two-update PCG order and R63Y verifier unchanged. At each of the
 three operator sites only:
 
-1. reconstruct the current K2 input center exactly as binary128 `high+low`;
-2. apply the frozen binary128 tangent product `sigma*T*(T^T*x)` in its existing
-   fixed order;
-3. project every binary128 output immediately to canonical K2;
-4. return only that sealed K2 product to the unchanged recurrence.
+1. split the current K2 input into its exact binary64 high and low vectors;
+2. apply the frozen binary128 tangent product `sigma*T*(T^T*x)` separately to
+   each vector in its existing fixed order;
+3. project both binary128 output vectors immediately to canonical K2 and add
+   the two projected values with the unchanged canonical K2 addition;
+4. return only that sealed component-linear K2 product to the unchanged
+   recurrence.
 
 The hybrid must not read verifier state, the exact oracle, the R63ZI dense
 artifact center or a baseline solution.
@@ -36,12 +38,13 @@ projection versus updates before choosing a wider representation.
 
 ## Fixed correspondence and work
 
-- Dimension `102`, tangent width `315`, exactly three operator calls and three
-  sealed states.
+- Dimension `102`, tangent width `315`, exactly three logical operator sites,
+  six frozen tangent-kernel calls and three sealed states.
 - Exact product audit: all `306` hybrid product rows are compared against
   exact dyadic `K_T*x` after the transaction seals.
-- Hybrid operator work: `945` inner dots, `306` outer dots, `96,390` inner
-  terms, `96,390` outer terms and `306` scale products.
+- Hybrid operator work: `1,890` inner dots, `612` outer dots, `192,780` inner
+  terms, `192,780` outer terms, `612` scale products, `306` K2 component
+  projections and `306` K2 component additions.
 - K2 recurrence work remains exactly R63ZI: three factor solves, two rho dots,
   two denominator dots, three scalar divisions, 204 solution updates, 204
   residual updates and 102 direction updates.
@@ -50,7 +53,7 @@ projection versus updates before choosing a wider representation.
 
 ## Controls and firewall
 
-Require sealed callback identity, exact K2 input reconstruction, product
+Require sealed callback identity, exact K2 component decomposition, product
 projection containment, stale/tangent/input/product mutation rejection,
 nonfinite failure, result sealing, fixed-work rejection and exhaustive route
 precedence. The exact oracle runs only after the candidate transaction seals.
@@ -70,3 +73,12 @@ author-only production claim.
   than interpreting the endpoint.
 - In all cases dynamic building, corpus, adaptive stopping, runtime/Rust/GPU
   integration, ProductChecks and production promotion remain blocked.
+
+## Revision history
+
+- Revision 1 attempted to collapse each K2 input center to one binary128
+  `high+low` value. The initial dev control found one input whose component gap
+  exceeds binary128's 113-bit significand, so exact reconstruction is
+  impossible and the apparatus stopped before its first operator call.
+- Revision 2 preserves the exact K2 input by linear component decomposition.
+  No revision-1 endpoint is admissible evidence about the recurrence.
