@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_DOMAIN_CLAIM_MATRIX_EXECUTABLE / PROJECT_SPLIT_FROZEN / ONE_CROSS_TIER_LINK / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_SOURCE_FEASIBILITY_EXECUTABLE / V1_PUBLISHED_ROUTE_UNAVAILABLE / REALIMPACT_TRANSFER_ROUTE_SELECTED / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,22 +10,23 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** The exact-domain E2/E3 matrix is executable and
-  returns `DomainEvidenceIncomplete / FallbackOutOfDomain`. Eight E3 projects
-  still validate 64 objects/135 recordings and the `2/2/2/2` project split is
-  unchanged. One Blue Bowl E2/E3 object link is exact; eight required physical
-  claims remain unsupported. `Pass` is off.
+- **Current conclusion:** The published-source feasibility gate is executable
+  and returns `ReviewedSourcesCannotCloseV1`. REALIMPACT, ObjectFolder Real and
+  AV-MSF close none of the eight exact V1 blockers. V1 remains fallback-only;
+  `realimpact-normalized-transfer-calibration-v1` is the selected next route
+  for relative modal/spatial fitting only. `Pass` is off.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Run a bounded internet-source feasibility cycle against the
-  eight named blockers. Add one typed adapter/link only if published evidence
-  can close exact claims without moving a frozen E3 object; otherwise propose
-  an internet-native plan revision and retain V1 as fallback-only.
-- **Current blocker:** The current acquisition-shaped domain has no eligible
-  object in any partition: composition, exact geometry/support/excitation/
-  impact/listener alignment, matched-condition lineage and domain coverage are
-  open. Calibrated grouped risk follows only after one domain closes.
+- **Next action:** Preregister the REALIMPACT normalized-transfer objective,
+  object-disjoint fit/calibration/holdout rows and prohibited claims; then fit
+  relative modal frequency, damping and spatial participation without opening
+  shadow or importing absolute-amplitude credit.
+- **Current blocker:** No reviewed published source matches the acquisition-
+  shaped V1 axes. REALIMPACT raw force is unpublished, ObjectFolder Real lacks
+  reviewed per-object support/listener alignment, and AV-MSF code/data lineage
+  is not yet published. Calibrated grouped admission risk still follows only
+  after an exact domain closes.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -47,6 +48,7 @@
 | [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), [Kronland/split evidence](../physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md) and [subsystem roadmap](../../plans/physical-sound-synthesis-roadmap.md) | `GLASS_16_OF_16 / REJECT_PARENTS_48_OF_35 / PROJECT_DISJOINT_SPLIT_VERIFIED` | Eight E3 projects repeat at 64 objects/135 recordings. Four dual-role projects support a frozen `2/2/2/2` split; every partition has target and reject evidence, but no domain admission or quality credit. |
 | [Blue Bowl](../physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [Shell Plate](../physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md) and [Skull Cup](../physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md) evidence | `FIVE_REALIMPACT_E2_OBJECTS / CROSS_TIER_SHELL_AND_VESSEL` | All bounded profiles reproduce twice. Object 6 links E3 to E2; 51 adds a broad shell and 60 a narrow Beer_Glass/SkullCup transfer. No E3 group is added and all five rows remain fallback-only. |
 | [Exact-domain claim matrix](../physical-sound-domain-claims-matrix-ps2-2026-08-28.md) | `DOMAIN_EVIDENCE_INCOMPLETE / ONE_CROSS_TIER_LINK / EIGHT_REQUIRED_CLAIMS_OPEN` | The hash-closed gate accepts only the reviewed Blue Bowl identity, confirms useful E2/E3 observations and returns fallback. Numeric object 94 is rejected as a false join. Every frozen partition has zero exact-domain-eligible objects. |
+| [Internet-source feasibility](../physical-sound-internet-source-feasibility-ps2-2026-08-28.md) | `REVIEWED_SOURCES_CANNOT_CLOSE_V1 / INTERNET_NATIVE_TRANSFER_CANDIDATE` | Seven frozen primary artifacts across REALIMPACT, ObjectFolder Real and AV-MSF reproduce byte-identically. Zero of eight blockers close. REALIMPACT may calibrate normalized transfer only; exact-domain admission remains disabled. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -75,92 +77,19 @@
   capture remains to be calibrated.
 - **Reconsider when:** Never for authority; only a new superseding Accepted ADR
   could change the product contract.
-### D-002 — Start with cooked modal rigid impact
+### Stable carried decisions
 
-- **Observation:** Modal impact has strong prior art and the smallest input
-  surface; scraping requires temporal micro-contact/stick-slip detail.
-- **Evidence:** O'Brien et al. 2002, Raghuvanshi/Lin 2006 and Zheng/James 2011
-  as summarized in the research report.
-- **Decision:** Retain modal P0 for accepted steel/wood, but the next glass-only
-  counterfactual may add bounded deterministic transient micro-events; P1 still
-  waits for a production consumer and P2 remains after P1.
-- **Rejected alternatives:** Start with fracture, liquids, fire, cloth,
-  footsteps, voice or birds.
-- **Consequences:** Do not force every rigid material through one resonator;
-  glass transient work stays presentation-only and creates no fracture fact.
-- **Uncertainty:** Perceptual quality and the required mode count on the exact
-  corpus are unmeasured.
-- **Reconsider when:** Already met for glass identity after D and F; retain the
-  modal path only where human evidence supports it.
-### D-003 — Acoustic content is separate from physics material
+Detailed rationale is retained in SPEC-45 and the linked dated research. The
+resume-critical consequences are:
 
-- **Observation:** `PhysicsMaterialDescriptorV2` has contact parameters but no
-  elastic, damping, radiation, acoustic geometry or calibration identity.
-- **Evidence:** Current material contract and modal-synthesis source models.
-- **Decision:** Candidate `AcousticMaterialProfileV1`, `ModalSoundModelV1` and
-  `PhysicalSoundBindingV1` are separate PresentationOnly roles linked by exact
-  revisions.
-- **Rejected alternatives:** Add Young's modulus/damping/radiation directly to
-  the physics material or infer acoustic identity from renderer material/name.
-- **Consequences:** Cooking and fallback are content-package concerns; acoustic
-  tuning cannot change collision response.
-- **Uncertainty:** Minimal authoring/calibration UI and cooker inputs remain
-  open.
-- **Reconsider when:** A concrete consumer proves one field is truly a shared
-  physical source of truth rather than presentation calibration.
-### D-004 — Close the engine-owned contact projection before production wiring
+| ID | Decision | Reconsideration condition |
+| --- | --- | --- |
+| D-002 | Start with cooked modal rigid impact; persistent contact and other source classes remain separate. | Exact-domain evidence shows another bounded source model is required. |
+| D-003 | Acoustic profiles remain PresentationOnly and separate from physics materials. | A concrete consumer proves a field is a shared physical source of truth. |
+| D-004 | Production wiring waits for the engine-owned committed contact projection and `PHYS-COLLISION-P1`. | The projection and its product evidence exist. |
+| D-005 | Classical cooked reference, offline fitting and clip fallback precede any runtime learning. | A controlled residual target and immutable non-neural fallback exist. |
+| D-006 | R8 remains an isolated experiment with no stage activation or shipping claim. | A roadmap slot and player-visible consumer are selected. |
 
-- **Observation:** SPEC-26 normatively names relative velocity, impulse bounds,
-  effective mass and material tags, but the current Rust contact record omits
-  them.
-- **Evidence:** Direct comparison of SPEC-26 and
-  `crates/contracts/src/physics/contact.rs` on 2026-08-26.
-- **Decision:** P0 may use exact synthetic fixtures. The requested P0.5 demo
-  may use only committed `Begin` contacts plus an explicitly provisional
-  adjacent-snapshot estimator behind an off-by-default feature. Production P1
-  still waits for a consumer-driven contact projection and
-  `PHYS-COLLISION-P1` evidence.
-- **Rejected alternatives:** Raw PhysX callback/solver pointer/manifold data,
-  callback-count noise or presenting the P0.5 identity/velocity proxy as a
-  physical material/impulse contract.
-- **Consequences:** The physical-audio draft creates no parallel contact
-  contract.
-- **Uncertainty:** Whether the existing planned normalized projection is
-  sufficient for perceptual impact and persistent contact remains unmeasured.
-- **Reconsider when:** The engine-owned projection is implemented and the P1/P2
-  controls isolate a missing physical quantity.
-### D-005 — Classical reference and fallback precede runtime learning
-
-- **Observation:** Hybrid residuals and differentiable fitting are useful, but
-  no measured Next Engine residual exists.
-- **Evidence:** Impact-sound residual work and DiffSound in the research report.
-- **Decision:** Use analytic/cooked modal reference first; allow offline fitting
-  and authored residual/fallback; runtime neural residual is deferred.
-- **Rejected alternatives:** Mandatory end-to-end neural audio or online model
-  adaptation.
-- **Consequences:** Network/model/provider failure cannot affect the first
-  track; any later learned path needs immutable lineage and non-neural fallback.
-- **Uncertainty:** Q30 passed the bounded human A/B and exact synthetic corpus,
-  but real upper-partial balance, tail length and physical identification remain
-  unmeasured on controlled recordings.
-- **Reconsider when:** A controlled target justifies a materially separated
-  residual experiment; neural runtime remains deferred.
-### D-006 — Isolated roadmap experiment, no stage activation or shipping claim
-
-- **Observation:** The product owner explicitly requested an independent
-  experiment in the demo; R8 permits isolated pre-v1 experiments that do not
-  affect mandatory gameplay.
-- **Evidence:** Current roadmap and ADR-046 consumer-driven contract rule.
-- **Decision:** Record the completed P0/P0.5 experiment in the R8 table without
-  activating R8, changing baseline-audio completion or promoting P1.
-- **Rejected alternatives:** Add an implementation stage, public V1 records or
-  current-audio completion claim merely because the laboratory is audible.
-- **Consequences:** Further tuning is allowed inside the experiment; production
-  integration still requires a concrete consumer and Accepted ADR.
-- **Uncertainty:** Priority relative to current gameplay/audio gaps is a product
-  decision.
-- **Reconsider when:** A roadmap slot and concrete player-visible impact
-  consumer are chosen.
 ### D-007 — Quality uses an internet corpus and automatic selective ensemble
 
 - **Observation:** Per-sound audition cannot scale, and the product owner will
@@ -175,11 +104,10 @@
 - **Consequences:** Force hardware is no blocker. Bounded fetch/cache/archive
   handling, eight-project E3 normalization and five REALIMPACT E2 rows exist.
   Glass `16/16`, reject parents `48/35` and the verified four-partition split
-  close corpus structure. The executable matrix proves one cross-tier object
-  link but rejects eight exact-domain claims; V1 remains fallback-only and the
-  next evidence query is internet feasibility, not formula tuning.
-- **Uncertainty:** Published sources may not cover every force/geometry/support
-  axis or the powered group count.
+  close corpus structure. The matrix proves one cross-tier link; the source
+  gate closes zero V1 blockers and selects REALIMPACT normalized transfer only.
+- **Uncertainty:** That narrower route may fit relative modes yet remain
+  insufficient for material identity or future exact-domain admission.
 - **Reconsider when:** Only an explicit product-owner reversal permits local
   capture; validator simplification still requires equal bounded risk/coverage.
 
@@ -192,7 +120,7 @@
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects validate 64 objects/135 recordings; Glass is `16/16`, parents `48/35`; a verified four-partition split, five E2 rows and an executable claim matrix exist | The matrix finds one object link but zero exact-domain-eligible objects; eight physical claims and calibrated holdout/shadow risk are open | Search published evidence claim-by-claim; add one exact adapter/link or preregister an internet-native domain before selecting a Validator Release |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects validate 64 objects/135 recordings; Glass is `16/16`, parents `48/35`; a verified four-partition split, five E2 rows and executable claim/source gates exist | The bounded source review closes zero V1 blockers; eight physical claims and calibrated holdout/shadow risk are open | Preregister and evaluate the narrower REALIMPACT normalized-transfer route before selecting a Validator Release |
 
 ## Required context
 
@@ -202,7 +130,7 @@ Read these sources in precedence order before acting:
 2. [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md), [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../../architecture/30-presentation-extraction-and-render-content.md), ADR-027/046/058/071.
 3. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 4. [Research report](../physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../physical-sound-quality-evaluation-research-2026-08-26.md),
-   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [Kronland/split freeze](../physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [exact-domain matrix](../physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
+   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [Kronland/split freeze](../physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [exact-domain matrix](../physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet-source feasibility](../physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
 5. [Roadmap](../../roadmap.md) only for a future scheduling/scope decision.
 
 ## Next action
@@ -211,10 +139,10 @@ Read these sources in precedence order before acting:
    source/generated artifacts external and do not reinterpret a control pass as
    subjective quality or P1 evidence.
 2. Preserve PS-2 hashes, source rejections, all eight E3 projects, explicit
-   roles, five E2 reports, frozen partitions and the domain-claims matrix. Run
-   bounded internet feasibility for its eight blockers. Add one exact adapter/
-   link or propose an internet-native plan revision; do not expose shadow to
-   the optimizer.
+   roles, five E2 reports, frozen partitions, domain matrix and source-
+   feasibility report. Preregister and execute the REALIMPACT normalized-
+   transfer route; keep absolute amplitude, exact-domain admission and shadow
+   outside the optimizer.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile

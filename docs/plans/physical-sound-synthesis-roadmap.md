@@ -2,10 +2,10 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_DOMAIN_CLAIM_MATRIX_EXECUTABLE / PROJECT_SPLIT_FROZEN / ONE_CROSS_TIER_LINK / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_SOURCE_FEASIBILITY_EXECUTABLE / V1_PUBLISHED_ROUTE_UNAVAILABLE / REALIMPACT_TRANSFER_ROUTE_SELECTED / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [Exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md) |
+| Текущий evidence | [PS-2 internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Последний пакет | [Internet-source feasibility and transfer route](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -437,6 +437,19 @@ unsupported and every partition has zero exact-domain-eligible objects. The
 next action is published-source feasibility for those named claims, followed
 by either one typed adapter/link or a preregistered internet-native plan
 revision. See the [matrix evidence](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md).
+
+PS-2 published-source checkpoint: `physical-sound-registry
+source-feasibility` now hash-links the incomplete domain matrix to seven frozen
+primary artifacts for REALIMPACT, ObjectFolder Real and AV-MSF. Two runs are
+byte-identical and return `ReviewedSourcesCannotCloseV1`: none of the eight
+exact blockers closes. The gate selects
+`realimpact-normalized-transfer-calibration-v1` as a transfer-only next route,
+with explicit prohibitions on absolute amplitude, exact material/support,
+matched cross-tier conditions, admission, `Pass` and runtime content.
+ObjectFolder Real force calibration is deferred; AV-MSF is reconsidered after
+code/data publication. The next package preregisters and executes relative
+modal/spatial fitting on object-disjoint REALIMPACT E2 rows. See the
+[feasibility evidence](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md).
 
 ## PS-2 — Сделать риск статистически измеримым
 

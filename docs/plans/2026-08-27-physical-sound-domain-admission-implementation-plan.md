@@ -365,12 +365,20 @@ and no partition has an eligible object. Numeric object IDs are not a generic
 join; a failure control rejects `94_GlassGoblet` versus ObjectFolder object 94
 `Salad_Bowl`. See the [matrix evidence](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md).
 
-The next Package 3 increment is therefore evidence feasibility, not formula
-tuning: search published sources for same-object composition/geometry/support/
-excitation/listener/repeat lineage that can link to an existing frozen E3
-object. If the acquisition-shaped V1 domain has no published path, preserve it
-as fallback-only and preregister an internet-native plan revision rather than
-inventing axis values or requesting local capture.
+The Package 3 feasibility increment is now implemented by
+`physical-sound-registry source-feasibility`. It binds seven frozen primary
+artifacts across REALIMPACT, ObjectFolder Real and AV-MSF to the incomplete
+domain report. Two reports repeat at SHA-256
+`9a591673fb9567c9a343aeca991e62f1cb299f3a1f6f31e15c38d6050d85b9b1`
+and return `ReviewedSourcesCannotCloseV1`: all eight blockers remain open.
+
+The evidence-backed internet-native revision is
+`realimpact-normalized-transfer-calibration-v1`. It may fit relative modal
+frequency, damping and spatial participation from the five typed REALIMPACT E2
+rows, but it may not claim absolute amplitude, exact composition/support,
+matched E2/E3 conditions, corpus admission, `Pass` or runtime content. The
+next Package 3 increment is to preregister its object-disjoint split, objective
+and held-out report before fitting. See the [feasibility evidence](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md).
 
 ### 4. AV-P0D autonomous formula search
 
