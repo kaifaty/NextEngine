@@ -82,7 +82,9 @@
   adversarial review of author snapshot `12bd39864931278c5598c3342cbc9cdb1f2bd041`,
   frozen executable diff `74fbb15c...2f986` and its hashes/output. Do not close
   the certificate-repair lineage, apply a repair or open a deeper factorial
-  before `GO`.
+  before `GO`. Give the reviewer only the neutral
+  [hash-closed request](../nonlocal-nsr3b4e2d7r20r63zh-independent-review-request-2026-08-28.md)
+  on first exposure; preparing that packet does not count as review.
 - **Current result:** R20R63Z passes at semantic
   `e27ee861...3e4be`, route `TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE`; final
   stdout is byte-identical at `de22f5f6...da54`. All 10,404 common-operator
@@ -6450,6 +6452,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   at `181ac246...96722`; semantic result is `f1577fd4...a5ea`.
 - **Evidence:**
   `docs/development/nonlocal-nsr3b4e2d7r20r63zh-center-producer-decomposition-evidence-2026-08-28.md`;
+  neutral first-pass reviewer input:
+  `docs/development/nonlocal-nsr3b4e2d7r20r63zh-independent-review-request-2026-08-28.md`;
   audit `4c3255ed...f99f5`, work `40794c9c...0ab69`, controls
   `9d8fc152...a920a`. R63ZE/R63ZF/R63ZG/kernel/cache regressions retain their
   frozen hashes.
