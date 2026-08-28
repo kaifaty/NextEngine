@@ -24,7 +24,7 @@ NSR3B4E2D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT /
 NSR3B4E2D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED /
 NSR3B4E2D7R20R63ZI_ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_AUTHOR_REJECTED /
 NSR3B4E2D7R20R63ZJ_PRODUCT_PRECISION_LOCALIZATION_INCONCLUSIVE /
-NSR3B4E2D7R20R63ZK_INITIAL_REVIEW_NO_GO_REVISION_2_REPAIR_FROZEN /
+NSR3B4E2D7R20R63ZK_REVISION_2_AUTHOR_PASS_REVIEW_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4206,6 +4206,16 @@ returned `NO-GO`: scalar payload/positivity semantics, complete work seals,
 specific mismatch routes and several semantic fields/controls were missing.
 Revision 2 freezes the experiment's only batched repair across all findings;
 representation and production work remain blocked.
+
+The
+[R63ZK repair evidence](../../development/nonlocal-nsr3b4e2d7r20r63zk-repair-evidence-2026-08-28.md)
+records repaired snapshot `7635d664`. Dev and two Release outputs are
+byte-identical at `73df9f1b...2755`; explicit scalars, four positivity guards,
+complete producer/checker/control receipts and first-specific routes close.
+All `64` controls pass, including `19` author-valid replays. The
+[single re-review request](../../development/nonlocal-nsr3b4e2d7r20r63zk-independent-rereview-request-2026-08-28.md)
+is frozen. No reviewed correspondence or representation/production authority
+exists before its verdict.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
