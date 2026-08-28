@@ -3,6 +3,7 @@ use super::EntrySpec;
 pub(super) const GREEN_GOBLET_PROFILE_ID: &str = "green-goblet-row-0-v1";
 pub(super) const BLUE_BOWL_PROFILE_ID: &str = "blue-bowl-row-0-v1";
 pub(super) const SHELL_PLATE_PROFILE_ID: &str = "shell-plate-row-0-v1";
+pub(super) const SKULL_CUP_PROFILE_ID: &str = "skull-cup-row-0-v1";
 
 const GREEN_GOBLET_ENTRIES: [EntrySpec; 8] = [
     EntrySpec::new(
@@ -229,6 +230,81 @@ const SHELL_PLATE_ENTRIES: [EntrySpec; 8] = [
     ),
 ];
 
+const SKULL_CUP_ENTRIES: [EntrySpec; 8] = [
+    EntrySpec::new(
+        "60_SkullCup/preprocessed/vertexXYZ.npy",
+        2_328_001_613,
+        2_328_001_709,
+        440,
+        72_128,
+        0x582e_9400,
+        "39af95785c0aed2ee67f6f57f218e2cf2a4c88f94fc3a00387018a7fae11db0c",
+    ),
+    EntrySpec::new(
+        "60_SkullCup/preprocessed/micID.npy",
+        2_328_001_296,
+        2_328_001_388,
+        225,
+        24_128,
+        0x082e_c0c6,
+        "d603b6155b4bad60d9ed6633734b8f52fcad208d5320f925911fc7c463224d6b",
+    ),
+    EntrySpec::new(
+        "60_SkullCup/preprocessed/transformed.obj",
+        2_328_002_149,
+        2_328_002_247,
+        615_856,
+        3_500_053,
+        0xb790_acfb,
+        "b818bcefe67dc863f6b8dc656a40b02a31a3d12f124ad80fbe45c494ff4a5b5a",
+    ),
+    EntrySpec::new(
+        "60_SkullCup/preprocessed/vertexID.npy",
+        153,
+        248,
+        160,
+        24_128,
+        0x9b3e_40b4,
+        "6b5badc5f126c6dfe29d0c760c06e020e7304dea5b74dd2a7d2b07186eb784d2",
+    ),
+    EntrySpec::new(
+        "60_SkullCup/preprocessed/listenerXYZ.npy",
+        2_327_997_891,
+        2_327_997_989,
+        2_923,
+        72_128,
+        0xee42_6e91,
+        "83fa3f27780ab2f56e1b33afa4fbcb25fb712ac0b3731d5343a42ecff7d94dd4",
+    ),
+    EntrySpec::new(
+        "60_SkullCup/preprocessed/distance.npy",
+        2_325_490_292,
+        2_325_490_387,
+        294,
+        24_128,
+        0x570b_48dd,
+        "95dbc48e33263762a9d0c6233902e53ba754dc5e53943b17043491827dc7188a",
+    ),
+    EntrySpec::new(
+        "60_SkullCup/preprocessed/deconvolved_0db.npy",
+        408,
+        510,
+        2_325_489_590,
+        2_514_588_128,
+        0x5a7f_5d39,
+        "",
+    ),
+    EntrySpec::new(
+        "60_SkullCup/preprocessed/angle.npy",
+        2_328_000_912,
+        2_328_001_004,
+        292,
+        24_128,
+        0xfabb_9a2e,
+        "ed65ac28e45cc119b5d42c49293546f2749aa5f9629f6ffa9e0f35f2420874a3",
+    ),
+];
+
 #[derive(Clone, Copy)]
 pub(super) struct FrozenProfile {
     pub(super) id: &'static str,
@@ -266,7 +342,7 @@ pub(super) struct FrozenProfile {
     pub(super) audition_file_name: &'static str,
 }
 
-const PROFILES: [FrozenProfile; 3] = [
+const PROFILES: [FrozenProfile; 4] = [
     FrozenProfile {
         id: GREEN_GOBLET_PROFILE_ID,
         archive_url: "https://downloads.cs.stanford.edu/viscam/RealImpact/93_GreenGoblet.zip",
@@ -372,6 +448,41 @@ const PROFILES: [FrozenProfile; 3] = [
         row_file_name: "shell-plate-row0000-deconvolved.f32le",
         audition_file_name: "shell-plate-row0000-audition.wav",
     },
+    FrozenProfile {
+        id: SKULL_CUP_PROFILE_ID,
+        archive_url: "https://downloads.cs.stanford.edu/viscam/RealImpact/60_SkullCup.zip",
+        archive_bytes: 2_328_619_384,
+        archive_etag: "6433e696-8acbe978",
+        archive_last_modified_http: "Mon, 10 Apr 2023 10:36:06 GMT",
+        archive_last_modified_iso: "2023-04-10T10:36:06Z",
+        central_offset: 2_328_618_103,
+        central_bytes: 1_259,
+        central_sha256: "61d780fe1198cb1b7b57d0add264f2256565b6a8fe63901ca82df7b44f68a6c0",
+        entry_count: 12,
+        audio_prefix_bytes: 1_048_576,
+        audio_prefix_sha256: "325e350b9b4d10eb333d2b0e166f86337a2a7102a625727e41915528dece0c1b",
+        entries: &SKULL_CUP_ENTRIES,
+        dataset_object_id: "60_SkullCup",
+        material_family: "glass",
+        audio_entry_name: "60_SkullCup/preprocessed/deconvolved_0db.npy",
+        audio_crc32: "5a7f5d39",
+        audio_sample_count: 209_549,
+        audio_row_sha256: "817da17e6f4b069f0a9f367d2c564a82cf14eb254f699b846c6770543672bb41",
+        expected_impact_vertex_id: 2_764,
+        expected_impact_position: [0.014_031_21, -0.041_292_1, 0.144_132_1],
+        expected_listener_position: [0.23, -0.043_45, -0.91],
+        expected_mesh_vertex_count: 47_810,
+        retrieved_at: "2026-08-28",
+        inventory_id: "ps2-realimpact-skull-cup-e2-range-v1",
+        inventory_entry_id: "realimpact-skull-cup-row0000",
+        domain_id: "realimpact-skull-cup-thread-mesh-transfer",
+        object_family_id: "realimpact-skull-cup",
+        object_id: "realimpact-60-skullcup",
+        geometry_revision: "mesh-b818bcefe67d-v1",
+        impact_position_id: "mesh-vertex-2764",
+        row_file_name: "skull-cup-row0000-deconvolved.f32le",
+        audition_file_name: "skull-cup-row0000-audition.wav",
+    },
 ];
 
 pub(super) fn frozen_profile(id: &str) -> Result<&'static FrozenProfile, String> {
@@ -380,7 +491,7 @@ pub(super) fn frozen_profile(id: &str) -> Result<&'static FrozenProfile, String>
         .find(|profile| profile.id == id)
         .ok_or_else(|| {
             format!(
-                "unsupported REALIMPACT row profile {id}; expected {GREEN_GOBLET_PROFILE_ID}, {BLUE_BOWL_PROFILE_ID}, or {SHELL_PLATE_PROFILE_ID}"
+                "unsupported REALIMPACT row profile {id}; expected {GREEN_GOBLET_PROFILE_ID}, {BLUE_BOWL_PROFILE_ID}, {SHELL_PLATE_PROFILE_ID}, or {SKULL_CUP_PROFILE_ID}"
             )
         })
 }
