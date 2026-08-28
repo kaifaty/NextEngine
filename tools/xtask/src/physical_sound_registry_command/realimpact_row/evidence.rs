@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::Serialize;
 
+use super::profiles::GLASS_GOBLET_PROFILE_ID;
 use super::*;
 
 static NEXT_STAGING: AtomicU64 = AtomicU64::new(0);
@@ -329,6 +330,29 @@ pub(super) struct AcquisitionReport<'a> {
 
 pub(super) fn provenance_review(profile: &FrozenProfile) -> String {
     let review = match profile.id {
+        GLASS_GOBLET_PROFILE_ID => {
+            "# REALIMPACT GlassGoblet bounded-range provenance review\n\n\
+Status: development-only external E2 transfer pilot; corpus admission and\n\
+redistribution are not authorized.\n\n\
+Primary sources:\n\n\
+- https://samuelpclarke.com/realimpact/\n\
+- https://github.com/samuel-clarke/RealImpact\n\
+- https://jiajunwu.com/papers/realimpact_cvpr.pdf\n\
+- https://downloads.cs.stanford.edu/viscam/RealImpact/94_GlassGoblet.zip\n\n\
+The official preprocessing code converts the synchronized hammer trace to\n\
+newtons and deconvolves it from the 48 kHz microphone recordings. The published\n\
+archive contains the object mesh, impact/listener coordinates and a 3000 x\n\
+208457 float32 deconvolved transfer array. It does not contain the raw force\n\
+profile, material-composition revision, repeat identity or a versioned support\n\
+fixture, so the row remains fallback-only.\n\n\
+This acquisition reads the 1295-byte ZIP central directory, six small NPY\n\
+members, the compressed mesh and a fixed 1048576-byte prefix of the large raw-\n\
+deflate transfer member. The prefix yields the NPY header and row 0 without\n\
+downloading the 2312738494-byte archive. The row's impact coordinate matches\n\
+mesh vertex 12351 exactly. Archive HTTP identity, central directory, entry\n\
+metadata, decoded members, row payload and normalized audition WAV are all\n\
+hash-closed. Extracted bytes stay outside Git and are used only for research.\n"
+        }
         GREEN_GOBLET_PROFILE_ID => {
             "# REALIMPACT GreenGoblet bounded-range provenance review\n\n\
 Status: development-only external E2 transfer pilot; corpus admission and\n\

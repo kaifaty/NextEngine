@@ -17,6 +17,7 @@ mod source_feasibility;
 mod split_feasibility;
 mod split_freeze;
 mod transfer_calibration;
+use transfer_calibration::run_cli as run_transfer;
 
 const MANIFEST_SCHEMA: &str =
     "nextengine.experimental-physical-sound-research-registry.manifest.v1";
@@ -87,11 +88,10 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         }
         Some("source-feasibility") => return source_feasibility::run_cli(root, arguments.skip(1)),
         Some("spatial-calibration") => return realimpact_row::run_spatial(root, arguments.skip(1)),
+        Some("spatial-extension") => return realimpact_row::run_extension(root, arguments.skip(1)),
         Some("split-feasibility") => return split_feasibility::run_cli(root, arguments.skip(1)),
         Some("split-freeze") => return split_freeze::run_cli(root, arguments.skip(1)),
-        Some("transfer-calibration") => {
-            return transfer_calibration::run_cli(root, arguments.skip(1));
-        }
+        Some("transfer-calibration") => return run_transfer(root, arguments.skip(1)),
         _ => {}
     }
     let request = parse_arguments(arguments)?;

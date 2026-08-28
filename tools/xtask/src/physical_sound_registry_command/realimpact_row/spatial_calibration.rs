@@ -14,6 +14,14 @@ use self::dsp::{
 use super::*;
 
 mod dsp;
+mod extension;
+
+pub(super) fn run_extension_cli(
+    root: &Path,
+    arguments: impl Iterator<Item = String>,
+) -> Result<(), String> {
+    extension::run_cli(root, arguments)
+}
 
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-realimpact-spatial-calibration.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-realimpact-spatial-calibration.report.v1";
