@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-28 |
-| Текущая точка | R1–R7 завершены на current Linux product boundary. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) closed B-12 on exact commit `e48f2eac…`; [R7d final hardening](development/task-state/r7d-final-product-hardening.md) and [R7e distribution closure](development/task-state/r7e-linux-distribution-closure.md) close on exact code commit `919663ff…`. The final native target report is `PASS / release_ready=true` with all eight checks passing, and two independently built PackageManifest V6 trees are byte/mode-identical at manifest `47beaf91…`. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
+| Текущая точка | R1–R7 завершены на current Linux product boundary. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) closed B-12 on exact commit `e48f2eac…`; [R7d final hardening](development/task-state/r7d-final-product-hardening.md) and [R7e distribution closure](development/task-state/r7e-linux-distribution-closure.md) close on exact code commit `919663ff…`. The final native target report is `PASS / release_ready=true` with all eight checks passing, and two independently built PackageManifest V6 trees are byte/mode-identical at manifest `47beaf91…`. R8a condition work is complete; [R8b first learned locomotion](development/task-state/r8b-first-learned-locomotion.md) is the selected post-v1 WIP, beginning with a separate no-training preflight for visible standing and forward start/stop. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142 or authority over R8b. |
 | Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
 | R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v4` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. Final R7c V2 evidence closes the R2 hard-performance gap and B-12. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -225,7 +225,7 @@ flowchart LR
 | R5. Physical character integration | `COMPLETE / PROCEDURAL_BASELINE / R5A–R5J_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a–R5i provide the current exact animation, motor, skinning and bounded-LOD path. R5j closes mandatory `PHYS-P6` trip/carry/contact-driven-melee evidence with actual compound-shape contacts, positive capsule clearance and exact blocked-contact restart. General graph/non-identity retarget/physical IK, active articulation and learned routes remain optional or post-baseline. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
 | R6. Creator beta | `COMPLETE / R6G_SDK_WORKFLOW` | L–XL | Canonical external guide plus governed edited cold-start, project/package lifecycle, scenario minimization, Replay V10 first-divergence/domain inspection and externally visible Luau/Wasm examples close the bounded beta without a private bootstrap. |
 | R7. V1 release candidate | `COMPLETE / LINUX_ONLY / V1.0.0_PUBLISHED` | L | Exact code commit `919663ff…` passes the eight-check native gate, physical Vulkan platform path, packaged runtime/desktop smoke and V6 distribution closure. GitHub release `v1.0.0` publishes the exact validated archive/manifest/report assets. Windows does not block or participate. |
-| R8. Post-v1 tracks | `IN_PROGRESS / R8A_CONDITION_SUBSET` | отдельные программы | ADR-098 starts only the bounded intact-topology condition/capability path; unrelated optional AI/narrative/importer/advanced rendering remain independently gated. |
+| R8. Post-v1 tracks | `IN_PROGRESS / R8B_FIRST_LEARNED_LOCOMOTION_SELECTED` | отдельные программы | R8a closes the bounded intact-topology condition/capability subset. R8b is the active visibility-first learned-Motor package: stand, then bounded forward start/stop, without reopening R141 or weakening the procedural fallback. Other optional tracks remain independently gated. |
 
 ## R0 — Walking skeleton
 
@@ -1948,7 +1948,7 @@ SPEC-17, SPEC-29, ADR-001, ADR-030, ADR-090.
 
 ## R8 — Post-v1 programs
 
-**Текущий пакет R8a:** `IMPLEMENTED / INJURY-CONDITION-P1=PASS /
+**Завершённый пакет R8a:** `IMPLEMENTED / INJURY-CONDITION-P1=PASS /
 CROSS_CHECKS_PASS`. ADR-098 promotes only one BodySchema-bound
 left-lower-limb profile, RPG condition/treatment owner, Mechanics compiler and
 derived fixed-PD capability envelope. `physical-character` proves two subjects,
@@ -1957,6 +1957,39 @@ fracture/topology, ordinary limp/fall/crawl, UI/visual severity and workload LOD
 are not part of R8a. The current Linux `host-check`, `play`,
 `persistence-replay` and `content-package` all pass; full
 `INJURY-EMBODIMENT-P1` remains `NOT_RUN`.
+
+**Текущий пакет R8b:** `SELECTED / ACTIVE_R&D /
+FIRST_LEARNED_LOCOMOTION / PREFLIGHT_NEXT`. Product priority moves to the
+smallest player-visible learned-Motor result on the frozen Stage 0 V1
+humanoid. R8b is a new separately hash-closed lineage, not R142 and not a
+continuation, repair or relabeling of R123–R141, the rejected TRAIN-5
+checkpoints or the motion-reference corpus. Its fixed order is:
+
+1. no-training preflight: exact standing/flat-command BodySchema, environment,
+   runner, external-store and active-host identities; CPU PhysX checks remain
+   authority and Isaac/GPU capability is reported separately; before model
+   output exists, freeze five walking evaluation schedules whose command-side
+   closure includes at least `3 m` cumulative forward target and a final exact
+   zero-command interval of at least `180` motor ticks;
+2. learned standing checkpoint: five fixed held-out seeds each survive the
+   complete 3,600-tick standing episode to exact timeout/truncation with zero
+   environment-declared safety/contact violation, non-finite value or
+   overflow, followed by an optional replay-bound visual capture;
+3. learned forward start/stop checkpoint: only the existing first curriculum
+   stage (`0..0.75 m/s`, no strafe/yaw/backward) is in scope; each admitted
+   held-out episode travels at least `3 m`, returns to exact zero command and
+   remains standing for `180` motor ticks with the same zero-safety condition;
+4. only after both checkpoints may a later package consider turns, broader
+   commands, terrain, disturbance/recovery, motion reference, export or
+   runtime activation.
+
+Standing and walking runs use distinct exact manifests. A standing artifact
+may be declared only as immutable parent initialization of a new walking run;
+it is never resumed under another environment identity. The checkpoints are
+bounded R&D evidence, not `Supported` learned Motor, Stage 0 completion,
+runtime promotion or procedural-fallback replacement. Further fracture,
+surface/severity/UI and injury-adapted locomotion work is deferred behind R8b
+without changing the completed R8a result.
 
 Остальные направления получают separate consumer-backed increments и не
 расширяют R8a автоматически:
@@ -1967,9 +2000,9 @@ are not part of R8a. The current Linux `host-check`, `play`,
 | Autonomous quest lifecycle, Narrative Director and divine agency | SPEC-31 `Proposed`; ADR-029/ADR-031 superseded ADR-046 | Вернуться только при наличии конкретного player-visible production consumer; deterministic template fallback реализуется первым. |
 | Text-canonical multimodal dialogue/model packs | SPEC-16/ADR-017 `Proposed` | Явное решение о promotion, privacy/budget policy и text-only fallback. |
 | External `ai-host` | Optional | Stable bounded process protocol, recorded-input replay and complete in-process fallback. |
-| Learned Motor System policy families and full articulation | ADR-066 no-text contact-centric system shape `Accepted`; exact chunks, graph/adapter/expert, training/distillation/rollout profiles and unconsumed wire schemas remain `Proposed` | R5 reference/procedural baseline and consumer-backed BodySchema exist. Promote each family/profile independently only with exact observation/action/state/chunk replay, runtime/training correspondence, multi-seed quality, retention, target parity and declared animation/procedural fallback. |
-| PhysX deterministic humanoid substrate | ADR-058/059/062/063/064/065/067 `Accepted`; immutable standing/flat-command V1 and curriculum V2 CPU environments exist, Stage 0 evidence remains incomplete | Complete the applicable Linux platform/replay gates, accepted Linux hard-performance baseline/gate and Isaac GPU correspondence; Windows applies only after a future target re-entry. No reference backend fallback exists. |
-| Functional anatomy, treatment and visible character embodiment | ADR-098 `CURRENT R8A`: unilateral intact-topology condition/treatment and directional fixed-PD capability; full fracture/surface/UI/LOD vertical remains `Proposed` | Next add stable lower-leg fracture with an explicit atomic condition/Physics boundary and conservative procedural fallback. Retained-vs-detached topology, ordinary adapted locomotion, UI/severity and 16/64/distant workload follow as separately checked increments. |
+| Learned Motor System policy families and full articulation | `R8B SELECTED`; ADR-066 no-text contact-centric system shape `Accepted`; exact chunks, graph/adapter/expert, training/distillation/rollout profiles and unconsumed wire schemas remain `Proposed` | Execute only the visibility-first fixed-humanoid standing then forward start/stop package above. Promotion still requires exact observation/action/state replay, runtime/training correspondence, multi-seed quality, target parity and the declared procedural fallback; R8b checkpoints alone do not promote a runtime route. |
+| PhysX deterministic humanoid substrate | ADR-058/059/062/063/064/065/067 `Accepted`; immutable standing/flat-command V1 and curriculum V2 CPU environments exist, Stage 0 evidence remains incomplete | R8b starts with the applicable current Linux CPU preflight; CPU PhysX remains final evidence authority. Isaac may accelerate an experiment only after its exact descriptor/golden/correspondence preflight. Full Stage 0/default promotion still requires the outstanding Linux and mirror gates; Windows remains outside scope. |
+| Functional anatomy, treatment and visible character embodiment | ADR-098 `R8A COMPLETE / FURTHER WORK DEFERRED_BEHIND_R8B`: unilateral intact-topology condition/treatment and directional fixed-PD capability are current; full fracture/surface/UI/LOD vertical remains `Proposed` | Preserve the passing R8a fallback and schemas unchanged. Stable lower-leg fracture, retained/detached topology, ordinary adapted locomotion, UI/severity and 16/64/distant workload do not enter the active queue until a later explicit roadmap selection. |
 | Local continuum materials: water, deformable terrain, mud and off-road coupling | `PLANNED / NOT_ACTIVE`; SPEC-38/ADR-076 `Proposed`; water `RESEARCH_ONLY`: original W0B `INVALIDATED_BY_RC1`, W0C/W0D closed, W0E local survivor, W0F geometry/QP roots frozen, W0G impact-energy roots frozen, W0H accelerated-pressure roots frozen, W0I reference-attestation root frozen, W1 `LINUX_W1_PASS / CONTINUUM-WATER-REF-P1=PASS`; W2 short scaling `IN_PROGRESS / NO_PRODUCTCHECK_CREDIT`; later ProductChecks `NOT_RUN` | W0F binds shared integer outer/internal geometry, two-layer density support, swept contact and a `32,768` static capacity. W0G retains absolute drift for equilibrium/control scenarios and blocks positive energy excess for named impact cases. Sealed-48k then falsified the globally restarting active-set PCG within its 50-operator budget; W0H keeps the same pressure QP and ceiling, roots fixed-step diagonal-scaled APG, and requires both compression and projected-KKT convergence. W0I rejects the old geometry-violating external trajectories and freezes three twice-reproduced hard-clearance reference hashes without changing W0F/G/H. At clean commit `e00999e`, two complete seven-scenario Linux runs attest all three references, pass every blocking rule and reproduce corpus root `d38d6bc8...e96835`; normalized reports match exactly after excluding only diagnostic wall-clock fields. Windows is outside current scope and not a promotion blocker unless a future ADR reintroduces it. W2 cycle 1 preserves every short-run root while removing duplicate neighbor discovery: reconstruction is `1.801×` and the whole sealed-48k step `1.375×` faster. Cycle 2 adds `64` stable logical partitions; clean serial/worker-`1/2/4/8` short roots and iterations match, while eight workers deliver `3.105×`, `372%` whole-command CPU and a `269.643 ms` mean. That remains `67.41×` above the `4 ms` target, so full trajectory/percentile credit is open and an explicit stop-versus-new-profile decision precedes more long runs or integration. Independent terrain closure remains Package 10T. Main-roadmap activation awaits explicit evidence merge/activation; promotion also requires exact current-target and exchange identity, one composition DAG/PhysX integration, scheduled epochs, worst-case admission, primary-session fault domain and successor combined budget. |
 | Layered physical world and living structural vegetation | `PLANNED / NOT_ACTIVE`; SPEC-39/SPEC-40/ADR-077 `Proposed`; V0B `OPEN` | Freeze the float profile, stable one-body/shape proxies and one-use contact/work receipts. Fracture publishes `PendingFracture`; Outcome owns next-substep rigid topology. Epoch/fault/capacity/combined-budget gates apply. |
 | World-substrate composition and arcane physical magic | `PLANNED / NOT_ACTIVE`; SPEC-41/SPEC-42/ADR-078 `Proposed`; A0A `COMPLETE`, A0B `OPEN` | The current schedule is unchanged; a successor `WorldDynamicsStep` owns the closed DAG. A0B must freeze the full analytical maximum debit. Epoch, capacity, whole-session fault and combined-budget gates apply. |
@@ -1987,7 +2020,9 @@ parallel authority или fixture-only code.
 
 Learned Motor program развивается отдельными independently promotable phases:
 
-1. fixed-humanoid numeric-command MLP MVP with fixed PD and procedural fallback;
+1. `R8B ACTIVE`: fixed-humanoid MLP with fixed PD and procedural fallback,
+   first proving complete-episode standing and then only bounded forward
+   start/stop before any broader locomotion command;
 2. typed physical primitives, contact plans and closed-loop
    `PhysicalActionChunk` without natural-language runtime inputs;
 3. humanoid morphology variations, cached graph encoder, GRU/shared-joint head
@@ -2129,6 +2164,15 @@ dormant historical context, not active debt. R1/B-01 and R7 are closed on the
 Linux-only product boundary. The active v1 implementation queue is empty:
 further work must enter an explicitly selected R8 program and cannot
 retroactively add release ceremony to R7.
+
+The selected post-v1 queue now contains exactly one active package:
+**R8b first learned locomotion (`ACTIVE_R&D / PREFLIGHT_NEXT`)**. Its durable
+resume surface is
+[r8b-first-learned-locomotion.md](development/task-state/r8b-first-learned-locomotion.md).
+The next action is the no-training identity/resource/correspondence preflight;
+no optimizer run is authorized until that preflight passes. R8a fracture and
+embodiment expansion is deferred, and the stopped R141 reference-tracking
+lineage remains immutable and outside this queue.
 
 Следующие work packages рекомендуется выполнять в этом порядке:
 
