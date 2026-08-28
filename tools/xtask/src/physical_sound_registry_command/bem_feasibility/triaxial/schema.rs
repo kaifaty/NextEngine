@@ -106,14 +106,20 @@ pub(super) struct SourceManifest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct SourceFixture {
-    pub(super) id: String,
     pub(super) reference_length_metres: f64,
-    pub(super) semiaxes_metres: Vec<f64>,
     pub(super) speed_of_sound_metres_per_second: f64,
+    #[serde(default)]
+    pub(super) id: String,
+    #[serde(default)]
+    pub(super) semiaxes_metres: Vec<f64>,
+    #[serde(default)]
     pub(super) surface_mode: String,
+    #[serde(default)]
     pub(super) surface_profile_projection: String,
+    #[serde(default)]
     pub(super) wave_number_reference_length_values: Vec<f64>,
     pub(super) listener_radius_reference_multipliers: Vec<f64>,
+    #[serde(default)]
     pub(super) listener_directions: Vec<[f64; 3]>,
 }
 
@@ -125,12 +131,22 @@ pub(super) struct SourceReport {
     pub(super) manifest_sha256: String,
     pub(super) decision: String,
     pub(super) gate: BTreeMap<String, bool>,
-    pub(super) fine: SourceLevel,
+    #[serde(default)]
+    pub(super) common_wave_number_reference_length: Option<f64>,
+    #[serde(default)]
+    pub(super) listener_directions: Vec<[f64; 3]>,
+    #[serde(default)]
+    pub(super) fine: Option<SourceLevel>,
+    #[serde(default)]
+    pub(super) bem_fine: Option<SourceLevel>,
 }
 
 #[derive(Debug, Deserialize)]
 pub(super) struct SourceLevel {
-    pub(super) mesh_refinement_level: usize,
+    #[serde(default)]
+    pub(super) mesh_refinement_level: Option<usize>,
+    #[serde(default)]
+    pub(super) angular_refinement_level: Option<usize>,
     pub(super) panel_count: usize,
     pub(super) condition_count: usize,
     pub(super) conditions: Vec<SourceCondition>,
@@ -142,7 +158,8 @@ pub(super) struct SourceCondition {
     pub(super) frequency_hz: f64,
     pub(super) listener_radius_reference_multiplier: f64,
     pub(super) direction_index: usize,
-    pub(super) surface_profile_direction_value: f64,
+    #[serde(default)]
+    pub(super) surface_profile_direction_value: Option<f64>,
     pub(super) computed: ComplexValue,
 }
 
@@ -151,7 +168,9 @@ impl SourceCondition {
         self.wave_number_reference_length.is_finite()
             && self.frequency_hz.is_finite()
             && self.listener_radius_reference_multiplier.is_finite()
-            && self.surface_profile_direction_value.is_finite()
+            && self
+                .surface_profile_direction_value
+                .is_none_or(f64::is_finite)
             && self.computed.is_finite()
     }
 }
@@ -165,8 +184,8 @@ pub(super) struct Report<'a> {
     pub(super) study_id: &'a str,
     pub(super) protocol_revision: &'a str,
     pub(super) manifest_sha256: &'a str,
-    pub(super) source_manifest_sha256: &'static str,
-    pub(super) source_report_sha256: &'static str,
+    pub(super) source_manifest_sha256: &'a str,
+    pub(super) source_report_sha256: &'a str,
     pub(super) split: &'a Split,
     pub(super) candidates: Vec<CandidateReport>,
     pub(super) selected_candidate_id: Option<String>,
@@ -207,7 +226,7 @@ pub(super) struct HeldCondition {
     pub(super) frequency_hz: f64,
     pub(super) listener_radius_reference_multiplier: f64,
     pub(super) direction_index: usize,
-    pub(super) surface_profile_direction_value: f64,
+    pub(super) surface_profile_direction_value: Option<f64>,
     pub(super) active_field: bool,
     pub(super) target: ComplexValue,
     pub(super) predicted: ComplexValue,

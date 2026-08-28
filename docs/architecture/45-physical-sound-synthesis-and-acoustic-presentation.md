@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.40 |
+| Version | 0.41 |
 | Last verified | 2026-08-28 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [PS-2 YCB vertical reject-parent expansion](../development/physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Blue Bowl cross-tier E2 increment](../development/physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [PS-2 REALIMPACT Shell Plate bounded-range E2 pilot](../development/physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md), [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Skull Cup bounded-range E2 pilot](../development/physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md), [PS-2 SoundPacks Glass E3 and split audit](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md), [PS-2 Kronland reject expansion and split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [PS-2 exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [PS-2 internet-source feasibility and transfer route](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [PS-2 REALIMPACT transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [PS-2 REALIMPACT vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [PS-2 REALIMPACT shape-conditioned spatial calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT frequency-conditioned spatial calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT modal-radiation representation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [PS-2 analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md) |
-| Replaces | SPEC-45 0.39; records convergent triaxial/non-axisymmetric prescribed-mode radiation and a full-angular near-to-far cooker while retaining the FEM, real-data and production blocks |
-| Latest evidence | [PS-2 triaxial Bempp mode and full-angular cooker](../development/physical-sound-bempp-triaxial-full-angular-cooker-ps2-2026-08-28.md) |
+| Replaces | SPEC-45 0.40; records convergent synthetic elastic FEM-eigenmode coupling into Bempp and the full-angular near-to-far cooker while retaining real-data, material, quality, admission and production blocks |
+| Latest evidence | [PS-2 elastic FEM eigenmode to Bempp and cooker](../development/physical-sound-fem-eigenmode-bempp-cooker-ps2-2026-08-28.md) |
 
 ## Status and decision boundary
 
@@ -575,10 +575,27 @@ out the complete `4L/10L` shells. It rejects the `m=0` control and selects the
 smallest passing full-angular candidate, degree two, at `0.04604` maximum
 peak-normalized error and `0.9990417` minimum correlation; reports repeat at
 `a0e0d881…b0be`. This supports one synthetic non-spherical prescribed-mode
-near-to-far representation only. Next couple an actual elastic FEM eigenmode
-on a non-spherical mesh into the same Bempp/cooker path. REALIMPACT and ceramic
-holdouts, real-object/material/quality/admission/runtime credit and `Pass`
-remain sealed or disabled.
+near-to-far representation only and defined the following elastic FEM coupling
+checkpoint. REALIMPACT and ceramic holdouts, real-object/material/quality/
+admission/runtime credit and `Pass` remained sealed or disabled.
+
+The synthetic elastic coupling checkpoint now passes too. A deterministic
+core-clamped linear tetrahedral FEM on the same triaxial solid solves and
+tracks one non-axisymmetric radiating eigenmode across `128/512/2048` surface
+panels. The original coarse schedule remains an immutable rejection at report
+`a58f28b9…90ef`. A separately frozen refined schedule passes all 16
+eigenfrequency, mode-match, surface-profile, eigensolver, GMRES and Bempp-field
+gates and repeats at `a71515fa…a667`; its selected frequencies converge from
+`388.960` through `363.091` to `355.651 Hz`. The unchanged full-near-shell
+cooker then fits 56 directions at `2L`, holds out 112 conditions at `4L/10L`,
+rejects the axisymmetric control and selects full degree two at `0.030975`
+maximum peak-normalized error and `0.9996932` minimum correlation. Reports
+repeat at `c3101130…b476`. This closes one synthetic FEM-eigenmode-to-acoustic
+representation prerequisite only. It does not identify a real material,
+support or object and grants no quality, admission, runtime or ProductCheck
+credit. Any fresh real-data step must be separately preregistered with an
+object-disjoint split, immutable gates and per-object/clip fallback before its
+reserved payload is opened.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

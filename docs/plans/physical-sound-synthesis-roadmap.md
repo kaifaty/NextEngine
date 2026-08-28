@@ -2,11 +2,11 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_TRIAXIAL_FULL_SHELL_COOKER_SUPPORTED / SPARSE_ANGULAR_INTERPOLATION_REJECTED / BYTE_IDENTICAL_REPEATS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / FEM_EIGENMODE_COUPLING_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_ELASTIC_FEM_BEMPP_COOKER_SUPPORTED / COARSE_FEM_PROTOCOL_REJECTED / BYTE_IDENTICAL_REPEATS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / FRESH_OBJECT_DISJOINT_SPATIAL_TRANSFER_PREREGISTRATION_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Актуальное evidence | [PS-2 triaxial Bempp mode and full-angular cooker](../development/physical-sound-bempp-triaxial-full-angular-cooker-ps2-2026-08-28.md) |
+| Актуальное evidence | [PS-2 elastic FEM eigenmode to Bempp and cooker](../development/physical-sound-fem-eigenmode-bempp-cooker-ps2-2026-08-28.md) |
 | Текущий evidence | [PS-2 Bempp quadrupole surface mode and Rust cooker](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), [PS-2 independent Bempp analytical control](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md), [BEM panel-quadrature discriminator](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md), [analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [REALIMPACT modal-radiation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [Triaxial Bempp mode and full-angular cooker](../development/physical-sound-bempp-triaxial-full-angular-cooker-ps2-2026-08-28.md) |
+| Последний пакет | [Elastic FEM eigenmode to Bempp and full-angular cooker](../development/physical-sound-fem-eigenmode-bempp-cooker-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -111,7 +111,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / TRIAXIAL_FULL_SHELL_COOKER_SUPPORTED / SPARSE_ANGULAR_INTERPOLATION_REJECTED / BYTE_IDENTICAL_REPEATS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / FEM_EIGENMODE_COUPLING_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | Triaxial Bempp converges at report `49bee8c2…76ef`. Sparse near-angle interpolation remains rejected at `6d5f653a…ef55`; the separately frozen full-near-shell protocol rejects `m=0`, selects full degree 2 and predicts 224 held `4L/10L` conditions with `4.6045%` max error at report `a0e0d881…b0be`. Credit is synthetic prescribed-mode transfer only. Next couple one actual elastic FEM surface eigenmode before real-data validation or PS-3. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / ELASTIC_FEM_BEMPP_COOKER_SUPPORTED / COARSE_FEM_PROTOCOL_REJECTED / BYTE_IDENTICAL_REPEATS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / FRESH_OBJECT_DISJOINT_SPATIAL_TRANSFER_PREREGISTRATION_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | The coarse FEM schedule remains rejected at `a58f28b9…90ef`. The refined elastic eigenmode passes all 16 FEM/Bempp gates at `a71515fa…a667`; the full-shell cooker rejects `m=0`, selects degree 2 and predicts 112 held `4L/10L` conditions with `3.0975%` maximum error at `c3101130…b476`. Credit is synthetic FEM coupling only. Next preregister a fresh object-disjoint real spatial-transfer calibration before opening reserved payloads or advancing PS-3. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -608,9 +608,24 @@ full-near-shell manifest `e69f09b2…b896` fits all 56 near directions and holds
 out all 224 `4L/10L` conditions. It rejects `m=0`, selects full degree 2 at
 `0.04604` maximum peak error and `0.9990417` minimum correlation, and repeats
 at `a0e0d881…b0be`. This closes non-spherical prescribed-mode representation,
-not FEM/material/real-field/quality/admission/runtime evidence. Next couple one
-actual elastic FEM eigenmode while REALIMPACT and ceramic holdouts remain
+not FEM/material/real-field/quality/admission/runtime evidence, and defined the
+following elastic FEM checkpoint. REALIMPACT and ceramic holdouts remained
 sealed. See the [triaxial evidence](../development/physical-sound-bempp-triaxial-full-angular-cooker-ps2-2026-08-28.md).
+
+PS-2 elastic FEM/Bempp checkpoint: coarse manifest `eaff559d…79d4` is retained
+as a rejection at report `a58f28b9…90ef`; it fails the frozen eigenfrequency,
+surface-profile and BEM-field convergence gates. Refined manifest
+`1adfe3d6…abf7` tracks the same non-axisymmetric mode across `128/512/2048`
+surface panels, converges to `355.651 Hz` and passes all 16 gates; reports
+repeat at `a71515fa…a667`. Cooker manifest `d4daf0f3…4cf1` fits all 56 `2L`
+directions, holds out 112 `4L/10L` conditions, rejects `m=0` and selects full
+degree 2 at `0.030975` maximum peak error and `0.9996932` minimum correlation.
+Reports repeat at `c3101130…b476`. This closes one synthetic elastic
+eigenmode-to-acoustic representation prerequisite, not real object, material,
+quality, admission or runtime evidence. Next preregister one fresh
+object-disjoint real spatial-transfer calibration before opening any reserved
+REALIMPACT rows; preserve per-object/clip fallback. See the [FEM/Bempp
+evidence](../development/physical-sound-fem-eigenmode-bempp-cooker-ps2-2026-08-28.md).
 
 ## PS-2 — Сделать риск статистически измеримым
 
@@ -753,7 +768,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `TRIAXIAL_FULL_SHELL_COOKER_SUPPORTED / SPARSE_ANGULAR_INTERPOLATION_REJECTED / NO_FRESH_DATA_OPENED / FEM_EIGENMODE_COUPLING_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next couple one elastic FEM mode while preserving ceramic holdouts | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `ELASTIC_FEM_BEMPP_COOKER_SUPPORTED / COARSE_FEM_PROTOCOL_REJECTED / NO_FRESH_DATA_OPENED / FRESH_OBJECT_DISJOINT_SPATIAL_TRANSFER_PREREGISTRATION_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next freeze the real-data protocol before opening reserved payloads | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 

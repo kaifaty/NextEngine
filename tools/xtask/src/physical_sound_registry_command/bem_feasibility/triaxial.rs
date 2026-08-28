@@ -12,6 +12,7 @@ use super::super::{
     resolve_output_path, sha256_hex,
 };
 
+mod fem;
 mod model;
 mod schema;
 
@@ -19,10 +20,15 @@ use self::schema::*;
 
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-triaxial-cooker.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-triaxial-cooker.report.v1";
+const FEM_MANIFEST_SCHEMA: &str =
+    "nextengine.experimental-physical-sound-fem-mode-cooker.manifest.v1";
+const FEM_REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-fem-mode-cooker.report.v1";
 const SPARSE_MANIFEST_SHA256: &str =
     "e3bbd547dd888cafa0be345d6abe3cb4d3c1569a2f12f362306bcb68b8c3851e";
 const FULL_SHELL_MANIFEST_SHA256: &str =
     "e69f09b20b4f3bef57c8008fe114ddc5e6ba7f3220baf3657fe8d1f624d1b896";
+const FEM_MANIFEST_SHA256: &str =
+    "d4daf0f3fa2e421330634789613f8c40130253bf69088077b140b94291fa4cf1";
 const SOURCE_MANIFEST_SHA256: &str =
     "74d8ebd1339faddf5727d0e02e1671a3a2a9295b83524f1f9336e1ec3cee267d";
 const SOURCE_REPORT_SHA256: &str =
@@ -75,7 +81,13 @@ fn run(root: &Path, manifest_argument: &Path, output_argument: &Path) -> Result<
         "triaxial cooker manifest",
     )?;
     let manifest_sha256 = sha256_hex(&manifest_bytes);
-    if manifest_sha256 != SPARSE_MANIFEST_SHA256 && manifest_sha256 != FULL_SHELL_MANIFEST_SHA256 {
+    if ![
+        SPARSE_MANIFEST_SHA256,
+        FULL_SHELL_MANIFEST_SHA256,
+        FEM_MANIFEST_SHA256,
+    ]
+    .contains(&manifest_sha256.as_str())
+    {
         return Err(format!(
             "triaxial cooker manifest hash is not registered: {manifest_sha256}"
         ));
@@ -168,6 +180,9 @@ fn require_hash(bytes: &[u8], expected: &str, label: &str) -> Result<(), String>
 }
 
 fn validate_manifest(manifest: &Manifest, manifest_sha256: &str) -> Result<(), String> {
+    if manifest_sha256 == FEM_MANIFEST_SHA256 {
+        return fem::validate_manifest(manifest);
+    }
     let sparse = manifest_sha256 == SPARSE_MANIFEST_SHA256;
     let expected_fit = if sparse {
         (0..16).chain(24..32).chain(40..56).collect::<Vec<_>>()
@@ -292,8 +307,15 @@ fn validate_source(
     source_manifest: &SourceManifest,
     source_report: &SourceReport,
 ) -> Result<(), String> {
+    if manifest.schema == FEM_MANIFEST_SCHEMA {
+        return fem::validate_source(manifest, source_manifest, source_report);
+    }
     let fixture = &source_manifest.fixture;
     let contract = &manifest.source_contract;
+    let fine = source_report
+        .fine
+        .as_ref()
+        .ok_or_else(|| "triaxial Bempp source has no fine level".to_owned())?;
     if source_manifest.schema
         != "nextengine.experimental-physical-sound-bempp-triaxial-mode.manifest.v1"
         || source_manifest.study_id != contract.study_id
@@ -312,10 +334,10 @@ fn validate_source(
         || source_report.protocol_revision != contract.protocol_revision
         || source_report.manifest_sha256 != contract.manifest_sha256
         || source_report.decision != contract.decision
-        || source_report.fine.mesh_refinement_level != contract.fine_mesh_refinement_level
-        || source_report.fine.panel_count != contract.fine_panel_count
-        || source_report.fine.condition_count != contract.fine_condition_count
-        || source_report.fine.conditions.len() != contract.fine_condition_count
+        || fine.mesh_refinement_level != Some(contract.fine_mesh_refinement_level)
+        || fine.panel_count != contract.fine_panel_count
+        || fine.condition_count != contract.fine_condition_count
+        || fine.conditions.len() != contract.fine_condition_count
         || source_report.gate.len() != 9
         || source_report.gate.values().any(|passed| !passed)
     {
@@ -331,7 +353,7 @@ fn validate_source(
             return Err("triaxial Bempp listener direction is invalid".to_owned());
         }
     }
-    for condition in &source_report.fine.conditions {
+    for condition in &fine.conditions {
         if !condition.is_finite()
             || !fixture
                 .wave_number_reference_length_values
@@ -347,8 +369,7 @@ fn validate_source(
     for wave_number in &fixture.wave_number_reference_length_values {
         for radius in &fixture.listener_radius_reference_multipliers {
             for direction_index in 0..fixture.listener_directions.len() {
-                let count = source_report
-                    .fine
+                let count = fine
                     .conditions
                     .iter()
                     .filter(|condition| {
@@ -372,6 +393,7 @@ fn build_report<'a>(
     source_manifest: &SourceManifest,
     source_report: &SourceReport,
 ) -> Result<Report<'a>, String> {
+    let fem_mode = manifest.schema == FEM_MANIFEST_SCHEMA;
     let mut candidates = Vec::new();
     for candidate in &manifest.candidates {
         candidates.push(evaluate_candidate(
@@ -399,19 +421,31 @@ fn build_report<'a>(
     };
     let passed = gate.all_passed();
     Ok(Report {
-        schema: REPORT_SCHEMA,
+        schema: if fem_mode {
+            FEM_REPORT_SCHEMA
+        } else {
+            REPORT_SCHEMA
+        },
         status: "Validated",
-        decision: if passed {
+        decision: if fem_mode && passed {
+            "FullAngularElasticFemModeNearToFarCookerSupported"
+        } else if fem_mode {
+            "FullAngularElasticFemModeNearToFarCookerRejected"
+        } else if passed {
             "FullAngularTriaxialNearToFarCookerSupported"
         } else {
             "FullAngularTriaxialNearToFarCookerRejected"
         },
-        claim: "SYNTHETIC_TRIAXIAL_NONAXISYMMETRIC_NEAR_TO_FAR_COOKER_ONLY / NO_FEM_REAL_OBJECT_MATERIAL_QUALITY_ADMISSION_RUNTIME_OR_REALIMPACT_CREDIT",
+        claim: if fem_mode {
+            "SYNTHETIC_ELASTIC_FEM_MODE_NEAR_TO_FAR_COOKER_ONLY / NO_REAL_OBJECT_MATERIAL_QUALITY_ADMISSION_RUNTIME_OR_REALIMPACT_CREDIT"
+        } else {
+            "SYNTHETIC_TRIAXIAL_NONAXISYMMETRIC_NEAR_TO_FAR_COOKER_ONLY / NO_FEM_REAL_OBJECT_MATERIAL_QUALITY_ADMISSION_RUNTIME_OR_REALIMPACT_CREDIT"
+        },
         study_id: &manifest.study_id,
         protocol_revision: &manifest.protocol_revision,
         manifest_sha256,
-        source_manifest_sha256: SOURCE_MANIFEST_SHA256,
-        source_report_sha256: SOURCE_REPORT_SHA256,
+        source_manifest_sha256: &manifest.source_manifest.sha256,
+        source_report_sha256: &manifest.source_report.sha256,
         split: &manifest.split,
         candidates,
         selected_candidate_id,
@@ -420,7 +454,11 @@ fn build_report<'a>(
         allowed_claims: &manifest.allowed_claims,
         prohibited_claims: &manifest.prohibited_claims,
         data_policy: &manifest.data_policy,
-        next_action: if passed {
+        next_action: if fem_mode && passed {
+            "preregister a fresh object-disjoint real-data spatial-transfer calibration while keeping its payload sealed until the protocol is immutable"
+        } else if fem_mode {
+            "keep REALIMPACT sealed and diagnose FEM surface-mode convergence, angular order or fit conditioning against the unchanged synthetic controls"
+        } else if passed {
             "couple one actual synthetic FEM surface eigenvector on a non-spherical closed mesh to the same independent Bempp and full-angular cooker path before any fresh REALIMPACT payload"
         } else {
             "keep REALIMPACT sealed and diagnose angular order, spherical expansion origin or fit conditioning against the unchanged triaxial oracle"
@@ -435,18 +473,21 @@ fn evaluate_candidate(
     source_report: &SourceReport,
 ) -> Result<CandidateReport, String> {
     let fixture = &source_manifest.fixture;
+    let source_level = source_level(source_report)?;
+    let directions = source_directions(source_manifest, source_report)?;
+    let wave_numbers = source_wave_numbers(source_manifest, source_report)?;
     let mut frequencies = Vec::new();
     let mut held_conditions = Vec::new();
-    for wave_number in &fixture.wave_number_reference_length_values {
+    for wave_number in &wave_numbers {
         let fit_rows = select_conditions(
-            &source_report.fine.conditions,
+            &source_level.conditions,
             *wave_number,
             manifest.split.fit_listener_radius_reference_multiplier,
             &manifest.split.fit_direction_indices,
         )?;
         let fit = fit_coefficients(&FitRequest {
             rows: &fit_rows,
-            directions: &fixture.listener_directions,
+            directions,
             wave_number_reference_length: *wave_number,
             reference_length_metres: fixture.reference_length_metres,
             family: candidate.angular_family,
@@ -458,8 +499,8 @@ fn evaluate_candidate(
             append_held_group(
                 &mut held_conditions,
                 HeldGroupRequest {
-                    conditions: &source_report.fine.conditions,
-                    directions: &fixture.listener_directions,
+                    conditions: &source_level.conditions,
+                    directions,
                     direction_indices: &manifest.split.held_near_direction_indices,
                     wave_number_reference_length: *wave_number,
                     radius_multiplier: manifest.split.fit_listener_radius_reference_multiplier,
@@ -482,8 +523,8 @@ fn evaluate_candidate(
             append_held_group(
                 &mut held_conditions,
                 HeldGroupRequest {
-                    conditions: &source_report.fine.conditions,
-                    directions: &fixture.listener_directions,
+                    conditions: &source_level.conditions,
+                    directions,
                     direction_indices: &manifest.split.held_far_direction_indices,
                     wave_number_reference_length: *wave_number,
                     radius_multiplier: *radius,
@@ -500,7 +541,7 @@ fn evaluate_candidate(
             )?;
         }
     }
-    let aggregate = aggregate(&held_conditions)?;
+    let aggregate = aggregate(&held_conditions, wave_numbers.len())?;
     let gates = &manifest.admission_gates;
     let gate = CandidateGate {
         held_peak_normalized_error_passed: aggregate.held_max_peak_normalized_complex_error
@@ -523,6 +564,61 @@ fn evaluate_candidate(
         gate,
         held_conditions,
     })
+}
+
+fn source_level(source_report: &SourceReport) -> Result<&SourceLevel, String> {
+    if source_report.schema == "nextengine.experimental-physical-sound-bempp-fem-mode.report.v1" {
+        source_report
+            .bem_fine
+            .as_ref()
+            .ok_or_else(|| "FEM/Bempp source has no fine BEM level".to_owned())
+    } else {
+        source_report
+            .fine
+            .as_ref()
+            .ok_or_else(|| "triaxial Bempp source has no fine level".to_owned())
+    }
+}
+
+fn source_directions<'a>(
+    source_manifest: &'a SourceManifest,
+    source_report: &'a SourceReport,
+) -> Result<&'a [[f64; 3]], String> {
+    let directions = if source_report.schema
+        == "nextengine.experimental-physical-sound-bempp-fem-mode.report.v1"
+    {
+        &source_report.listener_directions
+    } else {
+        &source_manifest.fixture.listener_directions
+    };
+    if directions.is_empty() {
+        Err("triaxial cooker source has no listener directions".to_owned())
+    } else {
+        Ok(directions)
+    }
+}
+
+fn source_wave_numbers(
+    source_manifest: &SourceManifest,
+    source_report: &SourceReport,
+) -> Result<Vec<f64>, String> {
+    if source_report.schema == "nextengine.experimental-physical-sound-bempp-fem-mode.report.v1" {
+        source_report
+            .common_wave_number_reference_length
+            .map(|value| vec![value])
+            .ok_or_else(|| "FEM/Bempp source has no common wave number".to_owned())
+    } else if source_manifest
+        .fixture
+        .wave_number_reference_length_values
+        .is_empty()
+    {
+        Err("triaxial cooker source has no wave numbers".to_owned())
+    } else {
+        Ok(source_manifest
+            .fixture
+            .wave_number_reference_length_values
+            .clone())
+    }
 }
 
 fn frequency_report(
@@ -681,8 +777,8 @@ fn evaluate_condition(
     })
 }
 
-fn aggregate(conditions: &[HeldCondition]) -> Result<Aggregate, String> {
-    if conditions.len() != 224 && conditions.len() != 256 {
+fn aggregate(conditions: &[HeldCondition], frequency_count: usize) -> Result<Aggregate, String> {
+    if conditions.is_empty() || frequency_count == 0 {
         return Err("triaxial cooker aggregate dimensions changed".to_owned());
     }
     let peak_errors = conditions
@@ -693,33 +789,34 @@ fn aggregate(conditions: &[HeldCondition]) -> Result<Aggregate, String> {
     let active_magnitude =
         present_values(conditions, |row| row.active_absolute_magnitude_error_db)?;
     let active_phase = present_values(conditions, |row| row.active_absolute_phase_error_degrees)?;
-    let mut correlations = Vec::new();
-    for wave_number in [0.75, 1.5] {
-        for radius in [2.0, 4.0, 10.0] {
-            let group = conditions
-                .iter()
-                .filter(|row| {
-                    row.wave_number_reference_length == wave_number
-                        && row.listener_radius_reference_multiplier == radius
-                })
-                .collect::<Vec<_>>();
-            if group.is_empty() && radius == 2.0 && conditions.len() == 224 {
-                continue;
-            }
-            let expected = if radius == 2.0 { 16 } else { 56 };
-            if group.len() != expected {
-                return Err("triaxial cooker correlation group is incomplete".to_owned());
-            }
-            correlations.push(DirectionalCorrelation {
-                wave_number_reference_length: wave_number,
-                listener_radius_reference_multiplier: radius,
-                direction_count: group.len(),
-                complex_correlation: complex_correlation(&group)?,
-            });
+    let mut group_keys = Vec::new();
+    for condition in conditions {
+        let key = (
+            condition.wave_number_reference_length,
+            condition.listener_radius_reference_multiplier,
+        );
+        if !group_keys.contains(&key) {
+            group_keys.push(key);
         }
     }
+    let mut correlations = Vec::new();
+    for (wave_number, radius) in group_keys {
+        let group = conditions
+            .iter()
+            .filter(|row| {
+                row.wave_number_reference_length == wave_number
+                    && row.listener_radius_reference_multiplier == radius
+            })
+            .collect::<Vec<_>>();
+        correlations.push(DirectionalCorrelation {
+            wave_number_reference_length: wave_number,
+            listener_radius_reference_multiplier: radius,
+            direction_count: group.len(),
+            complex_correlation: complex_correlation(&group)?,
+        });
+    }
     Ok(Aggregate {
-        frequency_count: 2,
+        frequency_count,
         held_condition_count: conditions.len(),
         held_active_condition_count: active_relative.len(),
         held_median_peak_normalized_complex_error: median(&peak_errors)?,
