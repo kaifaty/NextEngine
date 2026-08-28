@@ -507,9 +507,25 @@ outgoing-multipole cooker fits only seven near-field directions and predicts
 places at least `99.9907%` coefficient energy in degree two and limits held
 peak-normalized error to `0.7856%`. This closes one axisymmetric synthetic
 representation prerequisite, not non-spherical geometry, FEM coupling or real
-3D transfer. Next freeze a genuinely non-spherical closed-mesh prescribed mode
-and require Bempp mesh convergence plus cooker transfer before fresh REALIMPACT
-access. See the [surface-mode evidence](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md).
+3D transfer. The following triaxial checkpoint performs the required
+non-spherical prescribed-mode convergence and cooker transfer while keeping
+REALIMPACT sealed. See the [surface-mode evidence](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md).
+
+The non-spherical prescribed-mode package now passes its product-shaped
+boundary as well. Triaxial Bempp manifest `74d8ebd1…267d` and repeated report
+`49bee8c2…76ef` cover `128/512/2048` panels, two `kL`, three radii and 56
+directions for `2 u_x u_z`; all convergence/field gates pass. A frozen sparse
+near-angle cooker remains rejected at report `6d5f653a…ef55` because degree 4
+misses the omitted near-shell angles by `0.06032 > 0.05`; thresholds remain
+unchanged. The separately frozen full-near-shell protocol fits all 56 near
+directions, holds out 224 far conditions, rejects `m=0` and selects the
+smallest passing full-angular model, degree 2. Its maximum peak-normalized
+error is `0.04604`, minimum correlation `0.9990417`, and reports repeat at
+`a0e0d881…b0be`. This closes prescribed-mode non-spherical/full-angular
+representation only. Before fresh REALIMPACT access, next compute an actual
+elastic FEM eigenmode, project its surface-normal velocity into Bempp and
+repeat the convergence/cooker gates. See the [triaxial
+evidence](../development/physical-sound-bempp-triaxial-full-angular-cooker-ps2-2026-08-28.md).
 
 ### 4. AV-P0D autonomous formula search
 

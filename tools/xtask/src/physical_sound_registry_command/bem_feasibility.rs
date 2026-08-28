@@ -13,6 +13,7 @@ use super::{
 mod convergence;
 mod model;
 mod surface_mode;
+mod triaxial;
 
 const MANIFEST_SCHEMA: &str = "nextengine.experimental-physical-sound-bem-feasibility.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-bem-feasibility.report.v1";
@@ -34,6 +35,13 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
     {
         arguments.next();
         return surface_mode::run_cli(root, arguments);
+    }
+    if arguments
+        .peek()
+        .is_some_and(|value| value == "triaxial-cooker")
+    {
+        arguments.next();
+        return triaxial::run_cli(root, arguments);
     }
     let mut manifest = None;
     let mut output = None;
