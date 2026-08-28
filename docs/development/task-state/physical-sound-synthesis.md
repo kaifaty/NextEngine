@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_PITCHER_RUNNER_PREFLIGHT_SUPPORTED / EXTRACTOR_PARITY_PROVEN / EXACT_RUST_SPATIAL_PROJECTOR_IMPLEMENTED / RESERVED_AUDIO_BYTES_ZERO / EXECUTION_MANIFEST_NEXT / PITCHER_AND_PLANTER_AUDIO_SEALED / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PITCHER_EXECUTION_PREFLIGHT_SUPPORTED / ONE_PREFIX_REQUEST_AUTHORIZED / RESERVED_AUDIO_BYTES_ZERO / PITCHER_ACQUIRE_NEXT / PLANTER_AUDIO_SEALED / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,15 +10,16 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Exact Rust fixture `2e3db2d3…5572` and runner
-  preflight `6e60d71f…fd2d` repeat. Python/Rust extractor error is `3.03e-12`;
-  geometry, mapping and split pass; audio bytes remain zero.
+- **Current conclusion:** Execution manifest `8e791327…ba45` and local
+  preflight `94d5e1e6…9b32` repeat. Environment, original bbox origin, 56
+  directions, Bempp/cooker, decoder and gates are hash-closed; audio bytes
+  remain zero.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Implement and hash-close the execution runner/manifest,
-  including Bempp/cooker environment, expansion origin and staged
-  acquisition/decode. Then make the single Pitcher request.
+- **Next action:** Commit the execution checkpoint, then acquire the one exact
+  512-MiB Pitcher prefix into an immutable external cache without retry or
+  growth. Decode 600 rows and analyze twice offline if acquisition succeeds.
 - **Current blocker:** Measured Pitcher calibration, real 3D transfer and every
   exact-domain admission claim remain unproven.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
@@ -59,6 +60,7 @@
 | [REALIMPACT exact-weld geometry V2](../physical-sound-realimpact-exact-weld-geometry-preflight-ps2-2026-08-28.md), report `c1c86f78…7e5d` | `EXACT_WELD_GEOMETRY_PREFLIGHT_SUPPORTED / BYTE_IDENTICAL_BLOCKS / RESERVED_AUDIO_BYTES_ZERO` | Exact welding closes both surfaces; `8192/2048` topology, 64 modes and residual gates pass. Geometry blocks are frozen; next preregister Pitcher calibration before audio. |
 | [REALIMPACT Pitcher calibration preregistration](../physical-sound-realimpact-pitcher-calibration-preregistration-ps2-2026-08-28.md), report `2ae1bc0b…9c72` | `PITCHER_CALIBRATION_PROTOCOL_FROZEN / BYTE_IDENTICAL_REPORTS / RESERVED_AUDIO_BYTES_ZERO` | Exact Pitcher geometry, one 512 MiB prefix, 600-row decoder, extractor/mapping, solver, `90/510` split, controls, gates and stop-before-Planter fallback are immutable. Next implement parity controls and execute the bounded calibration. |
 | [REALIMPACT Pitcher runner preflight](../physical-sound-realimpact-pitcher-runner-preflight-ps2-2026-08-28.md), report `6e60d71f…fd2d` | `PITCHER_RUNNER_PREFLIGHT_SUPPORTED / EXTRACTOR_PARITY_PROVEN / RESERVED_AUDIO_BYTES_ZERO` | Exact Rust fixture repeats; Python recovers all 16 modes within `3.03e-12`; geometry/mapping/split pass and the bound Rust spatial projector is implemented. Audio execution stays disabled until a final execution manifest closes Bempp/cooker choices. |
+| [REALIMPACT Pitcher execution preflight](../physical-sound-realimpact-pitcher-execution-preflight-ps2-2026-08-28.md), report `94d5e1e6…9b32` | `PITCHER_EXECUTION_PREFLIGHT_SUPPORTED / ONE_PREFIX_REQUEST_AUTHORIZED / RESERVED_AUDIO_BYTES_ZERO` | Manifest `8e791327…ba45` binds script, environment, original bbox centre, directions, Bempp/cooker, exact range/decoder and all frozen gates. The local full-angular control and extractor parity repeat; the one exact Pitcher request is next, while Planter remains sealed. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -183,7 +185,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Synthetic controls, exact-weld geometry, sealed Pitcher protocol and extractor parity pass | No measured Pitcher/Planter 3D transfer or calibrated shadow risk exists | Freeze the execution runner, then execute the one-request Pitcher calibration |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Synthetic controls, exact-weld geometry and the hash-closed Pitcher execution preflight pass | No measured Pitcher/Planter 3D transfer or calibrated shadow risk exists | Execute the one-request Pitcher calibration, repeat offline and stop before Planter on failure |
 
 ## Required context
 
@@ -204,8 +206,8 @@ Read these sources in precedence order before acting:
 2. Preserve PS-2, transfer-V1/V2 and all spatial rejection hashes. Never retune
    empirical spatial bases on opened data. Preserve the converged elastic FEM/
    BEM hashes, real-transfer protocol, V1 rejection, V2 geometry blocks and
-   Pitcher calibration preregistration and runner preflight; freeze the exact
-   Bempp/cooker execution revision before the one request and keep Planter sealed.
+   Pitcher calibration preregistration, runner parity and execution preflight;
+   make the one exact Pitcher request without retry/growth and keep Planter sealed.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
