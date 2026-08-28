@@ -22,6 +22,7 @@ use super::{
 };
 
 mod evidence;
+mod listener_block;
 mod profiles;
 
 const CORPUS_PLAN_SHA256: &str = "e082610c90dabff3c7a328df94671dca4f84f46cd629952c3e914ce600a3ea01";
@@ -59,6 +60,7 @@ pub(super) struct Request {
     profile: String,
     source_bundle: PathBuf,
     corpus_plan_report: PathBuf,
+    transfer_calibration_report: Option<PathBuf>,
     output: PathBuf,
 }
 
@@ -71,6 +73,7 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
     let mut profile = None;
     let mut source_bundle = None;
     let mut corpus_plan_report = None;
+    let mut transfer_calibration_report = None;
     let mut output = None;
     while let Some(flag) = arguments.next() {
         let value = arguments
@@ -82,13 +85,18 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
             "--corpus-plan-report" => {
                 set_once(&mut corpus_plan_report, PathBuf::from(value), &flag)?
             }
+            "--transfer-calibration-report" => set_once(
+                &mut transfer_calibration_report,
+                PathBuf::from(value),
+                &flag,
+            )?,
             "--output" => set_once(&mut output, PathBuf::from(value), &flag)?,
             _ => return Err(format!("unexpected realimpact-row argument: {flag}")),
         }
     }
     Ok(Request {
         profile: profile.ok_or_else(|| {
-            "physical-sound-registry realimpact-row requires --profile <green-goblet-row-0-v1|blue-bowl-row-0-v1|shell-plate-row-0-v1|skull-cup-row-0-v1>"
+            "physical-sound-registry realimpact-row requires --profile <green-goblet-row-0-v1|blue-bowl-row-0-v1|shell-plate-row-0-v1|skull-cup-row-0-v1|green-goblet-listener-block-0-v1>"
                 .to_owned()
         })?,
         source_bundle: source_bundle.ok_or_else(|| {
@@ -99,6 +107,7 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
             "physical-sound-registry realimpact-row requires --corpus-plan-report <external-json>"
                 .to_owned()
         })?,
+        transfer_calibration_report,
         output: output.ok_or_else(|| {
             "physical-sound-registry realimpact-row requires --output <external-empty-directory>"
                 .to_owned()
@@ -107,6 +116,14 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
 }
 
 fn run(root: &Path, request: &Request) -> Result<(), String> {
+    if request.profile == listener_block::PROFILE_ID {
+        return listener_block::run(root, request);
+    }
+    if request.transfer_calibration_report.is_some() {
+        return Err(
+            "--transfer-calibration-report is only valid for the listener-block profile".to_owned(),
+        );
+    }
     let profile = frozen_profile(&request.profile)?;
     let output = resolve_output_path(root, &request.output)?;
     require_empty_output(&output)?;
