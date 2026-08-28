@@ -353,6 +353,25 @@ claim matrix; unavailable geometry, support, excitation, position,
 listener/radiation or real-identity axes remain unavailable and keep that
 domain fallback-only rather than triggering local capture or premature PS-3.
 
+The exact-domain matrix is now implemented by `physical-sound-registry
+domain-claims`. Its external manifest hash-links the frozen plan, verified
+partitioned E3 report, split verification, all five REALIMPACT E2 reports and
+one reviewed Blue Bowl cross-tier identity. Two runs are byte-identical at
+report SHA-256
+`e6d078bd792ab45f09045bd272df3b39fafa0cb02c3c4e0fddb064aab95f5b60`.
+The decision is `DomainEvidenceIncomplete / FallbackOutOfDomain`: four useful
+identity/transfer claims pass, but eight exact requirements remain unsupported
+and no partition has an eligible object. Numeric object IDs are not a generic
+join; a failure control rejects `94_GlassGoblet` versus ObjectFolder object 94
+`Salad_Bowl`. See the [matrix evidence](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md).
+
+The next Package 3 increment is therefore evidence feasibility, not formula
+tuning: search published sources for same-object composition/geometry/support/
+excitation/listener/repeat lineage that can link to an existing frozen E3
+object. If the acquisition-shaped V1 domain has no published path, preserve it
+as fallback-only and preregister an internet-native plan revision rather than
+inventing axis values or requesting local capture.
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:

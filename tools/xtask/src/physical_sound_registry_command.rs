@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 
 mod corpus_inventory;
 mod corpus_plan;
+mod domain_claims;
 mod internet_sources;
 mod realimpact_row;
 mod split_feasibility;
@@ -65,6 +66,10 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         Some("corpus-inventory") => {
             arguments.next();
             return corpus_inventory::run_cli(root, arguments);
+        }
+        Some("domain-claims") => {
+            arguments.next();
+            return domain_claims::run_cli(root, arguments);
         }
         Some("internet-sources") => {
             arguments.next();
