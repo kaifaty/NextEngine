@@ -280,6 +280,45 @@ struct FormulaProbeTwofoldExactAudit {
     std::string root;
 };
 
+struct FormulaProbeHybridWork {
+    std::size_t operator_products = 0U;
+    std::size_t tangent_kernel_calls = 0U;
+    std::size_t tangent_inner_dots = 0U;
+    std::size_t tangent_outer_dots = 0U;
+    std::size_t tangent_inner_terms = 0U;
+    std::size_t tangent_outer_terms = 0U;
+    std::size_t tangent_scale_products = 0U;
+    std::size_t input_components = 0U;
+    std::size_t output_projections = 0U;
+    std::size_t output_additions = 0U;
+};
+
+struct FormulaProbeHybridRecurrence {
+    bool exact = false;
+    FormulaProbeTwofoldRecurrence recurrence;
+    FormulaProbeHybridWork hybrid_work;
+    std::string callback_root;
+    std::string root;
+};
+
+struct FormulaProbeTwofoldProductAudit {
+    bool exact = false;
+    bool complete = false;
+    std::size_t containments = 0U;
+    std::size_t rows = 0U;
+    std::size_t exact_upper_dots = 0U;
+    std::size_t exact_gram_products = 0U;
+    std::size_t exact_mirrors = 0U;
+    std::size_t exact_product_rows = 0U;
+    std::size_t exact_product_products = 0U;
+    std::vector<double> radius;
+    std::string first_failure;
+    std::string exact_operator_root;
+    std::string containment_root;
+    std::string work_root;
+    std::string root;
+};
+
 FormulaProbeParentFixture capture_formula_probe_parent_fixture();
 std::string formula_probe_parent_fixture_root(
     const FormulaProbeParentFixture& fixture);
@@ -338,5 +377,14 @@ FormulaProbeTwofoldExactAudit formula_probe_twofold_exact_audit(
     const FormulaProbeTwofoldRecurrence& recurrence);
 bool formula_probe_twofold_exact_audit_valid(
     const FormulaProbeTwofoldExactAudit& value);
+FormulaProbeHybridRecurrence formula_probe_hybrid_twofold_recurrence(
+    const FormulaProbeParentFixture& fixture);
+bool formula_probe_hybrid_twofold_recurrence_valid(
+    const FormulaProbeHybridRecurrence& value);
+FormulaProbeTwofoldProductAudit formula_probe_twofold_product_exact_audit(
+    const FormulaProbeParentFixture& fixture,
+    const FormulaProbeTwofoldRecurrence& recurrence);
+bool formula_probe_twofold_product_exact_audit_valid(
+    const FormulaProbeTwofoldProductAudit& value);
 
 } // namespace nextengine::nonlocal::fcr

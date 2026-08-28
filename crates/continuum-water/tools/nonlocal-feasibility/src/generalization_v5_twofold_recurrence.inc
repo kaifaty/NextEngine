@@ -667,12 +667,14 @@ struct ALR20R63ZBTransaction {
     std::string root;
 };
 
-ALR20R63ZBTransaction al_r20_r63zb_transaction(
+template <typename ProductFunction>
+ALR20R63ZBTransaction al_r20_r63zb_transaction_with_product(
     const ALR20R63ZArtifact& artifact,
     const std::vector<double>& upper,
     const std::vector<std::size_t>& permutation,
     const ALR20R63ZAScalar& inverse_scale,
-    const std::vector<ALR20R63ZAScalar>& rhs) {
+    const std::vector<ALR20R63ZAScalar>& rhs,
+    ProductFunction&& apply_product) {
     ALR20R63ZBTransaction result;
     const std::size_t dimension = rhs.size();
     result.arithmetic_prefix_exact = al_r20_r63z_artifact_valid(artifact)
@@ -692,7 +694,7 @@ ALR20R63ZBTransaction al_r20_r63zb_transaction(
             + start.backward_terms;
         result.work.factor_divisions += start.divisions;
         const ALR20R63ZBProduct initial_product =
-            al_r20_r63zb_product(artifact, start.solution);
+            apply_product(start.solution);
         ++result.work.operator_products;
         result.work.operator_entries += initial_product.entries;
         const std::vector<ALR20R63ZAScalar> r0 = al_r20_r63zb_update(rhs,
@@ -720,8 +722,7 @@ ALR20R63ZBTransaction al_r20_r63zb_transaction(
             const std::vector<ALR20R63ZAScalar> x0 = start.solution;
             const std::vector<ALR20R63ZAScalar> z0 = z0_solve.solution;
             const std::vector<ALR20R63ZAScalar> p0 = z0;
-            const ALR20R63ZBProduct hp0 = al_r20_r63zb_product(
-                artifact, p0);
+            const ALR20R63ZBProduct hp0 = apply_product(p0);
             ++result.work.operator_products;
             result.work.operator_entries += hp0.entries;
             const ALR20R63ZBDot denominator0 = al_r20_r63zb_dot(
@@ -788,7 +789,7 @@ ALR20R63ZBTransaction al_r20_r63zb_transaction(
                             result.failure_stage = "direction_update";
                         } else {
                             const ALR20R63ZBProduct hp1 =
-                                al_r20_r63zb_product(artifact, p1);
+                                apply_product(p1);
                             ++result.work.operator_products;
                             result.work.operator_entries += hp1.entries;
                             const ALR20R63ZBDot denominator1 =
@@ -889,6 +890,19 @@ ALR20R63ZBTransaction al_r20_r63zb_transaction(
         material << state.root << ';';
     result.root = sha256_hex(material.str());
     return result;
+}
+
+ALR20R63ZBTransaction al_r20_r63zb_transaction(
+    const ALR20R63ZArtifact& artifact,
+    const std::vector<double>& upper,
+    const std::vector<std::size_t>& permutation,
+    const ALR20R63ZAScalar& inverse_scale,
+    const std::vector<ALR20R63ZAScalar>& rhs) {
+    return al_r20_r63zb_transaction_with_product(artifact, upper,
+        permutation, inverse_scale, rhs,
+        [&](const std::vector<ALR20R63ZAScalar>& input) {
+            return al_r20_r63zb_product(artifact, input);
+        });
 }
 
 std::string al_r20_r63zb_transaction_route(bool apparatus, bool identity,

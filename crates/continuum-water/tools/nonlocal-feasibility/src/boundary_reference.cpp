@@ -80687,6 +80687,62 @@ std::string al_formula_probe_twofold_audit_root(
     return sha256_hex(material.str());
 }
 
+std::string al_formula_probe_hybrid_work_root(
+    const FormulaProbeHybridWork& value) {
+    std::ostringstream material;
+    material << value.operator_products << ':' << value.tangent_kernel_calls
+        << ':' << value.tangent_inner_dots << ':' << value.tangent_outer_dots
+        << ':'
+        << value.tangent_inner_terms << ':' << value.tangent_outer_terms
+        << ':' << value.tangent_scale_products << ':'
+        << value.input_components << ':' << value.output_projections << ':'
+        << value.output_additions;
+    return sha256_hex(material.str());
+}
+
+std::string al_formula_probe_hybrid_recurrence_root(
+    const FormulaProbeHybridRecurrence& value) {
+    std::ostringstream material;
+    material << value.exact << ':' << value.recurrence.root << ':'
+        << al_formula_probe_hybrid_work_root(value.hybrid_work) << ':'
+        << value.callback_root;
+    return sha256_hex(material.str());
+}
+
+std::string al_formula_probe_product_audit_root(
+    const FormulaProbeTwofoldProductAudit& value) {
+    std::ostringstream material;
+    material << value.exact << ':' << value.complete << ':'
+        << value.containments << ':' << value.rows << ':'
+        << value.exact_upper_dots << ':' << value.exact_gram_products << ':'
+        << value.exact_mirrors << ':' << value.exact_product_rows << ':'
+        << value.exact_product_products << ':' << value.first_failure << ':'
+        << value.exact_operator_root << ':' << value.containment_root << ':'
+        << value.work_root << ':' << al_r20_double_root(value.radius);
+    return sha256_hex(material.str());
+}
+
+ALR20R63ZArtifact al_formula_probe_hybrid_carrier(
+    const FormulaProbeParentFixture& fixture) {
+    ALR20R63ZArtifact result;
+    result.identity = al_r20_r63z_identity(fixture.dimension,
+        "nextengine.nonlocal.nsr3b4e2d7r20r63zj.hybrid_callback.v1",
+        sha256_hex(std::string("hybrid:") + fixture.tangent_root),
+        fixture.tangent_root);
+    result.entries = fixture.dimension * fixture.dimension;
+    result.containments = result.entries;
+    result.components.assign(2U * result.entries, 0.0);
+    result.radius.assign(result.entries, 0.0);
+    result.component_root = al_r20_double_root(result.components);
+    result.radius_root = al_r20_double_root(result.radius);
+    result.contained = true;
+    result.exact = formula_probe_parent_fixture_valid(fixture);
+    result.root = al_r20_r63z_artifact_root(result);
+    result.exact = result.exact && al_r20_r63z_artifact_valid(result);
+    result.root = al_r20_r63z_artifact_root(result);
+    return result;
+}
+
 } // namespace
 
 std::string formula_probe_binary128_vector_root(
@@ -81374,6 +81430,15 @@ bool formula_probe_twofold_recurrence_valid(
         && std::all_of(value.products.begin(), value.products.end(),
             [](const FormulaProbeTwofoldProduct& product) {
                 return product.exact
+                    && product.dimension > 0U
+                    && product.input_components.size()
+                        == 2U * product.dimension
+                    && product.value_components.size()
+                        == 2U * product.dimension
+                    && product.input_root
+                        == al_r20_double_root(product.input_components)
+                    && product.value_root
+                        == al_r20_double_root(product.value_components)
                     && product.root
                         == al_formula_probe_twofold_product_root(product);
             });
@@ -81508,6 +81573,317 @@ bool formula_probe_twofold_exact_audit_valid(
         && value.product_radius.size() == value.product_rows
         && value.first_failure.empty()
         && value.root == al_formula_probe_twofold_audit_root(value);
+}
+
+FormulaProbeHybridRecurrence formula_probe_hybrid_twofold_recurrence(
+    const FormulaProbeParentFixture& fixture) {
+    FormulaProbeHybridRecurrence result;
+    if (!formula_probe_parent_fixture_valid(fixture)) return result;
+    const ALR20R63ZArtifact carrier =
+        al_formula_probe_hybrid_carrier(fixture);
+    if (!al_r20_r63z_artifact_valid(carrier)) return result;
+    result.callback_root = carrier.root;
+    std::vector<ALR20R63ZAScalar> rhs;
+    rhs.reserve(fixture.projected_rhs.size());
+    for (FormulaProbeBinary128 value : fixture.projected_rhs)
+        rhs.push_back(al_r20_r63zb_project(value));
+    const ALR20R63ZAScalar inverse_scale =
+        al_r20_r63zb_project(fixture.projected_scale);
+    struct CapturedProduct {
+        std::vector<ALR20R63ZAScalar> input;
+        ALR20R63ZBProduct product;
+    };
+    std::vector<CapturedProduct> captured;
+    const auto apply_product = [&](
+        const std::vector<ALR20R63ZAScalar>& input) {
+        ALR20R63ZBProduct product;
+        product.dimension = fixture.dimension;
+        product.artifact_root = carrier.root;
+        product.input_root = al_r20_r63zb_vector_root(input);
+        bool exact = al_r20_r63zb_vector_valid(input, fixture.dimension);
+        std::vector<Binary128> high_input;
+        std::vector<Binary128> low_input;
+        high_input.reserve(input.size());
+        low_input.reserve(input.size());
+        for (const ALR20R63ZAScalar& value : input) {
+            const Binary128 high = static_cast<Binary128>(value.high);
+            const Binary128 low = static_cast<Binary128>(value.low);
+            const ALR20R37Conversion high_exact =
+                al_r20_r37_from_binary128(high);
+            const ALR20R37Conversion low_exact =
+                al_r20_r37_from_binary128(low);
+            exact = exact && high_exact.exact && low_exact.exact;
+            high_input.push_back(high);
+            low_input.push_back(low);
+            result.hybrid_work.input_components += 2U;
+        }
+        const ALR20R63NProduct high_product = exact
+            ? al_r20_r63n_product(fixture.tangent, fixture.dimension,
+                fixture.tangent_columns, fixture.sigma, high_input)
+            : ALR20R63NProduct{};
+        const ALR20R63NProduct low_product = exact
+            ? al_r20_r63n_product(fixture.tangent, fixture.dimension,
+                fixture.tangent_columns, fixture.sigma, low_input)
+            : ALR20R63NProduct{};
+        ++result.hybrid_work.operator_products;
+        result.hybrid_work.tangent_kernel_calls += 2U;
+        result.hybrid_work.tangent_inner_dots +=
+            high_product.inner_dots + low_product.inner_dots;
+        result.hybrid_work.tangent_outer_dots +=
+            high_product.outer_dots + low_product.outer_dots;
+        result.hybrid_work.tangent_inner_terms +=
+            high_product.inner_terms + low_product.inner_terms;
+        result.hybrid_work.tangent_outer_terms +=
+            high_product.outer_terms + low_product.outer_terms;
+        result.hybrid_work.tangent_scale_products +=
+            high_product.scale_products + low_product.scale_products;
+        exact = exact && high_product.exact && low_product.exact
+            && high_product.value.size() == fixture.dimension
+            && low_product.value.size() == fixture.dimension;
+        product.value.reserve(fixture.dimension);
+        for (std::size_t row = 0U;
+             row < fixture.dimension && exact; ++row) {
+            const ALR20R63ZAScalar high_projected =
+                al_r20_r63zb_project(high_product.value[row]);
+            const ALR20R63ZAScalar low_projected =
+                al_r20_r63zb_project(low_product.value[row]);
+            const ALR20R63ZAScalar combined =
+                al_r20_r63zb_add(high_projected, low_projected);
+            exact = al_r20_r63zb_operand(high_projected)
+                && al_r20_r63zb_operand(low_projected)
+                && al_r20_r63zb_operand(combined);
+            product.value.push_back(combined);
+            result.hybrid_work.output_projections += 2U;
+            ++result.hybrid_work.output_additions;
+        }
+        product.entries = fixture.dimension * fixture.dimension;
+        product.exact = exact
+            && al_r20_r63zb_vector_valid(
+                product.value, fixture.dimension);
+        std::ostringstream material;
+        material << product.exact << ':' << product.dimension << ':'
+            << product.entries << ':' << product.artifact_root << ':'
+            << product.input_root << ':'
+            << al_r20_r63zb_vector_root(product.value);
+        product.root = sha256_hex(material.str());
+        captured.push_back({input, product});
+        return product;
+    };
+    const ALR20R63ZBTransaction transaction =
+        al_r20_r63zb_transaction_with_product(carrier,
+            fixture.factor_upper, fixture.permutation, inverse_scale, rhs,
+            apply_product);
+    FormulaProbeTwofoldRecurrence& exported = result.recurrence;
+    exported.fixture_root = fixture.root;
+    exported.artifact_root = carrier.root;
+    exported.complete = transaction.complete;
+    exported.positivity_exact = transaction.positivity_exact;
+    exported.sealed_states = transaction.sealed_states;
+    exported.failure_stage = transaction.failure_stage;
+    exported.transaction_root = transaction.root;
+    exported.work.operator_products = transaction.work.operator_products;
+    exported.work.operator_entries = transaction.work.operator_entries;
+    exported.work.factor_solves = transaction.work.factor_solves;
+    exported.work.factor_terms = transaction.work.factor_terms;
+    exported.work.factor_divisions = transaction.work.factor_divisions;
+    exported.work.rho_dots = transaction.work.rho_dots;
+    exported.work.denominator_dots = transaction.work.denominator_dots;
+    exported.work.dot_terms = transaction.work.dot_terms;
+    exported.work.scalar_divisions = transaction.work.scalar_divisions;
+    exported.work.solution_updates = transaction.work.solution_updates;
+    exported.work.residual_updates = transaction.work.residual_updates;
+    exported.work.direction_updates = transaction.work.direction_updates;
+    exported.work.adaptive_stops = transaction.work.adaptive_stops;
+    std::vector<FormulaProbeCertificate> certificates;
+    for (const ALR20R63ZBState& source : transaction.states) {
+        FormulaProbeTwofoldState state;
+        state.index = source.index;
+        state.solution_components =
+            al_formula_probe_twofold_components(source.solution);
+        state.residual_components =
+            al_formula_probe_twofold_components(source.residual);
+        state.direction_components =
+            al_formula_probe_twofold_components(source.direction);
+        state.preconditioned_components =
+            al_formula_probe_twofold_components(source.preconditioned);
+        state.certificate = al_formula_probe_certificate(
+            al_r20_r63y_certificate(
+                al_formula_probe_internal_profile(fixture.verifier_profile),
+                al_r20_r63zb_solution(source.solution)));
+        state.operator_root = source.operator_root;
+        state.solve_root = source.solve_root;
+        state.rho_root = source.rho.root;
+        state.denominator_root = source.denominator.root;
+        state.alpha_root = source.alpha.root;
+        state.beta_root = source.beta.root;
+        state.exact = source.exact && state.certificate.exact
+            && state.solution_components.size() == 2U * fixture.dimension
+            && state.residual_components.size() == 2U * fixture.dimension
+            && state.direction_components.size() == 2U * fixture.dimension
+            && state.preconditioned_components.size()
+                == 2U * fixture.dimension;
+        state.root = al_formula_probe_twofold_state_root(state);
+        certificates.push_back(state.certificate);
+        exported.states.push_back(std::move(state));
+    }
+    exported.work.certificates = certificates.size();
+    exported.certificate_root =
+        al_formula_probe_certificate_set_root(certificates);
+    const std::array<std::string, 3U> sites{"Kx0", "Kp0", "Kp1"};
+    for (std::size_t index = 0U;
+         index < captured.size() && index < sites.size(); ++index) {
+        FormulaProbeTwofoldProduct product;
+        product.site = sites[index];
+        product.dimension = fixture.dimension;
+        product.entries = captured[index].product.entries;
+        product.input_components = al_formula_probe_twofold_components(
+            captured[index].input);
+        product.value_components = al_formula_probe_twofold_components(
+            captured[index].product.value);
+        product.artifact_root = carrier.root;
+        product.input_root = al_r20_double_root(product.input_components);
+        product.value_root = al_r20_double_root(product.value_components);
+        product.exact = captured[index].product.exact
+            && product.entries == fixture.dimension * fixture.dimension
+            && product.input_components.size() == 2U * fixture.dimension
+            && product.value_components.size() == 2U * fixture.dimension;
+        product.root = al_formula_probe_twofold_product_root(product);
+        exported.products.push_back(std::move(product));
+    }
+    ALR20R63ZBWork internal_work = transaction.work;
+    internal_work.certificates = exported.work.certificates;
+    exported.exact = transaction.exact && transaction.complete
+        && transaction.positivity_exact && exported.states.size() == 3U
+        && exported.products.size() == 3U
+        && captured.size() == 3U && al_r20_r63zb_work_exact(internal_work)
+        && std::all_of(exported.states.begin(), exported.states.end(),
+            [](const FormulaProbeTwofoldState& state) {
+                return state.exact;
+            })
+        && std::all_of(exported.products.begin(), exported.products.end(),
+            [](const FormulaProbeTwofoldProduct& product) {
+                return product.exact;
+            });
+    exported.root = al_formula_probe_twofold_recurrence_root(exported);
+    result.exact = formula_probe_twofold_recurrence_valid(exported)
+        && result.hybrid_work.operator_products == 3U
+        && result.hybrid_work.tangent_kernel_calls == 6U
+        && result.hybrid_work.tangent_inner_dots == 1890U
+        && result.hybrid_work.tangent_outer_dots == 612U
+        && result.hybrid_work.tangent_inner_terms == 192780U
+        && result.hybrid_work.tangent_outer_terms == 192780U
+        && result.hybrid_work.tangent_scale_products == 612U
+        && result.hybrid_work.input_components == 612U
+        && result.hybrid_work.output_projections == 612U
+        && result.hybrid_work.output_additions == 306U;
+    result.root = al_formula_probe_hybrid_recurrence_root(result);
+    return result;
+}
+
+bool formula_probe_hybrid_twofold_recurrence_valid(
+    const FormulaProbeHybridRecurrence& value) {
+    return value.exact && !value.callback_root.empty()
+        && formula_probe_twofold_recurrence_valid(value.recurrence)
+        && value.hybrid_work.operator_products == 3U
+        && value.hybrid_work.tangent_kernel_calls == 6U
+        && value.hybrid_work.tangent_inner_dots == 1890U
+        && value.hybrid_work.tangent_outer_dots == 612U
+        && value.hybrid_work.tangent_inner_terms == 192780U
+        && value.hybrid_work.tangent_outer_terms == 192780U
+        && value.hybrid_work.tangent_scale_products == 612U
+        && value.hybrid_work.input_components == 612U
+        && value.hybrid_work.output_projections == 612U
+        && value.hybrid_work.output_additions == 306U
+        && value.root == al_formula_probe_hybrid_recurrence_root(value);
+}
+
+FormulaProbeTwofoldProductAudit formula_probe_twofold_product_exact_audit(
+    const FormulaProbeParentFixture& fixture,
+    const FormulaProbeTwofoldRecurrence& recurrence) {
+    FormulaProbeTwofoldProductAudit result;
+    if (!formula_probe_parent_fixture_valid(fixture)
+        || !formula_probe_twofold_recurrence_valid(recurrence)
+        || recurrence.fixture_root != fixture.root)
+        return result;
+    const ALFormulaProbeExactTangentMatrix exact =
+        al_formula_probe_exact_tangent_matrix(fixture);
+    result.exact_upper_dots = exact.upper_dots;
+    result.exact_gram_products = exact.gram_products;
+    result.exact_mirrors = exact.mirrors;
+    result.exact_operator_root = exact.root;
+    bool products_exact = exact.exact && recurrence.products.size() == 3U;
+    std::ostringstream containment_material;
+    for (const FormulaProbeTwofoldProduct& product : recurrence.products) {
+        products_exact = products_exact
+            && product.dimension == fixture.dimension
+            && product.input_components.size() == 2U * fixture.dimension
+            && product.value_components.size() == 2U * fixture.dimension;
+        std::vector<ALR20R37Dyadic> input(fixture.dimension);
+        for (std::size_t column = 0U;
+             column < fixture.dimension && products_exact; ++column)
+            input[column] = al_formula_probe_twofold_dyadic(
+                product.input_components[2U * column],
+                product.input_components[2U * column + 1U],
+                products_exact);
+        for (std::size_t row = 0U;
+             row < fixture.dimension && products_exact; ++row) {
+            ALR20R37Dyadic exact_value;
+            for (std::size_t column = 0U;
+                 column < fixture.dimension; ++column) {
+                exact_value = al_r20_r37_add(exact_value,
+                    al_r20_r37_multiply(
+                        exact.value[row * fixture.dimension + column],
+                        input[column]));
+                ++result.exact_product_products;
+            }
+            ++result.exact_product_rows;
+            bool center_exact = true;
+            const ALR20R37Dyadic center = al_formula_probe_twofold_dyadic(
+                product.value_components[2U * row],
+                product.value_components[2U * row + 1U], center_exact);
+            const ALR20R37Dyadic error = al_r20_r37_absolute(
+                al_r20_r63p_subtract(exact_value, center));
+            const double radius = al_formula_probe_outward_double(error);
+            const ALR20R37Conversion radius_exact =
+                al_r20_r37_from_binary128(static_cast<Binary128>(radius));
+            const bool contained = center_exact && radius_exact.exact
+                && std::isfinite(radius) && radius >= 0.0
+                && al_r20_r37_compare_positive(
+                    radius_exact.value, error) >= 0;
+            result.radius.push_back(radius);
+            result.containments += contained ? 1U : 0U;
+            containment_material << product.site << ':' << row << ':'
+                << contained << ':' << al_r20_r37_dyadic_text(error) << ':'
+                << binary64_bits(radius) << ';';
+            if (!contained && result.first_failure.empty())
+                result.first_failure = "product:" + product.site + ":"
+                    + std::to_string(row);
+        }
+    }
+    result.rows = recurrence.products.size() * fixture.dimension;
+    result.containment_root = sha256_hex(containment_material.str());
+    std::ostringstream work_material;
+    work_material << result.exact_upper_dots << ':'
+        << result.exact_gram_products << ':' << result.exact_mirrors << ':'
+        << result.exact_product_rows << ':' << result.exact_product_products;
+    result.work_root = sha256_hex(work_material.str());
+    result.complete = products_exact && result.containments == result.rows
+        && result.exact_product_rows == result.rows;
+    result.exact = result.complete && result.first_failure.empty();
+    result.root = al_formula_probe_product_audit_root(result);
+    return result;
+}
+
+bool formula_probe_twofold_product_exact_audit_valid(
+    const FormulaProbeTwofoldProductAudit& value) {
+    return value.exact && value.complete && value.containments == 306U
+        && value.rows == 306U && value.exact_upper_dots == 5253U
+        && value.exact_gram_products == 1654695U
+        && value.exact_mirrors == 5151U
+        && value.exact_product_rows == 306U
+        && value.exact_product_products == 31212U
+        && value.radius.size() == 306U && value.first_failure.empty()
+        && value.root == al_formula_probe_product_audit_root(value);
 }
 
 SplitBoundaryReport run_al_total_hvp_boundary_diagnostic_controls() {

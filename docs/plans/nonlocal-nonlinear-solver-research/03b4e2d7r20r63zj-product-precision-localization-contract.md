@@ -43,7 +43,7 @@ projection versus updates before choosing a wider representation.
 - Exact product audit: all `306` hybrid product rows are compared against
   exact dyadic `K_T*x` after the transaction seals.
 - Hybrid operator work: `1,890` inner dots, `612` outer dots, `192,780` inner
-  terms, `192,780` outer terms, `612` scale products, `306` K2 component
+  terms, `192,780` outer terms, `612` scale products, `612` K2 component
   projections and `306` K2 component additions.
 - K2 recurrence work remains exactly R63ZI: three factor solves, two rho dots,
   two denominator dots, three scalar divisions, 204 solution updates, 204
