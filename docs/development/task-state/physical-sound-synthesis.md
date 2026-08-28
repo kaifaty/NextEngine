@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_NEXT / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_REAL_HOLDOUT_NEXT / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,14 +10,14 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Repeated dense report `b9a5b226…978b` supports the
-  rank-7 partial core at 32 regions/96 bins: 64/64 modes, zero weak-region
-  admission and sparse-parent deltas around `1e-12`.
+- **Current conclusion:** Repeated Iron V2 report `f2fb359f…6a73` supports the
+  all-region common-pole method on one opened real object: 30 retained modes,
+  spatial matches `0.833333/1.0` and all 17 gates pass.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Freeze Iron V2 over every discovered region with the partial
-  core and unchanged controls; do not rank peaks or access new payload.
+- **Next action:** Freeze one object- and family-disjoint internet real holdout
+  with unchanged V2; do not claim quality or material/domain admission.
 - **Current blocker:** Synthetic method support has no independent real-object
   validation. Real observation, mechanics and every exact-domain claim remain
   unproven.
@@ -65,7 +65,7 @@
 | [REALIMPACT Ceramic Cup observation result](../physical-sound-realimpact-ceramic-cup-observation-result-ps2-2026-08-28.md), reports `b6d25bc6…6a0c` / `9f1c2311…daf0` / `56591bb8…3fd9` | `CERAMIC_CUP_OBSERVATION_REJECTED / REPEATED_DECAY_GATE_FAILURE / MECHANICS_BLOCKED / PLANTER_SEALED` | Exact acquisition and 600-row decode repeat. Four V2 gates pass; decay is `0.25 < 0.50`, with `13/16` peaks below `500 Hz`. Freeze a fixed-axis offline diagnostic; do not try another object, tune or run physics. |
 | [Ceramic Cup observation diagnostic result](../physical-sound-ceramic-cup-observation-diagnostic-result-ps2-2026-08-28.md), report `47b578ac…2603` | `SHARED_DECAY_MISMATCH_SUPPORTED / LISTENER_LOCAL_REJECTED / SIMPLE_LOW_FREQUENCY_CAUSE_REJECTED / NO_NEW_PAYLOAD_OR_PHYSICS` | `23/27` rows fail; every axis exceeds the frozen shared threshold. Low/high fitted-decay fractions are `0.3583/0.2252`, rejecting the cutoff hypothesis. Next prove a multi-output estimator synthetically before reusing real rows. |
 | [Ceramic Cup adaptive counterfactual result](../physical-sound-ceramic-cup-adaptive-counterfactual-result-ps2-2026-08-28.md), report `2ec3b03e…d6b7` | `CERAMIC_ADAPTIVE_COUNTERFACTUAL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / SALIENCE_SELECTOR_SYNTHETIC_CONTROL_NEXT` | Only `6/16` fits are valid; decay/improvement are `0.375/0.1875`. Primary source uses ±`10%` salience suppression rather than V2's dense low-frequency selection. |
-| [Broad-band synthetic result](../physical-sound-broadband-common-pole-control-result-ps2-2026-08-28.md), [Iron counterfactual](../physical-sound-realimpact-broadband-counterfactual-result-ps2-2026-08-28.md) and [dense scaling result](../physical-sound-dense-broadband-scaling-control-result-ps2-2026-08-28.md), reports `dcd83252…0094` / `7635f8ac…075d` / `b9a5b226…978b` | `IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_NEXT` | Dense 32/96 analysis recovers 64/64 modes and partial/full parent equivalence. It authorizes only an all-region Iron V2; real transfer, quality and admission remain open. |
+| [Broad-band synthetic result](../physical-sound-broadband-common-pole-control-result-ps2-2026-08-28.md), [dense scaling result](../physical-sound-dense-broadband-scaling-control-result-ps2-2026-08-28.md) and [Iron V2 result](../physical-sound-realimpact-broadband-v2-result-ps2-2026-08-28.md), reports `dcd83252…0094` / `b9a5b226…978b` / `f2fb359f…6a73` | `DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_REAL_HOLDOUT_NEXT` | Iron V2 analyzes all 31/91 regions/bins, retains 30 modes and passes spatial/damped controls. This is one opened-object method transfer, not quality or domain admission. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
