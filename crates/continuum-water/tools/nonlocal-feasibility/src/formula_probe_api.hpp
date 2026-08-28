@@ -126,6 +126,13 @@ struct FormulaProbeK2Scalar {
     std::string root;
 };
 
+struct FormulaProbeHybridIdentity {
+    bool exact = false;
+    std::string carrier_root;
+    std::string callback_identity_root;
+    std::string root;
+};
+
 struct FormulaProbeK2Solve {
     bool exact = false;
     std::string role;
@@ -284,6 +291,13 @@ struct FormulaProbeTwofoldState {
     std::vector<double> direction_components;
     std::vector<double> preconditioned_components;
     FormulaProbeCertificate certificate;
+    // Explicit untrusted trace payloads for verifier-first correspondence.
+    // Legacy state roots intentionally remain unchanged; R63ZK compares these
+    // K2 values directly and seals them in its independent trace root.
+    FormulaProbeK2Scalar rho;
+    FormulaProbeK2Scalar denominator;
+    FormulaProbeK2Scalar alpha;
+    FormulaProbeK2Scalar beta;
     std::string operator_root;
     std::string solve_root;
     std::string rho_root;
@@ -331,6 +345,10 @@ struct FormulaProbeTwofoldExactAudit {
 };
 
 struct FormulaProbeHybridWork {
+    // R63ZK compares and independently seals these fields.  The legacy R63ZJ
+    // hybrid root deliberately omits them so its frozen regression is stable.
+    std::size_t fixture_validations = 0U;
+    std::size_t identity_derivations = 0U;
     std::size_t operator_products = 0U;
     std::size_t tangent_kernel_calls = 0U;
     std::size_t tangent_inner_dots = 0U;
@@ -341,6 +359,11 @@ struct FormulaProbeHybridWork {
     std::size_t input_components = 0U;
     std::size_t output_projections = 0U;
     std::size_t output_additions = 0U;
+    std::size_t certificate_dots = 0U;
+    std::size_t certificate_dot_products = 0U;
+    std::size_t certificate_radius_terms = 0U;
+    std::size_t certificate_solution_dots = 0U;
+    std::size_t certificate_sign_comparisons = 0U;
 };
 
 struct FormulaProbeHybridRecurrence {
@@ -394,6 +417,8 @@ std::string formula_probe_hybrid_carrier_root(
     const FormulaProbeParentFixture& fixture);
 std::string formula_probe_hybrid_callback_identity_root(
     const FormulaProbeParentFixture& fixture);
+FormulaProbeHybridIdentity formula_probe_hybrid_identity(
+    const FormulaProbeParentFixture& fixture);
 std::string formula_probe_solution_set_root(
     const std::vector<std::vector<FormulaProbeBinary128>>& solutions);
 std::string formula_probe_certificate_set_root(
@@ -423,6 +448,7 @@ FormulaProbeK2Scalar formula_probe_k2_add(
 FormulaProbeK2Scalar formula_probe_k2_divide(
     const FormulaProbeK2Scalar& numerator,
     const FormulaProbeK2Scalar& denominator);
+bool formula_probe_k2_positive(const FormulaProbeK2Scalar& value);
 std::string formula_probe_k2_vector_root(
     const std::vector<double>& components);
 FormulaProbeK2Solve formula_probe_k2_factor_solve(
