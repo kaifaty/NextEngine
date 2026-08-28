@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZK independent recurrence checker evidence
 
-Status: `AUTHOR_PASS / REVIEW_NOT_TESTED / BOUNDED_CANDIDATE`.
+Status: `AUTHOR_PASS / INITIAL_REVIEW_NO_GO / SUPERSEDED_BY_REVISION_2_REPAIR`.
 
 ## Author result
 
@@ -22,9 +22,10 @@ fields compare exactly. Independently derived state 2 is `24+/78-/0?` with
 sign root `89b2908b...6094`; the complete independent ladder is
 reject/reject/pass.
 
-This is author evidence only. R63ZJ remains `INCONCLUSIVE`; R63ZK does not edit
-or rehabilitate its validator. Independent `GO` is required before using the
-new checker to support the fixed-fixture trace-correspondence claim.
+This is author evidence only. The initial independent review returned `NO-GO`
+for checker completeness; see the
+[review evidence](nonlocal-nsr3b4e2d7r20r63zk-independent-review-evidence-2026-08-28.md).
+R63ZJ remains `INCONCLUSIVE`; R63ZK does not edit or rehabilitate its validator.
 
 ## Frozen identities
 

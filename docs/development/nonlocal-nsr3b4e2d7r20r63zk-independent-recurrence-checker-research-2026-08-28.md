@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZK independent recurrence checker research
 
-Status: `IMPLEMENTED / AUTHOR_PASS / INDEPENDENT_REVIEW_NEXT`.
+Status: `INITIAL_REVIEW_NO_GO / REVISION_2_REPAIR_FROZEN`.
 
 ## Decision
 
@@ -79,8 +79,17 @@ controls pass, including the three fully resealed drifts accepted by the old
 author validator. Result semantic is `e8cd812c...c95e2`.
 
 See the [author evidence](nonlocal-nsr3b4e2d7r20r63zk-independent-recurrence-checker-evidence-2026-08-28.md).
-R63ZK remains `REVIEW_NOT_TESTED`; no bounded claim promotion occurs before a
-fresh independent review.
+The [initial independent review](nonlocal-nsr3b4e2d7r20r63zk-independent-review-evidence-2026-08-28.md)
+returned `NO-GO`. It confirmed the scheduler/certificate independence and
+deterministic outputs, but found opaque-only scalar comparison, missing
+positivity guards, incomplete producer/checker/control work ownership, generic
+mismatch classification and incomplete semantic field controls.
+
+Revision 2 consumes the experiment's only batched repair. It adds explicit K2
+scalar payloads and the four frozen positivity guards; complete guard,
+metadata, identity and root comparisons; distinct expected/actual producer,
+checker and control-work seals; and first-specific mismatch routes. A remaining
+load-bearing finding in the single re-review closes R63ZK as `INCONCLUSIVE`.
 
 ## Authority ceiling
 
