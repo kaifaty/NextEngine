@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / MULTIOUTPUT_SYNTHETIC_CONTROL_SUPPORTED / CERAMIC_COUNTERFACTUAL_FROZEN / TWO_READ_ONLY_ANALYSES_AUTHORIZED / ADDITIONAL_REAL_DATA_BLOCKED / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / MULTIOUTPUT_SYNTHETIC_CONTROL_SUPPORTED / CERAMIC_MULTIOUTPUT_COUNTERFACTUAL_REJECTED / INCOMPATIBLE_IMPACTS_REJECTED / FIXED_WINDOW_ASSUMPTION_UNSUPPORTED / ADAPTIVE_DECAY_SYNTHETIC_CONTROL_NEXT / REAL_REUSE_BLOCKED / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -16,9 +16,9 @@
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** After committing and transferring the preflight, execute the
-  fixed Ceramic Cup multi-output counterfactual twice and publish support or
-  rejection without changing rows or gates.
+- **Next action:** Freeze a synthetic source-faithful adaptive-decay control
+  with known truth, delayed build-up and noise-floor cases. Do not reuse Ceramic
+  until it passes; do not apply a frequency cutoff.
 - **Current blocker:** No admissible fresh observation exists, and two objects
   expose a possible low-frequency/decay-statistic mismatch. Real 3D transfer
   and every exact-domain claim remain unproven.
@@ -65,7 +65,7 @@
 | [REALIMPACT Pitcher calibration](../physical-sound-realimpact-pitcher-calibration-ps2-2026-08-28.md) and [causal audit](../physical-sound-pitcher-causal-audit-ps2-2026-08-28.md), reports `8bd5323c…1aea` / `68c79a37…5a57` | `PITCHER_COMBINED_PROTOCOL_REJECTED / OBSERVATION_ADMISSION_FAILED / BYTE_IDENTICAL_AUDIT / PLANTER_SEALED` | Frequency/field comparisons fail strongly, but the consumed observation also fails the earlier V2 decay gate and selects `11/16` peaks below `500 Hz`. Preserve the combined rejection without uniquely blaming mechanics; test observation first on unopened `78_CeramicCup`. |
 | [REALIMPACT Ceramic Cup observation result](../physical-sound-realimpact-ceramic-cup-observation-result-ps2-2026-08-28.md), reports `b6d25bc6…6a0c` / `9f1c2311…daf0` / `56591bb8…3fd9` | `CERAMIC_CUP_OBSERVATION_REJECTED / REPEATED_DECAY_GATE_FAILURE / MECHANICS_BLOCKED / PLANTER_SEALED` | Exact acquisition and 600-row decode repeat. Four V2 gates pass; decay is `0.25 < 0.50`, with `13/16` peaks below `500 Hz`. Freeze a fixed-axis offline diagnostic; do not try another object, tune or run physics. |
 | [Ceramic Cup observation diagnostic result](../physical-sound-ceramic-cup-observation-diagnostic-result-ps2-2026-08-28.md), report `47b578ac…2603` | `SHARED_DECAY_MISMATCH_SUPPORTED / LISTENER_LOCAL_REJECTED / SIMPLE_LOW_FREQUENCY_CAUSE_REJECTED / NO_NEW_PAYLOAD_OR_PHYSICS` | `23/27` rows fail; every axis exceeds the frozen shared threshold. Low/high fitted-decay fractions are `0.3583/0.2252`, rejecting the cutoff hypothesis. Next prove a multi-output estimator synthetically before reusing real rows. |
-| [Ceramic Cup multi-output counterfactual preflight](../physical-sound-ceramic-cup-multioutput-counterfactual-preflight-ps2-2026-08-28.md), report `7bf54ec8…e0e1` | `CERAMIC_COUNTERFACTUAL_FROZEN / TWO_READ_ONLY_ANALYSES_AUTHORIZED / ADDITIONAL_REAL_DATA_BLOCKED` | Manifest `add0017b…25e1` binds the synthetic pass, existing block, rows `0..14`, reference row `7` and six gates. Preflight reads zero payload bytes; analysis must rehash the block. |
+| [Ceramic Cup multi-output counterfactual result](../physical-sound-ceramic-cup-multioutput-counterfactual-result-ps2-2026-08-28.md), report `9947c427…96cbf` | `CERAMIC_MULTIOUTPUT_COUNTERFACTUAL_REJECTED / INCOMPATIBLE_IMPACTS_REJECTED / ADAPTIVE_DECAY_SYNTHETIC_CONTROL_NEXT` | Spatial/reference decay fractions are `0.1875/0.25`; both frozen decay checks fail. Primary sources confirm synchronized microphones and reveal a mode-adaptive RMS-envelope fit rather than V2's fixed window. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -207,8 +207,8 @@ Read these sources in precedence order before acting:
 
 1. Preserve every frozen evidence hash externally; never retune opened data or
    reinterpret a control pass as quality, causality or P1 evidence.
-2. Commit and transfer the frozen counterfactual, then execute it twice; do not
-   tune, fetch, run physics or access Planter audio.
+2. Freeze a source-faithful adaptive-decay synthetic control; do not tune V2,
+   reuse Ceramic, cut frequencies, fetch, run physics or access Planter audio.
 3. Promote only after measured success and a consumer ADR; otherwise retain the
    unchanged authored-clip fallback.
 
