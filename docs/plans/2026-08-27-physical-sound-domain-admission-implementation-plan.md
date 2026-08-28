@@ -486,6 +486,17 @@ control in an external Python 3.12 environment before non-spherical modes or
 fresh REALIMPACT access. See the [quadrature
 evidence](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md).
 
+The independent Bempp control now passes its frozen V2 protocol. Python
+`3.12.13`, Bempp-cl `0.4.2` revision `a1eaaef9…e1c0` and the complete CPU
+environment are exact. The 512-panel field reaches maximum complex error
+`1.2710%`, magnitude `0.1111 dB`, phase `0.4844°`, direction span
+`0.0074 dB` and fine/coarse median ratio `0.2625`; six GMRES solves and all
+seven gates pass. Reports repeat at `ba638a21…01f1`. This grants only an
+analytical sphere oracle. Next freeze one non-spherical prescribed surface
+mode and cross-check its Bempp field with the repository cooker before any
+fresh REALIMPACT access. See the [independent-control
+evidence](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:
