@@ -2,10 +2,10 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_PROJECT_SPLIT_FROZEN / GLASS_16_OF_16 / REJECT_PARENTS_48_OF_35 / FOUR_PARTITIONS_ROLE_COMPLETE / DOMAIN_AXIS_CLOSURE_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_DOMAIN_CLAIM_MATRIX_EXECUTABLE / PROJECT_SPLIT_FROZEN / ONE_CROSS_TIER_LINK / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [Kronland reject expansion and project split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [Kronland reject expansion and project split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md) |
+| Текущий evidence | [PS-2 exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Последний пакет | [Exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -110,7 +110,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / PROJECT_SPLIT_FROZEN / GLASS_16_OF_16 / REJECT_PARENTS_48_OF_35 / FOUR_PARTITIONS_ROLE_COMPLETE / DOMAIN_AXIS_CLOSURE_OPEN` | L | Power policy, `E1` import, bounded source/cache/archive handling and claim-scoped `E1`–`E4` accounting are executable. Eight projects validate 64 objects/135 E3 recordings; Glass is `16/16` and 46 recordings, reject parents `48/35` and 89. The deterministic `20/30/25/25` project split is hash-closed as `2/2/2/2`, with target and reject evidence in every partition. Five typed REALIMPACT E2 rows remain fallback-only. Next construct the exact-domain claim matrix; missing geometry/support/excitation/listener axes still block PS-3 and `Pass`. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / DOMAIN_CLAIM_MATRIX_EXECUTABLE / PROJECT_SPLIT_FROZEN / ONE_CROSS_TIER_LINK / EIGHT_EXACT_CLAIMS_OPEN` | L | Power policy, `E1` import, bounded source/cache/archive handling and claim-scoped `E1`–`E4` accounting are executable. Eight projects validate 64 objects/135 E3 recordings; Glass is `16/16` and 46 recordings, reject parents `48/35` and 89. The deterministic `20/30/25/25` project split is hash-closed as `2/2/2/2`, with target and reject evidence in every partition. The executable E2/E3 matrix admits only the reviewed Blue Bowl object link and returns `DomainEvidenceIncomplete / FallbackOutOfDomain`: composition, exact geometry/support/excitation/impact/listener alignment, matched-condition lineage and four-partition domain coverage remain open. Next test published-source feasibility for those exact claims; do not tune formulas or open PS-3. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -426,6 +426,18 @@ target and reject evidence; `dev/calibration/holdout/shadow` contain
 domain-axis closure, calibrated selective risk, sealed shadow evaluation,
 `Pass`, PS-3 and AV-P0D remain open. See the [Kronland/split evidence](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md).
 
+PS-2 exact-domain checkpoint: `physical-sound-registry domain-claims` now
+hash-links the frozen plan, partitioned E3 corpus, verified split and five
+REALIMPACT E2 reports. Only the reviewed Blue Bowl object 6 relation is an
+admitted cross-tier identity; a control rejects the tempting but false
+`94_GlassGoblet` / ObjectFolder `94 Salad_Bowl` numeric join. Repeated reports
+return `DomainEvidenceIncomplete / FallbackOutOfDomain`. Identity, E3 repeats
+and one linked transfer are useful, but eight required exact claims remain
+unsupported and every partition has zero exact-domain-eligible objects. The
+next action is published-source feasibility for those named claims, followed
+by either one typed adapter/link or a preregistered internet-native plan
+revision. See the [matrix evidence](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -567,7 +579,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization through AV-MSF/YCB/Heller/two-Freesound/ObjectFolder-Real-demo/Kronland/SoundPacks, explicit roles, five REALIMPACT E2 rows, bounded negative source discriminators and deterministic split freeze — `GLASS_16_OF_16 / REJECT_PARENTS_48_OF_35 / PROJECT_DISJOINT_SPLIT_VERIFIED`; next build an exact-domain E2/E3 claim matrix without moving frozen partitions | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five REALIMPACT E2 rows, bounded source discriminators, deterministic split freeze and executable exact-domain E2/E3 matrix — `DOMAIN_EVIDENCE_INCOMPLETE / ONE_CROSS_TIER_LINK / EIGHT_EXACT_CLAIMS_OPEN`; next research published-source feasibility for the named claims without moving frozen partitions | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
