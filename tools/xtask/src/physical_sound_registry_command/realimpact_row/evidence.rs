@@ -422,6 +422,40 @@ The repository's MIT file applies to the published repository code. This review\
 does not infer matching redistribution permission for the recording archive;\n\
 all extracted bytes stay outside Git and are used only for local research.\n"
         }
+        SKULL_CUP_PROFILE_ID => {
+            "# REALIMPACT Skull Cup bounded-range provenance review\n\n\
+Status: development-only external E2 transfer pilot; corpus admission and\n\
+redistribution are not authorized.\n\n\
+Primary sources:\n\n\
+- https://samuelpclarke.com/realimpact/\n\
+- https://github.com/samuel-clarke/RealImpact\n\
+- https://jiajunwu.com/papers/realimpact_cvpr.pdf\n\
+- https://objectfolder.stanford.edu/objectfolder-real-download\n\
+- https://downloads.cs.stanford.edu/viscam/RealImpact/60_SkullCup.zip\n\n\
+The REALIMPACT paper states that its 50 physical objects were purchased from\n\
+the ObjectFolder collection. The official ObjectFolder-Real table identifies\n\
+numeric object 60 as Beer_Glass / Glass; REALIMPACT publishes the same numeric\n\
+object under the alternate archive label 60_SkullCup. The material family is\n\
+therefore bound to the official ObjectFolder label, while material composition\n\
+and revision remain unavailable.\n\n\
+The official preprocessing code converts the synchronized hammer trace to\n\
+newtons and deconvolves it from the 48 kHz microphone recordings. The published\n\
+archive contains the object mesh, impact/listener coordinates and a 3000 x\n\
+209549 float32 deconvolved transfer array. It does not contain the raw force\n\
+profile, material-composition revision, repeat identity or a versioned support\n\
+fixture, so the row remains fallback-only.\n\n\
+This acquisition reads the 1259-byte ZIP central directory, six small NPY\n\
+members, the compressed mesh and a fixed 1048576-byte prefix of the large raw-\n\
+deflate transfer member. The prefix yields the NPY header and row 0 without\n\
+downloading the 2328619384-byte archive. The row's impact coordinate matches\n\
+mesh vertex 2764 exactly. The mesh spans about 89 x 90 x 151 mm and adds a\n\
+narrow vessel geometry distinct from the broad bowl and plate pilots. Archive\n\
+HTTP identity, central directory, entry metadata, decoded members, row payload\n\
+and normalized audition WAV are all hash-closed.\n\n\
+The repository's MIT file applies to the published repository code. This review\n\
+does not infer matching redistribution permission for the recording archive;\n\
+all extracted bytes stay outside Git and are used only for local research.\n"
+        }
         _ => unreachable!("validated frozen profile"),
     };
     review.to_owned()

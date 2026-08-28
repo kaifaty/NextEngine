@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.23 |
+| Version | 0.24 |
 | Last verified | 2026-08-28 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
-| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [PS-2 YCB vertical reject-parent expansion](../development/physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Blue Bowl cross-tier E2 increment](../development/physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [PS-2 REALIMPACT Shell Plate bounded-range E2 pilot](../development/physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md), [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md) |
-| Replaces | SPEC-45 0.22; records five exact original Kronland Glass objects and transport-safe IPv4-first retrieval without changing corpus admission, quality acceptance or runtime/content contracts |
-| Latest evidence | [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md) |
+| Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [PS-2 YCB vertical reject-parent expansion](../development/physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Blue Bowl cross-tier E2 increment](../development/physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [PS-2 REALIMPACT Shell Plate bounded-range E2 pilot](../development/physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md), [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Skull Cup bounded-range E2 pilot](../development/physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md) |
+| Replaces | SPEC-45 0.23; records the bounded ObjectFolder/YCB E3 discovery rejection and fifth exact REALIMPACT Glass E2 profile without changing corpus admission, quality acceptance or runtime/content contracts |
+| Latest evidence | [PS-2 REALIMPACT Skull Cup bounded-range E2 pilot](../development/physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md) |
 
 ## Status and decision boundary
 
@@ -192,7 +192,7 @@ added. Greatest Hits receives no E3 credit and Glass remains `5/16`.
 The current-only V2 `physical-sound-registry corpus-inventory` boundary now
 requires a typed source adapter for force-deconvolved transfer entries. Its
 `realimpact_force_deconvolved_transfer_v1` profile freezes the official
-REALIMPACT repository commit, five exact upstream source files and four exact
+REALIMPACT repository commit, five exact upstream source files and five exact
 object rows with their metadata, transfer and provenance hashes. It
 cross-checks archive/object/mesh/transfer/impact/listener identities and grants
 only `E2TransferResponse` capabilities for geometry, positions, object identity,
@@ -339,6 +339,21 @@ production credit is created. The safe HTTPS resolver now prefers public IPv4
 when a host publishes both address families, after validating every resolved
 address as public; pinned resolution, byte bounds and hash closure are
 unchanged.
+
+The following bounded source audit does not weaken E3 identity. ObjectFolder's
+remaining `fork_vis` demo contains only objects 36 `Polycarbonate` and 52
+`Steel`; its material-classification benchmark exposes object-keyed processed
+spectrograms in an 81.95 GB bundle rather than original recordings. The YCB
+Impact OSF release publishes object-named vertical recordings with no Glass
+object and material-grouped horizontal Glass clips without per-clip object
+identity. These routes remain discovery-only. The fallback
+`skull-cup-row-0-v1` profile instead binds REALIMPACT numeric object 60 to the
+ObjectFolder `Beer_Glass / Glass` row and validates a `3000 x 209549` transfer,
+`47,810`-vertex mesh and exact row-0 vertex `2764` after transferring
+`1,670,815` bytes (`0.071751%`) of the 2.33 GB archive. Two acquisitions and
+two V2 audits are byte-identical. This is the fifth typed REALIMPACT E2 object,
+remains `FallbackOutOfDomain`, and leaves E3 Glass at `14/16`, reject parents at
+`38/35` and every split beyond `dev` closed.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

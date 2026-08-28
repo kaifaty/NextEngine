@@ -119,6 +119,30 @@ fn declaration_accepts_the_independently_fetched_shell_plate_row() {
     );
 }
 
+#[test]
+fn declaration_accepts_the_independently_fetched_skull_cup_row() {
+    let mut entry = entry_fixture();
+    entry.id = "realimpact-skull-cup-row0000".to_owned();
+    entry.object_id = "realimpact-60-skullcup".to_owned();
+    entry.audio_payload.sha256 = REALIMPACT_SKULL_CUP_TRANSFER_SHA256.to_owned();
+    entry.acquisition_metadata.sha256 = REALIMPACT_SKULL_CUP_METADATA_SHA256.to_owned();
+    entry.provenance_review.sha256 = REALIMPACT_SKULL_CUP_PROVENANCE_SHA256.to_owned();
+    let mut adapter = adapter_fixture();
+    let SourceAdapterProfile::RealImpactForceDeconvolvedTransferV1 {
+        dataset_object_id, ..
+    } = &mut adapter;
+    *dataset_object_id = REALIMPACT_SKULL_CUP_DATASET_OBJECT_ID.to_owned();
+    entry.source_adapter = Some(adapter);
+    validate_declaration(&entry, true).expect("frozen Skull Cup source adapter validates");
+
+    entry.audio_payload.sha256 = REALIMPACT_SHELL_PLATE_TRANSFER_SHA256.to_owned();
+    assert!(
+        validate_declaration(&entry, true)
+            .expect_err("cross-object transfer hash rejects")
+            .contains("transfer payload is not the frozen 60_SkullCup pilot")
+    );
+}
+
 fn entry_fixture_with_adapter() -> InventoryEntry {
     let mut entry = entry_fixture();
     entry.source_adapter = Some(adapter_fixture());
