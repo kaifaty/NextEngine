@@ -81,8 +81,20 @@ pub(super) fn evaluate(
     sample_rate_hz: u32,
     candidate: CandidateProfile,
 ) -> Result<Evaluation, String> {
+    evaluate_candidates(rows, modes, sample_rate_hz, &vec![candidate; modes.len()])
+}
+
+fn evaluate_candidates(
+    rows: &[Vec<f64>],
+    modes: &[ModeSeed],
+    sample_rate_hz: u32,
+    candidates: &[CandidateProfile],
+) -> Result<Evaluation, String> {
     if rows.len() != LISTENER_COUNT || modes.is_empty() {
         return Err("spatial evaluation dimensions are not frozen".to_owned());
+    }
+    if candidates.len() != modes.len() {
+        return Err("spatial evaluation candidate lineage differs from modes".to_owned());
     }
     if rows.iter().any(|row| row.len() < WINDOW_SAMPLES) {
         return Err("spatial evaluation row is shorter than the frozen window".to_owned());
@@ -109,8 +121,8 @@ pub(super) fn evaluate(
     let mut constant_errors = Vec::new();
     let mut improved = 0_usize;
     let mut components = Vec::new();
-    for (mode, target) in modes.iter().zip(participation) {
-        let predicted = predict(&z, &target, candidate)?;
+    for ((mode, target), candidate) in modes.iter().zip(participation).zip(candidates) {
+        let predicted = predict(&z, &target, *candidate)?;
         let errors = HELD_LISTENERS
             .iter()
             .map(|index| (predicted[*index] - target[*index]).abs())
@@ -203,6 +215,42 @@ pub(super) fn evaluate_rbf(
             kind: CandidateKind::RbfDynamic(sigma),
         },
     )
+}
+
+pub(super) fn evaluate_rbf_per_mode(
+    rows: &[Vec<f64>],
+    modes: &[ModeSeed],
+    sample_rate_hz: u32,
+    sigmas: &[f64],
+) -> Result<Evaluation, String> {
+    if sigmas.len() != modes.len()
+        || sigmas
+            .iter()
+            .any(|sigma| !sigma.is_finite() || *sigma <= 0.0)
+    {
+        return Err("per-mode spatial RBF sigma lineage is invalid".to_owned());
+    }
+    let candidates = sigmas
+        .iter()
+        .map(|sigma| CandidateProfile {
+            id: "dynamic-per-mode-rbf",
+            kind: CandidateKind::RbfDynamic(*sigma),
+        })
+        .collect::<Vec<_>>();
+    evaluate_candidates(rows, modes, sample_rate_hz, &candidates)
+}
+
+pub(super) fn component_candidate_median_errors(evaluation: &Evaluation) -> Vec<(f64, f64)> {
+    evaluation
+        .components
+        .iter()
+        .map(|component| {
+            (
+                component.frequency_hz,
+                component.candidate_median_abs_error_db,
+            )
+        })
+        .collect()
 }
 
 pub(super) fn improved_component_fraction(
@@ -489,5 +537,32 @@ mod tests {
             let prediction = predict(&z, &target, candidate).expect("candidate fits");
             assert!(prediction.iter().all(|value| value.is_finite()));
         }
+    }
+
+    #[test]
+    fn uniform_per_mode_sigma_matches_single_rbf_evaluation() {
+        let frequency_hz = 1_200.0;
+        let rows = (0..LISTENER_COUNT)
+            .map(|listener| {
+                let gain = 0.5 + listener as f64 / LISTENER_COUNT as f64;
+                (0..WINDOW_SAMPLES)
+                    .map(|sample| {
+                        let time = sample as f64 / 48_000.0;
+                        gain * (-18.0 * time).exp() * (2.0 * PI * frequency_hz * time).cos()
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let modes = [ModeSeed {
+            frequency_hz,
+            persistent: true,
+        }];
+
+        let single = evaluate_rbf(&rows, &modes, 48_000, 0.52).expect("single RBF");
+        let per_mode = evaluate_rbf_per_mode(&rows, &modes, 48_000, &[0.52]).expect("per-mode RBF");
+        assert_eq!(
+            serde_json::to_vec(&single).expect("serialize single"),
+            serde_json::to_vec(&per_mode).expect("serialize per-mode")
+        );
     }
 }

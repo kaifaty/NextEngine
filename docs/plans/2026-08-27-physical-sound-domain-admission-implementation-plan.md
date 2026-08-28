@@ -440,6 +440,18 @@ per-mode bandwidth conditioned on frequency/acoustic scale plus mesh/impact
 features, uses fresh calibration objects and preserves the current holdout. See
 the [shape-calibration evidence](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md).
 
+That per-mode experiment is complete and rejected. Development manifest
+`88cac5bc…09f` fits 192 targets across twelve opened objects; calibration
+manifest `92ebe6a7…42f8` then opens only fresh `100_Frisbee` and
+`32_WoodChalice`. Both absolute candidate gates pass, but median ratio `1.0146`
+fails `0.95` and maximum object ratio `1.0266` fails `1.0`; calibration reports
+repeat at `42b6605d…983`. The two ceramic holdouts remain unopened. Retire the
+RBF-bandwidth family rather than retuning it. The next bounded package uses
+already-open data to test one complex per-mode radiation representation; only
+representation success may authorize fresh validation and an offline
+surface-mode plus PAT/BEM-style cooker. See the [frequency-calibration
+evidence](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:
