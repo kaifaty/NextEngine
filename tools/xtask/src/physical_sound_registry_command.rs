@@ -8,6 +8,7 @@ use next_contracts::ids::ContentHash;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+mod bem_feasibility;
 mod corpus_inventory;
 mod corpus_plan;
 mod domain_claims;
@@ -61,10 +62,8 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
     let mut arguments = arguments.peekable();
     let subcommand = arguments.peek().cloned();
     match subcommand.as_deref() {
-        Some("corpus-plan") => {
-            arguments.next();
-            return corpus_plan::run_cli(root, arguments);
-        }
+        Some("bem-feasibility") => return bem_feasibility::run_cli(root, arguments.skip(1)),
+        Some("corpus-plan") => return corpus_plan::run_cli(root, arguments.skip(1)),
         Some("corpus-inventory") => {
             arguments.next();
             return corpus_inventory::run_cli(root, arguments);

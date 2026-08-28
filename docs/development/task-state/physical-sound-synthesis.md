@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_COMPLEX_MULTIPOLE_REPRESENTATION_REJECTED / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / CLASSICAL_SURFACE_MODE_BEM_FEASIBILITY_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_BEM_ANALYTICAL_CONTROL_REFINEMENT_REJECTED / FOUR_OF_FIVE_NUMERIC_GATES_PASS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / INDEPENDENT_SYNTHETIC_CONTROL_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,19 +10,19 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Transfer V2 passes relative modal/damping and the
-  narrow RBF pilot remains positive, but wider kernels and a complex order-3
-  multipole basis are rejected. The latter loses median `1.2506x`, worst object
-  `2.0861x` and p90 `+7.2513 dB`. Ceramic holdout remains sealed.
+- **Current conclusion:** The first classical boundary-solver harness repeats
+  exactly and its fine sphere field passes absolute complex, magnitude, phase
+  and symmetry gates, but fails convergence: median error is `2.8589x` coarse
+  instead of `<=0.8x`. It is not yet an admissible BEM/FFAT oracle.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Freeze an external classical surface-mode/BEM feasibility
-  run on one analytical synthetic fixture; train no network and access no new
-  REALIMPACT payload until eigen/field controls and repeat hashes pass.
-- **Current blocker:** Empirical listener-coordinate bases omit the actual
-  surface mode shape. A reproducible classical vibration/radiation target,
-  exact material/support and calibrated admission risk remain open.
+- **Next action:** On the same synthetic domain, freeze an added-resolution or
+  independent-classical-solver discriminator for geometry/quadrature error
+  versus a boundary-equation defect. Access no new REALIMPACT payload.
+- **Current blocker:** Absolute fine-grid error is small but low-order error is
+  non-monotonic. Surface-mode transfer, exact material/support and calibrated
+  admission risk remain open.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -53,6 +53,7 @@
 | [REALIMPACT shape-conditioned spatial calibration](../physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md) and reports `3d18358b…4962f` / `ffb17687…aad6` | `BBOX_CONDITIONED_BANDWIDTH_CALIBRATION_REJECTED / BYTE_IDENTICAL_REPEATS / HOLDOUT_UNOPENED` | Ten fresh development objects fit one bbox/aspect/impact-conditioned object bandwidth. Both calibration candidate gates pass and p90 improves, but median ratio `1.0122` fails `0.95` and max ratio `1.0242` fails `1.0`. Do not retune; preserve two ceramic holdouts for a frequency-conditioned candidate. |
 | [REALIMPACT frequency-conditioned spatial calibration](../physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md) and reports `48a150d7…19b` / `42b6605d…983` | `FREQUENCY_CONDITIONED_BANDWIDTH_CALIBRATION_REJECTED / BYTE_IDENTICAL_REPEATS / HOLDOUT_UNOPENED` | Twelve development objects fit 192 per-mode `kL`/shape targets. Both fresh candidate gates pass, but median ratio `1.0146` fails `0.95` and max ratio `1.0266` fails `1.0`; the frequency coefficient collapses near zero. Retire RBF-bandwidth tuning and research modal-radiation representation. |
 | [REALIMPACT modal-radiation representation diagnostic](../physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md) and reports `7cbf7c59…f25` | `COMPLEX_MULTIPOLE_REPRESENTATION_REJECTED / BYTE_IDENTICAL_REPEAT / NO_FRESH_DATA_OPENED` | Order-3 axisymmetric complex multipoles pass `14/14` absolute gates but lose all comparison gates: median ratio `1.2506`, max `2.0861`, p90 `+7.2513 dB`, improved fraction `0.3482`. Do not raise order on opened rows; prove a classical surface-mode/BEM target first. |
+| [Analytical boundary-solver control](../physical-sound-bem-analytical-control-ps2-2026-08-28.md) and reports `6f74a309…a689` | `CLASSICAL_BOUNDARY_SOLVER_ANALYTICAL_CONTROL_REJECTED / FOUR_OF_FIVE_NUMERIC_GATES_PASS / BYTE_IDENTICAL_REPEAT` | The 320-panel sphere stays within `2.1251%`, `0.1827 dB`, `0.2993°` and `0.0002 dB` direction span, but median error is `2.8589x` the 80-panel result. Preserve the harness; diagnose convergence synthetically before BEM/FFAT oracle credit. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -163,7 +164,7 @@ resume-critical consequences are:
   gate closes zero V1 blockers. REALIMPACT V2 supports relative modal/damping;
   the RBF is only a narrow conditional pilot after fixed, bbox/frequency and
   complex-multipole generalization failures.
-- **Uncertainty:** Classical surface-mode/BEM feasibility, angle/distance/3D
+- **Uncertainty:** Converged classical surface-mode/BEM feasibility, angle/distance/3D
   radiation, material identity and every exact-domain admission claim remain
   unevaluated or unsupported.
 - **Reconsider when:** Only an explicit product-owner reversal permits local
@@ -178,7 +179,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects and claim/source gates exist; V2 passes modal/damping; narrow RBF pilot passes | Kernel variants and compact complex multipoles fail wider transfer; no classical surface-radiation target, 3D or calibrated shadow risk exists | Hash-close classical modal-analysis/BEM output on one analytical fixture before any neural acceleration or fresh real-data validation |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects and claim/source gates exist; the first boundary harness has small absolute sphere-field error | Its preregistered refinement gate fails; no converged surface-radiation target, 3D or calibrated shadow risk exists | Discriminate geometry/quadrature versus boundary-equation error on synthetic data before fresh real-data validation |
 
 ## Required context
 
@@ -198,7 +199,7 @@ Read these sources in precedence order before acting:
    subjective quality or P1 evidence.
 2. Preserve PS-2, transfer-V1/V2 and all spatial rejection hashes. Never retune
    empirical spatial bases on opened data. Hash-close classical modal-analysis
-   and BEM output on one analytical fixture; keep ceramic holdouts sealed.
+   and a converged/independently checked BEM output; keep ceramic holdouts sealed.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
@@ -229,12 +230,12 @@ Read these sources in precedence order before acting:
 - **Workspace state:** Registry V1, PS-1, PS-2 plan/`E1`, eight-project E3,
   explicit roles, five typed E2 rows, a verified project split, executable
   exact-domain/source gates, V1/V2 transfer calibration, narrow spatial pilot,
-  repeated kernel and complex-multipole representation rejections exist; public
-  schemas/assets/ownership are unchanged.
-- **Checks:** modal-radiation development repeats at `7cbf7c59…f25`; no fresh
-  data was opened and both declared holdouts remain sealed. Final checks are
-  in the commit handoff.
-- **Remaining risk:** eight exact-domain claims, classical BEM/3D transfer,
+  repeated empirical-representation rejections and one analytical boundary
+  harness exist; public schemas/assets/ownership are unchanged.
+- **Checks:** boundary-solver reports repeat at `6f74a309…a689`; four absolute
+  numeric gates pass, refinement fails, no fresh data opens and holdouts remain
+  sealed. Final checks are in the commit handoff.
+- **Remaining risk:** eight exact-domain claims, converged BEM/3D transfer,
   calibrated domain/OOD/shadow risk, contact sufficiency, mixer cost and
   authoring are open.
 - **Quality status:** V2 supports relative modal/damping extractor transfer;

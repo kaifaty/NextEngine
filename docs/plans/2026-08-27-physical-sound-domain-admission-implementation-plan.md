@@ -464,6 +464,18 @@ analysis plus BEM/FFAT output before neural acceleration or REALIMPACT
 validation. See the [modal-radiation
 evidence](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md).
 
+The first classical control package is now executable but does not satisfy its
+full preregistration. Manifest `9a26ca13…8095` freezes a pulsating-sphere
+indirect boundary solver at 80 and 320 panels. Both runs repeat at
+`6f74a309…a689`; the fine field passes maximum complex (`2.1251%`), magnitude
+(`0.1827 dB`), phase (`0.2993°`) and direction (`0.0002 dB`) gates. Its median
+error is nevertheless `2.8589x` coarse against the required `<=0.8x`, so the
+decision is rejected and no BEM/FFAT oracle credit exists. The next bounded
+package remains synthetic and must distinguish panel geometry/quadrature error
+from a boundary-equation defect using added resolution or independent
+classical output. See the [analytical-control
+evidence](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md).
+
 ### 4. AV-P0D autonomous formula search
 
 Deliver:

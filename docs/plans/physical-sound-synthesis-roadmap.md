@@ -2,10 +2,10 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_COMPLEX_MULTIPOLE_REPRESENTATION_REJECTED / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / CLASSICAL_SURFACE_MODE_BEM_FEASIBILITY_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_BEM_ANALYTICAL_CONTROL_REFINEMENT_REJECTED / FOUR_OF_FIVE_NUMERIC_GATES_PASS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / INDEPENDENT_SYNTHETIC_CONTROL_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Текущий evidence | [PS-2 REALIMPACT modal-radiation representation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [REALIMPACT complex modal-radiation representation rejection](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md) |
+| Текущий evidence | [PS-2 analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [REALIMPACT modal-radiation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
+| Последний пакет | [Analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -110,7 +110,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / COMPLEX_MULTIPOLE_REPRESENTATION_REJECTED / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / CLASSICAL_SURFACE_MODE_BEM_FEASIBILITY_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | Transfer V2 crosses modal/damping gates and the narrow Green/Shell/Skull pilot remains positive, but wider kernels fail. A complex order-3 multipole basis then passes `14/14` absolute gates on already-open blocks yet loses median `1.2506x`, max `2.0861x`, p90 `+7.2513 dB` and improved fraction `0.3482`; reports repeat at `7cbf7c59…f25`. No fresh data opens. Next hash-close a classical surface-mode/BEM pipeline on one analytical synthetic fixture before neural acceleration, real-data validation or PS-3. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / BEM_ANALYTICAL_CONTROL_REFINEMENT_REJECTED / FOUR_OF_FIVE_NUMERIC_GATES_PASS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / INDEPENDENT_SYNTHETIC_CONTROL_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN` | L | The first classical boundary harness repeats and its 320-panel sphere field passes absolute complex, magnitude, phase and direction gates, but the fine/coarse median error ratio is `2.8589` against `0.8`. It is not yet a converged BEM/FFAT oracle. Next distinguish panel geometry/quadrature error from a boundary-equation defect using synthetic or independent classical evidence before neural acceleration, real-data validation or PS-3. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -549,6 +549,18 @@ classical generation path as the first feasibility candidate. Train no network
 and open no new REALIMPACT data until this control passes. See the
 [modal-radiation evidence](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md).
 
+PS-2 analytical boundary-solver checkpoint: manifest `9a26ca13…8095` freezes a
+pulsating-sphere indirect single-layer BEM control across three `ka` values,
+three listener radii, ten directions and 80/320-panel meshes. Both reports are
+byte-identical at `6f74a309…a689`. Fine maximum error is `2.1251%`, magnitude
+error `0.1827 dB`, phase error `0.2993°` and direction span `0.0002 dB`, so all
+four absolute gates pass. The fine/coarse median ratio is nevertheless
+`2.8589` against the frozen `0.8`; decision is
+`ClassicalBoundarySolverAnalyticalControlRejected`. Preserve the harness and
+holdouts; next test convergence with added resolution or an independent
+classical result on synthetic data. See the [analytical-control
+evidence](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -690,7 +702,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `COMPLEX_MULTIPOLE_REPRESENTATION_REJECTED / NO_FRESH_DATA_OPENED / CLASSICAL_SURFACE_MODE_BEM_FEASIBILITY_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next hash-close classical modal-analysis/BEM output on one analytical fixture while preserving ceramic holdout | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `BEM_ANALYTICAL_CONTROL_REFINEMENT_REJECTED / FOUR_OF_FIVE_NUMERIC_GATES_PASS / NO_FRESH_DATA_OPENED / INDEPENDENT_SYNTHETIC_CONTROL_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN`; next distinguish BEM geometry/quadrature from boundary-equation error while preserving ceramic holdout | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
