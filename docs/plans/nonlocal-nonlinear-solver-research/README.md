@@ -22,6 +22,7 @@ NSR3B4E2D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT /
 NSR3B4E2D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE /
 NSR3B4E2D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT /
 NSR3B4E2D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED /
+NSR3B4E2D7R20R63ZI_ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_FROZEN_IMPLEMENTATION_NEXT /
 REPORT_ONLY`. The append-only status ledger
 below preserves all pre-closure markers for historical audit.
 
@@ -4130,6 +4131,18 @@ stdout and binary hashes. Certificate repair stops here; any successor common
 operator must serve only as an original-equation-preserving accelerator or
 preconditioner. No deeper factorial, correction, timing or production
 authority follows from this result.
+
+The
+[R20R63ZI research](../../development/nonlocal-nsr3b4e2d7r20r63zi-original-operator-twofold-recurrence-research-2026-08-28.md)
+and
+[contract](03b4e2d7r20r63zi-original-operator-twofold-recurrence-contract.md)
+freeze the first successor producer. It materializes the passing tangent-Gram
+operator as a width-two binary64 block, consumes the existing exported factor
+only as preconditioner, executes the unchanged projected-input state `0..2`
+recurrence and requires the original R63Y reject/reject/pass ladder. The common
+K2 operator remains a negative control. Exact coefficient/product containment,
+fixed work, failure precedence and fresh review are mandatory; dynamic
+building, corpus, timing and integration remain blocked meanwhile.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
