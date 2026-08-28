@@ -2,11 +2,11 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / EXISTING_IRON_COUNTERFACTUAL_NEXT / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_CONTROL_NEXT / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Актуальное evidence | [PS-2 broad-band common-pole control result](../development/physical-sound-broadband-common-pole-control-result-ps2-2026-08-28.md) |
+| Актуальное evidence | [PS-2 existing-Iron broad-band counterfactual result](../development/physical-sound-realimpact-broadband-counterfactual-result-ps2-2026-08-28.md) |
 | Текущий evidence | [PS-2 Bempp quadrupole surface mode and Rust cooker](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), [PS-2 independent Bempp analytical control](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md), [BEM panel-quadrature discriminator](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md), [analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [REALIMPACT modal-radiation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [Broad-band common-pole control result](../development/physical-sound-broadband-common-pole-control-result-ps2-2026-08-28.md) |
+| Последний пакет | [Existing-Iron broad-band counterfactual result](../development/physical-sound-realimpact-broadband-counterfactual-result-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -111,7 +111,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / EXISTING_IRON_COUNTERFACTUAL_NEXT / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN` | L | Repeated synthetic report `dcd83252…0094` passes all 15 discovery-to-resynthesis gates: 6 regions, 18 bins, 7 retained modes, `0.095876 Hz/0.190671/s` max errors and `0.049273` post-transient NRMSE. Next hash-close a read-only counterfactual on the existing Iron rows; no new payload, object, mechanics or Planter. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_CONTROL_NEXT / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN` | L | Repeated Iron report `7635f8ac…075d` finds 31 regions/91 bins against frozen maxima 16/48 and rejects before pole estimation; scale discovery is exact. Next freeze a dense synthetic scaling/leakage discriminator before any Iron V2. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -908,6 +908,15 @@ This closes only the synthetic discovery-to-resynthesis method. Next freeze a
 read-only existing-Iron counterfactual; no new payload, object, mechanics,
 Planter, quality admission or runtime credit. See the [control result](../development/physical-sound-broadband-common-pole-control-result-ps2-2026-08-28.md).
 
+PS-2 existing-Iron broad-band counterfactual result: runner
+`63d46bf4…2e76`, manifest `8a445a4f…ff18`, preflight `04e54415…d357` and
+byte-identical analysis `7635f8ac…075d` reject the frozen real envelope before
+pole estimation. Input discovery finds 31 regions/91 neighboring bins against
+the preregistered 16/48 maxima; scale signatures remain exact at
+`0.125/1/8`. Do not rank the opened Iron regions or raise the cap. Next freeze
+a fresh-seed dense synthetic scaling/leakage discriminator that tests the full
+post-estimation prune cost before any Iron V2. See the [counterfactual result](../development/physical-sound-realimpact-broadband-counterfactual-result-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -1049,7 +1058,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / EXISTING_IRON_COUNTERFACTUAL_NEXT / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN`; next hash-close a read-only existing-Iron counterfactual, not new payload/object/physics | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, `E1` bundle import, internet registry/cache, eight-project E3 normalization, explicit roles, five typed E2 rows, exact-domain/source gates, transfer calibration and spatial discriminators — `PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_CONTROL_NEXT / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN`; next dense synthetic scaling/leakage control, not an opened-Iron top-K/cap change or new payload/object/physics | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
