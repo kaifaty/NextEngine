@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.82 |
+| Version | 0.83 |
 | Last verified | 2026-08-28 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [PS-2 YCB vertical reject-parent expansion](../development/physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Blue Bowl cross-tier E2 increment](../development/physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [PS-2 REALIMPACT Shell Plate bounded-range E2 pilot](../development/physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md), [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Skull Cup bounded-range E2 pilot](../development/physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md), [PS-2 SoundPacks Glass E3 and split audit](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md), [PS-2 Kronland reject expansion and split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [PS-2 exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [PS-2 internet-source feasibility and transfer route](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [PS-2 REALIMPACT transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [PS-2 REALIMPACT vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [PS-2 REALIMPACT shape-conditioned spatial calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT frequency-conditioned spatial calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT modal-radiation representation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [PS-2 analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [PS-2 Pitcher causal audit](../development/physical-sound-pitcher-causal-audit-ps2-2026-08-28.md), [PS-2 Iron selector/tail diagnostic](../development/physical-sound-realimpact-selector-tail-diagnostic-result-ps2-2026-08-28.md) |
-| Replaces | SPEC-45 0.81; freezes the staged execution/DSP identity and leakage order before fit-role waveform access |
-| Latest evidence | [PS-2 REALIMPACT metal batch execution preflight](../development/physical-sound-realimpact-metal-batch-execution-preflight-ps2-2026-08-28.md) |
+| Replaces | SPEC-45 0.82; records fit-role acquisition/decode and freezes calibration selection before holdout access |
+| Latest evidence | [PS-2 REALIMPACT metal batch calibration selection](../development/physical-sound-realimpact-metal-batch-calibration-selection-ps2-2026-08-28.md) |
 
 ## Status and decision boundary
 
@@ -992,10 +992,21 @@ preflight `1af90ed4…e4f68` now freeze the complete role-staged acquisition,
 decode, modal baseline, seeded residual, metric and selection path. The
 offline fixture selects the two-exponential seeded residual while rejecting
 the truncated transient, and repeats with zero new network/member payload.
-Only `86_MetalHoledSpoon` fit-role acquisition may run next. Spoon holdout
-cannot open before an immutable successful selection report; the two Spatulas
-cannot open before an immutable successful holdout. Any failure keeps authored
-fallback and quality/domain/runtime admission disabled.
+This authorized only `86_MetalHoledSpoon` fit-role acquisition. Spoon holdout
+could not open before an immutable successful selection report; the two
+Spatulas still cannot open before an immutable successful holdout. Any failure
+keeps authored fallback and quality/domain/runtime admission disabled.
+
+The fit stage now uses exactly two requests and decodes Holed Spoon microphone
+rows `0..14`; acquisition `454933ae…163d8` and decode `af7af9fb…e068a` bind
+the shared `0°/0 mm` condition. Selection runs A/B emit byte-identical report
+`83f858bf…43f2` and select `modal_plus_seeded_subband_residual_v0`. Across the
+two calibration objects its median envelope/energy/flatness ratios are
+`0.387055/0.709616/0.552735`; the maximum object/metric ratio is `0.943533`.
+The truncated transient fails. This freezes representation selection only;
+waveform NRMSE remains diagnostic and quality/domain/runtime admission stays
+disabled. Only the exact Metal Spoon holdout ranges may open next. Both
+Spatulas remain sealed until an immutable successful holdout report exists.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,
