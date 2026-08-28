@@ -60,6 +60,10 @@ pub(super) struct Manifest {
     pub(super) development_report: Option<FileRef>,
     #[serde(default)]
     pub(super) calibration_report: Option<FileRef>,
+    #[serde(default)]
+    pub(super) source_reports: Vec<FileRef>,
+    #[serde(default)]
+    pub(super) development_blocks: Vec<BlockRef>,
 }
 
 #[derive(Deserialize)]
@@ -73,6 +77,14 @@ pub(super) struct Roles {
 pub(super) struct FileRef {
     pub(super) path: PathBuf,
     pub(super) sha256: String,
+}
+
+#[derive(Deserialize)]
+pub(super) struct BlockRef {
+    pub(super) object_id: String,
+    pub(super) path: PathBuf,
+    pub(super) sha256: String,
+    pub(super) sample_count: usize,
 }
 
 #[derive(Clone, Deserialize)]
@@ -162,6 +174,8 @@ pub(super) struct ShapeModel {
     pub(super) development_target: String,
     pub(super) sigma_grid_metres: Vec<f64>,
     pub(super) features: Vec<String>,
+    #[serde(default)]
+    pub(super) speed_of_sound_metres_per_second: Option<f64>,
     pub(super) standardization: String,
     pub(super) regression: String,
     pub(super) prediction: String,
@@ -246,6 +260,7 @@ impl Manifest {
             || self.shape_model.development_target
                 != "per-object log sigma minimizing frozen spatial calibration_loss over the declared sigma grid; ties choose lower sigma"
             || self.shape_model.sigma_grid_metres != SIGMA_GRID
+            || self.shape_model.speed_of_sound_metres_per_second.is_some()
             || self.shape_model.features
                 != [
                     "intercept",
@@ -270,6 +285,8 @@ impl Manifest {
                 ]
             || self.development_report.is_some()
             || self.calibration_report.is_some()
+            || !self.source_reports.is_empty()
+            || !self.development_blocks.is_empty()
         {
             return Err(
                 "shape-spatial development manifest does not match the frozen protocol".to_owned(),
@@ -363,7 +380,7 @@ impl Manifest {
 }
 
 impl ArchiveProfile {
-    fn validate(&self) -> Result<(), String> {
+    pub(super) fn validate(&self) -> Result<(), String> {
         let finite_positive = [
             self.mesh_descriptor.bbox_diagonal_m,
             self.mesh_descriptor.minor_to_major_extent_ratio,

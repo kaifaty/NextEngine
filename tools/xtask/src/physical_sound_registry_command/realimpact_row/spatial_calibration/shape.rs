@@ -11,6 +11,7 @@ use super::dsp::{Evaluation, evaluate_rbf, improved_component_fraction};
 use super::*;
 
 mod acquire;
+mod frequency;
 mod manifest;
 mod model;
 mod publish;
@@ -43,14 +44,23 @@ pub(in crate::physical_sound_registry_command) fn run_cli(
         "physical-sound-registry spatial-shape requires --output <external-empty-directory>"
             .to_owned()
     })?;
-    match requested_phase(root, &manifest)?.as_str() {
-        "development" => run_development(root, &manifest, &output),
-        "calibration" => run_calibration(root, &manifest, &output),
-        phase => Err(format!("unsupported spatial-shape phase: {phase}")),
+    let header = requested_phase(root, &manifest)?;
+    match (header.study_id.as_str(), header.phase.as_str()) {
+        (manifest::STUDY_ID, "development") => run_development(root, &manifest, &output),
+        (manifest::STUDY_ID, "calibration") => run_calibration(root, &manifest, &output),
+        ("physical-sound-realimpact-frequency-conditioned-vertical", "development") => {
+            run_frequency_development(root, &manifest, &output)
+        }
+        ("physical-sound-realimpact-frequency-conditioned-vertical", "calibration") => {
+            run_frequency_calibration(root, &manifest, &output)
+        }
+        (study, phase) => Err(format!(
+            "unsupported spatial-shape study/phase: {study}/{phase}"
+        )),
     }
 }
 
-fn requested_phase(root: &Path, manifest_argument: &Path) -> Result<String, String> {
+fn requested_phase(root: &Path, manifest_argument: &Path) -> Result<PhaseHeader, String> {
     let path = canonical_external_file(
         root,
         &resolve_cli_path(root, manifest_argument),
@@ -59,7 +69,43 @@ fn requested_phase(root: &Path, manifest_argument: &Path) -> Result<String, Stri
     let bytes = read_bounded_file(&path, 16 * 1024 * 1024, "REALIMPACT spatial-shape manifest")?;
     let header: PhaseHeader = serde_json::from_slice(&bytes)
         .map_err(|error| format!("parse spatial-shape phase: {error}"))?;
-    Ok(header.phase)
+    Ok(header)
+}
+
+fn run_frequency_development(
+    root: &Path,
+    manifest_argument: &Path,
+    output_argument: &Path,
+) -> Result<(), String> {
+    let path = canonical_external_file(
+        root,
+        &resolve_cli_path(root, manifest_argument),
+        "REALIMPACT frequency-spatial manifest",
+    )?;
+    let bytes = read_bounded_file(
+        &path,
+        16 * 1024 * 1024,
+        "REALIMPACT frequency-spatial manifest",
+    )?;
+    frequency::run_development(root, &path, &bytes, output_argument)
+}
+
+fn run_frequency_calibration(
+    root: &Path,
+    manifest_argument: &Path,
+    output_argument: &Path,
+) -> Result<(), String> {
+    let path = canonical_external_file(
+        root,
+        &resolve_cli_path(root, manifest_argument),
+        "REALIMPACT frequency-spatial calibration manifest",
+    )?;
+    let bytes = read_bounded_file(
+        &path,
+        16 * 1024 * 1024,
+        "REALIMPACT frequency-spatial calibration manifest",
+    )?;
+    frequency::run_calibration(root, &path, &bytes, output_argument)
 }
 
 fn read_ref(root: &Path, base: &Path, reference: &manifest::FileRef) -> Result<Vec<u8>, String> {
@@ -519,6 +565,7 @@ struct DevelopmentWork {
 
 #[derive(Deserialize)]
 struct PhaseHeader {
+    study_id: String,
     phase: String,
 }
 
