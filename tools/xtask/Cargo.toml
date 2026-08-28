@@ -28,6 +28,7 @@ next_presentation.workspace = true
 next_reference_game.workspace = true
 next_render.workspace = true
 next_verification.workspace = true
+rars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha1.workspace = true

@@ -12,6 +12,7 @@ mod corpus_inventory;
 mod corpus_plan;
 mod internet_sources;
 mod realimpact_row;
+mod split_feasibility;
 
 const MANIFEST_SCHEMA: &str =
     "nextengine.experimental-physical-sound-research-registry.manifest.v1";
@@ -54,40 +55,33 @@ pub(super) fn parse_arguments(
 
 pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> Result<(), String> {
     let mut arguments = arguments.peekable();
-    if arguments
-        .peek()
-        .is_some_and(|argument| argument == "corpus-plan")
-    {
-        arguments.next();
-        return corpus_plan::run_cli(root, arguments);
-    }
-    if arguments
-        .peek()
-        .is_some_and(|argument| argument == "corpus-inventory")
-    {
-        arguments.next();
-        return corpus_inventory::run_cli(root, arguments);
-    }
-    if arguments
-        .peek()
-        .is_some_and(|argument| argument == "internet-sources")
-    {
-        arguments.next();
-        return internet_sources::run_cli(root, arguments);
-    }
-    if arguments
-        .peek()
-        .is_some_and(|argument| argument == "identified-corpus")
-    {
-        arguments.next();
-        return internet_sources::run_identified_corpus_cli(root, arguments);
-    }
-    if arguments
-        .peek()
-        .is_some_and(|argument| argument == "realimpact-row")
-    {
-        arguments.next();
-        return realimpact_row::run_cli(root, arguments);
+    let subcommand = arguments.peek().cloned();
+    match subcommand.as_deref() {
+        Some("corpus-plan") => {
+            arguments.next();
+            return corpus_plan::run_cli(root, arguments);
+        }
+        Some("corpus-inventory") => {
+            arguments.next();
+            return corpus_inventory::run_cli(root, arguments);
+        }
+        Some("internet-sources") => {
+            arguments.next();
+            return internet_sources::run_cli(root, arguments);
+        }
+        Some("identified-corpus") => {
+            arguments.next();
+            return internet_sources::run_identified_corpus_cli(root, arguments);
+        }
+        Some("realimpact-row") => {
+            arguments.next();
+            return realimpact_row::run_cli(root, arguments);
+        }
+        Some("split-feasibility") => {
+            arguments.next();
+            return split_feasibility::run_cli(root, arguments);
+        }
+        _ => {}
     }
     let request = parse_arguments(arguments)?;
     run(root, &request)

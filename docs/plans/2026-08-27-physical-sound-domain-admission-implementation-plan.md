@@ -321,13 +321,28 @@ implicit report retains its byte-identical hash. This is parent inventory, not
 negative-control generation, validator success or measured false-pass risk. See
 the [explicit-role evidence](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md).
 
-Package 3 must continue stable-object E3 and complementary E2/E1 expansion
-for the nine missing Glass groups and twenty-seven missing reject parents
-before calibration/holdout/shadow open.
-Separate internet sources may support separate specialist claims, but
-unavailable axes remain unavailable and the grouped split/risk policy is
-unchanged. Insufficient published coverage keeps the domain fallback-only; it
-does not trigger local capture.
+The latest Package 3 increment closes both aggregate E3 count requirements.
+`soundpacks-glass-recordings-identified-recording-v1` validates one exact RAR5
+archive, its readme, four numbered drinking-glass WAVs and three numbered
+glass-vase WAVs through a stable SoundPacks page projection, a source-specific
+MediaFire resolver and bounded pure-Rust extraction. Two fresh online caches,
+an offline replay and two complete combined audits repeat byte-identically.
+The [combined evidence](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md)
+measures eight project revisions, 54 objects and 125 recordings; Glass reaches
+`16/16` objects and 46 recordings, while reject parents remain `38/35` objects
+and 79 recordings.
+
+Package 3 now continues on measured split structure rather than aggregate
+counts. `physical-sound-registry split-feasibility` hash-closes the complete
+identified report and frozen corpus plan, applies the `20/30/25/25` shares to
+whole project/revision groups and requires both explicit roles in every
+partition. The current result is `ProjectDisjointSplitInfeasible`: only three
+of eight projects carry reject parents, fewer than the four required
+partitions. Add at least one independent reject-bearing project, rerun this
+gate, and freeze no calibration/holdout/shadow assignment until it reports
+feasible. Separate sources may support separate specialist claims, but
+unavailable axes remain unavailable and insufficient published coverage stays
+fallback-only rather than triggering local capture.
 
 ### 4. AV-P0D autonomous formula search
 

@@ -15,7 +15,9 @@ use super::{
 
 mod figshare;
 mod freesound;
+mod mediafire;
 mod osf;
+mod soundpacks;
 
 const DOWNLOAD_BUFFER_BYTES: usize = 128 * 1024;
 const DOWNLOAD_TIMEOUT_SECONDS: &str = "120";
@@ -74,6 +76,17 @@ pub(super) fn fetch_exact_artifact(
                     return Ok(CacheStatus::FetchFailed);
                 }
                 figshare::RedirectResolution::FetchToolUnavailable => {
+                    return Ok(CacheStatus::FetchToolUnavailable);
+                }
+            }
+        }
+        Some(FetchRedirectPolicy::MediafireFileV1) => {
+            match mediafire::resolve_file_download(url)? {
+                mediafire::RedirectResolution::Ready(url) => url,
+                mediafire::RedirectResolution::FetchFailed => {
+                    return Ok(CacheStatus::FetchFailed);
+                }
+                mediafire::RedirectResolution::FetchToolUnavailable => {
                     return Ok(CacheStatus::FetchToolUnavailable);
                 }
             }
@@ -298,6 +311,9 @@ fn fetch_normalized_artifact(
     let normalized = match policy {
         FetchNormalizationPolicy::FreesoundPackIdentityV1 => {
             freesound::normalize_pack_identity(url, &raw)?
+        }
+        FetchNormalizationPolicy::SoundpacksGlassRecordingsIdentityV1 => {
+            soundpacks::normalize_glass_recordings_identity(url, &raw)?
         }
     };
     let actual_bytes = u64::try_from(normalized.len())

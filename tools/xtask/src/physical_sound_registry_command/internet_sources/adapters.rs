@@ -18,6 +18,8 @@ mod mp3;
 mod mp4;
 pub(super) mod objectfolder_real_demo;
 mod ogg_vorbis;
+mod rar_archive;
+pub(super) mod soundpacks_glass_recordings;
 mod wav;
 pub(super) mod ycb_impact;
 mod zip_archive;
@@ -61,6 +63,12 @@ pub(super) enum AdapterProfile {
         repository_commit: String,
         repository_tree_sha1: String,
         recordings: Vec<objectfolder_real_demo::RecordingProfile>,
+    },
+    SoundpacksGlassRecordingsIdentifiedRecordingV1 {
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        recordings: Vec<soundpacks_glass_recordings::RecordingProfile>,
     },
     FreesoundGlassBowlIdentifiedRecordingV1 {
         pack_id: String,
@@ -142,6 +150,12 @@ pub(super) enum AdapterEvidenceReport {
         repository_commit: String,
         recordings: Vec<objectfolder_real_demo::RecordingEvidenceReport>,
     },
+    SoundpacksGlassRecordingsIdentifiedRecordingV1 {
+        object_id: String,
+        object_name: String,
+        material_label: String,
+        recordings: Vec<soundpacks_glass_recordings::RecordingEvidenceReport>,
+    },
     FreesoundGlassBowlIdentifiedRecordingV1 {
         pack_id: String,
         object_id: String,
@@ -218,6 +232,14 @@ pub(super) fn validate_profile_declaration(source: &InternetSource) -> Result<()
             source.id
         )),
         (
+            soundpacks_glass_recordings::ADAPTER_ID,
+            Some(AdapterProfile::SoundpacksGlassRecordingsIdentifiedRecordingV1 { .. }),
+        ) => soundpacks_glass_recordings::validate_declaration(source),
+        (soundpacks_glass_recordings::ADAPTER_ID, None) => Err(format!(
+            "source {} requires a SoundPacks Glass Recordings adapter profile",
+            source.id
+        )),
+        (
             freesound_glass_bowl::ADAPTER_ID,
             Some(AdapterProfile::FreesoundGlassBowlIdentifiedRecordingV1 { .. }),
         ) => freesound_glass_bowl::validate_declaration(source),
@@ -285,6 +307,9 @@ pub(super) fn audit(
         heller_impact::ADAPTER_ID => heller_impact::audit(cache, source),
         kronland_material::ADAPTER_ID => kronland_material::audit(cache, source),
         objectfolder_real_demo::ADAPTER_ID => objectfolder_real_demo::audit(cache, source),
+        soundpacks_glass_recordings::ADAPTER_ID => {
+            soundpacks_glass_recordings::audit(cache, source)
+        }
         ycb_impact::ADAPTER_ID => ycb_impact::audit(cache, source),
         _ => Ok(AdapterAudit {
             validated_capabilities: BTreeSet::new(),
@@ -457,6 +482,7 @@ fn audit_av_msf(cache: &Path, source: &InternetSource) -> Result<AdapterAudit, S
                 sample_rate_hz: 44_100,
                 channel_count: 1,
                 maximum_frames: MAX_AV_MSF_RECORDING_FRAMES,
+                require_fact_frames: true,
             },
         )?);
     }

@@ -6,6 +6,7 @@ pub(super) struct FloatWavExpectation {
     pub(super) sample_rate_hz: u32,
     pub(super) channel_count: u16,
     pub(super) maximum_frames: u64,
+    pub(super) require_fact_frames: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -84,7 +85,10 @@ pub(super) fn validate_float_wav(
         return Err(format!("{label} {recording_id} has misaligned audio data"));
     }
     let sample_frames = (data.len() / usize::from(format.block_align)) as u64;
-    if sample_frames > expectation.maximum_frames || fact_frames != Some(sample_frames) {
+    if sample_frames > expectation.maximum_frames
+        || fact_frames.is_some_and(|frames| frames != sample_frames)
+        || (expectation.require_fact_frames && fact_frames.is_none())
+    {
         return Err(format!(
             "{label} {recording_id} has an invalid bounded frame count"
         ));
@@ -309,4 +313,36 @@ pub(super) fn test_float_wav(sample_rate_hz: u32, channel_count: u16, samples: &
         bytes.extend_from_slice(&sample.to_le_bytes());
     }
     bytes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn optional_fact_policy_accepts_source_float_wav_without_fact_chunk() {
+        let mut bytes = test_float_wav(44_100, 2, &[0.25, -0.25, 0.5, -0.5]);
+        bytes.drain(38..50);
+        let riff_size = u32::try_from(bytes.len() - 8).expect("bounded fixture");
+        bytes[4..8].copy_from_slice(&riff_size.to_le_bytes());
+        let expectation = FloatWavExpectation {
+            source_label: "test",
+            sample_rate_hz: 44_100,
+            channel_count: 2,
+            maximum_frames: 2,
+            require_fact_frames: false,
+        };
+        assert!(validate_float_wav("optional", &bytes, expectation).is_ok());
+        assert!(
+            validate_float_wav(
+                "required",
+                &bytes,
+                FloatWavExpectation {
+                    require_fact_frames: true,
+                    ..expectation
+                },
+            )
+            .is_err()
+        );
+    }
 }
