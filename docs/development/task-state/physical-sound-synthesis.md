@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_QUADRUPOLE_SURFACE_MODE_COOKER_SUPPORTED / ALL_FROZEN_FIELD_AND_COOKER_GATES_PASS / BYTE_IDENTICAL_REPEATS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / NONSPHERICAL_CLOSED_MESH_NEXT / THREE_DIMENSIONAL_SPATIAL_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_TRIAXIAL_FULL_SHELL_COOKER_SUPPORTED / SPARSE_ANGULAR_INTERPOLATION_REJECTED / BYTE_IDENTICAL_REPEATS / NO_FRESH_DATA_OPENED / TWO_HOLDOUT_OBJECTS_PRESERVED / FEM_EIGENMODE_COUPLING_NEXT / REAL_3D_FIELD_OPEN / EIGHT_EXACT_CLAIMS_OPEN / FALLBACK_OUT_OF_DOMAIN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,17 +10,18 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Bempp V3 passes a directional analytical quadrupole;
-  the Rust cooker fitted at `1.5a` predicts 132 held `3a/10a` conditions with
-  `0.7856%` maximum peak-normalized error. Both reports repeat exactly.
+- **Current conclusion:** Triaxial Bempp passes three-level convergence for a
+  non-axisymmetric prescribed mode. Sparse near-angle interpolation fails
+  honestly; the full-near-shell cooker selects degree 2 and predicts 224 held
+  `4L/10L` conditions with `4.6045%` maximum error. Reports repeat exactly.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Freeze one genuinely non-spherical closed mesh with a
-  prescribed surface mode; require coarse/fine Bempp and cooker agreement.
-  Access no new REALIMPACT payload.
-- **Current blocker:** Axisymmetric spherical modes now work, but non-spherical
-  geometry, FEM eigenmode coupling and real 3D transfer remain unproven.
+- **Next action:** Compute one elastic FEM eigenmode on a non-spherical closed
+  mesh; project surface-normal velocity into Bempp and repeat convergence plus
+  full-shell cooker gates. Access no new REALIMPACT payload.
+- **Current blocker:** Prescribed non-spherical modes now work, but FEM
+  eigenmode coupling and real 3D transfer remain unproven.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -53,7 +54,7 @@
 | [REALIMPACT modal-radiation representation diagnostic](../physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md) and reports `7cbf7c59…f25` | `COMPLEX_MULTIPOLE_REPRESENTATION_REJECTED / BYTE_IDENTICAL_REPEAT / NO_FRESH_DATA_OPENED` | Order-3 axisymmetric complex multipoles pass `14/14` absolute gates but lose all comparison gates: median ratio `1.2506`, max `2.0861`, p90 `+7.2513 dB`, improved fraction `0.3482`. Do not raise order on opened rows; prove a classical surface-mode/BEM target first. |
 | [Analytical boundary-solver control](../physical-sound-bem-analytical-control-ps2-2026-08-28.md) and reports `6f74a309…a689` | `CLASSICAL_BOUNDARY_SOLVER_ANALYTICAL_CONTROL_REJECTED / FOUR_OF_FIVE_NUMERIC_GATES_PASS / BYTE_IDENTICAL_REPEAT` | The 320-panel sphere stays within `2.1251%`, `0.1827 dB`, `0.2993°` and `0.0002 dB` direction span, but median error is `2.8589x` the 80-panel result. Preserve the harness; diagnose convergence synthetically before BEM/FFAT oracle credit. |
 | [BEM panel-quadrature discriminator](../physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md) and reports `7460750e…b48d` | `SEVEN_POINT_PANEL_QUADRATURE_HYPOTHESIS_REJECTED / V1_REPORT_PRESERVED / BYTE_IDENTICAL_REPEAT` | Fine median error is `1.0447x` control and fine/coarse ratio is `2.6109`; ordinary higher regular-panel quadrature is not the missing control. Escalate to independent Galerkin/singular treatment. |
-| [Independent Bempp sphere](../physical-sound-bempp-independent-control-ps2-2026-08-28.md) and [quadrupole surface-mode cooker](../physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), reports `ba638a21…01f1` / `e8e1d4d5…6437` / `054901ee…f871` | `QUADRUPOLE_SURFACE_MODE_AND_OUTGOING_MULTIPOLE_COOKER_SUPPORTED / BYTE_IDENTICAL_REPEATS` | The independent solver converges from monopole to directional `P2`; final V3 covers intended active/nodal rows. Rust fits seven `1.5a` directions and predicts 132 held `3a/10a` conditions with `0.7856%` max error and `99.9907%` minimum degree-2 energy. Credit remains synthetic and spherical. |
+| [Triaxial Bempp/full-angular cooker](../physical-sound-bempp-triaxial-full-angular-cooker-ps2-2026-08-28.md), reports `49bee8c2…76ef` / `6d5f653a…ef55` / `a0e0d881…b0be` | `TRIAXIAL_FULL_NEAR_SHELL_COOKER_SUPPORTED / SPARSE_ANGULAR_INTERPOLATION_REJECTED / BYTE_IDENTICAL_REPEATS` | Three-level triaxial `2u_xu_z` field converges. Sparse near holdout rejects degree 4 at `0.06032 > 0.05`; unchanged full-shell gates select degree 2 at `0.04604` max error across 224 held far conditions. Credit remains synthetic and prescribed-mode only. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -179,7 +180,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects and claim/source gates exist; independent Bempp quadrupole and Rust near-to-far cooker pass frozen controls | No genuinely non-spherical geometry, real 3D transfer or calibrated shadow risk exists | Cross-check one frozen non-spherical closed-mesh mode before fresh real-data validation |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Eight E3 projects and claim/source gates exist; triaxial Bempp plus full-angular near-to-far cooker pass frozen controls | No FEM-coupled mode, real 3D transfer or calibrated shadow risk exists | Couple one elastic FEM eigenmode before fresh real-data validation |
 
 ## Required context
 
@@ -198,8 +199,8 @@ Read these sources in precedence order before acting:
    source/generated artifacts external and do not reinterpret a control pass as
    subjective quality or P1 evidence.
 2. Preserve PS-2, transfer-V1/V2 and all spatial rejection hashes. Never retune
-   empirical spatial bases on opened data. Hash-close classical modal-analysis
-   and a converged/independently checked BEM output; keep ceramic holdouts sealed.
+   empirical spatial bases on opened data. Hash-close one elastic FEM mode and
+   its converged/independently checked BEM output; keep ceramic holdouts sealed.
 3. Only on measured success, write the promoting consumer ADR and close the
    contact-projection/content/check plan before runtime code.
 4. Roll back to the unchanged clip baseline if P0 fails or no bounded profile
@@ -228,12 +229,12 @@ Read these sources in precedence order before acting:
 ## Handoff
 
 - **Workspace state:** Registry V1, PS-1, PS-2 corpus/evidence paths, repeated
-  empirical rejections, a converged independent sphere/quadrupole solver and a
-  Rust near-to-far cooker exist; public schemas/assets/ownership are unchanged.
-- **Checks:** Bempp report `e8e1d4d5…6437` and cooker report
-  `054901ee…f871` repeat; all frozen gates pass, no fresh data opens and
-  holdouts remain sealed. Final checks are in the handoff.
-- **Remaining risk:** eight exact-domain claims, non-spherical/FEM/real 3D
+  empirical rejections, converged triaxial Bempp and a full-angular Rust
+  near-to-far cooker exist; public schemas/assets/ownership are unchanged.
+- **Checks:** Bempp `49bee8c2…76ef`, sparse reject `6d5f653a…ef55` and
+  full-shell pass `a0e0d881…b0be` repeat; no fresh data opens and holdouts
+  remain sealed. Final checks are in the handoff.
+- **Remaining risk:** eight exact-domain claims, FEM coupling/real 3D
   transfer, calibrated OOD/shadow risk, contact sufficiency, mixer cost and
   authoring are open.
 - **Quality status:** V2 supports relative modal/damping extractor transfer;
