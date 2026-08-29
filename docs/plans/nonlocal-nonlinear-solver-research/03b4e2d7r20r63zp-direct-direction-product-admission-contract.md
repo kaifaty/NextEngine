@@ -368,6 +368,50 @@ Event slot 4 then seals that product-body root. Work field 40 and every later
 field are unavailable to the body root. A nonzero post-seal field cannot be
 used to construct or route the product.
 
+All serialized package/control roots except the retained apparatus exact-dyadic
+root use a one-byte tag plus unsigned-big-endian `u64` byte length before each
+field. Tags are `1=raw bytes`, `2=u32`, `3=u64`, `4=binary128`, `5=digest`,
+`6=u64 array`, `7=digest array`, `8=binary128 array`. A domain is the first
+tag-1 field. Integers inside a typed field are big-endian; binary128 is
+canonical IEEE big-endian. No host padding, C++ object bytes or implicit
+terminator participates.
+
+The producer domains and ordered fields are:
+
+```text
+nextengine.nonlocal.r63zp.quad-vector.v1:
+  dimension, values
+nextengine.nonlocal.r63zp.candidate-work.v1:
+  route, all 60 work fields
+nextengine.nonlocal.r63zp.product-body.v1:
+  three parent roots, two role roots, three semantic roots, five scalars,
+  dimension, work fields 0..39, event slots 0..3, p0, q0, bounds
+nextengine.nonlocal.r63zp.candidate-event.v1:
+  event ordinal, candidate route, then the event-specific fields below
+nextengine.nonlocal.r63zp.candidate-trace.v1:
+  event_count, all eight event slots
+nextengine.nonlocal.r63zp.candidate-result.v1:
+  route, flags, three parent roots, two role roots, three semantic roots,
+  five scalars, dimension, candidate work root, event_count, trace root,
+  product-body root, update-match count
+```
+
+Candidate events are exactly:
+
+1. three admitted parent roots;
+2. parent role-2 input root and independently derived `x0` root;
+3. role-2 input and value roots;
+4. `p0` root plus rho primary/bound;
+5. product-body root;
+6. `q0`/bound roots plus denominator primary/bound and alpha;
+7. post-seal derived `x1` root and update-match count;
+8. product-body root and candidate work root.
+
+The candidate flag bits are `0=input/direction exact`, `1=product arithmetic
+exact/normal`, `2=candidate bounds finite/nonnegative`, `3=curvature positive`,
+`4=step interval contains alpha`, `5=102/102 late updates`; bits `6..31` are
+zero. Candidate route precedence is the already frozen order `1..7`.
+
 The checker audit is exactly `1,112` bytes:
 
 | Offset | Bytes | Field |
@@ -410,6 +454,34 @@ output_write_calls, output_write_bytes, output_close_calls,
 package_allocations, exact_vector_hash_fields,
 candidate_fixed_loop_iterations
 ```
+
+The checker domains and ordered fields are:
+
+```text
+nextengine.nonlocal.r63zp.exact-dyadic-vector.v1:
+  the apparatus encoding is preserved exactly: untagged domain length u64,
+  domain bytes, count u64, then for each normalized value sign byte, signed
+  exponent encoded as two's-complement u64, minimal big-endian magnitude
+  length u64 and magnitude; this must reproduce `271facfd...272f2f`
+nextengine.nonlocal.r63zp.checker-work.v1:
+  checker route, all 63 work fields
+nextengine.nonlocal.r63zp.checker-event.v1:
+  event ordinal, checker route, candidate event root, independently derived
+  event root, equality flag
+nextengine.nonlocal.r63zp.checker-trace.v1:
+  event_count, all eight checker event slots
+nextengine.nonlocal.r63zp.checker-result.v1:
+  checker route, flags, three parent roots, candidate file/result/work and
+  exact-product roots, checker work root, event_count and checker trace root
+```
+
+Checker flag bits are `0=semantic verified`, `1=exact product contained`,
+`2=curvature verified positive`, `3=step verified`, `4=update consequence
+verified`; bits `5..31` are zero. Checker routes `1..7` verify the corresponding
+candidate route. Checker-only first-specific routes are `8=CANDIDATE_MALFORMED`,
+`9=SEMANTIC_MISMATCH`, `10=WORK_MISMATCH`, `11=EVENT_MISMATCH`,
+`12=SEAL_MISMATCH`, `13=CHECKER_APPARATUS_REJECTED`. Zero and ordinals above
+13 fail closed before semantic replay.
 
 The producer performs no dynamic allocation in the package path, and the
 checker uses a fixed-capacity signed-dyadic representation with fail-closed
