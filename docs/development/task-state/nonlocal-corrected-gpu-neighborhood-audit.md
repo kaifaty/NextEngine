@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA1_IMPLEMENTED / AUTHOR_PREFLIGHT_PASS` |
+| Status | `ACTIVE / NCGA1_AUTHOR_PASS / INDEPENDENT_REVIEW_NEXT` |
 | Updated | `2026-08-29` |
 | Task key | `nonlocal-corrected-gpu-neighborhood-audit` |
 | Scope | Isolate exact GPU cell-neighborhood construction and stable sample indexing before local assembly or solver work |
@@ -11,14 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** the isolated exact-integer host oracle and CUDA
-  radix/cell candidate are implemented without changing the historical solver;
-  the first Release preflight passes all eight positives and four negatives.
+- **Current state:** frozen author validation passes: exact CPU/GPU graph roots,
+  eight positives, four negatives, ten cold repeats, three sanitizers and both
+  retained GPU controls.
 - **Question:** can a device-built signed cell index emit the exact canonical
   integer support graph and stable `SampleId` CSR under boundary cases and
   input permutation?
-- **Next action:** run the frozen clean-build, repeatability, sanitizer and
-  retained-control protocol, then freeze evidence for independent review.
+- **Next action:** give snapshot `083e1164` to one fresh independent reviewer;
+  keep candidate sources read-only until the verdict.
 - **Current blocker:** none; RTX 3080 (`sm_86`) and CUDA 13.3 are available.
 - **Claim ceiling:** neighborhood/cache/index correspondence only; no local
   assembly, solve, trajectory, performance, runtime or product claim.
@@ -68,6 +68,17 @@
   exact-integer candidate; the clean frozen protocol and review remain open.
 - **Decision:** preserve the implementation and proceed only to validation;
   do not add matrix or solver work in NCGA1.
+
+### D-004 — Author validation is complete but not promoted
+
+- **Observation:** two clean Release outputs and binaries are exact; all
+  sanitizers report zero errors; NCGA0 and historical tiny controls pass.
+- **Evidence:**
+  `docs/development/nonlocal-corrected-gpu-neighborhood-audit-evidence-2026-08-29.md`.
+- **Conclusion:** the author result is `SUPPORTED_BOUNDED`; independent review
+  is the only remaining NCGA1 gate.
+- **Decision:** freeze snapshot `083e1164`; no candidate edits or local-assembly
+  work before review.
 
 ## Required context
 
