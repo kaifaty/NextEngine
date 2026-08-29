@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic adversarial controls for the frozen R63ZP revision-5 package."""
+"""Deterministic adversarial controls for the frozen R63ZP revision-6 package."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ import subprocess
 from pathlib import Path
 
 
-CANDIDATE_BYTES = 6152
-CHECKER_BYTES = 1168
-CANDIDATE_WORK_FIELDS = 61
-CHECKER_WORK_FIELDS = 70
+CANDIDATE_BYTES = 6176
+CHECKER_BYTES = 1176
+CANDIDATE_WORK_FIELDS = 64
+CHECKER_WORK_FIELDS = 71
 EVENT_SLOTS = 8
 
 C_ROUTE = 16
@@ -23,26 +23,31 @@ C_ROLES = 120
 C_ROOTS = 184
 C_SCALARS = 280
 C_WORK = 376
-C_WORK_ROOT = 864
-C_EVENT_COUNT = 896
-C_EVENTS = 904
-C_TRACE = 1160
-C_P0 = 1192
-C_Q0 = 2824
-C_BOUNDS = 4456
-C_BODY = 6088
-C_RESULT = 6120
+C_WORK_ROOT = 888
+C_EVENT_COUNT = 920
+C_EVENTS = 928
+C_TRACE = 1184
+C_P0 = 1216
+C_Q0 = 2848
+C_BOUNDS = 4480
+C_BODY = 6112
+C_RESULT = 6144
 
 K_ROUTE = 16
 K_FLAGS = 20
 K_PARENTS = 24
 K_CANDIDATE_ROOTS = 120
 K_WORK = 248
-K_WORK_ROOT = 808
-K_EVENT_COUNT = 840
-K_EVENTS = 848
-K_TRACE = 1104
-K_RESULT = 1136
+K_WORK_ROOT = 816
+K_EVENT_COUNT = 848
+K_EVENTS = 856
+K_TRACE = 1112
+K_RESULT = 1144
+
+KW_HEADER_PREDICATES = 9
+KW_DYADIC_DECODES = 39
+KW_EXACT_MULTIPLIES = 40
+KW_POSTSEAL_X1_DECODES = 50
 
 VECTOR_DOMAIN = b"nextengine.nonlocal.r63zp.quad-vector.v1"
 CANDIDATE_WORK_DOMAIN = b"nextengine.nonlocal.r63zp.candidate-work.v1"
@@ -110,7 +115,8 @@ def candidate_body_root(data: bytes | bytearray) -> bytes:
     parts.extend(
         [
             field(3, u64(102)),
-            field(6, data[C_WORK : C_WORK + 40 * 8]),
+            field(2, u32((take_u32(data, C_FLAGS) >> 8) & 0xFF)),
+            field(6, data[C_WORK : C_WORK + 42 * 8]),
             field(7, data[C_EVENTS : C_EVENTS + 4 * 32]),
             field(8, data[C_P0 : C_P0 + 102 * 16]),
             field(8, data[C_Q0 : C_Q0 + 102 * 16]),
@@ -125,12 +131,18 @@ def candidate_event_root(data: bytes | bytearray, ordinal: int) -> bytes:
     parts = [field(1, CANDIDATE_EVENT_DOMAIN), field(2, u32(ordinal)),
              field(2, u32(route))]
     if ordinal == 1:
-        parts.append(field(7, data[C_PARENTS : C_PARENTS + 96]))
+        parts.extend(
+            [
+                field(2, u32((take_u32(data, C_FLAGS) >> 8) & 0xFF)),
+                field(7, data[C_PARENTS : C_PARENTS + 96]),
+            ]
+        )
     elif ordinal == 2:
         parts.extend(
             [
                 field(5, data[C_ROLES : C_ROLES + 32]),
                 # Event 2's derived-x0 root equals the admitted role-2 input root.
+                field(5, data[C_ROLES : C_ROLES + 32]),
                 field(5, data[C_ROLES : C_ROLES + 32]),
             ]
         )
@@ -325,6 +337,55 @@ def main() -> int:
     baseline = baseline_candidates[0]
     baseline_audit = baseline_audits[0]
 
+    exact = subprocess.run([args.checker, "--exact-controls"],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                           check=False)
+    if exact.returncode != 0 or exact.stderr != ALLOCATION_STDERR:
+        raise RuntimeError(
+            f"exact controls failed: rc={exact.returncode} "
+            f"stdout={exact.stdout!r} stderr={exact.stderr!r}"
+        )
+    exact_report = json.loads(exact.stdout)
+    for key in ("zero_valid", "negative_valid", "nonfinite_rejected",
+                "alignment_valid", "capacity_rejected"):
+        if exact_report.get(key) is not True:
+            raise RuntimeError(f"exact control {key} did not pass")
+    for key in ("dyadic_decodes", "exact_multiplies", "exact_additions",
+                "alignment_shifts", "alignment_bits",
+                "capacity_predicates"):
+        if not isinstance(exact_report.get(key), int) or exact_report[key] <= 0:
+            raise RuntimeError(f"exact control counter {key} is not positive")
+    if exact_report.get("package_allocations") != 0:
+        raise RuntimeError("exact controls allocated package memory")
+
+    selector_routes = {1: 2, 2: 3, 3: 4, 4: 4, 5: 5, 6: 6}
+    selector_events = {1: 2, 2: 5, 3: 6, 4: 6, 5: 6, 6: 8}
+    for selector, expected_route in selector_routes.items():
+        name = f"selector-{selector}-route-{expected_route}"
+        candidate_path = output / f"{name}.candidate"
+        audit_path = output / f"{name}.audit"
+        execute([args.producer, str(cache), str(parent), str(parent_audit),
+                 str(candidate_path), str(selector)], {1})
+        execute([args.checker, str(cache), str(parent), str(parent_audit),
+                 str(candidate_path), str(audit_path)], {0})
+        candidate = candidate_path.read_bytes()
+        audit = audit_path.read_bytes()
+        if take_u32(candidate, C_ROUTE) != expected_route:
+            raise RuntimeError(f"{name}: candidate route mismatch")
+        if take_u64(candidate, C_EVENT_COUNT) != selector_events[selector]:
+            raise RuntimeError(f"{name}: candidate event count mismatch")
+        if take_u32(audit, K_ROUTE) != expected_route:
+            raise RuntimeError(f"{name}: checker route mismatch")
+        dyadic = take_u64(audit, K_WORK + KW_DYADIC_DECODES * 8)
+        future = take_u64(audit, K_WORK + KW_POSTSEAL_X1_DECODES * 8)
+        if selector == 1 and (dyadic != 0 or future != 0):
+            raise RuntimeError("selector 1 crossed product/oracle boundary")
+        if 2 <= selector <= 5 and (dyadic == 0 or future != 0):
+            raise RuntimeError(f"selector {selector} causal work mismatch")
+        if selector == 6 and (dyadic == 0 or future != 102):
+            raise RuntimeError("selector 6 did not reach only the late x1 stage")
+        record(name, "named-route", expected_route, audit)
+
     def check_candidate(name: str, candidate: bytes | bytearray,
                         expected_route: int) -> bytes:
         candidate_path = output / f"{name}.candidate"
@@ -345,6 +406,7 @@ def main() -> int:
         "size": (15, 0x01),
         "unknown-route": (19, 0x08),
         "reserved-flags": (20, 0x80),
+        "unknown-selector": (22, 0x07),
         "work-count": (375, 0x01),
     }
     early_audits: list[bytes] = []
@@ -419,6 +481,42 @@ def main() -> int:
         rebuild_candidate_terminal(mutated)
         check_candidate(f"event-{index + 1}", mutated, 11)
 
+    event2 = bytearray(baseline)
+    event2[C_EVENTS + 32] ^= 0x02
+    event2[C_BODY : C_BODY + 32] = candidate_body_root(event2)
+    event2[C_EVENTS + 4 * 32 : C_EVENTS + 5 * 32] = \
+        candidate_event_root(event2, 5)
+    event2[C_EVENTS + 7 * 32 : C_EVENTS + 8 * 32] = \
+        candidate_event_root(event2, 8)
+    rebuild_candidate_terminal(event2)
+    event2_audit = check_candidate("causal-event-2-downstream-resealed",
+                                   event2, 11)
+
+    body = bytearray(baseline)
+    body[C_BODY] ^= 0x02
+    body[C_EVENTS + 4 * 32 : C_EVENTS + 5 * 32] = \
+        candidate_event_root(body, 5)
+    body[C_EVENTS + 7 * 32 : C_EVENTS + 8 * 32] = \
+        candidate_event_root(body, 8)
+    rebuild_candidate_terminal(body)
+    body_audit = check_candidate("causal-body-event-5-downstream-resealed",
+                                 body, 11)
+
+    event6 = bytearray(baseline)
+    event6[C_EVENTS + 5 * 32] ^= 0x02
+    rebuild_candidate_terminal(event6)
+    event6_audit = check_candidate("causal-event-6-downstream-resealed",
+                                   event6, 11)
+
+    for name, audit in (("event-2", event2_audit), ("body", body_audit)):
+        if take_u64(audit, K_WORK + KW_DYADIC_DECODES * 8) != 0 \
+                or take_u64(audit, K_WORK + KW_POSTSEAL_X1_DECODES * 8) != 0:
+            raise RuntimeError(f"causal {name} crossed oracle/x1 boundary")
+    if take_u64(event6_audit, K_WORK + KW_DYADIC_DECODES * 8) == 0 \
+            or take_u64(event6_audit,
+                        K_WORK + KW_POSTSEAL_X1_DECODES * 8) != 0:
+        raise RuntimeError("causal event-6 did not stop between oracle and x1")
+
     for name, offset in (
         ("work-root", C_WORK_ROOT),
         ("body-root", C_BODY),
@@ -437,11 +535,14 @@ def main() -> int:
                       for i in range(CHECKER_WORK_FIELDS)]
         if early_work == baseline_checker_work:
             raise RuntimeError(f"early audit {index} copied baseline work")
-        if any(early_work[i] != 0 for i in range(15, 53)):
+        if any(early_work[i] != 0 for i in range(15, 58)):
             raise RuntimeError(f"early audit {index} executed semantic replay")
+    if take_u64(early_audits[0], K_WORK + KW_HEADER_PREDICATES * 8) != 9:
+        raise RuntimeError("first header mismatch did not execute exact fixed predicates")
+    if take_u64(early_audits[-2], K_WORK + KW_HEADER_PREDICATES * 8) != 0:
+        raise RuntimeError("truncated candidate claimed header predicates")
 
-    # Input identity/length controls exercise producer route 1 and independent
-    # checker apparatus rejection. Candidate/audit outputs remain fixed-size.
+    # Input identity/length controls exercise independently verified route 1.
     input_cases: list[tuple[str, Path, bytes]] = []
     for label, path in (("cache", cache), ("parent", parent),
                         ("parent-audit", parent_audit)):
@@ -473,11 +574,14 @@ def main() -> int:
             raise RuntimeError(f"{name}: producer did not seal route 1")
         execute([args.checker, str(selected[cache]), str(selected[parent]),
                  str(selected[parent_audit]), str(candidate_path), str(audit_path)],
-                {1})
+                {0})
         audit = audit_path.read_bytes()
         route = take_u32(audit, K_ROUTE)
-        if route != 13:
-            raise RuntimeError(f"{name}: checker route {route}, expected 13")
+        if route != 1:
+            raise RuntimeError(f"{name}: checker route {route}, expected 1")
+        if take_u64(audit, K_WORK + KW_DYADIC_DECODES * 8) != 0 \
+                or take_u64(audit, K_WORK + KW_POSTSEAL_X1_DECODES * 8) != 0:
+            raise RuntimeError(f"{name}: route 1 crossed causal boundary")
         record(name, "input", route, audit)
 
     # A checker audit is not authoritative merely because it is self-sealed.
@@ -504,12 +608,13 @@ def main() -> int:
 
     report = {
         "schema": "nextengine.nonlocal.r63zp.controls.v1",
-        "candidate_revision": 5,
+        "candidate_revision": 6,
         "candidate_sha256": sha256(baseline),
         "checker_audit_sha256": sha256(baseline_audit),
         "exact_product_root": EXACT_PRODUCT_ROOT.hex(),
-        "controls_passed": len(controls),
+        "controls_passed": len(controls) + 1,
         "unique_negative_audits": len(audit_hashes),
+        "exact_controls": exact_report,
         "controls": controls,
     }
     report_path = output / "report.json"

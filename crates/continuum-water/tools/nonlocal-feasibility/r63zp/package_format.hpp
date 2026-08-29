@@ -11,16 +11,16 @@ constexpr std::size_t columns = 315U;
 constexpr std::size_t parent_cache_bytes = 1033625U;
 constexpr std::size_t parent_artifact_bytes = 12916U;
 constexpr std::size_t parent_audit_bytes = 420U;
-constexpr std::size_t candidate_work_fields = 61U;
-constexpr std::size_t checker_work_fields = 70U;
+constexpr std::size_t candidate_work_fields = 64U;
+constexpr std::size_t checker_work_fields = 71U;
 constexpr std::size_t event_slots = 8U;
 constexpr std::size_t quad_bytes = 16U;
 
 constexpr std::array<std::uint8_t, 8U> candidate_magic{{
-    'N', 'E', 'R', '6', '3', 'Z', 'P', '5'}};
+    'N', 'E', 'R', '6', '3', 'Z', 'P', '6'}};
 constexpr std::array<std::uint8_t, 8U> checker_magic{{
-    'N', 'E', 'R', '6', '3', 'Z', 'Q', '5'}};
-constexpr std::uint32_t version = 5U;
+    'N', 'E', 'R', '6', '3', 'Z', 'Q', '6'}};
+constexpr std::uint32_t version = 6U;
 
 enum class CandidateRoute : std::uint32_t {
     ApparatusRejected = 1U,
@@ -87,10 +87,13 @@ enum CandidateWork : std::size_t {
     CwPositivityPredicates,
     CwDivisionEndpointOperations,
     CwDivisionPredicates,
+    CwControlSelectorPredicates,
+    CwPresealControlInjections,
     CwPresealRootCalls,
     CwPresealRootBytes,
     CwPostsealX1Decodes,
     CwPostsealX1FinitePredicates,
+    CwPostsealControlInjections,
     CwUpdateDots,
     CwUpdateTerms,
     CwUpdateComparisons,
@@ -136,6 +139,7 @@ enum CheckerWork : std::size_t {
     KwParentArtifactQuadDecodes,
     KwFinitePredicates,
     KwRangePredicates,
+    KwControlInjections,
     KwX0ComponentComparisons,
     KwParentRootComparisons,
     KwFactorSolves,
@@ -187,7 +191,7 @@ enum CheckerWork : std::size_t {
     KwCount,
 };
 
-constexpr std::size_t candidate_bytes = 6152U;
+constexpr std::size_t candidate_bytes = 6176U;
 constexpr std::size_t c_version = 8U;
 constexpr std::size_t c_total = 12U;
 constexpr std::size_t c_route = 16U;
@@ -199,17 +203,17 @@ constexpr std::size_t c_scalars = 280U;
 constexpr std::size_t c_dimension = 360U;
 constexpr std::size_t c_work_count = 368U;
 constexpr std::size_t c_work = 376U;
-constexpr std::size_t c_work_root = 864U;
-constexpr std::size_t c_event_count = 896U;
-constexpr std::size_t c_events = 904U;
-constexpr std::size_t c_trace_root = 1160U;
-constexpr std::size_t c_p0 = 1192U;
-constexpr std::size_t c_q0 = 2824U;
-constexpr std::size_t c_bounds = 4456U;
-constexpr std::size_t c_product_body_root = 6088U;
-constexpr std::size_t c_result_root = 6120U;
+constexpr std::size_t c_work_root = 888U;
+constexpr std::size_t c_event_count = 920U;
+constexpr std::size_t c_events = 928U;
+constexpr std::size_t c_trace_root = 1184U;
+constexpr std::size_t c_p0 = 1216U;
+constexpr std::size_t c_q0 = 2848U;
+constexpr std::size_t c_bounds = 4480U;
+constexpr std::size_t c_product_body_root = 6112U;
+constexpr std::size_t c_result_root = 6144U;
 
-constexpr std::size_t checker_bytes = 1168U;
+constexpr std::size_t checker_bytes = 1176U;
 constexpr std::size_t k_version = 8U;
 constexpr std::size_t k_total = 12U;
 constexpr std::size_t k_route = 16U;
@@ -217,11 +221,11 @@ constexpr std::size_t k_flags = 20U;
 constexpr std::size_t k_parent_roots = 24U;
 constexpr std::size_t k_candidate_roots = 120U;
 constexpr std::size_t k_work = 248U;
-constexpr std::size_t k_work_root = 808U;
-constexpr std::size_t k_event_count = 840U;
-constexpr std::size_t k_events = 848U;
-constexpr std::size_t k_trace_root = 1104U;
-constexpr std::size_t k_result_root = 1136U;
+constexpr std::size_t k_work_root = 816U;
+constexpr std::size_t k_event_count = 848U;
+constexpr std::size_t k_events = 856U;
+constexpr std::size_t k_trace_root = 1112U;
+constexpr std::size_t k_result_root = 1144U;
 
 static_assert(CwCount == candidate_work_fields);
 static_assert(KwCount == checker_work_fields);

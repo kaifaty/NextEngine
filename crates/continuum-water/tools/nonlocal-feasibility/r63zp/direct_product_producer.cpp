@@ -544,6 +544,7 @@ Digest work_root(Route route, const Work& work, std::uint64_t& bytes) noexcept {
 }
 
 struct Semantic final {
+    std::uint32_t control_selector = 0U;
     std::array<Digest, 3U> parents{};
     std::array<Digest, 2U> roles{};
     std::array<Digest, 3U> roots{};
@@ -567,7 +568,8 @@ Digest product_body_root(const Semantic& semantic, const Work& work,
     builder.field_digests(semantic.roots);
     for (Quad scalar : semantic.scalars) builder.field_quad(scalar);
     builder.field_u64(N);
-    builder.field_u64s(work, 40U);
+    builder.field_u32(semantic.control_selector);
+    builder.field_u64s(work, 42U);
     builder.field_digests(events, 4U);
     builder.field_quads(semantic.p0);
     builder.field_quads(semantic.q0);
@@ -578,7 +580,8 @@ Digest product_body_root(const Semantic& semantic, const Work& work,
 
 Digest candidate_event(std::uint32_t ordinal, Route stage_route,
     const Semantic& semantic, const Digest& derived_x0,
-    const Digest& work_digest, std::uint64_t& bytes) noexcept {
+    const Digest& observed_x0, const Digest& work_digest,
+    std::uint64_t& bytes) noexcept {
     RootBuilder builder;
     builder.field_raw(reinterpret_cast<const std::uint8_t*>(EVENT_DOMAIN),
         sizeof(EVENT_DOMAIN) - 1U);
@@ -586,11 +589,13 @@ Digest candidate_event(std::uint32_t ordinal, Route stage_route,
     builder.field_u32(static_cast<std::uint32_t>(stage_route));
     switch (ordinal) {
     case 1U:
+        builder.field_u32(semantic.control_selector);
         builder.field_digests(semantic.parents);
         break;
     case 2U:
         builder.field_digest(semantic.roles[0U]);
         builder.field_digest(derived_x0);
+        builder.field_digest(observed_x0);
         break;
     case 3U:
         builder.field_digests(semantic.roles);
@@ -683,7 +688,8 @@ bool parent_headers(const FileInput<r63zp_format::parent_artifact_bytes>& artifa
     check(load_be64(audit.bytes.data() + 12U)
         == r63zp_format::parent_audit_bytes);
     check(audit.bytes[24U] == 1U);
-    check(audit.bytes[25U] == 1U && audit.bytes[26U] == 1U);
+    check(audit.bytes[25U] == 1U);
+    check(audit.bytes[26U] == 1U);
     return valid;
 }
 
@@ -744,17 +750,43 @@ bool write_output(const char* path,
     return count == static_cast<ssize_t>(bytes.size()) && closed;
 }
 
+bool parse_selector(const char* text, std::uint32_t& selector,
+    Work& work) noexcept {
+    ++work[r63zp_format::CwControlSelectorPredicates];
+    const bool present = text != nullptr;
+    if (!present) return false;
+    ++work[r63zp_format::CwControlSelectorPredicates];
+    const bool nonempty = text[0U] != '\0';
+    if (!nonempty) return false;
+    ++work[r63zp_format::CwControlSelectorPredicates];
+    const bool canonical_length = text[1U] == '\0';
+    if (!canonical_length) return false;
+    ++work[r63zp_format::CwControlSelectorPredicates];
+    const bool digit_lower = text[0U] >= '0';
+    ++work[r63zp_format::CwControlSelectorPredicates];
+    const bool digit_upper = text[0U] <= '6';
+    if (!digit_lower || !digit_upper) return false;
+    selector = static_cast<std::uint32_t>(text[0U] - '0');
+    return true;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 5) return 64;
+    if (argc != 5 && argc != 6) return 64;
 
     Work work{};
+    std::uint32_t control_selector = 0U;
+    ++work[r63zp_format::CwControlSelectorPredicates];
+    const bool selector_argument = argc == 6;
+    if (selector_argument
+        && !parse_selector(argv[5], control_selector, work)) return 64;
     ++work[r63zp_format::CwRoundingModeSetCalls];
     const bool rounding_set = std::fesetround(FE_TONEAREST) == 0;
     ++work[r63zp_format::CwRoundingModeChecks];
-    const bool rounding_exact = rounding_set
-        && std::fegetround() == FE_TONEAREST;
+    const int observed_rounding = std::fegetround();
+    const bool rounding_observed = observed_rounding == FE_TONEAREST;
+    const bool rounding_exact = rounding_set && rounding_observed;
 
     FileInput<r63zp_format::parent_cache_bytes> cache;
     FileInput<r63zp_format::parent_artifact_bytes> parent;
@@ -764,6 +796,7 @@ int main(int argc, char** argv) {
     read_input(argv[3], parent_audit, work);
 
     Semantic semantic{};
+    semantic.control_selector = control_selector;
     semantic.parents = {{cache.root, parent.root, parent_audit.root}};
     bool parents_exact = rounding_exact && cache.exact && parent.exact
         && parent_audit.exact;
@@ -781,6 +814,7 @@ int main(int argc, char** argv) {
     std::array<Digest, r63zp_format::event_slots> events{};
     std::uint64_t event_count = 0U;
     Digest derived_x0{};
+    Digest observed_x0{};
     std::uint64_t update_matches = 0U;
 
     std::array<Quad, N> x0{};
@@ -808,8 +842,11 @@ int main(int argc, char** argv) {
             ++work[r63zp_format::CwCacheIndexDecodes];
             work[r63zp_format::CwFinitePredicates] += 2U;
             ++work[r63zp_format::CwRangePredicates];
-            const bool row_valid = finiteq(x0[i]) != 0
-                && finiteq(rhs[i]) != 0 && permutation[i] < N;
+            const bool x0_finite = finiteq(x0[i]) != 0;
+            const bool rhs_finite = finiteq(rhs[i]) != 0;
+            const bool permutation_valid = permutation[i] < N;
+            const bool row_valid = x0_finite && rhs_finite
+                && permutation_valid;
             direction_exact = row_valid && direction_exact;
         }
         for (std::size_t i = 0U; i < tangent.size(); ++i) {
@@ -831,8 +868,17 @@ int main(int argc, char** argv) {
         work[r63zp_format::CwCacheQuadDecodesPreseal] += 2U;
         work[r63zp_format::CwFinitePredicates] += 2U;
         work[r63zp_format::CwRangePredicates] += 2U;
-        direction_exact = finiteq(sigma) != 0 && finiteq(inverse) != 0
-            && sigma > ZERO && inverse > ZERO && direction_exact;
+        const bool sigma_finite = finiteq(sigma) != 0;
+        const bool inverse_finite = finiteq(inverse) != 0;
+        const bool sigma_positive = sigma > ZERO;
+        const bool inverse_positive = inverse > ZERO;
+        direction_exact = sigma_finite && inverse_finite && sigma_positive
+            && inverse_positive && direction_exact;
+
+        if (control_selector == 1U) {
+            x0[0U] = nextafterq(x0[0U], HUGE_VALQ);
+            ++work[r63zp_format::CwPresealControlInjections];
+        }
 
         const Solve start = solve(factor, permutation, rhs, inverse, work);
         bool x0_equal = start.exact;
@@ -847,12 +893,17 @@ int main(int argc, char** argv) {
         derived_x0 = parent_vector_root(start.solution, root_bytes);
         ++work[r63zp_format::CwPresealRootCalls];
         work[r63zp_format::CwPresealRootBytes] += root_bytes;
+        std::uint64_t observed_x0_bytes = 0U;
+        observed_x0 = parent_vector_root(x0, observed_x0_bytes);
+        ++work[r63zp_format::CwPresealRootCalls];
+        work[r63zp_format::CwPresealRootBytes] += observed_x0_bytes;
         semantic.roles[0U] = load_digest(parent.bytes.data()
             + ROLE2_INPUT_ROOT);
         ++work[r63zp_format::CwParentRootComparisons];
         x0_equal = digest_equal(derived_x0, semantic.roles[0U]) && x0_equal;
+        direction_exact = direction_exact && x0_equal;
 
-        if (direction_exact && x0_equal) {
+        if (direction_exact) {
             std::array<Quad, N> y0{};
             for (std::size_t i = 0U; i < N; ++i) {
                 y0[i] = big_quad(parent.bytes.data() + ROLE2
@@ -895,9 +946,10 @@ int main(int argc, char** argv) {
             semantic.scalars[0U] = rho.value;
             semantic.scalars[1U] = rho.bound;
             ++work[r63zp_format::CwPositivityPredicates];
+            const bool rho_positive = rho.value - rho.bound > ZERO;
             direction_exact = direction_exact && residual_exact
                 && preconditioned.exact && rho.exact && rho.normal
-                && rho.value - rho.bound > ZERO;
+                && rho_positive;
 
             if (direction_exact) {
                 const Product direct = product(tangent, sigma, semantic.p0,
@@ -905,12 +957,18 @@ int main(int argc, char** argv) {
                 semantic.q0 = direct.value;
                 semantic.bounds = direct.bound;
                 product_exact = direct.exact;
+                if (control_selector == 2U) {
+                    semantic.bounds[0U] = ZERO;
+                    ++work[r63zp_format::CwPresealControlInjections];
+                }
                 bounds_valid = true;
                 for (std::size_t i = 0U; i < N; ++i) {
                     ++work[r63zp_format::CwFinitePredicates];
                     ++work[r63zp_format::CwRangePredicates];
-                    bounds_valid = finiteq(semantic.bounds[i]) != 0
-                        && semantic.bounds[i] >= ZERO && bounds_valid;
+                    const bool bound_finite = finiteq(semantic.bounds[i]) != 0;
+                    const bool bound_nonnegative = semantic.bounds[i] >= ZERO;
+                    bounds_valid = bound_finite && bound_nonnegative
+                        && bounds_valid;
                 }
 
                 std::uint64_t p_bytes = 0U;
@@ -923,46 +981,68 @@ int main(int argc, char** argv) {
                 work[r63zp_format::CwPresealRootBytes]
                     += p_bytes + q_bytes + b_bytes;
 
-                const Dot denominator = dot2(N,
-                    [&](std::size_t i) { return semantic.p0[i]; },
-                    [&](std::size_t i) { return semantic.q0[i]; });
-                ++work[r63zp_format::CwDenominatorDots];
-                work[r63zp_format::CwDenominatorTerms] += N;
-                Quad denominator_bound = denominator.bound;
-                for (std::size_t i = 0U; i < N; ++i) {
-                    denominator_bound = up_add(denominator_bound,
-                        up_multiply(fabsq(semantic.p0[i]),
-                            semantic.bounds[i]));
-                    ++work[r63zp_format::CwDenominatorTerms];
-                }
-                semantic.scalars[2U] = denominator.value;
-                semantic.scalars[3U] = denominator_bound;
-                const Quad rho_lower = directed_binary(rho.value, rho.bound,
-                    FE_DOWNWARD, '-');
-                const Quad rho_upper = directed_binary(rho.value, rho.bound,
-                    FE_UPWARD, '+');
-                const Quad denominator_lower = directed_binary(
-                    denominator.value, denominator_bound, FE_DOWNWARD, '-');
-                const Quad denominator_upper = directed_binary(
-                    denominator.value, denominator_bound, FE_UPWARD, '+');
-                work[r63zp_format::CwIntervalEndpointOperations] += 4U;
-                ++work[r63zp_format::CwPositivityPredicates];
-                curvature_positive = product_exact && bounds_valid
-                    && denominator.exact && denominator.normal
-                    && denominator_lower > ZERO;
-                if (curvature_positive) {
-                    const Quad alpha_lower = directed_binary(rho_lower,
-                        denominator_upper, FE_DOWNWARD, '/');
-                    const Quad alpha_upper = directed_binary(rho_upper,
-                        denominator_lower, FE_UPWARD, '/');
-                    work[r63zp_format::CwDivisionEndpointOperations] += 2U;
-                    semantic.scalars[4U] = rho.value / denominator.value;
-                    ++work[r63zp_format::CwDivisionEndpointOperations];
-                    work[r63zp_format::CwDivisionPredicates] += 2U;
-                    step_valid = finiteq(alpha_lower) != 0
-                        && finiteq(alpha_upper) != 0
-                        && alpha_lower <= semantic.scalars[4U]
-                        && semantic.scalars[4U] <= alpha_upper;
+                if (product_exact && bounds_valid && control_selector != 2U) {
+                    const Dot denominator = dot2(N,
+                        [&](std::size_t i) { return semantic.p0[i]; },
+                        [&](std::size_t i) { return semantic.q0[i]; });
+                    ++work[r63zp_format::CwDenominatorDots];
+                    work[r63zp_format::CwDenominatorTerms] += N;
+                    Quad denominator_primary = denominator.value;
+                    Quad denominator_bound = denominator.bound;
+                    for (std::size_t i = 0U; i < N; ++i) {
+                        denominator_bound = up_add(denominator_bound,
+                            up_multiply(fabsq(semantic.p0[i]),
+                                semantic.bounds[i]));
+                        ++work[r63zp_format::CwDenominatorTerms];
+                    }
+                    if (control_selector == 3U) {
+                        denominator_bound = denominator_primary;
+                        ++work[r63zp_format::CwPresealControlInjections];
+                    } else if (control_selector == 4U) {
+                        denominator_primary = -fabsq(denominator_primary);
+                        ++work[r63zp_format::CwPresealControlInjections];
+                    }
+                    semantic.scalars[2U] = denominator_primary;
+                    semantic.scalars[3U] = denominator_bound;
+                    const Quad rho_lower = directed_binary(rho.value,
+                        rho.bound, FE_DOWNWARD, '-');
+                    const Quad rho_upper = directed_binary(rho.value,
+                        rho.bound, FE_UPWARD, '+');
+                    const Quad denominator_lower = directed_binary(
+                        denominator_primary, denominator_bound,
+                        FE_DOWNWARD, '-');
+                    const Quad denominator_upper = directed_binary(
+                        denominator_primary, denominator_bound,
+                        FE_UPWARD, '+');
+                    work[r63zp_format::CwIntervalEndpointOperations] += 4U;
+                    ++work[r63zp_format::CwPositivityPredicates];
+                    const bool denominator_positive = denominator_lower > ZERO;
+                    curvature_positive = denominator.exact
+                        && denominator.normal && denominator_positive;
+                    if (curvature_positive) {
+                        const Quad alpha_lower = directed_binary(rho_lower,
+                            denominator_upper, FE_DOWNWARD, '/');
+                        const Quad alpha_upper = directed_binary(rho_upper,
+                            denominator_lower, FE_UPWARD, '/');
+                        work[r63zp_format::CwDivisionEndpointOperations] += 2U;
+                        semantic.scalars[4U] = rho.value / denominator_primary;
+                        ++work[r63zp_format::CwDivisionEndpointOperations];
+                        if (control_selector == 5U) {
+                            semantic.scalars[4U] = nextafterq(alpha_upper,
+                                HUGE_VALQ);
+                            ++work[r63zp_format::CwPresealControlInjections];
+                        }
+                        const bool lower_finite = finiteq(alpha_lower) != 0;
+                        const bool upper_finite = finiteq(alpha_upper) != 0;
+                        const bool lower_contains = alpha_lower
+                            <= semantic.scalars[4U];
+                        const bool upper_contains = semantic.scalars[4U]
+                            <= alpha_upper;
+                        work[r63zp_format::CwFinitePredicates] += 2U;
+                        work[r63zp_format::CwDivisionPredicates] += 2U;
+                        step_valid = lower_finite && upper_finite
+                            && lower_contains && upper_contains;
+                    }
                 }
             }
         }
@@ -974,54 +1054,49 @@ int main(int argc, char** argv) {
     };
     if (route_reject(!parents_exact)) route = Route::ApparatusRejected;
     else if (route_reject(!direction_exact)) route = Route::DirectionInputRejected;
-    else if (route_reject(!product_exact || !bounds_valid))
+    else if (route_reject(control_selector == 2U
+        || !product_exact || !bounds_valid))
         route = Route::ProductBoundRejected;
     else if (route_reject(!curvature_positive)) route = Route::CurvatureRejected;
     else if (route_reject(!step_valid)) route = Route::StepRejected;
-    else {
-        ++work[r63zp_format::CwRoutePredicates];
-        route = Route::Admitted;
-    }
+    else route = Route::Admitted;
 
-    if (direction_exact) flags |= 1U << 0U;
+    flags |= control_selector << 8U;
+    if (parents_exact && direction_exact) flags |= 1U << 0U;
     if (product_exact) flags |= 1U << 1U;
     if (bounds_valid) flags |= 1U << 2U;
     if (curvature_positive) flags |= 1U << 3U;
     if (step_valid) flags |= 1U << 4U;
 
-    if (parents_exact) event_count = 1U;
-    if (direction_exact) event_count = 4U;
-    if (product_exact && bounds_valid && curvature_positive && step_valid)
-        event_count = 6U;
-
-    work[r63zp_format::CwEventRootCalls] = event_count;
-    work[r63zp_format::CwTraceRootCalls] = 1U;
-    work[r63zp_format::CwReceiptZeroFillBytes]
-        = r63zp_format::candidate_bytes;
-    work[r63zp_format::CwReceiptFieldsSerialized] = 400U;
-    work[r63zp_format::CwReceiptBytesSerialized]
-        = r63zp_format::candidate_bytes;
-    work[r63zp_format::CwOutputOpenAttempts] = 1U;
-    work[r63zp_format::CwOutputWriteCalls] = 1U;
-    work[r63zp_format::CwOutputWriteBytes]
-        = r63zp_format::candidate_bytes;
-    work[r63zp_format::CwOutputCloseCalls] = 1U;
-    work[r63zp_format::CwPackageAllocations] = 0U;
-
     std::uint64_t observed_event_bytes = 0U;
-    for (std::uint32_t ordinal = 1U; ordinal <= event_count
-         && ordinal <= 4U; ++ordinal) {
+    auto append_event = [&](std::uint32_t ordinal, Route stage_route,
+                            const Digest& work_digest) noexcept {
         std::uint64_t bytes = 0U;
-        events[ordinal - 1U] = candidate_event(ordinal, Route::Admitted,
-            semantic, derived_x0, Digest{}, bytes);
+        events[ordinal - 1U] = candidate_event(ordinal, stage_route,
+            semantic, derived_x0, observed_x0, work_digest, bytes);
         observed_event_bytes += bytes;
+        event_count = ordinal;
+    };
+
+    append_event(1U, route == Route::ApparatusRejected
+        ? route : Route::Admitted, Digest{});
+    if (route != Route::ApparatusRejected) {
+        append_event(2U, route == Route::DirectionInputRejected
+            ? route : Route::Admitted, Digest{});
+    }
+    if (static_cast<std::uint32_t>(route)
+        >= static_cast<std::uint32_t>(Route::ProductBoundRejected)) {
+        append_event(3U, Route::Admitted, Digest{});
+        append_event(4U, Route::Admitted, Digest{});
     }
 
-    if (event_count >= 5U || route == Route::Admitted) {
+    if (static_cast<std::uint32_t>(route)
+        >= static_cast<std::uint32_t>(Route::ProductBoundRejected)) {
         const std::uint64_t body_bytes_expected =
             9U + (sizeof(BODY_DOMAIN) - 1U)
             + (9U + 3U * 32U) + (9U + 2U * 32U) + (9U + 3U * 32U)
-            + 5U * (9U + 16U) + (9U + 8U) + (9U + 40U * 8U)
+            + 5U * (9U + 16U) + (9U + 8U) + (9U + 4U)
+            + (9U + 42U * 8U)
             + (9U + 4U * 32U) + 3U * (9U + N * 16U);
         ++work[r63zp_format::CwPresealRootCalls];
         work[r63zp_format::CwPresealRootBytes] += body_bytes_expected;
@@ -1029,18 +1104,17 @@ int main(int argc, char** argv) {
         semantic.product_body = product_body_root(semantic, work, events,
             body_bytes);
         if (body_bytes != body_bytes_expected) return 65;
-        std::uint64_t event_bytes = 0U;
-        events[4U] = candidate_event(5U, Route::Admitted, semantic,
-            derived_x0, Digest{}, event_bytes);
-        observed_event_bytes += event_bytes;
-        if (event_count < 5U) event_count = 5U;
+        const Route body_route = static_cast<std::uint32_t>(route)
+                <= static_cast<std::uint32_t>(Route::StepRejected)
+            ? route : Route::Admitted;
+        append_event(5U, body_route, Digest{});
     }
 
-    if (event_count >= 6U) {
-        std::uint64_t event_bytes = 0U;
-        events[5U] = candidate_event(6U, Route::Admitted, semantic,
-            derived_x0, Digest{}, event_bytes);
-        observed_event_bytes += event_bytes;
+    if (route == Route::CurvatureRejected || route == Route::StepRejected
+        || route == Route::Admitted) {
+        const Route scalar_route = route == Route::Admitted
+            ? Route::Admitted : route;
+        append_event(6U, scalar_route, Digest{});
     }
 
     if (route == Route::Admitted) {
@@ -1049,7 +1123,14 @@ int main(int argc, char** argv) {
             x1[i] = little_quad(cache.bytes.data() + CACHE_X1
                 + i * sizeof(Quad));
             ++work[r63zp_format::CwPostsealX1Decodes];
+        }
+        if (control_selector == 6U) {
+            x1[0U] = nextafterq(x1[0U], HUGE_VALQ);
+            ++work[r63zp_format::CwPostsealControlInjections];
+        }
+        for (std::size_t i = 0U; i < N; ++i) {
             ++work[r63zp_format::CwPostsealX1FinitePredicates];
+            const bool x1_finite = finiteq(x1[i]) != 0;
             const Dot update = dot2(2U,
                 [&](std::size_t term) {
                     return term == 0U ? x0[i] : semantic.scalars[4U];
@@ -1061,9 +1142,10 @@ int main(int argc, char** argv) {
             work[r63zp_format::CwUpdateTerms] += 2U;
             ++work[r63zp_format::CwUpdateComparisons];
             ++work[r63zp_format::CwFixedLoopIterations];
-            const bool match = update.exact && update.normal
-                && finiteq(x1[i]) != 0
-                && std::memcmp(&update.value, &x1[i], sizeof(Quad)) == 0;
+            const bool value_equal = std::memcmp(&update.value, &x1[i],
+                sizeof(Quad)) == 0;
+            const bool match = update.exact && update.normal && x1_finite
+                && value_equal;
             update_matches += match ? 1U : 0U;
         }
         semantic.update_matches = update_matches;
@@ -1071,16 +1153,26 @@ int main(int argc, char** argv) {
         semantic.derived_x1 = parent_vector_root(x1, x1_root_bytes);
         work[r63zp_format::CwFinalRootCalls] = 3U;
         work[r63zp_format::CwFinalRootBytes] = x1_root_bytes;
+        ++work[r63zp_format::CwRoutePredicates];
         if (update_matches != N) route = Route::UpdateRejected;
         else flags |= 1U << 5U;
-        event_count = 7U;
-        std::uint64_t event_bytes = 0U;
-        events[6U] = candidate_event(7U, route, semantic, derived_x0,
-            Digest{}, event_bytes);
-        observed_event_bytes += event_bytes;
+        append_event(7U, route, Digest{});
     } else {
         work[r63zp_format::CwFinalRootCalls] = 2U;
     }
+
+    work[r63zp_format::CwTraceRootCalls] = 1U;
+    work[r63zp_format::CwReceiptZeroFillBytes]
+        = r63zp_format::candidate_bytes;
+    work[r63zp_format::CwReceiptFieldsSerialized] = 403U;
+    work[r63zp_format::CwReceiptBytesSerialized]
+        = r63zp_format::candidate_bytes;
+    work[r63zp_format::CwOutputOpenAttempts] = 1U;
+    work[r63zp_format::CwOutputWriteCalls] = 1U;
+    work[r63zp_format::CwOutputWriteBytes]
+        = r63zp_format::candidate_bytes;
+    work[r63zp_format::CwOutputCloseCalls] = 1U;
+    work[r63zp_format::CwPackageAllocations] = 0U;
 
     const std::uint64_t work_bytes_expected =
         9U + (sizeof(WORK_DOMAIN) - 1U) + (9U + 4U)
@@ -1113,7 +1205,7 @@ int main(int argc, char** argv) {
     if (final_event_available) {
         std::uint64_t event8_bytes = 0U;
         events[7U] = candidate_event(8U, route, semantic, derived_x0,
-            work_digest, event8_bytes);
+            observed_x0, work_digest, event8_bytes);
         if (event8_bytes != event8_expected) return 65;
         event_count = 8U;
     }
