@@ -4353,6 +4353,11 @@ The revision-5 author package now passes two clean Release builds, two complete
 `174/174` control runs, ASan/UBSan and exact R63ZM/R63ZO regressions. Candidate
 and audit roots are `82fc6740...d8f9f3` and `21dffa88...14ca0a`. This is frozen
 for independent review and grants no admission yet.
+The independent revision-5 review returned `NO-GO`: checker oracle/`x1` work
+crossed the body seal, routes 1--5 lacked independently verified partial
+receipts, fixed predicates overstated short-circuit execution and nominal
+mutation counts did not cover the named arithmetic/causal matrix. One batched
+revision-6 repair and one re-review remain.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
