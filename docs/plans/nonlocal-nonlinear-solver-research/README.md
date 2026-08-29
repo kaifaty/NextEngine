@@ -4349,6 +4349,10 @@ for 102 late `x1` checks. Revision 5 keeps the arithmetic scope unchanged and
 freezes a `6,152`-byte candidate, `1,168`-byte checker audit, eight causal
 events and separate 61/70-field actual-work ledgers. The product-body seal
 still precedes every `x1` decode.
+The revision-5 author package now passes two clean Release builds, two complete
+`174/174` control runs, ASan/UBSan and exact R63ZM/R63ZO regressions. Candidate
+and audit roots are `82fc6740...d8f9f3` and `21dffa88...14ca0a`. This is frozen
+for independent review and grants no admission yet.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
