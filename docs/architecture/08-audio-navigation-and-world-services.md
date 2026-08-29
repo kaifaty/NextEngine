@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-08 |
 | Статус | Accepted |
-| Версия | 2.6 |
-| Последняя проверка | 2026-08-24 |
+| Версия | 2.7 |
+| Последняя проверка | 2026-08-29 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
 | Дополнительные зависимости V2.6 | [ADR-091](adr/091-linux-release-performance-authority.md) |
-| Заменяет | SPEC-08 2.5; aligns NAV-P3 with the current Linux R4 v2 workload identity and hard-evidence boundary |
+| Дополнительные зависимости V2.7 | [SPEC-47](47-streaming-tts-and-spatial-speech-presentation.md), [ADR-099](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) |
+| Заменяет | SPEC-08 2.6; records the bounded Proposed streaming-TTS specialization without changing the current clip-only or NAV-P3 baseline |
 
 ## Source of truth и ownership
 
@@ -28,7 +29,8 @@ publication, а Core Runtime — fixed `SimulationTick`, ephemeral residency
 mapping и transaction boundaries; ни один из них не становится вторым owner
 world topology/placement. Navigation plan не владеет фактическим character
 pose: active traversal outcome принадлежит physical/capsule controller. Audio
-mixer/device state — presentation only; gameplay hearing использует
+mixer/device and generated-stream state belong to Presentation and are
+presentation only; gameplay hearing использует
 deterministic acoustic facts, а не звуковую карту устройства.
 
 ## Public boundary
@@ -44,6 +46,13 @@ Recast/Detour/Steam
 Audio/device handles, raw nav poly references, runtime entity/task handles и
 mixer buffers являются adapter internals. WorldCommand остаётся единственным
 mutable RPG/world входом.
+
+Current audio public code remains `AudioSceneSnapshotV1` with clip-backed
+`AudioEmitterRecordV1`. [SPEC-47](47-streaming-tts-and-spatial-speech-presentation.md)
+defines the Proposed current-only successor for generated speech streams,
+voice bindings and normalized propagation; none of those types is current
+until a production consumer and [ADR-099](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md)
+promotion land together.
 
 ## Current graph navigation and proposed physical traversal
 
@@ -107,6 +116,13 @@ Steam Audio — `Proposed` optional propagation adapter. Его exact version д
 
 ASR/TTS принадлежат `ai-host`; audio runtime получает/отдаёт bounded PCM/encoded streams через versioned messages, не model APIs. Отсутствие voice services использует text/subtitle и authored/default voice fallback.
 
+The current mixer resolves only cooked `NeutralAudioV1` clips. Proposed TTS
+integration MUST add speech as an `AudioScene` source before attenuation,
+panning/directivity, room response, voice admission and final mixing. Direct
+`ai-host → audio device` playback and per-segment cooked-asset registration are
+forbidden. SPEC-47 closes the request/segment/source/acoustic contracts,
+real-time buffer rules and promotion checks; ADR-099 records the decision.
+
 Displayless audio check использует тот же deterministic `AudioScene`, но sink — bounded canonical PCM/WAV, не hardware device. Конфигурация фиксирует listener, buses, sample rate/channels и semantic tick window. Gameplay acoustic facts проверяются отдельно exact/tolerance assertions.
 
 ## Data flow
@@ -138,7 +154,8 @@ outcome → route progress/replan`.
 
 `AUDIO-*` rows are current checks selected by an affected audio change.
 `NAV-P1`, `NAV-P3` and the bounded `WORLD-02` branch are current under ADR-072;
-physical corridor following remains deferred.
+physical corridor following remains deferred. `TTS-*` rows in SPEC-47 are
+Proposed and remain `NOT_RUN` until their first production consumer exists.
 
 | Check ID | Scenario / command | Expected behavior / fallback |
 |---|---|---|

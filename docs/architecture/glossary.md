@@ -4,12 +4,13 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 4.8 |
-| Последняя проверка | 2026-08-20 |
+| Версия | 4.9 |
+| Последняя проверка | 2026-08-29 |
 | Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V4.0 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 | Дополнительные зависимости V4.8 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
-| Заменяет | GLOSSARY-001 4.7; adds the current-only Creator Runtime Scenario V1 term |
+| Дополнительные зависимости V4.9 | [SPEC-47](47-streaming-tts-and-spatial-speech-presentation.md), [ADR-099](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) |
+| Заменяет | GLOSSARY-001 4.8; adds explicitly Proposed streaming-TTS presentation terms |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -66,6 +67,10 @@
 | **MaterialParcelTopologyTransaction** | Proposed atomic thermochemical/mechanical split, merge or attachment-handoff operation with causally derived child IDs, parent tombstones and one conservation closure. |
 | **DomainEvent** | Неизменяемый факт об уже принятом изменении domain state. Не является альтернативным mutable API. |
 | **PresentationSnapshotV3** | Atomically published immutable scene/character-skinning/camera/semantic-UI plus bounded cue/environment-hash projection with snapshot epoch, sequence and stable object keys. Renderer/UI consume it read-only; it never writes back or enters gameplay hashes. |
+| **SpeechStream** | Proposed bounded PresentationOnly ordered PCM source produced by optional `ai-host` for one validated sentence and consumed only through `AudioScene`; its buffer position, timing and waveform are not dialogue/gameplay authority. |
+| **SpeechVoiceProfile** | Proposed model-neutral authored character-voice and spatial-presentation intent; model conditioning and runtime parameters belong to a separate exact `TtsVoiceBinding`. |
+| **TtsVoiceBinding** | Proposed immutable content-addressed binding of one `SpeechVoiceProfile` to exact TTS pack/runtime/conditioning/provenance/license/consent and generation parameters. |
+| **AcousticSceneManifest** | Proposed immutable neutral presentation content for acoustic zones, portals, materials, fallback room response and optional static propagation geometry; backend scene/handles remain reconstructible private caches. |
 | **NeutralBaseSkinningProfileV1** | Current immutable content record binding one exact mesh, skeleton and BodySchema to stable render joints, explicit animation/body mapping, complete bounded LBS weights, Essential/Detail sparse pose correctives, instance limit and mandatory bind-pose fallback. |
 | **NeutralPoseCorrectiveV1** | Current immutable sparse mesh-local vertex-delta record driven by one named render-joint translation axis relative to bind pose, with exact signed start/full activation and Essential/Detail class; it is presentation content, not condition, effort or pose authority. |
 | **CharacterSkinningPresentationRecordV1** | Current reconstructible per-object projection binding exact skinning content/source revisions, one complete sorted sampled/held/bind local render-joint pose and one explicit deformation LOD inside `PresentationSnapshotV3`. |

@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.68 |
-| Последняя проверка | 2026-08-28 |
-| Заменяет | INDEX-001 2.67; adds ADR-098 bounded intact-topology functional-anatomy condition vertical after the immutable v1.0.0 release |
+| Версия | 2.69 |
+| Последняя проверка | 2026-08-29 |
+| Заменяет | INDEX-001 2.68; indexes the bounded Proposed SPEC-47/ADR-099 streaming-TTS vertical |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -197,6 +197,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-44 | [Proposed neural-assisted world simulation](44-neural-assisted-world-simulation.md) | Proposed N0/N1 report/shadow-only research; runtime advice requires a later safety-certificate-backed Accepted ADR |
 | SPEC-45 | [Proposed physical sound synthesis and acoustic presentation](45-physical-sound-synthesis-and-acoustic-presentation.md) | Proposed presentation-only modal rigid-impact source track; current clip audio and deterministic gameplay acoustic facts remain authoritative fallbacks |
 | SPEC-46 | [Proposed generative content authoring and candidate promotion](46-generative-content-authoring-and-candidate-promotion.md) | Proposed offline provider-neutral brief/derivation/receipt/candidate boundary for materials, static assets and bounded maps; no current command/schema/provider/runtime dependency |
+| SPEC-47 | [Streaming TTS and spatial speech presentation](47-streaming-tts-and-spatial-speech-presentation.md) | Proposed bounded local `ai-host → SpeechStream → AudioScene` vertical with authored/subtitle fallback; no shipping model selected |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -304,6 +305,7 @@ traceability — навигационная карта, не admission authority
 | ADR-096 | [Active-kernel Linux performance cohort](adr/096-active-kernel-linux-performance-cohort.md) | Accepted V2 profile; current Ubuntu generic patch kernel is admissible while every report in one campaign retains byte-exact full-fingerprint equality |
 | ADR-097 | [Linux v1 distribution closure](adr/097-linux-v1-distribution-closure.md) | Accepted PackageManifest V6, release 1.0.0, selected offline dependency/license inventory, packaged user docs, builder-path remapping and reproducible protected-data scan |
 | ADR-098 | [Bounded intact-topology functional-anatomy condition vertical](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) | Accepted R8a BodySchema-bound unilateral profile, RPG condition/treatment owner, derived directional capability envelope and fixed-PD clamp; fracture/topology/UI/LOD remain Proposed |
+| ADR-099 | [Bounded streaming TTS through `ai-host` and `AudioScene`](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) | Proposed; generated dry PCM is a bounded spatial `AudioScene` source, not gameplay authority or a direct device path |
 
 ## Proposed tracks
 
@@ -330,6 +332,11 @@ traceability — навигационная карта, не admission authority
   candidates, structural validation and atomic promotion. Material is the first
   consumer; no provider, command, public schema or runtime dependency is current.
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
+- SPEC-47/ADR-099 — bounded local streaming-TTS specialization: isolated
+  resident host, immutable voice/model bindings, spatial `AudioScene` source,
+  engine-owned room fallback and joint renderer/TTS resource admission. It
+  does not accept the broader SPEC-16 stack or select VoxCPM2 as shipping
+  default.
 - Broader navigation sections of SPEC-08 — navmesh cooking, dynamic overlays,
   tactical/physical path following and optional Recast adapter remain Proposed
   beyond the current ADR-072 graph/query and abstract-transfer baseline.
