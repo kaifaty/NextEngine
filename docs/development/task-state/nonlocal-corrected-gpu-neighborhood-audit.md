@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA1_AUTHOR_PASS / INDEPENDENT_REVIEW_NEXT` |
+| Status | `COMPLETE / NCGA1_REVIEWED_GO / SUPPORTED_BOUNDED` |
 | Updated | `2026-08-29` |
 | Task key | `nonlocal-corrected-gpu-neighborhood-audit` |
 | Scope | Isolate exact GPU cell-neighborhood construction and stable sample indexing before local assembly or solver work |
@@ -11,25 +11,26 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** frozen author validation passes: exact CPU/GPU graph roots,
-  eight positives, four negatives, ten cold repeats, three sanitizers and both
-  retained GPU controls.
+- **Current state:** NCGA1 revision 1 is independently reviewed
+  `GO / SUPPORTED_BOUNDED`; exact CPU/GPU graph and work roots, eight positives,
+  four negatives, ten cold repeats, three sanitizers and retained controls pass.
 - **Question:** can a device-built signed cell index emit the exact canonical
   integer support graph and stable `SampleId` CSR under boundary cases and
   input permutation?
-- **Next action:** give snapshot `083e1164` to one fresh independent reviewer;
-  keep candidate sources read-only until the verdict.
+- **Next action:** if GPU research continues, freeze a new local
+  energy/source/matrix assembly contract over a small immutable graph. Keep
+  matrix factorization, nonlinear solve and performance outside that stage.
 - **Current blocker:** none; RTX 3080 (`sm_86`) and CUDA 13.3 are available.
 - **Claim ceiling:** neighborhood/cache/index correspondence only; no local
   assembly, solve, trajectory, performance, runtime or product claim.
 
 ## Competing hypotheses
 
-| Hypothesis | Prediction | Discriminator |
-| --- | --- | --- |
-| H1 exact GPU indexing corresponds | all eight canonical payloads are byte-exact across input permutations | independent integer all-pairs oracle |
-| H2 support boundary is mistranslated | exact-radius or one-micrometre-outside membership differs | `support_edge` plus strict-radius negative |
-| H3 identity/cell mapping is unstable | negative coordinates or input permutation changes cache/CSR | floor, array-index and same-cell negatives |
+| Hypothesis | Prediction | Discriminator | Outcome |
+| --- | --- | --- | --- |
+| H1 exact GPU indexing corresponds | all eight canonical payloads are byte-exact across input permutations | independent integer all-pairs oracle | supported on frozen corpus |
+| H2 support boundary is mistranslated | exact-radius or one-micrometre-outside membership differs | `support_edge` plus strict-radius negative | refuted for corrected candidate; strict control rejects |
+| H3 identity/cell mapping is unstable | negative coordinates or input permutation changes cache/CSR | floor, array-index and same-cell negatives | refuted for corrected candidate; all wrong identities reject |
 
 ## Decisions
 
@@ -79,6 +80,18 @@
   is the only remaining NCGA1 gate.
 - **Decision:** freeze snapshot `083e1164`; no candidate edits or local-assembly
   work before review.
+
+### D-005 — Independent review closes NCGA1
+
+- **Observation:** a fresh reviewer reproduced two clean builds/runs,
+  sanitizers, regressions and every graph/work root with a separate Python
+  reconstruction; no load-bearing defect was found.
+- **Evidence:**
+  `docs/development/nonlocal-corrected-gpu-neighborhood-audit-independent-review-2026-08-29.md`.
+- **Conclusion:** exact finite neighborhood/cache/index correspondence is
+  supported on the frozen RTX 3080/CUDA 13.3 profile.
+- **Decision:** close NCGA1 `SUPPORTED_BOUNDED`; authorize only a separately
+  frozen local-assembly audit, not a full solver, trajectory or performance run.
 
 ## Required context
 
