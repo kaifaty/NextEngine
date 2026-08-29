@@ -9,12 +9,14 @@ The tool contains an independent CPU `f64` oracle, frozen machine-readable
 workload profiles and a separately implemented source-shaped CUDA `f32`
 baseline. The two numerical paths do not share pair-contribution code.
 
-Build outside the repository and run the bounded CPU controls:
+Build outside the repository and run the bounded CPU and CUDA controls:
 
 ```sh
 cmake -S crates/continuum-water/tools/nonlocal-feasibility \
   -B /tmp/nextengine-nonlocal-feasibility-build -G Ninja
 cmake --build /tmp/nextengine-nonlocal-feasibility-build
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-corrected-cuda-terms \
+  --self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
   --normalized-kernel-reclosure-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
