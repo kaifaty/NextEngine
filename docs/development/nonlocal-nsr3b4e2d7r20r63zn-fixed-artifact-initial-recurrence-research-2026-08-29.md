@@ -1,7 +1,7 @@
 # NSR3-B4E2D7R20R63ZN fixed-artifact initial recurrence research
 
-Status: `REVISION_2_CONTRACT_FROZEN / AUTHOR_PREFLIGHT_PASS /
-PACKAGE_IMPLEMENTATION_PENDING`.
+Status: `REVISION_2_CONTRACT_FROZEN / AUTHOR_CANDIDATE_PASS /
+CHECKER_AND_CONTROLS_PENDING`.
 
 ## Decision
 
@@ -96,6 +96,40 @@ bound is positive by a very wide margin. It does not establish parser,
 identity, work, receipt, route or checker correctness and therefore grants no
 R63ZN scientific claim.
 
+## Standalone candidate checkpoint
+
+The first tracked implementation replaces the offset-only diagnostic on the
+accepted path. It independently:
+
+- reads and hashes the exact cache, R63ZM artifact and R63ZM audit;
+- verifies the named parent formats, routes, roots and role-2 record;
+- traverses the entire cache with its own fixed-capacity reader (`168` reads,
+  `1033625` bytes, `87` structural predicates);
+- selects factor/permutation/inverse/RHS/baseline-0 from parsed spans rather
+  than frozen cache offsets;
+- reproduces the revision-2 arithmetic; and
+- writes a fixed `1120`-byte `NER63ZN1` revision-2 receipt with `36` work
+  counters, seven ordered events, one trace root and one terminal result root.
+
+Dev and two Release invocations write no stdout and produce the same receipt:
+
+| Item | SHA-256 |
+|---|---|
+| candidate source | `71887cabc7d89db460825a211c72f229a5323f9ba415825f2a7d0b3390ebfbc9` |
+| Release binary | `2bfa5e4d417571d7851ac312e488db784b898999b1cafb0fa4ed2987d403acc0` |
+| Dev binary | `a0a8a5f49cb3ed0defa1ab71d74e214f47e45fb04f1144bd1468f2ed5933c042` |
+| Dev and both Release receipts | `91810c72cefd6c9cd877d88b8aed1641af17c05b45a10d267360e45ea3dfc245` |
+| terminal result | `6de1eca2c37017a705be8813930e947f58f332a8d7044fcbe4c2ba65ad0a4283` |
+
+A one-byte parent-audit flag mutation returns the current defensive identity
+failure exit `66`. Rejection receipts are not implemented yet, so this is not
+a contract control and receives no review credit.
+
+This checkpoint is author evidence only. The work tuple has not yet been
+independently reconstructed, rejection routes are incomplete, no separate
+checker exists, and the full mutation corpus has not run. The candidate must
+not be described as reviewed, correspondence-closed or production-ready.
+
 ## Exact structural evidence
 
 R63ZM's raw probe maps cache vectors as:
@@ -156,9 +190,9 @@ still `Proposed`; ADR-081 guardrails remain binding. The package is not a
 public contract or production consumer, uses no runtime state, and cannot
 authorize a portable representation or wider roadmap stage.
 
-The smallest next action is to replace the offset-only diagnostic with the
-frozen revision-2 candidate/checker pair
-with complete fixed-capacity work receipts. If the independently solved `x0`
+The smallest next action is to implement the separate checker, independently
+reconstruct the accepted receipt/work/events, then add fixed rejection
+receipts and the mutation corpus. If the independently solved `x0`
 does not match the role-2 input or the consumed product cannot reproduce the
 certified-positive initial prefix, stop R63ZN rather than importing later
 cached states or widening the claim.

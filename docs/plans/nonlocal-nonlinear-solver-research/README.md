@@ -4285,6 +4285,11 @@ exact/no-underflow residual work, the second factor solve and a
 certified-positive `rho0` lower bound twice at stdout
 `dccaf8c1...fc5f`. It is offset-only reachability evidence, not the contracted
 parser/receipt/checker package, so the claim ceiling is unchanged.
+The tracked standalone candidate now independently parses the full cache and
+three parent identities, reproduces the prefix and emits byte-identical
+Dev/two-Release 1,120-byte receipts at `91810c72...c245`. This remains
+author-only: independent checker, rejection receipts, controls and work-ledger
+audit are pending.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
