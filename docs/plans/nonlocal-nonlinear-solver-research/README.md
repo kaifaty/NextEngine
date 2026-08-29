@@ -4323,6 +4323,16 @@ exact-rational receipt/checker package and grants no positive enclosure,
 iterate, representation, runtime or production authority. The next question
 must admit direct `H*p0` independently and may not consume R63ZN.
 
+The frozen
+[R63ZP contract](03b4e2d7r20r63zp-direct-direction-product-admission-contract.md)
+keeps that matrix-vector product explicit. A small first probe will derive
+`p0`, evaluate one binary128 two-stage tangent product and independently form
+the exact real `H*p0` with signed integer dyadics. It stops at the first
+component outside the published primary-plus-bound interval. Only a complete
+containment result may justify a later serialized candidate/checker package;
+neither the preflight nor that future package may read future states before the
+product seal, build a recurrence or select a portable representation.
+
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
 and
