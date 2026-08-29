@@ -44,9 +44,11 @@
   independent factor solve reproduces its input. No parent role is `p0` or
   `p1`; a strict binary128 counterexample proves rounded state differences
   cannot generally reconstruct those direction products bit-exactly.
-- **R63ZN frozen next step:** implement only the independently checked
-  `x0 -> H*x0 -> r0 -> z0 -> rho0 > 0` prefix under the
-  [revision-1 contract](../../plans/nonlocal-nonlinear-solver-research/03b4e2d7r20r63zn-fixed-artifact-initial-recurrence-contract.md).
+- **R63ZN frozen next step:** revision 2 corrects the pre-code arithmetic
+  trace to the inherited compensated factor solve and residual/rho Dot2
+  enclosures. Implement only the independently checked
+  `x0 -> H*x0 -> r0 -> z0 -> rho0.value-rho0.bound > 0` prefix under the
+  [revision-2 contract](../../plans/nonlocal-nonlinear-solver-research/03b4e2d7r20r63zn-fixed-artifact-initial-recurrence-contract.md).
   Do not import cached certificates, infer `H*p0/H*p1`, or claim a complete
   recurrence.
 - **Build-loop result:** strict-FP `nonlocal-formula-reclosure-dev` reduces the
@@ -6824,10 +6826,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 1. Preserve the integrated R63ZM revision-5 source hashes, fixed artifact and
    audit layouts, independent producer/checker boundary and formal `GO` claim
-   ceiling. Implement the separately frozen R63ZN revision-1 initial-prefix
+   ceiling. Implement the separately frozen R63ZN revision-2 initial-prefix
    candidate/checker without modifying R63ZM. Derive `x0` before consuming
-   role 2, stop after positive `rho0`, and never infer later direction
-   products from rounded state differences.
+   role 2, stop after the frozen Dot2 lower bound for `rho0` is positive, and
+   never infer later direction products from rounded state differences.
 2. Do not run another CPU/wall candidate A/B on this shared host.
 3. Preserve R20R63Z semantic `e27ee861...3e4be`, stdout
    `de22f5f6...da54`, all 612 containments and its zero candidate-update,
@@ -6878,10 +6880,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
    `INCONCLUSIVE` after its single repair. Preserve reviewed R63ZM revision 5,
    manifest `a04ad03a...2996`, artifact `ac6946e8...b87`, audit
    `fd4bcf00...1f80`, controls `83c42c28...739a` and independent `GO` only as
-   the exact fixed-cache tangent boundary. R63ZN revision 1 is now frozen as
+   the exact fixed-cache tangent boundary. R63ZN revision 2 is now frozen as
    the only allowed consumer: an independently solved `x0`, parent role-2
-   `H*x0`, and independently derived `r0/z0/rho0` prefix. It has no endpoint
-   authority before implementation and fresh review.
+   `H*x0`, and independently derived compensated `r0/z0/rho0` prefix with a
+   certified-positive Dot2 lower bound. It has no endpoint authority before
+   implementation and fresh review.
    Stop before representation selection, dynamic building, corpus, timing,
    runtime/GPU or production integration.
 5. Preserve R20R51 semantic `48df3b26...adca` and all five case roots,

@@ -1,4 +1,4 @@
-# NSR3-B4E2D7R20R63ZN fixed-artifact initial recurrence contract — revision 1
+# NSR3-B4E2D7R20R63ZN fixed-artifact initial recurrence contract — revision 2
 
 Revision: `FROZEN / IMPLEMENTATION_PENDING / NO_ENDPOINT_AUTHORITY`.
 
@@ -18,7 +18,8 @@ Can a standalone fixed-capacity package:
 3. prove that the computed `x0` is byte-identical to parent role 2;
 4. consume the parent role-2 value as the only `H*x0` operator result;
 5. independently compute `r0 = b - H*x0`, solve `z0 = M^-1*r0`, compute
-   `rho0 = r0^T*z0`, and require finite exact positive `rho0`; and
+   `rho0 = r0^T*z0` with the frozen Dot2 enclosure, and require its finite
+   exact lower bound to be positive; and
 6. publish a fixed receipt whose semantic roots, ordered events, work ledger,
    route and terminal seal are independently reconstructed by a separate
    checker?
@@ -87,11 +88,26 @@ Any implementation that reads parent roles 3 or 4 to fabricate `H*p0` or
 `H*p1`, imports cached certificates, calls a formula/core recurrence helper,
 or classifies a complete recurrence violates this contract.
 
+## Revision-2 pre-implementation correction
+
+Revision 1 was frozen before code, then a direct trace of the reviewed R63ZC
+endpoint exposed an underspecification: R63ZC does not form residuals or
+`rho0` with ordinary binary128 subtraction/summation. Residual components are
+two-term Dot2 evaluations; `rho0` is a 102-term Dot2 evaluation; and
+positivity means `value - bound > 0`. Its triangular solves also use the
+frozen compensated `Binary128Accumulator` rather than naive accumulation.
+
+No R63ZN implementation existed when this was found. Revision 2 replaces the
+incorrect ordinary-arithmetic wording with the exact inherited numerical
+schedule. Inputs, parent identities, role-2 consumption, fixed-prefix scope,
+trust boundary and claim ceiling are unchanged.
+
 ## Independent arithmetic schedule
 
 Both candidate and checker implement the following schedule separately:
 
-1. convert original RHS and inverse scale from canonical 16-byte binary128;
+1. convert original RHS and inverse scale from canonical 16-byte binary128 and
+   convert every binary64 factor entry exactly to binary128;
 2. execute the frozen permuted exported-factor solve for `x0`;
 3. compare all `102` canonical `x0` components with cache baseline solution 0;
 4. read the `102` role-2 value components at the frozen R63ZM product-record
@@ -99,19 +115,26 @@ Both candidate and checker implement the following schedule separately:
 5. require role `2`, count `102`, exact/no-underflow flags and frozen role-2
    value root
    `8b6373db6132ee119eff020cb53c01c7287d3d49e70a2d6ad7c387b7dd37dcce`;
-6. compute `r0[i] = rhs[i] - hx0[i]` in increasing index order;
+6. compute each `r0[i]` in increasing index order as the frozen two-term Dot2
+   over `{rhs[i], -hx0[i]}` and `{1, 1}`, retaining value, bound,
+   absolute-products and no-underflow result;
 7. solve the same factor for `z0`;
-8. compute `rho0 = sum_i(r0[i] * z0[i])` in increasing index order with one
-   product and one sum per component;
-9. require every input, intermediate and output finite and require
-   `rho0 > 0` exactly, with no epsilon, fitted radius or adaptive retry; and
+8. compute `rho0` with the frozen 102-term Dot2 schedule: two-product for each
+   pair, two-sum accumulation in increasing index order, separate correction,
+   outward absolute-product accumulation and the frozen binary128 gamma bound;
+9. require every input, intermediate, value and bound finite, every Dot2
+   `no_underflow`, and require `rho0.value - rho0.bound > 0` exactly, with no
+   epsilon, fitted radius or adaptive retry; and
 10. seal canonical roots for `x0`, `hx0`, `r0`, `z0`, `rho0`, work, events,
     trace and result before writing the receipt.
 
 The factor solve must use the same frozen mathematical ordering in both
-implementations but different source routines. Per solve the exact structural
-ledger is `10302` factor terms and `204` divisions. The accepted prefix
-therefore owns exactly:
+implementations but different source routines. Each row accumulates its
+forward or backward dot with the frozen compensated accumulator
+`next=sum+term; correction+=(abs(sum)>=abs(term) ? (sum-next)+term :
+(term-next)+sum); value=sum+correction`. Per solve the exact structural ledger
+is `10302` factor terms and `204` divisions. The accepted prefix therefore
+owns exactly:
 
 ```text
 parent operator products consumed       1
@@ -122,9 +145,13 @@ factor terms                         20604
 factor divisions                       408
 baseline-x0 component comparisons      102
 residual updates                       102
-rho dots                                 1
-rho dot terms                          102
-positivity checks                        1
+residual Dot2 calls                    102
+residual Dot2 terms                    204
+rho Dot2 calls                           1
+rho Dot2 terms                         102
+Dot2 two-products                      306
+Dot2 two-sums                          203
+certified positivity checks              1
 adaptive stops                           0
 ```
 
@@ -167,8 +194,8 @@ the source must freeze and compile-time assert the complete offset chain for:
 - magic/version/size/route and exact/finite/positive flags;
 - cache, parent artifact and parent audit sizes/roots;
 - input-bundle, factor, permutation, inverse, RHS and baseline-0 roots;
-- computed `x0`, consumed `hx0`, derived `r0`, derived `z0` and scalar `rho0`
-  roots;
+- computed `x0`, consumed `hx0`, derived `r0` values/bounds, derived `z0` and
+  scalar `rho0` value/bound/absolute-products roots;
 - the complete candidate work tuple;
 - ordered event count and fixed event-root slots;
 - trace root and one terminal result root.
@@ -181,7 +208,8 @@ The successful event order is exactly:
 4. `ParentProduct` — role-2 `hx0` consumption;
 5. `InitialResidual` — derived `r0`;
 6. `InitialPreconditioner` — derived `z0`;
-7. `InitialRho` — derived positive `rho0` and candidate-work root.
+7. `InitialRho` — derived certified-positive `rho0` enclosure and
+   candidate-work root.
 
 The terminal result binds receipt version, route, all three input roots, trace
 root, work root and total receipt size. No semantic decision follows the
@@ -222,8 +250,8 @@ checker audit:
 7. deleted, duplicated and reordered events plus trace/result reseals;
 8. candidate route mutation and every first-failure classifier branch;
 9. an independently constructed small valid triangular solve;
-10. reachable nonfinite arithmetic and nonpositive `rho0` fixtures that stop
-    before publication of later events;
+10. reachable nonfinite, underflow or nonpositive-lower-bound `rho0` fixtures
+    that stop before publication of later events;
 11. the frozen binary128 state-difference counterexample, proving no later
     direction product is inferred from state products; and
 12. baseline R63ZM artifact/audit hashes and checker acceptance remain exact.
@@ -250,9 +278,9 @@ accepted resealed drift closes R63ZN as `INCONCLUSIVE`.
 
 A reviewed `GO` permits only the statement that the exact R63ZM role-2 product
 can drive the independently reconstructed initial binary128
-`x0/r0/z0/rho0` prefix on this one cache. It grants no authority for `p0`,
+`x0/r0/z0/rho0` prefix with the frozen Dot2 enclosure on this one cache. It
+grants no authority for `p0`,
 `H*p0`, `x1`, `p1`, `H*p1`, `x2`, certificates, a full solver, a portable
 representation, dynamic builder, corpus, timing, Rust, runtime, GPU,
 cross-target determinism or production use. SPEC-38 and ADR-076 remain
 `Proposed`; ADR-081 and later ProductChecks remain in force.
-

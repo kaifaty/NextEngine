@@ -4273,10 +4273,12 @@ falsifies direct full-recurrence replay from the six R63ZM roles: only role 2
 can correspond to `H*x0`, while no role carries `p0` or `p1`, and rounded
 binary128 state differences cannot generally reconstruct their products
 bit-exactly. The frozen
-[revision-1 contract](03b4e2d7r20r63zn-fixed-artifact-initial-recurrence-contract.md)
+[revision-2 contract](03b4e2d7r20r63zn-fixed-artifact-initial-recurrence-contract.md)
 therefore selects only one independently checked consumer prefix: solve `x0`,
 prove role-2 input correspondence, consume its `H*x0`, then derive
-`r0/z0/rho0 > 0`. Implementation and review are pending; no complete
+`r0/z0` and a certified-positive Dot2 enclosure for `rho0`. Revision 2 was
+frozen before code after tracing the inherited compensated arithmetic.
+Implementation and review are pending; no complete
 recurrence, certificate, representation or production authority exists.
 
 The

@@ -1,13 +1,14 @@
 # NSR3-B4E2D7R20R63ZN fixed-artifact initial recurrence research
 
-Status: `CONTRACT_FROZEN / IMPLEMENTATION_PENDING`.
+Status: `REVISION_2_CONTRACT_FROZEN / IMPLEMENTATION_PENDING`.
 
 ## Decision
 
 Use R63ZM as an immutable parent product boundary for exactly the initial
 original-input binary128 recurrence prefix. The next package will independently
 solve `x0`, prove correspondence with R63ZM role 2, consume that role's value
-as `H*x0`, and independently derive `r0`, `z0` and positive `rho0`.
+as `H*x0`, and independently derive `r0`, `z0` and a certified-positive
+Dot2 enclosure for `rho0`.
 
 Do not attempt a complete recurrence from the six parent products. The parent
 contains products of projected RHS, original RHS, baseline states 0/1/2 and
@@ -15,7 +16,7 @@ common-projected state 2. It does not contain products of the dynamic search
 directions `p0` and `p1`.
 
 The complete frozen boundary is the
-[R63ZN revision-1 contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r20r63zn-fixed-artifact-initial-recurrence-contract.md).
+[R63ZN revision-2 contract](../plans/nonlocal-nonlinear-solver-research/03b4e2d7r20r63zn-fixed-artifact-initial-recurrence-contract.md).
 
 ## Competing hypotheses and belief update
 
@@ -32,6 +33,20 @@ role trace and rounding counterexample, their probability is effectively zero
 for a bit-exact checker. H3 is now the only bounded path that consumes rather
 than recomputes a parent operator result without trusting a cached state as the
 producer of `x0`.
+
+## Revision-2 arithmetic trace correction
+
+After revision 1 froze but before any R63ZN source existed, direct inspection
+of the reviewed R63ZC endpoint showed that its triangular solves use the
+frozen compensated binary128 accumulator, residual components use two-term
+Dot2, `rho0` uses 102-term Dot2, and positivity is
+`rho0.value - rho0.bound > 0`. Ordinary subtraction/summation would define a
+different recurrence even if it happened to produce nearby values.
+
+Revision 2 corrects only that numerical schedule. It keeps the same parent,
+role mapping, prefix boundary, independent candidate/checker requirement and
+claim ceiling. This correction was committed before implementation so no
+observed R63ZN endpoint influenced the method.
 
 ## Exact structural evidence
 
@@ -93,9 +108,9 @@ still `Proposed`; ADR-081 guardrails remain binding. The package is not a
 public contract or production consumer, uses no runtime state, and cannot
 authorize a portable representation or wider roadmap stage.
 
-The smallest next action is to implement the frozen candidate/checker pair
+The smallest next action is to implement the frozen revision-2
+candidate/checker pair
 with complete fixed-capacity work receipts. If the independently solved `x0`
 does not match the role-2 input or the consumed product cannot reproduce the
-positive initial prefix, stop R63ZN rather than importing later cached states
-or widening the claim.
-
+certified-positive initial prefix, stop R63ZN rather than importing later
+cached states or widening the claim.
