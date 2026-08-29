@@ -189,3 +189,31 @@ This supports only the conclusion that H4 has a mechanically implementable
 layout. It does not admit the product. The next discriminator remains the
 separate producer/checker implementation, adversarial controls and independent
 formal review.
+
+## Revision-4 checker-work repair
+
+The first checker compilation falsified revision 3 before any package evidence:
+its rounded replay of the direct product necessarily executes one product
+kernel, `315/32,130` inner dot/term operations, `102/32,130` outer dot/term
+operations, `32,130` propagated-radius terms and `102` scale products, while
+the 63-field checker receipt owned none of them. Silencing the unused work
+parameter would have preserved an invisible-work path.
+
+Revision 3 is therefore rejected before evidence. Revision 4 leaves the
+candidate payload and all arithmetic unchanged, raises only the checker ledger
+to 70 fields and its fixed audit to `1,168` bytes, and gives those seven paths
+explicit counters. This is an H4 repair, not positive numerical evidence or
+product admission.
+
+## Revision-5 causal-seal repair
+
+The first revision-4 baseline localized an event mismatch to the product-body
+seal. A same-implementation recomputation then proved the cause: work field 14
+(`finite_predicates`) changed after the body was formed because all `102` late
+`x1` finite checks reused the pre-seal global field. Thus revision 4 could not
+reproduce its own body root and is rejected before evidence.
+
+Revision 5 moves those actual predicates into a new
+`postseal_x1_finite_predicates` field after the fixed body prefix `0..39`.
+Candidate size/work become `6,152` bytes and 61 fields; the checker remains
+`1,168` bytes and 70 fields. Arithmetic, events and claim scope are unchanged.

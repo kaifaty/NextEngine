@@ -300,7 +300,7 @@ artifact for every reachable route; unavailable semantic fields and events
 are literal zero. The checker always writes one `864`-byte audit unless file
 creation itself fails.
 
-## Revision-3 complete commit-work package
+## Revision-5 complete causal-work package
 
 Revision 2 is preserved as a rejected pre-code layout. Its prose required
 serialization bytes to be owned, but neither 32-field ledger contained output
@@ -309,17 +309,25 @@ predicates or package-allocation ownership. Implementing that layout would
 repeat the invisible-work class already found in R63ZK and R63ZN. No revision-2
 package code or evidence exists.
 
-Revision 3 changes only the fixed wire/work boundary. The exact question,
-parent identities, arithmetic, routes, causal events, controls and claim
-ceiling are unchanged.
+Revision 3 is also preserved as rejected before an executable package. The
+first independent-checker compilation exposed seven unowned rounded-product
+paths: one kernel, `315` inner dots, `32,130` inner terms, `102` outer dots,
+`32,130` outer terms, `32,130` propagated-radius terms and `102` scale
+products. Revision 4 added those fields, but the first baseline comparison
+showed that its pre-`x1` body sealed the global `finite_predicates` field and
+then incremented that same field during 102 post-seal `x1` checks. Revision 4
+is therefore rejected before evidence too. Revision 5 adds one candidate
+`postseal_x1_finite_predicates` field and changes only the revision identity
+and wire/work boundary. The exact question, parent identities, arithmetic,
+routes, causal events, controls and claim ceiling are unchanged.
 
-The candidate artifact is exactly `6,144` bytes:
+The candidate artifact is exactly `6,152` bytes:
 
 | Offset | Bytes | Field |
 |---:|---:|---|
-| 0 | 8 | magic `NER63ZP` |
-| 8 | 4 | version `3` |
-| 12 | 4 | total bytes `6144` |
+| 0 | 8 | magic `NER63ZP5` |
+| 8 | 4 | version `5` |
+| 12 | 4 | total bytes `6152` |
 | 16 | 4 | first-specific route |
 | 20 | 4 | exact/normal/contained/positive/step/update flags |
 | 24 | 96 | R63ZM cache/artifact/audit roots |
@@ -327,17 +335,17 @@ The candidate artifact is exactly `6,144` bytes:
 | 184 | 96 | `p0`, `q0` and component-bound roots |
 | 280 | 80 | rho primary/bound, denominator primary/bound and alpha |
 | 360 | 8 | dimension `102` |
-| 368 | 8 | candidate work-field count `60` |
-| 376 | 480 | candidate work fields |
-| 856 | 32 | candidate work root |
-| 888 | 8 | event count `0..8` |
-| 896 | 256 | eight ordered event slots; unavailable suffix is zero |
-| 1152 | 32 | trace root |
-| 1184 | 1632 | `p0[102]` |
-| 2816 | 1632 | `q0[102]` |
-| 4448 | 1632 | component bounds `[102]` |
-| 6080 | 32 | pre-`x1` product-body root |
-| 6112 | 32 | final result root |
+| 368 | 8 | candidate work-field count `61` |
+| 376 | 488 | candidate work fields |
+| 864 | 32 | candidate work root |
+| 896 | 8 | event count `0..8` |
+| 904 | 256 | eight ordered event slots; unavailable suffix is zero |
+| 1160 | 32 | trace root |
+| 1192 | 1632 | `p0[102]` |
+| 2824 | 1632 | `q0[102]` |
+| 4456 | 1632 | component bounds `[102]` |
+| 6088 | 32 | pre-`x1` product-body root |
+| 6120 | 32 | final result root |
 
 Candidate work fields, in exact order, are:
 
@@ -353,7 +361,8 @@ rho_terms, product_kernels, inner_dots, inner_terms, outer_dots, outer_terms,
 propagation_terms, scale_products, denominator_dots, denominator_terms,
 interval_endpoint_operations, positivity_predicates,
 division_endpoint_operations, division_predicates, preseal_root_calls,
-preseal_root_bytes, postseal_x1_decodes, update_dots, update_terms,
+preseal_root_bytes, postseal_x1_decodes, postseal_x1_finite_predicates,
+update_dots, update_terms,
 update_comparisons, event_root_calls, event_root_bytes, trace_root_calls,
 trace_root_bytes, final_root_calls, final_root_bytes, route_predicates,
 receipt_zero_fill_bytes, receipt_fields_serialized,
@@ -382,7 +391,7 @@ The producer domains and ordered fields are:
 nextengine.nonlocal.r63zp.quad-vector.v1:
   dimension, values
 nextengine.nonlocal.r63zp.candidate-work.v1:
-  route, all 60 work fields
+  route, all 61 work fields
 nextengine.nonlocal.r63zp.product-body.v1:
   three parent roots, two role roots, three semantic roots, five scalars,
   dimension, work fields 0..39, event slots 0..3, p0, q0, bounds
@@ -420,23 +429,23 @@ exact/normal`, `2=candidate bounds finite/nonnegative`, `3=curvature positive`,
 `4=step interval contains alpha`, `5=102/102 late updates`; bits `6..31` are
 zero. Candidate route precedence is the already frozen order `1..7`.
 
-The checker audit is exactly `1,112` bytes:
+The checker audit is exactly `1,168` bytes:
 
 | Offset | Bytes | Field |
 |---:|---:|---|
-| 0 | 8 | magic `NER63ZQ` |
-| 8 | 4 | version `3` |
-| 12 | 4 | total bytes `1112` |
+| 0 | 8 | magic `NER63ZQ5` |
+| 8 | 4 | version `5` |
+| 12 | 4 | total bytes `1168` |
 | 16 | 4 | first-specific checker route |
 | 20 | 4 | verified/contained/positive/step/update flags |
 | 24 | 96 | R63ZM cache/artifact/audit roots |
 | 120 | 128 | candidate-file, candidate-result, candidate-work and exact-product roots |
-| 248 | 504 | checker work fields |
-| 752 | 32 | checker work root |
-| 784 | 8 | event count `0..8` |
-| 792 | 256 | eight ordered checker event slots |
-| 1048 | 32 | checker trace root |
-| 1080 | 32 | checker result root |
+| 248 | 560 | checker work fields |
+| 808 | 32 | checker work root |
+| 840 | 8 | event count `0..8` |
+| 848 | 256 | eight ordered checker event slots |
+| 1104 | 32 | checker trace root |
+| 1136 | 32 | checker result root |
 
 Checker work fields, in exact order, are:
 
@@ -450,7 +459,10 @@ parent_header_predicates, cache_quad_decodes_preseal, cache_double_decodes,
 cache_index_decodes, parent_artifact_quad_decodes, finite_predicates,
 range_predicates, x0_component_comparisons, parent_root_comparisons,
 factor_solves, factor_terms, factor_divisions, residual_dots, residual_terms,
-rho_dots, rho_terms, dyadic_decodes, exact_multiplies, exact_additions,
+rho_dots, rho_terms, rounded_product_calls, rounded_inner_dots,
+rounded_inner_terms, rounded_outer_dots, rounded_outer_terms,
+rounded_propagation_terms, rounded_scale_products, dyadic_decodes,
+exact_multiplies, exact_additions,
 alignment_shifts, alignment_bits, bigint_capacity_predicates,
 interval_comparisons, exact_denominator_terms, positivity_predicates,
 division_endpoint_operations, division_predicates, postseal_x1_decodes,
@@ -472,7 +484,7 @@ nextengine.nonlocal.r63zp.exact-dyadic-vector.v1:
   exponent encoded as two's-complement u64, minimal big-endian magnitude
   length u64 and magnitude; this must reproduce `271facfd...272f2f`
 nextengine.nonlocal.r63zp.checker-work.v1:
-  checker route, all 63 work fields
+  checker route, all 70 work fields
 nextengine.nonlocal.r63zp.checker-event.v1:
   event ordinal, checker route, candidate event root, independently derived
   event root, equality flag
@@ -492,9 +504,9 @@ candidate route. Checker-only first-specific routes are `8=CANDIDATE_MALFORMED`,
 13 fail closed before semantic replay.
 
 The producer performs no dynamic allocation in the package path, and the
-checker uses a fixed-capacity signed-dyadic representation with fail-closed
-capacity predicates. `package_allocations` must therefore be zero and is
-cross-checked with the existing process allocation probe.
+checker uses exactly 64 little-endian 32-bit magnitude limbs per signed dyadic
+with fail-closed capacity predicates. `package_allocations` must therefore be
+zero and is cross-checked with the existing process allocation probe.
 
 Output counters are committed postconditions, not unverified predictions. A
 candidate/audit root is formed with one exact output open, one exact full-size
@@ -502,11 +514,14 @@ write and one close recorded; the executable returns success only after those
 three operations actually produce the complete fixed-size file. A failed or
 partial write cannot yield an admitted artifact. No retry or alternate sink is
 allowed. Serialization writes every byte of the zero-filled fixed buffer and
-must report `399/6144` candidate fields/bytes or `87/1112` checker fields/bytes.
+must report `400/6152` candidate fields/bytes or `94/1168` checker fields/bytes.
 
 All fixed comparison regions evaluate every predicate before result folding.
 Malformed and variable input paths increment counters at each executed
 predicate/call and never overwrite them with success-path constants. Both
-translation units assert the complete revision-3 offset chain from magic
+`fixed_loop_iterations` fields count predicate-bearing fixed vector
+comparison loops only; serialization and hash traversal are owned by their
+separate field/byte counters. Both
+translation units assert the complete revision-5 offset chain from magic
 through the terminal root. Any later field, size, ordering or work-scope change
-requires revision 4 before code.
+requires revision 6 before code.

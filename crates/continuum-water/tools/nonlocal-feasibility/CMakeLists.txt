@@ -306,6 +306,32 @@ set_target_properties(
     PROPERTIES CXX_EXTENSIONS OFF
 )
 
+add_executable(
+    nonlocal-formula-r63zp-direct-product-producer-release
+    EXCLUDE_FROM_ALL
+    r63zp/direct_product_producer.cpp
+    r63zm/allocation_probe.cpp
+)
+nextengine_configure_r63zm_target(
+    nonlocal-formula-r63zp-direct-product-producer-release -O3)
+set_target_properties(
+    nonlocal-formula-r63zp-direct-product-producer-release
+    PROPERTIES CXX_EXTENSIONS OFF
+)
+
+add_executable(
+    nonlocal-formula-r63zp-direct-product-checker-release
+    EXCLUDE_FROM_ALL
+    r63zp/direct_product_checker.cpp
+    r63zm/allocation_probe.cpp
+)
+nextengine_configure_r63zm_target(
+    nonlocal-formula-r63zp-direct-product-checker-release -O3)
+set_target_properties(
+    nonlocal-formula-r63zp-direct-product-checker-release
+    PROPERTIES CXX_EXTENSIONS OFF
+)
+
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
     "Build the strict-FP, compile-latency-oriented formula reclosure author target"
@@ -598,6 +624,32 @@ if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
         nonlocal-formula-r63zn-prefix-candidate-dev
         nonlocal-formula-r63zn-prefix-checker-dev
         nonlocal-formula-r63zn-receipt-mutator-dev
+        PROPERTIES CXX_EXTENSIONS OFF
+    )
+
+    add_executable(
+        nonlocal-formula-r63zp-direct-product-producer-dev
+        EXCLUDE_FROM_ALL
+        r63zp/direct_product_producer.cpp
+        r63zm/allocation_probe.cpp
+    )
+    nextengine_configure_r63zm_target(
+        nonlocal-formula-r63zp-direct-product-producer-dev -O0)
+    set_target_properties(
+        nonlocal-formula-r63zp-direct-product-producer-dev
+        PROPERTIES CXX_EXTENSIONS OFF
+    )
+
+    add_executable(
+        nonlocal-formula-r63zp-direct-product-checker-dev
+        EXCLUDE_FROM_ALL
+        r63zp/direct_product_checker.cpp
+        r63zm/allocation_probe.cpp
+    )
+    nextengine_configure_r63zm_target(
+        nonlocal-formula-r63zp-direct-product-checker-dev -O0)
+    set_target_properties(
+        nonlocal-formula-r63zp-direct-product-checker-dev
         PROPERTIES CXX_EXTENSIONS OFF
     )
 endif()

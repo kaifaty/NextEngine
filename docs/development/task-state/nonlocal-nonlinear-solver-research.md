@@ -92,13 +92,15 @@
   `271facfd...272f2f` and minimum slack `452/-567/-116`. Exact curvature,
   step and `102/102` late updates close. Two Release and sanitizer outputs are
   identical at `2a419ecf...0082fa`.
-- **R63ZP revision-3 freeze:** revision 2 was rejected before code because its
-  prose required serialized-byte ownership while its 32-field ledgers omitted
-  output commit, serialization, route and allocation work. Revision 3 keeps
-  the same arithmetic and fixes candidate/audit at `6,144`/`1,112` bytes,
-  eight causal events and explicit 60/63-field actual-work ledgers.
+- **R63ZP revision-5 freeze:** revisions 2 through 4 were rejected before evidence:
+  revision 2 omitted output publication work, while the first revision-3
+  checker compilation exposed seven unowned rounded-product work classes and
+  revision 4 reused a pre-seal finite-predicate counter for 102 post-seal `x1`
+  checks. Revision 5 keeps the same arithmetic and fixes candidate/audit at
+  `6,152`/`1,168` bytes, eight causal events and explicit 61/70-field
+  actual-work ledgers.
   Product-body sealing still precedes every `x1` decode.
-- **R63ZP next action:** implement the revision-3 separate producer/checker TUs plus
+- **R63ZP next action:** implement the revision-5 separate producer/checker TUs plus
   mutator/controls without changing layout or numerical scope. The apparatus
   grants no product admission before formal review.
 - **Build-loop result:** strict-FP `nonlocal-formula-reclosure-dev` reduces the
@@ -6948,6 +6950,39 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Smallest next action:** implement revision-3 format assertions, producer
   and independent checker, then run the early-stop/output controls before
   author evidence.
+
+### D-236 -- Separate rounded replay and late finite work before evidence
+
+- **Observation:** the first checker compilation left its complete rounded
+  direct-product replay attached to an unused work parameter. After seven
+  counters were added, the first baseline still failed at event 5 because the
+  producer's pre-`x1` body root was not self-reproducible.
+- **Evidence:** revision-3 compilation identified one kernel plus
+  `315/32,130` inner dots/terms, `102/32,130` outer dots/terms, `32,130`
+  propagation terms and `102` scale products with no receipt fields. A
+  same-source body recomputation then localized revision 4 to work field 14:
+  `finite_predicates` changed by exactly `102` after the body when `x1` was
+  decoded and checked.
+- **Conclusion:** H4 remains supported for revisions 3 and 4. Both layouts
+  would overstate a causal/exact-work receipt even though the arithmetic
+  baseline itself succeeds.
+- **Decision:** reject revisions 3 and 4 before evidence. Revision 5 adds seven
+  checker rounded-replay fields and one candidate
+  `postseal_x1_finite_predicates` field. Candidate/checker are fixed at
+  `6,152/1,168` bytes and 61/70 work fields; body work remains exactly fields
+  `0..39`.
+- **Rejected alternatives:** silence the unused parameter; call rounded replay
+  implicit inside exact verification; leave late finite checks in the body
+  prefix; recompute the body after reading `x1`.
+- **Consequences:** the one-product numerical question, parent identities,
+  event order and claim ceiling do not change. Revision-5 dev producer/checker
+  accept the baseline with candidate/audit roots `82fc6740...d8f9f3` and
+  `21dffa88...14ca0a`; this is implementation smoke evidence, not review.
+- **Remaining uncertainty:** whether negative routes, exact bigint capacity,
+  root/work mutation controls and clean Release/sanitizer repeats close without
+  another invisible path.
+- **Smallest next action:** freeze the revision-5 source checkpoint, then add
+  bounded mutator/controls and run the full author evidence matrix.
 
 ## Performance facts retained
 
