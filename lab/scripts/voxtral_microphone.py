@@ -12,17 +12,14 @@ from __future__ import annotations
 import argparse
 import array
 from contextlib import contextmanager
-import importlib
 import json
 import math
-import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
 import time
-from types import ModuleType
 from typing import BinaryIO, Callable, Iterator, Sequence
 import wave
 
@@ -32,6 +29,16 @@ SAMPLE_WIDTH_BYTES = 2
 VALID_DELAYS_MS = tuple(range(80, 1_201, 80)) + (2_400,)
 DEFAULT_SILENCE_THRESHOLD_DBFS = -65.0
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SPEECH_TIMELINE_SRC = REPOSITORY_ROOT / "tools" / "speech-timeline" / "src"
+sys.path.insert(0, str(SPEECH_TIMELINE_SRC))
+
+from nextengine_speech_timeline.adapters.base import AdapterError  # noqa: E402
+from nextengine_speech_timeline.adapters.voxtral_transcribe_cpp import (  # noqa: E402
+    TranscriberConfig,
+    VoxtralTranscriberAdapter,
+    find_library,
+    transcribe_root,
+)
 
 
 class SingleUseAction(argparse.Action):
@@ -124,52 +131,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="load model and validate streaming support without opening the microphone",
     )
     return parser
-
-
-def transcribe_root(args: argparse.Namespace) -> Path:
-    value = args.transcribe_root or os.environ.get("TRANSCRIBE_CPP_ROOT")
-    if not value:
-        raise SystemExit("set --transcribe-root or TRANSCRIBE_CPP_ROOT")
-    root = Path(value).expanduser().resolve()
-    binding = root / "bindings" / "python" / "src" / "transcribe_cpp"
-    if not binding.is_dir():
-        raise SystemExit(f"transcribe.cpp Python binding not found: {binding}")
-    return root
-
-
-def find_library(root: Path, explicit: Path | None) -> Path:
-    configured = explicit or os.environ.get("TRANSCRIBE_LIBRARY")
-    if configured:
-        library = Path(configured).expanduser().resolve()
-        if not library.is_file():
-            raise SystemExit(f"libtranscribe not found: {library}")
-        return library
-
-    candidates = (
-        root / "build" / "src" / "libtranscribe.so",
-        root / "build-shared" / "src" / "libtranscribe.so",
-        root / "build" / "src" / "libtranscribe.dylib",
-        root / "build-shared" / "src" / "libtranscribe.dylib",
-        root / "build" / "bin" / "transcribe.dll",
-        root / "build-shared" / "bin" / "transcribe.dll",
-    )
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate.resolve()
-    raise SystemExit(
-        "shared libtranscribe was not found; build with "
-        "-DTRANSCRIBE_BUILD_SHARED=ON or pass --library"
-    )
-
-
-def load_transcribe(root: Path, library: Path) -> ModuleType:
-    os.environ["TRANSCRIBE_LIBRARY"] = os.fspath(library)
-    binding_src = root / "bindings" / "python" / "src"
-    sys.path.insert(0, os.fspath(binding_src))
-    try:
-        return importlib.import_module("transcribe_cpp")
-    except Exception as error:
-        raise SystemExit(f"failed to load transcribe.cpp Python binding: {error}") from error
 
 
 def capture_command(device: str, *, sample_count: int | None = None) -> list[str]:
@@ -273,6 +234,16 @@ def pcm_chunks(
     max_samples: int | None,
     raw_sink: Callable[[bytes], object] | None = None,
 ) -> Iterator[array.array]:
+    for raw in raw_pcm_chunks(source, chunk_samples, max_samples, raw_sink):
+        yield pcm16le_to_float32(raw)
+
+
+def raw_pcm_chunks(
+    source: BinaryIO,
+    chunk_samples: int,
+    max_samples: int | None,
+    raw_sink: Callable[[bytes], object] | None = None,
+) -> Iterator[bytes]:
     pending = bytearray()
     yielded = 0
     chunk_bytes = chunk_samples * SAMPLE_WIDTH_BYTES
@@ -288,7 +259,7 @@ def pcm_chunks(
                         raw = raw[: remaining * SAMPLE_WIDTH_BYTES]
                     if raw_sink is not None:
                         raw_sink(raw)
-                    yield pcm16le_to_float32(raw)
+                    yield raw
             return
         pending.extend(data)
         if len(pending) < chunk_bytes:
@@ -299,10 +270,9 @@ def pcm_chunks(
             raw = raw[: (max_samples - yielded) * SAMPLE_WIDTH_BYTES]
         if raw_sink is not None:
             raw_sink(raw)
-        pcm = pcm16le_to_float32(raw)
-        yielded += len(pcm)
-        if pcm:
-            yield pcm
+        yielded += len(raw) // SAMPLE_WIDTH_BYTES
+        if raw:
+            yield raw
 
 
 def stop_capture(process: subprocess.Popen[bytes]) -> None:
@@ -317,8 +287,12 @@ def stop_capture(process: subprocess.Popen[bytes]) -> None:
 
 
 def render(text: object, *, interactive: bool, previous: str) -> str:
-    committed = str(getattr(text, "committed"))
-    tentative = str(getattr(text, "tentative"))
+    committed = str(
+        getattr(text, "committed_text", getattr(text, "committed", ""))
+    )
+    tentative = str(
+        getattr(text, "tentative_text", getattr(text, "tentative", ""))
+    )
     display = committed + tentative
     if display == previous:
         return previous
@@ -523,26 +497,37 @@ def run(args: argparse.Namespace) -> int:
             seconds=args.probe_seconds,
             threshold_dbfs=args.silence_threshold_dbfs,
         )
-    root = transcribe_root(args)
-    library = find_library(root, args.library)
-    transcribe_cpp = load_transcribe(root, library)
+    try:
+        root = transcribe_root(args.transcribe_root)
+        library = find_library(root, args.library)
+    except AdapterError as error:
+        raise SystemExit(str(error)) from error
     model_path = Path(args.model).expanduser().resolve()
 
     print(f"loading {model_path.name} with backend={args.backend} ...", flush=True)
-    with transcribe_cpp.Model(model_path, backend=args.backend) as model:
-        if not model.capabilities.supports_streaming:
-            raise SystemExit(f"{model.arch}/{model.variant} does not support streaming")
-        print(f"ready: {model.arch}/{model.variant} on {model.backend}", flush=True)
+    try:
+        adapter = VoxtralTranscriberAdapter(
+            model_path,
+            root,
+            library,
+            backend=args.backend,
+            delay_ms=args.delay_ms,
+        )
+        adapter.load()
+    except AdapterError as error:
+        raise SystemExit(str(error)) from error
+    with adapter:
+        capabilities = adapter.capabilities()
+        print(
+            f"ready: {capabilities.model_id} on {capabilities.backend}",
+            flush=True,
+        )
         if args.check:
             return 0
 
         command = capture_command(args.device)
         chunk_samples = max(1, SAMPLE_RATE * args.chunk_ms // 1_000)
         max_samples = None if args.duration is None else int(SAMPLE_RATE * args.duration)
-        delay_tokens = args.delay_ms // 80
-        family = transcribe_cpp.VoxtralRealtimeStreamOptions(
-            num_delay_tokens=delay_tokens,
-        )
         print(
             f"microphone={args.device}, chunk={args.chunk_ms} ms, "
             f"delay={args.delay_ms} ms; speak now (Ctrl-C to stop)",
@@ -561,38 +546,36 @@ def run(args: argparse.Namespace) -> int:
         try:
             with debug_wav_writer(args.save_wav) as wav_writer:
                 raw_sink = None if wav_writer is None else wav_writer.writeframesraw
-                with model.session() as session:
-                    with session.stream(language=args.language, family=family) as stream:
-                        try:
-                            for chunk in pcm_chunks(
-                                capture.stdout,
-                                chunk_samples,
-                                max_samples,
-                                raw_sink=raw_sink,
-                            ):
-                                captured += len(chunk)
-                                update = stream.feed(chunk)
-                                if update.committed_changed or update.tentative_changed:
-                                    previous = render(
-                                        stream.text(), interactive=interactive, previous=previous
-                                    )
-                        except KeyboardInterrupt:
-                            pass
-                        finally:
-                            stop_capture(capture)
-                        if captured:
-                            stream.finalize()
-                            final = stream.text()
-                            render(final, interactive=interactive, previous=previous)
-                            if interactive:
-                                print()
-                            print(f"\nfinal:\n{final.committed.strip()}")
-                            if not final.committed.strip():
-                                print(
-                                    "warning: microphone had a usable signal, but the model "
-                                    "returned no speech; check gain, distance, and language",
-                                    file=sys.stderr,
+                with adapter.start(TranscriberConfig(language=args.language)) as stream:
+                    try:
+                        for chunk in pcm_chunks(
+                            capture.stdout,
+                            chunk_samples,
+                            max_samples,
+                            raw_sink=raw_sink,
+                        ):
+                            captured += len(chunk)
+                            update = stream.push_pcm(chunk)
+                            if update is not None:
+                                previous = render(
+                                    update, interactive=interactive, previous=previous
                                 )
+                    except KeyboardInterrupt:
+                        pass
+                    finally:
+                        stop_capture(capture)
+                    if captured:
+                        final = stream.finish()
+                        render(final, interactive=interactive, previous=previous)
+                        if interactive:
+                            print()
+                        print(f"\nfinal:\n{final.full_text.strip()}")
+                        if not final.full_text.strip():
+                            print(
+                                "warning: microphone had a usable signal, but the model "
+                                "returned no speech; check gain, distance, and language",
+                                file=sys.stderr,
+                            )
         finally:
             stop_capture(capture)
 

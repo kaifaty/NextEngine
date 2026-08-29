@@ -1,0 +1,161 @@
+{
+  "schema_version": 0,
+  "kind": "nextengine.speech-reliability.dataset-recipe",
+  "dataset_id": "public-safe-v0",
+  "dataset_revision": 1,
+  "calibration_domain": "generic_public_ru_v0",
+  "text_normalizer_profile": "ru-asr-normalize-v0",
+  "split_policy": {
+    "profile": "speaker-source-hash-v0",
+    "seed": "nextengine-public-safe-v0-split-1",
+    "train_permyriad": 7000,
+    "calibration_permyriad": 1500,
+    "held_out_permyriad": 1500,
+    "forced_held_out_sources": [
+      "common-voice-spontaneous-ru-4",
+      "fleurs-ru"
+    ]
+  },
+  "augmentation_profile": {
+    "profile": "speech-reliability-degradation-v0",
+    "seed": "nextengine-public-safe-v0-augmentation-1",
+    "max_variants_per_clip": 5,
+    "conditions": [
+      {
+        "kind": "attenuation",
+        "parameters": {
+          "gain_db": [-6, -12, -18, -24]
+        }
+      },
+      {
+        "kind": "musan-noise",
+        "parameters": {
+          "snr_db": [0, 5, 10, 15, 20]
+        }
+      },
+      {
+        "kind": "rirs-room-response",
+        "parameters": {
+          "wet_mix_permyriad": [2500, 5000, 7500]
+        }
+      },
+      {
+        "kind": "noise-plus-room-response",
+        "parameters": {
+          "snr_db": [5, 10, 15],
+          "wet_mix_permyriad": [2500, 5000]
+        }
+      },
+      {
+        "kind": "microphone-band-eq",
+        "parameters": {
+          "low_cut_hz": [80, 150, 250],
+          "high_cut_hz": [3500, 5500, 7500]
+        }
+      },
+      {
+        "kind": "bounded-codec-damage",
+        "parameters": {
+          "clip_peak_dbfs": [-6, -3, -1],
+          "frame_loss_permyriad": [0, 50, 100]
+        }
+      }
+    ]
+  },
+  "replay_profile": {
+    "profile": "speech-timeline-replay-v0",
+    "identity_status": "planned",
+    "asr_adapter_id": "voxtral-realtime",
+    "model_id": "mistralai/Voxtral-Mini-4B-Realtime-2602",
+    "model_revision": "bind-from-exact-resident-profile-before-replay",
+    "model_artifact_sha256": null,
+    "runtime_revision": "bind-from-exact-resident-profile-before-replay",
+    "model_delay_ms": 480,
+    "partial_decode_interval_ms": 240,
+    "asr_audio_route": "raw",
+    "sample_rate_hz": 16000,
+    "channels": 1,
+    "encoding": "pcm_s16le",
+    "chunk_ms": 80,
+    "explicit_finish": true,
+    "retain_diagnostic_audio": false,
+    "feature_schema": "speech-reliability-features-v0"
+  },
+  "sources": [
+    {
+      "source_id": "common-voice-scripted-ru-26",
+      "role": "speech",
+      "release": "Common Voice Scripted Speech 26.0 Russian",
+      "source_url": "https://mozilladatacollective.com/datasets/cmqinj9g500vsnr07qf4hmr3j",
+      "status": "planned",
+      "relative_index_path": null,
+      "index_sha256": null,
+      "rights": {
+        "license_expression": "CC0-1.0",
+        "admission": "allowed",
+        "raw_redistribution": "restricted-no-rehosting",
+        "notice": "Use only the operator-acquired local copy; do not republish clips or attempt speaker re-identification."
+      }
+    },
+    {
+      "source_id": "common-voice-spontaneous-ru-4",
+      "role": "speech",
+      "release": "Common Voice Spontaneous Speech 4.0 Russian",
+      "source_url": "https://mozilladatacollective.com/datasets/cmqi2c2eu0062o5075atr17rs",
+      "status": "planned",
+      "relative_index_path": null,
+      "index_sha256": null,
+      "rights": {
+        "license_expression": "CC0-1.0",
+        "admission": "allowed",
+        "raw_redistribution": "restricted-no-rehosting",
+        "notice": "Evaluation-first source. Use only the operator-acquired local copy; do not republish clips or attempt speaker re-identification."
+      }
+    },
+    {
+      "source_id": "fleurs-ru",
+      "role": "speech",
+      "release": "google/fleurs ru_ru pinned external snapshot",
+      "source_url": "https://huggingface.co/datasets/google/fleurs",
+      "status": "planned",
+      "relative_index_path": null,
+      "index_sha256": null,
+      "rights": {
+        "license_expression": "CC-BY-4.0",
+        "admission": "allowed",
+        "raw_redistribution": "notice-required",
+        "notice": "Evaluation-first source. Preserve required attribution in every derived-data closure."
+      }
+    },
+    {
+      "source_id": "musan-openslr-17",
+      "role": "noise",
+      "release": "OpenSLR 17",
+      "source_url": "https://www.openslr.org/17/",
+      "status": "planned",
+      "relative_index_path": null,
+      "index_sha256": null,
+      "rights": {
+        "license_expression": "CC-BY-4.0",
+        "admission": "allowed",
+        "raw_redistribution": "notice-required",
+        "notice": "Augmentation-only source; preserve attribution and source-specific notices."
+      }
+    },
+    {
+      "source_id": "rirs-noises-openslr-28",
+      "role": "rir",
+      "release": "OpenSLR 28",
+      "source_url": "https://www.openslr.org/28/",
+      "status": "planned",
+      "relative_index_path": null,
+      "index_sha256": null,
+      "rights": {
+        "license_expression": "Apache-2.0",
+        "admission": "allowed",
+        "raw_redistribution": "notice-required",
+        "notice": "Augmentation-only source; retain the upstream Apache-2.0 notice."
+      }
+    }
+  ]
+}

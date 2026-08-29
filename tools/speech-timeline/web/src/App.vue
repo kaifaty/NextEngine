@@ -1,0 +1,965 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+
+import EmotionTimeline from "./components/EmotionTimeline.vue";
+import TranscriptPanel from "./components/TranscriptPanel.vue";
+import {
+  BrowserMicrophoneCapture,
+  calibrateMicrophoneNoise,
+  listAudioInputs,
+  type AudioCaptureInfo,
+  type NoiseCalibration,
+} from "./lib/audioCapture";
+import { emotionColor, emotionLabel, formatDuration } from "./lib/display";
+import {
+  loadBootstrap,
+  loadDiagnosticAudio,
+  loadDiagnosticPcm,
+  SpeechTimelineClient,
+  type AsrAudioRoute,
+  type AsrModelRoute,
+} from "./lib/speechClient";
+import type {
+  ConnectionState,
+  DiagnosticAudioRecord,
+  DashboardBootstrap,
+  FinalUtterance,
+  JsonObject,
+  SpeechEvent,
+  TimelineUpdate,
+} from "./types";
+
+interface AudioRouteComparisonResult {
+  route: AsrAudioRoute;
+  text: string;
+  first_partial_ms: number | null;
+  finalization_ms: number | null;
+  preprocessor_p95_ms: number | null;
+  raw_rms_dbfs: number | null;
+  asr_rms_dbfs: number | null;
+  wer: number | null;
+  cer: number | null;
+  error: string | null;
+}
+
+const state = ref<ConnectionState>("loading");
+const bootstrap = ref<DashboardBootstrap | null>(null);
+const client = ref<SpeechTimelineClient | null>(null);
+const capture = ref<BrowserMicrophoneCapture | null>(null);
+const devices = ref<MediaDeviceInfo[]>([]);
+const selectedDevice = ref("");
+const selectedAsrModel = ref<AsrModelRoute>("");
+const selectedAsrAudioRoute = ref<AsrAudioRoute>("raw");
+const selectedAsrDelayMs = ref<number | null>(null);
+const timeline = ref<TimelineUpdate | null>(null);
+const finalUtterance = ref<FinalUtterance | null>(null);
+const events = ref<SpeechEvent[]>([]);
+const errorMessage = ref("");
+const notice = ref("");
+const sentBytes = ref(0);
+const inputRms = ref(0);
+const captureInfo = ref<AudioCaptureInfo | null>(null);
+const firstTranscriptLatencyMs = ref<number | null>(null);
+const firstAffectLatencyMs = ref<number | null>(null);
+const calibration = ref<NoiseCalibration | null>(null);
+const diagnosticAudio = ref<DiagnosticAudioRecord[]>([]);
+const comparisonRunning = ref(false);
+const comparisonRecordId = ref("");
+const comparisonReference = ref("");
+const comparisonResults = ref<AudioRouteComparisonResult[]>([]);
+let limitStopScheduled = false;
+
+const isRecording = computed(() => state.value === "recording");
+const canStart = computed(
+  () => !comparisonRunning.value && ["ready", "complete", "error"].includes(state.value),
+);
+const canCalibrate = computed(
+  () => !comparisonRunning.value && ["ready", "complete", "error"].includes(state.value),
+);
+const currentSamples = computed(() => sentBytes.value / 2);
+const durationMs = computed(() => (sentBytes.value * 1_000) / 32_000);
+const limitMs = computed(() => {
+  const serviceLimit = client.value?.bounds?.maxTurnDurationMs ?? 30_000;
+  const modelLimit = selectedTranscriber.value?.max_audio_duration_ms;
+  return typeof modelLimit === "number" && Number.isFinite(modelLimit)
+    ? Math.min(serviceLimit, modelLimit)
+    : serviceLimit;
+});
+const progress = computed(() => Math.min(100, (durationMs.value / limitMs.value) * 100));
+const levelDb = computed(() => 20 * Math.log10(Math.max(inputRms.value, 0.00001)));
+const currentExpression = computed(
+  () =>
+    finalUtterance.value?.observed_vocal_expression ??
+    timeline.value?.fusion.observed_vocal_expression ??
+    "unknown",
+);
+const diagnosticAudioEnabled = computed(
+  () => objectValue(bootstrap.value?.service, "diagnostic_audio")?.enabled === true,
+);
+const availableAsrAudioRoutes = computed<AsrAudioRoute[]>(() => {
+  const routing = objectValue(bootstrap.value?.service, "asr_audio_routing");
+  const routes = routing?.available_routes;
+  if (!Array.isArray(routes)) return ["raw"];
+  return routes.filter(
+    (route): route is AsrAudioRoute =>
+      route === "raw" ||
+      route === "gain_only" ||
+      route === "enhanced" ||
+      route === "whisper" ||
+      route === "gtcrn" ||
+      route === "ul_unas",
+  );
+});
+const comparisonRoutes = computed<AsrAudioRoute[]>(() =>
+  availableAsrAudioRoutes.value.filter((route) =>
+    ["raw", "enhanced", "gtcrn", "ul_unas"].includes(route),
+  ),
+);
+const availableAsrModels = computed<AsrModelRoute[]>(() => {
+  const routing = objectValue(bootstrap.value?.service, "asr_model_routing");
+  const models = routing?.available_models;
+  if (!Array.isArray(models)) return [];
+  return models.filter((model): model is string => typeof model === "string" && model.length > 0);
+});
+const selectedTranscriber = computed(() => {
+  const models = objectValue(bootstrap.value?.service, "models");
+  const transcribers = objectValue(models, "transcribers");
+  return objectValue(transcribers, selectedAsrModel.value);
+});
+const asrDelayPresets = computed<number[]>(() => {
+  const supported = selectedTranscriber.value?.supported_delay_ms;
+  if (!Array.isArray(supported)) return [];
+  return [480, 960, 2_400].filter((delay) => supported.includes(delay));
+});
+const selectedAsrDelayForTurn = computed<number | undefined>(() => {
+  const selected = selectedAsrDelayMs.value;
+  if (selected !== null && asrDelayPresets.value.includes(selected)) return selected;
+  const configured = numericValue(selectedTranscriber.value, "configured_delay_ms");
+  if (configured !== null && asrDelayPresets.value.includes(configured)) return configured;
+  return asrDelayPresets.value[0];
+});
+
+const stateText: Record<ConnectionState, string> = {
+  loading: "Загрузка интерфейса",
+  ready: "Сервис готов",
+  connecting: "Подключение",
+  calibrating: "Калибровка микрофона",
+  recording: "Идёт запись",
+  finalizing: "Финальный анализ",
+  complete: "Результат готов",
+  error: "Требуется внимание",
+};
+
+const transcriberName = computed(
+  () => stringValue(selectedTranscriber.value, "model_id") || selectedAsrModel.value || "ASR",
+);
+const transcriberSupportsStreaming = computed(
+  () => selectedTranscriber.value?.supports_streaming === true,
+);
+const transcriberStreamingMode = computed(
+  () => stringValue(selectedTranscriber.value, "streaming_mode") || "unspecified",
+);
+const affectName = computed(() => modelValue("vocal_affect", "adapter_id") || "Emotion2Vec");
+const preprocessorSummary = computed(() => {
+  if (selectedAsrAudioRoute.value === "raw") return "RAW PCM · контроль без gain/NS";
+  const model = objectValue(objectValue(bootstrap.value?.service, "models"), "audio_preprocessor");
+  if (!model) return "processed route недоступен";
+  const adapter = stringValue(model, "adapter_id") || "audio preprocessor";
+  if (selectedAsrAudioRoute.value === "gain_only") {
+    return "DPDFNet facade · только bounded gain/limiter";
+  }
+  if (selectedAsrAudioRoute.value === "whisper") {
+    const details = objectValue(objectValue(model, "route_details"), "whisper");
+    const attenuation = details?.attenuation_limit_db;
+    return `DPDFNet · gain → denoise → dry safety floor → limiter${typeof attenuation === "number" ? ` (${attenuation} dB)` : ""}`;
+  }
+  const details = objectValue(objectValue(model, "route_details"), selectedAsrAudioRoute.value);
+  const routeModel = stringValue(details, "model_id");
+  const latency = numericValue(details, "algorithmic_latency_ms");
+  if (selectedAsrAudioRoute.value === "gtcrn" || selectedAsrAudioRoute.value === "ul_unas") {
+    return `${routeModel || adapter} · causal ONNX${latency !== null ? ` · ${latency} мс` : ""}`;
+  }
+  return "DPDFNet · full denoise + configured gain";
+});
+const asrSignalSummary = computed(() => {
+  const metrics = objectValue(finalUtterance.value?.metrics, "audio_preprocessor");
+  const raw = objectValue(metrics, "raw_signal");
+  const asr = objectValue(metrics, "asr_signal");
+  const rawRms = raw?.rms_dbfs;
+  const asrRms = asr?.rms_dbfs;
+  if (typeof rawRms !== "number" || typeof asrRms !== "number") return "";
+  return `уровень RAW ${rawRms.toFixed(1)} → ASR ${asrRms.toFixed(1)} dBFS`;
+});
+const transcriberCadence = computed(() => {
+  const model = selectedTranscriber.value;
+  if (model?.supports_streaming === false) {
+    const limit = model.max_audio_duration_ms;
+    return `final-only${typeof limit === "number" ? ` · ≤${limit / 1_000} с` : ""}`;
+  }
+  if (model?.streaming_mode === "buffered_emulation") {
+    const windowMs = numericValue(model, "streaming_window_ms");
+    const contextMs = numericValue(model, "streaming_left_context_ms");
+    const partialMs = numericValue(model, "partial_decode_interval_ms");
+    const details = [
+      windowMs !== null && `окно ${windowMs / 1_000} с`,
+      contextMs !== null && `контекст ${contextMs / 1_000} с`,
+      partialMs !== null && `partial ${partialMs} мс`,
+    ].filter(Boolean);
+    return `bounded re-decode${details.length ? ` · ${details.join(" · ")}` : ""}`;
+  }
+  const delay = selectedAsrDelayForTurn.value ?? numericValue(model, "configured_delay_ms");
+  const partial = numericValue(model, "partial_decode_interval_ms");
+  return delay !== null && partial !== null
+    ? `delay ${delay} мс · partial ${partial} мс`
+    : "параметры появятся после запуска";
+});
+const captureSummary = computed(() => {
+  if (!captureInfo.value) return "";
+  const info = captureInfo.value;
+  const dsp = [
+    info.echoCancellation && "AEC",
+    info.noiseSuppression && "NS",
+    info.autoGainControl && "AGC",
+  ].filter(Boolean);
+  const sourceRate = info.trackSampleRate ? `${info.trackSampleRate / 1_000} kHz → ` : "";
+  const asrLatency =
+    firstTranscriptLatencyMs.value === null
+      ? "ASR …"
+      : `ASR ${Math.round(firstTranscriptLatencyMs.value)} мс`;
+  const affectLatency =
+    firstAffectLatencyMs.value === null
+      ? "affect …"
+      : `affect ${Math.round(firstAffectLatencyMs.value)} мс`;
+  return `${sourceRate}${info.contextSampleRate / 1_000} kHz · DSP ${dsp.join("+") || "off"} · ${asrLatency} · ${affectLatency}`;
+});
+const calibrationSummary = computed(() => {
+  const result = calibration.value;
+  if (!result) return "VAD/gain: для тихой речи сначала нажмите «Калибровать тишину» в полной тишине.";
+  return `VAD/gain: whisper-aware · шум ${result.noiseFloorDbfs.toFixed(1)} dBFS · пик ${result.peakDbfs.toFixed(1)} dBFS · ${result.durationMs / 1_000} с`;
+});
+const identitySummary = computed(() => {
+  const identity = objectValue(bootstrap.value?.service, "model_identity");
+  if (!identity) return "точные revisions доступны после запуска";
+  const asr = selectedAsrModel.value === "gigaam-v3-e2e-rnnt"
+    ? stringValue(identity, "gigaam_revision")
+    : selectedAsrModel.value === "gigastt-v3-rnnt-buffered"
+      ? stringValue(identity, "gigastt_runtime_revision")
+    : selectedAsrModel.value === "nemotron-3.5-streaming"
+      ? stringValue(identity, "nemotron_revision")
+      : stringValue(identity, "transcribe_revision");
+  const emotion = stringValue(identity, "emotion_revision");
+  return [asr && `ASR ${asr.slice(0, 8)}`, emotion && `affect ${emotion.slice(0, 8)}`]
+    .filter(Boolean)
+    .join(" · ");
+});
+
+onMounted(async () => {
+  try {
+    bootstrap.value = await loadBootstrap();
+    const routing = objectValue(bootstrap.value.service, "asr_model_routing");
+    const defaultModel = routing ? stringValue(routing, "default_model") : "";
+    selectedAsrModel.value = availableAsrModels.value.includes(defaultModel)
+      ? defaultModel
+      : availableAsrModels.value[0] ?? "";
+    if (availableAsrAudioRoutes.value.includes("whisper")) {
+      selectedAsrAudioRoute.value = "whisper";
+    }
+    await refreshDiagnosticAudio();
+    await refreshDevices();
+    state.value = "ready";
+  } catch (error) {
+    fail(error);
+  }
+  window.addEventListener("beforeunload", cancelActiveSession);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("beforeunload", cancelActiveSession);
+  cancelActiveSession();
+});
+
+watch(selectedDevice, () => {
+  calibration.value = null;
+});
+
+watch(selectedAsrModel, resetAsrDelayToConfigured);
+
+watch(asrDelayPresets, (presets) => {
+  const selected = selectedAsrDelayMs.value;
+  if (selected === null || !presets.includes(selected)) {
+    resetAsrDelayToConfigured();
+  }
+});
+
+function resetAsrDelayToConfigured(): void {
+  const configured = numericValue(selectedTranscriber.value, "configured_delay_ms");
+  selectedAsrDelayMs.value =
+    configured !== null && asrDelayPresets.value.includes(configured)
+      ? configured
+      : asrDelayPresets.value[0] ?? null;
+}
+
+async function refreshDevices(): Promise<void> {
+  devices.value = await listAudioInputs();
+  if (!selectedDevice.value && devices.value.length > 0) {
+    selectedDevice.value = devices.value[0]?.deviceId ?? "";
+  }
+}
+
+async function startRecording(): Promise<void> {
+  if (!bootstrap.value || !canStart.value) return;
+  errorMessage.value = "";
+  notice.value = "";
+  timeline.value = null;
+  finalUtterance.value = null;
+  events.value = [];
+  sentBytes.value = 0;
+  inputRms.value = 0;
+  captureInfo.value = null;
+  firstTranscriptLatencyMs.value = null;
+  firstAffectLatencyMs.value = null;
+  limitStopScheduled = false;
+  state.value = "connecting";
+  client.value = null;
+  let nextClient: SpeechTimelineClient | null = null;
+  const nextCapture = new BrowserMicrophoneCapture();
+  capture.value = nextCapture;
+  try {
+    // The resident service rotates its ephemeral WebSocket token on restart.
+    // Refresh immediately before every session so a long-lived dashboard tab
+    // never attempts authentication with its mount-time token.
+    const freshBootstrap = await loadBootstrap();
+    bootstrap.value = freshBootstrap;
+    nextClient = new SpeechTimelineClient(freshBootstrap, handleEvent);
+    client.value = nextClient;
+    await nextClient.connectAndStart(
+      "ru",
+      selectedAsrModel.value,
+      selectedAsrAudioRoute.value,
+      selectedAsrDelayForTurn.value,
+      calibration.value
+        ? {
+            noiseFloorDbfs: calibration.value.noiseFloorDbfs,
+            durationMs: calibration.value.durationMs,
+          }
+        : undefined,
+    );
+    captureInfo.value = await nextCapture.start(selectedDevice.value, 80, {
+      onChunk: handleAudioChunk,
+      onLevel: (level) => {
+        inputRms.value = level;
+      },
+    });
+    await refreshDevices();
+    state.value = "recording";
+  } catch (error) {
+    nextClient?.cancel();
+    await nextCapture.stop().catch(() => undefined);
+    fail(error);
+  }
+}
+
+async function calibrateNoise(): Promise<void> {
+  if (!canCalibrate.value) return;
+  errorMessage.value = "";
+  notice.value = "Калибруем фон 2 секунды — пожалуйста, не говорите.";
+  state.value = "calibrating";
+  try {
+    const result = await calibrateMicrophoneNoise(selectedDevice.value, 2_000);
+    calibration.value = result;
+    notice.value = `Калибровка готова: фон ${result.noiseFloorDbfs.toFixed(1)} dBFS. Порог применяется к VAD и усилению ASR-тракта.`;
+    await refreshDevices();
+    state.value = "ready";
+  } catch (error) {
+    fail(error);
+  }
+}
+
+function handleAudioChunk(chunk: Uint8Array): void {
+  try {
+    const result = client.value?.sendPcm(chunk);
+    if (!result) return;
+    sentBytes.value = result.sentBytes;
+    const selectedLimitReached = result.sentBytes >= Math.floor(limitMs.value * 32);
+    if ((result.limitReached || selectedLimitReached) && !limitStopScheduled) {
+      limitStopScheduled = true;
+      notice.value = `Достигнут безопасный предел ${formatDuration(limitMs.value)} — запись остановлена и отправлена на финализацию.`;
+      queueMicrotask(() => void stopRecording());
+    }
+  } catch (error) {
+    void abortAfterError(error);
+  }
+}
+
+async function stopRecording(): Promise<void> {
+  if (state.value !== "recording" && state.value !== "finalizing") return;
+  state.value = "finalizing";
+  const activeCapture = capture.value;
+  capture.value = null;
+  if (activeCapture) {
+    await activeCapture.stop();
+  }
+  client.value?.finish();
+}
+
+function handleEvent(event: SpeechEvent): void {
+  const handlingStarted = performance.now();
+  events.value = [...events.value.slice(-39), event];
+  if (event.type === "speech_timeline.update") {
+    const update = mergeTimelineUpdate(event as unknown as TimelineUpdate);
+    timeline.value = update;
+    if (
+      captureInfo.value &&
+      firstTranscriptLatencyMs.value === null &&
+      update.transcript.revision > 0
+    ) {
+      firstTranscriptLatencyMs.value =
+        performance.now() - captureInfo.value.startedAtMonotonicMs;
+    }
+    if (
+      captureInfo.value &&
+      firstAffectLatencyMs.value === null &&
+      update.vocal_affect.raw_observations.length > 0
+    ) {
+      firstAffectLatencyMs.value =
+        performance.now() - captureInfo.value.startedAtMonotonicMs;
+    }
+  } else if (event.type === "utterance.final") {
+    finalUtterance.value = event as unknown as FinalUtterance;
+    state.value = "complete";
+    client.value?.close();
+    client.value = null;
+    void refreshDiagnosticAudio();
+  } else if (event.type === "error" && event.terminal === true) {
+    const code = typeof event.code === "string" ? event.code : "UNKNOWN_ERROR";
+    const detail = typeof event.detail === "string" ? event.detail : "";
+    void abortAfterError(new Error(`${code}${detail ? `: ${detail}` : ""}`));
+  }
+  const handlingMs = performance.now() - handlingStarted;
+  if (handlingMs >= 16) {
+    console.info("[speech-timeline] ui_event_slow", {
+      type: event.type,
+      handlingMs: Math.round(handlingMs),
+      eventCount: events.value.length,
+    });
+  }
+}
+
+async function refreshDiagnosticAudio(): Promise<void> {
+  try {
+    diagnosticAudio.value = await loadDiagnosticAudio();
+  } catch (error) {
+    console.warn("[speech-timeline] diagnostic_audio_list_failed", error);
+  }
+}
+
+async function compareDiagnosticRecording(record: DiagnosticAudioRecord): Promise<void> {
+  if (comparisonRunning.value || isRecording.value || state.value === "finalizing") return;
+  comparisonRunning.value = true;
+  comparisonRecordId.value = record.id;
+  comparisonResults.value = [];
+  errorMessage.value = "";
+  try {
+    const pcm = await loadDiagnosticPcm(record.id);
+    if (pcm.byteLength > Math.floor(limitMs.value * 32)) {
+      throw new Error("RAW-запись превышает лимит выбранной ASR-модели");
+    }
+    for (const [index, route] of comparisonRoutes.value.entries()) {
+      notice.value = `A/B replay ${index + 1}/${comparisonRoutes.value.length}: ${asrRouteLabel(route)}. Подаём тот же RAW PCM в реальном темпе.`;
+      try {
+        comparisonResults.value.push(await replayRoute(pcm, route));
+      } catch (error) {
+        comparisonResults.value.push({
+          route,
+          text: "",
+          first_partial_ms: null,
+          finalization_ms: null,
+          preprocessor_p95_ms: null,
+          raw_rms_dbfs: null,
+          asr_rms_dbfs: null,
+          wer: null,
+          cer: null,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    notice.value = "A/B replay завершён. Все маршруты получили один и тот же RAW PCM; повторные прогоны не сохранены в архив.";
+  } catch (error) {
+    fail(error);
+  } finally {
+    client.value?.close();
+    client.value = null;
+    comparisonRunning.value = false;
+  }
+}
+
+async function replayRoute(
+  pcm: Uint8Array,
+  route: AsrAudioRoute,
+): Promise<AudioRouteComparisonResult> {
+  const freshBootstrap = await loadBootstrap();
+  bootstrap.value = freshBootstrap;
+  let firstPartialMs: number | null = null;
+  let audioStartedAt = 0;
+  let finishSentAt = 0;
+  let timeoutId = 0;
+  let resolveFinal: ((value: FinalUtterance) => void) | null = null;
+  let rejectFinal: ((error: Error) => void) | null = null;
+  const finalPromise = new Promise<FinalUtterance>((resolve, reject) => {
+    resolveFinal = resolve;
+    rejectFinal = reject;
+    timeoutId = window.setTimeout(
+      () => reject(new Error("таймаут A/B replay")),
+      Math.max(60_000, pcm.byteLength / 32 + 45_000),
+    );
+  });
+  void finalPromise.catch(() => undefined);
+  const replayClient = new SpeechTimelineClient(freshBootstrap, (event) => {
+    if (event.type === "speech_timeline.update" && firstPartialMs === null) {
+      const transcript = objectValue(event, "transcript");
+      const revision = numericValue(transcript, "revision");
+      if (revision !== null && revision > 0) {
+        firstPartialMs = performance.now() - audioStartedAt;
+      }
+    } else if (event.type === "utterance.final") {
+      resolveFinal?.(event as unknown as FinalUtterance);
+    } else if (event.type === "error" && event.terminal === true) {
+      const code = typeof event.code === "string" ? event.code : "UNKNOWN_ERROR";
+      const detail = typeof event.detail === "string" ? event.detail : "";
+      rejectFinal?.(new Error(`${code}${detail ? `: ${detail}` : ""}`));
+    }
+  });
+  client.value = replayClient;
+  try {
+    await replayClient.connectAndStart(
+      "ru",
+      selectedAsrModel.value,
+      route,
+      selectedAsrDelayForTurn.value,
+      calibration.value
+        ? {
+            noiseFloorDbfs: calibration.value.noiseFloorDbfs,
+            durationMs: calibration.value.durationMs,
+          }
+        : undefined,
+      false,
+    );
+    audioStartedAt = performance.now();
+    const frameBytes = 80 * 16_000 * 2 / 1_000;
+    for (let offset = 0; offset < pcm.byteLength; offset += frameBytes) {
+      const chunk = pcm.slice(offset, Math.min(offset + frameBytes, pcm.byteLength));
+      const sent = replayClient.sendPcm(chunk);
+      if (sent.limitReached && offset + chunk.byteLength < pcm.byteLength) {
+        throw new Error("RAW-запись превышает лимит выбранного ASR");
+      }
+      await wait(chunk.byteLength * 1_000 / (16_000 * 2));
+    }
+    finishSentAt = performance.now();
+    replayClient.finish();
+    const final = await finalPromise;
+    const metrics = objectValue(final.metrics, "audio_preprocessor");
+    const rawSignal = objectValue(metrics, "raw_signal");
+    const asrSignal = objectValue(metrics, "asr_signal");
+    const reference = comparisonReference.value.trim();
+    return {
+      route,
+      text: final.text,
+      first_partial_ms: firstPartialMs,
+      finalization_ms: performance.now() - finishSentAt,
+      preprocessor_p95_ms: numericValue(metrics, "stream_p95_ms"),
+      raw_rms_dbfs: numericValue(rawSignal, "rms_dbfs"),
+      asr_rms_dbfs: numericValue(asrSignal, "rms_dbfs"),
+      wer: reference ? errorRate(reference, final.text, "word") : null,
+      cer: reference ? errorRate(reference, final.text, "character") : null,
+      error: null,
+    };
+  } finally {
+    window.clearTimeout(timeoutId);
+    replayClient.close();
+    if (client.value === replayClient) client.value = null;
+  }
+}
+
+function mergeTimelineUpdate(update: TimelineUpdate): TimelineUpdate {
+  if (
+    update.vocal_affect.raw_observations_mode === "snapshot" ||
+    !timeline.value
+  ) {
+    return update;
+  }
+  const observations = new Map(
+    timeline.value.vocal_affect.raw_observations.map((observation) => [
+      observation.observation_id,
+      observation,
+    ]),
+  );
+  for (const observation of update.vocal_affect.raw_observations) {
+    observations.set(observation.observation_id, observation);
+  }
+  return {
+    ...update,
+    vocal_affect: {
+      ...update.vocal_affect,
+      raw_observations: [...observations.values()].sort(
+        (left, right) => left.observation_id - right.observation_id,
+      ),
+    },
+  };
+}
+
+async function abortAfterError(error: unknown): Promise<void> {
+  const activeCapture = capture.value;
+  capture.value = null;
+  if (activeCapture) {
+    await activeCapture.stop().catch(() => undefined);
+  }
+  client.value?.close();
+  client.value = null;
+  fail(error);
+}
+
+function cancelActiveSession(): void {
+  client.value?.cancel();
+  client.value = null;
+  void capture.value?.stop();
+  capture.value = null;
+}
+
+function fail(error: unknown): void {
+  errorMessage.value = error instanceof Error ? error.message : String(error);
+  state.value = "error";
+}
+
+function modelValue(role: string, field: string): string {
+  const models = objectValue(bootstrap.value?.service, "models");
+  const model = objectValue(models, role);
+  return model ? stringValue(model, field) : "";
+}
+
+function numericValue(value: JsonObject | null, field: string): number | null {
+  const candidate = value?.[field];
+  return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null;
+}
+
+function objectValue(value: unknown, key: string): JsonObject | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const candidate = (value as JsonObject)[key];
+  return typeof candidate === "object" && candidate !== null && !Array.isArray(candidate)
+    ? (candidate as JsonObject)
+    : null;
+}
+
+function stringValue(value: JsonObject | null, key: string): string {
+  return value && typeof value[key] === "string" ? value[key] : "";
+}
+
+function asrModelLabel(model: string): string {
+  if (model === "gigaam-v3-e2e-rnnt") return "GigaAM-v3 e2e RNNT · финальный";
+  if (model === "gigastt-v3-rnnt-buffered") return "GigaSTT / GigaAM-v3 RNNT · buffered stream";
+  if (model === "nemotron-3.5-streaming") return "NVIDIA Nemotron 3.5 0.6B · streaming";
+  if (model === "voxtral-realtime") return "Voxtral Mini 4B · streaming";
+  return model;
+}
+
+function asrRouteLabel(route: string | null): string {
+  if (route === "whisper") return "Whisper · gain + щадящий DPDFNet";
+  if (route === "gain_only") return "Gain only · диагностический контроль";
+  if (route === "enhanced") return "DPDFNet full · агрессивный A/B";
+  if (route === "gtcrn") return "GTCRN · universal speech enhancement";
+  if (route === "ul_unas") return "UL-UNAS · universal speech enhancement";
+  return "RAW · контроль";
+}
+
+function errorRate(reference: string, hypothesis: string, unit: "word" | "character"): number {
+  const normalizedReference = normalizeTranscript(reference);
+  const normalizedHypothesis = normalizeTranscript(hypothesis);
+  const expected = unit === "word"
+    ? normalizedReference.split(" ").filter(Boolean)
+    : [...normalizedReference.replaceAll(" ", "")];
+  const actual = unit === "word"
+    ? normalizedHypothesis.split(" ").filter(Boolean)
+    : [...normalizedHypothesis.replaceAll(" ", "")];
+  if (expected.length === 0) return actual.length === 0 ? 0 : 1;
+  return levenshtein(expected, actual) / expected.length;
+}
+
+function normalizeTranscript(value: string): string {
+  return value
+    .toLocaleLowerCase("ru")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function levenshtein(expected: string[], actual: string[]): number {
+  let previous = Array.from({ length: actual.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= expected.length; row += 1) {
+    const current = [row];
+    for (let column = 1; column <= actual.length; column += 1) {
+      current[column] = Math.min(
+        (previous[column] ?? 0) + 1,
+        (current[column - 1] ?? 0) + 1,
+        (previous[column - 1] ?? 0) + (expected[row - 1] === actual[column - 1] ? 0 : 1),
+      );
+    }
+    previous = current;
+  }
+  return previous[actual.length] ?? 0;
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function asrDelayLabel(delayMs: number): string {
+  if (delayMs === 480) return "480 мс · быстрее";
+  if (delayMs === 960) return "960 мс · баланс";
+  return "2400 мс · качество";
+}
+</script>
+
+<template>
+  <main class="dashboard-shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <span class="brand-mark">N</span>
+        <div>
+          <p>Next Engine Lab</p>
+          <h1>Speech Timeline</h1>
+        </div>
+      </div>
+      <div class="service-state" :class="state">
+        <i></i>
+        <span>{{ stateText[state] }}</span>
+      </div>
+    </header>
+
+    <section class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Realtime speech observability</p>
+        <h2>Слышим не только слова.</h2>
+        <p>
+          Здесь текст, эмоциональные окна и сглаженные переходы остаются отдельными
+          ревизиями на одной аудиошкале. Это диагностические данные, а не вывод о
+          внутреннем состоянии человека.
+        </p>
+      </div>
+
+      <div class="capture-card">
+        <div class="capture-row">
+          <div class="source-select">
+            <p class="eyebrow">Источник</p>
+            <select v-model="selectedDevice" :disabled="isRecording || state === 'finalizing'">
+              <option value="">Системный микрофон</option>
+              <option v-for="(device, index) in devices" :key="device.deviceId" :value="device.deviceId">
+                {{ device.label || `Микрофон ${index + 1}` }}
+              </option>
+            </select>
+          </div>
+          <div class="asr-model-select">
+            <p class="eyebrow">ASR-модель</p>
+            <select
+              v-model="selectedAsrModel"
+              :disabled="isRecording || state === 'finalizing' || comparisonRunning"
+            >
+              <option
+                v-for="model in availableAsrModels"
+                :key="model"
+                :value="model"
+              >
+                {{ asrModelLabel(model) }}
+              </option>
+            </select>
+          </div>
+          <div v-if="asrDelayPresets.length" class="asr-delay-select">
+            <p class="eyebrow">Задержка Voxtral</p>
+            <select
+              v-model="selectedAsrDelayMs"
+              :disabled="isRecording || state === 'finalizing' || comparisonRunning"
+            >
+              <option v-for="delay in asrDelayPresets" :key="delay" :value="delay">
+                {{ asrDelayLabel(delay) }}
+              </option>
+            </select>
+          </div>
+          <div class="asr-route-select" :class="{ 'has-delay': asrDelayPresets.length }">
+            <p class="eyebrow">Обработка сигнала</p>
+            <select
+              v-model="selectedAsrAudioRoute"
+              :disabled="isRecording || state === 'finalizing' || comparisonRunning"
+            >
+              <option
+                v-for="route in availableAsrAudioRoutes"
+                :key="route"
+                :value="route"
+              >
+                {{ asrRouteLabel(route) }}
+              </option>
+            </select>
+          </div>
+          <button class="icon-button" :disabled="isRecording" title="Обновить список" @click="refreshDevices">↻</button>
+        </div>
+
+        <div class="record-controls">
+          <button v-if="!isRecording" class="primary-button" :disabled="!canStart" @click="startRecording">
+            <span class="record-dot"></span>
+            Начать запись
+          </button>
+          <button
+            v-if="!isRecording"
+            class="secondary-button"
+            :disabled="!canCalibrate"
+            @click="calibrateNoise"
+          >
+            Калибровать тишину
+          </button>
+          <button v-else class="stop-button" @click="stopRecording">
+            <span class="stop-square"></span>
+            Завершить фразу
+          </button>
+          <div class="level-meter" title="Текущий RMS микрофона">
+            <span :style="{ width: `${Math.max(0, Math.min(100, (levelDb + 72) * 1.4))}%` }"></span>
+          </div>
+          <b class="duration">{{ formatDuration(durationMs) }} / {{ formatDuration(limitMs) }}</b>
+        </div>
+        <div class="duration-track"><i :style="{ width: `${progress}%` }"></i></div>
+        <p v-if="captureSummary" class="capture-diagnostics">{{ captureSummary }}</p>
+        <p class="capture-diagnostics">{{ calibrationSummary }}</p>
+        <p v-if="notice" class="notice">{{ notice }}</p>
+        <p v-if="errorMessage" class="error-box">{{ errorMessage }}</p>
+      </div>
+    </section>
+
+    <section class="model-strip">
+      <div>
+        <span>ASR</span>
+        <b :title="`${selectedAsrModel} · ${transcriberCadence}`">{{ transcriberName }} · {{ transcriberCadence }}</b>
+      </div>
+      <div>
+        <span>Vocal affect</span>
+        <b>{{ affectName }}</b>
+      </div>
+      <div>
+        <span>ASR signal</span>
+        <b>{{ preprocessorSummary }}</b>
+      </div>
+      <div>
+        <span>Lineage</span>
+        <b>{{ identitySummary }}</b>
+      </div>
+      <div class="expression-card" :style="{ '--emotion': emotionColor(currentExpression) }">
+        <span>Текущий окрас</span>
+        <b>{{ emotionLabel(currentExpression) }}</b>
+      </div>
+    </section>
+
+    <section class="content-grid">
+      <TranscriptPanel
+        :adapter-name="transcriberName"
+        :supports-streaming="transcriberSupportsStreaming"
+        :streaming-mode="transcriberStreamingMode"
+        :text="timeline?.transcript.text ?? finalUtterance?.text ?? ''"
+        :stable-prefix="timeline?.transcript.stable_prefix ?? ''"
+        :final="Boolean(finalUtterance || timeline?.transcript.final)"
+        :revision="timeline?.transcript.revision ?? 0"
+        :timing-precision="timeline?.transcript.timing_precision ?? 'utterance'"
+      />
+      <EmotionTimeline
+        :adapter-name="affectName"
+        :segments="timeline?.vocal_affect.segments ?? []"
+        :speech-activity="timeline?.vocal_affect.speech_activity ?? []"
+        :observations="timeline?.vocal_affect.raw_observations ?? []"
+        :current-samples="currentSamples"
+        :revision="timeline?.vocal_affect.revision ?? 0"
+      />
+    </section>
+
+    <section v-if="finalUtterance" class="final-card">
+      <div>
+        <p class="eyebrow">Final utterance</p>
+        <h2>{{ finalUtterance.text || "Текст не распознан" }}</h2>
+      </div>
+      <div class="final-expression" :style="{ '--emotion': emotionColor(finalUtterance.observed_vocal_expression) }">
+        <span>Наблюдаемый окрас</span>
+        <b>{{ emotionLabel(finalUtterance.observed_vocal_expression) }}</b>
+        <small>alignment: {{ finalUtterance.alignment_grade }}</small>
+        <small v-if="finalUtterance.observed_vocal_expression_source">
+          {{ finalUtterance.observed_vocal_expression_source }}
+        </small>
+        <small v-if="asrSignalSummary">{{ asrSignalSummary }}</small>
+      </div>
+    </section>
+
+    <section v-if="diagnosticAudioEnabled" class="panel diagnostic-audio-panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Explicit local diagnostic retention</p>
+          <h2>Последние записи</h2>
+        </div>
+        <button class="icon-button" title="Обновить записи" @click="refreshDiagnosticAudio">↻</button>
+      </div>
+      <p class="muted-copy">Хранятся только последние пять raw-WAV и, когда включён preprocessing, их ASR-вариант.</p>
+      <div class="comparison-toolbar">
+        <label>
+          <span>Эталонный текст для WER/CER (необязательно)</span>
+          <input
+            v-model="comparisonReference"
+            :disabled="comparisonRunning"
+            placeholder="Введите дословную фразу из записи"
+          />
+        </label>
+        <small>Replay идёт последовательно и в реальном темпе: RAW, DPDFNet, GTCRN, UL-UNAS получают идентичные семплы.</small>
+      </div>
+      <div v-if="diagnosticAudio.length" class="diagnostic-audio-list">
+        <div v-for="(record, index) in diagnosticAudio" :key="record.id" class="diagnostic-audio-row">
+          <span>
+            Запись {{ diagnosticAudio.length - index }} · {{ formatDuration(record.duration_ms) }} ·
+            {{ asrModelLabel(record.asr_model ?? "неизвестный ASR") }}
+          </span>
+          <div class="diagnostic-audio-variants">
+            <label>
+              <span>Raw микрофон</span>
+              <audio controls preload="metadata" :src="`/api/diagnostic-audio/${record.id}.wav`"></audio>
+            </label>
+            <label v-if="record.enhanced_available">
+              <span>ASR: {{ asrRouteLabel(record.asr_audio_route) }}</span>
+              <audio controls preload="metadata" :src="`/api/diagnostic-audio/${record.id}.asr.wav`"></audio>
+            </label>
+            <button
+              class="secondary-button comparison-button"
+              :disabled="comparisonRunning || isRecording || state === 'finalizing' || comparisonRoutes.length < 2"
+              @click="compareDiagnosticRecording(record)"
+            >
+              {{ comparisonRunning && comparisonRecordId === record.id ? "Сравниваем…" : "Сравнить обработчики на этом RAW" }}
+            </button>
+          </div>
+        </div>
+      </div>
+      <p v-else class="muted-copy">Завершите запись — она появится здесь.</p>
+      <div v-if="comparisonResults.length" class="comparison-results">
+        <div class="comparison-result comparison-result-header">
+          <span>Маршрут</span><span>Распознано</span><span>Первый partial</span><span>Finalization</span><span>NS p95</span><span>WER / CER</span>
+        </div>
+        <div v-for="result in comparisonResults" :key="result.route" class="comparison-result">
+          <b>{{ asrRouteLabel(result.route) }}</b>
+          <span :class="{ 'comparison-error': result.error }">{{ result.error || result.text || "∅ пусто" }}</span>
+          <span>{{ result.first_partial_ms === null ? "—" : `${Math.round(result.first_partial_ms)} мс` }}</span>
+          <span>{{ result.finalization_ms === null ? "—" : `${Math.round(result.finalization_ms)} мс` }}</span>
+          <span>{{ result.preprocessor_p95_ms === null ? (result.route === 'raw' ? 'bypass' : '—') : `${result.preprocessor_p95_ms} мс` }}</span>
+          <span>{{ result.wer === null ? "нужен эталон" : `${(result.wer * 100).toFixed(1)}% / ${((result.cer ?? 0) * 100).toFixed(1)}%` }}</span>
+        </div>
+      </div>
+    </section>
+
+    <details class="event-console">
+      <summary>Протокол и последние события <span>{{ events.length }}</span></summary>
+      <pre>{{ JSON.stringify(events, null, 2) }}</pre>
+    </details>
+
+    <footer class="footer-note">
+      <span>16 kHz · mono · PCM S16LE</span>
+      <span>{{ diagnosticAudioEnabled ? "последние 5 WAV локально сохранены" : "raw audio не сохраняется" }}</span>
+      <span>localhost-only diagnostic</span>
+    </footer>
+  </main>
+</template>

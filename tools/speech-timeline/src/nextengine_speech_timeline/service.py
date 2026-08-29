@@ -1,0 +1,1308 @@
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, is_dataclass, replace
+import logging
+import math
+import time
+from typing import Any, Awaitable, Callable, Coroutine, TypeVar
+
+from .adapters.base import AudioWindow, TranscriberConfig, TranscriptRevision
+from .activity import EnergyVoiceActivityDetector, VoiceActivityConfig, VoiceActivityDetector
+from .audio import pcm16le_to_float32, pcm16le_to_float32_array
+from .diagnostic_audio import DiagnosticAudioStore
+from .metrics import ModelJobMetric, ResourceMonitor
+from .protocol import (
+    ASR_AUDIO_ROUTES,
+    ASR_AUDIO_ROUTE_RAW,
+    VadCalibration,
+    event,
+)
+from .reliability_features import (
+    FEATURE_SCHEMA,
+    SAMPLE_RATE_HZ,
+    ReliabilityFeatureError,
+    RevisionObservation,
+    TranscriptRevisionState,
+    build_feature_payload,
+    incomplete_feature_payload,
+)
+from .scheduler import (
+    JobCompletion,
+    JobDiscarded,
+    JobPriority,
+    ModelScheduler,
+    SchedulerOverloaded,
+)
+from .session import SessionBounds, SessionError, SessionState, SpeechSession
+from .timeline import AffectCadence, RawAffectObservation, SpeechTimeline, TimelineSnapshot
+
+
+T = TypeVar("T")
+PUBLIC_JOB_METRIC_LIMIT = 64
+EVENT_TIMING_LIMIT = 128
+logger = logging.getLogger("nextengine.speech_timeline")
+
+
+class _PcmSignalLevel:
+    """Bounded content-free level telemetry for one ASR route."""
+
+    def __init__(self) -> None:
+        self.samples = 0
+        self.sum_squares = 0.0
+        self.peak = 0.0
+        self.nonzero_samples = 0
+        self.clipped_samples = 0
+
+    def add(self, pcm: bytes) -> None:
+        if not pcm:
+            return
+        samples = pcm16le_to_float32_array(pcm)
+        self.samples += len(samples)
+        for sample in samples:
+            absolute = abs(sample)
+            self.sum_squares += sample * sample
+            self.peak = max(self.peak, absolute)
+            self.nonzero_samples += int(absolute >= 1.0 / 32768.0)
+            self.clipped_samples += int(absolute >= 32767.0 / 32768.0)
+
+    def payload(self) -> dict[str, float | int | None]:
+        if self.samples == 0:
+            return {
+                "samples": 0,
+                "rms_dbfs": None,
+                "peak_dbfs": None,
+                "nonzero_ratio": 0.0,
+                "clipping_ratio": 0.0,
+            }
+        rms = math.sqrt(self.sum_squares / self.samples)
+        return {
+            "samples": self.samples,
+            "rms_dbfs": round(20.0 * math.log10(max(rms, 1e-8)), 2),
+            "peak_dbfs": round(20.0 * math.log10(max(self.peak, 1e-8)), 2),
+            "nonzero_ratio": round(self.nonzero_samples / self.samples, 6),
+            "clipping_ratio": round(self.clipped_samples / self.samples, 9),
+        }
+
+
+class SpeechTimelineRuntime:
+    """Owns resident models and the single dedicated model worker."""
+
+    def __init__(
+        self,
+        transcriber: Any | Mapping[str, Any],
+        affect_analyzer: Any,
+        audio_preprocessor: Any | None = None,
+        *,
+        default_transcriber: str | None = None,
+        activity_factory: Callable[[], VoiceActivityDetector] = EnergyVoiceActivityDetector,
+    ) -> None:
+        if isinstance(transcriber, Mapping):
+            self.transcribers = dict(transcriber)
+            if not self.transcribers:
+                raise ValueError("at least one transcriber must be configured")
+            if any(not isinstance(key, str) or not key for key in self.transcribers):
+                raise ValueError("transcriber route IDs must be non-empty strings")
+        else:
+            self.transcribers = {"default": transcriber}
+        self.default_transcriber = default_transcriber or next(iter(self.transcribers))
+        if self.default_transcriber not in self.transcribers:
+            raise ValueError("default transcriber is not configured")
+        # Compatibility surface for existing diagnostics and focused fakes.
+        self.transcriber = self.transcribers[self.default_transcriber]
+        self.affect_analyzer = affect_analyzer
+        self.audio_preprocessor = audio_preprocessor
+        self.activity_factory = activity_factory
+        self.scheduler = ModelScheduler()
+        self._preprocessor_executor = (
+            ThreadPoolExecutor(max_workers=1, thread_name_prefix="nextengine-audio-preprocessor")
+            if audio_preprocessor is not None
+            else None
+        )
+        self._ready: dict[str, object] | None = None
+        self._closed = False
+        self.resources = ResourceMonitor()
+
+    @property
+    def available_asr_audio_routes(self) -> tuple[str, ...]:
+        routes = [ASR_AUDIO_ROUTE_RAW]
+        if self.audio_preprocessor is not None:
+            capabilities = self.audio_preprocessor.capabilities()
+            configured = capabilities.get("asr_audio_routes", ["enhanced"])
+            if not isinstance(configured, list) or any(
+                not isinstance(route, str)
+                or route == ASR_AUDIO_ROUTE_RAW
+                or route not in ASR_AUDIO_ROUTES
+                for route in configured
+            ):
+                raise RuntimeError("audio preprocessor advertised invalid ASR routes")
+            routes.extend(configured)
+        return tuple(routes)
+
+    @property
+    def available_asr_models(self) -> tuple[str, ...]:
+        return tuple(self.transcribers)
+
+    def transcriber_for(self, route_id: str | None) -> tuple[str, Any]:
+        selected = route_id or self.default_transcriber
+        transcriber = self.transcribers.get(selected)
+        if transcriber is None:
+            raise KeyError(selected)
+        return selected, transcriber
+
+    def transcriber_capabilities(self, route_id: str) -> dict[str, object]:
+        if self._ready is None:
+            raise RuntimeError("speech runtime is not started")
+        values = self._ready.get("transcribers")
+        if not isinstance(values, dict) or not isinstance(values.get(route_id), dict):
+            raise RuntimeError("transcriber capabilities are unavailable")
+        return values[route_id]  # type: ignore[return-value]
+
+    def start(self) -> dict[str, object]:
+        if self._ready is not None:
+            return self._ready
+
+        def load_and_warm() -> dict[str, object]:
+            transcriber_load: dict[str, object] = {}
+            transcriber_warmup: dict[str, object] = {}
+            transcriber_capabilities: dict[str, object] = {}
+            for route_id, adapter in self.transcribers.items():
+                transcriber_load[route_id] = _value(adapter.load())
+                transcriber_warmup[route_id] = _value(adapter.warmup())
+                transcriber_capabilities[route_id] = _value(adapter.capabilities())
+            affect_load = self.affect_analyzer.load()
+            affect_warmup = self.affect_analyzer.warmup()
+            return {
+                "transcriber": transcriber_capabilities[self.default_transcriber],
+                "transcribers": transcriber_capabilities,
+                "vocal_affect": _value(self.affect_analyzer.capabilities()),
+                "vocal_activity": self.activity_factory().capabilities(),
+                "load": {
+                    "transcriber": transcriber_load[self.default_transcriber],
+                    "transcribers": transcriber_load,
+                    "vocal_affect": _value(affect_load),
+                },
+                "warmup": {
+                    "transcriber": transcriber_warmup[self.default_transcriber],
+                    "transcribers": transcriber_warmup,
+                    "vocal_affect": _value(affect_warmup),
+                },
+            }
+
+        self._ready = self.scheduler.call_blocking(load_and_warm)
+        if self.audio_preprocessor is not None:
+            preprocessor_load, preprocessor_warmup = self._preprocessor_blocking(
+                lambda: (self.audio_preprocessor.load(), self.audio_preprocessor.warmup())
+            )
+            self._ready["audio_preprocessor"] = _value(self.audio_preprocessor.capabilities())
+            self._ready["load"]["audio_preprocessor"] = _value(preprocessor_load)
+            self._ready["warmup"]["audio_preprocessor"] = _value(preprocessor_warmup)
+        self.resources.start()
+        self._ready["resources"] = self.resources.snapshot()
+        return self._ready
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self.resources.stop()
+        if self.audio_preprocessor is not None:
+            try:
+                self._preprocessor_blocking(self.audio_preprocessor.close)
+            finally:
+                assert self._preprocessor_executor is not None
+                self._preprocessor_executor.shutdown(wait=True, cancel_futures=True)
+        for adapter in reversed(tuple(self.transcribers.values())):
+            if hasattr(adapter, "close"):
+                self.scheduler.call_blocking(adapter.close)
+        self.scheduler.close()
+
+    async def reset_audio_preprocessor(
+        self,
+        route: str,
+        noise_floor_dbfs: float | None,
+    ) -> None:
+        if self.audio_preprocessor is None:
+            return
+        await self._preprocessor_call(
+            lambda: self.audio_preprocessor.reset(
+                route,
+                noise_floor_dbfs=noise_floor_dbfs,
+            )
+        )
+
+    async def preprocess_pcm(self, pcm: bytes) -> tuple[bytes, int]:
+        if self.audio_preprocessor is None:
+            return pcm, 0
+        return await self._preprocessor_call(lambda: self.audio_preprocessor.process_pcm(pcm))
+
+    async def flush_audio_preprocessor(self) -> tuple[bytes, int]:
+        if self.audio_preprocessor is None:
+            return b"", 0
+        return await self._preprocessor_call(self.audio_preprocessor.flush)
+
+    def _preprocessor_blocking(self, function: Callable[[], T]) -> T:
+        if self._preprocessor_executor is None:
+            raise RuntimeError("audio preprocessor worker is unavailable")
+        return self._preprocessor_executor.submit(function).result()
+
+    async def _preprocessor_call(self, function: Callable[[], T]) -> tuple[T, int]:
+        if self._preprocessor_executor is None:
+            raise RuntimeError("audio preprocessor worker is unavailable")
+
+        def timed() -> tuple[T, int]:
+            started = time.perf_counter_ns()
+            result = function()
+            return result, round((time.perf_counter_ns() - started) / 1_000_000)
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._preprocessor_executor, timed)
+
+
+class SpeechConnection:
+    """One authenticated WebSocket connection and at most one utterance."""
+
+    def __init__(
+        self,
+        runtime: SpeechTimelineRuntime,
+        bounds: SessionBounds,
+        claim: Callable[[SpeechConnection], Awaitable[bool]],
+        release: Callable[[SpeechConnection], Awaitable[None]],
+        *,
+        diagnostic_audio: DiagnosticAudioStore | None = None,
+    ) -> None:
+        self.runtime = runtime
+        self.session = SpeechSession(bounds)
+        self.timeline = SpeechTimeline()
+        self.cadence = AffectCadence()
+        self.activity = runtime.activity_factory()
+        self.events: asyncio.Queue[dict[str, object]] = asyncio.Queue(maxsize=64)
+        self._claim = claim
+        self._release = release
+        self._diagnostic_audio = diagnostic_audio
+        self._diagnostic_audio_saved = False
+        self._diagnostic_asr_pcm = bytearray()
+        self._diagnostic_asr_pcm_invalid = False
+        self._transcriber_session: Any = None
+        self._transcriber: Any = None
+        self._asr_model = runtime.default_transcriber
+        self._asr_delay_ms: int | None = None
+        self._asr_model_max_turn_bytes: int | None = None
+        self._asr_tasks: set[asyncio.Task[None]] = set()
+        self._emotion_tasks: set[asyncio.Task[None]] = set()
+        self._asr_slots = asyncio.Semaphore(runtime.scheduler.max_pending_asr)
+        self._released = False
+        self._job_metrics: list[ModelJobMetric] = []
+        self.terminal_ready = asyncio.Event()
+        self._scheduler_baseline = asdict(self.runtime.scheduler.metrics)
+        self._session_max_queue_depth = 0
+        self._affect_observation_cursor = 0
+        self._ingress_frames = 0
+        self._last_progress_second = -1
+        self._event_count = 0
+        self._event_bytes = 0
+        self._event_max_bytes = 0
+        self._event_encode_ms = 0
+        self._event_send_ms: list[int] = []
+        self._preprocessor_input_samples = 0
+        self._preprocessor_output_samples = 0
+        self._preprocessor_stream_elapsed_ms: list[int] = []
+        self._preprocessor_flush_ms: int | None = None
+        self._asr_audio_route = ASR_AUDIO_ROUTE_RAW
+        self._retain_diagnostic_audio = True
+        self._raw_signal_level = _PcmSignalLevel()
+        self._asr_signal_level = _PcmSignalLevel()
+        self._reliability_transcript = TranscriptRevisionState()
+        self._reliability_fault: tuple[str, str] | None = None
+        self._reliability_expected_start_sample = 0
+        self._discontinuous_frames = 0
+        self._asr_job_failures = 0
+
+    async def start(
+        self,
+        session_id: str,
+        locale: str | None,
+        vad_calibration: VadCalibration | None = None,
+        asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
+        asr_model: str | None = None,
+        asr_delay_ms: int | None = None,
+        retain_diagnostic_audio: bool = True,
+    ) -> None:
+        if asr_audio_route not in self.runtime.available_asr_audio_routes:
+            raise SessionError(
+                "AUDIO_ROUTE_UNAVAILABLE",
+                f"ASR audio route is unavailable: {asr_audio_route}",
+            )
+        try:
+            self._asr_model, self._transcriber = self.runtime.transcriber_for(asr_model)
+        except KeyError as error:
+            raise SessionError(
+                "ASR_MODEL_UNAVAILABLE",
+                f"ASR model is unavailable: {asr_model}",
+            ) from error
+        capabilities = self.runtime.transcriber_capabilities(self._asr_model)
+        supported_delay_ms = capabilities.get("supported_delay_ms")
+        configured_delay_ms = capabilities.get("configured_delay_ms")
+        if asr_delay_ms is not None:
+            if (
+                not isinstance(supported_delay_ms, (list, tuple))
+                or isinstance(asr_delay_ms, bool)
+                or asr_delay_ms not in supported_delay_ms
+            ):
+                raise SessionError(
+                    "ASR_DELAY_UNAVAILABLE",
+                    f"ASR delay is unavailable for {self._asr_model}: {asr_delay_ms} ms",
+                )
+            self._asr_delay_ms = asr_delay_ms
+        else:
+            self._asr_delay_ms = (
+                configured_delay_ms
+                if isinstance(configured_delay_ms, int)
+                and not isinstance(configured_delay_ms, bool)
+                and configured_delay_ms > 0
+                else None
+            )
+        max_audio_duration_ms = capabilities.get("max_audio_duration_ms")
+        self._asr_model_max_turn_bytes = (
+            max_audio_duration_ms * 16_000 * 2 // 1_000
+            if isinstance(max_audio_duration_ms, int) and max_audio_duration_ms > 0
+            else None
+        )
+        if not await self._claim(self):
+            raise SessionError("SERVICE_BUSY", "another speech session is active")
+        try:
+            self._asr_audio_route = asr_audio_route
+            self._retain_diagnostic_audio = retain_diagnostic_audio
+            if vad_calibration is not None:
+                self._apply_vad_calibration(vad_calibration)
+            generation = self.session.start(session_id, locale)
+            if self._asr_audio_route != ASR_AUDIO_ROUTE_RAW:
+                await self.runtime.reset_audio_preprocessor(
+                    self._asr_audio_route,
+                    vad_calibration.noise_floor_dbfs if vad_calibration is not None else None,
+                )
+            self._transcriber_session = await self._execute(
+                JobPriority.STARTUP,
+                generation,
+                lambda: self._transcriber.start(
+                    TranscriberConfig(language=locale, delay_ms=self._asr_delay_ms)
+                ),
+            )
+        except SessionError:
+            await self._release_once()
+            raise
+        except Exception as error:
+            self.session.fail()
+            await self._release_once()
+            raise SessionError("MODEL_FAILURE", _bounded_error(error)) from error
+        await self.events.put(
+            event(
+                "session.started",
+                session_id=session_id,
+                generation=generation,
+                sample_rate_hz=16_000,
+                encoding="pcm_s16le",
+                channels=1,
+                asr_model=self._asr_model,
+                asr_delay_ms=self._asr_delay_ms,
+                asr_audio_route=self._asr_audio_route,
+                retain_diagnostic_audio=self._retain_diagnostic_audio,
+                vocal_activity=self.activity.capabilities(),
+            )
+        )
+
+    def _apply_vad_calibration(self, calibration: VadCalibration) -> None:
+        """Apply calibration only to the built-in, energy-only VAD adapter."""
+        if not isinstance(self.activity, EnergyVoiceActivityDetector):
+            logger.info(
+                "speech.vad_calibration_ignored session_id=%s adapter=%s",
+                self.session.session_id,
+                self.activity.capabilities().get("adapter_id", "unknown"),
+            )
+            return
+        config = VoiceActivityConfig.calibrated(
+            noise_floor_dbfs=calibration.noise_floor_dbfs,
+            duration_ms=calibration.duration_ms,
+        )
+        self.activity = EnergyVoiceActivityDetector(config)
+
+    async def append_pcm(self, payload: bytes) -> None:
+        if (
+            self._asr_model_max_turn_bytes is not None
+            and self.session.total_samples * 2 + len(payload) > self._asr_model_max_turn_bytes
+        ):
+            raise SessionError(
+                "TURN_TOO_LARGE",
+                f"utterance exceeds the selected ASR model limit: {self._asr_model}",
+            )
+        await self._asr_slots.acquire()
+        try:
+            frame = self.session.append_pcm(payload)
+        except BaseException:
+            self._asr_slots.release()
+            raise
+        generation = self.session.generation
+        self._ingress_frames += 1
+        if frame.start_sample != self._reliability_expected_start_sample:
+            self._discontinuous_frames += 1
+        self._reliability_expected_start_sample = frame.end_sample
+        self._raw_signal_level.add(frame.payload)
+        try:
+            activity_changed = self.activity.feed_pcm16(frame.start_sample, frame.payload)
+        except BaseException as error:
+            self._asr_slots.release()
+            await self._fail("VAD_FAILURE", _bounded_error(error))
+            return
+        if activity_changed:
+            activity_snapshot = self.timeline.apply_activity(
+                self.activity.timeline(frame.end_sample)
+            )
+            await self.events.put(self._timeline_event(activity_snapshot))
+        if self._asr_audio_route == ASR_AUDIO_ROUTE_RAW:
+            asr_pcm = frame.payload
+        else:
+            try:
+                asr_pcm, elapsed_ms = await self.runtime.preprocess_pcm(frame.payload)
+                self._record_preprocessor_metric(
+                    generation,
+                    frame.start_sample,
+                    frame.end_sample,
+                    len(frame.payload) // 2,
+                    len(asr_pcm) // 2,
+                    elapsed_ms,
+                    flush=False,
+                )
+            except BaseException as error:
+                self._asr_slots.release()
+                await self._fail("AUDIO_PREPROCESSOR_FAILURE", _bounded_error(error))
+                return
+        if asr_pcm:
+            self._asr_signal_level.add(asr_pcm)
+            if self._asr_audio_route != ASR_AUDIO_ROUTE_RAW:
+                self._append_diagnostic_asr_pcm(asr_pcm)
+            self._spawn(
+                self._asr_push_with_backpressure(
+                    generation,
+                    frame.start_sample,
+                    frame.end_sample,
+                    asr_pcm,
+                ),
+                self._asr_tasks,
+            )
+        else:
+            # Causal preprocessors may emit no PCM before their first complete
+            # window; this input still consumed its bounded ASR ingress slot.
+            self._asr_slots.release()
+        requests = self.cadence.advance(
+            frame.end_sample,
+            eligible=lambda start, end: self.activity.window(start, end).eligible_for_affect,
+        )
+        for request in requests:
+            window = self.session.pcm_window(request.start_sample, request.end_sample)
+            self._spawn(
+                self._affect_observe(
+                    generation,
+                    request.mode,
+                    request.start_sample,
+                    request.end_sample,
+                    frame.sequence + 1,
+                    window,
+                ),
+                self._emotion_tasks,
+            )
+        elapsed_second = frame.end_sample // 16_000
+        if elapsed_second > self._last_progress_second:
+            self._last_progress_second = elapsed_second
+            logger.info(
+                "speech.progress session_id=%s audio_ms=%d frames=%d affect_windows=%d "
+                "scheduler_queue=%d asr_tasks=%d emotion_tasks=%d activity=%s pcm=%s",
+                self.session.session_id,
+                round(frame.end_sample * 1_000 / 16_000),
+                self._ingress_frames,
+                len(requests),
+                self.runtime.scheduler.live_queue_depth,
+                len(self._asr_tasks),
+                len(self._emotion_tasks),
+                self.activity.state,
+                self.session.copy_metrics(),
+            )
+
+    async def finish(self, session_id: str) -> None:
+        first = self.session.begin_finish(session_id)
+        if not first:
+            return
+        if self.session.total_samples == 0:
+            await self._fail("EMPTY_UTTERANCE", "cannot finalize an empty utterance")
+            return
+        if self._asr_tasks:
+            await asyncio.gather(*tuple(self._asr_tasks), return_exceptions=True)
+        if self.session.state is SessionState.FAILED:
+            return
+        generation = self.session.generation
+        total_samples = self.session.total_samples
+        if self._asr_audio_route != ASR_AUDIO_ROUTE_RAW:
+            try:
+                tail_pcm, flush_elapsed_ms = await self.runtime.flush_audio_preprocessor()
+                self._record_preprocessor_metric(
+                    generation,
+                    max(0, total_samples - len(tail_pcm) // 2),
+                    total_samples,
+                    0,
+                    len(tail_pcm) // 2,
+                    flush_elapsed_ms,
+                    flush=True,
+                )
+                if tail_pcm:
+                    self._asr_signal_level.add(tail_pcm)
+                    self._append_diagnostic_asr_pcm(tail_pcm)
+                    await self._asr_push(
+                        generation,
+                        max(0, total_samples - len(tail_pcm) // 2),
+                        total_samples,
+                        tail_pcm,
+                    )
+            except BaseException as error:
+                await self._fail("AUDIO_PREPROCESSOR_FAILURE", _bounded_error(error))
+                return
+        if self.session.state is SessionState.FAILED:
+            return
+        self.activity.flush()
+        activity_segments = self.activity.timeline(total_samples)
+        final_span = self.activity.latest_speech_span(total_samples)
+
+        def finish_transcriber() -> TranscriptRevision:
+            try:
+                return self._transcriber_session.finish()
+            finally:
+                self._transcriber_session.close()
+
+        final_transcript_task = asyncio.create_task(
+            self._execute(
+                JobPriority.ASR_FINISH,
+                generation,
+                finish_transcriber,
+                audio_start_sample=0,
+                audio_end_sample=self.session.total_samples,
+            )
+        )
+        final_affect_task: asyncio.Task[Any] | None = None
+        if final_span is not None:
+            final_window = AffectCadence.final(
+                total_samples,
+                start_sample=final_span[0],
+            )
+            final_pcm = self.session.pcm_window(
+                final_window.start_sample,
+                final_window.end_sample,
+            )
+            final_affect_task = asyncio.create_task(
+                self._execute(
+                    JobPriority.EMOTION_FINAL,
+                    generation,
+                    lambda: self.runtime.affect_analyzer.observe(
+                        AudioWindow(
+                            samples=pcm16le_to_float32(final_pcm),
+                            sample_rate_hz=16_000,
+                            start_sample=final_window.start_sample,
+                            end_sample=final_window.end_sample,
+                            source_revision=total_samples,
+                        )
+                    ),
+                    audio_start_sample=final_window.start_sample,
+                    audio_end_sample=final_window.end_sample,
+                )
+            )
+        try:
+            final_tasks: list[asyncio.Task[Any]] = [final_transcript_task]
+            if final_affect_task is not None:
+                final_tasks.append(final_affect_task)
+            results = await asyncio.gather(*final_tasks)
+            final_transcript = results[0]
+            final_affect = results[1] if final_affect_task is not None else None
+        except BaseException as error:
+            self._asr_job_failures += 1
+            await self._fail("MODEL_FAILURE", _bounded_error(error))
+            return
+        self._transcriber_session = None
+        self.timeline.apply_transcript(
+            text=final_transcript.full_text,
+            stable_prefix=final_transcript.committed_text,
+            final=True,
+            timing_precision=final_transcript.timing_precision,
+        )
+        self._record_revision(
+            final_transcript, audio_end_sample=self.session.total_samples
+        )
+        self.timeline.apply_activity(activity_segments)
+        if final_affect is not None and final_span is not None:
+            coverage = self.activity.window(final_span[0], final_span[1])
+            final_affect = replace(
+                final_affect,
+                activity="speech",
+                voiced_ratio=coverage.voiced_ratio,
+                evidence_samples=coverage.voiced_samples,
+            )
+            snapshot = self.timeline.apply_affect(final_affect)
+        else:
+            snapshot = self.timeline.snapshot()
+        if self._diagnostic_audio is not None and self._retain_diagnostic_audio:
+            try:
+                enhanced_pcm = self._diagnostic_enhanced_pcm()
+                await asyncio.to_thread(
+                    self._diagnostic_audio.record,
+                    self.session.pcm_bytes,
+                    asr_enhanced_pcm=enhanced_pcm,
+                    asr_audio_route=(
+                        self._asr_audio_route if enhanced_pcm is not None else None
+                    ),
+                    asr_model=self._asr_model,
+                )
+                self._diagnostic_audio_saved = True
+            except BaseException as error:
+                logger.warning("speech.diagnostic_audio_save_failed kind=%s", type(error).__name__)
+        raw_level = self._raw_signal_level.payload()
+        asr_level = self._asr_signal_level.payload()
+        logger.info(
+            "speech.asr_signal session_id=%s model=%s route=%s raw_rms_dbfs=%s raw_peak_dbfs=%s "
+            "asr_rms_dbfs=%s asr_peak_dbfs=%s asr_nonzero_ratio=%.4f",
+            self.session.session_id,
+            self._asr_model,
+            self._asr_audio_route,
+            raw_level["rms_dbfs"],
+            raw_level["peak_dbfs"],
+            asr_level["rms_dbfs"],
+            asr_level["peak_dbfs"],
+            asr_level["nonzero_ratio"],
+        )
+        self.session.complete(session_id)
+        self.runtime.scheduler.invalidate_generation(generation)
+        self._cancel_tasks(self._emotion_tasks)
+        await self.events.put(self._timeline_event(snapshot))
+        await self.events.put(
+            event(
+                "utterance.final",
+                session_id=session_id,
+                asr_model=self._asr_model,
+                **self.timeline.utterance_final(),
+                metrics=self.metrics_payload(),
+            )
+        )
+        self.session.claim_terminal_event()
+        self.terminal_ready.set()
+        await self._release_once()
+
+    async def cancel(self, session_id: str) -> None:
+        if not self.session.cancel(session_id):
+            return
+        generation = self.session.generation
+        self.runtime.scheduler.invalidate_generation(generation)
+        self._cancel_tasks(self._asr_tasks)
+        self._cancel_tasks(self._emotion_tasks)
+        if self._transcriber_session is not None:
+            try:
+                await self._execute(
+                    JobPriority.ASR_FINISH,
+                    generation,
+                    self._transcriber_session.cancel,
+                    is_current=lambda _: True,
+                )
+            except BaseException:
+                pass
+            self._transcriber_session = None
+        if self.session.claim_terminal_event():
+            await self.events.put(event("session.cancelled", session_id=session_id))
+        self.terminal_ready.set()
+        await self._release_once()
+
+    async def disconnect(self) -> None:
+        if self.session.state in {SessionState.ACTIVE, SessionState.FINALIZING}:
+            assert self.session.session_id is not None
+            await self.cancel(self.session.session_id)
+        else:
+            await self._release_once()
+
+    async def fail_input(self, code: str, detail: str) -> None:
+        """Terminate an unrecoverable client-input fault exactly once."""
+        await self._fail(code, detail)
+
+    def _record_revision(self, revision: Any, *, audio_end_sample: int) -> None:
+        """Fold one ASR revision into the bounded reliability accumulator."""
+
+        if self._reliability_fault is not None:
+            return
+        try:
+            self._reliability_transcript.observe(
+                RevisionObservation(
+                    full_text=revision.full_text,
+                    stable_prefix=revision.committed_text,
+                    final=bool(getattr(revision, "final", False)),
+                    audio_end_sample=audio_end_sample,
+                    wall_monotonic_ns=time.monotonic_ns(),
+                )
+            )
+        except ReliabilityFeatureError as error:
+            self._reliability_fault = (error.reason, str(error))
+
+    async def _asr_push_with_backpressure(
+        self, generation: int, start_sample: int, end_sample: int, pcm: bytes
+    ) -> None:
+        try:
+            await self._asr_push(generation, start_sample, end_sample, pcm)
+        finally:
+            self._asr_slots.release()
+
+    async def _asr_push(
+        self, generation: int, start_sample: int, end_sample: int, pcm: bytes
+    ) -> None:
+        try:
+            revision = await self._execute(
+                JobPriority.ASR_PUSH,
+                generation,
+                lambda: self._transcriber_session.push_pcm(pcm16le_to_float32_array(pcm)),
+                audio_start_sample=start_sample,
+                audio_end_sample=end_sample,
+            )
+            if revision is not None:
+                self._record_revision(revision, audio_end_sample=end_sample)
+                snapshot = self.timeline.apply_transcript(
+                    text=revision.full_text,
+                    stable_prefix=revision.committed_text,
+                    final=False,
+                    timing_precision=revision.timing_precision,
+                )
+                await self.events.put(self._timeline_event(snapshot))
+        except asyncio.CancelledError:
+            raise
+        except JobDiscarded:
+            return
+        except BaseException as error:
+            self._asr_job_failures += 1
+            await self._fail("SERVICE_OVERLOADED" if isinstance(error, SchedulerOverloaded) else "MODEL_FAILURE", _bounded_error(error))
+
+    def _record_preprocessor_metric(
+        self,
+        generation: int,
+        start_sample: int,
+        end_sample: int,
+        input_samples: int,
+        output_samples: int,
+        elapsed_ms: int,
+        *,
+        flush: bool,
+    ) -> None:
+        if self.runtime.audio_preprocessor is None:
+            return
+        self._preprocessor_input_samples += input_samples
+        self._preprocessor_output_samples += output_samples
+        if flush:
+            self._preprocessor_flush_ms = elapsed_ms
+        else:
+            self._preprocessor_stream_elapsed_ms.append(elapsed_ms)
+        self._job_metrics.append(
+            ModelJobMetric(
+                session_generation=generation,
+                job_kind="audio_preprocessor_flush" if flush else "audio_preprocessor",
+                audio_start_sample=start_sample,
+                audio_end_sample=end_sample,
+                queue_wait_ms=0,
+                inference_ms=elapsed_ms,
+            )
+        )
+        if elapsed_ms >= 80:
+            logger.info(
+                "speech.preprocessor_slow session_id=%s kind=%s audio_end_ms=%d inference_ms=%d",
+                self.session.session_id,
+                "flush" if flush else "stream",
+                round(end_sample * 1_000 / 16_000),
+                elapsed_ms,
+            )
+
+    def _append_diagnostic_asr_pcm(self, pcm: bytes) -> None:
+        if self._diagnostic_audio is None or self.runtime.audio_preprocessor is None:
+            return
+        if self._diagnostic_asr_pcm_invalid:
+            return
+        if len(self._diagnostic_asr_pcm) + len(pcm) > self.session.bounds.max_turn_bytes:
+            self._diagnostic_asr_pcm_invalid = True
+            logger.warning("speech.diagnostic_enhanced_audio_overflow session_id=%s", self.session.session_id)
+            return
+        self._diagnostic_asr_pcm.extend(pcm)
+
+    def _diagnostic_enhanced_pcm(self) -> bytes | None:
+        if (
+            self._asr_audio_route == ASR_AUDIO_ROUTE_RAW
+            or self.runtime.audio_preprocessor is None
+            or self._diagnostic_asr_pcm_invalid
+        ):
+            return None
+        raw_length = len(self.session.pcm_bytes)
+        if len(self._diagnostic_asr_pcm) != raw_length:
+            logger.warning(
+                "speech.diagnostic_enhanced_audio_clock_mismatch session_id=%s raw_bytes=%d enhanced_bytes=%d",
+                self.session.session_id,
+                raw_length,
+                len(self._diagnostic_asr_pcm),
+            )
+            return None
+        return bytes(self._diagnostic_asr_pcm)
+
+    async def _affect_observe(
+        self,
+        generation: int,
+        mode: str,
+        start_sample: int,
+        end_sample: int,
+        source_revision: int,
+        pcm: bytes,
+    ) -> None:
+        priority = (
+            JobPriority.EMOTION_FAST if mode == "fast" else JobPriority.EMOTION_STABLE
+        )
+        try:
+            observation = await self._execute(
+                priority,
+                generation,
+                lambda: self.runtime.affect_analyzer.observe(
+                    AudioWindow(
+                        samples=pcm16le_to_float32(pcm),
+                        sample_rate_hz=16_000,
+                        start_sample=start_sample,
+                        end_sample=end_sample,
+                        source_revision=source_revision,
+                    )
+                ),
+                coalesce_key=mode,
+                audio_start_sample=start_sample,
+                audio_end_sample=end_sample,
+            )
+            coverage = self.activity.window(start_sample, end_sample)
+            observation = replace(
+                observation,
+                activity="speech",
+                voiced_ratio=coverage.voiced_ratio,
+                evidence_samples=coverage.voiced_samples,
+            )
+            snapshot = self.timeline.apply_affect(observation)
+            await self.events.put(self._timeline_event(snapshot))
+        except asyncio.CancelledError:
+            raise
+        except JobDiscarded:
+            return
+        except BaseException as error:
+            await self._fail("MODEL_FAILURE", _bounded_error(error))
+
+    async def _execute(
+        self,
+        priority: JobPriority,
+        generation: int,
+        function: Callable[[], T],
+        *,
+        is_current: Callable[[int], bool] | None = None,
+        coalesce_key: object | None = None,
+        audio_start_sample: int = 0,
+        audio_end_sample: int = 0,
+    ) -> T:
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[T] = loop.create_future()
+
+        def resolve(completion: JobCompletion[T]) -> None:
+            if future.cancelled() or future.done():
+                return
+            if not isinstance(completion.error, JobDiscarded):
+                self._job_metrics.append(
+                    ModelJobMetric(
+                        session_generation=generation,
+                        job_kind=priority.name.lower(),
+                        audio_start_sample=audio_start_sample,
+                        audio_end_sample=audio_end_sample,
+                        queue_wait_ms=completion.queue_wait_ms,
+                        inference_ms=completion.inference_ms,
+                    )
+                )
+                if completion.inference_ms >= 100 or completion.queue_wait_ms >= 100:
+                    logger.info(
+                        "speech.model_slow session_id=%s kind=%s audio_end_ms=%d "
+                        "queue_wait_ms=%d inference_ms=%d",
+                        self.session.session_id,
+                        priority.name.lower(),
+                        round(audio_end_sample * 1_000 / 16_000),
+                        completion.queue_wait_ms,
+                        completion.inference_ms,
+                    )
+            if completion.error is not None:
+                future.set_exception(completion.error)
+            else:
+                future.set_result(completion.value)  # type: ignore[arg-type]
+
+        self.runtime.scheduler.submit(
+            priority,
+            generation,
+            function,
+            is_current=is_current or self.session.is_generation_current,
+            callback=lambda completion: loop.call_soon_threadsafe(resolve, completion),
+            coalesce_key=coalesce_key,
+        )
+        self._session_max_queue_depth = max(
+            self._session_max_queue_depth,
+            self.runtime.scheduler.live_queue_depth,
+        )
+        return await future
+
+    async def _fail(self, code: str, detail: str) -> None:
+        if not self.session.fail():
+            return
+        self.runtime.scheduler.invalidate_generation(self.session.generation)
+        self._cancel_tasks(self._asr_tasks, exclude=asyncio.current_task())
+        self._cancel_tasks(self._emotion_tasks, exclude=asyncio.current_task())
+        if self._transcriber_session is not None:
+            try:
+                await self._execute(
+                    JobPriority.ASR_FINISH,
+                    self.session.generation,
+                    self._transcriber_session.cancel,
+                    is_current=lambda _: True,
+                )
+            except BaseException:
+                pass
+            self._transcriber_session = None
+        await self.events.put(
+            event("error", code=code, terminal=True, detail=detail[:512])
+        )
+        self.session.claim_terminal_event()
+        self.terminal_ready.set()
+        await self._release_once()
+
+    def _spawn(self, coroutine: Coroutine[Any, Any, None], tasks: set[asyncio.Task[None]]) -> None:
+        task = asyncio.create_task(coroutine)
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+
+    @staticmethod
+    def _cancel_tasks(
+        tasks: set[asyncio.Task[None]],
+        *,
+        exclude: asyncio.Task[Any] | None = None,
+    ) -> None:
+        for task in tuple(tasks):
+            if task is not exclude:
+                task.cancel()
+
+    async def _release_once(self) -> None:
+        if self._released:
+            return
+        self._released = True
+        await self._release(self)
+
+    def metrics_payload(self) -> dict[str, object]:
+        scheduler_current = asdict(self.runtime.scheduler.metrics)
+        scheduler_delta = {
+            key: scheduler_current[key] - self._scheduler_baseline[key]
+            for key in scheduler_current
+            if key != "max_queue_depth"
+        }
+        scheduler_delta["max_queue_depth"] = self._session_max_queue_depth
+        activity_segments = self.activity.timeline(self.session.total_samples)
+        speech_samples = sum(
+            item.end_sample - item.start_sample
+            for item in activity_segments
+            if item.state == "speech"
+        )
+        reliability_features = self._reliability_features(
+            activity_segments=activity_segments,
+            speech_samples=speech_samples,
+        )
+        return {
+            "audio_samples": self.session.total_samples,
+            "jobs": [item.as_dict() for item in self._job_metrics[-PUBLIC_JOB_METRIC_LIMIT:]],
+            "jobs_total": len(self._job_metrics),
+            "jobs_truncated": len(self._job_metrics) > PUBLIC_JOB_METRIC_LIMIT,
+            "job_summary": _job_summary(self._job_metrics),
+            "scheduler": scheduler_delta,
+            "model_load_count": {
+                "transcriber": getattr(self.runtime.transcriber, "load_count", None),
+                "transcribers": {
+                    route_id: getattr(adapter, "load_count", None)
+                    for route_id, adapter in self.runtime.transcribers.items()
+                },
+                "vocal_affect": getattr(self.runtime.affect_analyzer, "load_count", None),
+                "audio_preprocessor": (
+                    getattr(self.runtime.audio_preprocessor, "load_count", None)
+                    if self.runtime.audio_preprocessor is not None
+                    else None
+                ),
+            },
+            "resources": self.runtime.resources.snapshot(),
+            "ingress": {
+                "frames": self._ingress_frames,
+                "audio_samples": self.session.total_samples,
+                "copy": self.session.copy_metrics(),
+            },
+            "vocal_activity": {
+                **self.activity.capabilities(),
+                "speech_samples": speech_samples,
+                "speech_ratio": (
+                    speech_samples / self.session.total_samples
+                    if self.session.total_samples > 0
+                    else 0.0
+                ),
+                "segments": len(activity_segments),
+            },
+            "audio_preprocessor": {
+                "enabled": self.runtime.audio_preprocessor is not None,
+                "selected_route": self._asr_audio_route,
+                "active": self._asr_audio_route != ASR_AUDIO_ROUTE_RAW,
+                "input_samples": self._preprocessor_input_samples,
+                "output_samples": self._preprocessor_output_samples,
+                "stream_p50_ms": _percentile_int(self._preprocessor_stream_elapsed_ms, 50),
+                "stream_p95_ms": _percentile_int(self._preprocessor_stream_elapsed_ms, 95),
+                "flush_ms": self._preprocessor_flush_ms,
+                "raw_signal": self._raw_signal_level.payload(),
+                "asr_signal": self._asr_signal_level.payload(),
+            },
+            "asr": {
+                "selected_model": self._asr_model,
+                "selected_delay_ms": self._asr_delay_ms,
+                "selected_audio_route": self._asr_audio_route,
+            },
+            "vocal_affect": self.timeline.affect_diagnostics(),
+            "recognition_reliability_features": reliability_features,
+            "events": {
+                "count": self._event_count,
+                "bytes_total": self._event_bytes,
+                "max_bytes": self._event_max_bytes,
+                "encode_total_ms": self._event_encode_ms,
+                "send_p50_ms": _percentile_int(self._event_send_ms, 50),
+                "send_p95_ms": _percentile_int(self._event_send_ms, 95),
+            },
+            "diagnostic_audio": {
+                "saved": self._diagnostic_audio_saved,
+                "enabled": self._diagnostic_audio is not None,
+                "retention_requested": self._retain_diagnostic_audio,
+            },
+        }
+
+    def _reliability_features(
+        self,
+        *,
+        activity_segments: tuple[Any, ...],
+        speech_samples: int,
+    ) -> dict[str, object]:
+        """Build the bounded recognition-reliability feature payload.
+
+        Any capture fault or validation failure degrades to a typed
+        incomplete payload; it never raises out of terminal metrics.
+        """
+
+        if self._reliability_fault is not None:
+            reason, detail = self._reliability_fault
+            return incomplete_feature_payload(reason, detail)
+        try:
+            total_samples = self.session.total_samples
+            raw_signal = dict(self._raw_signal_level.payload())
+            route_signal = dict(self._asr_signal_level.payload())
+            calibration = getattr(self.activity, "config", None)
+            noise_floor = getattr(calibration, "calibration_noise_floor_dbfs", None)
+            noise_floor_source = (
+                "quiet_room_calibration"
+                if isinstance(noise_floor, float)
+                else "default_thresholds"
+            )
+            scheduler_current = asdict(self.runtime.scheduler.metrics)
+            preprocessor_capabilities: dict[str, object] = {}
+            algorithmic_delay_ms = 0
+            preprocessor_active = self._asr_audio_route != ASR_AUDIO_ROUTE_RAW
+            if (
+                preprocessor_active
+                and self.runtime.audio_preprocessor is not None
+            ):
+                preprocessor_capabilities = dict(
+                    self.runtime.audio_preprocessor.capabilities()
+                )
+                route_details = preprocessor_capabilities.get("route_details")
+                delay_value: object = preprocessor_capabilities.get(
+                    "algorithmic_latency_ms"
+                )
+                if isinstance(route_details, dict):
+                    details = route_details.get(self._asr_audio_route)
+                    if isinstance(details, dict):
+                        delay_value = details.get(
+                            "algorithmic_latency_ms", delay_value
+                        )
+                if isinstance(delay_value, int) and not isinstance(delay_value, bool):
+                    algorithmic_delay_ms = max(0, delay_value)
+            transcriber_caps = self.runtime.transcriber_capabilities(self._asr_model)
+            identities: dict[str, object] = {
+                "feature_schema": FEATURE_SCHEMA,
+                "sample_rate_hz": SAMPLE_RATE_HZ,
+                "asr_model": self._asr_model,
+                "asr_adapter_id": str(transcriber_caps.get("adapter_id", "")),
+                "asr_runtime_id": transcriber_caps.get("runtime_id"),
+                "asr_streaming_mode": transcriber_caps.get("streaming_mode"),
+                "selected_delay_ms": self._asr_delay_ms,
+                "partial_decode_interval_ms": transcriber_caps.get(
+                    "partial_decode_interval_ms"
+                ),
+                "audio_route": self._asr_audio_route,
+                "enhancer_adapter_id": preprocessor_capabilities.get("adapter_id"),
+                "enhancer_model_id": preprocessor_capabilities.get("model_id"),
+                "enhancer_model_revision": preprocessor_capabilities.get(
+                    "model_revision"
+                ),
+            }
+            return build_feature_payload(
+                identities=identities,
+                transcript=self._reliability_transcript.transcript_features(
+                    utterance_duration_ms=total_samples * 1_000 / SAMPLE_RATE_HZ
+                ),
+                raw_signal=raw_signal,
+                route_signal=route_signal,
+                noise_floor_dbfs=(
+                    noise_floor if isinstance(noise_floor, float) else None
+                ),
+                noise_floor_source=noise_floor_source,
+                speech_samples=speech_samples,
+                speech_ratio=(
+                    speech_samples / total_samples if total_samples > 0 else 0.0
+                ),
+                vad_segment_count=len(activity_segments),
+                ingress_frames=self._ingress_frames,
+                discontinuous_frames=self._discontinuous_frames,
+                route_sample_deficit=total_samples - int(route_signal["samples"]),
+                scheduler_overloads=max(
+                    0,
+                    scheduler_current["overloads"] - self._scheduler_baseline["overloads"],
+                ),
+                asr_job_failures=self._asr_job_failures,
+                preprocessor_active=preprocessor_active,
+                algorithmic_delay_ms=algorithmic_delay_ms,
+            )
+        except ReliabilityFeatureError as error:
+            return incomplete_feature_payload(error.reason, str(error))
+        except Exception as error:
+            return incomplete_feature_payload(
+                "FEATURE_CAPTURE_FAILED", type(error).__name__
+            )
+
+    def _timeline_event(self, snapshot: TimelineSnapshot) -> dict[str, object]:
+        observations = snapshot.vocal_affect.raw_observations
+        delta = observations[self._affect_observation_cursor :]
+        self._affect_observation_cursor = len(observations)
+        return _timeline_event(
+            self.session.session_id,
+            snapshot,
+            raw_observations=delta,
+        )
+
+    def record_event_sent(
+        self, *, payload_bytes: int, encode_ms: int, send_ms: int
+    ) -> None:
+        self._event_count += 1
+        self._event_bytes += payload_bytes
+        self._event_max_bytes = max(self._event_max_bytes, payload_bytes)
+        self._event_encode_ms += encode_ms
+        self._event_send_ms.append(send_ms)
+        if len(self._event_send_ms) > EVENT_TIMING_LIMIT:
+            del self._event_send_ms[:-EVENT_TIMING_LIMIT]
+        if payload_bytes >= 16 * 1024 or send_ms >= 25:
+            logger.info(
+                "speech.event_slow session_id=%s bytes=%d encode_ms=%d send_ms=%d queue=%d",
+                self.session.session_id,
+                payload_bytes,
+                encode_ms,
+                send_ms,
+                self.events.qsize(),
+            )
+
+
+def _timeline_event(
+    session_id: str | None,
+    snapshot: TimelineSnapshot,
+    *,
+    raw_observations: tuple[RawAffectObservation, ...] | None = None,
+) -> dict[str, object]:
+    observations = (
+        snapshot.vocal_affect.raw_observations
+        if raw_observations is None
+        else raw_observations
+    )
+    return event(
+        "speech_timeline.update",
+        session_id=session_id,
+        revision=snapshot.revision,
+        transcript={
+            "revision": snapshot.transcript.revision,
+            "text": snapshot.transcript.text,
+            "stable_prefix": snapshot.transcript.stable_prefix,
+            "final": snapshot.transcript.final,
+            "timing_precision": snapshot.transcript.timing_precision,
+        },
+        vocal_affect={
+            "revision": snapshot.vocal_affect.revision,
+            "replace_from_sample": snapshot.vocal_affect.replace_from_sample,
+            "raw_observations_mode": "snapshot" if raw_observations is None else "append",
+            "raw_observations_total": len(snapshot.vocal_affect.raw_observations),
+            "raw_observations": [
+                {
+                    "observation_id": item.observation_id,
+                    "start_sample": item.start_sample,
+                    "end_sample": item.end_sample,
+                    "scores": dict(item.scores),
+                    "top_label": item.top_label,
+                    "activity": item.activity,
+                    "voiced_ratio": item.voiced_ratio,
+                    "evidence_samples": item.evidence_samples,
+                }
+                for item in observations
+            ],
+            "segments": [asdict(item) for item in snapshot.vocal_affect.segments],
+            "speech_activity": [
+                asdict(item) for item in snapshot.vocal_affect.speech_activity
+            ],
+        },
+        fusion={
+            "revision": snapshot.fusion.revision,
+            "alignment_grade": snapshot.fusion.alignment_grade,
+            "spans": [],
+            "observed_vocal_expression": snapshot.fusion.observed_vocal_expression,
+        },
+    )
+
+
+def _value(value: object) -> object:
+    if is_dataclass(value):
+        return asdict(value)
+    if isinstance(value, dict):
+        return value
+    return str(value)
+
+
+def _bounded_error(error: BaseException) -> str:
+    return f"model operation failed: {type(error).__name__}"
+
+
+def _job_summary(metrics: list[ModelJobMetric]) -> dict[str, dict[str, int]]:
+    by_kind: dict[str, list[ModelJobMetric]] = {}
+    for item in metrics:
+        by_kind.setdefault(item.job_kind, []).append(item)
+    return {
+        kind: {
+            "count": len(items),
+            "queue_wait_total_ms": sum(item.queue_wait_ms for item in items),
+            "queue_wait_p50_ms": _percentile_int([item.queue_wait_ms for item in items], 50),
+            "queue_wait_p95_ms": _percentile_int([item.queue_wait_ms for item in items], 95),
+            "inference_total_ms": sum(item.inference_ms for item in items),
+            "inference_p50_ms": _percentile_int([item.inference_ms for item in items], 50),
+            "inference_p95_ms": _percentile_int([item.inference_ms for item in items], 95),
+        }
+        for kind, items in sorted(by_kind.items())
+    }
+
+
+def _percentile_int(values: list[int], percentile: int) -> int:
+    if not values:
+        return 0
+    ordered = sorted(values)
+    index = max(0, (percentile * len(ordered) + 99) // 100 - 1)
+    return ordered[index]

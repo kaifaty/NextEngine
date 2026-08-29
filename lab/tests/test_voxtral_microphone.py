@@ -59,6 +59,18 @@ class VoxtralMicrophoneTests(unittest.TestCase):
         )
         self.assertEqual([len(chunk) for chunk in chunks], [3])
 
+    def test_raw_pcm_chunks_preserve_exact_bytes_and_duration(self) -> None:
+        source = array.array("h", range(10))
+        if sys.byteorder == "big":
+            source.byteswap()
+        chunks = list(
+            voxtral_microphone.raw_pcm_chunks(
+                io.BytesIO(source.tobytes()), chunk_samples=4, max_samples=6
+            )
+        )
+        self.assertEqual([len(chunk) for chunk in chunks], [8, 4])
+        self.assertEqual(b"".join(chunks), source.tobytes()[:12])
+
     def test_alsa_capture_command_has_explicit_audio_contract(self) -> None:
         original = voxtral_microphone.shutil.which
         voxtral_microphone.shutil.which = lambda _: "/usr/bin/arecord"
