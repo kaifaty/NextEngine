@@ -4243,7 +4243,29 @@ records byte-identical Dev/two-Release stdout `329ee21f...f28c`, exact
 `612/612` legacy component correspondence, closed typed receipts and seven
 controls. The neutral
 [independent review request](../../development/nonlocal-nsr3b4e2d7r20r63zl-independent-review-request-2026-08-28.md)
-is frozen; no new recurrence checker is permitted before its verdict.
+was frozen before inspection. The initial review found a hidden full-parent
+validation before admission, an unstructured real admission-failure path,
+interleaved legacy execution, incomplete seals and unowned copy work. The
+revision-3 repair still left load-bearing work/control-seal omissions, so
+R63ZL is `INCONCLUSIVE` and authorizes no correspondence or production claim.
+
+The frozen
+[R63ZM fixed-binary trace boundary contract](03b4e2d7r20r63zm-fixed-binary-trace-boundary-contract.md)
+replaces object/API admission with an exact little-endian byte protocol and an
+independent checker. The revision-4 review found rejected-route parser and
+hidden-work gaps; revision 5 closes those findings with a complete 420-byte
+audit/static-assert chain, independent route authority and explicit model and
+unused-byte ledgers. The exact
+[freeze manifest](../../development/nonlocal-nsr3b4e2d7r20r63zm-rev5-freeze-manifest-2026-08-29.md)
+and
+[independent re-review evidence](../../development/nonlocal-nsr3b4e2d7r20r63zm-independent-rereview-evidence-2026-08-29.md)
+record `GO`: fresh Release builds are byte-identical, baseline replay is
+stable, all `56/56` controls pass twice and produce `57/57` distinct audits,
+and the required revision-4 counterexamples now take the sealed rejected
+route. This admits only the exact fixed-cache tangent boundary, six bit-exact
+direct-index products, fixed binary transport and checker work closure. It
+does not admit a recurrence, representation family, dynamic builder, corpus,
+timing, runtime, Rust, GPU, cross-target or production claim.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

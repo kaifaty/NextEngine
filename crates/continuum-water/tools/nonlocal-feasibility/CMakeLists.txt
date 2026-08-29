@@ -204,6 +204,52 @@ target_link_libraries(
     nonlocal-formula-admitted-tangent-boundary-release
     PRIVATE nonlocal-formula-reclosure-core)
 
+function(nextengine_configure_r63zm_target target optimization)
+    target_compile_features(${target} PRIVATE cxx_std_20)
+    target_compile_options(
+        ${target}
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:${optimization};-Wall;-Wextra;-Wpedantic;-Werror;-frounding-math;-fno-fast-math;-ffp-contract=off>
+    )
+    target_link_libraries(${target} PRIVATE quadmath)
+endfunction()
+
+add_executable(
+    nonlocal-formula-r63zm-raw-semantic-release
+    EXCLUDE_FROM_ALL
+    r63zm/raw_semantic_probe.cpp
+    r63zm/allocation_probe.cpp
+)
+nextengine_configure_r63zm_target(
+    nonlocal-formula-r63zm-raw-semantic-release -O3)
+
+add_executable(
+    nonlocal-formula-r63zm-product-release
+    EXCLUDE_FROM_ALL
+    r63zm/fixed_product_probe.cpp
+    r63zm/allocation_probe.cpp
+)
+nextengine_configure_r63zm_target(
+    nonlocal-formula-r63zm-product-release -O3)
+
+add_executable(
+    nonlocal-formula-r63zm-producer-release
+    EXCLUDE_FROM_ALL
+    r63zm/fixed_binary_producer.cpp
+    r63zm/allocation_probe.cpp
+)
+nextengine_configure_r63zm_target(
+    nonlocal-formula-r63zm-producer-release -O3)
+
+add_executable(
+    nonlocal-formula-r63zm-checker-release
+    EXCLUDE_FROM_ALL
+    r63zm/fixed_binary_checker.cpp
+    r63zm/allocation_probe.cpp
+)
+nextengine_configure_r63zm_target(
+    nonlocal-formula-r63zm-checker-release -O3)
+
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
     "Build the strict-FP, compile-latency-oriented formula reclosure author target"
@@ -430,4 +476,40 @@ if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
     target_compile_definitions(
         nonlocal-formula-admitted-tangent-boundary-dev PRIVATE
             NEXTENGINE_NONLOCAL_AUTHOR_BUILD=1)
+
+    add_executable(
+        nonlocal-formula-r63zm-raw-semantic-dev
+        EXCLUDE_FROM_ALL
+        r63zm/raw_semantic_probe.cpp
+        r63zm/allocation_probe.cpp
+    )
+    nextengine_configure_r63zm_target(
+        nonlocal-formula-r63zm-raw-semantic-dev -O0)
+
+    add_executable(
+        nonlocal-formula-r63zm-product-dev
+        EXCLUDE_FROM_ALL
+        r63zm/fixed_product_probe.cpp
+        r63zm/allocation_probe.cpp
+    )
+    nextengine_configure_r63zm_target(
+        nonlocal-formula-r63zm-product-dev -O0)
+
+    add_executable(
+        nonlocal-formula-r63zm-producer-dev
+        EXCLUDE_FROM_ALL
+        r63zm/fixed_binary_producer.cpp
+        r63zm/allocation_probe.cpp
+    )
+    nextengine_configure_r63zm_target(
+        nonlocal-formula-r63zm-producer-dev -O0)
+
+    add_executable(
+        nonlocal-formula-r63zm-checker-dev
+        EXCLUDE_FROM_ALL
+        r63zm/fixed_binary_checker.cpp
+        r63zm/allocation_probe.cpp
+    )
+    nextengine_configure_r63zm_target(
+        nonlocal-formula-r63zm-checker-dev -O0)
 endif()
