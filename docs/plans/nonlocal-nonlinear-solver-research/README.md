@@ -4308,6 +4308,17 @@ final verdict is `NO-GO / R63ZN INCONCLUSIVE`. Its review budget is exhausted,
 so there is no second repair/re-review and no reviewed prefix or wider
 authority.
 
+The frozen
+[R63ZO contract](03b4e2d7r20r63zo-rounded-update-product-enclosure-contract.md)
+starts a materially different bounded question from reviewed R63ZM. It uses
+the exact IEEE binary128 rounding-preimage of the witnessed `x0 -> x1` update
+and the adjacent reviewed `H*x0/H*x1` products to enclose the missing first
+`H*p0`. Tight `|H|` and cancellation-free `sigma|T|(|T|^T u)` bounds are
+compared; direct `H*p0` is a late falsifying oracle only. The first step is an
+offset-only feasibility preflight, not another checker package. It cannot
+generate `x1`, admit R63ZN, recover `H*p1`, select a representation or grant
+runtime/production authority.
+
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
 and
