@@ -3,6 +3,7 @@
 #include "../r63zm/fixed_sha256.hpp"
 
 #include <array>
+#include <cfenv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -34,7 +35,15 @@ constexpr const char* ROLE2_VALUE_SHA256 =
 constexpr const char* CHECKER_ROOT_SHA256 =
     "b4a7969c6676b30e87fff470f95e9c098f8951b2a477314213c359c6164c80b4";
 enum CandidateWorkSlot : std::size_t {
+    RoundingModeSetCalls,
+    RoundingModeChecks,
+    InputReadAttempts,
+    InputOpenCalls,
+    InputSeekCalls,
+    InputTellCalls,
     InputReadCalls,
+    InputTrailingChecks,
+    InputCloseCalls,
     InputReadBytes,
     InputHashCalls,
     InputHashBytes,
@@ -68,6 +77,7 @@ enum CandidateWorkSlot : std::size_t {
     PositivityChecks,
     CanonicalRootCalls,
     CanonicalRootBytes,
+    Role2ValueRootComparisons,
     StructuralRootCalls,
     StructuralRootBytes,
     EventRootCalls,
@@ -77,16 +87,26 @@ enum CandidateWorkSlot : std::size_t {
     ResultRootCalls,
     ResultRootBytes,
     ReceiptFieldsWritten,
+    ReceiptOpenCalls,
     ReceiptWriteCalls,
+    ReceiptCloseCalls,
     ReceiptWriteBytes,
     RouteDecisions,
+    ControlSelectorChecks,
+    ControlSelectorBytes,
+    ControlFixtureMutations,
+    ControlSmallSolveCalls,
+    ControlSmallSolveTerms,
+    ControlSmallSolveDivisions,
+    ControlWitnessOperations,
+    ControlWitnessChecks,
     ReceiptZeroFillBytes,
     PackageAllocations,
     CandidateWorkSlotCount,
 };
 constexpr std::size_t WORK_COUNTERS = CandidateWorkSlotCount;
 constexpr std::size_t EVENTS = 7U;
-constexpr std::size_t RECEIPT_BYTES = 1216U;
+constexpr std::size_t RECEIPT_BYTES = 1368U;
 constexpr std::size_t RECEIPT_VERSION_OFFSET = 8U;
 constexpr std::size_t RECEIPT_SIZE_OFFSET = 12U;
 constexpr std::size_t RECEIPT_ROUTE_OFFSET = 20U;
@@ -110,10 +130,10 @@ constexpr std::size_t RECEIPT_RESIDUAL_BOUND_ROOT_OFFSET = 440U;
 constexpr std::size_t RECEIPT_Z0_ROOT_OFFSET = 472U;
 constexpr std::size_t RECEIPT_RHO_ROOT_OFFSET = 504U;
 constexpr std::size_t RECEIPT_WORK_OFFSET = 536U;
-constexpr std::size_t RECEIPT_EVENT_COUNT_OFFSET = 920U;
-constexpr std::size_t RECEIPT_EVENTS_OFFSET = 928U;
-constexpr std::size_t RECEIPT_TRACE_ROOT_OFFSET = 1152U;
-constexpr std::size_t RECEIPT_RESULT_ROOT_OFFSET = 1184U;
+constexpr std::size_t RECEIPT_EVENT_COUNT_OFFSET = 1072U;
+constexpr std::size_t RECEIPT_EVENTS_OFFSET = 1080U;
+constexpr std::size_t RECEIPT_TRACE_ROOT_OFFSET = 1304U;
+constexpr std::size_t RECEIPT_RESULT_ROOT_OFFSET = 1336U;
 static_assert(RECEIPT_WORK_OFFSET + WORK_COUNTERS * 8U
     == RECEIPT_EVENT_COUNT_OFFSET);
 static_assert(RECEIPT_EVENT_COUNT_OFFSET + 8U == RECEIPT_EVENTS_OFFSET);
@@ -121,6 +141,63 @@ static_assert(RECEIPT_EVENTS_OFFSET + EVENTS * 32U
     == RECEIPT_TRACE_ROOT_OFFSET);
 static_assert(RECEIPT_TRACE_ROOT_OFFSET + 32U == RECEIPT_RESULT_ROOT_OFFSET);
 static_assert(RECEIPT_RESULT_ROOT_OFFSET + 32U == RECEIPT_BYTES);
+
+enum class Control : std::uint32_t {
+    None = 0U,
+    X0Mismatch = 1U,
+    PrefixUnderflow = 2U,
+    RhoNonpositive = 3U,
+    SmallSolve = 4U,
+    StateDifference = 5U,
+    Invalid = 6U,
+};
+
+struct ControlChoice final {
+    Control value = Control::None;
+    std::uint64_t selector_checks = 0U;
+    std::uint64_t selector_bytes = 0U;
+};
+
+ControlChoice parse_control(int argc, const char* text) noexcept {
+    ControlChoice choice;
+    if (argc == 5) return choice;
+    const std::size_t length = std::strlen(text);
+    choice.selector_bytes = length + 1U;
+    auto matches = [&](const char* expected,
+        std::size_t expected_length) noexcept {
+        ++choice.selector_checks;
+        if (length != expected_length) return false;
+        choice.selector_bytes += length;
+        return std::memcmp(text, expected, length) == 0;
+    };
+    if (matches("r63zn-x0-mismatch-v1",
+            sizeof("r63zn-x0-mismatch-v1") - 1U)) {
+        choice.value = Control::X0Mismatch;
+        return choice;
+    }
+    if (matches("r63zn-prefix-underflow-v1",
+            sizeof("r63zn-prefix-underflow-v1") - 1U)) {
+        choice.value = Control::PrefixUnderflow;
+        return choice;
+    }
+    if (matches("r63zn-rho-nonpositive-v1",
+            sizeof("r63zn-rho-nonpositive-v1") - 1U)) {
+        choice.value = Control::RhoNonpositive;
+        return choice;
+    }
+    if (matches("r63zn-small-solve-v1",
+            sizeof("r63zn-small-solve-v1") - 1U)) {
+        choice.value = Control::SmallSolve;
+        return choice;
+    }
+    if (matches("r63zn-state-difference-v1",
+            sizeof("r63zn-state-difference-v1") - 1U)) {
+        choice.value = Control::StateDifference;
+        return choice;
+    }
+    choice.value = Control::Invalid;
+    return choice;
+}
 
 struct ByteSpan {
     const std::uint8_t* data = nullptr;
@@ -199,7 +276,10 @@ public:
         valid_ = valid_ && condition;
     }
 
-    bool complete() const noexcept { return valid_ && cursor_ == end_; }
+    bool complete() noexcept {
+        ++predicates_;
+        return valid_ && cursor_ == end_;
+    }
     std::uint64_t reads() const noexcept { return reads_; }
     std::uint64_t byte_count() const noexcept { return bytes_; }
     std::uint64_t predicates() const noexcept { return predicates_; }
@@ -511,10 +591,89 @@ Solve solve(const std::array<Q, FACTOR_N>& upper,
     return result;
 }
 
+struct ControlAccounting final {
+    std::uint64_t fixture_mutations = 0U;
+    std::uint64_t small_solve_calls = 0U;
+    std::uint64_t small_solve_terms = 0U;
+    std::uint64_t small_solve_divisions = 0U;
+    std::uint64_t witness_operations = 0U;
+    std::uint64_t witness_checks = 0U;
+};
+
+bool run_small_solve_control(ControlAccounting& accounting) noexcept {
+    ++accounting.small_solve_calls;
+    constexpr std::size_t count = 3U;
+    const std::array<Q, count * count> upper{{
+        static_cast<Q>(2.0), static_cast<Q>(1.0), static_cast<Q>(-1.0),
+        static_cast<Q>(0.0), static_cast<Q>(3.0), static_cast<Q>(2.0),
+        static_cast<Q>(0.0), static_cast<Q>(0.0), static_cast<Q>(4.0)}};
+    const std::array<Q, count> rhs{{static_cast<Q>(-6.0),
+        static_cast<Q>(-3.0), static_cast<Q>(51.0)}};
+    const std::array<Q, count> expected{{static_cast<Q>(1.0),
+        static_cast<Q>(-2.0), static_cast<Q>(3.0)}};
+    std::array<Q, count> forward{};
+    for (std::size_t row = 0U; row < count; ++row) {
+        Q sum = static_cast<Q>(0.0);
+        for (std::size_t column = 0U; column < row; ++column) {
+            sum += upper[column * count + row] * forward[column];
+            ++accounting.small_solve_terms;
+        }
+        forward[row] = (rhs[row] - sum) / upper[row * count + row];
+        ++accounting.small_solve_divisions;
+    }
+    std::array<Q, count> solution{};
+    for (std::size_t remaining = count; remaining > 0U;) {
+        const std::size_t row = --remaining;
+        Q sum = static_cast<Q>(0.0);
+        for (std::size_t column = row + 1U; column < count; ++column) {
+            sum += upper[row * count + column] * solution[column];
+            ++accounting.small_solve_terms;
+        }
+        solution[row] = (forward[row] - sum) / upper[row * count + row];
+        ++accounting.small_solve_divisions;
+    }
+    bool exact = true;
+    for (std::size_t index = 0U; index < count; ++index) {
+        exact = exact && std::memcmp(&solution[index], &expected[index],
+            sizeof(Q)) == 0;
+        ++accounting.witness_checks;
+    }
+    return exact && accounting.small_solve_terms == 6U
+        && accounting.small_solve_divisions == 6U;
+}
+
+bool run_state_difference_control(ControlAccounting& accounting) noexcept {
+    const Q x0 = static_cast<Q>(1.0);
+    const Q direction = static_cast<Q>(1.0)
+        * ldexpq(static_cast<Q>(1.0), -113);
+    ++accounting.witness_operations;
+    const Q x1 = x0 + direction;
+    ++accounting.witness_operations;
+    const Q state_difference = x1 - x0;
+    ++accounting.witness_operations;
+    const Q reconstructed = state_difference / static_cast<Q>(1.0);
+    ++accounting.witness_operations;
+    bool valid = std::memcmp(&x1, &x0, sizeof(Q)) == 0;
+    ++accounting.witness_checks;
+    valid = valid && direction != static_cast<Q>(0.0);
+    ++accounting.witness_checks;
+    valid = valid && state_difference == static_cast<Q>(0.0);
+    ++accounting.witness_checks;
+    valid = valid && reconstructed == static_cast<Q>(0.0);
+    ++accounting.witness_checks;
+    return valid;
+}
+
 template <std::size_t Size>
 struct FileObservation final {
     std::array<std::uint8_t, Size> bytes{};
     std::uint64_t observed_size = 0U;
+    std::uint64_t open_calls = 0U;
+    std::uint64_t seek_calls = 0U;
+    std::uint64_t tell_calls = 0U;
+    std::uint64_t read_calls = 0U;
+    std::uint64_t trailing_checks = 0U;
+    std::uint64_t close_calls = 0U;
     std::uint64_t bytes_read = 0U;
     r63zm::Digest root{};
     bool exact = false;
@@ -522,26 +681,41 @@ struct FileObservation final {
 
 template <std::size_t Size>
 void read_file(const char* path, FileObservation<Size>& observation) noexcept {
+    ++observation.open_calls;
     std::FILE* file = std::fopen(path, "rb");
     if (file == nullptr) return;
+    ++observation.seek_calls;
     if (std::fseek(file, 0L, SEEK_END) != 0) {
+        ++observation.close_calls;
         static_cast<void>(std::fclose(file));
         return;
     }
+    ++observation.tell_calls;
     const long size = std::ftell(file);
-    if (size < 0L || std::fseek(file, 0L, SEEK_SET) != 0) {
+    if (size < 0L) {
+        ++observation.close_calls;
+        static_cast<void>(std::fclose(file));
+        return;
+    }
+    ++observation.seek_calls;
+    if (std::fseek(file, 0L, SEEK_SET) != 0) {
+        ++observation.close_calls;
         static_cast<void>(std::fclose(file));
         return;
     }
     observation.observed_size = static_cast<std::uint64_t>(size);
     if (observation.observed_size != Size) {
+        ++observation.close_calls;
         static_cast<void>(std::fclose(file));
         return;
     }
+    ++observation.read_calls;
     const std::size_t count = std::fread(observation.bytes.data(), 1U,
         observation.bytes.size(), file);
     observation.bytes_read = count;
+    ++observation.trailing_checks;
     const int trailing = std::fgetc(file);
+    ++observation.close_calls;
     const int close = std::fclose(file);
     observation.exact = count == observation.bytes.size() && trailing == EOF
         && close == 0;
@@ -698,6 +872,18 @@ r63zm::Digest q_vector_root(const std::array<Q, Count>& values) noexcept {
     return hash.finish();
 }
 
+template <std::size_t Count>
+r63zm::Digest parent_q_vector_root(
+    const std::array<Q, Count>& values) noexcept {
+    r63zm::Sha256 hash;
+    hash_tlv_text(hash, 1U,
+        "nextengine.nonlocal.r63zm.binary128-vector.v1");
+    hash_tlv_u64(hash, 2U, Count);
+    hash_tlv_header(hash, 3U, Count * 16U);
+    for (Q value : values) hash.update(canonical_q(value));
+    return hash.finish();
+}
+
 r63zm::Digest binary64_factor_root(ByteSpan values,
     std::uint64_t count) noexcept {
     r63zm::Sha256 hash;
@@ -795,7 +981,7 @@ r63zm::Digest result_root(std::uint64_t route,
     const r63zm::Digest& trace, const r63zm::Digest& work) noexcept {
     r63zm::Sha256 hash;
     hash_tlv_text(hash, 1U, "nextengine.nonlocal.r63zn.result.v1");
-    hash_tlv_u64(hash, 2U, 2U);
+    hash_tlv_u64(hash, 2U, 3U);
     hash_tlv_u64(hash, 3U, route);
     hash_tlv_header(hash, 4U, inputs.size() * 32U);
     for (const r63zm::Digest& input : inputs) hash.update(input);
@@ -873,19 +1059,39 @@ bool write_early_rejection(std::uint32_t route,
     const char* output_path) noexcept {
     const std::uint64_t input_bytes = cache.bytes_read + artifact.bytes_read
         + audit.bytes_read;
+    const std::uint64_t input_open_calls = cache.open_calls
+        + artifact.open_calls + audit.open_calls;
+    const std::uint64_t input_seek_calls = cache.seek_calls
+        + artifact.seek_calls + audit.seek_calls;
+    const std::uint64_t input_tell_calls = cache.tell_calls
+        + artifact.tell_calls + audit.tell_calls;
+    const std::uint64_t input_read_calls = cache.read_calls
+        + artifact.read_calls + audit.read_calls;
+    const std::uint64_t input_trailing_checks = cache.trailing_checks
+        + artifact.trailing_checks + audit.trailing_checks;
+    const std::uint64_t input_close_calls = cache.close_calls
+        + artifact.close_calls + audit.close_calls;
     const std::uint64_t hash_calls = (cache.exact ? 1U : 0U)
         + (artifact.exact ? 1U : 0U) + (audit.exact ? 1U : 0U);
     const std::uint64_t hash_bytes = (cache.exact ? CACHE_BYTES : 0U)
         + (artifact.exact ? ARTIFACT_BYTES : 0U)
         + (audit.exact ? AUDIT_BYTES : 0U);
     const std::uint64_t work_root_bytes =
-        std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 419U;
+        std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 571U;
     const std::uint64_t trace_bytes =
         std::strlen("nextengine.nonlocal.r63zn.trace.v1") + 52U;
     const std::uint64_t result_bytes =
         std::strlen("nextengine.nonlocal.r63zn.result.v1") + 247U;
     std::array<std::uint64_t, WORK_COUNTERS> work{};
-    work[InputReadCalls] = read_calls;
+    work[RoundingModeSetCalls] = 1U;
+    work[RoundingModeChecks] = 1U;
+    work[InputReadAttempts] = read_calls;
+    work[InputOpenCalls] = input_open_calls;
+    work[InputSeekCalls] = input_seek_calls;
+    work[InputTellCalls] = input_tell_calls;
+    work[InputReadCalls] = input_read_calls;
+    work[InputTrailingChecks] = input_trailing_checks;
+    work[InputCloseCalls] = input_close_calls;
     work[InputReadBytes] = input_bytes;
     work[InputHashCalls] = hash_calls;
     work[InputHashBytes] = hash_bytes;
@@ -900,8 +1106,10 @@ bool write_early_rejection(std::uint32_t route,
     work[TraceRootBytes] = trace_bytes;
     work[ResultRootCalls] = 1U;
     work[ResultRootBytes] = result_bytes;
-    work[ReceiptFieldsWritten] = 83U;
+    work[ReceiptFieldsWritten] = 102U;
+    work[ReceiptOpenCalls] = 1U;
     work[ReceiptWriteCalls] = 1U;
+    work[ReceiptCloseCalls] = 1U;
     work[ReceiptWriteBytes] = RECEIPT_BYTES;
     work[RouteDecisions] = route_decisions;
     work[ReceiptZeroFillBytes] = RECEIPT_BYTES;
@@ -921,7 +1129,7 @@ bool write_early_rejection(std::uint32_t route,
     constexpr std::array<std::uint8_t, 8U> receipt_magic{{
         'N','E','R','6','3','Z','N','1'}};
     std::memcpy(receipt.data(), receipt_magic.data(), receipt_magic.size());
-    put_be32(receipt.data() + RECEIPT_VERSION_OFFSET, 2U);
+    put_be32(receipt.data() + RECEIPT_VERSION_OFFSET, 3U);
     put_be64(receipt.data() + RECEIPT_SIZE_OFFSET, RECEIPT_BYTES);
     put_be32(receipt.data() + RECEIPT_ROUTE_OFFSET, route);
     receipt[RECEIPT_FLAGS_OFFSET] = 0U;
@@ -958,10 +1166,175 @@ bool write_early_rejection(std::uint32_t route,
     return write_file(output_path, receipt);
 }
 
+using SemanticRoots = std::array<r63zm::Digest, 12U>;
+
+std::array<std::uint64_t, WORK_COUNTERS> make_prefix_work(
+    const FileObservation<CACHE_BYTES>& cache,
+    const FileObservation<ARTIFACT_BYTES>& artifact,
+    const FileObservation<AUDIT_BYTES>& audit,
+    const CacheSelection& selection, std::uint64_t artifact_checks,
+    std::uint64_t audit_checks, const ControlChoice& control,
+    const ControlAccounting& control_work, std::uint64_t factor_solves,
+    std::uint64_t factor_terms, std::uint64_t factor_divisions,
+    std::uint64_t solve_finite_checks, std::uint64_t baseline_comparisons,
+    std::uint64_t residual_updates, std::uint64_t residual_dot_calls,
+    std::uint64_t residual_dot_terms, std::uint64_t rho_dot_calls,
+    std::uint64_t rho_dot_terms, std::uint64_t two_products,
+    std::uint64_t two_sums, std::uint64_t positivity_checks,
+    std::uint64_t canonical_root_calls,
+    std::uint64_t canonical_root_bytes, std::size_t event_count,
+    std::uint64_t route_decisions) noexcept {
+    constexpr std::uint64_t input_bytes =
+        CACHE_BYTES + ARTIFACT_BYTES + AUDIT_BYTES;
+    const std::uint64_t structural_root_bytes =
+        std::strlen("nextengine.nonlocal.r63zn.input-bundle.v1") + 323U
+        + std::strlen("nextengine.nonlocal.r63zn.parent-set.v1") + 131U
+        + std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 571U;
+    const std::uint64_t event_root_bytes = event_count
+        * (std::strlen("nextengine.nonlocal.r63zn.event.v1") + 108U);
+    const std::uint64_t trace_root_bytes =
+        std::strlen("nextengine.nonlocal.r63zn.trace.v1") + 52U
+        + event_count * 32U;
+    const std::uint64_t result_root_bytes =
+        std::strlen("nextengine.nonlocal.r63zn.result.v1") + 247U;
+    std::array<std::uint64_t, WORK_COUNTERS> work{};
+    work[RoundingModeSetCalls] = 1U;
+    work[RoundingModeChecks] = 1U;
+    work[InputReadAttempts] = 3U;
+    work[InputOpenCalls] = cache.open_calls + artifact.open_calls
+        + audit.open_calls;
+    work[InputSeekCalls] = cache.seek_calls + artifact.seek_calls
+        + audit.seek_calls;
+    work[InputTellCalls] = cache.tell_calls + artifact.tell_calls
+        + audit.tell_calls;
+    work[InputReadCalls] = cache.read_calls + artifact.read_calls
+        + audit.read_calls;
+    work[InputTrailingChecks] = cache.trailing_checks
+        + artifact.trailing_checks + audit.trailing_checks;
+    work[InputCloseCalls] = cache.close_calls + artifact.close_calls
+        + audit.close_calls;
+    work[InputReadBytes] = input_bytes;
+    work[InputHashCalls] = 3U;
+    work[InputHashBytes] = input_bytes;
+    work[CacheTakeCalls] = selection.parse_reads;
+    work[CacheTakeBytes] = selection.parse_bytes;
+    work[CachePredicates] = selection.parse_predicates;
+    work[ParentArtifactChecks] = artifact_checks;
+    work[ParentAuditChecks] = audit_checks;
+    work[FactorDecodes] = FACTOR_N;
+    work[PermutationDecodes] = N;
+    work[QuadDecodes] = 3U * N + 1U;
+    work[FactorFiniteChecks] = FACTOR_N;
+    work[PermutationRangeChecks] = N;
+    work[PermutationUniquenessChecks] = N;
+    work[QuadFiniteChecks] = 3U * N + 1U;
+    work[InversePositiveChecks] = 1U;
+    work[FactorSolves] = factor_solves;
+    work[FactorTerms] = factor_terms;
+    work[FactorDivisions] = factor_divisions;
+    work[SolveFiniteChecks] = solve_finite_checks;
+    work[BaselineComparisons] = baseline_comparisons;
+    work[ResidualUpdates] = residual_updates;
+    work[ResidualDotCalls] = residual_dot_calls;
+    work[ResidualDotTerms] = residual_dot_terms;
+    work[RhoDotCalls] = rho_dot_calls;
+    work[RhoDotTerms] = rho_dot_terms;
+    work[TwoProducts] = two_products;
+    work[TwoSums] = two_sums;
+    work[DotExactChecks] = residual_dot_calls + rho_dot_calls;
+    work[DotUnderflowChecks] = residual_dot_calls + rho_dot_calls;
+    work[PositivityChecks] = positivity_checks;
+    work[CanonicalRootCalls] = canonical_root_calls;
+    work[CanonicalRootBytes] = canonical_root_bytes;
+    work[Role2ValueRootComparisons] = 1U;
+    work[StructuralRootCalls] = 3U;
+    work[StructuralRootBytes] = structural_root_bytes;
+    work[EventRootCalls] = event_count;
+    work[EventRootBytes] = event_root_bytes;
+    work[TraceRootCalls] = 1U;
+    work[TraceRootBytes] = trace_root_bytes;
+    work[ResultRootCalls] = 1U;
+    work[ResultRootBytes] = result_root_bytes;
+    work[ReceiptFieldsWritten] = 102U;
+    work[ReceiptOpenCalls] = 1U;
+    work[ReceiptWriteCalls] = 1U;
+    work[ReceiptCloseCalls] = 1U;
+    work[ReceiptWriteBytes] = RECEIPT_BYTES;
+    work[RouteDecisions] = route_decisions;
+    work[ControlSelectorChecks] = control.selector_checks;
+    work[ControlSelectorBytes] = control.selector_bytes;
+    work[ControlFixtureMutations] = control_work.fixture_mutations;
+    work[ControlSmallSolveCalls] = control_work.small_solve_calls;
+    work[ControlSmallSolveTerms] = control_work.small_solve_terms;
+    work[ControlSmallSolveDivisions] = control_work.small_solve_divisions;
+    work[ControlWitnessOperations] = control_work.witness_operations;
+    work[ControlWitnessChecks] = control_work.witness_checks;
+    work[ReceiptZeroFillBytes] = RECEIPT_BYTES;
+    work[PackageAllocations] = 0U;
+    return work;
+}
+
+bool write_prefix_receipt(std::uint32_t route,
+    const std::array<std::uint8_t, 3U>& flags,
+    const FileObservation<CACHE_BYTES>& cache,
+    const FileObservation<ARTIFACT_BYTES>& artifact,
+    const FileObservation<AUDIT_BYTES>& audit,
+    const SemanticRoots& semantic,
+    const std::array<std::uint64_t, WORK_COUNTERS>& work,
+    const r63zm::Digest& candidate_work_root,
+    const std::array<r63zm::Digest, EVENTS>& events,
+    std::size_t event_count, const char* output_path) noexcept {
+    const std::array<r63zm::Digest, 3U> inputs{{
+        cache.root, artifact.root, audit.root}};
+    const r63zm::Digest trace = trace_root(route, events, event_count);
+    const r63zm::Digest result = result_root(
+        route, inputs, trace, candidate_work_root);
+    std::array<std::uint8_t, RECEIPT_BYTES> receipt{};
+    constexpr std::array<std::uint8_t, 8U> magic{{
+        'N','E','R','6','3','Z','N','1'}};
+    std::memcpy(receipt.data(), magic.data(), magic.size());
+    put_be32(receipt.data() + RECEIPT_VERSION_OFFSET, 3U);
+    put_be64(receipt.data() + RECEIPT_SIZE_OFFSET, RECEIPT_BYTES);
+    put_be32(receipt.data() + RECEIPT_ROUTE_OFFSET, route);
+    for (std::size_t index = 0U; index < flags.size(); ++index)
+        receipt[RECEIPT_FLAGS_OFFSET + index] = flags[index];
+    put_be64(receipt.data() + RECEIPT_CACHE_SIZE_OFFSET,
+        cache.observed_size);
+    put_digest(receipt.data() + RECEIPT_CACHE_ROOT_OFFSET, cache.root);
+    put_be64(receipt.data() + RECEIPT_ARTIFACT_SIZE_OFFSET,
+        artifact.observed_size);
+    put_digest(receipt.data() + RECEIPT_ARTIFACT_ROOT_OFFSET, artifact.root);
+    put_be64(receipt.data() + RECEIPT_AUDIT_SIZE_OFFSET,
+        audit.observed_size);
+    put_digest(receipt.data() + RECEIPT_AUDIT_ROOT_OFFSET, audit.root);
+    constexpr std::array<std::size_t, 12U> offsets{{
+        RECEIPT_BUNDLE_ROOT_OFFSET, RECEIPT_FACTOR_ROOT_OFFSET,
+        RECEIPT_PERMUTATION_ROOT_OFFSET, RECEIPT_INVERSE_ROOT_OFFSET,
+        RECEIPT_RHS_ROOT_OFFSET, RECEIPT_BASELINE0_ROOT_OFFSET,
+        RECEIPT_X0_ROOT_OFFSET, RECEIPT_HX0_ROOT_OFFSET,
+        RECEIPT_RESIDUAL_ROOT_OFFSET, RECEIPT_RESIDUAL_BOUND_ROOT_OFFSET,
+        RECEIPT_Z0_ROOT_OFFSET, RECEIPT_RHO_ROOT_OFFSET}};
+    for (std::size_t index = 0U; index < offsets.size(); ++index)
+        put_digest(receipt.data() + offsets[index], semantic[index]);
+    for (std::size_t index = 0U; index < work.size(); ++index)
+        put_be64(receipt.data() + RECEIPT_WORK_OFFSET + index * 8U,
+            work[index]);
+    put_be64(receipt.data() + RECEIPT_EVENT_COUNT_OFFSET, event_count);
+    for (std::size_t index = 0U; index < events.size(); ++index)
+        put_digest(receipt.data() + RECEIPT_EVENTS_OFFSET + index * 32U,
+            events[index]);
+    put_digest(receipt.data() + RECEIPT_TRACE_ROOT_OFFSET, trace);
+    put_digest(receipt.data() + RECEIPT_RESULT_ROOT_OFFSET, result);
+    return write_file(output_path, receipt);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 5) return 64;
+    if (argc != 5 && argc != 6) return 64;
+    if (std::fesetround(FE_TONEAREST) != 0
+        || std::fegetround() != FE_TONEAREST)
+        return 67;
     FileObservation<CACHE_BYTES> cache_file;
     FileObservation<ARTIFACT_BYTES> artifact_file;
     FileObservation<AUDIT_BYTES> audit_file;
@@ -1050,154 +1423,217 @@ int main(int argc, char** argv) {
     const Q inverse = little_q(selection.inverse, 0U);
     q_inputs_finite = q_inputs_finite && finiteq(inverse) != 0;
     const bool inverse_positive = inverse > static_cast<Q>(0.0);
-    const Solve start = solve(upper, permutation, rhs, inverse);
+    const ControlChoice control = parse_control(argc,
+        argc == 6 ? argv[5] : nullptr);
+    if (control.value == Control::Invalid) return 64;
+    ControlAccounting control_work;
+    if (control.value == Control::SmallSolve
+        && !run_small_solve_control(control_work))
+        return 68;
+    if (control.value == Control::StateDifference
+        && !run_state_difference_control(control_work))
+        return 68;
+
+    Solve start = solve(upper, permutation, rhs, inverse);
+    if (control.value == Control::X0Mismatch) {
+        start.solution[0U] = nextafterq(start.solution[0U], HUGE_VALQ);
+        ++control_work.fixture_mutations;
+    }
     std::size_t x0_matches = 0U;
     for (std::size_t index = 0U; index < N; ++index)
         x0_matches += std::memcmp(&start.solution[index], &baseline0[index],
             sizeof(Q)) == 0 ? 1U : 0U;
+    const bool common_valid = factor_inputs_finite && permutation_exact
+        && q_inputs_finite && inverse_positive && start.exact
+        && start.finite_checks == 613U;
+    if (!common_valid) return 68;
+
+    const r63zm::Digest factor_digest = binary64_factor_root(
+        selection.factor.bytes, selection.factor.count);
+    const r63zm::Digest permutation_digest = permutation_root(permutation);
+    const r63zm::Digest inverse_digest = q_scalar_root(
+        "nextengine.nonlocal.r63zn.inverse-scale.v1", inverse);
+    const r63zm::Digest rhs_digest = q_vector_root(rhs);
+    const r63zm::Digest baseline_digest = q_vector_root(baseline0);
+    const r63zm::Digest x0_digest = q_vector_root(start.solution);
+    const r63zm::Digest hx0_digest = q_vector_root(hx0);
+    const r63zm::Digest parent_hx0_digest = parent_q_vector_root(hx0);
+    if (!digest_equal_hex(parent_hx0_digest, ROLE2_VALUE_SHA256)) return 68;
+    const std::array<r63zm::Digest, 9U> bundle_fields{{cache_root,
+        artifact_root, audit_root, factor_digest, permutation_digest,
+        inverse_digest, rhs_digest, baseline_digest, hx0_digest}};
+    const r63zm::Digest bundle_digest = digest_set_root(
+        "nextengine.nonlocal.r63zn.input-bundle.v1", bundle_fields);
+    const std::array<r63zm::Digest, 3U> input_roots{{cache_root,
+        artifact_root, audit_root}};
+    const r63zm::Digest parent_set_digest = digest_set_root(
+        "nextengine.nonlocal.r63zn.parent-set.v1", input_roots);
+    SemanticRoots semantic{{bundle_digest, factor_digest,
+        permutation_digest, inverse_digest, rhs_digest, baseline_digest,
+        x0_digest, hx0_digest, {}, {}, {}, {}}};
+    const std::uint64_t common_canonical_bytes =
+        4U * (std::strlen(
+            "nextengine.nonlocal.r63zn.binary128-vector.v1") + 1667U)
+        + std::strlen("nextengine.nonlocal.r63zn.binary64-factor.v1")
+            + 83284U
+        + std::strlen("nextengine.nonlocal.r63zn.permutation.v1") + 851U
+        + std::strlen("nextengine.nonlocal.r63zn.inverse-scale.v1") + 34U
+        + std::strlen("nextengine.nonlocal.r63zm.binary128-vector.v1")
+            + 1667U;
+
+    if (x0_matches != N) {
+        constexpr std::size_t event_count = 2U;
+        const auto work = make_prefix_work(cache_file, artifact_file,
+            audit_file, selection, artifact_checks,
+            audit_checks, control, control_work, 1U,
+            start.forward_terms + start.backward_terms, start.divisions,
+            start.finite_checks, N, 0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U,
+            8U, common_canonical_bytes, event_count, 8U);
+        const r63zm::Digest work_digest = work_root(work);
+        std::array<r63zm::Digest, EVENTS> events{};
+        events[0U] = event_root(0U, parent_set_digest, bundle_digest);
+        events[1U] = event_root(1U, bundle_digest, factor_digest);
+        constexpr std::array<std::uint8_t, 3U> flags{{1U, 1U, 0U}};
+        return write_prefix_receipt(4U, flags, cache_file, artifact_file,
+            audit_file, semantic, work, work_digest, events, event_count,
+            argv[4]) ? 0 : 69;
+    }
+    if (control.value == Control::X0Mismatch) return 68;
 
     std::array<Q, N> residual{};
     std::array<Q, N> residual_bound{};
     bool residual_exact = true;
     bool residual_no_underflow = true;
+    std::size_t residual_updates = 0U;
     std::size_t residual_products = 0U;
     std::size_t residual_sums = 0U;
     const Q one = static_cast<Q>(1.0);
     for (std::size_t index = 0U; index < N; ++index) {
-        const std::array<Q, 2U> left{rhs[index], -hx0[index]};
-        const std::array<Q, 2U> right{one, one};
+        std::array<Q, 2U> left{{rhs[index], -hx0[index]}};
+        const std::array<Q, 2U> right{{one, one}};
+        if (control.value == Control::PrefixUnderflow && index == 0U) {
+            left[0U] = ldexpq(one, -16494);
+            left[1U] = static_cast<Q>(0.0);
+            control_work.fixture_mutations += 2U;
+        }
         const Dot2 dot = dot2(left.data(), right.data(), left.size());
         residual[index] = dot.value;
         residual_bound[index] = dot.bound;
         residual_exact = residual_exact && dot.exact;
         residual_no_underflow = residual_no_underflow && dot.no_underflow;
+        ++residual_updates;
         residual_products += dot.products;
         residual_sums += dot.sums;
+        if (!dot.exact || !dot.no_underflow) break;
     }
+    if (!residual_exact || !residual_no_underflow) {
+        constexpr std::size_t event_count = 4U;
+        const auto work = make_prefix_work(cache_file, artifact_file,
+            audit_file, selection, artifact_checks,
+            audit_checks, control, control_work, 1U,
+            start.forward_terms + start.backward_terms, start.divisions,
+            start.finite_checks, N, residual_updates, residual_updates,
+            2U * residual_updates, 0U, 0U, residual_products,
+            residual_sums, 0U, 8U, common_canonical_bytes, event_count, 9U);
+        const r63zm::Digest work_digest = work_root(work);
+        std::array<r63zm::Digest, EVENTS> events{};
+        events[0U] = event_root(0U, parent_set_digest, bundle_digest);
+        events[1U] = event_root(1U, bundle_digest, factor_digest);
+        events[2U] = event_root(2U, x0_digest, baseline_digest);
+        events[3U] = event_root(3U, hx0_digest, artifact_root);
+        constexpr std::array<std::uint8_t, 3U> flags{{1U, 1U, 0U}};
+        return write_prefix_receipt(5U, flags, cache_file, artifact_file,
+            audit_file, semantic, work, work_digest, events, event_count,
+            argv[4]) ? 0 : 69;
+    }
+    if (control.value == Control::PrefixUnderflow) return 68;
+    if (residual_updates != N || residual_products != 2U * N
+        || residual_sums != N)
+        return 68;
+
     const Solve preconditioned = solve(upper, permutation, residual, inverse);
-    const Dot2 rho = dot2(residual.data(), preconditioned.solution.data(), N);
+    if (!preconditioned.exact || preconditioned.finite_checks != 613U)
+        return 68;
+    const r63zm::Digest residual_digest = q_vector_root(residual);
+    const r63zm::Digest residual_bound_digest = q_vector_root(residual_bound);
+    const r63zm::Digest z0_digest = q_vector_root(preconditioned.solution);
+    const Q* rho_right_values = preconditioned.solution.data();
+    if (control.value == Control::RhoNonpositive) {
+        for (std::size_t index = 0U; index < N; ++index) {
+            start.solution[index] = -preconditioned.solution[index];
+            ++control_work.fixture_mutations;
+        }
+        rho_right_values = start.solution.data();
+    }
+    const Dot2 rho = dot2(residual.data(), rho_right_values, N);
     const Q rho_lower = rho.value - rho.bound;
     const bool positive = rho.exact && rho.no_underflow
         && rho_lower > static_cast<Q>(0.0);
-    const bool success = factor_inputs_finite && permutation_exact
-        && q_inputs_finite && inverse_positive && start.exact
-        && start.finite_checks == 613U && x0_matches == N
-        && residual_exact && residual_no_underflow
-        && residual_products == 204U && residual_sums == 102U
-        && preconditioned.exact && preconditioned.finite_checks == 613U
-        && rho.products == 102U
-        && rho.sums == 101U && positive;
-    if (!success) return 68;
-
-    const r63zm::Digest factor_root = binary64_factor_root(
-        selection.factor.bytes, selection.factor.count);
-    const r63zm::Digest perm_root = permutation_root(permutation);
-    const r63zm::Digest inverse_root = q_scalar_root(
-        "nextengine.nonlocal.r63zn.inverse-scale.v1", inverse);
-    const r63zm::Digest rhs_root = q_vector_root(rhs);
-    const r63zm::Digest baseline_root = q_vector_root(baseline0);
-    const r63zm::Digest x_root = q_vector_root(start.solution);
-    const r63zm::Digest hx_root = q_vector_root(hx0);
-    const r63zm::Digest residual_root = q_vector_root(residual);
-    const r63zm::Digest residual_bounds_root = q_vector_root(residual_bound);
-    const r63zm::Digest z_root = q_vector_root(preconditioned.solution);
-    const r63zm::Digest rho0_root = rho_root(rho);
-    const std::array<r63zm::Digest, 9U> bundle_fields{{
-        cache_root, artifact_root, audit_root, factor_root, perm_root,
-        inverse_root, rhs_root, baseline_root, hx_root}};
-    const r63zm::Digest bundle_root = digest_set_root(
-        "nextengine.nonlocal.r63zn.input-bundle.v1", bundle_fields);
-    const std::array<r63zm::Digest, 3U> input_roots{{
-        cache_root, artifact_root, audit_root}};
-    const r63zm::Digest parent_set_root = digest_set_root(
-        "nextengine.nonlocal.r63zn.parent-set.v1", input_roots);
-
-    constexpr std::uint64_t input_bytes =
-        CACHE_BYTES + ARTIFACT_BYTES + AUDIT_BYTES;
-    const std::uint64_t canonical_root_bytes =
-        7U * (std::strlen(
+    if (!rho.exact || !rho.no_underflow || rho.products != N
+        || rho.sums != N - 1U)
+        return 68;
+    const r63zm::Digest rho_digest = rho_root(rho);
+    semantic[8U] = residual_digest;
+    semantic[9U] = residual_bound_digest;
+    semantic[10U] = z0_digest;
+    semantic[11U] = rho_digest;
+    const std::uint64_t full_canonical_bytes = common_canonical_bytes
+        + 3U * (std::strlen(
             "nextengine.nonlocal.r63zn.binary128-vector.v1") + 1667U)
-        + (std::strlen(
-            "nextengine.nonlocal.r63zn.binary64-factor.v1") + 83284U)
-        + (std::strlen(
-            "nextengine.nonlocal.r63zn.permutation.v1") + 851U)
-        + (std::strlen(
-            "nextengine.nonlocal.r63zn.inverse-scale.v1") + 34U)
-        + (std::strlen("nextengine.nonlocal.r63zn.rho0.v1") + 118U);
-    const std::uint64_t bundle_work_root_bytes =
-        std::strlen("nextengine.nonlocal.r63zn.input-bundle.v1") + 323U
-        + std::strlen("nextengine.nonlocal.r63zn.parent-set.v1") + 131U
-        + std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 419U;
-    const std::uint64_t event_root_bytes = EVENTS
-        * (std::strlen("nextengine.nonlocal.r63zn.event.v1") + 108U);
-    const std::uint64_t trace_root_bytes =
-        std::strlen("nextengine.nonlocal.r63zn.trace.v1") + 276U;
-    const std::uint64_t result_root_bytes =
-        std::strlen("nextengine.nonlocal.r63zn.result.v1") + 247U;
-    const std::array<std::uint64_t, WORK_COUNTERS> work{{
-        3U, input_bytes, 3U, input_bytes,
-        selection.parse_reads, selection.parse_bytes,
-        selection.parse_predicates, artifact_checks, audit_checks,
-        FACTOR_N, N, 3U * N + 1U,
-        FACTOR_N, N, N, 3U * N + 1U, 1U,
-        2U, 20604U, 408U, 1226U, N,
-        N, N, 2U * N, 1U, N,
-        3U * N, 2U * N - 1U, N + 1U, N + 1U, 1U,
-        11U, canonical_root_bytes, 3U, bundle_work_root_bytes,
-        EVENTS, event_root_bytes, 1U, trace_root_bytes,
-        1U, result_root_bytes, 83U, 1U, RECEIPT_BYTES, 10U,
-        RECEIPT_BYTES, 0U}};
-    const r63zm::Digest candidate_work_root = work_root(work);
-    const std::array<r63zm::Digest, EVENTS> events{{
-        event_root(0U, parent_set_root, bundle_root),
-        event_root(1U, bundle_root, factor_root),
-        event_root(2U, x_root, baseline_root),
-        event_root(3U, hx_root, artifact_root),
-        event_root(4U, residual_root, residual_bounds_root),
-        event_root(5U, z_root, factor_root),
-        event_root(6U, rho0_root, candidate_work_root)}};
-    constexpr std::uint64_t route = 7U;
-    const r63zm::Digest trace = trace_root(route, events, EVENTS);
-    const r63zm::Digest result = result_root(
-        route, input_roots, trace, candidate_work_root);
+        + std::strlen("nextengine.nonlocal.r63zn.rho0.v1") + 118U;
+    const std::uint64_t total_factor_terms = start.forward_terms
+        + start.backward_terms + preconditioned.forward_terms
+        + preconditioned.backward_terms;
+    const std::uint64_t total_factor_divisions = start.divisions
+        + preconditioned.divisions;
+    const std::uint64_t total_solve_finite = start.finite_checks
+        + preconditioned.finite_checks;
+    const std::uint64_t total_products = residual_products + rho.products;
+    const std::uint64_t total_sums = residual_sums + rho.sums;
 
-    std::array<std::uint8_t, RECEIPT_BYTES> receipt{};
-    constexpr std::array<std::uint8_t, 8U> receipt_magic{
-        'N','E','R','6','3','Z','N','1'};
-    std::memcpy(receipt.data(), receipt_magic.data(), receipt_magic.size());
-    put_be32(receipt.data() + RECEIPT_VERSION_OFFSET, 2U);
-    put_be64(receipt.data() + RECEIPT_SIZE_OFFSET, RECEIPT_BYTES);
-    put_be32(receipt.data() + RECEIPT_ROUTE_OFFSET, route);
-    receipt[RECEIPT_FLAGS_OFFSET] = 1U;
-    receipt[RECEIPT_FLAGS_OFFSET + 1U] = 1U;
-    receipt[RECEIPT_FLAGS_OFFSET + 2U] = 1U;
-    put_be64(receipt.data() + RECEIPT_CACHE_SIZE_OFFSET, CACHE_BYTES);
-    put_digest(receipt.data() + RECEIPT_CACHE_ROOT_OFFSET, cache_root);
-    put_be64(receipt.data() + RECEIPT_ARTIFACT_SIZE_OFFSET, ARTIFACT_BYTES);
-    put_digest(receipt.data() + RECEIPT_ARTIFACT_ROOT_OFFSET, artifact_root);
-    put_be64(receipt.data() + RECEIPT_AUDIT_SIZE_OFFSET, AUDIT_BYTES);
-    put_digest(receipt.data() + RECEIPT_AUDIT_ROOT_OFFSET, audit_root);
-    put_digest(receipt.data() + RECEIPT_BUNDLE_ROOT_OFFSET, bundle_root);
-    put_digest(receipt.data() + RECEIPT_FACTOR_ROOT_OFFSET, factor_root);
-    put_digest(receipt.data() + RECEIPT_PERMUTATION_ROOT_OFFSET, perm_root);
-    put_digest(receipt.data() + RECEIPT_INVERSE_ROOT_OFFSET, inverse_root);
-    put_digest(receipt.data() + RECEIPT_RHS_ROOT_OFFSET, rhs_root);
-    put_digest(receipt.data() + RECEIPT_BASELINE0_ROOT_OFFSET, baseline_root);
-    put_digest(receipt.data() + RECEIPT_X0_ROOT_OFFSET, x_root);
-    put_digest(receipt.data() + RECEIPT_HX0_ROOT_OFFSET, hx_root);
-    put_digest(receipt.data() + RECEIPT_RESIDUAL_ROOT_OFFSET, residual_root);
-    put_digest(receipt.data() + RECEIPT_RESIDUAL_BOUND_ROOT_OFFSET,
-        residual_bounds_root);
-    put_digest(receipt.data() + RECEIPT_Z0_ROOT_OFFSET, z_root);
-    put_digest(receipt.data() + RECEIPT_RHO_ROOT_OFFSET, rho0_root);
-    for (std::size_t index = 0U; index < work.size(); ++index)
-        put_be64(receipt.data() + RECEIPT_WORK_OFFSET + index * 8U,
-            work[index]);
-    put_be64(receipt.data() + RECEIPT_EVENT_COUNT_OFFSET, EVENTS);
-    for (std::size_t index = 0U; index < events.size(); ++index)
-        put_digest(receipt.data() + RECEIPT_EVENTS_OFFSET + index * 32U,
-            events[index]);
-    put_digest(receipt.data() + RECEIPT_TRACE_ROOT_OFFSET, trace);
-    put_digest(receipt.data() + RECEIPT_RESULT_ROOT_OFFSET, result);
-    return write_file(argv[4], receipt) ? 0 : 69;
+    if (!positive) {
+        constexpr std::size_t event_count = 6U;
+        const auto work = make_prefix_work(cache_file, artifact_file,
+            audit_file, selection, artifact_checks,
+            audit_checks, control, control_work, 2U,
+            total_factor_terms, total_factor_divisions, total_solve_finite,
+            N, residual_updates, residual_updates, 2U * residual_updates,
+            1U, N, total_products, total_sums, 1U, 12U,
+            full_canonical_bytes, event_count, 10U);
+        const r63zm::Digest work_digest = work_root(work);
+        std::array<r63zm::Digest, EVENTS> events{};
+        events[0U] = event_root(0U, parent_set_digest, bundle_digest);
+        events[1U] = event_root(1U, bundle_digest, factor_digest);
+        events[2U] = event_root(2U, x0_digest, baseline_digest);
+        events[3U] = event_root(3U, hx0_digest, artifact_root);
+        events[4U] = event_root(4U, residual_digest,
+            residual_bound_digest);
+        events[5U] = event_root(5U, z0_digest, factor_digest);
+        constexpr std::array<std::uint8_t, 3U> flags{{1U, 1U, 0U}};
+        return write_prefix_receipt(6U, flags, cache_file, artifact_file,
+            audit_file, semantic, work, work_digest, events, event_count,
+            argv[4]) ? 0 : 69;
+    }
+    if (control.value == Control::RhoNonpositive) return 68;
+
+    constexpr std::size_t event_count = EVENTS;
+    const auto work = make_prefix_work(cache_file, artifact_file, audit_file,
+        selection, artifact_checks,
+        audit_checks, control, control_work, 2U, total_factor_terms,
+        total_factor_divisions, total_solve_finite, N, residual_updates,
+        residual_updates, 2U * residual_updates, 1U, N, total_products,
+        total_sums, 1U, 12U, full_canonical_bytes, event_count, 10U);
+    const r63zm::Digest work_digest = work_root(work);
+    const std::array<r63zm::Digest, EVENTS> events{{
+        event_root(0U, parent_set_digest, bundle_digest),
+        event_root(1U, bundle_digest, factor_digest),
+        event_root(2U, x0_digest, baseline_digest),
+        event_root(3U, hx0_digest, artifact_root),
+        event_root(4U, residual_digest, residual_bound_digest),
+        event_root(5U, z0_digest, factor_digest),
+        event_root(6U, rho_digest, work_digest)}};
+    constexpr std::array<std::uint8_t, 3U> flags{{1U, 1U, 1U}};
+    return write_prefix_receipt(7U, flags, cache_file, artifact_file,
+        audit_file, semantic, work, work_digest, events, event_count,
+        argv[4]) ? 0 : 69;
 }

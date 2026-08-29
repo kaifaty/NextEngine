@@ -208,6 +208,78 @@ nonpositive-lower-bound controls; every work counter still needs individual
 resealed mutation; event deletion/duplication/reordering and fresh independent
 review remain pending. R63ZN grants no admitted recurrence result.
 
+## Complete author package checkpoint
+
+The final author package supersedes the accepted-only and early-rejection
+checkpoints above. The candidate now has all eight frozen terminal routes:
+input, parent-artifact, parent-audit and cache-semantic rejection; `x0`
+correspondence rejection; prefix exactness/underflow rejection; nonpositive
+`rho0` rejection; and accepted prefix. Selector parsing occurs only after the
+three exact inputs are admitted, so no late control adds work to an early
+route.
+
+The fixed revision-3 receipt is `1368` bytes. Its `67`-field candidate ledger
+owns rounding mode, logical and physical file operations, exact bytes read and
+hashed, cursor work including the terminal predicate, all selected-field
+decodes/checks, two solves and compensated dots, parent-domain role-2
+comparison, every semantic/structural/event/trace/result root, classifier
+decisions, control-only arithmetic, receipt construction and the zero-allocation
+claim. The independently coded checker emits a `676`-byte audit with a separate
+`48`-field ledger, including receipt padding scans and audit I/O. It derives the
+candidate route before reading the published route and uses its own cursor,
+solve, Dot2, roots, work model and final classifier.
+
+The external mutator and Python runner are test apparatus only. They are not
+linked into or invoked by candidate/checker authority. The runner exercises
+`116/116` cases:
+
+- baseline plus all missing/short/trailing/same-size input failures;
+- typed cache and parent-artifact mutations;
+- `x0`, underflow, nonpositive-`rho0`, independent 3-by-3 solve and
+  state-difference entrypoint controls;
+- all six mutable semantic roots and every one of the 67 work fields under
+  complete resealing;
+- event deletion, duplication and reordering, route, malformed receipt and
+  terminal seal mutation; and
+- three wrong-selector/receipt pairings.
+
+All `116` checker audits are distinct. Two Release runs and two independent
+clean Release builds produce the same `41698`-byte report
+`745eafba951678bb584e79bf569b554468355c17ff564fdd3e553f10bc264a02`.
+The Dev report has different executable identities, but its complete control
+record array is byte-for-byte equal to Release. Every candidate and checker
+invocation has empty stdout and the exact 50-byte allocation receipt with zero
+calls and bytes.
+
+| Item | SHA-256 |
+|---|---|
+| candidate source | `e782332da862d0b0347af96b227e1e59bc9209de315ac249c92f3fd924d642c4` |
+| checker source | `10ddc3b0ef4414d33d40a8da6340d512d5a0872a689b770d99cabb82b40a62cb` |
+| receipt mutator source | `4259ade66c0984ff08869e41c34302632eeac0fa9ce70988ae97376ebc46f707` |
+| control runner source | `592075606615df76d5c28b89206c5158fabce74f38036de9d3e2f3e8c00b5b49` |
+| Dev candidate binary | `725ab44cbff15d730a77d1b022a5edd233911150be30e3aa9b137f633f59fcc5` |
+| Dev checker binary | `46a9c387e46cd6bac72c728da913321d214e8257e12d8c8c3f56c4ef36dca1f2` |
+| Dev mutator binary | `7e9b3759fad60b89776093834864808bb6420c843b1c67f5dca5b9c879be5a41` |
+| clean Release A/B candidate binary | `ea497b3306d60a1ff9dab6cf08f59285bb5190f4145581fa61e9fc8815499f9e` |
+| clean Release A/B checker binary | `e3d5a729593c71c6edb5e9e34e4bba838f65d870133332a7d1bffbdfd7ae355b` |
+| clean Release A/B mutator binary | `bc2ef0f22337806ddaa8efb611bf93b77540aed123bc457435f822d138a7d125` |
+| accepted receipt | `e0015763eec6f77854568505da47d5874de389ecd505c91c5537e6b12a9af8da` |
+| accepted checker audit | `d0a98ac66b06847278469bf36f7781dd2eaf886bd157cc8fbbb3cf9e739d2cc3` |
+
+The accepted trace is
+`6aa6f881294eb5b68b20e778ed608a4ad4499a12207de7474a6832a68ebad908`,
+the terminal result is
+`3303938b7b2dca351324302e1da0ddb43f3059ac7b6ad2238dfde943fec49963`,
+and the checker root is
+`000de639269409d6edc6862bbab167316e030c3480b7492987b345e924d82b32`.
+ASan/UBSan with leak detection disabled passes the same `116/116` corpus;
+LeakSanitizer is not claimed. A fresh R63ZM checker run reproduces its exact
+420-byte audit `fd4bcf00...1f80`, with empty stdout and zero allocations.
+
+This is hash-closed author evidence, not an independent verdict. Until a fresh
+read-only review returns `GO`, R63ZN is not reviewed and grants no recurrence,
+certificate, portable-representation or production authority.
+
 ## Exact structural evidence
 
 R63ZM's raw probe maps cache vectors as:
@@ -268,9 +340,9 @@ still `Proposed`; ADR-081 guardrails remain binding. The package is not a
 public contract or production consumer, uses no runtime state, and cannot
 authorize a portable representation or wider roadmap stage.
 
-The smallest next action is to implement the separate checker, independently
-reconstruct the accepted receipt/work/events, then add fixed rejection
-receipts and the mutation corpus. If the independently solved `x0`
-does not match the role-2 input or the consumed product cannot reproduce the
-certified-positive initial prefix, stop R63ZN rather than importing later
-cached states or widening the claim.
+The smallest next action is a fresh read-only review of the exact frozen
+candidate, checker, mutator, runner, contract, input identities, binaries and
+control report. If review finds shared authority, an unowned semantic or work
+path, an ambiguous first-failure route, a resealed mutation that passes, or an
+identity mismatch, repair the frozen package before interpreting the prefix.
+Do not import later cached states or widen the claim.

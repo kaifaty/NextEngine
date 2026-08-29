@@ -3,6 +3,7 @@
 #include "../r63zm/fixed_sha256.hpp"
 
 #include <array>
+#include <cfenv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -20,12 +21,20 @@ using Digest = r63zm::Digest;
 constexpr std::size_t CACHE_SIZE = 1033625U;
 constexpr std::size_t PARENT_SIZE = 12916U;
 constexpr std::size_t PARENT_AUDIT_SIZE = 420U;
-constexpr std::size_t RECEIPT_SIZE = 1216U;
+constexpr std::size_t RECEIPT_SIZE = 1368U;
 constexpr std::size_t DIMENSION = 102U;
 constexpr std::size_t FACTOR_COMPONENTS = DIMENSION * DIMENSION;
 constexpr std::size_t ROLE_TWO_VALUES = 5436U;
 enum CandidateWorkSlot : std::size_t {
+    RoundingModeSetCalls,
+    RoundingModeChecks,
+    InputReadAttempts,
+    InputOpenCalls,
+    InputSeekCalls,
+    InputTellCalls,
     InputReadCalls,
+    InputTrailingChecks,
+    InputCloseCalls,
     InputReadBytes,
     InputHashCalls,
     InputHashBytes,
@@ -59,6 +68,7 @@ enum CandidateWorkSlot : std::size_t {
     PositivityChecks,
     CanonicalRootCalls,
     CanonicalRootBytes,
+    Role2ValueRootComparisons,
     StructuralRootCalls,
     StructuralRootBytes,
     EventRootCalls,
@@ -68,9 +78,19 @@ enum CandidateWorkSlot : std::size_t {
     ResultRootCalls,
     ResultRootBytes,
     ReceiptFieldsWritten,
+    ReceiptOpenCalls,
     ReceiptWriteCalls,
+    ReceiptCloseCalls,
     ReceiptWriteBytes,
     RouteDecisions,
+    ControlSelectorChecks,
+    ControlSelectorBytes,
+    ControlFixtureMutations,
+    ControlSmallSolveCalls,
+    ControlSmallSolveTerms,
+    ControlSmallSolveDivisions,
+    ControlWitnessOperations,
+    ControlWitnessChecks,
     ReceiptZeroFillBytes,
     PackageAllocations,
     CandidateWorkSlotCount,
@@ -101,10 +121,10 @@ constexpr std::size_t RESIDUAL_BOUND_ROOT_AT = 440U;
 constexpr std::size_t Z0_ROOT_AT = 472U;
 constexpr std::size_t RHO_ROOT_AT = 504U;
 constexpr std::size_t CANDIDATE_WORK_AT = 536U;
-constexpr std::size_t EVENT_COUNT_AT = 920U;
-constexpr std::size_t EVENTS_AT = 928U;
-constexpr std::size_t TRACE_AT = 1152U;
-constexpr std::size_t RESULT_AT = 1184U;
+constexpr std::size_t EVENT_COUNT_AT = 1072U;
+constexpr std::size_t EVENTS_AT = 1080U;
+constexpr std::size_t TRACE_AT = 1304U;
+constexpr std::size_t RESULT_AT = 1336U;
 
 static_assert(CANDIDATE_WORK_AT + CANDIDATE_WORK_FIELDS * 8U
     == EVENT_COUNT_AT);
@@ -128,15 +148,71 @@ constexpr const char* ROLE_TWO_VALUE_ID =
 constexpr const char* PARENT_CHECKER_ID =
     "b4a7969c6676b30e87fff470f95e9c098f8951b2a477314213c359c6164c80b4";
 
-constexpr std::size_t CHECKER_WORK_FIELDS = 32U;
-constexpr std::size_t CHECKER_AUDIT_SIZE = 548U;
+enum class Control : std::uint32_t {
+    None = 0U,
+    X0Mismatch = 1U,
+    PrefixUnderflow = 2U,
+    RhoNonpositive = 3U,
+    SmallSolve = 4U,
+    StateDifference = 5U,
+    Invalid = 6U,
+};
+
+struct ControlChoice final {
+    Control value = Control::None;
+    std::uint64_t selector_checks = 0U;
+    std::uint64_t selector_bytes = 0U;
+};
+
+ControlChoice decode_control(int argc, const char* text) noexcept {
+    ControlChoice choice;
+    if (argc == 6) return choice;
+    const std::size_t text_size = std::strlen(text);
+    choice.selector_bytes = text_size + 1U;
+    auto same = [&](const char* expected, std::size_t expected_size) noexcept {
+        ++choice.selector_checks;
+        if (text_size != expected_size) return false;
+        choice.selector_bytes += text_size;
+        return std::memcmp(text, expected, text_size) == 0;
+    };
+    if (same("r63zn-x0-mismatch-v1",
+            sizeof("r63zn-x0-mismatch-v1") - 1U)) {
+        choice.value = Control::X0Mismatch;
+        return choice;
+    }
+    if (same("r63zn-prefix-underflow-v1",
+            sizeof("r63zn-prefix-underflow-v1") - 1U)) {
+        choice.value = Control::PrefixUnderflow;
+        return choice;
+    }
+    if (same("r63zn-rho-nonpositive-v1",
+            sizeof("r63zn-rho-nonpositive-v1") - 1U)) {
+        choice.value = Control::RhoNonpositive;
+        return choice;
+    }
+    if (same("r63zn-small-solve-v1",
+            sizeof("r63zn-small-solve-v1") - 1U)) {
+        choice.value = Control::SmallSolve;
+        return choice;
+    }
+    if (same("r63zn-state-difference-v1",
+            sizeof("r63zn-state-difference-v1") - 1U)) {
+        choice.value = Control::StateDifference;
+        return choice;
+    }
+    choice.value = Control::Invalid;
+    return choice;
+}
+
+constexpr std::size_t CHECKER_WORK_FIELDS = 48U;
+constexpr std::size_t CHECKER_AUDIT_SIZE = 676U;
 constexpr std::size_t CHECKER_SIZES_AT = 28U;
 constexpr std::size_t CHECKER_ROOTS_AT = 60U;
 constexpr std::size_t CHECKER_WORK_COUNT_AT = 188U;
 constexpr std::size_t CHECKER_WORK_AT = 196U;
-constexpr std::size_t CHECKER_OBSERVED_RESULT_AT = 452U;
-constexpr std::size_t CHECKER_REPLAY_RESULT_AT = 484U;
-constexpr std::size_t CHECKER_RESULT_AT = 516U;
+constexpr std::size_t CHECKER_OBSERVED_RESULT_AT = 580U;
+constexpr std::size_t CHECKER_REPLAY_RESULT_AT = 612U;
+constexpr std::size_t CHECKER_RESULT_AT = 644U;
 static_assert(CHECKER_SIZES_AT + 4U * 8U == CHECKER_ROOTS_AT);
 static_assert(CHECKER_ROOTS_AT + 4U * 32U == CHECKER_WORK_COUNT_AT);
 static_assert(CHECKER_WORK_COUNT_AT + 8U == CHECKER_WORK_AT);
@@ -147,6 +223,8 @@ static_assert(CHECKER_REPLAY_RESULT_AT + 32U == CHECKER_RESULT_AT);
 static_assert(CHECKER_RESULT_AT + 32U == CHECKER_AUDIT_SIZE);
 
 struct CheckerWork final {
+    std::uint64_t rounding_mode_set_calls = 0U;
+    std::uint64_t rounding_mode_checks = 0U;
     std::uint64_t logical_file_reads = 0U;
     std::uint64_t file_open_calls = 0U;
     std::uint64_t file_stat_calls = 0U;
@@ -168,29 +246,53 @@ struct CheckerWork final {
     std::uint64_t two_products = 0U;
     std::uint64_t two_sums = 0U;
     std::uint64_t arithmetic_checks = 0U;
+    std::uint64_t role2_value_root_comparisons = 0U;
     std::uint64_t receipt_header_checks = 0U;
+    std::uint64_t receipt_padding_bytes_scanned = 0U;
     std::uint64_t semantic_bytes_compared = 0U;
     std::uint64_t work_fields_compared = 0U;
     std::uint64_t event_fields_compared = 0U;
     std::uint64_t seal_fields_compared = 0U;
-    std::uint64_t route_checks = 0U;
+    std::uint64_t cache_identity_checks = 0U;
+    std::uint64_t candidate_route_decisions = 0U;
+    std::uint64_t checker_route_decisions = 0U;
+    std::uint64_t control_selector_checks = 0U;
+    std::uint64_t control_selector_bytes = 0U;
+    std::uint64_t control_fixture_mutations = 0U;
+    std::uint64_t control_small_solve_calls = 0U;
+    std::uint64_t control_small_solve_terms = 0U;
+    std::uint64_t control_small_solve_divisions = 0U;
+    std::uint64_t control_witness_operations = 0U;
+    std::uint64_t control_witness_checks = 0U;
     std::uint64_t audit_root_bytes = 0U;
+    std::uint64_t audit_open_calls = 0U;
     std::uint64_t audit_write_calls = 0U;
+    std::uint64_t audit_close_calls = 0U;
     std::uint64_t audit_write_bytes = 0U;
     std::uint64_t package_allocations = 0U;
     std::uint64_t audit_zero_fill_bytes = 0U;
 
     std::array<std::uint64_t, CHECKER_WORK_FIELDS> fields() const noexcept {
-        return {{logical_file_reads, file_open_calls, file_stat_calls,
+        return {{rounding_mode_set_calls, rounding_mode_checks,
+            logical_file_reads, file_open_calls, file_stat_calls,
             file_close_calls, file_bytes, hash_calls, hash_bytes,
             parent_checks, cursor_takes, cursor_bytes, cursor_predicates,
             scalar_loads, factor_solves, factor_terms, factor_divisions,
             baseline_comparisons, dot_calls, dot_terms, two_products,
-            two_sums, arithmetic_checks, receipt_header_checks,
+            two_sums, arithmetic_checks, role2_value_root_comparisons,
+            receipt_header_checks, receipt_padding_bytes_scanned,
             semantic_bytes_compared, work_fields_compared,
-            event_fields_compared, seal_fields_compared, route_checks,
-            audit_root_bytes, audit_write_calls, audit_write_bytes,
-            package_allocations, audit_zero_fill_bytes}};
+            event_fields_compared, seal_fields_compared,
+            cache_identity_checks, candidate_route_decisions,
+            checker_route_decisions,
+            control_selector_checks, control_selector_bytes,
+            control_fixture_mutations,
+            control_small_solve_calls, control_small_solve_terms,
+            control_small_solve_divisions, control_witness_operations,
+            control_witness_checks,
+            audit_root_bytes, audit_open_calls, audit_write_calls,
+            audit_close_calls, audit_write_bytes, package_allocations,
+            audit_zero_fill_bytes}};
     }
 };
 
@@ -198,7 +300,9 @@ template <std::size_t Size>
 struct FileImage final {
     std::array<std::uint8_t, Size> bytes{};
     std::uint64_t observed_size = 0U;
+    std::uint64_t bytes_read = 0U;
     Digest root{};
+    bool opened = false;
     bool exact = false;
 };
 
@@ -209,6 +313,7 @@ void load_exact(const char* path, FileImage<Size>& image,
     const int descriptor = open(path, O_RDONLY);
     ++work.file_open_calls;
     if (descriptor < 0) return;
+    image.opened = true;
     struct stat metadata {};
     ++work.file_stat_calls;
     if (fstat(descriptor, &metadata) != 0 || metadata.st_size < 0) {
@@ -226,6 +331,7 @@ void load_exact(const char* path, FileImage<Size>& image,
             offset += static_cast<std::size_t>(count);
         }
         work.file_bytes += offset;
+        image.bytes_read = offset;
         image.exact = offset == Size;
     }
     ++work.file_close_calls;
@@ -407,7 +513,8 @@ public:
         return {take(static_cast<std::size_t>(count) * width), count};
     }
 
-    bool complete() const noexcept {
+    bool complete() noexcept {
+        ++work_.cursor_predicates;
         return ok_ && position_ == bytes_.size();
     }
 
@@ -627,6 +734,71 @@ LinearSolve replay_factor(const std::array<Quad, FACTOR_COMPONENTS>& upper,
     return result;
 }
 
+struct CandidateControlAccounting final {
+    std::uint64_t fixture_mutations = 0U;
+    std::uint64_t small_solve_calls = 0U;
+    std::uint64_t small_solve_terms = 0U;
+    std::uint64_t small_solve_divisions = 0U;
+    std::uint64_t witness_operations = 0U;
+    std::uint64_t witness_checks = 0U;
+};
+
+bool independently_check_small_solve(CandidateControlAccounting& candidate,
+    CheckerWork& work) noexcept {
+    candidate.small_solve_calls = 1U;
+    candidate.small_solve_terms = 6U;
+    candidate.small_solve_divisions = 6U;
+    candidate.witness_checks = 3U;
+    ++work.control_small_solve_calls;
+    work.control_small_solve_terms += 6U;
+    work.control_small_solve_divisions += 6U;
+    const Quad forward0 = static_cast<Quad>(-6.0)
+        / static_cast<Quad>(2.0);
+    const Quad forward1 = (static_cast<Quad>(-3.0)
+        - static_cast<Quad>(1.0) * forward0) / static_cast<Quad>(3.0);
+    const Quad forward2 = (static_cast<Quad>(51.0)
+        - static_cast<Quad>(-1.0) * forward0
+        - static_cast<Quad>(2.0) * forward1) / static_cast<Quad>(4.0);
+    const Quad solution2 = forward2 / static_cast<Quad>(4.0);
+    const Quad solution1 = (forward1 - static_cast<Quad>(2.0) * solution2)
+        / static_cast<Quad>(3.0);
+    const Quad solution0 = (forward0 - static_cast<Quad>(1.0) * solution1
+        - static_cast<Quad>(-1.0) * solution2) / static_cast<Quad>(2.0);
+    const std::array<Quad, 3U> actual{{solution0, solution1, solution2}};
+    const std::array<Quad, 3U> expected{{static_cast<Quad>(1.0),
+        static_cast<Quad>(-2.0), static_cast<Quad>(3.0)}};
+    bool exact = true;
+    for (std::size_t index = 0U; index < actual.size(); ++index) {
+        exact = exact && std::memcmp(&actual[index], &expected[index],
+            sizeof(Quad)) == 0;
+        ++work.control_witness_checks;
+    }
+    return exact;
+}
+
+bool independently_check_state_difference(
+    CandidateControlAccounting& candidate, CheckerWork& work) noexcept {
+    candidate.witness_operations = 4U;
+    candidate.witness_checks = 4U;
+    const Quad one = static_cast<Quad>(1.0);
+    const Quad direction = ldexpq(one, -113);
+    const Quad state = fmaq(one, direction, one);
+    ++work.control_witness_operations;
+    const Quad difference = state - one;
+    ++work.control_witness_operations;
+    const Quad inferred = difference / one;
+    ++work.control_witness_operations;
+    bool valid = std::memcmp(&state, &one, sizeof(Quad)) == 0;
+    ++work.control_witness_checks;
+    valid = valid && direction != static_cast<Quad>(0.0);
+    ++work.control_witness_checks;
+    valid = valid && difference == static_cast<Quad>(0.0);
+    ++work.control_witness_checks;
+    valid = valid && inferred == static_cast<Quad>(0.0);
+    ++work.control_witness_checks;
+    return valid;
+}
+
 bool normal_or_zero(Quad value) noexcept {
     return finiteq(value) != 0 && (value == static_cast<Quad>(0.0)
         || fabsq(value) >= ldexpq(static_cast<Quad>(1.0), -16382));
@@ -802,6 +974,20 @@ Digest root_quad_vector(const std::array<Quad, Count>& values,
     return hash.finish();
 }
 
+template <std::size_t Count>
+Digest root_parent_quad_vector(const std::array<Quad, Count>& values,
+    CheckerWork& work) noexcept {
+    constexpr const char* domain =
+        "nextengine.nonlocal.r63zm.binary128-vector.v1";
+    r63zm::Sha256 hash;
+    field_text(hash, 1U, domain);
+    field_u64(hash, 2U, Count);
+    field_header(hash, 3U, Count * 16U);
+    for (Quad value : values) hash.update(canonical_quad(value));
+    record_hash(work, std::strlen(domain) + 1667U);
+    return hash.finish();
+}
+
 Digest root_factor(Slice source, std::uint64_t count,
     CheckerWork& work) noexcept {
     constexpr const char* domain =
@@ -879,7 +1065,7 @@ Digest root_candidate_work(
     field_u64(hash, 2U, values.size());
     field_header(hash, 3U, values.size() * 8U);
     for (std::uint64_t value : values) append_big_u64(hash, value);
-    record_hash(work, std::strlen(domain) + 419U);
+    record_hash(work, std::strlen(domain) + 571U);
     return hash.finish();
 }
 
@@ -916,7 +1102,7 @@ Digest root_candidate_result(std::uint64_t route,
     constexpr const char* domain = "nextengine.nonlocal.r63zn.result.v1";
     r63zm::Sha256 hash;
     field_text(hash, 1U, domain);
-    field_u64(hash, 2U, 2U);
+    field_u64(hash, 2U, 3U);
     field_u64(hash, 3U, route);
     field_header(hash, 4U, inputs.size() * 32U);
     for (const Digest& input : inputs) hash.update(input);
@@ -945,6 +1131,7 @@ void store_digest(std::uint8_t* target, const Digest& value) noexcept {
 
 struct Replay final {
     bool valid = false;
+    std::uint32_t candidate_route = 0U;
     std::array<std::uint8_t, RECEIPT_SIZE> expected{};
     Digest result{};
 };
@@ -958,28 +1145,55 @@ Replay reconstruct_early_rejection(std::uint32_t route,
     std::uint64_t parse_bytes, std::uint64_t parse_predicates,
     std::uint64_t route_decisions, CheckerWork& work) noexcept {
     Replay replay;
+    replay.candidate_route = route;
     const bool cache_consumed = read_calls >= 1U;
     const bool parent_consumed = read_calls >= 2U;
     const bool audit_consumed = read_calls >= 3U;
     const std::uint64_t input_bytes =
-        (cache_consumed && cache.exact ? CACHE_SIZE : 0U)
-        + (parent_consumed && parent.exact ? PARENT_SIZE : 0U)
-        + (audit_consumed && parent_audit.exact ? PARENT_AUDIT_SIZE : 0U);
+        (cache_consumed ? cache.bytes_read : 0U)
+        + (parent_consumed ? parent.bytes_read : 0U)
+        + (audit_consumed ? parent_audit.bytes_read : 0U);
     const std::uint64_t input_hashes =
         (cache_consumed && cache.exact ? 1U : 0U)
         + (parent_consumed && parent.exact ? 1U : 0U)
         + (audit_consumed && parent_audit.exact ? 1U : 0U);
+    const std::uint64_t input_open_calls = read_calls;
+    const std::uint64_t input_seek_calls =
+        (cache_consumed && cache.opened ? 2U : 0U)
+        + (parent_consumed && parent.opened ? 2U : 0U)
+        + (audit_consumed && parent_audit.opened ? 2U : 0U);
+    const std::uint64_t input_tell_calls =
+        (cache_consumed && cache.opened ? 1U : 0U)
+        + (parent_consumed && parent.opened ? 1U : 0U)
+        + (audit_consumed && parent_audit.opened ? 1U : 0U);
+    const std::uint64_t input_read_calls =
+        (cache_consumed && cache.observed_size == CACHE_SIZE ? 1U : 0U)
+        + (parent_consumed && parent.observed_size == PARENT_SIZE ? 1U : 0U)
+        + (audit_consumed
+            && parent_audit.observed_size == PARENT_AUDIT_SIZE ? 1U : 0U);
+    const std::uint64_t input_close_calls = input_tell_calls;
     const std::uint64_t work_bytes =
-        std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 419U;
+        std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 571U;
     const std::uint64_t trace_bytes =
         std::strlen("nextengine.nonlocal.r63zn.trace.v1") + 52U;
     const std::uint64_t result_bytes =
         std::strlen("nextengine.nonlocal.r63zn.result.v1") + 247U;
     std::array<std::uint64_t, CANDIDATE_WORK_FIELDS> candidate_work{};
-    candidate_work[InputReadCalls] = read_calls;
+    candidate_work[RoundingModeSetCalls] = 1U;
+    candidate_work[RoundingModeChecks] = 1U;
+    candidate_work[InputReadAttempts] = read_calls;
+    candidate_work[InputOpenCalls] = input_open_calls;
+    candidate_work[InputSeekCalls] = input_seek_calls;
+    candidate_work[InputTellCalls] = input_tell_calls;
+    candidate_work[InputReadCalls] = input_read_calls;
+    candidate_work[InputTrailingChecks] = input_read_calls;
+    candidate_work[InputCloseCalls] = input_close_calls;
     candidate_work[InputReadBytes] = input_bytes;
     candidate_work[InputHashCalls] = input_hashes;
-    candidate_work[InputHashBytes] = input_bytes;
+    candidate_work[InputHashBytes] =
+        (cache_consumed && cache.exact ? CACHE_SIZE : 0U)
+        + (parent_consumed && parent.exact ? PARENT_SIZE : 0U)
+        + (audit_consumed && parent_audit.exact ? PARENT_AUDIT_SIZE : 0U);
     candidate_work[CacheTakeCalls] = parse_calls;
     candidate_work[CacheTakeBytes] = parse_bytes;
     candidate_work[CachePredicates] = parse_predicates;
@@ -991,8 +1205,10 @@ Replay reconstruct_early_rejection(std::uint32_t route,
     candidate_work[TraceRootBytes] = trace_bytes;
     candidate_work[ResultRootCalls] = 1U;
     candidate_work[ResultRootBytes] = result_bytes;
-    candidate_work[ReceiptFieldsWritten] = 83U;
+    candidate_work[ReceiptFieldsWritten] = 102U;
+    candidate_work[ReceiptOpenCalls] = 1U;
     candidate_work[ReceiptWriteCalls] = 1U;
+    candidate_work[ReceiptCloseCalls] = 1U;
     candidate_work[ReceiptWriteBytes] = RECEIPT_SIZE;
     candidate_work[RouteDecisions] = route_decisions;
     candidate_work[ReceiptZeroFillBytes] = RECEIPT_SIZE;
@@ -1011,7 +1227,7 @@ Replay reconstruct_early_rejection(std::uint32_t route,
     constexpr std::array<std::uint8_t, 8U> magic{{
         'N','E','R','6','3','Z','N','1'}};
     std::memcpy(replay.expected.data(), magic.data(), magic.size());
-    store_u32(replay.expected.data() + VERSION_AT, 2U);
+    store_u32(replay.expected.data() + VERSION_AT, 3U);
     store_u64(replay.expected.data() + TOTAL_AT, RECEIPT_SIZE);
     store_u32(replay.expected.data() + ROUTE_AT, route);
     replay.expected[FLAGS_AT] = 0U;
@@ -1044,10 +1260,157 @@ Replay reconstruct_early_rejection(std::uint32_t route,
     return replay;
 }
 
+using CandidateSemantic = std::array<Digest, 12U>;
+
+std::array<std::uint64_t, CANDIDATE_WORK_FIELDS> expected_candidate_work(
+    const ControlChoice& control,
+    const CandidateControlAccounting& control_work,
+    std::uint64_t factor_solves, std::uint64_t factor_terms,
+    std::uint64_t factor_divisions, std::uint64_t finite_checks,
+    std::uint64_t baseline_comparisons, std::uint64_t residual_updates,
+    std::uint64_t residual_dot_calls, std::uint64_t residual_dot_terms,
+    std::uint64_t rho_dot_calls, std::uint64_t rho_dot_terms,
+    std::uint64_t two_products, std::uint64_t two_sums,
+    std::uint64_t positivity_checks, std::uint64_t canonical_calls,
+    std::uint64_t canonical_bytes, std::size_t event_count,
+    std::uint64_t route_decisions) noexcept {
+    constexpr std::uint64_t input_bytes =
+        CACHE_SIZE + PARENT_SIZE + PARENT_AUDIT_SIZE;
+    std::array<std::uint64_t, CANDIDATE_WORK_FIELDS> candidate{};
+    candidate[RoundingModeSetCalls] = 1U;
+    candidate[RoundingModeChecks] = 1U;
+    candidate[InputReadAttempts] = 3U;
+    candidate[InputOpenCalls] = 3U;
+    candidate[InputSeekCalls] = 6U;
+    candidate[InputTellCalls] = 3U;
+    candidate[InputReadCalls] = 3U;
+    candidate[InputTrailingChecks] = 3U;
+    candidate[InputCloseCalls] = 3U;
+    candidate[InputReadBytes] = input_bytes;
+    candidate[InputHashCalls] = 3U;
+    candidate[InputHashBytes] = input_bytes;
+    candidate[CacheTakeCalls] = 168U;
+    candidate[CacheTakeBytes] = CACHE_SIZE;
+    candidate[CachePredicates] = 88U;
+    candidate[ParentArtifactChecks] = 12U;
+    candidate[ParentAuditChecks] = 8U;
+    candidate[FactorDecodes] = FACTOR_COMPONENTS;
+    candidate[PermutationDecodes] = DIMENSION;
+    candidate[QuadDecodes] = 3U * DIMENSION + 1U;
+    candidate[FactorFiniteChecks] = FACTOR_COMPONENTS;
+    candidate[PermutationRangeChecks] = DIMENSION;
+    candidate[PermutationUniquenessChecks] = DIMENSION;
+    candidate[QuadFiniteChecks] = 3U * DIMENSION + 1U;
+    candidate[InversePositiveChecks] = 1U;
+    candidate[FactorSolves] = factor_solves;
+    candidate[FactorTerms] = factor_terms;
+    candidate[FactorDivisions] = factor_divisions;
+    candidate[SolveFiniteChecks] = finite_checks;
+    candidate[BaselineComparisons] = baseline_comparisons;
+    candidate[ResidualUpdates] = residual_updates;
+    candidate[ResidualDotCalls] = residual_dot_calls;
+    candidate[ResidualDotTerms] = residual_dot_terms;
+    candidate[RhoDotCalls] = rho_dot_calls;
+    candidate[RhoDotTerms] = rho_dot_terms;
+    candidate[TwoProducts] = two_products;
+    candidate[TwoSums] = two_sums;
+    candidate[DotExactChecks] = residual_dot_calls + rho_dot_calls;
+    candidate[DotUnderflowChecks] = residual_dot_calls + rho_dot_calls;
+    candidate[PositivityChecks] = positivity_checks;
+    candidate[CanonicalRootCalls] = canonical_calls;
+    candidate[CanonicalRootBytes] = canonical_bytes;
+    candidate[Role2ValueRootComparisons] = 1U;
+    candidate[StructuralRootCalls] = 3U;
+    candidate[StructuralRootBytes] =
+        std::strlen("nextengine.nonlocal.r63zn.input-bundle.v1") + 323U
+        + std::strlen("nextengine.nonlocal.r63zn.parent-set.v1") + 131U
+        + std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 571U;
+    candidate[EventRootCalls] = event_count;
+    candidate[EventRootBytes] = event_count
+        * (std::strlen("nextengine.nonlocal.r63zn.event.v1") + 108U);
+    candidate[TraceRootCalls] = 1U;
+    candidate[TraceRootBytes] =
+        std::strlen("nextengine.nonlocal.r63zn.trace.v1") + 52U
+        + event_count * 32U;
+    candidate[ResultRootCalls] = 1U;
+    candidate[ResultRootBytes] =
+        std::strlen("nextengine.nonlocal.r63zn.result.v1") + 247U;
+    candidate[ReceiptFieldsWritten] = 102U;
+    candidate[ReceiptOpenCalls] = 1U;
+    candidate[ReceiptWriteCalls] = 1U;
+    candidate[ReceiptCloseCalls] = 1U;
+    candidate[ReceiptWriteBytes] = RECEIPT_SIZE;
+    candidate[RouteDecisions] = route_decisions;
+    candidate[ControlSelectorChecks] = control.selector_checks;
+    candidate[ControlSelectorBytes] = control.selector_bytes;
+    candidate[ControlFixtureMutations] = control_work.fixture_mutations;
+    candidate[ControlSmallSolveCalls] = control_work.small_solve_calls;
+    candidate[ControlSmallSolveTerms] = control_work.small_solve_terms;
+    candidate[ControlSmallSolveDivisions] = control_work.small_solve_divisions;
+    candidate[ControlWitnessOperations] = control_work.witness_operations;
+    candidate[ControlWitnessChecks] = control_work.witness_checks;
+    candidate[ReceiptZeroFillBytes] = RECEIPT_SIZE;
+    candidate[PackageAllocations] = 0U;
+    return candidate;
+}
+
+Replay encode_replay(std::uint32_t route,
+    const std::array<std::uint8_t, 3U>& flags,
+    const FileImage<CACHE_SIZE>& cache,
+    const FileImage<PARENT_SIZE>& parent,
+    const FileImage<PARENT_AUDIT_SIZE>& parent_audit,
+    const CandidateSemantic& semantic,
+    const std::array<std::uint64_t, CANDIDATE_WORK_FIELDS>& candidate_work,
+    const Digest& candidate_work_digest,
+    const std::array<Digest, EVENT_SLOTS>& events,
+    std::size_t event_count, CheckerWork& work) noexcept {
+    Replay replay;
+    replay.candidate_route = route;
+    const std::array<Digest, 3U> inputs{{cache.root, parent.root,
+        parent_audit.root}};
+    const Digest trace = root_trace(route, events, event_count, work);
+    replay.result = root_candidate_result(route, inputs, trace,
+        candidate_work_digest, work);
+    constexpr std::array<std::uint8_t, 8U> magic{{
+        'N','E','R','6','3','Z','N','1'}};
+    std::memcpy(replay.expected.data(), magic.data(), magic.size());
+    store_u32(replay.expected.data() + VERSION_AT, 3U);
+    store_u64(replay.expected.data() + TOTAL_AT, RECEIPT_SIZE);
+    store_u32(replay.expected.data() + ROUTE_AT, route);
+    for (std::size_t index = 0U; index < flags.size(); ++index)
+        replay.expected[FLAGS_AT + index] = flags[index];
+    store_u64(replay.expected.data() + CACHE_SIZE_AT, cache.observed_size);
+    store_digest(replay.expected.data() + CACHE_ROOT_AT, cache.root);
+    store_u64(replay.expected.data() + PARENT_SIZE_AT, parent.observed_size);
+    store_digest(replay.expected.data() + PARENT_ROOT_AT, parent.root);
+    store_u64(replay.expected.data() + PARENT_AUDIT_SIZE_AT,
+        parent_audit.observed_size);
+    store_digest(replay.expected.data() + PARENT_AUDIT_ROOT_AT,
+        parent_audit.root);
+    constexpr std::array<std::size_t, 12U> offsets{{BUNDLE_ROOT_AT,
+        FACTOR_ROOT_AT, PERMUTATION_ROOT_AT, INVERSE_ROOT_AT, RHS_ROOT_AT,
+        BASELINE_ROOT_AT, X0_ROOT_AT, HX0_ROOT_AT, RESIDUAL_ROOT_AT,
+        RESIDUAL_BOUND_ROOT_AT, Z0_ROOT_AT, RHO_ROOT_AT}};
+    for (std::size_t index = 0U; index < offsets.size(); ++index)
+        store_digest(replay.expected.data() + offsets[index], semantic[index]);
+    for (std::size_t index = 0U; index < candidate_work.size(); ++index)
+        store_u64(replay.expected.data() + CANDIDATE_WORK_AT + index * 8U,
+            candidate_work[index]);
+    store_u64(replay.expected.data() + EVENT_COUNT_AT, event_count);
+    for (std::size_t index = 0U; index < events.size(); ++index)
+        store_digest(replay.expected.data() + EVENTS_AT + index * 32U,
+            events[index]);
+    store_digest(replay.expected.data() + TRACE_AT, trace);
+    store_digest(replay.expected.data() + RESULT_AT, replay.result);
+    replay.valid = true;
+    return replay;
+}
+
 Replay reconstruct(const FileImage<CACHE_SIZE>& cache,
     const FileImage<PARENT_SIZE>& parent,
     const FileImage<PARENT_AUDIT_SIZE>& parent_audit,
-    const Inputs& input, CheckerWork& work) noexcept {
+    const Inputs& input, const ControlChoice& control,
+    CheckerWork& work) noexcept {
     Replay replay;
     if (!input.parsed || input.rows != DIMENSION || input.columns != 315U
         || input.baseline.count != DIMENSION
@@ -1074,7 +1437,7 @@ Replay reconstruct(const FileImage<CACHE_SIZE>& cache,
         const bool unique = in_range && !seen[permutation[index]];
         ++work.arithmetic_checks;
         permutation_valid = permutation_valid && in_range && unique;
-        if (permutation[index] < DIMENSION) seen[permutation[index]] = true;
+        if (in_range) seen[permutation[index]] = true;
     }
     std::array<Quad, DIMENSION> rhs{};
     std::array<Quad, DIMENSION> baseline{};
@@ -1089,47 +1452,30 @@ Replay reconstruct(const FileImage<CACHE_SIZE>& cache,
         work.arithmetic_checks += 3U;
     }
     const Quad inverse = load_quad(input.inverse, 0U, work);
-    input_finite = input_finite && finiteq(inverse) != 0;
+    input_finite = input_finite && finiteq(inverse) != 0
+        && inverse > static_cast<Quad>(0.0);
     work.arithmetic_checks += 2U;
-    input_finite = input_finite && inverse > static_cast<Quad>(0.0);
-    const LinearSolve x0 = replay_factor(upper, permutation, rhs, inverse,
-        work);
+    CandidateControlAccounting control_work;
+    if (control.value == Control::SmallSolve
+        && !independently_check_small_solve(control_work, work))
+        return replay;
+    if (control.value == Control::StateDifference
+        && !independently_check_state_difference(control_work, work))
+        return replay;
+    LinearSolve x0 = replay_factor(upper, permutation, rhs, inverse, work);
+    if (control.value == Control::X0Mismatch) {
+        x0.value[0U] = nextafterq(x0.value[0U], HUGE_VALQ);
+        ++control_work.fixture_mutations;
+        ++work.control_fixture_mutations;
+    }
     std::size_t matching = 0U;
     for (std::size_t index = 0U; index < DIMENSION; ++index) {
         ++work.baseline_comparisons;
         matching += std::memcmp(&x0.value[index], &baseline[index],
             sizeof(Quad)) == 0 ? 1U : 0U;
     }
-
-    std::array<Quad, DIMENSION> residual{};
-    std::array<Quad, DIMENSION> residual_bound{};
-    bool residual_exact = true;
-    bool residual_normal = true;
-    const Quad one = static_cast<Quad>(1.0);
-    for (std::size_t index = 0U; index < DIMENSION; ++index) {
-        const std::array<Quad, 2U> left{{rhs[index], -hx0[index]}};
-        const std::array<Quad, 2U> right{{one, one}};
-        const EnclosedDot component = replay_dot(left.data(), right.data(),
-            left.size(), work);
-        residual[index] = component.value;
-        residual_bound[index] = component.bound;
-        residual_exact = residual_exact && component.exact;
-        residual_normal = residual_normal && component.no_underflow;
-        work.arithmetic_checks += 2U;
-    }
-    const LinearSolve z0 = replay_factor(upper, permutation, residual, inverse,
-        work);
-    const EnclosedDot rho = replay_dot(residual.data(), z0.value.data(),
-        DIMENSION, work);
-    const bool positive = rho.exact && rho.no_underflow
-        && rho.value - rho.bound > static_cast<Quad>(0.0);
-    work.arithmetic_checks += 3U;
     if (!input_finite || !permutation_valid || !x0.valid
-        || matching != DIMENSION
-        || !residual_exact || !residual_normal || !z0.valid || !positive
-        || work.factor_terms != 20604U || work.factor_divisions != 408U
-        || work.dot_calls != 103U || work.dot_terms != 306U
-        || work.two_products != 306U || work.two_sums != 203U)
+        || work.factor_terms != 10302U || work.factor_divisions != 204U)
         return replay;
 
     const Digest factor = root_factor(input.factor.bytes, input.factor.count,
@@ -1141,110 +1487,157 @@ Replay reconstruct(const FileImage<CACHE_SIZE>& cache,
     const Digest baseline_digest = root_quad_vector(baseline, work);
     const Digest x0_digest = root_quad_vector(x0.value, work);
     const Digest hx0_digest = root_quad_vector(hx0, work);
-    const Digest residual_digest = root_quad_vector(residual, work);
-    const Digest residual_bound_digest = root_quad_vector(residual_bound,
-        work);
-    const Digest z0_digest = root_quad_vector(z0.value, work);
-    const Digest rho_digest = root_rho(rho, work);
+    const Digest parent_hx0_digest = root_parent_quad_vector(hx0, work);
+    ++work.role2_value_root_comparisons;
+    if (!digest_is(parent_hx0_digest, ROLE_TWO_VALUE_ID)) return replay;
     const std::array<Digest, 9U> bundle_fields{{cache.root, parent.root,
         parent_audit.root, factor, permutation_digest, inverse_digest,
         rhs_digest, baseline_digest, hx0_digest}};
     const Digest bundle = root_digest_set(
         "nextengine.nonlocal.r63zn.input-bundle.v1", bundle_fields, work);
-    const std::array<Digest, 3U> inputs{{
-        cache.root, parent.root, parent_audit.root}};
+    const std::array<Digest, 3U> inputs{{cache.root, parent.root,
+        parent_audit.root}};
     const Digest parent_set = root_digest_set(
         "nextengine.nonlocal.r63zn.parent-set.v1", inputs, work);
-
-    constexpr std::uint64_t input_bytes =
-        CACHE_SIZE + PARENT_SIZE + PARENT_AUDIT_SIZE;
-    const std::uint64_t canonical_bytes =
-        7U * (std::strlen(
-            "nextengine.nonlocal.r63zn.binary128-vector.v1") + 1667U)
+    CandidateSemantic semantic{{bundle, factor, permutation_digest,
+        inverse_digest, rhs_digest, baseline_digest, x0_digest, hx0_digest,
+        {}, {}, {}, {}}};
+    const std::uint64_t common_canonical_bytes = 4U
+        * (std::strlen("nextengine.nonlocal.r63zn.binary128-vector.v1")
+            + 1667U)
         + std::strlen("nextengine.nonlocal.r63zn.binary64-factor.v1")
             + 83284U
         + std::strlen("nextengine.nonlocal.r63zn.permutation.v1") + 851U
         + std::strlen("nextengine.nonlocal.r63zn.inverse-scale.v1") + 34U
-        + std::strlen("nextengine.nonlocal.r63zn.rho0.v1") + 118U;
-    const std::uint64_t structural_bytes =
-        std::strlen("nextengine.nonlocal.r63zn.input-bundle.v1") + 323U
-        + std::strlen("nextengine.nonlocal.r63zn.parent-set.v1") + 131U
-        + std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 419U;
-    const std::uint64_t event_bytes = EVENT_SLOTS
-        * (std::strlen("nextengine.nonlocal.r63zn.event.v1") + 108U);
-    const std::uint64_t trace_bytes =
-        std::strlen("nextengine.nonlocal.r63zn.trace.v1") + 276U;
-    const std::uint64_t result_bytes =
-        std::strlen("nextengine.nonlocal.r63zn.result.v1") + 247U;
-    const std::array<std::uint64_t, CANDIDATE_WORK_FIELDS> candidate_work{{
-        3U, input_bytes, 3U, input_bytes, 168U, CACHE_SIZE, 87U,
-        12U, 8U, FACTOR_COMPONENTS, DIMENSION, 3U * DIMENSION + 1U,
-        FACTOR_COMPONENTS, DIMENSION, DIMENSION, 3U * DIMENSION + 1U, 1U,
-        2U, 20604U, 408U, 1226U, DIMENSION,
-        DIMENSION, DIMENSION, 2U * DIMENSION, 1U, DIMENSION,
-        3U * DIMENSION, 2U * DIMENSION - 1U,
-        DIMENSION + 1U, DIMENSION + 1U, 1U,
-        11U, canonical_bytes, 3U, structural_bytes,
-        EVENT_SLOTS, event_bytes, 1U, trace_bytes,
-        1U, result_bytes, 83U, 1U, RECEIPT_SIZE, 10U,
-        RECEIPT_SIZE, 0U}};
-    const Digest candidate_work_digest = root_candidate_work(candidate_work,
-        work);
-    const std::array<Digest, EVENT_SLOTS> events{{
-        root_event(0U, parent_set, bundle, work),
-        root_event(1U, bundle, factor, work),
-        root_event(2U, x0_digest, baseline_digest, work),
-        root_event(3U, hx0_digest, parent.root, work),
-        root_event(4U, residual_digest, residual_bound_digest, work),
-        root_event(5U, z0_digest, factor, work),
-        root_event(6U, rho_digest, candidate_work_digest, work)}};
-    constexpr std::uint64_t route = 7U;
-    const Digest trace = root_trace(route, events, EVENT_SLOTS, work);
-    replay.result = root_candidate_result(route, inputs, trace,
-        candidate_work_digest, work);
+        + std::strlen("nextengine.nonlocal.r63zm.binary128-vector.v1")
+            + 1667U;
 
-    constexpr std::array<std::uint8_t, 8U> magic{{
-        'N','E','R','6','3','Z','N','1'}};
-    std::memcpy(replay.expected.data(), magic.data(), magic.size());
-    store_u32(replay.expected.data() + VERSION_AT, 2U);
-    store_u64(replay.expected.data() + TOTAL_AT, RECEIPT_SIZE);
-    store_u32(replay.expected.data() + ROUTE_AT, route);
-    replay.expected[FLAGS_AT] = 1U;
-    replay.expected[FLAGS_AT + 1U] = 1U;
-    replay.expected[FLAGS_AT + 2U] = 1U;
-    store_u64(replay.expected.data() + CACHE_SIZE_AT, CACHE_SIZE);
-    store_digest(replay.expected.data() + CACHE_ROOT_AT, cache.root);
-    store_u64(replay.expected.data() + PARENT_SIZE_AT, PARENT_SIZE);
-    store_digest(replay.expected.data() + PARENT_ROOT_AT, parent.root);
-    store_u64(replay.expected.data() + PARENT_AUDIT_SIZE_AT,
-        PARENT_AUDIT_SIZE);
-    store_digest(replay.expected.data() + PARENT_AUDIT_ROOT_AT,
-        parent_audit.root);
-    store_digest(replay.expected.data() + BUNDLE_ROOT_AT, bundle);
-    store_digest(replay.expected.data() + FACTOR_ROOT_AT, factor);
-    store_digest(replay.expected.data() + PERMUTATION_ROOT_AT,
-        permutation_digest);
-    store_digest(replay.expected.data() + INVERSE_ROOT_AT, inverse_digest);
-    store_digest(replay.expected.data() + RHS_ROOT_AT, rhs_digest);
-    store_digest(replay.expected.data() + BASELINE_ROOT_AT, baseline_digest);
-    store_digest(replay.expected.data() + X0_ROOT_AT, x0_digest);
-    store_digest(replay.expected.data() + HX0_ROOT_AT, hx0_digest);
-    store_digest(replay.expected.data() + RESIDUAL_ROOT_AT, residual_digest);
-    store_digest(replay.expected.data() + RESIDUAL_BOUND_ROOT_AT,
-        residual_bound_digest);
-    store_digest(replay.expected.data() + Z0_ROOT_AT, z0_digest);
-    store_digest(replay.expected.data() + RHO_ROOT_AT, rho_digest);
-    for (std::size_t index = 0U; index < candidate_work.size(); ++index)
-        store_u64(replay.expected.data() + CANDIDATE_WORK_AT + index * 8U,
-            candidate_work[index]);
-    store_u64(replay.expected.data() + EVENT_COUNT_AT, EVENT_SLOTS);
-    for (std::size_t index = 0U; index < events.size(); ++index)
-        store_digest(replay.expected.data() + EVENTS_AT + index * 32U,
-            events[index]);
-    store_digest(replay.expected.data() + TRACE_AT, trace);
-    store_digest(replay.expected.data() + RESULT_AT, replay.result);
-    replay.valid = true;
-    return replay;
+    ++work.candidate_route_decisions;
+    if (matching != DIMENSION) {
+        constexpr std::size_t event_count = 2U;
+        const auto candidate = expected_candidate_work(control,
+            control_work, 1U, 10302U, 204U, 613U, DIMENSION,
+            0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U, 8U,
+            common_canonical_bytes, event_count, 8U);
+        const Digest candidate_work = root_candidate_work(candidate, work);
+        std::array<Digest, EVENT_SLOTS> events{};
+        events[0U] = root_event(0U, parent_set, bundle, work);
+        events[1U] = root_event(1U, bundle, factor, work);
+        constexpr std::array<std::uint8_t, 3U> flags{{1U, 1U, 0U}};
+        return encode_replay(4U, flags, cache, parent, parent_audit,
+            semantic, candidate, candidate_work, events, event_count, work);
+    }
+    if (control.value == Control::X0Mismatch) return replay;
+
+    std::array<Quad, DIMENSION> residual{};
+    std::array<Quad, DIMENSION> residual_bound{};
+    bool residual_exact = true;
+    bool residual_normal = true;
+    std::uint64_t residual_updates = 0U;
+    const Quad one = static_cast<Quad>(1.0);
+    for (std::size_t index = 0U; index < DIMENSION; ++index) {
+        std::array<Quad, 2U> left{{rhs[index], -hx0[index]}};
+        const std::array<Quad, 2U> right{{one, one}};
+        if (control.value == Control::PrefixUnderflow && index == 0U) {
+            left[0U] = ldexpq(one, -16494);
+            left[1U] = static_cast<Quad>(0.0);
+            control_work.fixture_mutations += 2U;
+            work.control_fixture_mutations += 2U;
+        }
+        const EnclosedDot component = replay_dot(left.data(), right.data(),
+            left.size(), work);
+        residual[index] = component.value;
+        residual_bound[index] = component.bound;
+        residual_exact = residual_exact && component.exact;
+        residual_normal = residual_normal && component.no_underflow;
+        ++residual_updates;
+        work.arithmetic_checks += 2U;
+        if (!component.exact || !component.no_underflow) break;
+    }
+    ++work.candidate_route_decisions;
+    if (!residual_exact || !residual_normal) {
+        constexpr std::size_t event_count = 4U;
+        const auto candidate = expected_candidate_work(control,
+            control_work, 1U, 10302U, 204U, 613U, DIMENSION,
+            residual_updates, residual_updates, 2U * residual_updates,
+            0U, 0U, work.two_products, work.two_sums, 0U, 8U,
+            common_canonical_bytes, event_count, 9U);
+        const Digest candidate_work = root_candidate_work(candidate, work);
+        std::array<Digest, EVENT_SLOTS> events{};
+        events[0U] = root_event(0U, parent_set, bundle, work);
+        events[1U] = root_event(1U, bundle, factor, work);
+        events[2U] = root_event(2U, x0_digest, baseline_digest, work);
+        events[3U] = root_event(3U, hx0_digest, parent.root, work);
+        constexpr std::array<std::uint8_t, 3U> flags{{1U, 1U, 0U}};
+        return encode_replay(5U, flags, cache, parent, parent_audit,
+            semantic, candidate, candidate_work, events, event_count, work);
+    }
+    if (control.value == Control::PrefixUnderflow
+        || residual_updates != DIMENSION)
+        return replay;
+
+    const LinearSolve z0 = replay_factor(upper, permutation, residual,
+        inverse, work);
+    if (!z0.valid || work.factor_terms != 20604U
+        || work.factor_divisions != 408U)
+        return replay;
+    const Digest residual_digest = root_quad_vector(residual, work);
+    const Digest residual_bound_digest = root_quad_vector(residual_bound,
+        work);
+    const Digest z0_digest = root_quad_vector(z0.value, work);
+    const Quad* rho_values = z0.value.data();
+    if (control.value == Control::RhoNonpositive) {
+        for (std::size_t index = 0U; index < DIMENSION; ++index) {
+            x0.value[index] = -z0.value[index];
+            ++control_work.fixture_mutations;
+            ++work.control_fixture_mutations;
+        }
+        rho_values = x0.value.data();
+    }
+    const EnclosedDot rho = replay_dot(residual.data(), rho_values,
+        DIMENSION, work);
+    const bool positive = rho.exact && rho.no_underflow
+        && rho.value - rho.bound > static_cast<Quad>(0.0);
+    work.arithmetic_checks += 3U;
+    if (!rho.exact || !rho.no_underflow || work.dot_calls != 103U
+        || work.dot_terms != 306U || work.two_products != 306U
+        || work.two_sums != 203U)
+        return replay;
+    const Digest rho_digest = root_rho(rho, work);
+    semantic[8U] = residual_digest;
+    semantic[9U] = residual_bound_digest;
+    semantic[10U] = z0_digest;
+    semantic[11U] = rho_digest;
+    const std::uint64_t full_canonical_bytes = common_canonical_bytes
+        + 3U * (std::strlen(
+            "nextengine.nonlocal.r63zn.binary128-vector.v1") + 1667U)
+        + std::strlen("nextengine.nonlocal.r63zn.rho0.v1") + 118U;
+
+    ++work.candidate_route_decisions;
+    const std::size_t event_count = positive ? EVENT_SLOTS : 6U;
+    const auto candidate = expected_candidate_work(control,
+        control_work, 2U, 20604U, 408U, 1226U, DIMENSION,
+        DIMENSION, DIMENSION, 2U * DIMENSION, 1U, DIMENSION,
+        work.two_products, work.two_sums, 1U, 12U, full_canonical_bytes,
+        event_count, 10U);
+    const Digest candidate_work = root_candidate_work(candidate, work);
+    std::array<Digest, EVENT_SLOTS> events{};
+    events[0U] = root_event(0U, parent_set, bundle, work);
+    events[1U] = root_event(1U, bundle, factor, work);
+    events[2U] = root_event(2U, x0_digest, baseline_digest, work);
+    events[3U] = root_event(3U, hx0_digest, parent.root, work);
+    events[4U] = root_event(4U, residual_digest, residual_bound_digest, work);
+    events[5U] = root_event(5U, z0_digest, factor, work);
+    if (!positive) {
+        constexpr std::array<std::uint8_t, 3U> flags{{1U, 1U, 0U}};
+        return encode_replay(6U, flags, cache, parent, parent_audit,
+            semantic, candidate, candidate_work, events, event_count, work);
+    }
+    if (control.value == Control::RhoNonpositive) return replay;
+    events[6U] = root_event(6U, rho_digest, candidate_work, work);
+    constexpr std::array<std::uint8_t, 3U> flags{{1U, 1U, 1U}};
+    return encode_replay(7U, flags, cache, parent, parent_audit,
+        semantic, candidate, candidate_work, events, event_count, work);
 }
 
 bool equal_region(const std::array<std::uint8_t, RECEIPT_SIZE>& actual,
@@ -1264,13 +1657,16 @@ enum class Route : std::uint32_t {
     ParentArtifactRejectedVerified = 2U,
     ParentAuditRejectedVerified = 3U,
     CacheSemanticRejectedVerified = 4U,
-    CheckerRead = 5U,
-    MalformedReceipt = 6U,
-    Arithmetic = 7U,
-    Semantic = 8U,
-    Work = 9U,
-    Events = 10U,
-    Seal = 11U,
+    X0CorrespondenceRejectedVerified = 5U,
+    PrefixArithmeticRejectedVerified = 6U,
+    RhoNonpositiveRejectedVerified = 7U,
+    CheckerRead = 8U,
+    MalformedReceipt = 9U,
+    Arithmetic = 10U,
+    Semantic = 11U,
+    Work = 12U,
+    Events = 13U,
+    Seal = 14U,
 };
 
 Digest root_checker(Route route, bool semantic, bool work_exact,
@@ -1303,24 +1699,20 @@ bool write_exact(const char* path,
     const std::array<std::uint8_t, CHECKER_AUDIT_SIZE>& bytes) noexcept {
     const int descriptor = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     if (descriptor < 0) return false;
-    std::size_t offset = 0U;
-    while (offset < bytes.size()) {
-        const ssize_t count = write(descriptor, bytes.data() + offset,
-            bytes.size() - offset);
-        if (count <= 0) {
-            static_cast<void>(close(descriptor));
-            return false;
-        }
-        offset += static_cast<std::size_t>(count);
-    }
-    return close(descriptor) == 0;
+    const ssize_t count = write(descriptor, bytes.data(), bytes.size());
+    const int closed = close(descriptor);
+    return count == static_cast<ssize_t>(bytes.size()) && closed == 0;
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 6) return 64;
+    if (argc != 6 && argc != 7) return 64;
     CheckerWork checker;
+    ++checker.rounding_mode_set_calls;
+    if (std::fesetround(FE_TONEAREST) != 0) return 66;
+    ++checker.rounding_mode_checks;
+    if (std::fegetround() != FE_TONEAREST) return 66;
     FileImage<CACHE_SIZE> cache;
     FileImage<PARENT_SIZE> parent;
     FileImage<PARENT_AUDIT_SIZE> parent_audit;
@@ -1330,6 +1722,7 @@ int main(int argc, char** argv) {
     load_exact(argv[3], parent_audit, checker);
     load_exact(argv[4], receipt, checker);
 
+    ++checker.cache_identity_checks;
     const bool cache_identity = cache.exact && digest_is(cache.root, CACHE_ID);
     const bool parent_identity = parent.exact
         && check_parent_artifact(parent, checker);
@@ -1340,31 +1733,35 @@ int main(int argc, char** argv) {
     std::uint64_t expected_artifact_checks = 12U;
     std::uint64_t expected_audit_checks = 8U;
     std::uint64_t expected_route_decisions = 10U;
-    if (!cache.exact) {
+    auto candidate_reject = [&](bool condition) noexcept {
+        ++checker.candidate_route_decisions;
+        return condition;
+    };
+    if (candidate_reject(!cache.exact)) {
         expected_candidate_route = 0U;
         candidate_read_calls = 1U;
         expected_artifact_checks = 0U;
         expected_audit_checks = 0U;
         expected_route_decisions = 1U;
-    } else if (!parent.exact) {
+    } else if (candidate_reject(!parent.exact)) {
         expected_candidate_route = 1U;
         candidate_read_calls = 2U;
         expected_artifact_checks = 0U;
         expected_audit_checks = 0U;
         expected_route_decisions = 2U;
-    } else if (!parent_identity) {
+    } else if (candidate_reject(!parent_identity)) {
         expected_candidate_route = 1U;
         candidate_read_calls = 2U;
         expected_audit_checks = 0U;
         expected_route_decisions = 3U;
-    } else if (!parent_audit.exact) {
+    } else if (candidate_reject(!parent_audit.exact)) {
         expected_candidate_route = 2U;
         expected_route_decisions = 4U;
         expected_audit_checks = 0U;
-    } else if (!parent_audit_identity) {
+    } else if (candidate_reject(!parent_audit_identity)) {
         expected_candidate_route = 2U;
         expected_route_decisions = 5U;
-    } else if (!cache_identity) {
+    } else if (candidate_reject(!cache_identity)) {
         expected_candidate_route = 3U;
         expected_route_decisions = 6U;
     }
@@ -1378,7 +1775,7 @@ int main(int argc, char** argv) {
             receipt_magic.size()) != 0;
         ++checker.receipt_header_checks;
         malformed = malformed || big_u32(receipt.bytes.data() + VERSION_AT)
-            != 2U;
+            != 3U;
         ++checker.receipt_header_checks;
         malformed = malformed || big_u64(receipt.bytes.data() + TOTAL_AT)
             != RECEIPT_SIZE;
@@ -1390,13 +1787,16 @@ int main(int argc, char** argv) {
             || receipt.bytes[FLAGS_AT + 2U] > 1U;
         ++checker.receipt_header_checks;
         std::uint8_t padding = 0U;
-        for (std::size_t index = FLAGS_AT + 3U; index < CACHE_SIZE_AT; ++index)
+        for (std::size_t index = FLAGS_AT + 3U; index < CACHE_SIZE_AT; ++index) {
             padding |= receipt.bytes[index];
+            ++checker.receipt_padding_bytes_scanned;
+        }
         malformed = malformed || padding != 0U;
     }
 
     Inputs decoded;
     Replay replay;
+    ControlChoice control;
     if (expected_candidate_route <= 3U) {
         replay = reconstruct_early_rejection(expected_candidate_route,
             cache, parent, parent_audit, candidate_read_calls,
@@ -1404,6 +1804,7 @@ int main(int argc, char** argv) {
             0U, 0U, 0U, expected_route_decisions, checker);
     } else {
         decoded = decode_cache(cache.bytes, checker);
+        ++checker.candidate_route_decisions;
         if (!decoded.parsed || decoded.rows != DIMENSION
             || decoded.columns != 315U
             || decoded.baseline.count != DIMENSION
@@ -1416,10 +1817,16 @@ int main(int argc, char** argv) {
             replay = reconstruct_early_rejection(expected_candidate_route,
                 cache, parent, parent_audit, candidate_read_calls,
                 expected_artifact_checks, expected_audit_checks,
-                168U, CACHE_SIZE, 87U, expected_route_decisions, checker);
+                168U, CACHE_SIZE, 88U, expected_route_decisions, checker);
         } else {
+            control = decode_control(argc, argc == 7 ? argv[6] : nullptr);
+            if (control.value == Control::Invalid) return 64;
+            checker.control_selector_checks += control.selector_checks;
+            checker.control_selector_bytes += control.selector_bytes;
             replay = reconstruct(cache, parent, parent_audit, decoded,
-                checker);
+                control, checker);
+            if (replay.valid)
+                expected_candidate_route = replay.candidate_route;
         }
     }
 
@@ -1443,23 +1850,32 @@ int main(int argc, char** argv) {
         checker.seal_fields_compared = 2U;
     }
 
-    ++checker.route_checks;
     Route route = Route::Accepted;
-    if (!receipt.exact) route = Route::CheckerRead;
-    else if (malformed) route = Route::MalformedReceipt;
-    else if (!replay.valid) route = Route::Arithmetic;
-    else if (!semantic_exact) route = Route::Semantic;
-    else if (!candidate_work_exact) route = Route::Work;
-    else if (!events_exact) route = Route::Events;
-    else if (!seals_exact) route = Route::Seal;
-    else if (expected_candidate_route == 0U)
-        route = Route::CacheReadRejectedVerified;
-    else if (expected_candidate_route == 1U)
-        route = Route::ParentArtifactRejectedVerified;
-    else if (expected_candidate_route == 2U)
-        route = Route::ParentAuditRejectedVerified;
-    else if (expected_candidate_route == 3U)
-        route = Route::CacheSemanticRejectedVerified;
+    auto checker_reject = [&](bool condition) noexcept {
+        ++checker.checker_route_decisions;
+        return condition;
+    };
+    if (checker_reject(!receipt.exact)) route = Route::CheckerRead;
+    else if (checker_reject(malformed)) route = Route::MalformedReceipt;
+    else if (checker_reject(!replay.valid)) route = Route::Arithmetic;
+    else if (checker_reject(!semantic_exact)) route = Route::Semantic;
+    else if (checker_reject(!candidate_work_exact)) route = Route::Work;
+    else if (checker_reject(!events_exact)) route = Route::Events;
+    else if (checker_reject(!seals_exact)) route = Route::Seal;
+    else {
+        ++checker.checker_route_decisions;
+        switch (expected_candidate_route) {
+        case 0U: route = Route::CacheReadRejectedVerified; break;
+        case 1U: route = Route::ParentArtifactRejectedVerified; break;
+        case 2U: route = Route::ParentAuditRejectedVerified; break;
+        case 3U: route = Route::CacheSemanticRejectedVerified; break;
+        case 4U: route = Route::X0CorrespondenceRejectedVerified; break;
+        case 5U: route = Route::PrefixArithmeticRejectedVerified; break;
+        case 6U: route = Route::RhoNonpositiveRejectedVerified; break;
+        case 7U: route = Route::Accepted; break;
+        default: route = Route::Arithmetic; break;
+        }
+    }
 
     Digest observed_result{};
     if (receipt.exact)
@@ -1478,7 +1894,9 @@ int main(int argc, char** argv) {
         + 9U + 4U * 8U + 9U + 4U * 32U + 2U * 41U + 17U;
     ++checker.hash_calls;
     checker.hash_bytes += checker.audit_root_bytes;
+    checker.audit_open_calls = 1U;
     checker.audit_write_calls = 1U;
+    checker.audit_close_calls = 1U;
     checker.audit_write_bytes = CHECKER_AUDIT_SIZE;
     checker.audit_zero_fill_bytes = CHECKER_AUDIT_SIZE;
     const Digest checker_result = root_checker(route, semantic_exact,
@@ -1489,7 +1907,7 @@ int main(int argc, char** argv) {
     constexpr std::array<std::uint8_t, 8U> audit_magic{{
         'N','E','R','6','3','Z','Q','1'}};
     std::memcpy(output.data(), audit_magic.data(), audit_magic.size());
-    store_u32(output.data() + 8U, 1U);
+    store_u32(output.data() + 8U, 2U);
     store_u64(output.data() + 12U, CHECKER_AUDIT_SIZE);
     store_u32(output.data() + 20U, static_cast<std::uint32_t>(route));
     output[24U] = semantic_exact ? 1U : 0U;
@@ -1512,6 +1930,6 @@ int main(int argc, char** argv) {
     store_digest(output.data() + CHECKER_RESULT_AT, checker_result);
     if (!write_exact(argv[5], output)) return 65;
     return static_cast<std::uint32_t>(route)
-        <= static_cast<std::uint32_t>(Route::CacheSemanticRejectedVerified)
+        <= static_cast<std::uint32_t>(Route::RhoNonpositiveRejectedVerified)
         ? 0 : 1;
 }

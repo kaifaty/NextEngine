@@ -268,6 +268,14 @@ add_executable(
 nextengine_configure_r63zm_target(
     nonlocal-formula-r63zn-prefix-checker-release -O3)
 
+add_executable(
+    nonlocal-formula-r63zn-receipt-mutator-release
+    EXCLUDE_FROM_ALL
+    r63zn/receipt_mutator.cpp
+)
+nextengine_configure_r63zm_target(
+    nonlocal-formula-r63zn-receipt-mutator-release -O3)
+
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
     "Build the strict-FP, compile-latency-oriented formula reclosure author target"
@@ -548,4 +556,12 @@ if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
     )
     nextengine_configure_r63zm_target(
         nonlocal-formula-r63zn-prefix-checker-dev -O0)
+
+    add_executable(
+        nonlocal-formula-r63zn-receipt-mutator-dev
+        EXCLUDE_FROM_ALL
+        r63zn/receipt_mutator.cpp
+    )
+    nextengine_configure_r63zm_target(
+        nonlocal-formula-r63zn-receipt-mutator-dev -O0)
 endif()

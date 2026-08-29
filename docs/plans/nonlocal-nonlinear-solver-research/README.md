@@ -4277,26 +4277,28 @@ bit-exactly. The frozen
 therefore selects only one independently checked consumer prefix: solve `x0`,
 prove role-2 input correspondence, consume its `H*x0`, then derive
 `r0/z0` and a certified-positive Dot2 enclosure for `rho0`. Revision 2 was
-frozen before code after tracing the inherited compensated arithmetic.
-Complete rejection implementation and review are pending; no complete
-recurrence, certificate, representation or production authority exists.
+frozen before code after tracing the inherited compensated arithmetic. No
+complete recurrence, certificate, representation or production authority
+exists.
 An external author preflight now reproduces `102/102` role-2 input components,
 exact/no-underflow residual work, the second factor solve and a
 certified-positive `rho0` lower bound twice at stdout
 `dccaf8c1...fc5f`. It is offset-only reachability evidence, not the contracted
 parser/receipt/checker package, so the claim ceiling is unchanged.
-The first 1,120-byte author receipt was superseded when independent work
-reconstruction exposed repeated unowned input hashes, an omitted parent-set
-root and incomplete work categories. The repaired standalone candidate and
-separately coded checker now reproduce two byte-identical Release 1,216-byte
-receipts `6b6db341...8a06` and 548-byte audits `e7934c3a...385a`; both
-allocation probes are zero. Six targeted input/receipt mutations take distinct
-first-specific checker routes. The first four candidate rejection branches now
-also publish fixed receipts: the public missing/short/trailing/same-size matrix
-for cache, parent artifact and parent audit passes `12/12` with distinct
-checker audits. This remains author-only: late `x0`/arithmetic/nonpositive
-rejection receipts, individual work/event controls, the full corpus and fresh
-review are pending.
+The first two author receipt revisions were superseded when independent work
+reconstruction exposed repeated input hashing, an omitted parent-set root,
+incomplete work categories and then incomplete rejection coverage. The final
+author package covers all eight frozen routes with a fixed 1,368-byte receipt,
+67 candidate work fields and a separate 676-byte/48-field checker audit. Two
+Release runs and two clean builds are byte-identical. All `116/116` baseline,
+input, typed-field, arithmetic, independently constructed, fully resealed
+semantic/work/event/route/seal and wrong-selector controls pass twice with
+`116/116` distinct audits; the complete Dev control records match Release,
+ASan/UBSan passes the same corpus and package allocation probes remain zero.
+Accepted receipt is `e0015763...f8da`, accepted audit `d0a98ac6...2cc3` and
+the deterministic Release report is `745eafba...4a02`. This remains
+hash-closed author evidence until fresh independent review; no reviewed prefix
+or wider authority exists.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
