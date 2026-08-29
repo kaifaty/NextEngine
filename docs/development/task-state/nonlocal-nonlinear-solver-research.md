@@ -92,10 +92,13 @@
   `271facfd...272f2f` and minimum slack `452/-567/-116`. Exact curvature,
   step and `102/102` late updates close. Two Release and sanitizer outputs are
   identical at `2a419ecf...0082fa`.
-- **R63ZP revision-2 freeze:** the separate candidate/checker package is fixed
-  at `5,920`/`864` bytes, eight causal events and two explicit 32-field actual
-  work ledgers. Product-body sealing precedes every `x1` decode.
-- **R63ZP next action:** implement those separate producer/checker TUs plus
+- **R63ZP revision-3 freeze:** revision 2 was rejected before code because its
+  prose required serialized-byte ownership while its 32-field ledgers omitted
+  output commit, serialization, route and allocation work. Revision 3 keeps
+  the same arithmetic and fixes candidate/audit at `6,144`/`1,112` bytes,
+  eight causal events and explicit 60/63-field actual-work ledgers.
+  Product-body sealing still precedes every `x1` decode.
+- **R63ZP next action:** implement the revision-3 separate producer/checker TUs plus
   mutator/controls without changing layout or numerical scope. The apparatus
   grants no product admission before formal review.
 - **Build-loop result:** strict-FP `nonlocal-formula-reclosure-dev` reduces the
@@ -6914,6 +6917,34 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   actual path without hidden validation, copy or hash work.
 - **Smallest next action:** implement the frozen producer/checker and assert
   the complete offset chains before author evidence.
+
+### D-235 -- Replace the incomplete R63ZP publication ledger before code
+
+- **Observation:** revision-2 prose required serialized bytes to be owned, but
+  neither 32-field ledger had output write/byte/close,
+  serialized-field/byte, route-predicate or allocation fields.
+- **Evidence:** direct comparison of the frozen revision-2 field lists with
+  its `Exact work and layout boundary`; no revision-2 package source or
+  evidence had been created.
+- **Conclusion:** H4 is supported for revision 2 independently of the
+  numerical apparatus. Implementing it would repeat the R63ZK invisible-work
+  class.
+- **Decision:** preserve revision 2 as a rejected pre-code wire and freeze
+  revision 3 at `6,144/1,112` bytes with 60/63 work fields. Successful output
+  open/full-write/close values are sealed commit postconditions; failure cannot
+  publish an admissible fixed-size file. The product-body root remains before
+  `x1` and seals only work fields `0..39`.
+- **Rejected alternatives:** call output I/O out of scope; overload hash-byte
+  fields with serialization; implement first and repair after evidence; reuse
+  variable retrying writes.
+- **Consequences:** the mathematical claim, routes, events, parent identities
+  and review budget do not change. Revision-3 code must be allocation-free in
+  the package path and compare actual counters unconditionally.
+- **Remaining uncertainty:** whether implementation and mutation controls
+  close every path without another hidden operation.
+- **Smallest next action:** implement revision-3 format assertions, producer
+  and independent checker, then run the early-stop/output controls before
+  author evidence.
 
 ## Performance facts retained
 

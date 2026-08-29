@@ -4341,9 +4341,12 @@ calculation reproduces the root and minimum slack. The zero-bound control
 escapes first at component `0`. This author preflight permits only the separate
 serialized producer/checker implementation; no product is admitted before
 formal review.
-Revision 2 freezes the package before code at a `5,920`-byte candidate,
-`864`-byte checker audit, eight causal events and separate 32-field
-actual-work ledgers. The product-body seal precedes every `x1` decode.
+Revision 2 was rejected before code because its prose required serialization
+ownership while its 32-field ledgers omitted output commit and serialization
+work. Revision 3 keeps the arithmetic scope unchanged and freezes a
+`6,144`-byte candidate, `1,112`-byte checker audit, eight causal events and
+separate 60/63-field actual-work ledgers. The product-body seal still precedes
+every `x1` decode.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

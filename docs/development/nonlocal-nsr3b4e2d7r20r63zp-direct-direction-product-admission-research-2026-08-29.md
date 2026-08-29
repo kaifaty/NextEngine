@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZP direct direction-product admission research
 
-Status: `APPARATUS_PASS / REVISION_2_PACKAGE_LAYOUT_FROZEN / IMPLEMENTATION_PENDING / NO_ENDPOINT_AUTHORITY`.
+Status: `APPARATUS_PASS / REVISION_3_COMPLETE_COMMIT_WORK_LAYOUT_FROZEN / IMPLEMENTATION_PENDING / NO_ENDPOINT_AUTHORITY`.
 
 ## Decision
 
@@ -168,3 +168,24 @@ root-derivation paths and comparisons. Fixed comparison regions must execute
 unconditionally. Malformed/early-stop paths increment only predicates and
 bytes actually evaluated. This is the explicit non-regression against the
 R63ZN short-circuit overclaim and the R63ZK invisible-validation class.
+
+## Revision-3 pre-code work-boundary repair
+
+H4 produced a decisive static counterexample before package code: revision 2
+required serialized bytes in prose, but its two 32-field ledgers had no output
+write/byte/close, serialized-field/byte, route-predicate or allocation fields.
+The numerical apparatus was unaffected, but implementing that wire would make
+accepted package publication partly invisible to its own sealed work receipt.
+
+Revision 2 is therefore preserved as a rejected pre-code layout. Revision 3
+keeps the same one-product question and freezes a `6,144`-byte candidate with
+60 work fields and a `1,112`-byte checker audit with 63 work fields. The added
+fields own serialization, exact full-file output commit postconditions,
+route/predicate work, fixed-loop execution and zero dynamic allocations. The
+pre-`x1` body seal still sees only work fields `0..39`; its causal boundary is
+unchanged.
+
+This supports only the conclusion that H4 has a mechanically implementable
+layout. It does not admit the product. The next discriminator remains the
+separate producer/checker implementation, adversarial controls and independent
+formal review.

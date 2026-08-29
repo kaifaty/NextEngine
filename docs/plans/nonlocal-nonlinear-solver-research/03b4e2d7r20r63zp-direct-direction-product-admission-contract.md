@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZP direct direction-product admission contract
 
-Revision: `2 / PACKAGE_LAYOUT_FROZEN_BEFORE_CODE / APPARATUS_PASS / NO_ENDPOINT_AUTHORITY`.
+Revision: `3 / COMPLETE_COMMIT_WORK_LAYOUT_FROZEN_BEFORE_CODE / APPARATUS_PASS / NO_ENDPOINT_AUTHORITY`.
 
 | Field | Value |
 |---|---|
@@ -299,3 +299,134 @@ Zero and unknown ordinals fail closed. The producer writes a full fixed-size
 artifact for every reachable route; unavailable semantic fields and events
 are literal zero. The checker always writes one `864`-byte audit unless file
 creation itself fails.
+
+## Revision-3 complete commit-work package
+
+Revision 2 is preserved as a rejected pre-code layout. Its prose required
+serialization bytes to be owned, but neither 32-field ledger contained output
+open/write/byte/close postconditions, serialized-field/byte counts, route
+predicates or package-allocation ownership. Implementing that layout would
+repeat the invisible-work class already found in R63ZK and R63ZN. No revision-2
+package code or evidence exists.
+
+Revision 3 changes only the fixed wire/work boundary. The exact question,
+parent identities, arithmetic, routes, causal events, controls and claim
+ceiling are unchanged.
+
+The candidate artifact is exactly `6,144` bytes:
+
+| Offset | Bytes | Field |
+|---:|---:|---|
+| 0 | 8 | magic `NER63ZP` |
+| 8 | 4 | version `3` |
+| 12 | 4 | total bytes `6144` |
+| 16 | 4 | first-specific route |
+| 20 | 4 | exact/normal/contained/positive/step/update flags |
+| 24 | 96 | R63ZM cache/artifact/audit roots |
+| 120 | 64 | role-2 input and value roots |
+| 184 | 96 | `p0`, `q0` and component-bound roots |
+| 280 | 80 | rho primary/bound, denominator primary/bound and alpha |
+| 360 | 8 | dimension `102` |
+| 368 | 8 | candidate work-field count `60` |
+| 376 | 480 | candidate work fields |
+| 856 | 32 | candidate work root |
+| 888 | 8 | event count `0..8` |
+| 896 | 256 | eight ordered event slots; unavailable suffix is zero |
+| 1152 | 32 | trace root |
+| 1184 | 1632 | `p0[102]` |
+| 2816 | 1632 | `q0[102]` |
+| 4448 | 1632 | component bounds `[102]` |
+| 6080 | 32 | pre-`x1` product-body root |
+| 6112 | 32 | final result root |
+
+Candidate work fields, in exact order, are:
+
+```text
+rounding_mode_set_calls, rounding_mode_checks, input_open_attempts,
+input_read_calls, input_read_bytes, input_trailing_checks, input_close_calls,
+input_hash_calls, input_hash_bytes, parent_header_predicates,
+cache_quad_decodes_preseal, cache_double_decodes, cache_index_decodes,
+parent_artifact_quad_decodes, finite_predicates, range_predicates,
+x0_component_comparisons, parent_root_comparisons, factor_solves,
+factor_terms, factor_divisions, residual_dots, residual_terms, rho_dots,
+rho_terms, product_kernels, inner_dots, inner_terms, outer_dots, outer_terms,
+propagation_terms, scale_products, denominator_dots, denominator_terms,
+interval_endpoint_operations, positivity_predicates,
+division_endpoint_operations, division_predicates, preseal_root_calls,
+preseal_root_bytes, postseal_x1_decodes, update_dots, update_terms,
+update_comparisons, event_root_calls, event_root_bytes, trace_root_calls,
+trace_root_bytes, final_root_calls, final_root_bytes, route_predicates,
+receipt_zero_fill_bytes, receipt_fields_serialized,
+receipt_bytes_serialized, output_open_attempts, output_write_calls,
+output_write_bytes, output_close_calls, package_allocations,
+fixed_loop_iterations
+```
+
+The pre-`x1` product-body root seals work fields `0..39`, events `0..3`, all
+causally available scalar/vector roots and all three `p0/q0/bound` arrays.
+Event slot 4 then seals that product-body root. Work field 40 and every later
+field are unavailable to the body root. A nonzero post-seal field cannot be
+used to construct or route the product.
+
+The checker audit is exactly `1,112` bytes:
+
+| Offset | Bytes | Field |
+|---:|---:|---|
+| 0 | 8 | magic `NER63ZQ` |
+| 8 | 4 | version `3` |
+| 12 | 4 | total bytes `1112` |
+| 16 | 4 | first-specific checker route |
+| 20 | 4 | verified/contained/positive/step/update flags |
+| 24 | 96 | R63ZM cache/artifact/audit roots |
+| 120 | 128 | candidate-file, candidate-result, candidate-work and exact-product roots |
+| 248 | 504 | checker work fields |
+| 752 | 32 | checker work root |
+| 784 | 8 | event count `0..8` |
+| 792 | 256 | eight ordered checker event slots |
+| 1048 | 32 | checker trace root |
+| 1080 | 32 | checker result root |
+
+Checker work fields, in exact order, are:
+
+```text
+rounding_mode_set_calls, rounding_mode_checks, input_open_attempts,
+input_read_calls, input_read_bytes, input_trailing_checks, input_close_calls,
+input_hash_calls, input_hash_bytes, header_predicates_executed,
+candidate_bytes_decoded, candidate_quad_decodes, candidate_u64_decodes,
+candidate_digest_decodes, candidate_padding_bytes_checked,
+parent_header_predicates, cache_quad_decodes_preseal, cache_double_decodes,
+cache_index_decodes, parent_artifact_quad_decodes, finite_predicates,
+range_predicates, x0_component_comparisons, parent_root_comparisons,
+factor_solves, factor_terms, factor_divisions, residual_dots, residual_terms,
+rho_dots, rho_terms, dyadic_decodes, exact_multiplies, exact_additions,
+alignment_shifts, alignment_bits, bigint_capacity_predicates,
+interval_comparisons, exact_denominator_terms, positivity_predicates,
+division_endpoint_operations, division_predicates, postseal_x1_decodes,
+update_dots, update_terms, update_comparisons, semantic_field_comparisons,
+candidate_work_comparisons, event_comparisons, seal_comparisons,
+route_predicates, root_calls, root_bytes, audit_zero_fill_bytes,
+audit_fields_serialized, audit_bytes_serialized, output_open_attempts,
+output_write_calls, output_write_bytes, output_close_calls,
+package_allocations, exact_vector_hash_fields,
+candidate_fixed_loop_iterations
+```
+
+The producer performs no dynamic allocation in the package path, and the
+checker uses a fixed-capacity signed-dyadic representation with fail-closed
+capacity predicates. `package_allocations` must therefore be zero and is
+cross-checked with the existing process allocation probe.
+
+Output counters are committed postconditions, not unverified predictions. A
+candidate/audit root is formed with one exact output open, one exact full-size
+write and one close recorded; the executable returns success only after those
+three operations actually produce the complete fixed-size file. A failed or
+partial write cannot yield an admitted artifact. No retry or alternate sink is
+allowed. Serialization writes every byte of the zero-filled fixed buffer and
+must report `399/6144` candidate fields/bytes or `87/1112` checker fields/bytes.
+
+All fixed comparison regions evaluate every predicate before result folding.
+Malformed and variable input paths increment counters at each executed
+predicate/call and never overwrite them with success-path constants. Both
+translation units assert the complete revision-3 offset chain from magic
+through the terminal root. Any later field, size, ordering or work-scope change
+requires revision 4 before code.
