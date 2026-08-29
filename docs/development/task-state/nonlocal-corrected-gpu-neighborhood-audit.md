@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA1_CONTRACT_FROZEN / IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE / NCGA1_IMPLEMENTED / AUTHOR_PREFLIGHT_PASS` |
 | Updated | `2026-08-29` |
 | Task key | `nonlocal-corrected-gpu-neighborhood-audit` |
 | Scope | Isolate exact GPU cell-neighborhood construction and stable sample indexing before local assembly or solver work |
@@ -11,13 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA0 corrected scalar/full-pair terms are reviewed GO;
-  NCGA1 revision 1 is frozen before implementation.
+- **Current state:** the isolated exact-integer host oracle and CUDA
+  radix/cell candidate are implemented without changing the historical solver;
+  the first Release preflight passes all eight positives and four negatives.
 - **Question:** can a device-built signed cell index emit the exact canonical
   integer support graph and stable `SampleId` CSR under boundary cases and
   input permutation?
-- **Next action:** implement the independent all-pairs host oracle and isolated
-  CUDA radix/cell candidate without touching the historical full solver.
+- **Next action:** run the frozen clean-build, repeatability, sanitizer and
+  retained-control protocol, then freeze evidence for independent review.
 - **Current blocker:** none; RTX 3080 (`sm_86`) and CUDA 13.3 are available.
 - **Claim ceiling:** neighborhood/cache/index correspondence only; no local
   assembly, solve, trajectory, performance, runtime or product claim.
@@ -54,6 +55,19 @@
 - **Decision:** add a new executable/translation units; do not patch
   `cuda_baseline.cu`, `oracle.cpp` or corrected-term sources.
 - **Consequence:** any result cannot silently rewrite historical evidence.
+
+### D-003 — Preflight selects exact GPU cell construction
+
+- **Observation:** the first isolated Release run produces byte-identical CPU
+  and GPU graph roots for all eight fixtures; reversed cloud input produces the
+  same graph/work roots.
+- **Evidence:** development build output root
+  `c8b905f78a161fbb1fa40a4bd05c7458e9d47be98343e934f3c1e12c11ca01e8`;
+  all four named wrong identities are rejected.
+- **Conclusion:** no neighborhood/index mismatch is observed in the corrected
+  exact-integer candidate; the clean frozen protocol and review remain open.
+- **Decision:** preserve the implementation and proceed only to validation;
+  do not add matrix or solver work in NCGA1.
 
 ## Required context
 
