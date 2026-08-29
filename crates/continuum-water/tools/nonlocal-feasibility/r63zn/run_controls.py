@@ -16,7 +16,7 @@ CACHE_BYTES = 1_033_625
 ARTIFACT_BYTES = 12_916
 AUDIT_BYTES = 420
 RECEIPT_BYTES = 1_368
-CHECKER_AUDIT_BYTES = 676
+CHECKER_AUDIT_BYTES = 700
 WORK_FIELDS = 67
 EXPECTED_CACHE = "23dbf605ad7b6ae12c4cf6a80404ead9617354ff2848bd010b52c7fa7f83bb84"
 EXPECTED_ARTIFACT = "ac6946e872799baef366d8a6648e7bb5cd70c6f2acc326747fdf153c471f0b87"
@@ -161,6 +161,30 @@ class Runner:
                     checker_route, selector)
         return receipt
 
+    def verify_x0_early_stop(self, receipt: pathlib.Path) -> None:
+        data = receipt.read_bytes()
+        if len(data) != RECEIPT_BYTES:
+            raise RuntimeError("x0 early-stop receipt size mismatch")
+        work_at = 536
+        quad_decodes = int.from_bytes(
+            data[work_at + 19 * 8:work_at + 20 * 8], "big")
+        canonical_roots = int.from_bytes(
+            data[work_at + 40 * 8:work_at + 41 * 8], "big")
+        role2_comparisons = int.from_bytes(
+            data[work_at + 42 * 8:work_at + 43 * 8], "big")
+        event_count = int.from_bytes(data[1072:1080], "big")
+        if data[376:408] != bytes(32):
+            raise RuntimeError("x0 early stop published HX0_ROOT")
+        if any(data[408:536]):
+            raise RuntimeError("x0 early stop published a later semantic root")
+        if quad_decodes != 205 or canonical_roots != 6 \
+                or role2_comparisons != 0 or event_count != 3:
+            raise RuntimeError(
+                "x0 early-stop work/events consumed the parent product"
+            )
+        if any(data[1080 + 3 * 32:1304]):
+            raise RuntimeError("x0 early stop published a later event")
+
     def input_case(self, name: str, category: str, kind: str, data: bytes,
                    candidate_route: int, checker_route: int) -> None:
         extension = {"cache": "cache", "artifact": "artifact",
@@ -210,17 +234,19 @@ class Runner:
                     expected_checker_route, validate_receipt=not malformed)
 
     def wrong_selector_case(self, name: str, candidate_selector: str,
-                            checker_selector: str | None) -> None:
+                            checker_selector: str | None,
+                            expected_checker_route: int = 11) -> None:
         receipt = self.candidate_run(
             name, self.cache_path, self.artifact_path, self.audit_path,
             candidate_selector
         )
         checker_audit = self.checker_run(
             name, self.cache_path, self.artifact_path, self.audit_path,
-            receipt, 1, 11, checker_selector
+            receipt, 1, expected_checker_route, checker_selector
         )
         self.record(name, "selector-binding", receipt, checker_audit,
-                    route(receipt, RECEIPT_BYTES, b"NER63ZN1"), 11,
+                    route(receipt, RECEIPT_BYTES, b"NER63ZN1"),
+                    expected_checker_route,
                     candidate_selector)
 
     def run(self) -> dict[str, object]:
@@ -276,12 +302,15 @@ class Runner:
         for name, selector, candidate_route, checker_route in (
             ("x0-mismatch", "r63zn-x0-mismatch-v1", 4, 5),
             ("prefix-underflow", "r63zn-prefix-underflow-v1", 5, 6),
+            ("prefix-nonfinite", "r63zn-prefix-nonfinite-v1", 5, 6),
             ("rho-nonpositive", "r63zn-rho-nonpositive-v1", 6, 7),
             ("small-solve", "r63zn-small-solve-v1", 7, 0),
             ("state-difference", "r63zn-state-difference-v1", 7, 0),
         ):
-            self.accepted_case(name, "entrypoint-control", selector,
-                               candidate_route, checker_route)
+            receipt = self.accepted_case(name, "entrypoint-control", selector,
+                                         candidate_route, checker_route)
+            if name == "x0-mismatch":
+                self.verify_x0_early_stop(receipt)
 
         for index in range(6):
             self.receipt_case(f"semantic-root-{index}", ["root", str(index)],
@@ -302,6 +331,9 @@ class Runner:
         self.wrong_selector_case("selector-underflow-as-rho",
                                  "r63zn-prefix-underflow-v1",
                                  "r63zn-rho-nonpositive-v1")
+        self.wrong_selector_case("selector-nonfinite-as-underflow",
+                                 "r63zn-prefix-nonfinite-v1",
+                                 "r63zn-prefix-underflow-v1", 12)
         self.wrong_selector_case("selector-rho-as-baseline",
                                  "r63zn-rho-nonpositive-v1", None)
 

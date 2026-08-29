@@ -4285,19 +4285,22 @@ exact/no-underflow residual work, the second factor solve and a
 certified-positive `rho0` lower bound twice at stdout
 `dccaf8c1...fc5f`. It is offset-only reachability evidence, not the contracted
 parser/receipt/checker package, so the claim ceiling is unchanged.
-The first two author receipt revisions were superseded when independent work
-reconstruction exposed repeated input hashing, an omitted parent-set root,
-incomplete work categories and then incomplete rejection coverage. The final
-author package covers all eight frozen routes with a fixed 1,368-byte receipt,
-67 candidate work fields and a separate 676-byte/48-field checker audit. Two
-Release runs and two clean builds are byte-identical. All `116/116` baseline,
-input, typed-field, arithmetic, independently constructed, fully resealed
-semantic/work/event/route/seal and wrong-selector controls pass twice with
-`116/116` distinct audits; the complete Dev control records match Release,
-ASan/UBSan passes the same corpus and package allocation probes remain zero.
-Accepted receipt is `e0015763...f8da`, accepted audit `d0a98ac6...2cc3` and
-the deterministic Release report is `745eafba...4a02`. This remains
-hash-closed author evidence until fresh independent review; no reviewed prefix
+The first formal review of exact snapshot `846dbac6` returned independent
+`NO-GO`: role-2 `H*x0` was consumed before `x0` correspondence, the declared
+strict-C++20 build did not reproduce the frozen binaries, checker read and
+audit-serialization work was unsealed, full receipt layout assertions were
+incomplete and no reachable nonfinite control existed. The
+[review evidence](../../development/nonlocal-nsr3b4e2d7r20r63zn-independent-review-evidence-2026-08-29.md)
+preserves the exact counterexample and identities.
+The single batched revision-3 repair keeps the 1,368-byte/67-field candidate
+receipt, moves all role-2 work after correspondence, enforces strict
+`-std=c++20`, completes the layout chain, expands the checker audit to 700
+bytes/51 fields and adds a public nonfinite control. Two clean builds reproduce
+all binaries byte-for-byte; the expanded corpus passes `118/118` twice with
+`118/118` distinct audits, deterministic report `24208010...d2def`, repaired
+receipt `1e42c834...ba1ac` and audit `4f09b539...e2e4eb`. This remains
+hash-closed author evidence until the single permitted formal re-review. Any
+remaining load-bearing finding closes R63ZN `INCONCLUSIVE`; no reviewed prefix
 or wider authority exists.
 
 The

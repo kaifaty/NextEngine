@@ -134,6 +134,43 @@ constexpr std::size_t RECEIPT_EVENT_COUNT_OFFSET = 1072U;
 constexpr std::size_t RECEIPT_EVENTS_OFFSET = 1080U;
 constexpr std::size_t RECEIPT_TRACE_ROOT_OFFSET = 1304U;
 constexpr std::size_t RECEIPT_RESULT_ROOT_OFFSET = 1336U;
+static_assert(8U == RECEIPT_VERSION_OFFSET);
+static_assert(RECEIPT_VERSION_OFFSET + 4U == RECEIPT_SIZE_OFFSET);
+static_assert(RECEIPT_SIZE_OFFSET + 8U == RECEIPT_ROUTE_OFFSET);
+static_assert(RECEIPT_ROUTE_OFFSET + 4U == RECEIPT_FLAGS_OFFSET);
+static_assert(RECEIPT_FLAGS_OFFSET + 8U == RECEIPT_CACHE_SIZE_OFFSET);
+static_assert(RECEIPT_CACHE_SIZE_OFFSET + 8U == RECEIPT_CACHE_ROOT_OFFSET);
+static_assert(RECEIPT_CACHE_ROOT_OFFSET + 32U
+    == RECEIPT_ARTIFACT_SIZE_OFFSET);
+static_assert(RECEIPT_ARTIFACT_SIZE_OFFSET + 8U
+    == RECEIPT_ARTIFACT_ROOT_OFFSET);
+static_assert(RECEIPT_ARTIFACT_ROOT_OFFSET + 32U
+    == RECEIPT_AUDIT_SIZE_OFFSET);
+static_assert(RECEIPT_AUDIT_SIZE_OFFSET + 8U
+    == RECEIPT_AUDIT_ROOT_OFFSET);
+static_assert(RECEIPT_AUDIT_ROOT_OFFSET + 32U
+    == RECEIPT_BUNDLE_ROOT_OFFSET);
+static_assert(RECEIPT_BUNDLE_ROOT_OFFSET + 32U
+    == RECEIPT_FACTOR_ROOT_OFFSET);
+static_assert(RECEIPT_FACTOR_ROOT_OFFSET + 32U
+    == RECEIPT_PERMUTATION_ROOT_OFFSET);
+static_assert(RECEIPT_PERMUTATION_ROOT_OFFSET + 32U
+    == RECEIPT_INVERSE_ROOT_OFFSET);
+static_assert(RECEIPT_INVERSE_ROOT_OFFSET + 32U
+    == RECEIPT_RHS_ROOT_OFFSET);
+static_assert(RECEIPT_RHS_ROOT_OFFSET + 32U
+    == RECEIPT_BASELINE0_ROOT_OFFSET);
+static_assert(RECEIPT_BASELINE0_ROOT_OFFSET + 32U
+    == RECEIPT_X0_ROOT_OFFSET);
+static_assert(RECEIPT_X0_ROOT_OFFSET + 32U == RECEIPT_HX0_ROOT_OFFSET);
+static_assert(RECEIPT_HX0_ROOT_OFFSET + 32U
+    == RECEIPT_RESIDUAL_ROOT_OFFSET);
+static_assert(RECEIPT_RESIDUAL_ROOT_OFFSET + 32U
+    == RECEIPT_RESIDUAL_BOUND_ROOT_OFFSET);
+static_assert(RECEIPT_RESIDUAL_BOUND_ROOT_OFFSET + 32U
+    == RECEIPT_Z0_ROOT_OFFSET);
+static_assert(RECEIPT_Z0_ROOT_OFFSET + 32U == RECEIPT_RHO_ROOT_OFFSET);
+static_assert(RECEIPT_RHO_ROOT_OFFSET + 32U == RECEIPT_WORK_OFFSET);
 static_assert(RECEIPT_WORK_OFFSET + WORK_COUNTERS * 8U
     == RECEIPT_EVENT_COUNT_OFFSET);
 static_assert(RECEIPT_EVENT_COUNT_OFFSET + 8U == RECEIPT_EVENTS_OFFSET);
@@ -146,10 +183,11 @@ enum class Control : std::uint32_t {
     None = 0U,
     X0Mismatch = 1U,
     PrefixUnderflow = 2U,
-    RhoNonpositive = 3U,
-    SmallSolve = 4U,
-    StateDifference = 5U,
-    Invalid = 6U,
+    PrefixNonfinite = 3U,
+    RhoNonpositive = 4U,
+    SmallSolve = 5U,
+    StateDifference = 6U,
+    Invalid = 7U,
 };
 
 struct ControlChoice final {
@@ -178,6 +216,11 @@ ControlChoice parse_control(int argc, const char* text) noexcept {
     if (matches("r63zn-prefix-underflow-v1",
             sizeof("r63zn-prefix-underflow-v1") - 1U)) {
         choice.value = Control::PrefixUnderflow;
+        return choice;
+    }
+    if (matches("r63zn-prefix-nonfinite-v1",
+            sizeof("r63zn-prefix-nonfinite-v1") - 1U)) {
+        choice.value = Control::PrefixNonfinite;
         return choice;
     }
     if (matches("r63zn-rho-nonpositive-v1",
@@ -1183,11 +1226,11 @@ std::array<std::uint64_t, WORK_COUNTERS> make_prefix_work(
     std::uint64_t two_sums, std::uint64_t positivity_checks,
     std::uint64_t canonical_root_calls,
     std::uint64_t canonical_root_bytes, std::size_t event_count,
-    std::uint64_t route_decisions) noexcept {
+    std::uint64_t route_decisions, bool parent_product_consumed) noexcept {
     constexpr std::uint64_t input_bytes =
         CACHE_BYTES + ARTIFACT_BYTES + AUDIT_BYTES;
     const std::uint64_t structural_root_bytes =
-        std::strlen("nextengine.nonlocal.r63zn.input-bundle.v1") + 323U
+        std::strlen("nextengine.nonlocal.r63zn.input-bundle.v1") + 291U
         + std::strlen("nextengine.nonlocal.r63zn.parent-set.v1") + 131U
         + std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 571U;
     const std::uint64_t event_root_bytes = event_count
@@ -1223,11 +1266,12 @@ std::array<std::uint64_t, WORK_COUNTERS> make_prefix_work(
     work[ParentAuditChecks] = audit_checks;
     work[FactorDecodes] = FACTOR_N;
     work[PermutationDecodes] = N;
-    work[QuadDecodes] = 3U * N + 1U;
+    work[QuadDecodes] = (parent_product_consumed ? 3U : 2U) * N + 1U;
     work[FactorFiniteChecks] = FACTOR_N;
     work[PermutationRangeChecks] = N;
     work[PermutationUniquenessChecks] = N;
-    work[QuadFiniteChecks] = 3U * N + 1U;
+    work[QuadFiniteChecks] =
+        (parent_product_consumed ? 3U : 2U) * N + 1U;
     work[InversePositiveChecks] = 1U;
     work[FactorSolves] = factor_solves;
     work[FactorTerms] = factor_terms;
@@ -1246,7 +1290,7 @@ std::array<std::uint64_t, WORK_COUNTERS> make_prefix_work(
     work[PositivityChecks] = positivity_checks;
     work[CanonicalRootCalls] = canonical_root_calls;
     work[CanonicalRootBytes] = canonical_root_bytes;
-    work[Role2ValueRootComparisons] = 1U;
+    work[Role2ValueRootComparisons] = parent_product_consumed ? 1U : 0U;
     work[StructuralRootCalls] = 3U;
     work[StructuralRootBytes] = structural_root_bytes;
     work[EventRootCalls] = event_count;
@@ -1411,14 +1455,12 @@ int main(int argc, char** argv) {
     }
     std::array<Q, N> rhs{};
     std::array<Q, N> baseline0{};
-    std::array<Q, N> hx0{};
     bool q_inputs_finite = true;
     for (std::size_t index = 0U; index < N; ++index) {
         rhs[index] = little_q(selection.original_rhs.bytes, index);
         baseline0[index] = little_q(selection.baseline0.bytes, index);
-        hx0[index] = artifact_q(artifact, ROLE2_VALUE_OFFSET + 16U * index);
         q_inputs_finite = q_inputs_finite && finiteq(rhs[index]) != 0
-            && finiteq(baseline0[index]) != 0 && finiteq(hx0[index]) != 0;
+            && finiteq(baseline0[index]) != 0;
     }
     const Q inverse = little_q(selection.inverse, 0U);
     q_inputs_finite = q_inputs_finite && finiteq(inverse) != 0;
@@ -1456,12 +1498,9 @@ int main(int argc, char** argv) {
     const r63zm::Digest rhs_digest = q_vector_root(rhs);
     const r63zm::Digest baseline_digest = q_vector_root(baseline0);
     const r63zm::Digest x0_digest = q_vector_root(start.solution);
-    const r63zm::Digest hx0_digest = q_vector_root(hx0);
-    const r63zm::Digest parent_hx0_digest = parent_q_vector_root(hx0);
-    if (!digest_equal_hex(parent_hx0_digest, ROLE2_VALUE_SHA256)) return 68;
-    const std::array<r63zm::Digest, 9U> bundle_fields{{cache_root,
+    const std::array<r63zm::Digest, 8U> bundle_fields{{cache_root,
         artifact_root, audit_root, factor_digest, permutation_digest,
-        inverse_digest, rhs_digest, baseline_digest, hx0_digest}};
+        inverse_digest, rhs_digest, baseline_digest}};
     const r63zm::Digest bundle_digest = digest_set_root(
         "nextengine.nonlocal.r63zn.input-bundle.v1", bundle_fields);
     const std::array<r63zm::Digest, 3U> input_roots{{cache_root,
@@ -1470,35 +1509,50 @@ int main(int argc, char** argv) {
         "nextengine.nonlocal.r63zn.parent-set.v1", input_roots);
     SemanticRoots semantic{{bundle_digest, factor_digest,
         permutation_digest, inverse_digest, rhs_digest, baseline_digest,
-        x0_digest, hx0_digest, {}, {}, {}, {}}};
-    const std::uint64_t common_canonical_bytes =
-        4U * (std::strlen(
+        x0_digest, {}, {}, {}, {}, {}}};
+    const std::uint64_t preproduct_canonical_bytes =
+        3U * (std::strlen(
             "nextengine.nonlocal.r63zn.binary128-vector.v1") + 1667U)
         + std::strlen("nextengine.nonlocal.r63zn.binary64-factor.v1")
             + 83284U
         + std::strlen("nextengine.nonlocal.r63zn.permutation.v1") + 851U
-        + std::strlen("nextengine.nonlocal.r63zn.inverse-scale.v1") + 34U
-        + std::strlen("nextengine.nonlocal.r63zm.binary128-vector.v1")
-            + 1667U;
+        + std::strlen("nextengine.nonlocal.r63zn.inverse-scale.v1") + 34U;
 
     if (x0_matches != N) {
-        constexpr std::size_t event_count = 2U;
+        constexpr std::size_t event_count = 3U;
         const auto work = make_prefix_work(cache_file, artifact_file,
             audit_file, selection, artifact_checks,
             audit_checks, control, control_work, 1U,
             start.forward_terms + start.backward_terms, start.divisions,
             start.finite_checks, N, 0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U,
-            8U, common_canonical_bytes, event_count, 8U);
+            6U, preproduct_canonical_bytes, event_count, 8U, false);
         const r63zm::Digest work_digest = work_root(work);
         std::array<r63zm::Digest, EVENTS> events{};
-        events[0U] = event_root(0U, parent_set_digest, bundle_digest);
+        const r63zm::Digest zero{};
+        events[0U] = event_root(0U, parent_set_digest, zero);
         events[1U] = event_root(1U, bundle_digest, factor_digest);
+        events[2U] = event_root(2U, x0_digest, baseline_digest);
         constexpr std::array<std::uint8_t, 3U> flags{{1U, 1U, 0U}};
         return write_prefix_receipt(4U, flags, cache_file, artifact_file,
             audit_file, semantic, work, work_digest, events, event_count,
             argv[4]) ? 0 : 69;
     }
     if (control.value == Control::X0Mismatch) return 68;
+
+    std::array<Q, N> hx0{};
+    bool hx0_finite = true;
+    for (std::size_t index = 0U; index < N; ++index) {
+        hx0[index] = artifact_q(artifact, ROLE2_VALUE_OFFSET + 16U * index);
+        hx0_finite = hx0_finite && finiteq(hx0[index]) != 0;
+    }
+    if (!hx0_finite) return 68;
+    const r63zm::Digest hx0_digest = q_vector_root(hx0);
+    const r63zm::Digest parent_hx0_digest = parent_q_vector_root(hx0);
+    if (!digest_equal_hex(parent_hx0_digest, ROLE2_VALUE_SHA256)) return 68;
+    semantic[7U] = hx0_digest;
+    const std::uint64_t product_canonical_bytes = preproduct_canonical_bytes
+        + std::strlen("nextengine.nonlocal.r63zn.binary128-vector.v1") + 1667U
+        + std::strlen("nextengine.nonlocal.r63zm.binary128-vector.v1") + 1667U;
 
     std::array<Q, N> residual{};
     std::array<Q, N> residual_bound{};
@@ -1515,6 +1569,10 @@ int main(int argc, char** argv) {
             left[0U] = ldexpq(one, -16494);
             left[1U] = static_cast<Q>(0.0);
             control_work.fixture_mutations += 2U;
+        }
+        if (control.value == Control::PrefixNonfinite && index == 0U) {
+            left[0U] = HUGE_VALQ;
+            ++control_work.fixture_mutations;
         }
         const Dot2 dot = dot2(left.data(), right.data(), left.size());
         residual[index] = dot.value;
@@ -1534,10 +1592,12 @@ int main(int argc, char** argv) {
             start.forward_terms + start.backward_terms, start.divisions,
             start.finite_checks, N, residual_updates, residual_updates,
             2U * residual_updates, 0U, 0U, residual_products,
-            residual_sums, 0U, 8U, common_canonical_bytes, event_count, 9U);
+            residual_sums, 0U, 8U, product_canonical_bytes, event_count, 9U,
+            true);
         const r63zm::Digest work_digest = work_root(work);
         std::array<r63zm::Digest, EVENTS> events{};
-        events[0U] = event_root(0U, parent_set_digest, bundle_digest);
+        const r63zm::Digest zero{};
+        events[0U] = event_root(0U, parent_set_digest, zero);
         events[1U] = event_root(1U, bundle_digest, factor_digest);
         events[2U] = event_root(2U, x0_digest, baseline_digest);
         events[3U] = event_root(3U, hx0_digest, artifact_root);
@@ -1546,7 +1606,9 @@ int main(int argc, char** argv) {
             audit_file, semantic, work, work_digest, events, event_count,
             argv[4]) ? 0 : 69;
     }
-    if (control.value == Control::PrefixUnderflow) return 68;
+    if (control.value == Control::PrefixUnderflow
+        || control.value == Control::PrefixNonfinite)
+        return 68;
     if (residual_updates != N || residual_products != 2U * N
         || residual_sums != N)
         return 68;
@@ -1577,7 +1639,7 @@ int main(int argc, char** argv) {
     semantic[9U] = residual_bound_digest;
     semantic[10U] = z0_digest;
     semantic[11U] = rho_digest;
-    const std::uint64_t full_canonical_bytes = common_canonical_bytes
+    const std::uint64_t full_canonical_bytes = product_canonical_bytes
         + 3U * (std::strlen(
             "nextengine.nonlocal.r63zn.binary128-vector.v1") + 1667U)
         + std::strlen("nextengine.nonlocal.r63zn.rho0.v1") + 118U;
@@ -1599,10 +1661,11 @@ int main(int argc, char** argv) {
             total_factor_terms, total_factor_divisions, total_solve_finite,
             N, residual_updates, residual_updates, 2U * residual_updates,
             1U, N, total_products, total_sums, 1U, 12U,
-            full_canonical_bytes, event_count, 10U);
+            full_canonical_bytes, event_count, 10U, true);
         const r63zm::Digest work_digest = work_root(work);
         std::array<r63zm::Digest, EVENTS> events{};
-        events[0U] = event_root(0U, parent_set_digest, bundle_digest);
+        const r63zm::Digest zero{};
+        events[0U] = event_root(0U, parent_set_digest, zero);
         events[1U] = event_root(1U, bundle_digest, factor_digest);
         events[2U] = event_root(2U, x0_digest, baseline_digest);
         events[3U] = event_root(3U, hx0_digest, artifact_root);
@@ -1622,10 +1685,11 @@ int main(int argc, char** argv) {
         audit_checks, control, control_work, 2U, total_factor_terms,
         total_factor_divisions, total_solve_finite, N, residual_updates,
         residual_updates, 2U * residual_updates, 1U, N, total_products,
-        total_sums, 1U, 12U, full_canonical_bytes, event_count, 10U);
+        total_sums, 1U, 12U, full_canonical_bytes, event_count, 10U, true);
     const r63zm::Digest work_digest = work_root(work);
+    const r63zm::Digest zero{};
     const std::array<r63zm::Digest, EVENTS> events{{
-        event_root(0U, parent_set_digest, bundle_digest),
+        event_root(0U, parent_set_digest, zero),
         event_root(1U, bundle_digest, factor_digest),
         event_root(2U, x0_digest, baseline_digest),
         event_root(3U, hx0_digest, artifact_root),

@@ -280,6 +280,45 @@ This is hash-closed author evidence, not an independent verdict. Until a fresh
 read-only review returns `GO`, R63ZN is not reviewed and grants no recurrence,
 certificate, portable-representation or production authority.
 
+## Formal review NO-GO and revision-3 repair checkpoint
+
+The initial independent review of snapshot `846dbac60285b36f8a162c2cb311eff69e0d7536`
+returned `NO-GO`. The exact findings and reviewer counterexamples are recorded
+in the
+[independent-review evidence](nonlocal-nsr3b4e2d7r20r63zn-independent-review-evidence-2026-08-29.md).
+The load-bearing failure was premature trust: the candidate decoded, rooted
+and compared parent role-2 `H*x0` before its independently solved `x0`
+corresponded. Public selector `r63zn-x0-mismatch-v1` therefore produced route 4
+with a nonzero `H*x0` root and nonzero role-2 work, and the checker repeated the
+same ordering error. The review also found an undeclared GNU C++20 build
+dialect, unsealed checker read/serialization work, incomplete compile-time
+receipt-layout assertions and no reachable nonfinite-arithmetic control.
+
+The one allowed batched repair closes all five findings without widening the
+scientific claim. Candidate receipt size and its 67-field ledger remain fixed
+at `1368` bytes. Role-2 bytes are now decoded only after all 102 `x0`
+comparisons; the correspondence-rejection route has zero `H*x0` and later
+roots/events, `205` quad decodes, `6` canonical-root calls and zero role-2
+comparisons. The candidate, checker and mutator assert the complete receipt
+offset chain. All six R63ZN targets build with extensions disabled under exact
+`-std=c++20`. The checker audit is now `700` bytes with a `51`-field ledger
+that seals actual POSIX read calls/stops and audit fields serialized. A public
+nonfinite prefix selector reaches arithmetic rejection before the residual is
+published.
+
+The expanded corpus passes `118/118` twice with `118/118` distinct audits and
+deterministic Release report
+`24208010a78486977ce08a2a6278a6962520e794153b6afdd5f474c28f9d2def`.
+Two independent clean strict-C++20 builds reproduce candidate
+`583f9558...dffa`, checker `f899fa1f...b83e0` and mutator
+`bc2ef0f2...d125` byte-for-byte. ASan/UBSan passes the same corpus with leak
+detection disabled, and R63ZM still reproduces audit `fd4bcf00...1f80`.
+The repaired accepted receipt is `1e42c834...ba1ac`, checker audit
+`4f09b539...e2e4eb`, trace `834907ed...e8fe7` and terminal result
+`b5907ca5...39d07`. These are author-side repair results only. The exact
+revision-3 repair snapshot still requires the single permitted read-only
+re-review before any prefix can be called reviewed.
+
 ## Exact structural evidence
 
 R63ZM's raw probe maps cache vectors as:
@@ -340,9 +379,10 @@ still `Proposed`; ADR-081 guardrails remain binding. The package is not a
 public contract or production consumer, uses no runtime state, and cannot
 authorize a portable representation or wider roadmap stage.
 
-The smallest next action is a fresh read-only review of the exact frozen
-candidate, checker, mutator, runner, contract, input identities, binaries and
-control report. If review finds shared authority, an unowned semantic or work
-path, an ambiguous first-failure route, a resealed mutation that passes, or an
-identity mismatch, repair the frozen package before interpreting the prefix.
-Do not import later cached states or widen the claim.
+The smallest next action is the single permitted read-only re-review of the
+exact revision-3 repair freeze: candidate, checker, mutator, runner, contract,
+input identities, binaries and complete control report. It must rerun the five
+initial findings and their counterexamples. `GO` may admit only this fixed
+initial prefix; any remaining load-bearing finding closes R63ZN
+`INCONCLUSIVE`, with no second repair or re-review. Do not import later cached
+states or widen the claim.

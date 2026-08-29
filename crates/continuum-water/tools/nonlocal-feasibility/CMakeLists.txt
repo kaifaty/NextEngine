@@ -275,6 +275,12 @@ add_executable(
 )
 nextengine_configure_r63zm_target(
     nonlocal-formula-r63zn-receipt-mutator-release -O3)
+set_target_properties(
+    nonlocal-formula-r63zn-prefix-candidate-release
+    nonlocal-formula-r63zn-prefix-checker-release
+    nonlocal-formula-r63zn-receipt-mutator-release
+    PROPERTIES CXX_EXTENSIONS OFF
+)
 
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
@@ -564,4 +570,10 @@ if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
     )
     nextengine_configure_r63zm_target(
         nonlocal-formula-r63zn-receipt-mutator-dev -O0)
+    set_target_properties(
+        nonlocal-formula-r63zn-prefix-candidate-dev
+        nonlocal-formula-r63zn-prefix-checker-dev
+        nonlocal-formula-r63zn-receipt-mutator-dev
+        PROPERTIES CXX_EXTENSIONS OFF
+    )
 endif()
