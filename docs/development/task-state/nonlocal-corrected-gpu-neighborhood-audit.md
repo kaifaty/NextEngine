@@ -23,6 +23,10 @@
 - **Current blocker:** none; RTX 3080 (`sm_86`) and CUDA 13.3 are available.
 - **Claim ceiling:** neighborhood/cache/index correspondence only; no local
   assembly, solve, trajectory, performance, runtime or product claim.
+- **Continuation:** NCGA2 is now frozen separately at
+  `docs/plans/nonlocal-corrected-gpu-assembly-audit/00-objective-assembly-correspondence-contract.md`.
+  It targets objective energy/gradient/Hessian assembly and explicitly does
+  not revive the stopped SISSM local matrix.
 
 ## Competing hypotheses
 
