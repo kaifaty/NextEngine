@@ -56,6 +56,11 @@ target_compile_options(
         $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
         $<$<COMPILE_LANGUAGE:CUDA>:-O3;--fmad=false;--prec-div=true;--prec-sqrt=true;--ftz=false>
 )
+target_link_options(
+    nonlocal-corrected-cuda-neighbors
+    PRIVATE
+        $<$<CONFIG:Release>:-s>
+)
 target_compile_features(
     nonlocal-corrected-cuda-terms PRIVATE cxx_std_17 cuda_std_17)
 set_target_properties(
