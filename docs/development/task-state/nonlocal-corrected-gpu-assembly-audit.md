@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA2_REV1_REFUTED / COMPENSATED_F32_DISCRIMINATOR_NEXT` |
+| Status | `ACTIVE / NCGA2_REV1_REFUTED / REV2_COMPENSATED_F32_FROZEN` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Test tiny strict-f32 CUDA energy/gradient/Hessian assembly for the corrected Nonlocal objective, without reviving the stopped SISSM solver |
@@ -20,9 +20,9 @@
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** freeze revision 2 with the same inputs/oracles/tolerances and
-  one exact compensated-f32 recurrence; retain naive f32 as a required rejected
-  identity before implementation.
+- **Next action:** implement the exact revision-2 Kahan-style binary32
+  recurrence in every named reduction, add executed compensation counts and
+  retain revision-1 naive f32 as a required rejected identity.
 - **Current blocker:** none; RTX 3080 (`sm_86`) and CUDA 13.3 are available.
 - **Claim ceiling:** tiny objective assembly correspondence only; no solve,
   trajectory, performance, runtime or product-water claim.
@@ -80,6 +80,19 @@
   with naive f32 as a negative.
 - **Remaining uncertainty:** whether compensation closes every gradient,
   Hessian and direct-HVP reduction, or strict f32 remains insufficient.
+
+### D-004 — Freeze compensated f32 without changing the question
+
+- **Observation:** cancellation, not graph or isolated term translation, is the
+  first surviving explanation.
+- **Decision:** revision 2 changes only the exact binary32 addition recurrence
+  and work receipt. Profile, fixture bytes, bounds, products and oracles remain
+  immutable; naive revision 1 becomes a common-comparator negative.
+- **Rejected alternatives:** tolerance widening, deleting the symmetric case,
+  using device binary64, switching to a new physical profile, or measuring a
+  solver before assembly closes.
+- **Reconsider when:** revision 2 fails an unchanged gate or independent review
+  finds shared/hidden work.
 
 ## Required context
 
