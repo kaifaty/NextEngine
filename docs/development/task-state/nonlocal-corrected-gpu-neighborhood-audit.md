@@ -27,6 +27,10 @@
   `docs/plans/nonlocal-corrected-gpu-assembly-audit/00-objective-assembly-correspondence-contract.md`.
   It targets objective energy/gradient/Hessian assembly and explicitly does
   not revive the stopped SISSM local matrix.
+- **Performance follow-up:** external NCGP0 measured only the scalable exact
+  neighborhood stage. Three 50k profiles reproduce `1.02..1.18 ms p95`; 16k
+  timing is inconclusive under DVFS. See
+  `docs/development/nonlocal-corrected-gpu-neighborhood-performance-evidence-2026-08-30.md`.
 
 ## Competing hypotheses
 
@@ -96,6 +100,19 @@
   supported on the frozen RTX 3080/CUDA 13.3 profile.
 - **Decision:** close NCGA1 `SUPPORTED_BOUNDED`; authorize only a separately
   frozen local-assembly audit, not a full solver, trajectory or performance run.
+
+### D-006 — Preserve NCGP0 as neighborhood-only performance evidence
+
+- **Observation:** the exact scalable builder passes all 50k correctness and
+  capacity gates and repeats p95 within `0.30%`; 16k crosses a DVFS transition.
+- **Evidence:**
+  `docs/development/nonlocal-corrected-gpu-neighborhood-performance-evidence-2026-08-30.md`.
+- **Conclusion:** exact canonical neighbor construction costs about
+  `1.02..1.18 ms p95` at 50k on RTX 3080; duplicated count/fill traversal is
+  the measured first bottleneck.
+- **Decision:** retain the timing as report-only. Do not add it to any solver or
+  frame budget, and do not promote the external prototype without sanitizer,
+  packaging and independent review.
 
 ## Required context
 
