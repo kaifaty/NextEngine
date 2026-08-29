@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | `ACTIVE` |
-| Updated | `2026-08-22` |
+| Updated | `2026-08-29` |
 | Task key | `speech-recognition-reliability` |
 | Scope | Public-data, utterance-level Russian ASR reliability in `tools/speech-timeline` |
 | Definition of done | R0–R3 satisfy the gates and boundaries in `DEV-SPEECH-RELIABILITY-001`, or the first failed gate leaves the candidate explicitly report-only |
@@ -89,7 +89,7 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** R1 feature capture, service-path integration and the prepared-corpus replay runner are committed as localized `tools/speech-timeline` changes; datasets, ready files, profiles and reports remain outside Git.
-- **Checks:** 153 speech-timeline tests, compileall, CLI smoke (`score`, `dry-run`, `replay` refusal paths), `git diff --check` pass; `host-check` not run for this Python-only increment (no Rust/workspace surface touched).
-- **Remaining risk:** No real corpus replayed or scored; determinism is proven for identical event sequences on fixtures, not across two live model runs whose wall timings differ by nature.
+- **Workspace state:** Merge commit `293e9350` integrates the complete reliability toolchain and its branch history into the primary `codex/architecture-foundation-promotion` branch; datasets, ready files, profiles and reports remain outside Git.
+- **Checks:** The integrated tree passes 198 Python tests plus 20 subtests, locked external-environment sync, Vue typecheck/production build, `play`, `content-package` and `git diff --check`; `host-check` is not required because the merge changes no Rust/workspace surface.
+- **Remaining risk:** The 14,973-row fit is real but remains report-only because logistic Brier improvement is only 0.6% versus the constant baseline. Streaming-route evidence, discriminating feature-schema changes and held-out evaluation remain open.
 - **Promotion needed:** None; the feature payload stays an internal experiment schema until an Accepted ADR promotes a runtime contract.

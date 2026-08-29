@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | `PHASE_1_IMPLEMENTED`; true streaming is now required for the game-facing ASR, while GigaAM remains a final-only quality reference |
-| Updated | `2026-08-20` |
+| Updated | `2026-08-29` |
 | Task key | `audio-emotion-asr-timeline` |
 | Scope | Phase 1 prototypes Voxtral/emotion2vec; Phase 2 adds replaceable LLM/TTS; Phase 3A proves them in a one-character simple-dialogue scene before 3B-3D boundary/internal-model work; prerequisite-gated Phase 4 fine-tunes FunctionGemma. |
 | Definition of done | A resident prototype exposes versioned transcript/affect/fusion revisions, declares timing precision, avoids model reload between clients and reports joint latency/resource evidence. |
@@ -288,7 +288,7 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace state:** `tools/speech-timeline` contains the resident Phase 1 service plus selectable DPDFNet/GTCRN/UL-UNAS ASR preprocessing and identical-PCM Vue replay; external models, profiles, ready files, audio and reports remain outside Git.
-- **Checks:** Run the focused Python/lab suites, `git diff --check`, lock consistency and final risk-scoped `host-check` before handoff.
+- **Workspace state:** Merge commit `293e9350` integrates `codex/speech-timeline-service` into the primary `codex/architecture-foundation-promotion` branch. `tools/speech-timeline` contains the resident Phase 1 service plus selectable DPDFNet/GTCRN/UL-UNAS ASR preprocessing and identical-PCM Vue replay; external models, profiles, ready files, audio and reports remain outside Git.
+- **Checks:** The integrated tree passes 198 Python tests plus 20 subtests (speech timeline and preserved Voxtral lab coverage), locked external-environment sync, Vue typecheck/production build, `play`, `content-package` and `git diff --check`. No Rust/workspace surface changed, so broad `host-check` is not required for this merge.
 - **Remaining risk:** User-spoken microphone acceptance, broader Russian ASR quality, VAD/model-slot alignment, emotion transition quality, and emotion2vec+ redistribution terms.
 - **Promotion needed:** None; no Accepted architecture or roadmap change is authorized by this research.
