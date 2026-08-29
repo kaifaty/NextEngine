@@ -1,6 +1,7 @@
 # NSR3-B4E2D7R20R63ZN fixed-artifact initial recurrence research
 
-Status: `REVISION_2_CONTRACT_FROZEN / IMPLEMENTATION_PENDING`.
+Status: `REVISION_2_CONTRACT_FROZEN / AUTHOR_PREFLIGHT_PASS /
+PACKAGE_IMPLEMENTATION_PENDING`.
 
 ## Decision
 
@@ -47,6 +48,53 @@ Revision 2 corrects only that numerical schedule. It keeps the same parent,
 role mapping, prefix boundary, independent candidate/checker requirement and
 claim ceiling. This correction was committed before implementation so no
 observed R63ZN endpoint influenced the method.
+
+## Author preflight observation
+
+A bounded external preflight implemented the revision-2 arithmetic directly
+over the exact cache and R63ZM artifact. It is not the contracted package: it
+uses frozen offsets after external whole-file identity checks and publishes no
+receipt, independent checker or controls. Its only purpose was to determine
+whether the selected prefix is numerically reachable before building the full
+trust/work boundary.
+
+Observed twice-identical stdout:
+
+```text
+permutation_exact=1
+start_exact=1
+x0_matches=102
+residual_exact=1
+residual_no_underflow=1
+residual_products=204
+residual_sums=102
+preconditioned_exact=1
+rho_exact=1
+rho_no_underflow=1
+rho_products=102
+rho_sums=101
+rho_positive=1
+rho_value=+0x1.f4d792f082e81eb9febf63958eed00000000p+3
+rho_bound=+0x1.f4d792f082e8a8eadc3d21ccdada00000000p-109
+rho_lower=+0x1.f4d792f082e81eb9febf63958eeb00000000p+3
+```
+
+Exact identities:
+
+| Item | SHA-256 |
+|---|---|
+| preflight source | `1ff6553e822999c1c75e05e93a5c5f306445c6864592fe265eb47e423b7ff576` |
+| strict Release-style binary | `606994dba3726b94299e4f22179741c5662a9d528ca264fe859ff1febfd6b861` |
+| stdout, run 1 and run 2 | `dccaf8c156cd0d310185eada4f79e13c6bb071122cf8d999ac6245644140fc5f` |
+| cache | `23dbf605ad7b6ae12c4cf6a80404ead9617354ff2848bd010b52c7fa7f83bb84` |
+| R63ZM artifact | `ac6946e872799baef366d8a6648e7bb5cd70c6f2acc326747fdf153c471f0b87` |
+
+This establishes reachability only: the independently coded factor solve
+matches all `102` role-2 input components, the consumed product produces an
+exact/no-underflow residual, the second solve is exact, and the Dot2 lower
+bound is positive by a very wide margin. It does not establish parser,
+identity, work, receipt, route or checker correctness and therefore grants no
+R63ZN scientific claim.
 
 ## Exact structural evidence
 
@@ -108,8 +156,8 @@ still `Proposed`; ADR-081 guardrails remain binding. The package is not a
 public contract or production consumer, uses no runtime state, and cannot
 authorize a portable representation or wider roadmap stage.
 
-The smallest next action is to implement the frozen revision-2
-candidate/checker pair
+The smallest next action is to replace the offset-only diagnostic with the
+frozen revision-2 candidate/checker pair
 with complete fixed-capacity work receipts. If the independently solved `x0`
 does not match the role-2 input or the consumed product cannot reproduce the
 certified-positive initial prefix, stop R63ZN rather than importing later

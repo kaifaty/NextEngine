@@ -4280,6 +4280,11 @@ prove role-2 input correspondence, consume its `H*x0`, then derive
 frozen before code after tracing the inherited compensated arithmetic.
 Implementation and review are pending; no complete
 recurrence, certificate, representation or production authority exists.
+An external author preflight now reproduces `102/102` role-2 input components,
+exact/no-underflow residual work, the second factor solve and a
+certified-positive `rho0` lower bound twice at stdout
+`dccaf8c1...fc5f`. It is offset-only reachability evidence, not the contracted
+parser/receipt/checker package, so the claim ceiling is unchanged.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
