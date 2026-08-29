@@ -6935,7 +6935,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   publish an admissible fixed-size file. The product-body root remains before
   `x1` and seals only work fields `0..39`. Revision 3 also freezes tagged root
   encoding, every root domain/field order, candidate/checker flag bits, eight
-  event payloads and checker-only route precedence before package code.
+  event payloads, pre-`x1` stage-local route isolation and checker-only route
+  precedence before package code.
 - **Rejected alternatives:** call output I/O out of scope; overload hash-byte
   fields with serialization; implement first and repair after evidence; reuse
   variable retrying writes.

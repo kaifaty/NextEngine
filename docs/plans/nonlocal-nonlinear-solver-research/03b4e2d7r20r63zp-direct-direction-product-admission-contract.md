@@ -387,7 +387,8 @@ nextengine.nonlocal.r63zp.product-body.v1:
   three parent roots, two role roots, three semantic roots, five scalars,
   dimension, work fields 0..39, event slots 0..3, p0, q0, bounds
 nextengine.nonlocal.r63zp.candidate-event.v1:
-  event ordinal, candidate route, then the event-specific fields below
+  event ordinal, stage-local candidate route, then the event-specific fields
+  below
 nextengine.nonlocal.r63zp.candidate-trace.v1:
   event_count, all eight event slots
 nextengine.nonlocal.r63zp.candidate-result.v1:
@@ -406,6 +407,13 @@ Candidate events are exactly:
 6. `q0`/bound roots plus denominator primary/bound and alpha;
 7. post-seal derived `x1` root and update-match count;
 8. product-body root and candidate work root.
+
+The stage-local route is the first rejection known at that event, or ordinal
+`7` when no rejection is known yet. Events 1 through 5 are constructed before
+any `x1` decode and therefore cannot contain or change in response to final
+route 6 versus 7. Event 7 first owns that distinction; event 8 repeats the
+final route. This rule applies even when an externally mutated candidate later
+claims another final route.
 
 The candidate flag bits are `0=input/direction exact`, `1=product arithmetic
 exact/normal`, `2=candidate bounds finite/nonnegative`, `3=curvature positive`,
