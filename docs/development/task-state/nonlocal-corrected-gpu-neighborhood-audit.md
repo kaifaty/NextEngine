@@ -1,0 +1,131 @@
+# Nonlocal corrected GPU neighborhood audit — current task state
+
+| Field | Value |
+| --- | --- |
+| Status | `COMPLETE / NCGA1_REVIEWED_GO / SUPPORTED_BOUNDED` |
+| Updated | `2026-08-29` |
+| Task key | `nonlocal-corrected-gpu-neighborhood-audit` |
+| Scope | Isolate exact GPU cell-neighborhood construction and stable sample indexing before local assembly or solver work |
+| Definition of done | NCGA1 receives one bounded independently reviewed result or stops at its first reproducible failing boundary |
+| Authority | Working context only; SPEC-38, ADR-076/081 and the frozen NCGA1 contract outrank this file |
+
+## Resume in 60 seconds
+
+- **Current state:** NCGA1 revision 1 is independently reviewed
+  `GO / SUPPORTED_BOUNDED`; exact CPU/GPU graph and work roots, eight positives,
+  four negatives, ten cold repeats, three sanitizers and retained controls pass.
+- **Question:** can a device-built signed cell index emit the exact canonical
+  integer support graph and stable `SampleId` CSR under boundary cases and
+  input permutation?
+- **Next action:** if GPU research continues, freeze a new local
+  energy/source/matrix assembly contract over a small immutable graph. Keep
+  matrix factorization, nonlinear solve and performance outside that stage.
+- **Current blocker:** none; RTX 3080 (`sm_86`) and CUDA 13.3 are available.
+- **Claim ceiling:** neighborhood/cache/index correspondence only; no local
+  assembly, solve, trajectory, performance, runtime or product claim.
+- **Continuation:** NCGA2 is now frozen separately at
+  `docs/plans/nonlocal-corrected-gpu-assembly-audit/00-objective-assembly-correspondence-contract.md`.
+  It targets objective energy/gradient/Hessian assembly and explicitly does
+  not revive the stopped SISSM local matrix.
+- **Performance follow-up:** external NCGP0 measured only the scalable exact
+  neighborhood stage. Three 50k profiles reproduce `1.02..1.18 ms p95`; 16k
+  timing is inconclusive under DVFS. See
+  `docs/development/nonlocal-corrected-gpu-neighborhood-performance-evidence-2026-08-30.md`.
+
+## Competing hypotheses
+
+| Hypothesis | Prediction | Discriminator | Outcome |
+| --- | --- | --- | --- |
+| H1 exact GPU indexing corresponds | all eight canonical payloads are byte-exact across input permutations | independent integer all-pairs oracle | supported on frozen corpus |
+| H2 support boundary is mistranslated | exact-radius or one-micrometre-outside membership differs | `support_edge` plus strict-radius negative | refuted for corrected candidate; strict control rejects |
+| H3 identity/cell mapping is unstable | negative coordinates or input permutation changes cache/CSR | floor, array-index and same-cell negatives | refuted for corrected candidate; all wrong identities reject |
+
+## Decisions
+
+### D-001 — Audit canonical integer state, not another shared float path
+
+- **Observation:** SPEC-38 owns sample positions in integer micrometres and
+  requires reconstructible stable `(cell key, SampleId)` caches.
+- **Evidence:** SPEC-38 candidate state and one-pass cache order; historical
+  CUDA uses private float positions and array indices.
+- **Conclusion:** a float CPU clone could reproduce the same translation bug.
+- **Decision:** exact integer all-pairs host oracle versus integer CUDA cell
+  candidate; historical shortcuts become named negative controls.
+- **Rejected alternatives:** infer correctness from old `11/11`, or compare two
+  implementations sharing the same grid helper.
+- **Consequence:** the result is narrower but causally identifies neighborhood
+  and stable-index behavior.
+- **Reconsider when:** a later private-float execution profile is frozen for a
+  complete solver; that requires a separate correspondence contract.
+
+### D-002 — Preserve historical and NCGA0 sources
+
+- **Observation:** old CUDA evidence and NCGA0 are immutable controls.
+- **Decision:** add a new executable/translation units; do not patch
+  `cuda_baseline.cu`, `oracle.cpp` or corrected-term sources.
+- **Consequence:** any result cannot silently rewrite historical evidence.
+
+### D-003 — Preflight selects exact GPU cell construction
+
+- **Observation:** the first isolated Release run produces byte-identical CPU
+  and GPU graph roots for all eight fixtures; reversed cloud input produces the
+  same graph/work roots.
+- **Evidence:** development build output root
+  `c8b905f78a161fbb1fa40a4bd05c7458e9d47be98343e934f3c1e12c11ca01e8`;
+  all four named wrong identities are rejected.
+- **Conclusion:** no neighborhood/index mismatch is observed in the corrected
+  exact-integer candidate; the clean frozen protocol and review remain open.
+- **Decision:** preserve the implementation and proceed only to validation;
+  do not add matrix or solver work in NCGA1.
+
+### D-004 — Author validation is complete but not promoted
+
+- **Observation:** two clean Release outputs and binaries are exact; all
+  sanitizers report zero errors; NCGA0 and historical tiny controls pass.
+- **Evidence:**
+  `docs/development/nonlocal-corrected-gpu-neighborhood-audit-evidence-2026-08-29.md`.
+- **Conclusion:** the author result is `SUPPORTED_BOUNDED`; independent review
+  is the only remaining NCGA1 gate.
+- **Decision:** freeze snapshot `083e1164`; no candidate edits or local-assembly
+  work before review.
+
+### D-005 — Independent review closes NCGA1
+
+- **Observation:** a fresh reviewer reproduced two clean builds/runs,
+  sanitizers, regressions and every graph/work root with a separate Python
+  reconstruction; no load-bearing defect was found.
+- **Evidence:**
+  `docs/development/nonlocal-corrected-gpu-neighborhood-audit-independent-review-2026-08-29.md`.
+- **Conclusion:** exact finite neighborhood/cache/index correspondence is
+  supported on the frozen RTX 3080/CUDA 13.3 profile.
+- **Decision:** close NCGA1 `SUPPORTED_BOUNDED`; authorize only a separately
+  frozen local-assembly audit, not a full solver, trajectory or performance run.
+
+### D-006 — Preserve NCGP0 as neighborhood-only performance evidence
+
+- **Observation:** the exact scalable builder passes all 50k correctness and
+  capacity gates and repeats p95 within `0.30%`; 16k crosses a DVFS transition.
+- **Evidence:**
+  `docs/development/nonlocal-corrected-gpu-neighborhood-performance-evidence-2026-08-30.md`.
+- **Conclusion:** exact canonical neighbor construction costs about
+  `1.02..1.18 ms p95` at 50k on RTX 3080; duplicated count/fill traversal is
+  the measured first bottleneck.
+- **Decision:** retain the timing as report-only. Do not add it to any solver or
+  frame budget, and do not promote the external prototype without sanitizer,
+  packaging and independent review.
+
+## Required context
+
+1. `docs/architecture/agent-routing.md`, SPEC-38, SPEC-26, SPEC-21 and
+   ADR-076/081/058/027/046/026/071.
+2. `docs/roadmap.md` continuum R8 row.
+3. `docs/development/task-state/nonlocal-corrected-gpu-audit.md`.
+4. `docs/plans/nonlocal-corrected-gpu-neighborhood-audit/00-neighborhood-index-correspondence-contract.md`.
+
+## Do not retry or infer
+
+- do not use the historical full solver as the correctness oracle;
+- do not host-sort or host-canonicalize candidate output;
+- do not weaken `<=` support membership or remove permutation/negative cases;
+- do not report the isolated work counts as game-scale performance;
+- do not begin matrix/solver work before this boundary closes.

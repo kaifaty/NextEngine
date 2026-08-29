@@ -1,0 +1,4396 @@
+# Nonlocal nonlinear solver research roadmap
+
+Current milestone: `NSR3B4E2D7R20R63M_EXPORTED_FACTOR_WIDE_PCG_CANDIDATE /
+NSR3B4E2D7R20R63N_DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED /
+NSR3B4E2D7R20R63O_RETAINED_WIDE_TRANSPORTED_MATRIX_FREE_PCG_REJECTED /
+NSR3B4E2D7R20R63P_PROJECTOR_RANK_ONE_EXPLANATION_REJECTED /
+NSR3B4E2D7R20R63Q_TANGENT_GRAM_FULL_OPERATOR_CANDIDATE /
+NSR3B4E2D7R20R63R_COMMON_OPERATOR_TWO_SIDED_CANDIDATE /
+NSR3B4E2D7R20R63S_RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED /
+NSR3B4E2D7R20R63T_RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED /
+NSR3B4E2D7R20R63U_TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE /
+NSR3B4E2D7R20R63V_TWO_LANE_EARLIEST_IMAGE_CANDIDATE /
+NSR3B4E2D7R20R63W_RETAINED_WIDE_FINITE_IMAGE_REJECTED /
+NSR3B4E2D7R20R63X_TWO_LANE_AFFINE_IMAGE_CANDIDATE /
+NSR3B4E2D7R20R63Y_TWOFOLD_AFFINE_IMAGE_CANDIDATE /
+NSR3B4E2D7R20R63Z_TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE /
+NSR3B4E2D7R20R63ZA_TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE /
+NSR3B4E2D7R20R63ZB_TWOFOLD_RECURRENCE_LADDER_REJECTED /
+NSR3B4E2D7R20R63ZC_COMMON_OPERATOR_PERTURBATION_SUFFICIENT /
+NSR3B4E2D7R20R63ZD_ALL_SINGLE_OPERATOR_USES_MINIMAL_REJECTS /
+NSR3B4E2D7R20R63ZE_DENOMINATOR_STEP_SUFFICIENT /
+NSR3B4E2D7R20R63ZF_CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE /
+NSR3B4E2D7R20R63ZG_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT /
+NSR3B4E2D7R20R63ZH_REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL_CERTIFICATE_REPAIR_STOPPED /
+NSR3B4E2D7R20R63ZI_ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_AUTHOR_REJECTED /
+NSR3B4E2D7R20R63ZJ_PRODUCT_PRECISION_LOCALIZATION_INCONCLUSIVE /
+NSR3B4E2D7R20R63ZK_INCONCLUSIVE /
+REPORT_ONLY`. The append-only status ledger
+below preserves all pre-closure markers for historical audit.
+
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / NSR3B4B_FAIL / NSR3B4BK_FAIL / NSR3B4BK1_PASS / NSR3B4B1_FAIL / NSR3B4BF_PASS / NSR3B4B2_PASS / NSR3B4C3MC1_TINY_ACCURACY_PASS / NSR3B4C4M0_PASS / NSR3B4C4A_PASS / NSR3B4C4A1_PASS / NSR3B4C4B_PASS / NSR3B4C4BM_PASS / NSR3B4C4B1_PASS / NSR3B4C4C_PASS / NSR3B4C4CM_PASS / NSR3B4C4C1_PASS / NSR3B4D_MISSING_ARTIFACT / NSR3B4DR1E_PASS / NSR3B4EP10I_PASS / NSR3B4EP10PCD_PASS / NSR3B4EP10PCI_FAIL / NSR3B4EP10CTD_FAIL / NSR3B4EP10SID_PASS / NSR3B4EP10SICD_PASS / NSR3B4EP10SII_PASS / NSR3B4EP10SIR_PASS / NSR3B4EP10SIRD_PASS / NSR3B4EP10SIRDA_PASS / NSR3B4EP10SIRDI_PASS / NSR3B4EP10SIRDIR_PASS / NSR3B4EP10SIRDIRE_PASS / NSR3B4EP10SIRDIREA_PASS / NSR3B4EP10SIRDIREI_FAIL / NSR3B4EP10SIRDIREP_FAIL / NSR3B4EP10SIRDIREQ_HOST_UNQUALIFIED / NSR3B4EP10SIRDIREQ1_PASS / NSR3B4EP10SIRDIREQ2_PASS / NSR3B4EP10SIRDIREQ3_FAIL / NSR3B4EP10SIRDIREQ4_FAIL / NSR3B4E2R_PASS / NSR3B4E2D_FAIL / NSR3B4E2D0_PASS / NSR3B4E2D1_PASS / NSR3B4E2D2_PASS / NSR3B4E2D3_FAIL_STEP2_STRAIN / NSR3B4E2D4_PASS_FINITE_PENALTY / NSR3B4E2D5_PASS_AL_SELECTED / NSR3B4E2D6_PASS_AL_PATH / NSR3B4E2D7_FAIL_PRESSURE_COMMIT / NSR3B4E2D7R_FAIL_INNER_FLOOR / NSR3B4E2D7R1_FAIL_TOPOLOGY_GATE / NSR3B4E2D7R2_RESEARCH / NSR3B4E2D7R6_FAIL / NSR3B4E2D7R7_PASS / NSR3B4E2D7R8_PASS_BINARY64_ENERGY / NSR3B4E2D7R18R1_PASS_NONDIMENSIONAL_TRANSACTION / NSR3B4E2D7R18R2_PASS_INNER_POLICY_INSUFFICIENT / NSR3B4E2D7R18R3_PASS_PRECANCELLATION_CANDIDATE / NSR3B4E2D7R18R4_FAIL_WORK_LIFECYCLE / NSR3B4E2D7R18R4R1_PASS_RETAINS_SECOND_ITERATION / NSR3B4E2D7R18R4R2_PASS_CONFIRMED / NSR3B4E2D7R19_FAIL_PRECISION_LEDGER / NSR3B4E2D7R19R1_PASS_RUNTIME_TOPOLOGY_PRECISION_CANDIDATE / NSR3B4E2D7R19R2_PASS_STRUCTURAL_WATCHDOG / NSR3B4E2D7R19R3_PASS_FORCING_CONVERGED_33 / NSR3B4E2D7R19R4_PASS_RESIDUAL_MODEL_IMAGE / NSR3B4E2D7R19R5_PASS_SIXTH_TRIAL_ACCEPTANCE / NSR3B4E2D7R19R6_PASS_LATER_GUARD_DENIED / NSR3B4E2D7R19R7_PASS_FORCING_CONVERGED_34 / NSR3B4E2D7R19R8_PASS_RESIDUAL_MODEL_CANDIDATE / NSR3B4E2D7R19R9_PASS_TOTAL_HVP_EXHAUSTED / NSR3B4E2D7R19R10_PASS_SAFE_PROGRESSING / NSR3B4E2D7R19R11_PASS_FORCING_CONVERGED_24 / NSR3B4E2D7R19R12_PASS_ACCEPTANCE_CANDIDATE / NSR3B4E2D7R19R13_PASS_OUTER_COMPLETE_NOT_ADMISSIBLE / NSR3B4E2D7R19R14_PASS_OUTER_BOUNDARY_SUSPENDED / NSR3B4E2D7R19R15_PASS_V1_RESOURCE_LEDGER_COLLISION / NSR3B4E2D7R19R16_PASS_V2_VALIDATION_CANDIDATE / NSR3B4E2D7R19R17_PASS_OWNER_EPOCH_TRANSITION_CANDIDATE / NSR3B4E2D7R19R18_PASS_RESUME_EQUIVALENT_NOT_ADMISSIBLE / NSR3B4E2D7R19R19_PASS_OUTER7_GRANT_CANDIDATE / NSR3B4E2D7R19R20_PASS_OUTER7_EQUIVALENT_NOT_ADMISSIBLE / NSR3B4E2D7R19R21_PASS_OUTER8_GRANT_CANDIDATE / NSR3B4E2D7R19R22_PASS_OUTER8_EQUIVALENT_NOT_ADMISSIBLE / NSR3B4E2D7R19R23_PASS_OUTER9_GRANT_CANDIDATE / NSR3B4E2D7R19R24_PASS_OUTER9_EQUIVALENT_NOT_ADMISSIBLE / NSR3B4E2D7R19R25_PASS_OUTER10_GRANT_CANDIDATE / NSR3B4E2D7R19R26_PASS_OUTER10_EQUIVALENT_NOT_ADMISSIBLE / NSR3B4E2D7R19R27_PASS_OUTER11_GRANT_CANDIDATE / NSR3B4E2D7R19R28_PASS_OUTER11_EQUIVALENT_NOT_ADMISSIBLE / NSR3B4E2D7R19R29_PASS_LINEARIZED_FEASIBILITY_OPERATOR / NSR3B4E2D7R19R30_PASS_LINEARIZED_RANGE_PROJECTION / NSR3B4E2D7R19R31_PASS_ACTIVE_SET_REFORMULATION_REQUIRED / NSR3B4E2D7R19R32_PASS_ALL_INEQUALITY_CAUCHY / NSR3B4E2D7R19R33_PASS_ITERATED_NORMAL_STEP / NSR3B4E2D7R19R34_PASS_FIRST_ORDER_REFERENCE / NSR3B4E2D7R19R35_PASS_FIRST_ORDER_RETAINED / NSR3B4E2D7R19R36_PASS_HYBRID / NSR3B4E2D7R19R37_PASS_LINEAR_CURVE / NSR3B4E2D7R19R38_PASS_HAGER_ZHANG_DIRECTION / NSR3B4E2D7R19R39_PASS_GUARDED_HZ_RECURRENCE / NSR3B4E2D7R19R40_PASS_TOPOLOGY_REJECTED / NSR3B4E2D7R19R41_PASS_RELINEARIZATION_REQUIRED / NSR3B4E2D7R19R42_PASS_STABLE_SUPERSET / NSR3B4E2D7R19R43_PASS_TANGENTIAL_REQUIRED / NSR3B4E2D7R19R44_PASS_COMMON_DESCENT / NSR3B4E2D7R19R45_PASS_MERIT_RECOVERY_REQUIRED / NSR3B4E2D7R19R46_PASS_FILTER_FEASIBILITY_STEP / NSR3B4E2D7R19R47V1_INVALID_LINEAR_METRIC_INVERSE / NSR3B4E2D7R19R47V2_FILTER_COMPATIBILITY_FROZEN_IMPLEMENTATION_NEXT / REPORT_ONLY`
+
+Current bounded frontier: `NSR3B4E2D7R20R27_PASS_LINE_ENVELOPE_EXHAUSTED /
+NSR3B4E2D7R20R28_PASS_BIDIRECTIONAL_ACCEPTANCE /
+NSR3B4E2D7R20R29_PASS_LATER_GLOBALIZATION_REJECTED /
+NSR3B4E2D7R20R30_PASS_SAME_FACE_REJECTION /
+NSR3B4E2D7R20R31_FROZEN / REPORT_ONLY`.
+
+Candidate identity:
+
+```text
+nuv-newton-krylov-r0
+```
+
+This is a new solver lineage over the verified
+`nuv-variational-fcr2` objective. It does not reopen, repair or relabel the
+stopped SISSM/Chebyshev lineage. FCR0--FCR3-B2 reports and roots remain exact
+historical evidence. The FCR2 binary64 objective/gradient is the comparison
+oracle; DFSPH remains the water correctness reference.
+
+## Research question
+
+> Is the corrected Nonlocal objective practically solvable when the optimizer
+> sees its full coupled curvature, including negative curvature and active-set
+> changes, or does incompressibility need a constrained reformulation rather
+> than a stiff compression penalty?
+
+The first result is diagnostic, not a solver benchmark. It must distinguish:
+
+1. missing global/off-diagonal Hessian coupling;
+2. non-convex or rapidly changing curvature;
+3. compression active-set discontinuity;
+4. intrinsic penalty stiffness that remains after exact curvature is used.
+
+## Stage graph
+
+```text
+NSR0 exact Hessian/HVP oracle + spectral atlas
+  -> NSR1 safeguarded trust-region Newton-CG discriminator
+      -> if penalty form is viable: NSR2 matrix-free analytic HVP/preconditioner
+      -> if penalty stiffness dominates: NSR2-C constrained primal-dual study
+          -> NSR3 scalable CPU neighborhood implementation
+              -> NSR4 physical corpus and convergence
+                  -> NSR5 CUDA correspondence
+                      -> NSR6 performance and production-roadmap handoff
+```
+
+| Stage | Required result | Exit gate |
+|---|---|---|
+| NSR0 | Dense strict-f64 Hessian on tiny controls, analytic matrix-free HVP, symmetry/eigenvalue/active-margin atlas | HVP agrees with central gradient differences and dense multiplication under the frozen tolerances; old FCR reports remain byte-identical |
+| NSR1 | Unpreconditioned Steihaug--Toint trust-region Newton-CG over the unchanged objective | Every accepted step has positive actual reduction and valid model reduction; pressure and combined controls reach FCR2-or-better objective/gradient with at least a predeclared 4x reduction in objective/gradient evaluations, or emit the exact first failure |
+| NSR2 | NSR2-A separately freezes/tests a full-HVP preconditioner; NSR2-B replaces quadratic pair scans with a deterministic neighborhood operator; constrained pressure remains conditional | Same objective and trust acceptance; no coefficient/iteration sweep; correspondence precedes scale claims |
+| NSR3 | Deterministic CPU pair/neighborhood implementation with bounded work and stable reductions | Matrix-free result corresponds to the tiny oracle and storage-order controls; complexity and memory scale with admitted particles/neighbors rather than dense dimension |
+| NSR4 | Hydrostatic, dam-break, orifice, viscosity and surface-tension corpus | Quality, conservation, convergence and failure gates are frozen before execution; DFSPH/analytic comparisons pass |
+| NSR5 | CUDA report-only mirror | CPU/GPU aggregate correspondence, repeatability, capacity and failure-before-publication gates pass; no authority claim |
+| NSR6 | Measured optimization and disposition | Either a bounded production roadmap is justified or the lineage stops with its first reproducible boundary |
+
+NSR3 is now decomposed into [serial CPU baseline](03a-serial-cpu-baseline-contract.md)
+and [physical corpus design](03b-physical-corpus-design.md). Measurement runs
+first; physical execution remains blocked until dimensional profile and
+corrected boundary contracts exist.
+
+## Frozen branch rule after NSR1
+
+- If full curvature gives reliable accepted steps and the required evaluation
+  reduction, continue the penalty objective and optimize HVP/preconditioning.
+- If Newton steps are dominated by extreme positive curvature but otherwise
+  model the objective correctly, investigate replacing
+  `kappa/2 * max(rho/rho0-1, 0)^2` with the explicit inequality
+  `rho/rho0 - 1 <= 0`, a non-negative multiplier and a primal-dual merit
+  function. This is a new mathematical identity and cannot inherit FCR roots.
+- If frequent active-set crossings invalidate both local models within the
+  frozen trust policy, stop and await/compare the authors' Pairwise Descent
+  publication; do not infer that method from its title.
+
+## Execution rules
+
+1. Freeze each discriminator, corpus, budget and tolerances before its code.
+2. Do not tune physical coefficients to help an optimizer pass.
+3. Count objective, gradient and HVP calls separately; an iteration count is
+   not a cost claim.
+4. A trial rejected by the trust ratio cannot update state or become evidence.
+5. Negative curvature is a measured solver event, not an error by itself.
+6. The compression active set and minimum distance to `rho=rho0` are reported.
+7. Product-scale, CUDA and performance runs stay blocked until the preceding
+   tiny gate passes.
+8. Windows remains out of scope for this research branch.
+9. No public schema, save state, PhysX coupling, gameplay mutation or runtime
+   authority is authorized.
+
+## Stop states
+
+- `NSR_HVP_CANDIDATE`: NSR0 proves the curvature oracle only.
+- `NSR_TRUST_REGION_CANDIDATE`: NSR1 proves a bounded fast-solver direction on
+  tiny controls only.
+- `NSR_CPU_PHYSICS_CANDIDATE`: NSR3--NSR4 pass.
+- `NSR_CUDA_CANDIDATE`: NSR5 passes correspondence only.
+- `NSR_PRODUCTION_ROADMAP_CANDIDATE`: NSR6 justifies a separate integration
+  proposal.
+- `NSR_STOP`: the frozen discriminator/remediation cycle fails.
+
+## Current result and next action
+
+NSR0 passes and selects `NSR_HVP_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr0-spectral-hvp-evidence-2026-08-20.md).
+NSR1 then passes and selects `NSR_TRUST_REGION_CANDIDATE`; see its
+[dated evidence](../../development/nonlocal-nsr1-trust-region-evidence-2026-08-20.md).
+NSR2-A/A1 rejects the local block metric, while NSR2-B selects the exact
+canonical neighborhood operator. NSR2-C then preserves exact correspondence
+and converges at every scale, but fails the frozen work gate at 512 particles
+with 13 rejects and 153 HVP calls. NSR2-C1 proves those rejects repeatedly
+evaluate one step below the binary64 energy-difference floor, with no support
+or active-set change. NSR2-C2 passes with a guarded numerical-floor stop,
+reducing the 512-particle case to 12 outer trials, zero rejects and 46 HVPs.
+NSR3-A1 then selects exact allocation-free HVP workspaces; NSR3-A2 selects an
+exact per-outer-state Hessian coefficient tape. Including its construction,
+the tape improves build+HVP by `2.05x--2.43x` and total solve by
+`1.36x--1.55x` through 4096 particles while remaining under its linear memory
+cap; see the [dated evidence](../../development/nonlocal-nsr3a2-hessian-tape-evidence-2026-08-20.md).
+NSR3-B0 then proves that the raw FCR cubic integrates to `1/8` and yields
+`0.125224338*rho0` on the canonical reference lattice. The authors' fixed
+lattice normalization reconstructs density correctly, so B0 selects
+`FORMULA_RECLOSURE_REQUIRED`, not a tuned profile; see the
+[dated evidence](../../development/nonlocal-nsr3b0-dimensional-profile-evidence-2026-08-20.md).
+B0R passes the common-scale density, gradient, HVP, dense-Hessian, trust and
+Hessian-tape gates; see the
+[dated evidence](../../development/nonlocal-nsr3b0r-kernel-normalization-evidence-2026-08-20.md).
+This selects only `FCR2_NORMALIZED_OBJECTIVE_CANDIDATE`. The separately frozen
+NSR3-B1 manufactured multi-step run passes four invariance/objectivity cases
+but fails compression step doubling at ratio `0.8865`; see the
+[dated evidence](../../development/nonlocal-nsr3b1-multistep-evidence-2026-08-20.md).
+Preserve that failure and design an acoustic-Courant diagnostic next. Static
+boundaries and physical trajectories remain blocked.
+The diagnostic is now frozen in
+[NSR3-B1D](03b1d-temporal-stiffness-contract.md); it extends the same fixture
+to Courant `0.129` and cannot retroactively change the B1 result.
+Its main ladder shows a first-order-like trend, but the floor-disabled strict
+oracle fails at minimum trust radius; see the
+[dated evidence](../../development/nonlocal-nsr3b1d-temporal-stiffness-evidence-2026-08-20.md).
+Preserve B1D as invalid and design a floor-limited B1D1 oracle next.
+That oracle is frozen in
+[NSR3-B1D1](03b1d1-floor-limited-oracle-contract.md); it retains the arithmetic
+floor and removes only the ordinary early scale stop.
+B1D1 passes and confirms temporal stiffness with negligible nonlinear-solver
+sensitivity; see the
+[dated evidence](../../development/nonlocal-nsr3b1d1-floor-oracle-evidence-2026-08-20.md).
+Freeze a multi-fixture acoustic substep-policy gate next; B2 remains blocked.
+The six-case policy gate is frozen in
+[NSR3-B1S](03b1s-acoustic-substep-policy-contract.md) at target Courant
+`0.25`, with explicit `34/67` base/high-stiffness substep costs.
+B1S rejects that linear policy: all 2% compression cases exceed the velocity
+accuracy limit despite clean self-convergence; see the
+[dated evidence](../../development/nonlocal-nsr3b1s-acoustic-policy-evidence-2026-08-20.md).
+Diagnose the finite-state pressure tangent spectrum before another policy.
+The bounded matrix-free/dense diagnostic is frozen in
+[NSR3-B1S1](03b1s1-pressure-tangent-spectrum-contract.md); it selects no
+trajectory target and must publish its operator cost.
+B1S1 passes: dense and Lanczos agree, stiffness scaling is exact, and spectral
+amplification captures the amplitude increase; see the
+[dated evidence](../../development/nonlocal-nsr3b1s1-pressure-spectrum-evidence-2026-08-20.md).
+Freeze a spectral trajectory policy next, with 48-HVP estimate cost explicit.
+That policy gate is frozen in
+[NSR3-B1S2](03b1s2-spectral-substep-policy-contract.md) at spectral target
+`0.15`; expected base/high costs are `39/43` and `78/86` substeps per frame.
+B1S2 rejects spectrum as a standalone error policy: its 2% row remains just
+over the velocity threshold; see the
+[dated evidence](../../development/nonlocal-nsr3b1s2-spectral-policy-evidence-2026-08-20.md).
+Design an embedded error controller with a new amplitude holdout next.
+The controller is frozen in
+[NSR3-B1S3](03b1s3-embedded-error-controller-contract.md), including accepted
+state ownership, discarded comparator work and a new `0.97dx` holdout.
+B1S3 passes all parent cases and the holdout without fitting a new safety
+factor; see the
+[dated evidence](../../development/nonlocal-nsr3b1s3-embedded-controller-evidence-2026-08-21.md).
+It selects only a report-only error controller. Freeze B1R next to test its
+transactional composition over the original full multi-step horizon and to
+expose the recurring comparator cost before B2 boundary design.
+That discriminator is now frozen in
+[NSR3-B1R](03b1r-transactional-controller-contract.md): 12 transactional
+macro frames, current-state spectra, explicit rollback/discarded work and an
+independent fixed `96/192/384` reference ladder.
+B1R rejects coarse-state composition: all local transactions pass, but final
+position error reaches `0.072--0.134dx` as first-frame velocity error
+propagates; see the
+[dated evidence](../../development/nonlocal-nsr3b1r-transactional-composition-evidence-2026-08-21.md).
+Preserve that result and test fine-state ownership in B1R1. B2 remains
+blocked.
+The isolated ownership discriminator is frozen in
+[NSR3-B1R1](03b1r1-fine-state-ownership-contract.md). It commits the already
+computed fine member, retains every B1R reference/gate and must account for
+the coarser probe as discarded work.
+B1R1 passes all three full-horizon cases without executing additional work;
+see the
+[dated evidence](../../development/nonlocal-nsr3b1r1-fine-state-evidence-2026-08-21.md).
+It selects `NSR_MULTISTEP_CANDIDATE` and authorizes B2 static-boundary formula
+design only. Boundary execution remains blocked until that contract is frozen
+and its derivative oracles pass.
+The primary-source audit selects a split support/contact model; see the
+[B2 research note](../../development/nonlocal-nsr3b2-boundary-formula-research-2026-08-21.md).
+The resulting
+[NSR3-B2 contract](03b2-split-static-boundary-contract.md) is frozen with
+fluid-only pressure centers, virtual support reaction, two-versus-three-layer
+correspondence and separate hard-contact oracles.
+B2 passes all derivative, reaction, layer and contact gates; see the
+[dated evidence](../../development/nonlocal-nsr3b2-split-boundary-evidence-2026-08-21.md).
+It selects `SPLIT_STATIC_BOUNDARY_FORMULA_CANDIDATE`: two layers remain exact
+for this `H=3dx` cubic identity, while the required ghost-only negative proves
+that support still cannot provide nonpenetration. The boundary pressure
+Hessian is symmetric but indefinite, so B3 must retain safeguarded trust-region
+handling. Freeze a tiny split-composition smoke trajectory next; hydrostatic,
+product-scale, CUDA and performance execution remain blocked.
+The ordering study selects a post-solve analytical sweep as the smallest
+falsifiable composition; see the
+[B3 research note](../../development/nonlocal-nsr3b3-boundary-composition-research-2026-08-21.md).
+The bounded [B3 contract](03b3-boundary-composition-smoke-contract.md) freezes
+face/corner impact fixtures, fine-state ownership, fixed references, separate
+support/contact impulse ledgers and mandatory cache invalidation before any
+trajectory code.
+B3 stops at its first momentum-ledger failure before face contact; see the
+[dated evidence](../../development/nonlocal-nsr3b3-boundary-smoke-evidence-2026-08-21.md).
+The selected scale-aware trajectory stop does not certify virtual reaction at
+the stricter local tolerance, and very fine inactive steps expose a separate
+relative-roundoff floor. Preserve B3 FAIL and design B3D to distinguish a
+reaction-aware solve from a mixed absolute/relative certificate before any
+second composition attempt.
+The [B3D research](../../development/nonlocal-nsr3b3d-reaction-accuracy-research-2026-08-21.md)
+separates active stationarity, translation identity, inactive reconstruction
+roundoff and contact closure. Its
+[frozen contract](03b3d-reaction-accuracy-contract.md) requires a computed
+binary64 forward-error bound and charges a reaction-aware-stop counterfactual;
+neither mechanism may weaken the other.
+B3D completes and validates the active reaction-aware stop, but rejects its
+inactive cumulative certificate because the conservative `|x|/h` bound grows
+under refinement; see the
+[dated evidence](../../development/nonlocal-nsr3b3d-reaction-accuracy-evidence-2026-08-21.md).
+The follow-up [D1 research](../../development/nonlocal-nsr3b3d1-displacement-ownership-research-2026-08-21.md)
+selects transient substep displacement as the next falsifiable representation.
+Its [frozen contract](03b3d1-displacement-ownership-contract.md) must remove
+world-position cancellation and retain the reaction-aware result before B3R.
+D1 removes the diagnosed cancellation on every completed prefix, but all six
+fixed trajectories stop at `REACTION_BELOW_ENERGY_RESOLUTION`; see the
+[dated evidence](../../development/nonlocal-nsr3b3d1-displacement-ownership-evidence-2026-08-21.md).
+Preserve D1 FAIL. Research a direct per-term objective-difference evaluator
+with a derived roundoff certificate before attempting B3R; do not weaken the
+reaction gate or reinterpret the inherited absolute energy floor as success.
+The competing finite-precision explanations and decision tree are now frozen
+in [NSR3-B3D2](03b3d2-finite-precision-merit-contract.md). D2 replays only the
+six first-floor states and may classify a later candidate; it cannot continue
+their trajectories or authorize B3R.
+D2 passes and rejects factored endpoint energy as a common solution: three
+states have a certified negative endpoint change. All six unchanged-topology
+trials nevertheless reach the existing reaction gate, selecting only
+`FLOOR_STATIONARITY_MERIT_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b3d2-finite-precision-merit-evidence-2026-08-21.md).
+Freeze a full-trajectory D3 candidate before any B3 retry.
+The bounded candidate is now frozen in
+[NSR3-B3D3](03b3d3-floor-stationarity-trajectory-contract.md). It permits one
+charged residual-merit acceptance only at the inherited active energy floor
+and only when that same trial already closes the unchanged reaction gate.
+D3 rejects the one-trial policy: it accepts `1--121` exact floor trials per
+prefix, then every row reaches a new failure; see the
+[dated evidence](../../development/nonlocal-nsr3b3d3-floor-stationarity-trajectory-evidence-2026-08-21.md).
+Diagnose legacy `(y-y*)` inertia gradient versus owned
+`(delta-delta*)` stationarity before designing any residual iteration.
+That six-state discriminator is now frozen in
+[NSR3-B3D4](03b3d4-owned-gradient-contract.md). It changes only the inertia
+gradient input for one counterfactual trust step; the HVP and physics remain
+unchanged.
+D4 passes: the owned identity error is `5e-21--1.3e-18`, while the legacy
+error exceeds the whole fine residual. Owned-gradient trials remove both fine
+overshoots and improve all six states; four still require another correction.
+This selects `BOUNDED_OWNED_RESIDUAL_ITERATION_REQUIRED`; see the
+[dated evidence](../../development/nonlocal-nsr3b3d4-owned-gradient-evidence-2026-08-21.md).
+Freeze a capped full-trajectory D5 candidate next.
+The fully owned, four-accept maximum candidate is frozen in
+[NSR3-B3D5](03b3d5-owned-residual-trajectory-contract.md). It has no residual
+line search and fails closed on non-decrease or a fifth required merit step.
+D5 passes all six trajectories with at most two floor accepts per solve, exact
+topology and all reaction/arithmetic/correspondence gates; see the
+[dated evidence](../../development/nonlocal-nsr3b3d5-owned-residual-trajectory-evidence-2026-08-21.md).
+This authorizes a separately frozen B3R composition retry only.
+That retry is frozen in
+[NSR3-B3R](03b3r-owned-boundary-composition-contract.md). It reuses every B3
+fixture, adaptive/reference schedule and strict ledger, changing only the
+selected D5 numerical state/globalization in all executed substeps.
+B3R passes both adaptive compositions, fixed reference convergence, strict
+ledger and final accuracy gates; see the
+[dated evidence](../../development/nonlocal-nsr3b3r-owned-boundary-composition-evidence-2026-08-21.md).
+This selects `STATIC_BOUNDARY_SMOKE_CANDIDATE` and authorizes B4 physical-
+corpus contract design only.
+The [B4 research](../../development/nonlocal-nsr3b4-physical-corpus-research-2026-08-21.md)
+separates pressure water, scalable/canonical execution, internal aperture,
+viscous walls and surface calibration. Its first
+[B4A eligibility gate](03b4a-closed-box-eligibility-contract.md) passes exact
+two/three-layer closed-box topology, free-surface separation and all six
+analytical contact faces; see the
+[dated evidence](../../development/nonlocal-nsr3b4a-closed-box-eligibility-evidence-2026-08-21.md).
+The nominal all-pairs projection reaches `52.9M--2.338B` candidate checks per
+objective evaluation, so joint fluid/support cell neighborhoods are mandatory
+before nominal execution. The bounded pressure-only corpus is now frozen in
+[B4B](03b4b-tiny-pressure-corpus-contract.md): supported-column startup and a
+separate released-block/floor-impact phase, each with fixed `48/96/192`
+references and no viscosity/surface term. Viscosity, surface tension, internal
+aperture, nominal execution, CUDA and runtime remain blocked.
+B4B fails reproducibly at the first P1 fixed-96 substep; see the
+[dated evidence](../../development/nonlocal-nsr3b4b-tiny-pressure-corpus-evidence-2026-08-21.md).
+The adaptive trajectory alone is not accepted. Its 96/192 references expose a
+unilateral pressure-topology transition below the inherited energy floor when
+ghost support and a post-solve hard wall both represent the same boundary.
+Preserve all thresholds and research constrained contact KKT stationarity
+before assigning a new corpus identity.
+The KKT derivation and alternatives are recorded in the
+[B4BK research note](../../development/nonlocal-nsr3b4bk-contact-kkt-research-2026-08-21.md).
+Its [frozen discriminator](03b4bk-contact-kkt-discriminator-contract.md)
+replays the exact failed P1 first steps, tests a feasible bound-constrained
+stationarity/impulse ledger and retains detached P2 free flight as a negative.
+A full B4B retry remains blocked.
+B4BK r0 preserves exact split failures and passes its constrained KKT/ledger
+states, but the report fails on an incorrect no-lateral-multiplier hypothesis;
+see the [dated evidence](../../development/nonlocal-nsr3b4bk-contact-kkt-evidence-2026-08-21.md).
+The full cross-section physically touches both x/z walls. Freeze the sole
+[B4BK1 face-symmetry repair](03b4bk1-contact-face-symmetry-contract.md) with
+exact face counts and unchanged numerical gates, then execute it before any
+trajectory retry.
+B4BK1 passes exact face populations, signed lateral symmetry, all inherited
+KKT/ledger gates and detached P2; see the
+[dated evidence](../../development/nonlocal-nsr3b4bk1-contact-face-evidence-2026-08-21.md).
+The full [B4B1 contract](03b4b1-tiny-pressure-contact-kkt-contract.md) is now
+frozen: it changes only post-solve sweep to constrained contact inside every
+substep and inherits the complete B4B corpus without looser thresholds.
+Nominal/scalable work remains blocked.
+B4B1 closes KKT physics and all fixed references but fails the first adaptive
+frame's fixed-192 kinetic comparison; see the
+[dated evidence](../../development/nonlocal-nsr3b4b1-tiny-pressure-contact-kkt-evidence-2026-08-21.md).
+The pressure-inactive start chooses `n=1`, and its passing `1/2` pair misses
+contact-created stiffness. The selected
+[B4BF research](../../development/nonlocal-nsr3b4bf-contact-forecast-research-2026-08-21.md)
+freezes a [feasible-predictor spectrum discriminator](03b4bf-contact-forecast-controller-contract.md)
+before any full retry. The kinetic gate remains unchanged.
+B4BF passes: the feasible predictor selects the derived `21/42` pair, whose
+fine member is `2.05%` from fixed-192 kinetic energy, while detached P2 keeps
+the exact zero-HVP path; see the
+[dated evidence](../../development/nonlocal-nsr3b4bf-contact-forecast-evidence-2026-08-21.md).
+The full [B4B2 contract](03b4b2-tiny-pressure-contact-forecast-contract.md)
+is frozen with this sole initial-substep repair. B4B2 passes both complete
+pressure/contact trajectories, every fixed-reference, KKT, ledger, physical
+and work gate, and three byte-identical reports; see the
+[dated evidence](../../development/nonlocal-nsr3b4b2-tiny-pressure-contact-forecast-evidence-2026-08-21.md).
+This selects `TINY_PRESSURE_CONTACT_FORECAST_CANDIDATE` and authorizes B4C
+joint fluid/support neighborhood plus canonical-runner design only. Nominal
+execution remains blocked until B4C freezes and passes correspondence,
+capacity and publication-identity gates.
+The [B4C research](../../development/nonlocal-nsr3b4c-scalable-runner-research-2026-08-21.md)
+shows that membership, pressure tape, solver substitution and canonical
+publish/decode continuation have independent failure modes. The first
+[B4C0 contract](03b4c0-joint-neighborhood-contract.md) is frozen for exact
+joint fluid/support membership, reduction order and capacity negatives.
+B4C0 preserves exact pair/evaluation/HVP/permutation results and every typed
+capacity negative, but fails the P1 work gate: its exact-count plus fill scans
+perform `36,240` distance tests versus `27,240` all-pairs checks; see the
+[dated evidence](../../development/nonlocal-nsr3b4c0-joint-neighborhood-evidence-2026-08-21.md).
+Preserve this failure and freeze a one-pass pre-admitted-workspace revision.
+B4C1--B4C3 and all nominal execution remain blocked.
+The [B4C0R research](../../development/nonlocal-nsr3b4c0r-one-pass-workspace-research-2026-08-21.md)
+selects a [single-pass revision](03b4c0r-one-pass-neighborhood-contract.md):
+reserve the declared maximum pair payload before the query, emit once and
+clear all private output on overflow. It changes no membership or physics.
+B4C0R passes every inherited exact gate and reduces executed distance checks
+to `0.665x` all-pairs for P1 and `0.237x` for P2; see the
+[dated evidence](../../development/nonlocal-nsr3b4c0r-one-pass-neighborhood-evidence-2026-08-21.md).
+This selects `JOINT_PRESSURE_NEIGHBORHOOD_CANDIDATE` and authorizes only B4C1
+compact CSR/pressure-tape design. No solver substitution or nominal run is
+authorized.
+Researching D7R16 finds one remaining hidden dense path before a nominal
+solve: every accepted sparse inner trial still performs four full
+long-double evaluations, or `465204000` candidate checks per acceptance at
+nominal Dam scale. The
+[D7R16 research](../../development/nonlocal-nsr3b4e2d7r16-sparse-precision-transaction-research-2026-08-22.md)
+also finds that D7R15's static-support and sparse-binary128 helpers are not yet
+wired into the real transaction, and that the aligned predictor clamps exactly
+400 bottom particles whose contact impulse must remain separate from pressure.
+The [frozen contract](03b4e2d7r16-sparse-precision-transaction-contract.md)
+therefore integrates sparse long-double, static binding and sparse binary128
+through the complete tiny transaction first. Implement/run D7R16 next; the
+first aligned nominal substep moves to D7R17.
+D7R16 passes and selects `NOMINAL_TRANSACTION_BACKEND_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r16-sparse-precision-transaction-evidence-2026-08-22.md).
+All 38 accepted long-double audits and eight candidate binary128 audits use
+canonical sparse unions with zero candidate all-pair calls. Active, repeat,
+inactive, every inner and every precision root remain exact while one static
+index serves all 100 workspaces. Research/freeze D7R17 next as exactly one
+aligned nominal substep with a separate predictor-contact/pressure/support
+impulse ledger; no macro, trajectory or timing lane is authorized.
+The [D7R17 research](../../development/nonlocal-nsr3b4e2d7r17-nominal-substep-shadow-research-2026-08-22.md)
+finds that sparse Steihaug still has a nominal worst-case limit of 18,000 HVPs
+per trust step. Its
+[frozen contract](03b4e2d7r17-nominal-substep-shadow-contract.md) therefore
+adds internal outer/inner/CG/workspace/precision budgets before running exactly
+one private aligned substep. The result must keep gravity, predictor contact,
+AL pressure and fixed-support reaction separate and must classify final box
+penetration before any projected-contact redesign.
+The [B4C1 research](../../development/nonlocal-nsr3b4c1-pressure-tape-research-2026-08-21.md)
+rejects copying the full multi-term A2 record into pressure-only support
+states. The [B4C1 contract](03b4c1-compact-pressure-tape-contract.md) instead
+freezes a compact CSR of pair indices, one exact radius per unique pair and
+one compression per fluid centre. B4C1 passes exact CSR/radius/compression,
+four-direction full reaction HVP, permutation, inactive and typed-capacity
+gates. Across the active controls, three HVPs reduce exact norm/sqrt work from
+`24,846` to `3,626` and from `22,494` to `3,682`; see the
+[dated evidence](../../development/nonlocal-nsr3b4c1-pressure-tape-evidence-2026-08-21.md).
+This selects `JOINT_PRESSURE_RADIUS_TAPE_CANDIDATE` and authorizes only B4C2
+one-substep current/trial/forecast solver-query substitution design. Full
+trajectory and nominal execution remain blocked.
+The [B4C2Q audit](../../development/nonlocal-nsr3b4c2q-query-substitution-research-2026-08-21.md)
+separates private query lifecycle from adaptive continuation. Its
+[frozen contract](03b4c2q-query-substitution-contract.md) requires exact
+forecast/current/trial identities, full KKT one-substep results, atomic
+accepted/rejected workspace ownership and zero all-pairs calls in the
+candidate path. B4C2Q passes every gate: four complete one-substep results and
+all KKT/reaction/ledger/counter fields are bit-exact, the active forecast keeps
+the exact 48-call spectrum, the detached forecast remains zero-HVP and forced
+rejection leaves current state exact; see the
+[dated evidence](../../development/nonlocal-nsr3b4c2q-query-substitution-evidence-2026-08-21.md).
+This selects `JOINT_PRESSURE_KKT_QUERY_CANDIDATE` and authorizes only B4C2T
+full-controller substitution design.
+The [B4C2T research](../../development/nonlocal-nsr3b4c2t-controller-substitution-research-2026-08-21.md)
+freezes the [complete controller contract](03b4c2t-controller-substitution-contract.md):
+run the entire adaptive and fixed-reference B4B2 corpus with audit disabled,
+compare its exact physical/report state to an independent all-pairs oracle and
+reduce private query identities into a bounded chain digest. B4C3 remains
+blocked until this full binary64 continuation gate passes. B4C2T passes: both
+complete cases retain byte-identical physical/report state, exact adaptive and
+fixed trajectories and zero candidate/audit all-pairs calls; see the
+[dated evidence](../../development/nonlocal-nsr3b4c2t-controller-substitution-evidence-2026-08-21.md).
+This selects `JOINT_PRESSURE_B4B2_CONTROLLER_CANDIDATE` and authorizes B4C3
+canonical transaction design only. Its `14,149/11,860` workspace counts also
+freeze committed-workspace/static-index optimization as mandatory B4C4 work
+before B4D nominal execution.
+The [B4C3 audit](../../development/nonlocal-nsr3b4c3-canonical-transaction-research-2026-08-21.md)
+shows that canonical decode inside an adaptive level and global publication of
+that level are separate transactions. The first
+[B4C3A contract](03b4c3a-canonical-stage-contract.md) freezes one-frame
+P1/P2 level-local staging, exact fine-only commit, roundtrip/order roots and
+failure atomicity before any full canonical-controller physical bounds.
+B4C3A passes both selected one-frame controls: every continuation input equals
+the prior decoded canonical frame, only the fine level commits, repeat and
+publication-order roots are exact, physical differences remain within the
+frozen bounds and all four failure paths are atomic; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3a-canonical-stage-evidence-2026-08-21.md).
+This selects `JOINT_PRESSURE_CANONICAL_STAGE_CANDIDATE` and authorizes only
+B4C3T full canonical-controller physical-bound design. B4C4 and B4D remain
+blocked.
+The subsequent [B4C3Q audit](../../development/nonlocal-nsr3b4c3q-conservative-quantization-research-2026-08-21.md)
+finds that independent per-sample rounding adds an unreported aggregate
+position/momentum perturbation after the KKT ledger is closed. The
+[frozen discriminator](03b4c3q-balanced-quantization-contract.md) compares it
+with exact deterministic aggregate-balanced apportionment, including
+adversarial algebra, one-frame P1/P2 physics and long free-flight drift. B4C3T
+is now blocked until B4C3Q selects a publication policy and B4C3A1 revalidates
+the transaction under the resulting new profile identity.
+B4C3Q passes its exact algebra, physical, temporal and failure gates twice
+byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3q-balanced-quantization-evidence-2026-08-21.md).
+It selects `CANONICAL_AGGREGATE_BALANCED_CANDIDATE`: aggregate error and the
+residual-stress center drift improve `49x`, at the explicit cost of increasing
+the local bound from half a unit to below one unit. Only B4C3A1 selected-policy
+transaction design is authorized next.
+The [B4C3A1 audit](../../development/nonlocal-nsr3b4c3a1-publication-ledger-research-2026-08-21.md)
+separates the physical KKT transition from the subsequent deterministic
+representation transition. Its
+[frozen contract](03b4c3a1-balanced-stage-ledger-contract.md) requires
+fine-only atomic frame/ledger commit, explicit quantization impulse and center
+shift, compensated momentum closure and a decomposed kinetic/pressure/gravity
+publication-energy record. It intentionally leaves the pressure-energy
+long-horizon cap to B4C3T evidence rather than fitting one before measurement.
+B4C3A1 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3a1-publication-ledger-evidence-2026-08-21.md).
+The raw decoded-state residual reaches `9.98e-6`, while subtracting the explicit
+publication impulse reproduces the KKT ledger at `4.67e-10` or below. Fine-only
+frame/ledger commit, rollback, order, energy decomposition and P1/P2 physical
+gates pass. This selects `CANONICAL_BALANCED_STAGE_LEDGER_CANDIDATE` and
+authorizes B4C3T design only.
+The [full-controller split](../../development/nonlocal-nsr3b4c3t-full-controller-split-research-2026-08-21.md)
+decomposes the long run into adaptive ownership (B4C3TA), fixed canonical
+convergence (B4C3TR) and their final physical comparison (B4C3TC). The first
+[B4C3TA contract](03b4c3ta-adaptive-canonical-controller-contract.md) freezes
+complete P1/P2 adaptive lanes, global step/root continuity, post-commit
+rollback, exact P2 pressure-onset schedule, a binary envelope derived from
+B4C3A1 with `8/32` position/velocity safety factors, and a `1%` independent
+publication-energy budget.
+Its first execution is a preserved FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3ta-adaptive-canonical-evidence-2026-08-21.md).
+P1's failed 16-substep candidate recovers at 32 and 64 substeps, and that
+adjacent pair passes the unchanged embedded gate. P2 independently revealed
+that the harness used an exact-zero precontact velocity predicate despite the
+frozen local canonical allowance. B4C3TR remains blocked; only a separately
+frozen B4C3TAR refinement-recovery repair is authorized.
+The
+[B4C3TAR contract](03b4c3tar-adaptive-refinement-recovery-contract.md)
+now freezes exact `REJECT_LIMIT` classification, adjacent-pass selection,
+attempted-work accounting, rollback and the pre-existing local canonical
+free-flight bounds. Its implementation is the only authorized next step.
+That implementation is now a preserved FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3tar-refinement-recovery-evidence-2026-08-21.md).
+It successfully recovers two exact nonlinear failures and completes P2, then
+finds a distinct non-monotonic ledger-normalization conflict at P1 frame seven.
+The publication-compensated vector reproduces the KKT ledger, but a stricter
+normalizer rejects a residual already accepted by the KKT gate. The next step
+is a separately frozen ledger reclosure, not broader failure recovery or a
+larger tolerance.
+The
+[B4C3L contract](03b4c3l-ledger-normalization-contract.md)
+now freezes the isolated normalization discriminator. It keeps raw and
+max-scaled residuals as mandatory diagnostics, gates the compensated physical
+ledger only on the source KKT sum scale, and requires synthetic factor-two,
+one-frame P1/P2 and exact frame-seven four-level controls before any B4C3A2
+revalidation.
+B4C3L passes twice byte-identically and selects
+`CANONICAL_KKT_SCALE_LEDGER_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3l-ledger-normalization-evidence-2026-08-21.md).
+The strict legacy frame-seven pattern remains exact, all four KKT-scale stages
+pass, and the unchanged 16/32 embedded gate passes. Only B4C3A2 one-frame
+selected-policy ledger design is authorized next.
+The
+[B4C3A2 contract](03b4c3a2-kkt-scale-stage-ledger-contract.md)
+freezes that one-frame revalidation. Canonical trajectory and legacy ledger
+roots must remain B4C3A1-exact, while a new policy-ledger root binds both
+normalizers/residuals, correspondence bounds and the B4C3L policy identity.
+B4C3A2 passes twice byte-identically and selects
+`CANONICAL_KKT_SCALE_STAGE_LEDGER_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3a2-kkt-stage-ledger-evidence-2026-08-21.md).
+It preserves canonical and legacy ledger roots, adds deterministic policy
+roots, and passes atomicity/physical/negative gates. Only a new complete
+adaptive recovery replay design is authorized.
+The
+[B4C3TAR2 contract](03b4c3tar2-combined-adaptive-replay-contract.md)
+freezes that composition: exact reject-limit refinement plus KKT-scale ledger
+admission, with unchanged P1/P2 horizons, binary/energy/schedule gates,
+attempted-work accounting and atomic canonical/legacy/policy roots.
+B4C3TAR2 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3tar2-combined-replay-evidence-2026-08-21.md).
+It completes all eight P1 and sixteen P2 macro frames, recovers only the two
+known exact reject-limit failures, preserves atomic roots and schedules, and
+passes every pre-frozen physical and energy bound. This selects
+`CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE` and authorizes only
+B4C3TR complete fixed canonical reference design.
+The
+[B4C3TR audit](../../development/nonlocal-nsr3b4c3tr-fixed-reference-research-2026-08-21.md)
+separates physical time-discretization convergence from the deterministic
+canonical representation floor. Its
+[frozen contract](03b4c3tr-fixed-canonical-reference-contract.md) requires
+independent canonical `48/96/192` lanes, same-level binary tubes, exact
+canonical/legacy/policy roots, KKT-ledger and energy gates, and an explicit
+order-or-forward-floor convergence classification. The six independent lanes
+may execute concurrently with fixed report order; this changes harness
+resource utilization, not solver semantics. B4C3TC remains blocked.
+B4C3TR's isolated execution is a preserved FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3tr-fixed-reference-evidence-2026-08-21.md).
+All six lanes pass solver, transaction and KKT-policy gates, and parallel lane
+execution gives `3.06x` wall-time speedup. The blocking result is instead
+fundamental: fixed microunit publication after every substep injects the
+representation perturbation more frequently as `h` shrinks. P2 contact phase
+error grows from `0.260 ms` at 48 to `1.063 ms` at 192, and canonical final
+differences do not converge. B4C3TC remains blocked; only a publication-cadence
+reclosure may follow.
+The
+[B4C3P cadence audit](../../development/nonlocal-nsr3b4c3p-publication-cadence-research-2026-08-21.md)
+identifies the durable macro boundary, rather than private nonlinear substep,
+as the candidate canonical transaction. Its
+[frozen contract](03b4c3p-publication-cadence-contract.md) compares the exact
+per-substep FAIL control with private binary64 `48/96/192` intervals followed
+by one balanced macro publication. A new profile and macro-ledger policy bind
+that changed state ownership. A PASS can authorize only adaptive transaction
+redesign, not the previously planned B4C3TC comparison.
+The first B4C3P execution is a preserved FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3p-publication-cadence-evidence-2026-08-21.md).
+Macro-only publication restores observed first-order convergence and exact
+contact timing/sets in both scenarios, and every private KKT/macro-ledger
+transaction passes. Only P1 fixed-192 exceeds the pre-frozen `32*P*q` velocity
+tube by `10.6%`. The formula omits propagation of a published position
+perturbation through later pressure/contact dynamics. A separate stability
+reclosure is required; the coefficient is not widened from this result.
+The
+[B4C3PE audit](../../development/nonlocal-nsr3b4c3pe-stability-diagnostic-research-2026-08-21.md)
+freezes a threshold-free decomposition of direct publication error, propagated
+macro-map error and fine-192 contamination relative to independent binary
+96/192 temporal error. Its
+[measurement contract](03b4c3pe-stability-diagnostic-contract.md) changes no
+gate and cannot reclassify B4C3P; it may only authorize a separately frozen
+stability-budget design.
+B4C3PE passes twice with exact decomposition and parent replay; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3pe-stability-diagnostic-evidence-2026-08-21.md).
+It rejects scalar macro-map gain because contact and near-zero starts make the
+ratio ill-conditioned. Resolved temporal contamination and absolute physical
+utilization instead support a mixed budget: at most half of resolved binary
+temporal error, or 1% of the existing physical comparison scale. Only B4C3PE1
+design is authorized; B4C3P remains FAIL.
+The
+[B4C3PE1 design](../../development/nonlocal-nsr3b4c3pe1-mixed-budget-research-2026-08-21.md)
+freezes a [mixed stability contract](03b4c3pe1-mixed-stability-budget-contract.md):
+each lane/frame/field receives at most half its resolved adjacent binary
+temporal difference, or 1% of the existing physical accuracy scale when that
+relative budget is unavailable or smaller than material representation noise.
+Both canonical fields must still show observed first-order convergence; all
+events, physical, ledger and transaction gates remain unchanged.
+B4C3PE1 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3pe1-mixed-stability-budget-evidence-2026-08-21.md).
+All 144 field/frame admissions are classified: 89 temporal, 55 absolute and
+zero rejected. Both scenarios retain observed first-order convergence, exact
+events, non-tube physics, roots and rollback while the legacy B4C3P tube FAIL
+remains visible. The macro-boundary fixed reference candidate is selected and
+only adaptive macro-transaction design is authorized.
+The
+[B4C3MA audit](../../development/nonlocal-nsr3b4c3ma-macro-adaptive-transaction-research-2026-08-21.md)
+separates one-frame transaction ownership from long-horizon adaptive behavior.
+Its [frozen contract](03b4c3ma-macro-adaptive-transaction-contract.md) keeps
+spectrum, binary64 candidate levels, exact reject-limit recovery and adjacent
+fine selection private; only the accepted endpoint is published once and owns
+a macro ledger/root. B4C3MA must pass before any complete adaptive replay.
+B4C3MA's isolated execution is a preserved FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3ma-macro-adaptive-transaction-evidence-2026-08-21.md).
+All solver/selection/ledger/mixed-budget gates pass, but raw binary equality
+loses 24 P1 upper-face memberships after canonical decode at only `2.78e-17 m`
+coordinate difference and zero penetration. No epsilon is authorized; a new
+canonical-integer topology discriminator must run first.
+The
+[B4C3MAG audit](../../development/nonlocal-nsr3b4c3mag-canonical-topology-research-2026-08-21.md)
+selects exact canonical integer equality instead of an epsilon. Its
+[frozen contract](03b4c3mag-canonical-topology-contract.md) requires KKT
+terminal features to equal both private and decoded feature sets after exact
+`quantize_position`, while raw equality, feature differences and penetration
+remain diagnostics. Solver state and publication are unchanged.
+B4C3MAG passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3mag-canonical-topology-evidence-2026-08-21.md).
+P1 retains all 64 KKT features exactly in canonical integer coordinates while
+the 24-feature raw mismatch remains visible as the intended discriminator.
+Both one-frame adaptive transactions, all negatives and rollback pass. Only
+complete adaptive macro replay design is authorized next.
+The
+[B4C3MAR audit](../../development/nonlocal-nsr3b4c3mar-complete-adaptive-macro-research-2026-08-21.md)
+keeps long-horizon composition separate from fixed-reference accuracy. Its
+[frozen contract](03b4c3mar-complete-adaptive-macro-replay-contract.md) runs
+all 8/16 frames with private recovery, one accepted macro publication, mixed
+admission, canonical topology and macro ledger per frame. A PASS may authorize
+only a later adaptive-versus-fixed comparison design.
+B4C3MAR passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3mar-complete-adaptive-macro-evidence-2026-08-21.md).
+P1 completes at `296/444` accepted/attempted substeps with no recovery, versus
+the old cadence's `364/563` and two recovery frames; P2 preserves `82/124` and
+its exact onset schedule. All topology, mixed-budget, physical, energy, root,
+work and post-first-commit rollback gates pass. Fixed comparison design is now
+authorized, but its execution is not.
+The
+[B4C3MC0 audit](../../development/nonlocal-nsr3b4c3mc0-adaptive-fixed-diagnostic-research-2026-08-21.md)
+introduces a threshold-free adaptive-versus-fixed measurement before any
+accuracy budget is chosen. Its
+[frozen contract](03b4c3mc0-adaptive-fixed-diagnostic-contract.md) aligns every
+macro frame against fixed `48/96/192`, reports fine `96/192` temporal ratios,
+physical-scale utilization, aggregates and contacts, and cannot select
+accuracy. Only a later frozen budget may do so.
+B4C3MC0 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3mc0-adaptive-fixed-diagnostic-evidence-2026-08-21.md).
+P1's maximum position/velocity physical utilization is `0.00647/0.07028`.
+P2 remains within `0.18631/0.79151`, but its resolved adaptive/fine ratios are
+`60--100x` for position and `94x` for contact velocity. This authorizes only a
+two-axis B4C3MC1 design: unchanged physical accuracy budgets plus an independent
+temporal-reference classification, never an observed-ratio fit.
+The
+[B4C3MC1 design](../../development/nonlocal-nsr3b4c3mc1-adaptive-accuracy-budget-research-2026-08-21.md)
+freezes that separation in an
+[accuracy contract](03b4c3mc1-adaptive-accuracy-budget-contract.md). It reuses
+the B4B state, aggregate, kinetic and one-adaptive-substep onset limits exactly,
+while temporal evidence is classified as resolved ratio, floor coincidence or
+stable-reference separation. A PASS may select accuracy only for the two tiny
+research fixtures and authorize nominal-corpus design.
+B4C3MC1 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3mc1-adaptive-accuracy-budget-evidence-2026-08-21.md).
+All unchanged B4B budgets pass. Maximum utilization is `0.78125` in P1 onset
+timing and `0.79151` in P2 velocity. Temporal evidence remains separate: P2
+velocity contains 14 floor coincidences, one stable-reference separation and
+one resolved ratio. The adaptive macro controller is selected only for P1/P2,
+and only nominal-corpus design is authorized.
+Roadmap re-audit keeps the mandatory B4C4 packaging gate before B4D reference
+rehydration and any nominal trajectory. The
+[B4C4M0 audit](../../development/nonlocal-nsr3b4c4m0-workspace-reuse-diagnostic-research-2026-08-21.md)
+freezes a
+[threshold-free diagnostic](03b4c4m0-workspace-reuse-diagnostic-contract.md)
+over recorded one-macro P1/P2 query lifecycles. It will distinguish repeated
+committed states, immutable support-index rebuilds, duplicate nested rows and
+irreducible nonlinear trial states before choosing the B4C4 optimization.
+The three DFSPH files are present and hash-exact again, but this is only an
+availability preflight; B4D remains blocked.
+B4C4M0 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4m0-workspace-reuse-diagnostic-evidence-2026-08-21.md).
+It measures `327/12` P1/P2 one-macro builds. P1 has 195 distinct trial builds,
+but every completed private substep causes an immediate equal-state diagnostic
+rebuild (`63/3`). B4C4A will isolate retained accepted-workspace ownership;
+immutable support indexing and flat-only CSR remain separate later stages.
+The
+[B4C4A design](../../development/nonlocal-nsr3b4c4a-retained-workspace-research-2026-08-21.md)
+freezes a single-owner
+[retention contract](03b4c4a-retained-workspace-contract.md). A successful KKT
+solve lends its accepted workspace to exactly one same-state physical
+diagnostic and then releases it. The one-macro work result is predeclared as
+`327->264` builds for P1 and `12->9` for P2; all physical and durable roots
+must remain exact.
+B4C4A passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4a-retained-workspace-evidence-2026-08-21.md).
+It removes exactly `63/3` P1/P2 diagnostic rebuilds while every adaptive,
+physical, topology, canonical and ledger value stays bit-exact. Ownership and
+failure controls end with zero live workspaces. Only a separately frozen
+complete adaptive/macro-fixed lane application is authorized; B4C4B/B4C4C and
+B4D remain blocked.
+The
+[B4C4A1 design](../../development/nonlocal-nsr3b4c4a1-complete-retention-research-2026-08-21.md)
+freezes a
+[complete-lane contract](03b4c4a1-complete-retention-contract.md) before the
+local optimization is composed over full adaptive and macro-fixed P1/P2
+trajectories. Expected removed builds are derived from existing executed
+substep schedules, not from candidate measurements. B4C4B/B4C4C remain
+blocked until this correspondence passes.
+B4C4A1 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4a1-complete-retention-evidence-2026-08-21.md).
+Across all eight complete adaptive and macro-fixed lanes it removes exactly
+the predeclared `444/124`, P1 `384/768/1536` and P2 `768/1536/3072` builds.
+Every physical, schedule, topology, canonical, ledger and trajectory result
+remains bit-exact; retention and forced rollback end with zero live ownership.
+Only B4C4B immutable static-support-index design is authorized next.
+The
+[B4C4B audit](../../development/nonlocal-nsr3b4c4b-static-support-index-research-2026-08-21.md)
+proves that the legacy combined-cell order factorizes exactly into canonical
+fluid then canonical support ranges. Its
+[frozen contract](03b4c4b-static-support-index-contract.md) keeps workspace
+ownership and nested adjacency unchanged while predeclaring removal of
+`143,072/9,728` P1/P2 support sort records. The one-macro discriminator is
+threshold-free; B4C4C and complete-lane application remain blocked until it
+passes.
+B4C4B passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4b-static-support-index-evidence-2026-08-21.md).
+It preserves every one-macro physical/durable value and invalidation failure,
+while reducing P1/P2 records admitted to sorting by `91.54%/86.96%`. Split
+traversal also doubles ordered cell-range lookups, so complete-lane rollout is
+deferred until a separately frozen interleaved timing discriminator measures
+the net effect. B4C4C remains blocked.
+The
+[B4C4BM design](../../development/nonlocal-nsr3b4c4bm-static-support-timing-research-2026-08-21.md)
+freezes a
+[threshold-free timing contract](03b4c4bm-static-support-timing-contract.md)
+over all `264/9` recorded one-macro query states. It uses three warmups and 21
+alternating AB/BA paired rounds per fixture, validates exact outputs outside
+timing and reports robust statistics without a fitted speed gate.
+B4C4BM passes in three independent sequential processes; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4bm-static-support-timing-evidence-2026-08-21.md).
+The deterministic corpus/checksum result repeats exactly. Candidate wins all
+`63/63` paired rounds per fixture, with median process-level construction
+speedup `1.1399x` P1 and `2.5952x` P2. Freeze complete-lane static-index
+rollout next; this is not yet a whole-solver speed claim.
+The
+[B4C4B1 design](../../development/nonlocal-nsr3b4c4b1-complete-static-index-research-2026-08-21.md)
+freezes one immutable index per complete adaptive or macro-fixed lane. Its
+[contract](03b4c4b1-complete-static-index-contract.md) derives exact support
+record removals from B4C4A1 workspace counts, retains every physical/root/
+rollback gate and keeps B4C4C separate.
+B4C4B1 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4b1-complete-static-index-evidence-2026-08-21.md).
+All eight lanes build exactly one immutable index and preserve every B4C4A1
+physical, query, retention and durable result. Predeclared removals through
+`4,192,768` support records per lane are exact. B4C4C flat-only CSR design is
+authorized next; B4D remains blocked.
+The
+[B4C4C audit](../../development/nonlocal-nsr3b4c4c-flat-adjacency-research-2026-08-21.md)
+proves that the existing pressure tape contains every ordered adjacency datum
+needed after initial evaluation. Its
+[frozen contract](03b4c4c-flat-adjacency-contract.md) constructs canonical
+CSR pair indices once, evaluates through them and transfers their ownership
+to the tape. The isolated gate predeclares removal of `12,672/243` nested row
+objects and both sets of row sorts; B4D remains blocked until execution.
+B4C4C passes twice byte-identically in both isolated and full-parent modes;
+see the
+[dated evidence](../../development/nonlocal-nsr3b4c4c-flat-adjacency-evidence-2026-08-21.md).
+It removes duplicate construction of `1,223,663/9,623` directed records and
+both `12,672/243` row-sort passes while preserving the final tape, physics and
+all durable roots exactly. Freeze timing and complete-lane rollout separately;
+no whole-solver or production claim is authorized.
+The
+[B4C4CM design](../../development/nonlocal-nsr3b4c4cm-flat-adjacency-timing-research-2026-08-21.md)
+freezes a
+[threshold-free timing contract](03b4c4cm-flat-adjacency-timing-contract.md)
+over the same recorded `264/9` states. It times neighborhood, evaluation and
+tape creation together with exact preflight outside timing, three warmups and
+21 alternating paired rounds. Complete-lane rollout waits for this evidence.
+B4C4CM passes in three independent processes; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4cm-flat-adjacency-timing-evidence-2026-08-21.md).
+The deterministic corpus/checksum result repeats exactly, and the candidate
+wins all `63/63` paired rounds per fixture. Median process-level construction
+speedup is `1.2274x/1.2055x` P1/P2. Freeze complete-lane ownership next; this
+is not a whole-solver performance claim.
+The
+[B4C4C1 design](../../development/nonlocal-nsr3b4c4c1-complete-flat-adjacency-research-2026-08-21.md)
+freezes complete adaptive/fixed ownership over the
+[B4C4C1 contract](03b4c4c1-complete-flat-adjacency-contract.md).
+Workspace counts predeclare `8,721--222,288` removed nested rows per lane and
+one transfer per workspace; directed volume remains an exact measured
+correspondence. B4D waits for this final packaging gate.
+B4C4C1 passes twice byte-identically in probe and full-parent modes; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4c1-complete-flat-adjacency-evidence-2026-08-21.md).
+All eight lanes and forced rollback preserve physical/durable results with one
+transfer per workspace and zero final ownership. B4C4 packaging is complete;
+re-attest B4D's frozen reference inputs next.
+The [B4D audit](../../development/nonlocal-nsr3b4d-reference-reattestation-research-2026-08-21.md)
+confirms that the formula, selected solver, macro-publication, tiny-accuracy,
+packaging and W0I source identities remain exact, while all three external
+`CWREFV1` payloads are currently absent. Its
+[frozen contract](03b4d-reference-reattestation-contract.md) requires complete
+file/header/profile hashes and one in-memory mutation rejection before any
+trajectory. The implemented reader fails twice deterministically at
+`CW-HYDRO-001:MISSING_ARTIFACT` without starting a trajectory; see the
+[dated evidence](../../development/nonlocal-nsr3b4d-reference-reattestation-evidence-2026-08-21.md).
+Preserve B4D FAIL and audit reproducible recovery of the exact external
+generator lineage next. B4E remains blocked until all three exact files are
+restored and B4D passes, or a new independently frozen reference profile
+receives new roots and comparator evidence.
+The read-only
+[B4DR0 audit](03b4dr0-reference-recovery-audit-contract.md)
+finds no exact payload, adapter diff, comparator source or binary in the
+retained filesystem or shared Git object store; public exact-hash lookup is
+also empty but remains diagnostic only. The
+[dated evidence](../../development/nonlocal-nsr3b4dr0-reference-recovery-audit-evidence-2026-08-21.md)
+selects `NEW_REFERENCE_PROFILE_REQUIRED`: historical W0I/W1 remains valid
+evidence, but a fresh comparator cannot inherit its roots. Freeze a
+reproducible B4DR1 external generator/profile before cloning or building
+upstream code. B4E remains blocked.
+The [B4DR1 design](../../development/nonlocal-nsr3b4dr1-reference-generator-research-2026-08-21.md)
+selects a new-root external comparator with a tracked standalone adapter,
+strict build/float manifest, content-addressed external outputs and a
+cost-aware bootstrap/contact/24-step/full/attestation ladder. Its
+[frozen contract](03b4dr1-reference-generator-contract.md) authorizes only the
+R1A recursive pinned-upstream bootstrap next. No adapter trajectory or full
+generation is authorized yet; B4E remains blocked.
+R1A passes with byte-identical strict artifacts and a later verified
+true-full-clone revalidation; see the
+[bootstrap evidence](../../development/nonlocal-nsr3b4dr1a-external-bootstrap-evidence-2026-08-21.md)
+and its
+[provenance correction](../../development/nonlocal-nsr3b4dr1a-full-clone-provenance-correction-evidence-2026-08-21.md).
+The strict binary64/no-AVX/no-FMA flags reach the main and nested dependency
+commands, and all eight static artifacts match. One originally retained source
+copy lacked a complete Git object database; that narrower claim is withdrawn
+without changing the reproduced artifact or R1C1 report identities. Linked Git
+worktrees are rejected because upstream's old revision probe reports
+`HEAD-HASH-NOTFOUND`. Freeze the standalone R1B contact adapter and six-vector
+contract next; no particle trajectory is authorized.
+The [R1B design](../../development/nonlocal-nsr3b4dr1b-contact-adapter-research-2026-08-21.md)
+freezes a standalone independent C++ contact/validation tool over the
+[R1B contract](03b4dr1b-contact-adapter-contract.md). Six parent vectors plus
+internal-face and one-ulp `t=0` sentinels close all outer/plane/edge/corner
+branches, strict process/ABI preflight and structural root mutations before
+any particle world exists. Implement only this self-test next; R1C and B4E
+remain blocked.
+Before implementation, the R1B contract was reclosed from rejected draft v1
+to v2: outer controls use `[0,1]^3`, while aperture controls use the real
+`[0,2] x [0,1] x [0,1]` orifice box. This prevents a legal pass beyond
+internal wall `x=1` from being misclassified as an outer escape. The v1 root
+has no implementation authority.
+R1B passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1b-contact-adapter-evidence-2026-08-21.md).
+Two builds produce the same adapter ELF and normalized command root, two fresh
+processes produce the same 1,730-byte report, all eight contact cases pass and
+all environment mutations fail before contact. Freeze R1C manifests next;
+no 24-step trajectory or B4E design is authorized yet.
+The [R1C research](../../development/nonlocal-nsr3b4dr1c-trajectory-preflight-research-2026-08-21.md)
+finds that the pinned upstream enables warm starts and hides divergence/last-
+error convergence state. The
+[frozen R1C contract](03b4dr1c-trajectory-preflight-contract.md) therefore
+binds a minimal equation-preserving cold-start/diagnostics patch, exact
+fluid/boundary/scenario projections and `CWREFV2` layout. Implement and attest
+the manifest-only preflight first. A trajectory is conditionally authorized
+only after that gate passes; R1D and B4E remain blocked.
+The first R1C manifest implementation fails closed before Simulation creation:
+the contract shortened `CW-DAMBREAK-001` to `CW-DAM-001` but retained roots
+computed from the normative ID. Preserve the
+[negative evidence](../../development/nonlocal-nsr3b4dr1c-manifest-preflight-negative-evidence-2026-08-21.md)
+and use only the
+[R1C1 reclosure](03b4dr1c1-manifest-identity-reclosure-contract.md). Repeat the
+manifest-only gate twice; no trajectory is authorized by the failed run.
+R1C1 manifest preflight passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1c1-manifest-preflight-evidence-2026-08-21.md).
+Two builds and reports are byte-identical, all exact geometry roots pass, the
+R1B report is unchanged, and a forced manifest mismatch rejects before
+Simulation creation. This authorizes only implementation of the frozen
+24-step path using a fresh patched upstream clone. R1D and B4E remain blocked.
+The first physical Hydro process then fails at `PRESSURE_NOT_CONVERGED` and
+publishes no payload; see the
+[negative evidence](../../development/nonlocal-nsr3b4dr1c-trajectory-negative-evidence-2026-08-21.md).
+The cost-aware ladder stops before a repeat, Dam or Orifice. The failure report
+omits the already available iteration/residual fields, so the
+[R1C2 research](../../development/nonlocal-nsr3b4dr1c2-failure-observability-research-2026-08-21.md)
+and [frozen contract](03b4dr1c2-failure-observability-contract.md) authorize
+only canonical failure observability and one Hydro diagnostic process. No
+solver tuning or R1C/R1D credit is authorized.
+R1C2 confirms the failure is pressure-only on step 1: cap `100`, residual
+`0x3fea7a64ac09a4ac` (`0.8274405823`) against threshold `0.1`; divergence
+converges in one iteration with zero residual and timestep bits remain exact.
+See the
+[dated evidence](../../development/nonlocal-nsr3b4dr1c2-failure-observability-evidence-2026-08-21.md).
+The [R1C3 research](../../development/nonlocal-nsr3b4dr1c3-pressure-cap-research-2026-08-21.md)
+and [frozen sweep contract](03b4dr1c3-pressure-cap-sweep-contract.md) select a
+one-step ascending cap discriminator next. It changes no other profile value,
+writes no payload and grants no R1C/R1D authority.
+R1C3 finds a monotone pressure curve and first convergence at iteration 220
+when cap 300 is allowed; see the
+[sweep evidence](../../development/nonlocal-nsr3b4dr1c3-pressure-cap-evidence-2026-08-21.md).
+The accompanying lattice check shows the selected `0.000125` volume is nearly
+unit-normalized, while upstream's 0.8 startup heuristic is intentionally about
+20% underdense. The
+[R1C4 research](../../development/nonlocal-nsr3b4dr1c4-pressure-cap-reclosure-research-2026-08-21.md)
+and [frozen contract](03b4dr1c4-pressure-cap-reclosure-contract.md) therefore
+change only pressure cap 100 to 300 under a new identity. Implement and run
+paired short scenarios next; R1D remains blocked until all pairs pass.
+R1C4 Hydro and Dam pairs pass byte-identically, but the first Orifice process
+rejects after a converged solver step because the adapter derives analytical
+`x_max=1.0` from the intentionally one-metre source-support boundary. See the
+[negative/partial evidence](../../development/nonlocal-nsr3b4dr1c4-trajectory-evidence-2026-08-21.md).
+The [R1C5 research](../../development/nonlocal-nsr3b4dr1c5-orifice-domain-reclosure-research-2026-08-21.md)
+and [frozen contract](03b4dr1c5-orifice-domain-reclosure-contract.md) separate
+analytical domain extent from boundary lattice width, keep all boundary roots
+unchanged and require every pair to rerun under a new global identity. R1D is
+still blocked.
+R1C5 now passes all three corrected pairs byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1c5-trajectory-evidence-2026-08-21.md).
+Orifice completes 24 steps with 28 final receiver samples while its source-
+support boundary remains unchanged. This opens only R1D full external
+generation; R1E, B4E, runtime and production authority remain blocked.
+The [R1D research](../../development/nonlocal-nsr3b4dr1d-full-generation-research-2026-08-21.md)
+shows that the short manifests cannot truthfully describe full schedules and
+selects schedule-only scenario reclosure. The
+[frozen R1D contract](03b4dr1d-full-generation-contract.md) binds exact
+51/181/181-frame sizes, domain-separated q99/receiver roots, two waves of at
+most three independent one-thread processes and verified content-addressed
+publication. Implement its manifest-only gate and generator next.
+R1D now passes all three full pairs; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1d-full-generation-evidence-2026-08-21.md).
+The six processes are byte-identical per scenario, Orifice ends with 1,172
+receiver samples and three verified regular files live under the explicit
+content-addressed external profile. Only R1E reader/profile contract design is
+authorized next; B4E and every runtime/production claim remain blocked.
+The [R1E research](../../development/nonlocal-nsr3b4dr1e-reference-attestation-research-2026-08-21.md)
+selects a standalone reader rather than generator reuse. The
+[frozen R1E contract](03b4dr1e-reference-attestation-contract.md) binds actual
+generator source/build, payload, semantic and aggregate roots; descriptor-safe
+path admission; full independent parse/re-encoding; and external plus decoded
+mutation controls. Implement only that reader next. B4E execution remains
+blocked.
+R1E now passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1e-reference-attestation-evidence-2026-08-21.md).
+Two independent builds and two fresh attestation processes agree exactly; all
+three complete references pass independent parse/reconstruction and all four
+external negative fixtures reject. This selects only the new external DFSPH
+reference candidate and opens B4E nominal-corpus contract design. B4E
+execution, runtime integration, CUDA and production claims remain blocked.
+The [B4E research](../../development/nonlocal-nsr3b4e-nominal-corpus-research-2026-08-21.md)
+finds that the packaged solver has nominal capacities but only tiny P1/P2
+entry points, and that an immediate full run would mix alignment, physics and
+cost failures. The
+[frozen B4E0 contract](03b4e0-nominal-alignment-contract.md) therefore admits
+only Hydro/Dam zero-trajectory geometry, stable-ID, canonical aggregate and
+flat-neighborhood preflight. Orifice remains B4O. Implement B4E0 next; no
+reference curve or candidate trajectory is authorized yet.
+B4E0 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e0-nominal-alignment-evidence-2026-08-21.md).
+Hydro/Dam exact roots, initial aggregates and nominal flat neighborhoods agree
+twice and remain within 118/117 neighbors. The zero-step probe takes about
+0.4 s and 47 MiB, but this is not solver throughput. Hydro's nine active
+centres are only `6.66e-16` positive strain and remain an explicit B4E1 cost
+diagnostic. Design only the one-macro resource probe next.
+The [B4E1S audit](../../development/nonlocal-nsr3b4e1s-spectrum-research-2026-08-21.md)
+splits that probe again because Hydro's nine epsilon-active centres force 48
+HVPs before KKT work. Its
+[frozen contract](03b4e1s-hydro-spectrum-contract.md) measures the exact
+nominal Lanczos path and derives whether the existing adjacent fine-level cap
+can admit a macro solve. Implement and run only B4E1S next.
+B4E1S passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e1s-hydro-spectrum-evidence-2026-08-21.md).
+The bit-exact 48-HVP estimate gives maximum eigenfrequency `499.4373 s^-1`
+and 14 initial substeps, safely below the frozen capacity boundary of 96. Two
+independent builds/processes agree exactly and use no all-pairs fallback. This
+authorizes only B4E1M one-macro research and contract design; no KKT trajectory
+or external-reference comparison has run.
+The [B4E1M research](../../development/nonlocal-nsr3b4e1m-hydro-macro-research-2026-08-21.md)
+maps the existing complete adaptive transaction onto exact nominal Hydro. Its
+[frozen contract](03b4e1m-hydro-macro-contract.md) admits one step-1
+transaction per fresh process over levels `14,28,56,112`, with retained flat
+workspaces, fine-only publication and an external 900-second watchdog. No
+reference file or second macro may be opened. Implement only B4E1M next.
+B4E1M passes physically and deterministically; see the
+[dated evidence](../../development/nonlocal-nsr3b4e1m-hydro-macro-evidence-2026-08-21.md).
+It selects the 28-substep fine level with zero energy creation, strain
+`4.55e-4` and exact ownership/root gates. Cost is not admissible: 48.8 s and
+99% of one CPU core per first macro project one unrepeated Hydro+Dam pair to
+about 26 machine-hours. B4E2 execution is therefore held. Profile B4EP before
+selecting or implementing an optimization.
+The [B4EP0 research](../../development/nonlocal-nsr3b4ep0-attribution-research-2026-08-21.md)
+finds four live hypotheses: unconditional inner-state SHA/streaming, complete
+cell/CSR/tape rebuilds, serial HVP traversal and 221 outer trials. Process
+`perf` is unavailable under `perf_event_paranoid=4`; host policy remains
+unchanged. The [frozen B4EP0 contract](03b4ep0-attribution-contract.md)
+selects one external `-pg`/gprof run whose stdout must remain byte-identical to
+B4E1M. Run attribution only; do not optimize yet.
+B4EP0 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep0-attribution-evidence-2026-08-21.md).
+The exact-output profile assigns 41.36% self time to SHA-256, about 23.4% total
+to HVP, 22.7% to neighborhood construction and 8.3% to evaluation. Hashing is
+the largest safe first ablation, but its `~1.70x` Amdahl ceiling cannot close
+the full gap. Design B4EP1 query-evidence separation next; retain topology and
+HVP as required later stages.
+The [B4EP1 research](../../development/nonlocal-nsr3b4ep1-query-evidence-research-2026-08-21.md)
+separates transient proof hashing from physical computation without deleting
+final publication/ledger roots. Its
+[frozen contract](03b4ep1-query-evidence-contract.md) keeps full-state hashing
+as the byte-exact default, introduces a work-only transaction policy and
+requires exact B4E1M roots/counters plus three balanced Release timing wins.
+Implement and A/B only B4EP1 next.
+B4EP1 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep1-query-evidence-evidence-2026-08-21.md).
+The full-state oracle remains byte-exact, the work-only candidate repeats
+across both builds and all three alternating pairs win with median `3.0168x`
+speedup. Median one-macro wall is now 16.15 s and RSS is 62,016 KiB, but this
+still leaves material HVP/topology cost. Only B4EP2 residual profiling and
+design are authorized; B4E2, runtime, CUDA and production remain blocked.
+The [B4EP2 research](../../development/nonlocal-nsr3b4ep2-residual-attribution-research-2026-08-21.md)
+keeps four residual hypotheses live and selects an exact-output work-only
+gprof run. The
+[frozen B4EP2 contract](03b4ep2-residual-attribution-contract.md) binds the
+B4EP1 implementation/source/output bytes and permits only one external
+profile. Run attribution only; do not optimize or start B4E2 yet.
+B4EP2 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep2-residual-attribution-evidence-2026-08-21.md).
+Workspace construction owns 58.33% inclusive sampled time, HVP 39.64% and
+hashing only 0.46%. Topology alone and HVP are nearly tied, so no final
+bottleneck is claimed. Design a bounded B4EP3 canonical-superset feasibility
+audit that preserves the earlier P4 order-mismatch negative and proves the
+current lexicographic-pair invariant before any timing candidate.
+The [B4EP3 research](../../development/nonlocal-nsr3b4ep3-canonical-superset-research-2026-08-21.md)
+preserves the P4 negative and freezes one untuned `0.04h` discriminator over
+all 227 nominal query states. Its
+[frozen contract](03b4ep3-canonical-superset-audit-contract.md) requires exact
+filtered pair order/CSR, evaluation and tape, plus capacity, overhead, reuse
+and negative-control gates. Implement and run this audit only; it is not yet a
+cache optimization or timing claim.
+B4EP3 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep3-canonical-superset-evidence-2026-08-21.md).
+All 227 states reproduce exact pairs/CSR/evaluation/tape. One initial list
+covers 226 certified reuses with maximum candidate degree 122, 6.89% extra
+pair visits and a 0.1998 construction-work ratio. This authorizes only B4EP3I
+hot-path cache design/A-B; it is not yet a measured solver speedup.
+The [B4EP3I research](../../development/nonlocal-nsr3b4ep3i-hotpath-cache-research-2026-08-21.md)
+selects an optional transaction-local cache carried by the internal query
+trace. Its [frozen contract](03b4ep3i-hotpath-cache-contract.md) preserves the
+full parent and all default bytes, requires exact B4EP1 physics/cache work and
+three balanced Release wins. Implement and A/B only this dedicated command.
+B4EP3I passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep3i-hotpath-cache-evidence-2026-08-22.md).
+The dedicated cached transaction performs one superset build and 225 certified
+reuses with exact B4EP1 physics and unchanged B4EP1/B4EP3 report bytes. All
+three Release pairs win; median paired speedup is `1.5899x` and median wall
+falls from 16.71 s to 10.40 s. This selects
+`HOTPATH_CANONICAL_SUPERSET_CANDIDATE` and authorizes only B4EP4 residual
+profiling/design. B4E2, CUDA, runtime and production remain blocked.
+The [B4EP4 research](../../development/nonlocal-nsr3b4ep4-cached-residual-attribution-research-2026-08-22.md)
+keeps HVP, filtered workspace refresh and nonlinear bookkeeping as competing
+residual hypotheses. Its
+[frozen contract](03b4ep4-cached-residual-attribution-contract.md) selects one
+exact-output GCC/gprof run and a predeclared `1.20x` leader rule. Execute that
+profile only; do not implement the next optimization yet.
+B4EP4 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep4-cached-residual-attribution-evidence-2026-08-22.md).
+The exact-output profile assigns 62.14% inclusive time to HVP and 35.52% to
+complete cached workspace. HVP leads by `1.749x`, clearing the frozen rule;
+only B4EP5 HVP research/design is authorized. No second workspace change,
+B4E2, CUDA, runtime or production work is authorized.
+The [B4EP5 research](../../development/nonlocal-nsr3b4ep5-hvp-coefficient-tape-research-2026-08-22.md)
+finds 971,831,424 repeated invariant kernel-coefficient evaluations in the HVP
+path, while allocator work receives no samples. Its
+[frozen contract](03b4ep5-hvp-coefficient-tape-contract.md) selects only an
+optional two-scalar pressure-tape extension with exact B4EP3I correspondence
+and balanced Release timing. Implement and A/B that command only.
+B4EP5 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep5-hvp-coefficient-tape-evidence-2026-08-22.md).
+The candidate preserves every frozen physics/root/counter fact and all three
+old command bytes. All three timing pairs win; median wall falls from 10.61 s
+to 8.50 s for `1.2482x` paired speedup. This selects the internal invariant
+coefficient tape and authorizes only B4EP6 exact residual profiling/design.
+B4E2, CUDA, runtime and production remain blocked.
+The [B4EP6 research](../../development/nonlocal-nsr3b4ep6-coefficient-residual-attribution-research-2026-08-22.md)
+resets attribution after coefficient caching. Its
+[frozen contract](03b4ep6-coefficient-residual-attribution-contract.md)
+requires one exact-output gprof run and a `1.20x` top-level leader. Execute
+that profile only; if no leader clears the rule, instrument scoped internal
+phases before any further optimization.
+B4EP6 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep6-coefficient-residual-attribution-evidence-2026-08-22.md).
+Complete workspace leads HVP `1.3507x`; evaluation plus base pressure tape
+then leads topology/CSR `2.5046x`. This selects only B4EP7 research/design of
+an exact evaluation/base-tape mechanical discriminator. No implementation,
+B4E2, CUDA, runtime or production authority is created.
+The [B4EP7D research](../../development/nonlocal-nsr3b4ep7d-evaluation-tape-dataflow-research-2026-08-22.md)
+finds duplicate pair radius, gradient-kernel and compression work across
+evaluation and tape construction. Its
+[frozen contract](03b4ep7d-evaluation-tape-dataflow-contract.md) adds only
+post-tape derived counters and a dedicated audit command. Run that audit twice;
+do not implement fusion or time it yet.
+B4EP7D passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep7d-evaluation-tape-dataflow-evidence-2026-08-22.md).
+The audit freezes 131,987,230 active directed records and shows that exact
+fusion can remove 71.75% of radius evaluations and 60.63% of gradient-kernel
+evaluations. This authorizes only a frozen B4EP7I exact fusion A/B contract.
+The [B4EP7I research](../../development/nonlocal-nsr3b4ep7i-fused-evaluation-tape-research-2026-08-22.md)
+selects one transaction-only flat-workspace fusion that preserves density and
+gradient accumulation order. Its
+[frozen contract](03b4ep7i-fused-evaluation-tape-contract.md) requires exact
+old/candidate bytes and three balanced Release wins before retaining it.
+B4EP7I passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep7i-fused-evaluation-tape-evidence-2026-08-22.md).
+The fused transaction is bit-exact and wins all three pairs with median
+`1.1111x` speedup, reducing median wall from 8.90 s to 8.00 s. The modest
+margin selects only B4EP8 exact residual profiling/design, not production.
+The [B4EP8 research](../../development/nonlocal-nsr3b4ep8-fused-residual-attribution-research-2026-08-22.md)
+resets attribution after fusion. Its
+[frozen contract](03b4ep8-fused-residual-attribution-contract.md) authorizes
+one exact-output gprof run and no optimization. A missing `1.20x` leader routes
+to scoped internal phase timing.
+B4EP8 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep8-fused-residual-attribution-evidence-2026-08-22.md).
+Fused workspace and HVP are 3.61 s and 3.59 s (`1.0056x`), and gprof cannot
+separate the inlined pair/center loops. This selects B4EP9 opt-in internal
+phase timing and no optimization.
+The [B4EP9 research](../../development/nonlocal-nsr3b4ep9-fused-phase-timing-research-2026-08-22.md)
+defines a conservative Amdahl-ready partition. Its
+[frozen contract](03b4ep9-fused-phase-timing-contract.md) adds opt-in
+transaction-only timers and requires three semantically exact fresh processes.
+Only a stable parallelizable fraction meeting the frozen `0.80/0.75/0.05`
+median/minimum/range gate may authorize B4EP10 CPU-parallel architecture
+research; no parallel implementation is authorized by B4EP9.
+B4EP9 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep9-fused-phase-timing-evidence-2026-08-22.md).
+The conservative parallelizable fraction is 92.14--92.22%, with median
+92.19% and range 0.08 percentage point. Exact old-command regressions remain
+unchanged. This selects B4EP10 deterministic CPU-parallel architecture
+research only; no thread implementation or speedup claim exists yet.
+The [B4EP10 research](../../development/nonlocal-nsr3b4ep10-cpu-parallel-architecture-research-2026-08-22.md)
+selects fixed logical partitions plus owner-computes gathers; atomics and
+partial floating reductions are rejected. The first
+[frozen contract](03b4ep10d-owner-computes-dataflow-contract.md) is a serial
+dataflow audit over all 226 topology/evaluation and 459 HVP calls. Threads and
+OpenMP linkage remain blocked until it passes.
+B4EP10D passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10d-owner-computes-dataflow-evidence-2026-08-22.md).
+All alternative topology/evaluation/HVP values are bit-exact with zero
+mismatch, and the maximum added nominal payload is 28.19 MiB. This authorizes
+only B4EP10I OpenMP contract research; no parallel result exists yet.
+The [B4EP10I research](../../development/nonlocal-nsr3b4ep10i-openmp-implementation-research-2026-08-22.md)
+selects a research-only OpenMP backend with 64 fixed logical partitions and
+explicit `1/2/4/8/16` worker commands. Its
+[frozen contract](03b4ep10i-owner-parallel-contract.md) requires exact
+cross-count correspondence and fail-closed worker negatives before a separate
+B4EP10S timing stage.
+B4EP10I passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10i-owner-parallel-evidence-2026-08-22.md).
+All `1/2/4/8/16` commands reproduce one common correspondence hash, all
+executor mismatch counts are zero and the 16-worker repeat is byte-identical.
+This authorizes only B4EP10S serialized scaling design; no speedup has yet
+been measured.
+The [B4EP10S design research](../../development/nonlocal-nsr3b4ep10s-scaling-design-research-2026-08-22.md)
+selects three serialized balanced rounds on distinct physical cores. Its
+[frozen contract](03b4ep10s-owner-parallel-scaling-contract.md) chooses the
+smallest count within 3% of the fastest median only after exactness, 3/3 wins,
+10% speedup, utilization and stability gates. B4EP10S is host-specific and
+authorizes at most a selected-count residual profile.
+B4EP10S passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10s-owner-parallel-scaling-evidence-2026-08-22.md).
+Eight workers are selected at `1.237020x` median same-round speedup and 6.421
+effective cores. Sixteen workers are only 1.70% faster while using nearly
+twice the CPU. This authorizes only B4EP10R selected-count residual profile
+research; one macro still takes 5.91 s.
+The [B4EP10R research](../../development/nonlocal-nsr3b4ep10r-selected8-profile-research-2026-08-22.md)
+selects one unmodified gprofng clock/synchronization profile because Linux
+perf remains policy-blocked and classic gprof cannot reliably own worker
+samples. Its [frozen contract](03b4ep10r-selected8-profile-contract.md)
+routes only to persistent-region research, one `1.20x` CPU-category leader or
+scoped internal timing.
+B4EP10R fails; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10r-selected8-profile-evidence-2026-08-22.md).
+The target remains exact, but the collector reports that its sampling interval
+changed and the profile may be unreliable. Raw libgomp/kernel percentages
+receive no routing credit; B4EP10S remains valid and a separately frozen
+internal timing stage is required.
+The [B4EP10R1 research](../../development/nonlocal-nsr3b4ep10r1-internal-parallel-timing-research-2026-08-22.md)
+selects opt-in hierarchical steady-clock timing plus per-worker active
+intervals. Its
+[frozen contract](03b4ep10r1-internal-parallel-timing-contract.md) separates
+active, imbalance and orchestration capacity across the exact 3,411 regions
+and keeps all old commands on the uninstrumented branch.
+B4EP10R1 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10r1-internal-parallel-timing-evidence-2026-08-22.md).
+Executor orchestration and imbalance stay far below their routing thresholds.
+Evaluation is the stable 54.63% leader and exceeds HVP by `1.916851x`; its
+serial owner-plan/energy-fold subphase takes 42.33% of evaluation. Only
+B4EP10P plan-architecture research is authorized next.
+The [B4EP10P research](../../development/nonlocal-nsr3b4ep10p-masked-superset-plan-research-2026-08-22.md)
+selects a fixed masked target CSR over repeated parallel rebuild. Its
+[frozen B4EP10PD contract](03b4ep10pd-masked-superset-plan-audit-contract.md)
+first requires exact stable-subsequence rows for all 226 plans, bounded full
+scan expansion and a 64 MiB capacity gate. The returned solver path and
+OpenMP implementation remain unchanged during this audit.
+B4EP10PD passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10pd-masked-superset-plan-evidence-2026-08-22.md).
+One fixed 705,284-slot plan reproduces every active target row. Its projected
+full-scan ratio is `1.288507x` and conservative combined payload is 38.0 MB.
+This authorizes only B4EP10PI opt-in implementation/A-B contract research;
+no speed improvement has been measured.
+The [B4EP10PI research](../../development/nonlocal-nsr3b4ep10pi-masked-plan-implementation-research-2026-08-22.md)
+selects cache-owned fixed plan plus workspace-owned mapping with the canonical
+energy fold unchanged. Its
+[frozen contract](03b4ep10pi-masked-superset-plan-implementation-contract.md)
+requires exact candidate work and three balanced external A/B pairs before
+any speed credit.
+B4EP10PI fails the speed gate; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10pi-masked-plan-evidence-2026-08-22.md).
+It is physically exact, wins `3/3`, lowers RSS and has stable wall, but median
+paired speedup is only `1.030796x` versus the frozen `1.05x`. The extra masked
+scan raises CPU work; B4EP10I's active plan remains selected and parallel
+active-plan construction is the next research direction.
+The [B4EP10PC research](../../development/nonlocal-nsr3b4ep10pc-partitioned-active-plan-research-2026-08-22.md)
+selects a stable counting-sort/CSR transpose with 64 fixed logical source
+partitions. Its
+[frozen B4EP10PCD contract](03b4ep10pcd-partitioned-active-plan-audit-contract.md)
+compares all three plan arrays across all 226 states before the parallel
+builder may enter a candidate solver path.
+B4EP10PCD passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10pcd-partitioned-active-plan-evidence-2026-08-22.md).
+All 226 stable partitioned transposes reproduce the serial active plans
+exactly, both corrupt fixtures reject, and conservative combined payload is
+37.3 MB. This authorizes only B4EP10PCI candidate-path/A-B contract research;
+the audit itself carries no timing credit.
+The [B4EP10PCI research](../../development/nonlocal-nsr3b4ep10pci-partitioned-plan-implementation-research-2026-08-22.md)
+selects one opt-in replacement of serial active-plan construction while
+retaining compact rows and canonical floating folds. Its
+[frozen contract](03b4ep10pci-partitioned-active-plan-implementation-contract.md)
+requires exact candidate work and three balanced external A/B pairs before
+any speed credit. Implement and measure only this command.
+B4EP10PCI fails the speed gate; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10pci-partitioned-plan-evidence-2026-08-22.md).
+It is exact, wins `3/3` and is stable, but median paired speedup is only
+`1.033650x` while user and system CPU increase. Keep it as negative evidence,
+retain B4EP10I, and research a compression-independent current-topology
+reverse plan before another implementation.
+The [B4EP10CT research](../../development/nonlocal-nsr3b4ep10ct-current-topology-plan-research-2026-08-22.md)
+selects a reverse plan over the already filtered topology, with compression
+applied only as a stable gather mask. Its
+[frozen B4EP10CTD contract](03b4ep10ctd-current-topology-plan-audit-contract.md)
+first measures exact evaluation/HVP scan expansion and capacity while the
+returned path remains unchanged. Implement only this audit.
+B4EP10CTD fails the scan gate; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10ctd-current-topology-plan-evidence-2026-08-22.md).
+Its exact `1.213341x` full-plan ratio exceeds `1.20x`, so topology construction
+is not authorized. The evidence exposes a smaller split self/incoming view
+with derived `1.106670x` visits; audit its exact fold order next.
+The [B4EP10SI research](../../development/nonlocal-nsr3b4ep10si-split-incoming-plan-research-2026-08-22.md)
+uses source rows for self contributions and retains only participant/incoming
+reverse entries. Its
+[frozen B4EP10SID contract](03b4ep10sid-split-incoming-plan-audit-contract.md)
+requires exact three-part target-row reconstruction and the derived
+`1.106670x` work before any topology builder is designed. Implement only the
+audit.
+B4EP10SID passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sid-split-incoming-plan-evidence-2026-08-22.md).
+All 226 three-part row reconstructions are exact, both corrupt fixtures reject,
+and projected visits are `1.106670x` the selected target entries with 32.1 MB
+conservative payload. This authorizes only B4EP10SIC topology-construction
+research, not a floating path or timing.
+The [B4EP10SIC research](../../development/nonlocal-nsr3b4ep10sic-incoming-construction-research-2026-08-22.md)
+selects pair-endpoint dual indexing plus support-target CSR to construct the
+incoming view without sort or atomics. Its
+[frozen B4EP10SICD contract](03b4ep10sicd-incoming-construction-audit-contract.md)
+requires exact arrays across all 226 topologies before floating integration or
+timing may be designed. Implement only this construction audit.
+B4EP10SICD passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sicd-incoming-construction-evidence-2026-08-22.md).
+All candidate incoming arrays match across 226 topologies, both corrupt
+fixtures reject and conservative combined payload is 35.6 MB. This authorizes
+only B4EP10SII floating integration/A-B contract research; no speed result
+exists yet.
+The [B4EP10SII research](../../development/nonlocal-nsr3b4ep10sii-split-incoming-integration-research-2026-08-22.md)
+selects one opt-in floating split-fold path with topology-to-tape ownership and
+the three audited construction regions left unfused. Its
+[frozen contract](03b4ep10sii-split-incoming-integration-contract.md) requires
+exact candidate work and three balanced A/B pairs before any speed credit.
+Implement and measure only this command.
+B4EP10SII passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sii-split-incoming-plan-evidence-2026-08-22.md).
+The candidate is bit-exact, wins `3/3` pairs and clears the frozen gate at
+`1.052521x` median paired speedup, reducing median wall from 5.820 s to
+5.537 s. RSS falls by 4,852 KiB, but total user/system CPU rises. Retain
+B4EP10I as rollback and freeze candidate-specific residual timing before
+another construction or floating-work change. B4E2, broad corpus, runtime,
+GPU, schema and production remain blocked.
+The [B4EP10SIR research](../../development/nonlocal-nsr3b4ep10sir-split-incoming-residual-research-2026-08-22.md)
+selects the existing hierarchical stage/subphase and worker-active timers over
+the exact split-incoming command. Its
+[frozen contract](03b4ep10sir-split-incoming-residual-timing-contract.md)
+requires three exact fresh processes, stable disjoint category shares and a
+predeclared leader rule before one next mechanical discriminator may be
+selected. Implement and measure only this timing command.
+B4EP10SIR passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sir-split-incoming-residual-timing-evidence-2026-08-22.md).
+Source-local work has stable median share `0.587730` and leads topology by
+`2.918189x`. Median executor orchestration and imbalance are only
+`0.011919/0.071954`, rejecting persistent-region and partition-balance work.
+Research one narrower source-local discriminator before changing code.
+The [B4EP10SIRD research](../../development/nonlocal-nsr3b4ep10sird-source-local-discriminator-research-2026-08-22.md)
+reduces the unchanged source-local subphases into directed, setup, compression
+and local-scalar groups. Its
+[frozen contract](03b4ep10sird-source-local-discriminator-contract.md)
+requires three fresh exact processes and a stable `1.20x` leader before one
+structural audit can be selected. Execute only this reduction; change no code.
+B4EP10SIRD passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sird-source-local-discriminator-evidence-2026-08-22.md).
+Directed evaluation/HVP work has median transaction share `0.389073`, range
+`0.000870`, and leads setup by `4.094282x`. Because the phase also includes
+full-buffer allocation/value-initialization, research one exact scratch-
+liveness audit before selecting arithmetic changes or buffer reuse.
+The [B4EP10SIRDA research](../../development/nonlocal-nsr3b4ep10sirda-directed-scratch-audit-research-2026-08-22.md)
+defines a write/read certificate and high-water initialization projection for
+the selected split incoming path. Its
+[frozen contract](03b4ep10sirda-directed-scratch-audit-contract.md) requires
+two exact byte-identical audit processes and both corrupt shadow negatives
+before scratch-reuse implementation research. Implement only the audit.
+B4EP10SIRDA passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirda-directed-scratch-audit-evidence-2026-08-22.md).
+All active-slot writes/reads are exact and a transaction-local high-water
+buffer projects only 670,229 growth slots versus 454,936,226 repeated full
+initializations. Research one opt-in directed-buffer reuse implementation/A-B
+contract; do not fuse arithmetic or extend reuse to other phases.
+The [B4EP10SIRDI research](../../development/nonlocal-nsr3b4ep10sirdi-directed-scratch-reuse-research-2026-08-22.md)
+selects one transaction-local, directed-only high-water buffer with mandatory
+release on every exit. Its
+[frozen contract](03b4ep10sirdi-directed-scratch-reuse-contract.md) requires
+exact work/lifetime counters and three balanced external A/B pairs before any
+speed credit. Implement and measure only this command.
+B4EP10SIRDI passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdi-directed-scratch-reuse-evidence-2026-08-22.md).
+The candidate is exact, wins all three pairs and reduces median wall from
+5.514 to 4.290 s (`1.284223x`) while median total CPU falls to `0.784012x`
+baseline and RSS rises only 496 KiB. Select it for nominal research, keep both
+rollbacks, and reprofile the exact candidate before another optimization.
+The [B4EP10SIRDIR research](../../development/nonlocal-nsr3b4ep10sirdir-directed-scratch-residual-research-2026-08-22.md)
+selects the existing hierarchical stage/subphase and worker-active timers over
+the exact scratch-reuse command. Its
+[frozen contract](03b4ep10sirdir-directed-scratch-residual-timing-contract.md)
+requires three fresh exact processes, stable disjoint category shares and the
+same predeclared leader rule before another change. Implement and measure only
+this timing command.
+B4EP10SIRDIR passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdir-directed-scratch-residual-timing-evidence-2026-08-22.md).
+Source-local remains the stable leader at 44.72%, but the old directed group
+no longer dominates after scratch reuse. `evaluation_setup` is the largest
+individual source-local subphase at 14.58%; research a timing-only split of
+validation, capacity/control and buffer preparation before changing any of
+them.
+The [B4EP10SIRDIRE research](../../development/nonlocal-nsr3b4ep10sirdire-evaluation-setup-research-2026-08-22.md)
+identifies three distinct setup hypotheses. Its
+[frozen contract](03b4ep10sirdire-evaluation-setup-timing-contract.md) adds
+only nested validation/capacity/buffer timers, requires three exact fresh
+processes and routes at most one later structural audit. Implement and measure
+only this command.
+B4EP10SIRDIRE passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdire-evaluation-setup-timing-evidence-2026-08-22.md).
+Buffer preparation is the stable leader at 89.50% of `evaluation_setup`,
+leading validation by `8.531659x`; all setup-share ranges remain below 0.009.
+Research one timing-free write-before-read, ownership-lifetime and high-water
+audit before designing any evaluation-buffer reuse.
+The [B4EP10SIRDIREA research](../../development/nonlocal-nsr3b4ep10sirdirea-evaluation-buffer-liveness-research-2026-08-22.md)
+separates six returned workspace buffers from one builder-local ephemeral
+buffer. Its
+[frozen contract](03b4ep10sirdirea-evaluation-buffer-liveness-audit-contract.md)
+requires exact per-index write coverage, two workspace-lane receipts, one
+ephemeral lane and bounded high-water projection. Implement and run only the
+timing-free audit; no reuse path is authorized yet.
+B4EP10SIRDIREA passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdirea-evaluation-buffer-liveness-evidence-2026-08-22.md).
+All seven roles are fully overwritten; exact lifetime requires two returned
+workspace lanes and one ephemeral lane. Projected growth is 22.07 MB versus
+2.829 GB repeated initialization (`0.007801x`). Research and freeze one opt-in
+reuse implementation/A-B contract; retain SIRDI as rollback.
+The [B4EP10SIRDIREI research](../../development/nonlocal-nsr3b4ep10sirdirei-evaluation-buffer-overwrite-research-2026-08-22.md)
+finds that an ordinary vector pool cannot realize the high-water projection
+without repeated resize initialization or a wider logical-size redesign. Its
+[frozen contract](03b4ep10sirdirei-evaluation-buffer-overwrite-contract.md)
+instead selects candidate-only overwrite construction for the six fully
+covered `double` roles, removing 97.73% of measured initialization bytes while
+leaving sizes, ownership and `Vec3` unchanged. Implement and run only this
+opt-in candidate and its frozen balanced A/B.
+B4EP10SIRDIREI fails before A/B; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdirei-evaluation-buffer-overwrite-evidence-2026-08-22.md).
+The user-allocator type makes unchanged SIRDI take 10.43 s versus its accepted
+4.290 s median (`2.431x` regression); the candidate's relative 9.63 s result is
+therefore invalid. The implementation was reverted. Retain SIRDI and research
+only the builder-local density-contribution scratch lane, with no returned-
+workspace representation change.
+The [B4EP10SIRDIREP research](../../development/nonlocal-nsr3b4ep10sirdirep-density-contribution-scratch-research-2026-08-22.md)
+selects the one builder-local pair buffer proven safe by SIRDIREA. Its
+[frozen contract](03b4ep10sirdirep-density-contribution-scratch-contract.md)
+keeps a transaction-local standard vector at high-water, changes no returned
+storage and adds explicit baseline-health gates before relative A/B. Implement
+and measure only this opt-in candidate.
+B4EP10SIRDIREP fails; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdirep-density-contribution-scratch-evidence-2026-08-22.md).
+The exact candidate wins `3/3` at median `1.194152x`, but baseline health and
+candidate stability violate their frozen gates. The implementation was
+reverted, SIRDI remains selected and the buffer-initialization branch is
+stopped. Continue only from unchanged residual attribution.
+The [B4EP10SIRDIREQ research](../../development/nonlocal-nsr3b4ep10sirdireq-default-path-drift-research-2026-08-22.md)
+observes that exact current SIRDI uses materially more total CPU than its
+accepted checkpoint after three dormant instrumentation/audit additions. Its
+[frozen contract](03b4ep10sirdireq-default-path-drift-contract.md) compares
+independent accepted/current source builds in balanced pairs. Execute this
+qualification before any new residual optimization.
+B4EP10SIRDIREQ closes `HOST_UNQUALIFIED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq-default-path-drift-evidence-2026-08-22.md).
+Both source checkpoints remain exact and current/accepted ratios do not show a
+regression, but accepted median `4.801273 s` misses its absolute health gate.
+Do not bisect source or run short-margin wall A/B; research preemption-resistant
+CPU-time attribution or use structural evidence until wall timing is qualified.
+The [B4EP10SIRDIREQ1 research](../../development/nonlocal-nsr3b4ep10sirdireq1-cpu-time-residual-research-2026-08-22.md)
+selects process CPU clocks for disjoint phase work and per-worker thread CPU
+clocks for active intervals. Its
+[frozen contract](03b4ep10sirdireq1-cpu-time-residual-contract.md) requires
+exact clock/call/category accounting across three processes. Implement and run
+only this attribution command; wall time grants no speed credit.
+B4EP10SIRDIREQ1 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq1-cpu-time-residual-evidence-2026-08-22.md).
+All three exact reports pass, every category-share range is at most `0.024734`
+and the GNU/internal CPU ratio median is `1.007535`. Topology owns median
+process-CPU share `0.301239` and leads target fold by `1.629380x`. Research
+and freeze exactly one timing-free topology structural audit next; this grants
+no implementation, wall-speed, corpus or production authority.
+The [B4EP10SIRDIREQ2 research](../../development/nonlocal-nsr3b4ep10sirdireq2-topology-incoming-fusion-research-2026-08-22.md)
+selects fusion of split-incoming construction into existing topology metadata
+and row-fill passes. Its
+[frozen contract](03b4ep10sirdireq2-topology-incoming-fusion-audit-contract.md)
+requires a byte-exact shadow plan while reducing standalone structural scans
+from 665,142,896 entries to one 85,716,150-pair pass. Implement and run only
+this timing-free audit.
+B4EP10SIRDIREQ2 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq2-topology-incoming-fusion-evidence-2026-08-22.md).
+Both reports are byte-identical, all 226 plans match exactly, standalone work
+falls to `0.128869x`, no parallel region is added and the combined payload is
+21,758,020 bytes. Research and freeze one separate opt-in fused-plan consumer
+contract; do not enable it or claim wall speed on the unqualified host.
+The [B4EP10SIRDIREQ3 research](../../development/nonlocal-nsr3b4ep10sirdireq3-topology-incoming-fusion-candidate-research-2026-08-22.md)
+selects direct publication through the existing neighborhood-to-tape ownership
+path, not the Q2 audit trace. Its
+[frozen contract](03b4ep10sirdireq3-topology-incoming-fusion-candidate-contract.md)
+requires two exact candidate processes before one balanced process-CPU A/B.
+Implement only these opt-in commands; CPU evidence cannot claim wall speed.
+B4EP10SIRDIREQ3 fails and is reverted; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq3-topology-incoming-fusion-candidate-evidence-2026-08-22.md).
+The fast path is exact and removes 678 regions, but wins only `1/3` CPU pairs;
+median paired speedup is `0.983844x` and range ratio is `1.565388`. Retain
+SIRDI. Qualify a less interference-sensitive measurement lane before another
+performance implementation; do not rerun Q3.
+The [B4EP10SIRDIREQ4 research](../../development/nonlocal-nsr3b4ep10sirdireq4-executor-adjusted-cpu-research-2026-08-22.md)
+finds that Q1's whole-transaction instability is concentrated in process CPU
+inside OpenMP regions but outside measured worker-active intervals. Its
+[frozen contract](03b4ep10sirdireq4-executor-adjusted-cpu-qualification-contract.md)
+derives `E = transaction - region + active-worker` from the unchanged Q1
+command and requires three fresh stable reports. Execute only this
+qualification; it grants no implementation or wall credit.
+B4EP10SIRDIREQ4 fails; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10sirdireq4-executor-adjusted-cpu-evidence-2026-08-22.md).
+Exact accounting passes, but adjusted CPU range is `1.031236x` versus the
+frozen `1.03` gate. Do not repeat or round it into PASS. A dedicated/quiescent
+performance lane is required before another CPU/wall candidate A/B.
+The [B4E2R research](../../development/nonlocal-nsr3b4e2r-first-output-reference-slice-research-2026-08-22.md)
+separates external reference slicing from multi-macro physics. Its
+[frozen contract](03b4e2r-first-output-reference-slice-contract.md) selects a
+new standalone extractor for Dam step 4 and Hydro step 24 with complete-file
+hash admission, canonical micrometre aggregates and mutation controls.
+Implement and execute only B4E2R next. It runs no trajectory and makes no
+performance claim; B4E2D/H, broad corpus, runtime/GPU and production remain
+blocked.
+B4E2R passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2r-first-output-reference-slice-evidence-2026-08-22.md).
+Two independent builds emit the same 1,977-byte report and executable. The
+immutable Dam-step-4 and Hydro-step-24 canonical slice roots now exist.
+Research and freeze a Dam-first B4E2D physical-pilot contract next; do not
+start either trajectory yet.
+The B4E2D pilot and D0--D3 diagnostics preserve exact decoded-reference
+topology and stop at Dam step two: converged density strain
+`0.0011747197409319732` exceeds the frozen `0.001` material limit. B4E2D4
+shows finite-penalty compressibility, not premature temporal admission.
+B4E2D5 selects unilateral PHR augmented pressure state, and B4E2D6 proves
+multiplier convergence on the true one-DOF density path.
+The full 24-coordinate
+[B4E2D7 contract](03b4e2d7-al-dense-vector-contract.md) closes every
+derivative, trust-inner and monotone cold control but fails pressure-state
+commit stability; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7-al-dense-vector-evidence-2026-08-22.md).
+Its dimensionless cold dual gate admits a state whose next absolute multiplier
+update is `3.4975e-7 J`, above `1e-8 J`. Preserve the hard FAIL and research a
+new dimensionally consistent commit/confirmation discriminator. Do not tune
+`beta`, select semismooth, start Dam/Hydro, or claim performance/production.
+The [B4E2D7R research](../../development/nonlocal-nsr3b4e2d7r-al-stable-commit-research-2026-08-22.md)
+derives the dimensional mismatch and selects a two-update private commit
+protocol. Its
+[frozen contract](03b4e2d7r-al-stable-commit-contract.md) retains all D7
+mathematics and exact first-eight roots, then requires absolute
+`delta_lambda <= 1e-8 J`, position update `<=1e-8 dx` and one immediately
+following confirmation before a single state commit. Implement/run only this
+standalone oracle next; the 14-update cap has no performance credit.
+B4E2D7R fails at a new, narrower boundary; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r-al-stable-commit-evidence-2026-08-22.md).
+The exact D7 prefix remains intact, but outer 9 accepts zero primal motion at
+the fixed `1e-8` inner stationarity floor, applies another material dual
+update, and the next inner solve reaches `REJECT_LIMIT`. No state commits.
+Preserve this as `INNER_ACCURACY_FLOOR`; freeze failed-trial observability
+before changing inner tolerance, merit arithmetic, beta or solver family.
+The [B4E2D7R1 research](../../development/nonlocal-nsr3b4e2d7r1-inner-floor-diagnostic-research-2026-08-22.md)
+separates inexact-inner scheduling from raw total-energy subtraction. Its
+[frozen contract](03b4e2d7r1-inner-floor-diagnostic-contract.md) replays the
+exact post-outer-9 failure and compares raw actual reduction with the same
+per-term difference in factored form. Implement/run only this observability
+command next; it cannot accept or commit a trial.
+B4E2D7R1 fails closed at its frozen topology gate; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r1-inner-floor-diagnostic-evidence-2026-08-22.md).
+Raw and factored differences agree that the repeated Newton proposal raises
+the objective, while all nine trials change active/pair topology. The trust
+radius remains about 192 times larger than the physical step after the final
+reject, so the reject cap has not yet tested a radius-binding proposal.
+Preserve the FAIL and research/freeze one replay-only B4E2D7R2 discriminator
+that identifies the exact topology delta and scans step scale under both live
+and fixed-current topology. No formula, beta, tolerance, policy or state
+change is authorized.
+The [B4E2D7R2 research](../../development/nonlocal-nsr3b4e2d7r2-topology-step-research-2026-08-22.md)
+shows why pair membership alone is insufficient for the C2 compact-support
+kernel. Its
+[frozen contract](03b4e2d7r2-topology-step-discriminator-contract.md)
+adds exact set/horizon detail, a `2^0..2^-20` scale ladder and continuation of
+the current radial/PHR branches. Implement/run only this replay command next;
+route precedence is frozen and no trial may be accepted.
+B4E2D7R2 fails only its positive-zero horizon bit gate; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r2-topology-step-evidence-2026-08-22.md).
+The implementation yields `W'(h)=-0.0`, which is numerically zero but not the
+required positive-zero bit pattern. Preserve the FAIL. Research/freeze one
+narrow signed-zero reclosure that changes no kernel or route precedence and
+keeps the complete D7R2 report byte-exact.
+The [B4E2D7R2R research](../../development/nonlocal-nsr3b4e2d7r2r-signed-zero-reclosure-research-2026-08-22.md)
+selects numerical equality to zero plus the exact observed signed-zero bits.
+Its [frozen contract](03b4e2d7r2r-signed-zero-reclosure-contract.md) requires
+the unchanged complete D7R2 report and half-step facts before route selection.
+Implement/run only this narrow reclosure next; do not canonicalize the kernel
+or implement the anticipated trust-policy route.
+B4E2D7R2R passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r2r-signed-zero-reclosure-evidence-2026-08-22.md).
+The unchanged signed-zero kernel is valid, current-branch continuation rules
+out horizon crossing, and the topology-stable half step descends with ratio
+`1.3285`. Research/freeze one B4E2D7R3 globalization discriminator comparing
+backtrack reuse, step-norm-aware trust recomputation and the legacy first-bind
+continuation. No solver-policy implementation is authorized yet.
+The [B4E2D7R3 research](../../development/nonlocal-nsr3b4e2d7r3-globalization-policy-research-2026-08-22.md)
+grounds the candidates in step-norm-aware trust updates and hybrid rejected-
+direction line search. Its
+[frozen contract](03b4e2d7r3-globalization-policy-contract.md) compares three
+exact replay lanes with fixed precedence. Implement/run only this discriminator
+next; no candidate may update state.
+B4E2D7R3 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r3-globalization-policy-evidence-2026-08-22.md).
+The step-norm-aware interpolation produces a topology-stable boundary step in
+two HVPs with direct/model ratio `0.73044`; backtrack succeeds but remains the
+fallback, while legacy needs 13 repeated rejects. Research/freeze a new tiny-
+inner implementation contract next. Keep raw acceptance and every old command
+unchanged; outer AL integration remains blocked.
+The [B4E2D7R4 research](../../development/nonlocal-nsr3b4e2d7r4-step-norm-inner-research-2026-08-22.md)
+freezes the selected update behind a separate private-inner candidate. Its
+[contract](03b4e2d7r4-step-norm-inner-contract.md) keeps raw admission, exact
+fallback and the original reject/work caps. Implement/run only this failed-
+state inner replay next; multiplier and outer state must remain untouched.
+B4E2D7R4 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r4-step-norm-inner-evidence-2026-08-22.md).
+The exact failed state converges privately in two trials and four HVPs with
+unchanged raw acceptance and exact fallback. Research/freeze B4E2D7R5 next to
+integrate only this inner candidate into D7R's complete private AL and
+two-confirmation protocol. No public state or trajectory is authorized.
+The [B4E2D7R5 research](../../development/nonlocal-nsr3b4e2d7r5-private-outer-integration-research-2026-08-22.md)
+retains every D7R dimensional gate and the 14-update cap, adds one warm
+holdout, and publishes no state. Its
+[frozen contract](03b4e2d7r5-private-outer-integration-contract.md) classifies
+confirmation, improving cap exhaustion or inner-policy insufficiency.
+Implement/run only this private transaction next; nominal trajectories remain
+blocked for every outcome.
+B4E2D7R5 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r5-private-outer-integration-evidence-2026-08-22.md).
+The candidate repairs every inner failure and exhausts 14 monotone finite
+outer updates, but fixed `1e-8` inner stationarity does not yield two absolute
+pressure-state admissions. No state commits. The
+[B4E2D7R6 research](../../development/nonlocal-nsr3b4e2d7r6-cap-accuracy-discriminator-research-2026-08-22.md)
+derives the common dual/pressure bound and freezes five post-prefix accuracy
+lanes through a bounded 64-update observation horizon. Its
+[contract](03b4e2d7r6-cap-accuracy-discriminator-contract.md) separates
+cap-only, accuracy-only, coupled and formulation outcomes. Implement/run only
+this private discriminator next; it cannot itself change a cap or tolerance.
+D7R6 fails closed; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r6-cap-accuracy-discriminator-evidence-2026-08-22.md).
+The unchanged `1e-8` lane develops a five-update primal cycle and eventually
+hits `REJECT_LIMIT`; tighter lanes reach `MINIMUM_TRUST_RADIUS`, with the
+three tightest lanes sharing the same outer-11 state. No cap/tolerance route
+is selected. The
+[D7R7 research](../../development/nonlocal-nsr3b4e2d7r7-inner-floor-mechanism-research-2026-08-22.md)
+and [frozen contract](03b4e2d7r7-inner-floor-mechanism-contract.md) select a
+replay-only mechanism discriminator over the three unique failures. Implement
+only its trial/ULP/topology trace next; no acceptance, penalty, solver-family,
+trajectory or production change is authorized.
+D7R7 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r7-inner-floor-mechanism-evidence-2026-08-22.md).
+No PHR active root changes. The tight failure keeps every pair root exact, yet
+its positive sub-ULP models oppose raw and factored/direct ascent of more than
+one thousand total-energy ULPs. This selects
+`TRUST_MODEL_OR_DERIVATIVE_RECLOSURE`, not a merit-policy change. The
+[D7R8 research](../../development/nonlocal-nsr3b4e2d7r8-extended-precision-energy-research-2026-08-22.md)
+and [frozen contract](03b4e2d7r8-extended-precision-energy-contract.md) first
+require an independent Linux x86-64 long-double energy/sign audit over every
+failed trial. Implement only that oracle next; it cannot accept a trial or
+select a production precision/formula.
+D7R8 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r8-extended-precision-energy-evidence-2026-08-22.md).
+Eleven model-positive/binary64-negative trials have resolved positive
+extended reductions, none has a resolved negative reduction and every
+binary64/extended pair-membership decision agrees. The tightest five trials
+remain below the conservative extended resolution threshold. This selects
+`BINARY64_ENERGY_EVALUATION_RESEARCH`, not long-double production state.
+Research and freeze D7R9 as a replay-only computational divided-difference
+candidate that precancels common radius/kernel/density/PHR/inertia terms in
+binary64 and compares only against D7R8-resolved signs.
+The [D7R9 research](../../development/nonlocal-nsr3b4e2d7r9-divided-difference-research-2026-08-22.md)
+selects computational divided differencing plus compensated accumulation over
+wider runtime state or a noise-relaxed acceptance rule. Its
+[frozen contract](03b4e2d7r9-divided-difference-contract.md) scores only the
+eleven resolved D7R8 trials, reports the other twelve without classification,
+and compares a compensated-absolute ablation with the fully propagated
+binary64 delta. Implement/run only this replay discriminator next.
+D7R9 fails on an invalid replay-acceptance control; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r9-divided-difference-evidence-2026-08-22.md).
+Exact parent work contains two historical accepted intermediate trials, so it
+cannot also satisfy the frozen zero-inherited-acceptance assertion. No new
+trial was accepted. The unselected divided candidate passes all `11/11`
+scored comparisons while compensated absolute energy passes `2/11`.
+The [D7R9R1 reclosure](../../development/nonlocal-nsr3b4e2d7r9r1-acceptance-ledger-research-2026-08-22.md)
+and [frozen contract](03b4e2d7r9r1-acceptance-ledger-reclosure-contract.md)
+change only the inherited ledger to the exact two parent trials and require
+zero new acceptance. Implement/run that reclosure next.
+D7R9R1 passes and selects `DIVIDED_DIFFERENCE_REDUCTION_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r9r1-acceptance-ledger-evidence-2026-08-22.md).
+Both clean builds preserve D7R8 and the original D7R9 FAIL bytes. The
+propagated binary64 difference passes all `11/11` resolved comparisons at
+most `3.99153%` relative error; compensated absolute totals pass only `2/11`.
+Freeze a bounded D7R10 private-inner integration next. It must audit every
+candidate-created acceptance, distinguish unresolved extended signs from
+resolved contradiction and roll every state back.
+The [D7R10 research](../../development/nonlocal-nsr3b4e2d7r10-private-inner-research-2026-08-22.md)
+retains every D7R4 trust/model/HVP/work limit and changes only actual ratio,
+acceptance and rejected-radius interpolation inside three rollback-only
+inners. Its [frozen contract](03b4e2d7r10-private-inner-contract.md) audits
+every candidate acceptance with the D7R8 oracle and separates convergence
+from unresolved sign certification, resolved contradiction and remaining
+policy failure. Implement/run only this private stage next.
+D7R10 passes and selects `PRECISION_CERTIFICATE_REQUIRED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r10-private-inner-evidence-2026-08-22.md).
+Each failed state now reaches about `1e-14` stationarity with one divided-
+reduction acceptance, zero rejects and two HVPs. The `1e-8/1e-9` accepted
+signs are resolved positive; the tight sign has no contradiction but remains
+below the frozen long-double resolution threshold. Freeze a three-pair
+binary128 offline oracle next. Outer integration remains blocked.
+The [D7R11 research](../../development/nonlocal-nsr3b4e2d7r11-binary128-oracle-research-2026-08-22.md)
+selects a frozen GCC/libquadmath IEEE binary128 evaluator for exactly the three
+D7R10 acceptances. Its
+[contract](03b4e2d7r11-binary128-oracle-contract.md) requires fixed and
+compensated 113-bit signs above 4096 binary128 ULPs, exact pair membership and
+at most 5% candidate error. It explicitly grants no runtime wider precision.
+Implement/run only this offline oracle next.
+D7R11 passes and selects `OFFLINE_ACCEPTED_SIGN_CERTIFICATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r11-binary128-oracle-evidence-2026-08-22.md).
+All three exact candidate acceptances resolve positive at least `3.77e17`
+binary128 ULPs from zero, all pair memberships agree and the maximum divided
+reduction error is `3.23e-5`. Runtime wider precision is not selected. Research
+and freeze D7R12 as a rollback-only complete private-outer integration that
+preserves the pressure-state confirmation gate and audits every new
+candidate-created acceptance before any trajectory or public state exists.
+The [D7R12 research](../../development/nonlocal-nsr3b4e2d7r12-private-outer-research-2026-08-22.md)
+selects only the exact D7R5 post-outer-7 `eta=1e-10` continuation: it is the
+nearest pressure-state boundary and its next inner is an exact repaired D7R10
+floor. The [frozen contract](03b4e2d7r12-private-outer-contract.md) preserves
+all pressure gates, audits every candidate-effect acceptance in binary128,
+requires two consecutive admissible states plus a holdout and forces rollback.
+Implement/run only this private continuation next.
+D7R12 passes and selects `PRIVATE_PRESSURE_STATE_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r12-private-outer-evidence-2026-08-22.md).
+Outer 11/12 pass the unchanged confirmation gate and outer 13 passes the same
+holdout. The continuation uses four acceptances, zero rejects and eight HVPs;
+its single candidate-effect acceptance resolves positive in binary128. Freeze
+D7R13 as a full rollback-only private transaction from the original state,
+using one consistent `eta=1e-10` divided inner for every outer update.
+The [D7R13 research](../../development/nonlocal-nsr3b4e2d7r13-full-private-transaction-research-2026-08-22.md)
+removes D7R12's mixed-accuracy prefix and starts from the original state. Its
+[frozen contract](03b4e2d7r13-full-private-transaction-contract.md) uses
+`eta=1e-10` and divided reduction for every inner, requires an exact active
+repeat and inactive transaction, retains confirmation/holdout and forces
+rollback. Implement/run only this full private transaction next.
+D7R13 passes and selects `FULL_PRIVATE_PRESSURE_STATE_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r13-full-private-transaction-evidence-2026-08-22.md).
+The original-state active solve confirms at outer 12 and holds out at 13 with
+19 acceptances, zero rejects and 38 HVPs. Four candidate-effect acceptances
+are binary128-resolved positive. The inactive solve remains exactly still.
+Research D7R14 as a one-nominal-frame shadow mapping before implementation;
+do not run a trajectory or timing lane.
+The [D7R14 research](../../development/nonlocal-nsr3b4e2d7r14-sparse-al-workspace-research-2026-08-22.md)
+shows that directly applying the dense tiny solver would inspect `116,301,000`
+candidate interactions per evaluation while the selected decoded Dam topology
+contains only `342,502` canonical pairs, a `339.563x` structural-work gap. Its
+[frozen contract](03b4e2d7r14-sparse-al-workspace-contract.md) therefore first
+requires a separate sparse AL tape and an exact sorted current/trial pair-union
+reduction. Implement/run this tiny equivalence and nominal frame-zero topology
+gate next; no nominal solve, trajectory or timing is authorized.
+D7R14 passes and selects `SPARSE_AL_WORKSPACE_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r14-sparse-al-workspace-evidence-2026-08-22.md).
+Evaluation, gradient, HVP, all 19 D7R13 divided trials, one explicit support
+crossing and both full transactions are binary64 exact. The nominal decoded
+workspace reproduces `342502` pairs and zero active centres, replacing
+`116301000` dense candidate checks by a `339.563x` smaller structural traversal.
+Research/freeze D7R15 as one bounded nominal Dam single-frame shadow next;
+trajectory, wall timing and production promotion remain blocked.
+The [D7R15 research](../../development/nonlocal-nsr3b4e2d7r15-nominal-al-prerequisites-research-2026-08-22.md)
+finds that a direct solve would use macro `dt` inside a 78-substep schedule,
+reintroduce dense binary128 work on candidate-effect audits and repeatedly
+canonicalize fixed support. Its
+[frozen contract](03b4e2d7r15-nominal-al-prerequisites-contract.md) first
+recloses explicit `dt`, a sparse binary128 superset oracle and identity-bound
+static support while preserving D7R14 bytes. Implement/run these prerequisites
+next; the first nominal substep moves to D7R16, with no macro or timing lane.
+D7R15 passes and selects `NOMINAL_AL_PREREQUISITES_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r15-nominal-al-prerequisites-evidence-2026-08-22.md).
+The aligned substep `dt` is exact through every candidate formula, all four
+D7R13 binary128 roots reproduce through a sparse current/trial superset union,
+and one identity-bound nominal static index reconstructs `342502` pairs with
+zero active centres. D7R14/D7R13 bytes remain exact. D7R16 research then finds
+the remaining dense long-double accepted-trial audit and the missing
+transaction integration of D7R15's proof helpers. Implement the frozen D7R16
+sparse precision transaction next; defer the first aligned nominal substep to
+D7R17 and run no macro, trajectory or timing lane.
+D7R16 then passes and selects `NOMINAL_TRANSACTION_BACKEND_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r16-sparse-precision-transaction-evidence-2026-08-22.md).
+The complete static-bound transaction removes the hidden dense precision path,
+preserves all inherited roots and confirms the separate predictor-contact
+impulse. Research/freeze D7R17 before executing its one nominal substep.
+D7R17 then classifies the first aligned private substep as
+`NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r17-nominal-substep-shadow-evidence-2026-08-22.md).
+Every outer update needs one accepted trial and two HVPs, and final
+stationarity is already `1.49e-12`, but primal violation falls only from
+`2.332e-7` to `2.285e-7` across the 16-update cap. No state is selected.
+Research/freeze an explicit-`kappa` and dimensionless `dt`--`kappa` scaling
+prerequisite next, preserving legacy bytes and running no nominal solve. Do
+not increase the outer cap, weaken gates or run a second substep, macro,
+trajectory or timing lane.
+The [D7R18 research](../../development/nonlocal-nsr3b4e2d7r18-kappa-scaling-prerequisites-research-2026-08-22.md)
+derives the missing scale: fixed geometry requires invariant `kappa*dt^2`, so
+the aligned `dt/78` candidate is exactly `kappa*6084 = 7460505`. Its
+[frozen contract](03b4e2d7r18-kappa-scaling-prerequisites-contract.md) first
+requires explicit `kappa` through every sparse/precision/outer path plus a
+tiny normalized oracle. Implement this prerequisite next without a nominal
+solve; D7R19 remains blocked until it passes.
+D7R18 then classifies `DT_KAPPA_NONDIMENSIONAL_MISMATCH`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18-kappa-scaling-prerequisites-evidence-2026-08-22.md).
+Energy, active state, gradient, divided reduction and both extended-precision
+oracles scale within the frozen limit, but dimensional HVP accumulation reaches
+`7.51e-14` against `1.42e-14`. Preserve the gate. Research/freeze a directly
+nondimensional `u=lambda/kappa`, `theta=kappa*dt^2/M` transaction and
+representation-invariant admission next; do not run D7R19 yet.
+The [D7R18R1 research](../../development/nonlocal-nsr3b4e2d7r18r1-nondimensional-transaction-research-2026-08-22.md)
+derives a complete normalized identity with `u=lambda/kappa` and
+`theta=kappa*dt^2/M`, not an HVP-only patch. Its
+[frozen contract](03b4e2d7r18r1-nondimensional-transaction-contract.md)
+requires byte-exact cross-scale normalized roots plus a componentwise absolute
+forward certificate against the dimensional HVP. Implement this tiny
+formulation gate next; even a pass authorizes only a tiny private transaction,
+not a nominal retry.
+D7R18R1 passes and selects `NONDIMENSIONAL_AL_TRANSACTION_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18r1-nondimensional-transaction-evidence-2026-08-22.md).
+Direct dense/sparse objective, gradient, HVP and divided outputs are exact,
+reference/aligned normalized roots are byte-identical, and independent long-
+double/binary128 signs agree. Both dimensional HVP reconstructions satisfy the
+frozen componentwise absolute forward bound. Representation-invariant dual
+admission is exact while raw equivalent-pressure change is confirmed to be
+scale-dependent. Research/freeze one tiny complete normalized D7R13
+transaction next. D7R19, nominal execution and timing remain blocked.
+The [D7R18R2 research](../../development/nonlocal-nsr3b4e2d7r18r2-full-normalized-private-transaction-research-2026-08-22.md)
+separates mathematical correspondence from dimensional byte identity. Its
+[frozen contract](03b4e2d7r18r2-full-normalized-private-transaction-contract.md)
+requires the exact D7R13 `11/12/13` active and `0/1/2` inactive confirmation
+semantics, direct normalized accepted-sign audits and byte-exact complete
+transaction roots between independently derived reference/aligned profiles.
+D7R18R2 executes reproducibly and selects
+`NORMALIZED_INNER_POLICY_STILL_INSUFFICIENT`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18r2-full-normalized-private-transaction-evidence-2026-08-22.md).
+The reference/aligned complete roots are exact, so the normalized transaction
+is scale-invariant, but active outer `1`, trial `2` loses a true positive
+`3.163325e-22` reduction as `-3.071473e-19`. The model prediction agrees with
+the dimensional/binary128 oracle; the current normalized divided formula does
+not carry D7R10's pairwise density-delta precancellation through the active
+square. Research/freeze one replay-only D7R18R3 precancellation discriminator
+at that exact state. It cannot accept a trial. Do not retry R2 unchanged;
+D7R19 remains blocked.
+The [D7R18R3 research](../../development/nonlocal-nsr3b4e2d7r18r3-normalized-divided-precancellation-research-2026-08-22.md)
+derives the exact normalized form of D7R10's precancellation identity. Its
+[frozen contract](03b4e2d7r18r3-normalized-divided-precancellation-contract.md)
+replays only active outer `1`, trial `2`, carries pairwise density deltas into
+the piecewise active-square delta, and compares the result with direct
+long-double/binary128 oracles under a 5% bound. Implement this discriminator
+next. It cannot accept a trial or continue the solve; D7R19 remains blocked.
+D7R18R3 passes and selects `NORMALIZED_DIVIDED_PRECANCELLATION_CANDIDATE`; see
+the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18r3-normalized-divided-precancellation-evidence-2026-08-22.md).
+The candidate returns `3.163242142e-22` against binary128
+`3.163279198e-22`, with `1.17145e-5` relative error and exact
+reference/aligned roots. The replay accepts nothing. Research/freeze a
+complete normalized private transaction using this numerator as its only
+solver change; D7R19 remains blocked.
+The [D7R18R4 research](../../development/nonlocal-nsr3b4e2d7r18r4-full-normalized-precancelled-transaction-research-2026-08-22.md)
+freezes that complete experiment. Its
+[contract](03b4e2d7r18r4-full-normalized-precancelled-transaction-contract.md)
+retains every R2 solver/admission/precision/rollback gate, substitutes only
+the R3 numerator, and requires D7R13's exact `11/12/13`, `0/1/2` and
+`19 accepted / 0 rejected / 38 HVP` active correspondence. Implement/run R4
+next; D7R19 remains blocked.
+D7R18R4 fails the frozen `WORK_LIFECYCLE` control; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18r4-full-normalized-precancelled-transaction-evidence-2026-08-22.md).
+All confirmation, cross-profile and precision facts pass, including 19
+accepted and zero rejected trials, but each active run uses 39 HVPs instead of
+38. The only extra Krylov iteration is outer `11`, trial `0`. The inherited
+`sqrt(||r0||)` forcing is not invariant under objective normalization and is
+the next bounded hypothesis. Preserve the hard FAIL; research/freeze one
+replay-only dimensionless-forcing discriminator. D7R19 remains blocked.
+The [D7R18R4R1 research](../../development/nonlocal-nsr3b4e2d7r18r4r1-normalized-krylov-forcing-research-2026-08-22.md)
+derives a dimensionless candidate from the existing normalized stationarity
+measure. Its
+[frozen contract](03b4e2d7r18r4r1-normalized-krylov-forcing-contract.md)
+replays only the first residual recurrence at R4 outer 11/trial 0, once per
+reference/aligned profile, with exactly two diagnostic HVPs and no accepted
+step. Implement/run this discriminator next; R4 remains a hard FAIL and D7R19
+remains blocked.
+R4R1 then passes and selects
+`DIMENSIONLESS_FORCING_RETAINS_SECOND_ITERATION`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18r4r1-normalized-krylov-forcing-evidence-2026-08-22.md).
+The measured residual ratio exceeds both inherited and selected dimensionless
+thresholds, while the mapped dimensional threshold stops; the scale-defect
+mechanism is therefore confirmed, but 39 active HVPs remains the candidate
+dimensionless-policy baseline. Research/freeze a separate complete R4R2
+transaction with that policy and its own pre-observation work ledger. Preserve
+R4's hard FAIL and keep D7R19 blocked.
+The [D7R18R4R2 research](../../development/nonlocal-nsr3b4e2d7r18r4r2-dimensionless-forcing-transaction-research-2026-08-23.md)
+proves before implementation that the dimensionless threshold cannot add a
+Krylov iteration on the eight-particle fixture and, by R4R1's unique-boundary
+result, cannot remove one either. Its
+[frozen contract](03b4e2d7r18r4r2-dimensionless-forcing-transaction-contract.md)
+therefore owns an exact 39-HVP active / 117-HVP five-run ledger, explicit
+policy provenance and all R4 state/precision controls. Implement/run R4R2
+next; D7R19 execution remains blocked.
+R4R2 then passes and selects
+`FULL_NORMALIZED_DIMENSIONLESS_FORCING_STATE_CONFIRMED`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r18r4r2-dimensionless-forcing-transaction-evidence-2026-08-23.md).
+All candidate roots and precision ledgers are exact; 57 explicit
+dimensionless trust solves reproduce the pre-derived 117-HVP total with zero
+inherited selections. D7R19 research/freeze is now authorized, but execution
+remains blocked pending its own one-substep contract.
+The [D7R19 research](../../development/nonlocal-nsr3b4e2d7r19-normalized-nominal-substep-shadow-research-2026-08-23.md)
+recloses that first-substep experiment around the R4R2 normalized solver. Its
+[frozen contract](03b4e2d7r19-normalized-nominal-substep-shadow-contract.md)
+retains D7R17's structural watchdog and exact frame-zero predictor, adds
+explicit dimensionless-forcing provenance and reconstructs physical support
+impulse from normalized gradients with the required `M/dt` scale. Implement
+and run exactly this one private first-substep shadow next; no second substep,
+macro, trajectory or timing is authorized.
+D7R19 fails the hard precision ledger reproducibly; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r19-normalized-nominal-substep-shadow-evidence-2026-08-23.md).
+Three of five accepted outer-0 trials change membership when the independent
+long-double evaluator recomputes compact-support topology. They contain
+`10,989` repeated current/trial mismatch observations, all three extended
+reductions remain resolved positive and the minimum horizon margin is zero.
+The sixth trust solve separately reaches the frozen 32-HVP cap, but hard
+precision failure prevents a structural route. Preserve the FAIL and do not
+increase the cap. The
+[D7R19R1 research](../../development/nonlocal-nsr3b4e2d7r19r1-topology-precision-shell-research-2026-08-23.md)
+freezes a
+[replay-only shell contract](03b4e2d7r19r1-topology-precision-shell-contract.md)
+over the exact three trials. Implement that discriminator next; it may select
+only a later precision-policy reclosure, never a nominal retry or state.
+D7R19R1 passes reproducibly and selects
+`RUNTIME_TOPOLOGY_PRECISION_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4e2d7r19r1-topology-precision-shell-evidence-2026-08-23.md).
+Long double reproduces `10,989/7,315` repeated/unique mismatch observations,
+while binary128 resolves `15,298/10,566`; every mismatch remains inside the
+frozen shell and all observed `W/W'/W''` values are zero. All nine policy/trial
+lanes remain positive in both formats, the candidate errors are far below 5%,
+replay HVP work is zero and rollback is exact. Preserve D7R19's historical
+FAIL. Research/freeze D7R19R2 as a separate binary64-owned precision-topology
+reclosure over the same first substep, retaining the 32-HVP watchdog and all
+binary64 state/work bytes. No second substep, macro, trajectory, timing or
+runtime binary128 is authorized.
+The
+[D7R19R2 research](../../development/nonlocal-nsr3b4e2d7r19r2-binary64-topology-policy-research-2026-08-23.md)
+selects binary64-owned private support membership: wider arithmetic certifies
+the same discrete graph already used by the primary solver and retains
+membership disagreement only as diagnostics. Epsilon, hysteresis, canonical
+publication coordinates and runtime wide state are rejected. The
+[frozen contract](03b4e2d7r19r2-binary64-topology-policy-contract.md)
+requires exact D7R19 binary64 trajectory/work, the three R1-selected precision
+roots and the unchanged 32-HVP watchdog. Implement/run exactly that one
+candidate first-substep shadow next.
+The
+[D7R19R2 evidence](../../development/nonlocal-nsr3b4e2d7r19r2-binary64-topology-policy-evidence-2026-08-23.md)
+closes that candidate `PASS / NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED`:
+the complete parent/candidate binary64 trace root remains exact, all five
+completed precision audits resolve positive under binary64-owned membership,
+and the first five trials are accepted before the unchanged sixth-solve
+`32 HVP/step` watchdog stops the transaction. Precision topology is therefore
+locally resolved; the next question is the recurrence/conditioning of that
+exact sixth Newton-CG solve. Research and freeze only a replay-only D7R19R3
+diagnostic at the captured state. Do not increase the production cap, accept a
+trial, or run another nominal substep.
+The
+[D7R19R3 research](../../development/nonlocal-nsr3b4e2d7r19r3-sixth-trust-recurrence-research-2026-08-23.md)
+selects a passive-live-prefix plus independent-offline-replay design. The
+[frozen contract](03b4e2d7r19r3-sixth-trust-recurrence-contract.md)
+requires exact R2 bytes, exact first-32 recurrence equivalence and one bounded
+continuation to at most 128 HVPs. It records residual, curvature,
+trust-boundary, orthogonality/conjugacy and Ritz diagnostics, but forms no
+trial and changes no production cap. Implement that replay next; no
+preconditioner, second substep, timing or performance claim is authorized.
+The
+[D7R19R3 evidence](../../development/nonlocal-nsr3b4e2d7r19r3-sixth-trust-recurrence-evidence-2026-08-23.md)
+closes the replay `PASS / SIXTH_TRUST_FORCING_CONVERGED`: the first-32 roots
+are exact and HVP 33 alone crosses the forcing threshold. Curvature stays
+positive, point/radius is `6.87e-9`, adjacent recurrence errors stay near
+`1e-14` and the Ritz condition estimate is only `36.13`; a preconditioner is
+not justified for this exact barrier. The current implementation would still
+need a separate direct `H(step)` after convergence. Research/freeze D7R19R4
+to compare bounded recurrence grace plus that direct model HVP against a
+Krylov-accumulated `H(step)` image validated by one direct oracle HVP. Do not
+form the sixth trial or select a production cap policy yet.
+The
+[D7R19R4 research](../../development/nonlocal-nsr3b4e2d7r19r4-krylov-model-image-research-2026-08-23.md)
+derives two zero-HVP model images from the same recurrence:
+`sum(alpha*H(d))` and the cheaper `r_final-g`. The
+[frozen contract](03b4e2d7r19r4-krylov-model-image-contract.md)
+requires one direct `H(step)` oracle, `1e-10` image/quadratic/predicted bounds,
+positive signs and exact R3 bytes. It prefers residual-derived, then
+accumulated, then retains the direct HVP. Implement only this discriminator
+next; recurrence grace and sixth-trial formation remain unauthorized.
+The
+[D7R19R4 evidence](../../development/nonlocal-nsr3b4e2d7r19r4-krylov-model-image-evidence-2026-08-23.md)
+closes `PASS / KRYLOV_MODEL_IMAGE_RESIDUAL_CANDIDATE`. The residual-derived
+and direct `step.H(step)`/predicted scalars are bit-exact; image L2 error is
+`1.24e-15`, and the accumulated lane is unnecessary. Research/freeze D7R19R5
+as a sixth-trial-only shadow with exactly one guarded recurrence grace HVP,
+residual-derived model image and direct-oracle correspondence. It may evaluate
+divided reduction, precision sign, acceptance and radius but cannot commit or
+continue state.
+The
+[D7R19R5 research](../../development/nonlocal-nsr3b4e2d7r19r5-guarded-sixth-trial-research-2026-08-23.md)
+selects a one-shot grace guard: after 32 finite, positive-curvature, interior
+HVPs, allow HVP 33 only when residual ratio is in `(eta,1.25*eta]` and the
+last eight ratios strictly decrease. The
+[frozen contract](03b4e2d7r19r5-guarded-sixth-trial-contract.md)
+requires HVP-33 convergence, residual/direct predicted-bit identity, one
+repeatable pre-cancelled divided reduction, one binary64-owned precision audit
+on would-accept and shadow-only acceptance/radius classification. Implement
+this trial next; no commit or transaction continuation is authorized.
+The
+[D7R19R5 evidence](../../development/nonlocal-nsr3b4e2d7r19r5-guarded-sixth-trial-evidence-2026-08-23.md)
+closes `PASS / SIXTH_TRIAL_RESIDUAL_MODEL_ACCEPTANCE_CANDIDATE`: divided ratio
+is `0.9999993088`, precision resolves positive, radius is unchanged and the
+candidate spends zero model HVP. Research/freeze D7R19R6 as one full private
+first-substep transaction in which ordinary solves retain direct model HVPs
+and only an eligible 33rd recurrence HVP uses residual-derived completion.
+The first five R2 trials and the R5 sixth trial must remain exact; no public
+state commit or second substep is authorized.
+The
+[D7R19R6 research](../../development/nonlocal-nsr3b4e2d7r19r6-guarded-residual-transaction-research-2026-08-23.md)
+selects the narrow integration: ordinary solves keep the historical direct
+model HVP, while only a solve that actually uses guarded HVP 33 may use
+`r_final-g`. The
+[frozen contract](03b4e2d7r19r6-guarded-residual-transaction-contract.md)
+requires exact R2 trials `0..4`, exact R5 trial `5`, explicit recurrence/model
+work ownership and one bounded full private first-substep transaction. Total
+and all other structural caps remain unchanged; no public commit or second
+substep is authorized.
+The
+[D7R19R6 evidence](../../development/nonlocal-nsr3b4e2d7r19r6-guarded-residual-transaction-evidence-2026-08-23.md)
+closes `PASS / NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED`. The first
+five R2 trials and complete R5 sixth-trial certificate remain exact. That
+sixth trial is accepted with 33 recurrence HVPs and zero model HVPs; the
+private transaction continues to nine accepted trials and outer update two.
+The next trust solve reaches 32 recurrence HVPs but fails the frozen guard, so
+no HVP 33 or trial is admitted. Research/freeze only a replay of this first
+later denied solve. Preserve R6 bytes, capture its live prefix passively and
+continue only an offline recurrence diagnostic; do not loosen the guard,
+continue the transaction or run timing.
+The
+[D7R19R7 research](../../development/nonlocal-nsr3b4e2d7r19r7-second-guard-boundary-research-2026-08-23.md)
+selects passive live capture plus one offline recurrence replay. The
+[frozen contract](03b4e2d7r19r7-second-guard-boundary-contract.md)
+requires exact R6 bytes and `2/9/0/227` boundary facts, decomposes every guard
+clause, reproduces the live first-32 recurrence prefix exactly and continues
+only that solve under the existing diagnostic cap of 128 HVPs. It forms no
+model or trial, performs no precision audit and cannot change the guard, cap,
+transaction or public state. Implement only this replay next.
+The
+[D7R19R7 evidence](../../development/nonlocal-nsr3b4e2d7r19r7-second-guard-boundary-evidence-2026-08-23.md)
+closes `PASS / SECOND_GUARD_OFFLINE_FORCING_CONVERGED`. The only failed guard
+clause is the upper ratio window: residual is `1.891 eta` after HVP 32 and
+still `1.294 eta` after HVP 33; HVP 34 reaches `0.933 eta`. All curvatures are
+positive, the recurrence remains interior and its Ritz condition estimate is
+`35.81`. One unconditional grace HVP is therefore insufficient. Research a
+replay-only two-boundary progress-envelope and residual-model discriminator;
+do not raise the live cap, form a trial or continue the transaction.
+The
+[D7R19R8 research](../../development/nonlocal-nsr3b4e2d7r19r8-tiered-grace-model-research-2026-08-23.md)
+preserves the existing `(eta,1.25 eta]` one-shot lane and defines a separate
+replay tier for `ratio32 in (1.25 eta,2 eta]`. A second HVP is considered only
+after safe HVP-33 progress reaches `(eta,1.5 eta]` with contraction at most
+`0.75` and updated monotone history. The
+[frozen contract](03b4e2d7r19r8-tiered-grace-model-contract.md)
+requires HVP-34 convergence and one direct `H(step)` oracle for `r_final-g`.
+Implement only this two-boundary discriminator; no trial or live policy
+change is authorized.
+The
+[D7R19R8 evidence](../../development/nonlocal-nsr3b4e2d7r19r8-tiered-grace-model-evidence-2026-08-23.md)
+closes `PASS / TIERED_GRACE_RESIDUAL_MODEL_CANDIDATE`. Both exact targets
+satisfy their distinct online envelopes, the later solve converges on HVP 34
+and its residual-derived model agrees with a direct oracle by
+`1.05e-15` image-relative and `5.83e-14` maximum scaled-component error.
+Research/freeze D7R19R9 as one private first-substep transaction using this
+exact tiered completion policy. Preserve ordinary direct-model ownership,
+all R6/R5/R2 anchors and production policy; stop at the next exact boundary.
+The
+[D7R19R9 research](../../development/nonlocal-nsr3b4e2d7r19r9-tiered-grace-transaction-research-2026-08-23.md)
+selects one explicit research-only completion policy. Ordinary solves retain
+their direct model HVP; tier 1 may finish on HVP 33 and tier 2 may reach HVP
+34 only after the frozen R8 continuation gates. The
+[frozen contract](03b4e2d7r19r9-tiered-grace-transaction-contract.md)
+requires exact R8/R7/R6/R5/R2 parents, exact first-six anchors and complete
+recurrence/model work ownership in one private first-substep transaction.
+Implement this bounded integration next; production policy remains unchanged.
+The
+[D7R19R9 evidence](../../development/nonlocal-nsr3b4e2d7r19r9-tiered-grace-transaction-evidence-2026-08-23.md)
+closes `PASS / NORMALIZED_NOMINAL_STRUCTURAL_WATCHDOG_EXHAUSTED`. The tier-2
+solve forms an accepted 34-recurrence-HVP, zero-model-HVP trial; the private
+transaction advances to `20/0` accepted/rejected trials and outer update `6`.
+It stops only when `494` recurrence plus `18` direct-model HVPs consume the
+global `512` limit. Research D7R19R10 as a passive total-budget progress and
+interrupted-recurrence diagnostic before changing that limit. No continuation
+or timing is authorized.
+The
+[D7R19R10 research](../../development/nonlocal-nsr3b4e2d7r19r10-total-hvp-boundary-research-2026-08-23.md)
+selects an optional passive capture attached to the exact R9 execution. The
+[frozen contract](03b4e2d7r19r10-total-hvp-boundary-contract.md)
+requires per-outer/trial progress, exact completed/interrupted work accounting
+and a precedence-ordered safety/progress classification of the recurrence
+prefix stopped at HVP 512. Implement only this diagnostic; it may not continue
+the recurrence, add a model or trial, raise the cap or run timing.
+The
+[D7R19R10 evidence](../../development/nonlocal-nsr3b4e2d7r19r10-total-hvp-boundary-evidence-2026-08-23.md)
+closes `PASS / TOTAL_HVP_BOUNDARY_SAFE_PROGRESSING`. The cap interrupts
+outer 5/trial 1/solve 20 after 14 finite positive-curvature interior HVPs.
+All ratios decrease, but the final ratio is still `37.9603 eta`. Work closes
+exactly as `480 completed recurrence + 14 interrupted + 18 direct model =
+512`, and capture adds only the final workspace release. Research/freeze an
+offline-only continuation of this exact recurrence next; do not change the
+live cap or form a model/trial.
+The
+[D7R19R11 research](../../development/nonlocal-nsr3b4e2d7r19r11-total-budget-offline-replay-research-2026-08-23.md)
+selects a deterministic replay from the exact captured state rather than a
+live cap increase or geometric extrapolation. The
+[frozen contract](03b4e2d7r19r11-total-budget-offline-replay-contract.md)
+requires exact first-14 correspondence before continuing unchanged Steihaug
+under the existing offline cap of 128 HVPs. Implement only this recurrence
+diagnostic; model, trial, transaction continuation and timing remain forbidden.
+The
+[D7R19R11 evidence](../../development/nonlocal-nsr3b4e2d7r19r11-total-budget-offline-replay-evidence-2026-08-23.md)
+closes `PASS / TOTAL_BUDGET_OFFLINE_FORCING_CONVERGED`. The exact first-14
+prefix continues safely and reaches forcing on HVP 24, so the interrupted
+solve needs ten additional recurrence HVPs. Ritz condition is `26.67` and no
+preconditioner signal exists. Research/freeze one shadow atomic completion
+with this exact ten-HVP debt plus the ordinary direct model/trial policy; do
+not yet raise the live total cap or continue the transaction.
+The
+[D7R19R12 research](../../development/nonlocal-nsr3b4e2d7r19r12-total-budget-atomic-completion-research-2026-08-23.md)
+rejects a global cap raise, serialized-restart invention and downstream
+transaction continuation. The
+[frozen contract](03b4e2d7r19r12-total-budget-atomic-completion-contract.md)
+permits one rollback-only shadow: exact R11 recurrence/step, ten-HVP live debt,
+one ordinary direct model HVP and one existing divided/precision/acceptance/
+radius classification. Implement only this shadow; no live policy changes.
+The
+[D7R19R12 evidence](../../development/nonlocal-nsr3b4e2d7r19r12-total-budget-atomic-completion-evidence-2026-08-23.md)
+closes `PASS / TOTAL_BUDGET_ATOMIC_ACCEPTANCE_CANDIDATE`. The exact in-flight
+completion costs ten recurrence plus one direct-model HVP, projects total HVP
+`523`, yields `rho=1.0000000141`, resolves positive in long double and leaves
+the radius unchanged. Raw, inherited and precancelled decisions agree, so
+binary128 is not required. Research a post-acceptance boundary discriminator
+next; do not raise the live cap until inner/outer completion is understood.
+The
+[D7R19R13 research](../../development/nonlocal-nsr3b4e2d7r19r13-post-acceptance-boundary-research-2026-08-23.md)
+selects an exact accepted-state stationarity test followed, only if inner
+converges, by the existing outer-final workspace rebuild. The
+[frozen contract](03b4e2d7r19r13-post-acceptance-boundary-contract.md)
+permits zero new HVPs and no later solve/outer work. Implement only this
+boundary discriminator before designing a soft-cap policy.
+The
+[D7R19R13 evidence](../../development/nonlocal-nsr3b4e2d7r19r13-post-acceptance-boundary-evidence-2026-08-24.md)
+closes `PASS / POST_ACCEPTANCE_OUTER_COMPLETE_NOT_ADMISSIBLE`. Accepted-state
+stationarity is `3.1346e-13`, so no new trust solve is needed. Existing outer
+5 finalization consumes zero HVP, remains primal-monotone and yields a complete
+but not-yet-admissible outer state at projected total `523`. Research bounded
+soft-cap admission and explicit outer-boundary suspension next; no live policy
+change yet.
+The
+[D7R19R14 research](../../development/nonlocal-nsr3b4e2d7r19r14-soft-cap-suspension-research-2026-08-24.md)
+separates trial admission from ownership of already-admitted HVP work. The
+target trial starts at `498`, owns the existing 34-HVP hard allowance, has
+dynamic ceiling `532` and finishes at `523`. The
+[frozen contract](03b4e2d7r19r14-soft-cap-suspension-contract.md)
+permits one zero-work policy/token projection that denies outer 6 and emits a
+versioned outer-boundary continuation candidate. Implement only the
+projection; budget code and resume remain unchanged.
+The
+[D7R19R14 evidence](../../development/nonlocal-nsr3b4e2d7r19r14-soft-cap-suspension-evidence-2026-08-24.md)
+closes `PASS / SOFT_CAP_OUTER_BOUNDARY_SUSPENDED`. Both clean Release outputs
+are byte-exact; the candidate ends at total `523`, denies outer 6 and emits
+token root `c06dbfee...8b5` with zero new work. Research/freeze D7R19R15 as
+prework validation and negative controls for that token. Do not execute
+resume or change the live budget state machine.
+The
+[D7R19R15 research](../../development/nonlocal-nsr3b4e2d7r19r15-token-completeness-research-2026-08-24.md)
+finds that v1 omits substep-lifetime resource ledgers/limits, accepted history
+and solver/completion-policy identity. Distinct locally-valid contexts can
+therefore share its root. The
+[frozen contract](03b4e2d7r19r15-token-completeness-contract.md)
+requires a zero-work completeness discriminator before any v2 design or
+resume implementation.
+The
+[D7R19R15 evidence](../../development/nonlocal-nsr3b4e2d7r19r15-token-completeness-evidence-2026-08-24.md)
+closes `PASS / TOKEN_V1_RESOURCE_LEDGER_COLLISION`. All 16 bound mutations
+change v1 root, but fixed resource and policy twins do not. V1 is not
+resumable. Research/freeze a canonical v2 envelope and fail-before-work
+negative controls next; outer 6 remains forbidden.
+The
+[D7R19R16 research](../../development/nonlocal-nsr3b4e2d7r19r16-v2-envelope-research-2026-08-24.md)
+selects a fixed `540`-byte private binary envelope with complete payload,
+history, policy and resource binding plus an external trusted owner record.
+The [frozen contract](03b4e2d7r19r16-v2-envelope-contract.md) requires exact
+encode/decode and a fail-before-work negative corpus. Implement validation
+only; ownership consumption, epoch transition and outer 6 remain forbidden.
+The
+[D7R19R16 evidence](../../development/nonlocal-nsr3b4e2d7r19r16-v2-envelope-evidence-2026-08-24.md)
+closes `PASS / TOKEN_V2_VALIDATION_CANDIDATE`: canonical root and roundtrip
+are exact and all 24 corpus routes pass. Research/freeze R17 as an atomic,
+idempotent owner-consume and epoch-transition projection. It may reset only
+the slice ledger; resume and outer 6 remain forbidden.
+The
+[D7R19R17 research](../../development/nonlocal-nsr3b4e2d7r19r17-owner-epoch-transition-research-2026-08-24.md)
+keeps the R16 envelope immutable and selects separate canonical grant,
+receipt and active-owner objects under one copy-on-write composite-state
+replacement. The
+[frozen contract](03b4e2d7r19r17-owner-epoch-transition-contract.md)
+requires exact target roots, rollback at every injected precommit failure and
+idempotent duplicate replay. Implement the ownership transaction only;
+resume and outer 6 remain forbidden.
+The
+[D7R19R17 evidence](../../development/nonlocal-nsr3b4e2d7r19r17-owner-epoch-transition-evidence-2026-08-24.md)
+closes `PASS / OWNER_EPOCH_TRANSITION_CANDIDATE`: all canonical roots and
+`15/15` routes are exact, every precommit failure rolls back, and duplicate
+replay is idempotent. The immutable source remains at epoch 0 while its
+separate active grant owns epoch 1 with slice HVP reset and cumulative HVP
+preserved. Research/freeze one bounded shadow outer-6 resume next; do not
+implement it or change live budget code yet.
+The
+[D7R19R18 research](../../development/nonlocal-nsr3b4e2d7r19r18-shadow-outer6-resume-research-2026-08-24.md)
+selects one candidate outer 6 at epoch slice `0/512` and one independent
+unsliced oracle at cumulative `523/8704`, using exact cloned physics and
+solver inputs. The
+[frozen contract](03b4e2d7r19r18-shadow-outer6-resume-contract.md)
+requires bit/work equivalence before a local active-owner consume and receipt
+commit. Implement only this pair; outer 7 and world/public commit remain
+forbidden.
+The
+[D7R19R18 evidence](../../development/nonlocal-nsr3b4e2d7r19r18-shadow-outer6-resume-evidence-2026-08-24.md)
+closes `PASS / SHADOW_OUTER6_CONTINUATION_CANDIDATE`: slice and unsliced
+oracle roots are exact, with two accepted trials, 50 HVP, four workspaces and
+two precision audits. Outer 6 is finite but not admissible because primal is
+`2.5139e-8`. Research/freeze a zero-work, one-use outer-7 grant inside the
+same epoch next; do not execute outer 7 yet.
+The
+[D7R19R19 research](../../development/nonlocal-nsr3b4e2d7r19r19-within-epoch-outer7-grant-research-2026-08-24.md)
+selects a new one-use outer grant without resetting the still-active epoch.
+The [frozen contract](03b4e2d7r19r19-within-epoch-outer7-grant-contract.md)
+binds exact R18 state/history, preserves slice/cumulative `50/573` and permits
+metadata work only. The
+[D7R19R19 evidence](../../development/nonlocal-nsr3b4e2d7r19r19-within-epoch-outer7-grant-evidence-2026-08-24.md)
+closes `PASS / OUTER7_GRANT_CANDIDATE`: all six canonical roots and `14/14`
+routes are exact, every failure rolls back byte-for-byte and duplicate replay
+is idempotent. Research/freeze R20 as one candidate+unsliced-oracle outer-7
+update inside epoch 1 next; do not execute it before the new contract. The
+[D7R19R20 research](../../development/nonlocal-nsr3b4e2d7r19r20-shadow-outer7-execution-research-2026-08-24.md)
+selects exactly that experiment. Its
+[frozen contract](03b4e2d7r19r20-shadow-outer7-execution-contract.md) limits
+the slice candidate to 462 new HVP and forbids borrowing oracle capacity.
+The
+[D7R19R20 evidence](../../development/nonlocal-nsr3b4e2d7r19r20-shadow-outer7-execution-evidence-2026-08-24.md)
+closes `PASS / SHADOW_OUTER7_EXECUTION_CANDIDATE`: candidate/oracle roots are
+exact, outer 7 consumes 52 HVP and remains non-admissible at primal
+`2.1404e-8`. Research/freeze a zero-work outer-8 grant inside epoch 1 next,
+preserving slice/cumulative `102/625`; do not execute outer 8 yet. The
+[D7R19R21 research](../../development/nonlocal-nsr3b4e2d7r19r21-within-epoch-outer8-grant-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r21-within-epoch-outer8-grant-contract.md)
+pre-derive all canonical roots. The
+[D7R19R21 evidence](../../development/nonlocal-nsr3b4e2d7r19r21-within-epoch-outer8-grant-evidence-2026-08-24.md)
+closes `PASS / OUTER8_GRANT_CANDIDATE` with exact `14/14` routes and zero new
+solver work. Research/freeze one outer-8 candidate at slice `102/512` and one
+unsliced oracle at cumulative `625/8704` next; do not execute them yet. The
+[D7R19R22 research](../../development/nonlocal-nsr3b4e2d7r19r22-shadow-outer8-execution-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r22-shadow-outer8-execution-contract.md)
+select exactly one pair and forbid oracle rescue. The
+[D7R19R22 evidence](../../development/nonlocal-nsr3b4e2d7r19r22-shadow-outer8-execution-evidence-2026-08-24.md)
+closes `PASS / SHADOW_OUTER8_EXECUTION_CANDIDATE`: three accepted trials use
+80 HVP, primal improves only 4.9% to `2.03584e-8`, and the last trial reaches
+32/34 HVP. Research/freeze a zero-work outer-9 grant next; do not change caps
+or execute outer 9. The
+[D7R19R23 research](../../development/nonlocal-nsr3b4e2d7r19r23-within-epoch-outer9-grant-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r23-within-epoch-outer9-grant-contract.md)
+pre-derive all targets. The
+[D7R19R23 evidence](../../development/nonlocal-nsr3b4e2d7r19r23-within-epoch-outer9-grant-evidence-2026-08-24.md)
+closes `PASS / OUTER9_GRANT_CANDIDATE` with exact `14/14` routes and zero new
+solver work. Research/freeze one outer-9 candidate at slice `182/512` and one
+unsliced oracle at cumulative `705/8704` next; keep cap 34 unchanged. The
+[D7R19R24 research](../../development/nonlocal-nsr3b4e2d7r19r24-shadow-outer9-execution-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r24-shadow-outer9-execution-contract.md)
+select exactly one pair, retain cap 34 and forbid oracle rescue. The
+[D7R19R24 evidence](../../development/nonlocal-nsr3b4e2d7r19r24-shadow-outer9-execution-evidence-2026-08-24.md)
+closes `PASS / SHADOW_OUTER9_EXECUTION_CANDIDATE`: two accepted trials use 49
+HVP, primal improves 4.454% to `1.94516e-8`, and the last trial uses 24/34 HVP.
+Stationarity rises to `9.58664e-11` but is finite and offset-invariant.
+Research/freeze a zero-work outer-10 grant next; keep all caps unchanged. The
+[D7R19R25 research](../../development/nonlocal-nsr3b4e2d7r19r25-within-epoch-outer10-grant-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r25-within-epoch-outer10-grant-contract.md)
+pre-derive all targets. The
+[D7R19R25 evidence](../../development/nonlocal-nsr3b4e2d7r19r25-within-epoch-outer10-grant-evidence-2026-08-24.md)
+closes `PASS / OUTER10_GRANT_CANDIDATE` with exact `14/14` routes and zero new
+solver work. Research/freeze one outer-10 candidate at slice `231/512` and one
+unsliced oracle at cumulative `754/8704` next; keep cap 34 unchanged and
+preserve the stationarity observation. The
+[D7R19R26 research](../../development/nonlocal-nsr3b4e2d7r19r26-shadow-outer10-execution-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r26-shadow-outer10-execution-contract.md)
+select exactly one pair, forbid oracle rescue and make stationarity trend
+report-only. The
+[D7R19R26 evidence](../../development/nonlocal-nsr3b4e2d7r19r26-shadow-outer10-execution-evidence-2026-08-24.md)
+closes `PASS / SHADOW_OUTER10_EXECUTION_CANDIDATE`: two accepted trials use 51
+HVP, stationarity returns to `2.08190e-14`, and primal improves only 1.0032%
+to `1.92565e-8`. Research/freeze a zero-work outer-11 grant next; keep caps
+unchanged and obtain outer 11 before designing a stagnation discriminator. The
+[D7R19R27 research](../../development/nonlocal-nsr3b4e2d7r19r27-within-epoch-outer11-grant-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r27-within-epoch-outer11-grant-contract.md)
+pre-derive all targets and select metadata-only implementation next.
+The [D7R19R27 evidence](../../development/nonlocal-nsr3b4e2d7r19r27-within-epoch-outer11-grant-evidence-2026-08-24.md)
+closes `PASS / OUTER11_GRANT_CANDIDATE` with exact `14/14` routes and zero new
+solver work. Research/freeze one outer-11 candidate at slice `282/512` and one
+unsliced oracle at cumulative `805/8704` next; keep cap 34 and policy exact.
+The [D7R19R28 research](../../development/nonlocal-nsr3b4e2d7r19r28-shadow-outer11-execution-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r28-shadow-outer11-execution-contract.md)
+select exactly one pair, forbid oracle rescue and make primal/stationarity
+trends report-only. Metadata, penalty, cap and solver policy remain exact.
+The [D7R19R28 evidence](../../development/nonlocal-nsr3b4e2d7r19r28-shadow-outer11-execution-evidence-2026-08-24.md)
+closes `PASS / SHADOW_OUTER11_EXECUTION_CANDIDATE`: two accepted trials use 51
+HVP, primal improves 4.4290% to `1.84036e-8`, stationarity remains small and
+candidate/oracle are exact. Research/freeze a zero-state-mutation linearized-
+feasibility range diagnostic next; do not tune cap, penalty or policy.
+The [D7R19R29 research](../../development/nonlocal-nsr3b4e2d7r19r29-linearized-feasibility-operator-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r29-linearized-feasibility-operator-contract.md)
+select the required operator prerequisite: close dimensionless `SPACING*Jc`,
+its adjoint and frozen row partitions before any LSQR or floor classification.
+The [D7R19R29 evidence](../../development/nonlocal-nsr3b4e2d7r19r29-linearized-feasibility-operator-evidence-2026-08-24.md)
+closes `PASS / LINEARIZED_FEASIBILITY_OPERATOR_CANDIDATE`: pair-once and
+directed JVP roots are byte-exact, centered finite difference and adjoint
+errors are `4.03e-10` and `2.11e-14`, all row memberships are rooted, and two
+clean outputs are byte-exact. Research/freeze a read-only matrix-free range
+projection next. Do not choose a floor threshold from R29 or apply a
+correction.
+The [D7R19R30 research](../../development/nonlocal-nsr3b4e2d7r19r30-linearized-range-projection-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r30-linearized-range-projection-contract.md)
+select column-scaled zero-damping LSMR over the exact 1,420 violated rows.
+Four analytic dense controls, direct final residual/adjoint recomputation and
+projection orthogonality are mandatory. Maximum work is 512 iterations and
+1,028 pair passes. Residual magnitude, active-set leakage and preimage size
+remain report-only; no iterate may update state.
+The [D7R19R30 evidence](../../development/nonlocal-nsr3b4e2d7r19r30-linearized-range-projection-evidence-2026-08-24.md)
+closes `PASS / LINEARIZED_RANGE_PROJECTION_CANDIDATE`. LSMR reaches the
+compatible rule in 388 iterations; the direct residual is
+`5.07784e-16`, or `6.25812e-9` of the RHS, and the cross-energy/
+Pythagorean defects are `2.67574e-13`/`5.35148e-13`. This rejects a
+substantial violated-row linear range floor. It does not admit the iterate:
+the dimensionless preimage has RMS `1.29664e4`, creates 450 new positive rows
+and reaches predicted violation `1.78318e5`. Research a separately frozen
+fraction-to-boundary/globalization discriminator before any nonlinear state
+evaluation or following outer.
+The [D7R19R31 research](../../development/nonlocal-nsr3b4e2d7r19r31-scalar-feasibility-interval-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r31-scalar-feasibility-interval-contract.md)
+replace any arbitrary damping threshold with the exact interval
+`alpha_lower<=alpha<=alpha_upper`: the lower bound repairs every current
+violation, while the upper bound precedes every inactive crossing. Binary128
+orders source ratios; bounded binary64 nextafter repair must close direct
+predicates. Implement this read-only classifier next; no moved nonlinear
+evaluation or new solver work is admitted.
+The [D7R19R31 evidence](../../development/nonlocal-nsr3b4e2d7r19r31-scalar-feasibility-interval-evidence-2026-08-24.md)
+closes `PASS / INEQUALITY_ACTIVE_SET_REFORMULATION_REQUIRED`. The required
+lower bound is `1.0000019515`, while the safe upper bound is
+`6.73507e-14`; all 1,420 selected rows remain positive at the safe bound and
+450 inactive rows cross at the required bound. Scalar damping is therefore
+closed for this exact direction. Research an all-inequality matrix-free
+normal-step/trust-region discriminator next; do not select or apply it yet.
+The [D7R19R32 research](../../development/nonlocal-nsr3b4e2d7r19r32-all-inequality-cauchy-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r32-all-inequality-cauchy-contract.md)
+select the prerequisite all-row hinge Cauchy normal step at the inherited
+dimensionless trust radius `0.25`. One VJP, one JVP and a deterministic
+binary128-ordered breakpoint sweep find the exact line minimum.
+The [D7R19R32 evidence](../../development/nonlocal-nsr3b4e2d7r19r32-all-inequality-cauchy-evidence-2026-08-24.md)
+closes `PASS / ALL_INEQUALITY_CAUCHY_NORMAL_STEP_CANDIDATE`. One step lowers
+the all-row violation norm by about `9.94%`, reaches an interior line KKT
+point and changes the active set by 208 entries and 178 exits. Research a
+separately frozen bounded iterative all-inequality normal step next; do not
+apply the R32 step or select production integration.
+The [D7R19R33 research](../../development/nonlocal-nsr3b4e2d7r19r33-iterated-normal-step-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r33-iterated-normal-step-contract.md)
+select an eight-iteration projected exact-line pilot with checkpoints at
+`1/2/4/8` and at most 18 new pair passes. It separates continued cheap
+first-order progress from the need for a later generalized-Hessian TRON
+experiment. Implement only this report-only discriminator next.
+The [D7R19R33 evidence](../../development/nonlocal-nsr3b4e2d7r19r33-iterated-normal-step-evidence-2026-08-24.md)
+closes `PASS / ITERATED_ALL_INEQUALITY_NORMAL_STEP_CANDIDATE`. The exact
+`1/2/4/8` prefix lowers violation norm to `0.627875x` of the source and hinge
+objective to `0.394228x`; terminal response recurrence closes at relative
+`6.86e-16`. The method is still progressing and far inside the trust ball,
+but is not projected-stationary. Freeze a `16/32` continuation reference
+before an equal-work generalized-Hessian comparison.
+The [D7R19R34 research](../../development/nonlocal-nsr3b4e2d7r19r34-first-order-reference-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r34-first-order-reference-contract.md)
+extend the exact R33 prefix to checkpoints 16/32 with at most 51 new pair
+passes, including fresh prefix and terminal operator checks. The resulting
+curve becomes the fixed first-order work reference for a later equal-work
+generalized-Hessian discriminator. Implement only this report-only stage.
+The [D7R19R34 evidence](../../development/nonlocal-nsr3b4e2d7r19r34-first-order-reference-evidence-2026-08-24.md)
+closes `PASS / EXTENDED_FIRST_ORDER_REFERENCE_CANDIDATE`. At step 32 the
+violation norm is `0.223731x` and hinge objective `0.0500554x` of the source.
+Per-step objective contraction is stable at about `0.91760` in both doubling
+blocks, while projected stationarity remains absent. Research an equal-work
+generalized-Hessian curvature discriminator next; do not apply either iterate.
+The [D7R19R35 research](../../development/nonlocal-nsr3b4e2d7r19r35-equal-work-curvature-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r35-equal-work-curvature-contract.md)
+select four undamped generalized-Hessian outer iterations with at most five
+matrix-free CG HVPs each. Starting from exact `v8`, prefix, curvature,
+globalization and terminal checks share the same 51-pass budget as R34.
+Strict terminal objective/violation/projected-mapping dominance is required;
+otherwise the first-order reference is retained. Implement report-only R35.
+The [D7R19R35 evidence](../../development/nonlocal-nsr3b4e2d7r19r35-equal-work-curvature-evidence-2026-08-24.md)
+closes `PASS / FIRST_ORDER_REFERENCE_RETAINED`. Curvature beats R34 objective
+and violation by `0.28259x/0.53159x`, but projected mapping regresses to
+`1.45259x`; strict three-metric dominance fails. Research the exact 51-pass
+hybrid `3 curvature outers + 6 first-order polish steps` next.
+The [D7R19R36 research](../../development/nonlocal-nsr3b4e2d7r19r36-hybrid-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r36-hybrid-contract.md) preserve exact R35
+outers 1--3, replace its fourth 12-pass block with six validated first-order
+polish steps, and keep the total at 51. Strict R34 three-metric dominance
+remains mandatory. Implement report-only R36 next.
+The [D7R19R36 evidence](../../development/nonlocal-nsr3b4e2d7r19r36-hybrid-evidence-2026-08-24.md)
+closes `PASS / EQUAL_WORK_CURVATURE_POLISH_HYBRID_CANDIDATE`. At exactly 51
+pair passes and 15 HVPs, the hybrid improves R34 objective, violation and
+projected mapping to `0.21562x/0.46434x/0.49843x`; both clean Release outputs
+are byte-exact. The endpoint remains nonstationary. Research/freeze a bounded
+unchanged-polish continuation and termination curve next; do not apply the
+iterate or evaluate a moved nonlinear state.
+The [D7R19R37 research](../../development/nonlocal-nsr3b4e2d7r19r37-hybrid-polish-continuation-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r37-hybrid-polish-continuation-contract.md)
+select exactly 24 additional unchanged polish steps with checkpoints after
+`6/12/24`. Fresh prefix/terminal operators and the 48 iteration passes close
+again at exactly 51 pair passes. Exact zero remains the only stationarity
+route; no tolerance is fitted. Implement report-only R37 next.
+The [D7R19R37 evidence](../../development/nonlocal-nsr3b4e2d7r19r37-hybrid-polish-continuation-evidence-2026-08-24.md)
+closes `PASS / HYBRID_POLISH_CONTINUATION_CANDIDATE`. All 24 steps are
+accepted and mapping falls to `0.35367x` of R36, but block factors stabilize
+near `0.959` per step while the active set keeps changing. The selected method
+is convergent but remains in a linear steepest-descent regime. Research/freeze
+an active-set-aware direction-memory discriminator next; do not merely extend
+the same recurrence or evaluate a moved nonlinear state.
+The [D7R19R38 research](../../development/nonlocal-nsr3b4e2d7r19r38-direction-memory-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r38-direction-memory-contract.md) select a
+replay-only comparison of steepest, PRP+, DY-HS+ and raw Hager-Zhang directions
+at exact R37 states `6/12/24`. Raw and projected descent plus exact-line KKT
+are mandatory; unsafe lanes restart to steepest. Fifteen pair passes evaluate
+all lanes without accepting state. Implement R38 next.
+The [D7R19R38 evidence](../../development/nonlocal-nsr3b4e2d7r19r38-direction-memory-evidence-2026-08-24.md)
+closes `PASS / HAGER_ZHANG_DIRECTION_CANDIDATE`. Hager--Zhang and DY-HS+
+strictly dominate equal-work steepest objective, violation and projected
+mapping at all three captured states; at state 24 the Hager--Zhang objective
+is `0.00324909x` of steepest after one exact-line step. PRP+ loses projected
+descent at every state and restarts, proving the guard is necessary. Freeze a
+short rollback-only Hager--Zhang recurrence against an equal-work steepest
+trajectory next. Do not infer recurrent convergence or production readiness
+from the replay.
+The [D7R19R39 research](../../development/nonlocal-nsr3b4e2d7r19r39-guarded-hz-recurrence-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r39-guarded-hz-recurrence-contract.md)
+select eight rollback-only Hager--Zhang steps from exact R37 state 24 against
+eight equal-work steepest steps. Checkpoints `1/2/4/8` require strict
+objective, violation and mapping dominance; at least two consecutive
+non-restarted memory steps distinguish recurrence from retained one-step
+benefit. Each nonstationary lane owns exactly 18 pair passes. Implement R39
+next without timing or nonlinear moved-state evaluation.
+The [D7R19R39 evidence](../../development/nonlocal-nsr3b4e2d7r19r39-guarded-hz-recurrence-evidence-2026-08-24.md)
+closes `PASS / GUARDED_HZ_RECURRENCE_CANDIDATE`. All eight HZ directions are
+accepted with zero restarts and strict three-metric dominance at every
+checkpoint. At equal 18-pass lane work, terminal objective, violation and
+mapping are `3.87e-9x/6.22e-5x/1.56e-4x` of steepest. The mapping remains
+nonzero and no tolerance is selected. Research/freeze a rollback-only
+nonlinear moved-state acceptance discriminator next; do not extend the inner
+trajectory merely to fit a binary64 floor.
+The [D7R19R40 research](../../development/nonlocal-nsr3b4e2d7r19r40-nonlinear-normal-acceptance-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r40-nonlinear-normal-acceptance-contract.md)
+select exact physical mapping of the R39 endpoint followed by two freshly
+rebuilt nonlinear workspaces. Acceptance requires feasibility agreement at
+the inherited `rho>=0.1`, unchanged pair membership/contact safety and a
+precision-resolved positive full normalized merit reduction. A feasibility
+pass with merit regression selects a composite normal+tangential-step branch
+rather than coefficient tuning. Implement only this rollback-only diagnostic
+next; timing and state commit remain forbidden.
+The [D7R19R40 evidence](../../development/nonlocal-nsr3b4e2d7r19r40-nonlinear-normal-acceptance-evidence-2026-08-24.md)
+closes `PASS / NONLINEAR_TOPOLOGY_REJECTED`. Nonlinear feasibility agreement
+is nearly exact (`rho=0.9999999999999891`) and violation reaches
+`1.354e-13`, but the trial has net 78 fewer pairs, slightly increases existing
+box penetration and loses full normalized merit by `2.603e-15`. Long double
+resolves the negative merit sign. Research/freeze an exact pair-crossing and
+contact-attribution audit next; keep the R40 trial and gates unchanged and do
+not start composite-step implementation yet.
+The [D7R19R41 research](../../development/nonlocal-nsr3b4e2d7r19r41-support-crossing-contact-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r41-support-crossing-contact-contract.md)
+select an exact pair symmetric-difference audit and all 36,000 particle-axis-
+side contact tests. Material-zero shell classification requires bit-exact zero
+kernel value, gradient, second derivative and crossing-density ledger; no
+observed epsilon is admitted. Implement only this rollback-only audit next.
+The [D7R19R41 evidence](../../development/nonlocal-nsr3b4e2d7r19r41-support-crossing-contact-evidence-2026-08-24.md)
+closes `PASS / NONZERO_SUPPORT_CROSSING_REQUIRES_RELINEARIZATION`. The 1,282
+crossing records contribute at most `3.81e-22` per-center density but reach
+nonzero kernel second derivative `0.004678`, so the old operator does not own
+the trial even though R40 feasibility agreement is nearly exact. No new box
+contact appears; all 1,268 worsened faces were already penetrating and move
+inward. Research/freeze a stable neighbor superset and exact trial-state
+relinearization before contact-tangent or composite-step design.
+The [D7R19R42 research](../../development/nonlocal-nsr3b4e2d7r19r42-stable-superset-relinearization-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r42-stable-superset-relinearization-contract.md)
+select one source-anchored canonical `H+0.04H` ownership superset with exact
+state-local `r<=H` masks. The R40 global step norm analytically fits the
+existing conservative displacement certificate by more than four orders in
+length. R42 must still prove exact two-graph inclusion, bit-exact canonical
+correspondence and a fresh trial JVP/VJP/finite-difference operator before
+this abstraction receives any topology-admission credit.
+The [D7R19R42 evidence](../../development/nonlocal-nsr3b4e2d7r19r42-stable-superset-relinearization-evidence-2026-08-24.md)
+closes `PASS / STABLE_SUPERSET_RELINEARIZATION_CANDIDATE`. One 386,402-pair
+superset with maximum degree 122 covers both exact graphs; current/trial masks
+and normalized workspaces match independent canonical builds bit-for-bit.
+Trial FD and adjoint errors are `3.96e-10` and `2.95e-14`. The trial remains
+nearly feasible but nonstationary. Research/freeze contact-tangent projection
+with stable-superset rebuild/relinearization and complete-merit evaluation next.
+The [D7R19R43 research](../../development/nonlocal-nsr3b4e2d7r19r43-contact-tangent-normal-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r43-contact-tangent-normal-contract.md)
+select exact Euclidean projection of the frozen dimensionless normal step into
+all source-active box-face tangent half-spaces. R43 must recompute linear and
+nonlinear feasibility, contact, stable-superset coverage, trial mapping and
+precision-resolved complete merit; no R40 acceptance quantity is inherited.
+The [D7R19R43 evidence](../../development/nonlocal-nsr3b4e2d7r19r43-contact-tangent-normal-evidence-2026-08-24.md)
+closes `PASS / TANGENTIAL_MERIT_STEP_REQUIRED`. Projection clamps exactly
+1,268 inward components, leaves zero new/worsened faces and retains nearly
+unit density agreement (`rho=0.999999993`), but complete merit reduction is
+`-1.761e-15`. Research/freeze a contact-feasible tangential-descent existence
+discriminator before implementing a composite SQP step.
+The [D7R19R44 research](../../development/nonlocal-nsr3b4e2d7r19r44-common-descent-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r44-common-descent-contract.md) first test the
+contact-projected negative complete-merit gradient at the exact R43 trial.
+Strict long-double merit and hinge directional signs decide whether a common
+descent already exists or a density-null-space QP is actually required. No
+line step or moved state is admitted.
+The [D7R19R44 evidence](../../development/nonlocal-nsr3b4e2d7r19r44-common-descent-evidence-2026-08-24.md)
+closes `PASS / CONTACT_FEASIBLE_COMMON_DESCENT_CANDIDATE`. Contact projection
+retains almost the full negative gradient norm; normalized merit and hinge
+slopes are strictly negative at `-0.9988` and `-0.3172`. Research/freeze a
+scale-aware bounded nonlinear line globalization next; a null-space QP is not
+selected for this state.
+The [D7R19R45 research](../../development/nonlocal-nsr3b4e2d7r19r45-nonlinear-line-globalization-research-2026-08-24.md)
+and [frozen contract](03b4e2d7r19r45-nonlinear-line-globalization-contract.md)
+normalize the exact R44 direction and derive its line domain independently
+from the inherited trust ball, R42 skin certificate and exact inactive-face
+contact slack. A fixed largest-first `k=0..24` dyadic ladder admits only a
+finite candidate that nonlinearly improves local and source hinge/merit,
+passes `rho>=0.1`, precision, canonical correspondence and rollback gates.
+Implement only this report-only R45 discriminator next; do not run a following
+outer or interpret shared-host duration.
+The [D7R19R45 evidence](../../development/nonlocal-nsr3b4e2d7r19r45-nonlinear-line-globalization-evidence-2026-08-25.md)
+closes `PASS / COMPOSITE_MERIT_RECOVERY_REQUIRED`. All 25 bounded candidates
+are topology/contact safe and precision closes, but the first locally
+admissible point still has source merit `-1.242e-15`; the best sampled source
+merit is `-1.197e-15`. A denser retry of the same scalar line is rejected.
+Research filter-SQP/restoration acceptance next: feasibility and objective
+must remain separate filter coordinates with a frozen sufficient-decrease and
+nondominance policy before the R43 step can be admitted or another outer run.
+The [D7R19R46 research](../../development/nonlocal-nsr3b4e2d7r19r46-filter-globalization-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r46-filter-globalization-contract.md)
+separate normalized inertia `f` from positive density-violation norm `h`.
+They audit a predeclared exact dyadic sloping-filter margin ladder from
+`1/2` through `2^-24`, preserve the inherited R43 model/contact/topology
+gates and root only a hypothetical source-entry filter update. Implement this
+rollback-only discriminator next; do not commit the trial or infer a complete
+filter-SQP algorithm.
+The [D7R19R46 evidence](../../development/nonlocal-nsr3b4e2d7r19r46-filter-globalization-evidence-2026-08-25.md)
+closes `PASS / FILTER_FEASIBILITY_STEP_CANDIDATE`. The exact R43 trial lowers
+`h` to `0.456303x` of source while pure inertia `f` rises by `5.28%`; all 24
+frozen margins pass by feasibility, including `gamma=1/2`, with model ratio
+`0.999999993`. Exact topology, contact, work and rollback close in two
+byte-identical clean Release runs. Research/freeze a complete rollback-only
+filter transaction next: switching, finite filter lifecycle, trust response
+and restoration. Do not directly commit R43 or select a production margin.
+The [D7R19R47 research](../../development/nonlocal-nsr3b4e2d7r19r47-filter-compatibility-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r47-filter-compatibility-contract.md)
+correct the next-stage ordering. Primary filter-SQP requires a normal step to
+close the linearized constraints before an ordinary theta/f transaction;
+R43's predicted residual remains `h=3.702437226e-8`. R47 replays the exact
+metric and distinguishes strict compatibility from filter-acceptable
+restoration progress with zero new derivative/model work. Implement this
+rollback-only prerequisite before switching, trust update or restoration exit.
+The first R47 diagnostic rejected an invalid bit-exact inverse-subtraction
+gate before scientific classification. The frozen v2 contract keeps the
+direct linear metric authoritative and uses an operation-count-derived
+`gamma(4)` forward bound; all physical/filter/compatibility rules are
+unchanged.
+The [D7R19R47 evidence](../../development/nonlocal-nsr3b4e2d7r19r47-filter-compatibility-evidence-2026-08-25.md)
+closes `PASS / RESTORATION_COMPATIBILITY_REQUIRED`. R43 is filter-admitted,
+inside the trust region and contact-tangent feasible, but its direct
+linearized residual remains `psi=6.8540207066e-16`,
+`h=3.7024372261e-8` over 464 positive rows. The reconstruction discrepancy is
+within the frozen forward-error bound, direct `h` is bit-exact, and both clean
+Release outputs match. Research/freeze a rollback-only matrix-free primal/dual
+bounded contact-cone restoration certificate at the exact R43 moved state
+next. Do not commit R43, select switching/trust constants or claim restoration
+exit first.
+The [D7R19R48 research](../../development/nonlocal-nsr3b4e2d7r19r48-restoration-certificate-research-2026-08-25.md)
+corrects the transaction boundary: R43 is the filter-acceptable restoration
+point, while R48 must only certify compatibility of its freshly relinearized
+next TRQP. The selected local problem minimizes the all-row hinge over a
+`0.03125` normal ball and exact current contact box, leaving half of the frozen
+`0.0625` next radius. Malitsky--Pock PDAL is only the matrix-free witness generator;
+independent rowwise primal enclosures or an outward Fenchel-dual lower bound own
+the result. V1's larger radius stopped at the exact geometry gate before solver work because
+the inherited half-skin is `0.06`, not `0.3`; it receives no solver credit.
+The rollback-only v2 contract is frozen at identity
+`b20c6c6b530bd3078de7707e87c8deacf8eae0dab581584cf30421e5a1d52332`.
+The [D7R19R48 evidence](../../development/nonlocal-nsr3b4e2d7r19r48-restoration-certificate-evidence-2026-08-25.md)
+closes `PASS / RESTORATION_CERTIFICATE_UNRESOLVED`. Frozen PDAL reduces fresh
+moved-state `h` by `7.18997x` and `psi` by `51.6957x`, but the independent
+directed primal maximum remains positive and the dual lower bound remains
+negative. The generated witness occupies only `1.18594e-5` of the normal
+radius, so the observed boundary is first-order convergence, not contact or
+trust geometry. Both clean Release binaries and outputs are byte-exact. Keep
+the R48 problem and certificates fixed; research/freeze a guarded
+Hager--Zhang/exact-line primal accelerator next. Do not raise the PDAL cap,
+apply its uncertified witness or commit a restoration exit.
+The [D7R19R49 research](../../development/nonlocal-nsr3b4e2d7r19r49-restoration-hz-research-2026-08-25.md)
+selects a guarded Hager--Zhang primal transfer over the unchanged R48 problem.
+Its [frozen contract](03b4e2d7r19r49-restoration-hz-contract.md) projects every
+proposal with the exact R48 ball-box operator, minimizes the all-row hinge
+exactly on the resulting feasible chord and runs a fresh directed primal audit
+after every accepted step. The outcome-independent cap is 16 accepted steps
+and 48 pair passes. Implement this report-only discriminator next; no generated
+residual, line minimum or projected stationarity may replace the independent
+row enclosure.
+The [D7R19R49 evidence](../../development/nonlocal-nsr3b4e2d7r19r49-restoration-hz-evidence-2026-08-25.md)
+closes `PASS / RESTORATION_HZ_PRIMAL_ACCELERATOR_CANDIDATE`. All 15 HZ memory
+steps survive without restart; in 48 pair passes the terminal `h`, `psi` and
+directed maximum upper strictly dominate the 322-pass R48 endpoint by
+`36.4063x`, `1325.42x` and `23.7351x`. Both clean binaries and concurrent
+outputs are byte-exact. The maximum row upper remains positive at
+`1.9771445877e-11` over 366 rows, so compatibility is not certified. Research
+an active-face closure mechanism next; do not extend the observed HZ cap,
+apply the witness or exit restoration.
+The [D7R19R50 research](../../development/nonlocal-nsr3b4e2d7r19r50-active-face-closure-research-2026-08-25.md)
+recasts the remaining 366 rows as a minimum-norm halfspace projection rather
+than another aggregate hinge block. Its
+[frozen contract](03b4e2d7r19r50-active-face-closure-contract.md) selects a
+four-outer Hildreth dual-coordinate reference with a 512-row exact basis/Gram
+cache, eight fixed sweeps and directed dyadic globalization. Implement this
+rollback-only reference next. Predicted halfspace feasibility or Hildreth dual
+stationarity cannot replace the unchanged all-row certificate.
+The [D7R19R50 evidence](../../development/nonlocal-nsr3b4e2d7r19r50-active-face-closure-evidence-2026-08-25.md)
+closes `PASS / ACTIVE_FACE_HILDRETH_CLOSURE_CANDIDATE`. Four accepted outers
+and 991 pair passes lower `h`, `psi` and maximum directed upper by `47.3140x`,
+`2238.62x` and `19.1994x` relative to R49. Both clean binaries and concurrent
+outputs are byte-exact. The positive face migrates from 366 to 488 rows and
+the cache reaches 492/512, so compatibility is not certified. Research a
+persistent accumulated-row master next; do not add a fifth current-active-only
+outer, widen capacity, apply the witness or exit restoration.
+The [D7R19R51 research](../../development/nonlocal-nsr3b4e2d7r19r51-persistent-master-research-2026-08-25.md)
+isolates the cycling hypothesis with one persistent union-master solve. Its
+[frozen contract](03b4e2d7r19r51-persistent-master-contract.md) reuses the exact
+492-row R50 basis/Gram cache, adds at most 20 missing terminal-positive rows,
+retains currently negative constraints and executes the unchanged eight-sweep
+Hildreth block plus directed dyadic globalization. New work is capped at 49
+pair passes. V1 is invalid before implementation because that work owned no
+workspace. V2 correctly reproduces R50 and the 1/1 workspace lifecycle but is
+invalid because its SHA included a Markdown newline. V3 hashes the exact
+newline-free runtime literal without changing the mathematical experiment.
+The clean v3 execution below is the only credited persistent-master result.
+The [D7R19R51 evidence](../../development/nonlocal-nsr3b4e2d7r19r51-persistent-master-evidence-2026-08-25.md)
+closes `PASS / PERSISTENT_MASTER_CLOSURE_CANDIDATE`. The exact union has 494
+rows and needs only two new bases; full `alpha=1` lowers R50 `psi`, `h` and
+maximum directed upper by `33.1961x`, `5.76161x` and `11.5286x` in five new
+pair passes. Both clean binaries and concurrent outputs are byte-exact. All 481
+remaining positives are inside the persistent master, so research fixed-master
+solve convergence next. Compatibility is still open; do not widen capacity,
+run another nonlinear outer, apply the witness or exit restoration first.
+The [D7R19R52 research](../../development/nonlocal-nsr3b4e2d7r19r52-sweep-depth-research-2026-08-25.md)
+selects a fixed-master coordinate-depth discriminator before changing QP
+methods. Its
+[frozen contract](03b4e2d7r19r52-sweep-depth-contract.md) independently solves
+the exact 494-row master from the R50 terminal anchor at 16, 32 and 64 sweeps,
+then projects and audits all three candidates. It reuses every basis/Gram byte
+and admits exactly three new pair passes. Implement it next. If depth does not
+strictly dominate R51, derive a Perkins-style active-face CG polish rather than
+extending cyclic sweeps or transferring multipliers ad hoc.
+The [D7R19R52 evidence](../../development/nonlocal-nsr3b4e2d7r19r52-sweep-depth-evidence-2026-08-25.md)
+closes `PASS / PERSISTENT_MASTER_SWEEP_DEPTH_CANDIDATE`. All three depths
+strictly dominate R51, and the frozen rule selects 16 sweeps using three new
+pair passes total. Both clean binaries and concurrent outputs are byte-exact.
+At 64 sweeps the pair-once master residual falls to `1.8707447850e-20`, but the
+fresh directed upper plateaus at `7.7539986039e-14`; 219 raw and 340 directed
+rows remain positive, all inside the exact master. Stop sweep/CG extension and
+research pair-once versus directed accumulation and certificate tightness next.
+Do not lower gamma, fit a zero tolerance, widen capacity, apply the witness or
+exit restoration.
+The [D7R19R53 research](../../development/nonlocal-nsr3b4e2d7r19r53-operator-consistency-research-2026-08-25.md)
+selects a rowwise numerical decomposition at the exact 64-sweep witness. Its
+[frozen contract](03b4e2d7r19r53-operator-consistency-contract.md) compares
+captured directed and fresh pair-once binary64 images with compensated
+binary128 term folds/recomputation, then decomposes raw residual and the current
+gamma envelope. New work is one pair pass plus one quad row traversal. Implement
+it next; binary128 is an oracle only and current certificate authority is
+unchanged.
+The [D7R19R53 evidence](../../development/nonlocal-nsr3b4e2d7r19r53-operator-consistency-evidence-2026-08-25.md)
+closes `PASS / HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Fresh pair-once and
+captured directed binary64 JVPs are bit-identical. Compensated and full
+binary128 recomputation resolve the same 219 raw-positive rows and the same
+worst row near `7.754e-14`; there are zero operator sign disagreements. Thus
+R52's `1.87e-20` value describes its recursive Hildreth predictor, not a fresh
+pair-once residual of the projected witness. Stop precision/reduction work and
+research the predictor-to-projection pipeline next: direct `u-G lambda`,
+assembled correction JVP, unprojected anchor addition, and ball/box projection.
+Do not add sweeps/CG, weaken gamma, fit zero tolerance, apply the witness or
+exit restoration first.
+The [D7R19R54 research](../../development/nonlocal-nsr3b4e2d7r19r54-model-projection-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r54-model-projection-contract.md) select one
+read-only decomposition of recursive prediction, direct binary64/binary128
+`u-G lambda`, fresh correction/target JVPs and captured projected rows. It also
+audits box/ball displacement without executing a new projection. Exactly two
+new pair passes are admitted. Implement it next and select the largest exact
+stage gap; do not enable residual replacement or change correction/projection
+before attribution.
+The [D7R19R54 evidence](../../development/nonlocal-nsr3b4e2d7r19r54-model-projection-evidence-2026-08-25.md)
+closes `PASS / BALL_BOX_PROJECTION_MODEL_REQUIRED`. Recursive/direct Gram and
+fresh correction response agree near `1.9e-20`; the unprojected target has only
+two `~1.55e-20` positives. Contact-box clamping then changes 1125 components by
+displacement norm `8.16e-12` and creates 219 positives with maximum
+`7.754e-14`. The normal ball is inactive and analytic component clamping
+reproduces the stored witness bit-for-bit. Research a contact-constrained
+minimum-norm correction next. Stop sweep/CG/precision work over the current
+solve-then-project sequence; do not fit a tolerance, apply the witness or exit
+restoration.
+The [D7R19R55 research](../../development/nonlocal-nsr3b4e2d7r19r55-contact-dykstra-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r55-contact-dykstra-contract.md) select a
+grouped-box Dykstra reference for the joint density/contact minimum-norm QP.
+Each of 64 cycles processes the 494 cached density halfspaces, applies one box
+set with persistent Dykstra correction, and explicitly refreshes the residual.
+Checkpoints 8/16/32/64 receive the unchanged directed certificate. Implement it
+next with exactly 68 new pair passes and no post-terminal projection.
+The [D7R19R55 evidence](../../development/nonlocal-nsr3b4e2d7r19r55-contact-dykstra-evidence-2026-08-25.md)
+closes `PASS / CONTACT_CONSTRAINED_DYKSTRA_CANDIDATE`. Checkpoints contract
+strictly through 64 cycles, remain box/ball feasible and never activate a row
+outside the 494-row master. At cycle 64, `h=7.3368e-20` and maximum upper
+`4.1425e-20`, improvements of `5.43e6x` and `1.87e6x` over R52-64. Both clean
+binaries and outputs are byte-exact. Research binary128 raw/enclosure
+decomposition at this exact joint witness next; do not extend depth or optimize
+the 68 refreshes first.
+The [D7R19R56 research](../../development/nonlocal-nsr3b4e2d7r19r56-joint-witness-certificate-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r56-joint-witness-certificate-contract.md)
+select one read-only certificate decomposition at the exact R55 cycle-64
+witness. It reuses the captured directed image, executes one fresh pair-once
+JVP and one compensated binary128 row traversal, then distinguishes operator
+alignment, true positive residual, unresolved signs, binary64 cancellation,
+bound-only positives and compatibility by frozen precedence. Implement R56
+next. Do not add Dykstra cycles, lower gamma, change state arithmetic or run
+performance work first.
+
+The [D7R19R56 evidence](../../development/nonlocal-nsr3b4e2d7r19r56-joint-witness-certificate-evidence-2026-08-25.md)
+closes `PASS / JOINT_WITNESS_HIGH_PRECISION_RAW_RESIDUAL_CONFIRMED`. Pair-once
+and directed binary64 are bit-identical; full binary128 resolves all 308 raw
+positives as genuinely positive, all 5692 remaining rows as negative, and no
+sign as unresolved. The maximum lower bound is strictly positive near
+`3.820676e-20`. Another 168 rows are positive only under the current directed
+enclosure. Preserve R55/R56 and research the smallest bounded terminal
+feasibility polish next. Do not fit a tolerance or weaken gamma; raw
+feasibility must close before enclosure-only positives can be reconsidered.
+
+The [D7R19R57 research](../../development/nonlocal-nsr3b4e2d7r19r57-certificate-refinement-research-2026-08-25.md)
+rejects unstructured extension of the original Dykstra depth as the primary
+terminal mechanism. R57 instead freezes a new minimum-norm correction from the
+exact cycle-64 witness with `current_directed_upper + A delta <= 0` and contact
+box bounds relative to that witness. The safety margin is the proved enclosure,
+not a fitted tolerance. Use the same grouped-box Dykstra reference for solver
+attribution, then perform one high-precision terminal sign audit. SHQP and the
+2026 extreme-point-corrected semismooth Newton method are retained as the R58
+fallback if this certificate-aware refinement remains asymptotic.
+The [frozen R57 contract](03b4e2d7r19r57-certificate-refinement-contract.md)
+uses identity `2a41c16b...b5d9e`, exactly 64 zero-initialized refinement cycles,
+four directed checkpoint audits and one selected-witness binary128
+decomposition. Implement it next with 69 new pair passes and no state commit.
+The [R57 evidence](../../development/nonlocal-nsr3b4e2d7r19r57-certificate-refinement-evidence-2026-08-25.md)
+closes `PASS / CERTIFICATE_REFINEMENT_ENCLOSURE_FIXED_POINT_REQUIRED`. Every
+checkpoint has zero raw-positive rows. At cycle 64, full binary128 resolves all
+6000 rows negative with maximum raw `-5.19866e-22`, while the unchanged
+binary64 certificate still reports 245 bound-only positives up to
+`6.36190e-24`. Research one bounded enclosure fixed-point refinement next; do
+not weaken gamma or treat binary128 as runtime authority.
+The [R58 research](../../development/nonlocal-nsr3b4e2d7r19r58-enclosure-fixed-point-research-2026-08-25.md)
+selects exactly one additional certificate-aware outer sourced from the exact
+R57 selected witness and directed upper. It reuses the same zero-initialized
+64-cycle grouped-box core and high-precision terminal audit. Certification,
+raw regression, unresolved sign, exact stalling and strict contraction are
+predeclared outcomes. Open-ended outer refinement is forbidden.
+The [frozen R58 contract](03b4e2d7r19r58-enclosure-fixed-point-contract.md)
+uses identity `a0327b38...6542f` and reuses the R57 core exactly once. Implement
+it next with one passive R57 capture, 69 new pair passes, exact
+contraction/stalling gates and no third outer.
+The [R58 evidence](../../development/nonlocal-nsr3b4e2d7r19r58-enclosure-fixed-point-evidence-2026-08-25.md)
+closes `PASS / FIXED_POINT_CONTRACTION_CANDIDATE`. The second and final bounded
+composition reduces maximum directed upper by `4.65112x` and bound-only rows
+from 245 to 234, while full binary128 resolves all 6000 raw rows negative. The
+binary64 maximum upper is nevertheless bit-identical at cycles 16/32/64 while
+the inner model residual falls to `9.11e-36`. Stop fixed-point/depth extension
+and research a read-only, provable decomposition of the enclosure next.
+The [R59 research](../../development/nonlocal-nsr3b4e2d7r19r59-row-local-enclosure-research-2026-08-25.md)
+selects exact per-row adjacency degree under the unchanged
+`gamma(16*degree+66)` proof as the first attribution experiment. It reuses the
+R58 selected audit, performs no new JVP and must reproduce the existing global
+upper bit-for-bit before comparing the row-local bound. Error-free
+`TwoSum`/`TwoProduct` and `Dot2Err` are retained only as the next branch if the
+local operation count does not close.
+The [frozen R59 contract](03b4e2d7r19r59-row-local-enclosure-contract.md)
+performs exactly one passive R58 replay, one moved-workspace lifecycle and one
+6000-row scalar scan. It requires bit-exact reproduction of the current global
+upper before evaluating the local-degree upper and forbids all new JVP,
+binary128, solver and timing work.
+The [R59 evidence](../../development/nonlocal-nsr3b4e2d7r19r59-row-local-enclosure-evidence-2026-08-25.md)
+closes `PASS / ROW_LOCAL_ENCLOSURE_CERTIFICATE_CANDIDATE`. Exact row degrees
+range from 44 to 113; the current worst row has degree 102 but was charged for
+113. The unchanged gamma proof with row-local work closes all 234 positives
+and has strictly negative worst upper `-1.93542e-23`, with zero new operator or
+solver passes. Validate high-precision dominance and forced degree-undercount
+rejection independently before integration or restoration exit.
+The [R60 research](../../development/nonlocal-nsr3b4e2d7r19r60-certificate-validation-research-2026-08-25.md)
+selects a three-layer validation boundary: exact topology-owned degree with
+forced under/over-count and offset negative controls, arithmetic-domain audit
+for subnormal/nonfinite intermediates, and all-row containment of a fresh
+binary128 forward upper by the R59 binary64 local upper. No solver work or
+certificate integration is admitted.
+The [frozen R60 contract](03b4e2d7r19r60-certificate-validation-contract.md)
+requires exact R59 reproduction, five deterministic structural degree-control
+cases, one fresh full-binary128 traversal, arithmetic-domain audit and all-row
+upper containment. PASS remains private validation and cannot integrate the
+certificate or exit restoration.
+The [R60 evidence](../../development/nonlocal-nsr3b4e2d7r19r60-certificate-validation-evidence-2026-08-25.md)
+closes `PASS / ROW_LOCAL_CERTIFICATE_VALIDATION_CANDIDATE`. All structural
+mutations are rejected, the explicit binary64 replay is bit-exact with zero
+subnormal/nonfinite intermediates, and all 6000 local uppers dominate a fresh
+full128 upper. The minimum containment margin is `3.34566e-22`. Research a
+separate topology-owned integration boundary next; do not apply the witness or
+carry binary128 into runtime.
+The [R61 research](../../development/nonlocal-nsr3b4e2d7r19r61-certificate-integration-research-2026-08-25.md)
+selects a new topology-owned binary64 audit rather than mutation of transitive
+legacy parents. It executes one directed JVP, derives degree from the same flat
+offsets and publishes the unchanged global bound as shadow beside the validated
+row-local candidate. Exact R58/R59 reproduction, all-row monotonicity and active
+subset relations are mandatory; no witness or restoration state is applied.
+The [frozen R61 contract](03b4e2d7r19r61-certificate-integration-contract.md)
+adds one new workspace-owned dual-path audit with one directed JVP. It must
+reproduce R58 shadow and R59 candidate exactly, prove all-row monotone/subset
+relations and pass six deterministic topology controls. Historical owners and
+restoration state remain unchanged.
+The [R61 evidence](../../development/nonlocal-nsr3b4e2d7r19r61-certificate-integration-evidence-2026-08-25.md)
+closes `PASS / TOPOLOGY_OWNED_ROW_LOCAL_AUDIT_CANDIDATE`. One fresh binary64
+JVP feeds an exact R58 global shadow and exact R59 zero-positive candidate;
+upper/subset relation failures are zero. The owner derives degree from its own
+validated flat topology and has no binary128 runtime dependency. Research a
+separate atomic restoration-promotion transaction next.
+The [R62 research](../../development/nonlocal-nsr3b4e2d7r19r62-restoration-promotion-research-2026-08-25.md)
+corrects the promotion mapping. R43 itself is the filter-acceptable restoration
+output; the dimensionless R58 witness is the cached normal step proving that
+the *next* TRQP at R43 is compatible and must not be added to particle state.
+Freeze a copy-on-write exit candidate that freshly rejoins nonlinear filter
+coordinates, R43-owned topology/contact, trust reserve and the R61 certificate.
+No public state mutation or following tangential step is admitted in R62.
+The [frozen R62 contract](03b4e2d7r19r62-restoration-promotion-contract.md)
+promotes exact R43 into a private copy-on-write payload and carries the exact
+R58 witness as the cached normal step at radius `0.0625`. Fresh R43-anchored
+topology, nonlinear filter coordinates, 72,000 contact tests, witness geometry
+and the R61 owner must all close before one publication. Implement it next;
+do not apply the witness or start the tangential solve.
+The [R62 evidence](../../development/nonlocal-nsr3b4e2d7r19r62-restoration-promotion-evidence-2026-08-25.md)
+closes `PASS / RESTORATION_EXIT_TRANSACTION_CANDIDATE`. Exact R43, the
+canonical one-entry filter, radius `0.0625`, fresh R43 topology and the exact
+cached R58 normal publish once into a private payload after all gates. Both
+contact traversals have zero new/worsened faces and the R61 certificate has
+zero positive rows. Research the next ordinary TRQP and exact-once cached
+normal consumption in R63; runtime state remains untouched.
+The [R63 research](../../development/nonlocal-nsr3b4e2d7r19r63-cached-normal-trqp-research-2026-08-25.md)
+reduces the current pure-inertia tangential model to a Euclidean projection:
+the exact composite step is the projection of
+`(predicted-R43)/SPACING` onto linear density halfspaces, the R43 contact box
+and radius `0.0625`. Select a bounded 64-cycle Hildreth/Dykstra reference over
+the captured 494-row master with all-row R61 audits at cycles 8/16/32/64.
+Nonlinear switching/filter globalization remains a separate later stage.
+The [frozen R63 contract](03b4e2d7r19r63-cached-normal-trqp-contract.md)
+uses exactly 64 captured-master Hildreth/Dykstra cycles and R61 audits at
+8/16/32/64. It performs no new row-basis/Gram work, HVP or nonlinear density
+trial. Implement it next and retain candidate, master-expansion, depth and
+certificate-refinement outcomes without fitted tolerances.
+The [R63 evidence](../../development/nonlocal-nsr3b4e2d7r19r63-cached-normal-trqp-evidence-2026-08-25.md)
+closes `PASS / TANGENTIAL_MASTER_EXPANSION_REQUIRED`. The pure-inertia
+projection identity is forward-bound exact and reduces model inertia by about
+`5.30e-13`, while the fixed 494-row master leaves 2,796 positive rows outside
+its ownership. More fixed-master depth is rejected. Research sparse all-row
+row gradients and particle-to-row overlap with exact reference validation
+before dynamic active-set expansion.
+The [R64 research](../../development/nonlocal-nsr3b4e2d7r19r64-sparse-row-operator-research-2026-08-25.md)
+selects a two-layer all-row representation: exact-order directed slots for
+certificate correspondence, aggregated particle coefficients for updates and
+a particle-to-row inverted incidence for local Gram overlap. Timestamp scratch
+plus a touched-row list avoids full-array clearing per coordinate. Validate
+all 494 captured gradients, diagonals and 6000-entry Gram columns before any
+dynamic active-set solve.
+The [frozen R64 contract](03b4e2d7r19r64-sparse-row-operator-contract.md)
+builds all 6000 sparse rows once, checks fresh directed action/transpose and
+validates every captured R51 gradient, diagonal and 6000-entry overlap column.
+Gamma bounds own legal addition-order differences. Implement equivalence only;
+Hildreth/projection/nonlinear work remains zero.
+The [R64 evidence](../../development/nonlocal-nsr3b4e2d7r19r64-sparse-row-operator-evidence-2026-08-25.md)
+closes `PASS / SPARSE_ROW_OPERATOR_BOUNDED_EQUIVALENCE_CANDIDATE`. The
+605,144 exact-order slots aggregate to 535,588 unique row-particle entries;
+all 8,892,000 captured gradient components are bit-exact and all transpose,
+diagonal and 2,964,000 overlap values satisfy the frozen gamma bounds. No
+dense Gram or solve exists. Research R65 dynamic all-row active-set ownership;
+do not apply a nonlinear step or admit runtime authority.
+The [R65 research](../../development/nonlocal-nsr3b4e2d7r19r65-dynamic-all-row-active-set-research-2026-08-25.md)
+selects matrix-free monotone constraint generation. Directly evaluate and
+update one sparse row per Hildreth coordinate; a Gram/incidence propagation is
+asymptotically and practically wider for this topology. Retain one scalar dual
+per owned halfspace and one correction for the exact joint box-ball projector,
+refresh all rows after that projector, and add all newly candidate-positive
+rows. Probe power-of-two depths through 2048 without tolerance fitting before
+freezing.
+The [R65 exploratory evidence](../../development/nonlocal-nsr3b4e2d7r19r65-dynamic-all-row-probe-evidence-2026-08-25.md)
+validates working-set discovery but rejects plain depth, fresh-most-violated
+ordering and a relaxation grid. Ownership stabilizes at 4680 rows before
+checkpoint 8; after 2048 cycles ascending Hildreth still has maximum raw
+`9.17e-12`. `omega=1.5` improves that to `2.77e-12` but remains millions of
+updates. Stationarity/reprojection/model are coherent. Research matrix-free
+SHQP/active-face block polish next; R65 remains unfrozen and has no solve
+authority.
+
+The [active-face FISTA research](../../development/nonlocal-nsr3b4e2d7r19r65-active-face-fista-research-2026-08-25.md)
+reduces the fixed-`p_C` density block to a nonnegative dual QP with gradient
+`A(A^T lambda)-b`. Probe 16 outer joint-set blocks with 16 projected-FISTA
+iterations each, deterministic power-of-two backtracking and no tolerance
+stop. All work stays matrix-free; compare equal operator counts against cyclic
+Hildreth before freezing any R65 stage.
+The subsequent R65 PCG/Newton/projected-path portfolio is preserved as
+exploratory evidence. The model-aware path validates candidate/commit
+globalization, but the exhaustive best-inertia v6 claim is
+[refuted on the frozen fixture](../../development/nonlocal-nsr3b4e2d7r19r65-best-model-dyadic-probe-evidence-2026-08-25.md):
+221 of 239 dual-decreasing candidates fail composed-baseline descent and only
+one outer accepts a line. The frozen
+[proportioning/filter discriminator](../../development/nonlocal-nsr3b4e2d7r19r65-proportioning-filter-contract-2026-08-25.md)
+measures free/chopped gradient components without changing v6 state or sparse
+work. Its
+[evidence](../../development/nonlocal-nsr3b4e2d7r19r65-proportioning-filter-evidence-2026-08-25.md)
+classifies all 15 blocked states as free-dominant and selects a bounded
+filter-merit experiment rather than a proportioning phase. The next
+[projected filter-pair research](../../development/nonlocal-nsr3b4e2d7r19r65-filter-pair-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r65-filter-pair-contract.md) measure pure
+inertia and full-row positive density violation for all existing candidates.
+They do not apply a line or inherit filter-SQP convergence authority.
+The resulting
+[filter-pair evidence](../../development/nonlocal-nsr3b4e2d7r19r65-filter-pair-evidence-2026-08-25.md)
+finds a weakly acceptable safe candidate in all 15 blocked outers but no
+factor-two violation reduction. Before fitting a filter margin, the
+[composed dual-merit research](../../development/nonlocal-nsr3b4e2d7r19r65-composed-dual-merit-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r65-composed-dual-merit-contract.md) derive
+the exact convex projection dual and require direct/completed-square
+correspondence on every existing pair. Candidate application remains blocked.
+The
+[composed-dual evidence](../../development/nonlocal-nsr3b4e2d7r19r65-composed-dual-merit-evidence-2026-08-25.md)
+finds strict ascent for all 235 normal-safe candidates and all 15 previously
+blocked outers. This selects the
+[best composed-dual path research](../../development/nonlocal-nsr3b4e2d7r19r65-best-composed-dual-path-research-2026-08-25.md)
+and [frozen transaction](03b4e2d7r19r65-best-composed-dual-path-contract.md):
+apply maximum completed-square ascent, verify committed direct dual and compare
+terminal KKT/work with FISTA. Runtime and nonlinear outer acceptance remain
+blocked.
+The
+[v10 evidence](../../development/nonlocal-nsr3b4e2d7r19r65-best-composed-dual-path-evidence-2026-08-25.md)
+passes all transaction gates but retains the reference because both terminal
+residuals remain above FISTA at 78.4% sparse work. The analytically derived
+[equal-work research](../../development/nonlocal-nsr3b4e2d7r19r65-equal-work-dual-completion-research-2026-08-25.md)
+and [frozen contract](03b4e2d7r19r65-equal-work-dual-completion-contract.md)
+authorize exactly four more unchanged outers: worst-case work remains below
+FISTA, whereas a fifth is forbidden. No depth grid or timing is admitted.
+The
+[v11 evidence](../../development/nonlocal-nsr3b4e2d7r19r65-equal-work-dual-completion-evidence-2026-08-25.md)
+passes: both terminal residuals strictly beat FISTA at 12,271,825 fewer sparse
+terms, with exact v10 prefix and all transaction gates. R65 therefore closes
+as a bounded acceleration candidate, not production. The next
+[R66/R20 research](../../development/nonlocal-nsr3b4e2d7r20-generalization-stopping-research-2026-08-25.md)
+must freeze independent topology/contact holdouts, an offline accuracy oracle
+and dimensionless stopping tuple. Outer 21, GPU timing and runtime integration
+remain blocked.
+The first R20
+[manifest](../../development/nonlocal-nsr3b4e2d7r20-corpus-manifest-evidence-2026-08-25.md)
+was superseded before solver execution because its
+[input preflight](../../development/nonlocal-nsr3b4e2d7r20-v1-operator-preflight-evidence-2026-08-25.md)
+found both intended holdouts already density-feasible. The
+[v2 manifest/preflight](../../development/nonlocal-nsr3b4e2d7r20-v2-corpus-preflight-evidence-2026-08-25.md)
+retains those states as quiet controls and freezes two genuinely excited blind
+holdouts. The
+[KKT research](../../development/nonlocal-nsr3b4e2d7r20-kkt-stopping-research-2026-08-25.md)
+derives row-scale-invariant primal/projected-dual/complementarity residuals;
+the revision-2 [frozen contract](03b4e2d7r20-generalization-stopping-contract.md)
+authorizes one rollback-only corpus execution with an independent binary128
+primal-Dykstra oracle. Small dual change alone is not convergence.
+The resulting
+[binary128 oracle evidence](../../development/nonlocal-nsr3b4e2d7r20-binary128-oracle-evidence-2026-08-25.md)
+closes `PASS / ORACLE_UNRESOLVED`: the supported case is primal-feasible but
+misses the deliberately strict reference stationarity/gap threshold, while
+both filled blind cases remain far from several KKT conditions at the fixed
+`2^18` cap. The candidate was not executed. The
+[phase-I research](../../development/nonlocal-nsr3b4e2d7r20-phase1-feasibility-research-2026-08-25.md)
+and [frozen R20R1 contract](03b4e2d7r20r1-phase1-feasibility-contract.md)
+therefore test full density/contact/trust feasibility using mutually exclusive
+primal and Fenchel-dual certificates. Oracle depth extension and blind-case
+tuning remain forbidden.
+Correction: R20R1 was withdrawn before implementation because the immutable
+preflight already supplies the feasible witness `s=0` for every case. The
+[global ADMM oracle research](../../development/nonlocal-nsr3b4e2d7r20r2-global-admm-oracle-research-2026-08-25.md)
+and [frozen R20R2 contract](03b4e2d7r20r2-global-admm-oracle-contract.md)
+instead select a row-normalized binary128 consensus split with a dense
+`2I+B^T*B` Cholesky step. It globally couples the correlated filled-box rows
+while remaining algorithmically separate from the sparse composed-dual
+candidate. Implement this oracle next; do not rerun/extend cyclic Dykstra.
+The
+[R20R2 evidence](../../development/nonlocal-nsr3b4e2d7r20r2-global-admm-oracle-evidence-2026-08-25.md)
+certifies the supported transfer case at 16,384 global iterations, but fixed
+`rho=1` leaves the filled cases primal-consensus dominated at 65,536. This
+closes fixed-penalty depth and converts those observed holdouts to development
+fixtures. The
+[multiparameter research](../../development/nonlocal-nsr3b4e2d7r20r3-multiparameter-admm-research-2026-08-25.md)
+and [frozen R20R3 contract](03b4e2d7r20r3-multiparameter-admm-contract.md)
+select independent density/domain penalties with a bounded MpSRA update.
+Even success is development evidence only; new v3 holdouts remain mandatory.
+The
+[R20R3 evidence](../../development/nonlocal-nsr3b4e2d7r20r3-multiparameter-admm-evidence-2026-08-25.md)
+records a mixed result: supported certifies 16x earlier, but both filled cases
+show safeguard-scale penalty oscillation and remain unresolved. The emitted
+route missed its own frozen oscillation condition, so M3 instability is the
+scientific classification and ADMM penalty tuning stops. The next
+[projector/Newton research](../../development/nonlocal-nsr3b4e2d7r20r4-projector-newton-research-2026-08-25.md)
+and [frozen derivative contract](03b4e2d7r20r4-projector-newton-derivative-contract.md)
+validate the exact joint-projector generalized derivative and face-Hessian
+rank before any semismooth Newton step.
+The
+[R20R4 evidence](../../development/nonlocal-nsr3b4e2d7r20r4-projector-derivative-evidence-2026-08-25.md)
+finds a nonsingular selected generalized Jacobian in all three excited
+development cases. The next
+[Newton-direction research](../../development/nonlocal-nsr3b4e2d7r20r5-newton-direction-research-2026-08-25.md)
+and [frozen one-step contract](03b4e2d7r20r5-newton-direction-contract.md)
+test dual-cone feasibility and certified dual ascent before permitting an
+iterative semismooth solver.
+The
+[R20R5 evidence](../../development/nonlocal-nsr3b4e2d7r20r5-newton-direction-evidence-2026-08-25.md)
+shows that the full-face Newton direction is exact and immediately solves the
+supported case, but leaves the dual cone in both filled cases. The next
+[NNQP representative research](../../development/nonlocal-nsr3b4e2d7r20r6-nnqp-representative-research-2026-08-25.md)
+and [frozen active-set contract](03b4e2d7r20r6-nnqp-representative-contract.md)
+replace that direction with the nonnegative quadratic-model minimizer before
+allowing nonlinear relinearization.
+The
+[R20R6 evidence](../../development/nonlocal-nsr3b4e2d7r20r6-nnqp-representative-evidence-2026-08-25.md)
+certifies the cone-aware local models and exact-dual steps, while observing
+large projector-face changes. The next
+[iterative semismooth research](../../development/nonlocal-nsr3b4e2d7r20r7-iterative-semismooth-research-2026-08-25.md)
+and [frozen iteration contract](03b4e2d7r20r7-iterative-semismooth-contract.md)
+rebuild that local model for at most 32 accepted binary128 steps.
+The
+[R20R7 evidence](../../development/nonlocal-nsr3b4e2d7r20r7-iterative-semismooth-evidence-2026-08-25.md)
+certifies filled edge in eight steps but strictly rejects one corner passive
+sign because a cheap inverse-norm bound is wider than its positive value. The
+next [verified-inverse research](../../development/nonlocal-nsr3b4e2d7r20r8-verified-inverse-research-2026-08-25.md)
+and [frozen enclosure contract](03b4e2d7r20r8-verified-inverse-contract.md)
+add an on-demand right-inverse residual certificate without changing the
+semismooth direction or active-set sequence.
+The
+[R20R8 evidence](../../development/nonlocal-nsr3b4e2d7r20r8-verified-inverse-evidence-2026-08-25.md)
+strictly certifies the complete development corpus. The next
+[v3 holdout research](../../development/nonlocal-nsr3b4e2d7r20r9-v3-holdout-research-2026-08-25.md)
+and [source-only contract](03b4e2d7r20r9-v3-holdout-manifest-contract.md)
+freeze four new blind fixtures before any operator or solver observation.
+The
+[R20R9 evidence](../../development/nonlocal-nsr3b4e2d7r20r9-v3-manifest-evidence-2026-08-25.md)
+freezes four source roots and 277 samples with zero operator/solver execution.
+The next [v3 preflight research](../../development/nonlocal-nsr3b4e2d7r20r10-v3-preflight-research-2026-08-25.md)
+and [input-only contract](03b4e2d7r20r10-v3-preflight-contract.md) test operator
+ownership and excitation before the solver may see the holdouts.
+The
+[R20R10 evidence](../../development/nonlocal-nsr3b4e2d7r20r10-v3-preflight-evidence-2026-08-25.md)
+admits all four blind problems with strict excitation. The next
+[v3 generalization research](../../development/nonlocal-nsr3b4e2d7r20r11-v3-generalization-research-2026-08-25.md)
+and [one-shot contract](03b4e2d7r20r11-v3-generalization-contract.md) execute
+the unchanged R8 solver once on the frozen problem roots.
+The
+[R20R11 evidence](../../development/nonlocal-nsr3b4e2d7r20r11-v3-generalization-evidence-2026-08-25.md)
+refutes all-four generalization: two cases certify and two stop inside the
+active-set/NNQP solve. The next
+[failure-mechanism research](../../development/nonlocal-nsr3b4e2d7r20r12-failure-mechanism-research-2026-08-25.md)
+and [report-only contract](03b4e2d7r20r12-failure-mechanism-contract.md) expose
+the first failing predicate before any solver remedy is considered.
+The
+[R20R12 evidence](../../development/nonlocal-nsr3b4e2d7r20r12-failure-mechanism-evidence-2026-08-25.md)
+reproduces both stops as `BOUNDARY_RATIO_UNRESOLVED`. The next
+[ratio-collision research](../../development/nonlocal-nsr3b4e2d7r20r13-ratio-collision-research-2026-08-25.md)
+and [observer contract](03b4e2d7r20r13-ratio-collision-contract.md) distinguish
+the ratio subpredicate without changing solver decisions.
+The
+[R20R13 evidence](../../development/nonlocal-nsr3b4e2d7r20r13-ratio-collision-evidence-2026-08-26.md)
+finds overlapping rigorous ratio intervals in both failures. The next
+[error-budget research](../../development/nonlocal-nsr3b4e2d7r20r14-ratio-error-budget-research-2026-08-26.md)
+and [counterfactual contract](03b4e2d7r20r14-ratio-error-budget-contract.md)
+separate candidate-solve error from accumulated current-direction error.
+The
+[R20R14 evidence](../../development/nonlocal-nsr3b4e2d7r20r14-ratio-error-budget-evidence-2026-08-26.md)
+shows candidate inverse refinement resolves shear only. The next
+[affine-enclosure research](../../development/nonlocal-nsr3b4e2d7r20r15-affine-enclosure-research-2026-08-26.md)
+and [shadow contract](03b4e2d7r20r15-affine-enclosure-contract.md) test the
+correlation-aware current-error lemma without altering solver state.
+The
+[R20R15 evidence](../../development/nonlocal-nsr3b4e2d7r20r15-affine-enclosure-evidence-2026-08-26.md)
+shows the shadow equals the current error at both failures, excluding
+accumulated interpolation as the corner cause. The next
+[current-provenance research](../../development/nonlocal-nsr3b4e2d7r20r16-current-provenance-research-2026-08-26.md)
+and [dual-inverse contract](03b4e2d7r20r16-current-provenance-contract.md) test
+whether the last complete current solve can be verified independently.
+The
+[R20R16 evidence](../../development/nonlocal-nsr3b4e2d7r20r16-current-provenance-evidence-2026-08-26.md)
+certifies both current inverse enclosures and resolves both ratio orderings. The
+next
+[candidate research](../../development/nonlocal-nsr3b4e2d7r20r17-dual-refinement-candidate-research-2026-08-26.md)
+and [candidate contract](03b4e2d7r20r17-dual-refinement-candidate-contract.md)
+consume the refinement opt-in across the complete development corpus.
+The
+[R20R17 evidence](../../development/nonlocal-nsr3b4e2d7r20r17-dual-refinement-candidate-evidence-2026-08-26.md)
+certifies 11/12 cases: corner closes, while shear reaches cap 32 without a
+structural rejection. The next
+[trajectory research](../../development/nonlocal-nsr3b4e2d7r20r18-shear-cap-trajectory-research-2026-08-26.md)
+and [audit contract](03b4e2d7r20r18-shear-cap-trajectory-contract.md) classify
+contraction, active-set churn and globalization before any cap change.
+The
+[R20R18 evidence](../../development/nonlocal-nsr3b4e2d7r20r18-shear-cap-trajectory-evidence-2026-08-26.md)
+finds a stable natural face, repeated Armijo shrinkage and one late projector
+mask transition. The next
+[line-frontier research](../../development/nonlocal-nsr3b4e2d7r20r19-line-frontier-research-2026-08-26.md)
+and [trial-audit contract](03b4e2d7r20r19-line-frontier-contract.md) compare
+mask stability to the exact Armijo acceptance frontier.
+The
+[R20R19 evidence](../../development/nonlocal-nsr3b4e2d7r20r19-line-frontier-evidence-2026-08-26.md)
+finds seven exact first-stable/first-accepted coincidences, zero stable
+rejections and one crossing acceptance. The late shear solve is throttled at a
+projector-mask boundary, not by observed same-face rejection. The next
+[breakpoint-geometry research](../../development/nonlocal-nsr3b4e2d7r20r20-breakpoint-geometry-research-2026-08-26.md)
+and [fixed audit contract](03b4e2d7r20r20-breakpoint-geometry-contract.md)
+scan 65 exact points inside each of the seven frontier brackets to distinguish
+a single aligned event from a hidden same-face Armijo layer or a multi-event
+piecewise path before any solver change.
+The
+[R20R20 evidence](../../development/nonlocal-nsr3b4e2d7r20r20-breakpoint-geometry-evidence-2026-08-26.md)
+finds one non-returning one-scalar mask event and one Armijo sign event in all
+seven brackets, with no stable rejection. Five brackets retain a narrow
+Armijo-positive interval after crossing. The next
+[fixed-face event research](../../development/nonlocal-nsr3b4e2d7r20r21-fixed-face-event-research-2026-08-26.md)
+and [analytic contract](03b4e2d7r20r21-fixed-face-event-contract.md) derive the
+linear/quadratic projector KKT event equation and validate it against the
+frozen cells before it may influence a solver trial.
+The
+[R20R21 evidence](../../development/nonlocal-nsr3b4e2d7r20r21-fixed-face-event-evidence-2026-08-26.md)
+finds one unique correct event in every cell. All selected events are active-
+ball releases from a zero lower bound, so their physical root is linear even
+though the general predictor retains the quadratic branch. The next
+[event-side research](../../development/nonlocal-nsr3b4e2d7r20r22-event-side-trial-research-2026-08-26.md)
+and [shadow contract](03b4e2d7r20r22-event-side-trial-contract.md) evaluate the
+root and its immediate next binary128 value to test a zero-tuning face crossing
+before any solver trajectory changes.
+The
+[R20R22 evidence](../../development/nonlocal-nsr3b4e2d7r20r22-event-side-trial-evidence-2026-08-26.md)
+rejects one-ULP alpha crossing: six of seven actual projector evaluations stay
+on the old face even though all seven Armijo margins are positive. The next
+[ULP-ladder research](../../development/nonlocal-nsr3b4e2d7r20r23-ulp-ladder-research-2026-08-26.md)
+and [fixed contract](03b4e2d7r20r23-ulp-ladder-contract.md) evaluate all
+`2^0..2^64` ULP displacements to measure the end-to-end finite-precision event
+boundary without fitting an epsilon.
+The
+[R20R23 evidence](../../development/nonlocal-nsr3b4e2d7r20r23-ulp-ladder-evidence-2026-08-26.md)
+finds correct Armijo-positive first crossings at powers `10,14,13,4,6,11,0`,
+but step 32 changes mask again inside the micro-ladder. The next
+[zero-bound flutter research](../../development/nonlocal-nsr3b4e2d7r20r24-zero-bound-flutter-research-2026-08-26.md)
+and [existing-ladder contract](03b4e2d7r20r24-zero-bound-flutter-contract.md)
+expose the already computed preprojection scalar and mask run to distinguish a
+rounding return from a genuine second event.
+The
+[R20R24 evidence](../../development/nonlocal-nsr3b4e2d7r20r24-zero-bound-flutter-evidence-2026-08-26.md)
+proves `new[0..5],old[6],new[7..64]` zero-bound rounding flutter: the actual
+input changes sign twice while the independent affine input is monotone and
+nonnegative. The next
+[forward-bound research](../../development/nonlocal-nsr3b4e2d7r20r25-event-forward-bound-research-2026-08-26.md)
+and [componentwise contract](03b4e2d7r20r25-event-forward-bound-contract.md)
+derive a sparse-entry-count gamma bound and test containment/stable-side
+selection on the existing 455 points without fitting the observed error.
+The
+[R20R25 evidence](../../development/nonlocal-nsr3b4e2d7r20r25-event-forward-bound-evidence-2026-08-26.md)
+contains all 455 differences and proves a stable predicted-face/positive-
+Armijo suffix for all seven events. The next
+[certified-event trajectory research](../../development/nonlocal-nsr3b4e2d7r20r26-certified-event-trajectory-research-2026-08-26.md)
+and [opt-in contract](03b4e2d7r20r26-certified-event-trajectory-contract.md)
+replace only an already bracketed pre-event dyadic acceptance by one
+forward-certified post-event trial and replay the complete 12-case corpus.
+The
+[R20R26 evidence](../../development/nonlocal-nsr3b4e2d7r20r26-certified-event-trajectory-evidence-2026-08-26.md)
+certifies 11/12. Three shear replacements reduce its residual about 40x and
+remove the old cap cycle, but the twentieth step rejects all existing line
+trials; radial's one replacement remains certified. The next
+[post-event research](../../development/nonlocal-nsr3b4e2d7r20r27-post-event-globalization-research-2026-08-26.md)
+and [rejected-step contract](03b4e2d7r20r27-post-event-globalization-contract.md)
+audit the exact final direction and line envelope before another candidate.
+The
+[R20R27 evidence](../../development/nonlocal-nsr3b4e2d7r20r27-post-event-globalization-evidence-2026-08-26.md)
+finds exact one-scalar lineage for all three committed events, but all 21 final
+dyadic trials still cross the projector mask. There is no stable trial inside
+the existing envelope and no unsigned binary128 margin. The next
+[sub-envelope event research](../../development/nonlocal-nsr3b4e2d7r20r28-sub-envelope-event-research-2026-08-26.md)
+and [two-sided audit contract](03b4e2d7r20r28-sub-envelope-event-contract.md)
+enumerate the nearest component/ball event in `(0,2^-20]` and conditionally
+shadow-evaluate one forward-bound-certified point on each side without adding
+a cap, sweep or state update.
+The
+[R20R28 evidence](../../development/nonlocal-nsr3b4e2d7r20r28-sub-envelope-event-evidence-2026-08-26.md)
+finds exactly one bounded event: scalar 168 releases from its zero lower bound
+at `alpha=1.8908164558e-7`. R25 certifies both representable sides and both
+have positive Armijo margins. The next
+[one-shot recovery research](../../development/nonlocal-nsr3b4e2d7r20r29-exhausted-line-recovery-research-2026-08-26.md)
+and [trajectory contract](03b4e2d7r20r29-exhausted-line-recovery-contract.md)
+commit only the exact new-side R28 point after the exact R26 prefix, then run
+the unchanged remaining trajectory with no second recovery.
+The
+[R20R29 evidence](../../development/nonlocal-nsr3b4e2d7r20r29-exhausted-line-recovery-evidence-2026-08-26.md)
+shows the one recovery followed by a full Newton step reduces dual mapping to
+`1.78e-18`, but three metrics remain above the exact `2^-70` certificate and
+iteration 22 rejects globalization. The next
+[terminal audit research](../../development/nonlocal-nsr3b4e2d7r20r30-post-recovery-globalization-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r30-post-recovery-globalization-contract.md)
+classify every iteration-22 margin and mask regime before a second candidate.
+The
+[R20R30 evidence](../../development/nonlocal-nsr3b4e2d7r20r30-post-recovery-globalization-evidence-2026-08-26.md)
+finds 21 strictly negative same-face margins with no mask/ball event. The full
+step reports KKT scalars below `2^-70`, but terminal certification was not yet
+audited. The next
+[certificate research](../../development/nonlocal-nsr3b4e2d7r20r31-terminal-certificate-research-2026-08-26.md)
+and [merit-audit contract](03b4e2d7r20r31-terminal-certificate-contract.md)
+test whether an existing trial is already terminally certified and decompose
+the bounded Armijo comparison without applying it.
+The
+[R20R31 evidence](../../development/nonlocal-nsr3b4e2d7r20r31-terminal-certificate-evidence-2026-08-26.md)
+finds exactly one fully certified trial: the rejected full step. Its nominal
+Armijo margin is positive, but the rigorous merit bound burden is about
+`94,976x` larger than the nominal dual change. The next
+[terminal-trajectory research](../../development/nonlocal-nsr3b4e2d7r20r32-terminal-certificate-trajectory-research-2026-08-26.md)
+and [one-shot contract](03b4e2d7r20r32-terminal-certificate-trajectory-contract.md)
+select the first already evaluated KKT-certified trial only after ordinary
+line rejection, then replay the complete 12-case corpus without weakening
+Armijo or the certificate.
+The
+[R20R32 evidence](../../development/nonlocal-nsr3b4e2d7r20r32-terminal-certificate-trajectory-evidence-2026-08-26.md)
+certifies 12/12 with exact R29/non-shear roots, one freshly re-audited terminal
+state and no ordinary Armijo change. Since v2/v3 are now development data, the
+next [v4 holdout research](../../development/nonlocal-nsr3b4e2d7r20r33-v4-holdout-research-2026-08-26.md)
+and [source-only contract](03b4e2d7r20r33-v4-holdout-manifest-contract.md)
+freeze five new source fixtures before any operator, excitation or solver
+observation.
+The
+[R20R33 evidence](../../development/nonlocal-nsr3b4e2d7r20r33-v4-manifest-evidence-2026-08-26.md)
+freezes five distinct sources and 404 samples at semantic
+`33ff1cbf...ee63`, with every forbidden-work counter zero. The next
+[v4 preflight research](../../development/nonlocal-nsr3b4e2d7r20r34-v4-preflight-research-2026-08-26.md)
+and [input-only contract](03b4e2d7r20r34-v4-preflight-contract.md) build exact
+operators and test ownership, excitation, scaling and problem-root distinction
+without invoking the solver.
+The
+[R20R34 evidence](../../development/nonlocal-nsr3b4e2d7r20r34-v4-preflight-evidence-2026-08-26.md)
+admits all five distinct problems with `47/62/48/65/60` rigorously positive
+rows and zero solver work. The next
+[v4 generalization research](../../development/nonlocal-nsr3b4e2d7r20r35-v4-generalization-research-2026-08-26.md)
+and [one-shot contract](03b4e2d7r20r35-v4-generalization-contract.md) execute a
+case-agnostic R32 policy once: terminal certificate first, then at most one
+unique forward-certified zero-bound recovery per case, with all other
+rejections fail-closed.
+The
+[R20R35 evidence](../../development/nonlocal-nsr3b4e2d7r20r35-v4-generalization-evidence-2026-08-26.md)
+certifies 3/5 blind cases by the ordinary path. Torsion stops at a rejected
+verified-inverse audit; counterflow has an exact NNQP but its global slope bound
+dominates nominal slope. Neither reaches recovery or terminal selection. The
+next [failure-budget research](../../development/nonlocal-nsr3b4e2d7r20r36-v4-failure-budget-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r36-v4-failure-budget-contract.md) expose
+the existing inverse certificate and decompose counterflow's slope bound before
+any remedy is selected.
+The
+[R20R36 evidence](../../development/nonlocal-nsr3b4e2d7r20r36-v4-failure-budget-evidence-2026-08-26.md)
+identifies two independent certificate limits. Torsion solves all 65 inverse
+columns but its residual enclosure has `rho=37.54`; counterflow's accumulated
+direction-error term is `108,818x` its positive global slope while residual and
+rounding terms are negligible. The next
+[exact-residual research](../../development/nonlocal-nsr3b4e2d7r20r37-exact-inverse-residual-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r37-exact-inverse-residual-contract.md) use an
+exact dyadic oracle on the already computed torsion inverse candidate to
+distinguish genuine noncontraction from an overly wide arithmetic enclosure.
+The
+[R20R37 evidence](../../development/nonlocal-nsr3b4e2d7r20r37-exact-inverse-residual-evidence-2026-08-26.md)
+proves the represented candidate contractive at exact outward
+`rho=0.00444364`; the inherited enclosure is about `8,448x` wider. The next
+[Dot2 research](../../development/nonlocal-nsr3b4e2d7r20r38-dot2-inverse-certificate-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r38-dot2-inverse-certificate-contract.md)
+test a same-binary128 ORO compensated residual certificate against every exact
+R37 entry before any solver decision is changed.
+The
+[R20R38 evidence](../../development/nonlocal-nsr3b4e2d7r20r38-dot2-inverse-certificate-evidence-2026-08-26.md)
+contains all `4225/4225` exact residual entries and certifies
+`rho_bound=0.00444364` without underflow. The next
+[solution-error research](../../development/nonlocal-nsr3b4e2d7r20r39-dot2-solution-error-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r39-dot2-solution-error-contract.md) apply the
+same compensated certificate to the already solved passive RHS and test whether
+the resulting infinity error strictly resolves every active-set sign.
+The
+[R20R39 evidence](../../development/nonlocal-nsr3b4e2d7r20r39-dot2-solution-error-evidence-2026-08-26.md)
+contains all 65 residuals and improves the legacy error by `6.88e22`, but the
+global inverse-norm product still leaves six signs unresolved. The next
+[directional research](../../development/nonlocal-nsr3b4e2d7r20r40-directional-krawczyk-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r40-directional-krawczyk-contract.md) certify
+the actual `Xr` correction and left defect `I-XA` before considering a solver
+repair.
+The
+[R20R40 evidence](../../development/nonlocal-nsr3b4e2d7r20r40-directional-krawczyk-evidence-2026-08-26.md)
+proves the left defect contractive at `rho_bound=0.131768` and improves the
+uniform error about `35.9x`, but the actual correction is `2.499e14` and the
+same six signs remain unresolved. The next
+[centered research](../../development/nonlocal-nsr3b4e2d7r20r41-centered-neumann-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r41-centered-neumann-contract.md) build a
+shadow fixed-point center at fixed depths and independently certify its
+remaining residual before any refined solution may affect NNQP state.
+The
+[R20R41 evidence](../../development/nonlocal-nsr3b4e2d7r20r41-centered-neumann-evidence-2026-08-26.md)
+contains every exact oracle and resolves all 65 signs first at frozen depth
+four: the six ambiguous components are negative, with zero prior-sign conflict
+and minimum separation above `1054`. The next
+[trajectory research](../../development/nonlocal-nsr3b4e2d7r20r42-centered-refinement-trajectory-research-2026-08-26.md)
+and [default-off contract](03b4e2d7r20r42-centered-refinement-trajectory-contract.md)
+allow that practical four-step certificate to replace only the exact rejected
+torsion passive vector and expose the unchanged subsequent NNQP boundary.
+The
+[R20R42 evidence](../../development/nonlocal-nsr3b4e2d7r20r42-centered-refinement-trajectory-evidence-2026-08-26.md)
+consumes exactly one depth-four certificate, removes the inverse-audit failure
+and exposes a row-61/row-13 `RATIO_ORDER_AMBIGUOUS` boundary. Input uncertainty,
+not rounding, dominates; the candidate error is about 829x the current error.
+The next
+[depth-eight research](../../development/nonlocal-nsr3b4e2d7r20r43-depth8-ratio-trajectory-research-2026-08-26.md)
+and [frozen contract](03b4e2d7r20r43-depth8-ratio-trajectory-contract.md) reuse
+the predeclared R41 arithmetic-floor checkpoint to test that ratio ordering
+without changing its formula.
+The
+[R20R43 evidence](../../development/nonlocal-nsr3b4e2d7r20r43-depth8-ratio-trajectory-evidence-2026-08-26.md)
+resolves that ratio, adds two unchanged active-set transitions and stops at a
+different 65-row inverse-audit target. The hook rejects the new tuple and
+freezes all four object roots. The next
+[second-inverse research](../../development/nonlocal-nsr3b4e2d7r20r44-second-inverse-contraction-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r44-second-inverse-contraction-contract.md)
+test exact/Dot2 right and left contraction before assuming centered refinement
+generalizes.
+The
+[R20R44 evidence](../../development/nonlocal-nsr3b4e2d7r20r44-second-inverse-contraction-evidence-2026-08-26.md)
+contains all 8450 exact defects and proves right/left `rho` values
+`0.00502/0.17756`; the inherited `47.86` rejection is another cancellation
+artifact. The next
+[second-solution research](../../development/nonlocal-nsr3b4e2d7r20r45-second-centered-solution-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r45-second-centered-solution-contract.md)
+apply the fixed R41 checkpoint schedule to the new RHS without changing NNQP
+state.
+The
+[R20R45 evidence](../../development/nonlocal-nsr3b4e2d7r20r45-second-centered-solution-evidence-2026-08-26.md)
+contains the new exact RHS throughout and resolves all 65 signs at depth four;
+depth 16 is its first arithmetic-floor checkpoint at radius `3.17e-14`. The
+next
+[two-refinement research](../../development/nonlocal-nsr3b4e2d7r20r46-two-refinement-trajectory-research-2026-08-26.md)
+and [default-off contract](03b4e2d7r20r46-two-refinement-trajectory-contract.md)
+allow the original depth-eight and second depth-16 certificates to be consumed
+once each, preserving the next exact boundary.
+The
+[R20R46 evidence](../../development/nonlocal-nsr3b4e2d7r20r46-two-refinement-trajectory-evidence-2026-08-26.md)
+consumes both target-bound certificates once, advances the unchanged NNQP to
+`602` principal solves/transitions and stops at a third distinct 65-row inverse
+audit. The next
+[third-inverse research](../../development/nonlocal-nsr3b4e2d7r20r47-third-inverse-contraction-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r47-third-inverse-contraction-contract.md)
+test exact/Dot2 right and left contraction before any third RHS audit or
+trajectory replacement is considered.
+The
+[R20R47 evidence](../../development/nonlocal-nsr3b4e2d7r20r47-third-inverse-contraction-evidence-2026-08-26.md)
+contains all 8450 exact defects and proves right/left `rho` values
+`0.00591/0.24176`; the inherited `66.36` rejection is the third independent
+cancellation artifact. The next
+[third-solution research](../../development/nonlocal-nsr3b4e2d7r20r48-third-centered-solution-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r48-third-centered-solution-contract.md)
+apply the unchanged fixed checkpoint schedule to the third RHS without
+changing NNQP state.
+The
+[R20R48 evidence](../../development/nonlocal-nsr3b4e2d7r20r48-third-centered-solution-evidence-2026-08-26.md)
+contains the third exact RHS throughout and resolves all signs at depth four;
+depth 16 is the first arithmetic-floor checkpoint at radius `6.49e-14`. The
+next
+[three-refinement research](../../development/nonlocal-nsr3b4e2d7r20r49-three-refinement-trajectory-research-2026-08-26.md)
+and [default-off contract](03b4e2d7r20r49-three-refinement-trajectory-contract.md)
+apply all three frozen certificates once. This is the final target-specific
+chain discriminator: a fourth inverse boundary redirects research to a
+case-agnostic compensated verification policy.
+The
+[R20R49 evidence](../../development/nonlocal-nsr3b4e2d7r20r49-three-refinement-trajectory-evidence-2026-08-26.md)
+applies all three certificates and advances torsion to `708` transitions, then
+captures a fourth distinct inverse-audit boundary. This closes target-specific
+chaining. The next
+[generic-verifier research](../../development/nonlocal-nsr3b4e2d7r20r50-generic-centered-verifier-research-2026-08-26.md)
+and [root-agnostic contract](03b4e2d7r20r50-generic-centered-verifier-contract.md)
+evaluate the same fixed depth-16 compensated certificate on every failed
+legacy audit under the inherited 32-iteration structural cap. Object roots are
+regression evidence only and never policy selectors.
+The
+[R20R50 evidence](../../development/nonlocal-nsr3b4e2d7r20r50-generic-centered-verifier-evidence-2026-08-26.md)
+applies five root-agnostic depth-16 certificates and closes torsion ordinarily
+after 887 transitions, using only 5/32 of the structural certificate cap. The
+next
+[generic-corpus research](../../development/nonlocal-nsr3b4e2d7r20r51-generic-corpus-research-2026-08-26.md)
+and [five-case contract](03b4e2d7r20r51-generic-corpus-contract.md) replay the
+same policy independently on all immutable v4 cases, preserving the unrelated
+counterflow direction certificate.
+The
+[R20R51 evidence](../../development/nonlocal-nsr3b4e2d7r20r51-generic-corpus-evidence-2026-08-26.md)
+certifies 4/5 cases and leaves only the unchanged counterflow
+`DIRECTION_REJECTED` boundary; no generic call occurs outside torsion. The next
+[counterflow center research](../../development/nonlocal-nsr3b4e2d7r20r52-counterflow-centered-slope-research-2026-08-26.md)
+and [report-only contract](03b4e2d7r20r52-counterflow-centered-slope-contract.md)
+capture the already successful final inverse and test whether the same centered
+solution certificate closes its global slope bound without changing state.
+The
+[R20R52 evidence](../../development/nonlocal-nsr3b4e2d7r20r52-counterflow-centered-slope-evidence-2026-08-26.md)
+closes that premise as false without solver credit: the exact counterflow replay
+executes and stores no verified-inverse audit. Its 66/66 support is resolved by
+the direct solve, while the cheap error has passed through 86 affine-shadow
+updates. The next experiment must capture the final direct principal solve and
+explicitly budget a new report-only inverse; it may not reuse an absent audit.
+That successor is now frozen by the
+[R20R53 research](../../development/nonlocal-nsr3b4e2d7r20r53-counterflow-direct-center-research-2026-08-26.md)
+and [contract](03b4e2d7r20r53-counterflow-direct-center-contract.md): observe
+the final direct 66-row tuple, construct exactly 66 inverse columns, certify one
+depth-16 center, and recompute the shadow slope around that new center rather
+than attaching its radius to the old solution.
+The
+[R20R53 evidence](../../development/nonlocal-nsr3b4e2d7r20r53-counterflow-direct-center-evidence-2026-08-26.md)
+certifies the complete 66-row center and converts the global slope lower bound
+from negative to `1.8493e-19`. More importantly, the newly invoked existing
+verified-inverse already passes with error `1.09e-24`; the next discriminator
+should test that smaller verifier-placement remedy before any centered
+trajectory is authorized.
+The next
+[R20R54 research](../../development/nonlocal-nsr3b4e2d7r20r54-counterflow-legacy-slope-research-2026-08-26.md)
+and [contract](03b4e2d7r20r54-counterflow-legacy-slope-contract.md) freeze that
+minimal discriminator: retain the old direct solution, invoke exactly the
+existing 66-column verified-inverse and recompose only its slope enclosure,
+with no compensated or centered work.
+The
+[R20R54 evidence](../../development/nonlocal-nsr3b4e2d7r20r54-counterflow-legacy-slope-evidence-2026-08-26.md)
+preserves the old direction exactly and reduces its bound to `2.4851e-36`,
+certifying positive slope with no compensated work. The next experiment may
+place this existing verifier behind a default-off slope-rejection fallback and
+observe the unchanged counterflow trajectory once.
+That default-off discriminator is frozen by the
+[R20R55 research](../../development/nonlocal-nsr3b4e2d7r20r55-counterflow-slope-trajectory-research-2026-08-26.md)
+and [contract](03b4e2d7r20r55-counterflow-slope-trajectory-contract.md). It may
+consume one classical inverse audit only after an exact/KKT slope rejection,
+then follows the unchanged counterflow line search and fails closed on any
+second refinement request.
+The
+[R20R55 evidence](../../development/nonlocal-nsr3b4e2d7r20r55-counterflow-slope-trajectory-evidence-2026-08-26.md)
+consumes one iteration-10 audit and certifies counterflow ordinarily with the
+same 701 principal solves/transitions. A separate full v4 composition of the
+R50 failed-inverse verifier and R55 slope verifier is now the next bounded
+generalization gate.
+That gate is frozen by the
+[R20R56 research](../../development/nonlocal-nsr3b4e2d7r20r56-composed-v4-corpus-research-2026-08-26.md)
+and [contract](03b4e2d7r20r56-composed-v4-corpus-contract.md): replay all five
+immutable cases with independent per-case caps and require the exact trigger
+matrix `5/0, 0/0, 0/1, 0/0, 0/0` before claiming composition.
+The
+[R20R56 evidence](../../development/nonlocal-nsr3b4e2d7r20r56-composed-v4-corpus-evidence-2026-08-26.md)
+passes that exact matrix and certifies 5/5 ordinarily. Since v4 is now a
+development corpus, the next generalization cycle must commit new source-only
+v5 fixtures before constructing operators or observing the solver.
+The new blind family is frozen by the
+[R20R57 research](../../development/nonlocal-nsr3b4e2d7r20r57-v5-source-manifest-research-2026-08-26.md)
+and [source-only contract](03b4e2d7r20r57-v5-source-manifest-contract.md): six
+new 96--120-particle fields and literal zero operator/solver work must be
+committed before any input preflight.
+The
+[R20R57 evidence](../../development/nonlocal-nsr3b4e2d7r20r57-v5-source-manifest-evidence-2026-08-26.md)
+freezes six distinct source/geometry roots and 637 particles with all forbidden
+work false. These exact sources now advance to a separately frozen input-only
+preflight; they may not be edited after excitation is observed.
+The
+[R20R58 research](../../development/nonlocal-nsr3b4e2d7r20r58-v5-preflight-research-2026-08-26.md)
+and [contract](03b4e2d7r20r58-v5-preflight-contract.md) now freeze that
+input-only observation: structural/scaling/excitation roots are recorded once,
+with zero nonlinear or certificate work.
+The
+[R20R58 evidence](../../development/nonlocal-nsr3b4e2d7r20r58-v5-preflight-evidence-2026-08-26.md)
+admits all six distinct problems with `53/75/84/73/55/77` certified-positive
+rows and zero solver work. A one-shot blind replay of the unchanged composed
+policy is now the next gate.
+That one-shot gate is frozen by the
+[R20R59 research](../../development/nonlocal-nsr3b4e2d7r20r59-blind-v5-replay-research-2026-08-26.md)
+and [contract](03b4e2d7r20r59-blind-v5-replay-contract.md). It explicitly treats
+R50's current dimension-65 rejection as a valid blind policy boundary rather
+than silently generalizing the certificate after observation.
+The first R59 execution had invalid slope-attempt accounting and receives no
+scientific credit. After the eligibility repair, the
+[R20R59 evidence](../../development/nonlocal-nsr3b4e2d7r20r59-blind-v5-replay-evidence-2026-08-26.md)
+passes apparatus accounting and identifies one exact dimension-policy boundary:
+5/6 cases certify, while oblique jet/twist requests a dimension-102 center.
+The separately frozen
+[R20R60 research](../../development/nonlocal-nsr3b4e2d7r20r60-dimension-generic-center-research-2026-08-26.md)
+and [contract](03b4e2d7r20r60-dimension-generic-center-contract.md) audit that
+tuple without applying it. The
+[R20R60 evidence](../../development/nonlocal-nsr3b4e2d7r20r60-dimension-generic-center-evidence-2026-08-26.md)
+proves exact/Dot2 two-sided contraction and resolves all 102 signs already at
+depth four; dimension 65 is policy-only for this tuple.
+The next
+[R20R61 research](../../development/nonlocal-nsr3b4e2d7r20r61-profile-bounded-callback-research-2026-08-26.md)
+and [contract](03b4e2d7r20r61-profile-bounded-callback-contract.md) freeze one
+complete v5 replay with the unchanged depth-16 certificate, a preflight-owned
+dimension cap 120 and exact dimension-derived work.
+The
+[R20R61 evidence](../../development/nonlocal-nsr3b4e2d7r20r61-profile-bounded-callback-evidence-2026-08-26.md)
+certifies 6/6. Exactly one dimension-102 center is consumed; the other five
+case roots remain exact and neither slope fallback nor another mechanism runs.
+This closes the current binary128 tiny-corpus policy gate. Research a bounded
+finite-precision/certification correspondence architecture next; do not add a
+third binary128 callback, start physical-scale execution, time this shared-host
+oracle or imply production readiness.
+
+The
+[R20R62 finite-precision research](../../development/nonlocal-nsr3b4e2d7r20r62-finite-precision-correspondence-research-2026-08-26.md)
+selects strict working-precision `Dot2Err` intervals as the smallest runtime-
+plausible certificate arithmetic. Exact dyadics remain an offline independent
+oracle; mixed-precision refinement is only a possible candidate generator and
+runtime binary128 is rejected. The next executable gate is frozen by the
+[R20R63 contract](03b4e2d7r20r63-binary64-dot2err-contract.md): project only
+the immutable R60 dimension-102 tuple to binary64 and require exact containment
+plus two-sided contraction before evaluating any centered correction.
+
+The
+[R20R63 evidence](../../development/nonlocal-nsr3b4e2d7r20r63-binary64-dot2err-evidence-2026-08-26.md)
+validates all 20,808 candidate intervals against exact dyadics but rejects the
+projected inverse itself. Exact right/left defect norms are approximately
+`1.82e15/3.15e15`, so bound tightening cannot repair the direct projection
+route. R64 is not authorized. Research and freeze R63A to decompose matrix
+versus inverse projection error and conditioning/scaling before constructing
+any new inverse or center.
+
+That no-solve diagnostic is now frozen by the
+[R20R63A research](../../development/nonlocal-nsr3b4e2d7r20r63a-projection-conditioning-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63a-projection-conditioning-contract.md). It requires
+eight exact defect products, two componentwise decomposition identities and
+scale/structure facts before it may classify matrix, inverse or mixed
+projection dominance. It selects no equilibration formula and adds no solve.
+
+The
+[R20R63A evidence](../../development/nonlocal-nsr3b4e2d7r20r63a-projection-conditioning-evidence-2026-08-26.md)
+closes all exact decompositions and selects `MIXED_PROJECTION_CONTRIBUTION`.
+Matrix and inverse projection independently create order-`1e15` defects. The
+matrix row/diagonal ranges are only `3.65x/2.50x`, while the inverse-norm proxy
+is `2.64e32` and `u64*proxy` is `2.93e16`. Research the underlying Gram/rank
+structure and a rank-revealing reformulation before any scaling, new inverse or
+center experiment.
+
+The intervening
+[R20R63B research](../../development/nonlocal-nsr3b4e2d7r20r63b-factor-space-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63b-factor-space-contract.md) freeze the smallest
+normal-equation-squaring discriminator. They reuse the already captured
+Cholesky factor, construct only its triangular inverse and test strict
+binary64/exact two-sided defects. No NNQP right-hand side, rank threshold or
+trajectory is evaluated.
+
+The
+[R20R63B evidence](../../development/nonlocal-nsr3b4e2d7r20r63b-factor-space-evidence-2026-08-26.md)
+preserves an asymmetric binary64 boundary. Exact factor reconstruction and all
+20,808 containment checks pass. The projected right defect contracts at
+`1.29e-14`, while the left defect is `1.579>1`, so the frozen two-sided factor
+candidate is rejected. Research a one-sided a-posteriori triangular solution
+certificate versus rank-revealing reformulation next; do not reinterpret the
+right-side success as an R63B pass or execute an NNQP trajectory.
+
+The primary-source comparison is recorded in the
+[R20R63C research](../../development/nonlocal-nsr3b4e2d7r20r63c-orientation-matched-factor-research-2026-08-26.md).
+It selects the smaller pre-RHS test from Oishi--Rump's orientation principle:
+construct a left inverse of `L` from transposed row solves and a right inverse
+whose transpose is a left inverse of `L^T`. The
+[R20R63C contract](03b4e2d7r20r63c-orientation-matched-factor-contract.md)
+freezes two direct binary64 constructions, four contained defect audits and the
+two norms actually required by sequential factor verification. Rank semantics,
+RHS/sign work and R64 remain blocked until this arithmetic gate resolves.
+
+The
+[R20R63C evidence](../../development/nonlocal-nsr3b4e2d7r20r63c-orientation-matched-factor-evidence-2026-08-26.md)
+preserves the second complete-containment factor boundary. Direct row/back
+construction still yields `||I-X_L L||inf=1.747>1`, while its opposite product
+is about `1.87e-13`; the required upper/transpose gate passes at `1.09e-14`.
+Thus projection was not the sole cause. Stop ordinary binary64 factor-inverse
+work and research the rank of the underlying active projector rows before any
+RHS, row removal or extended-precision fallback.
+
+The
+[R20R63D research](../../development/nonlocal-nsr3b4e2d7r20r63d-active-row-rank-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63d-active-row-rank-contract.md) freeze exact
+modular rank separately from numerical pivot rank. The
+[R20R63D evidence](../../development/nonlocal-nsr3b4e2d7r20r63d-active-row-rank-evidence-2026-08-26.md)
+proves that the 102 source rows and represented projected block are both
+algebraically full-rank. The source normalized Gram remains binary64 rank 102,
+while the projected block is numerical rank 101 in both binary64 and
+binary128 profiles. This selects projector-metric near-null geometry, not a
+duplicate-row policy. Research/freeze an R63E projector range/nullspace witness
+before QR, row removal, extended precision or any RHS solve.
+
+The
+[R20R63E research](../../development/nonlocal-nsr3b4e2d7r20r63e-projector-nullspace-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63e-projector-nullspace-contract.md) separate the
+clamp mask, active-ball tangent and uniform projector scale. The
+[R20R63E evidence](../../development/nonlocal-nsr3b4e2d7r20r63e-projector-nullspace-evidence-2026-08-26.md)
+reconstructs the full R63 matrix bit-for-bit and selects
+`CLAMP_METRIC_NUMERICAL_RANK_LOSS`. The witness source energy is about `20.52`,
+almost all on 141 clamped coordinates; only order `4e-30` remains free and the
+ball-radial term is order `2.5e-32`. Research/freeze projection-equivalent dual
+representative semantics next. Do not infer exact rank 101, delete a row or
+apply wider arithmetic/RHS work first.
+
+The
+[R20R63F research](../../development/nonlocal-nsr3b4e2d7r20r63f-representative-injectivity-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63f-representative-injectivity-contract.md) test the
+premise required by that representative path on the direct `102 x 315`
+tangent operator. The
+[R20R63F evidence](../../development/nonlocal-nsr3b4e2d7r20r63f-representative-injectivity-evidence-2026-08-26.md)
+proves represented rank 102 under both fixed primes and a strictly nonzero
+direct image for the inherited near-null witness. This selects
+`LOCAL_REPRESENTATIVE_NULLSPACE_REFUTED`: stop representative correction for
+this face and research/freeze no-drop rectangular arithmetic before any RHS.
+Do not choose numerical rank 101, remove a row, regularize or infer that
+binary64 QR/LSQR is already sufficient.
+
+The
+[R20R63G research](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63g-rectangular-factor-precision-contract.md) freeze
+the first no-drop arithmetic discriminator. It factors `A^T` with the same
+complete inherited permutation in binary128 and strict binary64, audits thin
+orthogonality/reconstruction/Gram correspondence, and tests coefficient
+storage separately from factor arithmetic against the immutable R63F weak
+signal. No RHS, new pivot search, rank threshold, row action or production
+arithmetic choice is admitted.
+
+The
+[R20R63H research](../../development/nonlocal-nsr3b4e2d7r20r63h-bounded-wide-factor-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63h-bounded-wide-factor-contract.md) freeze the
+minimum mixed-precision boundary. The operator remains binary64; only its
+active `315 x 102` factor workspace is promoted. A second lane casts the
+completed factor back to binary64. Both lanes must preserve the stored and
+original weak images under strict open signal balls. No RHS, triangular solve,
+iterative refinement or default runtime-wide arithmetic is admitted.
+
+The
+[R20R63H evidence](../../development/nonlocal-nsr3b4e2d7r20r63h-bounded-wide-factor-evidence-2026-08-26.md)
+selects `WIDE_BUILD_BINARY64_EXPORT_CANDIDATE`. A promoted factor built from
+the stored binary64 operator preserves both stored/original weak signals, and
+one-time binary64 export still remains inside both signal balls. The export
+original-image squared error is `1.46e-31` versus signal `3.95e-30`. Research
+one immutable RHS through retained-wide, exported-wide-consumption and strict-
+binary64-consumption lanes next; do not integrate or infer production
+arithmetic.
+
+The
+[R20R63I research](../../development/nonlocal-nsr3b4e2d7r20r63i-exported-factor-rhs-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63i-exported-factor-rhs-contract.md) freeze the
+first no-drop RHS. Retained-wide, exported-factor/wide-consumption and
+exported-factor/strict-binary64 lanes each execute two triangular solves once.
+The original R60 left-inverse contraction converts independently enclosed
+captured-system residuals into rigorous error radii, and all 102 signs must
+match the R60 `24+/78-` component pattern. No lane updates the parent solve.
+
+The
+[R20R63I evidence](../../development/nonlocal-nsr3b4e2d7r20r63i-exported-factor-rhs-evidence-2026-08-26.md)
+selects `WIDE_RHS_SIGN_CERTIFICATE_REJECTED`. Even retained-wide consumption
+of the factor built from the binary64-stored operator gives an independently
+certified original-system error radius `4.14356e15` with 66 unresolved signs.
+Export/wide and export/binary64 fail similarly. Thus triangular precision is
+not the first boundary: weak-image preservation did not make the rounded
+operator safe to invert. Research a pre-bounded original-residual refinement
+next; do not publish state or infer runtime/production readiness.
+
+The
+[R20R63J research](../../development/nonlocal-nsr3b4e2d7r20r63j-original-residual-refinement-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63j-original-residual-refinement-contract.md) freeze
+one bounded centered correction per R63I lane. A common verified
+`C=I-XH` drives 16 fixed Neumann terms; depths `4/8/9/10/12/16` are each
+recertified independently against original `H,b` and the R60 componentwise
+sign vector. The experiment may prove mathematical recoverability only; dense
+`X`, binary128 correction, runtime integration and production inference remain
+out of scope.
+
+The
+[R20R63J evidence](../../development/nonlocal-nsr3b4e2d7r20r63j-original-residual-refinement-evidence-2026-08-26.md)
+selects `EXPORTED_FACTOR_REFINED_RHS_CANDIDATE`. All three rejected R63I
+initial solutions recover the exact `24+/78-` sign vector at frozen depth 4;
+their certified errors are `3.11e-3 / 1.99e-3 / 4.51e-3`. This proves
+recoverability with original residuals, but the correction still consumes the
+dense verified inverse oracle. Research factor-based standard refinement next,
+keeping that inverse only for independent certification.
+
+The
+[R20R63K research](../../development/nonlocal-nsr3b4e2d7r20r63k-factor-standard-refinement-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63k-factor-standard-refinement-contract.md) freeze
+16 standard refinement transactions for each retained/exported factor lane.
+Every update solves the original residual through that factor; the dense
+verified inverse is restricted to independent certificates at iterations
+`1/2/4/8/16`. This distinguishes an ordinary mixed-precision correction from
+the more complex GMRES-IR/PCG/low-rank branches before implementation.
+
+The
+[R20R63K evidence](../../development/nonlocal-nsr3b4e2d7r20r63k-factor-standard-refinement-evidence-2026-08-26.md)
+selects `WIDE_FACTOR_STANDARD_REFINEMENT_REJECTED`. Retained-wide correction
+contracts monotonically but still has error `144` and four unresolved signs at
+iteration 16; export/wide reaches `5.06e4`. Strict binary64 correction is
+nonmonotone and remains order `1e15`. Research a separate frozen 17--32
+convergence frontier for the two wide lanes before choosing GMRES-IR/PCG; do
+not amend the closed R63K budget.
+
+The
+[R20R63L research](../../development/nonlocal-nsr3b4e2d7r20r63l-wide-refinement-frontier-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63l-wide-refinement-frontier-contract.md) freeze an
+exact continuation of only the retained-wide and export/wide R63K states.
+Every iteration 17--32 is executed and independently certified; the unstable
+strict-binary64 lane receives zero continuation work. This locates the natural
+stationary-convergence frontier before selecting a Krylov or low-rank
+accelerator.
+
+The
+[R20R63L evidence](../../development/nonlocal-nsr3b4e2d7r20r63l-wide-refinement-frontier-evidence-2026-08-26.md)
+selects `EXPORTED_FACTOR_WIDE_STANDARD_REFINEMENT_CANDIDATE`. Retained-wide
+first certifies at total iteration 17 and export/wide at 21; every later frozen
+iterate through 32 remains certified. This is the exact stationary work
+baseline, not a production recommendation. Research an eight-step SPD
+preconditioned-CG discriminator next and compare deterministic factor/operator
+work before considering GMRES-IR or low-rank correction.
+
+The
+[R20R63M research](../../development/nonlocal-nsr3b4e2d7r20r63m-preconditioned-cg-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63m-preconditioned-cg-contract.md) freeze two
+eight-update PCG lanes from the original rejected R63I starts. Each budget has
+eight factor preconditioner solves and nine original-`H` applications versus
+the stationary 17/21 baselines. Every iterate is independently sign-certified
+and recurrence/direct-residual drift is bound; no wall timing, strict
+binary64, restart or production inference is admitted.
+
+The
+[R20R63M evidence](../../development/nonlocal-nsr3b4e2d7r20r63m-preconditioned-cg-evidence-2026-08-26.md)
+selects `EXPORTED_FACTOR_WIDE_PCG_CANDIDATE`. Both lanes certify all 102 signs
+at iteration 2 and remain certified through the frozen iteration 8. Full
+predeclared work is 16 factor solves and 18 algorithmic `H` applications,
+versus 38/38 for R63L. This selects PCG for the captured RHS but retains dense
+`H`, binary128 arithmetic and an offline dense-inverse certificate. Research
+dense-versus-rectangular matrix-free product correspondence next; do not infer
+a runtime stop rule, GPU throughput or production authority.
+
+The
+[R20R63N research](../../development/nonlocal-nsr3b4e2d7r20r63n-matrix-free-correspondence-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63n-matrix-free-correspondence-contract.md) freeze
+the dense-versus-direct product gate. It exhaustively compares all 102
+canonical basis products, then replays both eight-update PCG lanes with
+`(1/(1+eta))T(T^T p)` driving the recurrence and dense `H` serving only as a
+bounded comparator/verifier. The full rectangular reference is deliberately
+not called faster; sparse zero elision, precision engineering, timing and
+production remain later stages.
+
+The
+[R20R63N evidence](../../development/nonlocal-nsr3b4e2d7r20r63n-matrix-free-correspondence-evidence-2026-08-26.md)
+selects `DIRECT_RECTANGULAR_PRODUCT_NOT_CONTAINED`. All 10,404 canonical basis
+components are contained, but both large R63I starts fail before an initial
+residual at minimum slack near `-3.34e-19`. This is not a PCG rejection. The
+raw direct-product bound omits propagation of the certified per-column
+representation defect through `|p_j|`. Research that exact defect transport
+next; do not fit a tolerance or relabel R63N.
+
+The
+[R20R63O research](../../development/nonlocal-nsr3b4e2d7r20r63o-canonical-defect-transport-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63o-canonical-defect-transport-contract.md) freeze
+the missing linear enclosure. One immutable `E_ij` is derived from each R63N
+canonical center difference and both arithmetic bounds, then transported as
+the exact upward `sum_j E_ij |p_j|` at every initial/Krylov product. `E` never
+enters PCG. No tolerance multiplier, sparse/precision change, timing or
+production inference is admitted.
+
+The
+[R20R63O evidence](../../development/nonlocal-nsr3b4e2d7r20r63o-canonical-defect-transport-evidence-2026-08-26.md)
+shows that the exact transported enclosure contains every product, but both
+matrix-free PCG lanes plateau near original-`H` error `3.746e13` with 66 signs
+unresolved. Thus the issue is no longer a missing bound: `H` and direct
+`K=sigma T T^T` have materially different inverses in the weak direction.
+Research an exact/higher-precision `A DPi A^T` semantic arbitration before
+choosing dense reproduction, low-rank correction or direct-operator authority.
+
+The
+[R20R63P research](../../development/nonlocal-nsr3b4e2d7r20r63p-projector-idempotence-research-2026-08-26.md)
+and [contract](03b4e2d7r20r63p-projector-idempotence-contract.md) freeze the
+smallest causal operator arbitration. The stored active-ball derivative uses
+`P_d=I-yy^T/d`; exact arithmetic gives
+`P_d^2-P_d=((y^T y-d)/d^2)yy^T`. R63P evaluates the inherited weak witness
+with exact dyadic/rational cross-products and asks whether dense `H` represents
+`sigma A P_d A^T` while the tangent Gram represents the distinct
+`sigma A P_d^2 A^T`. No RHS solve or empirical rank-one repair is admitted.
+
+The
+[R20R63P evidence](../../development/nonlocal-nsr3b4e2d7r20r63p-projector-idempotence-evidence-2026-08-27.md)
+selects `PROJECTOR_RANK_ONE_EXPLANATION_REJECTED`. Exact `s-d` is nonzero, but
+its weak rank-one effect is only `8.73e-68`, not the observed `3.48e-34` gap.
+Instead, tangent Gram is about `1.83e17` closer than stored dense `H` to the
+common exact oracle on the inherited weak witness. Research the complete exact
+`102 x 102` materialization error before another RHS solve or any operator-
+authority decision.
+
+The
+[R20R63Q research](../../development/nonlocal-nsr3b4e2d7r20r63q-full-operator-materialization-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63q-full-operator-materialization-contract.md)
+freeze an exhaustive exact-rational audit of all 10,404 common-operator
+entries. Dense and tangent materializations are compared by exact infinity and
+squared-Frobenius error norms, with no RHS solve, relative tolerance or fitted
+entry-win percentage.
+
+The
+[R20R63Q evidence](../../development/nonlocal-nsr3b4e2d7r20r63q-full-operator-materialization-evidence-2026-08-27.md)
+selects `TANGENT_GRAM_FULL_OPERATOR_CANDIDATE`. Tangent Gram is strictly better
+in exact infinity and squared-Frobenius error norms and wins 6,899 of 10,404
+entries. The ideal `P_d^2-P_d` infinity defect is only `4.95e-49`. Build a
+contractive inverse verifier against exact `H*` next; do not apply the RHS yet.
+
+The
+[R20R63R research](../../development/nonlocal-nsr3b4e2d7r20r63r-common-operator-inverse-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63r-common-operator-inverse-contract.md) freeze a
+raw canonical-column inverse from the original binary128 tangent QR. Exact
+rational left and right defects against `H*` must both contract before any RHS
+is admitted; dense `X`, symmetrization and refinement are forbidden.
+
+The
+[R20R63R evidence](../../development/nonlocal-nsr3b4e2d7r20r63r-common-operator-inverse-evidence-2026-08-27.md)
+selects `COMMON_OPERATOR_TWO_SIDED_CANDIDATE`. Exact common-operator defects
+contract at `rho_left=9.06e-3` and `rho_right=3.57e-3`, yielding a strict left
+amplification bound `1.05019e33`. Replay the immutable RHS through direct
+tangent PCG next and certify exact common residual/signs without dense `H/X`.
+
+The
+[R20R63S research](../../development/nonlocal-nsr3b4e2d7r20r63s-common-operator-pcg-certificate-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63s-common-operator-pcg-certificate-contract.md)
+freeze both eight-update direct tangent-PCG lanes. The start and every iterate
+receive an exact `H*` residual and R63R solution-error/sign certificate. Dense
+`H/X`, R60 signs and defect transport are excluded.
+
+The
+[R20R63S evidence](../../development/nonlocal-nsr3b4e2d7r20r63s-common-operator-pcg-certificate-evidence-2026-08-27.md)
+selects `RETAINED_WIDE_COMMON_OPERATOR_PCG_REJECTED`. Both complete lanes reach
+an exact common residual near `5e-19`, but the verified `1.05e33`
+amplification leaves the same 66 signs unresolved. Iterations 6--8 are
+byte-stationary, so more unchanged PCG updates are not a credible next step.
+Research a fixed-depth common-residual recoverability discriminator using the
+R63R verifier next; keep it offline and separate from a later factor-based or
+wider finite representation.
+
+That discriminator is now frozen by the
+[R20R63T research](../../development/nonlocal-nsr3b4e2d7r20r63t-common-residual-recoverability-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63t-common-residual-recoverability-contract.md).
+It replays both exact R63S finals through 16 fresh exact-common-residual
+corrections with offline `Z`, independently certifies every updated center and
+continues after the first pass. The fixed budget follows the verified
+`rho_left` contraction but no analytic estimate can select a route.
+
+The
+[R20R63T evidence](../../development/nonlocal-nsr3b4e2d7r20r63t-common-residual-recoverability-evidence-2026-08-27.md)
+selects `RETAINED_WIDE_COMMON_RESIDUAL_REFINEMENT_REJECTED`. Both lanes merge
+at a binary128 update floor with the same 66 signs unresolved. Crucially,
+their first computed residual images are only `4.47e-4/1.09e-3`, about 17--18
+orders below the coarse product-norm error radius. Research an exact `Zr`
+residual-image certificate on the unchanged R63S candidates before wider
+updates, factor correction or finite-representation redesign.
+
+That exact discriminator is now frozen by the
+[R20R63U research](../../development/nonlocal-nsr3b4e2d7r20r63u-exact-residual-image-certificate-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63u-exact-residual-image-certificate-contract.md).
+It converts the R63R verifier once, computes `Zr` entirely in exact dyadics for
+the two unchanged R63S finals and derives signs from
+`||Zr||inf/(1-rho_left)`. R63T rounded corrections are causal evidence only
+and cannot enter the certificate.
+
+The
+[R20R63U evidence](../../development/nonlocal-nsr3b4e2d7r20r63u-exact-residual-image-certificate-evidence-2026-08-27.md)
+selects `TWO_LANE_EXACT_RESIDUAL_IMAGE_CANDIDATE`. Without changing either
+candidate, exact image radii tighten from order `1e14` to
+`4.51e-4/1.10e-3`; both independently resolve `24+/78-/0?` with the same sign
+root. Locate the earliest stable R63S iterate under this certificate next,
+then research a bounded finite residual-image verifier before sparse or
+performance work.
+
+The earliest-state replay is now frozen by the
+[R20R63V research](../../development/nonlocal-nsr3b4e2d7r20r63v-earliest-residual-image-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63v-earliest-residual-image-contract.md). It
+certifies both immutable state ladders `0..8`, continues after pass and
+requires state-8 certificates to reproduce R63U exactly.
+
+The
+[R20R63V evidence](../../development/nonlocal-nsr3b4e2d7r20r63v-earliest-residual-image-evidence-2026-08-27.md)
+selects `TWO_LANE_EARLIEST_IMAGE_CANDIDATE`. Both lanes first resolve all
+`24+/78-` signs at state 2 and remain certified through state 8. The complete
+R63B--R63U stdout lineage remains byte-exact. State 2 is an offline common-
+operator correctness baseline, not a runtime iteration cap.
+
+The next finite-arithmetic discriminator is frozen by the
+[R20R63W research](../../development/nonlocal-nsr3b4e2d7r20r63w-finite-residual-image-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63w-finite-residual-image-contract.md). It encloses
+states `0..2` using compensated binary128 residual/image dots plus outward
+representation and interval propagation. Exact R63U arithmetic is an
+independent containment oracle only. Sparse realization, timing and production
+remain blocked until this finite boundary closes.
+
+The
+[R20R63W evidence](../../development/nonlocal-nsr3b4e2d7r20r63w-finite-residual-image-evidence-2026-08-27.md)
+selects `RETAINED_WIDE_FINITE_IMAGE_REJECTED`. All 1,224 exact residual/image
+entries are contained, but componentwise residual radii lose correlation when
+multiplied by `|Z|`; both state-2 error bounds return to `5.80e14` and leave 66
+signs unresolved. This refutes the selected interval factorization, not finite
+containment or ordinary Dot2 arithmetic.
+
+The correlation-preserving successor is frozen by the
+[R20R63X research](../../development/nonlocal-nsr3b4e2d7r20r63x-composed-affine-image-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63x-composed-affine-image-contract.md). It evaluates
+the equivalent affine form `Zb-(ZH*)x` in one compensated dot per row, with
+exact arithmetic restricted to profile construction and independent
+containment. Dense success would still require a later factorized/sparse gate.
+
+The
+[R20R63X evidence](../../development/nonlocal-nsr3b4e2d7r20r63x-composed-affine-image-evidence-2026-08-27.md)
+selects `TWO_LANE_AFFINE_IMAGE_CANDIDATE`. All 612 finite image intervals
+contain the independent exact images; states 0--1 reject, while both state-2
+candidates resolve `24+/78-/0?` at `4.44e-4/1.01e-3`. This recovers roughly
+18 orders relative to R63W without changing precision and identifies lost
+residual correlation as the causal boundary. Research a factorized/sparse
+affine enclosure next; dense exact `ZH*`, timing and production remain blocked.
+
+The next route is frozen by the
+[R20R63Y research](../../development/nonlocal-nsr3b4e2d7r20r63y-portable-expansion-affine-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63y-portable-expansion-affine-contract.md). The local
+condition lower estimate near `2.58e32` lies far beyond the generic binary64
+sparse-verification range established in the 2026 literature. R63Y therefore
+executes fixed onefold and twofold binary64 expansions of the R63X affine form
+before changing the verifier theorem or sparse operator. Both widths run the
+complete two-lane state `0..2` corpus; exact images are containment-only.
+
+The
+[R20R63Y evidence](../../development/nonlocal-nsr3b4e2d7r20r63y-portable-expansion-affine-evidence-2026-08-27.md)
+selects `TWOFOLD_AFFINE_IMAGE_CANDIDATE`. Onefold binary64 contains every
+exact image but leaves one state-2 sign unresolved in each lane at error near
+`48.45`. Twofold contains all `1,224` images and reproduces both R63X state-2
+certificates at `4.44e-4/1.01e-3` with the frozen `24+/78-/0?` sign root. The
+finite certificate contains no binary128 or exact value. Research a
+factorized/sparse candidate producer and immutable producer/verifier artifact
+boundary next; dense profile construction, candidate generation, corpus,
+timing, runtime, GPU and production remain blocked.
+
+The
+[R20R63ZA research](../../development/nonlocal-nsr3b4e2d7r20r63za-finite-factor-consumption-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63za-finite-factor-consumption-contract.md) freeze three
+twofold exported-factor solves: start generation, the initial PCG residual and
+the iteration-1 residual. Each triangular row receives an a-posteriori
+equation enclosure; both intermediate and output reference components are
+audited independently. No PCG scalar/update or new operator product is
+admitted.
+
+The
+[R20R63ZA evidence](../../development/nonlocal-nsr3b4e2d7r20r63za-finite-factor-consumption-evidence-2026-08-27.md)
+selects `TWOFOLD_EXPORTED_FACTOR_CONSUMPTION_CANDIDATE`. All three solves and
+`612/612` intermediate/output containments close. K2 centers differ from the
+binary128 references by at most `0.0424`, while sequential dependency radii
+grow to `1e24..1e25`; the latter are not admissible recurrence uncertainty.
+Research a sealed-center state-`0..2` K2 recurrence with final independent
+R63Y verification next.
+
+The
+[R20R63ZB research](../../development/nonlocal-nsr3b4e2d7r20r63zb-twofold-recurrence-research-2026-08-27.md)
+and [contract](03b4e2d7r20r63zb-twofold-recurrence-contract.md) freeze one
+sealed-center exported K2 PCG lane through states `0..2`. The producer performs
+three operator products, three factor solves, four Krylov dots and 510 vector
+updates; R63Y independently requires reject/reject/pass. R63ZA dependency
+radii, binary128 candidates and adaptive stopping are excluded.
+
+The
+[R20R63ZB evidence](../../development/nonlocal-nsr3b4e2d7r20r63zb-twofold-recurrence-evidence-2026-08-27.md)
+closes as reviewed bounded-negative evidence at
+`TWOFOLD_RECURRENCE_LADDER_REJECTED`. Apparatus, identity, arithmetic,
+positivity, verifier and fixed-work controls close, but every finite state
+remains `12+/24-/66?`; the state-2 error upper is about `1.07e15`. A
+binary128 replay of the same finite operator/factor artifacts also rejects,
+but shares R63Y and is localization-only. Research a fixed `2x2`
+tangent/common-operator by original/projected-input discriminator next; the
+exported factor is common to both lineages. Do not retry the same artifact
+pair, infer general PCG/K2 failure, or begin timing/runtime/GPU/production
+work.
+
+The
+[R20R63ZC research](../../development/nonlocal-nsr3b4e2d7r20r63zc-operator-input-factorial-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63zc-operator-input-factorial-contract.md) freeze the
+minimal causal discriminator. Four binary128 lanes cross tangent/common-block
+operator action with original/projected RHS and inverse scale while retaining
+the identical exported factor, recurrence and R63Y profile. The two known
+diagonal endpoints must reproduce R63X and the R63ZB comparator before the
+hybrids classify operator sufficiency, input sufficiency, independent effects
+or interaction. This is observational localization only; finite repair,
+timing and integration remain blocked.
+
+The
+[R20R63ZC evidence](../../development/nonlocal-nsr3b4e2d7r20r63zc-operator-input-factorial-evidence-2026-08-27.md)
+is reviewed bounded support for
+`COMMON_OPERATOR_PERTURBATION_SUFFICIENT`: tangent/original and
+tangent/projected both retain reject/reject/pass, while common/original and
+common/projected both reject all three states. This attributes the fixed
+certificate loss to the operator representation without selecting a repair.
+Before an R63ZD successor consumes the fast external fixture, repair its
+frozen-parent sealing and kernel admission controls. Then freeze an exhaustive
+three-product tangent/common schedule over unchanged original inputs; no
+precision, factor, iteration, tolerance, timing or production change is
+admitted.
+
+The sealing repair now binds the cached original/projected RHS, common payload
+and common endpoint sets to frozen parent roots, and relevant kernels validate
+their consumed payload. The
+[R20R63ZD research](../../development/nonlocal-nsr3b4e2d7r20r63zd-operator-use-schedule-research-2026-08-27.md),
+[contract](03b4e2d7r20r63zd-operator-use-schedule-contract.md) and
+[captured evidence](../../development/nonlocal-nsr3b4e2d7r20r63zd-operator-use-schedule-evidence-2026-08-27.md)
+enumerate all eight schedules for `Hx0`, `Hp0` and `Hp1`. The Release pass mask
+is `10000000` and the authoritative inclusion-minimal rejecting masks are
+`{1,2,4}`: each common-operator use is independently sufficient to lose the
+state-2 certificate. Initial review rejected scale sealing and negative
+controls; one batch repaired both and the single re-review returned `GO` with
+no load-bearing finding. The reviewed result selects research of the smallest
+operator-value discrepancy discriminator next. It selects no operator repair
+and has no timing, runtime, GPU or production authority.
+
+The
+[R20R63ZE research](../../development/nonlocal-nsr3b4e2d7r20r63ze-denominator-residual-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63ze-denominator-residual-contract.md) freeze that next
+minimal discriminator. It retains the passing tangent
+trajectory through `p1`, computes both final tangent/common products and both
+quadratic denominators, then crosses denominator selection with terminal
+residual-product selection. Equal work and exact solution/residual aliases
+distinguish scalar step-length sufficiency from residual-vector dependence.
+The
+[reviewed evidence](../../development/nonlocal-nsr3b4e2d7r20r63ze-denominator-residual-evidence-2026-08-27.md)
+returns `1100` / `DENOMINATOR_STEP_SUFFICIENT`: solution/certificate roots
+depend only on the selected denominator while the independently differing
+residual roots prove that the terminal vector selector executed. Initial
+review found unsafe incomplete-lane precedence; one batched repair closed it
+and the single re-review returned `GO`. Research the exact/twofold quadratic
+denominator and induced step/certificate discrepancy next. Do not change an
+operator, factor, precision, depth, certificate or tolerance.
+
+The
+[R20R63ZF research](../../development/nonlocal-nsr3b4e2d7r20r63zf-quadratic-step-sign-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63zf-quadratic-step-sign-contract.md) freeze the next
+minimal audit. It reproduces both R63ZE endpoints once, encloses
+`p1^T(c-t)` against `d_c-d_t`, verifies the componentwise step displacement,
+then compares raw binary128 sign roots with the two immutable R63Y certificates
+and their error bounds. This distinguishes a real raw-solution sign change
+from loss of enclosure proof. Only the private scalar DTO exposes its already
+computed Dot2 bound; arithmetic, cache schema and recurrence remain unchanged.
+The
+[reviewed evidence](../../development/nonlocal-nsr3b4e2d7r20r63zf-quadratic-step-sign-evidence-2026-08-27.md)
+returns `CERTIFICATE_ENCLOSURE_AMPLIFICATION_CANDIDATE`. The two quadratic
+discrepancy intervals are positive and overlap, the induced step displacement
+is contained componentwise, and all 102 raw binary128 solution signs alias
+without zeros. The certificate `error_upper` nevertheless grows by about
+`3.06e16`, changing `24+/78-/0?` to `12+/24-/66?`. Initial review found
+producer-validity, work-classification, classifier-coverage and control-sealing
+defects; one batched repair closed them and the single re-review returned
+`GO`. Decompose affine-image center, representation radii and contraction
+amplification next. No operator/certificate repair or production authority
+follows.
+
+The
+[R20R63ZG research](../../development/nonlocal-nsr3b4e2d7r20r63zg-certificate-detail-decomposition-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63zg-certificate-detail-decomposition-contract.md)
+freeze that decomposition. The shared frozen profile has
+`rho_upper=0.00906152187947077`, so contraction contributes only about a
+`1.00914x` multiplier and cannot explain the observed `3.06e16` relative gap.
+R63ZG exposes unchanged R63Y image/solution detail, crosses two solution
+representations with tangent/common unamplified, center-only, radius-only and
+native global budgets, and requires native cells to reproduce R63ZF. This is
+synthetic boundary localization only; no modified certificate has authority.
+
+Reviewed
+[R63ZG evidence](../../development/nonlocal-nsr3b4e2d7r20r63zg-certificate-detail-evidence-2026-08-27.md)
+returns `AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT`: the common center-only
+budget rejects both immutable solution representations, its radius-only budget
+passes both, and the unamplified/native classifications alias. The next bounded
+research step is R63ZH componentwise decomposition of the unchanged center
+producer `v-Mx`; freeze that discriminator before another executable and do
+not apply a correction, alter the certificate or infer production authority.
+
+The
+[R20R63ZH research](../../development/nonlocal-nsr3b4e2d7r20r63zh-center-producer-decomposition-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63zh-center-producer-decomposition-contract.md) freeze
+that stop discriminator. A separate exact-dyadic oracle must either expose a
+finite center-enclosure defect or close all 102 identities
+`r_c-r_t=-M(x_c-x_t)`. The latter ends certificate repair and permits common
+operator research only as an original-equation-preserving accelerator or
+preconditioner. No deeper center factorial or correction is admitted first.
+
+The reviewed
+[R63ZH evidence](../../development/nonlocal-nsr3b4e2d7r20r63zh-center-producer-decomposition-evidence-2026-08-28.md)
+returns `COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL`: all `204/204` exact
+centers are contained, exact and finite common maxima agree at row `65`, its
+interval excludes zero and all `102/102` transport identities close. Dev and
+two Release outputs are byte-identical. The
+[fresh independent review](../../development/nonlocal-nsr3b4e2d7r20r63zh-independent-review-evidence-2026-08-28.md)
+verified the snapshot, returned `GO` with no findings and reproduced both
+stdout and binary hashes. Certificate repair stops here; any successor common
+operator must serve only as an original-equation-preserving accelerator or
+preconditioner. No deeper factorial, correction, timing or production
+authority follows from this result.
+
+The
+[R20R63ZI research](../../development/nonlocal-nsr3b4e2d7r20r63zi-original-operator-twofold-recurrence-research-2026-08-28.md)
+and
+[contract](03b4e2d7r20r63zi-original-operator-twofold-recurrence-contract.md)
+freeze the first successor producer. It materializes the passing tangent-Gram
+operator as a width-two binary64 block, consumes the existing exported factor
+only as preconditioner, executes the unchanged projected-input state `0..2`
+recurrence and requires the original R63Y reject/reject/pass ladder. The common
+K2 operator remains a negative control. Exact coefficient/product containment,
+fixed work, failure precedence and fresh review are mandatory; dynamic
+building, corpus, timing and integration remain blocked meanwhile.
+
+The
+[R63ZI evidence](../../development/nonlocal-nsr3b4e2d7r20r63zi-original-operator-twofold-recurrence-evidence-2026-08-28.md)
+returns `AUTHOR_PASS / REVIEW_NOT_TESTED / BOUNDED_REJECTED`. All `10,404`
+coefficients and `306` executed product rows are exactly contained and two
+Release outputs are byte identical, but every state remains `12+/24-/66?`.
+The candidate is distinct from the common negative, so width-two dense
+tangent-Gram storage is rejected rather than aliased. Localize stored-product
+precision against a binary128-tangent/K2-projection hybrid next; do not widen
+the whole recurrence or begin dynamic/runtime work first.
+
+The
+[R63ZJ research](../../development/nonlocal-nsr3b4e2d7r20r63zj-product-precision-localization-research-2026-08-28.md)
+and
+[contract](03b4e2d7r20r63zj-product-precision-localization-contract.md)
+freeze that localization. Revision 1 correctly stopped because one K2 input
+cannot be collapsed exactly into a 113-bit binary128 significand. Revision 2
+keeps the three logical operator sites but applies the frozen binary128 tangent
+kernel separately to exact high/low vectors, projects both outputs to K2 and
+combines them with canonical K2 addition. Every factor solve, scalar operation,
+state update, input, iteration and verifier remains R63ZI. Pass localizes
+failure to dense operator storage/product precision; rejection requires
+product-width versus update localization before any width-three design.
+
+The
+[R63ZJ final evidence](../../development/nonlocal-nsr3b4e2d7r20r63zj-product-precision-localization-evidence-2026-08-28.md)
+closes that experiment as `INCONCLUSIVE`. The single repair re-review
+reproduced stdout and regressions exactly but demonstrated fully resealed
+state/certificate drift that changes the route, fully resealed recurrence-work
+drift, and unowned callback-replay work. Therefore the observed ladder is only
+an untrusted deterministic observation: it cannot localize dense product
+precision, prove the remaining K2 recurrence unchanged or authorize a portable
+representation. R63ZK must first freeze a separate verifier that derives every
+state transition and certificate from the fixture, compares the complete
+trace, and seals candidate/replay work independently. R63ZJ receives no third
+repair or review.
+
+The
+[R63ZK research](../../development/nonlocal-nsr3b4e2d7r20r63zk-independent-recurrence-checker-research-2026-08-28.md)
+and
+[contract](03b4e2d7r20r63zk-independent-recurrence-checker-contract.md)
+freeze that verifier-first boundary. One captured R63ZJ DTO is untrusted input;
+an independent scheduler derives all K2 products, solves, dots, updates and
+certificates from the fixture, compares complete traces, and owns a separate
+replay ledger. Opaque author roots, route, certificate fields and work are
+never expected-value oracles. Implementation must stop if this dataflow cannot
+remain independent of the author transaction scheduler.
+
+The
+[R63ZK author evidence](../../development/nonlocal-nsr3b4e2d7r20r63zk-independent-recurrence-checker-evidence-2026-08-28.md)
+returned author `PASS`. Dev and two Release outputs are
+byte-identical at `37129010...9041`; the independent scheduler matches every
+state/product component, scalar identity, certificate semantic and
+candidate-work field, and derives the same reject/reject/pass ladder. All 18
+controls close, including three resealed drifts still accepted by the old
+author validator. The
+[initial independent review](../../development/nonlocal-nsr3b4e2d7r20r63zk-independent-review-evidence-2026-08-28.md)
+returned `NO-GO`: scalar payload/positivity semantics, complete work seals,
+specific mismatch routes and several semantic fields/controls were missing.
+Revision 2 freezes the experiment's only batched repair across all findings;
+representation and production work remain blocked.
+
+The
+[R63ZK repair evidence](../../development/nonlocal-nsr3b4e2d7r20r63zk-repair-evidence-2026-08-28.md)
+records repaired snapshot `7635d664`. Dev and two Release outputs are
+byte-identical at `73df9f1b...2755`; explicit scalars, four positivity guards,
+complete producer/checker/control receipts and first-specific routes close.
+All `64` controls pass, including `19` author-valid replays. The
+[single re-review request](../../development/nonlocal-nsr3b4e2d7r20r63zk-independent-rereview-request-2026-08-28.md)
+is frozen. No reviewed correspondence or representation/production authority
+exists before its verdict.
+
+The
+[R63ZK re-review evidence](../../development/nonlocal-nsr3b4e2d7r20r63zk-independent-rereview-evidence-2026-08-28.md)
+returns `NO-GO`. Six high/low tangent calls each repeat targeted payload
+validation and a complete tangent hash, but those validations/hashes are not
+owned by the checker receipt. R63ZK is therefore `INCONCLUSIVE` and receives no
+second repair. Any work-accounting closure must be a new package after a
+bounded comparison of immutable once-admitted context versus compositional
+primitive receipts; portable representation and production work remain
+blocked.
+
+The bounded
+[R63ZL work-boundary research](../../development/nonlocal-nsr3b4e2d7r20r63zl-admitted-tangent-work-boundary-research-2026-08-28.md)
+selects a hybrid of one-time immutable admission and small typed product
+receipts. The frozen
+[contract](03b4e2d7r20r63zl-admitted-tangent-work-boundary-contract.md)
+requires one direct tangent/scale validation and payload hash, a
+private-constructor/no-mutator context, six admitted products with all kernel
+and hash paths owned, and a separately accounted six-call legacy reference.
+R63ZL is only an API/work-boundary experiment; it cannot revive the R63ZK
+correspondence claim or authorize representation, timing or production work.
+The
+[author evidence](../../development/nonlocal-nsr3b4e2d7r20r63zl-admitted-tangent-work-boundary-evidence-2026-08-28.md)
+records byte-identical Dev/two-Release stdout `329ee21f...f28c`, exact
+`612/612` legacy component correspondence, closed typed receipts and seven
+controls. The neutral
+[independent review request](../../development/nonlocal-nsr3b4e2d7r20r63zl-independent-review-request-2026-08-28.md)
+was frozen before inspection. The initial review found a hidden full-parent
+validation before admission, an unstructured real admission-failure path,
+interleaved legacy execution, incomplete seals and unowned copy work. The
+revision-3 repair still left load-bearing work/control-seal omissions, so
+R63ZL is `INCONCLUSIVE` and authorizes no correspondence or production claim.
+
+The frozen
+[R63ZM fixed-binary trace boundary contract](03b4e2d7r20r63zm-fixed-binary-trace-boundary-contract.md)
+replaces object/API admission with an exact little-endian byte protocol and an
+independent checker. The revision-4 review found rejected-route parser and
+hidden-work gaps; revision 5 closes those findings with a complete 420-byte
+audit/static-assert chain, independent route authority and explicit model and
+unused-byte ledgers. The exact
+[freeze manifest](../../development/nonlocal-nsr3b4e2d7r20r63zm-rev5-freeze-manifest-2026-08-29.md)
+and
+[independent re-review evidence](../../development/nonlocal-nsr3b4e2d7r20r63zm-independent-rereview-evidence-2026-08-29.md)
+record `GO`: fresh Release builds are byte-identical, baseline replay is
+stable, all `56/56` controls pass twice and produce `57/57` distinct audits,
+and the required revision-4 counterexamples now take the sealed rejected
+route. This admits only the exact fixed-cache tangent boundary, six bit-exact
+direct-index products, fixed binary transport and checker work closure. It
+does not admit a recurrence, representation family, dynamic builder, corpus,
+timing, runtime, Rust, GPU, cross-target or production claim.
+
+The bounded
+[R63ZN research](../../development/nonlocal-nsr3b4e2d7r20r63zn-fixed-artifact-initial-recurrence-research-2026-08-29.md)
+falsifies direct full-recurrence replay from the six R63ZM roles: only role 2
+can correspond to `H*x0`, while no role carries `p0` or `p1`, and rounded
+binary128 state differences cannot generally reconstruct their products
+bit-exactly. The frozen
+[revision-2 contract](03b4e2d7r20r63zn-fixed-artifact-initial-recurrence-contract.md)
+therefore selects only one independently checked consumer prefix: solve `x0`,
+prove role-2 input correspondence, consume its `H*x0`, then derive
+`r0/z0` and a certified-positive Dot2 enclosure for `rho0`. Revision 2 was
+frozen before code after tracing the inherited compensated arithmetic. No
+complete recurrence, certificate, representation or production authority
+exists.
+An external author preflight now reproduces `102/102` role-2 input components,
+exact/no-underflow residual work, the second factor solve and a
+certified-positive `rho0` lower bound twice at stdout
+`dccaf8c1...fc5f`. It is offset-only reachability evidence, not the contracted
+parser/receipt/checker package, so the claim ceiling is unchanged.
+The first formal review of exact snapshot `846dbac6` returned independent
+`NO-GO`: role-2 `H*x0` was consumed before `x0` correspondence, the declared
+strict-C++20 build did not reproduce the frozen binaries, checker read and
+audit-serialization work was unsealed, full receipt layout assertions were
+incomplete and no reachable nonfinite control existed. The
+[review evidence](../../development/nonlocal-nsr3b4e2d7r20r63zn-independent-review-evidence-2026-08-29.md)
+preserves the exact counterexample and identities.
+The single batched revision-3 repair keeps the 1,368-byte/67-field candidate
+receipt, moves all role-2 work after correspondence, enforces strict
+`-std=c++20`, completes the layout chain, expands the checker audit to 700
+bytes/51 fields and adds a public nonfinite control. Two clean builds reproduce
+all binaries byte-for-byte; the expanded corpus passes `118/118` twice with
+`118/118` distinct audits, deterministic report `24208010...d2def`, repaired
+receipt `1e42c834...ba1ac` and audit `4f09b539...e2e4eb`.
+The single re-review closed those five items but found that checker negative
+paths seal planned full comparison counts after short-circuit evaluation has
+skipped later predicates. Exact mutants show `345` actual versus `536` claimed
+semantic-byte comparisons and one actual versus `67` claimed work-field
+comparisons; event and malformed-header paths are likewise overstated. The
+final verdict is `NO-GO / R63ZN INCONCLUSIVE`. Its review budget is exhausted,
+so there is no second repair/re-review and no reviewed prefix or wider
+authority.
+
+The frozen
+[R63ZO contract](03b4e2d7r20r63zo-rounded-update-product-enclosure-contract.md)
+asked a materially different bounded question from reviewed R63ZM. Its
+strict-C++20 preflight reproduces both adjacent state products and all
+`102/102` compensated updates. Both tight `|H|` and cancellation-free
+`sigma|T|(|T|^T u)` envelopes contain the late direct `H*p0` oracle and retain
+a positive denominator, but neither constrains the step to the width-`2^-112`
+update cell. Tight step uncertainty is about `2^106.35` too wide and is
+dominated by the absolute image of update rounding, not the reviewed product
+bounds. Two outputs are byte-identical at `d3cfe83e...d5ce3`; the selected
+route is `TIGHT_PRODUCT_ENCLOSURE_REJECTED`. R63ZO closes before an
+exact-rational receipt/checker package and grants no positive enclosure,
+iterate, representation, runtime or production authority. The next question
+must admit direct `H*p0` independently and may not consume R63ZN.
+
+The frozen
+[R63ZP contract](03b4e2d7r20r63zp-direct-direction-product-admission-contract.md)
+keeps that matrix-vector product explicit. A small first probe will derive
+`p0`, evaluate one binary128 two-stage tangent product and independently form
+the exact real `H*p0` with signed integer dyadics. It stops at the first
+component outside the published primary-plus-bound interval. Only a complete
+containment result may justify a later serialized candidate/checker package;
+neither the preflight nor that future package may read future states before the
+product seal, build a recurrence or select a portable representation.
+
+The R63ZP apparatus now passes. Two Release executions and ASan/UBSan are
+byte-identical at `2a419ecf...0082fa`; all `102` exact signed-dyadic products
+are contained under exact root `271facfd...272f2f`, curvature is positive and
+the late compensated update matches `102/102`. An independent Python big-int
+calculation reproduces the root and minimum slack. The zero-bound control
+escapes first at component `0`. This author preflight permits only the separate
+serialized producer/checker implementation; no product is admitted before
+formal review.
+Revision 2 was rejected before code because its prose required serialization
+ownership while its 32-field ledgers omitted output commit and serialization
+work. The first revision-3 checker compilation then exposed seven unowned
+rounded-product work classes, and revision 4 reused a pre-seal predicate field
+for 102 late `x1` checks. Revision 5 keeps the arithmetic scope unchanged and
+freezes a `6,152`-byte candidate, `1,168`-byte checker audit, eight causal
+events and separate 61/70-field actual-work ledgers. The product-body seal
+still precedes every `x1` decode.
+The revision-5 author package now passes two clean Release builds, two complete
+`174/174` control runs, ASan/UBSan and exact R63ZM/R63ZO regressions. Candidate
+and audit roots are `82fc6740...d8f9f3` and `21dffa88...14ca0a`. This is frozen
+for independent review and grants no admission yet.
+The independent revision-5 review returned `NO-GO`: checker oracle/`x1` work
+crossed the body seal, routes 1--5 lacked independently verified partial
+receipts, fixed predicates overstated short-circuit execution and nominal
+mutation counts did not cover the named arithmetic/causal matrix. One batched
+revision-6 repair and one re-review remain.
+Revision 6 is now frozen as that single repair: `6,176`-byte candidate,
+`1,176`-byte audit, 64/71 work fields, body-before-oracle and
+event-6-before-`x1` staging, verified partial routes 1--7 and named negative
+arithmetic controls. A later layout change is not permitted.
+
+The
+[R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
+and
+[contract](03b4e2d7r20r63z-active-block-operator-contract.md) select a
+block-dense common-operator discriminator before a sparse rewrite. The current
+`102 x 315` tangent is 55.24% full: CSR/CSC `T(T^T p)` visits 35,496 stored
+coefficients per vector versus at most 10,404 for the complete common block.
+R63Z will build one identity-bound twofold `H*` artifact and independently
+contain all 612 products for both lanes at states `0..2`. It performs no PCG,
+candidate update, sparse build or timing.
+
+The
+[R20R63Z evidence](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-evidence-2026-08-27.md)
+selects `TWOFOLD_BLOCK_DENSE_OPERATOR_CANDIDATE`. All `10,404` operator
+entries have nonzero low words, all `612/612` independent exact products are
+contained, and the immutable artifact/lane/state lifecycle controls pass.
+For this dimension-102 block, the selected direct action visits 10,404
+coefficients rather than 35,496 in sparse two-stage `T(T^T x)`; this is a
+structural selection, not timing evidence. Research a fixed finite
+factor/preconditioner consumption recurrence next. Candidate updates, corpus,
+timing, runtime, GPU and production remain blocked.
+
+The
+[R20R63G evidence](../../development/nonlocal-nsr3b4e2d7r20r63g-rectangular-factor-precision-evidence-2026-08-26.md)
+selects `BINARY64_RECTANGULAR_FACTOR_FLOOR`. Rounding the operator to binary64
+preserves the immutable weak signal, and the binary128 factor preserves it by
+a wide margin. Strict-binary64 Householder QR loses it even though global
+orthogonality/reconstruction/Gram residuals remain around `1e-15..1e-17` and
+all 102 factor diagonals are nonzero. Preserve binary64 storage; research a
+bounded wider factor/accumulation or reorthogonalized Golub--Kahan lane before
+any RHS. Do not infer default binary128 runtime arithmetic.

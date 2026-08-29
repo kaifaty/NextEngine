@@ -17,7 +17,8 @@ PhysX baseline or public schemas without a consumer-backed Accepted ADR.
 ```text
 00 Shared product/evidence gates
  ├─ Water: ../continuum-water W0A → W0B → W1 → W2 → W3 → W4 → W5 → W6
- │                                           └──────── optional WG mirror
+ │                                           ├──────── optional WG mirror
+ │                                           └──────── bounded Nonlocal research
  └─ Terrain:
      10T dry-sand evidence contract
        → 11T serial MLS-MPM dry-sand reference
@@ -35,6 +36,7 @@ Exact active persistence (water W5 or terrain 13T)
 | Package | Specification | Starts only after |
 |---|---|---|
 | 00 | [Shared product and evidence gates](00-product-and-evidence-gates.md) | none |
+| NR | [Nonlocal continuum research](../nonlocal-continuum/README.md) | W1 PASS plus explicit bounded-spike selection; grants no W2 credit |
 | 10T | [Dry-sand product and evidence contract](10-dry-sand-product-and-evidence-contract.md) | 00 |
 | 11T | [Serial MLS-MPM dry-sand reference](11-mls-mpm-dry-sand-reference.md) | 10T profile/curves frozen |
 | 12T | [Exclusive wheel/terrain coupling](12-exclusive-wheel-terrain-coupling.md) | 11T PASS |
@@ -67,6 +69,11 @@ Water and terrain do not block one another after Package 00. A passing water
 oracle does not validate MPM, and a passing dry-sand corpus does not authorize
 wet soil. Free-water/terrain flux is the first package that joins both owner
 lanes and therefore requires both exact active persistence gates.
+
+The Nonlocal branch is a numerical research alternative after the current W2
+CPU and direct-GPU performance misses. It neither establishes a universal
+solver nor changes the selected DFSPH/APIC-MPM owner lanes. Only a later
+explicit Proposed reclosure may consume its completed NR4 decision.
 
 Package 20X and 21X are future optional branches. They are never implicit work
 inside a solver, save or streaming package and receive no roadmap credit from
