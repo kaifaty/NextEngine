@@ -29,6 +29,7 @@ target_compile_options(
 add_executable(
     nonlocal-corrected-cuda-terms
     src/corrected_cuda_terms.cu
+    src/corrected_cuda_terms_energy.cpp
     src/corrected_cuda_terms_main.cpp
     src/corrected_cuda_terms_reference.cpp
     src/sha256.cpp

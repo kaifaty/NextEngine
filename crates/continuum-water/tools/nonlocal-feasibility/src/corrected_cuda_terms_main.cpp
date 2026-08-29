@@ -18,6 +18,7 @@ namespace {
 
 constexpr double MIXED_LIMIT = 2.0e-5;
 constexpr double ZERO_LIMIT = 2.0e-7;
+constexpr double ENERGY_DERIVATIVE_LIMIT = 2.0e-5;
 constexpr int COLD_REPEATS = 10;
 
 struct NamedInput {
@@ -170,6 +171,32 @@ bool output_passes(
     return true;
 }
 
+double energy_derivative_error(
+    const GpuTermOutput& candidate,
+    const EnergyDerivativeOutput& reference) {
+    const double projection = candidate.first_force[0] * reference.direction.x
+        + candidate.first_force[1] * reference.direction.y
+        + candidate.first_force[2] * reference.direction.z;
+    return std::abs(-projection - reference.directional_derivative)
+        / std::max(1.0, std::abs(reference.directional_derivative));
+}
+
+double force_projection(
+    const GpuTermOutput& candidate,
+    const EnergyDerivativeOutput& reference) {
+    return candidate.first_force[0] * reference.direction.x
+        + candidate.first_force[1] * reference.direction.y
+        + candidate.first_force[2] * reference.direction.z;
+}
+
+bool energy_derivative_passes(
+    const GpuTermOutput& candidate,
+    const EnergyDerivativeOutput& reference) {
+    return candidate.finite != 0 && reference.finite
+        && energy_derivative_error(candidate, reference)
+            <= ENERGY_DERIVATIVE_LIMIT;
+}
+
 std::string fixture_material(
     const AuditProfile& profile,
     const std::vector<NamedInput>& inputs) {
@@ -198,20 +225,37 @@ std::string result_material(const std::vector<GpuTermOutput>& output) {
     return bytes;
 }
 
+std::string energy_material(
+    const std::vector<EnergyDerivativeOutput>& output) {
+    std::ostringstream bytes;
+    bytes << std::setprecision(17);
+    for (const EnergyDerivativeOutput& value : output) {
+        bytes << value.directional_derivative << ':' << value.direction.x << ':'
+              << value.direction.y << ':' << value.direction.z << ':'
+              << (value.finite ? 1 : 0) << '|';
+    }
+    return bytes.str();
+}
+
 int run() {
     const AuditProfile profile;
     const std::vector<NamedInput> named_inputs = make_inputs(profile);
     const std::vector<TermInput> inputs = raw_inputs(named_inputs);
     std::vector<ReferenceTermOutput> reference;
+    std::vector<EnergyDerivativeOutput> energy_reference;
     reference.reserve(inputs.size());
+    energy_reference.reserve(inputs.size());
     for (const TermInput& input : inputs) {
         reference.push_back(evaluate_reference_term(profile, input));
+        energy_reference.push_back(
+            evaluate_viscosity_energy_derivative(profile, input));
     }
 
     std::vector<std::vector<GpuTermOutput>> corrected_runs;
     corrected_runs.reserve(COLD_REPEATS);
     for (int repeat = 0; repeat < COLD_REPEATS; ++repeat) {
-        corrected_runs.push_back(evaluate_gpu_terms(profile, inputs, false));
+        corrected_runs.push_back(evaluate_gpu_terms(
+            profile, inputs, GpuVariant::CorrectedFullPair));
     }
     bool repeat_exact = true;
     for (int repeat = 1; repeat < COLD_REPEATS; ++repeat) {
@@ -225,13 +269,29 @@ int run() {
 
     const std::vector<GpuTermOutput>& corrected = corrected_runs.front();
     const std::vector<GpuTermOutput> source =
-        evaluate_gpu_terms(profile, inputs, true);
+        evaluate_gpu_terms(profile, inputs, GpuVariant::SourceShapedGradient);
+    const std::vector<GpuTermOutput> directed_edge = evaluate_gpu_terms(
+        profile, inputs, GpuVariant::DirectedEdgeViscosity);
     bool corrected_passed = corrected.size() == reference.size();
     std::vector<bool> case_passed(inputs.size(), false);
     std::vector<double> case_errors(inputs.size(), 0.0);
+    std::vector<bool> energy_passed(inputs.size(), false);
+    std::vector<double> energy_errors(inputs.size(), 0.0);
+    std::vector<double> energy_projections(inputs.size(), 0.0);
     for (std::size_t index = 0; index < inputs.size(); ++index) {
         case_passed[index] = output_passes(corrected[index], reference[index]);
         case_errors[index] = maximum_output_error(corrected[index], reference[index]);
+        const bool viscosity = inputs[index].kind == TermKind::BulkViscosity
+            || inputs[index].kind == TermKind::ShearViscosity;
+        energy_passed[index] = !viscosity
+            || energy_derivative_passes(corrected[index], energy_reference[index]);
+        if (viscosity) {
+            energy_errors[index] = energy_derivative_error(
+                corrected[index], energy_reference[index]);
+            energy_projections[index] = force_projection(
+                corrected[index], energy_reference[index]);
+        }
+        case_passed[index] = case_passed[index] && energy_passed[index];
         corrected_passed = corrected_passed && case_passed[index];
     }
 
@@ -244,29 +304,53 @@ int run() {
     for (std::size_t index : required_negative) {
         negative_passed = negative_passed && source_rejected[index];
     }
+    const std::array<std::size_t, 2> required_directed_edge_negative = {4, 5};
+    bool directed_edge_negative_passed = true;
+    std::vector<bool> directed_edge_rejected(inputs.size(), false);
+    std::vector<double> directed_edge_energy_errors(inputs.size(), 0.0);
+    for (std::size_t index : required_directed_edge_negative) {
+        directed_edge_energy_errors[index] = energy_derivative_error(
+            directed_edge[index], energy_reference[index]);
+        directed_edge_rejected[index] =
+            !output_passes(directed_edge[index], reference[index])
+            && !energy_derivative_passes(
+                directed_edge[index], energy_reference[index]);
+        directed_edge_negative_passed = directed_edge_negative_passed
+            && directed_edge_rejected[index];
+    }
 
-    const bool passed = corrected_passed && repeat_exact && negative_passed;
+    const bool passed = corrected_passed && repeat_exact && negative_passed
+        && directed_edge_negative_passed;
     const std::string fixture_root = sha256_hex(
         fixture_material(profile, named_inputs));
     const std::string corrected_root = sha256_hex(result_material(corrected));
+    const std::string energy_root = sha256_hex(energy_material(energy_reference));
     const std::string source_root = sha256_hex(result_material(source));
+    const std::string directed_edge_root =
+        sha256_hex(result_material(directed_edge));
     std::ostringstream output;
     output << std::setprecision(17)
-           << "{\"schema\":\"nextengine.nonlocal.corrected_cuda_terms.ncga0.v1\","
+           << "{\"schema\":\"nextengine.nonlocal.corrected_cuda_terms.ncga0.v2\","
               "\"status\":\""
            << (passed ? "PASS" : "FAIL")
-           << "\",\"claim\":\"CORRECTED_TERM_CORRESPONDENCE_"
+           << "\",\"claim\":\"CORRECTED_FULL_PAIR_TERM_CORRESPONDENCE_"
            << (passed ? "SUPPORTED_BOUNDED" : "REJECTED")
            << "\",\"fixture_root\":\"" << fixture_root
            << "\",\"corrected_root\":\"" << corrected_root
+           << "\",\"energy_reference_root\":\"" << energy_root
            << "\",\"source_control_root\":\"" << source_root
+           << "\",\"directed_edge_control_root\":\"" << directed_edge_root
            << "\",\"environment\":" << gpu_environment_json()
            << ",\"thresholds\":{\"mixed\":" << MIXED_LIMIT
            << ",\"zero\":" << ZERO_LIMIT
+           << ",\"energy_derivative\":" << ENERGY_DERIVATIVE_LIMIT
            << "},\"cold_repeats\":" << COLD_REPEATS
            << ",\"repeat_exact\":" << (repeat_exact ? "true" : "false")
            << ",\"negative_control_passed\":"
-           << (negative_passed ? "true" : "false") << ",\"cases\":[";
+           << (negative_passed ? "true" : "false")
+           << ",\"directed_edge_negative_passed\":"
+           << (directed_edge_negative_passed ? "true" : "false")
+           << ",\"cases\":[";
     for (std::size_t index = 0; index < inputs.size(); ++index) {
         if (index != 0) {
             output << ',';
@@ -274,6 +358,25 @@ int run() {
         output << "{\"name\":\"" << named_inputs[index].name
                << "\",\"status\":\"" << (case_passed[index] ? "PASS" : "FAIL")
                << "\",\"maximum_mixed_error\":" << case_errors[index]
+               << ",\"energy_derivative_status\":";
+        if (inputs[index].kind == TermKind::BulkViscosity
+            || inputs[index].kind == TermKind::ShearViscosity) {
+            output << '"' << (energy_passed[index] ? "PASS" : "FAIL") << '"'
+                   << ",\"energy_derivative_error\":" << energy_errors[index]
+                   << ",\"energy_derivative_reference\":"
+                   << energy_reference[index].directional_derivative
+                   << ",\"candidate_force_projection\":"
+                   << energy_projections[index]
+                   << ",\"directed_edge_energy_error\":"
+                   << directed_edge_energy_errors[index];
+        } else {
+            output << "null,\"energy_derivative_error\":null,"
+                      "\"energy_derivative_reference\":null,"
+                      "\"candidate_force_projection\":null,"
+                      "\"directed_edge_energy_error\":null";
+        }
+        output << ",\"directed_edge_control_rejected\":"
+               << (directed_edge_rejected[index] ? "true" : "false")
                << ",\"source_control_rejected\":"
                << (source_rejected[index] ? "true" : "false") << '}';
     }

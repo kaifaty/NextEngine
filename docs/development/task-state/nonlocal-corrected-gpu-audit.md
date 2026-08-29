@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA0_REV1_NO_GO / REV2_CONTRACT_FROZEN` |
+| Status | `ACTIVE / NCGA0_REV2_EXECUTED / SINGLE_REREVIEW_PENDING` |
 | Updated | `2026-08-29` |
 | Task key | `nonlocal-corrected-gpu-audit` |
 | Scope | Determine whether corrected Nonlocal scalar/pair terms correspond to a separate strict-f32 CUDA implementation before any neighborhood or solver port |
@@ -11,13 +11,13 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** revision 1 is `NO-GO`: both force evaluators agreed,
-  but the contract named directed-edge viscosity coefficients while the output
-  was the full undirected-pair force.
-- **Why:** the reviewer exhibited a shared factor-of-two interpretation that
-  closure and the kernel-only negative control could not distinguish.
-- **Next action:** implement frozen revision 2 with a separate energy finite
-  difference and a half-force negative control, then use the single re-review.
+- **Current conclusion:** revision 1 remains `NO-GO`; the revision-2 repair now
+  passes its independent energy derivative and rejects the half-force identity,
+  but it is not accepted until the single re-review closes.
+- **Why:** corrected bulk/shear projection errors are `7.80e-8` and `1.30e-7`,
+  while deliberate half-force errors are `0.0403` and `0.0162` against `2e-5`.
+- **Next action:** freeze the repaired snapshot and obtain the single permitted
+  read-only re-review.
 - **Current blocker:** none.
 - **Do not retry:** another long source-shaped 50k run; it cannot distinguish
   shared source mathematics from GPU translation.
@@ -33,7 +33,8 @@
 | `docs/plans/nonlocal-corrected-gpu-audit/00-corrected-term-correspondence-contract.md` | `FROZEN` | only nine term fixtures are authorized in NCGA0 |
 | `docs/development/nonlocal-corrected-gpu-term-audit-evidence-2026-08-29.md` | `AUTHOR_PASS / REVIEW_NO_GO` | execution is reproducible, but revision-1 semantics did not close |
 | `docs/development/nonlocal-corrected-gpu-term-audit-independent-review-2026-08-29.md` | `NO-GO / REFUTED_AS_WRITTEN` | revision-1 agreement shared an untested viscosity observable |
-| `docs/plans/nonlocal-corrected-gpu-audit/01-full-pair-force-correspondence-contract.md` | `FROZEN / REPAIR_PENDING` | full-pair force and independent energy derivative are now explicit |
+| `docs/plans/nonlocal-corrected-gpu-audit/01-full-pair-force-correspondence-contract.md` | `FROZEN / EXECUTED / REREVIEW_PENDING` | full-pair force and independent energy derivative are explicit |
+| `docs/development/nonlocal-corrected-gpu-term-audit-repair-evidence-2026-08-29.md` | `AUTHOR_PASS / REREVIEW_PENDING` | energy derivative selects full force and rejects the half identity |
 
 ## Decisions that still constrain the work
 
@@ -87,11 +88,10 @@
 
 ## Next action
 
-1. Add a separate long-double viscosity energy/finite-difference translation
-   unit without reusing force code.
-2. Add a CUDA half-force variant and require both viscosity cases to reject.
-3. Rerun all revision-1 gates, freeze the repaired snapshot and obtain the
-   single permitted re-review.
+1. Freeze repaired sources, binary, stdout, roots and exact diff.
+2. Give revision 2 and the repair diff to the original reviewer.
+3. If clean, record the reviewed NCGA0 conclusion and stop before neighborhood
+   work unless a new contract is frozen.
 
 ## Do not retry
 
@@ -105,8 +105,9 @@
 ## Handoff
 
 - **Workspace state:** primary checkout, branch `codex/water-research`.
-- **Checks:** revision-1 execution gates passed, but independent semantic review
-  returned NO-GO; revision-2 executable checks pending.
+- **Checks:** revision 2 PASS twice; ten cold repetitions exact per process;
+  five mandatory negatives reject; energy derivatives PASS;
+  memcheck/initcheck/synccheck zero errors; old controls unchanged.
 - **Remaining risk:** local matrix, neighborhood, solver and trajectory remain
   outside NCGA0 even if it passes.
 - **Promotion needed:** none; the track remains Proposed/report-only.

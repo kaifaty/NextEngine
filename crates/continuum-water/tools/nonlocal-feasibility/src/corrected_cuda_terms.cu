@@ -122,7 +122,7 @@ __global__ void evaluate_terms(
     const DeviceInput* inputs,
     GpuTermOutput* outputs,
     int count,
-    bool source_shaped) {
+    std::uint32_t raw_variant) {
     const int index = blockIdx.x * blockDim.x + threadIdx.x;
     if (index >= count) {
         return;
@@ -132,6 +132,10 @@ __global__ void evaluate_terms(
     float3 first_force = make_float3(0.0F, 0.0F, 0.0F);
     float3 second_force = make_float3(0.0F, 0.0F, 0.0F);
     const TermKind kind = static_cast<TermKind>(input.kind);
+    const GpuVariant variant = static_cast<GpuVariant>(raw_variant);
+    const bool source_shaped = variant == GpuVariant::SourceShapedGradient;
+    const bool directed_edge_viscosity =
+        variant == GpuVariant::DirectedEdgeViscosity;
 
     if (kind == TermKind::KernelGradient) {
         output.scalar = corrected_gradient(
@@ -169,7 +173,11 @@ __global__ void evaluate_terms(
             : normal_component;
         const float influence = -corrected_gradient(
             radius, profile.horizon, false);
-        const float coefficient = shear ? 2.0F * profile.mu : profile.lambda;
+        const float coefficient = shear
+            ? (directed_edge_viscosity ? profile.mu : 2.0F * profile.mu)
+            : (directed_edge_viscosity
+                      ? 0.5F * profile.lambda
+                      : profile.lambda);
         const float factor = -profile.mass
             / (profile.rest_density * profile.time_step)
             * coefficient * influence;
@@ -218,7 +226,7 @@ float3 to_float3(Vec3Input value) {
 std::vector<GpuTermOutput> evaluate_gpu_terms(
     const AuditProfile& profile,
     const std::vector<TermInput>& inputs,
-    bool source_shaped_gradient) {
+    GpuVariant variant) {
     if (inputs.empty()) {
         throw std::runtime_error("NCGA0 input table must be nonempty");
     }
@@ -257,7 +265,8 @@ std::vector<GpuTermOutput> evaluate_gpu_terms(
                        cudaMemcpyHostToDevice),
             "cudaMemcpy input");
         evaluate_terms<<<1, 32>>>(device_profile, device_input, device_output,
-            static_cast<int>(inputs.size()), source_shaped_gradient);
+            static_cast<int>(inputs.size()),
+            static_cast<std::uint32_t>(variant));
         check_cuda(cudaGetLastError(), "evaluate_terms launch");
         check_cuda(cudaDeviceSynchronize(), "evaluate_terms synchronize");
         std::vector<GpuTermOutput> output(inputs.size());

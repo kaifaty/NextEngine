@@ -14,6 +14,12 @@ enum class TermKind : std::uint32_t {
     Surface = 5,
 };
 
+enum class GpuVariant : std::uint32_t {
+    CorrectedFullPair = 0,
+    SourceShapedGradient = 1,
+    DirectedEdgeViscosity = 2,
+};
+
 struct Vec3Input {
     double x = 0.0;
     double y = 0.0;
@@ -55,16 +61,26 @@ struct GpuTermOutput {
     std::uint32_t finite = 0;
 };
 
+struct EnergyDerivativeOutput {
+    double directional_derivative = 0.0;
+    Vec3Input direction;
+    bool finite = false;
+};
+
 static_assert(sizeof(GpuTermOutput) == 32, "NCGA0 GPU payload layout must stay fixed");
 
 ReferenceTermOutput evaluate_reference_term(
     const AuditProfile& profile,
     const TermInput& input);
 
+EnergyDerivativeOutput evaluate_viscosity_energy_derivative(
+    const AuditProfile& profile,
+    const TermInput& input);
+
 std::vector<GpuTermOutput> evaluate_gpu_terms(
     const AuditProfile& profile,
     const std::vector<TermInput>& inputs,
-    bool source_shaped_gradient);
+    GpuVariant variant);
 
 std::string gpu_environment_json();
 
