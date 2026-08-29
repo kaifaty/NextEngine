@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA2_CONTRACT_FROZEN / IMPLEMENTATION_PENDING` |
+| Status | `ACTIVE / NCGA2_REV1_REFUTED / COMPENSATED_F32_DISCRIMINATOR_NEXT` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Test tiny strict-f32 CUDA energy/gradient/Hessian assembly for the corrected Nonlocal objective, without reviving the stopped SISSM solver |
@@ -11,17 +11,18 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA0 corrected terms and NCGA1 exact neighborhood/index
-  construction are independently reviewed `GO / SUPPORTED_BOUNDED`.
+- **Current state:** NCGA2 revision 1 is `REFUTED`: five isolated/boundary
+  fixtures pass, but naive strict-f32 pressure accumulation exceeds the frozen
+  gradient/Hessian bound on both dense pressure fixtures.
 - **Decision:** NCGA2 assembles objective energy, analytical gradient, exact
   dense Hessian/diagonal blocks and HVP on tiny immutable graphs. It does not
   port the stopped SISSM local matrix.
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** implement independent `long double` analytical and
-  energy-only derivative oracles, then the owner-row strict-f32 CUDA candidate
-  and six negative identities.
+- **Next action:** freeze revision 2 with the same inputs/oracles/tolerances and
+  one exact compensated-f32 recurrence; retain naive f32 as a required rejected
+  identity before implementation.
 - **Current blocker:** none; RTX 3080 (`sm_86`) and CUDA 13.3 are available.
 - **Claim ceiling:** tiny objective assembly correspondence only; no solve,
   trajectory, performance, runtime or product-water claim.
@@ -31,9 +32,10 @@
 | Hypothesis | Prediction | Discriminator | Status |
 | --- | --- | --- | --- |
 | H1 corrected GPU assembly corresponds | graphs, density, energies, gradient and Hessian pass the frozen mixed bounds | independent long-double oracle plus energy-only derivatives | open |
-| H2 historical mismatch was in accumulation/composition | isolated NCGA0 terms pass but active-pressure or combined assembly differs | active pressure and combined clusters | open |
+| H2 historical mismatch was in accumulation/composition | isolated NCGA0 terms pass but active-pressure or combined assembly differs | active pressure and combined clusters | supported for naive f32 |
 | H3 a wrong matrix can hide behind matching forces | gradient passes while exact Hessian or second derivative fails | dense matrix, HVP and Gauss-Newton/SISSM negatives | open |
 | H4 reference/current graph roles are mixed | support-crossing viscosity or current terms differ | `reference_current_support_crossing` | open |
+| H5 compensated strict-f32 closes cancellation | exact same corpus passes without changing bounds | frozen Kahan-style recurrence plus naive control | next |
 
 ## Decisions
 
@@ -64,6 +66,21 @@
 - **Consequence:** successful assembly is useful GPU-port evidence, not a claim
   that the V1 game water profile is implemented.
 
+### D-003 — Preserve the naive-f32 pressure failure
+
+- **Observation:** the first dense pressure fixture leaves `2.82e-4` gradient
+  and `3.43e-3` Hessian residues where the host values are approximately zero;
+  combined Hessian error is `2.274e-4` against the `2e-4` bound.
+- **Evidence:**
+  `docs/development/nonlocal-corrected-gpu-assembly-audit-evidence-2026-08-30.md`.
+- **Conclusion:** revision 1 is refuted; graph/formula boundaries outside dense
+  pressure remain supported only as local diagnostics.
+- **Decision:** no tolerance/fixture change. The only admissible next
+  discriminator is an exactly frozen compensated-binary32 accumulation path
+  with naive f32 as a negative.
+- **Remaining uncertainty:** whether compensation closes every gradient,
+  Hessian and direct-HVP reduction, or strict f32 remains insufficient.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38 and ADR-076/081.
@@ -79,4 +96,3 @@
 - do not hide a host-built candidate graph or floating atomics;
 - do not report NCGA2 work counts or the parallel NCGP0 neighborhood benchmark
   as full solver/game throughput.
-
