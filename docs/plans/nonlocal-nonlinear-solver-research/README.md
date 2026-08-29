@@ -4358,6 +4358,10 @@ crossed the body seal, routes 1--5 lacked independently verified partial
 receipts, fixed predicates overstated short-circuit execution and nominal
 mutation counts did not cover the named arithmetic/causal matrix. One batched
 revision-6 repair and one re-review remain.
+Revision 6 is now frozen as that single repair: `6,176`-byte candidate,
+`1,176`-byte audit, 64/71 work fields, body-before-oracle and
+event-6-before-`x1` staging, verified partial routes 1--7 and named negative
+arithmetic controls. A later layout change is not permitted.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

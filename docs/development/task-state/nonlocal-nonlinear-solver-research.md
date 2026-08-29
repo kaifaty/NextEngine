@@ -111,9 +111,14 @@
   1--5 lacked independent partial receipts, fixed predicates overstated
   short-circuited work and the 174-control corpus omitted required arithmetic/
   causal branches.
-- **R63ZP next action:** freeze revision 6 as the single batched repair covering
-  all four P1 classes before changing package source; exactly one re-review
-  remains.
+- **R63ZP revision-6 repair freeze:** checker replay is now normatively staged
+  body/event-5 -> exact oracle/event-6 -> `x1`/terminal. Candidate/checker are
+  fixed at `6,176/1,176` bytes and 64/71 work fields. Negative-only sealed
+  selectors exercise routes 2--6, invalid parent inputs exercise route 1 and
+  `--exact-controls` owns signed/nonfinite/alignment/capacity cases. Any later
+  wire/scope change closes R63ZP `INCONCLUSIVE`.
+- **R63ZP next action:** implement revision 6 exactly as frozen, then run the
+  named causal/arithmetic matrix before the sole re-review.
 - **Build-loop result:** strict-FP `nonlocal-formula-reclosure-dev` reduces the
   observed last-probe rebuild from about three minutes to about 34 seconds and
   is byte-identical to Release on the current R63ZC snapshot. The CLI now
@@ -7041,6 +7046,33 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   layout needed before oracle and `x1`.
 - **Smallest next action:** freeze a revision-6 staged replay and named-control
   contract, then implement it as one coherent patch.
+
+### D-239 -- Freeze the single R63ZP repair before source changes
+
+- **Observation:** the four review findings share one missing concept: staged
+  independent route authority rather than a monolithic success replay.
+- **Evidence:** body/event-5 owns all rounded product inputs; exact containment
+  is the first operation that can distinguish route 3; event 6 owns curvature/
+  step; no `x1` fact is needed before routes 3--5 close.
+- **Conclusion:** three replay stages are sufficient to enforce both oracle-
+  before-seal and future-state-before-product-seal constraints while retaining
+  one direct-product question.
+- **Decision:** freeze revision 6 at `6,176/1,176` bytes and 64/71 work fields.
+  Add negative-only selectors 1--6 sealed in flags/body/events, independently
+  verified route-1 input failures and a checker-only exact-control mode. Fixed
+  predicates must execute into temporaries before folding.
+- **Rejected alternatives:** another generic semantic-mismatch corpus; shared
+  selector argument to checker; exact oracle before body; future-state decode
+  before event 6; weakening routes or controls; revision 7 fallback.
+- **Consequences:** implementation may change all affected source/control paths
+  as one batch, but may not change the frozen layout or claim. The checker
+  returns success for verified negative routes 1--6 without admitting them.
+- **Remaining uncertainty:** whether the partial-work constants and route-1
+  read model close exactly across all named inputs, and whether the selected
+  update fixture stays within the valid product/step gates.
+- **Smallest next action:** implement layout/selectors and producer partial
+  receipts first, measure their exact work, then implement the staged checker
+  and named corpus without another contract revision.
 
 ## Performance facts retained
 

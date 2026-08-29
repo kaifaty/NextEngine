@@ -217,3 +217,19 @@ Revision 5 moves those actual predicates into a new
 `postseal_x1_finite_predicates` field after the fixed body prefix `0..39`.
 Candidate size/work become `6,152` bytes and 61 fields; the checker remains
 `1,168` bytes and 70 fields. Arithmetic, events and claim scope are unchanged.
+
+## Revision-6 formal-review repair
+
+The initial formal review falsified revision 5 despite complete positive
+reproduction. Its counterexample showed that a downstream-resealed body
+mutation still executed all exact oracle work and decoded `102` future `x1`
+values before rejection. Static review also showed unverifiable routes 1--5,
+short-circuit count overstatement and missing named arithmetic/causal controls.
+
+Revision 6 consumes the sole repair budget and freezes three causal replay
+stages: body/event-5 before exact arithmetic, event-6 after exact arithmetic
+but before `x1`, and terminal events only after `x1`. It adds sealed negative-
+only selectors for executable routes 2--6, independent invalid-input route 1,
+and a no-file exact-control mode for signed zero/negative/nonfinite/alignment/
+capacity cases. Candidate/checker become `6,176/1,176` bytes with 64/71 work
+fields. Any later layout or scope change closes R63ZP `INCONCLUSIVE`.
