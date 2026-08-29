@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZO rounded-update product-enclosure research
 
-Status: `CONTRACT_FROZEN / PREFLIGHT_PENDING / NO_ENDPOINT_AUTHORITY`.
+Status: `PREFLIGHT_NEGATIVE / TIGHT_PRODUCT_ENCLOSURE_REJECTED / CLOSED_BEFORE_PACKAGE / NO_ENDPOINT_AUTHORITY`.
 
 ## Decision
 
@@ -81,3 +81,86 @@ future contract direction but cannot establish the R63ZO claim.
 No R63ZN repair, checker package, complete recurrence, representation choice,
 dynamic builder, corpus, timing, runtime, Rust, GPU or production work is
 authorized.
+
+## Implemented preflight
+
+The new standalone target
+`nonlocal-formula-r63zo-rounded-update-preflight-release` uses strict C++20,
+round-to-nearest binary128, disabled contraction and the three whole-file
+R63ZM identities. It independently performs:
+
+- the two factor solves needed for `x0` and `p0`;
+- two state products and their published bound-root comparisons;
+- all `102` update-preimage constraints;
+- `5,253` dense Gram dots plus `10,404` absolute-bound terms;
+- both `32,130 + 32,130` rectangular passes; and
+- one late `64,260`-term direct-product oracle and `102` compensated update
+  checks.
+
+The first diagnostic incorrectly checked the late update as a rounded
+multiplication followed by a rounded addition and matched only `94/102`
+components. Source inspection showed that the frozen recurrence calls the
+two-term compensated `Dot2` schedule. A separate minimal discriminator found
+`94/102` for the two-operation expression and `102/102` for both `fma` and the
+actual `Dot2`, with all `102` exact/no-underflow flags set. The contracted
+real-expression rounding model therefore remained valid; only the oracle
+control implementation was corrected.
+
+## Reproducible result
+
+Source and Release identities:
+
+```text
+rounded_update_preflight.cpp  b4afd531637403d3a7874ffdb61effe3f397bea0c979122153af9e0aa0bb76b0
+Release executable             5bcffaf790aaf3b3a0ede538ecf9daa0dc288fa252da846418023484ce226245
+stdout run 1                   d3cfe83ecf064ce042cae7bbb17a9a8a6f2376f6bc548edab621ce082f2d5ce3
+stdout run 2                   d3cfe83ecf064ce042cae7bbb17a9a8a6f2376f6bc548edab621ce082f2d5ce3
+sanitized stdout               d3cfe83ecf064ce042cae7bbb17a9a8a6f2376f6bc548edab621ce082f2d5ce3
+```
+
+LeakSanitizer is unavailable under the desktop ptrace environment; ASan/UBSan
+with leak detection disabled completed and reproduced the Release stdout
+byte-for-byte.
+
+The first-specific route is:
+
+```text
+TIGHT_PRODUCT_ENCLOSURE_REJECTED
+```
+
+Load-bearing observations are:
+
+```text
+x0/state products/compensated updates       102 / exact / 102
+alpha outer-preimage width                  0x1p-112
+late direct alpha                           0x1.d08d760f7ac79a531bbaa83cb76cp-1
+late direct product contained               yes, both envelopes
+tight denominator lower                     0x1.10f6ed39e7f2b399bffffffffffep+4
+tight step                                  [0x1.cb8097...p-1, 0x1.d5b710...p-1]
+rectangular denominator lower               0x1.0f4aa05c90acfcdebffffffffffep+4
+rectangular step                            [0x1.c8c37b...p-1, 0x1.d89ca0...p-1]
+```
+
+The tight step width is about `0.01995`, or `2^106.35` times the published
+outer update-consistency width. This is not caused by the reviewed state
+products: their weighted denominator uncertainty is only about `2^-54`. The
+tight absolute image of the update rounding contributes about `2^-3`; the
+rectangular construction contributes about `2^-2`. Worst product components
+are rows `50` and `65`, respectively.
+
+## Conclusion and claim ceiling
+
+H1 and H2 are rejected for this fixed profile; H3 is selected. The direct
+oracle and positive-denominator gates pass, so H4 is also rejected after the
+compensated-update correction. Exact rational midpoint/tie machinery and the
+full receipt/control package were deliberately not built after the frozen
+tight-envelope stop fired. Accordingly this is a negative feasibility
+selection, not a positive mathematical enclosure claim.
+
+R63ZO is closed before a checker package. Do not infer a direction product
+from adjacent rounded state products, tighten by an observed oracle, fit a
+tolerance or retry the same absolute-envelope construction. The smallest
+materially different successor question is whether one directly computed
+`H*p0` value-plus-error artifact can be independently admitted at the fixed
+R63ZM boundary without recurrence, cached future states or any R63ZN/R63ZJ/K/L
+authority.

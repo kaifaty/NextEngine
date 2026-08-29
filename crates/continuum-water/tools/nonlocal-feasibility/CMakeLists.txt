@@ -282,6 +282,18 @@ set_target_properties(
     PROPERTIES CXX_EXTENSIONS OFF
 )
 
+add_executable(
+    nonlocal-formula-r63zo-rounded-update-preflight-release
+    EXCLUDE_FROM_ALL
+    r63zo/rounded_update_preflight.cpp
+)
+nextengine_configure_r63zm_target(
+    nonlocal-formula-r63zo-rounded-update-preflight-release -O3)
+set_target_properties(
+    nonlocal-formula-r63zo-rounded-update-preflight-release
+    PROPERTIES CXX_EXTENSIONS OFF
+)
+
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
     "Build the strict-FP, compile-latency-oriented formula reclosure author target"

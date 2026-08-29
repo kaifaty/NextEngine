@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZO rounded-update product-enclosure contract
 
-Revision: `1 / FROZEN_BEFORE_CODE / PREFLIGHT_PENDING / NO_ENDPOINT_AUTHORITY`.
+Revision: `1 / FROZEN_BEFORE_CODE / PREFLIGHT_NEGATIVE / CLOSED_BEFORE_PACKAGE / NO_ENDPOINT_AUTHORITY`.
 
 | Field | Value |
 |---|---|
@@ -190,3 +190,26 @@ change the factor/RHS/operator, add an iteration, select width three, build a
 dynamic producer, run timing, or claim runtime/Rust/GPU/production authority.
 SPEC-38/ADR-076 remain `Proposed`, ADR-081 remains binding and ProductChecks
 remain `NOT_RUN`.
+
+## Preflight outcome
+
+The strict-C++20 offset-only preflight selected
+`TIGHT_PRODUCT_ENCLOSURE_REJECTED`. Two Release executions were byte-identical
+at stdout SHA-256 `d3cfe83e...d5ce3`; the executable was
+`5bcffaf7...62245`. It reproduced the independently solved `x0`, both reviewed
+state-product values and bound roots, and all `102/102` compensated update
+components. The late direct product remained contained and both denominator
+lower bounds remained positive.
+
+The common update-consistency enclosure had width `2^-112`, while the tight
+step enclosure was approximately `[0.89746, 0.91741]` and therefore about
+`2^106.35` times wider. Sensitivity accounting localized the loss to the
+absolute image of update rounding: state-product uncertainty contributed only
+about `2^-54` to the denominator, while the tight `|H|` update term contributed
+about `2^-3`. The cancellation-free rectangular term was wider still.
+
+This was a feasibility preflight, not the exact-rational receipt/checker
+package described above. It grants no positive enclosure theorem. The margin
+is nevertheless sufficient for the frozen stop rule: do not build that
+package or infer `H*p0` from adjacent rounded states. Any successor must admit
+a direct direction product independently and must not consume R63ZN.

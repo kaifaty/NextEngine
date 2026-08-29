@@ -4310,14 +4310,18 @@ authority.
 
 The frozen
 [R63ZO contract](03b4e2d7r20r63zo-rounded-update-product-enclosure-contract.md)
-starts a materially different bounded question from reviewed R63ZM. It uses
-the exact IEEE binary128 rounding-preimage of the witnessed `x0 -> x1` update
-and the adjacent reviewed `H*x0/H*x1` products to enclose the missing first
-`H*p0`. Tight `|H|` and cancellation-free `sigma|T|(|T|^T u)` bounds are
-compared; direct `H*p0` is a late falsifying oracle only. The first step is an
-offset-only feasibility preflight, not another checker package. It cannot
-generate `x1`, admit R63ZN, recover `H*p1`, select a representation or grant
-runtime/production authority.
+asked a materially different bounded question from reviewed R63ZM. Its
+strict-C++20 preflight reproduces both adjacent state products and all
+`102/102` compensated updates. Both tight `|H|` and cancellation-free
+`sigma|T|(|T|^T u)` envelopes contain the late direct `H*p0` oracle and retain
+a positive denominator, but neither constrains the step to the width-`2^-112`
+update cell. Tight step uncertainty is about `2^106.35` too wide and is
+dominated by the absolute image of update rounding, not the reviewed product
+bounds. Two outputs are byte-identical at `d3cfe83e...d5ce3`; the selected
+route is `TIGHT_PRODUCT_ENCLOSURE_REJECTED`. R63ZO closes before an
+exact-rational receipt/checker package and grants no positive enclosure,
+iterate, representation, runtime or production authority. The next question
+must admit direct `H*p0` independently and may not consume R63ZN.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
