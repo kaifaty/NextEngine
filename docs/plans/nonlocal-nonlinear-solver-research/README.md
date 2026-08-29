@@ -4267,6 +4267,18 @@ direct-index products, fixed binary transport and checker work closure. It
 does not admit a recurrence, representation family, dynamic builder, corpus,
 timing, runtime, Rust, GPU, cross-target or production claim.
 
+The bounded
+[R63ZN research](../../development/nonlocal-nsr3b4e2d7r20r63zn-fixed-artifact-initial-recurrence-research-2026-08-29.md)
+falsifies direct full-recurrence replay from the six R63ZM roles: only role 2
+can correspond to `H*x0`, while no role carries `p0` or `p1`, and rounded
+binary128 state differences cannot generally reconstruct their products
+bit-exactly. The frozen
+[revision-1 contract](03b4e2d7r20r63zn-fixed-artifact-initial-recurrence-contract.md)
+therefore selects only one independently checked consumer prefix: solve `x0`,
+prove role-2 input correspondence, consume its `H*x0`, then derive
+`r0/z0/rho0 > 0`. Implementation and review are pending; no complete
+recurrence, certificate, representation or production authority exists.
+
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
 and
