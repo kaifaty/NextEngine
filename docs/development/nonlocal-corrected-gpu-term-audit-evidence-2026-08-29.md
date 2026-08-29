@@ -5,12 +5,25 @@
 | Research ID | `NCGA0` |
 | Contract | `docs/plans/nonlocal-corrected-gpu-audit/00-corrected-term-correspondence-contract.md` |
 | Contract SHA-256 | `71538590e6a6dfa8f2a7c55ffe02ccc91785be13e280d5ab6b997851a2e29bc2` |
-| Result | `CORRECTED_TERM_CORRESPONDENCE_SUPPORTED_BOUNDED` |
+| Author harness result | `PASS` |
+| Independent result | `NO-GO / REFUTED_AS_WRITTEN` |
 | Product status | `REPORT_ONLY`; SPEC-38 and ADR-076 remain `Proposed` |
 | Host | Linux x86-64, NVIDIA GeForce RTX 3080, compute capability 8.6, driver `610.43.02`, CUDA compiler/runtime `13.3.73` / `13030` |
 | Build directory | `/tmp/nextengine-corrected-gpu-audit-wfVEtI` (outside Git) |
 
-## Claim and conclusion
+## Post-review correction
+
+The independent reviewer found that revision 1 did not define its viscosity
+observable consistently. Its text named directed-edge coefficients `lambda/2`
+and `mu`, while both evaluators produced the full undirected-pair force with
+`lambda` and `2*mu`. Therefore the author-side PASS below is retained as exact
+execution evidence but does not support the frozen revision-1 claim. See
+`nonlocal-corrected-gpu-term-audit-independent-review-2026-08-29.md`.
+
+Status is `REFUTED_AS_WRITTEN`; revision 2 must repair the definition and add an
+independent energy-derivative/half-force discriminator before re-review.
+
+## Author-side claim and conclusion before review
 
 The separately implemented strict-`f32` CUDA evaluator matched the independent
 host `long double` evaluator on all nine frozen scalar/pair fixtures. The largest
