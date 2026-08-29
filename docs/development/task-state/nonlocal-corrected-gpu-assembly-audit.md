@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA2_REV1_REFUTED / REV2_COMPENSATED_F32_FROZEN` |
+| Status | `COMPLETE / NCGA2_REV1_REFUTED / REV2_REFUTED / STRICT_F32_ASSEMBLY_STOP` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Test tiny strict-f32 CUDA energy/gradient/Hessian assembly for the corrected Nonlocal objective, without reviving the stopped SISSM solver |
@@ -11,19 +11,21 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA2 revision 1 is `REFUTED`: five isolated/boundary
-  fixtures pass, but naive strict-f32 pressure accumulation exceeds the frozen
-  gradient/Hessian bound on both dense pressure fixtures.
+- **Current state:** NCGA2 revision 2 is also `REFUTED`. Compensated f32 repairs
+  the symmetric pressure case, but the unchanged combined Hessian remains at
+  `2.6247e-4` relative error against the frozen `2e-4` gate.
 - **Decision:** NCGA2 assembles objective energy, analytical gradient, exact
   dense Hessian/diagonal blocks and HVP on tiny immutable graphs. It does not
   port the stopped SISSM local matrix.
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** implement the exact revision-2 Kahan-style binary32
-  recurrence in every named reduction, add executed compensation counts and
-  retain revision-1 naive f32 as a required rejected identity.
-- **Current blocker:** none; RTX 3080 (`sm_86`) and CUDA 13.3 are available.
+- **Next action:** stop the current strict-f32 assembly line. If GPU work is
+  resumed, first freeze a new product-level rounding decomposition and select
+  mixed/f64 arithmetic or a physics-derived solver error budget; do not start a
+  full solver from NCGA2.
+- **Current blocker:** exact compensated strict-f32 combined Hessian misses its
+  predeclared correspondence gate.
 - **Claim ceiling:** tiny objective assembly correspondence only; no solve,
   trajectory, performance, runtime or product-water claim.
 
@@ -31,11 +33,11 @@
 
 | Hypothesis | Prediction | Discriminator | Status |
 | --- | --- | --- | --- |
-| H1 corrected GPU assembly corresponds | graphs, density, energies, gradient and Hessian pass the frozen mixed bounds | independent long-double oracle plus energy-only derivatives | open |
+| H1 corrected GPU assembly corresponds | graphs, density, energies, gradient and Hessian pass the frozen mixed bounds | independent long-double oracle plus energy-only derivatives | refuted for frozen strict f32 |
 | H2 historical mismatch was in accumulation/composition | isolated NCGA0 terms pass but active-pressure or combined assembly differs | active pressure and combined clusters | supported for naive f32 |
-| H3 a wrong matrix can hide behind matching forces | gradient passes while exact Hessian or second derivative fails | dense matrix, HVP and Gauss-Newton/SISSM negatives | open |
-| H4 reference/current graph roles are mixed | support-crossing viscosity or current terms differ | `reference_current_support_crossing` | open |
-| H5 compensated strict-f32 closes cancellation | exact same corpus passes without changing bounds | frozen Kahan-style recurrence plus naive control | next |
+| H3 a wrong matrix can hide behind matching forces | gradient passes while exact Hessian or second derivative fails | dense matrix, HVP and Gauss-Newton/SISSM negatives | supported as a real audit risk |
+| H4 reference/current graph roles are mixed | support-crossing viscosity or current terms differ | `reference_current_support_crossing` | refuted on frozen fixture |
+| H5 compensated strict-f32 closes cancellation | exact same corpus passes without changing bounds | frozen Kahan-style recurrence plus naive control | refuted; symmetric closes, combined does not |
 
 ## Decisions
 
@@ -93,6 +95,23 @@
   solver before assembly closes.
 - **Reconsider when:** revision 2 fails an unchanged gate or independent review
   finds shared/hidden work.
+
+### D-005 — Stop strict-f32 assembly after compensation fails
+
+- **Observation:** compensation reduces the symmetric Hessian residue by about
+  `75x`, but the combined scalar at index `51472` remains `2.6247e-4` relative
+  error and fails the `2e-4` gate.
+- **Evidence:**
+  `docs/development/nonlocal-corrected-gpu-assembly-audit-revision-2-evidence-2026-08-30.md`.
+- **Conclusion:** final reduction order is not the only source; strict-f32
+  product/normal/coefficient composition remains outside the frozen bound.
+- **Decision:** close NCGA2 without review or sanitizers because the positive
+  candidate is already refuted. No third reduction identity and no full GPU
+  solver port are authorized.
+- **Rejected alternatives:** widen the bound, remove the combined fixture,
+  accept HVP-only equality, or infer product water from neighborhood timing.
+- **Reconsider when:** a new contract independently selects arithmetic from a
+  solver/physics error budget or decomposes product-level rounding.
 
 ## Required context
 

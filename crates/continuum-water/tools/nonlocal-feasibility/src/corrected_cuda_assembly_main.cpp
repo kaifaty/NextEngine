@@ -208,6 +208,8 @@ std::string work_material(const AssemblyWorkReceipt& work) {
     append_u64(bytes, work.dense_entries_written);
     append_u64(bytes, work.hvp_products);
     append_u64(bytes, work.host_device_scalar_transfers);
+    append_u64(bytes, work.compensated_additions);
+    append_u64(bytes, work.compensation_initializations);
     return bytes;
 }
 
@@ -422,6 +424,7 @@ const char* variant_name(AssemblyVariant variant) {
     case AssemblyVariant::GaussNewtonPressureOnly: return "gauss_newton_pressure_only";
     case AssemblyVariant::SissmLocalMatrix: return "sissm_local_matrix";
     case AssemblyVariant::CurrentGraphViscosity: return "current_graph_viscosity";
+    case AssemblyVariant::NaiveF32Pressure: return "naive_f32_pressure";
     }
     return "unknown";
 }
@@ -452,13 +455,14 @@ int run() {
         AssemblyVariant variant;
         std::size_t fixture;
     };
-    const std::array<Control, 6> controls{{
+    const std::array<Control, 7> controls{{
         {AssemblyVariant::SourceShapedGradient, 5U},
         {AssemblyVariant::DirectedEdgeViscosity, 3U},
         {AssemblyVariant::OwnerPressureOnly, 5U},
         {AssemblyVariant::GaussNewtonPressureOnly, 5U},
         {AssemblyVariant::SissmLocalMatrix, 6U},
         {AssemblyVariant::CurrentGraphViscosity, 2U},
+        {AssemblyVariant::NaiveF32Pressure, 5U},
     }};
     std::array<bool, controls.size()> control_rejected{};
     bool negatives_passed = true;

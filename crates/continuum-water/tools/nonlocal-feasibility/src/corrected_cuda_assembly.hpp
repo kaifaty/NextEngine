@@ -26,6 +26,7 @@ enum class AssemblyVariant : std::uint32_t {
     GaussNewtonPressureOnly = 4,
     SissmLocalMatrix = 5,
     CurrentGraphViscosity = 6,
+    NaiveF32Pressure = 7,
 };
 
 struct AssemblyProfile {
@@ -75,6 +76,8 @@ struct AssemblyWorkReceipt {
     std::uint64_t dense_entries_written = 0;
     std::uint64_t hvp_products = 0;
     std::uint64_t host_device_scalar_transfers = 0;
+    std::uint64_t compensated_additions = 0;
+    std::uint64_t compensation_initializations = 0;
 };
 
 struct AssemblyResult {

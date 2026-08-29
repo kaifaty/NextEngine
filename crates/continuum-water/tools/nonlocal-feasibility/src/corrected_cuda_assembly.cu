@@ -39,11 +39,52 @@ struct DeviceProfile {
     unsigned int variant;
 };
 
+struct DeviceCompensationWork {
+    unsigned long long additions;
+    unsigned long long initializations;
+};
+
+struct F32Accumulator {
+    float sum = 0.0F;
+    float correction = 0.0F;
+    bool compensated = true;
+
+    __device__ void add(float value) {
+        if (!compensated) {
+            sum += value;
+            return;
+        }
+        const float adjusted = value - correction;
+        const float next = sum + adjusted;
+        correction = (next - sum) - adjusted;
+        sum = next;
+    }
+};
+
 struct DeviceVec3 {
     float x;
     float y;
     float z;
 };
+
+__device__ bool use_compensation(const DeviceProfile& profile) {
+    return profile.variant
+        != static_cast<unsigned int>(AssemblyVariant::NaiveF32Pressure);
+}
+
+__device__ F32Accumulator make_accumulator(const DeviceProfile& profile) {
+    F32Accumulator result;
+    result.compensated = use_compensation(profile);
+    return result;
+}
+
+__device__ void publish_compensation_work(DeviceCompensationWork* work,
+    const DeviceProfile& profile, unsigned long long additions,
+    unsigned long long initializations) {
+    if (!use_compensation(profile)) return;
+    atomicAdd(&work->additions, additions);
+    atomicAdd(&work->initializations, initializations);
+}
 
 void check_cuda(cudaError_t value, const char* operation) {
     if (value != cudaSuccess) {
@@ -273,21 +314,25 @@ __device__ bool row_contains(const unsigned int* counts,
 __global__ void compute_density(const DeviceSample* samples,
     const unsigned int* owner_indices, const unsigned int* current_counts,
     const unsigned int* current_rows, int count, DeviceProfile profile,
-    float* density, float* compression, unsigned char* active) {
+    float* density, float* compression, unsigned char* active,
+    DeviceCompensationWork* work) {
     const int row = blockIdx.x * blockDim.x + threadIdx.x;
     if (row >= count) return;
     const DeviceVec3 owner = position(samples[owner_indices[row]], 2);
-    float rho = 0.0F;
+    F32Accumulator rho = make_accumulator(profile);
+    unsigned long long additions = 0ULL;
     for (unsigned int slot = 0U; slot < current_counts[row]; ++slot) {
         const int neighbor = static_cast<int>(
             current_rows[row * count + static_cast<int>(slot)]);
         const DeviceVec3 other = position(samples[owner_indices[neighbor]], 2);
-        rho += profile.mass * cubic_weight(length(subtract(owner, other)),
-            profile.horizon);
+        rho.add(profile.mass * cubic_weight(length(subtract(owner, other)),
+            profile.horizon));
+        ++additions;
     }
-    density[row] = rho;
-    compression[row] = fmaxf(rho / profile.rest_density - 1.0F, 0.0F);
+    density[row] = rho.sum;
+    compression[row] = fmaxf(rho.sum / profile.rest_density - 1.0F, 0.0F);
     active[row] = compression[row] > 0.0F ? 1U : 0U;
+    publish_compensation_work(work, profile, additions, 1ULL);
 }
 
 __global__ void compute_energy_gradient(const DeviceSample* samples,
@@ -295,27 +340,34 @@ __global__ void compute_energy_gradient(const DeviceSample* samples,
     const unsigned int* current_counts, const unsigned int* current_rows,
     const unsigned int* reference_counts, const unsigned int* reference_rows,
     const float* compression, int count, DeviceProfile profile,
-    float* row_energy, float* gradient) {
+    float* row_energy, float* gradient, DeviceCompensationWork* work) {
     const int row = blockIdx.x * blockDim.x + threadIdx.x;
     if (row >= count) return;
     const DeviceSample sample = samples[owner_indices[row]];
     const DeviceVec3 x = position(sample, 0);
     const DeviceVec3 predicted = position(sample, 1);
     const DeviceVec3 current = position(sample, 2);
-    DeviceVec3 value{0.0F, 0.0F, 0.0F};
-    float inertia_energy = 0.0F;
-    float pressure_energy = 0.0F;
-    float viscosity_energy = 0.0F;
-    float surface_energy = 0.0F;
+    F32Accumulator inertia_energy = make_accumulator(profile);
+    F32Accumulator pressure_energy = make_accumulator(profile);
+    F32Accumulator viscosity_energy = make_accumulator(profile);
+    F32Accumulator surface_energy = make_accumulator(profile);
+    F32Accumulator gradient_x = make_accumulator(profile);
+    F32Accumulator gradient_y = make_accumulator(profile);
+    F32Accumulator gradient_z = make_accumulator(profile);
+    unsigned long long additions = 0ULL;
     if ((profile.terms & 1U) != 0U) {
         const float scale = profile.mass / (profile.time_step * profile.time_step);
         const DeviceVec3 displacement = subtract(current, predicted);
-        inertia_energy = 0.5F * scale * dot(displacement, displacement);
-        value = add(value, multiply(scale, displacement));
+        inertia_energy.add(0.5F * scale * dot(displacement, displacement));
+        gradient_x.add(scale * displacement.x);
+        gradient_y.add(scale * displacement.y);
+        gradient_z.add(scale * displacement.z);
+        additions += 4ULL;
     }
     if ((profile.terms & 2U) != 0U) {
-        pressure_energy = 0.5F * profile.kappa
-            * compression[row] * compression[row];
+        pressure_energy.add(0.5F * profile.kappa
+            * compression[row] * compression[row]);
+        ++additions;
         for (unsigned int slot = 0U; slot < current_counts[row]; ++slot) {
             const int neighbor = static_cast<int>(
                 current_rows[row * count + static_cast<int>(slot)]);
@@ -330,7 +382,10 @@ __global__ void compute_energy_gradient(const DeviceSample* samples,
             const float scale = profile.kappa * profile.mass / profile.rest_density
                 * (compression[row] + neighbor_compression)
                 * cubic_gradient(radius, profile) / radius;
-            value = add(value, multiply(scale, displacement));
+            gradient_x.add(scale * displacement.x);
+            gradient_y.add(scale * displacement.y);
+            gradient_z.add(scale * displacement.z);
+            additions += 3ULL;
         }
     }
     const bool current_viscosity = profile.variant
@@ -363,12 +418,16 @@ __global__ void compute_energy_gradient(const DeviceSample* samples,
                     / (profile.rest_density * profile.time_step),
                 add(multiply(coefficient_scale * 2.0F * profile.mu, tangent_part),
                     multiply(coefficient_scale * profile.lambda, normal_part)));
-            value = add(value, pair);
+            gradient_x.add(pair.x);
+            gradient_y.add(pair.y);
+            gradient_z.add(pair.z);
+            additions += 3ULL;
             if (neighbor > row) {
-                viscosity_energy += profile.mass * omega
+                viscosity_energy.add(profile.mass * omega
                     / (profile.rest_density * profile.time_step)
                     * (profile.mu * dot(tangent_part, tangent_part)
-                        + 0.5F * profile.lambda * dot(normal_part, normal_part));
+                        + 0.5F * profile.lambda * dot(normal_part, normal_part)));
+                ++additions;
             }
         }
     }
@@ -382,36 +441,48 @@ __global__ void compute_energy_gradient(const DeviceSample* samples,
             const float radius = length(displacement);
             if (radius <= 1.0e-15F || radius >= 3.0F * profile.spacing) continue;
             const DeviceVec3 normal = multiply(1.0F / radius, displacement);
-            value = add(value, multiply(2.0F * profile.gamma * profile.mass
-                * profile.mass * surface_spline(radius, profile.spacing), normal));
+            const DeviceVec3 pair = multiply(2.0F * profile.gamma * profile.mass
+                * profile.mass * surface_spline(radius, profile.spacing), normal);
+            gradient_x.add(pair.x);
+            gradient_y.add(pair.y);
+            gradient_z.add(pair.z);
+            additions += 3ULL;
             if (neighbor > row) {
-                surface_energy += 2.0F * profile.gamma * profile.mass * profile.mass
-                    * surface_potential(radius, profile.spacing);
+                surface_energy.add(2.0F * profile.gamma * profile.mass * profile.mass
+                    * surface_potential(radius, profile.spacing));
+                ++additions;
             }
         }
     }
-    row_energy[4 * row] = inertia_energy;
-    row_energy[4 * row + 1] = pressure_energy;
-    row_energy[4 * row + 2] = viscosity_energy;
-    row_energy[4 * row + 3] = surface_energy;
-    gradient[3 * row] = value.x;
-    gradient[3 * row + 1] = value.y;
-    gradient[3 * row + 2] = value.z;
+    row_energy[4 * row] = inertia_energy.sum;
+    row_energy[4 * row + 1] = pressure_energy.sum;
+    row_energy[4 * row + 2] = viscosity_energy.sum;
+    row_energy[4 * row + 3] = surface_energy.sum;
+    gradient[3 * row] = gradient_x.sum;
+    gradient[3 * row + 1] = gradient_y.sum;
+    gradient[3 * row + 2] = gradient_z.sum;
+    publish_compensation_work(work, profile, additions, 7ULL);
 }
 
-__global__ void reduce_energy(const float* row_energy, int count, float* energy) {
+__global__ void reduce_energy(const float* row_energy, int count,
+    DeviceProfile profile, float* energy, DeviceCompensationWork* work) {
     if (blockIdx.x != 0 || threadIdx.x != 0) return;
     for (int term = 0; term < 4; ++term) {
-        float value = 0.0F;
-        for (int row = 0; row < count; ++row) value += row_energy[4 * row + term];
-        energy[term] = value;
+        F32Accumulator value = make_accumulator(profile);
+        for (int row = 0; row < count; ++row) {
+            value.add(row_energy[4 * row + term]);
+        }
+        energy[term] = value.sum;
     }
+    publish_compensation_work(work, profile,
+        4ULL * static_cast<unsigned long long>(count), 4ULL);
 }
 
 __global__ void build_pressure_jacobian(const DeviceSample* samples,
     const unsigned int* owner_indices, const unsigned int* current_counts,
     const unsigned int* current_rows, const unsigned char* active,
-    int count, DeviceProfile profile, float* jacobian) {
+    int count, DeviceProfile profile, float* jacobian,
+    DeviceCompensationWork* work) {
     const int dimension = 3 * count;
     const int scalar = blockIdx.x * blockDim.x + threadIdx.x;
     if (scalar >= count * dimension) return;
@@ -419,12 +490,14 @@ __global__ void build_pressure_jacobian(const DeviceSample* samples,
     const int degree = scalar % dimension;
     if (active[center] == 0U || (profile.terms & 2U) == 0U) {
         jacobian[scalar] = 0.0F;
+        publish_compensation_work(work, profile, 0ULL, 1ULL);
         return;
     }
     const int participant = degree / 3;
     const int axis = degree % 3;
     const DeviceVec3 center_position = position(samples[owner_indices[center]], 2);
-    float value = 0.0F;
+    F32Accumulator value = make_accumulator(profile);
+    unsigned long long additions = 0ULL;
     if (participant == center) {
         for (unsigned int slot = 0U; slot < current_counts[center]; ++slot) {
             const int neighbor = static_cast<int>(
@@ -434,9 +507,10 @@ __global__ void build_pressure_jacobian(const DeviceSample* samples,
                 position(samples[owner_indices[neighbor]], 2));
             const float radius = length(displacement);
             if (radius <= 1.0e-15F) continue;
-            value += profile.mass / profile.rest_density
+            value.add(profile.mass / profile.rest_density
                 * cubic_gradient(radius, profile) / radius
-                * component(displacement, axis);
+                * component(displacement, axis));
+            ++additions;
         }
     } else if (row_contains(current_counts, current_rows,
                    count, center, participant)) {
@@ -444,12 +518,14 @@ __global__ void build_pressure_jacobian(const DeviceSample* samples,
             position(samples[owner_indices[participant]], 2));
         const float radius = length(displacement);
         if (radius > 1.0e-15F) {
-            value = -profile.mass / profile.rest_density
+            value.add(-profile.mass / profile.rest_density
                 * cubic_gradient(radius, profile) / radius
-                * component(displacement, axis);
+                * component(displacement, axis));
+            ++additions;
         }
     }
-    jacobian[scalar] = value;
+    jacobian[scalar] = value.sum;
+    publish_compensation_work(work, profile, additions, 1ULL);
 }
 
 __device__ float pair_curvature_entry(const DeviceSample* samples,
@@ -554,7 +630,8 @@ __global__ void assemble_hessian(const DeviceSample* samples,
     const unsigned int* current_counts, const unsigned int* current_rows,
     const unsigned int* reference_counts, const unsigned int* reference_rows,
     const float* compression, const unsigned char* active,
-    const float* jacobian, int count, DeviceProfile profile, float* hessian) {
+    const float* jacobian, int count, DeviceProfile profile, float* hessian,
+    DeviceCompensationWork* work) {
     const int dimension = 3 * count;
     const int entry = blockIdx.x * blockDim.x + threadIdx.x;
     if (entry >= dimension * dimension) return;
@@ -571,15 +648,21 @@ __global__ void assemble_hessian(const DeviceSample* samples,
                 current_rows, reference_counts, reference_rows, compression,
                 count, row_particle, row_axis, column_axis, profile)
             : 0.0F;
+        publish_compensation_work(work, profile, 1ULL, 1ULL);
         return;
     }
-    float value = (profile.terms & 1U) != 0U && row == column
-        ? profile.mass / (profile.time_step * profile.time_step) : 0.0F;
+    F32Accumulator value = make_accumulator(profile);
+    unsigned long long additions = 0ULL;
+    if ((profile.terms & 1U) != 0U && row == column) {
+        value.add(profile.mass / (profile.time_step * profile.time_step));
+        ++additions;
+    }
     if ((profile.terms & 2U) != 0U) {
         for (int center = 0; center < count; ++center) {
             if (active[center] == 0U) continue;
-            value += profile.kappa * jacobian[center * dimension + row]
-                * jacobian[center * dimension + column];
+            value.add(profile.kappa * jacobian[center * dimension + row]
+                * jacobian[center * dimension + column]);
+            ++additions;
             if (profile.variant == static_cast<unsigned int>(
                     AssemblyVariant::GaussNewtonPressureOnly)) continue;
             const bool row_center = row_particle == center;
@@ -595,11 +678,12 @@ __global__ void assemble_hessian(const DeviceSample* samples,
                     const float radius = length(displacement);
                     if (radius <= 1.0e-15F) continue;
                     const DeviceVec3 normal = multiply(1.0F / radius, displacement);
-                    value += profile.kappa * compression[center]
+                    value.add(profile.kappa * compression[center]
                         * profile.mass / profile.rest_density
                         * radial_entry(normal, cubic_second(radius, profile),
                             cubic_gradient(radius, profile) / radius,
-                            row_axis, column_axis);
+                            row_axis, column_axis));
+                    ++additions;
                 }
             } else {
                 int neighbor = -1;
@@ -625,11 +709,12 @@ __global__ void assemble_hessian(const DeviceSample* samples,
                     const float radius = length(displacement);
                     if (radius > 1.0e-15F) {
                         const DeviceVec3 normal = multiply(1.0F / radius, displacement);
-                        value += sign * profile.kappa * compression[center]
+                        value.add(sign * profile.kappa * compression[center]
                             * profile.mass / profile.rest_density
                             * radial_entry(normal, cubic_second(radius, profile),
                                 cubic_gradient(radius, profile) / radius,
-                                row_axis, column_axis);
+                                row_axis, column_axis));
+                        ++additions;
                     }
                 }
             }
@@ -647,13 +732,15 @@ __global__ void assemble_hessian(const DeviceSample* samples,
                 const int neighbor = static_cast<int>(
                     viscosity_rows[row_particle * count + static_cast<int>(slot)]);
                 if (neighbor == row_particle) continue;
-                value += pair_curvature_entry(samples, owner_indices,
-                    row_particle, neighbor, row_axis, column_axis, profile, 0);
+                value.add(pair_curvature_entry(samples, owner_indices,
+                    row_particle, neighbor, row_axis, column_axis, profile, 0));
+                ++additions;
             }
         } else if (row_contains(viscosity_counts, viscosity_rows,
                        count, row_particle, column_particle)) {
-            value -= pair_curvature_entry(samples, owner_indices,
-                row_particle, column_particle, row_axis, column_axis, profile, 0);
+            value.add(-pair_curvature_entry(samples, owner_indices,
+                row_particle, column_particle, row_axis, column_axis, profile, 0));
+            ++additions;
         }
     }
     if ((profile.terms & 8U) != 0U) {
@@ -662,16 +749,19 @@ __global__ void assemble_hessian(const DeviceSample* samples,
                 const int neighbor = static_cast<int>(
                     current_rows[row_particle * count + static_cast<int>(slot)]);
                 if (neighbor == row_particle) continue;
-                value += pair_curvature_entry(samples, owner_indices,
-                    row_particle, neighbor, row_axis, column_axis, profile, 1);
+                value.add(pair_curvature_entry(samples, owner_indices,
+                    row_particle, neighbor, row_axis, column_axis, profile, 1));
+                ++additions;
             }
         } else if (row_contains(current_counts, current_rows,
                        count, row_particle, column_particle)) {
-            value -= pair_curvature_entry(samples, owner_indices,
-                row_particle, column_particle, row_axis, column_axis, profile, 1);
+            value.add(-pair_curvature_entry(samples, owner_indices,
+                row_particle, column_particle, row_axis, column_axis, profile, 1));
+            ++additions;
         }
     }
-    hessian[entry] = value;
+    hessian[entry] = value.sum;
+    publish_compensation_work(work, profile, additions, 1ULL);
 }
 
 __global__ void extract_blocks(const float* hessian,
@@ -692,27 +782,35 @@ __global__ void direct_hvp(const DeviceSample* samples,
     const unsigned int* current_counts, const unsigned int* current_rows,
     const unsigned int* reference_counts, const unsigned int* reference_rows,
     const float* compression, const unsigned char* active,
-    const float* jacobian, int count, DeviceProfile profile, float* hvp) {
+    const float* jacobian, int count, DeviceProfile profile, float* hvp,
+    DeviceCompensationWork* work) {
     const int row = blockIdx.x * blockDim.x + threadIdx.x;
     const int dimension = 3 * count;
     if (row >= dimension) return;
     const int particle = row / 3;
     const int axis = row % 3;
-    float value = (profile.terms & 1U) != 0U
-        ? profile.mass / (profile.time_step * profile.time_step)
-            * component(direction(samples[owner_indices[particle]]), axis)
-        : 0.0F;
+    F32Accumulator value = make_accumulator(profile);
+    unsigned long long additions = 0ULL;
+    unsigned long long initializations = 1ULL;
+    if ((profile.terms & 1U) != 0U) {
+        value.add(profile.mass / (profile.time_step * profile.time_step)
+            * component(direction(samples[owner_indices[particle]]), axis));
+        ++additions;
+    }
     if ((profile.terms & 2U) != 0U) {
         for (int center = 0; center < count; ++center) {
             if (active[center] == 0U) continue;
-            float density_direction = 0.0F;
+            F32Accumulator density_direction = make_accumulator(profile);
+            ++initializations;
             for (int column = 0; column < dimension; ++column) {
-                density_direction += jacobian[center * dimension + column]
+                density_direction.add(jacobian[center * dimension + column]
                     * component(direction(samples[owner_indices[column / 3]]),
-                        column % 3);
+                        column % 3));
+                ++additions;
             }
-            value += profile.kappa * jacobian[center * dimension + row]
-                * density_direction;
+            value.add(profile.kappa * jacobian[center * dimension + row]
+                * density_direction.sum);
+            ++additions;
             if (profile.variant == static_cast<unsigned int>(
                     AssemblyVariant::GaussNewtonPressureOnly)) continue;
             if (particle == center) {
@@ -729,15 +827,18 @@ __global__ void direct_hvp(const DeviceSample* samples,
                     const DeviceVec3 relative_direction = subtract(
                         direction(samples[owner_indices[center]]),
                         direction(samples[owner_indices[neighbor]]));
-                    float product = 0.0F;
+                    F32Accumulator product = make_accumulator(profile);
+                    ++initializations;
                     for (int column_axis = 0; column_axis < 3; ++column_axis) {
-                        product += radial_entry(normal, cubic_second(radius, profile),
+                        product.add(radial_entry(normal, cubic_second(radius, profile),
                             cubic_gradient(radius, profile) / radius,
                             axis, column_axis)
-                            * component(relative_direction, column_axis);
+                            * component(relative_direction, column_axis));
+                        ++additions;
                     }
-                    value += profile.kappa * compression[center]
-                        * profile.mass / profile.rest_density * product;
+                    value.add(profile.kappa * compression[center]
+                        * profile.mass / profile.rest_density * product.sum);
+                    ++additions;
                 }
             } else if (row_contains(current_counts, current_rows,
                            count, center, particle)) {
@@ -750,15 +851,18 @@ __global__ void direct_hvp(const DeviceSample* samples,
                     const DeviceVec3 relative_direction = subtract(
                         direction(samples[owner_indices[center]]),
                         direction(samples[owner_indices[particle]]));
-                    float product = 0.0F;
+                    F32Accumulator product = make_accumulator(profile);
+                    ++initializations;
                     for (int column_axis = 0; column_axis < 3; ++column_axis) {
-                        product += radial_entry(normal, cubic_second(radius, profile),
+                        product.add(radial_entry(normal, cubic_second(radius, profile),
                             cubic_gradient(radius, profile) / radius,
                             axis, column_axis)
-                            * component(relative_direction, column_axis);
+                            * component(relative_direction, column_axis));
+                        ++additions;
                     }
-                    value -= profile.kappa * compression[center]
-                        * profile.mass / profile.rest_density * product;
+                    value.add(-profile.kappa * compression[center]
+                        * profile.mass / profile.rest_density * product.sum);
+                    ++additions;
                 }
             }
         }
@@ -778,9 +882,10 @@ __global__ void direct_hvp(const DeviceSample* samples,
                 direction(samples[owner_indices[particle]]),
                 direction(samples[owner_indices[neighbor]]));
             for (int column_axis = 0; column_axis < 3; ++column_axis) {
-                value += pair_curvature_entry(samples, owner_indices,
+                value.add(pair_curvature_entry(samples, owner_indices,
                     particle, neighbor, axis, column_axis, profile, 0)
-                    * component(relative_direction, column_axis);
+                    * component(relative_direction, column_axis));
+                ++additions;
             }
         }
     }
@@ -793,13 +898,16 @@ __global__ void direct_hvp(const DeviceSample* samples,
                 direction(samples[owner_indices[particle]]),
                 direction(samples[owner_indices[neighbor]]));
             for (int column_axis = 0; column_axis < 3; ++column_axis) {
-                value += pair_curvature_entry(samples, owner_indices,
+                value.add(pair_curvature_entry(samples, owner_indices,
                     particle, neighbor, axis, column_axis, profile, 1)
-                    * component(relative_direction, column_axis);
+                    * component(relative_direction, column_axis));
+                ++additions;
             }
         }
     }
-    hvp[row] = value;
+    hvp[row] = value.sum;
+    publish_compensation_work(
+        work, profile, additions, initializations);
 }
 
 bool admitted(const AssemblyProfile& profile, const AssemblyFixture& fixture,
@@ -949,12 +1057,16 @@ AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
     DeviceBuffer<float> hessian(dense_entries);
     DeviceBuffer<float> diagonal_blocks(9U * host_samples.size());
     DeviceBuffer<float> hvp(static_cast<std::size_t>(dimension));
+    DeviceBuffer<DeviceCompensationWork> compensation_work(1U);
 
     check_cuda(cudaMemcpy(device_samples.get(), host_samples.data(),
                    host_samples.size() * sizeof(DeviceSample), cudaMemcpyHostToDevice),
         "upload NCGA2 samples");
     check_cuda(cudaMemset(sort_comparisons.get(), 0, sizeof(unsigned long long)),
         "reset NCGA2 sort work");
+    check_cuda(cudaMemset(compensation_work.get(), 0,
+                   sizeof(DeviceCompensationWork)),
+        "reset NCGA2 compensation work");
     sort_owner_indices<<<1, 1>>>(device_samples.get(), owner_indices.get(),
         owner_ids.get(), count, sort_comparisons.get());
     check_cuda(cudaGetLastError(), "launch NCGA2 owner sort");
@@ -965,23 +1077,27 @@ AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
     compute_density<<<blocks_for(host_samples.size()), THREADS>>>(
         device_samples.get(), owner_indices.get(), current_counts.get(),
         current_rows.get(), count, device_profile, density.get(), compression.get(),
-        active.get());
+        active.get(), compensation_work.get());
     check_cuda(cudaGetLastError(), "launch NCGA2 density");
     compute_energy_gradient<<<blocks_for(host_samples.size()), THREADS>>>(
         device_samples.get(), owner_indices.get(), current_counts.get(),
         current_rows.get(), reference_counts.get(), reference_rows.get(),
-        compression.get(), count, device_profile, row_energy.get(), gradient.get());
+        compression.get(), count, device_profile, row_energy.get(), gradient.get(),
+        compensation_work.get());
     check_cuda(cudaGetLastError(), "launch NCGA2 energy/gradient");
-    reduce_energy<<<1, 1>>>(row_energy.get(), count, energy.get());
+    reduce_energy<<<1, 1>>>(row_energy.get(), count, device_profile,
+        energy.get(), compensation_work.get());
     check_cuda(cudaGetLastError(), "launch NCGA2 energy reduction");
     build_pressure_jacobian<<<blocks_for(static_cast<std::size_t>(count) * dimension),
         THREADS>>>(device_samples.get(), owner_indices.get(), current_counts.get(),
-        current_rows.get(), active.get(), count, device_profile, jacobian.get());
+        current_rows.get(), active.get(), count, device_profile, jacobian.get(),
+        compensation_work.get());
     check_cuda(cudaGetLastError(), "launch NCGA2 pressure Jacobian");
     assemble_hessian<<<blocks_for(dense_entries), THREADS>>>(device_samples.get(),
         owner_indices.get(), current_counts.get(), current_rows.get(),
         reference_counts.get(), reference_rows.get(), compression.get(), active.get(),
-        jacobian.get(), count, device_profile, hessian.get());
+        jacobian.get(), count, device_profile, hessian.get(),
+        compensation_work.get());
     check_cuda(cudaGetLastError(), "launch NCGA2 Hessian");
     extract_blocks<<<blocks_for(9U * host_samples.size()), THREADS>>>(hessian.get(),
         count, diagonal_blocks.get());
@@ -990,7 +1106,7 @@ AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
         device_samples.get(), owner_indices.get(), current_counts.get(),
         current_rows.get(), reference_counts.get(), reference_rows.get(),
         compression.get(), active.get(), jacobian.get(), count, device_profile,
-        hvp.get());
+        hvp.get(), compensation_work.get());
     check_cuda(cudaGetLastError(), "launch NCGA2 HVP");
     check_cuda(cudaDeviceSynchronize(), "synchronize NCGA2 assembly");
 
@@ -1009,6 +1125,7 @@ AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
     std::vector<float> host_blocks(9U * host_samples.size());
     std::vector<float> host_hvp(static_cast<std::size_t>(dimension));
     unsigned long long host_sort_comparisons = 0ULL;
+    DeviceCompensationWork host_compensation_work{};
 #define NCGA2_COPY(destination, source, bytes, label) \
     check_cuda(cudaMemcpy((destination), (source), (bytes), cudaMemcpyDeviceToHost), (label))
     NCGA2_COPY(host_owner_ids.data(), owner_ids.get(),
@@ -1040,6 +1157,8 @@ AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
         "copy NCGA2 HVP");
     NCGA2_COPY(&host_sort_comparisons, sort_comparisons.get(),
         sizeof(host_sort_comparisons), "copy NCGA2 sort work");
+    NCGA2_COPY(&host_compensation_work, compensation_work.get(),
+        sizeof(host_compensation_work), "copy NCGA2 compensation work");
 #undef NCGA2_COPY
 
     output.owner_ids.assign(host_owner_ids.begin(), host_owner_ids.end());
@@ -1113,7 +1232,10 @@ AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
         + host_current_rows.size() + host_reference_rows.size()
         + host_density.size() + host_compression.size() + host_active.size()
         + host_energy.size() + host_gradient.size() + host_jacobian.size()
-        + host_hessian.size() + host_blocks.size() + host_hvp.size() + 1U;
+        + host_hessian.size() + host_blocks.size() + host_hvp.size() + 3U;
+    output.work.compensated_additions = host_compensation_work.additions;
+    output.work.compensation_initializations
+        = host_compensation_work.initializations;
     output.failure = AssemblyFailure::None;
     return output;
 }
