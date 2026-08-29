@@ -4298,10 +4298,15 @@ receipt, moves all role-2 work after correspondence, enforces strict
 bytes/51 fields and adds a public nonfinite control. Two clean builds reproduce
 all binaries byte-for-byte; the expanded corpus passes `118/118` twice with
 `118/118` distinct audits, deterministic report `24208010...d2def`, repaired
-receipt `1e42c834...ba1ac` and audit `4f09b539...e2e4eb`. This remains
-hash-closed author evidence until the single permitted formal re-review. Any
-remaining load-bearing finding closes R63ZN `INCONCLUSIVE`; no reviewed prefix
-or wider authority exists.
+receipt `1e42c834...ba1ac` and audit `4f09b539...e2e4eb`.
+The single re-review closed those five items but found that checker negative
+paths seal planned full comparison counts after short-circuit evaluation has
+skipped later predicates. Exact mutants show `345` actual versus `536` claimed
+semantic-byte comparisons and one actual versus `67` claimed work-field
+comparisons; event and malformed-header paths are likewise overstated. The
+final verdict is `NO-GO / R63ZN INCONCLUSIVE`. Its review budget is exhausted,
+so there is no second repair/re-review and no reviewed prefix or wider
+authority.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

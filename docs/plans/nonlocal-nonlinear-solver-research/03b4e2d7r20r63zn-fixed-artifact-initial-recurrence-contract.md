@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZN fixed-artifact initial recurrence contract — revision 2
 
-Revision: `FROZEN / REVISION_3_REPAIR_AUTHOR_PACKAGE_COMPLETE / INDEPENDENT_REREVIEW_PENDING / NO_ENDPOINT_AUTHORITY`.
+Revision: `FROZEN / REVISION_3_REREVIEW_NO_GO / R63ZN_INCONCLUSIVE / NO_ENDPOINT_AUTHORITY`.
 
 This is the first consumer of the formally reviewed R63ZM fixed binary
 boundary. It does not modify, rebuild or reinterpret R63ZM. It freezes one

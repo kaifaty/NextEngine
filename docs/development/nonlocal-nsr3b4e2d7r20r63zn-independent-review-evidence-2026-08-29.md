@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZN independent review evidence
 
-Status: `REVISION_2_INITIAL_REVIEW_NO_GO / REVISION_3_REPAIR_AUTHOR_PASS / INDEPENDENT_REREVIEW_PENDING / NO_ENDPOINT_AUTHORITY`.
+Status: `REVISION_2_INITIAL_REVIEW_NO_GO / REVISION_3_REREVIEW_NO_GO / R63ZN_INCONCLUSIVE / NO_ENDPOINT_AUTHORITY`.
 
 Review date: `2026-08-29` (`Europe/Moscow`). The reviewer received only the
 neutral freeze manifest, frozen contract and exact candidate snapshot before
@@ -95,6 +95,37 @@ Baseline receipt is `1e42c834...ba1ac`, checker audit
 `b5907ca5...39d07`. This is repair-author evidence, not a verdict. The one
 permitted independent re-review must independently reproduce these closures.
 
-Until that re-review returns `GO`, R63ZN admits no `x0/r0/z0/rho0` prefix.
-R63ZM is unchanged; SPEC-38/ADR-076 remain `Proposed` and ProductChecks remain
-`NOT_RUN`.
+## Revision-3 independent re-review
+
+The single permitted re-review independently closed the five original repair
+items, but returned final `NO-GO` on a new exact-work defect. In checker
+`equal_region`, `equal = equal && comparison` stops executing byte predicates
+after the first mismatch while the loop continues incrementing the nominal
+counter. The audit then publishes the full `536` semantic bytes, `67` work
+fields, `8` event fields and `2` seal fields. Malformed-header accumulation has
+the same problem: after magic fails, short-circuit `||` skips five predicates
+while the sealed audit still claims six header checks.
+
+Independent minimal reproductions were:
+
+- semantic-root-0 mutant `b7653d93...39735bb`, audit
+  `6769f6ae...936407`: `345` byte predicates execute, `536` are claimed;
+- work-0 mutant `32ae15e3...786162`, audit `4a48a45e...e8d6`: one work field
+  is actually compared, `67` are claimed;
+- event-delete mutant `e876f099...c3c12b`, audit `bf3c1632...a9ebe2`: event
+  count fails before all eight event slots, but all eight are claimed; and
+- malformed-magic mutant `afb933db...6243c`, audit `23ee3865...f7466b`:
+  one header predicate executes while six are claimed.
+
+These counters are sealed into the checker result and serialized into the
+700-byte audit. Rejection routing remains fail-safe, but the frozen contract
+requires exact performed work on mandatory negative paths, not planned work.
+The reviewer also reproduced the exact strict-C++20 binaries, baseline twice,
+two `118/118` control runs with 118 distinct audits, R63ZM audit
+`fd4bcf00...1f80`, empty stdout, zero allocations and a clean symbol/runtime
+firewall. Those successes do not cure the incorrect sealed work ledger.
+
+The review budget was initial review plus one batched-repair re-review. It is
+now exhausted. R63ZN is `INCONCLUSIVE` and receives no second repair or
+re-review. It admits no `x0/r0/z0/rho0` prefix. R63ZM is unchanged;
+SPEC-38/ADR-076 remain `Proposed` and ProductChecks remain `NOT_RUN`.

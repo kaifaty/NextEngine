@@ -315,9 +315,24 @@ Two independent clean strict-C++20 builds reproduce candidate
 detection disabled, and R63ZM still reproduces audit `fd4bcf00...1f80`.
 The repaired accepted receipt is `1e42c834...ba1ac`, checker audit
 `4f09b539...e2e4eb`, trace `834907ed...e8fe7` and terminal result
-`b5907ca5...39d07`. These are author-side repair results only. The exact
-revision-3 repair snapshot still requires the single permitted read-only
-re-review before any prefix can be called reviewed.
+`b5907ca5...39d07`. These are author-side repair results only.
+
+## Revision-3 re-review and final status
+
+The single permitted re-review independently reproduced the repair closures,
+but returned `NO-GO` on a new checker exact-work defect. After the first
+semantic mismatch, short-circuit boolean accumulation stops executing later
+byte predicates while the loop and sealed ledger still claim the full region.
+The same mismatch affects work fields, event fields, seal fields and malformed
+header predicates. Exact mutants demonstrated claimed-versus-performed counts
+of `536` versus `345` semantic bytes and `67` versus `1` work fields, plus
+premature event/header stops with full counters.
+
+Routing remains fail-safe, but exact negative-path work ownership is a frozen
+requirement. Therefore R63ZN is `INCONCLUSIVE`. Its initial-review plus one
+re-review budget is exhausted; no second repair or re-review is permitted.
+Neither the author numerical results nor the four successfully repaired
+findings admit an initial prefix.
 
 ## Exact structural evidence
 
@@ -379,10 +394,9 @@ still `Proposed`; ADR-081 guardrails remain binding. The package is not a
 public contract or production consumer, uses no runtime state, and cannot
 authorize a portable representation or wider roadmap stage.
 
-The smallest next action is the single permitted read-only re-review of the
-exact revision-3 repair freeze: candidate, checker, mutator, runner, contract,
-input identities, binaries and complete control report. It must rerun the five
-initial findings and their counterexamples. `GO` may admit only this fixed
-initial prefix; any remaining load-bearing finding closes R63ZN
-`INCONCLUSIVE`, with no second repair or re-review. Do not import later cached
-states or widen the claim.
+R63ZN has no further action. Preserve both review counterexamples and do not
+repair, repackage or consume its prefix. The smallest allowed continuation is
+a new bounded experiment from the independently reviewed R63ZM fixed-binary
+boundary that asks a materially different question and does not cite R63ZN as
+recurrence authority. Freeze that question before code, retain an explicit
+fallback, and do not import later cached states or widen the claim.
