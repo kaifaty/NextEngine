@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZP direct direction-product admission contract
 
-Revision: `1 / FROZEN_BEFORE_CODE / APPARATUS_PENDING / NO_ENDPOINT_AUTHORITY`.
+Revision: `1 / FROZEN_BEFORE_CODE / APPARATUS_PASS / SERIALIZED_PACKAGE_PENDING / NO_ENDPOINT_AUTHORITY`.
 
 | Field | Value |
 |---|---|
@@ -183,3 +183,26 @@ value-plus-error artifact at the exact R63ZM identities. It would not select
 binary64/K2/width-three storage, construct `p1`, admit a recurrence or
 certificate, generalize across fixtures, run timing, change runtime/Rust/GPU
 code or promote SPEC-38/ADR-076. ProductChecks remain `NOT_RUN`.
+
+## Apparatus outcome
+
+The strict-C++20 apparatus selected
+`DIRECT_DIRECTION_PRODUCT_ADMISSION_CANDIDATE`. Two Release runs and one
+ASan/UBSan run were byte-identical at stdout SHA-256
+`2a419ecf...0082fa`; the Release executable was `790352c8...3df423`.
+
+All `102` exact real components were contained. The exact signed-dyadic vector
+root is `271facfd...272f2f`; the minimum exact interval slack has `452`
+significand bits at exponent `-567`, hence order `2^-116`. Exact `rho0` and
+denominator are contained, the denominator lower bound is positive, the
+division interval contains the candidate step and the late compensated update
+matches `102/102` fixed components.
+
+An independent Python arbitrary-integer calculation over a temporary raw
+`p0/q0/bound` sidecar reproduced all `102` containments, the full exact vector
+root and the three minimum-slack fields. Same-size cache/artifact/audit
+identity mutations reject before output; replacing every component bound by
+zero reaches `DIRECT_PRODUCT_BOUND_REJECTED` with first escape `0`.
+
+This passes only the non-serialized apparatus gate. No candidate artifact,
+receipt, checker audit, formal review or product admission exists yet.

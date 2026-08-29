@@ -4333,6 +4333,15 @@ containment result may justify a later serialized candidate/checker package;
 neither the preflight nor that future package may read future states before the
 product seal, build a recurrence or select a portable representation.
 
+The R63ZP apparatus now passes. Two Release executions and ASan/UBSan are
+byte-identical at `2a419ecf...0082fa`; all `102` exact signed-dyadic products
+are contained under exact root `271facfd...272f2f`, curvature is positive and
+the late compensated update matches `102/102`. An independent Python big-int
+calculation reproduces the root and minimum slack. The zero-bound control
+escapes first at component `0`. This author preflight permits only the separate
+serialized producer/checker implementation; no product is admitted before
+formal review.
+
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)
 and
