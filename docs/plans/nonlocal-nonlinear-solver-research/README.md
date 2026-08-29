@@ -4291,8 +4291,12 @@ root and incomplete work categories. The repaired standalone candidate and
 separately coded checker now reproduce two byte-identical Release 1,216-byte
 receipts `6b6db341...8a06` and 548-byte audits `e7934c3a...385a`; both
 allocation probes are zero. Six targeted input/receipt mutations take distinct
-first-specific checker routes. This remains author-only: fixed candidate
-rejection receipts, the full control corpus and fresh review are pending.
+first-specific checker routes. The first four candidate rejection branches now
+also publish fixed receipts: the public missing/short/trailing/same-size matrix
+for cache, parent artifact and parent audit passes `12/12` with distinct
+checker audits. This remains author-only: late `x0`/arithmetic/nonpositive
+rejection receipts, individual work/event controls, the full corpus and fresh
+review are pending.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

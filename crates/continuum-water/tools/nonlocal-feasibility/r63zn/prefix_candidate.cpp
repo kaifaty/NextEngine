@@ -512,13 +512,40 @@ Solve solve(const std::array<Q, FACTOR_N>& upper,
 }
 
 template <std::size_t Size>
-bool read_file(const char* path, std::array<std::uint8_t, Size>& bytes) noexcept {
+struct FileObservation final {
+    std::array<std::uint8_t, Size> bytes{};
+    std::uint64_t observed_size = 0U;
+    std::uint64_t bytes_read = 0U;
+    r63zm::Digest root{};
+    bool exact = false;
+};
+
+template <std::size_t Size>
+void read_file(const char* path, FileObservation<Size>& observation) noexcept {
     std::FILE* file = std::fopen(path, "rb");
-    if (file == nullptr) return false;
-    const std::size_t count = std::fread(bytes.data(), 1U, bytes.size(), file);
+    if (file == nullptr) return;
+    if (std::fseek(file, 0L, SEEK_END) != 0) {
+        static_cast<void>(std::fclose(file));
+        return;
+    }
+    const long size = std::ftell(file);
+    if (size < 0L || std::fseek(file, 0L, SEEK_SET) != 0) {
+        static_cast<void>(std::fclose(file));
+        return;
+    }
+    observation.observed_size = static_cast<std::uint64_t>(size);
+    if (observation.observed_size != Size) {
+        static_cast<void>(std::fclose(file));
+        return;
+    }
+    const std::size_t count = std::fread(observation.bytes.data(), 1U,
+        observation.bytes.size(), file);
+    observation.bytes_read = count;
     const int trailing = std::fgetc(file);
     const int close = std::fclose(file);
-    return count == bytes.size() && trailing == EOF && close == 0;
+    observation.exact = count == observation.bytes.size() && trailing == EOF
+        && close == 0;
+    if (observation.exact) observation.root = r63zm::sha256(observation.bytes);
 }
 
 std::uint8_t hex_nibble(char value) noexcept {
@@ -568,38 +595,50 @@ std::uint64_t be64(const std::uint8_t* bytes) noexcept {
 
 bool parent_artifact_valid(
     const std::array<std::uint8_t, ARTIFACT_BYTES>& bytes,
-    const r63zm::Digest& root) noexcept {
+    const r63zm::Digest& root, std::uint64_t& checks) noexcept {
     constexpr std::array<std::uint8_t, 8U> magic{
         'N','E','R','6','3','Z','M','1'};
     constexpr std::size_t role2 = 1236U + 2U * 1944U;
-    return digest_equal_hex(root, ARTIFACT_SHA256)
-        && std::memcmp(bytes.data(), magic.data(), magic.size()) == 0
-        && be32(bytes.data() + 8U) == 3U
-        && be64(bytes.data() + 12U) == ARTIFACT_BYTES
-        && be32(bytes.data() + 60U) == 0U
-        && bytes_equal_hex(bytes.data() + 128U, PRODUCT_SET_SHA256, 32U)
-        && bytes_equal_hex(bytes.data() + 484U, ARTIFACT_RESULT_SHA256, 32U)
-        && be32(bytes.data() + 1228U) == 6U
-        && bytes[role2] == 1U && bytes[role2 + 1U] == 1U
-        && bytes[role2 + 2U] == 2U
-        && be64(bytes.data() + role2 + 304U) == N
-        && bytes_equal_hex(bytes.data() + role2 + 144U + 64U,
-            ROLE2_VALUE_SHA256, 32U);
+    bool valid = true;
+    auto check = [&](bool condition) noexcept {
+        ++checks;
+        valid = valid && condition;
+    };
+    check(digest_equal_hex(root, ARTIFACT_SHA256));
+    check(std::memcmp(bytes.data(), magic.data(), magic.size()) == 0);
+    check(be32(bytes.data() + 8U) == 3U);
+    check(be64(bytes.data() + 12U) == ARTIFACT_BYTES);
+    check(be32(bytes.data() + 60U) == 0U);
+    check(bytes_equal_hex(bytes.data() + 128U, PRODUCT_SET_SHA256, 32U));
+    check(bytes_equal_hex(bytes.data() + 484U, ARTIFACT_RESULT_SHA256, 32U));
+    check(be32(bytes.data() + 1228U) == 6U);
+    check(bytes[role2] == 1U && bytes[role2 + 1U] == 1U);
+    check(bytes[role2 + 2U] == 2U);
+    check(be64(bytes.data() + role2 + 304U) == N);
+    check(bytes_equal_hex(bytes.data() + role2 + 144U + 64U,
+        ROLE2_VALUE_SHA256, 32U));
+    return valid;
 }
 
 bool parent_audit_valid(
     const std::array<std::uint8_t, AUDIT_BYTES>& bytes,
-    const r63zm::Digest& root) noexcept {
+    const r63zm::Digest& root, std::uint64_t& checks) noexcept {
     constexpr std::array<std::uint8_t, 8U> magic{
         'N','E','R','6','3','Q','C','1'};
-    return digest_equal_hex(root, AUDIT_SHA256)
-        && std::memcmp(bytes.data(), magic.data(), magic.size()) == 0
-        && be32(bytes.data() + 8U) == 3U
-        && be64(bytes.data() + 12U) == AUDIT_BYTES
-        && be32(bytes.data() + 20U) == 0U
-        && bytes[24U] == 1U && bytes[25U] == 1U && bytes[26U] == 1U
-        && bytes[27U] == 0U
-        && bytes_equal_hex(bytes.data() + 388U, CHECKER_ROOT_SHA256, 32U);
+    bool valid = true;
+    auto check = [&](bool condition) noexcept {
+        ++checks;
+        valid = valid && condition;
+    };
+    check(digest_equal_hex(root, AUDIT_SHA256));
+    check(std::memcmp(bytes.data(), magic.data(), magic.size()) == 0);
+    check(be32(bytes.data() + 8U) == 3U);
+    check(be64(bytes.data() + 12U) == AUDIT_BYTES);
+    check(be32(bytes.data() + 20U) == 0U);
+    check(bytes[24U] == 1U && bytes[25U] == 1U && bytes[26U] == 1U);
+    check(bytes[27U] == 0U);
+    check(bytes_equal_hex(bytes.data() + 388U, CHECKER_ROOT_SHA256, 32U));
+    return valid;
 }
 
 void hash_be64(r63zm::Sha256& hash, std::uint64_t value) noexcept {
@@ -739,13 +778,15 @@ r63zm::Digest event_root(std::uint64_t ordinal,
 }
 
 r63zm::Digest trace_root(std::uint64_t route,
-    const std::array<r63zm::Digest, EVENTS>& events) noexcept {
+    const std::array<r63zm::Digest, EVENTS>& events,
+    std::size_t event_count) noexcept {
     r63zm::Sha256 hash;
     hash_tlv_text(hash, 1U, "nextengine.nonlocal.r63zn.trace.v1");
     hash_tlv_u64(hash, 2U, route);
-    hash_tlv_u64(hash, 3U, events.size());
-    hash_tlv_header(hash, 4U, events.size() * 32U);
-    for (const r63zm::Digest& event : events) hash.update(event);
+    hash_tlv_u64(hash, 3U, event_count);
+    hash_tlv_header(hash, 4U, event_count * 32U);
+    for (std::size_t index = 0U; index < event_count; ++index)
+        hash.update(events[index]);
     return hash.finish();
 }
 
@@ -821,22 +862,150 @@ Q artifact_q(const std::array<std::uint8_t, ARTIFACT_BYTES>& bytes,
     return value;
 }
 
+bool write_early_rejection(std::uint32_t route,
+    const FileObservation<CACHE_BYTES>& cache,
+    const FileObservation<ARTIFACT_BYTES>& artifact,
+    const FileObservation<AUDIT_BYTES>& audit,
+    std::uint64_t read_calls, std::uint64_t artifact_checks,
+    std::uint64_t audit_checks, std::uint64_t parse_reads,
+    std::uint64_t parse_bytes, std::uint64_t parse_predicates,
+    std::uint64_t route_decisions,
+    const char* output_path) noexcept {
+    const std::uint64_t input_bytes = cache.bytes_read + artifact.bytes_read
+        + audit.bytes_read;
+    const std::uint64_t hash_calls = (cache.exact ? 1U : 0U)
+        + (artifact.exact ? 1U : 0U) + (audit.exact ? 1U : 0U);
+    const std::uint64_t hash_bytes = (cache.exact ? CACHE_BYTES : 0U)
+        + (artifact.exact ? ARTIFACT_BYTES : 0U)
+        + (audit.exact ? AUDIT_BYTES : 0U);
+    const std::uint64_t work_root_bytes =
+        std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 419U;
+    const std::uint64_t trace_bytes =
+        std::strlen("nextengine.nonlocal.r63zn.trace.v1") + 52U;
+    const std::uint64_t result_bytes =
+        std::strlen("nextengine.nonlocal.r63zn.result.v1") + 247U;
+    std::array<std::uint64_t, WORK_COUNTERS> work{};
+    work[InputReadCalls] = read_calls;
+    work[InputReadBytes] = input_bytes;
+    work[InputHashCalls] = hash_calls;
+    work[InputHashBytes] = hash_bytes;
+    work[CacheTakeCalls] = parse_reads;
+    work[CacheTakeBytes] = parse_bytes;
+    work[CachePredicates] = parse_predicates;
+    work[ParentArtifactChecks] = artifact_checks;
+    work[ParentAuditChecks] = audit_checks;
+    work[StructuralRootCalls] = 1U;
+    work[StructuralRootBytes] = work_root_bytes;
+    work[TraceRootCalls] = 1U;
+    work[TraceRootBytes] = trace_bytes;
+    work[ResultRootCalls] = 1U;
+    work[ResultRootBytes] = result_bytes;
+    work[ReceiptFieldsWritten] = 83U;
+    work[ReceiptWriteCalls] = 1U;
+    work[ReceiptWriteBytes] = RECEIPT_BYTES;
+    work[RouteDecisions] = route_decisions;
+    work[ReceiptZeroFillBytes] = RECEIPT_BYTES;
+    work[PackageAllocations] = 0U;
+    const r63zm::Digest candidate_work_root = work_root(work);
+    const r63zm::Digest zero{};
+    const std::array<r63zm::Digest, 3U> inputs{{
+        cache.exact ? cache.root : zero,
+        artifact.exact ? artifact.root : zero,
+        audit.exact ? audit.root : zero}};
+    const std::array<r63zm::Digest, EVENTS> events{};
+    const r63zm::Digest trace = trace_root(route, events, 0U);
+    const r63zm::Digest result = result_root(
+        route, inputs, trace, candidate_work_root);
+
+    std::array<std::uint8_t, RECEIPT_BYTES> receipt{};
+    constexpr std::array<std::uint8_t, 8U> receipt_magic{{
+        'N','E','R','6','3','Z','N','1'}};
+    std::memcpy(receipt.data(), receipt_magic.data(), receipt_magic.size());
+    put_be32(receipt.data() + RECEIPT_VERSION_OFFSET, 2U);
+    put_be64(receipt.data() + RECEIPT_SIZE_OFFSET, RECEIPT_BYTES);
+    put_be32(receipt.data() + RECEIPT_ROUTE_OFFSET, route);
+    receipt[RECEIPT_FLAGS_OFFSET] = 0U;
+    receipt[RECEIPT_FLAGS_OFFSET + 1U] = 0U;
+    receipt[RECEIPT_FLAGS_OFFSET + 2U] = 0U;
+    put_be64(receipt.data() + RECEIPT_CACHE_SIZE_OFFSET,
+        cache.observed_size);
+    put_digest(receipt.data() + RECEIPT_CACHE_ROOT_OFFSET, inputs[0U]);
+    put_be64(receipt.data() + RECEIPT_ARTIFACT_SIZE_OFFSET,
+        artifact.observed_size);
+    put_digest(receipt.data() + RECEIPT_ARTIFACT_ROOT_OFFSET, inputs[1U]);
+    put_be64(receipt.data() + RECEIPT_AUDIT_SIZE_OFFSET,
+        audit.observed_size);
+    put_digest(receipt.data() + RECEIPT_AUDIT_ROOT_OFFSET, inputs[2U]);
+    constexpr std::array<std::size_t, 12U> semantic_offsets{{
+        RECEIPT_BUNDLE_ROOT_OFFSET, RECEIPT_FACTOR_ROOT_OFFSET,
+        RECEIPT_PERMUTATION_ROOT_OFFSET, RECEIPT_INVERSE_ROOT_OFFSET,
+        RECEIPT_RHS_ROOT_OFFSET, RECEIPT_BASELINE0_ROOT_OFFSET,
+        RECEIPT_X0_ROOT_OFFSET, RECEIPT_HX0_ROOT_OFFSET,
+        RECEIPT_RESIDUAL_ROOT_OFFSET,
+        RECEIPT_RESIDUAL_BOUND_ROOT_OFFSET, RECEIPT_Z0_ROOT_OFFSET,
+        RECEIPT_RHO_ROOT_OFFSET}};
+    for (std::size_t offset : semantic_offsets)
+        put_digest(receipt.data() + offset, zero);
+    for (std::size_t index = 0U; index < work.size(); ++index)
+        put_be64(receipt.data() + RECEIPT_WORK_OFFSET + index * 8U,
+            work[index]);
+    put_be64(receipt.data() + RECEIPT_EVENT_COUNT_OFFSET, 0U);
+    for (std::size_t index = 0U; index < events.size(); ++index)
+        put_digest(receipt.data() + RECEIPT_EVENTS_OFFSET + index * 32U,
+            zero);
+    put_digest(receipt.data() + RECEIPT_TRACE_ROOT_OFFSET, trace);
+    put_digest(receipt.data() + RECEIPT_RESULT_ROOT_OFFSET, result);
+    return write_file(output_path, receipt);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
     if (argc != 5) return 64;
-    std::array<std::uint8_t, CACHE_BYTES> cache{};
-    std::array<std::uint8_t, ARTIFACT_BYTES> artifact{};
-    std::array<std::uint8_t, AUDIT_BYTES> audit{};
-    if (!read_file(argv[1], cache) || !read_file(argv[2], artifact)
-        || !read_file(argv[3], audit)) return 65;
-    const r63zm::Digest cache_root = r63zm::sha256(cache);
-    const r63zm::Digest artifact_root = r63zm::sha256(artifact);
-    const r63zm::Digest audit_root = r63zm::sha256(audit);
-    if (!digest_equal_hex(cache_root, CACHE_SHA256)
-        || !parent_artifact_valid(artifact, artifact_root)
-        || !parent_audit_valid(audit, audit_root))
-        return 66;
+    FileObservation<CACHE_BYTES> cache_file;
+    FileObservation<ARTIFACT_BYTES> artifact_file;
+    FileObservation<AUDIT_BYTES> audit_file;
+    std::uint64_t read_calls = 1U;
+    read_file(argv[1], cache_file);
+    if (!cache_file.exact)
+        return write_early_rejection(0U, cache_file, artifact_file,
+            audit_file, read_calls, 0U, 0U, 0U, 0U, 0U, 1U, argv[4])
+            ? 0 : 69;
+    ++read_calls;
+    read_file(argv[2], artifact_file);
+    if (!artifact_file.exact)
+        return write_early_rejection(1U, cache_file, artifact_file,
+            audit_file, read_calls, 0U, 0U, 0U, 0U, 0U, 2U, argv[4])
+            ? 0 : 69;
+    std::uint64_t artifact_checks = 0U;
+    const bool artifact_valid = parent_artifact_valid(artifact_file.bytes,
+        artifact_file.root, artifact_checks);
+    if (!artifact_valid)
+        return write_early_rejection(1U, cache_file, artifact_file,
+            audit_file, read_calls, artifact_checks, 0U, 0U, 0U, 0U, 3U,
+            argv[4]) ? 0 : 69;
+    ++read_calls;
+    read_file(argv[3], audit_file);
+    if (!audit_file.exact)
+        return write_early_rejection(2U, cache_file, artifact_file,
+            audit_file, read_calls, artifact_checks, 0U, 0U, 0U, 0U, 4U,
+            argv[4]) ? 0 : 69;
+    std::uint64_t audit_checks = 0U;
+    const bool audit_valid = parent_audit_valid(audit_file.bytes,
+        audit_file.root, audit_checks);
+    if (!audit_valid)
+        return write_early_rejection(2U, cache_file, artifact_file,
+            audit_file, read_calls, artifact_checks, audit_checks,
+            0U, 0U, 0U, 5U, argv[4]) ? 0 : 69;
+    if (!digest_equal_hex(cache_file.root, CACHE_SHA256))
+        return write_early_rejection(3U, cache_file, artifact_file,
+            audit_file, read_calls, artifact_checks, audit_checks,
+            0U, 0U, 0U, 6U, argv[4]) ? 0 : 69;
+    const auto& cache = cache_file.bytes;
+    const auto& artifact = artifact_file.bytes;
+    const r63zm::Digest& cache_root = cache_file.root;
+    const r63zm::Digest& artifact_root = artifact_file.root;
+    const r63zm::Digest& audit_root = audit_file.root;
     const CacheSelection selection = parse_cache(cache);
     if (!selection.exact || selection.dimension != N
         || selection.columns != 315U || selection.baseline0.count != N
@@ -844,7 +1013,10 @@ int main(int argc, char** argv) {
         || selection.permutation.count != N
         || selection.inverse.size != sizeof(Q)
         || selection.original_rhs.count != N)
-        return 67;
+        return write_early_rejection(3U, cache_file, artifact_file,
+            audit_file, read_calls, artifact_checks, audit_checks,
+            selection.parse_reads, selection.parse_bytes,
+            selection.parse_predicates, 7U, argv[4]) ? 0 : 69;
 
     std::array<Q, FACTOR_N> upper{};
     bool factor_inputs_finite = true;
@@ -965,7 +1137,7 @@ int main(int argc, char** argv) {
     const std::array<std::uint64_t, WORK_COUNTERS> work{{
         3U, input_bytes, 3U, input_bytes,
         selection.parse_reads, selection.parse_bytes,
-        selection.parse_predicates, 12U, 8U,
+        selection.parse_predicates, artifact_checks, audit_checks,
         FACTOR_N, N, 3U * N + 1U,
         FACTOR_N, N, N, 3U * N + 1U, 1U,
         2U, 20604U, 408U, 1226U, N,
@@ -973,7 +1145,7 @@ int main(int argc, char** argv) {
         3U * N, 2U * N - 1U, N + 1U, N + 1U, 1U,
         11U, canonical_root_bytes, 3U, bundle_work_root_bytes,
         EVENTS, event_root_bytes, 1U, trace_root_bytes,
-        1U, result_root_bytes, 83U, 1U, RECEIPT_BYTES, 1U,
+        1U, result_root_bytes, 83U, 1U, RECEIPT_BYTES, 10U,
         RECEIPT_BYTES, 0U}};
     const r63zm::Digest candidate_work_root = work_root(work);
     const std::array<r63zm::Digest, EVENTS> events{{
@@ -985,7 +1157,7 @@ int main(int argc, char** argv) {
         event_root(5U, z_root, factor_root),
         event_root(6U, rho0_root, candidate_work_root)}};
     constexpr std::uint64_t route = 7U;
-    const r63zm::Digest trace = trace_root(route, events);
+    const r63zm::Digest trace = trace_root(route, events, EVENTS);
     const r63zm::Digest result = result_root(
         route, input_roots, trace, candidate_work_root);
 

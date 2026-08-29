@@ -1,7 +1,7 @@
 # NSR3-B4E2D7R20R63ZN fixed-artifact initial recurrence research
 
-Status: `REVISION_2_CONTRACT_FROZEN / ACCEPTED_PATH_INDEPENDENT_CHECKER_PASS /
-REJECTION_RECEIPTS_AND_FULL_CONTROLS_PENDING`.
+Status: `REVISION_2_CONTRACT_FROZEN / EARLY_REJECTION_MATRIX_PASS /
+LATE_ARITHMETIC_REJECTIONS_AND_FULL_CONTROLS_PENDING`.
 
 ## Decision
 
@@ -167,10 +167,46 @@ zero bytes. Six bounded smoke mutations produce distinct sealed checker
 audits and the first-specific routes: exact-input drift `2`, malformed receipt
 `3`, semantic drift `5`, work drift `6`, event drift `7` and seal drift `8`.
 These are checker-discrimination smoke controls, not the contract's complete
-mutation corpus. The candidate still returns process errors instead of fixed
-rejection receipts for invalid inputs, arithmetic/nonpositive controls are not
-yet constructed, and no fresh independent review has occurred. R63ZN
-therefore remains author-only and grants no admitted recurrence result.
+mutation corpus. This accepted-only checkpoint is superseded by the early
+rejection checkpoint below.
+
+## Early rejection receipt checkpoint
+
+The candidate now publishes fixed 1,216-byte route-specific receipts rather
+than process-only errors for the first four frozen classifier branches. It
+stops input work in first-failure order, records observed sizes and only roots
+files read at their exact size, zeros all unavailable semantic/event slots,
+and seals route-specific work, a zero-event trace and the terminal result. The
+checker derives the expected route before consulting the receipt and
+independently reconstructs every rejection byte.
+
+The complete early-input matrix passes through the public Release entrypoints:
+missing, short, trailing and same-size-mutated cache, parent artifact and
+parent audit. All 12 candidate invocations exit zero with routes `0/1/2/3` as
+applicable; all checker invocations exit zero with verified routes `1/2/3/4`;
+all 12 checker audits are distinct. Five separate malformed/semantic/work/
+event/seal receipt mutations reject at checker routes `6/8/9/10/11`.
+
+Two accepted Release pairs remain byte-identical and allocation-free:
+
+| Item | SHA-256 |
+|---|---|
+| candidate source | `955f12c1a5e515e5ab011c8b95da806dc7d38a5ddae36c43774d400868cd9019` |
+| checker source | `4adc0163e849fed98c47eb65276135ab8f5fb7c6e8867f1b91d4496afad5663e` |
+| Release candidate binary | `4b3784c1c345ac03c12c8b7b788f46654339cd4896db6eedd64cfd5624327a4e` |
+| Release checker binary | `273ecc6656cd41426a07192e29d8dc7450da705adefb02c73142697567055532` |
+| both accepted receipts | `4229e5509a2b153dfd1bb6ce9f94642a9bef62d55e36d784911b577f051a296c` |
+| both accepted audits | `16875a04bd8e44228686ee90117e576dd7f26687240bf054e0a9a17b4bf7dfb2` |
+| accepted trace root | `b99c8d707cd1333ba482ab63c5d28319d7d32660cf896e62fa4947451e888246` |
+| accepted terminal result | `166da96ca4ba7dbb5845a5074b8b81349609011f315123ad17f2344b6d20ff4f` |
+| accepted checker root | `5cebbd94855b6296ad5c2e4691a44b5aa6c1c0a851234da9e6678951b6ba3924` |
+
+Both stdout files remain empty and every baseline/control allocation probe
+reports zero calls and bytes. This is still author evidence. Routes 4--6 need
+independently reconstructed `x0` mismatch, nonfinite/underflow prefix and
+nonpositive-lower-bound controls; every work counter still needs individual
+resealed mutation; event deletion/duplication/reordering and fresh independent
+review remain pending. R63ZN grants no admitted recurrence result.
 
 ## Exact structural evidence
 

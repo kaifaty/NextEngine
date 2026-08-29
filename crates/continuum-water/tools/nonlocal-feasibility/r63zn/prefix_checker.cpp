@@ -897,15 +897,16 @@ Digest root_event(std::uint64_t ordinal, const Digest& left,
 
 Digest root_trace(std::uint64_t route,
     const std::array<Digest, EVENT_SLOTS>& events,
-    CheckerWork& work) noexcept {
+    std::size_t event_count, CheckerWork& work) noexcept {
     constexpr const char* domain = "nextengine.nonlocal.r63zn.trace.v1";
     r63zm::Sha256 hash;
     field_text(hash, 1U, domain);
     field_u64(hash, 2U, route);
-    field_u64(hash, 3U, events.size());
-    field_header(hash, 4U, events.size() * 32U);
-    for (const Digest& event : events) hash.update(event);
-    record_hash(work, std::strlen(domain) + 276U);
+    field_u64(hash, 3U, event_count);
+    field_header(hash, 4U, event_count * 32U);
+    for (std::size_t index = 0U; index < event_count; ++index)
+        hash.update(events[index]);
+    record_hash(work, std::strlen(domain) + 52U + event_count * 32U);
     return hash.finish();
 }
 
@@ -947,6 +948,101 @@ struct Replay final {
     std::array<std::uint8_t, RECEIPT_SIZE> expected{};
     Digest result{};
 };
+
+Replay reconstruct_early_rejection(std::uint32_t route,
+    const FileImage<CACHE_SIZE>& cache,
+    const FileImage<PARENT_SIZE>& parent,
+    const FileImage<PARENT_AUDIT_SIZE>& parent_audit,
+    std::uint64_t read_calls, std::uint64_t artifact_checks,
+    std::uint64_t audit_checks, std::uint64_t parse_calls,
+    std::uint64_t parse_bytes, std::uint64_t parse_predicates,
+    std::uint64_t route_decisions, CheckerWork& work) noexcept {
+    Replay replay;
+    const bool cache_consumed = read_calls >= 1U;
+    const bool parent_consumed = read_calls >= 2U;
+    const bool audit_consumed = read_calls >= 3U;
+    const std::uint64_t input_bytes =
+        (cache_consumed && cache.exact ? CACHE_SIZE : 0U)
+        + (parent_consumed && parent.exact ? PARENT_SIZE : 0U)
+        + (audit_consumed && parent_audit.exact ? PARENT_AUDIT_SIZE : 0U);
+    const std::uint64_t input_hashes =
+        (cache_consumed && cache.exact ? 1U : 0U)
+        + (parent_consumed && parent.exact ? 1U : 0U)
+        + (audit_consumed && parent_audit.exact ? 1U : 0U);
+    const std::uint64_t work_bytes =
+        std::strlen("nextengine.nonlocal.r63zn.candidate-work.v1") + 419U;
+    const std::uint64_t trace_bytes =
+        std::strlen("nextengine.nonlocal.r63zn.trace.v1") + 52U;
+    const std::uint64_t result_bytes =
+        std::strlen("nextengine.nonlocal.r63zn.result.v1") + 247U;
+    std::array<std::uint64_t, CANDIDATE_WORK_FIELDS> candidate_work{};
+    candidate_work[InputReadCalls] = read_calls;
+    candidate_work[InputReadBytes] = input_bytes;
+    candidate_work[InputHashCalls] = input_hashes;
+    candidate_work[InputHashBytes] = input_bytes;
+    candidate_work[CacheTakeCalls] = parse_calls;
+    candidate_work[CacheTakeBytes] = parse_bytes;
+    candidate_work[CachePredicates] = parse_predicates;
+    candidate_work[ParentArtifactChecks] = artifact_checks;
+    candidate_work[ParentAuditChecks] = audit_checks;
+    candidate_work[StructuralRootCalls] = 1U;
+    candidate_work[StructuralRootBytes] = work_bytes;
+    candidate_work[TraceRootCalls] = 1U;
+    candidate_work[TraceRootBytes] = trace_bytes;
+    candidate_work[ResultRootCalls] = 1U;
+    candidate_work[ResultRootBytes] = result_bytes;
+    candidate_work[ReceiptFieldsWritten] = 83U;
+    candidate_work[ReceiptWriteCalls] = 1U;
+    candidate_work[ReceiptWriteBytes] = RECEIPT_SIZE;
+    candidate_work[RouteDecisions] = route_decisions;
+    candidate_work[ReceiptZeroFillBytes] = RECEIPT_SIZE;
+    const Digest candidate_work_digest = root_candidate_work(candidate_work,
+        work);
+    const Digest zero{};
+    const std::array<Digest, 3U> inputs{{
+        cache_consumed && cache.exact ? cache.root : zero,
+        parent_consumed && parent.exact ? parent.root : zero,
+        audit_consumed && parent_audit.exact ? parent_audit.root : zero}};
+    const std::array<Digest, EVENT_SLOTS> events{};
+    const Digest trace = root_trace(route, events, 0U, work);
+    replay.result = root_candidate_result(route, inputs, trace,
+        candidate_work_digest, work);
+
+    constexpr std::array<std::uint8_t, 8U> magic{{
+        'N','E','R','6','3','Z','N','1'}};
+    std::memcpy(replay.expected.data(), magic.data(), magic.size());
+    store_u32(replay.expected.data() + VERSION_AT, 2U);
+    store_u64(replay.expected.data() + TOTAL_AT, RECEIPT_SIZE);
+    store_u32(replay.expected.data() + ROUTE_AT, route);
+    replay.expected[FLAGS_AT] = 0U;
+    replay.expected[FLAGS_AT + 1U] = 0U;
+    replay.expected[FLAGS_AT + 2U] = 0U;
+    store_u64(replay.expected.data() + CACHE_SIZE_AT,
+        cache_consumed ? cache.observed_size : 0U);
+    store_digest(replay.expected.data() + CACHE_ROOT_AT, inputs[0U]);
+    store_u64(replay.expected.data() + PARENT_SIZE_AT,
+        parent_consumed ? parent.observed_size : 0U);
+    store_digest(replay.expected.data() + PARENT_ROOT_AT, inputs[1U]);
+    store_u64(replay.expected.data() + PARENT_AUDIT_SIZE_AT,
+        audit_consumed ? parent_audit.observed_size : 0U);
+    store_digest(replay.expected.data() + PARENT_AUDIT_ROOT_AT, inputs[2U]);
+    const std::array<std::size_t, 12U> semantic_offsets{{BUNDLE_ROOT_AT,
+        FACTOR_ROOT_AT, PERMUTATION_ROOT_AT, INVERSE_ROOT_AT, RHS_ROOT_AT,
+        BASELINE_ROOT_AT, X0_ROOT_AT, HX0_ROOT_AT, RESIDUAL_ROOT_AT,
+        RESIDUAL_BOUND_ROOT_AT, Z0_ROOT_AT, RHO_ROOT_AT}};
+    for (std::size_t offset : semantic_offsets)
+        store_digest(replay.expected.data() + offset, zero);
+    for (std::size_t index = 0U; index < candidate_work.size(); ++index)
+        store_u64(replay.expected.data() + CANDIDATE_WORK_AT + index * 8U,
+            candidate_work[index]);
+    store_u64(replay.expected.data() + EVENT_COUNT_AT, 0U);
+    for (std::size_t index = 0U; index < events.size(); ++index)
+        store_digest(replay.expected.data() + EVENTS_AT + index * 32U, zero);
+    store_digest(replay.expected.data() + TRACE_AT, trace);
+    store_digest(replay.expected.data() + RESULT_AT, replay.result);
+    replay.valid = true;
+    return replay;
+}
 
 Replay reconstruct(const FileImage<CACHE_SIZE>& cache,
     const FileImage<PARENT_SIZE>& parent,
@@ -1090,7 +1186,7 @@ Replay reconstruct(const FileImage<CACHE_SIZE>& cache,
         DIMENSION + 1U, DIMENSION + 1U, 1U,
         11U, canonical_bytes, 3U, structural_bytes,
         EVENT_SLOTS, event_bytes, 1U, trace_bytes,
-        1U, result_bytes, 83U, 1U, RECEIPT_SIZE, 1U,
+        1U, result_bytes, 83U, 1U, RECEIPT_SIZE, 10U,
         RECEIPT_SIZE, 0U}};
     const Digest candidate_work_digest = root_candidate_work(candidate_work,
         work);
@@ -1103,7 +1199,7 @@ Replay reconstruct(const FileImage<CACHE_SIZE>& cache,
         root_event(5U, z0_digest, factor, work),
         root_event(6U, rho_digest, candidate_work_digest, work)}};
     constexpr std::uint64_t route = 7U;
-    const Digest trace = root_trace(route, events, work);
+    const Digest trace = root_trace(route, events, EVENT_SLOTS, work);
     replay.result = root_candidate_result(route, inputs, trace,
         candidate_work_digest, work);
 
@@ -1164,14 +1260,17 @@ bool equal_region(const std::array<std::uint8_t, RECEIPT_SIZE>& actual,
 
 enum class Route : std::uint32_t {
     Accepted = 0U,
-    Read = 1U,
-    Input = 2U,
-    MalformedReceipt = 3U,
-    Arithmetic = 4U,
-    Semantic = 5U,
-    Work = 6U,
-    Events = 7U,
-    Seal = 8U,
+    CacheReadRejectedVerified = 1U,
+    ParentArtifactRejectedVerified = 2U,
+    ParentAuditRejectedVerified = 3U,
+    CacheSemanticRejectedVerified = 4U,
+    CheckerRead = 5U,
+    MalformedReceipt = 6U,
+    Arithmetic = 7U,
+    Semantic = 8U,
+    Work = 9U,
+    Events = 10U,
+    Seal = 11U,
 };
 
 Digest root_checker(Route route, bool semantic, bool work_exact,
@@ -1231,15 +1330,44 @@ int main(int argc, char** argv) {
     load_exact(argv[3], parent_audit, checker);
     load_exact(argv[4], receipt, checker);
 
-    const bool reads_exact = cache.exact && parent.exact
-        && parent_audit.exact && receipt.exact;
     const bool cache_identity = cache.exact && digest_is(cache.root, CACHE_ID);
     const bool parent_identity = parent.exact
         && check_parent_artifact(parent, checker);
     const bool parent_audit_identity = parent_audit.exact
         && check_parent_audit(parent_audit, checker);
-    const bool inputs_exact = cache_identity && parent_identity
-        && parent_audit_identity;
+    std::uint32_t expected_candidate_route = 7U;
+    std::uint64_t candidate_read_calls = 3U;
+    std::uint64_t expected_artifact_checks = 12U;
+    std::uint64_t expected_audit_checks = 8U;
+    std::uint64_t expected_route_decisions = 10U;
+    if (!cache.exact) {
+        expected_candidate_route = 0U;
+        candidate_read_calls = 1U;
+        expected_artifact_checks = 0U;
+        expected_audit_checks = 0U;
+        expected_route_decisions = 1U;
+    } else if (!parent.exact) {
+        expected_candidate_route = 1U;
+        candidate_read_calls = 2U;
+        expected_artifact_checks = 0U;
+        expected_audit_checks = 0U;
+        expected_route_decisions = 2U;
+    } else if (!parent_identity) {
+        expected_candidate_route = 1U;
+        candidate_read_calls = 2U;
+        expected_audit_checks = 0U;
+        expected_route_decisions = 3U;
+    } else if (!parent_audit.exact) {
+        expected_candidate_route = 2U;
+        expected_route_decisions = 4U;
+        expected_audit_checks = 0U;
+    } else if (!parent_audit_identity) {
+        expected_candidate_route = 2U;
+        expected_route_decisions = 5U;
+    } else if (!cache_identity) {
+        expected_candidate_route = 3U;
+        expected_route_decisions = 6U;
+    }
 
     constexpr std::array<std::uint8_t, 8U> receipt_magic{{
         'N','E','R','6','3','Z','N','1'}};
@@ -1269,9 +1397,30 @@ int main(int argc, char** argv) {
 
     Inputs decoded;
     Replay replay;
-    if (inputs_exact) {
+    if (expected_candidate_route <= 3U) {
+        replay = reconstruct_early_rejection(expected_candidate_route,
+            cache, parent, parent_audit, candidate_read_calls,
+            expected_artifact_checks, expected_audit_checks,
+            0U, 0U, 0U, expected_route_decisions, checker);
+    } else {
         decoded = decode_cache(cache.bytes, checker);
-        replay = reconstruct(cache, parent, parent_audit, decoded, checker);
+        if (!decoded.parsed || decoded.rows != DIMENSION
+            || decoded.columns != 315U
+            || decoded.baseline.count != DIMENSION
+            || decoded.factor.count != FACTOR_COMPONENTS
+            || decoded.permutation.count != DIMENSION
+            || decoded.inverse.size != sizeof(Quad)
+            || decoded.rhs.count != DIMENSION) {
+            expected_candidate_route = 3U;
+            expected_route_decisions = 7U;
+            replay = reconstruct_early_rejection(expected_candidate_route,
+                cache, parent, parent_audit, candidate_read_calls,
+                expected_artifact_checks, expected_audit_checks,
+                168U, CACHE_SIZE, 87U, expected_route_decisions, checker);
+        } else {
+            replay = reconstruct(cache, parent, parent_audit, decoded,
+                checker);
+        }
     }
 
     bool semantic_exact = false;
@@ -1296,14 +1445,21 @@ int main(int argc, char** argv) {
 
     ++checker.route_checks;
     Route route = Route::Accepted;
-    if (!reads_exact) route = Route::Read;
-    else if (!inputs_exact) route = Route::Input;
+    if (!receipt.exact) route = Route::CheckerRead;
     else if (malformed) route = Route::MalformedReceipt;
     else if (!replay.valid) route = Route::Arithmetic;
     else if (!semantic_exact) route = Route::Semantic;
     else if (!candidate_work_exact) route = Route::Work;
     else if (!events_exact) route = Route::Events;
     else if (!seals_exact) route = Route::Seal;
+    else if (expected_candidate_route == 0U)
+        route = Route::CacheReadRejectedVerified;
+    else if (expected_candidate_route == 1U)
+        route = Route::ParentArtifactRejectedVerified;
+    else if (expected_candidate_route == 2U)
+        route = Route::ParentAuditRejectedVerified;
+    else if (expected_candidate_route == 3U)
+        route = Route::CacheSemanticRejectedVerified;
 
     Digest observed_result{};
     if (receipt.exact)
@@ -1355,5 +1511,7 @@ int main(int argc, char** argv) {
     store_digest(output.data() + CHECKER_REPLAY_RESULT_AT, replay.result);
     store_digest(output.data() + CHECKER_RESULT_AT, checker_result);
     if (!write_exact(argv[5], output)) return 65;
-    return route == Route::Accepted ? 0 : 1;
+    return static_cast<std::uint32_t>(route)
+        <= static_cast<std::uint32_t>(Route::CacheSemanticRejectedVerified)
+        ? 0 : 1;
 }
