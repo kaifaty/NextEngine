@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZP direct direction-product admission research
 
-Status: `APPARATUS_PASS / SERIALIZED_PACKAGE_PENDING / NO_ENDPOINT_AUTHORITY`.
+Status: `APPARATUS_PASS / REVISION_2_PACKAGE_LAYOUT_FROZEN / IMPLEMENTATION_PENDING / NO_ENDPOINT_AUTHORITY`.
 
 ## Decision
 
@@ -155,3 +155,16 @@ implement separate producer and checker translation units. The checker must
 retain an independent exact-dyadic implementation, actual executed-work
 counts and the future-state firewall. Stop before `p1`, a second product,
 recurrence, representation choice or production integration.
+
+## Revision-2 package freeze
+
+The byte layouts are now frozen before package code: a `5,920`-byte candidate
+artifact, an `864`-byte checker audit, eight ordered causal events and separate
+32-field candidate/checker work ledgers. The product-body root precedes every
+`x1` decode; final result sealing follows the consequence-only update.
+
+The ledgers name actual file calls, bytes, decodes, arithmetic terms,
+root-derivation paths and comparisons. Fixed comparison regions must execute
+unconditionally. Malformed/early-stop paths increment only predicates and
+bytes actually evaluated. This is the explicit non-regression against the
+R63ZN short-circuit overclaim and the R63ZK invisible-validation class.

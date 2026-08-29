@@ -1,6 +1,6 @@
 # NSR3-B4E2D7R20R63ZP direct direction-product admission contract
 
-Revision: `1 / FROZEN_BEFORE_CODE / APPARATUS_PASS / SERIALIZED_PACKAGE_PENDING / NO_ENDPOINT_AUTHORITY`.
+Revision: `2 / PACKAGE_LAYOUT_FROZEN_BEFORE_CODE / APPARATUS_PASS / NO_ENDPOINT_AUTHORITY`.
 
 | Field | Value |
 |---|---|
@@ -206,3 +206,96 @@ zero reaches `DIRECT_PRODUCT_BOUND_REJECTED` with first escape `0`.
 
 This passes only the non-serialized apparatus gate. No candidate artifact,
 receipt, checker audit, formal review or product admission exists yet.
+
+## Revision-2 fixed binary package
+
+Revision 2 freezes the serialized boundary before package code. All integers
+are unsigned big-endian; binary128 payloads are canonical big-endian IEEE
+bytes; roots are raw SHA-256 bytes. Padding is literal zero and checked.
+
+The candidate artifact is exactly `5,920` bytes:
+
+| Offset | Bytes | Field |
+|---:|---:|---|
+| 0 | 8 | magic `NER63ZP` |
+| 8 | 4 | version `2` |
+| 12 | 4 | total bytes `5920` |
+| 16 | 4 | first-specific route |
+| 20 | 4 | exact/normal/contained/positive/step/update flags |
+| 24 | 96 | R63ZM cache/artifact/audit roots |
+| 120 | 64 | role-2 input and value roots |
+| 184 | 96 | `p0`, `q0` and component-bound roots |
+| 280 | 80 | rho primary/bound, denominator primary/bound and alpha |
+| 360 | 8 | dimension `102` |
+| 368 | 8 | candidate work-field count `32` |
+| 376 | 256 | candidate work fields |
+| 632 | 32 | candidate work root |
+| 664 | 8 | event count `8` |
+| 672 | 256 | ordered event roots |
+| 928 | 32 | trace root |
+| 960 | 1632 | `p0[102]` |
+| 2592 | 1632 | `q0[102]` |
+| 4224 | 1632 | component bounds `[102]` |
+| 5856 | 32 | pre-`x1` product-body root |
+| 5888 | 32 | final result root |
+
+The product-body root is computed before offsets for cached `x1` are decoded.
+It seals all parent identities, role-2 roots, `p0/q0/bounds`, scalar fields
+available at that point, their roots and the pre-seal work prefix. The final
+result root adds the post-seal update result, complete work root and trace.
+
+Candidate work fields, in exact order, are:
+
+```text
+file_open_attempts, read_calls, file_bytes, trailing_checks, close_calls,
+file_hashes, cache_quad_decodes_preseal, cache_double_decodes,
+cache_index_decodes, artifact_quad_decodes, factor_solves, factor_terms,
+residual_dots, residual_terms, rho_dots, rho_terms, product_kernels,
+inner_dots, inner_terms, outer_dots, outer_terms, propagation_terms,
+scale_products, denominator_dots, denominator_terms, preseal_hash_calls,
+preseal_hash_bytes, postseal_x1_decodes, update_dots, update_terms,
+final_hash_calls, final_hash_bytes
+```
+
+The checker audit is exactly `864` bytes:
+
+| Offset | Bytes | Field |
+|---:|---:|---|
+| 0 | 8 | magic `NER63ZQ` |
+| 8 | 4 | version `2` |
+| 12 | 4 | total bytes `864` |
+| 16 | 4 | first-specific checker route |
+| 20 | 4 | verified/contained/positive/step/update flags |
+| 24 | 96 | R63ZM cache/artifact/audit roots |
+| 120 | 128 | candidate-file, candidate-result, candidate-work and exact-product roots |
+| 248 | 256 | checker work fields |
+| 504 | 32 | checker work root |
+| 536 | 8 | event count `8` |
+| 544 | 256 | checker event roots |
+| 800 | 32 | checker trace root |
+| 832 | 32 | checker result root |
+
+Checker work fields, in exact order, are:
+
+```text
+file_open_attempts, read_calls, file_bytes, trailing_checks, close_calls,
+file_hashes, header_predicates_executed, candidate_bytes_decoded,
+candidate_fixed_comparisons, cache_quad_decodes_preseal,
+cache_double_decodes, cache_index_decodes, parent_artifact_quad_decodes,
+factor_solves, factor_terms, residual_dots, residual_terms, dyadic_decodes,
+exact_multiplies, exact_additions, alignment_shifts, alignment_bits,
+interval_comparisons, exact_denominator_terms, postseal_x1_decodes,
+update_dots, update_terms, candidate_work_comparisons, event_comparisons,
+seal_comparisons, audit_hash_calls, audit_hash_bytes
+```
+
+Both translation units assert every adjacent offset and total size. The eight
+ordered events are parent admission, `x0` correspondence, role-2 consumption,
+direction derivation, product-body seal, scalar verification, update
+consequence and final seal. Event 5 is therefore a hard causal firewall.
+
+Numeric route ordinals are `1..7` in the order already frozen in **Routes**.
+Zero and unknown ordinals fail closed. The producer writes a full fixed-size
+artifact for every reachable route; unavailable semantic fields and events
+are literal zero. The checker always writes one `864`-byte audit unless file
+creation itself fails.

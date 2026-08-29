@@ -92,8 +92,11 @@
   `271facfd...272f2f` and minimum slack `452/-567/-116`. Exact curvature,
   step and `102/102` late updates close. Two Release and sanitizer outputs are
   identical at `2a419ecf...0082fa`.
-- **R63ZP next action:** freeze exact artifact/audit layouts, then implement
-  separate producer and independent exact-dyadic checker TUs. The apparatus
+- **R63ZP revision-2 freeze:** the separate candidate/checker package is fixed
+  at `5,920`/`864` bytes, eight causal events and two explicit 32-field actual
+  work ledgers. Product-body sealing precedes every `x1` decode.
+- **R63ZP next action:** implement those separate producer/checker TUs plus
+  mutator/controls without changing layout or numerical scope. The apparatus
   grants no product admission before formal review.
 - **Build-loop result:** strict-FP `nonlocal-formula-reclosure-dev` reduces the
   observed last-probe rebuild from about three minutes to about 34 seconds and
@@ -6891,6 +6894,26 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   authority. Formal review remains mandatory.
 - **Smallest next action:** freeze byte offsets/sizes and implement producer,
   checker, mutator and bounded controls without expanding numerical scope.
+
+### D-234 -- Freeze the R63ZP causal wire and actual-work layout
+
+- **Observation:** the numerical apparatus passes, while the surviving risk is
+  trust/work ownership rather than product containment.
+- **Evidence:** earlier R63ZN re-review showed planned comparison counts can be
+  sealed after short-circuit execution; R63ZK showed repeated validations can
+  remain outside a checker receipt.
+- **Decision:** fix candidate/audit sizes at `5,920/864`, use eight ordered
+  events, and name every candidate/checker work field. A distinct product-body
+  root is computed before any `x1` decode.
+- **Rejected alternatives:** variable-length receipts; aggregate opaque work;
+  reading `x1` before product seal; sharing producer arithmetic with checker;
+  adding recurrence fields for future convenience.
+- **Consequences:** implementation may now proceed mechanically against one
+  layout. Any size/offset/field-order change requires a new frozen revision.
+- **Remaining uncertainty:** whether implementation and controls cover every
+  actual path without hidden validation, copy or hash work.
+- **Smallest next action:** implement the frozen producer/checker and assert
+  the complete offset chains before author evidence.
 
 ## Performance facts retained
 
