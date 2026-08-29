@@ -4278,18 +4278,21 @@ therefore selects only one independently checked consumer prefix: solve `x0`,
 prove role-2 input correspondence, consume its `H*x0`, then derive
 `r0/z0` and a certified-positive Dot2 enclosure for `rho0`. Revision 2 was
 frozen before code after tracing the inherited compensated arithmetic.
-Implementation and review are pending; no complete
+Complete rejection implementation and review are pending; no complete
 recurrence, certificate, representation or production authority exists.
 An external author preflight now reproduces `102/102` role-2 input components,
 exact/no-underflow residual work, the second factor solve and a
 certified-positive `rho0` lower bound twice at stdout
 `dccaf8c1...fc5f`. It is offset-only reachability evidence, not the contracted
 parser/receipt/checker package, so the claim ceiling is unchanged.
-The tracked standalone candidate now independently parses the full cache and
-three parent identities, reproduces the prefix and emits byte-identical
-Dev/two-Release 1,120-byte receipts at `91810c72...c245`. This remains
-author-only: independent checker, rejection receipts, controls and work-ledger
-audit are pending.
+The first 1,120-byte author receipt was superseded when independent work
+reconstruction exposed repeated unowned input hashes, an omitted parent-set
+root and incomplete work categories. The repaired standalone candidate and
+separately coded checker now reproduce two byte-identical Release 1,216-byte
+receipts `6b6db341...8a06` and 548-byte audits `e7934c3a...385a`; both
+allocation probes are zero. Six targeted input/receipt mutations take distinct
+first-specific checker routes. This remains author-only: fixed candidate
+rejection receipts, the full control corpus and fresh review are pending.
 
 The
 [R20R63Z research](../../development/nonlocal-nsr3b4e2d7r20r63z-active-block-operator-research-2026-08-27.md)

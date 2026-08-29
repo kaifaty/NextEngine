@@ -254,9 +254,19 @@ add_executable(
     nonlocal-formula-r63zn-prefix-candidate-release
     EXCLUDE_FROM_ALL
     r63zn/prefix_candidate.cpp
+    r63zm/allocation_probe.cpp
 )
 nextengine_configure_r63zm_target(
     nonlocal-formula-r63zn-prefix-candidate-release -O3)
+
+add_executable(
+    nonlocal-formula-r63zn-prefix-checker-release
+    EXCLUDE_FROM_ALL
+    r63zn/prefix_checker.cpp
+    r63zm/allocation_probe.cpp
+)
+nextengine_configure_r63zm_target(
+    nonlocal-formula-r63zn-prefix-checker-release -O3)
 
 option(
     NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET
@@ -525,7 +535,17 @@ if(NEXTENGINE_NONLOCAL_BUILD_FAST_RESEARCH_TARGET)
         nonlocal-formula-r63zn-prefix-candidate-dev
         EXCLUDE_FROM_ALL
         r63zn/prefix_candidate.cpp
+        r63zm/allocation_probe.cpp
     )
     nextengine_configure_r63zm_target(
         nonlocal-formula-r63zn-prefix-candidate-dev -O0)
+
+    add_executable(
+        nonlocal-formula-r63zn-prefix-checker-dev
+        EXCLUDE_FROM_ALL
+        r63zn/prefix_checker.cpp
+        r63zm/allocation_probe.cpp
+    )
+    nextengine_configure_r63zm_target(
+        nonlocal-formula-r63zn-prefix-checker-dev -O0)
 endif()

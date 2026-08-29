@@ -1,7 +1,7 @@
 # NSR3-B4E2D7R20R63ZN fixed-artifact initial recurrence research
 
-Status: `REVISION_2_CONTRACT_FROZEN / AUTHOR_CANDIDATE_PASS /
-CHECKER_AND_CONTROLS_PENDING`.
+Status: `REVISION_2_CONTRACT_FROZEN / ACCEPTED_PATH_INDEPENDENT_CHECKER_PASS /
+REJECTION_RECEIPTS_AND_FULL_CONTROLS_PENDING`.
 
 ## Decision
 
@@ -129,6 +129,48 @@ This checkpoint is author evidence only. The work tuple has not yet been
 independently reconstructed, rejection routes are incomplete, no separate
 checker exists, and the full mutation corpus has not run. The candidate must
 not be described as reviewed, correspondence-closed or production-ready.
+
+## Accepted-path independent checker checkpoint
+
+The first independent work reconstruction rejected the initial author receipt
+as incomplete before any review request was frozen. The candidate hashed all
+three inputs twice while reporting three hashes, omitted the `parent-set` root,
+under-counted the trace hash by nine bytes, and its 36-field tuple had no room
+to own all required input/domain checks, residual Dot2 calls and receipt
+construction. The `91810c72...c245` receipt remains preserved above as
+superseded author evidence and receives no correspondence credit.
+
+The repaired candidate hashes every input once and reuses the digest, checks
+all selected factor/binary128 values and permutation properties, owns both
+solves and all finite/exact/underflow checks, and publishes a 48-field work
+tuple in a fixed 1,216-byte receipt. The separately compiled checker shares
+only the fixed SHA primitive. It uses a distinct cursor, factor solve, Dot2,
+root construction, work model and route classifier, rebuilds every accepted
+receipt byte, and emits a fixed 548-byte checker audit.
+
+Two Release candidate/checker pairs are byte-identical and allocation-free:
+
+| Item | SHA-256 |
+|---|---|
+| candidate source | `c5005d5e2721c471b984f85e1bf350ee1daff6b0bef2fa0e91ade0677876ed80` |
+| checker source | `4ba3acb89e255b1ddaca55543f17772df48523d0b0b6dbeecc1ec4464fac8673` |
+| Release candidate binary | `40b5d12309f40bc8a35fe7d1fa325b91bf4fecda0e674b2bbb82635f6b58bd97` |
+| Release checker binary | `ae22bcc791cc3b34b30401a1ed79ab4337fad2cc7e945cde41eaddfac052c497` |
+| both candidate receipts | `6b6db341431221b9eba199d8b818bd0809bafedfc99cbbd46b9dc622441a8a06` |
+| both checker audits | `e7934c3a0a106dc556286d73e12f5f615ce0ec40a96edac5f4205932f19f385a` |
+| trace root | `2a6d3ccb5c27594b2aa526b7bc29a375565029e84a7aa178567bfef90461cba6` |
+| terminal result root | `3e3cb36341fb09f6e36834e01b3782ef990baea8857d2fb529510ca4d105902b` |
+| checker root | `90aa280005078f8a81e967db642e835e9bc50d67a52aba01108acfc26209412f` |
+
+Both stdout files are empty and both allocation probes report zero calls and
+zero bytes. Six bounded smoke mutations produce distinct sealed checker
+audits and the first-specific routes: exact-input drift `2`, malformed receipt
+`3`, semantic drift `5`, work drift `6`, event drift `7` and seal drift `8`.
+These are checker-discrimination smoke controls, not the contract's complete
+mutation corpus. The candidate still returns process errors instead of fixed
+rejection receipts for invalid inputs, arithmetic/nonpositive controls are not
+yet constructed, and no fresh independent review has occurred. R63ZN
+therefore remains author-only and grants no admitted recurrence result.
 
 ## Exact structural evidence
 
