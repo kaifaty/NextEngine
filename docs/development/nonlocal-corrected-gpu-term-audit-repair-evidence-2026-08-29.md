@@ -6,7 +6,7 @@
 | Contract | `docs/plans/nonlocal-corrected-gpu-audit/01-full-pair-force-correspondence-contract.md` |
 | Contract SHA-256 | `10303b06727c703a2a958b3c6e49663a9b1b6ee7ad462e8f15cba267474d3e6f` |
 | Author result | `CORRECTED_FULL_PAIR_TERM_CORRESPONDENCE_SUPPORTED_BOUNDED` |
-| Review status | `SINGLE_REREVIEW_PENDING` |
+| Review status | `GO / SUPPORTED_BOUNDED` |
 | Product status | `REPORT_ONLY`; SPEC-38 and ADR-076 remain `Proposed` |
 | Host | Linux x86-64, NVIDIA GeForce RTX 3080, compute capability 8.6, driver `610.43.02`, CUDA compiler/runtime `13.3.73` / `13030` |
 | Fresh build | `/tmp/nextengine-corrected-gpu-repair-jqlKHr` (outside Git) |
@@ -23,6 +23,11 @@ deliberate directed-edge/half-force CUDA mode failed both the component and
 energy gates, closing the factor-of-two apparatus gap from the initial review.
 All original nine fixtures, three source-gradient negatives, bounds and ten
 cold repetitions remain unchanged.
+
+The single independent re-review reproduced the repaired result and found no
+load-bearing defect. The reviewed snapshot is
+`22bf11adfeedc602c4fd25c460efece33ac4b298`; see
+`nonlocal-corrected-gpu-term-audit-independent-rereview-2026-08-29.md`.
 
 ## Frozen author artifacts
 
@@ -90,6 +95,6 @@ profile and GPU only. Neighborhood/indexing, matrix assembly, local solve,
 SISSM, trajectories, performance, runtime authority and product-ready water are
 not established.
 
-Freeze the repair commit and revision-1-to-repair diff, then give the original
-reviewer the single allowed read-only re-review. If it is clean, NCGA0 can close
-and the next separately frozen neighborhood/linearization audit may be drafted.
+NCGA0 is reviewed and complete. The next separately frozen experiment may
+target neighborhood construction and local energy/source/matrix assembly; do
+not infer or start a full solver or performance claim from this result.

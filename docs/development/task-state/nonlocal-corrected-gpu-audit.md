@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA0_REV2_EXECUTED / SINGLE_REREVIEW_PENDING` |
+| Status | `COMPLETE / NCGA0_REV2_GO / SUPPORTED_BOUNDED` |
 | Updated | `2026-08-29` |
 | Task key | `nonlocal-corrected-gpu-audit` |
 | Scope | Determine whether corrected Nonlocal scalar/pair terms correspond to a separate strict-f32 CUDA implementation before any neighborhood or solver port |
@@ -11,18 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** revision 1 remains `NO-GO`; the revision-2 repair now
-  passes its independent energy derivative and rejects the half-force identity,
-  but it is not accepted until the single re-review closes.
-- **Why:** corrected bulk/shear projection errors are `7.80e-8` and `1.30e-7`,
-  while deliberate half-force errors are `0.0403` and `0.0162` against `2e-5`.
-- **Next action:** freeze the repaired snapshot and obtain the single permitted
-  read-only re-review.
+- **Current conclusion:** NCGA0 revision 2 is independently reviewed
+  `GO / SUPPORTED_BOUNDED`: corrected scalar/full-pair terms correspond between
+  host `long double` and strict CUDA `f32` on the frozen profile.
+- **Why:** all nine values, two energy derivatives, five mandatory negatives,
+  cold repeatability, sanitizers and old controls passed; the re-review found no
+  load-bearing defect.
+- **Next action:** if GPU research continues, freeze a new neighborhood and
+  local energy/source/matrix assembly contract before implementation.
 - **Current blocker:** none.
 - **Do not retry:** another long source-shaped 50k run; it cannot distinguish
   shared source mathematics from GPU translation.
-- **Reconsider when:** NCGA0 term correspondence closes and a separately
-  frozen neighborhood/linearization consumer exists.
+- **Reconsider when:** the term implementation/profile/toolchain changes or a
+  separately frozen neighborhood/linearization consumer needs this boundary.
 
 ## Current evidence
 
@@ -33,8 +34,9 @@
 | `docs/plans/nonlocal-corrected-gpu-audit/00-corrected-term-correspondence-contract.md` | `FROZEN` | only nine term fixtures are authorized in NCGA0 |
 | `docs/development/nonlocal-corrected-gpu-term-audit-evidence-2026-08-29.md` | `AUTHOR_PASS / REVIEW_NO_GO` | execution is reproducible, but revision-1 semantics did not close |
 | `docs/development/nonlocal-corrected-gpu-term-audit-independent-review-2026-08-29.md` | `NO-GO / REFUTED_AS_WRITTEN` | revision-1 agreement shared an untested viscosity observable |
-| `docs/plans/nonlocal-corrected-gpu-audit/01-full-pair-force-correspondence-contract.md` | `FROZEN / EXECUTED / REREVIEW_PENDING` | full-pair force and independent energy derivative are explicit |
-| `docs/development/nonlocal-corrected-gpu-term-audit-repair-evidence-2026-08-29.md` | `AUTHOR_PASS / REREVIEW_PENDING` | energy derivative selects full force and rejects the half identity |
+| `docs/plans/nonlocal-corrected-gpu-audit/01-full-pair-force-correspondence-contract.md` | `FROZEN / REVIEWED_GO` | full-pair force and independent energy derivative are explicit |
+| `docs/development/nonlocal-corrected-gpu-term-audit-repair-evidence-2026-08-29.md` | `GO / SUPPORTED_BOUNDED` | energy derivative selects full force and rejects the half identity |
+| `docs/development/nonlocal-corrected-gpu-term-audit-independent-rereview-2026-08-29.md` | `GO / SUPPORTED_BOUNDED` | revision 2 closes the local term boundary |
 
 ## Decisions that still constrain the work
 
@@ -49,9 +51,9 @@
   corrected physics from their source-shaped correspondence.
 - **Consequences:** old performance roots remain historical only; NCGA0 emits
   report-only JSON and owns no simulation state.
-- **Uncertainty:** whether strict binary32 preserves corrected term values even
-  before neighborhood and solver composition.
-- **Reconsider when:** NCGA0 closes under independent review.
+- **Uncertainty:** later neighborhood and solver composition only; local strict
+  binary32 correspondence is closed.
+- **Reconsider when:** the selected profile, arithmetic mode or term code changes.
 
 ### D-002 — Distinguish full-pair force from directed-edge contribution
 
@@ -65,18 +67,19 @@
   an independent energy finite difference plus a half-force negative.
 - **Rejected alternatives:** changing the force to half merely to satisfy the
   ambiguous phrase; accepting revision 1 by explanation alone.
-- **Consequences:** revision 1 remains NO-GO; one repair/re-review remains.
-- **Uncertainty:** whether another shared local-term defect survives the added
-  energy discriminator.
-- **Reconsider when:** revision 2 receives its single re-review.
+- **Consequences:** revision 1 remains NO-GO; revision 2 is reviewed GO and no
+  further NCGA0 repair cycle remains.
+- **Uncertainty:** no remaining local-term defect was observed; composition is
+  outside this decision.
+- **Reconsider when:** the energy/force observable or implementation changes.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1 corrected full-pair terms translate to CUDA | 9/9 values and repeats passed | revision-1 viscosity meaning was not independently selected | energy derivative plus half-force negative |
-| H2 GPU-specific coefficient/sign defect remains | prior atomics defect shows GPU-specific errors are possible | no local discrepancy appeared | repaired independent term audit, then neighborhood audit |
-| H3 shared source mathematics caused the main historical failure | old CPU/GPU correspond and old derivative control fails | revision 1 showed a new shared-oracle risk | independent energy and later matrix oracles |
+| H1 corrected full-pair terms translate to CUDA | reviewed 9/9 values, energy derivatives and negatives pass | no contrary local-term evidence | closed within NCGA0 |
+| H2 GPU-specific coefficient/sign defect remains | prior atomics defect shows later GPU-specific errors are possible | no local term defect remains in NCGA0 | separately frozen neighborhood/matrix audit |
+| H3 shared source mathematics caused the main historical failure | old CPU/GPU correspond; old derivative fails; corrected reviewed terms pass | does not exclude later composition defects | independent neighborhood/matrix oracle |
 
 ## Required context
 
@@ -84,14 +87,15 @@
 2. `docs/roadmap.md` continuum R8 row and `docs/plans/continuum-water/README.md`.
 3. `docs/plans/nonlocal-continuum-formula-reclosure/00-formula-contract.md`.
 4. NPR1-B and NR1-RC1 evidence.
-5. `docs/plans/nonlocal-corrected-gpu-audit/00-corrected-term-correspondence-contract.md`.
+5. Both NCGA0 contracts and the independent revision-1/revision-2 reviews.
 
 ## Next action
 
-1. Freeze repaired sources, binary, stdout, roots and exact diff.
-2. Give revision 2 and the repair diff to the original reviewer.
-3. If clean, record the reviewed NCGA0 conclusion and stop before neighborhood
-   work unless a new contract is frozen.
+1. Preserve NCGA0 sources, contracts and reviewed roots as the local boundary.
+2. Draft a new contract for tiny fixed-set neighborhood plus local
+   energy/source/matrix assembly.
+3. Do not start full-solver, trajectory or performance work before that new
+   boundary closes.
 
 ## Do not retry
 
@@ -99,15 +103,15 @@
   reclosed the bounded issue.
 - Old source-shaped 50k performance as product evidence — NPR1-B invalidates
   its physics credit.
-- Full corrected solver port before NCGA0 — term-level failure would make it
-  wasted work.
+- Full corrected solver port before a neighborhood/matrix audit — composition
+  failure would make it wasted work.
 
 ## Handoff
 
 - **Workspace state:** primary checkout, branch `codex/water-research`.
-- **Checks:** revision 2 PASS twice; ten cold repetitions exact per process;
-  five mandatory negatives reject; energy derivatives PASS;
-  memcheck/initcheck/synccheck zero errors; old controls unchanged.
+- **Checks:** revision 2 PASS twice under author and reviewer builds; ten cold
+  repetitions exact; five negatives reject; independent 70-digit derivative
+  agrees; sanitizers zero errors; old controls unchanged.
 - **Remaining risk:** local matrix, neighborhood, solver and trajectory remain
-  outside NCGA0 even if it passes.
+  outside the reviewed NCGA0 claim.
 - **Promotion needed:** none; the track remains Proposed/report-only.
