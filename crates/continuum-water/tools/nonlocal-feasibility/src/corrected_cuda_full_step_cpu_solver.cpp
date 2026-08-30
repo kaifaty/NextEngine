@@ -16,6 +16,7 @@ namespace nextengine::nonlocal::gpu_full_step {
 namespace {
 
 constexpr long double kUmPerMetre = 1000000.0L;
+constexpr std::size_t kCpuMaximumTotalSamples = 100000U;
 
 struct CpuVec3 {
     long double x = 0.0L;
@@ -55,6 +56,73 @@ long double length(CpuVec3 value) {
 bool finite(CpuVec3 value) {
     return std::isfinite(value.x) && std::isfinite(value.y)
         && std::isfinite(value.z);
+}
+
+bool cpu_finite_binary32(const Vec3d& value) {
+    return std::isfinite(value.x) && std::isfinite(value.y)
+        && std::isfinite(value.z)
+        && std::isfinite(static_cast<float>(value.x))
+        && std::isfinite(static_cast<float>(value.y))
+        && std::isfinite(static_cast<float>(value.z));
+}
+
+NonlocalGpuFailure validate_cpu_input_locally(
+    const NonlocalGpuProfile& profile,
+    const std::vector<NonlocalGpuSample>& samples,
+    const std::vector<NonlocalGpuGhost>& ghosts) {
+    const std::array<double, 10> scalar{profile.dt, profile.spacing,
+        profile.horizon, profile.mass, profile.rest_density,
+        profile.kernel_scale, profile.kappa, profile.lambda, profile.mu,
+        profile.gamma};
+    const bool finite_scalar = std::all_of(scalar.begin(), scalar.end(),
+        [](double value) {
+            return std::isfinite(value)
+                && std::isfinite(static_cast<float>(value));
+        });
+    if (profile.id != "nonlocal-water-50k-v1" || !finite_scalar
+        || !(profile.dt > 0.0) || !(profile.spacing > 0.0)
+        || !(profile.horizon > 0.0) || !(profile.mass > 0.0)
+        || !(profile.rest_density > 0.0) || !(profile.kernel_scale > 0.0)
+        || profile.kappa < 0.0 || profile.lambda < 0.0 || profile.mu < 0.0
+        || profile.gamma < 0.0 || !cpu_finite_binary32(profile.gravity)
+        || !cpu_finite_binary32(profile.basin_extent)
+        || !(profile.basin_extent.x > profile.spacing)
+        || !(profile.basin_extent.y > profile.spacing)
+        || !(profile.basin_extent.z > profile.spacing)
+        || profile.ghost_layers != 3U
+        || profile.maximum_dynamic_samples != kMaximumDynamicSamples
+        || profile.maximum_neighbors != kMaximumNeighbors) {
+        return NonlocalGpuFailure::InvalidProfile;
+    }
+    if (samples.empty() || samples.size() > profile.maximum_dynamic_samples
+        || samples.size() + ghosts.size() > kCpuMaximumTotalSamples) {
+        return NonlocalGpuFailure::CapacityExceeded;
+    }
+    std::unordered_set<std::uint32_t> identifiers;
+    identifiers.reserve(samples.size() + ghosts.size());
+    for (const NonlocalGpuSample& sample : samples) {
+        if (!identifiers.insert(sample.sample_id).second) {
+            return NonlocalGpuFailure::DuplicateSampleId;
+        }
+        if (!cpu_finite_binary32(sample.reference)
+            || !cpu_finite_binary32(sample.current)
+            || !cpu_finite_binary32(sample.velocity)) {
+            return NonlocalGpuFailure::Nonfinite;
+        }
+    }
+    std::uint32_t previous_ghost_id = 0U;
+    for (std::size_t index = 0U; index < ghosts.size(); ++index) {
+        const NonlocalGpuGhost& ghost = ghosts[index];
+        if (!identifiers.insert(ghost.sample_id).second
+            || (index != 0U && ghost.sample_id <= previous_ghost_id)) {
+            return NonlocalGpuFailure::DuplicateSampleId;
+        }
+        previous_ghost_id = ghost.sample_id;
+        if (!cpu_finite_binary32(ghost.position)) {
+            return NonlocalGpuFailure::Nonfinite;
+        }
+    }
+    return NonlocalGpuFailure::None;
 }
 
 CpuVec3 radial_apply(CpuVec3 normal,
@@ -685,7 +753,7 @@ NonlocalGpuStepResult step_reference(
     result.hvp_budget = total_hvp_budget;
     result.solver_profile = NonlocalGpuSolverProfile::Unpreconditioned;
     result.variant = variant;
-    const NonlocalGpuFailure admission = validate_nonlocal_input(
+    const NonlocalGpuFailure admission = validate_cpu_input_locally(
         profile, samples, ghosts);
     if (admission != NonlocalGpuFailure::None) {
         result.failure = admission;
@@ -724,6 +792,10 @@ NonlocalGpuStepResult step_reference(
         if (outer == 0U) result.initial_energy = static_cast<double>(evaluation.energy);
         result.final_energy = static_cast<double>(evaluation.energy);
         result.active_pressure_centers = evaluation.active;
+        result.maximum_directed_pairs = std::max(result.maximum_directed_pairs,
+            static_cast<std::uint32_t>(evaluation.current_graph.neighbors.size()));
+        result.maximum_degree = std::max(result.maximum_degree,
+            evaluation.current_graph.maximum_degree);
         result.active_pressure_ids.clear();
         for (std::size_t index = 0U; index < evaluation.excess.size(); ++index) {
             if (evaluation.excess[index] > 0.0L) {
@@ -952,6 +1024,12 @@ NonlocalGpuStepResult step_reference(
             result.boundary_face_mask_xor ^= trial_face_mask_xor;
             result.final_energy = static_cast<double>(trial_evaluation.energy);
             result.active_pressure_centers = trial_evaluation.active;
+            result.maximum_directed_pairs = std::max(
+                result.maximum_directed_pairs,
+                static_cast<std::uint32_t>(
+                    trial_evaluation.current_graph.neighbors.size()));
+            result.maximum_degree = std::max(result.maximum_degree,
+                trial_evaluation.current_graph.maximum_degree);
             result.active_pressure_ids.clear();
             for (std::size_t index = 0U;
                  index < trial_evaluation.excess.size(); ++index) {

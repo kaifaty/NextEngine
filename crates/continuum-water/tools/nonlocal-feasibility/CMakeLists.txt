@@ -101,6 +101,7 @@ add_executable(
     nonlocal-corrected-cuda-compensated-scale
     src/corrected_cuda_full_step.cu
     src/corrected_cuda_compensated_scale_main.cpp
+    src/corrected_cuda_compensated_scale_physics.cpp
     src/corrected_cuda_full_step_reference.cpp
     src/corrected_cuda_full_step_cpu_solver.cpp
     src/corrected_cuda_assembly_reference.cpp
@@ -245,6 +246,8 @@ set(NCGP3_SOURCE_FILES
     src/corrected_cuda_full_step.hpp
     src/corrected_cuda_full_step.cu
     src/corrected_cuda_compensated_scale_main.cpp
+    src/corrected_cuda_compensated_scale_physics.cpp
+    src/corrected_cuda_compensated_scale_physics.hpp
     src/corrected_cuda_full_step_reference.cpp
     src/corrected_cuda_full_step_cpu_solver.cpp
     src/corrected_cuda_assembly_reference.cpp
@@ -272,8 +275,11 @@ file(SHA256
 file(SHA256
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-compensated-scale/03-corrected-fcr-profile-corrigendum.md"
     NCGP3_CONTRACT_3_ROOT)
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-compensated-scale/04-review-repair-contract.md"
+    NCGP3_CONTRACT_4_ROOT)
 string(SHA256 NCGP3_CONTRACT_ROOT
-    "${NCGP3_CONTRACT_0_ROOT}:${NCGP3_CONTRACT_1_ROOT}:${NCGP3_CONTRACT_2_ROOT}:${NCGP3_CONTRACT_3_ROOT}")
+    "${NCGP3_CONTRACT_0_ROOT}:${NCGP3_CONTRACT_1_ROOT}:${NCGP3_CONTRACT_2_ROOT}:${NCGP3_CONTRACT_3_ROOT}:${NCGP3_CONTRACT_4_ROOT}")
 set(NCGP3_COMPILER_FLAGS
     "CXX:-O3,-Wall,-Wextra,-Wpedantic,-Werror,-ffp-contract=off,-fno-fast-math|CUDA:-O3,--fmad=false,--prec-div=true,--prec-sqrt=true,--ftz=false|SM=86")
 target_compile_definitions(

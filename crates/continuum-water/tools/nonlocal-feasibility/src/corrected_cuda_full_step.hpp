@@ -81,6 +81,7 @@ enum class NonlocalGpuVariant : std::uint32_t {
     CompensatedScaleHighOnlyBoundary = 17U,
     CompensatedScalePostFinalizeFailure = 18U,
     CompensatedScalePressureF64 = 19U,
+    CompensatedScaleOrdinaryPredictor = 20U,
 };
 
 enum class NonlocalGpuSolverProfile : std::uint32_t {
@@ -134,6 +135,8 @@ struct NonlocalGpuWorkReceipt {
     std::uint64_t compensated_contact_canonicalizations = 0U;
     std::uint64_t compensated_fault_injection_components = 0U;
     std::uint64_t compensated_rollback_components = 0U;
+    std::uint64_t compensated_prediction_eft_components = 0U;
+    std::uint64_t allocated_device_bytes = 0U;
 };
 
 struct NonlocalGpuTimings {
@@ -166,6 +169,9 @@ struct NonlocalGpuEvaluationResult {
     double energy = 0.0;
     double gradient_norm = 0.0;
     std::uint32_t active_pressure_centers = 0U;
+    std::uint32_t directed_pairs = 0U;
+    std::uint32_t maximum_degree = 0U;
+    std::vector<std::uint32_t> active_pressure_ids;
     std::vector<Vec3d> gradient;
     std::vector<Vec3d> hvp;
     std::vector<double> density;
@@ -196,6 +202,14 @@ struct NonlocalGpuCompensatedStateSnapshot {
     NonlocalGpuWorkReceipt work;
 };
 
+struct NonlocalGpuPublicSnapshot {
+    NonlocalGpuFailure failure = NonlocalGpuFailure::None;
+    std::vector<NonlocalGpuSample> state;
+    std::vector<double> density;
+    std::vector<std::uint32_t> active_pressure_ids;
+    NonlocalGpuWorkReceipt work;
+};
+
 struct NonlocalGpuStepResult {
     NonlocalGpuFailure failure = NonlocalGpuFailure::None;
     std::vector<NonlocalGpuSample> state;
@@ -205,6 +219,8 @@ struct NonlocalGpuStepResult {
     double gradient_norm = 0.0;
     double scaled_displacement_residual = 0.0;
     std::uint32_t active_pressure_centers = 0U;
+    std::uint32_t maximum_directed_pairs = 0U;
+    std::uint32_t maximum_degree = 0U;
     std::vector<std::uint32_t> active_pressure_ids;
     std::uint32_t hvp_budget = 0U;
     std::uint32_t hvp_used = 0U;
@@ -245,6 +261,7 @@ public:
         bool capture_payload);
 
     NonlocalGpuCompensatedStateSnapshot capture_compensated_state();
+    NonlocalGpuPublicSnapshot capture_public_snapshot();
 
     NonlocalGpuStepResult step(std::uint32_t total_hvp_budget,
         NonlocalGpuSolverProfile solver_profile,

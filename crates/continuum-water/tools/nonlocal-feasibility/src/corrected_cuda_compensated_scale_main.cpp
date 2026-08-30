@@ -1,4 +1,5 @@
 #include "corrected_cuda_full_step.hpp"
+#include "corrected_cuda_compensated_scale_physics.hpp"
 #include "sha256.hpp"
 
 #include <algorithm>
@@ -13,6 +14,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #ifndef NCGP3_CONTRACT_ROOT
@@ -106,6 +108,130 @@ long double infinite_lattice_density(const NonlocalGpuProfile& profile) {
         }
     }
     return density;
+}
+
+long double cubic_weight_first(long double radius,
+    const NonlocalGpuProfile& profile) {
+    const long double h = profile.horizon;
+    const long double q = 2.0L * radius / h;
+    const long double alpha = static_cast<long double>(profile.kernel_scale)
+        * 3.0L / (2.0L * acosl(-1.0L) * h * h * h);
+    long double derivative_q = 0.0L;
+    if (q < 1.0L) {
+        derivative_q = alpha * (-2.0L * q + 1.5L * q * q);
+    } else if (q <= 2.0L) {
+        const long double tail = 2.0L - q;
+        derivative_q = -0.5L * alpha * tail * tail;
+    }
+    return derivative_q * 2.0L / h;
+}
+
+long double trajectory_surface_potential(
+    long double radius, long double spacing) {
+    const long double q = radius / spacing;
+    if (q <= 1.0L) {
+        return spacing * (q * q * q / 3.0L - q - 2.0L / 3.0L);
+    }
+    if (q < 3.0L) {
+        const long double shifted = q - 2.0L;
+        return spacing
+            * (q - shifted * shifted * shifted / 3.0L - 8.0L / 3.0L);
+    }
+    return 0.0L;
+}
+
+struct TrajectoryPhysicsMetrics {
+    bool valid = false;
+    Vec3d momentum;
+    Vec3d ghost_pressure_force;
+    double mechanical_energy = 0.0;
+};
+
+TrajectoryPhysicsMetrics trajectory_physics_metrics(
+    const NonlocalGpuProfile& profile,
+    const std::vector<NonlocalGpuSample>& state,
+    const std::vector<NonlocalGpuGhost>& ghosts,
+    const std::vector<double>& density) {
+    TrajectoryPhysicsMetrics result;
+    if (state.empty() || density.size() != state.size()) return result;
+    const auto graph = build_reference_graph(profile, state, ghosts, false);
+    if (graph.failure != NonlocalGpuFailure::None
+        || graph.offsets.size() != state.size() + 1U) return result;
+    std::unordered_map<std::uint32_t, std::size_t> dynamic;
+    std::unordered_map<std::uint32_t, Vec3d> ghost_positions;
+    dynamic.reserve(state.size());
+    ghost_positions.reserve(ghosts.size());
+    for (std::size_t index = 0U; index < state.size(); ++index) {
+        dynamic.emplace(state[index].sample_id, index);
+        result.momentum.x += profile.mass * state[index].velocity.x;
+        result.momentum.y += profile.mass * state[index].velocity.y;
+        result.momentum.z += profile.mass * state[index].velocity.z;
+        result.mechanical_energy += 0.5 * profile.mass
+                * (state[index].velocity.x * state[index].velocity.x
+                    + state[index].velocity.y * state[index].velocity.y
+                    + state[index].velocity.z * state[index].velocity.z)
+            - profile.mass * (profile.gravity.x * state[index].current.x
+                + profile.gravity.y * state[index].current.y
+                + profile.gravity.z * state[index].current.z);
+        const double excess = std::max(
+            density[index] / profile.rest_density - 1.0, 0.0);
+        result.mechanical_energy += 0.5 * profile.kappa * excess * excess;
+    }
+    for (const NonlocalGpuGhost& ghost : ghosts) {
+        ghost_positions.emplace(ghost.sample_id, ghost.position);
+    }
+    for (std::size_t owner = 0U; owner < state.size(); ++owner) {
+        const double excess = std::max(
+            density[owner] / profile.rest_density - 1.0, 0.0);
+        for (std::uint32_t slot = graph.offsets[owner];
+             slot < graph.offsets[owner + 1U]; ++slot) {
+            const std::uint32_t neighbor_id = graph.neighbor_ids[slot];
+            const auto dynamic_neighbor = dynamic.find(neighbor_id);
+            Vec3d neighbor{};
+            if (dynamic_neighbor != dynamic.end()) {
+                if (dynamic_neighbor->second == owner) continue;
+                neighbor = state[dynamic_neighbor->second].current;
+            } else {
+                const auto ghost = ghost_positions.find(neighbor_id);
+                if (ghost == ghost_positions.end()) return result;
+                neighbor = ghost->second;
+            }
+            const Vec3d difference{state[owner].current.x - neighbor.x,
+                state[owner].current.y - neighbor.y,
+                state[owner].current.z - neighbor.z};
+            const long double radius = std::sqrt(
+                static_cast<long double>(difference.x) * difference.x
+                + static_cast<long double>(difference.y) * difference.y
+                + static_cast<long double>(difference.z) * difference.z);
+            if (!(radius > 0.0L)) continue;
+            if (dynamic_neighbor != dynamic.end()) {
+                if (dynamic_neighbor->second > owner) {
+                    result.mechanical_energy += static_cast<double>(
+                        2.0L * profile.gamma * profile.mass * profile.mass
+                        * trajectory_surface_potential(radius,
+                            profile.spacing));
+                }
+            } else if (excess > 0.0) {
+                const long double coefficient = -static_cast<long double>(
+                    profile.kappa * profile.mass / profile.rest_density
+                    * excess) * cubic_weight_first(radius, profile) / radius;
+                result.ghost_pressure_force.x += static_cast<double>(
+                    coefficient * difference.x);
+                result.ghost_pressure_force.y += static_cast<double>(
+                    coefficient * difference.y);
+                result.ghost_pressure_force.z += static_cast<double>(
+                    coefficient * difference.z);
+            }
+        }
+    }
+    result.valid = std::isfinite(result.mechanical_energy)
+        && std::isfinite(result.momentum.x)
+        && std::isfinite(result.momentum.y)
+        && std::isfinite(result.momentum.z)
+        && std::isfinite(result.ghost_pressure_force.x)
+        && std::isfinite(result.ghost_pressure_force.y)
+        && std::isfinite(result.ghost_pressure_force.z);
+    return result;
 }
 
 int run_profile_self_test() {
@@ -407,6 +533,27 @@ std::string compensated_state_root(
     return nextengine::nonlocal::sha256_hex(material.str());
 }
 
+std::string public_state_root(
+    const std::vector<NonlocalGpuSample>& unordered_state) {
+    std::vector<NonlocalGpuSample> state = unordered_state;
+    std::sort(state.begin(), state.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.sample_id < rhs.sample_id;
+    });
+    std::ostringstream material;
+    material << "nextengine.nonlocal.ncgp3.public-state.v1\n";
+    for (const NonlocalGpuSample& sample : state) {
+        material << sample.sample_id << ':' << std::hex
+                 << float_bits(static_cast<float>(sample.current.x)) << ','
+                 << float_bits(static_cast<float>(sample.current.y)) << ','
+                 << float_bits(static_cast<float>(sample.current.z)) << ';'
+                 << float_bits(static_cast<float>(sample.velocity.x)) << ','
+                 << float_bits(static_cast<float>(sample.velocity.y)) << ','
+                 << float_bits(static_cast<float>(sample.velocity.z)) << '\n'
+                 << std::dec;
+    }
+    return nextengine::nonlocal::sha256_hex(material.str());
+}
+
 std::vector<NonlocalGpuSample> transaction_pair_state() {
     return canonicalize_samples_binary32({
         {101U, {0.725, 0.75, 0.75}, {0.725, 0.75, 0.75}, {}},
@@ -507,6 +654,7 @@ int run_correspondence_4k(const std::string& scenario,
     const char* arithmetic_profile) {
     if (steps == 0U || steps > 240U
         || (budget != 32U && budget != 64U && budget != 128U)) return 2;
+    if (run_ncgp3_physics_self_test(false) != 0) return 54;
     const NonlocalGpuProfile profile = nonlocal_water_corrected_profile();
     const auto ghosts = canonicalize_ghosts_binary32(
         make_basin_ghosts(profile));
@@ -522,6 +670,22 @@ int run_correspondence_4k(const std::string& scenario,
     if (gpu.upload(cpu_state, ghosts, true) != NonlocalGpuFailure::None
         || permuted.upload(permuted_input, ghosts, true)
             != NonlocalGpuFailure::None) return 51;
+    const auto initial_evaluation = evaluate_reference(profile, cpu_state,
+        ghosts, nullptr, NonlocalGpuVariant::Corrected);
+    const TrajectoryPhysicsMetrics initial_physics = trajectory_physics_metrics(
+        profile, cpu_state, ghosts, initial_evaluation.density);
+    if (initial_evaluation.failure != NonlocalGpuFailure::None
+        || !initial_physics.valid) return 52;
+    TrajectoryPhysicsMetrics previous_physics = initial_physics;
+    double maximum_momentum_residual = 0.0;
+    double maximum_positive_energy_excess = 0.0;
+    double maximum_penetration = 0.0;
+    Vec3d gpu_minimum{std::numeric_limits<double>::infinity(),
+        std::numeric_limits<double>::infinity(),
+        std::numeric_limits<double>::infinity()};
+    Vec3d gpu_maximum{-std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity()};
     double maximum_position_rmse = 0.0;
     double maximum_position_error = 0.0;
     double maximum_density_rmse = 0.0;
@@ -533,6 +697,12 @@ int run_correspondence_4k(const std::string& scenario,
     double observed_density_mean = 0.0;
     std::uint32_t maximum_gpu_hvp = 0U;
     std::uint32_t maximum_cpu_hvp = 0U;
+    std::uint32_t maximum_active_pressure_centers = 0U;
+    std::uint32_t maximum_directed_pairs = 0U;
+    std::uint32_t maximum_degree = 0U;
+    std::uint64_t hot_host_to_device_bytes = 0U;
+    std::uint64_t hot_device_to_host_bytes = 0U;
+    std::uint64_t snapshot_device_to_host_bytes = 0U;
     std::uint64_t active_mismatch_steps = 0U;
     std::uint64_t permutation_mismatch_steps = 0U;
     std::uint32_t first_active_mismatch_step = 0U;
@@ -554,14 +724,22 @@ int run_correspondence_4k(const std::string& scenario,
     std::uint64_t failure_rejected_trials = 0U;
     std::string failure_work_root;
     std::string failure_permuted_work_root;
+    std::string failure_restored_state_root;
+    std::string failure_permuted_restored_state_root;
+    std::string prior_gpu_state_root = public_state_root(cpu_state);
+    std::string prior_permuted_state_root = public_state_root(permuted_input);
+    std::string snapshot_receipt_material =
+        "nextengine.nonlocal.ncgp3.snapshot-receipts.v1\n";
     std::uint32_t completed = 0U;
     for (std::uint32_t step_index = 0U; step_index < steps; ++step_index) {
         const auto gpu_result = gpu.step(budget,
             NonlocalGpuSolverProfile::Jacobi,
-            gpu_variant, true, false);
+            gpu_variant, false, false);
         const auto permuted_result = permuted.step(budget,
             NonlocalGpuSolverProfile::Jacobi,
-            gpu_variant, true, false);
+            gpu_variant, false, false);
+        const auto gpu_snapshot = gpu.capture_public_snapshot();
+        const auto permuted_snapshot = permuted.capture_public_snapshot();
         const auto cpu_result = step_reference(profile, cpu_state, ghosts,
             128U, NonlocalGpuVariant::Corrected, true);
         corrected_gpu_failure = gpu_result.failure;
@@ -572,8 +750,24 @@ int run_correspondence_4k(const std::string& scenario,
         receipt_material += step_work_semantic_root(profile, gpu_result) + ':'
             + step_work_semantic_root(profile, permuted_result) + ':'
             + step_work_semantic_root(profile, cpu_result) + '\n';
+        snapshot_receipt_material += work_semantic_root(gpu_snapshot.work)
+            + ':' + work_semantic_root(permuted_snapshot.work) + '\n';
         maximum_gpu_hvp = std::max(maximum_gpu_hvp, gpu_result.hvp_used);
         maximum_cpu_hvp = std::max(maximum_cpu_hvp, cpu_result.hvp_used);
+        maximum_active_pressure_centers = std::max(
+            maximum_active_pressure_centers,
+            gpu_result.active_pressure_centers);
+        maximum_directed_pairs = std::max(maximum_directed_pairs,
+            gpu_result.maximum_directed_pairs);
+        maximum_degree = std::max(maximum_degree,
+            gpu_result.maximum_degree);
+        hot_host_to_device_bytes += gpu_result.work.host_to_device_bytes
+            + permuted_result.work.host_to_device_bytes;
+        hot_device_to_host_bytes += gpu_result.work.device_to_host_bytes
+            + permuted_result.work.device_to_host_bytes;
+        snapshot_device_to_host_bytes +=
+            gpu_snapshot.work.device_to_host_bytes
+            + permuted_snapshot.work.device_to_host_bytes;
         if (gpu_failure != NonlocalGpuFailure::None) {
             failure_gpu_hvp = gpu_result.hvp_used;
             failure_permuted_hvp = permuted_result.hvp_used;
@@ -583,59 +777,116 @@ int run_correspondence_4k(const std::string& scenario,
             failure_work_root = step_work_semantic_root(profile, gpu_result);
             failure_permuted_work_root = step_work_semantic_root(
                 profile, permuted_result);
+            failure_restored_state_root = public_state_root(gpu_snapshot.state);
+            failure_permuted_restored_state_root = public_state_root(
+                permuted_snapshot.state);
         }
         if (gpu_failure != NonlocalGpuFailure::None
             || cpu_failure != NonlocalGpuFailure::None
-            || gpu_result.state.size() != cpu_result.state.size()
-            || gpu_result.state.size() != permuted_result.state.size()
-            || gpu_result.density.size() != cpu_result.density.size()) break;
+            || gpu_snapshot.failure != NonlocalGpuFailure::None
+            || permuted_snapshot.failure != NonlocalGpuFailure::None
+            || gpu_snapshot.state.size() != cpu_result.state.size()
+            || gpu_snapshot.state.size() != permuted_snapshot.state.size()
+            || gpu_snapshot.density.size() != cpu_result.density.size()) break;
+        const TrajectoryPhysicsMetrics physics = trajectory_physics_metrics(
+            profile, gpu_snapshot.state, ghosts, gpu_snapshot.density);
+        if (!physics.valid) {
+            gpu_failure = NonlocalGpuFailure::InvalidState;
+            break;
+        }
+        const double total_mass = profile.mass
+            * static_cast<double>(gpu_snapshot.state.size());
+        const Vec3d momentum_residual{
+            physics.momentum.x - previous_physics.momentum.x
+                - profile.dt * (total_mass * profile.gravity.x
+                    + physics.ghost_pressure_force.x)
+                - gpu_result.boundary_impulse.x,
+            physics.momentum.y - previous_physics.momentum.y
+                - profile.dt * (total_mass * profile.gravity.y
+                    + physics.ghost_pressure_force.y)
+                - gpu_result.boundary_impulse.y,
+            physics.momentum.z - previous_physics.momentum.z
+                - profile.dt * (total_mass * profile.gravity.z
+                    + physics.ghost_pressure_force.z)
+                - gpu_result.boundary_impulse.z};
+        const auto vector_norm = [](Vec3d value) {
+            return std::sqrt(value.x * value.x + value.y * value.y
+                + value.z * value.z);
+        };
+        const double momentum_scale = std::max({
+            vector_norm(previous_physics.momentum),
+            profile.dt * total_mass * vector_norm(profile.gravity),
+            profile.spacing * total_mass / profile.dt});
+        maximum_momentum_residual = std::max(maximum_momentum_residual,
+            vector_norm(momentum_residual) / momentum_scale);
+        maximum_positive_energy_excess = std::max(
+            maximum_positive_energy_excess,
+            std::max(physics.mechanical_energy
+                    - initial_physics.mechanical_energy,
+                0.0)
+                / std::max(std::abs(initial_physics.mechanical_energy), 1.0));
+        maximum_penetration = std::max(maximum_penetration,
+            gpu_result.maximum_penetration_m);
+        previous_physics = physics;
         double position_squared = 0.0;
         double density_squared = 0.0;
         double compression_squared = 0.0;
         double density_sum = 0.0;
-        for (std::size_t index = 0U; index < gpu_result.state.size(); ++index) {
-            if (gpu_result.state[index].sample_id
+        for (std::size_t index = 0U; index < gpu_snapshot.state.size(); ++index) {
+            if (gpu_snapshot.state[index].sample_id
                     != cpu_result.state[index].sample_id
-                || gpu_result.state[index].sample_id
-                    != permuted_result.state[index].sample_id) {
+                || gpu_snapshot.state[index].sample_id
+                    != permuted_snapshot.state[index].sample_id) {
                 ++permutation_mismatch_steps;
                 break;
             }
             const Vec3d delta{
-                gpu_result.state[index].current.x
+                gpu_snapshot.state[index].current.x
                     - cpu_result.state[index].current.x,
-                gpu_result.state[index].current.y
+                gpu_snapshot.state[index].current.y
                     - cpu_result.state[index].current.y,
-                gpu_result.state[index].current.z
+                gpu_snapshot.state[index].current.z
                     - cpu_result.state[index].current.z};
             const double distance = std::sqrt(delta.x * delta.x
                 + delta.y * delta.y + delta.z * delta.z);
             position_squared += distance * distance;
             maximum_position_error = std::max(
                 maximum_position_error, distance);
+            gpu_minimum.x = std::min(gpu_minimum.x,
+                gpu_snapshot.state[index].current.x);
+            gpu_minimum.y = std::min(gpu_minimum.y,
+                gpu_snapshot.state[index].current.y);
+            gpu_minimum.z = std::min(gpu_minimum.z,
+                gpu_snapshot.state[index].current.z);
+            gpu_maximum.x = std::max(gpu_maximum.x,
+                gpu_snapshot.state[index].current.x);
+            gpu_maximum.y = std::max(gpu_maximum.y,
+                gpu_snapshot.state[index].current.y);
+            gpu_maximum.z = std::max(gpu_maximum.z,
+                gpu_snapshot.state[index].current.z);
             const double density_error = std::abs(
-                gpu_result.density[index] - cpu_result.density[index])
+                gpu_snapshot.density[index] - cpu_result.density[index])
                 / profile.rest_density;
             density_squared += density_error * density_error;
             maximum_density_error = std::max(
                 maximum_density_error, density_error);
             const double compression_error = std::max(
-                gpu_result.density[index] / profile.rest_density - 1.0, 0.0);
+                gpu_snapshot.density[index] / profile.rest_density - 1.0, 0.0);
             observed_density_minimum = std::min(observed_density_minimum,
-                gpu_result.density[index]);
+                gpu_snapshot.density[index]);
             observed_density_maximum = std::max(observed_density_maximum,
-                gpu_result.density[index]);
-            density_sum += gpu_result.density[index];
+                gpu_snapshot.density[index]);
+            density_sum += gpu_snapshot.density[index];
             compression_squared += compression_error * compression_error;
             maximum_compression_error = std::max(
                 maximum_compression_error, compression_error);
             const Vec3d permutation_delta{
-                gpu_result.state[index].current.x
-                    - permuted_result.state[index].current.x,
-                gpu_result.state[index].current.y
-                    - permuted_result.state[index].current.y,
-                gpu_result.state[index].current.z
-                    - permuted_result.state[index].current.z};
+                gpu_snapshot.state[index].current.x
+                    - permuted_snapshot.state[index].current.x,
+                gpu_snapshot.state[index].current.y
+                    - permuted_snapshot.state[index].current.y,
+                gpu_snapshot.state[index].current.z
+                    - permuted_snapshot.state[index].current.z};
             if (permutation_delta.x != 0.0 || permutation_delta.y != 0.0
                 || permutation_delta.z != 0.0) {
                 ++permutation_mismatch_steps;
@@ -644,34 +895,34 @@ int run_correspondence_4k(const std::string& scenario,
         }
         maximum_position_rmse = std::max(maximum_position_rmse,
             std::sqrt(position_squared
-                / static_cast<double>(gpu_result.state.size())));
+                / static_cast<double>(gpu_snapshot.state.size())));
         maximum_density_rmse = std::max(maximum_density_rmse,
             std::sqrt(density_squared
-                / static_cast<double>(gpu_result.state.size())));
+                / static_cast<double>(gpu_snapshot.state.size())));
         maximum_compression_rmse = std::max(maximum_compression_rmse,
             std::sqrt(compression_squared
-                / static_cast<double>(gpu_result.state.size())));
+                / static_cast<double>(gpu_snapshot.state.size())));
         observed_density_mean = density_sum
-            / static_cast<double>(gpu_result.state.size());
-        if (gpu_result.active_pressure_ids != cpu_result.active_pressure_ids) {
+            / static_cast<double>(gpu_snapshot.state.size());
+        if (gpu_snapshot.active_pressure_ids != cpu_result.active_pressure_ids) {
             if (first_active_mismatch_step == 0U) {
                 first_active_mismatch_step = step_index + 1U;
                 first_gpu_active_count = static_cast<std::uint32_t>(
-                    gpu_result.active_pressure_ids.size());
+                    gpu_snapshot.active_pressure_ids.size());
                 first_cpu_active_count = static_cast<std::uint32_t>(
                     cpu_result.active_pressure_ids.size());
                 for (std::size_t index = 0U;
-                     index < gpu_result.state.size(); ++index) {
-                    const std::uint32_t id = gpu_result.state[index].sample_id;
+                     index < gpu_snapshot.state.size(); ++index) {
+                    const std::uint32_t id = gpu_snapshot.state[index].sample_id;
                     const bool gpu_active = std::binary_search(
-                        gpu_result.active_pressure_ids.begin(),
-                        gpu_result.active_pressure_ids.end(), id);
+                        gpu_snapshot.active_pressure_ids.begin(),
+                        gpu_snapshot.active_pressure_ids.end(), id);
                     const bool cpu_active = std::binary_search(
                         cpu_result.active_pressure_ids.begin(),
                         cpu_result.active_pressure_ids.end(), id);
                     if (gpu_active != cpu_active) {
                         first_active_mismatch_id = id;
-                        first_gpu_mismatch_density = gpu_result.density[index];
+                        first_gpu_mismatch_density = gpu_snapshot.density[index];
                         first_cpu_mismatch_density = cpu_result.density[index];
                         break;
                     }
@@ -679,10 +930,12 @@ int run_correspondence_4k(const std::string& scenario,
             }
             ++active_mismatch_steps;
         }
-        if (gpu_result.active_pressure_ids
-            != permuted_result.active_pressure_ids) {
+        if (gpu_snapshot.active_pressure_ids
+            != permuted_snapshot.active_pressure_ids) {
             ++permutation_mismatch_steps;
         }
+        prior_gpu_state_root = public_state_root(gpu_snapshot.state);
+        prior_permuted_state_root = public_state_root(permuted_snapshot.state);
         cpu_state = cpu_result.state;
         ++completed;
         if (maximum_position_rmse > 0.0025
@@ -691,8 +944,9 @@ int run_correspondence_4k(const std::string& scenario,
             || maximum_density_error > 0.10
             || maximum_compression_rmse > 0.05
             || maximum_compression_error > 0.10
-            || (scenario == "hydrostatic-hold" && steps == 1U
-                && active_mismatch_steps != 0U)
+            || maximum_momentum_residual > 0.01
+            || maximum_positive_energy_excess > 0.01
+            || maximum_penetration > 0.0025
             || permutation_mismatch_steps != 0U) break;
     }
     NonlocalGpuGraphResult failure_graph;
@@ -701,20 +955,14 @@ int run_correspondence_4k(const std::string& scenario,
         failure_graph = build_reference_graph(
             profile, cpu_state, ghosts, false);
     }
-    Vec3d minimum{std::numeric_limits<double>::infinity(),
-        std::numeric_limits<double>::infinity(),
-        std::numeric_limits<double>::infinity()};
-    Vec3d maximum{-std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity()};
-    for (const auto& sample : cpu_state) {
-        minimum.x = std::min(minimum.x, sample.current.x);
-        minimum.y = std::min(minimum.y, sample.current.y);
-        minimum.z = std::min(minimum.z, sample.current.z);
-        maximum.x = std::max(maximum.x, sample.current.x);
-        maximum.y = std::max(maximum.y, sample.current.y);
-        maximum.z = std::max(maximum.z, sample.current.z);
-    }
+    const double inset = 0.5 * profile.spacing;
+    const bool closed_basin_bounds = completed != 0U
+        && gpu_minimum.x >= inset - 0.0025
+        && gpu_minimum.y >= inset - 0.0025
+        && gpu_minimum.z >= inset - 0.0025
+        && gpu_maximum.x <= profile.basin_extent.x - inset + 0.0025
+        && gpu_maximum.y <= profile.basin_extent.y - inset + 0.0025
+        && gpu_maximum.z <= profile.basin_extent.z - inset + 0.0025;
     const bool passed = completed == steps
         && gpu_failure == NonlocalGpuFailure::None
         && cpu_failure == NonlocalGpuFailure::None
@@ -724,8 +972,10 @@ int run_correspondence_4k(const std::string& scenario,
         && maximum_density_error <= 0.10
         && maximum_compression_rmse <= 0.05
         && maximum_compression_error <= 0.10
-        && (scenario != "hydrostatic-hold" || steps != 1U
-            || active_mismatch_steps == 0U)
+        && maximum_momentum_residual <= 0.01
+        && maximum_positive_energy_excess <= 0.01
+        && maximum_penetration <= 0.0025
+        && closed_basin_bounds
         && permutation_mismatch_steps == 0U;
     const bool work_refuted = !passed && budget == 128U
         && corrected_gpu_failure == NonlocalGpuFailure::WorkBudgetExceeded
@@ -734,17 +984,52 @@ int run_correspondence_4k(const std::string& scenario,
         && failure_gpu_hvp <= budget
         && failure_gpu_hvp == failure_permuted_hvp
         && !failure_work_root.empty()
-        && failure_work_root == failure_permuted_work_root;
+        && failure_work_root == failure_permuted_work_root
+        && failure_restored_state_root == prior_gpu_state_root
+        && failure_permuted_restored_state_root
+            == prior_permuted_state_root;
     const bool physical_refuted = work_refuted || (!passed && completed > 0U
         && gpu_failure == NonlocalGpuFailure::None
         && cpu_failure == NonlocalGpuFailure::None
         && (maximum_compression_rmse > 0.05
-            || maximum_compression_error > 0.10));
+            || maximum_compression_error > 0.10
+            || maximum_momentum_residual > 0.01
+            || maximum_positive_energy_excess > 0.01
+            || maximum_penetration > 0.0025
+            || !closed_basin_bounds));
     const long double lattice_density = infinite_lattice_density(profile);
     const char* status = passed ? "PASS"
         : (physical_refuted ? "PHYSICS_REFUTED" : "INCONCLUSIVE");
+    const std::string receipt_root = nextengine::nonlocal::sha256_hex(
+        receipt_material);
+    const std::string snapshot_receipt_root =
+        nextengine::nonlocal::sha256_hex(snapshot_receipt_material);
+    const std::string executable_root = binary_root();
+    const std::string environment = gpu.environment_json();
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << "nextengine.nonlocal.ncgp3.correspondence-result.v3\n"
+                    << status << '\n' << scenario << '\n' << steps << '\n'
+                    << budget << '\n' << input_root << '\n' << receipt_root
+                    << '\n' << snapshot_receipt_root << '\n'
+                    << prior_gpu_state_root << '\n'
+                    << prior_permuted_state_root << '\n'
+                    << failure_restored_state_root << '\n'
+                    << maximum_position_rmse << '\n'
+                    << maximum_position_error << '\n'
+                    << maximum_density_rmse << '\n'
+                    << maximum_density_error << '\n'
+                    << maximum_momentum_residual << '\n'
+                    << maximum_positive_energy_excess << '\n'
+                    << maximum_penetration << '\n'
+                    << NCGP3_CONTRACT_ROOT << '\n' << NCGP3_SOURCE_ROOT << '\n'
+                    << NCGP3_SOURCE_COMMIT << '\n' << NCGP3_SOURCE_TREE << '\n'
+                    << NCGP3_COMPILER_FLAGS << '\n' << executable_root << '\n'
+                    << environment << '\n';
+    const std::string result_root = nextengine::nonlocal::sha256_hex(
+        result_material.str());
     std::cout << std::setprecision(17)
-              << "{\"schema\":\"nextengine.nonlocal.ncgp3.correspondence.v2\""
+              << "{\"schema\":\"nextengine.nonlocal.ncgp3.correspondence.v3\""
               << ",\"status\":\"" << status << "\""
               << ",\"scenario\":\"" << scenario << "\",\"steps\":" << steps
               << ",\"arithmetic_profile\":\"" << arithmetic_profile << "\""
@@ -766,6 +1051,15 @@ int run_correspondence_4k(const std::string& scenario,
               << maximum_compression_rmse
               << ",\"density_compression_error_max_fraction\":"
               << maximum_compression_error
+              << ",\"momentum_residual_max_fraction\":"
+              << maximum_momentum_residual
+              << ",\"positive_mechanical_energy_excess_max_fraction\":"
+              << maximum_positive_energy_excess
+              << ",\"maximum_penetration_m\":" << maximum_penetration
+              << ",\"closed_basin_bounds\":"
+              << (closed_basin_bounds ? "true" : "false")
+              << ",\"initial_mechanical_energy_j\":"
+              << initial_physics.mechanical_energy
               << ",\"density_observed_min_kg_m3\":"
               << observed_density_minimum
               << ",\"density_observed_max_kg_m3\":"
@@ -800,6 +1094,18 @@ int run_correspondence_4k(const std::string& scenario,
               << permutation_mismatch_steps
               << ",\"gpu_hvp_max\":" << maximum_gpu_hvp
               << ",\"cpu_hvp_max\":" << maximum_cpu_hvp
+              << ",\"active_pressure_centers_max\":"
+              << maximum_active_pressure_centers
+              << ",\"directed_pairs_max\":" << maximum_directed_pairs
+              << ",\"maximum_degree\":" << maximum_degree
+              << ",\"allocated_device_bytes\":"
+              << gpu.allocated_device_bytes()
+              << ",\"hot_host_to_device_bytes\":"
+              << hot_host_to_device_bytes
+              << ",\"hot_device_to_host_bytes\":"
+              << hot_device_to_host_bytes
+              << ",\"snapshot_device_to_host_bytes\":"
+              << snapshot_device_to_host_bytes
               << ",\"failure_gpu_hvp\":" << failure_gpu_hvp
               << ",\"failure_permuted_hvp\":" << failure_permuted_hvp
               << ",\"failure_outer_trials\":" << failure_outer_trials
@@ -810,12 +1116,22 @@ int run_correspondence_4k(const std::string& scenario,
               << ",\"failure_work_root\":\"" << failure_work_root
               << "\",\"failure_permuted_work_root\":\""
               << failure_permuted_work_root << "\""
+              << ",\"failure_restored_state_root\":\""
+              << failure_restored_state_root << "\""
+              << ",\"failure_permuted_restored_state_root\":\""
+              << failure_permuted_restored_state_root << "\""
               << ",\"particle_count\":" << cpu_state.size()
               << ",\"mass_kg\":"
               << static_cast<double>(cpu_state.size()) * profile.mass
               << ",\"input_root\":\"" << input_root
               << "\",\"receipt_root\":\""
-              << nextengine::nonlocal::sha256_hex(receipt_material)
+              << receipt_root
+              << "\",\"snapshot_receipt_root\":\""
+              << snapshot_receipt_root
+              << "\",\"final_state_root\":\"" << prior_gpu_state_root
+              << "\",\"final_permuted_state_root\":\""
+              << prior_permuted_state_root
+              << "\",\"result_root\":\"" << result_root
               << "\",\"pre_failure_graph_failure\":"
               << static_cast<std::uint32_t>(failure_graph.failure)
               << ",\"pre_failure_maximum_degree\":"
@@ -826,13 +1142,20 @@ int run_correspondence_4k(const std::string& scenario,
               << failure_graph.overflow_dynamic_neighbors
               << ",\"overflow_ghost_neighbors\":"
               << failure_graph.overflow_ghost_neighbors
-              << ",\"state_bounds_min\":[" << minimum.x << ',' << minimum.y
-              << ',' << minimum.z << "]"
-              << ",\"state_bounds_max\":[" << maximum.x << ',' << maximum.y
-              << ',' << maximum.z << ']'
+              << ",\"state_bounds_min\":[" << gpu_minimum.x << ','
+              << gpu_minimum.y << ',' << gpu_minimum.z << "]"
+              << ",\"state_bounds_max\":[" << gpu_maximum.x << ','
+              << gpu_maximum.y << ',' << gpu_maximum.z << ']'
               << ",\"contract_root\":\"" << NCGP3_CONTRACT_ROOT
               << "\",\"source_root\":\"" << NCGP3_SOURCE_ROOT
-              << "\",\"binary_root\":\"" << binary_root()
+              << "\",\"source_commit\":\"" << NCGP3_SOURCE_COMMIT
+              << "\",\"source_tree\":\"" << NCGP3_SOURCE_TREE
+              << "\",\"compiler_flags\":\"" << NCGP3_COMPILER_FLAGS
+              << "\",\"environment\":" << environment
+              << ",\"exact_command\":\"--correspondence-4k "
+              << scenario << ' ' << steps << ' ' << budget << "\""
+              << ",\"timing_status\":\"NOT_RUN\""
+              << ",\"binary_root\":\"" << executable_root
               << "\"}\n";
     return passed ? 0 : (physical_refuted ? 37 : 53);
 }
@@ -852,6 +1175,9 @@ int main(int argc, char** argv) {
     if (argc == 2 && std::string(argv[1]) == "--transaction-self-test") {
         return run_transaction_self_test();
     }
+    if (argc == 2 && std::string(argv[1]) == "--physics-self-test") {
+        return run_ncgp3_physics_self_test();
+    }
     if (argc == 5 && std::string(argv[1]) == "--correspondence-4k") {
         return run_correspondence_4k(argv[2],
             static_cast<std::uint32_t>(std::stoul(argv[3])),
@@ -869,7 +1195,7 @@ int main(int argc, char** argv) {
     }
     std::cerr << "usage: nonlocal-corrected-cuda-compensated-scale "
                  "--profile-self-test|--graph-self-test|--boundary-self-test|"
-                 "--transaction-self-test|"
+                 "--transaction-self-test|--physics-self-test|"
                  "--correspondence-4k SCENARIO STEPS BUDGET|"
                  "--correspondence-4k-pressure-f64 SCENARIO STEPS BUDGET\n";
     return 2;

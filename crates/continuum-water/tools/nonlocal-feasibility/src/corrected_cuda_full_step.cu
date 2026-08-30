@@ -124,6 +124,8 @@ __host__ __device__ bool compensated_state_variant(unsigned int variant) {
             NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)
         || variant == static_cast<unsigned int>(
             NonlocalGpuVariant::CompensatedScalePressureF64)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleOrdinaryPredictor)
 #endif
         ;
 }
@@ -146,6 +148,8 @@ __host__ __device__ bool compensated_formula_variant(unsigned int variant) {
             NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)
         || variant == static_cast<unsigned int>(
             NonlocalGpuVariant::CompensatedScalePressureF64)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleOrdinaryPredictor)
 #endif
         ;
 }
@@ -171,7 +175,9 @@ __host__ __device__ bool pair_aware_graph_variant(unsigned int variant) {
         || variant == static_cast<unsigned int>(
             NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)
         || variant == static_cast<unsigned int>(
-            NonlocalGpuVariant::CompensatedScalePressureF64);
+            NonlocalGpuVariant::CompensatedScalePressureF64)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleOrdinaryPredictor);
 }
 
 __host__ __device__ bool pair_aware_boundary_variant(unsigned int variant) {
@@ -184,7 +190,9 @@ __host__ __device__ bool pair_aware_boundary_variant(unsigned int variant) {
         || variant == static_cast<unsigned int>(
             NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)
         || variant == static_cast<unsigned int>(
-            NonlocalGpuVariant::CompensatedScalePressureF64);
+            NonlocalGpuVariant::CompensatedScalePressureF64)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleOrdinaryPredictor);
 }
 
 #endif
@@ -2105,6 +2113,7 @@ __global__ void finalize_step_kernel(DeviceVec3* reference,
     DeviceVec3 gravity,
 #if defined(NCGP2_EXPERIMENTAL)
     bool compensated,
+    bool compensated_prediction,
 #endif
     float dt) {
     const int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -2125,7 +2134,6 @@ __global__ void finalize_step_kernel(DeviceVec3* reference,
         current_low[index] = {0.0F, 0.0F, 0.0F};
         reference_low[index] = {0.0F, 0.0F, 0.0F};
         velocity_low[index] = {0.0F, 0.0F, 0.0F};
-        predicted_low[index] = {0.0F, 0.0F, 0.0F};
     } else {
         v = scale(subtract(next, old), 1.0F / dt);
     }
@@ -2135,6 +2143,27 @@ __global__ void finalize_step_kernel(DeviceVec3* reference,
 #endif
     velocity[index] = v;
     reference[index] = next;
+#if defined(NCGP2_EXPERIMENTAL)
+    if (compensated_prediction) {
+        DeviceVec3 first_high{};
+        DeviceVec3 first_low{};
+        two_sum(next.x, dt * v.x, first_high.x, first_low.x);
+        two_sum(next.y, dt * v.y, first_high.y, first_low.y);
+        two_sum(next.z, dt * v.z, first_high.z, first_low.z);
+        const DeviceVec3 second_increment{
+            dt * velocity_low[index].x + dt * dt * gravity.x,
+            dt * velocity_low[index].y + dt * dt * gravity.y,
+            dt * velocity_low[index].z + dt * dt * gravity.z};
+        canonical_add(first_high.x, first_low.x, second_increment.x,
+            predicted[index].x, predicted_low[index].x);
+        canonical_add(first_high.y, first_low.y, second_increment.y,
+            predicted[index].y, predicted_low[index].y);
+        canonical_add(first_high.z, first_low.z, second_increment.z,
+            predicted[index].z, predicted_low[index].z);
+        return;
+    }
+    if (compensated) predicted_low[index] = {0.0F, 0.0F, 0.0F};
+#endif
     predicted[index] = {next.x + dt * v.x + dt * dt * gravity.x,
         next.y + dt * v.y + dt * dt * gravity.y,
         next.z + dt * v.z + dt * dt * gravity.z};
@@ -2318,6 +2347,10 @@ void add_work(NonlocalGpuWorkReceipt& target,
         source.compensated_fault_injection_components;
     target.compensated_rollback_components +=
         source.compensated_rollback_components;
+    target.compensated_prediction_eft_components +=
+        source.compensated_prediction_eft_components;
+    target.allocated_device_bytes = std::max(
+        target.allocated_device_bytes, source.allocated_device_bytes);
 }
 
 DeviceProfile device_profile(const NonlocalGpuProfile& profile) {
@@ -2843,6 +2876,9 @@ NonlocalGpuGraphResult NonlocalGpuWorkspace::build_current_graph(
     NonlocalGpuGraphResult result;
     result.dynamic_samples = static_cast<std::uint32_t>(impl_->dynamic_count);
     result.ghost_samples = static_cast<std::uint32_t>(impl_->ghost_count);
+#if defined(NCGP3_EXPERIMENTAL)
+    result.work.allocated_device_bytes = impl_->allocated_bytes;
+#endif
     if (impl_->dynamic_count <= 0) {
         result.failure = NonlocalGpuFailure::InvalidState;
         return result;
@@ -2871,7 +2907,8 @@ NonlocalGpuGraphResult NonlocalGpuWorkspace::build_current_graph(
             || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius
             || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary
             || variant == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure
-            || variant == NonlocalGpuVariant::CompensatedScalePressureF64;
+            || variant == NonlocalGpuVariant::CompensatedScalePressureF64
+            || variant == NonlocalGpuVariant::CompensatedScaleOrdinaryPredictor;
         const bool pair_aware = pair_aware_graph_variant(
             static_cast<unsigned int>(variant));
 #endif
@@ -3182,12 +3219,62 @@ NonlocalGpuWorkspace::capture_compensated_state() {
 #endif
 }
 
+NonlocalGpuPublicSnapshot NonlocalGpuWorkspace::capture_public_snapshot() {
+    NonlocalGpuPublicSnapshot result;
+    if (impl_->dynamic_count <= 0) {
+        result.failure = NonlocalGpuFailure::InvalidState;
+        return result;
+    }
+    try {
+        const std::size_t count = static_cast<std::size_t>(impl_->dynamic_count);
+        const std::size_t vector_bytes = count * sizeof(DeviceVec3);
+        std::vector<DeviceVec3> current(count);
+        std::vector<DeviceVec3> velocity(count);
+        std::vector<float> density(count);
+        std::vector<float> pressure_excess(count);
+        cuda_check(cudaMemcpy(current.data(), impl_->current, vector_bytes,
+            cudaMemcpyDeviceToHost), "snapshot public positions");
+        cuda_check(cudaMemcpy(velocity.data(), impl_->velocity, vector_bytes,
+            cudaMemcpyDeviceToHost), "snapshot public velocities");
+        cuda_check(cudaMemcpy(density.data(), impl_->density,
+            count * sizeof(float), cudaMemcpyDeviceToHost),
+            "snapshot public density");
+        cuda_check(cudaMemcpy(pressure_excess.data(), impl_->pressure_excess,
+            count * sizeof(float), cudaMemcpyDeviceToHost),
+            "snapshot public active signature");
+        result.state.reserve(count);
+        result.density.reserve(count);
+        for (std::size_t index = 0U; index < count; ++index) {
+            const Vec3d position{current[index].x, current[index].y,
+                current[index].z};
+            result.state.push_back({impl_->host_sorted_ids[index], position,
+                position, {velocity[index].x, velocity[index].y,
+                              velocity[index].z}});
+            result.density.push_back(density[index]);
+            if (pressure_excess[index] > 0.0F) {
+                result.active_pressure_ids.push_back(
+                    impl_->host_sorted_ids[index]);
+            }
+        }
+        result.work.device_to_host_bytes = 2U * vector_bytes
+            + 2U * count * sizeof(float);
+        result.work.allocated_device_bytes = impl_->allocated_bytes;
+        return result;
+    } catch (const std::exception&) {
+        result.failure = NonlocalGpuFailure::DeviceFailure;
+        return result;
+    }
+}
+
 NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
     const std::vector<Vec3d>* host_direction,
     NonlocalGpuVariant variant,
     bool capture_payload,
     bool measure) {
     NonlocalGpuEvaluationResult result;
+#if defined(NCGP3_EXPERIMENTAL)
+    result.work.allocated_device_bytes = impl_->allocated_bytes;
+#endif
     if (impl_->dynamic_count <= 0
         || (host_direction != nullptr
             && host_direction->size() != static_cast<std::size_t>(impl_->dynamic_count))) {
@@ -3206,7 +3293,8 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
             || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius
             || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary
             || variant == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure
-            || variant == NonlocalGpuVariant::CompensatedScalePressureF64;
+            || variant == NonlocalGpuVariant::CompensatedScalePressureF64
+            || variant == NonlocalGpuVariant::CompensatedScaleOrdinaryPredictor;
 #else
             false;
 #endif
@@ -3374,6 +3462,8 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
         result.gradient_norm = std::sqrt(norm_squared);
         result.active_pressure_centers = static_cast<std::uint32_t>(
             work.active_pressure_centers);
+        result.directed_pairs = current_graph.directed_pairs;
+        result.maximum_degree = current_graph.maximum_degree;
         result.work.graph_builds = reference_graph.work.graph_builds
             + current_graph.work.graph_builds;
         result.work.key_evaluations = reference_graph.work.key_evaluations
@@ -3410,22 +3500,31 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
         if (capture_payload && result.failure == NonlocalGpuFailure::None) {
             std::vector<DeviceVec3> gradient(impl_->dynamic_count);
             std::vector<float> density(impl_->dynamic_count);
+            std::vector<float> pressure_excess(impl_->dynamic_count);
             cuda_check(cudaMemcpy(gradient.data(), impl_->gradient,
                 gradient.size() * sizeof(DeviceVec3), cudaMemcpyDeviceToHost),
                 "capture gradient");
             cuda_check(cudaMemcpy(density.data(), impl_->density,
                 density.size() * sizeof(float), cudaMemcpyDeviceToHost),
                 "capture density");
+            cuda_check(cudaMemcpy(pressure_excess.data(), impl_->pressure_excess,
+                pressure_excess.size() * sizeof(float), cudaMemcpyDeviceToHost),
+                "capture active pressure IDs");
             result.gradient.reserve(gradient.size());
             result.density.reserve(density.size());
             for (std::size_t index = 0U; index < gradient.size(); ++index) {
                 result.gradient.push_back({gradient[index].x,
                     gradient[index].y, gradient[index].z});
                 result.density.push_back(density[index]);
+                if (pressure_excess[index] > 0.0F) {
+                    result.active_pressure_ids.push_back(
+                        impl_->host_sorted_ids[index]);
+                }
             }
             result.work.device_to_host_bytes += gradient.size()
                     * sizeof(DeviceVec3)
-                + density.size() * sizeof(float);
+                + density.size() * sizeof(float)
+                + pressure_excess.size() * sizeof(float);
             if (host_direction != nullptr) {
                 std::vector<DeviceVec3> hvp(impl_->dynamic_count);
                 cuda_check(cudaMemcpy(hvp.data(), impl_->hvp,
@@ -3460,6 +3559,9 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
     result.hvp_budget = total_hvp_budget;
     result.solver_profile = solver_profile;
     result.variant = variant;
+#if defined(NCGP3_EXPERIMENTAL)
+    result.work.allocated_device_bytes = impl_->allocated_bytes;
+#endif
     if (impl_->dynamic_count <= 0
         || (total_hvp_budget != 32U && total_hvp_budget != 64U
             && total_hvp_budget != 128U)
@@ -3479,6 +3581,17 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
         result.failure = NonlocalGpuFailure::InvalidState;
         return result;
     }
+#if defined(NCGP3_EXPERIMENTAL)
+    const bool compensated_prediction =
+        variant == NonlocalGpuVariant::CompensatedScaleF32
+        || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyGraph
+        || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius
+        || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary
+        || variant == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure
+        || variant == NonlocalGpuVariant::CompensatedScalePressureF64;
+#else
+    const bool compensated_prediction = false;
+#endif
 #endif
     const DeviceVec3 lower{static_cast<float>(0.5 * impl_->profile.spacing),
         static_cast<float>(0.5 * impl_->profile.spacing),
@@ -3775,6 +3888,10 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
             if (outer == 0U) result.initial_energy = evaluation.energy;
             result.final_energy = evaluation.energy;
             result.active_pressure_centers = evaluation.active_pressure_centers;
+            result.maximum_directed_pairs = std::max(
+                result.maximum_directed_pairs, evaluation.directed_pairs);
+            result.maximum_degree = std::max(
+                result.maximum_degree, evaluation.maximum_degree);
 
             cuda_check(cudaMemsetAsync(impl_->projected_components, 0,
                 sizeof(unsigned long long)), "reset projected gradient count");
@@ -4109,6 +4226,11 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 result.final_energy = trial_evaluation.energy;
                 result.active_pressure_centers =
                     trial_evaluation.active_pressure_centers;
+                result.maximum_directed_pairs = std::max(
+                    result.maximum_directed_pairs,
+                    trial_evaluation.directed_pairs);
+                result.maximum_degree = std::max(
+                    result.maximum_degree, trial_evaluation.maximum_degree);
             } else {
                 ++result.work.rejected_trials;
                 cuda_check(cudaMemcpy(impl_->current, impl_->outer_base,
@@ -4161,6 +4283,7 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     impl_->dynamic_count, gravity,
 #if defined(NCGP2_EXPERIMENTAL)
                     compensated_state,
+                    compensated_prediction,
 #endif
                     profile.dt);
                 cuda_check(cudaGetLastError(), "finalize solver state");
@@ -4176,14 +4299,38 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                         * static_cast<std::uint64_t>(impl_->dynamic_count);
                     result.work.compensated_transaction_components += 12U
                         * static_cast<std::uint64_t>(impl_->dynamic_count);
+                    if (compensated_prediction) {
+                        result.work.compensated_prediction_eft_components += 6U
+                            * static_cast<std::uint64_t>(impl_->dynamic_count);
+                        cuda_check(cudaMemset(impl_->error, 0, sizeof(int)),
+                            "reset accepted predictor validation");
+                        validate_compensated_pairs<<<
+                            blocks_for(impl_->dynamic_count), kThreads>>>(
+                            impl_->predicted, impl_->predicted_low,
+                            impl_->dynamic_count, impl_->error);
+                        cuda_check(cudaGetLastError(),
+                            "validate accepted predictor pair");
+                        int validation_error = 0;
+                        cuda_check(cudaMemcpy(&validation_error, impl_->error,
+                            sizeof(int), cudaMemcpyDeviceToHost),
+                            "copy accepted predictor validation");
+                        result.work.compensated_canonical_checks += 3U
+                            * static_cast<std::uint64_t>(impl_->dynamic_count);
+                        result.work.device_to_host_bytes += sizeof(int);
+                        if (validation_error != 0) {
+                            result.failure = static_cast<NonlocalGpuFailure>(
+                                validation_error);
+                        }
+                    }
                 }
 #endif
-                if (variant == NonlocalGpuVariant::PostFinalizeFailure
+                if (result.failure == NonlocalGpuFailure::None
+                    && (variant == NonlocalGpuVariant::PostFinalizeFailure
 #if defined(NCGP3_EXPERIMENTAL)
                     || variant
                         == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure
 #endif
-                ) {
+                    )) {
 #if defined(NCGP3_EXPERIMENTAL)
                     if (variant
                         == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure) {
@@ -4198,7 +4345,8 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     cuda_check(cudaDeviceSynchronize(),
                         "synchronize injected post-finalize failure");
                     result.failure = NonlocalGpuFailure::DeviceFailure;
-                } else if (capture_state) {
+                } else if (result.failure == NonlocalGpuFailure::None
+                    && capture_state) {
                     std::vector<DeviceVec3> current(impl_->dynamic_count);
                     std::vector<DeviceVec3> velocity(impl_->dynamic_count);
                     std::vector<float> density(impl_->dynamic_count);
@@ -4231,7 +4379,8 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
             }
         }
 #if defined(NCGP2_EXPERIMENTAL)
-        if (compensated_state) {
+        if (compensated_state && capture_state
+            && result.failure == NonlocalGpuFailure::None) {
             std::vector<float> pressure_excess(
                 static_cast<std::size_t>(impl_->dynamic_count));
             cuda_check(cudaMemcpy(pressure_excess.data(), impl_->pressure_excess,
