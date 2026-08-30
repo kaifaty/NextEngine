@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA5_FROZEN / IMPLEMENTATION_IN_PROGRESS / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
+| Status | `ACTIVE / NCGA5_R1_INCONCLUSIVE / NCGA5_R2_FROZEN / SINGLE_APPARATUS_REPAIR / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Determine whether strict-f32 corrected CUDA assembly can complete both retained NSR1 static solves before any trajectory or performance claim |
@@ -11,10 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA5 revision 1 is frozen and implementation-authorized.
-  It reproduces the exact two NSR1 static cases with continuous reference,
-  predicted and current coordinates; mixed precision is not authorized in
-  this revision. NCGA4 revision 1 remains hash-closed
+- **Current state:** NCGA5 revision 1 stopped `INCONCLUSIVE`: compressed pair
+  reproduced NSR1, while the independently ordered `long double` dense
+  combined reference reached `R_x=9.54e-11` and then the arithmetic floor
+  instead of reproducing the historical matrix-free binary64 terminal ratio.
+  Revision 2 freezes one apparatus-only repair using the pre-existing NSR2-A1
+  `R_x<=1e-8` reference criterion. Every strict-f32 candidate gate is
+  unchanged; mixed precision remains unauthorized. NCGA4 revision 1 remains
+  hash-closed
   `AUTHOR_SUPPORTED_BOUNDED / GPU_ASSEMBLED_TRUST_PREFIX_SUPPORTED`. Its
   GPU-assembled/host-controlled eight-trial Steihaug--Toint prefix exactly
   matches the reference controller route. NCGA3 revision 2 remains hash-closed
@@ -28,10 +32,9 @@
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** implement and run the frozen NCGA5 full-static-solve
-  correspondence. A positive result selects a short boundary-free trajectory;
-  a classified strict-f32 reduction floor selects one energy/globalization
-  mixed-precision discriminator instead.
+- **Next action:** change only the NCGA5 host apparatus predicate and rerun the
+  frozen sequence. A positive result selects a short boundary-free trajectory;
+  a candidate failure selects a separately frozen causal arithmetic repair.
 - **Current blocker:** NCGA4 is only an eight-trial negative-curvature prefix;
   no full corrected solve, physical trajectory or full assembly/solve timing
   exists, and NCGA3/4 independent review is `NOT_RUN`.
@@ -208,6 +211,22 @@
   or proceed directly to performance.
 - **Reconsider when:** NCGA5 reaches raw convergence or isolates the exact
   energy/globalization floor needed for a separately frozen repair.
+
+### D-010 — Repair reference arithmetic-order equivalence, not candidate gates
+
+- **Observation:** the independent dense reference and historical matrix-free
+  NSR1 differ only at the terminal binary64-noise ratio; the former already has
+  `R_x=9.54e-11`, far inside the pre-existing `1e-8` scale-aware criterion.
+- **Conclusion:** exact terminal route equality was not portable across the two
+  legitimate reference reduction orders.
+- **Decision:** NCGA5 revision 2 accepts the independent combined reference at
+  the pre-existing scale-aware criterion and recorded reduction floor. The
+  compressed exact-count gate and every CUDA candidate threshold stay fixed.
+- **Rejected alternatives:** tune the candidate bands from the observed GPU
+  result, replace the independent reference with the candidate, or call
+  revision 1 conclusive.
+- **Reconsider when:** the single repaired run still lacks apparatus closure;
+  then NCGA5 stops without a second repair.
 
 ## Required context
 
