@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `NEURAL_FIRST_STRATEGY_SELECTED / CLASSICAL_Q30_DCT_BASELINE_FROZEN / PS-2N0_DATA_PROJECTION_NEXT / ADMISSION_SHADOW_SEALED / AUTHORED_CLIP_FALLBACK / PASS_DISABLED / P1_BLOCKED` |
+| Status | `NEURAL_FIRST_STRATEGY_SELECTED / CLASSICAL_Q30_DCT_BASELINE_FROZEN / PS-2N0_CONTRACT_IMPLEMENTED / SYNTHETIC_FIXTURE_PASS / REAL_PROJECTION_AND_N0.2_NEXT / ADMISSION_SHADOW_SEALED / AUTHORED_CLIP_FALLBACK / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-30` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point baseline, external neural acoustic-field experiments and independent validation |
@@ -18,8 +18,9 @@
   holdouts reject shared residual/spatial assumptions. The remaining problem
   is a conditional object/impact/listener field, while user recording remains
   out of scope and published internet evidence stays claim-scoped.
-- **Next action:** Freeze `PS-2N0` row projection, five split roles and leakage/
-  capability audit. Do not train a model in that package.
+- **Next action:** Run the first permitted real development projection and
+  implement N0.2's unchanged Q30/DCT classical exporter on the same identities.
+  Keep method holdout and admission shadow sealed.
 - **Current blocker:** No infrastructure blocker is recorded. Quality,
   synchronized axis coverage, validator risk and production contact/consumer
   evidence remain open engineering gates.
@@ -70,6 +71,7 @@
 | [Ceramic Cup adaptive counterfactual result](../physical-sound-ceramic-cup-adaptive-counterfactual-result-ps2-2026-08-28.md), report `2ec3b03e…d6b7` | `CERAMIC_ADAPTIVE_COUNTERFACTUAL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / SALIENCE_SELECTOR_SYNTHETIC_CONTROL_NEXT` | Only `6/16` fits are valid; decay/improvement are `0.375/0.1875`. Primary source uses ±`10%` salience suppression rather than V2's dense low-frequency selection. |
 | [Colored successor](../physical-sound-realimpact-colored-residual-successor-preregistration-ps2-2026-08-28.md), [identity preflight](../physical-sound-realimpact-colored-residual-discovery-preflight-ps2-2026-08-28.md), [ZIP-tail control](../physical-sound-realimpact-colored-residual-tail-runner-preflight-ps2-2026-08-28.md), [local-header control](../physical-sound-realimpact-colored-residual-header-runner-preflight-ps2-2026-08-28.md) and [pipeline preflight](../physical-sound-realimpact-colored-residual-pipeline-preflight-ps2-2026-08-28.md), reports `4c754f06…a360` / `0d38bfb1…f5d7b` / `8be574bd…8e605` / `1de7356a…377aa` / `456ea8e9…0cceb` | `COLORED_SUCCESSOR_AND_THREE_HEAD_PROTOCOL_FROZEN / BOUNDARY_PIPELINE_FROZEN / NETWORK_NOT_RUN / SHADOW_SEALED` | Exact identity/tail/header stages are executable but cannot auto-continue. Current sandbox ran zero real network/range/body/header/member/shadow bytes; no material or real-transfer credit. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
+| [PS-2N0 neural data plane](../physical-sound-neural-data-plane-ps2n0-2026-08-30.md) | `PS_2N0_CONTRACT_IMPLEMENTED / SYNTHETIC_FIXTURE_PASS / MODEL_TRAINING_DISABLED` | External-only projection verifies typed lineage and every published axis, rejects six cross-role leakage classes, reports missing axes without fabrication and emits only sealed commitments for method/admission roles. Real corpus readiness is not claimed. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
 | Glass-object set and DiffSound audition | `DIFFSOUND_AND_Q30_PERCEPTUAL_ACCEPT / UNCALIBRATED` | Selected `09` and transferred Q30 B sound glass-like; identity and reference fidelity remain separate, and one archetype is not a generic glass model. |
@@ -146,9 +148,10 @@ resume-critical consequences are:
   object-specific few-shot field before shared object-disjoint transfer.
 - **Rejected alternatives:** More unguided manual residual variants,
   prompt-to-waveform as the engine path, and runtime neural inference first.
-- **Consequences:** `PS-2N0` data projection is next. Generator and validator
-  roles remain disjoint; admission shadow stays sealed; authored clip fallback
-  is mandatory.
+- **Consequences:** `PS-2N0` contract and synthetic controls pass. Real
+  development projection and N0.2 baseline export are next. Generator and
+  validator roles remain disjoint; admission shadow stays sealed; authored
+  clip fallback is mandatory.
 - **Reconsider when:** The compact representation loses a measured learned
   advantage, or a future product need justifies a separately governed runtime
   model boundary.
@@ -162,7 +165,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: An offline neural acoustic field can outperform the frozen classical baseline without losing bounded control | Modal-field, learned-radiation and differentiable-resonator prior art support structured learned outputs; the current renderer supplies exact cooking and controls | No Next Engine object/listener-disjoint benchmark exists; data-axis coverage may be insufficient | Freeze `PS-2N0`, export the Q30/DCT baseline, then run one object-specific few-shot held-out-position/listener discriminator |
+| H6: An offline neural acoustic field can outperform the frozen classical baseline without losing bounded control | Modal-field, learned-radiation and differentiable-resonator prior art support structured learned outputs; the current renderer supplies exact cooking and controls; PS-2N0 now enforces the five-role data boundary | No real Next Engine object/listener-disjoint neural benchmark exists; data-axis coverage may be insufficient | Project a permitted real slice, export the Q30/DCT baseline, then run one object-specific few-shot held-out-position/listener discriminator |
 
 ## Required context
 
@@ -177,8 +180,8 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Freeze `PS-2N0` row projection with explicit published axes, provenance,
-   five split roles and leakage/capability audit; train no model yet.
+1. Project the first permitted real development slice through the implemented
+   `PS-2N0` boundary and preserve every honest missing-axis result.
 2. Export the unchanged Q30/DCT baseline into the same benchmark representation
    and retain every frozen evidence hash and negative control.
 3. Preregister one object-specific few-shot impact/listener experiment; keep
@@ -213,14 +216,19 @@ Read these sources in precedence order before acting:
 ## Handoff
 
 - **Workspace state:** Registry V1, frozen Q30/DCT baseline, repeated empirical
-  rejections, FEM→Bempp controls and deterministic cooker exist. Neural-first
-  strategy/plan are selected; public schemas and ownership are unchanged.
-- **Checks:** Frozen pipeline preflight A/B remains `456ea8e9…0cceb`; tail/header
-  controls remain `8be574bd…8e605` / `1de7356a…377aa`. This strategy change
-  executes no new data acquisition, model training or shadow evaluation.
+  rejections, FEM→Bempp controls and deterministic cooker exist. The external
+  PS-2N0 projection contract and synthetic controls are implemented; public
+  schemas and ownership are unchanged.
+- **Checks:** PS-2N0 focused tests pass `4/4` and the full physical-sound
+  registry module passes `145/145`; two projections are byte-identical, six
+  cross-role leakage classes fail closed and sealed contents are absent.
+  Formatting and xtask all-target Clippy pass. `boundary-scan` remains red on
+  the pre-existing tracked `realimpact_transfer_fixture.rs` `#[path]` escape
+  hatch; the three new modules are below 1,000 lines. No real data acquisition,
+  model training or shadow evaluation ran.
 - **Remaining risk:** eight exact-domain claims, real 3D transfer, calibrated
   OOD/shadow risk, contact sufficiency, mixer cost and authoring are open.
-- **Quality status:** Classical baseline is frozen, not admitted. No neural
+- **Quality status:** Classical baseline is frozen, not admitted. No real neural
   benchmark, calibrated validator release, corpus admission or production
-  claim exists; `PS-2N0` is the next exact package.
+  claim exists; real projection plus N0.2 is the next exact package.
 - **Promotion needed:** Concrete consumer, later ADR-046 promotion, then exact content/contact/DSP profiles and ProductChecks.

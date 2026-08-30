@@ -13,6 +13,7 @@ mod corpus_inventory;
 mod corpus_plan;
 mod domain_claims;
 mod internet_sources;
+mod neural_data_plane;
 mod realimpact_row;
 mod realimpact_transfer_fixture;
 mod realimpact_transfer_preregistration;
@@ -76,6 +77,10 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         Some("internet-sources") => {
             arguments.next();
             return internet_sources::run_cli(root, arguments);
+        }
+        Some("neural-data-plane") => {
+            arguments.next();
+            return neural_data_plane::run_cli(root, arguments);
         }
         Some("identified-corpus") => {
             arguments.next();

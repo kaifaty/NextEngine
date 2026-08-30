@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `PLANNED / PS-2N0_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / PS-2N0_CONTRACT_IMPLEMENTED / SYNTHETIC_FIXTURE_PASS / REAL_PROJECTION_AND_N0.2_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -32,6 +32,9 @@ checkpoint distribution, production contact wiring or a shipping claim.
 ## Work packages
 
 ### N0.1 — Freeze the data projection and split manifest
+
+Status: `IMPLEMENTED / SYNTHETIC_FIXTURE_PASS / REAL_PROJECTION_NOT_RUN`.
+See [PS-2N0 evidence](../development/physical-sound-neural-data-plane-ps2n0-2026-08-30.md).
 
 Deliverables:
 
