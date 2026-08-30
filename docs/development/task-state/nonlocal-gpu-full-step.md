@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP1_MATRIX_FREE_OPERATOR_PASS / SOLVER_PENDING` |
+| Status | `ACTIVE / NCGP1_REV2_TERMINAL_FROZEN / SOLVER_PENDING` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-full-step` |
 | Scope | Implement and audit a standalone matrix-free corrected Nonlocal CUDA step for the frozen 50k physical/performance profile |
@@ -16,8 +16,9 @@
   wrong identities; the nonlinear solver is the next boundary.
 - **Why:** CPU matrix-free versus dense HVP is `3.86e-16`; CUDA versus reference
   HVP is `9.33e-7` with cosine loss `2.15e-13`, inside the frozen physical gate.
-- **Next action:** implement the device-vector Steihaug--Toint controller and
-  compare its retained tiny solve against NCGA5 before boundary trajectories.
+- **Next action:** implement the device-vector projected Steihaug--Toint
+  controller with the frozen `R_x<=1e-5` terminal and compare its retained tiny
+  solve against NCGA5 before boundary trajectories.
 - **Current blocker:** no matrix-free nonlinear step or trajectory exists yet.
 - **Do not retry:** dense Hessian, source-shaped SISSM/Chebyshev, tolerance
   widening or adding NCGP0 neighbor time to an unmeasured solve.
@@ -35,6 +36,7 @@
 | `docs/development/nonlocal-corrected-gpu-neighborhood-performance-evidence-2026-08-30.md` | `50K_SUPPORTED_BOUNDED` | graph-only p95 is `1.02..1.18 ms`; duplicate traversal is the first measured graph bottleneck |
 | `docs/development/nonlocal-gpu-full-step-graph-evidence-2026-08-30.md` | `GRAPH_BASELINE_PASS` | 50k plus 43,056 ghosts fits 63.05 MB, exact permutation root and capacity controls |
 | `docs/development/nonlocal-gpu-full-step-operator-evidence-2026-08-30.md` | `MATRIX_FREE_OPERATOR_PASS` | dense/CPU/CUDA HVP correspondence and six wrong identities close locally |
+| `docs/plans/nonlocal-corrected-gpu-full-step/01-scale-aware-solver-terminal.md` | `FROZEN` | projected `R_x<=1e-5` is the only NCGP1 physical terminal; raw NCGA5 stop remains historical |
 
 ## Decisions that still constrain the work
 
@@ -97,7 +99,7 @@
 
 ## Handoff
 
-- **Workspace state:** main worktree on `codex/water-research`; operator checkpoint ready to commit.
+- **Workspace state:** main worktree on `codex/water-research`; graph and operator checkpoints committed, revision-2 terminal frozen.
 - **Checks:** two clean Release graph/operator self-tests pass with exact binary/stdout; sanitizers not yet run.
 - **Remaining risk:** boundary model, dynamic convergence, work budget and complete 50k cost are untested.
 - **Promotion needed:** none; the track remains Proposed/report-only.
