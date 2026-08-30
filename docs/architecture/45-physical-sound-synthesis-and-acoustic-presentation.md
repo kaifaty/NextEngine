@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.83 |
+| Version | 0.90 |
 | Last verified | 2026-08-28 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [PS-2 YCB vertical reject-parent expansion](../development/physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Blue Bowl cross-tier E2 increment](../development/physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [PS-2 REALIMPACT Shell Plate bounded-range E2 pilot](../development/physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md), [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Skull Cup bounded-range E2 pilot](../development/physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md), [PS-2 SoundPacks Glass E3 and split audit](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md), [PS-2 Kronland reject expansion and split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [PS-2 exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [PS-2 internet-source feasibility and transfer route](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [PS-2 REALIMPACT transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [PS-2 REALIMPACT vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [PS-2 REALIMPACT shape-conditioned spatial calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT frequency-conditioned spatial calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT modal-radiation representation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [PS-2 analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [PS-2 Pitcher causal audit](../development/physical-sound-pitcher-causal-audit-ps2-2026-08-28.md), [PS-2 Iron selector/tail diagnostic](../development/physical-sound-realimpact-selector-tail-diagnostic-result-ps2-2026-08-28.md) |
-| Replaces | SPEC-45 0.82; records fit-role acquisition/decode and freezes calibration selection before holdout access |
-| Latest evidence | [PS-2 REALIMPACT metal batch calibration selection](../development/physical-sound-realimpact-metal-batch-calibration-selection-ps2-2026-08-28.md) |
+| Replaces | SPEC-45 0.89; freezes fail-closed orchestration across the separate identity, ZIP-tail and local-header discovery boundaries |
+| Latest evidence | [PS-2 REALIMPACT colored-residual boundary pipeline preflight](../development/physical-sound-realimpact-colored-residual-pipeline-preflight-ps2-2026-08-28.md) |
 
 ## Status and decision boundary
 
@@ -1007,6 +1007,53 @@ The truncated transient fails. This freezes representation selection only;
 waveform NRMSE remains diagnostic and quality/domain/runtime admission stays
 disabled. Only the exact Metal Spoon holdout ranges may open next. Both
 Spatulas remain sealed until an immutable successful holdout report exists.
+
+The exact Metal Spoon holdout then uses three bounded responses; acquisition
+`6653fea3…2d32c` and decode `5fd5ec04…633` bind microphone rows `0..14` at the
+shared `0°/0 mm`, vertex `6840` condition. Evaluation A/B repeats
+byte-identically at `fef9dd34…cb73` and rejects the selected representation.
+Envelope error improves to ratio `0.534247`, but listener-energy ratio
+`0.959237` exceeds the frozen `0.95` per-metric limit and spectral-flatness
+ratio `1.053763` exceeds both `0.95` and the frozen `1.05` maximum. Thresholds
+and the opened holdout cannot be reused for tuning. Both Spatulas remain at
+zero payload; shadow, quality/domain/runtime admission and automatic pass stay
+disabled. The next permitted step is a zero-network representation diagnostic
+over already opened rows followed, if discriminating, by a separately
+preregistered grouped successor—not another variant inside this lineage.
+
+Diagnostic runner `d2ab638b…43f88`, repeated preflight `d2f07a3f…797bf` and
+repeated six-object report `d8acc909…ba1eb` identify within-band coloration as
+the leading successor hypothesis. Median spectral-shape and short-lag
+autocorrelation errors are `7.808400 dB` and `0.330411`, passing both frozen
+diagnostic gates. Cross-listener coupling is independently deficient:
+candidate/observed median coherence is `0.999177/0.172267` and effective rank
+is `1.005682/3.292782`. Temporal modulation fails its conjunction because
+modulation-power error is only `1.908039 dB`. No new network, member or shadow
+bytes are read. A fresh grouped successor may change only deterministic
+within-band coloration; spatial covariance remains a recorded later
+hypothesis, Metal Spoon cannot be reused as holdout and both Spatulas remain
+sealed.
+
+Successor runner `fe8a12f5…cebf5`, manifest `f03e428e…e564a` and repeated
+preflight `4c754f06…a360` now freeze that one change. At most eight bounded
+DCT-II coloration coefficients per existing band modify the seeded excitation;
+modal extraction, two-exponential envelope, listener gains and rank-one
+spatial control remain unchanged. A deterministic fixture reduces spectral-
+shape and short-lag autocorrelation errors to ratios `0.313717/0.628724`. Fresh
+calibration is the grouped `19_Pan`/`37_PiePan` pair, holdout is `22_Cup`, and
+the existing Spatula pair remains shadow with zero member payload. Names do not
+grant material identity. The next permitted stage discovers only the three
+fresh archive identities; no ZIP tail, member payload, quality/domain/runtime
+admission or shadow access is implied.
+
+Identity-discovery runner `898d1af1…c7c58`, manifest `55be5ed2…01abe` and
+repeated preflight `0d38bfb1…f5d7b` now freeze exactly three one-shot HTTPS
+`HEAD` requests for Pan, PiePan and Cup. Final URL, status, byte length,
+`Accept-Ranges`, `ETag` and `Last-Modified` are mandatory; redirect drift or
+the first failure stops with no retry. Range requests, response bodies, ZIP
+structure, member and shadow payload remain forbidden. The current managed
+sandbox did not execute the network stage, so archive identities remain open
+and no acquisition success or rejection is claimed.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

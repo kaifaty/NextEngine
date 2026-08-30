@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_EXECUTION_PREFLIGHT_FROZEN / SEEDED_RESIDUAL_CALIBRATION_SELECTED / HOLDOUT_ACQUISITION_NEXT / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
+| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_HOLDOUT_REJECTED / RESIDUAL_COLORATION_HYPOTHESIS_SUPPORTED / CROSS_LISTENER_RANK1_FAILURE_SUPPORTED / COLORED_RESIDUAL_SUCCESSOR_FROZEN / ARCHIVE_IDENTITY_DISCOVERY_FROZEN / ZIP_TAIL_RUNNER_CONTROL_SUPPORTED / LOCAL_HEADER_RUNNER_CONTROL_SUPPORTED / BOUNDARY_PIPELINE_FROZEN / THREE_HEAD_REQUESTS_NEXT / SHELL_NETWORK_BLOCKED / GIT_METADATA_READ_ONLY / SHADOW_SEALED / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-28` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
@@ -10,15 +10,16 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Repeated selection `83f858bf…43f2` chooses the seeded
-  two-exponential residual on both calibration families.
+- **Current conclusion:** Pipeline preflight `456ea8e9…0cceb` freezes separate
+  identity/tail/header execution; parser controls `8be574bd…8e605` /
+  `1de7356a…377aa` remain exact and member access stays disabled.
 - **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
   external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
   synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** Acquire/decode/evaluate only `91_MetalSpoon`; keep both
-  Spatulas sealed until an immutable successful holdout report.
-- **Current blocker:** Method transfer now replicates on one independent object,
-  but absolute prediction, mechanics and every exact-domain claim remain open.
+- **Next action:** When network is available, run pipeline `identity` exactly
+  once, then inspect its offline audits; it cannot auto-continue into ranges.
+- **Current blocker:** Shell DNS exits `2`; shared Git metadata is read-only.
+  Archive bytes stay unopened, the worktree uncommitted and Spatulas sealed.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
@@ -63,7 +64,7 @@
 | [REALIMPACT Ceramic Cup observation result](../physical-sound-realimpact-ceramic-cup-observation-result-ps2-2026-08-28.md), reports `b6d25bc6…6a0c` / `9f1c2311…daf0` / `56591bb8…3fd9` | `CERAMIC_CUP_OBSERVATION_REJECTED / REPEATED_DECAY_GATE_FAILURE / MECHANICS_BLOCKED / PLANTER_SEALED` | Exact acquisition and 600-row decode repeat. Four V2 gates pass; decay is `0.25 < 0.50`, with `13/16` peaks below `500 Hz`. Freeze a fixed-axis offline diagnostic; do not try another object, tune or run physics. |
 | [Ceramic Cup observation diagnostic result](../physical-sound-ceramic-cup-observation-diagnostic-result-ps2-2026-08-28.md), report `47b578ac…2603` | `SHARED_DECAY_MISMATCH_SUPPORTED / LISTENER_LOCAL_REJECTED / SIMPLE_LOW_FREQUENCY_CAUSE_REJECTED / NO_NEW_PAYLOAD_OR_PHYSICS` | `23/27` rows fail; every axis exceeds the frozen shared threshold. Low/high fitted-decay fractions are `0.3583/0.2252`, rejecting the cutoff hypothesis. Next prove a multi-output estimator synthetically before reusing real rows. |
 | [Ceramic Cup adaptive counterfactual result](../physical-sound-ceramic-cup-adaptive-counterfactual-result-ps2-2026-08-28.md), report `2ec3b03e…d6b7` | `CERAMIC_ADAPTIVE_COUNTERFACTUAL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / SALIENCE_SELECTOR_SYNTHETIC_CONTROL_NEXT` | Only `6/16` fits are valid; decay/improvement are `0.375/0.1875`. Primary source uses ±`10%` salience suppression rather than V2's dense low-frequency selection. |
-| [Execution preflight](../physical-sound-realimpact-metal-batch-execution-preflight-ps2-2026-08-28.md) and [calibration selection](../physical-sound-realimpact-metal-batch-calibration-selection-ps2-2026-08-28.md), reports `1af90ed4…e4f68` / `83f858bf…43f2` | `METAL_BATCH_EXECUTION_PREFLIGHT_FROZEN / SEEDED_RESIDUAL_CALIBRATION_SELECTED / HOLDOUT_ACQUISITION_NEXT` | Holed Spoon decode and two repeated development/calibration runs select the seeded residual; holdout/shadow bytes remain zero. Open only Metal Spoon next. |
+| [Colored successor](../physical-sound-realimpact-colored-residual-successor-preregistration-ps2-2026-08-28.md), [identity preflight](../physical-sound-realimpact-colored-residual-discovery-preflight-ps2-2026-08-28.md), [ZIP-tail control](../physical-sound-realimpact-colored-residual-tail-runner-preflight-ps2-2026-08-28.md), [local-header control](../physical-sound-realimpact-colored-residual-header-runner-preflight-ps2-2026-08-28.md) and [pipeline preflight](../physical-sound-realimpact-colored-residual-pipeline-preflight-ps2-2026-08-28.md), reports `4c754f06…a360` / `0d38bfb1…f5d7b` / `8be574bd…8e605` / `1de7356a…377aa` / `456ea8e9…0cceb` | `COLORED_SUCCESSOR_AND_THREE_HEAD_PROTOCOL_FROZEN / BOUNDARY_PIPELINE_FROZEN / NETWORK_NOT_RUN / SHADOW_SEALED` | Exact identity/tail/header stages are executable but cannot auto-continue. Current sandbox ran zero real network/range/body/header/member/shadow bytes; no material or real-transfer credit. |
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -188,7 +189,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Synthetic controls and exact-weld execution are reproducible | Ceramic failure is shared across listeners; the V2 single-output decay gate is mismatched and no replacement is validated | Prove a 15-output spatial-energy decay estimator on known synthetic modes before any real-row counterfactual |
+| H6: A selective specialist ensemble can safely automate admitted impact domains | Synthetic controls reproduce; colored DCT excitation closes its known synthetic coloration/autocorrelation gates | Real colored-residual groups remain unopened; rank-one spatial model remains invalid | Execute/audit the three frozen archive identities, then evaluate colored representation in strict role order |
 
 ## Required context
 
@@ -205,8 +206,8 @@ Read these sources in precedence order before acting:
 
 1. Preserve every frozen evidence hash externally; never retune opened data or
    reinterpret a control pass as quality, causality or P1 evidence.
-2. Acquire/decode/evaluate only `91_MetalSpoon`, then freeze its report before
-   any Spatula shadow access.
+2. Run pipeline `identity` once when network is available, inspect its offline
+   audits, then invoke tail/header separately; keep Spatulas sealed.
 3. Promote only after measured quality/risk and a consumer ADR; otherwise keep
    the unchanged authored-clip fallback.
 
@@ -235,9 +236,9 @@ Read these sources in precedence order before acting:
 - **Workspace state:** Registry V1, PS-1, PS-2 corpus/evidence paths, repeated
   empirical rejections, converged elastic FEM→Bempp, a full-angular Rust cooker
   and synthetic broad-band common-pole support exist; public schemas/ownership are unchanged.
-- **Checks:** V2 report `c1c86f78…7e5d` and blocks `bcd54087…9acc` /
-  `9310910f…5431` repeat with zero audio; V1 remains rejected. Prior protocol
-  and FEM/Bempp/cooker hashes remain exact; both payloads stay sealed.
+- **Checks:** Pipeline preflight A/B repeats at `456ea8e9…0cceb`; tail/header
+  controls remain `8be574bd…8e605` / `1de7356a…377aa`. Real network, range,
+  local-header, member and shadow bytes remain zero; failure controls reject.
 - **Remaining risk:** eight exact-domain claims, real 3D transfer, calibrated
   OOD/shadow risk, contact sufficiency, mixer cost and authoring are open.
 - **Quality status:** V2 supports relative modal/damping extractor transfer;

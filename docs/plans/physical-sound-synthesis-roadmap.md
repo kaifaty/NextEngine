@@ -2,11 +2,11 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_EXECUTION_PREFLIGHT_FROZEN / SEEDED_RESIDUAL_CALIBRATION_SELECTED / HOLDOUT_ACQUISITION_NEXT / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / PS-2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_HOLDOUT_REJECTED / RESIDUAL_COLORATION_HYPOTHESIS_SUPPORTED / CROSS_LISTENER_RANK1_FAILURE_SUPPORTED / COLORED_RESIDUAL_SUCCESSOR_FROZEN / ARCHIVE_IDENTITY_DISCOVERY_FROZEN / ZIP_TAIL_RUNNER_CONTROL_SUPPORTED / LOCAL_HEADER_RUNNER_CONTROL_SUPPORTED / BOUNDARY_PIPELINE_FROZEN / THREE_HEAD_REQUESTS_NEXT / SHADOW_SEALED / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Актуальное evidence | [PS-2 REALIMPACT metal batch calibration selection](../development/physical-sound-realimpact-metal-batch-calibration-selection-ps2-2026-08-28.md) |
+| Актуальное evidence | [PS-2 REALIMPACT colored-residual boundary pipeline preflight](../development/physical-sound-realimpact-colored-residual-pipeline-preflight-ps2-2026-08-28.md) |
 | Текущий evidence | [PS-2 Bempp quadrupole surface mode and Rust cooker](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), [PS-2 independent Bempp analytical control](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md), [BEM panel-quadrature discriminator](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md), [analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [REALIMPACT modal-radiation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [REALIMPACT metal batch calibration selection](../development/physical-sound-realimpact-metal-batch-calibration-selection-ps2-2026-08-28.md) |
+| Последний пакет | [REALIMPACT colored-residual boundary pipeline preflight](../development/physical-sound-realimpact-colored-residual-pipeline-preflight-ps2-2026-08-28.md) |
 | Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
@@ -111,7 +111,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_EXECUTION_PREFLIGHT_FROZEN / SEEDED_RESIDUAL_CALIBRATION_SELECTED / HOLDOUT_ACQUISITION_NEXT / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN` | L | Repeated selection `83f858bf…43f2` chooses seeded residual on two calibration families. Next open only Metal Spoon holdout; Spatulas remain sealed. |
+| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_HOLDOUT_REJECTED / RESIDUAL_COLORATION_HYPOTHESIS_SUPPORTED / CROSS_LISTENER_RANK1_FAILURE_SUPPORTED / COLORED_RESIDUAL_SUCCESSOR_FROZEN / ARCHIVE_IDENTITY_DISCOVERY_FROZEN / ZIP_TAIL_RUNNER_CONTROL_SUPPORTED / LOCAL_HEADER_RUNNER_CONTROL_SUPPORTED / BOUNDARY_PIPELINE_FROZEN / THREE_HEAD_REQUESTS_NEXT / SHADOW_SEALED / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN` | L | Pipeline `456ea8e9…0cceb` freezes separate identity/tail/header stages with no retry or auto-continue; parser controls remain exact. The sandbox has executed no real request; ranges and Spatula payload remain sealed. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
 | PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
@@ -1012,6 +1012,64 @@ flatness ratios `0.387055/0.709616/0.552735`, maximum object/metric ratio
 not a quality or material claim. Next open only Metal Spoon holdout; both
 Spatulas remain sealed. See the [selection result](../development/physical-sound-realimpact-metal-batch-calibration-selection-ps2-2026-08-28.md).
 
+PS-2 metal batch holdout result: acquisition `6653fea3…2d32c` uses exactly
+three responses and decode `5fd5ec04…633` verifies Metal Spoon rows `0..14` at
+the shared `0°/0 mm`, vertex `6840` condition. Evaluation A/B repeats at
+`fef9dd34…cb73` and rejects the selected residual: envelope ratio `0.534247`
+passes, but listener-energy `0.959237` and spectral-flatness `1.053763` fail the
+frozen limits. The opened holdout and thresholds cannot be used for retuning.
+Both Spatulas remain at zero payload and shadow stays sealed. Next run only a
+zero-network residual-representation diagnostic on already opened rows, then
+preregister a new grouped successor if it discriminates one causal hypothesis.
+See the [holdout result](../development/physical-sound-realimpact-metal-batch-holdout-result-ps2-2026-08-28.md).
+
+PS-2 residual-representation diagnostic: runner `d2ab638b…43f88`, repeated
+preflight `d2f07a3f…797bf` and repeated report `d8acc909…ba1eb` reproduce all
+six opened modal/residual identities without network or new payload. Frozen
+coloration gates pass at median spectral-shape error `7.808400 dB` and
+autocorrelation error `0.330411`. A separate rank-one listener defect also
+passes: candidate/observed coherence `0.999177/0.172267`, effective rank
+`1.005682/3.292782`. Modulation power is only `1.908039 dB`, so temporal
+modulation fails its conjunction. Next preregister one fresh grouped colored-
+excitation successor; change no temporal/spatial rule and keep Spatulas sealed.
+See the [diagnostic](../development/physical-sound-realimpact-residual-representation-diagnostic-ps2-2026-08-28.md).
+
+PS-2 colored-residual successor: runner `fe8a12f5…cebf5`, manifest
+`f03e428e…e564a` and repeated preflight `4c754f06…a360` freeze at most eight
+bounded DCT-II coloration coefficients per existing band while retaining every
+temporal/spatial/modal control. The synthetic spectral-shape/autocorrelation
+ratios are `0.313717/0.628724`. Fresh calibration is the grouped
+`19_Pan`/`37_PiePan` pair, holdout is `22_Cup`, and both Spatulas remain sealed
+shadow. Next discover only those three fresh archive identities; names grant no
+material credit and no member payload may open. See the [preregistration](../development/physical-sound-realimpact-colored-residual-successor-preregistration-ps2-2026-08-28.md).
+
+PS-2 colored-residual discovery preflight: runner `898d1af1…c7c58`, manifest
+`55be5ed2…01abe` and repeated report `0d38bfb1…f5d7b` freeze exactly one
+body-free `HEAD` for each Pan/PiePan/Cup archive. URL/status/length/range/ETag/
+Last-Modified identity gates and zero retry are executable; every range,
+member and shadow access stays disabled. The current managed sandbox has not
+run the three requests. See the [preflight](../development/physical-sound-realimpact-colored-residual-discovery-preflight-ps2-2026-08-28.md).
+
+PS-2 ZIP-tail runner control: runner `5987b048…a8fb74` and byte-identical
+synthetic fixture `8be574bd…8e605` support the separately gated parser. After a
+successful identity audit it can freeze and read three exact 65,536-byte tails,
+parse central directories offline and derive three 30-byte local-header ranges
+without reading headers or members. No real manifest, range or payload was
+opened. See the [control](../development/physical-sound-realimpact-colored-residual-tail-runner-preflight-ps2-2026-08-28.md).
+
+PS-2 local-header runner control: runner `5666a78e…47538` and byte-identical
+synthetic fixture `1de7356a…377aa` support the next separately gated parser.
+The fixture validates one exact 30-byte header against the central directory
+and derives compressed payload range `[70074, 70105]` without reading payload.
+No real range/header/member byte was opened. See the [control](../development/physical-sound-realimpact-colored-residual-header-runner-preflight-ps2-2026-08-28.md).
+
+PS-2 boundary pipeline: runner `34c16185…81e51` and repeated preflight
+`456ea8e9…0cceb` bind successor, identity, tail and header runner hashes. Each
+network acquisition is an explicit stage executed at most once; preflight and
+audits repeat offline, automatic retry and cross-boundary continuation are
+false. Stale lineage and missing identity-audit controls reject before output.
+No request ran. See the [preflight](../development/physical-sound-realimpact-colored-residual-pipeline-preflight-ps2-2026-08-28.md).
+
 ## PS-2 — Сделать риск статистически измеримым
 
 Deliverables:
@@ -1153,7 +1211,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
 | 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
 | 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, internet registry/cache, E2/E3 normalization, exact roles/source gates, transfer/spatial discriminators, report-only registry and metal batch — `PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_EXECUTION_PREFLIGHT_FROZEN / SEEDED_RESIDUAL_CALIBRATION_SELECTED / HOLDOUT_ACQUISITION_NEXT / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN`; open/evaluate only `91_MetalSpoon`, freeze holdout before any Spatula request; no quality/domain promotion | PS-2 domain-axis readiness |
+| 4 | Controlled pilot, internet registry/cache, E2/E3 normalization, exact roles/source gates, transfer/spatial discriminators, report-only registry and metal batch — `PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_HOLDOUT_REJECTED / RESIDUAL_COLORATION_HYPOTHESIS_SUPPORTED / CROSS_LISTENER_RANK1_FAILURE_SUPPORTED / COLORED_RESIDUAL_SUCCESSOR_FROZEN / ARCHIVE_IDENTITY_DISCOVERY_FROZEN / ZIP_TAIL_RUNNER_CONTROL_SUPPORTED / LOCAL_HEADER_RUNNER_CONTROL_SUPPORTED / BOUNDARY_PIPELINE_FROZEN / THREE_HEAD_REQUESTS_NEXT / SHADOW_SEALED / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN`; execute pipeline `identity` once when network is available, inspect audits, then invoke tail/header separately; no range/shadow or quality/domain promotion | PS-2 domain-axis readiness |
 | 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
 | 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
 
