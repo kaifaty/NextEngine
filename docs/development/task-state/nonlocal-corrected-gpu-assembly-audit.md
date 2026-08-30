@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA6_PRESSURE_OPERATOR_PRECISION_REQUIRED / NCGA7_NEXT / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
+| Status | `ACTIVE / NCGA6_PRESSURE_OPERATOR_PRECISION_REQUIRED / NCGA7_FROZEN_IMPLEMENTATION_IN_PROGRESS / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Determine whether strict-f32 corrected CUDA assembly can complete both retained NSR1 static solves before any trajectory or performance claim |
@@ -35,7 +35,7 @@
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** freeze and run NCGA7 binary64 pressure
+- **Next action:** implement and run frozen NCGA7 binary64 pressure
   density/coefficient/gradient/Hessian products plus the retained f64 energy,
   with f32 stored state. If both static solves close, reopen a short
   boundary-free trajectory; otherwise stop arithmetic promotion and reassess.
@@ -68,7 +68,7 @@
 | H9 strict f32 preserves trust-region decisions | eight reference/CUDA outer signatures match and state drift stays below `5 um` | continuous-state fixed-graph Steihaug--Toint prefix plus sign-flipped HVP control | supported on NCGA4 |
 | H10 strict f32 completes the retained static solves | both NSR1 cases reach the raw gradient stop while preserving state/objective/active-set bands | NCGA5 exact full solve with multi-HVP residual CG | refuted: energy/globalization floor |
 | H11 f32 energy resolution is the first full-solve boundary | GPU f64 energy with unchanged f32 gradient/Hessian restores positive actual reduction and scale-aware convergence | NCGA6 energy-only mixed solve plus f32-energy negative | causal but insufficient |
-| H12 pressure operator products are the remaining static boundary | f64 pressure density/coefficient/gradient/Hessian products close `R_x<=1e-7` with f32 storage | NCGA7 pressure-operator discriminator | next / selected |
+| H12 pressure operator products are the remaining static boundary | f64 pressure density/coefficient/gradient/Hessian products close `R_x<=1e-7` with f32 storage | NCGA7 pressure-operator discriminator | active / frozen |
 
 ## Decisions
 
