@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-30 |
-| Статус | `ACTIVE_R&D / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_NEXT / NO_TRAINED_MODEL / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_V1_REJECTED / PHASE_ALIGNED_SUCCESSOR_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -125,7 +125,7 @@ models и не маскирует провал обещанием универс
 | --- | --- | ---: | --- |
 | R0 | `COMPLETE` | S | Первый real transfer slice и five-role projection повторяются byte-identical; signal semantics и missing axes честно сохранены. |
 | R1 | `COMPLETE / FROZEN_CONTROLS` | M | Transfer-domain и recorded-waveform baselines покрывают только совместимые rows; метрики и fallback заморожены. |
-| R2 | `NEXT` | M | Модель восстанавливает held-out listener responses одного fixed-impact объекта лучше classical interpolation. |
+| R2 | `V1_REJECTED / SUCCESSOR_NEXT` | M | Модель восстанавливает held-out listener responses одного fixed-impact объекта лучше classical interpolation. |
 | R3 | `BLOCKED_BY_R2_AND_DATA` | L | Few-shot model предсказывает новые impact/listener conditions exact объекта и cooks в exact PCM. |
 | R4 | `CONDITIONAL` | L–XL | Shared geometry-conditioned model либо проходит object/family-disjoint holdout, либо zero-shot claim явно отклонён. |
 | R5 | `BLOCKED_BY_R3` | M | Frozen automatic validator показывает bounded grouped risk и useful selective coverage без live human gate. |
@@ -223,6 +223,14 @@ Exit criteria:
 - training повторяется на фиксированных seeds в объявленном tolerance;
 - failure публикуется как `REJECT_LISTENER_FIELD` или `DATA_INSUFFICIENT`, а не
   запускает свободный hyperparameter search.
+
+V1 evidence: [listener-field result](../development/physical-sound-listener-field-r2-v1-result-2026-08-30.md).
+Два deterministic training runs и две byte-identical evaluations завершаются
+`RejectListenerField`. Rank-4 выигрывает только waveform endpoint; rank-7 —
+только P95 level и не пересекает linear control на остальных endpoints. Этот
+MLP/latent profile закрыт для width/rank/epoch/threshold tuning. Разрешён один
+отдельно preregistered successor с coordinate-derived propagation-delay
+alignment; остальные rows, controls, metrics и sealed roles не меняются.
 
 ## R3 — Object-specific impact/listener few-shot model
 
@@ -356,14 +364,17 @@ Required product work:
 Enabled и disabled paths должны сохранять одинаковые gameplay, physics,
 ledger, persistence и `AcousticFactV1` roots.
 
-## Ближайшие три commit boundary
+## Текущие commit boundary
 
 1. `real neural transfer slice` — `COMPLETE`; schema V2, verified REALIMPACT
    slice, five-role projection и R0 evidence повторены;
 2. `transfer-domain classical baseline` — `COMPLETE`; compatible controls,
    preprocessing, metrics и real development report заморожены;
-3. `listener-field experiment v0` — `NEXT`; preregister, обучить и оценить R2 model с
-   ablations; weights и payloads оставить во внешнем store.
+3. `listener-field experiment v1` — `REJECTED`; two-run training, MLflow
+   lineage и Rust-metric evaluation повторены, candidate не выбран;
+4. `phase-aligned listener successor` — `NEXT`; preregister ровно одну
+   coordinate-derived time-of-flight representation change и повторить
+   неизменный R1 discriminator.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.

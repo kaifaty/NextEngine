@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3_NEXT / NO_TRAINED_MODEL / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3_V1_REJECTED / PHASE_ALIGNED_SUCCESSOR_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -103,6 +103,10 @@ reinterpret force-deconvolved responses as recorded impacts.
 Commit boundary: baseline exporter plus non-regression evidence.
 
 ### N0.3 — Fixed-impact listener-field pilot
+
+Status: `V1_REJECTED / TRAINING_AND_EVALUATION_REPRODUCIBLE /
+PHASE_ALIGNED_SUCCESSOR_NEXT`. See the
+[R2 V1 result](../development/physical-sound-listener-field-r2-v1-result-2026-08-30.md).
 
 Deliverables:
 
@@ -313,13 +317,14 @@ successful Git commit or a report-only model result.
 
 ## Immediate queue
 
-1. Preregister N0.3 on the frozen Green Goblet fixed-impact listener split and
-   metric profile `transfer-listener-field-r1-v1`.
-2. Implement the smallest modal-only listener-conditioned candidate with fixed
-   seed/environment and exact external artifact lineage.
-3. Train and evaluate modal-only and modal-plus-residual ablations without
-   opening method holdout or admission shadow.
-4. Publish `GO_LISTENER_FIELD`, `REJECT_LISTENER_FIELD` or
-   `DATA_INSUFFICIENT` against both frozen R1 controls.
+1. Preserve V1 as `REJECT_LISTENER_FIELD`; do not tune rank, width, epochs or
+   thresholds on its opened development rows.
+2. Preregister one successor whose only representation change is an explicit
+   coordinate-derived propagation-delay alignment before the unchanged latent
+   field and inverse alignment before PCM cooking.
+3. Repeat two deterministic training runs and the unchanged Rust-metric R1
+   evaluation without opening method holdout or admission shadow.
+4. If the successor also fails, trigger bounded persistent-problem research
+   before another implementation attempt.
 5. Proceed to impact/listener few-shot N0.4 only if N0.3 passes and an internet
    source closes the required impact axis.

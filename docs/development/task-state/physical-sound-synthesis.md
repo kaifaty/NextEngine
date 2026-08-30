@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V2 / NEURAL_TRANSFER_FIELD / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_NEXT / NO_TRAINED_MODEL / ADMISSION_SHADOW_SEALED / AUTHORED_CLIP_FALLBACK / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V2 / NEURAL_TRANSFER_FIELD / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_V1_REJECTED / PHASE_ALIGNED_SUCCESSOR_NEXT / ADMISSION_SHADOW_SEALED / AUTHORED_CLIP_FALLBACK / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-30` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point baseline, external neural acoustic-field experiments and independent validation |
@@ -18,11 +18,10 @@
   holdouts reject shared residual/spatial assumptions. The remaining problem
   is a conditional object/impact/listener field, while user recording remains
   out of scope and published internet evidence stays claim-scoped.
-- **Next action:** Preregister and run the smallest R2 fixed-impact listener
-  field on the frozen Green Goblet `8 context / 7 query` split. The candidate
-  must beat both repeated R1 controls on all five primary endpoints without
-  changing preprocessing, rows or aggregation. Keep method holdout and
-  admission shadow sealed.
+- **Next action:** Preserve R2 V1 as rejected and preregister one successor
+  whose only changed hypothesis is coordinate-derived propagation-delay
+  alignment. Keep the same `8 context / 7 query` rows, controls, endpoints and
+  sealed method/admission roles.
 - **Current blocker:** No infrastructure blocker is recorded. Quality,
   synchronized axis coverage, validator risk and production contact/consumer
   evidence remain open engineering gates.
@@ -97,6 +96,31 @@
 - **Smallest next action:** Freeze the R2 model/environment/seed/ablation
   manifest before the first optimizer step.
 
+## Material transition: R2 V1 rejected
+
+- **Observation:** Rank-4 and rank-7 `tanh` listener-latent fields train and
+  cook deterministically, but neither beats both R1 controls on all five
+  development endpoints.
+- **Exact evidence:** [R2 V1 result](../physical-sound-listener-field-r2-v1-result-2026-08-30.md),
+  training report `1f82d215…9f7f`, evaluation report `379cfa4d…514e`.
+  Checkpoints, predictions and training report repeat byte-identically; both
+  evaluation trees also repeat byte-identically.
+- **Conclusion:** High context fit does not imply held-listener transfer. Rank-4
+  improves only waveform NRMSE; rank-7 improves only P95 level and narrowly
+  misses the stronger linear control on mean level/spectrum and P95 spectrum.
+- **Decision:** Publish `RejectListenerField` for V1. Do not tune rank, width,
+  epochs, seed or thresholds on the opened queries.
+- **Rejected alternatives:** Treat near misses as pass; select per-metric
+  winners; expose query WAVs to training; or open method holdout/shadow.
+- **Consequences:** R3 remains blocked. MLflow `3.15.2` SQLite lineage is proven
+  usable externally; no checkpoint or generated WAV enters Git.
+- **Remaining uncertainty:** The failure may come from unmodelled geometric
+  propagation phase rather than insufficient network capacity.
+- **Reconsideration condition:** A preregistered phase-aligned successor passes
+  every unchanged R1 endpoint, or it fails and triggers bounded research.
+- **Smallest next action:** Freeze one fixed-speed, coordinate-derived
+  time-of-flight alignment protocol before any successor optimizer step.
+
 ## Current evidence
 
 | Evidence | Result | Consequence |
@@ -137,6 +161,7 @@
 | [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md) and current `AudioSceneSnapshotV1`/`AudioMixerV1` | `CURRENT_BASELINE_OBSERVED` | Clip playback, canonical PCM and gameplay/output separation remain the promoted baseline; the physical source synth is isolated experimental code. |
 | [PS-2N0 neural data plane](../physical-sound-neural-data-plane-ps2n0-2026-08-30.md) | `PS_2N0_V2_IMPLEMENTED / REAL_PROJECTION_BYTE_IDENTICAL / MODEL_TRAINING_DISABLED` | External-only projection verifies typed lineage and signal semantics, rejects six cross-role leakage classes, reports missing axes without fabrication and emits only sealed commitments for method/admission roles. The real projection is ready for the bounded R2 benchmark, not broader corpus/admission credit. |
 | [R0–R1 real neural boundary](../physical-sound-neural-real-boundary-r0-r1-2026-08-30.md) | `R0_COMPLETE / R1_TRANSFER_CONTROLS_FROZEN / BYTE_IDENTICAL_REPEATS` | V2 projects 23 rows and keeps five roles disjoint; 15 Green Goblet transfer rows yield repeated nearest/linear listener controls over `8 context / 7 query`. Method holdout and admission shadow remain sealed; R2 training has not run. |
+| [R2 V1 listener field](../physical-sound-listener-field-r2-v1-result-2026-08-30.md) | `REJECT_LISTENER_FIELD_V1 / REPRODUCIBLE_TRAINING_AND_EVALUATION` | Rank-4 passes only mean waveform NRMSE; rank-7 passes only P95 level. The conjunctive frozen rule rejects both. Query references are read only by evaluation; method holdout and admission shadow remain sealed. |
 | [N0.2 classical baseline export](../physical-sound-classical-baseline-export-ps2n0-2026-08-30.md) | `Q30_STRUCTURED_EXPORT_PASS / TRANSFER_CONTROLS_FROZEN / REAL_DEVELOPMENT_REPEAT_PASS` | The Q30 exporter preserves profile `19b051fe…ef181` and WAV `c912806c…b9c823`; the separate transfer baseline binds emitted PCM and freezes nearest/linear listener controls. DCT per-row cooking remains an explicit non-blocking fallback. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -248,12 +273,12 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Preregister the R2 Green Goblet fixed-impact listener experiment against
-   metric profile `transfer-listener-field-r1-v1`.
-2. Train the smallest modal-only listener candidate, then one separately
-   declared compact-residual ablation only if the preregistration permits it.
-3. Publish `GO_LISTENER_FIELD`, `REJECT_LISTENER_FIELD` or
-   `DATA_INSUFFICIENT`; keep method holdout and admission shadow sealed.
+1. Preregister one propagation-delay-aligned R2 successor while retaining the
+   exact V1 rows, endpoints, controls and query isolation.
+2. Repeat deterministic training/evaluation once; do not tune after query
+   access.
+3. If it fails, trigger bounded persistent-problem research before another
+   model; keep method holdout and admission shadow sealed.
 
 ## Do not retry
 
@@ -282,13 +307,15 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** R0 V2 projection and R1 Q30/transfer controls are
-  implemented. The external Green Goblet slice, five-role projection and
-  nearest/linear listener predictions repeat byte-identically. DCT per-row
-  cooking remains explicit fallback; public schemas and ownership are
+- **Workspace state:** R0/R1 are complete and R2 V1 is an immutable rejection.
+  External PyTorch/MLflow training, raw-float checkpoints, cooked predictions
+  and Rust-metric evaluation repeat; no generated artifact enters Git. DCT
+  per-row cooking remains explicit fallback; public schemas and ownership are
   unchanged.
 - **Checks:** The complete physical-sound registry suite passes `153/153`;
-  transfer-field focused tests pass `2/2`, formatting, `git diff --check` and
+  transfer-field focused tests pass `2/2`, physical-sound evaluator tests pass
+  `11/11`, both R2 scripts compile and expose their CLI, two training outputs
+  and two evaluation trees repeat exactly. Formatting, `git diff --check` and
   xtask all-target Clippy pass. Exact Q30 profile/WAV hashes remain
   `19b051fe…ef181` / `c912806c…b9c823`. `boundary-scan` remains red only on the
   pre-existing tracked `realimpact_transfer_fixture.rs` escape hatch from
@@ -296,7 +323,7 @@ Read these sources in precedence order before acting:
   new network acquisition, model training or shadow evaluation ran.
 - **Remaining risk:** eight exact-domain claims, real 3D transfer, calibrated
   OOD/shadow risk, contact sufficiency, mixer cost and authoring are open.
-- **Quality status:** R1 controls and primary metrics are frozen, not admitted.
-  No neural candidate, calibrated validator release, corpus admission or
+- **Quality status:** R1 controls are frozen and R2 V1 selects no candidate.
+  No accepted neural model, calibrated validator release, corpus admission or
   production claim exists.
 - **Promotion needed:** Concrete consumer, later ADR-046 promotion, then exact content/contact/DSP profiles and ProductChecks.
