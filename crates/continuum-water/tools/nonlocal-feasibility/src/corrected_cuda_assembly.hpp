@@ -62,6 +62,12 @@ struct AssemblyFixture {
     std::vector<AssemblySample> samples;
 };
 
+struct AssemblyContinuousState {
+    std::vector<double> reference_m;
+    std::vector<double> predicted_m;
+    std::vector<double> current_m;
+};
+
 struct AssemblyWorkReceipt {
     std::uint64_t owner_sort_comparisons = 0;
     std::uint64_t graph_distance_predicates = 0;
@@ -119,6 +125,11 @@ AssemblyResult evaluate_reference_assembly_at(
     const AssemblyFixture& fixture,
     const std::vector<double>& canonical_current_m);
 
+AssemblyResult evaluate_reference_assembly_state(
+    const AssemblyProfile& profile,
+    const AssemblyFixture& fixture,
+    const AssemblyContinuousState& canonical_state);
+
 EnergyDerivativeResult evaluate_energy_derivatives(
     const AssemblyProfile& profile,
     const AssemblyFixture& fixture);
@@ -132,6 +143,12 @@ AssemblyResult evaluate_gpu_assembly_at(
     const AssemblyProfile& profile,
     const AssemblyFixture& fixture,
     const std::vector<double>& canonical_current_m,
+    AssemblyVariant variant);
+
+AssemblyResult evaluate_gpu_assembly_state(
+    const AssemblyProfile& profile,
+    const AssemblyFixture& fixture,
+    const AssemblyContinuousState& canonical_state,
     AssemblyVariant variant);
 
 std::string gpu_assembly_environment_json();

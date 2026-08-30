@@ -22,6 +22,8 @@ struct DeviceSample {
     long long reference[3];
     long long predicted[3];
     long long current[3];
+    float reference_m[3];
+    float predicted_m[3];
     float current_m[3];
     int direction[3];
 };
@@ -143,14 +145,18 @@ __device__ float component(DeviceVec3 value, int axis) {
 }
 
 __device__ DeviceVec3 position(const DeviceSample& sample, int kind) {
-    constexpr float scale = 1.0e-6F;
+    if (kind == 0) {
+        return {sample.reference_m[0], sample.reference_m[1],
+            sample.reference_m[2]};
+    }
+    if (kind == 1) {
+        return {sample.predicted_m[0], sample.predicted_m[1],
+            sample.predicted_m[2]};
+    }
     if (kind == 2) {
         return {sample.current_m[0], sample.current_m[1], sample.current_m[2]};
     }
-    const long long* value = kind == 0 ? sample.reference : sample.predicted;
-    return {scale * static_cast<float>(value[0]),
-        scale * static_cast<float>(value[1]),
-        scale * static_cast<float>(value[2])};
+    return {0.0F, 0.0F, 0.0F};
 }
 
 __device__ DeviceVec3 direction(const DeviceSample& sample) {
@@ -1017,11 +1023,24 @@ void compute_margins(const AssemblyFixture& fixture, AssemblyResult& result) {
 AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
     const AssemblyFixture& fixture,
     const std::vector<double>* canonical_current_m,
+    const AssemblyContinuousState* canonical_continuous_state,
     AssemblyVariant variant) {
     AssemblyResult output;
     if (!admitted(profile, fixture, output.failure)) return output;
-    if (canonical_current_m != nullptr
-        && canonical_current_m->size() != 3U * fixture.samples.size()) {
+    if (canonical_current_m != nullptr && canonical_continuous_state != nullptr) {
+        output.failure = AssemblyFailure::InvalidInput;
+        return output;
+    }
+    const std::size_t scalar_count = 3U * fixture.samples.size();
+    const std::vector<double>* reference_m = canonical_continuous_state == nullptr
+        ? nullptr : &canonical_continuous_state->reference_m;
+    const std::vector<double>* predicted_m = canonical_continuous_state == nullptr
+        ? nullptr : &canonical_continuous_state->predicted_m;
+    const std::vector<double>* current_m = canonical_continuous_state == nullptr
+        ? canonical_current_m : &canonical_continuous_state->current_m;
+    if ((reference_m != nullptr && reference_m->size() != scalar_count)
+        || (predicted_m != nullptr && predicted_m->size() != scalar_count)
+        || (current_m != nullptr && current_m->size() != scalar_count)) {
         output.failure = AssemblyFailure::InvalidInput;
         return output;
     }
@@ -1046,15 +1065,31 @@ AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
             value.reference[axis] = sample.reference_um[axis];
             value.predicted[axis] = sample.predicted_um[axis];
             value.current[axis] = sample.current_um[axis];
-            const double current = canonical_current_m == nullptr
+            const double reference = reference_m == nullptr
+                ? 1.0e-6 * static_cast<double>(sample.reference_um[axis])
+                : (*reference_m)[3U * canonical_row + axis];
+            const double predicted = predicted_m == nullptr
+                ? 1.0e-6 * static_cast<double>(sample.predicted_um[axis])
+                : (*predicted_m)[3U * canonical_row + axis];
+            const double current = current_m == nullptr
                 ? 1.0e-6 * static_cast<double>(sample.current_um[axis])
-                : (*canonical_current_m)[3U * canonical_row + axis];
-            if (!std::isfinite(current) || std::abs(current) > 1000.0
+                : (*current_m)[3U * canonical_row + axis];
+            if (!std::isfinite(reference) || std::abs(reference) > 1000.0
+                || !std::isfinite(static_cast<float>(reference))
+                || !std::isfinite(predicted) || std::abs(predicted) > 1000.0
+                || !std::isfinite(static_cast<float>(predicted))
+                || !std::isfinite(current) || std::abs(current) > 1000.0
                 || !std::isfinite(static_cast<float>(current))) {
                 output.failure = AssemblyFailure::InvalidInput;
                 return output;
             }
-            value.current_m[axis] = canonical_current_m == nullptr
+            value.reference_m[axis] = reference_m == nullptr
+                ? 1.0e-6F * static_cast<float>(sample.reference_um[axis])
+                : static_cast<float>(reference);
+            value.predicted_m[axis] = predicted_m == nullptr
+                ? 1.0e-6F * static_cast<float>(sample.predicted_um[axis])
+                : static_cast<float>(predicted);
+            value.current_m[axis] = current_m == nullptr
                 ? 1.0e-6F * static_cast<float>(sample.current_um[axis])
                 : static_cast<float>(current);
             value.direction[axis] = sample.direction_milli[axis];
@@ -1272,7 +1307,8 @@ AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
 
 AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
     const AssemblyFixture& fixture, AssemblyVariant variant) {
-    return evaluate_gpu_assembly_impl(profile, fixture, nullptr, variant);
+    return evaluate_gpu_assembly_impl(
+        profile, fixture, nullptr, nullptr, variant);
 }
 
 AssemblyResult evaluate_gpu_assembly_at(const AssemblyProfile& profile,
@@ -1280,7 +1316,15 @@ AssemblyResult evaluate_gpu_assembly_at(const AssemblyProfile& profile,
     const std::vector<double>& canonical_current_m,
     AssemblyVariant variant) {
     return evaluate_gpu_assembly_impl(
-        profile, fixture, &canonical_current_m, variant);
+        profile, fixture, &canonical_current_m, nullptr, variant);
+}
+
+AssemblyResult evaluate_gpu_assembly_state(const AssemblyProfile& profile,
+    const AssemblyFixture& fixture,
+    const AssemblyContinuousState& canonical_state,
+    AssemblyVariant variant) {
+    return evaluate_gpu_assembly_impl(
+        profile, fixture, nullptr, &canonical_state, variant);
 }
 
 std::string gpu_assembly_environment_json() {

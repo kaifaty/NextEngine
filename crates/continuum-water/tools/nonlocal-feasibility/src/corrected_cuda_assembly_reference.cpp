@@ -253,7 +253,8 @@ void add_block(std::vector<long double>& matrix, std::size_t dimension,
 AssemblyResult evaluate_reference_assembly_impl(
     const AssemblyProfile& profile,
     const AssemblyFixture& fixture,
-    const std::vector<double>* canonical_current_m) {
+    const std::vector<double>* canonical_current_m,
+    const AssemblyContinuousState* canonical_continuous_state) {
     AssemblyResult output;
     if (!profile_valid(profile)) {
         output.failure = AssemblyFailure::InvalidInput;
@@ -263,23 +264,56 @@ AssemblyResult evaluate_reference_assembly_impl(
     std::vector<CanonicalState> state = canonicalize(
         fixture, output.failure, sort_comparisons);
     if (output.failure != AssemblyFailure::None) return output;
-    if (canonical_current_m != nullptr) {
-        if (canonical_current_m->size() != 3U * state.size()) {
-            output.failure = AssemblyFailure::InvalidInput;
-            return output;
-        }
+    const std::vector<double>* reference_m = canonical_continuous_state == nullptr
+        ? nullptr : &canonical_continuous_state->reference_m;
+    const std::vector<double>* predicted_m = canonical_continuous_state == nullptr
+        ? nullptr : &canonical_continuous_state->predicted_m;
+    const std::vector<double>* current_m = canonical_continuous_state == nullptr
+        ? canonical_current_m : &canonical_continuous_state->current_m;
+    if (canonical_current_m != nullptr && canonical_continuous_state != nullptr) {
+        output.failure = AssemblyFailure::InvalidInput;
+        return output;
+    }
+    const std::size_t scalar_count = 3U * state.size();
+    if ((reference_m != nullptr && reference_m->size() != scalar_count)
+        || (predicted_m != nullptr && predicted_m->size() != scalar_count)
+        || (current_m != nullptr && current_m->size() != scalar_count)) {
+        output.failure = AssemblyFailure::InvalidInput;
+        return output;
+    }
+    if (current_m != nullptr) {
+        const auto component = [](const std::vector<double>* values,
+                                   std::size_t index, long double fallback,
+                                   bool& valid) {
+            if (values == nullptr) return fallback;
+            const double value = (*values)[index];
+            valid = valid && std::isfinite(value) && std::abs(value) <= 1000.0;
+            return static_cast<long double>(value);
+        };
         for (std::size_t row = 0; row < state.size(); ++row) {
-            const double x = (*canonical_current_m)[3U * row];
-            const double y = (*canonical_current_m)[3U * row + 1U];
-            const double z = (*canonical_current_m)[3U * row + 2U];
-            if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)
-                || std::abs(x) > 1000.0 || std::abs(y) > 1000.0
-                || std::abs(z) > 1000.0) {
+            bool valid = true;
+            const std::size_t base = 3U * row;
+            state[row].reference = {
+                component(reference_m, base, state[row].reference.x, valid),
+                component(reference_m, base + 1U, state[row].reference.y, valid),
+                component(reference_m, base + 2U, state[row].reference.z, valid)};
+            state[row].predicted = {
+                component(predicted_m, base, state[row].predicted.x, valid),
+                component(predicted_m, base + 1U, state[row].predicted.y, valid),
+                component(predicted_m, base + 2U, state[row].predicted.z, valid)};
+            state[row].current = {
+                component(current_m, base, state[row].current.x, valid),
+                component(current_m, base + 1U, state[row].current.y, valid),
+                component(current_m, base + 2U, state[row].current.z, valid)};
+            if (!valid) {
                 output.failure = AssemblyFailure::InvalidInput;
                 return output;
             }
-            state[row].current = {static_cast<long double>(x),
-                static_cast<long double>(y), static_cast<long double>(z)};
+        }
+    } else if (canonical_continuous_state != nullptr) {
+        if (reference_m == nullptr || predicted_m == nullptr) {
+            output.failure = AssemblyFailure::InvalidInput;
+            return output;
         }
     }
 
@@ -598,7 +632,7 @@ AssemblyResult evaluate_reference_assembly_impl(
 AssemblyResult evaluate_reference_assembly(
     const AssemblyProfile& profile,
     const AssemblyFixture& fixture) {
-    return evaluate_reference_assembly_impl(profile, fixture, nullptr);
+    return evaluate_reference_assembly_impl(profile, fixture, nullptr, nullptr);
 }
 
 AssemblyResult evaluate_reference_assembly_at(
@@ -606,7 +640,15 @@ AssemblyResult evaluate_reference_assembly_at(
     const AssemblyFixture& fixture,
     const std::vector<double>& canonical_current_m) {
     return evaluate_reference_assembly_impl(
-        profile, fixture, &canonical_current_m);
+        profile, fixture, &canonical_current_m, nullptr);
+}
+
+AssemblyResult evaluate_reference_assembly_state(
+    const AssemblyProfile& profile,
+    const AssemblyFixture& fixture,
+    const AssemblyContinuousState& canonical_state) {
+    return evaluate_reference_assembly_impl(
+        profile, fixture, nullptr, &canonical_state);
 }
 
 } // namespace nextengine::nonlocal::gpu_assembly_audit
