@@ -15,6 +15,29 @@ import physical_sound_contact_field_r3a_v5_common as common
 
 
 class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
+    @staticmethod
+    def _validation_metrics(
+        *,
+        log_spectrum: float,
+        rms_ratio: float,
+        unique_codes: list[int],
+        latent_rms: float = 0.5,
+        latent_absolute: float = 2.0,
+        diversity_ratio: float = 0.5,
+    ) -> dict[str, object]:
+        return {
+            "mean": {"log_spectrum": log_spectrum},
+            "unique_codes_per_quantizer": unique_codes,
+            "waveform_diagnostics": {
+                "mean_output_target_rms_ratio": rms_ratio,
+                "output_diversity_ratio": diversity_ratio,
+            },
+            "latent_diagnostics": {
+                "maximum_rms": latent_rms,
+                "maximum_absolute": latent_absolute,
+            },
+        }
+
     def test_learning_rate_matches_frozen_warmup_and_cosine_endpoints(self) -> None:
         base = common.TRAINING_CONFIG["learning_rate"]
         self.assertEqual(
@@ -90,6 +113,55 @@ class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
         self.assertEqual(mask.size, common.TRAINING_SEGMENT_SAMPLES)
         self.assertEqual(float(mask.sum()), 1_000.0)
         self.assertEqual(float((segment * (1.0 - mask)).sum()), 0.0)
+
+    def test_anti_collapse_gate_waits_for_warmup_then_passes_signal(self) -> None:
+        initial = self._validation_metrics(
+            log_spectrum=20.0,
+            rms_ratio=0.001,
+            unique_codes=[8, 8, 8, 8],
+        )
+        current = self._validation_metrics(
+            log_spectrum=19.0,
+            rms_ratio=0.4,
+            unique_codes=[7, 6, 5, 4],
+        )
+        pending = capacity_train.assess_anti_collapse_gate(
+            initial, current, 4, common.TRAINING_CONFIG["warmup_steps"] - 1
+        )
+        passed = capacity_train.assess_anti_collapse_gate(
+            initial, current, 4, common.TRAINING_CONFIG["warmup_steps"]
+        )
+        self.assertEqual(pending["status"], "PendingWarmup")
+        self.assertIsNone(pending["passed"])
+        self.assertEqual(passed["status"], "Passed")
+        self.assertTrue(passed["passed"])
+
+    def test_anti_collapse_gate_rejects_silent_constant_code_collapse(self) -> None:
+        initial = self._validation_metrics(
+            log_spectrum=20.0,
+            rms_ratio=0.001,
+            unique_codes=[8, 8, 8, 8],
+        )
+        collapsed = self._validation_metrics(
+            log_spectrum=20.0,
+            rms_ratio=0.03,
+            unique_codes=[2, 2, 1, 1],
+            diversity_ratio=0.001,
+        )
+        result = capacity_train.assess_anti_collapse_gate(
+            initial, collapsed, 4, common.TRAINING_CONFIG["warmup_steps"]
+        )
+        self.assertEqual(result["status"], "Rejected")
+        self.assertFalse(result["passed"])
+        self.assertEqual(
+            result["failed_checks"],
+            [
+                "log_spectrum_relative_improvement",
+                "mean_output_target_rms_ratio",
+                "minimum_unique_codes_per_quantizer",
+                "output_diversity_ratio",
+            ],
+        )
 
 
 if __name__ == "__main__":

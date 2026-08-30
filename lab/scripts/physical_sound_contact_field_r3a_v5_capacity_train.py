@@ -26,9 +26,9 @@ import torch
 RUN_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity-run.v1"
 STATE_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity-state.v1"
 REPORT_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity.report.v1"
-REVISION = "three-capacity-training-v1"
+REVISION = "three-capacity-training-v2-anti-collapse"
 TRAINING_PREFLIGHT_MANIFEST_SHA256 = (
-    "75ed5e06cff62bc546645314cf1708259b91f2d07bba6972349780b848aa2679"
+    "d53561fdd4cc4a662dfe2d750a2f3109fb5d63dc154b14f73ce92cb475d60b95"
 )
 V4_MANIFEST_SHA256 = "6f9fe00ea14c99da2b2fc8b71b22af6772725ac5f28430a2417b8717819386b1"
 METRIC_INTERVAL_STEPS = 100
@@ -36,6 +36,22 @@ FIT_CONTACTS_PER_OBJECT = 3
 INTERNET_TRAIN_CLIP_COUNT = 56
 INTERNET_VALIDATION_CLIP_COUNT = 17
 TOTAL_TRAIN_ITEM_COUNT = 68
+IMPLEMENTATION_FILES = {
+    "common": "physical_sound_contact_field_r3a_v5_common.py",
+    "model": "physical_sound_contact_field_r3a_v5_model.py",
+    "training": "physical_sound_contact_field_r3a_v5_training.py",
+    "training_preflight": "physical_sound_contact_field_r3a_v5_training_preflight.py",
+    "capacity_train": "physical_sound_contact_field_r3a_v5_capacity_train.py",
+}
+ANTI_COLLAPSE_GATE = {
+    "evaluation_step": common.TRAINING_CONFIG["warmup_steps"],
+    "minimum_mean_output_target_rms_ratio": 0.10,
+    "minimum_log_spectrum_relative_improvement": 0.005,
+    "minimum_unique_codes_per_quantizer": 2,
+    "maximum_encoder_latent_rms": 10.0,
+    "maximum_encoder_latent_absolute": 100.0,
+    "minimum_output_diversity_ratio": 0.01,
+}
 
 
 @dataclass(frozen=True)
@@ -68,6 +84,11 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--stop-after-step",
+        type=int,
+        help="finish a bounded research discriminator at this checkpoint",
+    )
     return parser.parse_args()
 
 
@@ -368,12 +389,22 @@ def evaluate_validation(
 ) -> dict[str, Any]:
     totals: dict[str, list[float]] = {}
     unique_by_quantizer: list[set[int]] = [set() for _ in range(quantizers)]
+    output_rms_values = []
+    target_rms_values = []
+    rms_ratios = []
+    absolute_correlations = []
+    latent_rms_values = []
+    latent_absolute_values = []
+    normalized_outputs = []
+    normalized_targets = []
+    output_hashes = set()
     model.eval()
     with torch.inference_mode():
         for item in validation:
             segment, mask = _aligned_segment(item.samples)
             target = _tensor(segment, device)
             mask_tensor = _tensor(mask, device)
+            latent = model.encoder(target)
             output, codes, codebook_loss, commitment_loss = model(target, quantizers)
             total, terms = training.frozen_reconstruction_loss(
                 output * mask_tensor,
@@ -391,11 +422,160 @@ def evaluate_validation(
                 unique_by_quantizer[index].update(
                     int(value) for value in torch.unique(codes[:, index]).cpu()
                 )
+            valid = mask.astype(bool)
+            target_values = np.asarray(segment, dtype=np.float64)
+            output_values = output[0, 0].detach().cpu().numpy().astype(np.float64)
+            target_valid = target_values[valid]
+            output_valid = output_values[valid]
+            target_rms = float(np.sqrt(np.mean(np.square(target_valid))))
+            output_rms = float(np.sqrt(np.mean(np.square(output_valid))))
+            if target_rms <= 0.0:
+                raise common.V5Error("V5 validation target RMS is zero")
+            target_centered = target_valid - np.mean(target_valid)
+            output_centered = output_valid - np.mean(output_valid)
+            correlation_denominator = float(
+                np.linalg.norm(target_centered) * np.linalg.norm(output_centered)
+            )
+            correlation = (
+                float(np.dot(target_centered, output_centered))
+                / correlation_denominator
+                if correlation_denominator > 1.0e-12
+                else 0.0
+            )
+            normalized_output = np.zeros_like(output_values)
+            normalized_target = np.zeros_like(target_values)
+            normalized_output[valid] = output_valid / max(output_rms, 1.0e-12)
+            normalized_target[valid] = target_valid / target_rms
+            output_rms_values.append(output_rms)
+            target_rms_values.append(target_rms)
+            rms_ratios.append(output_rms / target_rms)
+            absolute_correlations.append(abs(correlation))
+            latent_rms_values.append(float(torch.sqrt(torch.mean(latent.square()))))
+            latent_absolute_values.append(float(torch.max(torch.abs(latent))))
+            normalized_outputs.append(normalized_output)
+            normalized_targets.append(normalized_target)
+            output_hashes.add(
+                common.sha256_bytes(
+                    np.asarray(output_values * mask, dtype="<f4").tobytes()
+                )
+            )
+    output_pairwise = []
+    target_pairwise = []
+    for first in range(len(normalized_outputs)):
+        for second in range(first + 1, len(normalized_outputs)):
+            output_pairwise.append(
+                float(
+                    np.mean(
+                        np.abs(normalized_outputs[first] - normalized_outputs[second])
+                    )
+                )
+            )
+            target_pairwise.append(
+                float(
+                    np.mean(
+                        np.abs(normalized_targets[first] - normalized_targets[second])
+                    )
+                )
+            )
+    mean_target_pairwise = float(np.mean(target_pairwise))
+    if mean_target_pairwise <= 0.0:
+        raise common.V5Error("V5 validation target diversity is zero")
     return {
         "clip_count": len(validation),
         "mean": {name: float(np.mean(values)) for name, values in totals.items()},
         "maximum": {name: float(np.max(values)) for name, values in totals.items()},
         "unique_codes_per_quantizer": [len(values) for values in unique_by_quantizer],
+        "waveform_diagnostics": {
+            "mean_output_rms": float(np.mean(output_rms_values)),
+            "mean_target_rms": float(np.mean(target_rms_values)),
+            "mean_output_target_rms_ratio": float(np.mean(rms_ratios)),
+            "minimum_output_target_rms_ratio": float(np.min(rms_ratios)),
+            "mean_absolute_correlation": float(np.mean(absolute_correlations)),
+            "unique_output_sha256_count": len(output_hashes),
+            "mean_pairwise_normalized_output_l1": float(np.mean(output_pairwise)),
+            "mean_pairwise_normalized_target_l1": mean_target_pairwise,
+            "output_diversity_ratio": float(np.mean(output_pairwise))
+            / mean_target_pairwise,
+        },
+        "latent_diagnostics": {
+            "mean_rms": float(np.mean(latent_rms_values)),
+            "maximum_rms": float(np.max(latent_rms_values)),
+            "maximum_absolute": float(np.max(latent_absolute_values)),
+        },
+    }
+
+
+def assess_anti_collapse_gate(
+    initial: dict[str, Any],
+    current: dict[str, Any],
+    quantizers: int,
+    step: int,
+) -> dict[str, Any]:
+    evaluation_step = ANTI_COLLAPSE_GATE["evaluation_step"]
+    if step < evaluation_step:
+        return {
+            "status": "PendingWarmup",
+            "step": step,
+            "evaluation_step": evaluation_step,
+            "passed": None,
+            "failed_checks": [],
+        }
+    initial_spectrum = float(initial["mean"]["log_spectrum"])
+    current_spectrum = float(current["mean"]["log_spectrum"])
+    if initial_spectrum <= 0.0:
+        raise common.V5Error("V5 initial validation spectrum loss is invalid")
+    spectrum_improvement = (initial_spectrum - current_spectrum) / initial_spectrum
+    unique_codes = current["unique_codes_per_quantizer"]
+    if len(unique_codes) != quantizers:
+        raise common.V5Error("V5 validation quantizer count changed")
+    observed = {
+        "mean_output_target_rms_ratio": current["waveform_diagnostics"][
+            "mean_output_target_rms_ratio"
+        ],
+        "log_spectrum_relative_improvement": spectrum_improvement,
+        "minimum_unique_codes_per_quantizer": min(unique_codes),
+        "maximum_encoder_latent_rms": current["latent_diagnostics"][
+            "maximum_rms"
+        ],
+        "maximum_encoder_latent_absolute": current["latent_diagnostics"][
+            "maximum_absolute"
+        ],
+        "output_diversity_ratio": current["waveform_diagnostics"][
+            "output_diversity_ratio"
+        ],
+    }
+    checks = {
+        "mean_output_target_rms_ratio": observed[
+            "mean_output_target_rms_ratio"
+        ]
+        >= ANTI_COLLAPSE_GATE["minimum_mean_output_target_rms_ratio"],
+        "log_spectrum_relative_improvement": observed[
+            "log_spectrum_relative_improvement"
+        ]
+        >= ANTI_COLLAPSE_GATE["minimum_log_spectrum_relative_improvement"],
+        "minimum_unique_codes_per_quantizer": observed[
+            "minimum_unique_codes_per_quantizer"
+        ]
+        >= ANTI_COLLAPSE_GATE["minimum_unique_codes_per_quantizer"],
+        "maximum_encoder_latent_rms": observed["maximum_encoder_latent_rms"]
+        <= ANTI_COLLAPSE_GATE["maximum_encoder_latent_rms"],
+        "maximum_encoder_latent_absolute": observed[
+            "maximum_encoder_latent_absolute"
+        ]
+        <= ANTI_COLLAPSE_GATE["maximum_encoder_latent_absolute"],
+        "output_diversity_ratio": observed["output_diversity_ratio"]
+        >= ANTI_COLLAPSE_GATE["minimum_output_diversity_ratio"],
+    }
+    failed = sorted(name for name, passed in checks.items() if not passed)
+    return {
+        "status": "Passed" if not failed else "Rejected",
+        "step": step,
+        "evaluation_step": evaluation_step,
+        "passed": not failed,
+        "policy": ANTI_COLLAPSE_GATE,
+        "observed": observed,
+        "checks": checks,
+        "failed_checks": failed,
     }
 
 
@@ -443,8 +623,12 @@ def _waveform_descriptors(items: list[WaveformItem]) -> list[dict[str, Any]]:
     ]
 
 
-def _implementation_sha256() -> str:
-    return common.sha256_file(Path(__file__).resolve())
+def _implementation_sha256() -> dict[str, str]:
+    directory = Path(__file__).resolve().parent
+    return {
+        name: common.sha256_file(directory / filename)
+        for name, filename in IMPLEMENTATION_FILES.items()
+    }
 
 
 def _load_resume(
@@ -458,6 +642,7 @@ def _load_resume(
     int,
     float | None,
     dict[str, Any] | None,
+    dict[str, Any],
 ]:
     _, state = common.load_json(output / "state.json", "V5 capacity state", True)
     if (
@@ -473,12 +658,16 @@ def _load_resume(
     optimizer = _optimizer(model)
     model.load_state_dict(loaded["model"], strict=True)
     optimizer.load_state_dict(loaded["optimizer"])
+    initial_validation = state.get("initial_validation")
+    if not isinstance(initial_validation, dict):
+        raise common.V5Error("V5 capacity resume lacks initial validation")
     return (
         model,
         optimizer,
         int(loaded["step"]),
         state.get("best_validation_loss"),
         state.get("best_checkpoint"),
+        initial_validation,
     )
 
 
@@ -486,6 +675,18 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
     output = arguments.output.resolve()
     if output.is_relative_to(root):
         raise common.V5Error("V5 capacity output must stay outside the repository")
+    frozen_maximum_steps = common.TRAINING_CONFIG["maximum_steps"]
+    checkpoint_interval = common.TRAINING_CONFIG["checkpoint_interval_steps"]
+    execution_steps = arguments.stop_after_step or frozen_maximum_steps
+    if (
+        execution_steps < ANTI_COLLAPSE_GATE["evaluation_step"]
+        or execution_steps > frozen_maximum_steps
+        or execution_steps % checkpoint_interval != 0
+    ):
+        raise common.V5Error(
+            "V5 bounded stop must be a checkpoint from anti-collapse evaluation "
+            "through the frozen maximum"
+        )
     v5_manifest = load_parent_manifest(
         root,
         arguments.v5_manifest,
@@ -540,6 +741,11 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         "loss": common.LOSS_CONFIG,
         "loss_implementation_revision": training.LOSS_IMPLEMENTATION_REVISION,
         "training": common.TRAINING_CONFIG,
+        "execution": {
+            "frozen_maximum_steps": frozen_maximum_steps,
+            "requested_stop_after_step": arguments.stop_after_step,
+            "anti_collapse_gate": ANTI_COLLAPSE_GATE,
+        },
         "codebook_initialization_revision": training.CODEBOOK_INITIALIZATION_REVISION,
         "sampling": "stateless_sha256_seeded_item_uniform_v1",
         "train_items": _waveform_descriptors(train_items),
@@ -563,9 +769,14 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         existing = (output / "run-manifest.json").read_bytes()
         if existing != run_manifest_bytes:
             raise common.V5Error("V5 capacity run manifest changed on resume")
-        model, optimizer, completed_step, best_loss, best_checkpoint = _load_resume(
-            output, run_manifest_sha256, arguments.capacity_id, device
-        )
+        (
+            model,
+            optimizer,
+            completed_step,
+            best_loss,
+            best_checkpoint,
+            initial_validation,
+        ) = _load_resume(output, run_manifest_sha256, arguments.capacity_id, device)
     else:
         if arguments.resume:
             raise common.V5Error("V5 capacity --resume output does not exist")
@@ -587,6 +798,9 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         completed_step = 0
         best_loss = None
         best_checkpoint = None
+        initial_validation = evaluate_validation(
+            model, validation, capacity["quantizers"], device
+        )
         state = {
             "schema": STATE_SCHEMA,
             "status": "InProgress",
@@ -598,15 +812,19 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             "latest_checkpoint": None,
             "best_validation_loss": None,
             "best_checkpoint": None,
+            "initial_validation": initial_validation,
+            "anti_collapse_gate": {
+                "status": "PendingWarmup",
+                "evaluation_step": ANTI_COLLAPSE_GATE["evaluation_step"],
+            },
             "development_waveform_samples_decoded": 0,
             "sealed_waveform_samples_decoded": 0,
         }
         _write_json_atomic(output / "state.json", state)
 
-    maximum_steps = common.TRAINING_CONFIG["maximum_steps"]
-    checkpoint_interval = common.TRAINING_CONFIG["checkpoint_interval_steps"]
     last_metrics: dict[str, Any] | None = None
-    for step in range(completed_step + 1, maximum_steps + 1):
+    last_gate: dict[str, Any] | None = None
+    for step in range(completed_step + 1, execution_steps + 1):
         item, segment, mask, segment_policy = segment_for_step(
             train_items, arguments.capacity_id, step
         )
@@ -620,15 +838,21 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         )
         if step % METRIC_INTERVAL_STEPS == 0:
             print(
-                f"{arguments.capacity_id} step {step}/{maximum_steps} "
+                f"{arguments.capacity_id} step {step}/{execution_steps} "
                 f"loss={last_metrics['total']:.6f} item={item.id} "
                 f"segment={segment_policy}",
                 flush=True,
             )
-        if step % checkpoint_interval != 0 and step != maximum_steps:
+        if step % checkpoint_interval != 0 and step != execution_steps:
             continue
         validation_metrics = evaluate_validation(
             model, validation, capacity["quantizers"], device
+        )
+        last_gate = assess_anti_collapse_gate(
+            initial_validation,
+            validation_metrics,
+            capacity["quantizers"],
+            step,
         )
         checkpoint_name = f"checkpoint-step-{step:08d}.pt"
         checkpoint_path = output / checkpoint_name
@@ -649,13 +873,16 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             "step": step,
         }
         validation_loss = validation_metrics["mean"]["total"]
-        if best_loss is None or validation_loss < best_loss:
+        if last_gate["passed"] is True and (
+            best_loss is None or validation_loss < best_loss
+        ):
             best_loss = validation_loss
             best_checkpoint = checkpoint_record
         record = {
             "step": step,
             "train": last_metrics,
             "validation": validation_metrics,
+            "anti_collapse_gate": last_gate,
             "checkpoint": checkpoint_record,
             "best_validation_loss": best_loss,
             "best_checkpoint": best_checkpoint,
@@ -665,32 +892,68 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         _append_metric(metrics_path, record)
         state = {
             "schema": STATE_SCHEMA,
-            "status": "InProgress",
+            "status": "Rejected" if last_gate["passed"] is False else "InProgress",
             "capacity_id": arguments.capacity_id,
             "run_manifest_sha256": run_manifest_sha256,
             "completed_step": step,
             "latest_checkpoint": checkpoint_name,
             "best_validation_loss": best_loss,
             "best_checkpoint": best_checkpoint,
+            "initial_validation": initial_validation,
+            "anti_collapse_gate": last_gate,
             "development_waveform_samples_decoded": 0,
             "sealed_waveform_samples_decoded": 0,
         }
         _write_json_atomic(output / "state.json", state)
+        if last_gate["passed"] is False:
+            report = {
+                "schema": REPORT_SCHEMA,
+                "status": "Rejected",
+                "decision": "REJECT_TRAINING_SUBSTRATE",
+                "capacity_id": arguments.capacity_id,
+                "quantizers": capacity["quantizers"],
+                "run_manifest_sha256": run_manifest_sha256,
+                "metrics_sha256": common.sha256_file(metrics_path),
+                "completed_steps": step,
+                "rejected_checkpoint": checkpoint_record,
+                "anti_collapse_gate": last_gate,
+                "capacity_training_complete": False,
+                "development_waveform_samples_decoded": 0,
+                "sealed_waveform_samples_decoded": 0,
+                "development_access_authorized": False,
+                "holdout_access_authorized": False,
+                "runtime_neural_inference_authorized": False,
+                "authored_clip_fallback_required": True,
+            }
+            report_bytes = common.canonical_json(report)
+            (output / "report.json").write_bytes(report_bytes)
+            state["report_sha256"] = common.sha256_bytes(report_bytes)
+            _write_json_atomic(output / "state.json", state)
+            return output
 
-    if best_checkpoint is None or last_metrics is None:
+    if best_checkpoint is None or last_metrics is None or last_gate is None:
         raise common.V5Error("V5 capacity training produced no checkpoint")
     metrics_sha256 = common.sha256_file(metrics_path)
+    full_training_complete = execution_steps == frozen_maximum_steps
+    terminal_status = "Complete" if full_training_complete else "ResearchComplete"
+    terminal_decision = (
+        "CAPACITY_TRAINING_COMPLETE"
+        if full_training_complete
+        else "RESEARCH_DISCRIMINATOR_PASSED"
+    )
     report = {
         "schema": REPORT_SCHEMA,
-        "status": "Complete",
-        "decision": "CAPACITY_TRAINING_COMPLETE",
+        "status": terminal_status,
+        "decision": terminal_decision,
         "capacity_id": arguments.capacity_id,
         "quantizers": capacity["quantizers"],
         "run_manifest_sha256": run_manifest_sha256,
         "metrics_sha256": metrics_sha256,
-        "completed_steps": maximum_steps,
+        "completed_steps": execution_steps,
         "best_validation_loss": best_loss,
         "best_checkpoint": best_checkpoint,
+        "anti_collapse_gate": last_gate,
+        "capacity_training_complete": full_training_complete,
         "final_model_state_sha256": codec_model.state_sha256(model),
         "internet_train_clip_count": len(internet_train),
         "fit_contact_count": len(fit_train),
@@ -706,13 +969,15 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
     (output / "report.json").write_bytes(report_bytes)
     state = {
         "schema": STATE_SCHEMA,
-        "status": "Complete",
+        "status": terminal_status,
         "capacity_id": arguments.capacity_id,
         "run_manifest_sha256": run_manifest_sha256,
-        "completed_step": maximum_steps,
-        "latest_checkpoint": f"checkpoint-step-{maximum_steps:08d}.pt",
+        "completed_step": execution_steps,
+        "latest_checkpoint": f"checkpoint-step-{execution_steps:08d}.pt",
         "best_validation_loss": best_loss,
         "best_checkpoint": best_checkpoint,
+        "initial_validation": initial_validation,
+        "anti_collapse_gate": last_gate,
         "report_sha256": common.sha256_bytes(report_bytes),
         "development_waveform_samples_decoded": 0,
         "sealed_waveform_samples_decoded": 0,
@@ -727,7 +992,7 @@ def main() -> None:
     _, state = common.load_json(output / "state.json", "V5 capacity state", True)
     print(f"R3A V5 capacity run: {output}")
     print(f"status: {state['status']}")
-    if state["status"] == "Complete":
+    if state["status"] in {"Complete", "ResearchComplete", "Rejected"}:
         print(f"report sha256: {common.sha256_file(output / 'report.json')}")
 
 
