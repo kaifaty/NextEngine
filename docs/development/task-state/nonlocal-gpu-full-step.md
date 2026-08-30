@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `REPAIR_COMPLETE / NCGP1_PHYSICS_REFUTED / RE_REVIEW_PENDING` |
+| Status | `CLOSED / NCGP1_VERIFIED_PHYSICS_REFUTED / PERFORMANCE_NOT_RUN` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-full-step` |
 | Scope | Implement and audit a standalone matrix-free corrected Nonlocal CUDA step for the frozen 50k physical/performance profile |
@@ -11,17 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** initial review was `INCONCLUSIVE`; its one permitted
-  repair batch is complete at `3bc5e81d`. The repaired, root-closed run still
-  reports `PHYSICS_REFUTED`: compressed-pair GPU reaches
-  `R_x=1.5036265e-5 > 1e-5`, while the direct CPU oracle succeeds.
+- **Current conclusion:** the single independent re-review closed
+  `VERIFIED_PHYSICS_REFUTED`. The repaired, root-closed compressed-pair GPU
+  reaches `R_x=1.5036265e-5 > 1e-5`, while the direct CPU oracle succeeds.
 - **Why:** active-set HVP, input identity, work accounting, rollback,
   admission and swept-boundary defects were repaired without changing the
   physical result. Corrected/permuted GPU work and result roots are exact.
-- **Next action:** run the single allowed independent re-review of commit
-  `3bc5e81d` plus the evidence transition. Do not run performance or optimize
-  a physically rejected package.
-- **Current blocker:** re-review is pending; the repair allowance is exhausted.
+- **Next action:** start a new, separately frozen research package only if the
+  product owner chooses to investigate the strict-f32 surface translation
+  floor (for example surface-specific mixed precision or reformulation).
+- **Current blocker:** NCGP1 physical admission failed; performance is not
+  authorized. The repair/re-review allowance is exhausted.
 - **Do not retry:** dense Hessian, source-shaped SISSM/Chebyshev, tolerance
   widening or adding NCGP0 neighbor time to an unmeasured solve.
 - **Reconsider when:** NCGP1 physical evidence selects a specific operator,
@@ -41,7 +41,7 @@
 | `docs/plans/nonlocal-corrected-gpu-full-step/01-scale-aware-solver-terminal.md` | `FROZEN` | projected `R_x<=1e-5` is the only NCGP1 physical terminal; raw NCGA5 stop remains historical |
 | `docs/plans/nonlocal-corrected-gpu-full-step/02-trajectory-corpus.md` | `FROZEN` | fixes exact tiny, 4k and 50k durations/initial states before trajectory code |
 | `docs/plans/nonlocal-corrected-gpu-full-step/03-review-repair-closure.md` | `FROZEN` | closes the sole review repair batch without changing physics or tolerances |
-| `docs/development/nonlocal-gpu-full-step-evidence-2026-08-30.md` | `AUTHOR_PHYSICS_REFUTED` | exact identities, clean repeats, sanitizer/regression closure and first failing route |
+| `docs/development/nonlocal-gpu-full-step-evidence-2026-08-30.md` | `VERIFIED_PHYSICS_REFUTED` | exact identities, clean repeats, sanitizer/regression closure, repaired apparatus and independent re-review |
 
 ## Decisions that still constrain the work
 
@@ -92,11 +92,11 @@
 
 ## Next action
 
-1. Run the single independent re-review on repair commit `3bc5e81d`.
-2. If it verifies the root-closed negative witness, close NCGP1
-   `VERIFIED_PHYSICS_REFUTED`; performance remains `NOT_RUN`.
-3. Any remaining load-bearing defect closes NCGP1 `INCONCLUSIVE`; no second
-   repair is authorized.
+1. Keep NCGP1 closed `VERIFIED_PHYSICS_REFUTED`; do not time or optimize it.
+2. If further work is authorized, freeze a new hypothesis specifically around
+   surface/absolute-position cancellation; do not use the pressure-only
+   discriminator for this failure.
+3. Preserve CPU DFSPH as the product fallback and keep roadmap status stable.
 
 ## Do not retry
 
@@ -106,10 +106,11 @@
 
 ## Handoff
 
-- **Workspace state:** main worktree on `codex/water-research`; repaired source candidate is commit `3bc5e81d`; evidence/task-state are the documentation transition.
+- **Workspace state:** main worktree on `codex/water-research`; verified source candidate is commit `3bc5e81d`; final evidence/task-state are this documentation transition.
 - **Checks:** two clean Release binaries `bf5df635...` and reports
   `0cf04384...` exact; three sanitizer tools zero-error; NCGA0--7 exact; repaired
   tiny route reproducibly exits 37 with identical permutation roots.
-- **Remaining risk:** the single re-review may still find an apparatus defect.
-  Performance and later trajectories are intentionally not run.
+- **Remaining risk:** the strict-f32 surface translation floor is not yet
+  localized to an arithmetic expression or cured. Performance and later
+  trajectories are intentionally `NOT_RUN`.
 - **Promotion needed:** none; the track remains Proposed/report-only.

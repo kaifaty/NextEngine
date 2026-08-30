@@ -8,7 +8,7 @@
 | Candidate tree | `c65469fb4ba601a637757e6b88d72d28f3cf7221` |
 | Architecture parent | `62e8bd1f922ce8b8a2d03dd25a0695ac8f212c92` |
 | Parent-to-candidate diff SHA-256 | `04b57ae4370b7783ac402015f336bb41ffe47ce0c77405c7f444ee18814aee3e` |
-| Review state | initial `INCONCLUSIVE`; single repair complete; re-review pending |
+| Review state | `VERIFIED_PHYSICS_REFUTED`; single repair/re-review exhausted |
 
 ## Result
 
@@ -77,6 +77,29 @@ The corrected and permuted roots match. The healthy CPU-oracle result root is
 `9af96c2a5c256f8e98cbcff7ad83ae5f5d1fb98432900d26f1e21378e3086e75`.
 The full four-record stdout contains three `PASS` records followed by the
 expected `PHYSICS_REFUTED` record and exits 37 only on the tiny command.
+
+## Independent re-review
+
+The single authorized re-review used source commit `3bc5e81d`, tree
+`c65469fb4ba601a637757e6b88d72d28f3cf7221` and evidence commit `0bd26ad6`.
+Its verdict is `VERIFIED_PHYSICS_REFUTED`; no load-bearing finding remains.
+Two fresh reviewer Release binaries were byte-identical at
+`593d4c1c4a7868d33fc59b7c18ea210c71f026de533e23b55ce9a12d6fba4352`.
+Both reviewer closures passed graph/operator/solver controls and reproduced
+tiny exit 37 with GPU/permuted failure `9`, 48 HVP, 24 outer trials, `3/21`
+accepted/rejected trials and
+`R_x=1.50362650553e-5`; the CPU long-double direct oracle succeeded in six
+HVP. Corrected/permuted work root
+`2d4622c5541157848031d815157830522b4845af0f730f6b977bad8d55fb77ed`
+and result root
+`e84f05cc6d0c17c53b21582a2bb67279880d55cff2021893966865d13eb7a5b9`
+were exact.
+
+The reviewer specifically verified the repaired active-set HVP, direct tiny
+oracle, common input identity, charged Jacobi probes, full transaction
+rollback, swept boundary receipts, fail-closed admission and typed failure
+precedence. The result remains bounded to this strict-f32
+solver/profile/terminal package; it does not refute corrected FCR formulas.
 
 ## Frozen and source hashes
 
