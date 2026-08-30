@@ -27,7 +27,7 @@ from torch.nn import functional
 RUN_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity-run.v1"
 STATE_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity-state.v1"
 REPORT_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity.report.v1"
-REVISION = "three-capacity-training-v3-staged-bootstrap"
+REVISION = "three-capacity-training-v4-frozen-quantizer-ramp"
 TRAINING_PREFLIGHT_MANIFEST_SHA256 = (
     "d53561fdd4cc4a662dfe2d750a2f3109fb5d63dc154b14f73ce92cb475d60b95"
 )
@@ -56,6 +56,7 @@ CURRICULUM = {
         "complex_stft_window_samples": [512, 2_048, 8_192],
     },
     "quantized_latent_match_weight": 1.0,
+    "quantizer_ramp_trainable_modules": ["quantizer"],
     "full_loss_after_quantized_gate": True,
     "bootstrap_auxiliary_retained": True,
 }
@@ -465,6 +466,15 @@ def normalized_bootstrap_loss(
     return total, terms
 
 
+def configure_phase_trainability(
+    model: codec_model.NeuralImpactCodec, phase: str
+) -> None:
+    quantizer_only = phase == "quantizer_ramp_bootstrap"
+    model.encoder.requires_grad_(not quantizer_only)
+    model.decoder.requires_grad_(not quantizer_only)
+    model.quantizer.requires_grad_(True)
+
+
 def _train_step(
     model: codec_model.NeuralImpactCodec,
     optimizer: torch.optim.Optimizer,
@@ -477,6 +487,7 @@ def _train_step(
     for group in optimizer.param_groups:
         group["lr"] = rate
     curriculum = curriculum_for_step(step)
+    configure_phase_trainability(model, str(curriculum["phase"]))
     model.train()
     (
         output,

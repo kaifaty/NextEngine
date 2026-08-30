@@ -13,6 +13,7 @@ sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 import physical_sound_contact_field_r3a_v5_capacity_train as capacity_train
 import physical_sound_contact_field_r3a_v5_common as common
+import physical_sound_contact_field_r3a_v5_model as codec_model
 
 
 class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
@@ -134,6 +135,19 @@ class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
         total, terms = capacity_train.normalized_bootstrap_loss(target, target)
         self.assertEqual(float(total), 0.0)
         self.assertTrue(all(float(value) == 0.0 for value in terms.values()))
+
+    def test_quantizer_ramp_freezes_codec_and_full_phase_unfreezes_it(self) -> None:
+        model = codec_model.NeuralImpactCodec(codec_model.CodecConfig.micro())
+        capacity_train.configure_phase_trainability(
+            model, "quantizer_ramp_bootstrap"
+        )
+        self.assertFalse(any(value.requires_grad for value in model.encoder.parameters()))
+        self.assertFalse(any(value.requires_grad for value in model.decoder.parameters()))
+        self.assertTrue(all(value.requires_grad for value in model.quantizer.parameters()))
+        capacity_train.configure_phase_trainability(
+            model, "quantized_full_loss_ramp"
+        )
+        self.assertTrue(all(value.requires_grad for value in model.parameters()))
 
     def test_anti_collapse_gate_waits_for_quantizer_then_passes_signal(self) -> None:
         initial = self._validation_metrics(
