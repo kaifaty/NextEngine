@@ -465,6 +465,14 @@ std::string graph_semantic_root(const NonlocalGpuGraphResult& graph) {
 
 std::string work_semantic_root(const NonlocalGpuWorkReceipt& work) {
     const bool compensated_graph = work.compensated_graph_quantizations != 0U;
+    const bool compensated_boundary =
+        work.compensated_boundary_origin_components != 0U
+        || work.compensated_contact_canonicalizations != 0U;
+    const bool compensated_transaction =
+        work.compensated_fault_injection_components != 0U
+        || work.compensated_rollback_components != 0U;
+    const bool ncgp3_extended = compensated_graph || compensated_boundary
+        || compensated_transaction;
     const bool boundary_extended = work.boundary_face_tests != 0U
         || work.boundary_face_hits != 0U || work.boundary_face_mask_xor != 0U;
     const bool extended = work.diagonal_probes != 0U
@@ -473,18 +481,42 @@ std::string work_semantic_root(const NonlocalGpuWorkReceipt& work) {
         || work.radius_expands != 0U
         || work.projected_gradient_components != 0U
         || work.contact_projections != 0U || work.state_updates != 0U;
-    std::string bytes = compensated_graph
-        ? "nextengine.nonlocal.ncgp3.work.v1\0"
+    std::string bytes = ncgp3_extended
+        ? "nextengine.nonlocal.ncgp3.work.v3\0"
         : boundary_extended
         ? "nextengine.nonlocal.ncgp1.work.v3\0"
         : (extended ? "nextengine.nonlocal.ncgp1.work.v2\0"
                     : "nextengine.nonlocal.ncgp1.work.v1\0");
-    const std::vector<std::uint64_t> values = compensated_graph
+    const std::vector<std::uint64_t> values = ncgp3_extended
         ? std::vector<std::uint64_t>{work.uploads, work.graph_builds,
               work.key_evaluations, work.radix_sort_items, work.cell_probes,
               work.distance_predicates, work.emitted_directed_pairs,
-              work.row_sort_items, work.compensated_graph_quantizations,
-              work.host_to_device_bytes, work.device_to_host_bytes}
+              work.row_sort_items, work.density_kernel_evaluations,
+              work.energy_pair_visits, work.gradient_pair_visits,
+              work.hvp_pair_visits, work.hvp_applications,
+              work.diagonal_probes, work.reduction_values,
+              work.scalar_reductions, work.vector_kernel_values,
+              work.boundary_intersections, work.outer_trials,
+              work.accepted_trials, work.rejected_trials,
+              work.radius_shrinks, work.radius_expands,
+              work.projected_gradient_components, work.contact_projections,
+              work.boundary_face_tests, work.boundary_face_hits,
+              work.boundary_face_mask_xor, work.state_updates,
+              work.host_to_device_bytes, work.device_to_host_bytes,
+              work.compensated_input_components,
+              work.compensated_decomposition_components,
+              work.compensated_reconstruction_components,
+              work.compensated_canonical_checks,
+              work.compensated_difference_components,
+              work.compensated_inertia_components,
+              work.compensated_trial_eft_components,
+              work.compensated_transaction_components,
+              work.compensated_publish_components,
+              work.compensated_graph_quantizations,
+              work.compensated_boundary_origin_components,
+              work.compensated_contact_canonicalizations,
+              work.compensated_fault_injection_components,
+              work.compensated_rollback_components}
         : boundary_extended
         ? std::vector<std::uint64_t>{work.uploads, work.graph_builds,
               work.key_evaluations, work.radix_sort_items, work.cell_probes,
@@ -587,9 +619,12 @@ std::string step_work_semantic_root(const NonlocalGpuProfile& profile,
     append_u32(bytes, static_cast<std::uint32_t>(result.solver_profile));
     append_u32(bytes, static_cast<std::uint32_t>(result.variant));
     append_string(bytes, work_semantic_root(result.work));
-    if (result.variant == NonlocalGpuVariant::CompensatedStateF32
-        || result.variant == NonlocalGpuVariant::CompensatedOmitLow
-        || result.variant == NonlocalGpuVariant::CompensatedBrokenEft) {
+    if (static_cast<std::uint32_t>(result.variant)
+            >= static_cast<std::uint32_t>(
+                NonlocalGpuVariant::CompensatedStateF32)
+        && static_cast<std::uint32_t>(result.variant)
+            <= static_cast<std::uint32_t>(
+                NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)) {
         append_u64(bytes, result.work.compensated_input_components);
         append_u64(bytes, result.work.compensated_decomposition_components);
         append_u64(bytes, result.work.compensated_reconstruction_components);
@@ -599,6 +634,18 @@ std::string step_work_semantic_root(const NonlocalGpuProfile& profile,
         append_u64(bytes, result.work.compensated_trial_eft_components);
         append_u64(bytes, result.work.compensated_transaction_components);
         append_u64(bytes, result.work.compensated_publish_components);
+        if (static_cast<std::uint32_t>(result.variant)
+            >= static_cast<std::uint32_t>(
+                NonlocalGpuVariant::CompensatedScaleF32)) {
+            append_u64(bytes, result.work.compensated_graph_quantizations);
+            append_u64(bytes,
+                result.work.compensated_boundary_origin_components);
+            append_u64(bytes,
+                result.work.compensated_contact_canonicalizations);
+            append_u64(bytes,
+                result.work.compensated_fault_injection_components);
+            append_u64(bytes, result.work.compensated_rollback_components);
+        }
     }
     return sha256_hex(bytes);
 }
@@ -626,9 +673,12 @@ std::string step_semantic_root(const NonlocalGpuProfile& profile,
     append_f64(bytes, result.boundary_impulse.y);
     append_f64(bytes, result.boundary_impulse.z);
     append_u64(bytes, result.boundary_face_mask_xor);
-    if (result.variant == NonlocalGpuVariant::CompensatedStateF32
-        || result.variant == NonlocalGpuVariant::CompensatedOmitLow
-        || result.variant == NonlocalGpuVariant::CompensatedBrokenEft) {
+    if (static_cast<std::uint32_t>(result.variant)
+            >= static_cast<std::uint32_t>(
+                NonlocalGpuVariant::CompensatedStateF32)
+        && static_cast<std::uint32_t>(result.variant)
+            <= static_cast<std::uint32_t>(
+                NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)) {
         append_u64(bytes, result.active_pressure_ids.size());
         for (const std::uint32_t id : result.active_pressure_ids) {
             append_u32(bytes, id);

@@ -20,6 +20,11 @@ namespace {
 constexpr int kThreads = 128;
 constexpr int kRowSortThreads = 64;
 constexpr int kMaximumTotalSamples = 100000;
+#if defined(NCGP3_EXPERIMENTAL)
+constexpr std::size_t kBoundaryWorkWords = 6U;
+#else
+constexpr std::size_t kBoundaryWorkWords = 4U;
+#endif
 constexpr long long kCellBias = 1LL << 20;
 constexpr long long kCellMinimum = -kCellBias;
 constexpr long long kCellMaximum = kCellBias - 1LL;
@@ -107,6 +112,10 @@ __host__ __device__ bool compensated_state_variant(unsigned int variant) {
             NonlocalGpuVariant::CompensatedScaleHighOnlyGraph)
         || variant == static_cast<unsigned int>(
             NonlocalGpuVariant::CompensatedScaleStrictRadius)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)
 #endif
         ;
 }
@@ -123,6 +132,10 @@ __host__ __device__ bool compensated_formula_variant(unsigned int variant) {
             NonlocalGpuVariant::CompensatedScaleHighOnlyGraph)
         || variant == static_cast<unsigned int>(
             NonlocalGpuVariant::CompensatedScaleStrictRadius)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)
 #endif
         ;
 }
@@ -132,7 +145,22 @@ __host__ __device__ bool pair_aware_graph_variant(unsigned int variant) {
     return variant
             == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedScaleF32)
         || variant == static_cast<unsigned int>(
-            NonlocalGpuVariant::CompensatedScaleStrictRadius);
+            NonlocalGpuVariant::CompensatedScaleStrictRadius)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScalePostFinalizeFailure);
+}
+
+__host__ __device__ bool pair_aware_boundary_variant(unsigned int variant) {
+    return variant
+            == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedScaleF32)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleStrictRadius)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleHighOnlyGraph)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScalePostFinalizeFailure);
 }
 #endif
 
@@ -1659,6 +1687,25 @@ __device__ void consider_boundary_plane(float origin,
     }
 }
 
+#if defined(NCGP3_EXPERIMENTAL)
+__device__ void consider_boundary_plane_pair(double origin,
+    double delta,
+    double plane,
+    unsigned int bit,
+    double& hit,
+    unsigned int& mask) {
+    if (delta == 0.0) return;
+    const double candidate = (plane - origin) / delta;
+    if (!(candidate >= 0.0 && candidate <= 1.0)) return;
+    if (candidate < hit) {
+        hit = candidate;
+        mask = bit;
+    } else if (candidate == hit) {
+        mask |= bit;
+    }
+}
+#endif
+
 __global__ void project_trial_kernel(const DeviceVec3* base,
 #if defined(NCGP2_EXPERIMENTAL)
     const DeviceVec3* base_low,
@@ -1678,6 +1725,9 @@ __global__ void project_trial_kernel(const DeviceVec3* base,
 #if defined(NCGP2_EXPERIMENTAL)
     bool compensated,
     bool broken_eft,
+#endif
+#if defined(NCGP3_EXPERIMENTAL)
+    bool pair_aware_boundary,
 #endif
     float impulse_scale,
     unsigned long long* boundary_work) {
@@ -1702,6 +1752,66 @@ __global__ void project_trial_kernel(const DeviceVec3* base,
 #endif
     unsigned int face_mask = 0U;
     if (!disable_boundary) {
+#if defined(NCGP3_EXPERIMENTAL)
+        if (pair_aware_boundary) {
+            double hit = 1.0;
+            const DeviceVec3 origin_low = base_low[index];
+            const double ox = static_cast<double>(origin.x) + origin_low.x;
+            const double oy = static_cast<double>(origin.y) + origin_low.y;
+            const double oz = static_cast<double>(origin.z) + origin_low.z;
+            const double vx = static_cast<double>(value.x) + value_low.x;
+            const double vy = static_cast<double>(value.y) + value_low.y;
+            const double vz = static_cast<double>(value.z) + value_low.z;
+            if (vx < static_cast<double>(lower.x)) consider_boundary_plane_pair(
+                ox, proposal[index].x, lower.x, 1U, hit, face_mask);
+            if (vx > static_cast<double>(upper.x)) consider_boundary_plane_pair(
+                ox, proposal[index].x, upper.x, 2U, hit, face_mask);
+            if (vy < static_cast<double>(lower.y)) consider_boundary_plane_pair(
+                oy, proposal[index].y, lower.y, 4U, hit, face_mask);
+            if (vy > static_cast<double>(upper.y)) consider_boundary_plane_pair(
+                oy, proposal[index].y, upper.y, 8U, hit, face_mask);
+            if (vz < static_cast<double>(lower.z)) consider_boundary_plane_pair(
+                oz, proposal[index].z, lower.z, 16U, hit, face_mask);
+            if (vz > static_cast<double>(upper.z)) consider_boundary_plane_pair(
+                oz, proposal[index].z, upper.z, 32U, hit, face_mask);
+            if (face_mask != 0U) {
+                const float hit_f32 = static_cast<float>(hit);
+                canonical_add(origin.x, origin_low.x,
+                    proposal[index].x * hit_f32, value.x, value_low.x);
+                canonical_add(origin.y, origin_low.y,
+                    proposal[index].y * hit_f32, value.y, value_low.y);
+                canonical_add(origin.z, origin_low.z,
+                    proposal[index].z * hit_f32, value.z, value_low.z);
+                if ((face_mask & 1U) != 0U) {
+                    value.x = lower.x;
+                    value_low.x = 0.0F;
+                }
+                if ((face_mask & 2U) != 0U) {
+                    value.x = upper.x;
+                    value_low.x = 0.0F;
+                }
+                if ((face_mask & 4U) != 0U) {
+                    value.y = lower.y;
+                    value_low.y = 0.0F;
+                }
+                if ((face_mask & 8U) != 0U) {
+                    value.y = upper.y;
+                    value_low.y = 0.0F;
+                }
+                if ((face_mask & 16U) != 0U) {
+                    value.z = lower.z;
+                    value_low.z = 0.0F;
+                }
+                if ((face_mask & 32U) != 0U) {
+                    value.z = upper.z;
+                    value_low.z = 0.0F;
+                }
+            }
+            atomicAdd(&boundary_work[4], 3ULL);
+            atomicAdd(&boundary_work[5],
+                static_cast<unsigned long long>(__popc(face_mask)));
+        } else {
+#endif
         float hit = 1.0F;
         if (value.x < lower.x) consider_boundary_plane(
             origin.x, proposal[index].x, lower.x, 1U, hit, face_mask);
@@ -1724,6 +1834,9 @@ __global__ void project_trial_kernel(const DeviceVec3* base,
             if ((face_mask & 16U) != 0U) value.z = lower.z;
             if ((face_mask & 32U) != 0U) value.z = upper.z;
         }
+#if defined(NCGP3_EXPERIMENTAL)
+        }
+#endif
     }
     trial[index] = value;
 #if defined(NCGP2_EXPERIMENTAL)
@@ -1803,6 +1916,16 @@ __global__ void finalize_step_kernel(DeviceVec3* reference,
         next.y + dt * v.y + dt * dt * gravity.y,
         next.z + dt * v.z + dt * dt * gravity.z};
 }
+
+#if defined(NCGP3_EXPERIMENTAL)
+__global__ void corrupt_compensated_state_kernel(
+    DeviceVec3* current, DeviceVec3* current_low, int count) {
+    if (blockIdx.x == 0 && threadIdx.x == 0 && count > 0) {
+        current[0].x = __uint_as_float(__float_as_uint(current[0].x) ^ 1U);
+        current_low[0].x = __uint_as_float(1U);
+    }
+}
+#endif
 
 __global__ void penetration_rows_kernel(const DeviceVec3* current,
     double* rows,
@@ -1963,6 +2086,14 @@ void add_work(NonlocalGpuWorkReceipt& target,
     target.compensated_publish_components += source.compensated_publish_components;
     target.compensated_graph_quantizations +=
         source.compensated_graph_quantizations;
+    target.compensated_boundary_origin_components +=
+        source.compensated_boundary_origin_components;
+    target.compensated_contact_canonicalizations +=
+        source.compensated_contact_canonicalizations;
+    target.compensated_fault_injection_components +=
+        source.compensated_fault_injection_components;
+    target.compensated_rollback_components +=
+        source.compensated_rollback_components;
 }
 
 DeviceProfile device_profile(const NonlocalGpuProfile& profile) {
@@ -2073,7 +2204,7 @@ struct NonlocalGpuWorkspace::Impl {
         allocate_device(&graph_work, 1U, allocated_bytes);
         allocate_device(&maximum_degree, 1U, allocated_bytes);
         allocate_device(&projected_components, 1U, allocated_bytes);
-        allocate_device(&boundary_work, 4U, allocated_bytes);
+        allocate_device(&boundary_work, kBoundaryWorkWords, allocated_bytes);
 
         cuda_check(cub::DeviceRadixSort::SortPairs(nullptr, id_sort_bytes,
             ids_input, ids_sorted, input_indices, sorted_indices,
@@ -2504,7 +2635,9 @@ NonlocalGpuGraphResult NonlocalGpuWorkspace::build_current_graph(
         const bool scale_quantization =
             variant == NonlocalGpuVariant::CompensatedScaleF32
             || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyGraph
-            || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius;
+            || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius
+            || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary
+            || variant == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure;
         const bool pair_aware = pair_aware_graph_variant(
             static_cast<unsigned int>(variant));
 #endif
@@ -2635,6 +2768,186 @@ NonlocalGpuGraphResult NonlocalGpuWorkspace::build_current_graph(
     }
 }
 
+NonlocalGpuBoundaryProbeResult NonlocalGpuWorkspace::probe_boundary(
+    const std::vector<Vec3d>& proposal,
+    NonlocalGpuVariant variant,
+    bool capture_payload) {
+    NonlocalGpuBoundaryProbeResult result;
+    if (impl_->dynamic_count <= 0
+        || proposal.size() != static_cast<std::size_t>(impl_->dynamic_count)) {
+        result.failure = NonlocalGpuFailure::InvalidState;
+        return result;
+    }
+#if !defined(NCGP2_EXPERIMENTAL)
+    (void)variant;
+    (void)capture_payload;
+    result.failure = NonlocalGpuFailure::InvalidState;
+    return result;
+#else
+#if defined(NCGP2_EXPERIMENTAL)
+    const bool compensated = compensated_state_variant(
+        static_cast<unsigned int>(variant));
+    if (!compensated || !impl_->compensated_input_prepared) {
+        result.failure = NonlocalGpuFailure::InvalidState;
+        return result;
+    }
+#endif
+    try {
+        std::vector<DeviceVec3> device_proposal;
+        device_proposal.reserve(proposal.size());
+        for (const Vec3d& value : proposal) {
+            if (!std::isfinite(value.x) || !std::isfinite(value.y)
+                || !std::isfinite(value.z)
+                || !std::isfinite(static_cast<float>(value.x))
+                || !std::isfinite(static_cast<float>(value.y))
+                || !std::isfinite(static_cast<float>(value.z))) {
+                result.failure = NonlocalGpuFailure::Nonfinite;
+                return result;
+            }
+            device_proposal.push_back({static_cast<float>(value.x),
+                static_cast<float>(value.y), static_cast<float>(value.z)});
+        }
+        const std::size_t vector_bytes = device_proposal.size()
+            * sizeof(DeviceVec3);
+        cuda_check(cudaMemcpy(impl_->direction, device_proposal.data(),
+            vector_bytes, cudaMemcpyHostToDevice), "upload boundary probe");
+        cuda_check(cudaMemset(impl_->error, 0, sizeof(int)),
+            "reset boundary probe error");
+        cuda_check(cudaMemset(impl_->boundary_work, 0,
+            kBoundaryWorkWords * sizeof(unsigned long long)),
+            "reset boundary probe work");
+        const DeviceVec3 lower{static_cast<float>(0.5 * impl_->profile.spacing),
+            static_cast<float>(0.5 * impl_->profile.spacing),
+            static_cast<float>(0.5 * impl_->profile.spacing)};
+        const DeviceVec3 upper{
+            static_cast<float>(impl_->profile.basin_extent.x
+                - 0.5 * impl_->profile.spacing),
+            static_cast<float>(impl_->profile.basin_extent.y
+                - 0.5 * impl_->profile.spacing),
+            static_cast<float>(impl_->profile.basin_extent.z
+                - 0.5 * impl_->profile.spacing)};
+        project_trial_kernel<<<blocks_for(impl_->dynamic_count), kThreads>>>(
+            impl_->current,
+#if defined(NCGP2_EXPERIMENTAL)
+            impl_->current_low,
+#endif
+            impl_->direction, impl_->ids, impl_->trial_position,
+#if defined(NCGP2_EXPERIMENTAL)
+            impl_->trial_position_low,
+#endif
+            impl_->cg_candidate, impl_->contact_impulse,
+            impl_->dynamic_count, lower, upper, false,
+#if defined(NCGP2_EXPERIMENTAL)
+            true, false,
+#endif
+#if defined(NCGP3_EXPERIMENTAL)
+            pair_aware_boundary_variant(static_cast<unsigned int>(variant)),
+#endif
+            static_cast<float>(impl_->profile.mass / impl_->profile.dt),
+            impl_->boundary_work);
+        cuda_check(cudaGetLastError(), "launch boundary probe");
+        cuda_check(cudaDeviceSynchronize(), "synchronize boundary probe");
+        int error = 0;
+        std::array<unsigned long long, kBoundaryWorkWords> work{};
+        cuda_check(cudaMemcpy(&error, impl_->error, sizeof(error),
+            cudaMemcpyDeviceToHost), "copy boundary probe error");
+        cuda_check(cudaMemcpy(work.data(), impl_->boundary_work,
+            kBoundaryWorkWords * sizeof(unsigned long long),
+            cudaMemcpyDeviceToHost), "copy boundary probe work");
+        result.failure = static_cast<NonlocalGpuFailure>(error);
+        result.face_mask_xor = work[2];
+        result.work.boundary_face_tests = work[0];
+        result.work.boundary_face_hits = work[1];
+        result.work.boundary_face_mask_xor = work[2];
+        result.work.contact_projections = work[3];
+#if defined(NCGP3_EXPERIMENTAL)
+        result.work.compensated_boundary_origin_components = work[4];
+        result.work.compensated_contact_canonicalizations = work[5];
+#endif
+        result.work.host_to_device_bytes = vector_bytes;
+        result.work.device_to_host_bytes = sizeof(error)
+            + kBoundaryWorkWords * sizeof(unsigned long long);
+        if (capture_payload && result.failure == NonlocalGpuFailure::None) {
+            std::vector<DeviceVec3> high(impl_->dynamic_count);
+            std::vector<DeviceVec3> low(impl_->dynamic_count);
+            std::vector<DeviceVec3> impulse(impl_->dynamic_count);
+            cuda_check(cudaMemcpy(high.data(), impl_->trial_position,
+                vector_bytes, cudaMemcpyDeviceToHost),
+                "capture boundary probe high");
+            cuda_check(cudaMemcpy(low.data(), impl_->trial_position_low,
+                vector_bytes, cudaMemcpyDeviceToHost),
+                "capture boundary probe low");
+            cuda_check(cudaMemcpy(impulse.data(), impl_->contact_impulse,
+                vector_bytes, cudaMemcpyDeviceToHost),
+                "capture boundary probe impulse");
+            for (std::size_t index = 0U; index < high.size(); ++index) {
+                result.trial_high.push_back(
+                    {high[index].x, high[index].y, high[index].z});
+                result.trial_low.push_back(
+                    {low[index].x, low[index].y, low[index].z});
+                result.contact_impulse.push_back(
+                    {impulse[index].x, impulse[index].y, impulse[index].z});
+            }
+            result.work.device_to_host_bytes += 3U * vector_bytes;
+        }
+        return result;
+    } catch (const std::exception&) {
+        result.failure = NonlocalGpuFailure::DeviceFailure;
+        return result;
+    }
+#endif
+}
+
+NonlocalGpuCompensatedStateSnapshot
+NonlocalGpuWorkspace::capture_compensated_state() {
+    NonlocalGpuCompensatedStateSnapshot result;
+#if !defined(NCGP2_EXPERIMENTAL)
+    result.failure = NonlocalGpuFailure::InvalidState;
+    return result;
+#else
+    if (impl_->dynamic_count <= 0 || !impl_->compensated_input_prepared) {
+        result.failure = NonlocalGpuFailure::InvalidState;
+        return result;
+    }
+    try {
+        const std::size_t count = static_cast<std::size_t>(impl_->dynamic_count);
+        const std::size_t vector_bytes = count * sizeof(DeviceVec3);
+        std::array<std::vector<DeviceVec3>, 8> captured;
+        for (auto& values : captured) values.resize(count);
+        const std::array<DeviceVec3*, 8> sources{impl_->reference,
+            impl_->reference_low, impl_->current, impl_->current_low,
+            impl_->predicted, impl_->predicted_low, impl_->velocity,
+            impl_->velocity_low};
+        for (std::size_t index = 0U; index < sources.size(); ++index) {
+            cuda_check(cudaMemcpy(captured[index].data(), sources[index],
+                vector_bytes, cudaMemcpyDeviceToHost),
+                "capture compensated state component");
+        }
+        result.ids = impl_->host_sorted_ids;
+        const auto append = [&](const std::vector<DeviceVec3>& source,
+                                std::vector<Vec3d>& target) {
+            target.reserve(source.size());
+            for (const DeviceVec3 value : source) {
+                target.push_back({value.x, value.y, value.z});
+            }
+        };
+        append(captured[0], result.reference_high);
+        append(captured[1], result.reference_low);
+        append(captured[2], result.current_high);
+        append(captured[3], result.current_low);
+        append(captured[4], result.predicted_high);
+        append(captured[5], result.predicted_low);
+        append(captured[6], result.velocity_high);
+        append(captured[7], result.velocity_low);
+        result.work.device_to_host_bytes = 8U * vector_bytes;
+        return result;
+    } catch (const std::exception&) {
+        result.failure = NonlocalGpuFailure::DeviceFailure;
+        return result;
+    }
+#endif
+}
+
 NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
     const std::vector<Vec3d>* host_direction,
     NonlocalGpuVariant variant,
@@ -2656,7 +2969,9 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
 #if defined(NCGP3_EXPERIMENTAL)
             variant == NonlocalGpuVariant::CompensatedScaleF32
             || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyGraph
-            || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius;
+            || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius
+            || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary
+            || variant == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure;
 #else
             false;
 #endif
@@ -2968,6 +3283,8 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 vector_bytes, cudaMemcpyDeviceToDevice);
             cudaMemcpy(impl_->velocity_low, impl_->transaction_velocity_low,
                 vector_bytes, cudaMemcpyDeviceToDevice);
+            result.work.compensated_rollback_components += 12U
+                * static_cast<std::uint64_t>(impl_->dynamic_count);
         }
 #endif
         cudaDeviceSynchronize();
@@ -3407,7 +3724,8 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
             cuda_check(cudaMemsetAsync(impl_->error, 0, sizeof(int)),
                 "reset solver trial validation");
             cuda_check(cudaMemsetAsync(impl_->boundary_work, 0,
-                4U * sizeof(unsigned long long)), "reset boundary work");
+                kBoundaryWorkWords * sizeof(unsigned long long)),
+                "reset boundary work");
             project_trial_kernel<<<blocks_for(impl_->dynamic_count), kThreads>>>(
                 impl_->outer_base,
 #if defined(NCGP2_EXPERIMENTAL)
@@ -3425,6 +3743,9 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 compensated_state,
                 variant == NonlocalGpuVariant::CompensatedBrokenEft,
 #endif
+#if defined(NCGP3_EXPERIMENTAL)
+                pair_aware_boundary_variant(static_cast<unsigned int>(variant)),
+#endif
                 profile.mass / profile.dt,
                 impl_->boundary_work);
             cuda_check(cudaGetLastError(), "project solver trial");
@@ -3439,9 +3760,10 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     * static_cast<std::uint64_t>(impl_->dynamic_count);
             }
 #endif
-            std::array<unsigned long long, 4> boundary{};
+            std::array<unsigned long long, kBoundaryWorkWords> boundary{};
             cuda_check(cudaMemcpy(boundary.data(), impl_->boundary_work,
-                4U * sizeof(unsigned long long), cudaMemcpyDeviceToHost),
+                kBoundaryWorkWords * sizeof(unsigned long long),
+                cudaMemcpyDeviceToHost),
                 "copy boundary work");
 #if defined(NCGP2_EXPERIMENTAL)
             if (compensated_state) {
@@ -3461,6 +3783,10 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
             result.work.boundary_face_tests += boundary[0];
             result.work.boundary_face_hits += boundary[1];
             result.work.boundary_face_mask_xor ^= boundary[2];
+#if defined(NCGP3_EXPERIMENTAL)
+            result.work.compensated_boundary_origin_components += boundary[4];
+            result.work.compensated_contact_canonicalizations += boundary[5];
+#endif
             result.work.vector_kernel_values += 3U
                 * static_cast<std::uint64_t>(impl_->dynamic_count);
 #if defined(NCGP2_EXPERIMENTAL)
@@ -3469,7 +3795,8 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     * static_cast<std::uint64_t>(impl_->dynamic_count);
             }
 #endif
-            result.work.device_to_host_bytes += 4U * sizeof(unsigned long long);
+            result.work.device_to_host_bytes +=
+                kBoundaryWorkWords * sizeof(unsigned long long);
             if (!apply_hvp(impl_->cg_candidate, false)) break;
             const double linear = reduce_sum(impl_->gradient, impl_->cg_candidate);
             const double quadratic = reduce_sum(impl_->cg_candidate, impl_->hvp);
@@ -3605,7 +3932,23 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                         * static_cast<std::uint64_t>(impl_->dynamic_count);
                 }
 #endif
-                if (variant == NonlocalGpuVariant::PostFinalizeFailure) {
+                if (variant == NonlocalGpuVariant::PostFinalizeFailure
+#if defined(NCGP3_EXPERIMENTAL)
+                    || variant
+                        == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure
+#endif
+                ) {
+#if defined(NCGP3_EXPERIMENTAL)
+                    if (variant
+                        == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure) {
+                        corrupt_compensated_state_kernel<<<1, 1>>>(
+                            impl_->current, impl_->current_low,
+                            impl_->dynamic_count);
+                        cuda_check(cudaGetLastError(),
+                            "inject compensated post-finalize corruption");
+                        result.work.compensated_fault_injection_components += 2U;
+                    }
+#endif
                     cuda_check(cudaDeviceSynchronize(),
                         "synchronize injected post-finalize failure");
                     result.failure = NonlocalGpuFailure::DeviceFailure;
