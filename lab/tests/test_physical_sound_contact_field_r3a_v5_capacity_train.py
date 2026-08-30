@@ -81,6 +81,26 @@ class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
         np.testing.assert_array_equal(first[1], second[1])
         np.testing.assert_array_equal(first[2], second[2])
 
+    def test_frontier_capacities_share_the_same_sampling_stream(self) -> None:
+        items = [
+            capacity_train.WaveformItem(
+                id=f"item-{index}",
+                role="train",
+                source_kind="fixture",
+                source_group=f"group-{index}",
+                samples=np.linspace(-0.9, 0.9, 60_000 + index, dtype="<f4"),
+                samples_sha256="0" * 64,
+                output_gain=1.0,
+            )
+            for index in range(3)
+        ]
+        first = capacity_train.segment_for_step(items, "rvq-6kbps", 77)
+        second = capacity_train.segment_for_step(items, "rvq-24kbps", 77)
+        self.assertEqual(first[0].id, second[0].id)
+        self.assertEqual(first[3], second[3])
+        np.testing.assert_array_equal(first[1], second[1])
+        np.testing.assert_array_equal(first[2], second[2])
+
     def test_fit_projection_decodes_only_first_three_rows(self) -> None:
         values = np.zeros((4, 64), dtype="<f4")
         values[0, 3] = 0.2

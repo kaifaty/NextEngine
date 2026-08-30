@@ -27,7 +27,7 @@ from torch.nn import functional
 RUN_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity-run.v1"
 STATE_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity-state.v1"
 REPORT_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity.report.v1"
-REVISION = "three-capacity-training-v5-evaluation-only-full-loss"
+REVISION = "three-capacity-training-v6-paired-frontier-sampling"
 TRAINING_PREFLIGHT_MANIFEST_SHA256 = (
     "d53561fdd4cc4a662dfe2d750a2f3109fb5d63dc154b14f73ce92cb475d60b95"
 )
@@ -38,6 +38,7 @@ INTERNET_TRAIN_CLIP_COUNT = 56
 INTERNET_VALIDATION_CLIP_COUNT = 17
 TOTAL_TRAIN_ITEM_COUNT = 68
 LONG_CAPACITY_TRAINING_AUTHORIZED = False
+SAMPLING_REVISION = "stateless-sha256-shared-capacity-frontier-v2"
 IMPLEMENTATION_FILES = {
     "common": "physical_sound_contact_field_r3a_v5_common.py",
     "model": "physical_sound_contact_field_r3a_v5_model.py",
@@ -327,8 +328,10 @@ def segment_for_step(
     capacity_id: str,
     step: int,
 ) -> tuple[WaveformItem, np.ndarray, np.ndarray, str]:
+    if capacity_id not in {item["id"] for item in common.CAPACITIES}:
+        raise common.V5Error("V5 sampler capacity identity changed")
     seed_bytes = hashlib.sha256(
-        f"{common.TRAINING_CONFIG['random_seed']}\0{capacity_id}\0{step}".encode()
+        f"{common.TRAINING_CONFIG['random_seed']}\0{SAMPLING_REVISION}\0{step}".encode()
     ).digest()[:16]
     rng = np.random.default_rng(int.from_bytes(seed_bytes, "little"))
     item = items[int(rng.integers(0, len(items)))]
@@ -1070,7 +1073,7 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             "anti_collapse_gate": ANTI_COLLAPSE_GATE,
         },
         "codebook_initialization_revision": training.CODEBOOK_INITIALIZATION_REVISION,
-        "sampling": "stateless_sha256_seeded_item_uniform_v1",
+        "sampling": SAMPLING_REVISION,
         "train_items": _waveform_descriptors(train_items),
         "validation_items": _waveform_descriptors(validation),
         "fit_lineage": fit_lineage,
