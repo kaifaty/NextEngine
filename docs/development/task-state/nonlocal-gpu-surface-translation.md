@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP2_PHASE_A` |
+| Status | `ACTIVE / NCGP2_REVIEW_PENDING` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-surface-translation` |
 | Scope | Localize and repair the translated compressed-pair surface precision floor without changing FCR physics or NCGP1 tolerances |
@@ -11,15 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** NCGP1 is verified refuted for the strict global-f32
-  profile, while the corrected formulas are not refuted. The next uncertainty
-  is translation-dependent surface/state precision.
-- **Why:** the pair near `x=0.25` passes, the same pair near `x=0.75` fails at
-  `R_x=1.50362650553e-5`, and `gamma=0` at `x=0.75` passes.
-- **Next action:** implement and run the NCGP2 Phase-A translation sweep using
-  the unchanged CPU/CUDA solvers and seal its input/work/result identities.
+- **Current conclusion:** the author evidence selects H1, a global binary32
+  state-update floor. `surface-f64` leaves the failure unchanged, while the
+  shared-anchor `hi+lo` tiny discriminator passes all nine translations.
+- **Why:** the original `x=0.75` route remains at
+  `R_x=1.50362650553e-5` under surface-only binary64, but reaches
+  `1.62124633789e-6` with the local binary32 part and matches CPU within
+  `3.85e-8 m`.
+- **Next action:** receive the independent NCGP2 review; if it accepts the
+  representation semantics and receipts, freeze a scalable per-cell/per-point
+  state contract before any 4k/50k run.
 - **Current blocker:** full 4k/50k physics and performance remain forbidden
-  until the original translated tiny gate passes.
+  because the passing representation is a boundary-free shared-anchor
+  specialization, not a scalable graph/boundary implementation.
 - **Do not retry:** pressure-only f64 promotion, tolerance widening, disabling
   surface, or timing the graph-only path; none answers the failing surface
   state route.
@@ -33,6 +37,7 @@
 | `docs/development/nonlocal-gpu-full-step-evidence-2026-08-30.md` | `VERIFIED_PHYSICS_REFUTED` | strict global-f32 full-step profile cannot proceed to performance |
 | independent reviewer counterfactuals retained in NCGP1 evidence | `x=0.25 PASS`; `x=0.75,gamma=0 PASS` | absolute translation and surface participation are jointly causal clues, not yet a mechanism proof |
 | NVIDIA CUDA floating-point guide and IEEE note | `REPORT_ONLY` | binary32 spacing and subtractive cancellation are plausible; local experiments remain authority |
+| `docs/development/nonlocal-gpu-surface-translation-evidence-2026-08-30.md` | author `H1 SUPPORTED`, review pending | surface-only f64 is falsified; shared-anchor local state closes the retained pair and sweep |
 
 ## Decisions that still constrain the work
 
@@ -70,10 +75,10 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1 global-state quantization | failure changes with absolute shift although the mathematical pair is translated unchanged | no accepted-step/ULP trace yet | frozen Phase-A translation sweep |
-| H2 surface arithmetic | `gamma=0` removes failure | energy already uses binary64 surface distance/potential | `surface-f64` counterfactual after Phase A |
-| H3 trust/globalization | failure ends in trust-radius collapse | CPU succeeds under the same conceptual rules | both arithmetic counterfactuals |
-| H4 apparatus defect | prior review found and repaired apparatus defects | final re-review found no remaining load-bearing defect | input/permutation/work closure in the new mode |
+| H1 global-state quantization | shared-anchor local state passes all translations; original and surface-f64 routes fail identically | scalable per-particle/per-cell form is not implemented | independent review, then successor storage contract |
+| H2 surface arithmetic | `gamma=0` removes failure | surface-f64 does not change any failing route | falsified for the retained pair |
+| H3 trust/globalization | original failure ends in trust-radius collapse | local representation restores the frozen solver route | falsified for the retained pair |
+| H4 apparatus defect | shared-anchor factoring is a specialized representation that needs independent scrutiny | CPU/input/permutation/work identities and three sanitizers pass | independent review at commit `2a0c38a2` |
 
 ## Required context
 
@@ -89,11 +94,11 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Add a separate NCGP2 report mode/target without changing the frozen NCGP1
-   command semantics.
-2. Require exact reproduction of the primary failure and both controls.
-3. Keep the workspace rollback path and all NCGA/NCGP1 regression outputs
-   unchanged before implementing Phase B.
+1. Await the exact read-only independent review of commit `2a0c38a2`.
+2. If accepted, freeze anchor ownership, renormalization, graph transitions,
+   boundaries, rollback and work/memory receipts for a scalable successor.
+3. Reopen 4k correctness only after that successor passes the original tiny
+   route; keep 50k timing stopped until 4k trajectories pass.
 
 ## Do not retry
 
@@ -107,10 +112,12 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** branch `codex/water-research`; clean parent commit
-  `d0679986` before NCGP2 files.
-- **Checks:** NCGP1 clean build/review/sanitizer/regression evidence closed;
-  NCGP2 checks not run yet.
-- **Remaining risk:** a tiny-only repair may not scale to dynamic graphs,
-  boundaries or a 240-step trajectory.
+- **Workspace state:** branch `codex/water-research`; NCGP2 candidate commit
+  `2a0c38a2`, evidence/task-state update not yet committed.
+- **Checks:** two byte-identical clean Release builds/runs, retained
+  graph/operator/solver controls and memcheck/initcheck/synccheck pass; review
+  is running.
+- **Remaining risk:** the shared-anchor tiny representation may not satisfy
+  the frozen canonical `hi+lo` meaning or scale to dynamic graphs, boundaries
+  and a 240-step trajectory.
 - **Promotion needed:** none; this remains report-only Proposed research.
