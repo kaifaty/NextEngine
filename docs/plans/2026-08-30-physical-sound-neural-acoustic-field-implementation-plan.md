@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / PS-2N0_CONTRACT_IMPLEMENTED / N0.2_Q30_EXPORT_PASS / DCT_AND_REAL_PROJECTION_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / DATA_SEMANTICS_V2_NEXT / REAL_TRANSFER_SLICE_NEXT / NO_TRAINED_MODEL / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -27,19 +27,28 @@ checkpoint distribution, production contact wiring or a shipping claim.
 - Published source fields are never completed by guessing.
 - Authored clips remain the mandatory fallback.
 - Generator and validator use separate calibration/holdout/shadow evidence.
-- The current frozen Q30/DCT path remains an immutable baseline.
+- The current frozen Q30/DCT path remains an immutable waveform-domain
+  baseline.
+- `force_deconvolved_transfer_response` and `recorded_impact_waveform` are
+  different tasks. They cannot share a sample loss or baseline without an
+  explicit, hash-bound excitation model.
 
 ## Work packages
 
 ### N0.1 — Freeze the data projection and split manifest
 
-Status: `IMPLEMENTED / SYNTHETIC_FIXTURE_PASS / REAL_PROJECTION_NOT_RUN`.
+Status: `V1_IMPLEMENTED / V2_SIGNAL_SEMANTICS_IN_PROGRESS /
+REAL_PROJECTION_NOT_RUN`.
 See [PS-2N0 evidence](../development/physical-sound-neural-data-plane-ps2n0-2026-08-30.md).
 
 Deliverables:
 
 - a versioned external row projection for object, geometry, support, impact,
   listener, recording and provenance claims;
+- explicit `recorded_impact_waveform` or
+  `force_deconvolved_transfer_response` semantics for every row;
+- independent optional impact-point and outward-normal claims, so one missing
+  axis cannot erase another published axis;
 - deterministic projection from the existing source/corpus registry;
 - `train/development/calibration/method_holdout/admission_shadow` group roles;
 - duplicate/derived-parent leakage audit;
@@ -53,6 +62,7 @@ Exit criteria:
 - no shadow row contents are exposed to later development commands;
 - missing geometry, support, force or listener data cannot be promoted by an
   object/material label;
+- a transfer response cannot enter a waveform-only baseline or loss;
 - no model is trained in this package.
 
 Fallback: if the data cannot support impact/listener conditioning, narrow N0.2
@@ -62,14 +72,15 @@ Commit boundary: projection contract, fixtures, focused tests and evidence.
 
 ### N0.2 — Export the deterministic classical benchmark
 
-Status: `PARTIAL / Q30_STRUCTURED_EXPORT_PASS / SYNTHETIC_EXACT_AB_PASS /
-DCT_PER_ROW_FALLBACK / REAL_PROJECTION_NOT_RUN`. See
+Status: `PARTIAL / Q30_WAVEFORM_EXPORT_PASS / SYNTHETIC_EXACT_AB_PASS /
+TRANSFER_BASELINE_NOT_IMPLEMENTED / REAL_PROJECTION_NOT_RUN`. See
 [N0.2 baseline evidence](../development/physical-sound-classical-baseline-export-ps2n0-2026-08-30.md).
 
 Deliverables:
 
-- one external command that converts a frozen row into the current Q30/DCT
-  prediction and structured acoustic record;
+- the existing Q30/DCT exporter for compatible waveform/synthetic rows;
+- a separate transfer-domain nearest-neighbour/interpolation baseline for
+  force-deconvolved rows;
 - canonical mode ordering, residual descriptor and coverage metadata;
 - per-row acoustic features needed by both neural candidates and validator
   specialists;
@@ -81,14 +92,44 @@ Exit criteria:
 - existing frozen hashes and negative controls do not change;
 - the exporter is deterministic and fails closed on stale lineage;
 - baseline outputs are available for every supported benchmark task;
+- transfer and waveform rows are never compared under incompatible semantics;
 - unsupported rows are `FallbackOutOfDomain`, not partial success.
 
-Fallback: retain the existing renderer as a PCM-only baseline if a structured
-field cannot be recovered without changing its semantics.
+Fallback: retain Q30 as the waveform/synthetic baseline and mark unsupported
+transfer rows explicitly until a transfer-domain baseline exists. Do not
+reinterpret force-deconvolved responses as recorded impacts.
 
 Commit boundary: baseline exporter plus non-regression evidence.
 
-### N0.3 — Object-specific few-shot field
+### N0.3 — Fixed-impact listener-field pilot
+
+Deliverables:
+
+- one exact object/impact block with multiple published listener positions;
+- constant/rank-one and frozen classical interpolation controls;
+- a compact listener-conditioned modal gain field;
+- modal-only and modal-plus-residual ablations;
+- fixed seeds, environment lock and deterministic cooked replay.
+
+Exit criteria:
+
+- held-out listeners beat both classical controls on every preregistered
+  primary aggregate;
+- relative amplitude, decay, finiteness and exact cook do not regress;
+- the ablation identifies the component responsible for improvement;
+- failure publishes `REJECT_LISTENER_FIELD` or `DATA_INSUFFICIENT` without a
+  free hyperparameter search.
+
+Fallback: stop the current representation hypothesis or narrow it to the
+supported listener axis. Do not claim unseen impact-position support.
+
+Commit boundary: preregistration, runner, compact fixtures and immutable
+listener-field report. Weights and datasets remain external.
+
+### N0.4 — Object-specific impact/listener few-shot field
+
+Entry condition: N0.3 proves the representation and published data provides
+multiple impact and listener conditions for one exact object.
 
 Deliverables:
 
@@ -115,9 +156,9 @@ another residual family unless the ablation identifies one missing statistic.
 Commit boundary: model interface/runner, compact fixtures and a report. Weights
 and datasets remain external.
 
-### N0.4 — Shared geometry-conditioned surrogate
+### N0.5 — Shared geometry-conditioned surrogate
 
-Entry condition: N0.3 proves the representation on held-out positions and
+Entry condition: N0.4 proves the representation on held-out positions and
 listeners.
 
 Deliverables:
@@ -143,7 +184,7 @@ not a failure of exact-object neural cooking.
 
 Commit boundary: shared-model experiment and immutable decision report.
 
-### N0.5 — Freeze the neural feasibility benchmark
+### N0.6 — Freeze the neural feasibility benchmark
 
 Deliverables:
 
@@ -151,8 +192,8 @@ Deliverables:
   metrics, environment, seeds and output hashes;
 - per-object/position/listener distributions and failure clustering;
 - report-only direct-waveform upper bound when reproducible;
-- explicit `GO_FEW_SHOT`, `GO_SHARED`, `REJECT_REPRESENTATION` or
-  `DATA_INSUFFICIENT` decision.
+- explicit `GO_LISTENER_FIELD`, `GO_EXACT_OBJECT`, `GO_SHARED`,
+  `REJECT_REPRESENTATION` or `DATA_INSUFFICIENT` decision.
 
 Exit criteria:
 
@@ -189,7 +230,7 @@ Commit boundary: validator release and risk report.
 
 ### N2 — Neural cooker and one-shot admission (`PS-4`)
 
-Entry condition: one N0 candidate and Validator Release V1 are both frozen.
+Entry condition: one N0.6 candidate and Validator Release V1 are both frozen.
 
 Deliverables:
 
@@ -271,12 +312,11 @@ successful Git commit or a report-only model result.
 
 ## Immediate queue
 
-1. Construct and project the first permitted real development slice from
-   published internet data without filling missing axes.
-2. Complete N0.2 on those identities: retain exact Q30 output and either bind
-   an exact per-row DCT fit/cooker or keep the DCT branch fallback/PCM-only.
-3. Preregister N0.3 on the best synchronized multi-impact/multi-listener exact
-   object available from published internet data.
-4. Train the first few-shot field externally and publish its ablations.
-5. Decide `GO_FEW_SHOT`, `GO_SHARED`, `REJECT_REPRESENTATION` or
-   `DATA_INSUFFICIENT` before opening a second architecture family.
+1. Finish the V2 data contract and materialize the verified REALIMPACT
+   multi-listener transfer slice without filling missing axes.
+2. Implement and freeze the compatible transfer-domain baseline and metric
+   contract; keep Q30/DCT only on compatible waveform/synthetic rows.
+3. Preregister N0.3 on one fixed-impact, multi-listener exact object.
+4. Train the listener-field pilot externally and publish its ablations.
+5. Proceed to impact/listener few-shot N0.4 only if N0.3 passes and an internet
+   source closes the required impact axis.

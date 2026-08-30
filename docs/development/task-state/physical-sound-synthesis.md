@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `NEURAL_FIRST_STRATEGY_SELECTED / PS-2N0_CONTRACT_IMPLEMENTED / N0.2_Q30_STRUCTURED_EXPORT_PASS / SYNTHETIC_EXACT_AB_PASS / DCT_PER_ROW_FALLBACK / REAL_PROJECTION_NEXT / ADMISSION_SHADOW_SEALED / AUTHORED_CLIP_FALLBACK / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V2 / NEURAL_TRANSFER_FIELD / DATA_SEMANTICS_V2_IN_PROGRESS / REAL_TRANSFER_SLICE_NEXT / NO_TRAINED_MODEL / ADMISSION_SHADOW_SEALED / AUTHORED_CLIP_FALLBACK / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-30` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point baseline, external neural acoustic-field experiments and independent validation |
@@ -11,17 +11,18 @@
 
 ## Resume in 60 seconds
 - **Current conclusion:** Manual formula/residual search is no longer the
-  primary successor. Use an offline neural acoustic field that predicts
+  primary successor. Use an offline neural transfer field that predicts
   bounded modes, impact/listener gains and a compact residual, then cook it
-  into the deterministic Q30 reference path.
+  into the deterministic reference path.
 - **Why:** The classical path is exact and provides strong controls, but real
   holdouts reject shared residual/spatial assumptions. The remaining problem
   is a conditional object/impact/listener field, while user recording remains
   out of scope and published internet evidence stays claim-scoped.
-- **Next action:** Construct and run the first permitted real development
-  projection, then apply the implemented Q30 exporter to the same identities.
-  Bind an exact per-row DCT fit/cooker or retain its explicit fallback. Keep
-  method holdout and admission shadow sealed.
+- **Next action:** Finish the signal-semantics V2 boundary, materialize the
+  verified REALIMPACT fixed-impact/multi-listener transfer slice and freeze a
+  compatible transfer-domain baseline. Q30/DCT remains a waveform/synthetic
+  baseline and must not be compared sample-to-sample with deconvolved transfer
+  responses. Keep method holdout and admission shadow sealed.
 - **Current blocker:** No infrastructure blocker is recorded. Quality,
   synchronized axis coverage, validator risk and production contact/consumer
   evidence remain open engineering gates.
@@ -33,6 +34,38 @@
   make prompt-to-waveform/runtime neural inference the first engine path.
 - **Reconsider when:** PS-2N produces a measured held-out quality/cost point or
   new evidence falsifies the compact cooked representation.
+
+## Material transition: Roadmap V2 and signal semantics
+
+- **Observation:** The available Green Goblet block is a force-deconvolved
+  transfer response over 15 listeners at one fixed impact, while the Q30 and
+  internet E3 references are ordinary impact waveforms. The V1 projection did
+  not encode this distinction and coupled impact point with outward normal.
+- **Exact evidence:** The external frozen block contains 15 rows and preserves
+  listener-relative amplitudes; its prior manifest/report lineage is recorded
+  in the multi-listener evidence linked below. No model training or admission
+  evaluation has run.
+- **Conclusion:** A direct waveform-vs-transfer A/B would be mathematically
+  invalid. The smallest valid next experiment is a listener-conditioned
+  transfer field with a transfer-domain classical baseline.
+- **Decision:** Rebaseline the canonical roadmap to R0–R8. Add explicit signal
+  semantics and independent optional impact/normal claims before projecting
+  real rows. Run a fixed-impact listener pilot before the full few-shot
+  impact/listener model.
+- **Rejected alternatives:** Treat deconvolved transfer as a recorded strike;
+  infer missing excitation metadata; start with a universal glass model; or
+  use local microphone capture.
+- **Consequences:** The previous Q30/DCT work remains a compatible waveform and
+  synthetic baseline, not the real transfer comparator. Admission shadow and
+  automatic `Pass` remain disabled.
+- **Remaining uncertainty:** Published coverage for multiple impact and
+  listener conditions of the same exact object still has to be verified before
+  the full few-shot milestone can start.
+- **Reconsideration condition:** A hash-closed published source supplies an
+  explicit excitation model that validly maps the transfer and waveform
+  domains, or the listener-field pilot rejects the selected representation.
+- **Smallest next action:** Complete and repeat the V2 real-slice command, then
+  implement the transfer-domain classical baseline and preregister its metrics.
 
 ## Current evidence
 
