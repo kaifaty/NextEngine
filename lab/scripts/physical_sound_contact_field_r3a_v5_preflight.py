@@ -53,7 +53,7 @@ def build_manifest(
 ) -> dict[str, Any]:
     return {
         "schema": common.MANIFEST_SCHEMA,
-        "status": "FrozenPreflightA",
+        "status": "FrozenPreflightB",
         "study_id": common.STUDY_ID,
         "revision": common.REVISION,
         "source_manifest_sha256": common.SOURCE_MANIFEST_SHA256,
@@ -152,7 +152,7 @@ def main() -> None:
     arguments = parse_arguments()
     output = run(common.repository_root(), arguments)
     _, report = common.load_json(output / "report.json", "V5 report", canonical=True)
-    print(f"R3A V5 neural preflight A: {output}")
+    print(f"R3A V5 neural preflight B: {output}")
     print(f"decision: {report['decision']}")
     print(f"manifest sha256: {common.sha256_file(output / 'manifest.json')}")
     print(f"report sha256: {common.sha256_file(output / 'report.json')}")

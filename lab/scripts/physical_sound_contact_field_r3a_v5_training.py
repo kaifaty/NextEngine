@@ -28,7 +28,7 @@ CONTROL_MINIMUM_L1_IMPROVEMENT = 0.01
 CONTROL_MINIMUM_TRAIN_UNIQUE_CODES_PER_QUANTIZER = 2
 CONTROL_MINIMUM_VALIDATION_ACTIVE_QUANTIZERS = 2
 LOSS_IMPLEMENTATION_REVISION = "v5-full-loss-center-false-hann-v1"
-CODEBOOK_INITIALIZATION_REVISION = "first-train-latent-equal-residual-share-v1"
+CODEBOOK_INITIALIZATION_REVISION = "sequential_projected_first-train-latent-v2"
 CHECKPOINT_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5.checkpoint.v1"
 
 
@@ -345,13 +345,22 @@ def initialize_codebooks_from_batch(
     model.eval()
     with torch.inference_mode():
         latent = model.encoder(target)
-        candidates = latent.transpose(1, 2).reshape(-1, latent.shape[1]) / quantizers
-        if candidates.shape[0] < 2:
-            raise common.V5Error("V5 codebook initialization lacks latent frames")
-        for codebook in model.quantizer.codebooks[:quantizers]:
-            repeats = math.ceil(codebook.num_embeddings / candidates.shape[0])
-            values = candidates.repeat(repeats, 1)[: codebook.num_embeddings]
-            codebook.weight.copy_(values)
+        residual = latent
+        for layer in model.quantizer.layers[:quantizers]:
+            projected = layer.input_projection(residual)
+            candidates = projected.transpose(1, 2).reshape(-1, projected.shape[1])
+            if candidates.shape[0] < 2:
+                raise common.V5Error("V5 codebook initialization lacks latent frames")
+            repeats = math.ceil(
+                layer.codebook.num_embeddings / candidates.shape[0]
+            )
+            values = candidates.repeat(repeats, 1)[: layer.codebook.num_embeddings]
+            layer.codebook.weight.copy_(values)
+            selected = layer.codebook(
+                torch.arange(projected.shape[-1], device=projected.device)
+                % layer.codebook.num_embeddings
+            ).transpose(0, 1)[None, ...]
+            residual = residual - layer.output_projection(selected)
     return codec_model.state_sha256(model)
 
 

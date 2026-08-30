@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Frozen constants and lineage helpers for R3A V5 neural preflight A."""
+"""Frozen constants and lineage helpers for R3A V5 neural preflight B."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ import scipy
 import torch
 
 STUDY_ID = "physical-sound-contact-field-r3a-v5-neural-representation"
-REVISION = "internet-impact-rvq-preflight-a-v1"
+REVISION = "internet-impact-rvq-preflight-b-v1"
 MANIFEST_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5.manifest.v1"
 REPORT_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-preflight.report.v1"
 
@@ -70,9 +70,11 @@ MODEL_CONFIG = {
     "maximum_channels": 256,
     "latent_dimension": 128,
     "codebook_size": 1_024,
+    "codebook_dimension": 8,
     "maximum_quantizers": 16,
     "activation": "snake1d",
-    "normalization": "weight_norm_disabled_for_deterministic_control",
+    "normalization": "weight_norm_truncated_normal_std_0.02_zero_bias",
+    "rvq": "factorized_l2_selection_sequential_residual",
     "decoder_output": "tanh",
 }
 

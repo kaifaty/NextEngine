@@ -82,6 +82,29 @@ class PhysicalSoundContactFieldR3AV5Tests(unittest.TestCase):
             codes.shape, (1, 2, samples // math.prod(codec.config.strides))
         )
 
+    def test_codec_uses_factorized_normalized_quantizers(self) -> None:
+        codec = model.NeuralImpactCodec(model.CodecConfig.micro())
+        self.assertEqual(len(codec.quantizer.layers), 2)
+        for layer in codec.quantizer.layers:
+            self.assertEqual(layer.codebook.embedding_dim, 2)
+            self.assertEqual(layer.input_projection.kernel_size, (1,))
+            self.assertEqual(layer.output_projection.kernel_size, (1,))
+            self.assertTrue(hasattr(layer.input_projection, "weight_g"))
+            self.assertTrue(hasattr(layer.input_projection, "weight_v"))
+
+    def test_rvq_produces_finite_gradients_through_sequential_residuals(self) -> None:
+        torch.manual_seed(31)
+        config = model.CodecConfig.micro()
+        quantizer = model.ResidualVectorQuantizer(config)
+        value = torch.randn(1, config.latent_dimension, 8, requires_grad=True)
+        quantized, codes, codebook_loss, commitment_loss = quantizer(value, 2)
+        loss = quantized.square().mean() + codebook_loss + commitment_loss
+        loss.backward()
+        self.assertEqual(quantized.shape, value.shape)
+        self.assertEqual(codes.shape, (1, 2, 8))
+        self.assertIsNotNone(value.grad)
+        self.assertTrue(torch.isfinite(value.grad).all())
+
     def test_state_hash_is_exact_for_seeded_initialization(self) -> None:
         torch.manual_seed(12)
         first = model.NeuralImpactCodec(model.CodecConfig.micro())
