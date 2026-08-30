@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP3_REV5_SINGLE_REPAIR_FROZEN` |
+| Status | `ACTIVE / NCGP3_REVIEW_PENDING / CANDIDATE_PHYSICS_REFUTED` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-compensated-scale` |
 | Scope | Extend verified NCGP2 device `(hi, lo)` state to dynamic graphs, analytic boundaries, real rollback and 4k multi-step correspondence |
@@ -11,20 +11,20 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** NCGP2 independently verified H1. Canonical device
-  `(hi, lo)` state closes the retained translated pair; surface-only f64 does
-  not.
-- **Current task:** implement the single revision-5 review repair before the
-  only NCGP3 re-review.
+- **Current conclusion:** the revision-5 repair closes the reviewed apparatus
+  defects. All pre-trajectory controls and hydro16 pass, but the next gate,
+  dam16, reproducibly exhausts 127/128 HVP at step 6 in both GPU permutations.
+- **Current task:** obtain the one permitted independent NCGP3 re-review of
+  exact candidate `b74688b2` before recording a verified outcome.
 - **Completed apparatus:** pair-aware graph membership, pair-aware swept
   contacts and executable high/low rollback controls pass deterministically.
 - **Material correction:** the first 4k density failure used the historical raw
   FCR1/NCGP1 kernel and exactly reproduced its known `~1/8` normalization
   defect. It is a negative control, not a refutation of corrected FCR2.
-- **Current blocker:** the observed step-39 work failure was produced after the
-  CUDA finalizer lost the compensated predictor and before the complete FCR2
-  corpus/metrics ran. It is reproducible but not an admissible refutation.
-  50k and timing remain forbidden.
+- **Current blocker:** the repaired corrected/permuted dam routes identically
+  hit `WorkBudgetExceeded` at step 6 while the CPU oracle succeeds. This is a
+  candidate physics/work-ceiling refutation pending independent review. 50k
+  and timing remain forbidden.
 - **Do not retry:** the raw profile as physical evidence, host coordinate
   localization, high-only graph membership, tolerance widening or graph-only
   timing as a full-solver result.
@@ -48,6 +48,7 @@
 | Corrected 240-step hydro | deterministic failure after 38 completed steps; corrected/permuted `WorkBudgetExceeded`, equal work roots, `126/128` HVP consumed before a 3-HVP Jacobi outer boundary | frozen complete-corpus work ceiling is not met; later correctness/performance blocked |
 | Independent NCGP3 initial review | `NO-GO / INCONCLUSIVE`, candidate `1b638bfd` | multi-step predictor loses low part; missing corpus/metrics/closure and shared CPU validator invalidate refutation claim |
 | NCGP3 revision-5 repair contract | SHA-256 `0047ea9e3828b22cd433888fc22644ea7937f959934b55a112dc2c8623ed9fbc` | one batch: compensated predictor, complete gates, hot-step/snapshot split, independent validation and report closure |
+| NCGP3 repaired candidate | commit `b74688b2`, binary `a6a94a1c...`, evidence `docs/development/nonlocal-gpu-compensated-scale-evidence-2026-08-30.md` | physics/hydro PASS; dam step 6 candidate `PHYSICS_REFUTED`; two clean runs exact; sanitizers zero errors |
 
 ### D-001 — Reconstruct only graph addresses in binary64
 
@@ -98,20 +99,32 @@
   state transition, skipping earlier gates, or running 50k timing anyway.
 - **Consequence:** the next admissible first failure may move or disappear.
 
+### D-005 — Stop at the repaired dam work ceiling
+
+- **Observation:** after the exact compensated predictor repair, physics and
+  hydro16 pass, while dam16 reaches the same typed 127/128-HVP failure in both
+  GPU permutations at step 6; CPU succeeds and rollback restores the exact
+  prior public state.
+- **Decision:** classify this as a candidate first-specific physics/work
+  refutation and stop later corpus/performance work until re-review.
+- **Rejected alternatives:** raising the frozen budget, selecting pressure-f64
+  without an isolated pressure error, running orifice/50k out of sequence or
+  reporting neighbor-only timing as full-solver performance.
+- **Consequence:** performance remains `NOT_RUN`; a reviewer GO would close
+  NCGP3 as verified refuted, not as a performant water solver.
+
 ## Next action
 
-1. Repair accepted-step prediction with the upload-time TwoSum chain and add
-   the ordinary-f32 predictor negative.
-2. Split hot `step()` from diagnostic full-state download and seal both work
-   routes, including device allocation.
-3. Add the missing FCR2 controls and 4k momentum/energy/penetration metrics.
-4. Remove the shared validator from the CPU oracle, close report identities,
-   rerun sequential gates and request the single re-review.
+1. Re-review exact candidate `b74688b2` read-only against revision 5.
+2. If GO, record `VERIFIED_PHYSICS_REFUTED` and leave roadmap R8/performance
+   unchanged; if a load-bearing defect remains, close NCGP3 `INCONCLUSIVE`.
+3. Do not run orifice, 240-step, 50k or performance before a passing earlier
+   gate under a newly frozen successor contract.
 
 ## Handoff
 
-- **Workspace:** branch `codex/water-research`, clean before the NCGP3 docs
-  change; NCGP2 final documentation commit `41bca030`.
+- **Workspace:** branch `codex/water-research`; repaired code candidate
+  `b74688b2`; evidence/task-state documentation follows as a separate commit.
 - **Performance status:** `NOT_RUN`; prior ~1.0–1.18 ms p95 result is only the
   neighbor stage and is not a full-water timing claim.
 - **Promotion:** none. This remains Proposed report-only research.
