@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-30 |
-| Статус | `ACTIVE_R&D / R3A_V4_FIT_REPRESENTATION_REJECTED / R3A_V5_NEURAL_RATE_DISTORTION_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R3A_V5_PREFLIGHT_A_COMPLETE / TRAINING_ENVIRONMENT_FREEZE_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -193,7 +193,7 @@ models и не маскирует провал обещанием универс
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
 | R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
 | R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `IN_PROGRESS / V1_REJECTED / V2_INCONCLUSIVE / V3B_REJECTED / V4_FIT_REJECTED / V5_NEURAL_NEXT` | L | Freeze an internet-only training corpus and task-specific neural rate-distortion model; pass opened development and one new holdout before a contact field. |
+| R3A | `IN_PROGRESS / V1_REJECTED / V2_INCONCLUSIVE / V3B_REJECTED / V4_FIT_REJECTED / V5_PREFLIGHT_A_COMPLETE` | L | Corpus/model/loss and CPU controls are frozen; freeze the GPU runner, then pass opened development and one new holdout before a contact field. |
 | R3B | `BLOCKED_BY_R3A` | L | Geometry-aware exact-object few-shot field predicts held contact latents and bakes a validated contact clip atlas offline. |
 | R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
 | R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
@@ -495,6 +495,20 @@ R3A V5 has three bounded phases:
    source-disjoint object with `3 fit / 1 development / 1 sealed` roles. The
    fifth contact remains sealed.
 
+`V5-PREFLIGHT-A` is complete and reproducible. The exact Heller/CMU archive
+projects to `73` clips in `17` immutable event groups (`56` train, `17`
+internal validation). Two runs repeat manifest `1cc23496…fb31` and report
+`38176a41…3bf3`; the full model repeats exactly and the micro-codec reaches an
+L1 improvement ratio of `0.1499882595`. No source, development or sealed
+waveform sample was decoded numerically and no real training step ran. See the
+[exact preflight evidence](../development/physical-sound-r3a-v5-neural-preflight-a-2026-08-31.md).
+
+The next boundary freezes the CUDA/PyTorch environment and complete runner,
+including finite backward, group-aware decoding/sampling, RVQ-use and exact
+checkpoint reload controls. It may not start long training or read
+development. The three capacity runs remain unauthorized until that boundary
+passes.
+
 The neural decoder is external and receives research quality credit only. A
 V5 pass authorizes R3B and offline asset baking, not runtime model inference or
 public content contracts. If no V5 capacity passes, return
@@ -685,9 +699,12 @@ ledger, persistence и `AcousticFactV1` roots.
     `COMPLETE / REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE`; all three bounded
     capacities fail spectrum on `12/12` fit contacts, while development and
     sealed contacts remain unread.
-15. `R3A V5 task-specific neural representation` — `NEXT`; freeze the external
-    corpus/model/loss manifest and synthetic deterministic controls, then
-    train at most three latent capacities before opening development once.
+15. `R3A V5 neural preflight A` — `COMPLETE / REPRODUCIBLE`; external corpus,
+    model/loss/capacity identity and deterministic CPU construction/overfit
+    controls repeat with zero development reads and zero real training steps.
+16. `R3A V5 training environment and runner controls` — `NEXT`; freeze CUDA,
+    bounded decoder/sampler, complete loss/backward, RVQ-use and exact
+    checkpoint reload before authorizing at most three capacity runs.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.

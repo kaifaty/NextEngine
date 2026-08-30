@@ -2,26 +2,27 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V7 / R3A_V4_FIT_REPRESENTATION_REJECTED / R3A_V5_NEURAL_RATE_DISTORTION_NEXT / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V7 / R3A_V5_PREFLIGHT_A_REPRODUCIBLE / TRAINING_ENVIRONMENT_FREEZE_NEXT / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
-| Definition of done | A frozen offline model beats honest controls on held-out physical axes, cooks exact bounded coefficients and is admitted only by an independent selective validator with automatic clip fallback |
+| Definition of done | A frozen offline model beats honest controls on held-out physical axes, bakes an exact bounded clip atlas or later cooked coefficients and is admitted only by an independent selective validator with automatic clip fallback |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R3A V4's bounded modal/gain/multiresidual frontier is
-  reproducibly rejected before development: every capacity loses the frozen
-  spectrum endpoint on `12/12` fit contacts despite passing both byte budgets.
-- **Exact evidence:** [R3A V4 fit result](../physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md),
-  manifest `6f9fe00e…86b1`, report `f2127117…9e0`, complete artifact tree
-  `fedfc005…849d`; development and sealed decoded samples: `0`.
-- **Next action:** Implement Roadmap V7 R3A V5 preflight: freeze an
-  internet-only impact corpus and a task-specific neural rate-distortion model
-  with direct spectral/modal losses and at most three latent capacities.
-- **Spend rule:** Do not read another object or the four development contacts
-  while building the corpus, model, losses and synthetic overfit controls.
+- **Current conclusion:** R3A V5 preflight A repeats byte-identically and
+  freezes the internet corpus inventory, `6/12/24 kbps` RVQ capacities, loss
+  contract and deterministic CPU construction/overfit controls. It grants no
+  quality or training credit.
+- **Exact evidence:** [R3A V5 preflight A](../physical-sound-r3a-v5-neural-preflight-a-2026-08-31.md),
+  implementation `512b35dd`, manifest `1cc23496…fb31`, report
+  `38176a41…3bf3`; corpus/dev/sealed numeric waveform samples decoded: `0`.
+- **Next action:** Freeze the external CUDA/PyTorch training environment and
+  runner, then pass finite backward, RVQ-use, exact checkpoint reload and
+  tiny-corpus controls without starting long training.
+- **Spend rule:** Do not read the four development contacts, a new object or
+  any sealed row while freezing the training runner and controls.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
   contact clip atlas offline. Runtime neural inference remains forbidden;
   deterministic modal distillation becomes optional later optimization.
@@ -41,7 +42,7 @@
 | R3A V3A | `INVALID_INFRASTRUCTURE` | Plastic Bin target opened, no metrics; eight-sample NDAC deficit recorded, holdout sealed. |
 | R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
-| R3A V5 | `NEXT` | Train a task-specific external neural rate-distortion representation; no runtime neural inference or quality credit exists. |
+| R3A V5 | `PREFLIGHT_A_COMPLETE / TRAINING_NOT_AUTHORIZED` | Corpus/model/loss identity and deterministic CPU controls repeat; GPU runner/reload/codebook controls are next, with no quality credit yet. |
 | R3B+ | `BLOCKED` | No contact-to-latent field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Material transition: analytical fit rejected and Roadmap V7
@@ -66,6 +67,28 @@
   codecs and the failed analytical basis within the record budget.
 - **Reconsideration condition:** V5 development and one frozen source-disjoint
   holdout pass; otherwise retain authored clips and stop the model family.
+
+## Material transition: V5 preflight A complete
+
+- **Observation:** Two final V5 runs reproduce canonical manifest/report bytes;
+  the 73-clip Heller inventory splits into 56 train and 17 internal-validation
+  clips by immutable source groups.
+- **Evidence:** Implementation `512b35dd`, manifest `1cc23496…fb31`, report
+  `38176a41…3bf3`; the exact full-model repeat passes and the micro-overfit
+  ratio is `0.1499882595` against a frozen maximum `0.45`.
+- **Conclusion:** The architecture can be constructed deterministically and a
+  small RVQ control can learn. This does not establish full-model training,
+  codebook health, checkpoint reload or acoustic quality.
+- **Decision:** Advance only to an external GPU environment and runner-control
+  freeze. Keep `neural_training_authorized=false` until those controls pass.
+- **Rejected alternatives:** Start a long run from the CPU environment, treat
+  the corpus inventory as decoded training data, open development, add a
+  fourth capacity or introduce runtime inference.
+- **Remaining uncertainty:** The full loss may be finite and trainable yet fail
+  codebook use, checkpoint reproducibility, capacity or the frozen acoustic
+  endpoints.
+- **Reconsideration condition:** Runner controls fail twice or require changing
+  the already-frozen architecture/loss/capacity identity.
 
 ## Durable negative knowledge
 
@@ -139,19 +162,22 @@ Read in precedence order:
    [R3A V1](../physical-sound-r3a-blue-bowl-representation-gate-2026-08-30.md),
    [R3A V2](../physical-sound-r3a-v2-large-swan-dac-oracle-result-2026-08-30.md)
    [R3A V3](../physical-sound-r3a-v3-native-ndac-result-2026-08-30.md) and
-   [R3A V4](../physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md).
+   [R3A V4](../physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md)
+   and [R3A V5 preflight A](../physical-sound-r3a-v5-neural-preflight-a-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
 
-- **Workspace:** Exact V3A/V3B and V4 fit-rejection runners/tests are in Git;
-  datasets, checkpoints, compressed members, arrays and WAVs remain external.
+- **Workspace:** Exact V3A/V3B, V4 rejection and V5 preflight runners/tests are
+  in Git; datasets, checkpoints, compressed members, arrays and WAVs remain
+  external.
 - **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
   contacts are opened. Every row `2407`, method holdout and admission shadow
   remains sealed.
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** R3A V5 external corpus/training manifest, frozen
-  neural model/loss/capacity identity and synthetic deterministic overfit
-  controls. Do not read development contacts or start long training in it.
+- **Next commit boundary:** R3A V5 external GPU environment and runner controls:
+  finite full loss/backward, bounded corpus decoder, non-collapsed RVQ use and
+  exact checkpoint reload/repeat. Do not read development or start long
+  training in it.
