@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP1_REV3_CORPUS_FROZEN / TRAJECTORY_PENDING` |
+| Status | `AUTHOR_COMPLETE / NCGP1_PHYSICS_REFUTED / REVIEW_PENDING` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-full-step` |
 | Scope | Implement and audit a standalone matrix-free corrected Nonlocal CUDA step for the frozen 50k physical/performance profile |
@@ -11,16 +11,15 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** the projected device-vector Newton--CG controller
-  passes analytic free fall and contact controls; 64 HVP is the first ceiling
-  passing a one-step 4k/50k baseline, but no trajectory gate has passed yet.
-- **Why:** 32 HVP exhausts at 4k, while 64 converges in 19 outer trials at 4k
-  and 18 at 50k. The unoptimized 50k step is about `560 ms`, so performance is
-  at serious risk but cannot be classified before physical admission and the
-  two frozen optimization cycles.
-- **Next action:** implement the independent cached-CSR CPU solver and exact
-  revision-3 trajectory corpus, then freeze the corpus-wide HVP ceiling.
-- **Current blocker:** no 4k CPU trajectory correspondence or 240-step 50k run.
+- **Current conclusion:** author result is `PHYSICS_REFUTED`. Exact graph and
+  matrix-free HVP pass, but the first translated compressed-pair solver gate
+  reaches minimum trust radius at `R_x=1.5036e-5 > 1e-5`; CPU succeeds.
+- **Why:** the revision-2 firewall defines minimum radius as failure. A later
+  diagnostic independently exhausts 128 HVP on hydrostatic step 12, so no
+  authorized ceiling covers even that prefix.
+- **Next action:** obtain the one bounded independent review of the frozen
+  commit/evidence. Do not run performance or optimize a physically rejected package.
+- **Current blocker:** independent review is pending; author implementation is closed.
 - **Do not retry:** dense Hessian, source-shaped SISSM/Chebyshev, tolerance
   widening or adding NCGP0 neighbor time to an unmeasured solve.
 - **Reconsider when:** NCGP1 physical evidence selects a specific operator,
@@ -39,6 +38,7 @@
 | `docs/development/nonlocal-gpu-full-step-operator-evidence-2026-08-30.md` | `MATRIX_FREE_OPERATOR_PASS` | dense/CPU/CUDA HVP correspondence and six wrong identities close locally |
 | `docs/plans/nonlocal-corrected-gpu-full-step/01-scale-aware-solver-terminal.md` | `FROZEN` | projected `R_x<=1e-5` is the only NCGP1 physical terminal; raw NCGA5 stop remains historical |
 | `docs/plans/nonlocal-corrected-gpu-full-step/02-trajectory-corpus.md` | `FROZEN` | fixes exact tiny, 4k and 50k durations/initial states before trajectory code |
+| `docs/development/nonlocal-gpu-full-step-evidence-2026-08-30.md` | `AUTHOR_PHYSICS_REFUTED` | exact identities, clean repeats, sanitizer/regression closure and first failing route |
 
 ## Decisions that still constrain the work
 
@@ -89,9 +89,9 @@
 
 ## Next action
 
-1. Implement the independent cached-CSR CPU solve and tiny correspondence.
-2. Run the exact 4k scenarios at 32/64/128 and freeze the smallest full-corpus ceiling.
-3. Preserve graph/operator roots and old NCGA0--7 files unchanged.
+1. Run the single independent read-only review on the frozen author package.
+2. If it finds an apparatus defect, allow at most one batched repair and one re-review.
+3. Otherwise close NCGP1 `PHYSICS_REFUTED`; performance remains `NOT_RUN`.
 
 ## Do not retry
 
@@ -101,7 +101,7 @@
 
 ## Handoff
 
-- **Workspace state:** main worktree on `codex/water-research`; graph and operator checkpoints committed, revision-2 terminal frozen.
-- **Checks:** two clean Release graph/operator self-tests pass with exact binary/stdout; sanitizers not yet run.
-- **Remaining risk:** boundary model, dynamic convergence, work budget and complete 50k cost are untested.
+- **Workspace state:** main worktree on `codex/water-research`; frozen author candidate is commit `c7c33e9b` and evidence is the only uncommitted transition.
+- **Checks:** two clean Release builds/reports exact; three sanitizer tools zero-error; NCGA0--7 exact; tiny physical gate reproducibly refuted.
+- **Remaining risk:** independent review may still find an apparatus defect. Performance and later trajectories are intentionally not run.
 - **Promotion needed:** none; the track remains Proposed/report-only.
