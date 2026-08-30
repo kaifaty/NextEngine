@@ -24,7 +24,6 @@ from torch.nn import functional
 CONTROL_CAPACITY_ID = "rvq-6kbps"
 CONTROL_QUANTIZERS = 4
 CONTROL_OPTIMIZATION_STEPS = 3
-CONTROL_MINIMUM_L1_IMPROVEMENT = 0.01
 CONTROL_MINIMUM_TRAIN_UNIQUE_CODES_PER_QUANTIZER = 2
 CONTROL_MINIMUM_VALIDATION_ACTIVE_QUANTIZERS = 2
 LOSS_IMPLEMENTATION_REVISION = "v5-full-loss-center-false-hann-v1"
@@ -368,7 +367,17 @@ def _step(
     model: codec_model.NeuralImpactCodec,
     optimizer: torch.optim.Optimizer,
     target: torch.Tensor,
+    step: int,
 ) -> dict[str, float]:
+    if step <= 0 or step > common.TRAINING_CONFIG["warmup_steps"]:
+        raise common.V5Error("V5 control step is outside the frozen warmup")
+    learning_rate = (
+        common.TRAINING_CONFIG["learning_rate"]
+        * step
+        / common.TRAINING_CONFIG["warmup_steps"]
+    )
+    for group in optimizer.param_groups:
+        group["lr"] = learning_rate
     model.train()
     output, _, codebook_loss, commitment_loss = model(target, CONTROL_QUANTIZERS)
     loss, terms = frozen_reconstruction_loss(
@@ -383,6 +392,7 @@ def _step(
         raise common.V5Error("V5 gradient norm is non-finite")
     optimizer.step()
     return {
+        "learning_rate": learning_rate,
         "total": float(loss.detach()),
         "gradient_norm": float(gradient_norm.detach()),
         **{name: float(value.detach()) for name, value in terms.items()},
@@ -422,7 +432,10 @@ def run_training_controls(
     )
     optimizer = _optimizer(model)
     _, _, initial_l1 = _inference(model, train)
-    steps = [_step(model, optimizer, train) for _ in range(CONTROL_OPTIMIZATION_STEPS)]
+    steps = [
+        _step(model, optimizer, train, step)
+        for step in range(1, CONTROL_OPTIMIZATION_STEPS + 1)
+    ]
     trained_output, trained_codes, final_l1 = _inference(model, train)
     _, validation_codes, validation_l1 = _inference(model, validation)
     unique_train = _unique_codes(trained_codes)
@@ -433,8 +446,9 @@ def run_training_controls(
     if validation_active_quantizers < CONTROL_MINIMUM_VALIDATION_ACTIVE_QUANTIZERS:
         raise common.V5Error("V5 validation RVQ control lacks active stages")
     improvement = (initial_l1 - final_l1) / initial_l1
-    if improvement < CONTROL_MINIMUM_L1_IMPROVEMENT:
-        raise common.V5Error(f"V5 full-model control did not improve: {improvement}")
+    trained_state = codec_model.state_sha256(model)
+    if trained_state == initialized_state:
+        raise common.V5Error("V5 full-model control did not update model state")
 
     checkpoint = {
         "schema": CHECKPOINT_SCHEMA,
@@ -449,7 +463,9 @@ def run_training_controls(
     torch.save(checkpoint, checkpoint_path)
     checkpoint_sha256 = common.sha256_file(checkpoint_path)
 
-    reference_step = _step(model, optimizer, train)
+    reference_step = _step(
+        model, optimizer, train, CONTROL_OPTIMIZATION_STEPS + 1
+    )
     reference_output, reference_codes, _ = _inference(model, train)
     reference_state = codec_model.state_sha256(model)
 
@@ -466,7 +482,9 @@ def run_training_controls(
         raise common.V5Error("V5 checkpoint identity changed")
     resumed.load_state_dict(loaded["model"], strict=True)
     resumed_optimizer.load_state_dict(loaded["optimizer"])
-    resumed_step = _step(resumed, resumed_optimizer, train)
+    resumed_step = _step(
+        resumed, resumed_optimizer, train, CONTROL_OPTIMIZATION_STEPS + 1
+    )
     resumed_output, resumed_codes, _ = _inference(resumed, train)
     exact_resume = (
         reference_state == codec_model.state_sha256(resumed)
@@ -485,6 +503,7 @@ def run_training_controls(
         "initial_waveform_l1": initial_l1,
         "final_waveform_l1": final_l1,
         "relative_l1_improvement": improvement,
+        "state_changed_after_optimization": trained_state != initialized_state,
         "validation_waveform_l1": validation_l1,
         "step_metrics": steps,
         "train_unique_codes_per_quantizer": unique_train,

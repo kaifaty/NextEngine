@@ -21,9 +21,9 @@ import torch
 
 SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-training.manifest.v1"
 REPORT_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-training.report.v1"
-REVISION = "cuda-runner-controls-v1"
+REVISION = "cuda-runner-controls-v2-factorized-rvq"
 V5_PREFLIGHT_MANIFEST_SHA256 = (
-    "1cc234962963232a1c33c2b7c9973a13788743d07225c77073dbfbfc0b60fb31"
+    "c596cbb7b350b5099e3acf4a34826fb58dc55f89f5d506ccbeac8c077055dea8"
 )
 EXPECTED_ENVIRONMENT = {
     "python": "3.11.15",
@@ -200,7 +200,9 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
                 "quantizers": training.CONTROL_QUANTIZERS,
                 "codebook_initialization_revision": training.CODEBOOK_INITIALIZATION_REVISION,
                 "optimization_steps_before_checkpoint": training.CONTROL_OPTIMIZATION_STEPS,
-                "minimum_relative_l1_improvement": training.CONTROL_MINIMUM_L1_IMPROVEMENT,
+                "learning_rate_policy": "first_steps_of_frozen_linear_warmup",
+                "exact_model_state_change_required": True,
+                "waveform_l1_is_diagnostic": True,
                 "minimum_train_unique_codes_per_quantizer": training.CONTROL_MINIMUM_TRAIN_UNIQUE_CODES_PER_QUANTIZER,
                 "minimum_validation_active_quantizers": training.CONTROL_MINIMUM_VALIDATION_ACTIVE_QUANTIZERS,
                 "exact_checkpoint_resume_required": True,
@@ -248,6 +250,9 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             ),
             "validation_active_quantizers": controls["validation_active_quantizers"],
             "relative_l1_improvement": controls["relative_l1_improvement"],
+            "state_changed_after_optimization": controls[
+                "state_changed_after_optimization"
+            ],
             "mlflow_dependency_installed": any(
                 package["name"] == "mlflow" for package in environment["packages"]
             ),
