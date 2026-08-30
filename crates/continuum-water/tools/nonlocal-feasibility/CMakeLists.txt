@@ -87,6 +87,65 @@ add_executable(
     src/corrected_cuda_assembly_reference.cpp
     src/sha256.cpp
 )
+set(NCGP1_SOURCE_FILES
+    CMakeLists.txt
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step.cu
+    src/corrected_cuda_full_step_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_full_step_cpu_solver.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/corrected_cuda_assembly.hpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP1_SOURCE_MATERIAL "")
+foreach(NCGP1_SOURCE_FILE IN LISTS NCGP1_SOURCE_FILES)
+    file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP1_SOURCE_FILE}"
+        NCGP1_SOURCE_FILE_HASH)
+    string(APPEND NCGP1_SOURCE_MATERIAL
+        "${NCGP1_SOURCE_FILE}:${NCGP1_SOURCE_FILE_HASH}\n")
+endforeach()
+string(SHA256 NCGP1_SOURCE_ROOT "${NCGP1_SOURCE_MATERIAL}")
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-corrected-gpu-full-step/00-physical-performance-contract.md"
+    NCGP1_CONTRACT_0_ROOT)
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-corrected-gpu-full-step/01-scale-aware-solver-terminal.md"
+    NCGP1_CONTRACT_1_ROOT)
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-corrected-gpu-full-step/02-trajectory-corpus.md"
+    NCGP1_CONTRACT_2_ROOT)
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-corrected-gpu-full-step/03-review-repair-closure.md"
+    NCGP1_CONTRACT_3_ROOT)
+string(SHA256 NCGP1_CONTRACT_ROOT
+    "${NCGP1_CONTRACT_0_ROOT}:${NCGP1_CONTRACT_1_ROOT}:${NCGP1_CONTRACT_2_ROOT}:${NCGP1_CONTRACT_3_ROOT}")
+execute_process(
+    COMMAND git rev-parse HEAD
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE NCGP1_SOURCE_COMMIT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY
+)
+execute_process(
+    COMMAND git rev-parse "HEAD^{tree}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE NCGP1_SOURCE_TREE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY
+)
+set(NCGP1_COMPILER_FLAGS
+    "CXX:-O3,-Wall,-Wextra,-Wpedantic,-Werror,-ffp-contract=off,-fno-fast-math|CUDA:-O3,--fmad=false,--prec-div=true,--prec-sqrt=true,--ftz=false|SM=86")
+target_compile_definitions(
+    nonlocal-corrected-cuda-full-step
+    PRIVATE
+        NCGP1_CONTRACT_ROOT="${NCGP1_CONTRACT_ROOT}"
+        NCGP1_SOURCE_ROOT="${NCGP1_SOURCE_ROOT}"
+        NCGP1_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP1_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP1_COMPILER_FLAGS="${NCGP1_COMPILER_FLAGS}"
+)
 target_compile_features(
     nonlocal-corrected-cuda-full-step PRIVATE cxx_std_17 cuda_std_17)
 set_target_properties(

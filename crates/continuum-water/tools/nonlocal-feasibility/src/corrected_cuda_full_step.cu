@@ -677,6 +677,7 @@ __global__ void energy_gradient_kernel(const DeviceVec3* reference,
 __global__ void pressure_directional_kernel(const DeviceVec3* current,
     const DeviceVec3* all_positions,
     const DeviceVec3* direction,
+    const float* pressure_excess,
     const unsigned int* offsets,
     const unsigned int* neighbors,
     float* pressure_q,
@@ -689,6 +690,10 @@ __global__ void pressure_directional_kernel(const DeviceVec3* current,
     const bool missing_chain = variant
         == static_cast<unsigned int>(NonlocalGpuVariant::MissingKernelChain);
     float value = 0.0F;
+    if (!(pressure_excess[row] > 0.0F)) {
+        pressure_q[row] = 0.0F;
+        return;
+    }
     const DeviceVec3 owner = current[row];
     for (unsigned int slot = offsets[row]; slot < offsets[row + 1]; ++slot) {
         const unsigned int neighbor = neighbors[slot];
@@ -763,7 +768,9 @@ __global__ void hvp_kernel(const DeviceVec3* reference,
         const KernelValues kernel = kernel_values(radius, profile, missing_chain);
         const float density_factor = profile.mass / profile.rest_density;
         const DeviceVec3 b = scale(normal, density_factor * kernel.first);
-        own_density_gradient = add(own_density_gradient, b);
+        if (pressure_excess[row] > 0.0F) {
+            own_density_gradient = add(own_density_gradient, b);
+        }
         const float neighbor_q = neighbor < static_cast<unsigned int>(dynamic_count)
                 && !owner_pressure_only
             ? pressure_q[neighbor] : 0.0F;
@@ -786,9 +793,11 @@ __global__ void hvp_kernel(const DeviceVec3* reference,
             * (tangential + (kernel.second - tangential) * normal.z * normal.z);
         if (neighbor < static_cast<unsigned int>(dynamic_count)) {
             const DeviceVec3 neighbor_b = b;
-            diag.x += profile.kappa * neighbor_b.x * neighbor_b.x;
-            diag.y += profile.kappa * neighbor_b.y * neighbor_b.y;
-            diag.z += profile.kappa * neighbor_b.z * neighbor_b.z;
+            if (!owner_pressure_only && pressure_excess[neighbor] > 0.0F) {
+                diag.x += profile.kappa * neighbor_b.x * neighbor_b.x;
+                diag.y += profile.kappa * neighbor_b.y * neighbor_b.y;
+                diag.z += profile.kappa * neighbor_b.z * neighbor_b.z;
+            }
             float potential = 0.0F;
             float surface_force = 0.0F;
             float surface_derivative = 0.0F;
@@ -1034,32 +1043,85 @@ __global__ void boundary_step_kernel(DeviceVec3* step,
     }
 }
 
+__device__ void consider_boundary_plane(float origin,
+    float delta,
+    float plane,
+    unsigned int bit,
+    float& hit,
+    unsigned int& mask) {
+    if (delta == 0.0F) return;
+    const float candidate = (plane - origin) / delta;
+    if (!(candidate >= 0.0F && candidate <= 1.0F)) return;
+    if (candidate < hit) {
+        hit = candidate;
+        mask = bit;
+    } else if (candidate == hit) {
+        mask |= bit;
+    }
+}
+
 __global__ void project_trial_kernel(const DeviceVec3* base,
     const DeviceVec3* proposal,
+    const unsigned int* ids,
     DeviceVec3* trial,
     DeviceVec3* actual_step,
+    DeviceVec3* contact_impulse,
     int count,
     DeviceVec3 lower,
     DeviceVec3 upper,
     bool disable_boundary,
-    unsigned long long* contacts) {
+    float impulse_scale,
+    unsigned long long* boundary_work) {
     const int index = blockIdx.x * blockDim.x + threadIdx.x;
     if (index >= count) return;
     const DeviceVec3 origin = base[index];
     DeviceVec3 value = add(origin, proposal[index]);
-    unsigned long long projected = 0ULL;
+    unsigned int face_mask = 0U;
     if (!disable_boundary) {
-        const float x = fminf(fmaxf(value.x, lower.x), upper.x);
-        const float y = fminf(fmaxf(value.y, lower.y), upper.y);
-        const float z = fminf(fmaxf(value.z, lower.z), upper.z);
-        projected += x != value.x ? 1ULL : 0ULL;
-        projected += y != value.y ? 1ULL : 0ULL;
-        projected += z != value.z ? 1ULL : 0ULL;
-        value = {x, y, z};
+        float hit = 1.0F;
+        if (value.x < lower.x) consider_boundary_plane(
+            origin.x, proposal[index].x, lower.x, 1U, hit, face_mask);
+        if (value.x > upper.x) consider_boundary_plane(
+            origin.x, proposal[index].x, upper.x, 2U, hit, face_mask);
+        if (value.y < lower.y) consider_boundary_plane(
+            origin.y, proposal[index].y, lower.y, 4U, hit, face_mask);
+        if (value.y > upper.y) consider_boundary_plane(
+            origin.y, proposal[index].y, upper.y, 8U, hit, face_mask);
+        if (value.z < lower.z) consider_boundary_plane(
+            origin.z, proposal[index].z, lower.z, 16U, hit, face_mask);
+        if (value.z > upper.z) consider_boundary_plane(
+            origin.z, proposal[index].z, upper.z, 32U, hit, face_mask);
+        if (face_mask != 0U) {
+            value = add(origin, scale(proposal[index], hit));
+            if ((face_mask & 1U) != 0U) value.x = lower.x;
+            if ((face_mask & 2U) != 0U) value.x = upper.x;
+            if ((face_mask & 4U) != 0U) value.y = lower.y;
+            if ((face_mask & 8U) != 0U) value.y = upper.y;
+            if ((face_mask & 16U) != 0U) value.z = lower.z;
+            if ((face_mask & 32U) != 0U) value.z = upper.z;
+        }
     }
     trial[index] = value;
     actual_step[index] = subtract(value, origin);
-    if (projected != 0ULL) atomicAdd(contacts, projected);
+    contact_impulse[index] = scale(subtract(actual_step[index], proposal[index]),
+        impulse_scale);
+    if (!disable_boundary) atomicAdd(&boundary_work[0], 6ULL);
+    if (face_mask != 0U) {
+        atomicAdd(&boundary_work[1], static_cast<unsigned long long>(__popc(face_mask)));
+        atomicXor(&boundary_work[2],
+            (static_cast<unsigned long long>(ids[index]) << 8U) | face_mask);
+        atomicAdd(&boundary_work[3], 1ULL);
+    }
+}
+
+__global__ void vector_component_rows(const DeviceVec3* values,
+    double* rows,
+    int count,
+    unsigned int component) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index >= count) return;
+    rows[index] = component == 0U ? values[index].x
+        : (component == 1U ? values[index].y : values[index].z);
 }
 
 __global__ void finalize_step_kernel(DeviceVec3* reference,
@@ -1163,11 +1225,30 @@ __global__ void reduce_double_max_final(
 }
 
 bool valid_profile(const NonlocalGpuProfile& profile) {
+    const auto finite_narrow = [](double value) {
+        return std::isfinite(value)
+            && std::isfinite(static_cast<float>(value));
+    };
     return profile.id == "nonlocal-water-50k-v1"
-        && profile.dt > 0.0 && profile.spacing > 0.0
-        && profile.horizon > 0.0 && profile.mass > 0.0
-        && profile.rest_density > 0.0 && profile.maximum_dynamic_samples > 0U
-        && profile.maximum_dynamic_samples <= kMaximumDynamicSamples
+        && finite_narrow(profile.dt) && profile.dt > 0.0
+        && finite_narrow(profile.spacing) && profile.spacing > 0.0
+        && finite_narrow(profile.horizon) && profile.horizon > 0.0
+        && finite_narrow(profile.mass) && profile.mass > 0.0
+        && finite_narrow(profile.rest_density) && profile.rest_density > 0.0
+        && finite_narrow(profile.kappa) && profile.kappa >= 0.0
+        && finite_narrow(profile.lambda) && profile.lambda >= 0.0
+        && finite_narrow(profile.mu) && profile.mu >= 0.0
+        && finite_narrow(profile.gamma) && profile.gamma >= 0.0
+        && finite_narrow(profile.gravity.x) && finite_narrow(profile.gravity.y)
+        && finite_narrow(profile.gravity.z)
+        && finite_narrow(profile.basin_extent.x)
+        && finite_narrow(profile.basin_extent.y)
+        && finite_narrow(profile.basin_extent.z)
+        && profile.basin_extent.x > profile.spacing
+        && profile.basin_extent.y > profile.spacing
+        && profile.basin_extent.z > profile.spacing
+        && profile.ghost_layers == 3U
+        && profile.maximum_dynamic_samples == kMaximumDynamicSamples
         && profile.maximum_neighbors == kMaximumNeighbors;
 }
 
@@ -1198,6 +1279,9 @@ void add_work(NonlocalGpuWorkReceipt& target,
     target.radius_expands += source.radius_expands;
     target.projected_gradient_components += source.projected_gradient_components;
     target.contact_projections += source.contact_projections;
+    target.boundary_face_tests += source.boundary_face_tests;
+    target.boundary_face_hits += source.boundary_face_hits;
+    target.boundary_face_mask_xor ^= source.boundary_face_mask_xor;
     target.state_updates += source.state_updates;
     target.host_to_device_bytes += source.host_to_device_bytes;
     target.device_to_host_bytes += source.device_to_host_bytes;
@@ -1266,8 +1350,12 @@ struct NonlocalGpuWorkspace::Impl {
         allocate_device(&cg_step, dynamic_capacity, allocated_bytes);
         allocate_device(&cg_candidate, dynamic_capacity, allocated_bytes);
         allocate_device(&trial_position, dynamic_capacity, allocated_bytes);
+        allocate_device(&contact_impulse, dynamic_capacity, allocated_bytes);
         allocate_device(&outer_base, dynamic_capacity, allocated_bytes);
         allocate_device(&transaction_start, dynamic_capacity, allocated_bytes);
+        allocate_device(&transaction_reference, dynamic_capacity, allocated_bytes);
+        allocate_device(&transaction_predicted, dynamic_capacity, allocated_bytes);
+        allocate_device(&transaction_velocity, dynamic_capacity, allocated_bytes);
         allocate_device(&energy_rows, dynamic_capacity, allocated_bytes);
         allocate_device(&norm_rows, dynamic_capacity, allocated_bytes);
         const std::size_t reduction_capacity =
@@ -1280,7 +1368,7 @@ struct NonlocalGpuWorkspace::Impl {
         allocate_device(&graph_work, 1U, allocated_bytes);
         allocate_device(&maximum_degree, 1U, allocated_bytes);
         allocate_device(&projected_components, 1U, allocated_bytes);
-        allocate_device(&contact_count, 1U, allocated_bytes);
+        allocate_device(&boundary_work, 4U, allocated_bytes);
 
         cuda_check(cub::DeviceRadixSort::SortPairs(nullptr, id_sort_bytes,
             ids_input, ids_sorted, input_indices, sorted_indices,
@@ -1306,7 +1394,7 @@ struct NonlocalGpuWorkspace::Impl {
         cudaFree(cell_sort_storage);
         cudaFree(id_sort_storage);
         cudaFree(maximum_degree);
-        cudaFree(contact_count);
+        cudaFree(boundary_work);
         cudaFree(projected_components);
         cudaFree(graph_work);
         cudaFree(error);
@@ -1317,8 +1405,12 @@ struct NonlocalGpuWorkspace::Impl {
         cudaFree(norm_rows);
         cudaFree(energy_rows);
         cudaFree(direction);
+        cudaFree(transaction_velocity);
+        cudaFree(transaction_predicted);
+        cudaFree(transaction_reference);
         cudaFree(transaction_start);
         cudaFree(outer_base);
+        cudaFree(contact_impulse);
         cudaFree(trial_position);
         cudaFree(cg_candidate);
         cudaFree(cg_step);
@@ -1397,8 +1489,12 @@ struct NonlocalGpuWorkspace::Impl {
     DeviceVec3* cg_step = nullptr;
     DeviceVec3* cg_candidate = nullptr;
     DeviceVec3* trial_position = nullptr;
+    DeviceVec3* contact_impulse = nullptr;
     DeviceVec3* outer_base = nullptr;
     DeviceVec3* transaction_start = nullptr;
+    DeviceVec3* transaction_reference = nullptr;
+    DeviceVec3* transaction_predicted = nullptr;
+    DeviceVec3* transaction_velocity = nullptr;
     double* energy_rows = nullptr;
     double* norm_rows = nullptr;
     double* reduction_blocks = nullptr;
@@ -1409,7 +1505,7 @@ struct NonlocalGpuWorkspace::Impl {
     DeviceGraphWork* graph_work = nullptr;
     unsigned int* maximum_degree = nullptr;
     unsigned long long* projected_components = nullptr;
-    unsigned long long* contact_count = nullptr;
+    unsigned long long* boundary_work = nullptr;
     unsigned char* id_sort_storage = nullptr;
     unsigned char* cell_sort_storage = nullptr;
     unsigned char* scan_storage = nullptr;
@@ -1432,10 +1528,9 @@ NonlocalGpuWorkspace::~NonlocalGpuWorkspace() { delete impl_; }
 NonlocalGpuFailure NonlocalGpuWorkspace::upload(
     const std::vector<NonlocalGpuSample>& samples,
     const std::vector<NonlocalGpuGhost>& ghosts) {
-    if (samples.empty() || samples.size() > impl_->profile.maximum_dynamic_samples
-        || samples.size() + ghosts.size() > kMaximumTotalSamples) {
-        return NonlocalGpuFailure::CapacityExceeded;
-    }
+    const NonlocalGpuFailure admission = validate_nonlocal_input(
+        impl_->profile, samples, ghosts);
+    if (admission != NonlocalGpuFailure::None) return admission;
     std::unordered_set<std::uint32_t> ids;
     std::vector<unsigned int> host_ids;
     std::vector<DeviceVec3> reference;
@@ -1772,7 +1867,8 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
         if (host_direction != nullptr) {
             pressure_directional_kernel<<<blocks_for(impl_->dynamic_count),
                 kThreads>>>(impl_->current, impl_->all_positions,
-                impl_->direction, impl_->offsets, impl_->neighbors,
+                impl_->direction, impl_->pressure_excess,
+                impl_->offsets, impl_->neighbors,
                 impl_->pressure_q, impl_->dynamic_count, profile,
                 static_cast<unsigned int>(variant), impl_->error);
             cuda_check(cudaGetLastError(), "evaluate pressure directional");
@@ -1893,6 +1989,8 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
     bool measure) {
     NonlocalGpuStepResult result;
     result.hvp_budget = total_hvp_budget;
+    result.solver_profile = solver_profile;
+    result.variant = variant;
     if (impl_->dynamic_count <= 0
         || (total_hvp_budget != 32U && total_hvp_budget != 64U
             && total_hvp_budget != 128U)
@@ -1925,11 +2023,23 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
         if (!transaction_saved) return;
         cudaMemcpy(impl_->current, impl_->transaction_start, vector_bytes,
             cudaMemcpyDeviceToDevice);
+        cudaMemcpy(impl_->reference, impl_->transaction_reference, vector_bytes,
+            cudaMemcpyDeviceToDevice);
+        cudaMemcpy(impl_->predicted, impl_->transaction_predicted, vector_bytes,
+            cudaMemcpyDeviceToDevice);
+        cudaMemcpy(impl_->velocity, impl_->transaction_velocity, vector_bytes,
+            cudaMemcpyDeviceToDevice);
         cudaDeviceSynchronize();
     };
     try {
         cuda_check(cudaMemcpy(impl_->transaction_start, impl_->current,
             vector_bytes, cudaMemcpyDeviceToDevice), "save step transaction");
+        cuda_check(cudaMemcpy(impl_->transaction_reference, impl_->reference,
+            vector_bytes, cudaMemcpyDeviceToDevice), "save reference transaction");
+        cuda_check(cudaMemcpy(impl_->transaction_predicted, impl_->predicted,
+            vector_bytes, cudaMemcpyDeviceToDevice), "save predicted transaction");
+        cuda_check(cudaMemcpy(impl_->transaction_velocity, impl_->velocity,
+            vector_bytes, cudaMemcpyDeviceToDevice), "save velocity transaction");
         transaction_saved = true;
         if (measure) cuda_check(cudaEventRecord(impl_->events[6]), "step start");
 
@@ -1968,6 +2078,24 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
             result.work.device_to_host_bytes += sizeof(double);
             return value;
         };
+        const auto reduce_component = [&](const DeviceVec3* values,
+                                          unsigned int component) -> double {
+            vector_component_rows<<<blocks_for(impl_->dynamic_count), kThreads>>>(
+                values, impl_->norm_rows, impl_->dynamic_count, component);
+            reduce_double_blocks<<<reduction_blocks, 256>>>(impl_->norm_rows,
+                impl_->reduction_blocks, impl_->dynamic_count);
+            reduce_double_final<<<1, 256>>>(impl_->reduction_blocks,
+                impl_->norm_result, reduction_blocks);
+            cuda_check(cudaGetLastError(), "reduce boundary impulse");
+            double value = 0.0;
+            cuda_check(cudaMemcpy(&value, impl_->norm_result, sizeof(double),
+                cudaMemcpyDeviceToHost), "copy boundary impulse");
+            result.work.reduction_values += static_cast<std::uint64_t>(
+                impl_->dynamic_count);
+            ++result.work.scalar_reductions;
+            result.work.device_to_host_bytes += sizeof(double);
+            return value;
+        };
         const auto reduce_penetration = [&]() -> double {
             penetration_rows_kernel<<<blocks_for(impl_->dynamic_count), kThreads>>>(
                 impl_->current, impl_->norm_rows, impl_->dynamic_count,
@@ -1990,7 +2118,7 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
         };
         const auto apply_hvp = [&](const DeviceVec3* input,
                                    bool diagonal_probe) -> bool {
-            if (!diagonal_probe && result.hvp_used >= total_hvp_budget) {
+            if (result.hvp_used >= total_hvp_budget) {
                 result.failure = NonlocalGpuFailure::WorkBudgetExceeded;
                 return false;
             }
@@ -2001,7 +2129,8 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
             if (measure) cuda_check(cudaEventRecord(impl_->events[4]), "HVP start");
             pressure_directional_kernel<<<blocks_for(impl_->dynamic_count),
                 kThreads>>>(impl_->current, impl_->all_positions, input,
-                impl_->offsets, impl_->neighbors, impl_->pressure_q,
+                impl_->pressure_excess, impl_->offsets, impl_->neighbors,
+                impl_->pressure_q,
                 impl_->dynamic_count, profile, static_cast<unsigned int>(variant),
                 impl_->error);
             hvp_kernel<<<blocks_for(impl_->dynamic_count), kThreads>>>(
@@ -2033,10 +2162,9 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 cudaMemcpyDeviceToHost), "copy solver HVP work");
             if (diagonal_probe) {
                 ++result.work.diagonal_probes;
-            } else {
-                ++result.hvp_used;
-                ++result.work.hvp_applications;
             }
+            ++result.hvp_used;
+            ++result.work.hvp_applications;
             result.work.hvp_pair_visits += work.hvp_pair_visits;
             result.work.vector_kernel_values += static_cast<std::uint64_t>(
                 impl_->dynamic_count);
@@ -2117,7 +2245,7 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 else result.failure = NonlocalGpuFailure::PhysicsGateFailed;
                 break;
             }
-            const std::uint32_t required_before_inner = 2U;
+            const std::uint32_t required_before_inner = jacobi ? 3U : 2U;
             if (result.hvp_used + required_before_inner > total_hvp_budget) {
                 result.failure = NonlocalGpuFailure::WorkBudgetExceeded;
                 break;
@@ -2267,20 +2395,26 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 result.failure = NonlocalGpuFailure::WorkBudgetExceeded;
                 break;
             }
-            cuda_check(cudaMemsetAsync(impl_->contact_count, 0,
-                sizeof(unsigned long long)), "reset contact count");
+            cuda_check(cudaMemsetAsync(impl_->boundary_work, 0,
+                4U * sizeof(unsigned long long)), "reset boundary work");
             project_trial_kernel<<<blocks_for(impl_->dynamic_count), kThreads>>>(
-                impl_->outer_base, impl_->cg_step, impl_->trial_position,
-                impl_->cg_candidate, impl_->dynamic_count, lower, upper,
-                disable_boundary, impl_->contact_count);
+                impl_->outer_base, impl_->cg_step, impl_->ids,
+                impl_->trial_position, impl_->cg_candidate,
+                impl_->contact_impulse, impl_->dynamic_count, lower, upper,
+                disable_boundary, profile.mass / profile.dt,
+                impl_->boundary_work);
             cuda_check(cudaGetLastError(), "project solver trial");
-            unsigned long long contacts = 0ULL;
-            cuda_check(cudaMemcpy(&contacts, impl_->contact_count,
-                sizeof(contacts), cudaMemcpyDeviceToHost), "copy contact count");
-            result.work.contact_projections += contacts;
-            result.work.vector_kernel_values += 2U
+            std::array<unsigned long long, 4> boundary{};
+            cuda_check(cudaMemcpy(boundary.data(), impl_->boundary_work,
+                4U * sizeof(unsigned long long), cudaMemcpyDeviceToHost),
+                "copy boundary work");
+            result.work.contact_projections += boundary[3];
+            result.work.boundary_face_tests += boundary[0];
+            result.work.boundary_face_hits += boundary[1];
+            result.work.boundary_face_mask_xor ^= boundary[2];
+            result.work.vector_kernel_values += 3U
                 * static_cast<std::uint64_t>(impl_->dynamic_count);
-            result.work.device_to_host_bytes += sizeof(contacts);
+            result.work.device_to_host_bytes += 4U * sizeof(unsigned long long);
             if (!apply_hvp(impl_->cg_candidate, false)) break;
             const double linear = reduce_sum(impl_->gradient, impl_->cg_candidate);
             const double quadratic = reduce_sum(impl_->cg_candidate, impl_->hvp);
@@ -2317,6 +2451,13 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
             if (accepted) {
                 ++result.work.accepted_trials;
                 accepted_once = true;
+                result.boundary_impulse.x += reduce_component(
+                    impl_->contact_impulse, 0U);
+                result.boundary_impulse.y += reduce_component(
+                    impl_->contact_impulse, 1U);
+                result.boundary_impulse.z += reduce_component(
+                    impl_->contact_impulse, 2U);
+                result.boundary_face_mask_xor ^= boundary[2];
                 result.final_energy = trial_evaluation.energy;
                 result.active_pressure_centers =
                     trial_evaluation.active_pressure_centers;
@@ -2360,7 +2501,11 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     impl_->dynamic_count);
                 result.work.vector_kernel_values += 3U
                     * static_cast<std::uint64_t>(impl_->dynamic_count);
-                if (capture_state) {
+                if (variant == NonlocalGpuVariant::PostFinalizeFailure) {
+                    cuda_check(cudaDeviceSynchronize(),
+                        "synchronize injected post-finalize failure");
+                    result.failure = NonlocalGpuFailure::DeviceFailure;
+                } else if (capture_state) {
                     std::vector<DeviceVec3> current(impl_->dynamic_count);
                     std::vector<DeviceVec3> velocity(impl_->dynamic_count);
                     std::vector<float> density(impl_->dynamic_count);
@@ -2387,8 +2532,9 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     result.work.device_to_host_bytes += 2U * vector_bytes
                         + density.size() * sizeof(float);
                 }
-                result.failure = NonlocalGpuFailure::None;
-                transaction_saved = false;
+                if (result.failure == NonlocalGpuFailure::None) {
+                    transaction_saved = false;
+                }
             }
         }
         if (measure) {

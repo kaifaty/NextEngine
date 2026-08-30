@@ -1,20 +1,50 @@
 #include "corrected_cuda_full_step.hpp"
 #include "corrected_cuda_assembly.hpp"
+#include "sha256.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace {
 
+#ifndef NCGP1_CONTRACT_ROOT
+#define NCGP1_CONTRACT_ROOT "unconfigured"
+#endif
+#ifndef NCGP1_SOURCE_ROOT
+#define NCGP1_SOURCE_ROOT "unconfigured"
+#endif
+#ifndef NCGP1_SOURCE_COMMIT
+#define NCGP1_SOURCE_COMMIT "unconfigured"
+#endif
+#ifndef NCGP1_SOURCE_TREE
+#define NCGP1_SOURCE_TREE "unconfigured"
+#endif
+#ifndef NCGP1_COMPILER_FLAGS
+#define NCGP1_COMPILER_FLAGS "unconfigured"
+#endif
+
 using namespace nextengine::nonlocal::gpu_full_step;
+
+std::string executable_path;
+
+std::string binary_root() {
+    std::ifstream stream(executable_path, std::ios::binary);
+    if (!stream) return {};
+    std::ostringstream bytes;
+    bytes << stream.rdbuf();
+    return nextengine::nonlocal::sha256_hex(bytes.str());
+}
 
 bool same_graph(const NonlocalGpuGraphResult& lhs,
     const NonlocalGpuGraphResult& rhs) {
@@ -281,6 +311,101 @@ int run_operator_self_test() {
         return 22;
     }
 
+    NonlocalGpuProfile inactive_profile = nonlocal_water_profile();
+    inactive_profile.gravity = {};
+    inactive_profile.lambda = 0.0;
+    inactive_profile.mu = 0.0;
+    inactive_profile.gamma = 0.0;
+    inactive_profile.rest_density = 1.0e9;
+    const auto inactive_state = canonicalize_samples_binary32({
+        {701U, {0.50, 0.50, 0.50}, {0.50, 0.50, 0.50}, {}},
+        {702U, {0.55, 0.50, 0.50}, {0.55, 0.50, 0.50}, {}}});
+    const auto inactive_direction = smooth_direction(inactive_state.size());
+    NonlocalGpuWorkspace inactive_workspace(inactive_profile);
+    if (inactive_workspace.upload(inactive_state, no_ghosts)
+        != NonlocalGpuFailure::None) return 25;
+    const auto inactive_gpu = inactive_workspace.evaluate(&inactive_direction,
+        NonlocalGpuVariant::Corrected, true, false);
+    const auto inactive_oracle = evaluate_reference(inactive_profile,
+        inactive_state, no_ghosts, &inactive_direction,
+        NonlocalGpuVariant::Corrected);
+    std::vector<Vec3d> inactive_analytic;
+    const double inactive_inertia = inactive_profile.mass
+        / (inactive_profile.dt * inactive_profile.dt);
+    for (const Vec3d value : inactive_direction) {
+        inactive_analytic.push_back({inactive_inertia * value.x,
+            inactive_inertia * value.y, inactive_inertia * value.z});
+    }
+    const double inactive_gpu_error = relative_vector_error(
+        inactive_gpu.hvp, inactive_analytic);
+    const double inactive_oracle_error = relative_vector_error(
+        inactive_oracle.hvp, inactive_analytic);
+    if (inactive_gpu.failure != NonlocalGpuFailure::None
+        || inactive_oracle.failure != NonlocalGpuFailure::None
+        || inactive_gpu.active_pressure_centers != 0U
+        || inactive_oracle.active_pressure_centers != 0U
+        || inactive_gpu_error > 1.0e-5 || inactive_oracle_error > 1.0e-12) {
+        return 26;
+    }
+
+    NonlocalGpuProfile mixed_profile = inactive_profile;
+    mixed_profile.rest_density = mixed_profile.mass
+        * (cubic_weight(0.0, mixed_profile.horizon)
+            + cubic_weight(0.149, mixed_profile.horizon)
+            + 0.5 * cubic_weight(0.14, mixed_profile.horizon));
+    const auto mixed_state = canonicalize_samples_binary32({
+        {711U, {0.50, 0.50, 0.50}, {0.50, 0.50, 0.50}, {}},
+        {712U, {0.649, 0.50, 0.50}, {0.649, 0.50, 0.50}, {}}});
+    const auto mixed_ghosts = canonicalize_ghosts_binary32({
+        {0x80001000U, {0.36, 0.50, 0.50}}});
+    const auto mixed_direction = smooth_direction(mixed_state.size());
+    NonlocalGpuWorkspace mixed_workspace(mixed_profile);
+    if (mixed_workspace.upload(mixed_state, mixed_ghosts)
+        != NonlocalGpuFailure::None) return 27;
+    const auto mixed_gpu = mixed_workspace.evaluate(&mixed_direction,
+        NonlocalGpuVariant::Corrected, true, false);
+    const auto mixed_oracle = evaluate_reference(mixed_profile, mixed_state,
+        mixed_ghosts, &mixed_direction, NonlocalGpuVariant::Corrected);
+    constexpr double mixed_step = 1.0e-4;
+    auto mixed_plus = mixed_state;
+    auto mixed_minus = mixed_state;
+    for (std::size_t index = 0U; index < mixed_state.size(); ++index) {
+        mixed_plus[index].current.x += mixed_step * mixed_direction[index].x;
+        mixed_plus[index].current.y += mixed_step * mixed_direction[index].y;
+        mixed_plus[index].current.z += mixed_step * mixed_direction[index].z;
+        mixed_minus[index].current.x -= mixed_step * mixed_direction[index].x;
+        mixed_minus[index].current.y -= mixed_step * mixed_direction[index].y;
+        mixed_minus[index].current.z -= mixed_step * mixed_direction[index].z;
+    }
+    const auto mixed_plus_energy = evaluate_reference(mixed_profile, mixed_plus,
+        mixed_ghosts, nullptr, NonlocalGpuVariant::Corrected);
+    const auto mixed_minus_energy = evaluate_reference(mixed_profile, mixed_minus,
+        mixed_ghosts, nullptr, NonlocalGpuVariant::Corrected);
+    double mixed_directional_hessian = 0.0;
+    for (std::size_t index = 0U; index < mixed_direction.size(); ++index) {
+        mixed_directional_hessian += mixed_direction[index].x
+                * mixed_oracle.hvp[index].x
+            + mixed_direction[index].y * mixed_oracle.hvp[index].y
+            + mixed_direction[index].z * mixed_oracle.hvp[index].z;
+    }
+    const double mixed_finite_second = (mixed_plus_energy.energy
+        - 2.0 * mixed_oracle.energy + mixed_minus_energy.energy)
+        / (mixed_step * mixed_step);
+    const double mixed_finite_error = std::abs(
+        mixed_finite_second - mixed_directional_hessian)
+        / std::max(std::abs(mixed_directional_hessian), 1.0);
+    const double mixed_gpu_error = relative_vector_error(
+        mixed_gpu.hvp, mixed_oracle.hvp);
+    if (mixed_gpu.failure != NonlocalGpuFailure::None
+        || mixed_oracle.failure != NonlocalGpuFailure::None
+        || mixed_plus_energy.failure != NonlocalGpuFailure::None
+        || mixed_minus_energy.failure != NonlocalGpuFailure::None
+        || mixed_gpu.active_pressure_centers != 1U
+        || mixed_oracle.active_pressure_centers != 1U
+        || mixed_gpu_error > 1.0e-3 || mixed_finite_error > 2.0e-4) {
+        return 28;
+    }
+
     auto viscous = std::vector<NonlocalGpuSample>{
         {1U, {-0.025, 0.0, 0.0}, {-0.024, 0.001, 0.0},
             {0.24, 0.24, 0.0}},
@@ -318,6 +443,10 @@ int run_operator_self_test() {
               << ",\"oracle_energy_error\":" << oracle_energy_error
               << ",\"oracle_gradient_relative_l2\":" << oracle_gradient_error
               << ",\"oracle_hvp_relative_l2\":" << oracle_hvp_error
+              << ",\"inactive_hvp_gpu_error\":" << inactive_gpu_error
+              << ",\"inactive_hvp_oracle_error\":" << inactive_oracle_error
+              << ",\"mixed_hvp_gpu_error\":" << mixed_gpu_error
+              << ",\"mixed_energy_fd_error\":" << mixed_finite_error
               << ",\"active_centers\":" << candidate.active_pressure_centers
               << ",\"work_root\":\"" << work_semantic_root(candidate.work)
               << "\",\"controls\":{\"missing_chain\":true"
@@ -374,6 +503,8 @@ int run_graph_self_test() {
     const auto samples50 = make_lattice_state(profile, 50U, 40U, 25U, false, false);
     const auto samples50_permuted = make_lattice_state(
         profile, 50U, 40U, 25U, true, false);
+    const auto samples50_advected = make_lattice_state(
+        profile, 50U, 40U, 25U, false, true);
     const auto ghosts = make_basin_ghosts(profile);
     NonlocalGpuWorkspace workspace(profile);
     if (workspace.upload(samples16, ghosts) != NonlocalGpuFailure::None) return 7;
@@ -392,6 +523,39 @@ int run_graph_self_test() {
     const auto graph50_permuted = permuted50_workspace.build_current_graph(
         NonlocalGpuVariant::Corrected, true, false);
     if (!same_graph(graph50, graph50_permuted)) return 12;
+    NonlocalGpuWorkspace no_ghost_workspace(profile);
+    if (no_ghost_workspace.upload(samples50, no_ghosts)
+        != NonlocalGpuFailure::None) return 13;
+    const auto no_ghost_graph = no_ghost_workspace.build_current_graph(
+        NonlocalGpuVariant::Corrected, true, false);
+    if (same_graph(graph50, no_ghost_graph)
+        || no_ghost_graph.directed_pairs >= graph50.directed_pairs) return 14;
+    auto identity_loss = samples50_permuted;
+    identity_loss.front().sample_id = 0x7ffffff0U;
+    NonlocalGpuWorkspace identity_loss_workspace(profile);
+    if (identity_loss_workspace.upload(identity_loss, ghosts)
+        != NonlocalGpuFailure::None) return 15;
+    const auto identity_loss_graph = identity_loss_workspace.build_current_graph(
+        NonlocalGpuVariant::Corrected, true, false);
+    if (identity_loss_graph.failure != NonlocalGpuFailure::None
+        || graph_semantic_root(identity_loss_graph)
+            == graph_semantic_root(graph50)) return 16;
+    NonlocalGpuWorkspace advected_workspace(profile);
+    if (advected_workspace.upload(samples50_advected, ghosts)
+        != NonlocalGpuFailure::None) return 17;
+    const auto advected_graph = advected_workspace.build_current_graph(
+        NonlocalGpuVariant::Corrected, true, false);
+    const double lower = static_cast<double>(static_cast<float>(
+        0.5 * profile.spacing));
+    const bool advected_inside = std::all_of(samples50_advected.begin(),
+        samples50_advected.end(), [&](const NonlocalGpuSample& sample) {
+            return sample.current.x >= lower && sample.current.y >= lower
+                && sample.current.z >= lower;
+        });
+    if (advected_graph.failure != NonlocalGpuFailure::None
+        || !advected_inside
+        || input_semantic_root(profile, samples50, ghosts)
+            != input_semantic_root(profile, samples50_permuted, ghosts)) return 18;
 
     std::cout << std::setprecision(9)
               << "{\"research_id\":\"NCGP1\",\"mode\":\"graph-self-test\""
@@ -403,7 +567,14 @@ int run_graph_self_test() {
               << "},\"graph50\":{\"pairs\":" << graph50.directed_pairs
               << ",\"max_degree\":" << graph50.maximum_degree
               << ",\"root\":\"" << graph_semantic_root(graph50)
-              << "\"},\"ghosts\":" << ghosts.size()
+              << "\"},\"advected_root\":\""
+              << graph_semantic_root(advected_graph)
+              << "\",\"input_root\":\""
+              << input_semantic_root(profile, samples50, ghosts)
+              << "\",\"controls\":{\"strict_radius\":true"
+              << ",\"capacity\":true,\"ghost_support\":true"
+              << ",\"permutation\":true,\"permutation_identity_loss\":true}"
+              << ",\"ghosts\":" << ghosts.size()
               << ",\"device_bytes\":" << workspace.allocated_device_bytes()
               << ",\"environment\":" << workspace.environment_json() << "}\n";
     return 0;
@@ -468,6 +639,102 @@ int run_solver_self_test() {
             static_cast<float>(0.025))
         || disabled.failure == NonlocalGpuFailure::None) return 34;
 
+    const std::vector<NonlocalGpuSample> swept_contact{
+        {29U, {0.05, 0.05, 0.5}, {0.05, 0.05, 0.5}, {-12.0, -24.0, 0.0}}};
+    NonlocalGpuProfile swept_profile = profile;
+    swept_profile.gravity = {};
+    NonlocalGpuWorkspace swept_workspace(swept_profile);
+    if (swept_workspace.upload(swept_contact, no_ghosts)
+        != NonlocalGpuFailure::None) return 44;
+    const auto swept = swept_workspace.step(32U,
+        NonlocalGpuSolverProfile::Unpreconditioned,
+        NonlocalGpuVariant::Corrected, true, false);
+    const auto swept_cpu = step_reference(swept_profile, swept_contact,
+        no_ghosts, 32U, NonlocalGpuVariant::Corrected, true);
+    if (swept.failure != NonlocalGpuFailure::None
+        || swept_cpu.failure != NonlocalGpuFailure::None
+        || swept.state.size() != 1U || swept_cpu.state.size() != 1U
+        || swept.state[0].current.y != static_cast<double>(
+            static_cast<float>(0.025))
+        || std::abs(swept.state[0].current.x
+            - swept_cpu.state[0].current.x) > 5.0e-6
+        || swept.boundary_face_mask_xor == 0U
+        || swept.work.boundary_face_tests == 0U
+        || swept.work.boundary_face_hits == 0U
+        || swept.work.boundary_face_hits
+            != swept.work.contact_projections) {
+        std::cerr << std::setprecision(17) << "swept control gpu="
+                  << static_cast<std::uint32_t>(swept.failure) << " cpu="
+                  << static_cast<std::uint32_t>(swept_cpu.failure)
+                  << " size=" << swept.state.size() << '/' << swept_cpu.state.size()
+                  << " x=" << (swept.state.empty() ? -1.0
+                      : swept.state[0].current.x)
+                  << " y=" << (swept.state.empty() ? -1.0
+                      : swept.state[0].current.y)
+                  << " cpu_x=" << (swept_cpu.state.empty() ? -1.0
+                      : swept_cpu.state[0].current.x)
+                  << " mask=" << swept.boundary_face_mask_xor
+                  << " tests=" << swept.work.boundary_face_tests
+                  << " hits=" << swept.work.boundary_face_hits << '\n';
+        return 45;
+    }
+
+    NonlocalGpuWorkspace rollback_workspace(profile);
+    NonlocalGpuWorkspace rollback_fresh(profile);
+    if (rollback_workspace.upload(free_fall, no_ghosts)
+            != NonlocalGpuFailure::None
+        || rollback_fresh.upload(free_fall, no_ghosts)
+            != NonlocalGpuFailure::None) return 46;
+    const auto before_failure = rollback_workspace.evaluate(
+        nullptr, NonlocalGpuVariant::Corrected, true, false);
+    const auto injected = rollback_workspace.step(32U,
+        NonlocalGpuSolverProfile::Unpreconditioned,
+        NonlocalGpuVariant::PostFinalizeFailure, false, false);
+    const auto after_failure = rollback_workspace.evaluate(
+        nullptr, NonlocalGpuVariant::Corrected, true, false);
+    const auto recovered = rollback_workspace.step(32U,
+        NonlocalGpuSolverProfile::Unpreconditioned,
+        NonlocalGpuVariant::Corrected, true, false);
+    const auto fresh = rollback_fresh.step(32U,
+        NonlocalGpuSolverProfile::Unpreconditioned,
+        NonlocalGpuVariant::Corrected, true, false);
+    if (injected.failure != NonlocalGpuFailure::DeviceFailure
+        || before_failure.failure != NonlocalGpuFailure::None
+        || after_failure.failure != NonlocalGpuFailure::None
+        || before_failure.energy != after_failure.energy
+        || relative_vector_error(before_failure.gradient,
+               after_failure.gradient) != 0.0
+        || recovered.failure != NonlocalGpuFailure::None
+        || fresh.failure != NonlocalGpuFailure::None
+        || recovered.state.size() != fresh.state.size()
+        || recovered.state[0].current.z != fresh.state[0].current.z
+        || recovered.state[0].velocity.z != fresh.state[0].velocity.z) return 47;
+
+    NonlocalGpuWorkspace admission_workspace(profile);
+    if (admission_workspace.upload(free_fall, no_ghosts)
+        != NonlocalGpuFailure::None) return 48;
+    const auto admission_before = admission_workspace.evaluate(
+        nullptr, NonlocalGpuVariant::Corrected, true, false);
+    const std::vector<NonlocalGpuGhost> invalid_ghost{{
+        0x80000000U,
+        {std::numeric_limits<double>::infinity(), 0.0, 0.0}}};
+    const auto invalid_upload = admission_workspace.upload(
+        free_fall, invalid_ghost);
+    const auto admission_after = admission_workspace.evaluate(
+        nullptr, NonlocalGpuVariant::Corrected, true, false);
+    NonlocalGpuProfile invalid_profile = profile;
+    invalid_profile.gamma = -1.0;
+    auto overflow_state = free_fall;
+    overflow_state[0].current.x = std::numeric_limits<double>::max();
+    if (invalid_upload != NonlocalGpuFailure::Nonfinite
+        || validate_nonlocal_input(invalid_profile, free_fall, no_ghosts)
+            != NonlocalGpuFailure::InvalidProfile
+        || validate_nonlocal_input(profile, overflow_state, no_ghosts)
+            != NonlocalGpuFailure::Nonfinite
+        || admission_before.energy != admission_after.energy
+        || relative_vector_error(admission_before.gradient,
+               admission_after.gradient) != 0.0) return 49;
+
     std::cout << std::setprecision(12)
               << "{\"research_id\":\"NCGP1\",\"mode\":\"solver-self-test\""
               << ",\"status\":\"PASS\",\"free_fall_error_m\":"
@@ -480,6 +747,12 @@ int run_solver_self_test() {
               << ",\"bounded_contact_z\":" << bounded.state[0].current.z
               << ",\"disabled_boundary_failure\":"
               << static_cast<std::uint32_t>(disabled.failure)
+              << ",\"swept_contact_x\":" << swept.state[0].current.x
+              << ",\"swept_face_mask_xor\":"
+              << swept.boundary_face_mask_xor
+              << ",\"controls\":{\"post_finalize_rollback\":true"
+              << ",\"invalid_profile\":true,\"invalid_ghost\":true"
+              << ",\"narrowing_overflow\":true,\"swept_boundary\":true}"
               << ",\"work_root\":\""
               << work_semantic_root(jacobi.work) << "\"}\n";
     return 0;
@@ -549,17 +822,22 @@ int run_tiny_solver_correspondence() {
     double corpus_maximum = 0.0;
     std::uint32_t gpu_hvp = 0U;
     std::uint32_t cpu_hvp = 0U;
+    const std::string executable_root = binary_root();
+    if (executable_root.empty()) return 44;
     for (const TinyCase& input : tiny_cases()) {
         const std::vector<NonlocalGpuGhost> no_ghosts;
+        const auto state = canonicalize_samples_binary32(input.state);
+        const std::string input_root = input_semantic_root(
+            input.profile, state, no_ghosts);
         NonlocalGpuWorkspace gpu_workspace(input.profile);
-        if (gpu_workspace.upload(input.state, no_ghosts)
+        if (gpu_workspace.upload(state, no_ghosts)
             != NonlocalGpuFailure::None) return 35;
         const auto gpu = gpu_workspace.step(128U,
             NonlocalGpuSolverProfile::Unpreconditioned,
             NonlocalGpuVariant::Corrected, true, false);
-        const auto cpu = step_reference(input.profile, input.state,
+        const auto cpu = step_reference(input.profile, state,
             no_ghosts, 128U, NonlocalGpuVariant::Corrected, true);
-        auto permuted = input.state;
+        auto permuted = state;
         std::reverse(permuted.begin(), permuted.end());
         NonlocalGpuWorkspace permuted_workspace(input.profile);
         if (permuted_workspace.upload(permuted, no_ghosts)
@@ -567,6 +845,74 @@ int run_tiny_solver_correspondence() {
         const auto permuted_gpu = permuted_workspace.step(128U,
             NonlocalGpuSolverProfile::Unpreconditioned,
             NonlocalGpuVariant::Corrected, true, false);
+        const std::string gpu_work_root = step_work_semantic_root(
+            input.profile, gpu);
+        const std::string permuted_work_root = step_work_semantic_root(
+            input.profile, permuted_gpu);
+        const std::string cpu_work_root = step_work_semantic_root(
+            input.profile, cpu);
+        const std::string gpu_result_root = step_semantic_root(
+            input.profile, input_root, gpu);
+        const std::string permuted_result_root = step_semantic_root(
+            input.profile, input_root, permuted_gpu);
+        const std::string cpu_result_root = step_semantic_root(
+            input.profile, input_root, cpu);
+        const bool gpu_identity_exact = gpu.failure == permuted_gpu.failure
+            && gpu_work_root == permuted_work_root
+            && gpu_result_root == permuted_result_root;
+        const auto emit_terminal = [&](const char* status) {
+            std::cout << std::setprecision(12)
+                      << "{\"schema\":\"nextengine.nonlocal.ncgp1.result.v1\""
+                      << ",\"research_id\":\"NCGP1\",\"mode\":"
+                         "\"tiny-solver-correspondence\",\"status\":\""
+                      << status << "\",\"first_case\":\"" << input.name
+                      << "\",\"contract_root\":\"" << NCGP1_CONTRACT_ROOT
+                      << "\",\"profile_root\":\""
+                      << profile_semantic_root(input.profile)
+                      << "\",\"input_root\":\"" << input_root
+                      << "\",\"source_root\":\"" << NCGP1_SOURCE_ROOT
+                      << "\",\"source_commit\":\"" << NCGP1_SOURCE_COMMIT
+                      << "\",\"source_tree\":\"" << NCGP1_SOURCE_TREE
+                      << "\",\"binary_root\":\"" << executable_root
+                      << "\",\"compiler_flags\":\"" << NCGP1_COMPILER_FLAGS
+                      << "\",\"command\":\"nonlocal-corrected-cuda-full-step "
+                         "--tiny-solver-correspondence\""
+                      << ",\"gpu\":{\"failure\":"
+                      << static_cast<std::uint32_t>(gpu.failure)
+                      << ",\"hvp_used\":" << gpu.hvp_used
+                      << ",\"diagonal_probes\":" << gpu.work.diagonal_probes
+                      << ",\"outer_trials\":" << gpu.outer_trials
+                      << ",\"accepted\":" << gpu.work.accepted_trials
+                      << ",\"rejected\":" << gpu.work.rejected_trials
+                      << ",\"scaled_residual\":"
+                      << gpu.scaled_displacement_residual
+                      << ",\"gradient_norm\":" << gpu.gradient_norm
+                      << ",\"work_root\":\"" << gpu_work_root
+                      << "\",\"result_root\":\"" << gpu_result_root << "\"}"
+                      << ",\"permuted_gpu\":{\"failure\":"
+                      << static_cast<std::uint32_t>(permuted_gpu.failure)
+                      << ",\"hvp_used\":" << permuted_gpu.hvp_used
+                      << ",\"diagonal_probes\":"
+                      << permuted_gpu.work.diagonal_probes
+                      << ",\"outer_trials\":" << permuted_gpu.outer_trials
+                      << ",\"accepted\":"
+                      << permuted_gpu.work.accepted_trials
+                      << ",\"rejected\":"
+                      << permuted_gpu.work.rejected_trials
+                      << ",\"work_root\":\"" << permuted_work_root
+                      << "\",\"result_root\":\""
+                      << permuted_result_root << "\"}"
+                      << ",\"cpu_oracle\":{\"failure\":"
+                      << static_cast<std::uint32_t>(cpu.failure)
+                      << ",\"hvp_used\":" << cpu.hvp_used
+                      << ",\"outer_trials\":" << cpu.outer_trials
+                      << ",\"work_root\":\"" << cpu_work_root
+                      << "\",\"result_root\":\"" << cpu_result_root << "\"}"
+                      << ",\"gpu_permutation_identity_exact\":"
+                      << (gpu_identity_exact ? "true" : "false")
+                      << ",\"environment\":" << gpu_workspace.environment_json()
+                      << "}\n";
+        };
         if (gpu.failure != NonlocalGpuFailure::None
             || cpu.failure != NonlocalGpuFailure::None
             || permuted_gpu.failure != NonlocalGpuFailure::None
@@ -584,27 +930,13 @@ int run_tiny_solver_correspondence() {
                       << " gpu_gradient=" << gpu.gradient_norm
                       << " gpu_accept=" << gpu.work.accepted_trials
                       << " gpu_reject=" << gpu.work.rejected_trials << '\n';
-            std::cout << std::setprecision(12)
-                      << "{\"research_id\":\"NCGP1\",\"mode\":"
-                         "\"tiny-solver-correspondence\",\"status\":"
-                         "\"PHYSICS_REFUTED\",\"first_case\":\""
-                      << input.name << "\",\"gpu_failure\":"
-                      << static_cast<std::uint32_t>(gpu.failure)
-                      << ",\"cpu_failure\":"
-                      << static_cast<std::uint32_t>(cpu.failure)
-                      << ",\"permuted_gpu_failure\":"
-                      << static_cast<std::uint32_t>(permuted_gpu.failure)
-                      << ",\"gpu_hvp\":" << gpu.hvp_used
-                      << ",\"cpu_hvp\":" << cpu.hvp_used
-                      << ",\"gpu_outer_trials\":" << gpu.outer_trials
-                      << ",\"gpu_scaled_residual\":"
-                      << gpu.scaled_displacement_residual
-                      << ",\"gpu_gradient_norm\":" << gpu.gradient_norm
-                      << ",\"gpu_accepted\":" << gpu.work.accepted_trials
-                      << ",\"gpu_rejected\":" << gpu.work.rejected_trials
-                      << ",\"gpu_work_root\":\""
-                      << work_semantic_root(gpu.work) << "\"}\n";
-            return 37;
+            const bool physical_refutation = cpu.failure
+                    == NonlocalGpuFailure::None
+                && gpu.failure == NonlocalGpuFailure::PhysicsGateFailed
+                && gpu_identity_exact;
+            emit_terminal(physical_refutation
+                ? "PHYSICS_REFUTED" : "INCONCLUSIVE");
+            return physical_refutation ? 37 : 44;
         }
         for (std::size_t index = 0U; index < gpu.state.size(); ++index) {
             if (gpu.state[index].sample_id != cpu.state[index].sample_id
@@ -621,20 +953,27 @@ int run_tiny_solver_correspondence() {
                 || gpu.state[index].current.y
                     != permuted_gpu.state[index].current.y
                 || gpu.state[index].current.z
-                    != permuted_gpu.state[index].current.z) return 39;
+                    != permuted_gpu.state[index].current.z) {
+                emit_terminal("INCONCLUSIVE");
+                return 44;
+            }
             const bool gpu_active = gpu.density[index]
                 > static_cast<double>(static_cast<float>(
                     input.profile.rest_density));
             const bool cpu_active = cpu.density[index]
                 > input.profile.rest_density;
-            if (gpu_active != cpu_active) return 42;
+            if (gpu_active != cpu_active) {
+                emit_terminal("INCONCLUSIVE");
+                return 44;
+            }
         }
         gpu_hvp = std::max(gpu_hvp, gpu.hvp_used);
         cpu_hvp = std::max(cpu_hvp, cpu.hvp_used);
     }
     const bool passed = corpus_maximum <= 5.0e-6;
     std::cout << std::setprecision(12)
-              << "{\"research_id\":\"NCGP1\",\"mode\":\"tiny-solver-correspondence\""
+              << "{\"schema\":\"nextengine.nonlocal.ncgp1.result.v1\""
+              << ",\"research_id\":\"NCGP1\",\"mode\":\"tiny-solver-correspondence\""
               << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
               << ",\"maximum_position_error_m\":" << corpus_maximum
               << ",\"gpu_hvp_max\":" << gpu_hvp
@@ -693,6 +1032,8 @@ int run_correspondence_4k(std::uint32_t budget) {
     const auto initial = make_lattice_state(
         profile, 20U, 20U, 10U, false, false);
     const auto ghosts = make_basin_ghosts(profile);
+    const std::string common_input_root = input_semantic_root(
+        profile, initial, ghosts);
     NonlocalGpuWorkspace workspace(profile);
     if (workspace.upload(initial, ghosts) != NonlocalGpuFailure::None) return 50;
     const auto gpu = workspace.step(budget, NonlocalGpuSolverProfile::Jacobi,
@@ -736,6 +1077,8 @@ int run_correspondence_4k(std::uint32_t budget) {
               << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
               << ",\"budget\":" << budget << ",\"position_rmse_m\":"
               << position_rmse << ",\"position_max_m\":" << position_maximum
+              << ",\"common_binary32_input_root\":\""
+              << common_input_root << "\""
               << ",\"density_rmse_fraction\":" << density_rmse
               << ",\"density_max_fraction\":" << density_max
               << ",\"gpu_active\":" << gpu.active_pressure_centers
@@ -775,6 +1118,8 @@ int run_trajectory_4k(const std::string& name,
     const auto ghosts = make_basin_ghosts(profile);
     auto cpu_state = trajectory_initial(profile, name);
     const auto initial = cpu_state;
+    const std::string common_input_root = input_semantic_root(
+        profile, initial, ghosts);
     NonlocalGpuWorkspace gpu_workspace(profile);
     if (gpu_workspace.upload(initial, ghosts) != NonlocalGpuFailure::None) return 60;
     double maximum_position_rmse = 0.0;
@@ -840,6 +1185,8 @@ int run_trajectory_4k(const std::string& name,
               << ",\"scenario\":\"" << name << "\",\"status\":\""
               << (passed ? "PASS" : "FAIL") << "\",\"steps\":" << steps
               << ",\"gpu_budget\":" << gpu_budget
+              << ",\"common_binary32_input_root\":\""
+              << common_input_root << "\""
               << ",\"position_rmse_max_m\":" << maximum_position_rmse
               << ",\"position_error_max_m\":" << maximum_position_error
               << ",\"density_rmse_max_fraction\":" << maximum_density_rmse
@@ -887,6 +1234,7 @@ int run_gpu_trajectory_probe(const std::string& name,
 
 int main(int argc, char** argv) {
     try {
+        executable_path = "/proc/self/exe";
         if (argc == 2 && std::string(argv[1]) == "--graph-self-test") {
             return run_graph_self_test();
         }

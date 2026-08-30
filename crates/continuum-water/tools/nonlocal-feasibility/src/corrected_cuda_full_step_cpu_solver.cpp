@@ -154,6 +154,56 @@ struct CpuGraph {
     std::uint32_t maximum_degree = 0U;
 };
 
+CpuGraph build_cpu_direct_graph(const NonlocalGpuProfile& profile,
+    const std::vector<std::uint32_t>& dynamic_ids,
+    const std::vector<CpuVec3>& dynamic_positions,
+    const std::vector<std::uint32_t>& ghost_ids,
+    const std::vector<CpuVec3>& ghost_positions,
+    bool strict) {
+    CpuGraph result;
+    std::vector<std::uint32_t> ids = dynamic_ids;
+    std::vector<CpuVec3> positions = dynamic_positions;
+    ids.insert(ids.end(), ghost_ids.begin(), ghost_ids.end());
+    positions.insert(positions.end(), ghost_positions.begin(), ghost_positions.end());
+    std::vector<std::array<std::int64_t, 3>> micrometres;
+    micrometres.reserve(positions.size());
+    for (const CpuVec3& position : positions) {
+        micrometres.push_back({quantize(position.x), quantize(position.y),
+            quantize(position.z)});
+    }
+    const std::int64_t support = quantize(profile.horizon);
+    const std::uint64_t support_squared = static_cast<std::uint64_t>(support)
+        * static_cast<std::uint64_t>(support);
+    for (std::size_t owner = 0U; owner < dynamic_positions.size(); ++owner) {
+        std::vector<std::uint32_t> row;
+        for (std::size_t candidate = 0U; candidate < positions.size(); ++candidate) {
+            const std::uint64_t distance = square(
+                    micrometres[owner][0] - micrometres[candidate][0])
+                + square(micrometres[owner][1] - micrometres[candidate][1])
+                + square(micrometres[owner][2] - micrometres[candidate][2]);
+            if ((strict && distance < support_squared)
+                || (!strict && distance <= support_squared)) {
+                row.push_back(static_cast<std::uint32_t>(candidate));
+            }
+        }
+        if (row.size() > profile.maximum_neighbors) {
+            result.failure = NonlocalGpuFailure::CapacityExceeded;
+            return result;
+        }
+        std::sort(row.begin(), row.end(), [&](std::uint32_t lhs,
+                                                  std::uint32_t rhs) {
+            return ids[lhs] < ids[rhs];
+        });
+        result.maximum_degree = std::max(result.maximum_degree,
+            static_cast<std::uint32_t>(row.size()));
+        result.neighbors.insert(result.neighbors.end(), row.begin(), row.end());
+        result.offsets.push_back(static_cast<std::uint32_t>(
+            result.neighbors.size()));
+    }
+    result.offsets.insert(result.offsets.begin(), 0U);
+    return result;
+}
+
 CpuGraph build_cpu_graph(const NonlocalGpuProfile& profile,
     const std::vector<std::uint32_t>& dynamic_ids,
     const std::vector<CpuVec3>& dynamic_positions,
@@ -265,9 +315,14 @@ CpuFixture canonical_fixture(const NonlocalGpuProfile& profile,
             throw std::invalid_argument("duplicate CPU sample ID");
         }
         result.ids.push_back(input[index].sample_id);
-        result.reference.push_back(make_vec(input[index].reference));
-        result.current.push_back(make_vec(input[index].current));
-        result.velocity.push_back(make_vec(input[index].velocity));
+        const auto binary32 = [](const Vec3d& value) {
+            return CpuVec3{static_cast<long double>(static_cast<float>(value.x)),
+                static_cast<long double>(static_cast<float>(value.y)),
+                static_cast<long double>(static_cast<float>(value.z))};
+        };
+        result.reference.push_back(binary32(input[index].reference));
+        result.current.push_back(binary32(input[index].current));
+        result.velocity.push_back(binary32(input[index].velocity));
     }
     std::vector<NonlocalGpuGhost> ghosts = input_ghosts;
     std::sort(ghosts.begin(), ghosts.end(), [](const auto& lhs, const auto& rhs) {
@@ -278,7 +333,10 @@ CpuFixture canonical_fixture(const NonlocalGpuProfile& profile,
             throw std::invalid_argument("duplicate CPU ghost ID");
         }
         result.ghost_ids.push_back(ghost.sample_id);
-        result.ghosts.push_back(make_vec(ghost.position));
+        result.ghosts.push_back({
+            static_cast<long double>(static_cast<float>(ghost.position.x)),
+            static_cast<long double>(static_cast<float>(ghost.position.y)),
+            static_cast<long double>(static_cast<float>(ghost.position.z))});
     }
     return result;
 }
@@ -292,11 +350,20 @@ CpuEvaluation evaluate_cpu(const CpuFixture& fixture,
     NonlocalGpuVariant variant) {
     CpuEvaluation result;
     const std::size_t count = fixture.current.size();
-    result.current_graph = build_cpu_graph(fixture.profile, fixture.ids,
-        fixture.current, fixture.ghost_ids, fixture.ghosts,
-        variant == NonlocalGpuVariant::StrictRadius);
-    result.reference_graph = build_cpu_graph(fixture.profile, fixture.ids,
-        fixture.reference, fixture.ghost_ids, fixture.ghosts, false);
+    constexpr std::size_t kDirectTinyLimit = 4U;
+    const bool direct = count <= kDirectTinyLimit;
+    result.current_graph = direct
+        ? build_cpu_direct_graph(fixture.profile, fixture.ids, fixture.current,
+              fixture.ghost_ids, fixture.ghosts,
+              variant == NonlocalGpuVariant::StrictRadius)
+        : build_cpu_graph(fixture.profile, fixture.ids, fixture.current,
+              fixture.ghost_ids, fixture.ghosts,
+              variant == NonlocalGpuVariant::StrictRadius);
+    result.reference_graph = direct
+        ? build_cpu_direct_graph(fixture.profile, fixture.ids, fixture.reference,
+              fixture.ghost_ids, fixture.ghosts, false)
+        : build_cpu_graph(fixture.profile, fixture.ids, fixture.reference,
+              fixture.ghost_ids, fixture.ghosts, false);
     if (result.current_graph.failure != NonlocalGpuFailure::None
         || result.reference_graph.failure != NonlocalGpuFailure::None) {
         result.failure = result.current_graph.failure != NonlocalGpuFailure::None
@@ -428,6 +495,7 @@ std::vector<CpuVec3> apply_cpu_hvp(const CpuFixture& fixture,
     const bool owner_only = variant == NonlocalGpuVariant::OwnerOnlyPressure;
     const bool swap_graph = variant == NonlocalGpuVariant::CurrentReferenceSwap;
     for (std::size_t row = 0U; row < count; ++row) {
+        if (!(evaluation.excess[row] > 0.0L)) continue;
         const CpuVec3 owner = fixture.current[row];
         for (std::uint32_t slot = evaluation.current_graph.offsets[row];
              slot < evaluation.current_graph.offsets[row + 1U]; ++slot) {
@@ -614,8 +682,16 @@ NonlocalGpuStepResult step_reference(
     bool capture_state) {
     NonlocalGpuStepResult result;
     result.hvp_budget = total_hvp_budget;
-    if (samples.empty() || (total_hvp_budget != 32U
-            && total_hvp_budget != 64U && total_hvp_budget != 128U)) {
+    result.solver_profile = NonlocalGpuSolverProfile::Unpreconditioned;
+    result.variant = variant;
+    const NonlocalGpuFailure admission = validate_nonlocal_input(
+        profile, samples, ghosts);
+    if (admission != NonlocalGpuFailure::None) {
+        result.failure = admission;
+        return result;
+    }
+    if (total_hvp_budget != 32U
+        && total_hvp_budget != 64U && total_hvp_budget != 128U) {
         result.failure = NonlocalGpuFailure::InvalidState;
         return result;
     }
@@ -767,21 +843,60 @@ NonlocalGpuStepResult step_reference(
             profile.basin_extent.y - low, profile.basin_extent.z - low};
         std::vector<CpuVec3> trial = fixture.current;
         std::vector<CpuVec3> actual(step.size());
+        CpuVec3 trial_boundary_impulse{};
+        std::uint64_t trial_face_mask_xor = 0U;
         for (std::size_t index = 0U; index < trial.size(); ++index) {
-            CpuVec3 value = add(trial[index], step[index]);
+            const CpuVec3 origin = trial[index];
+            CpuVec3 value = add(origin, step[index]);
+            std::uint32_t face_mask = 0U;
             if (!disable_boundary) {
-                const CpuVec3 projected_value{
-                    std::clamp(value.x, low, high.x),
-                    std::clamp(value.y, low, high.y),
-                    std::clamp(value.z, low, high.z)};
-                result.work.contact_projections += value.x != projected_value.x;
-                result.work.contact_projections += value.y != projected_value.y;
-                result.work.contact_projections += value.z != projected_value.z;
-                value = projected_value;
+                result.work.boundary_face_tests += 6U;
+                long double hit = 1.0L;
+                const auto consider = [&](long double base, long double delta,
+                                          long double plane,
+                                          std::uint32_t bit) {
+                    if (delta == 0.0L) return;
+                    const long double candidate = (plane - base) / delta;
+                    if (!(candidate >= 0.0L && candidate <= 1.0L)) return;
+                    if (candidate < hit) {
+                        hit = candidate;
+                        face_mask = bit;
+                    } else if (candidate == hit) {
+                        face_mask |= bit;
+                    }
+                };
+                if (value.x < low) consider(origin.x, step[index].x, low, 1U);
+                if (value.x > high.x) consider(origin.x, step[index].x, high.x, 2U);
+                if (value.y < low) consider(origin.y, step[index].y, low, 4U);
+                if (value.y > high.y) consider(origin.y, step[index].y, high.y, 8U);
+                if (value.z < low) consider(origin.z, step[index].z, low, 16U);
+                if (value.z > high.z) consider(origin.z, step[index].z, high.z, 32U);
+                if (face_mask != 0U) {
+                    value = add(origin, scale(step[index], hit));
+                    if ((face_mask & 1U) != 0U) value.x = low;
+                    if ((face_mask & 2U) != 0U) value.x = high.x;
+                    if ((face_mask & 4U) != 0U) value.y = low;
+                    if ((face_mask & 8U) != 0U) value.y = high.y;
+                    if ((face_mask & 16U) != 0U) value.z = low;
+                    if ((face_mask & 32U) != 0U) value.z = high.z;
+                    for (std::uint32_t bits = face_mask; bits != 0U;
+                         bits >>= 1U) {
+                        result.work.boundary_face_hits += bits & 1U;
+                    }
+                    result.work.contact_projections += 1U;
+                    trial_face_mask_xor ^= (static_cast<std::uint64_t>(
+                        fixture.ids[index]) << 8U) ^ face_mask;
+                    const CpuVec3 impulse = scale(subtract(
+                        subtract(value, origin), step[index]),
+                        profile.mass / profile.dt);
+                    trial_boundary_impulse = add(
+                        trial_boundary_impulse, impulse);
+                }
             }
-            actual[index] = subtract(value, fixture.current[index]);
+            actual[index] = subtract(value, origin);
             trial[index] = value;
         }
+        result.work.boundary_face_mask_xor ^= trial_face_mask_xor;
         if (result.hvp_used >= total_hvp_budget) {
             result.failure = NonlocalGpuFailure::WorkBudgetExceeded;
             break;
@@ -823,6 +938,11 @@ NonlocalGpuStepResult step_reference(
             fixture.current = std::move(trial);
             ++result.work.accepted_trials;
             accepted_once = true;
+            const Vec3d impulse = narrow(trial_boundary_impulse);
+            result.boundary_impulse.x += impulse.x;
+            result.boundary_impulse.y += impulse.y;
+            result.boundary_impulse.z += impulse.z;
+            result.boundary_face_mask_xor ^= trial_face_mask_xor;
             result.final_energy = static_cast<double>(trial_evaluation.energy);
             result.active_pressure_centers = trial_evaluation.active;
         } else {

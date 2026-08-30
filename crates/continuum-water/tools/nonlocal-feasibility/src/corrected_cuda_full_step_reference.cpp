@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <unordered_map>
 #include <stdexcept>
@@ -15,6 +16,7 @@ namespace nextengine::nonlocal::gpu_full_step {
 namespace {
 
 constexpr double kMicrometresPerMetre = 1000000.0;
+constexpr std::size_t kMaximumTotalSamples = 100000U;
 
 std::int64_t quantize(double value) {
     if (!std::isfinite(value)
@@ -44,6 +46,43 @@ void append_u64(std::string& bytes, std::uint64_t value) {
     }
 }
 
+void append_f32(std::string& bytes, float value) {
+    std::uint32_t bits = 0U;
+    static_assert(sizeof(bits) == sizeof(value));
+    std::memcpy(&bits, &value, sizeof(bits));
+    append_u32(bytes, bits);
+}
+
+void append_f64(std::string& bytes, double value) {
+    std::uint64_t bits = 0U;
+    static_assert(sizeof(bits) == sizeof(value));
+    std::memcpy(&bits, &value, sizeof(bits));
+    append_u64(bytes, bits);
+}
+
+void append_string(std::string& bytes, const std::string& value) {
+    append_u64(bytes, value.size());
+    bytes.append(value);
+}
+
+bool finite_vec(const Vec3d& value) {
+    return std::isfinite(value.x) && std::isfinite(value.y)
+        && std::isfinite(value.z);
+}
+
+bool finite_binary32_vec(const Vec3d& value) {
+    if (!finite_vec(value)) return false;
+    return std::isfinite(static_cast<float>(value.x))
+        && std::isfinite(static_cast<float>(value.y))
+        && std::isfinite(static_cast<float>(value.z));
+}
+
+Vec3d binary32_vec(const Vec3d& value) {
+    return {static_cast<double>(static_cast<float>(value.x)),
+        static_cast<double>(static_cast<float>(value.y)),
+        static_cast<double>(static_cast<float>(value.z))};
+}
+
 std::uint64_t splitmix64(std::uint64_t value) {
     value += 0x9e3779b97f4a7c15ULL;
     value = (value ^ (value >> 30U)) * 0xbf58476d1ce4e5b9ULL;
@@ -52,12 +91,25 @@ std::uint64_t splitmix64(std::uint64_t value) {
 }
 
 bool valid_profile(const NonlocalGpuProfile& profile) {
-    return profile.id == "nonlocal-water-50k-v1"
+    const std::array<double, 9> scalars{profile.dt, profile.spacing,
+        profile.horizon, profile.mass, profile.rest_density, profile.kappa,
+        profile.lambda, profile.mu, profile.gamma};
+    const bool finite_scalars = std::all_of(scalars.begin(), scalars.end(),
+        [](double value) {
+            return std::isfinite(value)
+                && std::isfinite(static_cast<float>(value));
+        });
+    return profile.id == "nonlocal-water-50k-v1" && finite_scalars
         && profile.dt > 0.0 && profile.spacing > 0.0
         && profile.horizon > 0.0 && profile.mass > 0.0
         && profile.rest_density > 0.0 && profile.kappa >= 0.0
         && profile.lambda >= 0.0 && profile.mu >= 0.0
-        && profile.gamma >= 0.0 && profile.ghost_layers == 3U
+        && profile.gamma >= 0.0 && finite_binary32_vec(profile.gravity)
+        && finite_binary32_vec(profile.basin_extent)
+        && profile.basin_extent.x > profile.spacing
+        && profile.basin_extent.y > profile.spacing
+        && profile.basin_extent.z > profile.spacing
+        && profile.ghost_layers == 3U
         && profile.maximum_dynamic_samples == kMaximumDynamicSamples
         && profile.maximum_neighbors == kMaximumNeighbors;
 }
@@ -158,6 +210,63 @@ NonlocalGpuProfile nonlocal_water_profile() {
     return profile;
 }
 
+NonlocalGpuFailure validate_nonlocal_input(
+    const NonlocalGpuProfile& profile,
+    const std::vector<NonlocalGpuSample>& samples,
+    const std::vector<NonlocalGpuGhost>& ghosts) {
+    if (!valid_profile(profile)) return NonlocalGpuFailure::InvalidProfile;
+    if (samples.empty() || samples.size() > profile.maximum_dynamic_samples
+        || samples.size() + ghosts.size()
+            > kMaximumTotalSamples) {
+        return NonlocalGpuFailure::CapacityExceeded;
+    }
+    std::unordered_set<std::uint32_t> ids;
+    ids.reserve(samples.size() + ghosts.size());
+    for (const NonlocalGpuSample& sample : samples) {
+        if (!ids.insert(sample.sample_id).second) {
+            return NonlocalGpuFailure::DuplicateSampleId;
+        }
+        if (!finite_binary32_vec(sample.reference)
+            || !finite_binary32_vec(sample.current)
+            || !finite_binary32_vec(sample.velocity)) {
+            return NonlocalGpuFailure::Nonfinite;
+        }
+    }
+    std::uint32_t prior = 0U;
+    for (std::size_t index = 0U; index < ghosts.size(); ++index) {
+        const NonlocalGpuGhost& ghost = ghosts[index];
+        if (!ids.insert(ghost.sample_id).second
+            || (index != 0U && ghost.sample_id <= prior)) {
+            return NonlocalGpuFailure::DuplicateSampleId;
+        }
+        prior = ghost.sample_id;
+        if (!finite_binary32_vec(ghost.position)) {
+            return NonlocalGpuFailure::Nonfinite;
+        }
+    }
+    return NonlocalGpuFailure::None;
+}
+
+std::vector<NonlocalGpuSample> canonicalize_samples_binary32(
+    const std::vector<NonlocalGpuSample>& samples) {
+    std::vector<NonlocalGpuSample> result = samples;
+    for (NonlocalGpuSample& sample : result) {
+        sample.reference = binary32_vec(sample.reference);
+        sample.current = binary32_vec(sample.current);
+        sample.velocity = binary32_vec(sample.velocity);
+    }
+    return result;
+}
+
+std::vector<NonlocalGpuGhost> canonicalize_ghosts_binary32(
+    const std::vector<NonlocalGpuGhost>& ghosts) {
+    std::vector<NonlocalGpuGhost> result = ghosts;
+    for (NonlocalGpuGhost& ghost : result) {
+        ghost.position = binary32_vec(ghost.position);
+    }
+    return result;
+}
+
 std::vector<NonlocalGpuSample> make_lattice_state(
     const NonlocalGpuProfile& profile,
     std::uint32_t nx,
@@ -201,11 +310,23 @@ std::vector<NonlocalGpuSample> make_lattice_state(
             position.x += displacement(0x123456789abcdef0ULL);
             position.y += displacement(0x0fedcba987654321ULL);
             position.z += displacement(0xa5a5a5a55a5a5a5aULL);
+            const double low = static_cast<double>(
+                static_cast<float>(0.5 * profile.spacing));
+            const Vec3d high{
+                static_cast<double>(static_cast<float>(
+                    profile.basin_extent.x - 0.5 * profile.spacing)),
+                static_cast<double>(static_cast<float>(
+                    profile.basin_extent.y - 0.5 * profile.spacing)),
+                static_cast<double>(static_cast<float>(
+                    profile.basin_extent.z - 0.5 * profile.spacing))};
+            position.x = std::clamp(position.x, low, high.x);
+            position.y = std::clamp(position.y, low, high.y);
+            position.z = std::clamp(position.z, low, high.z);
         }
         result.push_back({static_cast<std::uint32_t>(1000U + 17U * logical),
             position, position, {0.0, 0.0, 0.0}});
     }
-    return result;
+    return canonicalize_samples_binary32(result);
 }
 
 std::vector<NonlocalGpuGhost> make_basin_ghosts(
@@ -240,7 +361,7 @@ std::vector<NonlocalGpuGhost> make_basin_ghosts(
             }
         }
     }
-    return ghosts;
+    return canonicalize_ghosts_binary32(ghosts);
 }
 
 NonlocalGpuGraphResult build_reference_graph(
@@ -343,16 +464,35 @@ std::string graph_semantic_root(const NonlocalGpuGraphResult& graph) {
 }
 
 std::string work_semantic_root(const NonlocalGpuWorkReceipt& work) {
+    const bool boundary_extended = work.boundary_face_tests != 0U
+        || work.boundary_face_hits != 0U || work.boundary_face_mask_xor != 0U;
     const bool extended = work.diagonal_probes != 0U
         || work.scalar_reductions != 0U || work.vector_kernel_values != 0U
         || work.boundary_intersections != 0U || work.radius_shrinks != 0U
         || work.radius_expands != 0U
         || work.projected_gradient_components != 0U
         || work.contact_projections != 0U || work.state_updates != 0U;
-    std::string bytes = extended
-        ? "nextengine.nonlocal.ncgp1.work.v2\0"
-        : "nextengine.nonlocal.ncgp1.work.v1\0";
-    const std::vector<std::uint64_t> values = extended
+    std::string bytes = boundary_extended
+        ? "nextengine.nonlocal.ncgp1.work.v3\0"
+        : (extended ? "nextengine.nonlocal.ncgp1.work.v2\0"
+                    : "nextengine.nonlocal.ncgp1.work.v1\0");
+    const std::vector<std::uint64_t> values = boundary_extended
+        ? std::vector<std::uint64_t>{work.uploads, work.graph_builds,
+              work.key_evaluations, work.radix_sort_items, work.cell_probes,
+              work.distance_predicates, work.emitted_directed_pairs,
+              work.row_sort_items, work.density_kernel_evaluations,
+              work.energy_pair_visits, work.gradient_pair_visits,
+              work.hvp_pair_visits, work.hvp_applications,
+              work.diagonal_probes, work.reduction_values,
+              work.scalar_reductions, work.vector_kernel_values,
+              work.boundary_intersections, work.outer_trials,
+              work.accepted_trials, work.rejected_trials,
+              work.radius_shrinks, work.radius_expands,
+              work.projected_gradient_components, work.contact_projections,
+              work.boundary_face_tests, work.boundary_face_hits,
+              work.boundary_face_mask_xor, work.state_updates,
+              work.host_to_device_bytes, work.device_to_host_bytes}
+        : extended
         ? std::vector<std::uint64_t>{work.uploads, work.graph_builds,
               work.key_evaluations, work.radix_sort_items, work.cell_probes,
               work.distance_predicates, work.emitted_directed_pairs,
@@ -378,6 +518,102 @@ std::string work_semantic_root(const NonlocalGpuWorkReceipt& work) {
               work.contact_projections, work.host_to_device_bytes,
               work.device_to_host_bytes, 0U};
     for (const auto value : values) append_u64(bytes, value);
+    return sha256_hex(bytes);
+}
+
+std::string profile_semantic_root(const NonlocalGpuProfile& profile) {
+    std::string bytes = "nextengine.nonlocal.ncgp1.profile.v1\0";
+    append_string(bytes, profile.id);
+    for (const double value : std::array<double, 18>{profile.dt,
+             profile.spacing, profile.horizon, profile.mass,
+             profile.rest_density, profile.kappa, profile.lambda, profile.mu,
+             profile.gamma, profile.gravity.x, profile.gravity.y,
+             profile.gravity.z, profile.basin_extent.x, profile.basin_extent.y,
+             profile.basin_extent.z, static_cast<double>(profile.ghost_layers),
+             static_cast<double>(profile.maximum_dynamic_samples),
+             static_cast<double>(profile.maximum_neighbors)}) {
+        append_f64(bytes, value);
+    }
+    return sha256_hex(bytes);
+}
+
+std::string input_semantic_root(const NonlocalGpuProfile& profile,
+    const std::vector<NonlocalGpuSample>& input_samples,
+    const std::vector<NonlocalGpuGhost>& input_ghosts) {
+    auto samples = canonicalize_samples_binary32(input_samples);
+    auto ghosts = canonicalize_ghosts_binary32(input_ghosts);
+    std::sort(samples.begin(), samples.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.sample_id < rhs.sample_id;
+    });
+    std::sort(ghosts.begin(), ghosts.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.sample_id < rhs.sample_id;
+    });
+    std::string bytes = "nextengine.nonlocal.ncgp1.input.v1\0";
+    append_string(bytes, profile_semantic_root(profile));
+    append_u64(bytes, samples.size());
+    for (const NonlocalGpuSample& sample : samples) {
+        append_u32(bytes, sample.sample_id);
+        for (const double value : std::array<double, 9>{sample.reference.x,
+                 sample.reference.y, sample.reference.z, sample.current.x,
+                 sample.current.y, sample.current.z, sample.velocity.x,
+                 sample.velocity.y, sample.velocity.z}) {
+            append_f32(bytes, static_cast<float>(value));
+        }
+    }
+    append_u64(bytes, ghosts.size());
+    for (const NonlocalGpuGhost& ghost : ghosts) {
+        append_u32(bytes, ghost.sample_id);
+        append_f32(bytes, static_cast<float>(ghost.position.x));
+        append_f32(bytes, static_cast<float>(ghost.position.y));
+        append_f32(bytes, static_cast<float>(ghost.position.z));
+    }
+    return sha256_hex(bytes);
+}
+
+std::string step_work_semantic_root(const NonlocalGpuProfile& profile,
+    const NonlocalGpuStepResult& result) {
+    std::string bytes = "nextengine.nonlocal.ncgp1.step-work.v1\0";
+    append_string(bytes, profile_semantic_root(profile));
+    append_u32(bytes, result.hvp_budget);
+    append_u32(bytes, static_cast<std::uint32_t>(result.solver_profile));
+    append_u32(bytes, static_cast<std::uint32_t>(result.variant));
+    append_string(bytes, work_semantic_root(result.work));
+    return sha256_hex(bytes);
+}
+
+std::string step_semantic_root(const NonlocalGpuProfile& profile,
+    const std::string& input_root,
+    const NonlocalGpuStepResult& result) {
+    std::string bytes = "nextengine.nonlocal.ncgp1.step-result.v1\0";
+    append_string(bytes, profile_semantic_root(profile));
+    append_string(bytes, input_root);
+    append_string(bytes, step_work_semantic_root(profile, result));
+    append_u32(bytes, static_cast<std::uint32_t>(result.failure));
+    append_u32(bytes, result.hvp_budget);
+    append_u32(bytes, result.hvp_used);
+    append_u32(bytes, result.outer_trials);
+    append_u32(bytes, result.active_pressure_centers);
+    append_u32(bytes, static_cast<std::uint32_t>(result.solver_profile));
+    append_u32(bytes, static_cast<std::uint32_t>(result.variant));
+    append_f64(bytes, result.initial_energy);
+    append_f64(bytes, result.final_energy);
+    append_f64(bytes, result.gradient_norm);
+    append_f64(bytes, result.scaled_displacement_residual);
+    append_f64(bytes, result.maximum_penetration_m);
+    append_f64(bytes, result.boundary_impulse.x);
+    append_f64(bytes, result.boundary_impulse.y);
+    append_f64(bytes, result.boundary_impulse.z);
+    append_u64(bytes, result.boundary_face_mask_xor);
+    append_u64(bytes, result.state.size());
+    for (const NonlocalGpuSample& sample : result.state) {
+        append_u32(bytes, sample.sample_id);
+        append_f32(bytes, static_cast<float>(sample.current.x));
+        append_f32(bytes, static_cast<float>(sample.current.y));
+        append_f32(bytes, static_cast<float>(sample.current.z));
+        append_f32(bytes, static_cast<float>(sample.velocity.x));
+        append_f32(bytes, static_cast<float>(sample.velocity.y));
+        append_f32(bytes, static_cast<float>(sample.velocity.z));
+    }
     return sha256_hex(bytes);
 }
 
@@ -465,6 +701,7 @@ NonlocalGpuEvaluationResult evaluate_reference(
     }
     if (input_direction != nullptr) {
         for (std::size_t row = 0U; row < count; ++row) {
+            if (!(excess[row] > 0.0L)) continue;
             const WideVec3 owner = wide(samples[row].current);
             for (std::uint32_t slot = current_graph.offsets[row];
                  slot < current_graph.offsets[row + 1U]; ++slot) {

@@ -69,6 +69,7 @@ enum class NonlocalGpuVariant : std::uint32_t {
     CurrentReferenceSwap = 6U,
     OwnerOnlyPressure = 7U,
     DisableBoundary = 8U,
+    PostFinalizeFailure = 9U,
 };
 
 enum class NonlocalGpuSolverProfile : std::uint32_t {
@@ -102,6 +103,9 @@ struct NonlocalGpuWorkReceipt {
     std::uint64_t radius_expands = 0U;
     std::uint64_t projected_gradient_components = 0U;
     std::uint64_t contact_projections = 0U;
+    std::uint64_t boundary_face_tests = 0U;
+    std::uint64_t boundary_face_hits = 0U;
+    std::uint64_t boundary_face_mask_xor = 0U;
     std::uint64_t state_updates = 0U;
     std::uint64_t host_to_device_bytes = 0U;
     std::uint64_t device_to_host_bytes = 0U;
@@ -154,6 +158,11 @@ struct NonlocalGpuStepResult {
     std::uint32_t hvp_used = 0U;
     std::uint32_t outer_trials = 0U;
     double maximum_penetration_m = 0.0;
+    Vec3d boundary_impulse;
+    std::uint64_t boundary_face_mask_xor = 0U;
+    NonlocalGpuSolverProfile solver_profile =
+        NonlocalGpuSolverProfile::Unpreconditioned;
+    NonlocalGpuVariant variant = NonlocalGpuVariant::Corrected;
     NonlocalGpuWorkReceipt work;
     NonlocalGpuTimings timing;
 };
@@ -193,6 +202,17 @@ private:
 
 NonlocalGpuProfile nonlocal_water_profile();
 
+NonlocalGpuFailure validate_nonlocal_input(
+    const NonlocalGpuProfile& profile,
+    const std::vector<NonlocalGpuSample>& samples,
+    const std::vector<NonlocalGpuGhost>& ghosts);
+
+std::vector<NonlocalGpuSample> canonicalize_samples_binary32(
+    const std::vector<NonlocalGpuSample>& samples);
+
+std::vector<NonlocalGpuGhost> canonicalize_ghosts_binary32(
+    const std::vector<NonlocalGpuGhost>& ghosts);
+
 std::vector<NonlocalGpuSample> make_lattice_state(
     const NonlocalGpuProfile& profile,
     std::uint32_t nx,
@@ -228,5 +248,14 @@ NonlocalGpuStepResult step_reference(
 
 std::string graph_semantic_root(const NonlocalGpuGraphResult& graph);
 std::string work_semantic_root(const NonlocalGpuWorkReceipt& work);
+std::string profile_semantic_root(const NonlocalGpuProfile& profile);
+std::string input_semantic_root(const NonlocalGpuProfile& profile,
+    const std::vector<NonlocalGpuSample>& samples,
+    const std::vector<NonlocalGpuGhost>& ghosts);
+std::string step_work_semantic_root(const NonlocalGpuProfile& profile,
+    const NonlocalGpuStepResult& result);
+std::string step_semantic_root(const NonlocalGpuProfile& profile,
+    const std::string& input_root,
+    const NonlocalGpuStepResult& result);
 
 } // namespace nextengine::nonlocal::gpu_full_step
