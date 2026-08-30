@@ -71,6 +71,11 @@ enum class NonlocalGpuVariant : std::uint32_t {
     DisableBoundary = 8U,
 };
 
+enum class NonlocalGpuSolverProfile : std::uint32_t {
+    Unpreconditioned = 0U,
+    Jacobi = 1U,
+};
+
 struct NonlocalGpuWorkReceipt {
     std::uint64_t uploads = 0U;
     std::uint64_t graph_builds = 0U;
@@ -85,11 +90,19 @@ struct NonlocalGpuWorkReceipt {
     std::uint64_t gradient_pair_visits = 0U;
     std::uint64_t hvp_pair_visits = 0U;
     std::uint64_t hvp_applications = 0U;
+    std::uint64_t diagonal_probes = 0U;
     std::uint64_t reduction_values = 0U;
+    std::uint64_t scalar_reductions = 0U;
+    std::uint64_t vector_kernel_values = 0U;
+    std::uint64_t boundary_intersections = 0U;
     std::uint64_t outer_trials = 0U;
     std::uint64_t accepted_trials = 0U;
     std::uint64_t rejected_trials = 0U;
+    std::uint64_t radius_shrinks = 0U;
+    std::uint64_t radius_expands = 0U;
+    std::uint64_t projected_gradient_components = 0U;
     std::uint64_t contact_projections = 0U;
+    std::uint64_t state_updates = 0U;
     std::uint64_t host_to_device_bytes = 0U;
     std::uint64_t device_to_host_bytes = 0U;
 };
@@ -131,9 +144,11 @@ struct NonlocalGpuEvaluationResult {
 struct NonlocalGpuStepResult {
     NonlocalGpuFailure failure = NonlocalGpuFailure::None;
     std::vector<NonlocalGpuSample> state;
+    std::vector<double> density;
     double initial_energy = 0.0;
     double final_energy = 0.0;
     double gradient_norm = 0.0;
+    double scaled_displacement_residual = 0.0;
     std::uint32_t active_pressure_centers = 0U;
     std::uint32_t hvp_budget = 0U;
     std::uint32_t hvp_used = 0U;
@@ -163,6 +178,7 @@ public:
         bool measure);
 
     NonlocalGpuStepResult step(std::uint32_t total_hvp_budget,
+        NonlocalGpuSolverProfile solver_profile,
         NonlocalGpuVariant variant,
         bool capture_state,
         bool measure);
@@ -201,6 +217,14 @@ NonlocalGpuEvaluationResult evaluate_reference(
     const std::vector<NonlocalGpuGhost>& ghosts,
     const std::vector<Vec3d>* direction,
     NonlocalGpuVariant variant);
+
+NonlocalGpuStepResult step_reference(
+    const NonlocalGpuProfile& profile,
+    const std::vector<NonlocalGpuSample>& samples,
+    const std::vector<NonlocalGpuGhost>& ghosts,
+    std::uint32_t total_hvp_budget,
+    NonlocalGpuVariant variant,
+    bool capture_state);
 
 std::string graph_semantic_root(const NonlocalGpuGraphResult& graph);
 std::string work_semantic_root(const NonlocalGpuWorkReceipt& work);

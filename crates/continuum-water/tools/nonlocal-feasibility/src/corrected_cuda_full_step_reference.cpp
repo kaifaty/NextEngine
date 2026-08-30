@@ -343,16 +343,40 @@ std::string graph_semantic_root(const NonlocalGpuGraphResult& graph) {
 }
 
 std::string work_semantic_root(const NonlocalGpuWorkReceipt& work) {
-    std::string bytes = "nextengine.nonlocal.ncgp1.work.v1\0";
-    const std::array<std::uint64_t, 21> values{
-        work.uploads, work.graph_builds, work.key_evaluations,
-        work.radix_sort_items, work.cell_probes, work.distance_predicates,
-        work.emitted_directed_pairs, work.row_sort_items,
-        work.density_kernel_evaluations, work.energy_pair_visits,
-        work.gradient_pair_visits, work.hvp_pair_visits,
-        work.hvp_applications, work.reduction_values, work.outer_trials,
-        work.accepted_trials, work.rejected_trials, work.contact_projections,
-        work.host_to_device_bytes, work.device_to_host_bytes, 0U};
+    const bool extended = work.diagonal_probes != 0U
+        || work.scalar_reductions != 0U || work.vector_kernel_values != 0U
+        || work.boundary_intersections != 0U || work.radius_shrinks != 0U
+        || work.radius_expands != 0U
+        || work.projected_gradient_components != 0U
+        || work.contact_projections != 0U || work.state_updates != 0U;
+    std::string bytes = extended
+        ? "nextengine.nonlocal.ncgp1.work.v2\0"
+        : "nextengine.nonlocal.ncgp1.work.v1\0";
+    const std::vector<std::uint64_t> values = extended
+        ? std::vector<std::uint64_t>{work.uploads, work.graph_builds,
+              work.key_evaluations, work.radix_sort_items, work.cell_probes,
+              work.distance_predicates, work.emitted_directed_pairs,
+              work.row_sort_items, work.density_kernel_evaluations,
+              work.energy_pair_visits, work.gradient_pair_visits,
+              work.hvp_pair_visits, work.hvp_applications,
+              work.diagonal_probes, work.reduction_values,
+              work.scalar_reductions, work.vector_kernel_values,
+              work.boundary_intersections, work.outer_trials,
+              work.accepted_trials, work.rejected_trials,
+              work.radius_shrinks, work.radius_expands,
+              work.projected_gradient_components, work.contact_projections,
+              work.state_updates, work.host_to_device_bytes,
+              work.device_to_host_bytes}
+        : std::vector<std::uint64_t>{work.uploads, work.graph_builds,
+              work.key_evaluations, work.radix_sort_items, work.cell_probes,
+              work.distance_predicates, work.emitted_directed_pairs,
+              work.row_sort_items, work.density_kernel_evaluations,
+              work.energy_pair_visits, work.gradient_pair_visits,
+              work.hvp_pair_visits, work.hvp_applications,
+              work.reduction_values, work.outer_trials,
+              work.accepted_trials, work.rejected_trials,
+              work.contact_projections, work.host_to_device_bytes,
+              work.device_to_host_bytes, 0U};
     for (const auto value : values) append_u64(bytes, value);
     return sha256_hex(bytes);
 }
