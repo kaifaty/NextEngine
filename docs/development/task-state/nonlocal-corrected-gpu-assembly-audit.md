@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA6_PRESSURE_OPERATOR_PRECISION_REQUIRED / NCGA7_FROZEN_IMPLEMENTATION_IN_PROGRESS / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
+| Status | `COMPLETE / NCGA7_MIXED_PRESSURE_STATIC_SOLVE_FAILED / PERFORMANCE_BLOCKED / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Determine whether strict-f32 corrected CUDA assembly can complete both retained NSR1 static solves before any trajectory or performance claim |
@@ -11,7 +11,11 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA6 is hash-closed
+- **Current state:** NCGA7 is hash-closed
+  `AUTHOR_REFUTED / MIXED_PRESSURE_STATIC_SOLVE_FAILED`. F64 pressure improves
+  pair `R_x` to `1.064e-7` but misses the frozen `1e-7` gate and does not close
+  the objective band; combined `R_x` regresses to `4.38e-7`. The arithmetic
+  ladder is stopped. NCGA6 is hash-closed
   `AUTHOR_SUPPORTED_CAUSAL / PRESSURE_OPERATOR_PRECISION_REQUIRED`. GPU f64
   energy accepts one extra step per case and improves `R_x` by `4.77x/1.91x`,
   but still stops at `2.77e-6/3.00e-7` and misses the objective band. NCGA5 is
@@ -35,12 +39,13 @@
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** implement and run frozen NCGA7 binary64 pressure
-  density/coefficient/gradient/Hessian products plus the retained f64 energy,
-  with f32 stored state. If both static solves close, reopen a short
-  boundary-free trajectory; otherwise stop arithmetic promotion and reassess.
-- **Current blocker:** strict f32 cannot finish the retained static solves, so
-  physical trajectory and full assembly/solve timing remain blocked;
+- **Next action:** freeze a separate product-oriented physical acceptance
+  contract for the scale-aware terminal state. Only if it accepts should work
+  proceed to a local matrix-free GPU HVP/CG implementation and 16k/50k
+  end-to-end benchmark; otherwise repair the solver/model first.
+- **Current blocker:** neither strict nor selected mixed arithmetic closes the
+  retained static solve package, and the dense Hessian requires roughly
+  `90 GB` at 50k even in f32. Physical trajectory and full timing remain blocked;
   NCGA3--5 independent review is `NOT_RUN`.
 - **Revision-1 discriminator:** all HVP probes completed and strict f32 reached
   only `1.0643e-6` maximum relative L2 error; reduction-only stayed outside the
@@ -68,7 +73,7 @@
 | H9 strict f32 preserves trust-region decisions | eight reference/CUDA outer signatures match and state drift stays below `5 um` | continuous-state fixed-graph Steihaug--Toint prefix plus sign-flipped HVP control | supported on NCGA4 |
 | H10 strict f32 completes the retained static solves | both NSR1 cases reach the raw gradient stop while preserving state/objective/active-set bands | NCGA5 exact full solve with multi-HVP residual CG | refuted: energy/globalization floor |
 | H11 f32 energy resolution is the first full-solve boundary | GPU f64 energy with unchanged f32 gradient/Hessian restores positive actual reduction and scale-aware convergence | NCGA6 energy-only mixed solve plus f32-energy negative | causal but insufficient |
-| H12 pressure operator products are the remaining static boundary | f64 pressure density/coefficient/gradient/Hessian products close `R_x<=1e-7` with f32 storage | NCGA7 pressure-operator discriminator | active / frozen |
+| H12 pressure operator products are the remaining static boundary | f64 pressure density/coefficient/gradient/Hessian products close `R_x<=1e-7` with f32 storage | NCGA7 pressure-operator discriminator | refuted: pair marginal miss, combined regression |
 
 ## Decisions
 
@@ -267,6 +272,23 @@
   kernel.
 - **Reconsider when:** NCGA7 closes both static cases or fails one frozen gate;
   no further arithmetic ladder is implicit.
+
+### D-013 — Stop precision tuning and separate physical acceptance from performance
+
+- **Observation:** NCGA7 leaves sub-micrometre state differences but cannot
+  close the frozen solver residual/objective gates; the dense matrix would
+  require `90 GB` in f32 for 50k particles.
+- **Conclusion:** more precision tuning cannot answer the product performance
+  question. Correctness acceptance and scalable representation are now
+  separate blockers.
+- **Decision:** stop the arithmetic ladder. Define physical/game tolerances
+  independently, then — only on acceptance — replace dense assembly/host CG
+  with a local matrix-free GPU HVP and resident solver before benchmarking.
+- **Rejected alternatives:** widen the just-missed gate, time the serial tiny
+  diagnostic, extrapolate neighbor-builder time to a full solver, or call the
+  mixed state game-ready without a trajectory.
+- **Reconsider when:** a frozen physical acceptance screen decides whether the
+  current scale-aware terminal state is admissible.
 
 ## Required context
 
