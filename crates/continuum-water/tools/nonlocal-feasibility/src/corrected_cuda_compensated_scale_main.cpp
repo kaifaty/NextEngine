@@ -728,6 +728,8 @@ int run_correspondence_4k(const std::string& scenario,
     std::uint32_t first_cpu_active_count = 0U;
     double first_gpu_mismatch_density = 0.0;
     double first_cpu_mismatch_density = 0.0;
+    std::uint32_t first_gate_failure_step = 0U;
+    std::string first_gate_failure;
     std::string receipt_material =
         "nextengine.nonlocal.ncgp3.trajectory-receipts.v1\n";
     NonlocalGpuFailure gpu_failure = NonlocalGpuFailure::None;
@@ -975,16 +977,31 @@ int run_correspondence_4k(const std::string& scenario,
         }
         cpu_state = cpu_result.state;
         ++completed;
-        if (maximum_position_rmse > 0.0025
-            || maximum_position_error > 0.005
-            || maximum_density_rmse > 0.05
-            || maximum_density_error > 0.10
-            || maximum_compression_rmse > 0.05
-            || maximum_compression_error > 0.10
-            || maximum_momentum_residual > 0.01
-            || maximum_positive_energy_excess > 0.01
-            || maximum_penetration > 0.0025
-            || permutation_mismatch_steps != 0U) break;
+        if (maximum_position_rmse > 0.0025) {
+            first_gate_failure = "position_rmse";
+        } else if (maximum_position_error > 0.005) {
+            first_gate_failure = "position_max";
+        } else if (maximum_density_rmse > 0.05) {
+            first_gate_failure = "density_rmse";
+        } else if (maximum_density_error > 0.10) {
+            first_gate_failure = "density_max";
+        } else if (maximum_compression_rmse > 0.05) {
+            first_gate_failure = "compression_rmse";
+        } else if (maximum_compression_error > 0.10) {
+            first_gate_failure = "compression_max";
+        } else if (maximum_momentum_residual > 0.01) {
+            first_gate_failure = "momentum";
+        } else if (maximum_positive_energy_excess > 0.01) {
+            first_gate_failure = "energy_excess";
+        } else if (maximum_penetration > 0.0025) {
+            first_gate_failure = "penetration";
+        } else if (permutation_mismatch_steps != 0U) {
+            first_gate_failure = "permutation";
+        }
+        if (!first_gate_failure.empty()) {
+            first_gate_failure_step = step_index + 1U;
+            break;
+        }
     }
     NonlocalGpuGraphResult failure_graph;
     if (gpu_failure == NonlocalGpuFailure::CapacityExceeded
@@ -1037,15 +1054,24 @@ int run_correspondence_4k(const std::string& scenario,
     const bool physical_refuted = work_refuted || (!passed && completed > 0U
         && gpu_failure == NonlocalGpuFailure::None
         && cpu_failure == NonlocalGpuFailure::None
-        && (maximum_compression_rmse > 0.05
+        && (maximum_position_rmse > 0.0025
+            || maximum_position_error > 0.005
+            || maximum_density_rmse > 0.05
+            || maximum_density_error > 0.10
+            || maximum_compression_rmse > 0.05
             || maximum_compression_error > 0.10
             || maximum_momentum_residual > 0.01
             || maximum_positive_energy_excess > 0.01
             || maximum_penetration > 0.0025
             || !closed_basin_bounds));
     const long double lattice_density = infinite_lattice_density(profile);
+#if defined(NCGP4_EXPERIMENTAL)
+    const char* refuted_status = "REFUTED_BOUNDED";
+#else
+    const char* refuted_status = "PHYSICS_REFUTED";
+#endif
     const char* status = passed ? "PASS"
-        : (physical_refuted ? "PHYSICS_REFUTED" : "INCONCLUSIVE");
+        : (physical_refuted ? refuted_status : "INCONCLUSIVE");
     const std::string receipt_root = nextengine::nonlocal::sha256_hex(
         receipt_material);
     const std::string snapshot_receipt_root =
@@ -1092,6 +1118,8 @@ int run_correspondence_4k(const std::string& scenario,
                     << ',' << first_gpu_mismatch_density << ','
                     << first_cpu_mismatch_density << ','
                     << permutation_mismatch_steps << '\n'
+                    << "first-gate=" << first_gate_failure_step << ','
+                    << first_gate_failure << '\n'
                     << "maximum-work=" << maximum_gpu_hvp << ','
                     << maximum_cpu_hvp << ','
                     << maximum_active_pressure_centers << ','
@@ -1193,6 +1221,10 @@ int run_correspondence_4k(const std::string& scenario,
               << first_gpu_mismatch_density
               << ",\"first_cpu_mismatch_density\":"
               << first_cpu_mismatch_density
+              << ",\"first_gate_failure_step\":"
+              << first_gate_failure_step
+              << ",\"first_gate_failure\":\""
+              << first_gate_failure << "\""
               << ",\"permutation_mismatch_steps\":"
               << permutation_mismatch_steps
               << ",\"gpu_hvp_max\":" << maximum_gpu_hvp
