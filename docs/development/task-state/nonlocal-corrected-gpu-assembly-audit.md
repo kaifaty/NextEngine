@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA5_AUTHOR_REFUTED / NCGA6_FROZEN_IMPLEMENTATION_IN_PROGRESS / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
+| Status | `ACTIVE / NCGA6_PRESSURE_OPERATOR_PRECISION_REQUIRED / NCGA7_NEXT / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Determine whether strict-f32 corrected CUDA assembly can complete both retained NSR1 static solves before any trajectory or performance claim |
@@ -11,7 +11,11 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA5 revision 2 is hash-closed
+- **Current state:** NCGA6 is hash-closed
+  `AUTHOR_SUPPORTED_CAUSAL / PRESSURE_OPERATOR_PRECISION_REQUIRED`. GPU f64
+  energy accepts one extra step per case and improves `R_x` by `4.77x/1.91x`,
+  but still stops at `2.77e-6/3.00e-7` and misses the objective band. NCGA5 is
+  hash-closed
   `AUTHOR_REFUTED / F32_STATIC_SOLVE_MATERIAL`. Both strict-f32 static solves
   approach the independent solution within `0.0353 um`, but f32 actual
   reduction loses sign/resolution and both runs collapse the trust radius.
@@ -31,11 +35,10 @@
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** implement and run frozen NCGA6 GPU binary64
-  energy/globalization with f32 stored state, gradient and Hessian. If it
-  closes both static solves,
-  reopen a short boundary-free trajectory; otherwise promote pressure
-  coefficient/products in the next discriminator.
+- **Next action:** freeze and run NCGA7 binary64 pressure
+  density/coefficient/gradient/Hessian products plus the retained f64 energy,
+  with f32 stored state. If both static solves close, reopen a short
+  boundary-free trajectory; otherwise stop arithmetic promotion and reassess.
 - **Current blocker:** strict f32 cannot finish the retained static solves, so
   physical trajectory and full assembly/solve timing remain blocked;
   NCGA3--5 independent review is `NOT_RUN`.
@@ -64,7 +67,8 @@
 | H8 binary64 pressure products close the miss | promoted pressure coefficients/products meet the old gate | mixed-product arithmetic variant | supported: `4.71951e-5`, but not selected yet |
 | H9 strict f32 preserves trust-region decisions | eight reference/CUDA outer signatures match and state drift stays below `5 um` | continuous-state fixed-graph Steihaug--Toint prefix plus sign-flipped HVP control | supported on NCGA4 |
 | H10 strict f32 completes the retained static solves | both NSR1 cases reach the raw gradient stop while preserving state/objective/active-set bands | NCGA5 exact full solve with multi-HVP residual CG | refuted: energy/globalization floor |
-| H11 f32 energy resolution is the first full-solve boundary | GPU f64 energy with unchanged f32 gradient/Hessian restores positive actual reduction and scale-aware convergence | NCGA6 energy-only mixed solve plus f32-energy negative | active / frozen |
+| H11 f32 energy resolution is the first full-solve boundary | GPU f64 energy with unchanged f32 gradient/Hessian restores positive actual reduction and scale-aware convergence | NCGA6 energy-only mixed solve plus f32-energy negative | causal but insufficient |
+| H12 pressure operator products are the remaining static boundary | f64 pressure density/coefficient/gradient/Hessian products close `R_x<=1e-7` with f32 storage | NCGA7 pressure-operator discriminator | next / selected |
 
 ## Decisions
 
@@ -246,6 +250,23 @@
   dense tiny harness as if it were scalable.
 - **Reconsider when:** mixed energy either closes both cases or fails while
   pressure/operator error remains the only surviving cause.
+
+### D-012 — Promote the pressure operator only after energy causality
+
+- **Observation:** f64 energy changes the exact failing acceptance decisions
+  and improves residual/state, but leaves both cases outside convergence and
+  objective bands.
+- **Conclusion:** energy resolution is causal, while the remaining f32
+  pressure gradient/Hessian/profile composition is now the smallest surviving
+  numerical hypothesis.
+- **Decision:** NCGA7 promotes pressure density/compression, coefficients,
+  gradient and Hessian products to binary64, rounds final operator outputs to
+  binary64 host values, and retains f32 state plus NCGA6 f64 energy.
+- **Rejected alternatives:** start trajectory now, widen `R_x`, promote all
+  terms indiscriminately, or infer performance from the serial diagnostic
+  kernel.
+- **Reconsider when:** NCGA7 closes both static cases or fails one frozen gate;
+  no further arithmetic ladder is implicit.
 
 ## Required context
 
