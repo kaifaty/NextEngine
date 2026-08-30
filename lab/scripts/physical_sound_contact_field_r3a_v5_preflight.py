@@ -126,7 +126,7 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             "manifest_sha256": common.sha256_bytes(manifest_bytes),
             "source_archive_bytes_hashed": common.ARCHIVE_BYTES,
             "source_waveform_samples_decoded": 0,
-            "training_clip_count": len(corpus["clips"]),
+            "corpus_clip_count": len(corpus["clips"]),
             "event_group_count": len(corpus["groups"]),
             "role_clip_counts": role_counts,
             "development_waveform_samples_decoded": 0,
