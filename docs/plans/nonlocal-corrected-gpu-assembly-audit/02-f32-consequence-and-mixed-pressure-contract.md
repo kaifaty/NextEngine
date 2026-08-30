@@ -80,9 +80,12 @@ on these vectors in canonical degree-of-freedom order:
 2. the normalized negative host gradient;
 3. unit coordinates `171` and `172`, which span the failing scalar;
 4. six fixed Rademacher vectors whose sign bit is
-   `splitmix64(0x4e43474133000000 + probe*300 + index) & 1`;
-5. three fixed smooth particle vectors formed from canonical particle index
-   with periods `7`, `11` and `17`.
+   `splitmix64(0x4e43474133000000 + probe*300 + index) & 1`, using the standard
+   SplitMix64 add/xor/multiply sequence with constants `0x9e3779b97f4a7c15`,
+   `0xbf58476d1ce4e5b9` and `0x94d049bb133111eb`;
+5. three fixed smooth particle vectors with periods `7`, `11` and `17`, where
+   scalar `(particle,axis)` is
+   `sin(2*pi*(particle+1)/period + axis*pi/3)`.
 
 Every vector is normalized to Euclidean norm one in host binary64. Report for
 each probe:
@@ -111,10 +114,12 @@ A * p = -gradient.
 ```
 
 The added inertia-scale diagonal is fixed before execution and makes this a
-bounded local response probe, not a claimed Nonlocal solver. Solve in host
-binary64 by deterministic Cholesky without pivoting. Reject the probe if either
-matrix is not positive definite or if either normalized residual exceeds
-`1e-10`.
+bounded local response probe, not a claimed Nonlocal solver. Before solving,
+apply the fixed projection `H_s=(H+H^T)/2`; report the removed antisymmetric
+norm separately. Solve `H_s + inertia_scale*I` in host binary64 by deterministic
+Cholesky without pivoting. Reject the probe if either matrix is not positive
+definite or if either normalized residual against that exact projected system
+exceeds `1e-10`.
 
 The strict-f32 consequence band requires:
 
@@ -151,10 +156,11 @@ step cap or additional trajectory is allowed.
 1. Rebuild and reproduce the exact NCGA2 revision-2 failure, roots and failing
    scalar before running the new harness.
 2. A deliberate `hessian_entry_bias` control adds `1%` of the reference value
-   at entries `(171,172)` and `(172,171)` and must be detected by at least the
-   coordinate probes or regularized-step gate.
-3. A deliberate `hvp_sign_flip` control negates one complete HVP and must fail
-   the cosine gate.
+   at entries `(171,172)` and `(172,171)` and must be detected by the coordinate
+   probes' maximum component-relative error `>1e-3` or by the regularized-step
+   gate.
+3. A deliberate `hvp_sign_flip` control negates the complete frozen-direction
+   HVP and must fail the cosine gate.
 4. Combined/permuted inputs must produce exact variant matrices, metrics,
    routes and receipts.
 5. Two fresh Release builds/runs must be byte-identical. Run CUDA `memcheck`,
