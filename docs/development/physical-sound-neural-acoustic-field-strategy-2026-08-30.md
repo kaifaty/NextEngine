@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `STRATEGY_SELECTED / R2C_REJECTED / R2D_V1_REJECTED / R2D_V2_DECAY_NEXT / RESEARCH_ONLY / NO_RUNTIME_MODEL` |
+| Status | `STRATEGY_SELECTED / R2C_REJECTED / R2D_V2_TRAINABILITY_PASS / R2E_NEXT / RESEARCH_ONLY / NO_RUNTIME_MODEL` |
 | Architecture boundary | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Roadmap | [Physical sound synthesis roadmap](../plans/physical-sound-synthesis-roadmap.md) |
 | Implementation plan | [Neural acoustic field implementation plan](../plans/2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -260,10 +260,11 @@ rejected: both data-only and Helmholtz variants collapse toward silence. The
 shows that rank-96 context capacity is sufficient to retain `99.64%` energy,
 while the trained objective remains worse than a zero predictor.
 
-R2D V1 has now frozen that profile and repeats byte-identically. It passes the
-one-row, coefficient, cooker, oracle-proximity, clipping and trivial-control
-gates but misses only small/full log-energy convergence under a fixed learning
-rate. The smallest next action remains query-free: keep every V1 input and
-threshold unchanged and test one deterministic learning-rate decay. Only a
-passing revision may start one coordinate-to-low-rank-coefficient candidate
-and one grouped query evaluation under Roadmap V3.
+R2D V1 freezes that profile and repeats byte-identically, but misses only
+small/full log-energy convergence under a fixed learning rate. R2D V2 changes
+only to a half-cosine `0.05 -> 0.00001` schedule and passes every unchanged
+gate twice; its normalized report, checkpoints and prediction WAVs repeat
+exactly with zero query reads. The smallest next action is now one separately
+frozen data-only coordinate-to-low-rank-coefficient candidate followed by one
+grouped query evaluation under Roadmap V3. This context pass is not itself a
+held-listener quality, admission or runtime result.

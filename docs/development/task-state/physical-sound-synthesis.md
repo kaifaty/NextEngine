@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V3 / NEURAL_TRANSFER_FIELD / R2C_REJECTED / R2D_V1_FIXED_STEP_REJECTED / R2D_V2_DECAY_NEXT / SHADOW_SEALED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V3 / NEURAL_TRANSFER_FIELD / R2C_REJECTED / R2D_V2_TRAINABILITY_PASS / R2E_NEXT / SHADOW_SEALED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-30` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture, external neural acoustic-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,22 +11,20 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Keep the offline neural route, but retire the joint
-  separable complex SIREN plus sampled equal-L1 objective. It collapses toward
-  silence before listener generalization.
-- **Exact evidence:** [R2C result and failure diagnostic](../physical-sound-listener-field-r2c-result-2026-08-30.md).
-  Data-only and Helmholtz runs repeat byte-identically, select no candidate and
-  produce about `53 dB` mean level error. Diagnostic A/B hash to
-  `1263e02f…a8f`.
-- **Why this is not a capacity verdict:** A context-only rank-96 oracle retains
-  `99.6396%` total energy with Frobenius NRMSE `0.0600`; the trained data-only
-  objective is nevertheless `1.0498x` the zero predictor and all logged steps
-  reach gradient clipping.
-- **Next action:** Freeze N0.3D V2 with the V1 basis, objective, tasks, steps,
-  cooker and thresholds unchanged; replace only fixed learning rate with one
-  deterministic decay schedule ending near zero.
-- **After that:** Only a passing N0.3D may authorize one N0.3E frozen
-  coordinate-to-low-rank-coefficient model and one grouped query evaluation.
+- **Current conclusion:** The offline low-rank route is trainable. R2D V2
+  changes only to half-cosine learning-rate decay and passes every unchanged
+  context coefficient, energy, clipping, oracle and cooker gate.
+- **Exact evidence:** [R2D V2 result](../physical-sound-listener-field-r2d-trainability-v2-result-2026-08-30.md),
+  manifest `47920fce…f6d1`, repeated report `898ee201…0875`. Checkpoints and 37
+  prediction WAVs match byte-for-byte across two runs.
+- **Why this is not a quality verdict:** R2D reads no query audio and tests a
+  direct coefficient table, not coordinate generalization. Held-listener
+  quality remains completely unmeasured for the authorized representation.
+- **Next action:** Freeze one N0.3E data-only listener-coordinate-to-rank-96
+  complex-coefficient model, training policy and classical controls without
+  query feedback.
+- **After that:** Repeat the frozen candidate, then open all 180 grouped queries
+  once under the unchanged conjunctive five-endpoint rule.
 - **Current blockers:** learned quality, multi-impact internet coverage,
   independent validator risk, exact-domain admission, production contact
   projection and a player-visible consumer are open.
@@ -42,8 +40,8 @@
 | R2 direct/phase field | `REJECTED` | Do not tune the opened 15-row time-domain latent family. |
 | R2B dense data/representation | `COMPLETE` | 600 rows, `420 context / 180 query`, complex inverse and three controls repeat; no quality credit. |
 | R2C separable complex field | `COMPLETE / REJECTED` | Data-only and Helmholtz candidates repeat; both collapse and fail `4/5` endpoints. |
-| R2D trainability gate | `V1_REJECTED / V2_DECAY_NEXT` | V1 passes every gate except small-block/full-context log energy; query remains forbidden. |
-| R2E low-rank coefficient field | `BLOCKED_BY_R2D` | One data-only neural spatial field after a passing context gate. |
+| R2D trainability gate | `COMPLETE / V2_PASS` | V2 passes all unchanged gates twice; normalized reports, checkpoints and WAVs repeat with zero query reads. |
+| R2E low-rank coefficient field | `NEXT` | One frozen data-only neural spatial field, then one grouped query evaluation. |
 | R3+ exact-object/validator/admission | `BLOCKED` | No model, validator release, admitted domain or runtime promotion exists. |
 
 ## Material transition: R2C rejection and Roadmap V3
@@ -87,6 +85,22 @@
 - **Reconsider when:** V2 repeats and either passes every unchanged gate or
   identifies a different single failing boundary.
 
+## Material transition: R2D V2 trainability pass
+
+- **Observation:** Half-cosine `0.05 -> 0.00001` makes all three unchanged V1
+  tasks pass; full-context log-energy falls to `4.54e-9` with zero clipping.
+- **Evidence:** [R2D V2 result](../physical-sound-listener-field-r2d-trainability-v2-result-2026-08-30.md),
+  manifest `47920fce…f6d1`, repeated report `898ee201…0875`.
+- **Conclusion:** The basis/objective/cooker training substrate preserves the
+  signal; the R2C silence collapse was an optimization failure, not a rank-96
+  capacity failure at the context-fit boundary.
+- **Decision:** Close R2D and authorize exactly one separately frozen N0.3E
+  data-only coordinate field. Query-informed tuning remains forbidden.
+- **Remaining uncertainty:** Coordinate generalization may still lose to the
+  frozen nearest/linear controls on the 180 grouped held listeners.
+- **Reconsider when:** One immutable N0.3E result passes or rejects the entire
+  low-rank coordinate field under the unchanged endpoints.
+
 ## Stable decisions
 
 | ID | Decision | Reconsideration condition |
@@ -105,8 +119,8 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Energy-preserving context training is sufficient to remove silence collapse | V1 beats zero/mean and approaches oracle through the cooker | Fixed step misses small/full log-energy gate | V2 deterministic learning-rate decay with all other inputs frozen |
-| H2: Frozen low-rank basis plus learned spatial coefficients can beat interpolation | Context energy is strongly low-rank; joint basis learning is unnecessary for the first test | No coordinate-to-coefficient candidate has been measured | One N0.3E data-only candidate after N0.3D passes |
+| H1: Energy-preserving context training is sufficient to remove silence collapse | R2D V2 passes all context gates twice | No counterevidence remains at the context-fit boundary | Closed; preserve V2 as the N0.3E training substrate |
+| H2: Frozen low-rank basis plus learned spatial coefficients can beat interpolation | Context energy is strongly low-rank and the coefficient objective now trains exactly | No coordinate-to-coefficient candidate has been measured | One frozen N0.3E data-only candidate and one grouped query evaluation |
 | H3: Exact-object impact/listener learning is possible from published data | REALIMPACT exposes multiple vertices/listeners and force metadata | Current bounded claim uses one fixed impact; excitation alignment across impacts is unproven | New hash-closed multi-impact projection only after R2E |
 | H4: Automatic validator can reach useful coverage at bounded false-pass risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 calibration/holdout release after a generator claim exists |
 | H5: Cooked neural coefficients fit a useful production budget | Q30 lab reference is compact and exact | Whole-mixer, callback and varied-voice cost are unmeasured | Player-visible consumer plus whole-mixer p95/p99 before promotion |
@@ -140,17 +154,18 @@ Read in precedence order:
    and [neural strategy](../physical-sound-neural-acoustic-field-strategy-2026-08-30.md).
 5. [R0–R1 boundary](../physical-sound-neural-real-boundary-r0-r1-2026-08-30.md),
    [R2 phase failure](../physical-sound-listener-field-r2-phase-research-2026-08-30.md),
-   [R2B preflight](../physical-sound-r2b-dense-complex-field-preflight-2026-08-30.md)
-   and [R2C result](../physical-sound-listener-field-r2c-result-2026-08-30.md).
+   [R2B preflight](../physical-sound-r2b-dense-complex-field-preflight-2026-08-30.md),
+   [R2C result](../physical-sound-listener-field-r2c-result-2026-08-30.md) and
+   [R2D V2 result](../physical-sound-listener-field-r2d-trainability-v2-result-2026-08-30.md).
 6. [Main product roadmap](../../roadmap.md) for scheduling or promotion facts.
 
 ## Handoff
 
-- **Workspace:** R2C tooling and tests are implemented; all heavy artifacts
-  remain external. Canonical docs now point to Roadmap V3 and N0.3D next.
+- **Workspace:** R2D V2 tooling/tests and repeated pass evidence are
+  implemented; all heavy artifacts remain external. N0.3E is next.
 - **Quality:** No neural candidate, validator release, admitted formula record
   or runtime integration exists. Clip fallback is still authoritative.
-- **Isolation:** R2C training reads zero query audio; failure diagnostic reads
-  zero query audio; method holdout and admission shadow remain unopened.
-- **Next commit boundary:** N0.3D V2 decayed-step runner and immutable repeated
-  decision; no grouped query candidate in that boundary.
+- **Isolation:** R2D V2 reads zero query audio; method holdout and admission
+  shadow remain unopened.
+- **Next commit boundary:** N0.3E frozen coordinate field, two context-only
+  repeats and one immutable grouped-query decision.
