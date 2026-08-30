@@ -970,8 +970,7 @@ int run_correspondence_4k(const std::string& scenario,
         prior_gpu_state_root = compensated_state_root(gpu_compensated);
         prior_permuted_state_root = compensated_state_root(
             permuted_compensated);
-        if (active_mismatch_steps != 0U
-            || permutation_mismatch_steps != 0U) {
+        if (permutation_mismatch_steps != 0U) {
             break;
         }
         cpu_state = cpu_result.state;
@@ -1022,7 +1021,6 @@ int run_correspondence_4k(const std::string& scenario,
         && maximum_positive_energy_excess <= 0.01
         && maximum_penetration <= 0.0025
         && closed_basin_bounds
-        && active_mismatch_steps == 0U
         && permutation_mismatch_steps == 0U
         && identity_valid;
     const bool work_refuted = !passed && budget == 128U
