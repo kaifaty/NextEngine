@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V3 / NEURAL_TRANSFER_FIELD / R0_R1_COMPLETE / R2C_REJECTED / R2D_TRAINABILITY_GATE_NEXT / SHADOW_SEALED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V3 / NEURAL_TRANSFER_FIELD / R2C_REJECTED / R2D_V1_FIXED_STEP_REJECTED / R2D_V2_DECAY_NEXT / SHADOW_SEALED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-30` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture, external neural acoustic-field research, deterministic cooker boundary and independent automatic validation |
@@ -22,9 +22,9 @@
   `99.6396%` total energy with Frobenius NRMSE `0.0600`; the trained data-only
   objective is nevertheless `1.0498x` the zero predictor and all logged steps
   reach gradient clipping.
-- **Next action:** Implement N0.3D entirely on context: freeze zero/mean/rank
-  controls, energy-preserving objective, identity/one-row/small-block
-  micro-overfit gates and cooker-level energy/spectrum/waveform metrics.
+- **Next action:** Freeze N0.3D V2 with the V1 basis, objective, tasks, steps,
+  cooker and thresholds unchanged; replace only fixed learning rate with one
+  deterministic decay schedule ending near zero.
 - **After that:** Only a passing N0.3D may authorize one N0.3E frozen
   coordinate-to-low-rank-coefficient model and one grouped query evaluation.
 - **Current blockers:** learned quality, multi-impact internet coverage,
@@ -42,7 +42,7 @@
 | R2 direct/phase field | `REJECTED` | Do not tune the opened 15-row time-domain latent family. |
 | R2B dense data/representation | `COMPLETE` | 600 rows, `420 context / 180 query`, complex inverse and three controls repeat; no quality credit. |
 | R2C separable complex field | `COMPLETE / REJECTED` | Data-only and Helmholtz candidates repeat; both collapse and fail `4/5` endpoints. |
-| R2D trainability gate | `NEXT` | Query audio is forbidden until objective/optimizer/cooker preserve context signal. |
+| R2D trainability gate | `V1_REJECTED / V2_DECAY_NEXT` | V1 passes every gate except small-block/full-context log energy; query remains forbidden. |
 | R2E low-rank coefficient field | `BLOCKED_BY_R2D` | One data-only neural spatial field after a passing context gate. |
 | R3+ exact-object/validator/admission | `BLOCKED` | No model, validator release, admitted domain or runtime promotion exists. |
 
@@ -70,8 +70,22 @@
 - **Reconsideration condition:** A new frozen context revision passes all
   micro-overfit/trivial-oracle gates and a subsequent one-shot grouped query
   result identifies a different limiting factor.
-- **Smallest next action:** Define the N0.3D manifest and tests without running
-  a grouped query candidate.
+## Material transition: R2D V1 fixed-step rejection
+
+- **Observation:** Two byte-identical V1 runs pass one-row, coefficient,
+  cooker, oracle-proximity, clipping and trivial-control gates. Only eight-row
+  and full-context mean absolute log energy miss `0.005`, at `0.007785` and
+  `0.005062`.
+- **Evidence:** [R2D V1 result](../physical-sound-listener-field-r2d-trainability-v1-result-2026-08-30.md),
+  manifest `3fe41295…5f28`, repeated report `350a1e6b…0afd`.
+- **Conclusion:** Representation, objective direction and cooker are supported;
+  fixed terminal AdamW step is the remaining falsifiable cause.
+- **Decision:** Preserve V1 as rejected. V2 changes only to deterministic
+  learning-rate decay and retains every original gate; N0.3E stays blocked.
+- **Rejected alternatives:** Relax `0.005`, add steps at fixed rate, modify
+  basis/loss/tasks or inspect query audio.
+- **Reconsider when:** V2 repeats and either passes every unchanged gate or
+  identifies a different single failing boundary.
 
 ## Stable decisions
 
@@ -91,7 +105,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Energy-preserving context training is sufficient to remove silence collapse | Rank-96 context oracle retains `99.64%` energy | Current objective is worse than zero and clips every logged step | N0.3D identity and micro-overfit ladder through the real cooker |
+| H1: Energy-preserving context training is sufficient to remove silence collapse | V1 beats zero/mean and approaches oracle through the cooker | Fixed step misses small/full log-energy gate | V2 deterministic learning-rate decay with all other inputs frozen |
 | H2: Frozen low-rank basis plus learned spatial coefficients can beat interpolation | Context energy is strongly low-rank; joint basis learning is unnecessary for the first test | No coordinate-to-coefficient candidate has been measured | One N0.3E data-only candidate after N0.3D passes |
 | H3: Exact-object impact/listener learning is possible from published data | REALIMPACT exposes multiple vertices/listeners and force metadata | Current bounded claim uses one fixed impact; excitation alignment across impacts is unproven | New hash-closed multi-impact projection only after R2E |
 | H4: Automatic validator can reach useful coverage at bounded false-pass risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 calibration/holdout release after a generator claim exists |
@@ -138,5 +152,5 @@ Read in precedence order:
   or runtime integration exists. Clip fallback is still authoritative.
 - **Isolation:** R2C training reads zero query audio; failure diagnostic reads
   zero query audio; method holdout and admission shadow remain unopened.
-- **Next commit boundary:** N0.3D context trainability manifest, runner, tests
-  and immutable decision; no grouped query candidate in that boundary.
+- **Next commit boundary:** N0.3D V2 decayed-step runner and immutable repeated
+  decision; no grouped query candidate in that boundary.

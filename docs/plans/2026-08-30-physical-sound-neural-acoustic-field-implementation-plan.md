@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3_TIME_DOMAIN_FAMILY_REJECTED / N0.3B_DATA_READY / N0.3C_COMPLEX_FIELD_REJECTED / N0.3D_TRAINABILITY_GATE_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3C_REJECTED / N0.3D_V1_FIXED_STEP_REJECTED / N0.3D_V2_DECAY_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -247,7 +247,8 @@ nearby architecture, rank, seed, step or physics-weight grid.
 
 ### N0.3D — Context trainability and energy-preservation gate
 
-Status: `NEXT / QUERY_AUDIO_FORBIDDEN`.
+Status: `V1_FIXED_STEP_REJECTED / V2_DECAY_NEXT / QUERY_AUDIO_FORBIDDEN`. See
+[R2D V1 evidence](../development/physical-sound-listener-field-r2d-trainability-v1-result-2026-08-30.md).
 
 Purpose: prove that the objective, sampling, optimizer and real cooker can
 retain the signal before another held-listener candidate is authorized.
@@ -279,6 +280,15 @@ per revision; do not spend query evidence on trainability debugging.
 
 Commit boundary: context controls, micro-overfit runner/tests and immutable
 trainability decision. No query WAVs or candidate quality report.
+
+V1 freezes a `99.6396%`-energy rank-96 basis and repeats byte-identically. All
+coefficient, cooker, oracle-proximity, clipping and zero/global-mean gates pass.
+The one-row task passes completely; the eight-row and full-context tasks miss
+only mean absolute log energy at `0.007785` and `0.005062` against the unchanged
+`0.005` limit. V1 therefore returns `RejectTrainingSubstrate` and does not
+authorize N0.3E. V2 may change only fixed learning rate to one deterministic
+decay schedule ending near zero; basis, objective, initialization, steps,
+tasks, cooker, metrics and thresholds remain frozen.
 
 ### N0.3E — Frozen low-rank spatial coefficient field
 
@@ -502,11 +512,11 @@ successful Git commit or a report-only model result.
 
 1. Preserve direct, phase-aligned and R2C separable complex fields as immutable
    rejected revisions; do not tune their opened families.
-2. Freeze N0.3D zero/mean/rank-oracle controls and micro-overfit metrics before
-   changing the objective or starting an optimizer.
-3. Run N0.3D entirely on context; reject any revision that cannot preserve
-   energy and beat trivial controls through the real cooker.
-4. If N0.3D passes, freeze one context-only complex basis and one data-only
+2. Preserve N0.3D V1 as `RejectTrainingSubstrate`; do not relax its energy gate
+   or extend the same fixed learning rate.
+3. Freeze N0.3D V2 with the same basis/objective/tasks/gates and one decaying
+   learning-rate schedule, then repeat it twice entirely on context.
+4. If N0.3D V2 passes, freeze one context-only complex basis and one data-only
    coordinate-to-coefficient N0.3E candidate.
 5. Repeat N0.3E without query feedback, then evaluate once on all 180 grouped
    queries against the unchanged three controls and five endpoints.

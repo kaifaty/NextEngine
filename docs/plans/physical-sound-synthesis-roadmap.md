@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-30 |
-| Статус | `ACTIVE_R&D / R0_COMPLETE / R1_CONTROLS_FROZEN / R2C_COMPLEX_FIELD_REJECTED / R2D_TRAINABILITY_GATE_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R0_COMPLETE / R1_CONTROLS_FROZEN / R2C_REJECTED / R2D_V1_FIXED_STEP_REJECTED / R2D_V2_DECAY_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -139,7 +139,7 @@ models и не маскирует провал обещанием универс
 | R0 | `COMPLETE` | S | Первый real transfer slice и five-role projection повторяются byte-identical; signal semantics и missing axes честно сохранены. |
 | R1 | `COMPLETE / FROZEN_CONTROLS` | M | Transfer-domain и recorded-waveform baselines покрывают только совместимые rows; метрики и fallback заморожены. |
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
-| R2D | `NEXT` | S–M | Новый objective/optimizer/cooker проходит zero/mean/oracle controls и micro-overfit без чтения query audio. |
+| R2D | `V1_FIXED_STEP_REJECTED / V2_DECAY_NEXT` | S–M | Objective/cooker проходят; одна decayed-step revision должна закрыть неизменный log-energy gate без чтения query audio. |
 | R2E | `BLOCKED_BY_R2D` | M | Coordinate network над frozen context-only low-rank basis лучше всех classical controls на grouped held listeners. |
 | R3 | `BLOCKED_BY_R2_AND_DATA` | L | Few-shot model предсказывает новые impact/listener conditions exact объекта и cooks в exact PCM. |
 | R4 | `CONDITIONAL` | L–XL | Shared geometry-conditioned model либо проходит object/family-disjoint holdout, либо zero-shot claim явно отклонён. |
@@ -303,6 +303,15 @@ Exit criteria:
 - signal level does not collapse and no non-finite output occurs;
 - two runs reproduce under the declared deterministic/tolerance policy;
 - failure returns `REJECT_TRAINING_SUBSTRATE`, without opening query audio.
+
+[R2D V1](../development/physical-sound-listener-field-r2d-trainability-v1-result-2026-08-30.md)
+is complete and reproducible. The rank-96 basis retains `99.6396%` energy and
+is orthonormal within `1.67e-6`; one-row fit and every coefficient, cooker,
+oracle-proximity, clipping and trivial-control gate pass. The eight-row and
+full-context tasks miss only the unchanged mean absolute log-energy limit:
+`0.007785` and `0.005062` versus `0.005`. V1 remains rejected. The next
+revision may change only the fixed learning rate to a preregistered decay
+schedule; it may not relax thresholds, add query reads or alter the basis/loss.
 
 ### R2E — Low-rank neural spatial coefficient field
 
@@ -481,9 +490,12 @@ ledger, persistence и `AcousticFactV1` roots.
    candidates and their checkpoints repeat, one-shot evaluation selects none,
    and the context diagnostic attributes the primary failure to loss/sampling/
    clipped optimization rather than Helmholtz or rank-96 capacity;
-7. `context trainability gate` — `NEXT`; freeze energy-preserving objective,
-   zero/mean/oracle controls and micro-overfit checks without query reads;
-8. `low-rank coefficient field` — `BLOCKED_BY_7`; freeze the successful
+7. `context trainability gate V1` — `COMPLETE / REJECTED`; all gates except
+   small-block/full-context log energy pass byte-identically, with zero query
+   reads;
+8. `context trainability gate V2` — `NEXT`; retain basis/objective/tasks/gates
+   and change only fixed AdamW learning rate to deterministic decay;
+9. `low-rank coefficient field` — `BLOCKED_BY_8`; freeze the successful
    context protocol, train one coordinate-to-coefficient model, repeat it, then
    evaluate once against all unchanged controls and endpoints.
 
