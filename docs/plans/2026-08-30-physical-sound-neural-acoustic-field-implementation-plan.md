@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `IN_PROGRESS / N0.4A_V5_PREFLIGHT_A_COMPLETE / TRAINING_ENVIRONMENT_FREEZE_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.4A_V5_TRAINING_CONTROLS_COMPLETE / THREE_CAPACITY_TRAINING_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -463,11 +463,19 @@ repeats exactly and the 80-step micro-codec overfit repeats with improvement
 ratio `0.1499882595`. Preserve the
 [exact result](../development/physical-sound-r3a-v5-neural-preflight-a-2026-08-31.md).
 
-This completes only the CPU/corpus/model/loss identity boundary. The next
-commit freezes the external CUDA/PyTorch environment and runner and must prove
-finite full-loss backward, bounded group-aware decoding/sampling,
-non-collapsed RVQ use, exact checkpoint save/reload and repeat inference. It
-must not start long training or read development.
+The external CUDA/PyTorch runner boundary is also complete. Two runs at
+implementation `90984de2` repeat manifest `75ed5e06…2679`, report
+`a4e30d87…b1e1` and checkpoint `74fccfac…7659` byte for byte. Full
+loss/backward is finite, waveform L1 improves `24.0%`, train stages use
+`[8,7,6,7]` codes and checkpoint continuation is exact. The original uniform
+codebook start is rejected after using one code in every stage; deterministic
+first-train-latent residual-share initialization is frozen instead. Preserve
+the [exact runner result](../development/physical-sound-r3a-v5-training-runner-preflight-2026-08-31.md).
+
+Exactly three capacity runs are now authorized without development access.
+The next implementation binds the complete external training run, checkpoint
+selection and canonical metrics to the frozen manifest; it may not change the
+model, losses, capacities, seeds or endpoints.
 
 ### N0.4B — Object-specific contact-position few-shot field
 
@@ -671,9 +679,10 @@ successful Git commit or a report-only model result.
    development evaluation or another modal/PCA/bin capacity.
 7. Preserve V5-PREFLIGHT-A as `COMPLETE / REPRODUCIBLE`; do not change its
    corpus, architecture, loss or capacities after later observations.
-8. Freeze the V5 GPU environment and runner controls without long training or
-   development reads.
-9. If all V5 controls pass, train all frozen capacities, open development once
-   and select at most one. Only a development pass may spend one new holdout.
+8. Preserve the V5 GPU environment and runner controls as
+   `COMPLETE / REPRODUCIBLE`; do not restore the dead-code initialization.
+9. Train all frozen capacities without development reads, then open development
+   once and select at most one. Only a development pass may spend one new
+   holdout.
 10. Only after V5-HOLDOUT passes, freeze one N0.4B exact-object
    contact-to-latent field and bake a bounded ordinary clip atlas offline.
