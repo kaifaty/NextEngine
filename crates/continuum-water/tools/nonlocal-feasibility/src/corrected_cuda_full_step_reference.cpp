@@ -378,6 +378,7 @@ NonlocalGpuGraphResult build_reference_graph(
     struct Point {
         std::uint32_t id;
         std::array<std::int64_t, 3> p;
+        bool ghost;
     };
     std::vector<Point> dynamic;
     std::vector<Point> all;
@@ -392,7 +393,7 @@ NonlocalGpuGraphResult build_reference_graph(
             }
             dynamic.push_back({sample.sample_id,
                 {quantize(sample.current.x), quantize(sample.current.y),
-                    quantize(sample.current.z)}});
+                    quantize(sample.current.z)}, false});
         }
         for (const auto& ghost : ghosts) {
             if (!ids.insert(ghost.sample_id).second) {
@@ -401,7 +402,7 @@ NonlocalGpuGraphResult build_reference_graph(
             }
             all.push_back({ghost.sample_id,
                 {quantize(ghost.position.x), quantize(ghost.position.y),
-                    quantize(ghost.position.z)}});
+                    quantize(ghost.position.z)}, true});
         }
     } catch (const std::exception&) {
         result.failure = NonlocalGpuFailure::InvalidState;
@@ -421,6 +422,8 @@ NonlocalGpuGraphResult build_reference_graph(
     for (const Point& owner : dynamic) {
         result.owner_ids.push_back(owner.id);
         std::vector<std::uint32_t> row;
+        std::uint32_t dynamic_neighbors = 0U;
+        std::uint32_t ghost_neighbors = 0U;
         for (const Point& candidate : all) {
             ++result.work.distance_predicates;
             const std::uint64_t distance = square(owner.p[0] - candidate.p[0])
@@ -429,15 +432,23 @@ NonlocalGpuGraphResult build_reference_graph(
             if ((strict_radius && distance < limit)
                 || (!strict_radius && distance <= limit)) {
                 row.push_back(candidate.id);
+                if (candidate.ghost) {
+                    ++ghost_neighbors;
+                } else {
+                    ++dynamic_neighbors;
+                }
             }
         }
+        result.maximum_degree = std::max(result.maximum_degree,
+            static_cast<std::uint32_t>(row.size()));
         if (row.size() > profile.maximum_neighbors) {
+            result.overflow_owner_id = owner.id;
+            result.overflow_dynamic_neighbors = dynamic_neighbors;
+            result.overflow_ghost_neighbors = ghost_neighbors;
             result.failure = NonlocalGpuFailure::CapacityExceeded;
             return result;
         }
         std::sort(row.begin(), row.end());
-        result.maximum_degree = std::max(result.maximum_degree,
-            static_cast<std::uint32_t>(row.size()));
         result.neighbor_ids.insert(result.neighbor_ids.end(), row.begin(), row.end());
         result.offsets.push_back(static_cast<std::uint32_t>(result.neighbor_ids.size()));
     }

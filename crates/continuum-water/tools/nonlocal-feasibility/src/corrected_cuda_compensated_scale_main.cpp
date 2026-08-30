@@ -459,6 +459,11 @@ int run_correspondence_4k(const std::string& scenario,
     double maximum_position_error = 0.0;
     double maximum_density_rmse = 0.0;
     double maximum_density_error = 0.0;
+    double maximum_rest_density_rmse = 0.0;
+    double maximum_rest_density_error = 0.0;
+    double observed_density_minimum = std::numeric_limits<double>::infinity();
+    double observed_density_maximum = 0.0;
+    double observed_density_mean = 0.0;
     std::uint32_t maximum_gpu_hvp = 0U;
     std::uint32_t maximum_cpu_hvp = 0U;
     std::uint64_t active_mismatch_steps = 0U;
@@ -491,6 +496,8 @@ int run_correspondence_4k(const std::string& scenario,
             || gpu_result.density.size() != cpu_result.density.size()) break;
         double position_squared = 0.0;
         double density_squared = 0.0;
+        double rest_density_squared = 0.0;
+        double density_sum = 0.0;
         for (std::size_t index = 0U; index < gpu_result.state.size(); ++index) {
             if (gpu_result.state[index].sample_id
                     != cpu_result.state[index].sample_id
@@ -517,6 +524,17 @@ int run_correspondence_4k(const std::string& scenario,
             density_squared += density_error * density_error;
             maximum_density_error = std::max(
                 maximum_density_error, density_error);
+            const double rest_density_error = std::abs(
+                gpu_result.density[index] - profile.rest_density)
+                / profile.rest_density;
+            observed_density_minimum = std::min(observed_density_minimum,
+                gpu_result.density[index]);
+            observed_density_maximum = std::max(observed_density_maximum,
+                gpu_result.density[index]);
+            density_sum += gpu_result.density[index];
+            rest_density_squared += rest_density_error * rest_density_error;
+            maximum_rest_density_error = std::max(
+                maximum_rest_density_error, rest_density_error);
             const Vec3d permutation_delta{
                 gpu_result.state[index].current.x
                     - permuted_result.state[index].current.x,
@@ -536,6 +554,11 @@ int run_correspondence_4k(const std::string& scenario,
         maximum_density_rmse = std::max(maximum_density_rmse,
             std::sqrt(density_squared
                 / static_cast<double>(gpu_result.state.size())));
+        maximum_rest_density_rmse = std::max(maximum_rest_density_rmse,
+            std::sqrt(rest_density_squared
+                / static_cast<double>(gpu_result.state.size())));
+        observed_density_mean = density_sum
+            / static_cast<double>(gpu_result.state.size());
         if (gpu_result.active_pressure_ids != cpu_result.active_pressure_ids) {
             ++active_mismatch_steps;
         }
@@ -551,11 +574,33 @@ int run_correspondence_4k(const std::string& scenario,
             || maximum_position_error > 0.005
             || maximum_density_rmse > 0.05
             || maximum_density_error > 0.10
+            || maximum_rest_density_rmse > 0.05
+            || maximum_rest_density_error > 0.10
             || active_mismatch_steps != 0U
             || permutation_mismatch_steps != 0U) break;
     }
     const double wall_seconds = std::chrono::duration<double>(
         std::chrono::steady_clock::now() - started).count();
+    NonlocalGpuGraphResult failure_graph;
+    if (gpu_failure == NonlocalGpuFailure::CapacityExceeded
+        || cpu_failure == NonlocalGpuFailure::CapacityExceeded) {
+        failure_graph = build_reference_graph(
+            profile, cpu_state, ghosts, false);
+    }
+    Vec3d minimum{std::numeric_limits<double>::infinity(),
+        std::numeric_limits<double>::infinity(),
+        std::numeric_limits<double>::infinity()};
+    Vec3d maximum{-std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity()};
+    for (const auto& sample : cpu_state) {
+        minimum.x = std::min(minimum.x, sample.current.x);
+        minimum.y = std::min(minimum.y, sample.current.y);
+        minimum.z = std::min(minimum.z, sample.current.z);
+        maximum.x = std::max(maximum.x, sample.current.x);
+        maximum.y = std::max(maximum.y, sample.current.y);
+        maximum.z = std::max(maximum.z, sample.current.z);
+    }
     const bool passed = completed == steps
         && gpu_failure == NonlocalGpuFailure::None
         && cpu_failure == NonlocalGpuFailure::None
@@ -563,11 +608,35 @@ int run_correspondence_4k(const std::string& scenario,
         && maximum_position_error <= 0.005
         && maximum_density_rmse <= 0.05
         && maximum_density_error <= 0.10
+        && maximum_rest_density_rmse <= 0.05
+        && maximum_rest_density_error <= 0.10
         && active_mismatch_steps == 0U
         && permutation_mismatch_steps == 0U;
+    const bool physical_refuted = !passed && completed > 0U
+        && gpu_failure == NonlocalGpuFailure::None
+        && cpu_failure == NonlocalGpuFailure::None
+        && (maximum_rest_density_rmse > 0.05
+            || maximum_rest_density_error > 0.10);
+    long double infinite_lattice_density = 0.0L;
+    for (int z = -3; z <= 3; ++z) {
+        for (int y = -3; y <= 3; ++y) {
+            for (int x = -3; x <= 3; ++x) {
+                const long double radius = static_cast<long double>(
+                    profile.spacing)
+                    * std::sqrt(static_cast<long double>(x * x + y * y + z * z));
+                if (radius <= static_cast<long double>(profile.horizon)) {
+                    infinite_lattice_density += static_cast<long double>(
+                        profile.mass) * cubic_weight(
+                            radius, static_cast<long double>(profile.horizon));
+                }
+            }
+        }
+    }
+    const char* status = passed ? "PASS"
+        : (physical_refuted ? "PHYSICS_REFUTED" : "INCONCLUSIVE");
     std::cout << std::setprecision(17)
               << "{\"schema\":\"nextengine.nonlocal.ncgp3.correspondence.v1\""
-              << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
+              << ",\"status\":\"" << status << "\""
               << ",\"scenario\":\"" << scenario << "\",\"steps\":" << steps
               << ",\"completed_steps\":" << completed
               << ",\"budget\":" << budget
@@ -575,8 +644,25 @@ int run_correspondence_4k(const std::string& scenario,
               << ",\"cpu_failure\":" << static_cast<std::uint32_t>(cpu_failure)
               << ",\"position_rmse_max_m\":" << maximum_position_rmse
               << ",\"position_error_max_m\":" << maximum_position_error
-              << ",\"density_rmse_max_fraction\":" << maximum_density_rmse
-              << ",\"density_error_max_fraction\":" << maximum_density_error
+              << ",\"density_correspondence_rmse_max_fraction\":"
+              << maximum_density_rmse
+              << ",\"density_correspondence_error_max_fraction\":"
+              << maximum_density_error
+              << ",\"density_rest_rmse_max_fraction\":"
+              << maximum_rest_density_rmse
+              << ",\"density_rest_error_max_fraction\":"
+              << maximum_rest_density_error
+              << ",\"density_observed_min_kg_m3\":"
+              << observed_density_minimum
+              << ",\"density_observed_max_kg_m3\":"
+              << observed_density_maximum
+              << ",\"density_observed_mean_kg_m3\":"
+              << observed_density_mean
+              << ",\"independent_infinite_lattice_density_kg_m3\":"
+              << static_cast<double>(infinite_lattice_density)
+              << ",\"independent_lattice_density_fraction\":"
+              << static_cast<double>(infinite_lattice_density
+                    / static_cast<long double>(profile.rest_density))
               << ",\"active_mismatch_steps\":" << active_mismatch_steps
               << ",\"permutation_mismatch_steps\":"
               << permutation_mismatch_steps
@@ -588,11 +674,25 @@ int run_correspondence_4k(const std::string& scenario,
               << ",\"input_root\":\"" << input_root
               << "\",\"receipt_root\":\""
               << nextengine::nonlocal::sha256_hex(receipt_material)
-              << "\",\"contract_root\":\"" << NCGP3_CONTRACT_ROOT
+              << "\",\"pre_failure_graph_failure\":"
+              << static_cast<std::uint32_t>(failure_graph.failure)
+              << ",\"pre_failure_maximum_degree\":"
+              << failure_graph.maximum_degree
+              << ",\"overflow_owner_id\":"
+              << failure_graph.overflow_owner_id
+              << ",\"overflow_dynamic_neighbors\":"
+              << failure_graph.overflow_dynamic_neighbors
+              << ",\"overflow_ghost_neighbors\":"
+              << failure_graph.overflow_ghost_neighbors
+              << ",\"state_bounds_min\":[" << minimum.x << ',' << minimum.y
+              << ',' << minimum.z << "]"
+              << ",\"state_bounds_max\":[" << maximum.x << ',' << maximum.y
+              << ',' << maximum.z << ']'
+              << ",\"contract_root\":\"" << NCGP3_CONTRACT_ROOT
               << "\",\"source_root\":\"" << NCGP3_SOURCE_ROOT
               << "\",\"binary_root\":\"" << binary_root()
               << "\",\"wall_seconds\":" << wall_seconds << "}\n";
-    return passed ? 0 : 53;
+    return passed ? 0 : (physical_refuted ? 37 : 53);
 }
 
 } // namespace

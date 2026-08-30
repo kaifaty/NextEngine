@@ -149,6 +149,9 @@ struct NonlocalGpuGraphResult {
     std::uint32_t ghost_samples = 0U;
     std::uint32_t directed_pairs = 0U;
     std::uint32_t maximum_degree = 0U;
+    std::uint32_t overflow_owner_id = 0U;
+    std::uint32_t overflow_dynamic_neighbors = 0U;
+    std::uint32_t overflow_ghost_neighbors = 0U;
     std::vector<std::uint32_t> owner_ids;
     std::vector<std::uint32_t> offsets;
     std::vector<std::uint32_t> neighbor_ids;
