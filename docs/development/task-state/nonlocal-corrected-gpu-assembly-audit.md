@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `COMPLETE / NCGA2_REV1_REFUTED / REV2_REFUTED / STRICT_F32_ASSEMBLY_STOP` |
+| Status | `ACTIVE / NCGA3_CONSEQUENCE_CONTRACT_FROZEN / NCGA2_STRICT_F32_RESULT_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Test tiny strict-f32 CUDA energy/gradient/Hessian assembly for the corrected Nonlocal objective, without reviving the stopped SISSM solver |
@@ -11,21 +11,23 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA2 revision 2 is also `REFUTED`. Compensated f32 repairs
-  the symmetric pressure case, but the unchanged combined Hessian remains at
-  `2.6247e-4` relative error against the frozen `2e-4` gate.
+- **Current state:** NCGA2 revision 2 remains reproducibly `REFUTED` at
+  `2.6247e-4` relative combined-Hessian error against its frozen `2e-4` gate.
+  NCGA3 is frozen separately to test whether that miss materially changes
+  HVPs, a bounded regularized step or eight short local steps, and to compare
+  two mixed-pressure arithmetic diagnostics without rewriting NCGA2.
 - **Decision:** NCGA2 assembles objective energy, analytical gradient, exact
   dense Hessian/diagonal blocks and HVP on tiny immutable graphs. It does not
   port the stopped SISSM local matrix.
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** stop the current strict-f32 assembly line. If GPU work is
-  resumed, first freeze a new product-level rounding decomposition and select
-  mixed/f64 arithmetic or a physics-derived solver error budget; do not start a
-  full solver from NCGA2.
-- **Current blocker:** exact compensated strict-f32 combined Hessian misses its
-  predeclared correspondence gate.
+- **Next action:** implement
+  `docs/plans/nonlocal-corrected-gpu-assembly-audit/02-f32-consequence-and-mixed-pressure-contract.md`,
+  first reproducing the exact NCGA2 failure, then running the frozen operator,
+  step, descent and short-sequence discriminators.
+- **Current blocker:** NCGA3 execution evidence is not yet produced; no
+  corrected GPU solver or game-water claim is authorized.
 - **Claim ceiling:** tiny objective assembly correspondence only; no solve,
   trajectory, performance, runtime or product-water claim.
 
