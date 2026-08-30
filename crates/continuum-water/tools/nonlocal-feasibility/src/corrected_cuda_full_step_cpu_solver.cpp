@@ -723,6 +723,12 @@ NonlocalGpuStepResult step_reference(
         if (outer == 0U) result.initial_energy = static_cast<double>(evaluation.energy);
         result.final_energy = static_cast<double>(evaluation.energy);
         result.active_pressure_centers = evaluation.active;
+        result.active_pressure_ids.clear();
+        for (std::size_t index = 0U; index < evaluation.excess.size(); ++index) {
+            if (evaluation.excess[index] > 0.0L) {
+                result.active_pressure_ids.push_back(fixture.ids[index]);
+            }
+        }
         std::vector<CpuVec3> mask;
         std::uint64_t projected = 0U;
         std::vector<CpuVec3> gradient = projected_gradient(fixture,
@@ -945,6 +951,13 @@ NonlocalGpuStepResult step_reference(
             result.boundary_face_mask_xor ^= trial_face_mask_xor;
             result.final_energy = static_cast<double>(trial_evaluation.energy);
             result.active_pressure_centers = trial_evaluation.active;
+            result.active_pressure_ids.clear();
+            for (std::size_t index = 0U;
+                 index < trial_evaluation.excess.size(); ++index) {
+                if (trial_evaluation.excess[index] > 0.0L) {
+                    result.active_pressure_ids.push_back(fixture.ids[index]);
+                }
+            }
         } else {
             ++result.work.rejected_trials;
         }

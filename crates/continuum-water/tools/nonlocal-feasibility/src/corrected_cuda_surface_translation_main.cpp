@@ -34,14 +34,19 @@ namespace {
 
 using namespace nextengine::nonlocal::gpu_full_step;
 
-std::string executable_path;
-
-std::string binary_root() {
-    std::ifstream stream(executable_path, std::ios::binary);
+std::string file_root(const std::string& path) {
+    std::ifstream stream(path, std::ios::binary);
     if (!stream) return {};
     std::ostringstream bytes;
     bytes << stream.rdbuf();
     return nextengine::nonlocal::sha256_hex(bytes.str());
+}
+
+std::string binary_root() { return file_root("/proc/self/exe"); }
+
+bool binary_identity_control_passes() {
+    return binary_root().size() == 64U
+        && file_root("/proc/self/nextengine-ncgp2-missing").empty();
 }
 
 std::uint32_t float_bits(float value) {
@@ -114,9 +119,53 @@ struct Route {
     std::string cpu_result_root;
     std::string environment;
     std::string arithmetic_input_root;
+    std::string high_root;
+    std::string low_root;
     std::string representation_root;
+    std::string gpu_active_root;
+    std::string permuted_active_root;
+    std::string cpu_active_root;
     bool permutation_exact = false;
 };
+
+std::string active_pressure_root(const std::vector<std::uint32_t>& ids) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.ncgp2.active-pressure.v2\n"
+             << ids.size() << '\n';
+    for (const std::uint32_t id : ids) material << id << '\n';
+    return nextengine::nonlocal::sha256_hex(material.str());
+}
+
+std::string ids_json(const std::vector<std::uint32_t>& ids) {
+    std::ostringstream output;
+    output << '[';
+    for (std::size_t index = 0U; index < ids.size(); ++index) {
+        if (index != 0U) output << ',';
+        output << ids[index];
+    }
+    output << ']';
+    return output.str();
+}
+
+std::string zero_low_root(const std::vector<NonlocalGpuSample>& state) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.ncgp2.binary32-low-input.v2\n"
+             << state.size() << '\n';
+    for (const NonlocalGpuSample& sample : state) {
+        material << sample.sample_id << '\n';
+        for (unsigned int component = 0U; component < 9U; ++component) {
+            material << 0U << '\n';
+        }
+    }
+    return nextengine::nonlocal::sha256_hex(material.str());
+}
+
+std::string close_representation_root(
+    const std::string& semantic_root, const std::string& representation_root) {
+    return nextengine::nonlocal::sha256_hex(
+        std::string("nextengine.nonlocal.ncgp2.closed-result.v2\n")
+        + semantic_root + "\n" + representation_root + "\n");
+}
 
 Route run_route(const NonlocalGpuProfile& profile,
     const std::vector<NonlocalGpuSample>& state,
@@ -157,111 +206,84 @@ Route run_route(const NonlocalGpuProfile& profile,
         profile, route.input_root, route.permuted);
     route.cpu_result_root = step_semantic_root(
         profile, route.input_root, route.cpu);
+    route.gpu_active_root = active_pressure_root(route.gpu.active_pressure_ids);
+    route.permuted_active_root = active_pressure_root(
+        route.permuted.active_pressure_ids);
+    route.cpu_active_root = active_pressure_root(route.cpu.active_pressure_ids);
     route.permutation_exact = route.gpu.failure == route.permuted.failure
         && route.gpu_work_root == route.permuted_work_root
-        && route.gpu_result_root == route.permuted_result_root;
+        && route.gpu_result_root == route.permuted_result_root
+        && route.gpu.active_pressure_ids == route.permuted.active_pressure_ids;
     return route;
-}
-
-float translated_low(float value, float anchor) {
-    return value - anchor;
-}
-
-float publish_translated(float anchor, double local) {
-    return anchor + static_cast<float>(local);
-}
-
-bool compensated_input_exact(const std::vector<NonlocalGpuSample>& original,
-    const std::vector<NonlocalGpuSample>& local,
-    float anchor) {
-    if (original.size() != local.size()) return false;
-    for (std::size_t index = 0U; index < original.size(); ++index) {
-        if (original[index].sample_id != local[index].sample_id) return false;
-        const float reconstructed_reference = publish_translated(
-            anchor, local[index].reference.x);
-        const float reconstructed_current = publish_translated(
-            anchor, local[index].current.x);
-        if (float_bits(reconstructed_reference)
-                != float_bits(static_cast<float>(original[index].reference.x))
-            || float_bits(reconstructed_current)
-                != float_bits(static_cast<float>(original[index].current.x))) {
-            return false;
-        }
-    }
-    return true;
-}
-
-std::vector<NonlocalGpuSample> localize_state(
-    const std::vector<NonlocalGpuSample>& state, float anchor) {
-    std::vector<NonlocalGpuSample> local = state;
-    for (NonlocalGpuSample& sample : local) {
-        sample.reference.x = translated_low(
-            static_cast<float>(sample.reference.x), anchor);
-        sample.current.x = translated_low(
-            static_cast<float>(sample.current.x), anchor);
-    }
-    return local;
-}
-
-void publish_compensated_state(NonlocalGpuStepResult& result, float anchor) {
-    for (NonlocalGpuSample& sample : result.state) {
-        sample.reference.x = publish_translated(anchor, sample.reference.x);
-        sample.current.x = publish_translated(anchor, sample.current.x);
-    }
 }
 
 Route run_compensated_route(const NonlocalGpuProfile& profile,
     const std::vector<NonlocalGpuSample>& state,
-    double center,
-    bool& input_exact) {
+    bool& input_exact,
+    NonlocalGpuVariant variant = NonlocalGpuVariant::CompensatedStateF32) {
     const std::vector<NonlocalGpuGhost> no_ghosts;
-    const float anchor = static_cast<float>(center);
-    const auto local = localize_state(state, anchor);
-    input_exact = compensated_input_exact(state, local, anchor);
+    input_exact = std::all_of(state.begin(), state.end(),
+        [](const NonlocalGpuSample& sample) {
+            const auto exact = [](double value) {
+                return static_cast<double>(static_cast<float>(value)) == value;
+            };
+            return exact(sample.reference.x) && exact(sample.reference.y)
+                && exact(sample.reference.z) && exact(sample.current.x)
+                && exact(sample.current.y) && exact(sample.current.z)
+                && exact(sample.velocity.x) && exact(sample.velocity.y)
+                && exact(sample.velocity.z);
+        });
     Route route;
     route.input_root = input_semantic_root(profile, state, no_ghosts);
-    route.arithmetic_input_root = input_semantic_root(profile, local, no_ghosts);
+    route.high_root = route.input_root;
+    route.low_root = zero_low_root(state);
+    route.arithmetic_input_root = nextengine::nonlocal::sha256_hex(
+        std::string("nextengine.nonlocal.ncgp2.arithmetic-input.v2\n")
+        + route.high_root + "\n" + route.low_root + "\n");
     route.representation_root = nextengine::nonlocal::sha256_hex(
-        std::string("nextengine.nonlocal.ncgp2.compensated-input.v1\n")
+        std::string("nextengine.nonlocal.ncgp2.compensated-input.v2\n")
         + route.input_root + "\n" + route.arithmetic_input_root + "\n"
-        + std::to_string(float_bits(anchor)) + "\n");
+        + route.high_root + "\n" + route.low_root + "\n");
     NonlocalGpuWorkspace workspace(profile);
-    if (workspace.upload(local, no_ghosts) != NonlocalGpuFailure::None) {
+    if (workspace.upload(state, no_ghosts, true) != NonlocalGpuFailure::None) {
         route.gpu.failure = NonlocalGpuFailure::InvalidState;
         return route;
     }
     route.gpu = workspace.step(128U,
         NonlocalGpuSolverProfile::Unpreconditioned,
-        NonlocalGpuVariant::CompensatedStateF32, true, false);
+        variant, true, false);
     route.environment = workspace.environment_json();
-    publish_compensated_state(route.gpu, anchor);
     route.cpu = step_reference(profile, state, no_ghosts, 128U,
         NonlocalGpuVariant::Corrected, true);
 
-    auto permuted_local = local;
-    std::reverse(permuted_local.begin(), permuted_local.end());
+    auto permuted_state = state;
+    std::reverse(permuted_state.begin(), permuted_state.end());
     NonlocalGpuWorkspace permuted_workspace(profile);
-    if (permuted_workspace.upload(permuted_local, no_ghosts)
+    if (permuted_workspace.upload(permuted_state, no_ghosts, true)
         != NonlocalGpuFailure::None) {
         route.permuted.failure = NonlocalGpuFailure::InvalidState;
         return route;
     }
     route.permuted = permuted_workspace.step(128U,
         NonlocalGpuSolverProfile::Unpreconditioned,
-        NonlocalGpuVariant::CompensatedStateF32, true, false);
-    publish_compensated_state(route.permuted, anchor);
+        variant, true, false);
     route.gpu_work_root = step_work_semantic_root(profile, route.gpu);
     route.permuted_work_root = step_work_semantic_root(profile, route.permuted);
     route.cpu_work_root = step_work_semantic_root(profile, route.cpu);
-    route.gpu_result_root = step_semantic_root(
-        profile, route.input_root, route.gpu);
-    route.permuted_result_root = step_semantic_root(
-        profile, route.input_root, route.permuted);
+    route.gpu_result_root = close_representation_root(step_semantic_root(
+        profile, route.input_root, route.gpu), route.representation_root);
+    route.permuted_result_root = close_representation_root(step_semantic_root(
+        profile, route.input_root, route.permuted), route.representation_root);
     route.cpu_result_root = step_semantic_root(
         profile, route.input_root, route.cpu);
+    route.gpu_active_root = active_pressure_root(route.gpu.active_pressure_ids);
+    route.permuted_active_root = active_pressure_root(
+        route.permuted.active_pressure_ids);
+    route.cpu_active_root = active_pressure_root(route.cpu.active_pressure_ids);
     route.permutation_exact = route.gpu.failure == route.permuted.failure
         && route.gpu_work_root == route.permuted_work_root
-        && route.gpu_result_root == route.permuted_result_root;
+        && route.gpu_result_root == route.permuted_result_root
+        && route.gpu.active_pressure_ids == route.permuted.active_pressure_ids;
     return route;
 }
 
@@ -275,7 +297,13 @@ void emit_center(double center,
     const long double radius = static_cast<long double>(high)
         - static_cast<long double>(low);
     const long double q = radius / static_cast<long double>(profile.spacing);
-    const long double surface_force = q * q - 1.0L;
+    long double surface_force = 0.0L;
+    if (q <= 1.0L) {
+        surface_force = q * q - 1.0L;
+    } else if (q < 3.0L) {
+        const long double shifted = q - 2.0L;
+        surface_force = 1.0L - shifted * shifted;
+    }
     const long double radial_gradient = 2.0L
         * static_cast<long double>(profile.gamma)
         * static_cast<long double>(profile.mass)
@@ -284,6 +312,9 @@ void emit_center(double center,
     double maximum_cpu_displacement_ulps = 0.0;
     double maximum_once_round_error = 0.0;
     std::uint32_t once_round_unchanged = 0U;
+    std::ostringstream endpoint_json;
+    endpoint_json << '[';
+    bool first_endpoint = true;
     if (route.cpu.failure == NonlocalGpuFailure::None) {
         for (const NonlocalGpuSample& initial : state) {
             const NonlocalGpuSample* final = find_sample(
@@ -303,11 +334,29 @@ void emit_center(double center,
             if (float_bits(rounded_final) == float_bits(initial_float)) {
                 ++once_round_unchanged;
             }
+            if (!first_endpoint) endpoint_json << ',';
+            first_endpoint = false;
+            endpoint_json << std::setprecision(17)
+                          << "{\"sample_id\":" << initial.sample_id
+                          << ",\"initial_bits\":" << float_bits(initial_float)
+                          << ",\"initial_ulp_m\":" << ulp
+                          << ",\"cpu_displacement_m\":" << displacement
+                          << ",\"cpu_displacement_ulps\":"
+                          << displacement / ulp
+                          << ",\"once_round_error_m\":"
+                          << std::abs(static_cast<double>(rounded_final)
+                                - final->current.x)
+                          << ",\"rounded_bits\":" << float_bits(rounded_final)
+                          << ",\"once_round_unchanged\":"
+                          << (float_bits(rounded_final) == float_bits(initial_float)
+                                  ? "true" : "false")
+                          << '}';
         }
     }
+    endpoint_json << ']';
 
     std::cout << std::setprecision(17)
-              << "{\"schema\":\"nextengine.nonlocal.ncgp2.phase-a.v1\""
+              << "{\"schema\":\"nextengine.nonlocal.ncgp2.phase-a.v2\""
               << ",\"kind\":\"center\",\"center_m\":" << center
               << ",\"profile_root\":\"" << profile_semantic_root(profile)
               << "\",\"input_root\":\"" << route.input_root
@@ -335,6 +384,7 @@ void emit_center(double center,
               << maximum_once_round_error
               << ",\"cpu_once_round_unchanged_endpoints\":"
               << once_round_unchanged
+              << ",\"cpu_endpoints\":" << endpoint_json.str()
               << ",\"gpu_failure\":"
               << static_cast<std::uint32_t>(route.gpu.failure)
               << ",\"gpu_scaled_residual\":"
@@ -346,7 +396,10 @@ void emit_center(double center,
               << ",\"gpu_rejected\":" << route.gpu.work.rejected_trials
               << ",\"gpu_work_root\":\"" << route.gpu_work_root
               << "\",\"gpu_result_root\":\"" << route.gpu_result_root
-              << "\",\"permuted_failure\":"
+              << "\",\"gpu_active_root\":\"" << route.gpu_active_root
+              << "\",\"gpu_active_ids\":"
+              << ids_json(route.gpu.active_pressure_ids)
+              << ",\"permuted_failure\":"
               << static_cast<std::uint32_t>(route.permuted.failure)
               << ",\"permutation_exact\":"
               << (route.permutation_exact ? "true" : "false")
@@ -354,9 +407,23 @@ void emit_center(double center,
               << route.permuted_work_root
               << "\",\"permuted_result_root\":\""
               << route.permuted_result_root
-              << "\",\"cpu_work_root\":\"" << route.cpu_work_root
+              << "\",\"permuted_active_root\":\""
+              << route.permuted_active_root
+              << "\",\"permuted_active_ids\":"
+              << ids_json(route.permuted.active_pressure_ids)
+              << ",\"cpu_work_root\":\"" << route.cpu_work_root
               << "\",\"cpu_result_root\":\"" << route.cpu_result_root
-              << "\"}\n";
+              << "\",\"cpu_active_root\":\"" << route.cpu_active_root
+              << "\",\"cpu_active_ids\":"
+              << ids_json(route.cpu.active_pressure_ids)
+              << ",\"arithmetic_input_root\":\""
+              << route.arithmetic_input_root
+              << "\",\"high_root\":\"" << route.high_root
+              << "\",\"low_root\":\"" << route.low_root
+              << "\",\"representation_root\":\""
+              << route.representation_root
+              << "\",\"anchor_root\":\"not-applicable-no-anchor\""
+              << "}\n";
 }
 
 int run_phase_a() {
@@ -395,10 +462,12 @@ int run_phase_a() {
         && gamma_zero.permutation_exact;
     emit_center(0.75, gamma_zero_profile, gamma_zero_state, gamma_zero);
 
+    const bool binary_control = binary_identity_control_passes();
     const bool passed = cpu_all_pass && permutations_all_exact
-        && control_quarter_pass && primary_reproduced && gamma_zero_pass;
+        && control_quarter_pass && primary_reproduced && gamma_zero_pass
+        && binary_control;
     const std::string executable_root = binary_root();
-    std::cout << "{\"schema\":\"nextengine.nonlocal.ncgp2.phase-a.v1\""
+    std::cout << "{\"schema\":\"nextengine.nonlocal.ncgp2.phase-a.v2\""
               << ",\"kind\":\"summary\",\"research_id\":\"NCGP2\""
               << ",\"status\":\""
               << (passed ? "PHASE_A_PASS" : "INCONCLUSIVE") << "\""
@@ -419,6 +488,8 @@ int run_phase_a() {
               << (primary_reproduced ? "true" : "false")
               << ",\"gamma_zero_control_pass\":"
               << (gamma_zero_pass ? "true" : "false")
+              << ",\"binary_identity_control_pass\":"
+              << (binary_control ? "true" : "false")
               << ",\"environment\":" << environment << "}\n";
     return passed ? 0 : 2;
 }
@@ -471,10 +542,11 @@ int run_surface_f64() {
             && route.permutation_exact;
         if (center == 0.75) primary_pass = center_pass;
     }
+    const bool binary_control = binary_identity_control_passes();
     const bool passed = all_pass && primary_pass && cpu_all_pass
-        && permutations_all_exact;
+        && permutations_all_exact && binary_control;
     std::cout << std::setprecision(17)
-              << "{\"schema\":\"nextengine.nonlocal.ncgp2.phase-b.v1\""
+              << "{\"schema\":\"nextengine.nonlocal.ncgp2.phase-b.v2\""
               << ",\"kind\":\"summary\",\"counterfactual\":\"surface-f64\""
               << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
               << ",\"contract_root\":\"" << NCGP2_CONTRACT_ROOT
@@ -482,12 +554,16 @@ int run_surface_f64() {
               << "\",\"source_commit\":\"" << NCGP2_SOURCE_COMMIT
               << "\",\"source_tree\":\"" << NCGP2_SOURCE_TREE
               << "\",\"binary_root\":\"" << binary_root()
-              << "\",\"primary_pass\":" << (primary_pass ? "true" : "false")
+              << "\",\"compiler_flags\":\"" << NCGP2_COMPILER_FLAGS
+              << "\",\"command\":\"nonlocal-corrected-cuda-surface-translation --surface-f64\""
+              << ",\"primary_pass\":" << (primary_pass ? "true" : "false")
               << ",\"all_centers_pass\":" << (all_pass ? "true" : "false")
               << ",\"cpu_all_pass\":" << (cpu_all_pass ? "true" : "false")
               << ",\"permutations_all_exact\":"
               << (permutations_all_exact ? "true" : "false")
               << ",\"maximum_cpu_position_error_m\":" << maximum_cpu_error
+              << ",\"binary_identity_control_pass\":"
+              << (binary_control ? "true" : "false")
               << ",\"environment\":" << environment << "}\n";
     return passed ? 0 : 4;
 }
@@ -519,6 +595,100 @@ struct SurfaceControl {
     double equal_opposite_closure = 0.0;
 };
 
+struct CompensatedControls {
+    bool canonical_pair_pass = false;
+    bool malformed_pair_rejected = false;
+    bool omitted_low_rejected = false;
+    bool broken_eft_rejected = false;
+    bool input_root_mismatch_rejected = false;
+    bool work_mismatch_rejected = false;
+    bool transaction_mismatch_rejected = false;
+    bool publish_mismatch_rejected = false;
+    bool permutation_identity_loss_rejected = false;
+    bool representation_root_mismatch_rejected = false;
+    NonlocalGpuFailure omitted_low_failure = NonlocalGpuFailure::None;
+    NonlocalGpuFailure broken_eft_failure = NonlocalGpuFailure::None;
+
+    bool passed() const {
+        return canonical_pair_pass && malformed_pair_rejected
+            && omitted_low_rejected && broken_eft_rejected
+            && input_root_mismatch_rejected && work_mismatch_rejected
+            && transaction_mismatch_rejected && publish_mismatch_rejected
+            && permutation_identity_loss_rejected
+            && representation_root_mismatch_rejected;
+    }
+};
+
+bool canonical_binary32_pair(float high, float low) {
+    return std::isfinite(high) && std::isfinite(low)
+        && high + low == high
+        && std::abs(low) <= 0.5F * upward_ulp(std::abs(high));
+}
+
+CompensatedControls run_compensated_negative_controls(
+    const NonlocalGpuProfile& profile, const Route& baseline) {
+    CompensatedControls controls;
+    controls.canonical_pair_pass = canonical_binary32_pair(0.75F, 0.0F);
+    controls.malformed_pair_rejected = !canonical_binary32_pair(0.75F, 0.25F);
+
+    const auto state = pair_state(0.75);
+    bool input_exact = false;
+    const Route omitted = run_compensated_route(profile, state, input_exact,
+        NonlocalGpuVariant::CompensatedOmitLow);
+    const Route broken = run_compensated_route(profile, state, input_exact,
+        NonlocalGpuVariant::CompensatedBrokenEft);
+    controls.omitted_low_failure = omitted.gpu.failure;
+    controls.broken_eft_failure = broken.gpu.failure;
+    controls.omitted_low_rejected = omitted.gpu_result_root
+        != baseline.gpu_result_root;
+    controls.broken_eft_rejected = broken.gpu_result_root
+        != baseline.gpu_result_root;
+
+    auto input_mutation = state;
+    input_mutation[0].current.x = static_cast<double>(std::nextafter(
+        static_cast<float>(input_mutation[0].current.x),
+        std::numeric_limits<float>::infinity()));
+    const std::vector<NonlocalGpuGhost> no_ghosts;
+    controls.input_root_mismatch_rejected = input_semantic_root(
+        profile, input_mutation, no_ghosts) != baseline.input_root;
+
+    NonlocalGpuStepResult work_mutation = baseline.gpu;
+    ++work_mutation.work.compensated_difference_components;
+    controls.work_mismatch_rejected = step_work_semantic_root(
+        profile, work_mutation) != baseline.gpu_work_root;
+
+    NonlocalGpuStepResult transaction_mutation = baseline.gpu;
+    ++transaction_mutation.work.compensated_transaction_components;
+    controls.transaction_mismatch_rejected = step_semantic_root(
+        profile, baseline.input_root, transaction_mutation)
+        != step_semantic_root(profile, baseline.input_root, baseline.gpu);
+
+    NonlocalGpuStepResult publish_mutation = baseline.gpu;
+    if (!publish_mutation.state.empty()) {
+        publish_mutation.state[0].current.x = static_cast<double>(std::nextafter(
+            static_cast<float>(publish_mutation.state[0].current.x),
+            std::numeric_limits<float>::infinity()));
+    }
+    controls.publish_mismatch_rejected = step_semantic_root(
+        profile, baseline.input_root, publish_mutation)
+        != step_semantic_root(profile, baseline.input_root, baseline.gpu);
+
+    NonlocalGpuStepResult permutation_mutation = baseline.gpu;
+    std::reverse(permutation_mutation.active_pressure_ids.begin(),
+        permutation_mutation.active_pressure_ids.end());
+    controls.permutation_identity_loss_rejected = step_semantic_root(
+        profile, baseline.input_root, permutation_mutation)
+        != step_semantic_root(profile, baseline.input_root, baseline.gpu);
+
+    std::string representation_mutation = baseline.representation_root;
+    if (!representation_mutation.empty()) representation_mutation[0] =
+        representation_mutation[0] == '0' ? '1' : '0';
+    controls.representation_root_mismatch_rejected = close_representation_root(
+        step_semantic_root(profile, baseline.input_root, baseline.gpu),
+        representation_mutation) != baseline.gpu_result_root;
+    return controls;
+}
+
 SurfaceControl run_compensated_surface_control() {
     NonlocalGpuProfile profile = pair_profile();
     profile.kappa = 0.0;
@@ -528,14 +698,12 @@ SurfaceControl run_compensated_surface_control() {
         {101U, {0.73, 0.75, 0.75}, {0.73, 0.75, 0.75}, {}},
         {202U, {0.77, 0.75, 0.75}, {0.77, 0.75, 0.75}, {}},
     });
-    const float anchor = 0.75F;
-    const auto local = localize_state(state, anchor);
     const std::vector<Vec3d> direction{
         {-0.3, 0.2, -0.1}, {0.3, -0.2, 0.1}};
     const std::vector<NonlocalGpuGhost> no_ghosts;
     NonlocalGpuWorkspace workspace(profile);
     SurfaceControl control;
-    if (workspace.upload(local, no_ghosts) != NonlocalGpuFailure::None) {
+    if (workspace.upload(state, no_ghosts, true) != NonlocalGpuFailure::None) {
         return control;
     }
     const auto gpu = workspace.evaluate(&direction,
@@ -611,24 +779,37 @@ int run_compensated_state_f32() {
     bool primary_pass = false;
     double maximum_cpu_error = 0.0;
     std::string representation_material;
-    std::uint64_t input_decompositions = 0U;
-    std::uint64_t input_reconstructions = 0U;
-    std::uint64_t published_components = 0U;
+    std::uint64_t input_components = 0U;
+    std::uint64_t decomposition_components = 0U;
+    std::uint64_t reconstruction_components = 0U;
+    std::uint64_t canonical_checks = 0U;
+    std::uint64_t difference_components = 0U;
+    std::uint64_t inertia_components = 0U;
+    std::uint64_t trial_eft_components = 0U;
+    std::uint64_t transaction_components = 0U;
+    std::uint64_t publish_components = 0U;
     std::string environment;
+    Route primary_route;
     for (double center : centers) {
         const auto state = pair_state(center);
         bool input_exact = false;
         const Route route = run_compensated_route(
-            profile, state, center, input_exact);
+            profile, state, input_exact);
         representation_material += route.representation_root + "\n";
-        input_decompositions += 2U * state.size();
-        input_reconstructions += 2U * state.size();
-        if (route.gpu.failure == NonlocalGpuFailure::None) {
-            published_components += 2U * route.gpu.state.size();
-        }
-        if (route.permuted.failure == NonlocalGpuFailure::None) {
-            published_components += 2U * route.permuted.state.size();
-        }
+        const auto accumulate_representation_work = [&](const auto& work) {
+            input_components += work.compensated_input_components;
+            decomposition_components += work.compensated_decomposition_components;
+            reconstruction_components +=
+                work.compensated_reconstruction_components;
+            canonical_checks += work.compensated_canonical_checks;
+            difference_components += work.compensated_difference_components;
+            inertia_components += work.compensated_inertia_components;
+            trial_eft_components += work.compensated_trial_eft_components;
+            transaction_components += work.compensated_transaction_components;
+            publish_components += work.compensated_publish_components;
+        };
+        accumulate_representation_work(route.gpu.work);
+        accumulate_representation_work(route.permuted.work);
         if (environment.empty()) environment = route.environment;
         emit_center(center, profile, state, route);
         const bool route_pass = input_exact
@@ -636,8 +817,7 @@ int run_compensated_state_f32() {
             && route.cpu.failure == NonlocalGpuFailure::None
             && route.permutation_exact
             && route.gpu.work.accepted_trials > 0U
-            && route.gpu.active_pressure_centers
-                == route.cpu.active_pressure_centers;
+            && route.gpu.active_pressure_ids == route.cpu.active_pressure_ids;
         double route_cpu_error = 0.0;
         if (route_pass) {
             for (const NonlocalGpuSample& gpu_sample : route.gpu.state) {
@@ -663,20 +843,33 @@ int run_compensated_state_f32() {
             && route.cpu.failure == NonlocalGpuFailure::None;
         permutations_all_exact = permutations_all_exact
             && route.permutation_exact;
-        if (center == 0.75) primary_pass = center_pass;
+        if (center == 0.75) {
+            primary_pass = center_pass;
+            primary_route = route;
+        }
     }
     const SurfaceControl surface_control = run_compensated_surface_control();
+    const CompensatedControls controls = run_compensated_negative_controls(
+        profile, primary_route);
     const std::string representation_work_root =
         nextengine::nonlocal::sha256_hex(
-            std::string("nextengine.nonlocal.ncgp2.compensated-work.v1\n")
-            + std::to_string(input_decompositions) + "\n"
-            + std::to_string(input_reconstructions) + "\n"
-            + std::to_string(published_components) + "\n"
+            std::string("nextengine.nonlocal.ncgp2.compensated-work.v2\n")
+            + std::to_string(input_components) + "\n"
+            + std::to_string(decomposition_components) + "\n"
+            + std::to_string(reconstruction_components) + "\n"
+            + std::to_string(canonical_checks) + "\n"
+            + std::to_string(difference_components) + "\n"
+            + std::to_string(inertia_components) + "\n"
+            + std::to_string(trial_eft_components) + "\n"
+            + std::to_string(transaction_components) + "\n"
+            + std::to_string(publish_components) + "\n"
             + representation_material);
+    const bool binary_control = binary_identity_control_passes();
     const bool passed = all_pass && primary_pass && input_all_exact
-        && cpu_all_pass && permutations_all_exact && surface_control.passed;
+        && cpu_all_pass && permutations_all_exact && surface_control.passed
+        && binary_control && controls.passed();
     std::cout << std::setprecision(17)
-              << "{\"schema\":\"nextengine.nonlocal.ncgp2.phase-b.v1\""
+              << "{\"schema\":\"nextengine.nonlocal.ncgp2.phase-b.v2\""
               << ",\"kind\":\"summary\",\"counterfactual\":\"compensated-state-f32\""
               << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
               << ",\"contract_root\":\"" << NCGP2_CONTRACT_ROOT
@@ -684,17 +877,30 @@ int run_compensated_state_f32() {
               << "\",\"source_commit\":\"" << NCGP2_SOURCE_COMMIT
               << "\",\"source_tree\":\"" << NCGP2_SOURCE_TREE
               << "\",\"binary_root\":\"" << binary_root()
-              << "\",\"primary_pass\":" << (primary_pass ? "true" : "false")
+              << "\",\"compiler_flags\":\"" << NCGP2_COMPILER_FLAGS
+              << "\",\"command\":\"nonlocal-corrected-cuda-surface-translation --compensated-state-f32\""
+              << ",\"primary_pass\":" << (primary_pass ? "true" : "false")
               << ",\"all_centers_pass\":" << (all_pass ? "true" : "false")
               << ",\"input_all_exact\":" << (input_all_exact ? "true" : "false")
               << ",\"cpu_all_pass\":" << (cpu_all_pass ? "true" : "false")
               << ",\"permutations_all_exact\":"
               << (permutations_all_exact ? "true" : "false")
               << ",\"maximum_cpu_position_error_m\":" << maximum_cpu_error
-              << ",\"representation\":\"shared-binary32-hi-anchor-plus-binary32-lo\""
-              << ",\"input_decompositions\":" << input_decompositions
-              << ",\"input_reconstructions\":" << input_reconstructions
-              << ",\"published_components\":" << published_components
+              << ",\"representation\":\"canonical-binary32-hi-lo-device-state\""
+              << ",\"compensated_input_components\":" << input_components
+              << ",\"compensated_decomposition_components\":"
+              << decomposition_components
+              << ",\"compensated_reconstruction_components\":"
+              << reconstruction_components
+              << ",\"compensated_canonical_checks\":" << canonical_checks
+              << ",\"compensated_difference_components\":"
+              << difference_components
+              << ",\"compensated_inertia_components\":" << inertia_components
+              << ",\"compensated_trial_eft_components\":"
+              << trial_eft_components
+              << ",\"compensated_transaction_components\":"
+              << transaction_components
+              << ",\"compensated_publish_components\":" << publish_components
               << ",\"representation_work_root\":\""
               << representation_work_root << "\""
               << ",\"surface_control_pass\":"
@@ -707,6 +913,36 @@ int run_compensated_state_f32() {
               << surface_control.directional_relative_error
               << ",\"surface_equal_opposite_closure\":"
               << surface_control.equal_opposite_closure
+              << ",\"binary_identity_control_pass\":"
+              << (binary_control ? "true" : "false")
+              << ",\"compensated_controls_pass\":"
+              << (controls.passed() ? "true" : "false")
+              << ",\"canonical_pair_control_pass\":"
+              << (controls.canonical_pair_pass ? "true" : "false")
+              << ",\"malformed_pair_control_pass\":"
+              << (controls.malformed_pair_rejected ? "true" : "false")
+              << ",\"omitted_low_control_pass\":"
+              << (controls.omitted_low_rejected ? "true" : "false")
+              << ",\"omitted_low_failure\":"
+              << static_cast<std::uint32_t>(controls.omitted_low_failure)
+              << ",\"broken_eft_control_pass\":"
+              << (controls.broken_eft_rejected ? "true" : "false")
+              << ",\"broken_eft_failure\":"
+              << static_cast<std::uint32_t>(controls.broken_eft_failure)
+              << ",\"input_root_control_pass\":"
+              << (controls.input_root_mismatch_rejected ? "true" : "false")
+              << ",\"work_root_control_pass\":"
+              << (controls.work_mismatch_rejected ? "true" : "false")
+              << ",\"transaction_root_control_pass\":"
+              << (controls.transaction_mismatch_rejected ? "true" : "false")
+              << ",\"publish_root_control_pass\":"
+              << (controls.publish_mismatch_rejected ? "true" : "false")
+              << ",\"permutation_identity_control_pass\":"
+              << (controls.permutation_identity_loss_rejected
+                      ? "true" : "false")
+              << ",\"representation_root_control_pass\":"
+              << (controls.representation_root_mismatch_rejected
+                      ? "true" : "false")
               << ",\"environment\":" << environment << "}\n";
     return passed ? 0 : 5;
 }
@@ -714,7 +950,6 @@ int run_compensated_state_f32() {
 } // namespace
 
 int main(int argc, char** argv) {
-    executable_path = argc > 0 ? argv[0] : std::string{};
     if (argc == 2 && std::string(argv[1]) == "--phase-a") {
         try {
             return run_phase_a();

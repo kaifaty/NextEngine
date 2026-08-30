@@ -578,6 +578,19 @@ std::string step_work_semantic_root(const NonlocalGpuProfile& profile,
     append_u32(bytes, static_cast<std::uint32_t>(result.solver_profile));
     append_u32(bytes, static_cast<std::uint32_t>(result.variant));
     append_string(bytes, work_semantic_root(result.work));
+    if (result.variant == NonlocalGpuVariant::CompensatedStateF32
+        || result.variant == NonlocalGpuVariant::CompensatedOmitLow
+        || result.variant == NonlocalGpuVariant::CompensatedBrokenEft) {
+        append_u64(bytes, result.work.compensated_input_components);
+        append_u64(bytes, result.work.compensated_decomposition_components);
+        append_u64(bytes, result.work.compensated_reconstruction_components);
+        append_u64(bytes, result.work.compensated_canonical_checks);
+        append_u64(bytes, result.work.compensated_difference_components);
+        append_u64(bytes, result.work.compensated_inertia_components);
+        append_u64(bytes, result.work.compensated_trial_eft_components);
+        append_u64(bytes, result.work.compensated_transaction_components);
+        append_u64(bytes, result.work.compensated_publish_components);
+    }
     return sha256_hex(bytes);
 }
 
@@ -604,6 +617,14 @@ std::string step_semantic_root(const NonlocalGpuProfile& profile,
     append_f64(bytes, result.boundary_impulse.y);
     append_f64(bytes, result.boundary_impulse.z);
     append_u64(bytes, result.boundary_face_mask_xor);
+    if (result.variant == NonlocalGpuVariant::CompensatedStateF32
+        || result.variant == NonlocalGpuVariant::CompensatedOmitLow
+        || result.variant == NonlocalGpuVariant::CompensatedBrokenEft) {
+        append_u64(bytes, result.active_pressure_ids.size());
+        for (const std::uint32_t id : result.active_pressure_ids) {
+            append_u32(bytes, id);
+        }
+    }
     append_u64(bytes, result.state.size());
     for (const NonlocalGpuSample& sample : result.state) {
         append_u32(bytes, sample.sample_id);

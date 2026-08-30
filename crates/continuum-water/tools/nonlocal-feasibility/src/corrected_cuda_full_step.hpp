@@ -72,6 +72,8 @@ enum class NonlocalGpuVariant : std::uint32_t {
     PostFinalizeFailure = 9U,
     SurfaceF64 = 10U,
     CompensatedStateF32 = 11U,
+    CompensatedOmitLow = 12U,
+    CompensatedBrokenEft = 13U,
 };
 
 enum class NonlocalGpuSolverProfile : std::uint32_t {
@@ -111,6 +113,15 @@ struct NonlocalGpuWorkReceipt {
     std::uint64_t state_updates = 0U;
     std::uint64_t host_to_device_bytes = 0U;
     std::uint64_t device_to_host_bytes = 0U;
+    std::uint64_t compensated_input_components = 0U;
+    std::uint64_t compensated_decomposition_components = 0U;
+    std::uint64_t compensated_reconstruction_components = 0U;
+    std::uint64_t compensated_canonical_checks = 0U;
+    std::uint64_t compensated_difference_components = 0U;
+    std::uint64_t compensated_inertia_components = 0U;
+    std::uint64_t compensated_trial_eft_components = 0U;
+    std::uint64_t compensated_transaction_components = 0U;
+    std::uint64_t compensated_publish_components = 0U;
 };
 
 struct NonlocalGpuTimings {
@@ -156,6 +167,7 @@ struct NonlocalGpuStepResult {
     double gradient_norm = 0.0;
     double scaled_displacement_residual = 0.0;
     std::uint32_t active_pressure_centers = 0U;
+    std::vector<std::uint32_t> active_pressure_ids;
     std::uint32_t hvp_budget = 0U;
     std::uint32_t hvp_used = 0U;
     std::uint32_t outer_trials = 0U;
@@ -177,7 +189,8 @@ public:
     NonlocalGpuWorkspace& operator=(const NonlocalGpuWorkspace&) = delete;
 
     NonlocalGpuFailure upload(const std::vector<NonlocalGpuSample>& samples,
-        const std::vector<NonlocalGpuGhost>& ghosts);
+        const std::vector<NonlocalGpuGhost>& ghosts,
+        bool prepare_compensated_state = false);
 
     NonlocalGpuGraphResult build_current_graph(NonlocalGpuVariant variant,
         bool capture_payload,
