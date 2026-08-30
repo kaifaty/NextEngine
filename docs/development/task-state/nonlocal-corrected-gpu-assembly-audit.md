@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA5_R1_INCONCLUSIVE / NCGA5_R2_FROZEN / CORRIGENDUM_FROZEN / SINGLE_APPARATUS_REPAIR / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
+| Status | `ACTIVE / NCGA5_AUTHOR_REFUTED_F32_STATIC_SOLVE_MATERIAL / NCGA6_NEXT / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Determine whether strict-f32 corrected CUDA assembly can complete both retained NSR1 static solves before any trajectory or performance claim |
@@ -11,16 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA5 revision 1 stopped `INCONCLUSIVE`: compressed pair
-  reproduced NSR1, while the independently ordered `long double` dense
-  combined reference reached `R_x=9.54e-11` and then the arithmetic floor
-  instead of reproducing the historical matrix-free binary64 terminal ratio.
-  Revision 2 freezes one apparatus-only repair using the pre-existing NSR2-A1
-  `R_x<=1e-8` reference criterion. A pre-run logical corrigendum assigns the
-  multi-HVP residual gate to the combined/corpus path, since compressed
-  `4 outer / 8 total HVP` proves one inner HVP per step. Every strict-f32
-  candidate gate is unchanged; mixed precision remains unauthorized. NCGA4
-  revision 1 remains
+- **Current state:** NCGA5 revision 2 is hash-closed
+  `AUTHOR_REFUTED / F32_STATIC_SOLVE_MATERIAL`. Both strict-f32 static solves
+  approach the independent solution within `0.0353 um`, but f32 actual
+  reduction loses sign/resolution and both runs collapse the trust radius.
+  Compressed `R_x=1.323e-5` and both objective differences exceed the frozen
+  candidate bands. NCGA4 revision 1 remains
   hash-closed
   `AUTHOR_SUPPORTED_BOUNDED / GPU_ASSEMBLED_TRUST_PREFIX_SUPPORTED`. Its
   GPU-assembled/host-controlled eight-trial Steihaug--Toint prefix exactly
@@ -35,12 +31,13 @@
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** change only the NCGA5 host apparatus predicate and rerun the
-  frozen sequence. A positive result selects a short boundary-free trajectory;
-  a candidate failure selects a separately frozen causal arithmetic repair.
-- **Current blocker:** NCGA4 is only an eight-trial negative-curvature prefix;
-  no full corrected solve, physical trajectory or full assembly/solve timing
-  exists, and NCGA3/4 independent review is `NOT_RUN`.
+- **Next action:** freeze and run NCGA6 GPU binary64 energy/globalization with
+  f32 stored state, gradient and Hessian. If it closes both static solves,
+  reopen a short boundary-free trajectory; otherwise promote pressure
+  coefficient/products in the next discriminator.
+- **Current blocker:** strict f32 cannot finish the retained static solves, so
+  physical trajectory and full assembly/solve timing remain blocked;
+  NCGA3--5 independent review is `NOT_RUN`.
 - **Revision-1 discriminator:** all HVP probes completed and strict f32 reached
   only `1.0643e-6` maximum relative L2 error; reduction-only stayed outside the
   old element gate while f64 pressure products reached `4.7195e-5`. The fixed
@@ -49,7 +46,7 @@
 - **Single apparatus repair:** revision 2 uses the reference symmetric
   infinity-norm bound plus `7200` as one common, guaranteed-positive shift.
   No threshold, fixture, arithmetic result or second repair is authorized.
-- **Claim ceiling:** tiny objective assembly correspondence only; no solve,
+- **Claim ceiling:** two tiny fixed-graph static-solve refutations only; no
   trajectory, performance, runtime or product-water claim.
 
 ## Competing hypotheses
@@ -65,7 +62,8 @@
 | H7 binary64 reduction alone closes the miss | f32 products accumulated in f64 meet the old matrix gate | reduction-only arithmetic variant | refuted: `2.59425e-4` |
 | H8 binary64 pressure products close the miss | promoted pressure coefficients/products meet the old gate | mixed-product arithmetic variant | supported: `4.71951e-5`, but not selected yet |
 | H9 strict f32 preserves trust-region decisions | eight reference/CUDA outer signatures match and state drift stays below `5 um` | continuous-state fixed-graph Steihaug--Toint prefix plus sign-flipped HVP control | supported on NCGA4 |
-| H10 strict f32 completes the retained static solves | both NSR1 cases reach the raw gradient stop while preserving state/objective/active-set bands | NCGA5 exact full solve with multi-HVP residual CG | active / frozen |
+| H10 strict f32 completes the retained static solves | both NSR1 cases reach the raw gradient stop while preserving state/objective/active-set bands | NCGA5 exact full solve with multi-HVP residual CG | refuted: energy/globalization floor |
+| H11 f32 energy resolution is the first full-solve boundary | GPU f64 energy with unchanged f32 gradient/Hessian restores positive actual reduction and scale-aware convergence | NCGA6 energy-only mixed solve plus f32-energy negative | next / selected |
 
 ## Decisions
 
@@ -230,6 +228,23 @@
   revision 1 conclusive.
 - **Reconsider when:** the single repaired run still lacks apparatus closure;
   then NCGA5 stops without a second repair.
+
+### D-011 — Select energy/globalization precision before pressure-operator precision
+
+- **Observation:** both strict candidates stay within `0.0353 um`, remain
+  finite and keep the pressure active set, but their next predicted reductions
+  are positive while f32 actual reductions become negative or zero.
+- **Conclusion:** the first demonstrated solver failure is energy/globalization
+  resolution. The evidence does not yet require paying for f64 gradient or
+  Hessian products.
+- **Decision:** NCGA6 changes only GPU energy evaluation to binary64 at the f32
+  stored state/profile and uses the already frozen scale-aware residual as its
+  convergence gate. Strict f32 remains the mandatory negative.
+- **Rejected alternatives:** widen NCGA5, start trajectories despite the
+  failed solve, promote the full operator before isolating energy, or time the
+  dense tiny harness as if it were scalable.
+- **Reconsider when:** mixed energy either closes both cases or fails while
+  pressure/operator error remains the only surviving cause.
 
 ## Required context
 
