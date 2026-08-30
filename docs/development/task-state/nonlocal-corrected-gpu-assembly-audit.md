@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA5_AUTHOR_REFUTED_F32_STATIC_SOLVE_MATERIAL / NCGA6_NEXT / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
+| Status | `ACTIVE / NCGA5_AUTHOR_REFUTED / NCGA6_FROZEN_IMPLEMENTATION_IN_PROGRESS / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Determine whether strict-f32 corrected CUDA assembly can complete both retained NSR1 static solves before any trajectory or performance claim |
@@ -31,8 +31,9 @@
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** freeze and run NCGA6 GPU binary64 energy/globalization with
-  f32 stored state, gradient and Hessian. If it closes both static solves,
+- **Next action:** implement and run frozen NCGA6 GPU binary64
+  energy/globalization with f32 stored state, gradient and Hessian. If it
+  closes both static solves,
   reopen a short boundary-free trajectory; otherwise promote pressure
   coefficient/products in the next discriminator.
 - **Current blocker:** strict f32 cannot finish the retained static solves, so
@@ -63,7 +64,7 @@
 | H8 binary64 pressure products close the miss | promoted pressure coefficients/products meet the old gate | mixed-product arithmetic variant | supported: `4.71951e-5`, but not selected yet |
 | H9 strict f32 preserves trust-region decisions | eight reference/CUDA outer signatures match and state drift stays below `5 um` | continuous-state fixed-graph Steihaug--Toint prefix plus sign-flipped HVP control | supported on NCGA4 |
 | H10 strict f32 completes the retained static solves | both NSR1 cases reach the raw gradient stop while preserving state/objective/active-set bands | NCGA5 exact full solve with multi-HVP residual CG | refuted: energy/globalization floor |
-| H11 f32 energy resolution is the first full-solve boundary | GPU f64 energy with unchanged f32 gradient/Hessian restores positive actual reduction and scale-aware convergence | NCGA6 energy-only mixed solve plus f32-energy negative | next / selected |
+| H11 f32 energy resolution is the first full-solve boundary | GPU f64 energy with unchanged f32 gradient/Hessian restores positive actual reduction and scale-aware convergence | NCGA6 energy-only mixed solve plus f32-energy negative | active / frozen |
 
 ## Decisions
 
