@@ -347,7 +347,12 @@ endforeach()
 string(SHA256 NCGP4_SOURCE_ROOT "${NCGP4_SOURCE_MATERIAL}")
 file(SHA256
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/00-ncgp4-solver-diagnosis-contract.md"
-    NCGP4_CONTRACT_ROOT)
+    NCGP4_CONTRACT_0_ROOT)
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/01-unpreconditioned-selection.md"
+    NCGP4_CONTRACT_1_ROOT)
+string(SHA256 NCGP4_CONTRACT_ROOT
+    "${NCGP4_CONTRACT_0_ROOT}:${NCGP4_CONTRACT_1_ROOT}")
 set(NCGP4_COMPILER_FLAGS
     "CXX:-O3,-Wall,-Wextra,-Wpedantic,-Werror,-ffp-contract=off,-fno-fast-math|CUDA:-O3,--fmad=false,--prec-div=true,--prec-sqrt=true,--ftz=false|SM=86")
 target_compile_definitions(
