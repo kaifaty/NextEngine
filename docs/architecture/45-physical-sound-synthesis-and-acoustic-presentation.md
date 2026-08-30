@@ -1222,6 +1222,35 @@ admission shadow remain sealed. This evidence update preserves the Proposed,
 external-only, authored-fallback boundary and authorizes no public record,
 runtime model, ProductCheck or production claim.
 
+R3A V2 and V3 are now also closed without readiness. V2 freezes a new
+REALIMPACT Large Swan split and a pinned 44.1 kHz DAC oracle, but its
+48→44.1→48 kHz control itself fails full-band level and decay; the exact result
+is `INCONCLUSIVE_RESAMPLING_CONTROL`. V3A freezes Plastic Bin and stops before
+quality metrics when the native NDAC decoder returns `143,992` samples for a
+`144,000`-sample target. An eight-sample guard is derived only from synthetic
+audio, so Plastic Bin is not re-evaluated.
+
+V3B applies that frozen guard to a new Purple Scoop projection. Two
+preflights, sealed extractions and native-48 kHz NDAC-75 oracles reproduce
+byte-identically; the identity control is exact zero on all five endpoints.
+NDAC preserves absolute level, envelope and decay but fails spectrum at
+`12.1198 dB` and modal-frequency median at `560.81` cents. The exact result is
+`REJECT_LEARNED_CODEC_REPRESENTATION`; see the
+[R3A V3 evidence](../development/physical-sound-r3a-v3-native-ndac-result-2026-08-30.md).
+No field holdout is decoded and no neural field, deterministic distillation,
+quality, admission or runtime claim is authorized.
+
+The next permitted [Roadmap V6](../plans/physical-sound-synthesis-roadmap.md)
+boundary is not another general perceptual codec. R3A V4 first uses
+already-opened development contacts to freeze one
+bounded task-specific representation consisting of object-global stable
+poles/frequencies/damping, contact-specific complex gains and a deterministic
+learned multiresolution residual basis. Only a representation and inverse that
+pass the five-endpoint development frontier may spend one new unopened object.
+Only that sealed pass may authorize a geometry-aware neural field that predicts
+bounded gain/residual coefficients; a neural waveform decoder remains
+report-only and never satisfies the cooker boundary.
+
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,
 reference numeric profile and ProductChecks. Until then all record shapes and

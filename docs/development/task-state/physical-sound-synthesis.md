@@ -2,35 +2,33 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V5 / R2_LISTENER_FIELD_REJECTED / R3A_V1_REJECTED / R3A_V2_INCONCLUSIVE_CONTROL / R3A_V3_NATIVE_RATE_NEXT / SHADOW_SEALED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V6 / R2_LISTENER_FIELD_REJECTED / R3A_V1_REJECTED / R3A_V2_INCONCLUSIVE / R3A_V3B_NATIVE_NDAC_REJECTED / R3A_V4_MODAL_BOTTLENECK_NEXT / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-30` |
 | Task key | `physical-sound-synthesis` |
-| Scope | Proposed architecture, external neural acoustic-field research, deterministic cooker boundary and independent automatic validation |
-| Definition of done | A frozen offline model beats honest controls on held-out physical axes, cooks to exact bounded coefficients and is admitted only by an independent selective validator with automatic clip fallback |
+| Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
+| Definition of done | A frozen offline model beats honest controls on held-out physical axes, cooks exact bounded coefficients and is admitted only by an independent selective validator with automatic clip fallback |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R3A V2 repeats exactly but is
-  `INCONCLUSIVE_RESAMPLING_CONTROL`; DAC and a 44.1 kHz boundary receive no
-  readiness credit. Neural training remains forbidden.
-- **Exact evidence:** [R3A V2 Large Swan/DAC result](../physical-sound-r3a-v2-large-swan-dac-oracle-result-2026-08-30.md),
-  manifest `6821c49b…0a4c`, contacts `f0ce1461…cb8d`, repeated oracle
-  `c1bb54dd…11f2`; sealed row samples decoded: `0`.
-- **Why this does not reject neural physical sound:** The resampling-only
-  control fails full-band level/decay, so the experiment cannot isolate codec
-  capacity. DAC itself remains a negative diagnostic, not a cooker.
-- **Next action:** Audit/freeze FlowDec's underlying native-48 kHz NDAC-75
-  codec without stochastic postfilter on a new unopened object; otherwise use
-  an entirely preregistered band-limited protocol.
-- **After that:** A passing learned ceiling still requires a separate bounded
-  deterministic modal/multiresolution distillation gate before R3B.
-- **Current blockers:** a sufficient unopened corpus/representation, learned quality,
-  multi-impact internet coverage,
-  independent validator risk, exact-domain admission, production contact
-  projection and a player-visible consumer are open.
+- **Current conclusion:** Native-48 kHz NDAC-75 is reproducibly rejected as
+  the R3A V3B representation ceiling. Identity is exact zero, but spectrum
+  (`12.1198 dB`) and modal frequency (`560.81` cents) fail.
+- **Exact evidence:** [R3A V3 result](../physical-sound-r3a-v3-native-ndac-result-2026-08-30.md),
+  V3B manifest `57dcc3b3…8959`, contacts `2dcab659…0b3c`, repeated oracle
+  `bcc24ef9…f8e1`; sealed row samples decoded: `0`.
+- **Infrastructure precursor:** V3A Plastic Bin stopped before quality metrics
+  because NDAC returned `143,992/144,000` samples. The eight-sample guard was
+  derived on synthetic audio only; Plastic Bin was not re-evaluated.
+- **Next action:** Implement Roadmap V6 R3A V4-DEV over already-opened contacts:
+  shared stable modal poles, contact gains and a learned multiresolution
+  residual basis with deterministic inverse at no more than three capacities.
+- **Spend rule:** Do not open another object unless one bounded V4-DEV
+  representation passes all five endpoints; then freeze it once for V4-HOLDOUT.
+- **Training rule:** Neural contact-field training remains forbidden until the
+  representation and deterministic cooker pass an unopened V4 holdout.
 - **Product boundary:** SPEC-45 remains `Proposed`; clips remain mandatory;
-  model inference, datasets, weights and validator do not enter runtime or Git.
+  model inference, datasets, weights, WAVs and validator stay external.
 
 ## Current program state
 
@@ -38,178 +36,92 @@
 | --- | --- | --- |
 | R0 real-data boundary | `COMPLETE` | Signal semantics and five disjoint roles are frozen; absent axes stay absent. |
 | R1 honest controls | `COMPLETE` | Transfer nearest/linear and waveform Q30/DCT controls are immutable. |
-| R2 direct/phase field | `REJECTED` | Do not tune the opened 15-row time-domain latent family. |
-| R2B dense data/representation | `COMPLETE` | 600 rows, `420 context / 180 query`, complex inverse and three controls repeat; no quality credit. |
-| R2C separable complex field | `COMPLETE / REJECTED` | Data-only and Helmholtz candidates repeat; both collapse and fail `4/5` endpoints. |
-| R2D trainability gate | `COMPLETE / V2_PASS` | V2 passes all unchanged gates twice; normalized reports, checkpoints and WAVs repeat with zero query reads. |
-| R2E low-rank coefficient field | `COMPLETE / REJECTED` | Exact context fit loses every query endpoint; post-reject oracle proves representation plus interpolation limits. |
-| R3A new data/representation | `V1 REJECTED; V2 INCONCLUSIVE; V3 NEXT` | Large Swan source/split/DAC oracle repeat; the 44.1 kHz control fails. Freeze native-rate or band-limited V3 on new unopened data, then prove deterministic cooking. |
-| R3B+ exact-object/validator/admission | `BLOCKED` | No contact-field model, validator release, admitted domain or runtime promotion exists. |
+| R2 listener field | `REJECTED` | Direct/phase, separable and low-rank coordinate fields are closed; do not tune the opened listener query. |
+| R2D trainability | `COMPLETE / V2_PASS` | Objective/cooker can fit context exactly; optimization is not the current blocker. |
+| R3A V1 | `REJECTED` | 512-scalar modal+DCT and equal sparse-DCT records lose real development structure. |
+| R3A V2 | `INCONCLUSIVE_CONTROL` | 44.1 kHz conversion changes full-band level/decay; no codec credit. |
+| R3A V3A | `INVALID_INFRASTRUCTURE` | Plastic Bin target opened, no metrics; eight-sample NDAC deficit recorded, holdout sealed. |
+| R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
+| R3A V4 | `NEXT` | Domain-specific modal/gain/learned-residual bottleneck must pass before any field model. |
+| R3B+ | `BLOCKED` | No contact-field model, validator release, admitted domain or runtime promotion exists. |
 
-## Material transition: R2C rejection and Roadmap V3
+## Material transition: native codec rejected and Roadmap V6
 
-- **Observation:** Both frozen R2C candidates complete deterministic GPU
-  training and cooking, yet output near-silent query WAVs. The no-physics and
-  Helmholtz variants have nearly identical level/spectrum failure.
-- **Evidence:** Training report hashes are `12f89e3…63bd` and
-  `3833c2a3…4a8b`; evaluation report is `63c2eab6…bb1b`; the repeated
-  context-only diagnostic is `1263e02f…a8f`.
-- **Conclusion:** Physics regularization is not the primary cause and rank 96
-  is not yet the limiting representation ceiling. Loss sampling, energy
-  scaling and clipped optimization fail before held-listener generalization.
-- **Decision:** Rebaseline the [canonical roadmap](../../plans/physical-sound-synthesis-roadmap.md)
-  to V3. Insert a query-free trainability gate, then separate time/frequency
-  basis learning from spatial coordinate prediction.
-- **Rejected alternatives:** Larger SIREN, more steps, another seed/rank,
-  Helmholtz-weight grid, relaxed endpoints or query-driven debugging.
-- **Consequences:** R3 remains blocked. R2B data readiness is preserved, R2C
-  is immutable negative knowledge, and method holdout/admission shadow remain
-  sealed.
-- **Remaining uncertainty:** An energy-preserving objective may still fail;
-  even a passing context fit may not beat interpolation on grouped listeners.
-- **Reconsideration condition:** A new frozen context revision passes all
-  micro-overfit/trivial-oracle gates and a subsequent one-shot grouped query
-  result identifies a different limiting factor.
-## Material transition: R2D V1 fixed-step rejection
+- **Observation:** Two Purple Scoop V3B runs reproduce all reports, codes and
+  WAVs. Native identity has zero error. NDAC beats nearest fit on level,
+  envelope and decay but is worse on spectrum and modal-frequency endpoints.
+- **Evidence:** Preflight `845d4598…66d5`, extraction `7f2d7de4…7164`, oracle
+  `bcc24ef9…f8e1`, learned WAV `a6d668ff…2b97`; row `2407` is undecoded.
+- **Conclusion:** Sample-rate conversion is no longer the explanation. A
+  general perceptual codec can preserve macroscopic sound shape while moving
+  narrow resonances required by a physical transfer representation.
+- **Decision:** Close nearby general-codec/bitrate/postfilter search. Rebaseline
+  to [Roadmap V6](../../plans/physical-sound-synthesis-roadmap.md): learn only
+  the task-specific modal residual representation and later the spatial gain
+  field; keep the final decoder deterministic.
+- **Rejected alternatives:** Retune NDAC on opened Purple Scoop, apply the
+  stochastic FlowDec postfilter, relax modal/spectrum thresholds, open either
+  row `2407`, or treat perceptual audition as physical fidelity.
+- **Consequences:** Purple Scoop row `1807` joins the development corpus;
+  V3B does not authorize deterministic distillation or neural field training.
+- **Remaining uncertainty:** A multi-contact stable pole bank plus learned
+  residual dictionary may preserve real transfer responses within a useful
+  cooker budget; V1's 32 local modes do not answer this stronger hypothesis.
+- **Reconsideration condition:** One preregistered V4 representation and exact
+  inverse pass the opened multi-object frontier and then a new unopened object.
 
-- **Observation:** Two byte-identical V1 runs pass one-row, coefficient,
-  cooker, oracle-proximity, clipping and trivial-control gates. Only eight-row
-  and full-context mean absolute log energy miss `0.005`, at `0.007785` and
-  `0.005062`.
-- **Evidence:** [R2D V1 result](../physical-sound-listener-field-r2d-trainability-v1-result-2026-08-30.md),
-  manifest `3fe41295…5f28`, repeated report `350a1e6b…0afd`.
-- **Conclusion:** Representation, objective direction and cooker are supported;
-  fixed terminal AdamW step is the remaining falsifiable cause.
-- **Decision:** Preserve V1 as rejected. V2 changes only to deterministic
-  learning-rate decay and retains every original gate; N0.3E stays blocked.
-- **Rejected alternatives:** Relax `0.005`, add steps at fixed rate, modify
-  basis/loss/tasks or inspect query audio.
-- **Reconsider when:** V2 repeats and either passes every unchanged gate or
-  identifies a different single failing boundary.
+## Durable negative knowledge
 
-## Material transition: R2D V2 trainability pass
+- R2 direct/phase and separable listener fields collapse or lose every held
+  endpoint; R2E proves both representation and interpolation limits.
+- R2D V2 proves the coefficient training/cooker substrate itself can fit;
+  further optimizer rescue is not justified.
+- R3A V1 rejects one 512-scalar 32-mode+sparse-DCT family, not modal
+  factorization at a measured capacity frontier.
+- R3A V2 is unusable for codec judgment because its resampling control fails.
+- R3A V3A is invalid infrastructure evidence only; never derive quality from it.
+- R3A V3B cleanly rejects exact NDAC-75 `800k` at 7.5 kbps on Purple Scoop.
 
-- **Observation:** Half-cosine `0.05 -> 0.00001` makes all three unchanged V1
-  tasks pass; full-context log-energy falls to `4.54e-9` with zero clipping.
-- **Evidence:** [R2D V2 result](../physical-sound-listener-field-r2d-trainability-v2-result-2026-08-30.md),
-  manifest `47920fce…f6d1`, repeated report `898ee201…0875`.
-- **Conclusion:** The basis/objective/cooker training substrate preserves the
-  signal; the R2C silence collapse was an optimization failure, not a rank-96
-  capacity failure at the context-fit boundary.
-- **Decision:** Close R2D and authorize exactly one separately frozen N0.3E
-  data-only coordinate field. Query-informed tuning remains forbidden.
-- **Remaining uncertainty:** Coordinate generalization may still lose to the
-  frozen nearest/linear controls on the 180 grouped held listeners.
-- **Reconsider when:** One immutable N0.3E result passes or rejects the entire
-  low-rank coordinate field under the unchanged endpoints.
-
-## Material transition: R2E rejection and Roadmap V4
-
-- **Observation:** The frozen harmonic field reaches essentially zero context
-  objective and repeats exactly, yet is worse than every frozen control on all
-  five query endpoints.
-- **Evidence:** Training report `c23a82d0…f790`, checkpoint
-  `8b96da41…355d`, evaluation `efab8e2c…2327`. Two post-reject projection
-  diagnostics repeat report `b6dcc5fc…47ac2`.
-- **Conclusion:** Optimization is no longer the blocker. Coordinate
-  interpolation fails, and the context-only rank-96 basis is also insufficient
-  on query (`0.2760` NRMSE, `92.38%` retained energy, failed mean spectrum).
-- **Decision:** Close the R2 listener-field family and rebaseline to
-  then-current Roadmap V4 (now superseded in the same
-  [living roadmap](../../plans/physical-sound-synthesis-roadmap.md)). The first
-  neural product task becomes geometry-aware contact-position sound at one
-  canonical listener condition. Radiation is a separate later claim.
-- **Rejected alternatives:** A larger harmonic/MLP field, rank/seed/step grid,
-  query-informed basis selection, relaxed endpoints or blaming only the
-  high-frequency bins.
-- **Consequences:** The opened Green Goblet split is negative evidence only.
-  R3A requires new internet data and a representation-oracle gate before any
-  model training. Clip fallback and sealed admission roles remain unchanged.
-- **Reconsider when:** A new unopened corpus proves that a bounded modal/
-  residual representation carries held contact sounds and authorizes one
-  exact-object field.
-
-## Material transition: R3A V1 representation rejection
-
-- **Observation:** Two zero-audio source preflights and bounded four-contact
-  extractions repeat exactly. The query-seeing 512-scalar modal-plus-residual
-  oracle improves development level and envelope but loses spectrum, modal
-  frequency and decay; equal-budget sparse DCT improves only envelope.
-- **Evidence:** [R3A V1 result](../physical-sound-r3a-blue-bowl-representation-gate-2026-08-30.md),
-  manifest `6ad5b42c…847b`, contact array `1971f01a…1ba3`, repeated oracle
-  report `34567bc2…ef01`.
-- **Conclusion:** The selected source and seal are usable, but local STFT peak/
-  damping extraction plus a sparse whole-window DCT residual is not a
-  sufficient compact record for this real glass transfer response.
-- **Decision:** Preserve V1 as `REJECT_REPRESENTATION`, authorize no neural
-  model and require a new unopened development projection plus materially
-  different representation for V2.
-- **Rejected alternatives:** More nearby modes/DCT bins, threshold relaxation,
-  budget/seed tuning on opened Blue Bowl row 1807, or opening row 2407.
-- **Consequences:** R3B and validator/admission work remain blocked; authored
-  clips stay mandatory; field holdout, method holdout and shadow remain sealed.
-- **Remaining uncertainty:** Structured complex poles, multiresolution
-  transient atoms or a learned codec may carry the target; richer
-  ObjectFolder Real access may be needed to learn such a representation.
-- **Reconsider when:** A hash-closed new source/projection and preregistered V2
-  oracle exist before its development audio is opened.
-
-## Material transition: R3A V2 inconclusive control and Roadmap V5
-
-- **Observation:** Large Swan preflight, sealed extraction and DAC oracle each
-  repeat exactly, but resampling alone fails level and decay controls.
-- **Evidence:** [R3A V2 result](../physical-sound-r3a-v2-large-swan-dac-oracle-result-2026-08-30.md),
-  oracle `c1bb54dd…11f2`; Large Swan row `2407` remains undecoded.
-- **Conclusion:** 44.1 kHz conversion confounds the declared full-band
-  endpoints; DAC is additionally poor on this slice but cannot close learned
-  representation while its control fails.
-- **Decision:** No post-hoc metric/filter change. Roadmap V5 requires one new
-  unopened native-48 kHz or fully preregistered band-limited discriminator,
-  followed by a separate bounded deterministic cooker gate.
+Detailed histories remain in the linked R2/R3 evidence reports; this file is
+kept bounded as the current resume surface.
 
 ## Stable decisions
 
 | ID | Decision | Reconsideration condition |
 | --- | --- | --- |
-| D-001 | Physical audio is a presentation consumer; gameplay hearing continues to use deterministic `AcousticFactV1`. | Only a superseding Accepted ADR could change authority. |
-| D-002 | Impact is the first source class; rolling, scraping, fracture, cloth, fluid, fire and biological sound need separate models/evidence. | An admitted impact vertical plus a separately scoped source consumer. |
-| D-003 | Acoustic profiles stay PresentationOnly and separate from physics-material authority. | A concrete consumer proves a shared physical source-of-truth field. |
-| D-004 | Production wiring waits for engine-owned committed contact projection and relevant physics evidence; no raw PhysX callback path. | The projection and its ProductCheck exist. |
-| D-005 | First neural value is offline cooking into bounded deterministic coefficients, not runtime inference. | A measured product need and separate ADR define artifact, budget, fault and fallback. |
-| D-006 | Required real evidence is internet-sourced; the user performs no local impact recording. | Explicit product-owner reversal only. |
-| D-007 | Validation is an independent frozen ensemble with hard gates, acoustic specialists, learned diagnostics and calibrated OOD; no per-sound human queue. | A simpler policy demonstrates equal bounded risk and useful coverage. |
-| D-008 | Missing geometry/support/force/listener axes narrow the claim and never get inferred from a label. | A hash-closed published source supplies the axis. |
-| D-009 | R2C data-only/Helmholtz separable SIREN revision is retired. | New evidence invalidates the context diagnostic, not merely a new hyperparameter. |
-| D-010 | The Green Goblet R2 listener split and rank-96 harmonic family are retired from model selection. | A genuinely denser independent listener corpus or validated radiation solver creates a new split and representation. |
-| D-011 | The first neural product task is impact/contact-position sound at one canonical listener; detailed source radiation is later and independent. | An exact player-visible consumer proves radiation must precede contact variation. |
+| D-001 | Physical audio is presentation-only; gameplay hearing remains deterministic `AcousticFactV1`. | A superseding Accepted ADR. |
+| D-002 | Impact is first; rolling, scraping, fracture, cloth, fluid, fire and biological sound need separate evidence. | An admitted impact vertical and separately scoped consumer. |
+| D-003 | Acoustic profiles stay separate from physics-material authority. | A consumer proves a shared physical source-of-truth field. |
+| D-004 | Production waits for engine-owned committed contact projection; no raw PhysX callback path. | Projection and ProductCheck exist. |
+| D-005 | Neural inference is offline; runtime receives bounded deterministic coefficients only. | A measured need and separate ADR define runtime model/fault/fallback. |
+| D-006 | Real evidence is internet-sourced; the user performs no local impact recording. | Explicit product-owner reversal. |
+| D-007 | Validation is an independent frozen ensemble with hard gates and calibrated OOD, not a per-sound human queue. | A simpler policy proves equal bounded risk and coverage. |
+| D-008 | Missing geometry/support/force/listener axes narrow the claim and are never inferred from labels. | A hash-closed source supplies the axis. |
+| D-009 | The opened Green Goblet listener split and rank-96 field family are retired. | A denser independent corpus or validated solver creates a new task. |
+| D-010 | First neural product task is exact-object contact variation at one canonical listener; radiation is later. | A visible consumer proves radiation must precede contact variation. |
+| D-011 | A neural waveform decoder is report-only and cannot satisfy cooker admission. | A future Accepted ADR changes runtime determinism policy. |
+| D-012 | General neural codecs are closed as the next representation family after clean V3B rejection. | New evidence shows explicit modal-fidelity training and a materially different task-specific objective. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Energy-preserving context training is sufficient to remove silence collapse | R2D V2 passes all context gates twice | No counterevidence remains at the context-fit boundary | Closed; preserve V2 as the N0.3E training substrate |
-| H2: Frozen rank-96 listener coefficients beat interpolation | Context fit is exact | R2E loses all endpoints; query oracle also misses mean spectrum | Closed/rejected for the opened split |
-| H3: A compact modal/residual record carries held contact-position sound | AV-MSF and modal physics provide a matching factorization | R3A V1 compact records fail; R3A V2 codec is confounded by sample-rate control | New unopened V3 native-rate/band-limited ceiling, then deterministic cooker oracle |
-| H4: Geometry-aware exact-object contact learning is possible from published data | REALIMPACT source/geometry/splits now repeat; ObjectFolder Real publishes 30–50 impacts/object; AV-MSF reports few-shot results | No bounded deterministic representation has passed, so no honest model has trained | R3A V3 learned ceiling plus deterministic cooker gate, then one R3B candidate |
-| H5: Automatic validator can reach useful coverage at bounded false-pass risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 calibration/holdout release after a generator claim exists |
-| H6: Cooked neural coefficients fit a useful production budget | Q30 lab reference is compact and exact | Whole-mixer, callback and varied-voice cost are unmeasured | Player-visible consumer plus whole-mixer p95/p99 before promotion |
+| H1: A bounded task-specific modal/residual record carries held contact sound | AV-MSF/ObjectFolder use global modal quantities and spatial gains; V3B preserves coarse envelope/decay | V1 and V3B lose spectral/modal structure | V4-DEV three-point capacity frontier plus deterministic inverse |
+| H2: Geometry-aware exact-object contact learning is possible | REALIMPACT source/mesh/splits repeat; AV-MSF reports few-shot contact fields | No representation has passed a sealed contact gate | V4-HOLDOUT, then one AV-MSF-shaped R3B model |
+| H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 after a generator claim exists |
+| H4: Cooked coefficients fit product cost | Q30 reference is compact and exact | Whole-mixer/callback/varied-voice cost is unmeasured | Visible consumer plus p95/p99 before promotion |
 
 ## Do not retry
 
-- R2 direct/phase ranks, width, epochs, seed, phase speed or opened thresholds.
-- R2C separable SIREN with nearby size/step/rank/seed/Helmholtz-weight changes.
-- R2E harmonic listener field, context-rank sweep or any architecture selected
-  on the opened 180-query Green Goblet split.
-- Query-informed normalization, checkpoint selection, stopping or trainability
-  debugging.
-- Universal `material -> sound` coefficients or schemas before exact-object
-  evidence and a consumer.
-- Another unguided manual residual family, blind preset tuning or synthetic
-  target match presented as real glass/wood/metal identity.
-- Prompt-to-waveform as the primary engine path; it may remain report-only or
-  an authored-asset source.
-- A single FAD/CLAP/ViSQOL/aesthetic/audio-language score as validator or a
-  live per-sound human approval queue.
+- R2 rank/width/epoch/seed/phase or nearby SIREN/harmonic field changes.
+- Query-informed normalization, checkpoint selection, stopping or thresholds.
+- More nearby modes/DCT bins on opened Blue Bowl row `1807`.
+- DAC 44.1 kHz or post-hoc band filtering on opened Large Swan row `1807`.
+- Unguarded NDAC, guard repair on Plastic Bin, or another NDAC
+  bitrate/postfilter/metric on opened Purple Scoop.
+- Another general perceptual codec presented as modal-fidelity evidence.
+- Universal `material -> sound` coefficients before exact-object evidence.
+- Prompt-to-waveform as the engine path; it may remain authored/report-only.
 - Local microphone/hammer capture, raw PhysX-callback mixing or runtime neural
   inference first.
 
@@ -218,29 +130,26 @@
 Read in precedence order:
 
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
-2. SPEC-08/24/26/30 and ADR-027/046/058/071.
-3. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-4. [Roadmap V5](../../plans/physical-sound-synthesis-roadmap.md),
+2. SPEC-08/24/26/30, ADR-027/046/058/071 and
+   [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
+3. [Roadmap V6](../../plans/physical-sound-synthesis-roadmap.md),
    [implementation plan](../../plans/2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md)
    and [neural strategy](../physical-sound-neural-acoustic-field-strategy-2026-08-30.md).
-5. [R0–R1 boundary](../physical-sound-neural-real-boundary-r0-r1-2026-08-30.md),
-   [R2 phase failure](../physical-sound-listener-field-r2-phase-research-2026-08-30.md),
-   [R2B preflight](../physical-sound-r2b-dense-complex-field-preflight-2026-08-30.md),
-   [R2C result](../physical-sound-listener-field-r2c-result-2026-08-30.md),
-   [R2D V2 result](../physical-sound-listener-field-r2d-trainability-v2-result-2026-08-30.md)
-   and [R2E/V4 result](../physical-sound-listener-field-r2e-result-and-v4-research-2026-08-30.md).
-6. [Main product roadmap](../../roadmap.md) for scheduling or promotion facts.
+4. [R2E result](../physical-sound-listener-field-r2e-result-and-v4-research-2026-08-30.md),
+   [R3A V1](../physical-sound-r3a-blue-bowl-representation-gate-2026-08-30.md),
+   [R3A V2](../physical-sound-r3a-v2-large-swan-dac-oracle-result-2026-08-30.md)
+   and [R3A V3](../physical-sound-r3a-v3-native-ndac-result-2026-08-30.md).
+5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
 
-- **Workspace:** R3A V2 Large Swan/DAC preflight, sealed extraction, codec
-  oracle and compact tests are implemented; two repetitions preserve one
-  immutable inconclusive control result and all heavy artifacts stay external.
-- **Quality:** No neural candidate, validator release, admitted formula record
-  or runtime integration exists. Clip fallback is still authoritative.
-- **Isolation:** R2 listener query, Blue Bowl row `1807` and Large Swan row
-  `1807` are opened and retired. Both row `2407` field holdouts, method holdout
-  and admission shadow remain unopened.
-- **Next commit boundary:** R3A V3 native-rate/band-limited research and freeze
-  on a new unopened projection; no model training until learned ceiling and
-  deterministic cooker gates both pass.
+- **Workspace:** Exact V3A invalid and V3B rejected runners/tests are in Git;
+  datasets, checkpoints, compressed members, arrays and WAVs remain external.
+- **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
+  contacts are opened. Every row `2407`, method holdout and admission shadow
+  remains sealed.
+- **Quality:** No neural field, validator release, admitted formula record or
+  runtime integration exists. Clip fallback is authoritative.
+- **Next commit boundary:** R3A V4-DEV corpus manifest, bounded modal/residual
+  capacity frontier, exact deterministic inverse, focused tests and repeated
+  opened-development report. Do not download a new target unless it passes.

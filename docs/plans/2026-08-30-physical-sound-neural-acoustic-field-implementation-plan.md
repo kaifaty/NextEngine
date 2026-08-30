@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / N0.3E_LISTENER_FIELD_REJECTED / N0.4A_V1_REJECTED / N0.4A_V2_INCONCLUSIVE_CONTROL / N0.4A_V3_NATIVE_RATE_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.3E_LISTENER_FIELD_REJECTED / N0.4A_V1_REJECTED / N0.4A_V2_INCONCLUSIVE_CONTROL / N0.4A_V3B_NATIVE_NDAC_REJECTED / N0.4A_V4_MODAL_BOTTLENECK_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -405,13 +405,40 @@ candidate endpoints. Preserve the
 [exact result](../development/physical-sound-r3a-v2-large-swan-dac-oracle-result-2026-08-30.md),
 keep row `2407` sealed and authorize neither N0.4B nor neural training.
 
-V3 entry protocol: use a new unopened development projection and freeze either
-the native-48 kHz general-audio NDAC-75 checkpoint published with
-[FlowDec](https://github.com/facebookresearch/FlowDec), excluding its stochastic
-postfilter, or a fully band-limited five-endpoint protocol with a separate
-out-of-band energy gate. A passing
-learned ceiling must be followed by a bounded deterministic modal/
-multiresolution distillation oracle before N0.4B.
+V3 result: `REJECT_LEARNED_CODEC_REPRESENTATION`. V3A froze Plastic Bin and
+stopped before metrics when the unguarded NDAC decoder returned `143,992`
+samples for the three-second target. An eight-sample guard was derived from a
+synthetic control only. V3B then froze unopened Purple Scoop; preflight,
+sealed extraction and two native-48 kHz NDAC-75 oracles repeat byte-identically.
+Identity is exact zero, but NDAC fails spectrum (`12.1198 dB`) and modal
+frequency (`560.81` cents). Preserve the
+[exact result](../development/physical-sound-r3a-v3-native-ndac-result-2026-08-30.md),
+keep both row-`2407` holdouts sealed and do not search another general codec on
+opened targets.
+
+V4 implementation protocol:
+
+1. Build one external development pack from already-authorized fit and opened
+   development contacts. Bind every source/object/contact role and keep all
+   row-`2407`, method-holdout and admission-shadow waveforms sealed.
+2. Freeze at most three capacity points before fitting. Each candidate uses an
+   object-global stable pole/frequency/damping bank, contact-specific complex
+   modal gains and a learned multiresolution residual basis with a
+   deterministic inverse.
+3. Fit the residual basis from fit-role residual frames only. Development
+   contacts select at most one representation/capacity; they cannot tune an
+   unopened object. A shallow task-specific autoencoder is report-only and
+   receives no deterministic-cooker credit.
+4. Require exact-repeat coefficients/PCM and the unchanged five endpoints.
+   If no bounded candidate passes the opened multi-object frontier, stop as
+   `REJECT_REPRESENTATION` without downloading another target.
+5. Freeze the smallest passing implementation, environment, budgets and
+   thresholds, then evaluate it twice on one new source-disjoint REALIMPACT
+   object with `3 fit / 1 development / 1 sealed` roles.
+
+Only `V4-HOLDOUT = READY_FOR_EXACT_OBJECT_FIELD` opens N0.4B. A neural decoder,
+an unbounded coefficient record or a report-only perceptual win cannot satisfy
+this entry condition.
 
 ### N0.4B — Object-specific contact-position few-shot field
 
@@ -608,11 +635,14 @@ successful Git commit or a report-only model result.
    1807 is opened negative evidence and row 2407 remains sealed.
 4. Preserve N0.4A V2 as reproducible `INCONCLUSIVE_RESAMPLING_CONTROL`; Large
    Swan row `1807` cannot select post-hoc filters, metrics, bitrate or codec.
-5. Audit/freeze deterministic NDAC-75 as the N0.4A V3 native-48 kHz learned
-   ceiling, or fall back to the fully band-limited protocol, on a new unopened
-   development projection.
-6. If that ceiling passes, freeze a bounded deterministic modal/
-   multiresolution distillation oracle; a neural decoder alone cannot satisfy
-   N0.4A.
-7. Only after the deterministic representation passes, freeze one AV-MSF-shaped N0.4B exact-
-   object contact field, repeat it and evaluate it on unopened held positions.
+5. Preserve N0.4A V3A as invalid infrastructure evidence and V3B as a
+   reproducible native-rate learned-codec rejection; do not retry nearby
+   codecs, bitrates or postfilters on opened Plastic Bin/Purple Scoop targets.
+6. Implement N0.4A V4-DEV: a bounded shared-modal/contact-gain plus learned-
+   residual representation frontier over already-opened objects, with the
+   deterministic inverse inside every candidate.
+7. If and only if one bounded capacity passes V4-DEV, freeze and repeat V4 on
+   one new unopened source-disjoint object. Otherwise stop without spending a
+   new target.
+8. Only after V4-HOLDOUT passes, freeze one AV-MSF-shaped N0.4B exact-object
+   contact field, repeat it and evaluate it on unopened held positions.
