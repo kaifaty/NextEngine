@@ -58,6 +58,7 @@ struct DeviceProfile {
     float horizon;
     float mass;
     float rest_density;
+    float kernel_scale;
     float kappa;
     float lambda;
     float mu;
@@ -231,7 +232,7 @@ __device__ KernelValues kernel_values(
     float radius, const DeviceProfile& profile, bool missing_chain) {
     constexpr float pi = 3.14159265358979323846F;
     const float q = 2.0F * radius / profile.horizon;
-    const float alpha = 3.0F
+    const float alpha = profile.kernel_scale * 3.0F
         / (2.0F * pi * profile.horizon * profile.horizon * profile.horizon);
     float value = 0.0F;
     float first_q = 0.0F;
@@ -252,10 +253,12 @@ __device__ KernelValues kernel_values(
         second_q * (missing_chain ? chain : chain * chain)};
 }
 
-__device__ double kernel_value_double(double radius, double horizon) {
+__device__ double kernel_value_double(
+    double radius, double horizon, double kernel_scale) {
     constexpr double pi = 3.141592653589793238462643383279502884;
     const double q = 2.0 * radius / horizon;
-    const double alpha = 3.0 / (2.0 * pi * horizon * horizon * horizon);
+    const double alpha = kernel_scale * 3.0
+        / (2.0 * pi * horizon * horizon * horizon);
     if (q < 1.0) return alpha * (2.0 / 3.0 - q * q + 0.5 * q * q * q);
     if (q <= 2.0) {
         const double tail = 2.0 - q;
@@ -264,10 +267,12 @@ __device__ double kernel_value_double(double radius, double horizon) {
     return 0.0;
 }
 
-__device__ double kernel_first_double(double radius, double horizon) {
+__device__ double kernel_first_double(
+    double radius, double horizon, double kernel_scale) {
     constexpr double pi = 3.141592653589793238462643383279502884;
     const double q = 2.0 * radius / horizon;
-    const double alpha = 3.0 / (2.0 * pi * horizon * horizon * horizon);
+    const double alpha = kernel_scale * 3.0
+        / (2.0 * pi * horizon * horizon * horizon);
     double first_q = 0.0;
     if (q < 1.0) {
         first_q = alpha * (-2.0 * q + 1.5 * q * q);
@@ -831,7 +836,9 @@ __global__ void density_kernel(const DeviceVec3* current,
 #endif
         const double radius_double = sqrt(dx * dx + dy * dy + dz * dz);
         sum_double += static_cast<double>(profile.mass)
-            * kernel_value_double(radius_double, static_cast<double>(profile.horizon));
+            * kernel_value_double(radius_double,
+                static_cast<double>(profile.horizon),
+                static_cast<double>(profile.kernel_scale));
         ++evaluations;
     }
     density[row] = sum;
@@ -1158,7 +1165,8 @@ __global__ void energy_gradient_kernel(const DeviceVec3* reference,
             const double tz = dz - nz * normal_component;
             const double energy_factor = static_cast<double>(profile.mass)
                 * (-kernel_first_double(reference_radius,
-                    static_cast<double>(profile.horizon)))
+                    static_cast<double>(profile.horizon),
+                    static_cast<double>(profile.kernel_scale)))
                 / (static_cast<double>(profile.rest_density) * profile.dt);
             energy += energy_factor
                 * (static_cast<double>(profile.mu) * (tx * tx + ty * ty + tz * tz)
@@ -2019,6 +2027,7 @@ bool valid_profile(const NonlocalGpuProfile& profile) {
         && finite_narrow(profile.horizon) && profile.horizon > 0.0
         && finite_narrow(profile.mass) && profile.mass > 0.0
         && finite_narrow(profile.rest_density) && profile.rest_density > 0.0
+        && finite_narrow(profile.kernel_scale) && profile.kernel_scale > 0.0
         && finite_narrow(profile.kappa) && profile.kappa >= 0.0
         && finite_narrow(profile.lambda) && profile.lambda >= 0.0
         && finite_narrow(profile.mu) && profile.mu >= 0.0
@@ -2102,6 +2111,7 @@ DeviceProfile device_profile(const NonlocalGpuProfile& profile) {
         static_cast<float>(profile.horizon),
         static_cast<float>(profile.mass),
         static_cast<float>(profile.rest_density),
+        static_cast<float>(profile.kernel_scale),
         static_cast<float>(profile.kappa),
         static_cast<float>(profile.lambda),
         static_cast<float>(profile.mu),
@@ -3034,6 +3044,7 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
             static_cast<float>(impl_->profile.horizon),
             static_cast<float>(impl_->profile.mass),
             static_cast<float>(impl_->profile.rest_density),
+            static_cast<float>(impl_->profile.kernel_scale),
             static_cast<float>(impl_->profile.kappa),
             static_cast<float>(impl_->profile.lambda),
             static_cast<float>(impl_->profile.mu),

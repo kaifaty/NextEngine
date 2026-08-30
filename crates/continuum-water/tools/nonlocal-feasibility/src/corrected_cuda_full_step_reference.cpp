@@ -91,9 +91,10 @@ std::uint64_t splitmix64(std::uint64_t value) {
 }
 
 bool valid_profile(const NonlocalGpuProfile& profile) {
-    const std::array<double, 9> scalars{profile.dt, profile.spacing,
-        profile.horizon, profile.mass, profile.rest_density, profile.kappa,
-        profile.lambda, profile.mu, profile.gamma};
+    const std::array<double, 10> scalars{profile.dt, profile.spacing,
+        profile.horizon, profile.mass, profile.rest_density,
+        profile.kernel_scale, profile.kappa, profile.lambda, profile.mu,
+        profile.gamma};
     const bool finite_scalars = std::all_of(scalars.begin(), scalars.end(),
         [](double value) {
             return std::isfinite(value)
@@ -102,7 +103,8 @@ bool valid_profile(const NonlocalGpuProfile& profile) {
     return profile.id == "nonlocal-water-50k-v1" && finite_scalars
         && profile.dt > 0.0 && profile.spacing > 0.0
         && profile.horizon > 0.0 && profile.mass > 0.0
-        && profile.rest_density > 0.0 && profile.kappa >= 0.0
+        && profile.rest_density > 0.0 && profile.kernel_scale > 0.0
+        && profile.kappa >= 0.0
         && profile.lambda >= 0.0 && profile.mu >= 0.0
         && profile.gamma >= 0.0 && finite_binary32_vec(profile.gravity)
         && finite_binary32_vec(profile.basin_extent)
@@ -157,10 +159,11 @@ struct WideKernel {
     long double second = 0.0L;
 };
 
-WideKernel kernel(long double radius, long double horizon) {
+WideKernel kernel(
+    long double radius, long double horizon, long double kernel_scale) {
     const long double pi = std::acos(-1.0L);
     const long double q = 2.0L * radius / horizon;
-    const long double alpha = 3.0L
+    const long double alpha = kernel_scale * 3.0L
         / (2.0L * pi * horizon * horizon * horizon);
     long double value = 0.0L;
     long double first_q = 0.0L;
@@ -207,6 +210,16 @@ void surface(long double radius,
 NonlocalGpuProfile nonlocal_water_profile() {
     NonlocalGpuProfile profile;
     profile.id = "nonlocal-water-50k-v1";
+    return profile;
+}
+
+NonlocalGpuProfile nonlocal_water_corrected_profile() {
+    NonlocalGpuProfile profile = nonlocal_water_profile();
+    profile.kernel_scale = 7.985668078772472;
+    profile.kappa = 1226.25;
+    profile.lambda = 1.4138231728735551e-5;
+    profile.mu = 0.0;
+    profile.gamma = 0.010664424039285813;
     return profile;
 }
 
@@ -574,6 +587,22 @@ std::string work_semantic_root(const NonlocalGpuWorkReceipt& work) {
 }
 
 std::string profile_semantic_root(const NonlocalGpuProfile& profile) {
+    if (profile.kernel_scale != 1.0) {
+        std::string bytes = "nextengine.nonlocal.ncgp3.profile.v1\0";
+        append_string(bytes, profile.id);
+        for (const double value : std::array<double, 19>{profile.dt,
+                 profile.spacing, profile.horizon, profile.mass,
+                 profile.rest_density, profile.kernel_scale, profile.kappa,
+                 profile.lambda, profile.mu, profile.gamma, profile.gravity.x,
+                 profile.gravity.y, profile.gravity.z, profile.basin_extent.x,
+                 profile.basin_extent.y, profile.basin_extent.z,
+                 static_cast<double>(profile.ghost_layers),
+                 static_cast<double>(profile.maximum_dynamic_samples),
+                 static_cast<double>(profile.maximum_neighbors)}) {
+            append_f64(bytes, value);
+        }
+        return sha256_hex(bytes);
+    }
     std::string bytes = "nextengine.nonlocal.ncgp1.profile.v1\0";
     append_string(bytes, profile.id);
     for (const double value : std::array<double, 18>{profile.dt,
@@ -784,7 +813,7 @@ NonlocalGpuEvaluationResult evaluate_reference(
              slot < current_graph.offsets[row + 1U]; ++slot) {
             const WideVec3 candidate = current_position(current_graph.neighbor_ids[slot]);
             density[row] += mass * kernel(norm(subtract(owner, candidate)),
-                profile.horizon).value;
+                profile.horizon, profile.kernel_scale).value;
             ++result.work.density_kernel_evaluations;
         }
         excess[row] = std::max(density[row] / rho0 - 1.0L, 0.0L);
@@ -806,7 +835,7 @@ NonlocalGpuEvaluationResult evaluate_reference(
                 const WideVec3 neighbor_direction = dynamic != dynamic_index.end()
                     ? direction[dynamic->second] : WideVec3{};
                 pressure_q[row] += mass / rho0
-                    * kernel(radius, profile.horizon).first
+                    * kernel(radius, profile.horizon, profile.kernel_scale).first
                     * dot(normal, subtract(direction[row], neighbor_direction));
             }
         }
@@ -833,7 +862,8 @@ NonlocalGpuEvaluationResult evaluate_reference(
             const long double radius = norm(difference);
             if (!(radius > 0.0L)) continue;
             const WideVec3 normal = scale(difference, 1.0L / radius);
-            const WideKernel values = kernel(radius, profile.horizon);
+            const WideKernel values = kernel(
+                radius, profile.horizon, profile.kernel_scale);
             const long double neighbor_excess = dynamic != dynamic_index.end()
                     && variant != NonlocalGpuVariant::OwnerOnlyPressure
                 ? excess[dynamic->second] : 0.0L;
@@ -901,7 +931,8 @@ NonlocalGpuEvaluationResult evaluate_reference(
             const long double normal_delta = dot(normal, delta);
             const WideVec3 tangent_delta = subtract(delta,
                 scale(normal, normal_delta));
-            long double factor = mass * (-kernel(radius, profile.horizon).first)
+            long double factor = mass
+                * (-kernel(radius, profile.horizon, profile.kernel_scale).first)
                 / (rho0 * dt);
             const long double force_scale = variant
                     == NonlocalGpuVariant::HalfViscosity ? 0.5L : 1.0L;

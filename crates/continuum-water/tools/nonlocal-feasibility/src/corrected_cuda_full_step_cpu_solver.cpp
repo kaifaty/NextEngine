@@ -77,7 +77,8 @@ KernelValues kernel(long double radius,
     const long double pi = std::acos(-1.0L);
     const long double h = profile.horizon;
     const long double q = 2.0L * radius / h;
-    const long double alpha = 3.0L / (2.0L * pi * h * h * h);
+    const long double alpha = static_cast<long double>(profile.kernel_scale)
+        * 3.0L / (2.0L * pi * h * h * h);
     long double value = 0.0L;
     long double first_q = 0.0L;
     long double second_q = 0.0L;

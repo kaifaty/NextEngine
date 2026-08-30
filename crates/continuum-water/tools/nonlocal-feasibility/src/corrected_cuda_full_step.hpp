@@ -23,6 +23,7 @@ struct NonlocalGpuProfile {
     double horizon = 0.15;
     double mass = 0.125;
     double rest_density = 1000.0;
+    double kernel_scale = 1.0;
     double kappa = 9196.875;
     double lambda = 2.5;
     double mu = 1.7;
@@ -259,6 +260,7 @@ private:
 };
 
 NonlocalGpuProfile nonlocal_water_profile();
+NonlocalGpuProfile nonlocal_water_corrected_profile();
 
 NonlocalGpuFailure validate_nonlocal_input(
     const NonlocalGpuProfile& profile,

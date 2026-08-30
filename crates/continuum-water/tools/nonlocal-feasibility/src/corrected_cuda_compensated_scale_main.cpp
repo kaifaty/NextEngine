@@ -58,10 +58,11 @@ std::string file_root(const std::string& path) {
 
 std::string binary_root() { return file_root("/proc/self/exe"); }
 
-long double cubic_weight(long double radius, long double horizon) {
+long double cubic_weight(
+    long double radius, long double horizon, long double kernel_scale) {
     const long double pi = acosl(-1.0L);
     const long double q = 2.0L * radius / horizon;
-    const long double alpha = 3.0L
+    const long double alpha = kernel_scale * 3.0L
         / (2.0L * pi * horizon * horizon * horizon);
     if (q < 1.0L) {
         return alpha * (2.0L / 3.0L - q * q + 0.5L * q * q * q);
@@ -79,10 +80,75 @@ NonlocalGpuProfile pair_profile() {
     profile.kappa = 500.0;
     profile.rest_density = static_cast<double>(
         static_cast<long double>(profile.mass)
-        * (cubic_weight(0.0L, profile.horizon)
-            + cubic_weight(0.05L, profile.horizon))
+        * (cubic_weight(0.0L, profile.horizon, profile.kernel_scale)
+            + cubic_weight(
+                0.05L, profile.horizon, profile.kernel_scale))
         / 1.1L);
     return profile;
+}
+
+long double infinite_lattice_density(const NonlocalGpuProfile& profile) {
+    long double density = 0.0L;
+    for (int z = -3; z <= 3; ++z) {
+        for (int y = -3; y <= 3; ++y) {
+            for (int x = -3; x <= 3; ++x) {
+                const long double radius = static_cast<long double>(
+                    profile.spacing)
+                    * std::sqrt(static_cast<long double>(
+                        x * x + y * y + z * z));
+                if (radius <= static_cast<long double>(profile.horizon)) {
+                    density += static_cast<long double>(profile.mass)
+                        * cubic_weight(radius,
+                            static_cast<long double>(profile.horizon),
+                            static_cast<long double>(profile.kernel_scale));
+                }
+            }
+        }
+    }
+    return density;
+}
+
+int run_profile_self_test() {
+    const NonlocalGpuProfile raw = nonlocal_water_profile();
+    const NonlocalGpuProfile corrected = nonlocal_water_corrected_profile();
+    const long double raw_density = infinite_lattice_density(raw);
+    const long double corrected_density = infinite_lattice_density(corrected);
+    const long double raw_ratio = raw_density / raw.rest_density;
+    const long double corrected_ratio = corrected_density
+        / corrected.rest_density;
+    const bool passed = validate_nonlocal_input(raw,
+            canonicalize_samples_binary32({{1U, {0.5, 0.5, 0.5},
+                {0.5, 0.5, 0.5}, {}}}), {}) == NonlocalGpuFailure::None
+        && validate_nonlocal_input(corrected,
+            canonicalize_samples_binary32({{1U, {0.5, 0.5, 0.5},
+                {0.5, 0.5, 0.5}, {}}}), {}) == NonlocalGpuFailure::None
+        && std::abs(raw_ratio - 0.12522433816880058L) <= 1.0e-15L
+        && std::abs(corrected_ratio - 1.0L) <= 1.0e-12L
+        && std::max(raw_ratio - 1.0L, 0.0L) == 0.0L;
+    std::cout << std::setprecision(17)
+              << "{\"schema\":\"nextengine.nonlocal.ncgp3.profile.v1\""
+              << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
+              << ",\"raw_profile_root\":\"" << profile_semantic_root(raw)
+              << "\",\"corrected_profile_root\":\""
+              << profile_semantic_root(corrected)
+              << "\",\"raw_lattice_density_kg_m3\":"
+              << static_cast<double>(raw_density)
+              << ",\"raw_lattice_density_fraction\":"
+              << static_cast<double>(raw_ratio)
+              << ",\"raw_physical_admitted\":false"
+              << ",\"corrected_lattice_density_kg_m3\":"
+              << static_cast<double>(corrected_density)
+              << ",\"corrected_lattice_density_fraction\":"
+              << static_cast<double>(corrected_ratio)
+              << ",\"kernel_scale\":" << corrected.kernel_scale
+              << ",\"kappa\":" << corrected.kappa
+              << ",\"lambda\":" << corrected.lambda
+              << ",\"mu\":" << corrected.mu
+              << ",\"gamma\":" << corrected.gamma
+              << ",\"contract_root\":\"" << NCGP3_CONTRACT_ROOT
+              << "\",\"source_root\":\"" << NCGP3_SOURCE_ROOT
+              << "\",\"binary_root\":\"" << binary_root() << "\"}\n";
+    return passed ? 0 : 4;
 }
 
 std::vector<NonlocalGpuSample> graph_fixture(bool permuted) {
@@ -439,7 +505,7 @@ int run_correspondence_4k(const std::string& scenario,
     std::uint32_t budget) {
     if (steps == 0U || steps > 240U
         || (budget != 32U && budget != 64U && budget != 128U)) return 2;
-    const NonlocalGpuProfile profile = nonlocal_water_profile();
+    const NonlocalGpuProfile profile = nonlocal_water_corrected_profile();
     const auto ghosts = canonicalize_ghosts_binary32(
         make_basin_ghosts(profile));
     auto cpu_state = trajectory_initial(profile, scenario, false);
@@ -458,8 +524,8 @@ int run_correspondence_4k(const std::string& scenario,
     double maximum_position_error = 0.0;
     double maximum_density_rmse = 0.0;
     double maximum_density_error = 0.0;
-    double maximum_rest_density_rmse = 0.0;
-    double maximum_rest_density_error = 0.0;
+    double maximum_compression_rmse = 0.0;
+    double maximum_compression_error = 0.0;
     double observed_density_minimum = std::numeric_limits<double>::infinity();
     double observed_density_maximum = 0.0;
     double observed_density_mean = 0.0;
@@ -494,7 +560,7 @@ int run_correspondence_4k(const std::string& scenario,
             || gpu_result.density.size() != cpu_result.density.size()) break;
         double position_squared = 0.0;
         double density_squared = 0.0;
-        double rest_density_squared = 0.0;
+        double compression_squared = 0.0;
         double density_sum = 0.0;
         for (std::size_t index = 0U; index < gpu_result.state.size(); ++index) {
             if (gpu_result.state[index].sample_id
@@ -522,17 +588,16 @@ int run_correspondence_4k(const std::string& scenario,
             density_squared += density_error * density_error;
             maximum_density_error = std::max(
                 maximum_density_error, density_error);
-            const double rest_density_error = std::abs(
-                gpu_result.density[index] - profile.rest_density)
-                / profile.rest_density;
+            const double compression_error = std::max(
+                gpu_result.density[index] / profile.rest_density - 1.0, 0.0);
             observed_density_minimum = std::min(observed_density_minimum,
                 gpu_result.density[index]);
             observed_density_maximum = std::max(observed_density_maximum,
                 gpu_result.density[index]);
             density_sum += gpu_result.density[index];
-            rest_density_squared += rest_density_error * rest_density_error;
-            maximum_rest_density_error = std::max(
-                maximum_rest_density_error, rest_density_error);
+            compression_squared += compression_error * compression_error;
+            maximum_compression_error = std::max(
+                maximum_compression_error, compression_error);
             const Vec3d permutation_delta{
                 gpu_result.state[index].current.x
                     - permuted_result.state[index].current.x,
@@ -552,8 +617,8 @@ int run_correspondence_4k(const std::string& scenario,
         maximum_density_rmse = std::max(maximum_density_rmse,
             std::sqrt(density_squared
                 / static_cast<double>(gpu_result.state.size())));
-        maximum_rest_density_rmse = std::max(maximum_rest_density_rmse,
-            std::sqrt(rest_density_squared
+        maximum_compression_rmse = std::max(maximum_compression_rmse,
+            std::sqrt(compression_squared
                 / static_cast<double>(gpu_result.state.size())));
         observed_density_mean = density_sum
             / static_cast<double>(gpu_result.state.size());
@@ -572,8 +637,8 @@ int run_correspondence_4k(const std::string& scenario,
             || maximum_position_error > 0.005
             || maximum_density_rmse > 0.05
             || maximum_density_error > 0.10
-            || maximum_rest_density_rmse > 0.05
-            || maximum_rest_density_error > 0.10
+            || maximum_compression_rmse > 0.05
+            || maximum_compression_error > 0.10
             || active_mismatch_steps != 0U
             || permutation_mismatch_steps != 0U) break;
     }
@@ -604,34 +669,20 @@ int run_correspondence_4k(const std::string& scenario,
         && maximum_position_error <= 0.005
         && maximum_density_rmse <= 0.05
         && maximum_density_error <= 0.10
-        && maximum_rest_density_rmse <= 0.05
-        && maximum_rest_density_error <= 0.10
+        && maximum_compression_rmse <= 0.05
+        && maximum_compression_error <= 0.10
         && active_mismatch_steps == 0U
         && permutation_mismatch_steps == 0U;
     const bool physical_refuted = !passed && completed > 0U
         && gpu_failure == NonlocalGpuFailure::None
         && cpu_failure == NonlocalGpuFailure::None
-        && (maximum_rest_density_rmse > 0.05
-            || maximum_rest_density_error > 0.10);
-    long double infinite_lattice_density = 0.0L;
-    for (int z = -3; z <= 3; ++z) {
-        for (int y = -3; y <= 3; ++y) {
-            for (int x = -3; x <= 3; ++x) {
-                const long double radius = static_cast<long double>(
-                    profile.spacing)
-                    * std::sqrt(static_cast<long double>(x * x + y * y + z * z));
-                if (radius <= static_cast<long double>(profile.horizon)) {
-                    infinite_lattice_density += static_cast<long double>(
-                        profile.mass) * cubic_weight(
-                            radius, static_cast<long double>(profile.horizon));
-                }
-            }
-        }
-    }
+        && (maximum_compression_rmse > 0.05
+            || maximum_compression_error > 0.10);
+    const long double lattice_density = infinite_lattice_density(profile);
     const char* status = passed ? "PASS"
         : (physical_refuted ? "PHYSICS_REFUTED" : "INCONCLUSIVE");
     std::cout << std::setprecision(17)
-              << "{\"schema\":\"nextengine.nonlocal.ncgp3.correspondence.v1\""
+              << "{\"schema\":\"nextengine.nonlocal.ncgp3.correspondence.v2\""
               << ",\"status\":\"" << status << "\""
               << ",\"scenario\":\"" << scenario << "\",\"steps\":" << steps
               << ",\"completed_steps\":" << completed
@@ -644,10 +695,10 @@ int run_correspondence_4k(const std::string& scenario,
               << maximum_density_rmse
               << ",\"density_correspondence_error_max_fraction\":"
               << maximum_density_error
-              << ",\"density_rest_rmse_max_fraction\":"
-              << maximum_rest_density_rmse
-              << ",\"density_rest_error_max_fraction\":"
-              << maximum_rest_density_error
+              << ",\"density_compression_rmse_max_fraction\":"
+              << maximum_compression_rmse
+              << ",\"density_compression_error_max_fraction\":"
+              << maximum_compression_error
               << ",\"density_observed_min_kg_m3\":"
               << observed_density_minimum
               << ",\"density_observed_max_kg_m3\":"
@@ -655,10 +706,16 @@ int run_correspondence_4k(const std::string& scenario,
               << ",\"density_observed_mean_kg_m3\":"
               << observed_density_mean
               << ",\"independent_infinite_lattice_density_kg_m3\":"
-              << static_cast<double>(infinite_lattice_density)
+              << static_cast<double>(lattice_density)
               << ",\"independent_lattice_density_fraction\":"
-              << static_cast<double>(infinite_lattice_density
+              << static_cast<double>(lattice_density
                     / static_cast<long double>(profile.rest_density))
+              << ",\"profile_root\":\"" << profile_semantic_root(profile)
+              << "\",\"kernel_scale\":" << profile.kernel_scale
+              << ",\"kappa\":" << profile.kappa
+              << ",\"lambda\":" << profile.lambda
+              << ",\"mu\":" << profile.mu
+              << ",\"gamma\":" << profile.gamma
               << ",\"active_mismatch_steps\":" << active_mismatch_steps
               << ",\"permutation_mismatch_steps\":"
               << permutation_mismatch_steps
@@ -694,6 +751,9 @@ int run_correspondence_4k(const std::string& scenario,
 } // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 2 && std::string(argv[1]) == "--profile-self-test") {
+        return run_profile_self_test();
+    }
     if (argc == 2 && std::string(argv[1]) == "--graph-self-test") {
         return run_graph_self_test();
     }
@@ -709,7 +769,7 @@ int main(int argc, char** argv) {
             static_cast<std::uint32_t>(std::stoul(argv[4])));
     }
     std::cerr << "usage: nonlocal-corrected-cuda-compensated-scale "
-                 "--graph-self-test|--boundary-self-test|"
+                 "--profile-self-test|--graph-self-test|--boundary-self-test|"
                  "--transaction-self-test|"
                  "--correspondence-4k SCENARIO STEPS BUDGET\n";
     return 2;
