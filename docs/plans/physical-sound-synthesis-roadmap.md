@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-30 |
-| Статус | `ACTIVE_R&D / R3A_V5_TRAINING_CONTROLS_COMPLETE / THREE_CAPACITY_TRAINING_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `R&D_CHECKPOINT / R3A_V5_REJECTED_ON_DEVELOPMENT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -193,8 +193,8 @@ models и не маскирует провал обещанием универс
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
 | R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
 | R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `IN_PROGRESS / V1_REJECTED / V2_INCONCLUSIVE / V3B_REJECTED / V4_FIT_REJECTED / V5_TRAINING_CONTROLS_COMPLETE` | L | CUDA runner controls repeat; train the three frozen capacities, then pass opened development and one new holdout before a contact field. |
-| R3B | `BLOCKED_BY_R3A` | L | Geometry-aware exact-object few-shot field predicts held contact latents and bakes a validated contact clip atlas offline. |
+| R3A | `COMPLETE / V1_REJECTED / V2_INCONCLUSIVE / V3B_REJECTED / V4_FIT_REJECTED / V5_DEV_REJECTED` | L | The bounded neural frontier repeats, but every capacity fails real development spectrum/modal transfer; no representation holdout is authorized. |
+| R3B | `NOT_AUTHORIZED_BY_R3A` | L | Geometry-aware contact-to-latent work cannot start without a representation pass. |
 | R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
 | R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
 | R6 | `BLOCKED_BY_R5` | M | Frozen generator/cooker/validator один раз открывают admission shadow и публикуют tri-state decision. |
@@ -512,16 +512,20 @@ per stage; deterministic first-train-latent residual-share initialization is
 now frozen. See the
 [training runner evidence](../development/physical-sound-r3a-v5-training-runner-preflight-2026-08-31.md).
 
-Exactly three capacity runs are now authorized. They may use the frozen
-internet train role, twelve authorized fit contacts and internet internal
-validation, but may not read development or holdout or change the frozen
-model/loss/capacity policy.
+The paired `6/12/24 kbps` capacity frontier and frozen development gate are
+complete and reproducible. All capacities pass anti-collapse and byte-budget
+checks, but spectrum and modal frequency fail on all `12/12` real development
+comparisons and decay fails on `11/12`. Two development evaluations repeat
+report `74a6f4ea…bbb4`; sealed, method-holdout and admission-shadow reads stay
+zero. See the [exact V5-C result](../development/physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md).
 
 The neural decoder is external and receives research quality credit only. A
 V5 pass authorizes R3B and offline asset baking, not runtime model inference or
-public content contracts. If no V5 capacity passes, return
-`REJECT_NEURAL_REPRESENTATION` and keep clips; do not reopen V4 or search more
-universal codec checkpoints.
+public content contracts. V5 returns `REJECT_NEURAL_REPRESENTATION`: keep
+clips, select no capacity, spend no new representation holdout and do not
+start R3B. Reconsideration requires a materially different preregistered
+modal/decay-preserving representation and new source-disjoint development
+evidence, not a longer V5-C run or another bitrate.
 
 ## R3B — Object-specific contact-position few-shot model
 
@@ -713,9 +717,10 @@ ledger, persistence и `AcousticFactV1` roots.
 16. `R3A V5 training environment and runner controls` —
     `COMPLETE / REPRODUCIBLE`; CUDA identity, bounded decoder, full
     loss/backward, active RVQ and exact checkpoint continuation repeat.
-17. `R3A V5 three-capacity training` — `NEXT`; train only the frozen
-    `6/12/24 kbps` models and select checkpoints with internet internal
-    validation before opening development once.
+17. `R3A V5 capacity frontier and development gate` —
+    `COMPLETE / REJECT_NEURAL_REPRESENTATION / REPRODUCIBLE`; all three
+    bounded records fit the byte budget, but every capacity fails the four
+    real development objects. No V5 holdout or R3B work is authorized.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.

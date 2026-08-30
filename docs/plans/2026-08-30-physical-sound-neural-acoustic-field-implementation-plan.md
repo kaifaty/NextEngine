@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `IN_PROGRESS / N0.4A_V5_TRAINING_CONTROLS_COMPLETE / THREE_CAPACITY_TRAINING_NEXT / RESEARCH_ONLY` |
+| Status | `COMPLETE / N0.4A_V5_DEV_REJECTED / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -472,10 +472,18 @@ codebook start is rejected after using one code in every stage; deterministic
 first-train-latent residual-share initialization is frozen instead. Preserve
 the [exact runner result](../development/physical-sound-r3a-v5-training-runner-preflight-2026-08-31.md).
 
-Exactly three capacity runs are now authorized without development access.
-The next implementation binds the complete external training run, checkpoint
-selection and canonical metrics to the frozen manifest; it may not change the
-model, losses, capacities, seeds or endpoints.
+The paired `6/12/24 kbps` frontier and one frozen development evaluation are
+complete. All three capacities pass internal anti-collapse and record-budget
+checks, but fail the four real development objects: spectrum and modal
+frequency fail `12/12` comparisons, decay fails `11/12`, and no candidate
+beats nearest fit on the required four endpoints. Two evaluator runs repeat
+report `74a6f4ea…bbb4`; sealed, method-holdout and admission-shadow reads are
+zero. Preserve the [exact result](../development/physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md).
+
+N0.4A closes as `REJECT_NEURAL_REPRESENTATION`. No capacity, new
+representation holdout, N0.4B field or baked atlas is authorized. Do not tune
+losses, thresholds, gain, postfilters, stopping or bitrate using the opened
+development contacts.
 
 ### N0.4B — Object-specific contact-position few-shot field
 
@@ -681,8 +689,8 @@ successful Git commit or a report-only model result.
    corpus, architecture, loss or capacities after later observations.
 8. Preserve the V5 GPU environment and runner controls as
    `COMPLETE / REPRODUCIBLE`; do not restore the dead-code initialization.
-9. Train all frozen capacities without development reads, then open development
-   once and select at most one. Only a development pass may spend one new
-   holdout.
-10. Only after V5-HOLDOUT passes, freeze one N0.4B exact-object
-   contact-to-latent field and bake a bounded ordinary clip atlas offline.
+9. Preserve the reproducible V5-C development result as
+   `REJECT_NEURAL_REPRESENTATION`; select no capacity and spend no new holdout.
+10. Keep N0.4B closed. A future revision first requires a materially different
+    preregistered representation and new source-disjoint development evidence;
+    the product continues to use authored clips.

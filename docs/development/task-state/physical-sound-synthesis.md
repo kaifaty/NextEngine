@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V7 / R3A_V5C_6KBPS_QUANTIZED_GATE_PASSED / CAPACITY_FRONTIER_NEXT / LONG_RUN_DISABLED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V7 / R3A_V5_REJECTED_ON_DEVELOPMENT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,19 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Staged V5-C `6 kbps` is the first fully quantized
-  checkpoint to pass the internal anti-collapse gate. Step `4000` keeps RMS
-  ratio `0.191`, spectrum improvement `5.47%`, at least `51` codes per stage
-  and diversity `1.99` with stable latent. Full-loss optimization is rejected;
-  that loss remains evaluation and checkpoint-selection only.
-- **Exact evidence:** [V5-B collapse and V5-C bootstrap](../physical-sound-r3a-v5b-collapse-and-v5c-bootstrap-2026-08-31.md),
-  quantized-pass report `047cec3f…229a`, full-loss rejection
-  `df805d76…32b9` and stable refinement report `8a41950b…9a60`.
-- **Next action:** Run the same bounded step-4000 frontier for `12/24 kbps`,
-  compare frozen full validation loss, then choose whether one capacity merits
-  a separately authorized longer run.
-- **Spend rule:** Development, new objects, row `2407`, method holdout and
-  admission shadow remain unread throughout all three capacity runs.
+- **Current conclusion:** The paired `6/12/24 kbps` V5-C frontier passes its
+  internal anti-collapse gates but fails the frozen real development gate on
+  every capacity. Spectrum and modal frequency fail on all `12/12`
+  capacity/object comparisons; decay fails on `11/12`.
+- **Exact evidence:** [V5-C frontier and development result](../physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md),
+  repeated report `74a6f4ea…bbb4` at frozen evaluator commit `58171558`.
+- **Next action:** Stop V5 and keep authored clips. Resume only after a new
+  material representation hypothesis and a new source-disjoint development
+  protocol are preregistered; do not tune against the four opened contacts.
+- **Spend rule:** Every row `2407`, method holdout and admission shadow remain
+  sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
   contact clip atlas offline. Runtime neural inference remains forbidden;
   deterministic modal distillation becomes optional later optimization.
@@ -43,8 +41,8 @@
 | R3A V3A | `INVALID_INFRASTRUCTURE` | Plastic Bin target opened, no metrics; eight-sample NDAC deficit recorded, holdout sealed. |
 | R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
-| R3A V5 | `V5C 6KBPS QUANTIZED GATE PASSED / FRONTIER OPEN` | Staged bootstrap and frozen RVQ ramp pass internal checks; compare 12/24 kbps before any long run or development read. |
-| R3B+ | `BLOCKED` | No contact-to-latent field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
+| R3A V5 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | All capacities fit the byte budget but fail real spectrum/modal transfer; no capacity or holdout is selected. |
+| R3B+ | `NOT_AUTHORIZED` | No contact-to-latent field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Material transition: analytical fit rejected and Roadmap V7
 
@@ -129,6 +127,22 @@
   bootstrap signal and pass every frozen anti-collapse check; otherwise stop
   this codec family before development.
 
+## Material transition: V5-C development rejects the neural representation
+
+- **Observation:** Paired `6/12/24 kbps` runs pass internal anti-collapse and
+  record-cost checks, but all three fail every real development object.
+- **Evidence:** [Exact result](../physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md),
+  repeated development report `74a6f4ea…bbb4`; spectrum and modal frequency
+  fail `12/12`, decay fails `11/12`, sealed/method/shadow reads remain zero.
+- **Conclusion:** More bitrate or longer training in this V5-C family is not
+  evidence-backed. Internal validation did not predict physical transfer.
+- **Decision:** Close R3A V5 as `REJECT_NEURAL_REPRESENTATION`; authorize no
+  V5 holdout, R3B field, baked atlas or runtime promotion.
+- **Rejected alternatives:** Threshold/loss/postfilter tuning on opened rows,
+  selecting 24 kbps from internal loss, or continuing any rejected checkpoint.
+- **Reconsideration condition:** A materially different preregistered modal/
+  decay-preserving representation and new source-disjoint development data.
+
 ## Durable negative knowledge
 
 - R2 direct/phase and separable listener fields collapse or lose every held
@@ -166,8 +180,8 @@ kept bounded as the current resume surface.
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A task-specific neural latent carries held impact sound within budget | V5-C `6 kbps` passes the fully quantized internal anti-collapse gate | Universal NDAC and V4 fail; no development or holdout pass exists | Bounded V5-C `12/24 kbps` frontier, then one frozen development evaluation |
-| H2: Geometry-aware exact-object contact learning is possible | REALIMPACT source/mesh/splits repeat; AV-MSF reports few-shot contact fields | No representation has passed a sealed contact gate | V5-HOLDOUT, then one contact-to-latent field |
+| H1: A task-specific neural latent carries held impact sound within budget | V5-C passes internal anti-collapse and byte budgets | V5-C fails spectrum/modal transfer on all `12/12` real development comparisons | Closed for V5-C; require a materially different representation and new development protocol |
+| H2: Geometry-aware exact-object contact learning is possible | REALIMPACT source/mesh/splits repeat; AV-MSF reports few-shot contact fields | No representation has passed development; V5-HOLDOUT is unauthorized | Blocked until a new representation independently passes R3A |
 | H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 after a generator claim exists |
 | H4: Cooked coefficients fit product cost | Q30 reference is compact and exact | Whole-mixer/callback/varied-voice cost is unmeasured | Visible consumer plus p95/p99 before promotion |
 
@@ -188,6 +202,8 @@ kept bounded as the current resume surface.
   factorized RVQ; both collapse on internal validation by step `2000`.
 - Lowering the anti-collapse thresholds or resuming a rejected V5-A/V5-B
   checkpoint.
+- Longer V5-C training, a fourth bitrate, or evaluator/loss/gain/postfilter
+  tuning after the four V5 development contacts were opened.
 - Universal `material -> sound` coefficients before exact-object evidence.
 - Prompt-to-waveform as the engine path; it may remain authored/report-only.
 - Local microphone/hammer capture, raw PhysX-callback mixing or runtime neural
@@ -209,8 +225,9 @@ Read in precedence order:
    [R3A V3](../physical-sound-r3a-v3-native-ndac-result-2026-08-30.md),
    [R3A V4](../physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md),
    [R3A V5 preflight A](../physical-sound-r3a-v5-neural-preflight-a-2026-08-31.md),
-   [R3A V5 training runner preflight](../physical-sound-r3a-v5-training-runner-preflight-2026-08-31.md)
-   and [V5-B/V5-C bounded research](../physical-sound-r3a-v5b-collapse-and-v5c-bootstrap-2026-08-31.md).
+   [R3A V5 training runner preflight](../physical-sound-r3a-v5-training-runner-preflight-2026-08-31.md),
+   [V5-B/V5-C bounded research](../physical-sound-r3a-v5b-collapse-and-v5c-bootstrap-2026-08-31.md)
+   and [V5-C development result](../physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
@@ -224,6 +241,6 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** External V5-C `12/24 kbps` step-4000
-  discriminators and a frozen capacity comparison, with zero development and
-  sealed reads.
+- **Next commit boundary:** None inside V7 V5. A new revision first needs a
+  preregistered representation hypothesis and source-disjoint development
+  evidence; authored clips remain the product path.
