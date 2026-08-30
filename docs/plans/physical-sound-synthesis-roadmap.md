@@ -2,12 +2,12 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / NEURAL_FIRST_STRATEGY_SELECTED / CLASSICAL_Q30_DCT_BASELINE_FROZEN / PS-2N0_CONTRACT_IMPLEMENTED / SYNTHETIC_FIXTURE_PASS / REAL_PROJECTION_AND_N0.2_NEXT / ADMISSION_SHADOW_SEALED / AUTOMATIC_PASS_DISABLED / AUTHORED_CLIP_FALLBACK / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / NEURAL_FIRST_STRATEGY_SELECTED / PS-2N0_CONTRACT_IMPLEMENTED / N0.2_Q30_STRUCTURED_EXPORT_PASS / SYNTHETIC_EXACT_AB_PASS / DCT_PER_ROW_FALLBACK / REAL_PROJECTION_NEXT / ADMISSION_SHADOW_SEALED / AUTOMATIC_PASS_DISABLED / AUTHORED_CLIP_FALLBACK / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Актуальное решение | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
-| Актуальное evidence | [PS-2N0 neural data plane](../development/physical-sound-neural-data-plane-ps2n0-2026-08-30.md) |
+| Актуальное evidence | [N0.2 classical baseline export](../development/physical-sound-classical-baseline-export-ps2n0-2026-08-30.md) |
 | Текущий evidence | [PS-2 Bempp quadrupole surface mode and Rust cooker](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), [PS-2 independent Bempp analytical control](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md), [BEM panel-quadrature discriminator](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md), [analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [REALIMPACT modal-radiation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [PS-2N0 neural data plane](../development/physical-sound-neural-data-plane-ps2n0-2026-08-30.md) |
+| Последний пакет | [N0.2 classical baseline export](../development/physical-sound-classical-baseline-export-ps2n0-2026-08-30.md) |
 | Детальный план | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
 | Горизонт | Frozen classical baseline → neural field benchmark → независимый validator → neural cooker/admission → neural-cooked formula base → production impact vertical → persistent contact |
@@ -119,7 +119,7 @@ frozen `ValidatorRelease`:
 flowchart LR
     PS0["PS-0 Foundation<br/>COMPLETE"] --> PS1["PS-1 Envelope specialist<br/>COMPLETE"]
     PS1 --> PS2["PS-2 Corpus and classical boundary<br/>IN PROGRESS"]
-    PS2 --> PS2N["PS-2N Neural field feasibility<br/>PS-2N0 CONTRACT PASS / N0.2 NEXT"]
+    PS2 --> PS2N["PS-2N Neural field feasibility<br/>Q30 EXPORT PASS / REAL+DCT NEXT"]
     PS2N --> PS3["PS-3 Validator Release V1<br/>BLOCKED"]
     PS3 --> PS4["PS-4 Neural cooker and admission<br/>BLOCKED"]
     PS4 --> PS5["PS-5 Neural-Cooked Formula Base V1<br/>BLOCKED"]
@@ -135,7 +135,7 @@ acquisition и внешняя model extraction могут занимать бо�
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
 | PS-2. Corpus and classical boundary | `IN_PROGRESS / Q30_DCT_BASELINE_FROZEN / REAL_BOUNDARY_EXECUTION_OPEN / SHADOW_SEALED` | L | Frozen corpus roles, classical Q30/DCT baseline and one fail-closed real-data boundary exist; missing axes stay missing and no admission is claimed. |
-| PS-2N. Neural field feasibility | `PS-2N0_CONTRACT_IMPLEMENTED / SYNTHETIC_FIXTURE_PASS / REAL_PROJECTION_AND_N0.2_NEXT` | L | The external-only five-role projection, typed lineage, capability report, leakage rejection and sealed commitments pass synthetic controls. Real row coverage and the classical exporter remain next; no model has been trained. |
+| PS-2N. Neural field feasibility | `PS-2N0_CONTRACT_IMPLEMENTED / N0.2_Q30_STRUCTURED_EXPORT_PASS / DCT_PER_ROW_FALLBACK / REAL_PROJECTION_NEXT` | L | The five-role projection and exact Q30 profile/PCM/features export pass synthetic controls. DCT has no row-specific fit/cooker and real row coverage is not run; no model has been trained. |
 | PS-3. Validator Release V1 | `BLOCKED_BY_PS-2N` | M | Один independently frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
 | PS-4. Neural cooker and one-shot admission | `BLOCKED_BY_PS-3` | M–L | Frozen generator and validator meet untouched shadow once and publish reproducible `Pass`, `Reject` or `FallbackOutOfDomain`. |
 | PS-5. Neural-Cooked Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted cooked domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback и без runtime model. |
@@ -1138,6 +1138,8 @@ bounded cooked representation и exact runtime repeat. Это feasibility gate, 
 1. `PS-2N0` замораживает row projection, published axes, provenance и роли
    `train/development/calibration/method_holdout/admission_shadow`;
 2. `PS-2N1` экспортирует неизменённый Q30/DCT baseline и одинаковые features;
+   Q30 structured/exact-PCM часть уже проходит synthetic controls, а DCT и
+   real-row часть остаются fallback/open;
 3. `PS-2N2` обучает object-specific few-shot modal/gain/residual field;
 4. `PS-2N3` только после успеха few-shot проверяет shared geometry-conditioned
    surrogate на object/family-disjoint holdout;
@@ -1277,7 +1279,7 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 | Порядок | Work package | Gate после выполнения |
 | ---: | --- | --- |
 | 1 | `DONE` — `PS-2N0` external row projection, пять split roles, typed lineage и leakage/capability audit; synthetic controls pass, модель не обучалась | Neural data contract implemented |
-| 2 | `NEXT` — спроецировать permitted real development slice и экспортировать неизменённый Q30/DCT baseline с exact cooked/PCM controls | Real capability report and classical benchmark frozen |
+| 2 | `IN_PROGRESS` — Q30 structured/exact-PCM exporter готов; спроецировать permitted real development slice и закрыть DCT per-row cooker либо PCM-only fallback на тех же identities | Real capability report and complete classical benchmark frozen |
 | 3 | Preregister и обучить external object-specific few-shot modal/gain/residual field | Held-out position/listener discriminator |
 | 4 | При успехе few-shot проверить shared geometry-conditioned surrogate на object/family-disjoint method holdout | `GO_FEW_SHOT`, `GO_SHARED`, `REJECT_REPRESENTATION` или `DATA_INSUFFICIENT` |
 | 5 | Выпустить independently frozen Validator Release V1 без открытия admission shadow во время разработки | PS-3 go/no-go |

@@ -1086,6 +1086,19 @@ structure, member and shadow payload remain forbidden. The current managed
 sandbox did not execute the network stage, so archive identities remain open
 and no acquisition success or rejection is claimed.
 
+`physical-sound-registry classical-baseline` now consumes only the unsealed
+PS-2N0 train/development projection and requires one explicit hash-closed
+binding per row. Its exact selected-glass Q30 snapshot has profile hash
+`19b051fe…ef181`; the full-energy canonical WAV remains
+`c912806c…b9c823`. It exports canonical recurrence order, the bounded onset
+residual, PCM/WAV hashes, shared acoustic features and exact A/B metrics, while
+stale projection/audio lineage, sealed roles, reject parents and missing axes
+fail closed or select `FallbackOutOfDomain`. The frozen coloured-DCT sources
+are also hash-bound, but there is no per-row DCT fit or exact cooked renderer,
+so that branch remains `FallbackOutOfDomain` rather than receiving partial
+baseline credit. Synthetic repeats pass; no real projection, training,
+quality/admission decision, runtime consumer or public schema is added.
+
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,
 reference numeric profile and ProductChecks. Until then all record shapes and

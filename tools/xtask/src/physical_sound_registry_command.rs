@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 mod bem_feasibility;
+mod classical_baseline;
 mod corpus_inventory;
 mod corpus_plan;
 mod domain_claims;
@@ -69,6 +70,10 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         Some("corpus-inventory") => {
             arguments.next();
             return corpus_inventory::run_cli(root, arguments);
+        }
+        Some("classical-baseline") => {
+            arguments.next();
+            return classical_baseline::run_cli(root, arguments);
         }
         Some("domain-claims") => {
             arguments.next();

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / PS-2N0_CONTRACT_IMPLEMENTED / SYNTHETIC_FIXTURE_PASS / REAL_PROJECTION_AND_N0.2_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / PS-2N0_CONTRACT_IMPLEMENTED / N0.2_Q30_EXPORT_PASS / DCT_AND_REAL_PROJECTION_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -61,6 +61,10 @@ to the strongest exact object/axis instead of manufacturing a broad domain.
 Commit boundary: projection contract, fixtures, focused tests and evidence.
 
 ### N0.2 — Export the deterministic classical benchmark
+
+Status: `PARTIAL / Q30_STRUCTURED_EXPORT_PASS / SYNTHETIC_EXACT_AB_PASS /
+DCT_PER_ROW_FALLBACK / REAL_PROJECTION_NOT_RUN`. See
+[N0.2 baseline evidence](../development/physical-sound-classical-baseline-export-ps2n0-2026-08-30.md).
 
 Deliverables:
 
@@ -267,9 +271,10 @@ successful Git commit or a report-only model result.
 
 ## Immediate queue
 
-1. Freeze N0.1 row projection, roles and leakage audit.
-2. Implement N0.2 deterministic baseline export without changing frozen
-   Q30/DCT behavior.
+1. Construct and project the first permitted real development slice from
+   published internet data without filling missing axes.
+2. Complete N0.2 on those identities: retain exact Q30 output and either bind
+   an exact per-row DCT fit/cooker or keep the DCT branch fallback/PCM-only.
 3. Preregister N0.3 on the best synchronized multi-impact/multi-listener exact
    object available from published internet data.
 4. Train the first few-shot field externally and publish its ablations.

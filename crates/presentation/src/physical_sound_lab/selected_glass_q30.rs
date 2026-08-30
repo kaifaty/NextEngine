@@ -25,6 +25,62 @@ struct SelectedGlassQ30Mode {
     initial_sample_q30: i64,
 }
 
+/// Immutable research snapshot of one cooked mode in the selected Q30
+/// benchmark. This is deliberately a presentation-lab type, not content or a
+/// public engine contract.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SelectedGlassQ30ModeSnapshot {
+    pub coefficient_a_q30: i64,
+    pub coefficient_b_q30: i64,
+    pub initial_sample_q30: i64,
+}
+
+/// Immutable research snapshot used by external benchmark tooling. Runtime
+/// playback continues to use the private constants below directly.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SelectedGlassQ30ProfileSnapshot {
+    pub revision: &'static str,
+    pub source_profile_sha256: &'static str,
+    pub sample_rate_hz: u32,
+    pub channel_count: u32,
+    pub duration_frames: u32,
+    pub raw_peak_q30: i128,
+    pub center_channel_peak: i128,
+    pub modes: [SelectedGlassQ30ModeSnapshot; MODE_COUNT],
+    pub transient_q30: &'static [i64],
+}
+
+/// Returns the exact already-cooked selected-glass profile for external
+/// baseline export. No floating-point inverse reconstruction is performed.
+#[must_use]
+pub const fn selected_glass_q30_profile_snapshot() -> SelectedGlassQ30ProfileSnapshot {
+    let mut modes = [SelectedGlassQ30ModeSnapshot {
+        coefficient_a_q30: 0,
+        coefficient_b_q30: 0,
+        initial_sample_q30: 0,
+    }; MODE_COUNT];
+    let mut index = 0;
+    while index < MODE_COUNT {
+        modes[index] = SelectedGlassQ30ModeSnapshot {
+            coefficient_a_q30: SELECTED_GLASS_Q30_MODES[index].coefficient_a_q30,
+            coefficient_b_q30: SELECTED_GLASS_Q30_MODES[index].coefficient_b_q30,
+            initial_sample_q30: SELECTED_GLASS_Q30_MODES[index].initial_sample_q30,
+        };
+        index += 1;
+    }
+    SelectedGlassQ30ProfileSnapshot {
+        revision: "selected-thin-container-q30-v1",
+        source_profile_sha256: "7939326bb4b1e09f9b6b89c3a2f4099708edbe35c953d710db3c100c6bd007f7",
+        sample_rate_hz: 48_000,
+        channel_count: 2,
+        duration_frames: DURATION_FRAMES,
+        raw_peak_q30: RAW_PEAK_Q30,
+        center_channel_peak: CENTER_CHANNEL_PEAK,
+        modes,
+        transient_q30: &SELECTED_GLASS_TRANSIENT_Q30,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 struct SelectedGlassQ30State {
     previous_q30: i64,
