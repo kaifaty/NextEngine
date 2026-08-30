@@ -779,6 +779,80 @@ std::string step_semantic_root(const NonlocalGpuProfile& profile,
     return sha256_hex(bytes);
 }
 
+std::string solver_trace_semantic_root(
+    const NonlocalGpuStepResult& result) {
+    std::string bytes = "nextengine.nonlocal.ncgp4.solver-trace.v1\0";
+    append_u32(bytes, static_cast<std::uint32_t>(result.failure));
+    append_u32(bytes, result.hvp_budget);
+    append_u32(bytes, result.hvp_used);
+    append_u32(bytes, static_cast<std::uint32_t>(result.solver_profile));
+    append_u32(bytes, static_cast<std::uint32_t>(result.variant));
+    append_u64(bytes, result.trace.size());
+    for (const NonlocalGpuSolverTraceEvent& event : result.trace) {
+        append_u32(bytes, event.sequence);
+        append_u32(bytes, event.outer);
+        append_u32(bytes, event.inner);
+        append_u32(bytes, event.hvp_used);
+        append_u32(bytes, event.active_pressure_centers);
+        append_u32(bytes, event.directed_pairs);
+        append_u32(bytes, static_cast<std::uint32_t>(event.kind));
+        append_u32(bytes, static_cast<std::uint32_t>(event.reason));
+        append_u64(bytes, event.inertia_floor_components);
+        for (const double value : std::array<double, 18>{
+                 event.radius_before, event.radius_after,
+                 event.gradient_norm, event.scaled_displacement_residual,
+                 event.diagonal_min_abs, event.diagonal_max_abs,
+                 event.initial_true_residual,
+                 event.initial_preconditioned_residual,
+                 event.true_residual, event.preconditioned_residual,
+                 event.forcing, event.curvature, event.alpha, event.beta,
+                 event.step_norm, event.predicted_reduction,
+                 event.actual_reduction, event.rho}) {
+            append_f64(bytes, value);
+        }
+    }
+    return sha256_hex(bytes);
+}
+
+bool solver_trace_valid(const NonlocalGpuStepResult& result) {
+    if (result.trace.size() < 2U
+        || result.trace.front().kind != NonlocalGpuTraceKind::OuterStart
+        || result.trace.back().kind != NonlocalGpuTraceKind::Terminal) {
+        return false;
+    }
+    std::uint32_t previous_hvp = 0U;
+    std::uint32_t previous_outer = 0U;
+    for (std::size_t index = 0U; index < result.trace.size(); ++index) {
+        const NonlocalGpuSolverTraceEvent& event = result.trace[index];
+        if (event.sequence != static_cast<std::uint32_t>(index)
+            || event.hvp_used < previous_hvp
+            || event.hvp_used > result.hvp_budget
+            || (index != 0U && event.outer < previous_outer)) {
+            return false;
+        }
+        for (const double value : std::array<double, 18>{
+                 event.radius_before, event.radius_after,
+                 event.gradient_norm, event.scaled_displacement_residual,
+                 event.diagonal_min_abs, event.diagonal_max_abs,
+                 event.initial_true_residual,
+                 event.initial_preconditioned_residual,
+                 event.true_residual, event.preconditioned_residual,
+                 event.forcing, event.curvature, event.alpha, event.beta,
+                 event.step_norm, event.predicted_reduction,
+                 event.actual_reduction, event.rho}) {
+            if (!std::isfinite(value)) return false;
+        }
+        if (event.kind == NonlocalGpuTraceKind::Trial
+            && event.reason != NonlocalGpuTraceReason::Accepted
+            && event.reason != NonlocalGpuTraceReason::Rejected) {
+            return false;
+        }
+        previous_hvp = event.hvp_used;
+        previous_outer = event.outer;
+    }
+    return result.trace.back().hvp_used == result.hvp_used;
+}
+
 NonlocalGpuEvaluationResult evaluate_reference(
     const NonlocalGpuProfile& profile,
     const std::vector<NonlocalGpuSample>& input_samples,

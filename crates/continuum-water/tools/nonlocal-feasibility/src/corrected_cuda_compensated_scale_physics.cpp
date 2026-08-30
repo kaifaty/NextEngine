@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -21,12 +22,35 @@
 #ifndef NCGP3_SOURCE_ROOT
 #define NCGP3_SOURCE_ROOT "unconfigured"
 #endif
+#ifndef NCGP4_CONTRACT_ROOT
+#define NCGP4_CONTRACT_ROOT NCGP3_CONTRACT_ROOT
+#endif
+#ifndef NCGP4_SOURCE_ROOT
+#define NCGP4_SOURCE_ROOT NCGP3_SOURCE_ROOT
+#endif
+#ifndef NCGP4_SOURCE_COMMIT
+#define NCGP4_SOURCE_COMMIT "unconfigured"
+#endif
+#ifndef NCGP4_SOURCE_TREE
+#define NCGP4_SOURCE_TREE "unconfigured"
+#endif
+#ifndef NCGP4_COMPILER_FLAGS
+#define NCGP4_COMPILER_FLAGS "unconfigured"
+#endif
 
 namespace {
 
 using namespace nextengine::nonlocal::gpu_full_step;
 
 constexpr std::uint32_t kBudget = 128U;
+
+std::string physics_binary_root() {
+    std::ifstream stream("/proc/self/exe", std::ios::binary);
+    if (!stream) return {};
+    std::ostringstream bytes;
+    bytes << stream.rdbuf();
+    return nextengine::nonlocal::sha256_hex(bytes.str());
+}
 
 double squared_norm(Vec3d value) {
     return value.x * value.x + value.y * value.y + value.z * value.z;
@@ -94,7 +118,10 @@ struct FreeFallResult {
     bool passed = false;
     double maximum_position_error = std::numeric_limits<double>::infinity();
     double maximum_velocity_error = std::numeric_limits<double>::infinity();
-    double energy_drift = std::numeric_limits<double>::infinity();
+    double positive_energy_excess = std::numeric_limits<double>::infinity();
+    double reverse_position_error = std::numeric_limits<double>::infinity();
+    double reverse_velocity_error = std::numeric_limits<double>::infinity();
+    double reversible_energy_drift = std::numeric_limits<double>::infinity();
     double momentum_residual = std::numeric_limits<double>::infinity();
     std::string input_root;
     std::string receipt_root;
@@ -121,6 +148,7 @@ FreeFallResult run_free_fall() {
     double maximum_momentum = 0.0;
     double maximum_position = 0.0;
     double maximum_velocity = 0.0;
+    std::vector<NonlocalGpuSample> forward_state;
     std::ostringstream receipts;
     receipts << "nextengine.nonlocal.ncgp3.free-fall.v1\n";
     for (std::uint32_t step = 1U; step <= 32U; ++step) {
@@ -171,10 +199,65 @@ FreeFallResult run_free_fall() {
             profile.mass * snapshot.state[0].velocity.z};
         maximum_momentum = std::max(maximum_momentum,
             distance(actual_momentum, expected_momentum));
+        forward_state = snapshot.state;
     }
     result.maximum_position_error = maximum_position;
     result.maximum_velocity_error = maximum_velocity;
-    result.energy_drift = maximum_energy_delta
+    result.positive_energy_excess = maximum_energy_delta
+        / std::max(std::abs(initial_energy), 1.0);
+    if (forward_state.size() != 1U) {
+        result.receipt_root = nextengine::nonlocal::sha256_hex(receipts.str());
+        return result;
+    }
+    auto reverse_input = forward_state;
+    reverse_input[0].reference = reverse_input[0].current;
+    reverse_input[0].velocity = {
+        -reverse_input[0].velocity.x - profile.dt * profile.gravity.x,
+        -reverse_input[0].velocity.y - profile.dt * profile.gravity.y,
+        -reverse_input[0].velocity.z - profile.dt * profile.gravity.z};
+    reverse_input = canonicalize_samples_binary32(reverse_input);
+    NonlocalGpuWorkspace reverse_workspace(profile);
+    if (reverse_workspace.upload(reverse_input, {}, true)
+        != NonlocalGpuFailure::None) {
+        result.receipt_root = nextengine::nonlocal::sha256_hex(receipts.str());
+        return result;
+    }
+    NonlocalGpuPublicSnapshot reverse_snapshot;
+    for (std::uint32_t step = 1U; step <= 32U; ++step) {
+        const auto solved = reverse_workspace.step(kBudget,
+            NonlocalGpuSolverProfile::Jacobi,
+            NonlocalGpuVariant::CompensatedScaleF32, false, false);
+        reverse_snapshot = reverse_workspace.capture_public_snapshot();
+        receipts << "reverse:" << step << ':'
+                 << step_work_semantic_root(profile, solved) << ':'
+                 << work_semantic_root(reverse_snapshot.work) << '\n';
+        if (solved.failure != NonlocalGpuFailure::None
+            || reverse_snapshot.failure != NonlocalGpuFailure::None
+            || reverse_snapshot.state.size() != 1U) {
+            result.receipt_root = nextengine::nonlocal::sha256_hex(
+                receipts.str());
+            return result;
+        }
+    }
+    const Vec3d reconstructed_velocity{
+        -reverse_snapshot.state[0].velocity.x
+            - profile.dt * profile.gravity.x,
+        -reverse_snapshot.state[0].velocity.y
+            - profile.dt * profile.gravity.y,
+        -reverse_snapshot.state[0].velocity.z
+            - profile.dt * profile.gravity.z};
+    result.reverse_position_error = distance(
+        reverse_snapshot.state[0].current, input[0].current);
+    result.reverse_velocity_error = distance(
+        reconstructed_velocity, input[0].velocity);
+    const double reconstructed_energy = 0.5 * profile.mass
+            * squared_norm(reconstructed_velocity)
+        - profile.mass * (profile.gravity.x
+                * reverse_snapshot.state[0].current.x
+            + profile.gravity.y * reverse_snapshot.state[0].current.y
+            + profile.gravity.z * reverse_snapshot.state[0].current.z);
+    result.reversible_energy_drift = std::abs(
+        reconstructed_energy - initial_energy)
         / std::max(std::abs(initial_energy), 1.0);
     const double momentum_scale = std::max({
         profile.mass * std::sqrt(squared_norm(input[0].velocity)),
@@ -184,7 +267,10 @@ FreeFallResult run_free_fall() {
     result.receipt_root = nextengine::nonlocal::sha256_hex(receipts.str());
     result.passed = maximum_position <= 5.0e-6
         && maximum_velocity <= 5.0e-6 / profile.dt
-        && result.energy_drift <= 0.01
+        && result.positive_energy_excess <= 0.01
+        && result.reverse_position_error <= 5.0e-6
+        && result.reverse_velocity_error <= 5.0e-6 / profile.dt
+        && result.reversible_energy_drift <= 0.01
         && result.momentum_residual <= 0.01;
     return result;
 }
@@ -270,7 +356,11 @@ InvarianceResult run_invariance() {
         receipts << step_work_semantic_root(profile, a) << ':'
                  << step_work_semantic_root(profile, b) << ':'
                  << step_work_semantic_root(profile, c) << ':'
-                 << step_work_semantic_root(profile, d) << '\n';
+                 << step_work_semantic_root(profile, d) << ':'
+                 << work_semantic_root(as.work) << ':'
+                 << work_semantic_root(bs.work) << ':'
+                 << work_semantic_root(cs.work) << ':'
+                 << work_semantic_root(ds.work) << '\n';
         if (a.failure != NonlocalGpuFailure::None
             || b.failure != NonlocalGpuFailure::None
             || c.failure != NonlocalGpuFailure::None
@@ -321,8 +411,10 @@ double kinetic_energy(const NonlocalGpuProfile& profile,
 
 struct ViscosityResult {
     bool passed = false;
-    double maximum_energy_increase = std::numeric_limits<double>::infinity();
-    double final_energy_change = std::numeric_limits<double>::infinity();
+    double maximum_relative_energy_increase =
+        std::numeric_limits<double>::infinity();
+    double final_relative_energy_change =
+        std::numeric_limits<double>::infinity();
     std::string receipt_root;
 };
 
@@ -356,7 +448,9 @@ ViscosityResult run_viscosity() {
         const auto as = gpu.capture_public_snapshot();
         const auto bs = permutation_gpu.capture_public_snapshot();
         receipts << step_work_semantic_root(profile, a) << ':'
-                 << step_work_semantic_root(profile, b) << '\n';
+                 << step_work_semantic_root(profile, b) << ':'
+                 << work_semantic_root(as.work) << ':'
+                 << work_semantic_root(bs.work) << '\n';
         if (a.failure != NonlocalGpuFailure::None
             || b.failure != NonlocalGpuFailure::None
             || snapshot_state_root(as) != snapshot_state_root(bs)) {
@@ -367,11 +461,13 @@ ViscosityResult run_viscosity() {
         maximum_increase = std::max(maximum_increase, final - previous);
         previous = final;
     }
-    result.maximum_energy_increase = maximum_increase;
-    result.final_energy_change = std::abs(final - initial);
+    const double energy_scale = std::max(std::abs(initial), 1.0);
+    result.maximum_relative_energy_increase = maximum_increase / energy_scale;
+    result.final_relative_energy_change = std::abs(final - initial)
+        / energy_scale;
     result.receipt_root = nextengine::nonlocal::sha256_hex(receipts.str());
-    result.passed = maximum_increase <= 1.0e-6
-        && result.final_energy_change <= 1.0e-6;
+    result.passed = result.maximum_relative_energy_increase <= 1.0e-6
+        && result.final_relative_energy_change <= 1.0e-6;
     return result;
 }
 
@@ -466,7 +562,8 @@ SurfaceResult run_surface_relaxation() {
         const auto cpu_step = step_reference(profile, cpu_state, {}, kBudget,
             NonlocalGpuVariant::Corrected, true);
         receipts << step_work_semantic_root(profile, gpu_step) << ':'
-                 << step_work_semantic_root(profile, cpu_step) << '\n';
+                 << step_work_semantic_root(profile, cpu_step) << ':'
+                 << work_semantic_root(snapshot.work) << '\n';
         if (gpu_step.failure != NonlocalGpuFailure::None
             || snapshot.failure != NonlocalGpuFailure::None
             || cpu_step.failure != NonlocalGpuFailure::None
@@ -502,6 +599,7 @@ struct HvpResult {
     std::uint32_t active = 0U;
     std::string input_root;
     std::string work_root;
+    std::string reference_work_root;
 };
 
 HvpResult run_hvp() {
@@ -556,6 +654,7 @@ HvpResult run_hvp() {
               1.0e-30L));
     result.active = actual.active_pressure_centers;
     result.work_root = work_semantic_root(actual.work);
+    result.reference_work_root = work_semantic_root(expected.work);
     result.passed = result.relative_l2 <= 1.0e-3
         && result.cosine_loss <= 1.0e-6
         && actual.active_pressure_ids == expected.active_pressure_ids
@@ -570,6 +669,7 @@ struct PredictorResult {
     std::uint64_t ordinary_eft_components = 0U;
     std::string correct_root;
     std::string ordinary_root;
+    std::string receipt_root;
 };
 
 PredictorResult run_predictor_negative() {
@@ -598,6 +698,13 @@ PredictorResult run_predictor_negative() {
         ordinary_step.work.compensated_prediction_eft_components;
     result.correct_root = compensated_state_root(correct_state);
     result.ordinary_root = compensated_state_root(ordinary_state);
+    std::ostringstream receipt;
+    receipt << "nextengine.nonlocal.ncgp4.predictor-receipt.v1\n"
+            << step_work_semantic_root(profile, correct_step) << '\n'
+            << step_work_semantic_root(profile, ordinary_step) << '\n'
+            << work_semantic_root(correct_state.work) << '\n'
+            << work_semantic_root(ordinary_state.work) << '\n';
+    result.receipt_root = nextengine::nonlocal::sha256_hex(receipt.str());
     bool correct_has_low = false;
     bool ordinary_all_zero = true;
     for (const Vec3d value : correct_state.predicted_low) {
@@ -616,7 +723,8 @@ PredictorResult run_predictor_negative() {
         && result.correct_eft_components == 6U
         && result.ordinary_eft_components == 0U
         && !result.correct_root.empty()
-        && result.correct_root != result.ordinary_root;
+        && result.correct_root != result.ordinary_root
+        && !result.receipt_root.empty();
     return result;
 }
 
@@ -629,25 +737,94 @@ int run_ncgp3_physics_self_test(bool emit_result) {
     const SurfaceResult surface = run_surface_relaxation();
     const HvpResult hvp = run_hvp();
     const PredictorResult predictor = run_predictor_negative();
-    const bool passed = free_fall.passed && invariance.passed
+    const bool controls_passed = free_fall.passed && invariance.passed
         && viscosity.passed && surface.passed && hvp.passed
         && predictor.passed;
+#if defined(NCGP4_EXPERIMENTAL)
+    constexpr const char* kSchema = "nextengine.nonlocal.ncgp4.physics.v1";
+    constexpr const char* kSuiteDomain =
+        "nextengine.nonlocal.ncgp4.physics-suite.v1\n";
+    constexpr const char* kContractRoot = NCGP4_CONTRACT_ROOT;
+    constexpr const char* kSourceRoot = NCGP4_SOURCE_ROOT;
+    constexpr const char* kSourceCommit = NCGP4_SOURCE_COMMIT;
+    constexpr const char* kSourceTree = NCGP4_SOURCE_TREE;
+    constexpr const char* kCompilerFlags = NCGP4_COMPILER_FLAGS;
+#else
+    constexpr const char* kSchema = "nextengine.nonlocal.ncgp3.physics.v2";
+    constexpr const char* kSuiteDomain =
+        "nextengine.nonlocal.ncgp3.physics-suite.v2\n";
+    constexpr const char* kContractRoot = NCGP3_CONTRACT_ROOT;
+    constexpr const char* kSourceRoot = NCGP3_SOURCE_ROOT;
+    constexpr const char* kSourceCommit = "unconfigured";
+    constexpr const char* kSourceTree = "unconfigured";
+    constexpr const char* kCompilerFlags = "unconfigured";
+#endif
+    NonlocalGpuWorkspace environment_probe(nonlocal_water_corrected_profile());
+    const std::string environment = environment_probe.environment_json();
+    const std::string executable_root = physics_binary_root();
+#if defined(NCGP4_EXPERIMENTAL)
+    const bool passed = controls_passed && !executable_root.empty()
+        && std::string(kContractRoot) != "unconfigured"
+        && std::string(kSourceRoot) != "unconfigured"
+        && std::string(kSourceCommit) != "unconfigured"
+        && std::string(kSourceTree) != "unconfigured"
+        && std::string(kCompilerFlags) != "unconfigured";
+#else
+    const bool passed = controls_passed;
+#endif
     std::ostringstream roots;
-    roots << "nextengine.nonlocal.ncgp3.physics-suite.v1\n"
+    roots << std::setprecision(17) << kSuiteDomain
+          << passed << '\n'
+          << free_fall.passed << '\n'
+          << free_fall.maximum_position_error << '\n'
+          << free_fall.maximum_velocity_error << '\n'
+          << free_fall.positive_energy_excess << '\n'
+          << free_fall.reverse_position_error << '\n'
+          << free_fall.reverse_velocity_error << '\n'
+          << free_fall.reversible_energy_drift << '\n'
+          << free_fall.momentum_residual << '\n'
           << free_fall.input_root << '\n' << free_fall.receipt_root << '\n'
-          << invariance.receipt_root << '\n' << viscosity.receipt_root << '\n'
-          << surface.receipt_root << '\n' << hvp.input_root << '\n'
-          << hvp.work_root << '\n' << predictor.correct_root << '\n'
-          << predictor.ordinary_root << '\n';
+          << invariance.passed << '\n' << invariance.translation_error << '\n'
+          << invariance.rotation_error << '\n'
+          << invariance.permutation_mismatches << '\n'
+          << invariance.receipt_root << '\n'
+          << viscosity.passed << '\n'
+          << viscosity.maximum_relative_energy_increase << '\n'
+          << viscosity.final_relative_energy_change << '\n'
+          << viscosity.receipt_root << '\n'
+          << surface.passed << '\n' << surface.maximum_position_error << '\n'
+          << surface.energy_decrease << '\n' << surface.receipt_root << '\n'
+          << hvp.passed << '\n' << hvp.relative_l2 << '\n'
+          << hvp.cosine_loss << '\n' << hvp.active << '\n'
+          << hvp.input_root << '\n' << hvp.work_root << '\n'
+          << hvp.reference_work_root << '\n'
+          << predictor.passed << '\n'
+          << predictor.correct_eft_components << '\n'
+          << predictor.ordinary_eft_components << '\n'
+          << predictor.correct_root << '\n' << predictor.ordinary_root << '\n'
+          << predictor.receipt_root << '\n'
+          << kContractRoot << '\n' << kSourceRoot << '\n'
+          << kSourceCommit << '\n' << kSourceTree << '\n'
+          << kCompilerFlags << '\n' << executable_root << '\n'
+          << environment << '\n';
+    const std::string suite_root = nextengine::nonlocal::sha256_hex(
+        roots.str());
     if (emit_result) std::cout << std::setprecision(17)
-              << "{\"schema\":\"nextengine.nonlocal.ncgp3.physics.v1\""
+              << "{\"schema\":\"" << kSchema << "\""
               << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
               << ",\"free_fall_pass\":" << (free_fall.passed ? "true" : "false")
               << ",\"free_fall_position_max_m\":"
               << free_fall.maximum_position_error
               << ",\"free_fall_velocity_max_m_s\":"
               << free_fall.maximum_velocity_error
-              << ",\"reversible_energy_drift\":" << free_fall.energy_drift
+              << ",\"positive_energy_excess_fraction\":"
+              << free_fall.positive_energy_excess
+              << ",\"reverse_position_error_m\":"
+              << free_fall.reverse_position_error
+              << ",\"reverse_velocity_error_m_s\":"
+              << free_fall.reverse_velocity_error
+              << ",\"reversible_energy_drift_fraction\":"
+              << free_fall.reversible_energy_drift
               << ",\"free_fall_momentum_residual\":"
               << free_fall.momentum_residual
               << ",\"invariance_pass\":" << (invariance.passed ? "true" : "false")
@@ -656,10 +833,10 @@ int run_ncgp3_physics_self_test(bool emit_result) {
               << ",\"invariance_permutation_mismatches\":"
               << invariance.permutation_mismatches
               << ",\"viscosity_pass\":" << (viscosity.passed ? "true" : "false")
-              << ",\"viscosity_energy_increase_max_j\":"
-              << viscosity.maximum_energy_increase
-              << ",\"viscosity_final_energy_change_j\":"
-              << viscosity.final_energy_change
+              << ",\"viscosity_energy_increase_max_fraction\":"
+              << viscosity.maximum_relative_energy_increase
+              << ",\"viscosity_final_energy_change_fraction\":"
+              << viscosity.final_relative_energy_change
               << ",\"surface_pass\":" << (surface.passed ? "true" : "false")
               << ",\"surface_position_error_max_m\":"
               << surface.maximum_position_error
@@ -674,9 +851,13 @@ int run_ncgp3_physics_self_test(bool emit_result) {
               << predictor.correct_eft_components
               << ",\"ordinary_predictor_eft_components\":"
               << predictor.ordinary_eft_components
-              << ",\"suite_root\":\""
-              << nextengine::nonlocal::sha256_hex(roots.str()) << "\""
-              << ",\"contract_root\":\"" << NCGP3_CONTRACT_ROOT << "\""
-              << ",\"source_root\":\"" << NCGP3_SOURCE_ROOT << "\"}\n";
+              << ",\"suite_root\":\"" << suite_root << "\""
+              << ",\"contract_root\":\"" << kContractRoot << "\""
+              << ",\"source_root\":\"" << kSourceRoot << "\""
+              << ",\"source_commit\":\"" << kSourceCommit << "\""
+              << ",\"source_tree\":\"" << kSourceTree << "\""
+              << ",\"compiler_flags\":\"" << kCompilerFlags << "\""
+              << ",\"binary_root\":\"" << executable_root << "\""
+              << ",\"environment\":" << environment << "}\n";
     return passed ? 0 : 4;
 }

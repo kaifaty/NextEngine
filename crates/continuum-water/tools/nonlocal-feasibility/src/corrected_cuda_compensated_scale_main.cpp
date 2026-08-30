@@ -32,6 +32,21 @@
 #ifndef NCGP3_COMPILER_FLAGS
 #define NCGP3_COMPILER_FLAGS "unconfigured"
 #endif
+#ifndef NCGP4_CONTRACT_ROOT
+#define NCGP4_CONTRACT_ROOT "unconfigured"
+#endif
+#ifndef NCGP4_SOURCE_ROOT
+#define NCGP4_SOURCE_ROOT "unconfigured"
+#endif
+#ifndef NCGP4_SOURCE_COMMIT
+#define NCGP4_SOURCE_COMMIT "unconfigured"
+#endif
+#ifndef NCGP4_SOURCE_TREE
+#define NCGP4_SOURCE_TREE "unconfigured"
+#endif
+#ifndef NCGP4_COMPILER_FLAGS
+#define NCGP4_COMPILER_FLAGS "unconfigured"
+#endif
 
 namespace {
 
@@ -533,27 +548,6 @@ std::string compensated_state_root(
     return nextengine::nonlocal::sha256_hex(material.str());
 }
 
-std::string public_state_root(
-    const std::vector<NonlocalGpuSample>& unordered_state) {
-    std::vector<NonlocalGpuSample> state = unordered_state;
-    std::sort(state.begin(), state.end(), [](const auto& lhs, const auto& rhs) {
-        return lhs.sample_id < rhs.sample_id;
-    });
-    std::ostringstream material;
-    material << "nextengine.nonlocal.ncgp3.public-state.v1\n";
-    for (const NonlocalGpuSample& sample : state) {
-        material << sample.sample_id << ':' << std::hex
-                 << float_bits(static_cast<float>(sample.current.x)) << ','
-                 << float_bits(static_cast<float>(sample.current.y)) << ','
-                 << float_bits(static_cast<float>(sample.current.z)) << ';'
-                 << float_bits(static_cast<float>(sample.velocity.x)) << ','
-                 << float_bits(static_cast<float>(sample.velocity.y)) << ','
-                 << float_bits(static_cast<float>(sample.velocity.z)) << '\n'
-                 << std::dec;
-    }
-    return nextengine::nonlocal::sha256_hex(material.str());
-}
-
 std::vector<NonlocalGpuSample> transaction_pair_state() {
     return canonicalize_samples_binary32({
         {101U, {0.725, 0.75, 0.75}, {0.725, 0.75, 0.75}, {}},
@@ -651,9 +645,32 @@ int run_correspondence_4k(const std::string& scenario,
     std::uint32_t steps,
     std::uint32_t budget,
     NonlocalGpuVariant gpu_variant,
-    const char* arithmetic_profile) {
+    const char* arithmetic_profile,
+    NonlocalGpuSolverProfile solver_profile =
+        NonlocalGpuSolverProfile::Jacobi) {
     if (steps == 0U || steps > 240U
         || (budget != 32U && budget != 64U && budget != 128U)) return 2;
+#if defined(NCGP4_EXPERIMENTAL)
+    constexpr const char* kCorrespondenceSchema =
+        "nextengine.nonlocal.ncgp4.correspondence.v1";
+    constexpr const char* kResultDomain =
+        "nextengine.nonlocal.ncgp4.correspondence-result.v1\n";
+    constexpr const char* kContractRoot = NCGP4_CONTRACT_ROOT;
+    constexpr const char* kSourceRoot = NCGP4_SOURCE_ROOT;
+    constexpr const char* kSourceCommit = NCGP4_SOURCE_COMMIT;
+    constexpr const char* kSourceTree = NCGP4_SOURCE_TREE;
+    constexpr const char* kCompilerFlags = NCGP4_COMPILER_FLAGS;
+#else
+    constexpr const char* kCorrespondenceSchema =
+        "nextengine.nonlocal.ncgp3.correspondence.v3";
+    constexpr const char* kResultDomain =
+        "nextengine.nonlocal.ncgp3.correspondence-result.v3\n";
+    constexpr const char* kContractRoot = NCGP3_CONTRACT_ROOT;
+    constexpr const char* kSourceRoot = NCGP3_SOURCE_ROOT;
+    constexpr const char* kSourceCommit = NCGP3_SOURCE_COMMIT;
+    constexpr const char* kSourceTree = NCGP3_SOURCE_TREE;
+    constexpr const char* kCompilerFlags = NCGP3_COMPILER_FLAGS;
+#endif
     if (run_ncgp3_physics_self_test(false) != 0) return 54;
     const NonlocalGpuProfile profile = nonlocal_water_corrected_profile();
     const auto ghosts = canonicalize_ghosts_binary32(
@@ -726,20 +743,31 @@ int run_correspondence_4k(const std::string& scenario,
     std::string failure_permuted_work_root;
     std::string failure_restored_state_root;
     std::string failure_permuted_restored_state_root;
-    std::string prior_gpu_state_root = public_state_root(cpu_state);
-    std::string prior_permuted_state_root = public_state_root(permuted_input);
+    const auto initial_gpu_compensated = gpu.capture_compensated_state();
+    const auto initial_permuted_compensated =
+        permuted.capture_compensated_state();
+    if (initial_gpu_compensated.failure != NonlocalGpuFailure::None
+        || initial_permuted_compensated.failure != NonlocalGpuFailure::None) {
+        return 51;
+    }
+    std::string prior_gpu_state_root = compensated_state_root(
+        initial_gpu_compensated);
+    std::string prior_permuted_state_root = compensated_state_root(
+        initial_permuted_compensated);
     std::string snapshot_receipt_material =
         "nextengine.nonlocal.ncgp3.snapshot-receipts.v1\n";
     std::uint32_t completed = 0U;
     for (std::uint32_t step_index = 0U; step_index < steps; ++step_index) {
         const auto gpu_result = gpu.step(budget,
-            NonlocalGpuSolverProfile::Jacobi,
+            solver_profile,
             gpu_variant, false, false);
         const auto permuted_result = permuted.step(budget,
-            NonlocalGpuSolverProfile::Jacobi,
+            solver_profile,
             gpu_variant, false, false);
         const auto gpu_snapshot = gpu.capture_public_snapshot();
         const auto permuted_snapshot = permuted.capture_public_snapshot();
+        const auto gpu_compensated = gpu.capture_compensated_state();
+        const auto permuted_compensated = permuted.capture_compensated_state();
         const auto cpu_result = step_reference(profile, cpu_state, ghosts,
             128U, NonlocalGpuVariant::Corrected, true);
         corrected_gpu_failure = gpu_result.failure;
@@ -751,7 +779,9 @@ int run_correspondence_4k(const std::string& scenario,
             + step_work_semantic_root(profile, permuted_result) + ':'
             + step_work_semantic_root(profile, cpu_result) + '\n';
         snapshot_receipt_material += work_semantic_root(gpu_snapshot.work)
-            + ':' + work_semantic_root(permuted_snapshot.work) + '\n';
+            + ':' + work_semantic_root(permuted_snapshot.work)
+            + ':' + work_semantic_root(gpu_compensated.work)
+            + ':' + work_semantic_root(permuted_compensated.work) + '\n';
         maximum_gpu_hvp = std::max(maximum_gpu_hvp, gpu_result.hvp_used);
         maximum_cpu_hvp = std::max(maximum_cpu_hvp, cpu_result.hvp_used);
         maximum_active_pressure_centers = std::max(
@@ -777,14 +807,17 @@ int run_correspondence_4k(const std::string& scenario,
             failure_work_root = step_work_semantic_root(profile, gpu_result);
             failure_permuted_work_root = step_work_semantic_root(
                 profile, permuted_result);
-            failure_restored_state_root = public_state_root(gpu_snapshot.state);
-            failure_permuted_restored_state_root = public_state_root(
-                permuted_snapshot.state);
+            failure_restored_state_root = compensated_state_root(
+                gpu_compensated);
+            failure_permuted_restored_state_root = compensated_state_root(
+                permuted_compensated);
         }
         if (gpu_failure != NonlocalGpuFailure::None
             || cpu_failure != NonlocalGpuFailure::None
             || gpu_snapshot.failure != NonlocalGpuFailure::None
             || permuted_snapshot.failure != NonlocalGpuFailure::None
+            || gpu_compensated.failure != NonlocalGpuFailure::None
+            || permuted_compensated.failure != NonlocalGpuFailure::None
             || gpu_snapshot.state.size() != cpu_result.state.size()
             || gpu_snapshot.state.size() != permuted_snapshot.state.size()
             || gpu_snapshot.density.size() != cpu_result.density.size()) break;
@@ -934,8 +967,13 @@ int run_correspondence_4k(const std::string& scenario,
             != permuted_snapshot.active_pressure_ids) {
             ++permutation_mismatch_steps;
         }
-        prior_gpu_state_root = public_state_root(gpu_snapshot.state);
-        prior_permuted_state_root = public_state_root(permuted_snapshot.state);
+        prior_gpu_state_root = compensated_state_root(gpu_compensated);
+        prior_permuted_state_root = compensated_state_root(
+            permuted_compensated);
+        if (active_mismatch_steps != 0U
+            || permutation_mismatch_steps != 0U) {
+            break;
+        }
         cpu_state = cpu_result.state;
         ++completed;
         if (maximum_position_rmse > 0.0025
@@ -963,6 +1001,14 @@ int run_correspondence_4k(const std::string& scenario,
         && gpu_maximum.x <= profile.basin_extent.x - inset + 0.0025
         && gpu_maximum.y <= profile.basin_extent.y - inset + 0.0025
         && gpu_maximum.z <= profile.basin_extent.z - inset + 0.0025;
+    const std::string executable_root = binary_root();
+    const std::string environment = gpu.environment_json();
+    const bool identity_valid = !executable_root.empty()
+        && std::string(kContractRoot) != "unconfigured"
+        && std::string(kSourceRoot) != "unconfigured"
+        && std::string(kSourceCommit) != "unconfigured"
+        && std::string(kSourceTree) != "unconfigured"
+        && std::string(kCompilerFlags) != "unconfigured";
     const bool passed = completed == steps
         && gpu_failure == NonlocalGpuFailure::None
         && cpu_failure == NonlocalGpuFailure::None
@@ -976,7 +1022,9 @@ int run_correspondence_4k(const std::string& scenario,
         && maximum_positive_energy_excess <= 0.01
         && maximum_penetration <= 0.0025
         && closed_basin_bounds
-        && permutation_mismatch_steps == 0U;
+        && active_mismatch_steps == 0U
+        && permutation_mismatch_steps == 0U
+        && identity_valid;
     const bool work_refuted = !passed && budget == 128U
         && corrected_gpu_failure == NonlocalGpuFailure::WorkBudgetExceeded
         && permuted_gpu_failure == NonlocalGpuFailure::WorkBudgetExceeded
@@ -1004,35 +1052,92 @@ int run_correspondence_4k(const std::string& scenario,
         receipt_material);
     const std::string snapshot_receipt_root =
         nextengine::nonlocal::sha256_hex(snapshot_receipt_material);
-    const std::string executable_root = binary_root();
-    const std::string environment = gpu.environment_json();
     std::ostringstream result_material;
     result_material << std::setprecision(17)
-                    << "nextengine.nonlocal.ncgp3.correspondence-result.v3\n"
-                    << status << '\n' << scenario << '\n' << steps << '\n'
-                    << budget << '\n' << input_root << '\n' << receipt_root
-                    << '\n' << snapshot_receipt_root << '\n'
-                    << prior_gpu_state_root << '\n'
-                    << prior_permuted_state_root << '\n'
-                    << failure_restored_state_root << '\n'
-                    << maximum_position_rmse << '\n'
+                    << kResultDomain
+                    << "status=" << status << '\n'
+                    << "scenario=" << scenario << '\n'
+                    << "steps=" << steps << '\n'
+                    << "completed=" << completed << '\n'
+                    << "budget=" << budget << '\n'
+                    << "solver=" << static_cast<std::uint32_t>(solver_profile)
+                    << '\n'
+                    << "variant=" << static_cast<std::uint32_t>(gpu_variant)
+                    << '\n'
+                    << "arithmetic=" << arithmetic_profile << '\n'
+                    << "failures=" << static_cast<std::uint32_t>(gpu_failure)
+                    << ',' << static_cast<std::uint32_t>(
+                           corrected_gpu_failure)
+                    << ',' << static_cast<std::uint32_t>(
+                           permuted_gpu_failure)
+                    << ',' << static_cast<std::uint32_t>(cpu_failure) << '\n'
+                    << "position=" << maximum_position_rmse << ','
                     << maximum_position_error << '\n'
-                    << maximum_density_rmse << '\n'
-                    << maximum_density_error << '\n'
-                    << maximum_momentum_residual << '\n'
-                    << maximum_positive_energy_excess << '\n'
-                    << maximum_penetration << '\n'
-                    << NCGP3_CONTRACT_ROOT << '\n' << NCGP3_SOURCE_ROOT << '\n'
-                    << NCGP3_SOURCE_COMMIT << '\n' << NCGP3_SOURCE_TREE << '\n'
-                    << NCGP3_COMPILER_FLAGS << '\n' << executable_root << '\n'
-                    << environment << '\n';
+                    << "density=" << maximum_density_rmse << ','
+                    << maximum_density_error << ','
+                    << maximum_compression_rmse << ','
+                    << maximum_compression_error << ','
+                    << observed_density_minimum << ','
+                    << observed_density_maximum << ','
+                    << observed_density_mean << '\n'
+                    << "physics=" << maximum_momentum_residual << ','
+                    << maximum_positive_energy_excess << ','
+                    << maximum_penetration << ',' << closed_basin_bounds << ','
+                    << initial_physics.mechanical_energy << '\n'
+                    << "bounds=" << gpu_minimum.x << ',' << gpu_minimum.y
+                    << ',' << gpu_minimum.z << ',' << gpu_maximum.x << ','
+                    << gpu_maximum.y << ',' << gpu_maximum.z << '\n'
+                    << "mismatch=" << active_mismatch_steps << ','
+                    << first_active_mismatch_step << ','
+                    << first_active_mismatch_id << ','
+                    << first_gpu_active_count << ',' << first_cpu_active_count
+                    << ',' << first_gpu_mismatch_density << ','
+                    << first_cpu_mismatch_density << ','
+                    << permutation_mismatch_steps << '\n'
+                    << "maximum-work=" << maximum_gpu_hvp << ','
+                    << maximum_cpu_hvp << ','
+                    << maximum_active_pressure_centers << ','
+                    << maximum_directed_pairs << ',' << maximum_degree << ','
+                    << gpu.allocated_device_bytes() << '\n'
+                    << "transfers=" << hot_host_to_device_bytes << ','
+                    << hot_device_to_host_bytes << ','
+                    << snapshot_device_to_host_bytes << '\n'
+                    << "failure-work=" << failure_gpu_hvp << ','
+                    << failure_permuted_hvp << ',' << failure_outer_trials
+                    << ',' << failure_accepted_trials << ','
+                    << failure_rejected_trials << ',' << failure_work_root
+                    << ',' << failure_permuted_work_root << '\n'
+                    << "failure-graph="
+                    << static_cast<std::uint32_t>(failure_graph.failure) << ','
+                    << failure_graph.maximum_degree << ','
+                    << failure_graph.overflow_owner_id << ','
+                    << failure_graph.overflow_dynamic_neighbors << ','
+                    << failure_graph.overflow_ghost_neighbors << '\n'
+                    << "count-mass=" << cpu_state.size() << ','
+                    << static_cast<double>(cpu_state.size()) * profile.mass
+                    << '\n'
+                    << "profile=" << profile_semantic_root(profile) << ','
+                    << profile.kernel_scale << ',' << profile.kappa << ','
+                    << profile.lambda << ',' << profile.mu << ','
+                    << profile.gamma << '\n'
+                    << "roots=" << input_root << ',' << receipt_root << ','
+                    << snapshot_receipt_root << ',' << prior_gpu_state_root
+                    << ',' << prior_permuted_state_root << ','
+                    << failure_restored_state_root << ','
+                    << failure_permuted_restored_state_root << '\n'
+                    << "identity=" << kContractRoot << ',' << kSourceRoot
+                    << ',' << kSourceCommit << ',' << kSourceTree << ','
+                    << kCompilerFlags << ',' << executable_root << '\n'
+                    << "environment=" << environment << '\n';
     const std::string result_root = nextengine::nonlocal::sha256_hex(
         result_material.str());
     std::cout << std::setprecision(17)
-              << "{\"schema\":\"nextengine.nonlocal.ncgp3.correspondence.v3\""
+              << "{\"schema\":\"" << kCorrespondenceSchema << "\""
               << ",\"status\":\"" << status << "\""
               << ",\"scenario\":\"" << scenario << "\",\"steps\":" << steps
               << ",\"arithmetic_profile\":\"" << arithmetic_profile << "\""
+              << ",\"solver_profile\":"
+              << static_cast<std::uint32_t>(solver_profile)
               << ",\"completed_steps\":" << completed
               << ",\"budget\":" << budget
               << ",\"gpu_failure\":" << static_cast<std::uint32_t>(gpu_failure)
@@ -1146,19 +1251,346 @@ int run_correspondence_4k(const std::string& scenario,
               << gpu_minimum.y << ',' << gpu_minimum.z << "]"
               << ",\"state_bounds_max\":[" << gpu_maximum.x << ','
               << gpu_maximum.y << ',' << gpu_maximum.z << ']'
-              << ",\"contract_root\":\"" << NCGP3_CONTRACT_ROOT
-              << "\",\"source_root\":\"" << NCGP3_SOURCE_ROOT
-              << "\",\"source_commit\":\"" << NCGP3_SOURCE_COMMIT
-              << "\",\"source_tree\":\"" << NCGP3_SOURCE_TREE
-              << "\",\"compiler_flags\":\"" << NCGP3_COMPILER_FLAGS
+              << ",\"contract_root\":\"" << kContractRoot
+              << "\",\"source_root\":\"" << kSourceRoot
+              << "\",\"source_commit\":\"" << kSourceCommit
+              << "\",\"source_tree\":\"" << kSourceTree
+              << "\",\"compiler_flags\":\"" << kCompilerFlags
               << "\",\"environment\":" << environment
-              << ",\"exact_command\":\"--correspondence-4k "
+              << ",\"exact_command\":\""
+              << (solver_profile == NonlocalGpuSolverProfile::Unpreconditioned
+                      ? "--correspondence-4k-unpreconditioned "
+                      : "--correspondence-4k ")
               << scenario << ' ' << steps << ' ' << budget << "\""
               << ",\"timing_status\":\"NOT_RUN\""
               << ",\"binary_root\":\"" << executable_root
               << "\"}\n";
     return passed ? 0 : (physical_refuted ? 37 : 53);
 }
+
+#if defined(NCGP4_EXPERIMENTAL)
+struct SameStateOperatorError {
+    bool valid = false;
+    bool active_signature_equal = false;
+    double gradient_relative_l2 = std::numeric_limits<double>::infinity();
+    double hvp_relative_l2 = std::numeric_limits<double>::infinity();
+    double hvp_cosine_loss = std::numeric_limits<double>::infinity();
+};
+
+SameStateOperatorError compare_same_state_operator(
+    NonlocalGpuWorkspace& workspace,
+    const NonlocalGpuProfile& profile,
+    const NonlocalGpuPublicSnapshot& snapshot,
+    const std::vector<NonlocalGpuGhost>& ghosts) {
+    SameStateOperatorError result;
+    std::vector<Vec3d> direction;
+    direction.reserve(snapshot.state.size());
+    for (const NonlocalGpuSample& sample : snapshot.state) {
+        const int id = static_cast<int>(sample.sample_id);
+        direction.push_back({
+            static_cast<double>(id % 17 - 8) / 16.0,
+            static_cast<double>(id % 13 - 6) / 8.0,
+            static_cast<double>(id % 11 - 5) / 8.0});
+    }
+    const NonlocalGpuEvaluationResult actual = workspace.evaluate(
+        &direction, NonlocalGpuVariant::CompensatedScaleF32, true, false);
+    const NonlocalGpuEvaluationResult expected = evaluate_reference(
+        profile, snapshot.state, ghosts, &direction,
+        NonlocalGpuVariant::CompensatedScaleF32);
+    if (actual.failure != NonlocalGpuFailure::None
+        || expected.failure != NonlocalGpuFailure::None
+        || actual.gradient.size() != expected.gradient.size()
+        || actual.hvp.size() != expected.hvp.size()
+        || actual.gradient.empty()) {
+        return result;
+    }
+    long double gradient_difference = 0.0L;
+    long double gradient_expected = 0.0L;
+    long double hvp_difference = 0.0L;
+    long double hvp_expected = 0.0L;
+    long double hvp_actual = 0.0L;
+    long double hvp_product = 0.0L;
+    for (std::size_t index = 0U; index < actual.gradient.size(); ++index) {
+        const auto accumulate = [](const Vec3d& lhs, const Vec3d& rhs,
+                                    long double& difference,
+                                    long double& expected_squared) {
+            const long double dx = static_cast<long double>(lhs.x) - rhs.x;
+            const long double dy = static_cast<long double>(lhs.y) - rhs.y;
+            const long double dz = static_cast<long double>(lhs.z) - rhs.z;
+            difference += dx * dx + dy * dy + dz * dz;
+            expected_squared += static_cast<long double>(rhs.x) * rhs.x
+                + static_cast<long double>(rhs.y) * rhs.y
+                + static_cast<long double>(rhs.z) * rhs.z;
+        };
+        accumulate(actual.gradient[index], expected.gradient[index],
+            gradient_difference, gradient_expected);
+        accumulate(actual.hvp[index], expected.hvp[index],
+            hvp_difference, hvp_expected);
+        hvp_actual += static_cast<long double>(actual.hvp[index].x)
+                * actual.hvp[index].x
+            + static_cast<long double>(actual.hvp[index].y)
+                * actual.hvp[index].y
+            + static_cast<long double>(actual.hvp[index].z)
+                * actual.hvp[index].z;
+        hvp_product += static_cast<long double>(actual.hvp[index].x)
+                * expected.hvp[index].x
+            + static_cast<long double>(actual.hvp[index].y)
+                * expected.hvp[index].y
+            + static_cast<long double>(actual.hvp[index].z)
+                * expected.hvp[index].z;
+    }
+    if (!(gradient_expected > 0.0L) || !(hvp_expected > 0.0L)
+        || !(hvp_actual > 0.0L)) return result;
+    result.gradient_relative_l2 = static_cast<double>(
+        std::sqrt(gradient_difference / gradient_expected));
+    result.hvp_relative_l2 = static_cast<double>(
+        std::sqrt(hvp_difference / hvp_expected));
+    result.hvp_cosine_loss = static_cast<double>(1.0L
+        - hvp_product / std::sqrt(hvp_actual * hvp_expected));
+    result.active_signature_equal = actual.active_pressure_ids
+        == expected.active_pressure_ids;
+    result.valid = std::isfinite(result.gradient_relative_l2)
+        && std::isfinite(result.hvp_relative_l2)
+        && std::isfinite(result.hvp_cosine_loss);
+    return result;
+}
+
+int run_ncgp4_solver_diagnosis() {
+    constexpr std::uint32_t kPrefixSteps = 38U;
+    constexpr std::uint32_t kBudget = 128U;
+    const NonlocalGpuProfile profile = nonlocal_water_corrected_profile();
+    const auto ghosts = canonicalize_ghosts_binary32(make_basin_ghosts(profile));
+    const auto coherent_input = trajectory_initial(
+        profile, "hydrostatic-hold", false);
+    const auto permuted_input = trajectory_initial(
+        profile, "hydrostatic-hold", true);
+    NonlocalGpuWorkspace corrected(profile);
+    NonlocalGpuWorkspace permuted(profile);
+    NonlocalGpuWorkspace unpreconditioned(profile);
+    if (corrected.upload(coherent_input, ghosts, true)
+            != NonlocalGpuFailure::None
+        || permuted.upload(permuted_input, ghosts, true)
+            != NonlocalGpuFailure::None
+        || unpreconditioned.upload(coherent_input, ghosts, true)
+            != NonlocalGpuFailure::None) return 51;
+    for (std::uint32_t index = 0U; index < kPrefixSteps; ++index) {
+        const auto a = corrected.step(kBudget, NonlocalGpuSolverProfile::Jacobi,
+            NonlocalGpuVariant::CompensatedScaleF32, false, false);
+        const auto b = permuted.step(kBudget, NonlocalGpuSolverProfile::Jacobi,
+            NonlocalGpuVariant::CompensatedScaleF32, false, false);
+        const auto c = unpreconditioned.step(kBudget,
+            NonlocalGpuSolverProfile::Jacobi,
+            NonlocalGpuVariant::CompensatedScaleF32, false, false);
+        if (a.failure != NonlocalGpuFailure::None
+            || b.failure != NonlocalGpuFailure::None
+            || c.failure != NonlocalGpuFailure::None
+            || step_work_semantic_root(profile, a)
+                != step_work_semantic_root(profile, b)
+            || step_work_semantic_root(profile, a)
+                != step_work_semantic_root(profile, c)) return 52;
+    }
+    const auto corrected_before = corrected.capture_compensated_state();
+    const auto permuted_before = permuted.capture_compensated_state();
+    const auto unpreconditioned_before =
+        unpreconditioned.capture_compensated_state();
+    const auto public_before = corrected.capture_public_snapshot();
+    if (corrected_before.failure != NonlocalGpuFailure::None
+        || permuted_before.failure != NonlocalGpuFailure::None
+        || unpreconditioned_before.failure != NonlocalGpuFailure::None
+        || public_before.failure != NonlocalGpuFailure::None) return 53;
+    const SameStateOperatorError operator_error = compare_same_state_operator(
+        corrected, profile, public_before, ghosts);
+    const auto corrected_result = corrected.step(kBudget,
+        NonlocalGpuSolverProfile::Jacobi,
+        NonlocalGpuVariant::CompensatedScaleF32, false, false, true);
+    const auto permuted_result = permuted.step(kBudget,
+        NonlocalGpuSolverProfile::Jacobi,
+        NonlocalGpuVariant::CompensatedScaleF32, false, false, true);
+    const auto unpreconditioned_result = unpreconditioned.step(kBudget,
+        NonlocalGpuSolverProfile::Unpreconditioned,
+        NonlocalGpuVariant::CompensatedScaleF32, false, false, true);
+    const std::string corrected_trace_root = solver_trace_semantic_root(
+        corrected_result);
+    const std::string permuted_trace_root = solver_trace_semantic_root(
+        permuted_result);
+    const std::string unpreconditioned_trace_root = solver_trace_semantic_root(
+        unpreconditioned_result);
+    NonlocalGpuStepResult event_mutation = corrected_result;
+    if (!event_mutation.trace.empty()) {
+        event_mutation.trace.front().gradient_norm = std::nextafter(
+            event_mutation.trace.front().gradient_norm,
+            std::numeric_limits<double>::infinity());
+    }
+    NonlocalGpuStepResult work_mutation = corrected_result;
+    ++work_mutation.hvp_used;
+    const bool event_mutation_rejected = solver_trace_valid(event_mutation)
+        && solver_trace_semantic_root(event_mutation) != corrected_trace_root;
+    const bool work_mutation_rejected = !solver_trace_valid(work_mutation);
+    std::uint64_t inner_events = 0U;
+    std::uint64_t trial_events = 0U;
+    std::uint64_t forcing_events = 0U;
+    std::uint64_t radius_events = 0U;
+    std::uint64_t negative_curvature_events = 0U;
+    double diagonal_min = std::numeric_limits<double>::infinity();
+    double diagonal_max = 0.0;
+    std::uint64_t inertia_floor_components = 0U;
+    for (const NonlocalGpuSolverTraceEvent& event : corrected_result.trace) {
+        if (event.kind == NonlocalGpuTraceKind::Inner) ++inner_events;
+        if (event.kind == NonlocalGpuTraceKind::Trial) ++trial_events;
+        if (event.reason == NonlocalGpuTraceReason::ForcingConverged) {
+            ++forcing_events;
+        }
+        if (event.reason == NonlocalGpuTraceReason::TrustRadius) ++radius_events;
+        if (event.reason == NonlocalGpuTraceReason::NegativeCurvature) {
+            ++negative_curvature_events;
+        }
+        if (event.kind == NonlocalGpuTraceKind::Diagonal) {
+            diagonal_min = std::min(diagonal_min, event.diagonal_min_abs);
+            diagonal_max = std::max(diagonal_max, event.diagonal_max_abs);
+            inertia_floor_components += event.inertia_floor_components;
+        }
+    }
+    if (!std::isfinite(diagonal_min)) diagonal_min = 0.0;
+    const std::string before_root = compensated_state_root(corrected_before);
+    const std::string permuted_before_root = compensated_state_root(
+        permuted_before);
+    const std::string unpreconditioned_before_root = compensated_state_root(
+        unpreconditioned_before);
+    const bool trace_valid = solver_trace_valid(corrected_result)
+        && solver_trace_valid(permuted_result)
+        && solver_trace_valid(unpreconditioned_result);
+    const bool permutation_exact = corrected_trace_root == permuted_trace_root
+        && before_root == permuted_before_root;
+    const bool controls_pass = event_mutation_rejected
+        && work_mutation_rejected;
+    const bool apparatus_pass = trace_valid && permutation_exact
+        && controls_pass && operator_error.valid;
+    const std::string executable_root = binary_root();
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << "nextengine.nonlocal.ncgp4.diagnosis-result.v1\n"
+                    << NCGP4_CONTRACT_ROOT << '\n' << NCGP4_SOURCE_ROOT << '\n'
+                    << NCGP4_SOURCE_COMMIT << '\n' << NCGP4_SOURCE_TREE << '\n'
+                    << executable_root << '\n' << before_root << '\n'
+                    << corrected_trace_root << '\n' << permuted_trace_root
+                    << '\n' << unpreconditioned_trace_root << '\n'
+                    << static_cast<std::uint32_t>(corrected_result.failure)
+                    << '\n' << corrected_result.hvp_used << '\n'
+                    << inner_events << '\n' << trial_events << '\n'
+                    << diagonal_min << '\n' << diagonal_max << '\n'
+                    << operator_error.gradient_relative_l2 << '\n'
+                    << operator_error.hvp_relative_l2 << '\n'
+                    << operator_error.hvp_cosine_loss << '\n';
+    const std::string result_root = nextengine::nonlocal::sha256_hex(
+        result_material.str());
+    std::cout << std::setprecision(17)
+              << "{\"schema\":\"nextengine.nonlocal.ncgp4.solver-diagnosis.v1\""
+              << ",\"status\":\"" << (apparatus_pass ? "PASS" : "FAIL")
+              << "\",\"prefix_steps\":" << kPrefixSteps
+              << ",\"budget\":" << kBudget
+              << ",\"corrected_failure\":"
+              << static_cast<std::uint32_t>(corrected_result.failure)
+              << ",\"corrected_hvp\":" << corrected_result.hvp_used
+              << ",\"corrected_outer\":" << corrected_result.outer_trials
+              << ",\"corrected_accepted\":"
+              << corrected_result.work.accepted_trials
+              << ",\"corrected_rejected\":"
+              << corrected_result.work.rejected_trials
+              << ",\"corrected_radius_shrinks\":"
+              << corrected_result.work.radius_shrinks
+              << ",\"corrected_radius_expands\":"
+              << corrected_result.work.radius_expands
+              << ",\"unpreconditioned_failure\":"
+              << static_cast<std::uint32_t>(unpreconditioned_result.failure)
+              << ",\"unpreconditioned_hvp\":"
+              << unpreconditioned_result.hvp_used
+              << ",\"unpreconditioned_outer\":"
+              << unpreconditioned_result.outer_trials
+              << ",\"inner_events\":" << inner_events
+              << ",\"trial_events\":" << trial_events
+              << ",\"forcing_events\":" << forcing_events
+              << ",\"radius_events\":" << radius_events
+              << ",\"negative_curvature_events\":"
+              << negative_curvature_events
+              << ",\"diagonal_min_abs\":" << diagonal_min
+              << ",\"diagonal_max_abs\":" << diagonal_max
+              << ",\"inertia_floor_components\":"
+              << inertia_floor_components
+              << ",\"operator_gradient_relative_l2\":"
+              << operator_error.gradient_relative_l2
+              << ",\"operator_hvp_relative_l2\":"
+              << operator_error.hvp_relative_l2
+              << ",\"operator_hvp_cosine_loss\":"
+              << operator_error.hvp_cosine_loss
+              << ",\"operator_active_signature_equal\":"
+              << (operator_error.active_signature_equal ? "true" : "false")
+              << ",\"trace_valid\":" << (trace_valid ? "true" : "false")
+              << ",\"permutation_exact\":"
+              << (permutation_exact ? "true" : "false")
+              << ",\"event_mutation_rejected\":"
+              << (event_mutation_rejected ? "true" : "false")
+              << ",\"work_mutation_rejected\":"
+              << (work_mutation_rejected ? "true" : "false")
+              << ",\"pre_step_state_root\":\"" << before_root
+              << "\",\"permuted_pre_step_state_root\":\""
+              << permuted_before_root
+              << "\",\"unpreconditioned_pre_step_state_root\":\""
+              << unpreconditioned_before_root
+              << "\",\"corrected_trace_root\":\"" << corrected_trace_root
+              << "\",\"permuted_trace_root\":\"" << permuted_trace_root
+              << "\",\"unpreconditioned_trace_root\":\""
+              << unpreconditioned_trace_root
+              << "\",\"result_root\":\"" << result_root
+              << "\",\"contract_root\":\"" << NCGP4_CONTRACT_ROOT
+              << "\",\"source_root\":\"" << NCGP4_SOURCE_ROOT
+              << "\",\"source_commit\":\"" << NCGP4_SOURCE_COMMIT
+              << "\",\"source_tree\":\"" << NCGP4_SOURCE_TREE
+              << "\",\"compiler_flags\":\"" << NCGP4_COMPILER_FLAGS
+              << "\",\"binary_root\":\"" << executable_root
+              << "\",\"environment\":" << corrected.environment_json()
+              << ",\"events\":[";
+    for (std::size_t index = 0U; index < corrected_result.trace.size(); ++index) {
+        const auto& event = corrected_result.trace[index];
+        if (index != 0U) std::cout << ',';
+        std::cout << "{\"sequence\":" << event.sequence
+                  << ",\"outer\":" << event.outer
+                  << ",\"inner\":" << event.inner
+                  << ",\"kind\":" << static_cast<std::uint32_t>(event.kind)
+                  << ",\"reason\":"
+                  << static_cast<std::uint32_t>(event.reason)
+                  << ",\"hvp\":" << event.hvp_used
+                  << ",\"active\":" << event.active_pressure_centers
+                  << ",\"pairs\":" << event.directed_pairs
+                  << ",\"radius_before\":" << event.radius_before
+                  << ",\"radius_after\":" << event.radius_after
+                  << ",\"gradient_norm\":" << event.gradient_norm
+                  << ",\"scaled_residual\":"
+                  << event.scaled_displacement_residual
+                  << ",\"diag_min\":" << event.diagonal_min_abs
+                  << ",\"diag_max\":" << event.diagonal_max_abs
+                  << ",\"floor_components\":"
+                  << event.inertia_floor_components
+                  << ",\"initial_true_residual\":"
+                  << event.initial_true_residual
+                  << ",\"initial_preconditioned_residual\":"
+                  << event.initial_preconditioned_residual
+                  << ",\"true_residual\":" << event.true_residual
+                  << ",\"preconditioned_residual\":"
+                  << event.preconditioned_residual
+                  << ",\"forcing\":" << event.forcing
+                  << ",\"curvature\":" << event.curvature
+                  << ",\"alpha\":" << event.alpha
+                  << ",\"beta\":" << event.beta
+                  << ",\"step_norm\":" << event.step_norm
+                  << ",\"predicted_reduction\":"
+                  << event.predicted_reduction
+                  << ",\"actual_reduction\":" << event.actual_reduction
+                  << ",\"rho\":" << event.rho << '}';
+    }
+    std::cout << "]}\n";
+    return apparatus_pass ? 0 : 54;
+}
+#endif
 
 } // namespace
 
@@ -1193,10 +1625,24 @@ int main(int argc, char** argv) {
             NonlocalGpuVariant::CompensatedScalePressureF64,
             "f32-state-f64-pressure");
     }
+#if defined(NCGP4_EXPERIMENTAL)
+    if (argc == 2 && std::string(argv[1]) == "--diagnose-hydro-step39") {
+        return run_ncgp4_solver_diagnosis();
+    }
+    if (argc == 5
+        && std::string(argv[1]) == "--correspondence-4k-unpreconditioned") {
+        return run_correspondence_4k(argv[2],
+            static_cast<std::uint32_t>(std::stoul(argv[3])),
+            static_cast<std::uint32_t>(std::stoul(argv[4])),
+            NonlocalGpuVariant::CompensatedScaleF32,
+            "f32-primary", NonlocalGpuSolverProfile::Unpreconditioned);
+    }
+#endif
     std::cerr << "usage: nonlocal-corrected-cuda-compensated-scale "
                  "--profile-self-test|--graph-self-test|--boundary-self-test|"
                  "--transaction-self-test|--physics-self-test|"
                  "--correspondence-4k SCENARIO STEPS BUDGET|"
+                 "--correspondence-4k-unpreconditioned SCENARIO STEPS BUDGET|"
                  "--correspondence-4k-pressure-f64 SCENARIO STEPS BUDGET\n";
     return 2;
 }

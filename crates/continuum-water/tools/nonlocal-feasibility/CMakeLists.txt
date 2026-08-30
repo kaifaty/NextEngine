@@ -107,6 +107,16 @@ add_executable(
     src/corrected_cuda_assembly_reference.cpp
     src/sha256.cpp
 )
+add_executable(
+    nonlocal-corrected-cuda-full-step-diagnosis
+    src/corrected_cuda_full_step.cu
+    src/corrected_cuda_compensated_scale_main.cpp
+    src/corrected_cuda_compensated_scale_physics.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_full_step_cpu_solver.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/sha256.cpp
+)
 set(NCGP1_SOURCE_FILES
     CMakeLists.txt
     src/corrected_cuda_full_step.hpp
@@ -309,6 +319,70 @@ target_compile_options(
 )
 target_link_options(
     nonlocal-corrected-cuda-compensated-scale
+    PRIVATE
+        $<$<CONFIG:Release>:-s>
+)
+
+set(NCGP4_SOURCE_FILES
+    CMakeLists.txt
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step.cu
+    src/corrected_cuda_compensated_scale_main.cpp
+    src/corrected_cuda_compensated_scale_physics.cpp
+    src/corrected_cuda_compensated_scale_physics.hpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_full_step_cpu_solver.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/corrected_cuda_assembly.hpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP4_SOURCE_MATERIAL "")
+foreach(NCGP4_SOURCE_FILE IN LISTS NCGP4_SOURCE_FILES)
+    file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP4_SOURCE_FILE}"
+        NCGP4_SOURCE_FILE_HASH)
+    string(APPEND NCGP4_SOURCE_MATERIAL
+        "${NCGP4_SOURCE_FILE}:${NCGP4_SOURCE_FILE_HASH}\n")
+endforeach()
+string(SHA256 NCGP4_SOURCE_ROOT "${NCGP4_SOURCE_MATERIAL}")
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/00-ncgp4-solver-diagnosis-contract.md"
+    NCGP4_CONTRACT_ROOT)
+set(NCGP4_COMPILER_FLAGS
+    "CXX:-O3,-Wall,-Wextra,-Wpedantic,-Werror,-ffp-contract=off,-fno-fast-math|CUDA:-O3,--fmad=false,--prec-div=true,--prec-sqrt=true,--ftz=false|SM=86")
+target_compile_definitions(
+    nonlocal-corrected-cuda-full-step-diagnosis
+    PRIVATE
+        NCGP3_CONTRACT_ROOT="${NCGP3_CONTRACT_ROOT}"
+        NCGP3_SOURCE_ROOT="${NCGP3_SOURCE_ROOT}"
+        NCGP3_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP3_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP3_COMPILER_FLAGS="${NCGP3_COMPILER_FLAGS}"
+        NCGP4_CONTRACT_ROOT="${NCGP4_CONTRACT_ROOT}"
+        NCGP4_SOURCE_ROOT="${NCGP4_SOURCE_ROOT}"
+        NCGP4_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP4_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP4_COMPILER_FLAGS="${NCGP4_COMPILER_FLAGS}"
+        NCGP2_EXPERIMENTAL=1
+        NCGP3_EXPERIMENTAL=1
+        NCGP4_EXPERIMENTAL=1
+)
+target_compile_features(
+    nonlocal-corrected-cuda-full-step-diagnosis PRIVATE cxx_std_17 cuda_std_17)
+set_target_properties(
+    nonlocal-corrected-cuda-full-step-diagnosis
+    PROPERTIES
+        CUDA_ARCHITECTURES 86
+        CUDA_SEPARABLE_COMPILATION OFF
+)
+target_compile_options(
+    nonlocal-corrected-cuda-full-step-diagnosis
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+        $<$<COMPILE_LANGUAGE:CUDA>:-O3;--fmad=false;--prec-div=true;--prec-sqrt=true;--ftz=false>
+)
+target_link_options(
+    nonlocal-corrected-cuda-full-step-diagnosis
     PRIVATE
         $<$<CONFIG:Release>:-s>
 )

@@ -3554,8 +3554,15 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
     NonlocalGpuSolverProfile solver_profile,
     NonlocalGpuVariant variant,
     bool capture_state,
-    bool measure) {
+    bool measure,
+    bool capture_trace) {
     NonlocalGpuStepResult result;
+    if (capture_trace) result.trace.reserve(512U);
+    const auto push_trace = [&](NonlocalGpuSolverTraceEvent event) {
+        if (!capture_trace) return;
+        event.sequence = static_cast<std::uint32_t>(result.trace.size());
+        result.trace.push_back(event);
+    };
     result.hvp_budget = total_hvp_budget;
     result.solver_profile = solver_profile;
     result.variant = variant;
@@ -3620,31 +3627,32 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
     const double maximum_radius = 4.0 * impl_->profile.spacing;
     double radius = impl_->profile.spacing;
     bool transaction_saved = false;
-    const auto restore_transaction = [&]() {
-        if (!transaction_saved) return;
-        cudaMemcpy(impl_->current, impl_->transaction_start, vector_bytes,
-            cudaMemcpyDeviceToDevice);
-        cudaMemcpy(impl_->reference, impl_->transaction_reference, vector_bytes,
-            cudaMemcpyDeviceToDevice);
-        cudaMemcpy(impl_->predicted, impl_->transaction_predicted, vector_bytes,
-            cudaMemcpyDeviceToDevice);
-        cudaMemcpy(impl_->velocity, impl_->transaction_velocity, vector_bytes,
-            cudaMemcpyDeviceToDevice);
+    const auto restore_transaction = [&]() -> bool {
+        if (!transaction_saved) return true;
+        bool restored = true;
+        const auto restore_copy = [&](void* destination,
+                                      const void* source) {
+            if (cudaMemcpy(destination, source, vector_bytes,
+                    cudaMemcpyDeviceToDevice) != cudaSuccess) {
+                restored = false;
+            }
+        };
+        restore_copy(impl_->current, impl_->transaction_start);
+        restore_copy(impl_->reference, impl_->transaction_reference);
+        restore_copy(impl_->predicted, impl_->transaction_predicted);
+        restore_copy(impl_->velocity, impl_->transaction_velocity);
 #if defined(NCGP2_EXPERIMENTAL)
         if (compensated_state) {
-            cudaMemcpy(impl_->current_low, impl_->transaction_start_low,
-                vector_bytes, cudaMemcpyDeviceToDevice);
-            cudaMemcpy(impl_->reference_low, impl_->transaction_reference_low,
-                vector_bytes, cudaMemcpyDeviceToDevice);
-            cudaMemcpy(impl_->predicted_low, impl_->transaction_predicted_low,
-                vector_bytes, cudaMemcpyDeviceToDevice);
-            cudaMemcpy(impl_->velocity_low, impl_->transaction_velocity_low,
-                vector_bytes, cudaMemcpyDeviceToDevice);
+            restore_copy(impl_->current_low, impl_->transaction_start_low);
+            restore_copy(impl_->reference_low, impl_->transaction_reference_low);
+            restore_copy(impl_->predicted_low, impl_->transaction_predicted_low);
+            restore_copy(impl_->velocity_low, impl_->transaction_velocity_low);
             result.work.compensated_rollback_components += 12U
                 * static_cast<std::uint64_t>(impl_->dynamic_count);
         }
 #endif
-        cudaDeviceSynchronize();
+        if (cudaDeviceSynchronize() != cudaSuccess) restored = false;
+        return restored;
     };
     try {
         cuda_check(cudaMemcpy(impl_->transaction_start, impl_->current,
@@ -3697,7 +3705,9 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
             result.work.device_to_host_bytes += sizeof(validation_error);
             if (validation_error != 0) {
                 result.failure = static_cast<NonlocalGpuFailure>(validation_error);
-                restore_transaction();
+                if (!restore_transaction()) {
+                    result.failure = NonlocalGpuFailure::DeviceFailure;
+                }
                 return result;
             }
         }
@@ -3920,14 +3930,33 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 result.failure = NonlocalGpuFailure::Nonfinite;
                 break;
             }
+            NonlocalGpuSolverTraceEvent outer_event;
+            outer_event.outer = outer;
+            outer_event.hvp_used = result.hvp_used;
+            outer_event.active_pressure_centers =
+                evaluation.active_pressure_centers;
+            outer_event.directed_pairs = evaluation.directed_pairs;
+            outer_event.kind = NonlocalGpuTraceKind::OuterStart;
+            outer_event.radius_before = radius;
+            outer_event.radius_after = radius;
+            outer_event.gradient_norm = result.gradient_norm;
+            outer_event.scaled_displacement_residual =
+                result.scaled_displacement_residual;
+            push_trace(outer_event);
             if (result.scaled_displacement_residual <= 1.0e-5) {
                 if (outer == 0U || accepted_once) succeeded = true;
                 else result.failure = NonlocalGpuFailure::PhysicsGateFailed;
+                outer_event.kind = NonlocalGpuTraceKind::Terminal;
+                outer_event.reason = NonlocalGpuTraceReason::GradientConverged;
+                push_trace(outer_event);
                 break;
             }
             const std::uint32_t required_before_inner = jacobi ? 3U : 2U;
             if (result.hvp_used + required_before_inner > total_hvp_budget) {
                 result.failure = NonlocalGpuFailure::WorkBudgetExceeded;
+                outer_event.kind = NonlocalGpuTraceKind::Terminal;
+                outer_event.reason = NonlocalGpuTraceReason::WorkCeiling;
+                push_trace(outer_event);
                 break;
             }
             cuda_check(cudaMemcpy(impl_->outer_base, impl_->current, vector_bytes,
@@ -3953,6 +3982,38 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 result.work.vector_kernel_values += static_cast<std::uint64_t>(
                     impl_->dynamic_count);
             }
+            if (capture_trace) {
+                std::vector<DeviceVec3> host_diagonal(
+                    static_cast<std::size_t>(impl_->dynamic_count));
+                cuda_check(cudaMemcpy(host_diagonal.data(), impl_->diagonal,
+                    vector_bytes, cudaMemcpyDeviceToHost),
+                    "copy solver diagnostic diagonal");
+                result.work.device_to_host_bytes += vector_bytes;
+                const double inertia = static_cast<double>(profile.mass)
+                    / (static_cast<double>(profile.dt)
+                        * static_cast<double>(profile.dt));
+                double minimum = std::numeric_limits<double>::infinity();
+                double maximum = 0.0;
+                std::uint64_t floors = 0U;
+                for (const DeviceVec3& diagonal : host_diagonal) {
+                    for (const float component : std::array<float, 3>{
+                             diagonal.x, diagonal.y, diagonal.z}) {
+                        const double magnitude = std::abs(
+                            static_cast<double>(component));
+                        minimum = std::min(minimum, magnitude);
+                        maximum = std::max(maximum, magnitude);
+                        if (magnitude <= inertia) ++floors;
+                    }
+                }
+                NonlocalGpuSolverTraceEvent diagonal_event = outer_event;
+                diagonal_event.kind = NonlocalGpuTraceKind::Diagonal;
+                diagonal_event.hvp_used = result.hvp_used;
+                diagonal_event.diagonal_min_abs = std::isfinite(minimum)
+                    ? minimum : 0.0;
+                diagonal_event.diagonal_max_abs = maximum;
+                diagonal_event.inertia_floor_components = floors;
+                push_trace(diagonal_event);
+            }
             cuda_check(cudaMemsetAsync(impl_->error, 0, sizeof(int)),
                 "reset CG initialization error");
             initialize_cg_kernel<<<blocks_for(impl_->dynamic_count), kThreads>>>(
@@ -3973,9 +4034,12 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
             }
             double residual_preconditioned = reduce_sum(
                 impl_->residual, impl_->preconditioned);
+            const double initial_residual_preconditioned =
+                residual_preconditioned;
             const double initial_residual = std::sqrt(std::max(
                 reduce_sum(impl_->residual, impl_->residual), 0.0));
             const double forcing = std::min(0.5, std::sqrt(initial_residual));
+            double current_true_residual = initial_residual;
             bool inner_complete = false;
             bool at_radius = false;
             const std::uint64_t maximum_inner = 9ULL
@@ -3985,12 +4049,37 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     && inner < maximum_inner; ++inner) {
                 if (result.hvp_used + 1U >= total_hvp_budget) {
                     result.failure = NonlocalGpuFailure::WorkBudgetExceeded;
+                    NonlocalGpuSolverTraceEvent event = outer_event;
+                    event.kind = NonlocalGpuTraceKind::Terminal;
+                    event.reason = NonlocalGpuTraceReason::WorkCeiling;
+                    event.inner = static_cast<std::uint32_t>(inner);
+                    event.hvp_used = result.hvp_used;
+                    event.initial_true_residual = initial_residual;
+                    event.initial_preconditioned_residual =
+                        initial_residual_preconditioned;
+                    event.true_residual = current_true_residual;
+                    event.preconditioned_residual = residual_preconditioned;
+                    event.forcing = forcing;
+                    push_trace(event);
                     break;
                 }
                 if (!apply_hvp(impl_->direction, false)) break;
                 const double curvature = reduce_sum(impl_->direction, impl_->hvp);
+                NonlocalGpuSolverTraceEvent inner_event = outer_event;
+                inner_event.kind = NonlocalGpuTraceKind::Inner;
+                inner_event.inner = static_cast<std::uint32_t>(inner);
+                inner_event.hvp_used = result.hvp_used;
+                inner_event.initial_true_residual = initial_residual;
+                inner_event.initial_preconditioned_residual =
+                    initial_residual_preconditioned;
+                inner_event.true_residual = current_true_residual;
+                inner_event.preconditioned_residual = residual_preconditioned;
+                inner_event.forcing = forcing;
+                inner_event.curvature = curvature;
                 if (!std::isfinite(curvature)) {
                     result.failure = NonlocalGpuFailure::Nonfinite;
+                    inner_event.reason = NonlocalGpuTraceReason::Failure;
+                    push_trace(inner_event);
                     break;
                 }
                 if (curvature <= 0.0) {
@@ -4009,6 +4098,9 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                         impl_->dynamic_count);
                     inner_complete = true;
                     at_radius = true;
+                    inner_event.reason = NonlocalGpuTraceReason::NegativeCurvature;
+                    inner_event.step_norm = radius;
+                    push_trace(inner_event);
                     break;
                 }
                 if (!(residual_preconditioned > 0.0)
@@ -4017,6 +4109,7 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     break;
                 }
                 const double alpha = residual_preconditioned / curvature;
+                inner_event.alpha = alpha;
                 step_candidate_kernel<<<blocks_for(impl_->dynamic_count),
                     kThreads>>>(impl_->cg_step, impl_->direction,
                     impl_->cg_candidate, static_cast<float>(alpha),
@@ -4025,7 +4118,10 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     impl_->dynamic_count);
                 const double candidate_squared = reduce_sum(
                     impl_->cg_candidate, impl_->cg_candidate);
-                if (std::sqrt(std::max(candidate_squared, 0.0)) >= radius) {
+                const double candidate_norm = std::sqrt(
+                    std::max(candidate_squared, 0.0));
+                inner_event.step_norm = candidate_norm;
+                if (candidate_norm >= radius) {
                     const double p2 = reduce_sum(impl_->cg_step, impl_->cg_step);
                     const double pd = reduce_sum(impl_->cg_step, impl_->direction);
                     const double d2 = reduce_sum(impl_->direction, impl_->direction);
@@ -4041,6 +4137,9 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                         impl_->dynamic_count);
                     inner_complete = true;
                     at_radius = true;
+                    inner_event.reason = NonlocalGpuTraceReason::TrustRadius;
+                    inner_event.step_norm = radius;
+                    push_trace(inner_event);
                     break;
                 }
                 cuda_check(cudaMemcpy(impl_->cg_step, impl_->cg_candidate,
@@ -4052,8 +4151,12 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     * static_cast<std::uint64_t>(impl_->dynamic_count);
                 const double residual_norm = std::sqrt(std::max(
                     reduce_sum(impl_->residual, impl_->residual), 0.0));
+                current_true_residual = residual_norm;
+                inner_event.true_residual = residual_norm;
                 if (residual_norm <= forcing * initial_residual) {
                     inner_complete = true;
+                    inner_event.reason = NonlocalGpuTraceReason::ForcingConverged;
+                    push_trace(inner_event);
                     break;
                 }
                 precondition_kernel<<<blocks_for(impl_->dynamic_count), kThreads>>>(
@@ -4072,6 +4175,10 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 }
                 const double beta = next_residual_preconditioned
                     / residual_preconditioned;
+                inner_event.beta = beta;
+                inner_event.preconditioned_residual =
+                    next_residual_preconditioned;
+                push_trace(inner_event);
                 update_direction_kernel<<<blocks_for(impl_->dynamic_count),
                     kThreads>>>(impl_->direction, impl_->preconditioned,
                     static_cast<float>(beta), impl_->dynamic_count);
@@ -4169,6 +4276,7 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
             bool valid = std::isfinite(predicted_reduction)
                 && predicted_reduction > 0.0;
             double ratio = -std::numeric_limits<double>::infinity();
+            double actual_reduction = 0.0;
             NonlocalGpuEvaluationResult trial_evaluation;
             if (valid) {
                 cuda_check(cudaMemcpy(impl_->current, impl_->trial_position,
@@ -4205,8 +4313,7 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                     result.failure = trial_evaluation.failure;
                     break;
                 }
-                const double actual_reduction = evaluation.energy
-                    - trial_evaluation.energy;
+                actual_reduction = evaluation.energy - trial_evaluation.energy;
                 valid = std::isfinite(trial_evaluation.energy)
                     && std::isfinite(actual_reduction)
                     && actual_reduction > 0.0;
@@ -4246,6 +4353,7 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 }
 #endif
             }
+            const double radius_before_update = radius;
             if (!valid || ratio < 0.25) {
                 radius *= 0.25;
                 ++result.work.radius_shrinks;
@@ -4254,6 +4362,24 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 if (expanded != radius) ++result.work.radius_expands;
                 radius = expanded;
             }
+            NonlocalGpuSolverTraceEvent trial_event = outer_event;
+            trial_event.kind = NonlocalGpuTraceKind::Trial;
+            trial_event.reason = accepted ? NonlocalGpuTraceReason::Accepted
+                                          : NonlocalGpuTraceReason::Rejected;
+            trial_event.hvp_used = result.hvp_used;
+            trial_event.radius_before = radius_before_update;
+            trial_event.radius_after = radius;
+            trial_event.initial_true_residual = initial_residual;
+            trial_event.initial_preconditioned_residual =
+                initial_residual_preconditioned;
+            trial_event.true_residual = current_true_residual;
+            trial_event.preconditioned_residual = residual_preconditioned;
+            trial_event.forcing = forcing;
+            trial_event.step_norm = radius_before_update;
+            trial_event.predicted_reduction = predicted_reduction;
+            trial_event.actual_reduction = actual_reduction;
+            trial_event.rho = std::isfinite(ratio) ? ratio : 0.0;
+            push_trace(trial_event);
             if (!(radius >= minimum_radius)) {
                 result.failure = NonlocalGpuFailure::PhysicsGateFailed;
                 break;
@@ -4412,11 +4538,40 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
         } else {
             cuda_check(cudaDeviceSynchronize(), "synchronize completed step");
         }
-        if (result.failure != NonlocalGpuFailure::None) restore_transaction();
+        if (result.failure != NonlocalGpuFailure::None
+            && !restore_transaction()) {
+            result.failure = NonlocalGpuFailure::DeviceFailure;
+        }
+        if (capture_trace && (result.trace.empty()
+                || result.trace.back().kind != NonlocalGpuTraceKind::Terminal)) {
+            NonlocalGpuSolverTraceEvent event;
+            event.kind = NonlocalGpuTraceKind::Terminal;
+            event.reason = result.failure == NonlocalGpuFailure::WorkBudgetExceeded
+                ? NonlocalGpuTraceReason::WorkCeiling
+                : (result.failure == NonlocalGpuFailure::None
+                    ? NonlocalGpuTraceReason::GradientConverged
+                    : NonlocalGpuTraceReason::Failure);
+            event.hvp_used = result.hvp_used;
+            event.active_pressure_centers = result.active_pressure_centers;
+            event.directed_pairs = result.maximum_directed_pairs;
+            event.gradient_norm = result.gradient_norm;
+            event.scaled_displacement_residual =
+                result.scaled_displacement_residual;
+            push_trace(event);
+        }
         return result;
     } catch (const std::exception&) {
-        restore_transaction();
+        const bool restored = restore_transaction();
         result.failure = NonlocalGpuFailure::DeviceFailure;
+        (void)restored;
+        if (capture_trace && (result.trace.empty()
+                || result.trace.back().kind != NonlocalGpuTraceKind::Terminal)) {
+            NonlocalGpuSolverTraceEvent event;
+            event.kind = NonlocalGpuTraceKind::Terminal;
+            event.reason = NonlocalGpuTraceReason::Failure;
+            event.hvp_used = result.hvp_used;
+            push_trace(event);
+        }
         return result;
     }
 }

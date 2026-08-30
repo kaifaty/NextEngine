@@ -89,6 +89,57 @@ enum class NonlocalGpuSolverProfile : std::uint32_t {
     Jacobi = 1U,
 };
 
+enum class NonlocalGpuTraceKind : std::uint32_t {
+    OuterStart = 0U,
+    Diagonal = 1U,
+    Inner = 2U,
+    Trial = 3U,
+    Terminal = 4U,
+};
+
+enum class NonlocalGpuTraceReason : std::uint32_t {
+    None = 0U,
+    GradientConverged = 1U,
+    ForcingConverged = 2U,
+    NegativeCurvature = 3U,
+    TrustRadius = 4U,
+    Accepted = 5U,
+    Rejected = 6U,
+    WorkCeiling = 7U,
+    InvalidModel = 8U,
+    Failure = 9U,
+};
+
+struct NonlocalGpuSolverTraceEvent {
+    std::uint32_t sequence = 0U;
+    std::uint32_t outer = 0U;
+    std::uint32_t inner = 0U;
+    std::uint32_t hvp_used = 0U;
+    std::uint32_t active_pressure_centers = 0U;
+    std::uint32_t directed_pairs = 0U;
+    NonlocalGpuTraceKind kind = NonlocalGpuTraceKind::OuterStart;
+    NonlocalGpuTraceReason reason = NonlocalGpuTraceReason::None;
+    std::uint64_t inertia_floor_components = 0U;
+    double radius_before = 0.0;
+    double radius_after = 0.0;
+    double gradient_norm = 0.0;
+    double scaled_displacement_residual = 0.0;
+    double diagonal_min_abs = 0.0;
+    double diagonal_max_abs = 0.0;
+    double initial_true_residual = 0.0;
+    double initial_preconditioned_residual = 0.0;
+    double true_residual = 0.0;
+    double preconditioned_residual = 0.0;
+    double forcing = 0.0;
+    double curvature = 0.0;
+    double alpha = 0.0;
+    double beta = 0.0;
+    double step_norm = 0.0;
+    double predicted_reduction = 0.0;
+    double actual_reduction = 0.0;
+    double rho = 0.0;
+};
+
 struct NonlocalGpuWorkReceipt {
     std::uint64_t uploads = 0U;
     std::uint64_t graph_builds = 0U;
@@ -233,6 +284,7 @@ struct NonlocalGpuStepResult {
     NonlocalGpuVariant variant = NonlocalGpuVariant::Corrected;
     NonlocalGpuWorkReceipt work;
     NonlocalGpuTimings timing;
+    std::vector<NonlocalGpuSolverTraceEvent> trace;
 };
 
 class NonlocalGpuWorkspace {
@@ -267,7 +319,8 @@ public:
         NonlocalGpuSolverProfile solver_profile,
         NonlocalGpuVariant variant,
         bool capture_state,
-        bool measure);
+        bool measure,
+        bool capture_trace = false);
 
     std::string environment_json() const;
     std::size_t allocated_device_bytes() const;
@@ -335,5 +388,8 @@ std::string step_work_semantic_root(const NonlocalGpuProfile& profile,
 std::string step_semantic_root(const NonlocalGpuProfile& profile,
     const std::string& input_root,
     const NonlocalGpuStepResult& result);
+std::string solver_trace_semantic_root(
+    const NonlocalGpuStepResult& result);
+bool solver_trace_valid(const NonlocalGpuStepResult& result);
 
 } // namespace nextengine::nonlocal::gpu_full_step
