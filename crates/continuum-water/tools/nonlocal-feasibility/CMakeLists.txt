@@ -51,6 +51,35 @@ add_executable(
     src/corrected_cuda_assembly_reference.cpp
     src/sha256.cpp
 )
+
+add_executable(
+    nonlocal-corrected-cuda-consequence
+    src/corrected_cuda_assembly.cu
+    src/corrected_cuda_assembly_energy.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/corrected_cuda_consequence.cu
+    src/corrected_cuda_consequence_main.cpp
+    src/sha256.cpp
+)
+target_compile_features(
+    nonlocal-corrected-cuda-consequence PRIVATE cxx_std_17 cuda_std_17)
+set_target_properties(
+    nonlocal-corrected-cuda-consequence
+    PROPERTIES
+        CUDA_ARCHITECTURES 86
+        CUDA_SEPARABLE_COMPILATION OFF
+)
+target_compile_options(
+    nonlocal-corrected-cuda-consequence
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+        $<$<COMPILE_LANGUAGE:CUDA>:-O3;--fmad=false;--prec-div=true;--prec-sqrt=true;--ftz=false>
+)
+target_link_options(
+    nonlocal-corrected-cuda-consequence
+    PRIVATE
+        $<$<CONFIG:Release>:-s>
+)
 target_compile_features(
     nonlocal-corrected-cuda-assembly PRIVATE cxx_std_17 cuda_std_17)
 set_target_properties(
