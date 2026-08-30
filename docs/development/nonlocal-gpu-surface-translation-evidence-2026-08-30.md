@@ -2,50 +2,85 @@
 
 ## Result and claim ceiling
 
-Author result: `H1 SUPPORTED / INDEPENDENT_REVIEW_PENDING`.
+Final result after the single review repair batch and the only permitted
+re-review: `VERIFIED H1 SUPPORTED / GO`.
 
-The unchanged global-position `f32` solver still fails the retained pair, and
-promoting only surface arithmetic to `f64` does not change that route. A
-boundary-free representation that factors each position into a shared
-binary32 high anchor plus a per-sample binary32 local part passes the original
-pair and the complete translation sweep without changing the physical model,
-solver tolerance or HVP ceiling.
+The unchanged global-position `f32` route still fails the retained translated
+pair, and promoting only the surface operator to `f64` does not change that
+failure. A real device-resident canonical `(hi, lo)` binary32 position state
+passes the original pair and all nine translations without changing the FCR0
+physics, solver tolerance, active set or HVP ceiling.
 
-This is evidence for loss of small global-position updates, not a scalable GPU
-water solver. The selected representation is a tiny shared-anchor
-specialization. Dynamic per-cell anchors, graph transitions, contacts,
-transactions, 4k/50k trajectories and performance remain `NOT_RUN`.
+This is a tiny, boundary-free arithmetic discriminator. It does not establish
+scalable graph transitions, contact semantics, 4k/50k trajectories or full
+water performance. Those remain `NOT_RUN`; CPU DFSPH remains the product
+fallback.
 
-## Frozen identities
+## Review history and repaired apparatus
+
+The initial candidate at `2a0c38a2` was rejected as `H4 / INCONCLUSIVE`.
+Although its local-coordinate execution passed numerically, it implemented a
+host shared-origin specialization rather than the frozen per-position
+canonical `(hi, lo)` representation. Its binary identity, endpoint evidence,
+active-set signature and representation receipts were also incomplete.
+
+The only permitted repair batch at `ecb888c6` replaced that shortcut with:
+
+- explicit device `hi` and `lo` buffers for input, reference, current,
+  predicted, trial, velocity and transaction state;
+- fixed-order `TwoSum` error-free transforms for prediction and trial updates;
+- both-part pair differences and inertia, runtime canonical/non-overlap checks,
+  accepted/rejected rollback and one final binary32 publication;
+- exact active-pressure ID roots and representation/work/result closure;
+- `/proc/self/exe` binary hashing that fails closed, including a missing-path
+  negative control;
+- per-endpoint Phase-A displacement/ULP/once-round evidence and the corrected
+  piecewise independent FCR0 `c(q)` diagnostic;
+- negative controls for malformed pairs, omitted low parts, broken EFT,
+  input/work/transaction/publish/representation roots and permutation identity.
+
+No host anchor or coordinate localization remains in the repaired route. The
+independent re-review found no remaining load-bearing defect for the frozen
+finite NCGP2 claim.
+
+## Frozen and candidate identities
 
 | Item | Identity |
 | --- | --- |
 | Contract | `b4479af3ec41dd37aa02bd9f299c05387d416043d4f9701f0e08e8749752e4cb` |
-| Candidate commit | `2a0c38a2598da20d70a8e59c2f8aa4b0846b50fe` |
-| Candidate tree | `bac89146fc3aa670705e46cbf2fc09187c12180b` |
-| Source root | `4fe0d45fe614b3ceddccfb6a76eb4313a1855b133851ef64059307e745e80568` |
-| Release binary | `98de5b4aca877c92de9a0c4d0c7ff077ec154f2e138bd771c1d72b9c2ddb4b28` |
+| Repaired candidate commit | `ecb888c664404dcccab6361664259143af519022` |
+| Repaired candidate tree | `bac1e17cf0de3485fb5f646b6a59516263d39bf9` |
+| Source root | `4ba66a40259d8c1a59874149edc5709e66565fdf8b2fc635e5aab17bc3be677f` |
+| Release binary A/B | `ed62e6c7994221746328c7329e6aaf7ae8565315cbd742c902e58f0f0cd51584` |
 | GPU | NVIDIA GeForce RTX 3080, SM 8.6 |
 | CUDA runtime/driver | `13030 / 13030` |
 
-The two independent Release build directories produced byte-identical NCGP2
-binaries. Their complete outputs were also byte-identical:
+Two fresh Release directories produced byte-identical binaries and
+byte-identical complete outputs:
 
 | Mode | Exit | Output SHA-256 | Result |
 | --- | ---: | --- | --- |
-| `--phase-a` | `0` | `b592265175947f7d3cd5c65194b7b7ba3b369eca055d29c160408d9c5625c9de` | primary and controls reproduced |
-| `--surface-f64` | `4` | `e710702655e81de0b6c08d2466cec8abd802c68a94fb302966211a0d9b6b8c9b` | counterfactual failed |
-| `--compensated-state-f32` | `0` | `b43266b5fbe3c34583170a29f146cafe747ee77d350aa8a92b4a3a4a60988f6b` | counterfactual passed |
+| `--phase-a` | `0` | `e18389bbb26d2b3bddb9f7384415e3e3168a6e3f3ae4652f66c7bdc8782ba434` | unchanged failure and controls reproduced |
+| `--surface-f64` | `4` | `55f3dbc913112ef2d7c6c364975b21be98edc232538bf7a38843ca1c5fe8f0dc` | counterfactual failed |
+| `--compensated-state-f32` | `0` | `e0628be83b190e277c9f93e34dac674730a2574fbca1707fa79ebcdae9839a19` | counterfactual passed |
 
-Compiler controls remained `-ffp-contract=off -fno-fast-math` for C++ and
+Compiler controls were `-ffp-contract=off -fno-fast-math` for C++ and
 `--fmad=false --prec-div=true --prec-sqrt=true --ftz=false` for CUDA, targeting
 SM 8.6.
 
-## Phase A: unchanged solver
+The reviewer independently rebuilt from a clean detached worktree. Its two
+binaries were byte-identical at
+`499dd5c01f6fae443d0bfde3af4f11bdabfb170e81f96199efae21d81767e9e6`.
+That binary differs from the author binary only because the absolute source
+path is embedded by the toolchain; after replacing the self-reported
+`binary_root`, every reviewer output exactly matched the corresponding author
+output above.
 
-The shared initial binary32 bytes, CPU oracle, permutation route and work/result
-roots all closed. CPU long-double solves passed at all centers. The unchanged
-CUDA route produced this first-specific pattern:
+## Phase A: unchanged route
+
+The independent direct/all-pairs CPU solver passed at every center. The
+ordinary global-position CUDA route retained the original first-specific
+pattern:
 
 | Center (m) | CUDA | `R_x` | HVP | Trials (accepted/rejected) |
 | ---: | --- | ---: | ---: | ---: |
@@ -59,80 +94,100 @@ CUDA route produced this first-specific pattern:
 | 1.5 | fail | `1.5311771e-5` | 46 | 23 (2/21) |
 | 2.0 | fail | `1.9560920e-5` | 46 | 23 (2/21) |
 
-The non-monotonic pattern rules out a simple distance-from-origin law. It is
-consistent with discrete interaction between accepted updates and the local
-binary32 lattice. The retained `x=0.25` control passed; `x=0.75, gamma=0`
-passed at `R_x=1.3775e-7`.
+The retained `x=0.25` control passed. The `x=0.75, gamma=0` causal negative
+also passed at `R_x=1.3775e-7`. Per-endpoint binary32 bits, ULP-normalized CPU
+displacements and once-round errors are present in every version-2 center
+record.
 
 ## Phase B discriminators
 
 ### Surface-only binary64
 
-Surface pair subtraction, distance, spline, gradient/HVP products and energy
-were evaluated in binary64 and narrowed once to the existing vector outputs.
-The failing centers, route counts and residuals were unchanged. In particular,
-`x=0.75` remained `failure=9`, 48 HVP, 24 trials and
-`R_x=1.50362650553e-5`. H2 is therefore falsified for this fixture.
+Binary64 surface subtraction, distance, spline, energy, gradient and HVP did
+not change the failing centers or routes. The primary remained `failure=9`,
+48 HVP, 24 trials and `R_x=1.50362650553e-5`. H2 is falsified for this fixture.
 
-### Shared-anchor compensated state
+### Canonical binary32 `(hi, lo)` state
 
-For the boundary-free tiny discriminator, each input was decomposed exactly as
-`shared binary32 high anchor + binary32 local coordinate`. The solver ran in
-the local coordinate and published one final binary32 global position. All 9
-centers passed, all corrected/permuted work and result identities matched, and
-all inputs reconstructed to the original binary32 bits.
+All nine translations passed. Corrected and permuted executions had identical
+published state, active-pressure IDs, work roots and result roots. The primary
+`x=0.75` route used 6 HVP and 3 accepted trials with no rejection, reaching
+`R_x=1.74840291341e-6`. Its active-pressure root exactly matched CPU:
+`029d295c3f3f85f9fd82e6d04241a3366c9fe9da4539b7eb02e7509e92462c9a`.
 
-The primary `x=0.75` result used 6 HVP, 3 accepted trials, no rejected trials
-and reached `R_x=1.62124633789e-6`. The maximum final-position difference from
-the independent CPU result across the sweep was
-`3.84540017606e-8 m`, below the frozen `5e-6 m` state gate.
+The maximum final position difference from the independent CPU result over
+the sweep was `3.84540017606e-8 m`, below the frozen `5e-6 m` gate.
 
-The sealed representation work receipt records 36 decompositions, 36 exact
-reconstructions and 72 published components under root
-`bdd916610535d133ed446aa01ecf79a2671fcd678f821d08a457cb2c04a4959c`.
+The sealed aggregate representation work root is
+`a5cc08ee17adfdd0d8ff36429828c3447ce25dfb9a5c09bb2510bb8d95b40e2a`:
 
-An independent analytic FCR0 surface control passed:
+| Work item | Count |
+| --- | ---: |
+| input components | 324 |
+| decompositions | 324 |
+| final reconstructions | 108 |
+| canonical/non-overlap checks | 648 |
+| both-part differences | 5,724 |
+| inertia components | 756 |
+| predicted/trial EFT components | 540 |
+| transaction components | 1,512 |
+| published components | 216 |
+
+The independent analytic surface control passed:
 
 - gradient relative L2: `7.57043481411e-9`;
 - HVP relative L2: `8.83071361321e-8`;
-- analytic directional relative error: `7.57043479309e-9`;
+- directional relative error: `7.57043479309e-9`;
 - equal/opposite closure: exactly `0`.
 
-This selects H1 for the retained boundary-free pair. It does not yet select a
-production representation: a shared anchor is only an algebraically exact
-special case of the planned per-particle/per-cell `hi+lo` storage.
+Both semantic mutation controls returned the frozen physics failure route:
+omitted-low `failure=9`, broken-EFT `failure=9`. All identity and receipt
+mutation controls were rejected.
+
+## Independent verdict and bounded limitations
+
+The re-review independently closed commit/tree/contract/source identities,
+two clean builds, all three NCGP2 routes, retained graph/operator/solver
+controls, PATH-based executable identity and all three CUDA sanitizers. It
+accepted first-specific H1 and rejected H2/H3 for this retained fixture.
+
+The following limitations are explicitly non-load-bearing only because the
+frozen contract limits NCGP2 to a finite interior boundary-free pair and
+defers scalable semantics:
+
+- transaction/publish negative controls prove sealed-root sensitivity but do
+  not inject a compensated post-finalize device failure;
+- the malformed-pair control is a host-side canonicality predicate;
+- omit-low and broken-EFT controls have typed physics failures, but their
+  variants are also bound into the result root;
+- graph cell membership remains based on the high position part.
+
+These limitations must become load-bearing requirements in the scalable
+successor. NCGP2 may not be cited as proof of dynamic graph transitions,
+boundaries, multi-step rollback or production performance. The review/repair
+allowance for this package is exhausted.
 
 ## Retained controls and sanitizers
 
-The clean post-commit NCGP1 target retained:
+The clean A/B NCGP1 graph, operator and solver self-tests each returned `PASS`
+and were byte-identical between builds. Their output SHA-256 values were:
 
-- graph self-test `PASS`, output `e89ddaed5eeef864e92ca25bd2d39bb242e1347fb234c352f225fb33b9a27166`;
-- operator self-test `PASS`, output `781f052b8ac72eb86bc3d4d60bb408726919804ad60c4fc0ea35c6778db280d6`;
-- solver self-test `PASS`, output `bc8b71dcf6b7564dcd540b4e599102fee3112476448e1e6b3b8ca2aed58840ff`;
-- original tiny route `PHYSICS_REFUTED`, exit 37, output
-  `0b0db1e338854319005172453281faa31e159694a0e10071359d7468564e359d`.
+- graph: `cc83da2054479959408e2489a7bf42c2b6cbea2cf39e182b7e63a1ba04c1314d`;
+- operator: `eda1e69f8265bb27d373e08b9589b7b14df15475ccadf8048ca8aa8d5c0ba380`;
+- solver: `602a73f6b5c6eee0232c3f907cefbd5d83b960fa443d7cb5a5a9729c8fbc061e`.
+
+The original tiny full-step route remained the expected
+`PHYSICS_REFUTED`/exit 37 in both builds, with byte-identical output SHA-256
+`dda70ded7341fa64739323f18ad3892da34d2a92c9ce38fc59b62d711786ff28`.
 
 `compute-sanitizer` memcheck, initcheck and synccheck each returned exit 0 and
 `ERROR SUMMARY: 0 errors`. Their captured outputs were byte-identical at
-`7560833f66a5c4846f68aa59a5f62cfe25c823da6fa1e485929d4fbcf1359837`.
-
-## External mechanism boundary
-
-NVIDIA documents IEEE binary32/binary64 behavior, round-to-nearest, operation
-ordering and cancellation in the CUDA programming guide and its floating-point
-whitepaper:
-
-- <https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/mathematical-functions.html>
-- <https://docs.nvidia.com/cuda/pdf/Floating_Point_on_NVIDIA_GPU.pdf>
-
-Those sources explain why a local representation can preserve smaller updates;
-they do not prove the solver-specific cause. The local counterfactuals above
-are the causal evidence.
+`e4834c94b3f3db055e75aef566d8da711098708878d53ca38a837ac96eca778e`.
 
 ## Decision and next action
 
-Pending independent review, the smallest justified next package is a scalable
-state-representation contract. It must freeze per-cell or per-particle anchors,
-canonical renormalization, graph-cell transitions, ghost/contact boundaries,
-rollback, result/work receipts and memory cost before reopening 4k/50k
-trajectories. Performance remains `NOT_RUN`, and the roadmap is unchanged.
+The verified apparatus selects H1: sub-ULP accepted updates must remain in the
+GPU state representation. The next package must freeze scalable `hi/lo` graph
+cell transitions, ghost/contact boundaries, injected transaction failures,
+multi-step state, memory cost and timing before reopening 4k correctness.
+Performance remains `NOT_RUN`, and `docs/roadmap.md` remains unchanged.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP2_REVIEW_PENDING` |
+| Status | `COMPLETE / NCGP2_VERIFIED_H1` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-surface-translation` |
 | Scope | Localize and repair the translated compressed-pair surface precision floor without changing FCR physics or NCGP1 tolerances |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** the author evidence selects H1, a global binary32
-  state-update floor. `surface-f64` leaves the failure unchanged, while the
-  shared-anchor `hi+lo` tiny discriminator passes all nine translations.
+- **Current conclusion:** independent re-review returned GO and selected H1,
+  a global binary32 state-update floor. `surface-f64` leaves the failure
+  unchanged, while explicit device-resident canonical `(hi, lo)` state passes
+  all nine translations.
 - **Why:** the original `x=0.75` route remains at
   `R_x=1.50362650553e-5` under surface-only binary64, but reaches
-  `1.62124633789e-6` with the local binary32 part and matches CPU within
+  `1.74840291341e-6` with both-part device state and matches CPU within
   `3.85e-8 m`.
-- **Next action:** receive the independent NCGP2 review; if it accepts the
-  representation semantics and receipts, freeze a scalable per-cell/per-point
-  state contract before any 4k/50k run.
+- **Next action:** freeze scalable graph/boundary/multi-step semantics and
+  real transaction fault injection before reopening 4k correctness.
 - **Current blocker:** full 4k/50k physics and performance remain forbidden
-  because the passing representation is a boundary-free shared-anchor
-  specialization, not a scalable graph/boundary implementation.
+  because the passing representation is still a boundary-free tiny
+  discriminator, not a scalable graph/boundary implementation.
 - **Do not retry:** pressure-only f64 promotion, tolerance widening, disabling
   surface, or timing the graph-only path; none answers the failing surface
   state route.
@@ -37,7 +37,7 @@
 | `docs/development/nonlocal-gpu-full-step-evidence-2026-08-30.md` | `VERIFIED_PHYSICS_REFUTED` | strict global-f32 full-step profile cannot proceed to performance |
 | independent reviewer counterfactuals retained in NCGP1 evidence | `x=0.25 PASS`; `x=0.75,gamma=0 PASS` | absolute translation and surface participation are jointly causal clues, not yet a mechanism proof |
 | NVIDIA CUDA floating-point guide and IEEE note | `REPORT_ONLY` | binary32 spacing and subtractive cancellation are plausible; local experiments remain authority |
-| `docs/development/nonlocal-gpu-surface-translation-evidence-2026-08-30.md` | author `H1 SUPPORTED`, review pending | surface-only f64 is falsified; shared-anchor local state closes the retained pair and sweep |
+| `docs/development/nonlocal-gpu-surface-translation-evidence-2026-08-30.md` | `VERIFIED H1 SUPPORTED / GO` | surface-only f64 is falsified; canonical device `(hi, lo)` closes the retained pair and sweep |
 
 ## Decisions that still constrain the work
 
@@ -75,10 +75,10 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1 global-state quantization | shared-anchor local state passes all translations; original and surface-f64 routes fail identically | scalable per-particle/per-cell form is not implemented | independent review, then successor storage contract |
+| H1 global-state quantization | canonical device `(hi, lo)` passes all translations; original and surface-f64 routes fail identically; omitted-low and broken-EFT controls fail | scalable graph/boundary/multi-step form is not implemented | selected for the frozen pair; freeze successor storage contract |
 | H2 surface arithmetic | `gamma=0` removes failure | surface-f64 does not change any failing route | falsified for the retained pair |
-| H3 trust/globalization | original failure ends in trust-radius collapse | local representation restores the frozen solver route | falsified for the retained pair |
-| H4 apparatus defect | shared-anchor factoring is a specialized representation that needs independent scrutiny | CPU/input/permutation/work identities and three sanitizers pass | independent review at commit `2a0c38a2` |
+| H3 trust/globalization | original failure ends in trust-radius collapse | canonical device state restores the frozen solver route | falsified for the retained pair |
+| H4 apparatus defect | initial commit `2a0c38a2` was correctly rejected for host localization and incomplete receipts | the single repair batch removes localization; independent re-review closes identities, controls and sanitizers | falsified for the finite NCGP2 claim |
 
 ## Required context
 
@@ -94,10 +94,10 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Await the exact read-only independent review of commit `2a0c38a2`.
-2. If accepted, freeze anchor ownership, renormalization, graph transitions,
-   boundaries, rollback and work/memory receipts for a scalable successor.
-3. Reopen 4k correctness only after that successor passes the original tiny
+1. Freeze canonical renormalization, graph transitions, boundaries,
+   multi-step rollback/fault injection and work/memory receipts for a scalable
+   successor.
+2. Reopen 4k correctness only after that successor passes the original tiny
    route; keep 50k timing stopped until 4k trajectories pass.
 
 ## Do not retry
@@ -112,12 +112,12 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** branch `codex/water-research`; NCGP2 candidate commit
-  `2a0c38a2`, evidence/task-state update not yet committed.
+- **Workspace state:** branch `codex/water-research`; repaired NCGP2 candidate
+  commit `ecb888c6`; final evidence is recorded in the current documentation
+  change.
 - **Checks:** two byte-identical clean Release builds/runs, retained
-  graph/operator/solver controls and memcheck/initcheck/synccheck pass; review
-  is running.
-- **Remaining risk:** the shared-anchor tiny representation may not satisfy
-  the frozen canonical `hi+lo` meaning or scale to dynamic graphs, boundaries
-  and a 240-step trajectory.
+  graph/operator/solver controls and memcheck/initcheck/synccheck pass;
+  independent re-review returned GO.
+- **Remaining risk:** GO does not establish high+low graph membership,
+  boundaries, injected transaction failures or a 240-step trajectory.
 - **Promotion needed:** none; this remains report-only Proposed research.
