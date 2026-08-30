@@ -6,7 +6,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -470,7 +469,6 @@ int run_correspondence_4k(const std::string& scenario,
     std::uint64_t permutation_mismatch_steps = 0U;
     std::string receipt_material =
         "nextengine.nonlocal.ncgp3.trajectory-receipts.v1\n";
-    const auto started = std::chrono::steady_clock::now();
     NonlocalGpuFailure gpu_failure = NonlocalGpuFailure::None;
     NonlocalGpuFailure cpu_failure = NonlocalGpuFailure::None;
     std::uint32_t completed = 0U;
@@ -579,8 +577,6 @@ int run_correspondence_4k(const std::string& scenario,
             || active_mismatch_steps != 0U
             || permutation_mismatch_steps != 0U) break;
     }
-    const double wall_seconds = std::chrono::duration<double>(
-        std::chrono::steady_clock::now() - started).count();
     NonlocalGpuGraphResult failure_graph;
     if (gpu_failure == NonlocalGpuFailure::CapacityExceeded
         || cpu_failure == NonlocalGpuFailure::CapacityExceeded) {
@@ -691,7 +687,7 @@ int run_correspondence_4k(const std::string& scenario,
               << ",\"contract_root\":\"" << NCGP3_CONTRACT_ROOT
               << "\",\"source_root\":\"" << NCGP3_SOURCE_ROOT
               << "\",\"binary_root\":\"" << binary_root()
-              << "\",\"wall_seconds\":" << wall_seconds << "}\n";
+              << "\"}\n";
     return passed ? 0 : (physical_refuted ? 37 : 53);
 }
 
