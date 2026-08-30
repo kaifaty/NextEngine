@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3_V1_REJECTED / PHASE_ALIGNED_SUCCESSOR_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3_TIME_DOMAIN_FAMILY_REJECTED / N0.3B_DENSE_COMPLEX_FIELD_DATA_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -104,9 +104,11 @@ Commit boundary: baseline exporter plus non-regression evidence.
 
 ### N0.3 — Fixed-impact listener-field pilot
 
-Status: `V1_REJECTED / TRAINING_AND_EVALUATION_REPRODUCIBLE /
-PHASE_ALIGNED_SUCCESSOR_NEXT`. See the
-[R2 V1 result](../development/physical-sound-listener-field-r2-v1-result-2026-08-30.md).
+Status: `V1_AND_PHASE_ALIGNED_REJECTED /
+TRAINING_EVALUATION_AND_DIAGNOSTIC_REPRODUCIBLE /
+DENSE_COMPLEX_FIELD_REBASELINE_NEXT`. See the
+[R2 V1 result](../development/physical-sound-listener-field-r2-v1-result-2026-08-30.md)
+and [phase-aligned result and failure research](../development/physical-sound-listener-field-r2-phase-research-2026-08-30.md).
 
 Deliverables:
 
@@ -130,6 +132,54 @@ supported listener axis. Do not claim unseen impact-position support.
 
 Commit boundary: preregistration, runner, compact fixtures and immutable
 listener-field report. Weights and datasets remain external.
+
+The direct and propagation-delay-aligned time-domain latent family is now
+closed. The phase successor improves four of five rank-4 endpoints but misses
+the unchanged P95 spectrum criterion. A query-informed subspace oracle also
+fails held-query level and spectral aggregates, so width/rank/epoch/seed/speed
+and threshold tuning are forbidden on this opened slice.
+
+### N0.3B — Dense complex-field data sufficiency preflight
+
+Status: `NEXT / NO_OPTIMIZER_AUTHORIZED`.
+
+Purpose: test whether published spatial coverage and a phase-preserving field
+representation can support an honest R2 experiment before training a larger
+model.
+
+Deliverables:
+
+- one hash-closed Green Goblet fixed-impact projection covering the full
+  published 600-position REALIMPACT semicylinder;
+- a preregistered grouped split by complete gantry columns or equivalent
+  spatial blocks, with no individual-neighbour leakage;
+- coordinate coverage, spacing, spatial-frequency and missing-axis report;
+- one frozen complex STFT or log-magnitude plus continuous-phase target with
+  exact forward/inverse-cook parameters and error;
+- nearest/linear plus simple complex-field controls on the grouped split;
+- a preregistered exterior-air Helmholtz/physics constraint and no-physics
+  ablation for the later candidate;
+- zero method-holdout and admission-shadow payload reads.
+
+Exit criteria:
+
+- two projection/preflight runs are byte-identical;
+- every row binds published coordinates, signal semantics, source hashes and
+  spatial group before splitting;
+- query groups are absent from representation fitting and learned feature
+  normalization;
+- inverse cooking is finite, bounded and within a preregistered numeric error;
+- all classical controls and primary aggregates are available before the first
+  optimizer step;
+- the report returns `READY_FOR_COMPLEX_FIELD_TRAINING`,
+  `DATA_INSUFFICIENT` or `REJECT_COMPLEX_FIELD_REPRESENTATION`.
+
+Fallback: if the full published block or grouped split cannot support the
+task, stop R2 for this object and search another internet source. Do not return
+to the 15-row latent or use local capture.
+
+Commit boundary: data projection, grouped split, representation preflight and
+immutable sufficiency report. Dataset payloads remain external.
 
 ### N0.4 — Object-specific impact/listener few-shot field
 
@@ -317,14 +367,17 @@ successful Git commit or a report-only model result.
 
 ## Immediate queue
 
-1. Preserve V1 as `REJECT_LISTENER_FIELD`; do not tune rank, width, epochs or
-   thresholds on its opened development rows.
-2. Preregister one successor whose only representation change is an explicit
-   coordinate-derived propagation-delay alignment before the unchanged latent
-   field and inverse alignment before PCM cooking.
-3. Repeat two deterministic training runs and the unchanged Rust-metric R1
-   evaluation without opening method holdout or admission shadow.
-4. If the successor also fails, trigger bounded persistent-problem research
-   before another implementation attempt.
-5. Proceed to impact/listener few-shot N0.4 only if N0.3 passes and an internet
+1. Preserve both direct and phase-aligned time-domain fields as immutable
+   `REJECT_LISTENER_FIELD` results; do not tune their ranks, width, epochs,
+   speed or thresholds on opened development rows.
+2. Acquire and hash-close the full 600-position Green Goblet fixed-impact
+   semicylinder through the existing internet-source boundary.
+3. Preregister grouped spatial splits, complex/time-frequency transforms,
+   inverse-cook tolerances, classical controls and query isolation.
+4. Repeat the data/representation preflight twice. Do not start an optimizer
+   until it returns `READY_FOR_COMPLEX_FIELD_TRAINING`.
+5. If ready, train one bounded complex-field candidate with physics/no-physics
+   ablation against the unchanged R1 aggregates. Otherwise record
+   `DATA_INSUFFICIENT` or reject the representation.
+6. Proceed to impact/listener few-shot N0.4 only if R2 passes and an internet
    source closes the required impact axis.

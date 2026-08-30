@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-30 |
-| Статус | `ACTIVE_R&D / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_V1_REJECTED / PHASE_ALIGNED_SUCCESSOR_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_TIME_DOMAIN_FAMILY_REJECTED / R2B_DENSE_COMPLEX_FIELD_DATA_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -125,7 +125,7 @@ models и не маскирует провал обещанием универс
 | --- | --- | ---: | --- |
 | R0 | `COMPLETE` | S | Первый real transfer slice и five-role projection повторяются byte-identical; signal semantics и missing axes честно сохранены. |
 | R1 | `COMPLETE / FROZEN_CONTROLS` | M | Transfer-domain и recorded-waveform baselines покрывают только совместимые rows; метрики и fallback заморожены. |
-| R2 | `V1_REJECTED / SUCCESSOR_NEXT` | M | Модель восстанавливает held-out listener responses одного fixed-impact объекта лучше classical interpolation. |
+| R2 | `TIME_DOMAIN_FAMILY_REJECTED / R2B_DATA_NEXT` | M | Модель восстанавливает grouped held-out listener responses одного fixed-impact объекта лучше classical interpolation. |
 | R3 | `BLOCKED_BY_R2_AND_DATA` | L | Few-shot model предсказывает новые impact/listener conditions exact объекта и cooks в exact PCM. |
 | R4 | `CONDITIONAL` | L–XL | Shared geometry-conditioned model либо проходит object/family-disjoint holdout, либо zero-shot claim явно отклонён. |
 | R5 | `BLOCKED_BY_R3` | M | Frozen automatic validator показывает bounded grouped risk и useful selective coverage без live human gate. |
@@ -207,12 +207,12 @@ absolute level error; эти числа не являются quality pass, а �
 несколькими listener positions. Он проверяет только пространственное поле и не
 притворяется полной моделью удара.
 
-Candidate ladder:
+Experiment ladder:
 
-1. constant/rank-one control;
-2. frozen classical interpolation;
-3. modal-only neural gain field;
-4. modal gain field plus compact residual.
+1. frozen nearest/linear controls;
+2. direct time-domain rank-4/rank-7 listener latent — rejected;
+3. coordinate-derived propagation-delay-aligned latent — rejected;
+4. grouped dense complex/time-frequency field — data preflight next.
 
 Exit criteria:
 
@@ -224,13 +224,31 @@ Exit criteria:
 - failure публикуется как `REJECT_LISTENER_FIELD` или `DATA_INSUFFICIENT`, а не
   запускает свободный hyperparameter search.
 
-V1 evidence: [listener-field result](../development/physical-sound-listener-field-r2-v1-result-2026-08-30.md).
-Два deterministic training runs и две byte-identical evaluations завершаются
-`RejectListenerField`. Rank-4 выигрывает только waveform endpoint; rank-7 —
-только P95 level и не пересекает linear control на остальных endpoints. Этот
-MLP/latent profile закрыт для width/rank/epoch/threshold tuning. Разрешён один
-отдельно preregistered successor с coordinate-derived propagation-delay
-alignment; остальные rows, controls, metrics и sealed roles не меняются.
+Evidence: [V1 result](../development/physical-sound-listener-field-r2-v1-result-2026-08-30.md)
+and [phase-aligned result and failure research](../development/physical-sound-listener-field-r2-phase-research-2026-08-30.md).
+V1 and its separately preregistered propagation-delay-aligned successor both
+repeat deterministically and return `RejectListenerField`. Phase alignment
+makes rank 4 better than both controls on four of five endpoints, but it still
+fails the frozen P95 spectrum endpoint. A query-informed subspace diagnostic
+also fails the level/spectrum aggregates, so the opened time-domain latent
+family is retired rather than tuned.
+
+The next R2B boundary changes data coverage and representation, not thresholds
+or nearby MLP hyperparameters:
+
+- project one full 600-position fixed-impact REALIMPACT semicylinder;
+- split by complete gantry/spatial groups rather than interleaved microphone
+  rows;
+- freeze a complex STFT or log-magnitude plus continuous-phase field and its
+  exact inverse-cook error before optimization;
+- preserve nearest/linear controls and add a simple complex-field control;
+- preregister an exterior-air Helmholtz/physics regularizer and a no-physics
+  ablation;
+- keep method holdout and admission shadow sealed.
+
+Only a grouped held-listener result that beats both controls on all unchanged
+primary aggregates can close R2. `DATA_INSUFFICIENT` and
+`REJECT_COMPLEX_FIELD_REPRESENTATION` remain valid outcomes.
 
 ## R3 — Object-specific impact/listener few-shot model
 
@@ -372,9 +390,12 @@ ledger, persistence и `AcousticFactV1` roots.
    preprocessing, metrics и real development report заморожены;
 3. `listener-field experiment v1` — `REJECTED`; two-run training, MLflow
    lineage и Rust-metric evaluation повторены, candidate не выбран;
-4. `phase-aligned listener successor` — `NEXT`; preregister ровно одну
-   coordinate-derived time-of-flight representation change и повторить
-   неизменный R1 discriminator.
+4. `phase-aligned listener successor` — `REJECTED`; training/evaluation and
+   failure diagnostic repeat, while the frozen conjunctive rule selects no
+   candidate;
+5. `dense complex-field data preflight` — `NEXT`; acquire/project the full
+   fixed-impact semicylinder, freeze a grouped spatial split and complex
+   time-frequency representation, then measure controls before optimization.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.
