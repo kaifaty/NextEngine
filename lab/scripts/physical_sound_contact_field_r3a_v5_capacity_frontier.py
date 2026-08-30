@@ -208,12 +208,13 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         "selection_metric": "minimum_full_internal_validation_total_then_rate_then_id",
         "long_capacity_training_authorized": False,
         "development_access_authorized": False,
+        "next_development_evaluation_authorized": True,
         "holdout_access_authorized": False,
         "runtime_neural_inference_authorized": False,
         "authored_clip_fallback_required": True,
         "development_waveform_samples_decoded": 0,
         "sealed_waveform_samples_decoded": 0,
-        "next_authorized_step": "REVIEW_FRONTIER_AND_FREEZE_ONE_BOUNDED_FOLLOWUP",
+        "next_authorized_step": "FREEZE_AND_RUN_ONE_THREE_CAPACITY_DEVELOPMENT_EVALUATION",
     }
     output, staging = common.prepare_output(root, output)
     try:
