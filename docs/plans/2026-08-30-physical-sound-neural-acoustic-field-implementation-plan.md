@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / N0.1_N0.2_COMPLETE / N0.3E_LISTENER_FIELD_REJECTED / N0.4A_DATA_REPRESENTATION_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.1_N0.2_COMPLETE / N0.3E_LISTENER_FIELD_REJECTED / N0.4A_V1_REPRESENTATION_REJECTED / N0.4A_V2_RESEARCH_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -387,6 +387,15 @@ not ask the user for local recordings.
 Commit boundary: source/corpus manifest, representation-oracle runner, compact
 tests and immutable preflight report. Payloads and feature caches stay external.
 
+V1 result: `REJECT_REPRESENTATION`. The metadata-only Blue Bowl manifest,
+four-contact extraction and query-seeing oracle each repeat byte-identically;
+the fifth contact remains undecoded. Neither the 32-mode plus sparse-DCT
+residual nor equal-budget sparse-DCT target record passes the five-endpoint
+gate. Preserve the [exact result](../development/physical-sound-r3a-blue-bowl-representation-gate-2026-08-30.md),
+authorize no neural model and start a bounded V2 source/representation research
+cycle with a new unopened development projection. Do not tune this family on
+the opened Blue Bowl development contact.
+
 ### N0.4B — Object-specific contact-position few-shot field
 
 Entry condition: N0.4A passes one representation and published data provides
@@ -578,13 +587,13 @@ successful Git commit or a report-only model result.
    rejected revisions; never reuse their opened query for model selection.
 2. Preserve N0.3D V2 as proof that the coefficient objective/cooker can train,
    not as evidence that rank 96 generalizes to hidden positions.
-3. Audit published REALIMPACT/ObjectFolder Real multi-impact availability,
-   geometry, force, contact and canonical-listener semantics without importing
-   payloads into Git.
-4. Freeze a new N0.4A object/source-disjoint projection and compatible
-   baselines before representation fitting.
-5. Run query-seeing development oracles for modal-plus-residual and one
-   alternative compact representation; authorize no neural model unless one
-   passes.
-6. Freeze one AV-MSF-shaped N0.4B exact-object contact field, then repeat and
-   evaluate it on unopened held contact positions.
+3. Preserve N0.4A V1 as a reproducible `REJECT_REPRESENTATION`; Blue Bowl row
+   1807 is opened negative evidence and row 2407 remains sealed.
+4. Research a materially different structured-pole/multiresolution or learned-
+   codec representation and a bounded richer published source path; freeze the
+   choice before opening a new development contact.
+5. Run the N0.4A V2 query-seeing representation oracle exactly as frozen and
+   either authorize N0.4B or record `DATA_INSUFFICIENT`/another immutable
+   representation rejection.
+6. Only after a representation passes, freeze one AV-MSF-shaped N0.4B exact-
+   object contact field, repeat it and evaluate it on unopened held positions.

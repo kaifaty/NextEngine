@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V4 / GEOMETRY_AWARE_MODAL_CONTACT_FIELD / R2_LISTENER_FIELD_REJECTED / R3A_DATA_REPRESENTATION_NEXT / SHADOW_SEALED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V4 / GEOMETRY_AWARE_MODAL_CONTACT_FIELD / R2_LISTENER_FIELD_REJECTED / R3A_V1_REPRESENTATION_REJECTED / R3A_V2_RESEARCH_NEXT / SHADOW_SEALED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-30` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture, external neural acoustic-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,20 +11,21 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The fixed-impact Green Goblet listener field is
-  closed. R2E fits context exactly but loses all five held-listener endpoints;
-  a repeated query projection oracle shows both rank-96 representation and
-  coordinate interpolation limitations.
-- **Exact evidence:** [R2E result and V4 research](../physical-sound-listener-field-r2e-result-and-v4-research-2026-08-30.md),
-  evaluation `efab8e2c…2327`, repeated diagnostic `b6dcc5fc…47ac2`.
-- **Why this does not reject neural physical sound:** The failed task predicts
-  detailed listener radiation from a coarse published grid. The next product-
-  aligned task predicts contact-position variation at one canonical listener;
-  SPEC-08 continues to own environmental spatialization.
-- **Next action:** Audit and freeze a new internet-only multi-object/multi-
-  impact corpus and its canonical-listener/contact-position splits.
-- **After that:** Compare compact representation oracles on query-seeing
-  development contacts before authorizing one geometry-aware modal field.
+- **Current conclusion:** R3A V1 freezes and repeats the new Blue Bowl contact
+  task, but both 512-scalar query-seeing representations fail the real
+  development gate. Neural training remains forbidden.
+- **Exact evidence:** [R3A Blue Bowl representation gate](../physical-sound-r3a-blue-bowl-representation-gate-2026-08-30.md),
+  manifest `6ad5b42c…847b`, extraction `4d364a28…b827`, repeated oracle
+  `34567bc2…ef01`.
+- **Why this does not reject neural physical sound:** The oracle rejects one
+  local-peak modal estimator, sparse-DCT residual and 512-scalar budget. It
+  does not test a structured-pole/multiresolution codec or a geometry-aware
+  contact model; SPEC-08 still owns environmental spatialization.
+- **Next action:** Run a bounded R3A V2 research cycle for a materially
+  different structured-pole/multiresolution or learned-codec representation
+  and a new unopened development projection.
+- **After that:** Freeze and run exactly one new representation oracle; only a
+  pass may authorize one geometry-aware exact-object field.
 - **Current blockers:** a sufficient unopened corpus/representation, learned quality,
   multi-impact internet coverage,
   independent validator risk, exact-domain admission, production contact
@@ -43,7 +44,7 @@
 | R2C separable complex field | `COMPLETE / REJECTED` | Data-only and Helmholtz candidates repeat; both collapse and fail `4/5` endpoints. |
 | R2D trainability gate | `COMPLETE / V2_PASS` | V2 passes all unchanged gates twice; normalized reports, checkpoints and WAVs repeat with zero query reads. |
 | R2E low-rank coefficient field | `COMPLETE / REJECTED` | Exact context fit loses every query endpoint; post-reject oracle proves representation plus interpolation limits. |
-| R3A new data/representation | `NEXT` | Freeze a new canonical-listener multi-impact corpus and pass a compact representation oracle before training. |
+| R3A new data/representation | `V1 COMPLETE / REJECTED; V2 NEXT` | Blue Bowl source/splits/extraction repeat, but modal+residual and sparse DCT both fail. Freeze a materially different representation on new unopened development data. |
 | R3B+ exact-object/validator/admission | `BLOCKED` | No contact-field model, validator release, admitted domain or runtime promotion exists. |
 
 ## Material transition: R2C rejection and Roadmap V3
@@ -128,6 +129,31 @@
   residual representation carries held contact sounds and authorizes one
   exact-object field.
 
+## Material transition: R3A V1 representation rejection
+
+- **Observation:** Two zero-audio source preflights and bounded four-contact
+  extractions repeat exactly. The query-seeing 512-scalar modal-plus-residual
+  oracle improves development level and envelope but loses spectrum, modal
+  frequency and decay; equal-budget sparse DCT improves only envelope.
+- **Evidence:** [R3A V1 result](../physical-sound-r3a-blue-bowl-representation-gate-2026-08-30.md),
+  manifest `6ad5b42c…847b`, contact array `1971f01a…1ba3`, repeated oracle
+  report `34567bc2…ef01`.
+- **Conclusion:** The selected source and seal are usable, but local STFT peak/
+  damping extraction plus a sparse whole-window DCT residual is not a
+  sufficient compact record for this real glass transfer response.
+- **Decision:** Preserve V1 as `REJECT_REPRESENTATION`, authorize no neural
+  model and require a new unopened development projection plus materially
+  different representation for V2.
+- **Rejected alternatives:** More nearby modes/DCT bins, threshold relaxation,
+  budget/seed tuning on opened Blue Bowl row 1807, or opening row 2407.
+- **Consequences:** R3B and validator/admission work remain blocked; authored
+  clips stay mandatory; field holdout, method holdout and shadow remain sealed.
+- **Remaining uncertainty:** Structured complex poles, multiresolution
+  transient atoms or a learned codec may carry the target; richer
+  ObjectFolder Real access may be needed to learn such a representation.
+- **Reconsider when:** A hash-closed new source/projection and preregistered V2
+  oracle exist before its development audio is opened.
+
 ## Stable decisions
 
 | ID | Decision | Reconsideration condition |
@@ -150,8 +176,8 @@
 | --- | --- | --- | --- |
 | H1: Energy-preserving context training is sufficient to remove silence collapse | R2D V2 passes all context gates twice | No counterevidence remains at the context-fit boundary | Closed; preserve V2 as the N0.3E training substrate |
 | H2: Frozen rank-96 listener coefficients beat interpolation | Context fit is exact | R2E loses all endpoints; query oracle also misses mean spectrum | Closed/rejected for the opened split |
-| H3: A compact modal/residual record carries held contact-position sound | AV-MSF and modal physics provide a matching factorization | No Next Engine oracle exists on a new unopened multi-impact projection | R3A representation-oracle benchmark |
-| H4: Geometry-aware exact-object contact learning is possible from published data | REALIMPACT/ObjectFolder Real publish geometry, force and multiple contacts; AV-MSF reports few-shot results | Availability, exact lineage and compatible Next Engine metrics are not frozen | R3A source audit, then one R3B candidate |
+| H3: A compact modal/residual record carries held contact-position sound | AV-MSF and modal physics provide a matching factorization | R3A V1 local-peak modes plus sparse DCT fails real level/spectrum/mode/decay gates despite query access | New unopened V2 structured-pole/multiresolution or learned-codec oracle |
+| H4: Geometry-aware exact-object contact learning is possible from published data | REALIMPACT source/geometry/splits now repeat; ObjectFolder Real publishes 30–50 impacts/object; AV-MSF reports few-shot results | No compact representation has passed, so no honest model has trained | R3A V2 representation pass, then one R3B candidate |
 | H5: Automatic validator can reach useful coverage at bounded false-pass risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 calibration/holdout release after a generator claim exists |
 | H6: Cooked neural coefficients fit a useful production budget | Q30 lab reference is compact and exact | Whole-mixer, callback and varied-voice cost are unmeasured | Player-visible consumer plus whole-mixer p95/p99 before promotion |
 
@@ -194,12 +220,15 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** R2E tooling/tests, two exact training repeats, one immutable
-  rejection and two post-reject diagnostics are implemented; all heavy
-  artifacts remain external. N0.4A/R3A is next.
+- **Workspace:** R3A V1 source preflight, sealed streaming extraction,
+  equal-budget representation oracle and compact tests are implemented; two
+  real repetitions preserve one immutable rejection and all heavy artifacts
+  remain external. R3A V2 research is next.
 - **Quality:** No neural candidate, validator release, admitted formula record
   or runtime integration exists. Clip fallback is still authoritative.
-- **Isolation:** The R2 query is opened and permanently retired from selection;
-  method holdout and admission shadow remain unopened.
-- **Next commit boundary:** New source/corpus preflight and compact
-  representation-oracle gate, with no model training.
+- **Isolation:** The R2 listener query and Blue Bowl development row 1807 are
+  opened and retired from selection. Blue Bowl row 2407, method holdout and
+  admission shadow remain unopened.
+- **Next commit boundary:** Bounded R3A V2 research and freeze for a materially
+  different representation plus new unopened development projection, with no
+  model training until that oracle passes.

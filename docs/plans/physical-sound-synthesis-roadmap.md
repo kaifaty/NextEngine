@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-30 |
-| Статус | `ACTIVE_R&D / R0_R1_COMPLETE / R2_LISTENER_FIELD_REJECTED / R3A_DATA_REPRESENTATION_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R0_R1_COMPLETE / R2_LISTENER_FIELD_REJECTED / R3A_V1_REPRESENTATION_REJECTED / R3A_V2_RESEARCH_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -149,7 +149,7 @@ models и не маскирует провал обещанием универс
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
 | R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
 | R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `NEXT / NEW_UNOPENED_DATA_REQUIRED` | M–L | Internet-only multi-object/multi-impact corpus, canonical-listener task, modal/residual oracles and disjoint roles freeze before training. |
+| R3A | `IN_PROGRESS / V1_REJECTED / V2_NEW_UNOPENED_DATA_REQUIRED` | M–L | Blue Bowl source/splits repeat, but both frozen 512-scalar representations fail the real development gate; a materially new source/representation is required before training. |
 | R3B | `BLOCKED_BY_R3A` | L | Geometry-aware exact-object few-shot field predicts held contact positions and cooks bounded modal/residual PCM. |
 | R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
 | R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
@@ -396,6 +396,19 @@ Exit criteria:
 - result is `READY_FOR_EXACT_OBJECT_FIELD`, `DATA_INSUFFICIENT` or
   `REJECT_REPRESENTATION`.
 
+R3A V1 is complete and returns `REJECT_REPRESENTATION`. Two metadata-only
+Blue Bowl preflights, two bounded four-contact extractions and two real
+representation oracles repeat byte-identically. The fifth contact remains
+undecoded. Modal plus sparse residual improves level and envelope but loses
+spectrum, modal-frequency and decay comparisons; equal-budget sparse DCT is
+worse. No neural training is authorized. See the
+[R3A Blue Bowl representation result](../development/physical-sound-r3a-blue-bowl-representation-gate-2026-08-30.md).
+
+R3A V2 must use a new unopened development projection and a materially
+different representation hypothesis. Nearby mode/bin/budget tuning on the
+opened Blue Bowl development contact carries no readiness credit. R3B remains
+blocked until a new compact representation passes.
+
 ## R3B — Object-specific contact-position few-shot model
 
 Entry condition: R3A passes one representation and publishes a new exact
@@ -564,9 +577,14 @@ ledger, persistence и `AcousticFactV1` roots.
 10. `R2E representation diagnostic` — `COMPLETE / REPRODUCIBLE`; two
     post-reject query projection runs return the same
     `RepresentationAndInterpolationBothLimited` evidence;
-11. `R3A corpus and representation preflight` — `NEXT`; freeze a new unopened
-    canonical-listener multi-object/multi-impact projection and compare compact
-    representation oracles before training.
+11. `R3A Blue Bowl corpus and representation preflight V1` —
+    `COMPLETE / REJECTED / REPRODUCIBLE`; source roles, bounded extraction and
+    both 512-scalar oracles repeat, but neither representation passes and no
+    neural training is authorized;
+12. `R3A V2 source and representation research` — `NEXT`; freeze a materially
+    different compact representation on a new unopened development projection
+    or return `DATA_INSUFFICIENT`, without opening Blue Bowl field holdout,
+    method holdout or admission shadow.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.
