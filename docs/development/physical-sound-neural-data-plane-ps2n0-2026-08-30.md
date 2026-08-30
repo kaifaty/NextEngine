@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Result | `PS_2N0_CONTRACT_IMPLEMENTED / SYNTHETIC_FIXTURE_PASS / REAL_PROJECTION_NOT_RUN / MODEL_TRAINING_DISABLED / SHADOW_CONTENTS_NOT_MATERIALIZED` |
+| Result | `PS_2N0_V2_IMPLEMENTED / SYNTHETIC_FIXTURE_PASS / REAL_PROJECTION_BYTE_IDENTICAL / MODEL_TRAINING_DISABLED / SHADOW_CONTENTS_NOT_MATERIALIZED` |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Plan | [Neural acoustic field implementation plan](../plans/2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md), N0.1 |
 | Runtime effect | None; external research tooling only |
@@ -25,9 +25,9 @@ runtime.
 
 Schema:
 
-`nextengine.experimental-physical-sound-neural-data-plane.manifest.v1`
+`nextengine.experimental-physical-sound-neural-data-plane.manifest.v2`
 
-The only supported task scope in V1 is
+The only supported task scope in V2 is
 `exact_object_few_shot_impact_listener_field`. Every row declares:
 
 - `context` or `query` sample role and `target` or `reject_parent` corpus role;
@@ -35,15 +35,18 @@ The only supported task scope in V1 is
   groups;
 - one or more typed lineage reports;
 - audio and audio-provenance artifacts;
+- explicit `recorded_impact_waveform` or
+  `force_deconvolved_transfer_response` audio semantics;
 - independently optional material, geometry, support, impact, listener and
   excitation claims.
 
 Every published claim carries its own hash-closed evidence. Geometry also
 carries a feature artifact. Impact/listener points are finite metres in an
 explicit coordinate profile; impact normals must be unit length within the
-frozen tolerance. Excitation requires published impulse, energy or a force
-profile. Missing axes remain absent and reduce the capability count; an object
-or material label never fills them.
+frozen tolerance. Impact point and outward normal are independent, so an absent
+normal cannot erase a published point. Excitation requires published impulse,
+energy or a force profile. Missing axes remain absent and reduce the capability
+count; an object or material label never fills them.
 
 A lineage descriptor declares the expected report `schema` and `claim`. The
 command parses the referenced JSON and requires the declared pair plus
@@ -107,21 +110,30 @@ pre-existing tracked `#[path = "transfer_calibration/dsp.rs"]` in
 hatch and their physical line counts are `943`, `244` and `363`, below the
 1,000-line limit.
 
+## Real projection result
+
+The [R0–R1 real evidence](physical-sound-neural-real-boundary-r0-r1-2026-08-30.md)
+supersedes the earlier `REAL_PROJECTION_NOT_RUN` limitation. A 23-row,
+five-role projection combines eight recorded impact waveforms and 15
+force-deconvolved Green Goblet transfer responses. It reports impact/listener
+coordinates for those 15 rows while leaving geometry, support and excitation
+absent. Two runs emit byte-identical fit, calibration, report and sealed-role
+commitment files. No method-holdout or admission-shadow row content is
+materialized.
+
 ## Allowed claim and remaining work
 
 Allowed now:
 
-`PS_2N0_DATA_CONTRACT_IMPLEMENTED / SYNTHETIC_CONTROLS_PASS`
+`PS_2N0_V2_DATA_CONTRACT_IMPLEMENTED / REAL_PROJECTION_REPEAT_PASS`
 
 Not allowed:
 
-- real corpus coverage or benchmark readiness;
 - model-training, learned-quality or admission claims;
 - method-holdout or admission-shadow access;
 - public content/runtime schema or product readiness.
 
-The smallest next action is N0.2: project a permitted real development slice,
-record its honest missing-axis capability report, and export the unchanged
-Q30/DCT classical baseline into the same row identity and exact cooked/PCM
-comparison surface. If published data cannot support impact/listener
-conditioning, narrow the experiment rather than inventing those axes.
+The smallest next action is N0.3: train one preregistered fixed-impact
+listener-field pilot against the frozen transfer controls. If published data
+cannot support the later impact axis, keep N0.4 blocked rather than inventing
+that axis.

@@ -4,13 +4,13 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.92 |
+| Version | 0.93 |
 | Last verified | 2026-08-30 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [PS-2 YCB vertical reject-parent expansion](../development/physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Blue Bowl cross-tier E2 increment](../development/physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [PS-2 REALIMPACT Shell Plate bounded-range E2 pilot](../development/physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md), [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Skull Cup bounded-range E2 pilot](../development/physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md), [PS-2 SoundPacks Glass E3 and split audit](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md), [PS-2 Kronland reject expansion and split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [PS-2 exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [PS-2 internet-source feasibility and transfer route](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [PS-2 REALIMPACT transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [PS-2 REALIMPACT vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [PS-2 REALIMPACT shape-conditioned spatial calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT frequency-conditioned spatial calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT modal-radiation representation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [PS-2 analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [PS-2 Pitcher causal audit](../development/physical-sound-pitcher-causal-audit-ps2-2026-08-28.md), [PS-2 Iron selector/tail diagnostic](../development/physical-sound-realimpact-selector-tail-diagnostic-result-ps2-2026-08-28.md) |
 | Neural strategy | [Offline neural acoustic field strategy, 2026-08-30](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
-| Replaces | SPEC-45 0.91; records the external five-role PS-2N0 projection implementation and synthetic controls without changing the Proposed boundary or authorizing training/runtime use |
-| Latest evidence | [PS-2N0 neural data plane](../development/physical-sound-neural-data-plane-ps2n0-2026-08-30.md) |
+| Replaces | SPEC-45 0.92; records repeated real PS-2N0 V2 projection and frozen transfer-domain controls without changing the Proposed boundary or authorizing training/runtime use |
+| Latest evidence | [R0–R1 neural real boundary and transfer controls](../development/physical-sound-neural-real-boundary-r0-r1-2026-08-30.md) |
 
 ## Status and decision boundary
 
@@ -53,7 +53,7 @@ An object-specific few-shot field precedes any shared zero-shot claim. A direct
 waveform model may be evaluated only as a report-only perceptual upper bound or
 an authored-asset source.
 
-This v0.91 change refines a `Proposed` research route. It adds no current public
+This v0.93 change refines a `Proposed` research route. It adds no current public
 schema, runtime dependency, ProductCheck or roadmap activation and therefore
 does not supersede an Accepted architecture decision. Production promotion
 still requires a concrete consumer and the ADR-046 workflow.
@@ -1096,8 +1096,23 @@ stale projection/audio lineage, sealed roles, reject parents and missing axes
 fail closed or select `FallbackOutOfDomain`. The frozen coloured-DCT sources
 are also hash-bound, but there is no per-row DCT fit or exact cooked renderer,
 so that branch remains `FallbackOutOfDomain` rather than receiving partial
-baseline credit. Synthetic repeats pass; no real projection, training,
-quality/admission decision, runtime consumer or public schema is added.
+baseline credit. Those exporter synthetic repeats pass; that package itself
+added no real projection, training, quality/admission decision, runtime
+consumer or public schema.
+
+The compatible real-data boundary now exists separately. PS-2N0 V2 projects
+23 internet-sourced rows across five disjoint roles and distinguishes eight
+recorded impact waveforms from 15 force-deconvolved Green Goblet transfer
+responses. Its fit/calibration/report/commitment outputs repeat exactly;
+method holdout and admission shadow remain commitments only. A frozen
+fixed-impact listener baseline evaluates seven odd listener positions from
+eight even-position contexts using nearest-listener and shortest bracketing
+linear interpolation. The repeated linear control records `2.5373 dB` mean
+absolute level error and `9.1745 dB` mean gain-matched multi-resolution
+spectrum RMSE. These are R1 controls, not quality thresholds or admission
+credit. The next permitted experiment is an external fixed-impact listener
+field evaluated against the frozen metric profile; no runtime/public schema is
+added.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,

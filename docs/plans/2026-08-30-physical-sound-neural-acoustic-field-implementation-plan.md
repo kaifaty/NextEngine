@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / DATA_SEMANTICS_V2_NEXT / REAL_TRANSFER_SLICE_NEXT / NO_TRAINED_MODEL / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3_NEXT / NO_TRAINED_MODEL / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -37,9 +37,10 @@ checkpoint distribution, production contact wiring or a shipping claim.
 
 ### N0.1 — Freeze the data projection and split manifest
 
-Status: `V1_IMPLEMENTED / V2_SIGNAL_SEMANTICS_IN_PROGRESS /
-REAL_PROJECTION_NOT_RUN`.
+Status: `COMPLETE / V2_SIGNAL_SEMANTICS / REAL_PROJECTION_BYTE_IDENTICAL /
+SHADOW_CONTENTS_NOT_MATERIALIZED`.
 See [PS-2N0 evidence](../development/physical-sound-neural-data-plane-ps2n0-2026-08-30.md).
+Real evidence is recorded in the [R0–R1 report](../development/physical-sound-neural-real-boundary-r0-r1-2026-08-30.md).
 
 Deliverables:
 
@@ -72,8 +73,8 @@ Commit boundary: projection contract, fixtures, focused tests and evidence.
 
 ### N0.2 — Export the deterministic classical benchmark
 
-Status: `PARTIAL / Q30_WAVEFORM_EXPORT_PASS / SYNTHETIC_EXACT_AB_PASS /
-TRANSFER_BASELINE_NOT_IMPLEMENTED / REAL_PROJECTION_NOT_RUN`. See
+Status: `COMPLETE / Q30_WAVEFORM_EXPORT_PASS / SYNTHETIC_EXACT_AB_PASS /
+TRANSFER_CONTROLS_FROZEN / REAL_DEVELOPMENT_REPEAT_PASS`. See
 [N0.2 baseline evidence](../development/physical-sound-classical-baseline-export-ps2n0-2026-08-30.md).
 
 Deliverables:
@@ -312,11 +313,13 @@ successful Git commit or a report-only model result.
 
 ## Immediate queue
 
-1. Finish the V2 data contract and materialize the verified REALIMPACT
-   multi-listener transfer slice without filling missing axes.
-2. Implement and freeze the compatible transfer-domain baseline and metric
-   contract; keep Q30/DCT only on compatible waveform/synthetic rows.
-3. Preregister N0.3 on one fixed-impact, multi-listener exact object.
-4. Train the listener-field pilot externally and publish its ablations.
+1. Preregister N0.3 on the frozen Green Goblet fixed-impact listener split and
+   metric profile `transfer-listener-field-r1-v1`.
+2. Implement the smallest modal-only listener-conditioned candidate with fixed
+   seed/environment and exact external artifact lineage.
+3. Train and evaluate modal-only and modal-plus-residual ablations without
+   opening method holdout or admission shadow.
+4. Publish `GO_LISTENER_FIELD`, `REJECT_LISTENER_FIELD` or
+   `DATA_INSUFFICIENT` against both frozen R1 controls.
 5. Proceed to impact/listener few-shot N0.4 only if N0.3 passes and an internet
    source closes the required impact axis.

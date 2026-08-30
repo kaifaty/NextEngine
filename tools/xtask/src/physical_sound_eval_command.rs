@@ -11,7 +11,7 @@ mod manifest;
 #[cfg(test)]
 mod tests;
 
-use audio_analysis::{Analysis, analyze_wav, parse_wav};
+use audio_analysis::{Analysis, WavAudio, analyze_wav, parse_wav};
 use automated_validator::{
     CoverageReport, DomainReport, MutationSuiteReport, RelationReport, ValidatorDecisionInputs,
     build_domain_report, evaluate_coverage, evaluate_mutation_suite, evaluate_relations,
@@ -267,14 +267,14 @@ struct DecayBandReport {
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct MatchedReport {
-    raw_rms_delta_db: f64,
-    gain_matched_multiresolution_log_spectrum_rmse_db: f64,
-    modal_assignment_cost: f64,
-    attack_delta_ms: Option<f64>,
-    temporal_centroid_delta_ms: Option<f64>,
-    spectral_centroid_delta_hz: f64,
-    mean_t20_delta_ms: Option<f64>,
+pub(crate) struct MatchedReport {
+    pub(crate) raw_rms_delta_db: f64,
+    pub(crate) gain_matched_multiresolution_log_spectrum_rmse_db: f64,
+    pub(crate) modal_assignment_cost: f64,
+    pub(crate) attack_delta_ms: Option<f64>,
+    pub(crate) temporal_centroid_delta_ms: Option<f64>,
+    pub(crate) spectral_centroid_delta_hz: f64,
+    pub(crate) mean_t20_delta_ms: Option<f64>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -670,6 +670,20 @@ fn matched_report(candidate: &Analysis, reference: &Analysis) -> MatchedReport {
             - reference.report.spectrum.centroid_hz,
         mean_t20_delta_ms: mean_decay_delta(&candidate.report.decay, &reference.report.decay),
     }
+}
+
+pub(crate) fn compare_benchmark_wav(
+    candidate: WavAudio,
+    reference: WavAudio,
+) -> Result<MatchedReport, String> {
+    if candidate.sample_rate_hz != reference.sample_rate_hz
+        || candidate.channel_count != reference.channel_count
+    {
+        return Err("benchmark WAV format mismatch".to_owned());
+    }
+    let candidate = analyze_wav("candidate.wav", "benchmark-candidate", candidate)?;
+    let reference = analyze_wav("reference.wav", "benchmark-reference", reference)?;
+    Ok(matched_report(&candidate, &reference))
 }
 
 fn optional_delta(left: Option<f64>, right: Option<f64>) -> Option<f64> {

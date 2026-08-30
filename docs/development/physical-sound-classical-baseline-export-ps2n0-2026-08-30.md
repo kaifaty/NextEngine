@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Result | `N0.2_Q30_STRUCTURED_EXPORT_PASS / SYNTHETIC_EXACT_AB_PASS / DCT_PER_ROW_FALLBACK / REAL_PROJECTION_NOT_RUN / NO_TRAINING_OR_ADMISSION` |
+| Result | `N0.2_COMPLETE / Q30_STRUCTURED_EXPORT_PASS / TRANSFER_CONTROLS_FROZEN / REAL_DEVELOPMENT_REPEAT_PASS / NO_TRAINING_OR_ADMISSION` |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Plan | [Neural acoustic field implementation plan](../plans/2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md), N0.2 |
 | Runtime effect | None; external research tooling and a read-only lab snapshot |
@@ -117,34 +117,34 @@ The mapped broad `boundary-scan` remains red on the pre-existing tracked
 files contain no layout escape hatch and have physical line counts `845`,
 `334` and `382`, all below the 1,000-line limit.
 
-## Real-development coverage
+## Real-development transfer coverage
 
-No real projection was executed in this package. The configured external
-research cache contains the earlier DiffSound and controlled synthetic glass
-artifacts, but no complete hash-closed PS-2N0 real row projection. Reusing a
-historical REALIMPACT report without its external row/audio/provenance
-artifacts would violate the new data-plane contract.
+The [R0–R1 real evidence](physical-sound-neural-real-boundary-r0-r1-2026-08-30.md)
+adds the separate transfer-domain surface without changing Q30 waveform
+semantics. Eight even Green Goblet listener rows are context; seven odd rows
+are queries. Nearest-listener and bracketing linear-segment predictions repeat
+byte-identically. The better linear aggregate reaches `2.5373 dB` mean
+absolute level error, `9.1745 dB` mean gain-matched multi-resolution spectrum
+RMSE and `2.4129 dB` mean normalized waveform RMSE.
 
-This is recorded as `REAL_PROJECTION_NOT_RUN`, not a successful real benchmark
-and not an infrastructure exemption. The next package must construct the first
-permitted real `train/development` slice from published internet data, retain
-every missing axis, and run this exporter on the same row identities.
+This is a baseline measurement, not quality credit. Several per-query phase
+correlations remain near zero or negative, so direct sample interpolation is
+not promoted as the learned representation.
 
 ## Allowed claim and remaining work
 
 Allowed now:
 
-`Q30_STRUCTURED_BASELINE_EXPORT_IMPLEMENTED / SYNTHETIC_EXACT_AB_PASS`
+`Q30_WAVEFORM_BASELINE_EXPORT_IMPLEMENTED / TRANSFER_LISTENER_CONTROLS_FROZEN`
 
 Not allowed:
 
-- DCT per-row prediction or combined Q30/DCT coverage;
-- real corpus benchmark readiness;
 - neural training, quality, domain or admission credit;
 - method-holdout/admission-shadow access;
 - runtime content or production promotion.
 
-N0.2 remains partial. It closes the exact Q30 export and turns the missing DCT
-row fit into an executable fallback. Completion still requires a permitted
-real development projection and either an exact row-specific DCT cooker or an
-explicit PCM-only baseline decision on those rows.
+N0.2 is complete for the current benchmark tasks: exact Q30 covers its
+compatible waveform/synthetic surface, incompatible/missing-axis rows retain
+explicit fallback, and the real transfer surface has its own frozen controls.
+The missing DCT per-row cooker remains an explicit non-blocking fallback rather
+than partial transfer credit.
