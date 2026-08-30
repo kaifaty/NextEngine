@@ -22,11 +22,12 @@ import physical_sound_contact_field_r3a_v5_training as training
 import physical_sound_contact_field_r3a_v5_training_preflight as training_preflight
 import scipy.signal
 import torch
+from torch.nn import functional
 
 RUN_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity-run.v1"
 STATE_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity-state.v1"
 REPORT_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity.report.v1"
-REVISION = "three-capacity-training-v2-anti-collapse"
+REVISION = "three-capacity-training-v3-staged-bootstrap"
 TRAINING_PREFLIGHT_MANIFEST_SHA256 = (
     "d53561fdd4cc4a662dfe2d750a2f3109fb5d63dc154b14f73ce92cb475d60b95"
 )
@@ -43,8 +44,31 @@ IMPLEMENTATION_FILES = {
     "training_preflight": "physical_sound_contact_field_r3a_v5_training_preflight.py",
     "capacity_train": "physical_sound_contact_field_r3a_v5_capacity_train.py",
 }
+CURRICULUM = {
+    "continuous_bootstrap_end_step": 2_000,
+    "quantizer_ramp_end_step": 4_000,
+    "full_loss_ramp_end_step": 6_000,
+    "codebook_initialization_segments": 8,
+    "bootstrap_loss": {
+        "relative_waveform_l1_weight": 1.0,
+        "relative_derivative_l1_weight": 1.0,
+        "relative_complex_stft_weight": 2.0,
+        "complex_stft_window_samples": [512, 2_048, 8_192],
+    },
+    "quantized_latent_match_weight": 1.0,
+    "full_loss_after_quantized_gate": True,
+    "bootstrap_auxiliary_retained": True,
+}
+BOOTSTRAP_GATE = {
+    "evaluation_step": CURRICULUM["continuous_bootstrap_end_step"],
+    "minimum_mean_output_target_rms_ratio": 0.10,
+    "minimum_log_spectrum_relative_improvement": 0.005,
+    "maximum_encoder_latent_rms": 10.0,
+    "maximum_encoder_latent_absolute": 100.0,
+    "minimum_output_diversity_ratio": 0.01,
+}
 ANTI_COLLAPSE_GATE = {
-    "evaluation_step": common.TRAINING_CONFIG["warmup_steps"],
+    "evaluation_step": CURRICULUM["quantizer_ramp_end_step"],
     "minimum_mean_output_target_rms_ratio": 0.10,
     "minimum_log_spectrum_relative_improvement": 0.005,
     "minimum_unique_codes_per_quantizer": 2,
@@ -346,6 +370,101 @@ def _tensor(value: np.ndarray, device: torch.device) -> torch.Tensor:
     return torch.from_numpy(value.copy()).reshape(1, 1, -1).to(device)
 
 
+def curriculum_for_step(step: int) -> dict[str, float | str]:
+    continuous_end = CURRICULUM["continuous_bootstrap_end_step"]
+    quantizer_end = CURRICULUM["quantizer_ramp_end_step"]
+    full_end = CURRICULUM["full_loss_ramp_end_step"]
+    if step <= 0 or step > common.TRAINING_CONFIG["maximum_steps"]:
+        raise common.V5Error("V5 curriculum step is outside the frozen run")
+    if step <= continuous_end:
+        return {"phase": "continuous_bootstrap", "quantizer_mix": 0.0, "full_loss_weight": 0.0}
+    if step <= quantizer_end:
+        return {
+            "phase": "quantizer_ramp_bootstrap",
+            "quantizer_mix": (step - continuous_end) / (quantizer_end - continuous_end),
+            "full_loss_weight": 0.0,
+        }
+    return {
+        "phase": "quantized_full_loss_ramp",
+        "quantizer_mix": 1.0,
+        "full_loss_weight": min(1.0, (step - quantizer_end) / (full_end - quantizer_end)),
+    }
+
+
+def _forward_curriculum(
+    model: codec_model.NeuralImpactCodec,
+    target: torch.Tensor,
+    quantizers: int,
+    quantizer_mix: float,
+) -> tuple[
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+]:
+    latent = model.encoder(target)
+    if quantizer_mix == 0.0:
+        codes = torch.zeros(
+            target.shape[0],
+            quantizers,
+            latent.shape[-1],
+            dtype=torch.long,
+            device=target.device,
+        )
+        zero = latent.new_zeros(())
+        return model.decoder(latent), codes, zero, zero, latent, latent
+    quantized, codes, codebook_loss, commitment_loss = model.quantizer(
+        latent, quantizers
+    )
+    mixed = torch.lerp(latent, quantized, quantizer_mix)
+    return (
+        model.decoder(mixed),
+        codes,
+        codebook_loss,
+        commitment_loss,
+        latent,
+        quantized,
+    )
+
+
+def normalized_bootstrap_loss(
+    output: torch.Tensor, target: torch.Tensor
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    def relative_l1(first: torch.Tensor, second: torch.Tensor) -> torch.Tensor:
+        return functional.l1_loss(first, second) / second.abs().mean().clamp_min(
+            1.0e-4
+        )
+
+    terms = {
+        "relative_waveform_l1": relative_l1(output, target),
+        "relative_derivative_l1": relative_l1(
+            torch.diff(output, dim=-1), torch.diff(target, dim=-1)
+        ),
+    }
+    complex_losses = []
+    for window_samples in CURRICULUM["bootstrap_loss"][
+        "complex_stft_window_samples"
+    ]:
+        output_stft = training._stft(output, window_samples, window_samples // 4)
+        target_stft = training._stft(target, window_samples, window_samples // 4)
+        complex_losses.append(
+            (output_stft - target_stft).abs().mean()
+            / target_stft.abs().mean().clamp_min(1.0e-5)
+        )
+    terms["relative_complex_stft"] = torch.stack(complex_losses).mean()
+    total = (
+        CURRICULUM["bootstrap_loss"]["relative_waveform_l1_weight"]
+        * terms["relative_waveform_l1"]
+        + CURRICULUM["bootstrap_loss"]["relative_derivative_l1_weight"]
+        * terms["relative_derivative_l1"]
+        + CURRICULUM["bootstrap_loss"]["relative_complex_stft_weight"]
+        * terms["relative_complex_stft"]
+    )
+    return total, terms
+
+
 def _train_step(
     model: codec_model.NeuralImpactCodec,
     optimizer: torch.optim.Optimizer,
@@ -353,17 +472,48 @@ def _train_step(
     mask: torch.Tensor,
     quantizers: int,
     step: int,
-) -> dict[str, float]:
+) -> dict[str, float | str]:
     rate = learning_rate_for_step(step)
     for group in optimizer.param_groups:
         group["lr"] = rate
+    curriculum = curriculum_for_step(step)
     model.train()
-    output, _, codebook_loss, commitment_loss = model(target, quantizers)
-    total, terms = training.frozen_reconstruction_loss(
-        output * mask,
-        target * mask,
+    (
+        output,
+        _,
         codebook_loss,
         commitment_loss,
+        latent,
+        quantized,
+    ) = _forward_curriculum(
+        model, target, quantizers, float(curriculum["quantizer_mix"])
+    )
+    masked_output = output * mask
+    masked_target = target * mask
+    bootstrap_total, bootstrap_terms = normalized_bootstrap_loss(
+        masked_output, masked_target
+    )
+    quantizer_regularization = codebook_loss + 0.25 * commitment_loss
+    if float(curriculum["quantizer_mix"]) > 0.0:
+        latent_match = functional.mse_loss(quantized, latent.detach()) / latent.detach().square().mean().clamp_min(1.0e-6)
+    else:
+        latent_match = latent.new_zeros(())
+    full_loss_weight = float(curriculum["full_loss_weight"])
+    if full_loss_weight > 0.0:
+        full_total, full_terms = training.frozen_reconstruction_loss(
+            masked_output,
+            masked_target,
+            codebook_loss,
+            commitment_loss,
+        )
+    else:
+        full_total = latent.new_zeros(())
+        full_terms = {}
+    total = (
+        bootstrap_total
+        + quantizer_regularization
+        + CURRICULUM["quantized_latent_match_weight"] * latent_match
+        + full_loss_weight * full_total
     )
     optimizer.zero_grad(set_to_none=True)
     total.backward()
@@ -374,10 +524,24 @@ def _train_step(
         raise common.V5Error("V5 capacity gradient is non-finite")
     optimizer.step()
     return {
+        "phase": str(curriculum["phase"]),
+        "quantizer_mix": float(curriculum["quantizer_mix"]),
+        "full_loss_weight": full_loss_weight,
         "learning_rate": rate,
         "total": float(total.detach()),
         "gradient_norm": float(gradient_norm.detach()),
-        **{name: float(value.detach()) for name, value in terms.items()},
+        "bootstrap_total": float(bootstrap_total.detach()),
+        "quantizer_regularization": float(quantizer_regularization.detach()),
+        "quantized_latent_match": float(latent_match.detach()),
+        "full_loss_total": float(full_total.detach()),
+        **{
+            f"bootstrap_{name}": float(value.detach())
+            for name, value in bootstrap_terms.items()
+        },
+        **{
+            f"full_{name}": float(value.detach())
+            for name, value in full_terms.items()
+        },
     }
 
 
@@ -386,6 +550,7 @@ def evaluate_validation(
     validation: list[WaveformItem],
     quantizers: int,
     device: torch.device,
+    quantizer_mix: float,
 ) -> dict[str, Any]:
     totals: dict[str, list[float]] = {}
     unique_by_quantizer: list[set[int]] = [set() for _ in range(quantizers)]
@@ -404,8 +569,16 @@ def evaluate_validation(
             segment, mask = _aligned_segment(item.samples)
             target = _tensor(segment, device)
             mask_tensor = _tensor(mask, device)
-            latent = model.encoder(target)
-            output, codes, codebook_loss, commitment_loss = model(target, quantizers)
+            (
+                output,
+                codes,
+                codebook_loss,
+                commitment_loss,
+                latent,
+                _,
+            ) = _forward_curriculum(
+                model, target, quantizers, quantizer_mix
+            )
             total, terms = training.frozen_reconstruction_loss(
                 output * mask_tensor,
                 target * mask_tensor,
@@ -505,13 +678,15 @@ def evaluate_validation(
     }
 
 
-def assess_anti_collapse_gate(
+def _assess_signal_gate(
     initial: dict[str, Any],
     current: dict[str, Any],
     quantizers: int,
     step: int,
+    policy: dict[str, Any],
+    require_codes: bool,
 ) -> dict[str, Any]:
-    evaluation_step = ANTI_COLLAPSE_GATE["evaluation_step"]
+    evaluation_step = policy["evaluation_step"]
     if step < evaluation_step:
         return {
             "status": "PendingWarmup",
@@ -533,7 +708,6 @@ def assess_anti_collapse_gate(
             "mean_output_target_rms_ratio"
         ],
         "log_spectrum_relative_improvement": spectrum_improvement,
-        "minimum_unique_codes_per_quantizer": min(unique_codes),
         "maximum_encoder_latent_rms": current["latent_diagnostics"][
             "maximum_rms"
         ],
@@ -544,38 +718,167 @@ def assess_anti_collapse_gate(
             "output_diversity_ratio"
         ],
     }
+    if require_codes:
+        observed["minimum_unique_codes_per_quantizer"] = min(unique_codes)
     checks = {
         "mean_output_target_rms_ratio": observed[
             "mean_output_target_rms_ratio"
         ]
-        >= ANTI_COLLAPSE_GATE["minimum_mean_output_target_rms_ratio"],
+        >= policy["minimum_mean_output_target_rms_ratio"],
         "log_spectrum_relative_improvement": observed[
             "log_spectrum_relative_improvement"
         ]
-        >= ANTI_COLLAPSE_GATE["minimum_log_spectrum_relative_improvement"],
-        "minimum_unique_codes_per_quantizer": observed[
-            "minimum_unique_codes_per_quantizer"
-        ]
-        >= ANTI_COLLAPSE_GATE["minimum_unique_codes_per_quantizer"],
+        >= policy["minimum_log_spectrum_relative_improvement"],
         "maximum_encoder_latent_rms": observed["maximum_encoder_latent_rms"]
-        <= ANTI_COLLAPSE_GATE["maximum_encoder_latent_rms"],
+        <= policy["maximum_encoder_latent_rms"],
         "maximum_encoder_latent_absolute": observed[
             "maximum_encoder_latent_absolute"
         ]
-        <= ANTI_COLLAPSE_GATE["maximum_encoder_latent_absolute"],
+        <= policy["maximum_encoder_latent_absolute"],
         "output_diversity_ratio": observed["output_diversity_ratio"]
-        >= ANTI_COLLAPSE_GATE["minimum_output_diversity_ratio"],
+        >= policy["minimum_output_diversity_ratio"],
     }
+    if require_codes:
+        checks["minimum_unique_codes_per_quantizer"] = observed[
+            "minimum_unique_codes_per_quantizer"
+        ] >= policy["minimum_unique_codes_per_quantizer"]
     failed = sorted(name for name, passed in checks.items() if not passed)
     return {
         "status": "Passed" if not failed else "Rejected",
         "step": step,
         "evaluation_step": evaluation_step,
         "passed": not failed,
-        "policy": ANTI_COLLAPSE_GATE,
+        "policy": policy,
         "observed": observed,
         "checks": checks,
         "failed_checks": failed,
+    }
+
+
+def assess_anti_collapse_gate(
+    initial: dict[str, Any],
+    current: dict[str, Any],
+    quantizers: int,
+    step: int,
+) -> dict[str, Any]:
+    return _assess_signal_gate(
+        initial,
+        current,
+        quantizers,
+        step,
+        ANTI_COLLAPSE_GATE,
+        require_codes=True,
+    )
+
+
+def assess_curriculum_gate(
+    initial: dict[str, Any],
+    current: dict[str, Any],
+    quantizers: int,
+    step: int,
+) -> dict[str, Any]:
+    bootstrap_step = CURRICULUM["continuous_bootstrap_end_step"]
+    quantized_step = CURRICULUM["quantizer_ramp_end_step"]
+    if step < bootstrap_step:
+        return {
+            "status": "PendingContinuousBootstrap",
+            "step": step,
+            "evaluation_step": bootstrap_step,
+            "passed": None,
+            "admissible_for_checkpoint_selection": False,
+            "failed_checks": [],
+        }
+    if step < quantized_step:
+        if step == bootstrap_step:
+            result = _assess_signal_gate(
+                initial,
+                current,
+                quantizers,
+                step,
+                BOOTSTRAP_GATE,
+                require_codes=False,
+            )
+            result["stage"] = "continuous_bootstrap"
+            result["admissible_for_checkpoint_selection"] = False
+            return result
+        return {
+            "status": "PendingQuantizerRamp",
+            "step": step,
+            "evaluation_step": quantized_step,
+            "passed": None,
+            "admissible_for_checkpoint_selection": False,
+            "failed_checks": [],
+        }
+    result = assess_anti_collapse_gate(initial, current, quantizers, step)
+    result["stage"] = "fully_quantized"
+    result["admissible_for_checkpoint_selection"] = result["passed"]
+    return result
+
+
+def initialize_codebooks_from_items(
+    model: codec_model.NeuralImpactCodec,
+    items: list[WaveformItem],
+    capacity_id: str,
+    quantizers: int,
+    device: torch.device,
+) -> dict[str, Any]:
+    selected: list[tuple[WaveformItem, np.ndarray]] = []
+    selected_ids = set()
+    step = 1
+    while len(selected) < CURRICULUM["codebook_initialization_segments"]:
+        item, segment, _, _ = segment_for_step(items, capacity_id, step)
+        if item.id not in selected_ids:
+            selected.append((item, segment))
+            selected_ids.add(item.id)
+        step += 1
+        if step > 10_000:
+            raise common.V5Error("V5 cannot select distinct codebook segments")
+    model.eval()
+    with torch.inference_mode():
+        residuals = [
+            model.encoder(_tensor(segment, device)) for _, segment in selected
+        ]
+        for layer in model.quantizer.layers[:quantizers]:
+            projected = [layer.input_projection(residual) for residual in residuals]
+            candidates = torch.cat(
+                [
+                    value.transpose(1, 2).reshape(-1, value.shape[1])
+                    for value in projected
+                ],
+                dim=0,
+            )
+            entries = layer.codebook.num_embeddings
+            if candidates.shape[0] >= entries:
+                indices = torch.div(
+                    torch.arange(entries, device=device) * candidates.shape[0],
+                    entries,
+                    rounding_mode="floor",
+                )
+                values = candidates[indices]
+            else:
+                repeats = math.ceil(entries / candidates.shape[0])
+                values = candidates.repeat(repeats, 1)[:entries]
+            layer.codebook.weight.copy_(values)
+            next_residuals = []
+            for residual in residuals:
+                quantized, _, _, _ = layer(residual)
+                next_residuals.append(residual - quantized)
+            residuals = next_residuals
+        unique_by_quantizer = [set() for _ in range(quantizers)]
+        for item, segment in selected:
+            latent = model.encoder(_tensor(segment, device))
+            _, codes, _, _ = model.quantizer(latent, quantizers)
+            for index in range(quantizers):
+                unique_by_quantizer[index].update(
+                    int(value) for value in torch.unique(codes[:, index]).cpu()
+                )
+    return {
+        "revision": "eight-distinct-trained-latent-sequential-projection-v1",
+        "item_ids": [item.id for item, _ in selected],
+        "unique_codes_per_quantizer": [
+            len(values) for values in unique_by_quantizer
+        ],
+        "model_state_sha256": codec_model.state_sha256(model),
     }
 
 
@@ -643,6 +946,7 @@ def _load_resume(
     float | None,
     dict[str, Any] | None,
     dict[str, Any],
+    dict[str, Any] | None,
 ]:
     _, state = common.load_json(output / "state.json", "V5 capacity state", True)
     if (
@@ -661,6 +965,11 @@ def _load_resume(
     initial_validation = state.get("initial_validation")
     if not isinstance(initial_validation, dict):
         raise common.V5Error("V5 capacity resume lacks initial validation")
+    codebook_transition = state.get("codebook_transition")
+    if int(loaded["step"]) >= CURRICULUM["continuous_bootstrap_end_step"] and not isinstance(
+        codebook_transition, dict
+    ):
+        raise common.V5Error("V5 capacity resume lacks codebook transition")
     return (
         model,
         optimizer,
@@ -668,6 +977,7 @@ def _load_resume(
         state.get("best_validation_loss"),
         state.get("best_checkpoint"),
         initial_validation,
+        codebook_transition,
     )
 
 
@@ -744,6 +1054,8 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         "execution": {
             "frozen_maximum_steps": frozen_maximum_steps,
             "requested_stop_after_step": arguments.stop_after_step,
+            "curriculum": CURRICULUM,
+            "bootstrap_gate": BOOTSTRAP_GATE,
             "anti_collapse_gate": ANTI_COLLAPSE_GATE,
         },
         "codebook_initialization_revision": training.CODEBOOK_INITIALIZATION_REVISION,
@@ -776,6 +1088,7 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             best_loss,
             best_checkpoint,
             initial_validation,
+            codebook_transition,
         ) = _load_resume(output, run_manifest_sha256, arguments.capacity_id, device)
     else:
         if arguments.resume:
@@ -798,8 +1111,9 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         completed_step = 0
         best_loss = None
         best_checkpoint = None
+        codebook_transition = None
         initial_validation = evaluate_validation(
-            model, validation, capacity["quantizers"], device
+            model, validation, capacity["quantizers"], device, quantizer_mix=0.0
         )
         state = {
             "schema": STATE_SCHEMA,
@@ -813,9 +1127,10 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             "best_validation_loss": None,
             "best_checkpoint": None,
             "initial_validation": initial_validation,
+            "codebook_transition": None,
             "anti_collapse_gate": {
-                "status": "PendingWarmup",
-                "evaluation_step": ANTI_COLLAPSE_GATE["evaluation_step"],
+                "status": "PendingContinuousBootstrap",
+                "evaluation_step": BOOTSTRAP_GATE["evaluation_step"],
             },
             "development_waveform_samples_decoded": 0,
             "sealed_waveform_samples_decoded": 0,
@@ -845,15 +1160,31 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             )
         if step % checkpoint_interval != 0 and step != execution_steps:
             continue
+        curriculum = curriculum_for_step(step)
         validation_metrics = evaluate_validation(
-            model, validation, capacity["quantizers"], device
+            model,
+            validation,
+            capacity["quantizers"],
+            device,
+            quantizer_mix=float(curriculum["quantizer_mix"]),
         )
-        last_gate = assess_anti_collapse_gate(
+        last_gate = assess_curriculum_gate(
             initial_validation,
             validation_metrics,
             capacity["quantizers"],
             step,
         )
+        if (
+            step == CURRICULUM["continuous_bootstrap_end_step"]
+            and last_gate["passed"] is True
+        ):
+            codebook_transition = initialize_codebooks_from_items(
+                model,
+                train_items,
+                arguments.capacity_id,
+                capacity["quantizers"],
+                device,
+            )
         checkpoint_name = f"checkpoint-step-{step:08d}.pt"
         checkpoint_path = output / checkpoint_name
         checkpoint = {
@@ -862,6 +1193,8 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             "quantizers": capacity["quantizers"],
             "step": step,
             "run_manifest_sha256": run_manifest_sha256,
+            "curriculum": curriculum,
+            "codebook_transition": codebook_transition,
             "model": model.state_dict(),
             "optimizer": optimizer.state_dict(),
         }
@@ -873,7 +1206,7 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             "step": step,
         }
         validation_loss = validation_metrics["mean"]["total"]
-        if last_gate["passed"] is True and (
+        if last_gate["admissible_for_checkpoint_selection"] is True and (
             best_loss is None or validation_loss < best_loss
         ):
             best_loss = validation_loss
@@ -883,6 +1216,8 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             "train": last_metrics,
             "validation": validation_metrics,
             "anti_collapse_gate": last_gate,
+            "curriculum": curriculum,
+            "codebook_transition": codebook_transition,
             "checkpoint": checkpoint_record,
             "best_validation_loss": best_loss,
             "best_checkpoint": best_checkpoint,
@@ -900,6 +1235,7 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
             "best_validation_loss": best_loss,
             "best_checkpoint": best_checkpoint,
             "initial_validation": initial_validation,
+            "codebook_transition": codebook_transition,
             "anti_collapse_gate": last_gate,
             "development_waveform_samples_decoded": 0,
             "sealed_waveform_samples_decoded": 0,
@@ -917,6 +1253,8 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
                 "completed_steps": step,
                 "rejected_checkpoint": checkpoint_record,
                 "anti_collapse_gate": last_gate,
+                "curriculum": CURRICULUM,
+                "codebook_transition": codebook_transition,
                 "capacity_training_complete": False,
                 "development_waveform_samples_decoded": 0,
                 "sealed_waveform_samples_decoded": 0,
@@ -953,6 +1291,8 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         "best_validation_loss": best_loss,
         "best_checkpoint": best_checkpoint,
         "anti_collapse_gate": last_gate,
+        "curriculum": CURRICULUM,
+        "codebook_transition": codebook_transition,
         "capacity_training_complete": full_training_complete,
         "final_model_state_sha256": codec_model.state_sha256(model),
         "internet_train_clip_count": len(internet_train),
@@ -977,6 +1317,7 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         "best_validation_loss": best_loss,
         "best_checkpoint": best_checkpoint,
         "initial_validation": initial_validation,
+        "codebook_transition": codebook_transition,
         "anti_collapse_gate": last_gate,
         "report_sha256": common.sha256_bytes(report_bytes),
         "development_waveform_samples_decoded": 0,

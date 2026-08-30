@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+import torch
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIRECTORY))
@@ -114,7 +115,27 @@ class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
         self.assertEqual(float(mask.sum()), 1_000.0)
         self.assertEqual(float((segment * (1.0 - mask)).sum()), 0.0)
 
-    def test_anti_collapse_gate_waits_for_warmup_then_passes_signal(self) -> None:
+    def test_curriculum_phases_have_exact_transition_endpoints(self) -> None:
+        continuous = capacity_train.curriculum_for_step(2_000)
+        ramp_start = capacity_train.curriculum_for_step(2_001)
+        quantized = capacity_train.curriculum_for_step(4_000)
+        full_start = capacity_train.curriculum_for_step(4_001)
+        full = capacity_train.curriculum_for_step(6_000)
+        self.assertEqual(continuous["phase"], "continuous_bootstrap")
+        self.assertEqual(continuous["quantizer_mix"], 0.0)
+        self.assertTrue(math.isclose(ramp_start["quantizer_mix"], 0.0005))
+        self.assertEqual(quantized["quantizer_mix"], 1.0)
+        self.assertEqual(quantized["full_loss_weight"], 0.0)
+        self.assertTrue(math.isclose(full_start["full_loss_weight"], 0.0005))
+        self.assertEqual(full["full_loss_weight"], 1.0)
+
+    def test_normalized_bootstrap_loss_is_zero_for_matching_signal(self) -> None:
+        target = torch.linspace(-0.4, 0.4, 8_192).reshape(1, 1, -1)
+        total, terms = capacity_train.normalized_bootstrap_loss(target, target)
+        self.assertEqual(float(total), 0.0)
+        self.assertTrue(all(float(value) == 0.0 for value in terms.values()))
+
+    def test_anti_collapse_gate_waits_for_quantizer_then_passes_signal(self) -> None:
         initial = self._validation_metrics(
             log_spectrum=20.0,
             rms_ratio=0.001,
@@ -126,15 +147,42 @@ class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
             unique_codes=[7, 6, 5, 4],
         )
         pending = capacity_train.assess_anti_collapse_gate(
-            initial, current, 4, common.TRAINING_CONFIG["warmup_steps"] - 1
+            initial,
+            current,
+            4,
+            capacity_train.CURRICULUM["quantizer_ramp_end_step"] - 1,
         )
         passed = capacity_train.assess_anti_collapse_gate(
-            initial, current, 4, common.TRAINING_CONFIG["warmup_steps"]
+            initial,
+            current,
+            4,
+            capacity_train.CURRICULUM["quantizer_ramp_end_step"],
         )
         self.assertEqual(pending["status"], "PendingWarmup")
         self.assertIsNone(pending["passed"])
         self.assertEqual(passed["status"], "Passed")
         self.assertTrue(passed["passed"])
+
+    def test_curriculum_bootstrap_gate_ignores_uninitialized_codes(self) -> None:
+        initial = self._validation_metrics(
+            log_spectrum=20.0,
+            rms_ratio=0.001,
+            unique_codes=[0, 0, 0, 0],
+        )
+        current = self._validation_metrics(
+            log_spectrum=18.0,
+            rms_ratio=0.5,
+            unique_codes=[0, 0, 0, 0],
+        )
+        result = capacity_train.assess_curriculum_gate(
+            initial,
+            current,
+            4,
+            capacity_train.CURRICULUM["continuous_bootstrap_end_step"],
+        )
+        self.assertTrue(result["passed"])
+        self.assertFalse(result["admissible_for_checkpoint_selection"])
+        self.assertNotIn("minimum_unique_codes_per_quantizer", result["checks"])
 
     def test_anti_collapse_gate_rejects_silent_constant_code_collapse(self) -> None:
         initial = self._validation_metrics(
@@ -149,7 +197,10 @@ class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
             diversity_ratio=0.001,
         )
         result = capacity_train.assess_anti_collapse_gate(
-            initial, collapsed, 4, common.TRAINING_CONFIG["warmup_steps"]
+            initial,
+            collapsed,
+            4,
+            capacity_train.CURRICULUM["quantizer_ramp_end_step"],
         )
         self.assertEqual(result["status"], "Rejected")
         self.assertFalse(result["passed"])
