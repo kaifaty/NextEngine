@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP1_GRAPH_BASELINE_PASS / MATRIX_FREE_PENDING` |
+| Status | `ACTIVE / NCGP1_MATRIX_FREE_OPERATOR_PASS / SOLVER_PENDING` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-full-step` |
 | Scope | Implement and audit a standalone matrix-free corrected Nonlocal CUDA step for the frozen 50k physical/performance profile |
@@ -11,16 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** the preallocated CUDA workspace now closes the
-  scalable graph/capacity boundary for the frozen 50k state plus three-layer
-  basin shell; matrix-free formula correspondence is the next boundary.
-- **Why:** coherent/permuted 50k inputs emit the same complete graph root,
-  maximum degree is 123, strict-radius and 257-neighbor controls reject, and
-  two clean binaries/stdout streams are byte-identical.
-- **Next action:** implement independent CPU and CUDA corrected
-  energy/gradient/HVP over this CSR without dense matrices.
-- **Current blocker:** matrix-free formulas, solver and trajectory evidence do
-  not yet exist.
+- **Current conclusion:** corrected matrix-free energy/gradient/HVP now matches
+  the independent dense long-double oracle and rejects all six formula/operator
+  wrong identities; the nonlinear solver is the next boundary.
+- **Why:** CPU matrix-free versus dense HVP is `3.86e-16`; CUDA versus reference
+  HVP is `9.33e-7` with cosine loss `2.15e-13`, inside the frozen physical gate.
+- **Next action:** implement the device-vector Steihaug--Toint controller and
+  compare its retained tiny solve against NCGA5 before boundary trajectories.
+- **Current blocker:** no matrix-free nonlinear step or trajectory exists yet.
 - **Do not retry:** dense Hessian, source-shaped SISSM/Chebyshev, tolerance
   widening or adding NCGP0 neighbor time to an unmeasured solve.
 - **Reconsider when:** NCGP1 physical evidence selects a specific operator,
@@ -36,6 +34,7 @@
 | `docs/development/task-state/nonlocal-corrected-gpu-assembly-audit.md` | `NCGA7_FAILED / NCGA2_IMMUTABLE` | old dense/static precision ladder stays closed; matrix-free physical claim is new |
 | `docs/development/nonlocal-corrected-gpu-neighborhood-performance-evidence-2026-08-30.md` | `50K_SUPPORTED_BOUNDED` | graph-only p95 is `1.02..1.18 ms`; duplicate traversal is the first measured graph bottleneck |
 | `docs/development/nonlocal-gpu-full-step-graph-evidence-2026-08-30.md` | `GRAPH_BASELINE_PASS` | 50k plus 43,056 ghosts fits 63.05 MB, exact permutation root and capacity controls |
+| `docs/development/nonlocal-gpu-full-step-operator-evidence-2026-08-30.md` | `MATRIX_FREE_OPERATOR_PASS` | dense/CPU/CUDA HVP correspondence and six wrong identities close locally |
 
 ## Decisions that still constrain the work
 
@@ -70,7 +69,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1 f32 operator plus f64 reductions is physically adequate | NCGA3 HVP/state consequence is tiny | no dynamic trajectory exists | tiny matrix-free correspondence, then 4k trajectory |
+| H1 f32 operator plus f64 reductions is physically adequate | tiny CUDA HVP error is `9.33e-7`; energy/gradient also pass | no nonlinear or dynamic trajectory exists | tiny matrix-free solve, then 4k trajectory |
 | H2 pressure-product precision is the first physical boundary | NCGA7 changes residual behavior | combined static case still regresses | predeclared f64-pressure discriminator only after primary semantic pass |
 | H3 representation/launch cost, not physics, blocks 4/6 ms | the larger support+ghost graph has one exploratory `3.49 ms` call | no percentile and full operator/solver unmeasured | stage-timed 50k full step after physical gate |
 | H4 boundary/model behavior blocks before performance | no corrected dynamic sealed-basin evidence exists | FCR objective passes local term controls | independent 4k basin corpus and 50k 240-step run |
@@ -86,9 +85,9 @@
 
 ## Next action
 
-1. Implement independent CPU and CUDA objective/gradient/HVP.
-2. Prove the matrix-free HVP on tiny cases before any trajectory or timing.
-3. Preserve the graph roots and old NCGA0--7 files unchanged.
+1. Implement unpreconditioned tiny matrix-free Steihaug--Toint correspondence.
+2. Add the positive Jacobi scalable profile without changing trust semantics.
+3. Preserve graph/operator roots and old NCGA0--7 files unchanged.
 
 ## Do not retry
 
@@ -98,7 +97,7 @@
 
 ## Handoff
 
-- **Workspace state:** main worktree on `codex/water-research`; graph checkpoint ready to commit.
-- **Checks:** two clean Release graph self-tests pass with exact binary/stdout; sanitizers not yet run.
+- **Workspace state:** main worktree on `codex/water-research`; operator checkpoint ready to commit.
+- **Checks:** two clean Release graph/operator self-tests pass with exact binary/stdout; sanitizers not yet run.
 - **Remaining risk:** boundary model, dynamic convergence, work budget and complete 50k cost are untested.
 - **Promotion needed:** none; the track remains Proposed/report-only.

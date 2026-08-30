@@ -83,6 +83,7 @@ add_executable(
     src/corrected_cuda_full_step.cu
     src/corrected_cuda_full_step_main.cpp
     src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_assembly_reference.cpp
     src/sha256.cpp
 )
 target_compile_features(

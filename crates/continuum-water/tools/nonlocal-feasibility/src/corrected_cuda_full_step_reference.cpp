@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <unordered_map>
 #include <stdexcept>
 #include <unordered_set>
 #include <utility>
@@ -59,6 +60,94 @@ bool valid_profile(const NonlocalGpuProfile& profile) {
         && profile.gamma >= 0.0 && profile.ghost_layers == 3U
         && profile.maximum_dynamic_samples == kMaximumDynamicSamples
         && profile.maximum_neighbors == kMaximumNeighbors;
+}
+
+struct WideVec3 {
+    long double x = 0.0L;
+    long double y = 0.0L;
+    long double z = 0.0L;
+};
+
+WideVec3 wide(const Vec3d& value) {
+    return {static_cast<long double>(value.x),
+        static_cast<long double>(value.y), static_cast<long double>(value.z)};
+}
+
+WideVec3 add(WideVec3 lhs, WideVec3 rhs) {
+    return {lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z};
+}
+
+WideVec3 subtract(WideVec3 lhs, WideVec3 rhs) {
+    return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
+}
+
+WideVec3 scale(WideVec3 value, long double factor) {
+    return {value.x * factor, value.y * factor, value.z * factor};
+}
+
+long double dot(WideVec3 lhs, WideVec3 rhs) {
+    return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+}
+
+long double norm(WideVec3 value) { return std::sqrt(dot(value, value)); }
+
+WideVec3 radial_apply(WideVec3 normal,
+    long double radial,
+    long double tangential,
+    WideVec3 value) {
+    return add(scale(value, tangential),
+        scale(normal, (radial - tangential) * dot(normal, value)));
+}
+
+struct WideKernel {
+    long double value = 0.0L;
+    long double first = 0.0L;
+    long double second = 0.0L;
+};
+
+WideKernel kernel(long double radius, long double horizon) {
+    const long double pi = std::acos(-1.0L);
+    const long double q = 2.0L * radius / horizon;
+    const long double alpha = 3.0L
+        / (2.0L * pi * horizon * horizon * horizon);
+    long double value = 0.0L;
+    long double first_q = 0.0L;
+    long double second_q = 0.0L;
+    if (q < 1.0L) {
+        value = alpha * (2.0L / 3.0L - q * q + 0.5L * q * q * q);
+        first_q = alpha * (-2.0L * q + 1.5L * q * q);
+        second_q = alpha * (-2.0L + 3.0L * q);
+    } else if (q <= 2.0L) {
+        const long double tail = 2.0L - q;
+        value = alpha * tail * tail * tail / 6.0L;
+        first_q = -0.5L * alpha * tail * tail;
+        second_q = alpha * tail;
+    }
+    const long double chain = 2.0L / horizon;
+    return {value, first_q * chain, second_q * chain * chain};
+}
+
+void surface(long double radius,
+    long double spacing,
+    long double& potential,
+    long double& force,
+    long double& derivative) {
+    const long double q = radius / spacing;
+    if (q <= 1.0L) {
+        force = q * q - 1.0L;
+        derivative = 2.0L * q / spacing;
+        potential = spacing * (q * q * q / 3.0L - q - 2.0L / 3.0L);
+    } else if (q < 3.0L) {
+        const long double shifted = q - 2.0L;
+        force = 1.0L - shifted * shifted;
+        derivative = -2.0L * shifted / spacing;
+        potential = spacing
+            * (q - shifted * shifted * shifted / 3.0L - 8.0L / 3.0L);
+    } else {
+        potential = 0.0L;
+        force = 0.0L;
+        derivative = 0.0L;
+    }
 }
 
 } // namespace
@@ -269,13 +358,245 @@ std::string work_semantic_root(const NonlocalGpuWorkReceipt& work) {
 }
 
 NonlocalGpuEvaluationResult evaluate_reference(
-    const NonlocalGpuProfile&,
-    const std::vector<NonlocalGpuSample>&,
-    const std::vector<NonlocalGpuGhost>&,
-    const std::vector<Vec3d>*,
-    NonlocalGpuVariant) {
+    const NonlocalGpuProfile& profile,
+    const std::vector<NonlocalGpuSample>& input_samples,
+    const std::vector<NonlocalGpuGhost>& ghosts,
+    const std::vector<Vec3d>* input_direction,
+    NonlocalGpuVariant variant) {
     NonlocalGpuEvaluationResult result;
-    result.failure = NonlocalGpuFailure::InvalidState;
+    if (!valid_profile(profile) || input_samples.empty()
+        || (input_direction != nullptr
+            && input_direction->size() != input_samples.size())) {
+        result.failure = NonlocalGpuFailure::InvalidState;
+        return result;
+    }
+    std::vector<std::size_t> order(input_samples.size());
+    for (std::size_t index = 0U; index < order.size(); ++index) order[index] = index;
+    std::sort(order.begin(), order.end(), [&](std::size_t lhs, std::size_t rhs) {
+        return input_samples[lhs].sample_id < input_samples[rhs].sample_id;
+    });
+    std::vector<NonlocalGpuSample> samples;
+    std::vector<WideVec3> direction;
+    samples.reserve(input_samples.size());
+    direction.reserve(input_samples.size());
+    for (const std::size_t index : order) {
+        samples.push_back(input_samples[index]);
+        if (input_direction != nullptr) direction.push_back(wide((*input_direction)[index]));
+    }
+    std::vector<NonlocalGpuSample> reference_samples = samples;
+    for (auto& sample : reference_samples) sample.current = sample.reference;
+    const auto current_graph = build_reference_graph(profile, samples, ghosts,
+        variant == NonlocalGpuVariant::StrictRadius);
+    const auto reference_graph = build_reference_graph(
+        profile, reference_samples, ghosts, false);
+    if (current_graph.failure != NonlocalGpuFailure::None
+        || reference_graph.failure != NonlocalGpuFailure::None) {
+        result.failure = current_graph.failure != NonlocalGpuFailure::None
+            ? current_graph.failure : reference_graph.failure;
+        return result;
+    }
+    const std::size_t count = samples.size();
+    std::unordered_map<std::uint32_t, std::size_t> dynamic_index;
+    std::unordered_map<std::uint32_t, WideVec3> ghost_position;
+    dynamic_index.reserve(count);
+    ghost_position.reserve(ghosts.size());
+    for (std::size_t index = 0U; index < count; ++index) {
+        dynamic_index.emplace(samples[index].sample_id, index);
+    }
+    for (const auto& ghost : ghosts) {
+        ghost_position.emplace(ghost.sample_id, wide(ghost.position));
+    }
+    const auto current_position = [&](std::uint32_t id) {
+        const auto dynamic = dynamic_index.find(id);
+        if (dynamic != dynamic_index.end()) return wide(samples[dynamic->second].current);
+        const auto ghost = ghost_position.find(id);
+        if (ghost == ghost_position.end()) throw std::logic_error("missing graph point");
+        return ghost->second;
+    };
+    const long double mass = profile.mass;
+    const long double dt = profile.dt;
+    const long double rho0 = profile.rest_density;
+    const long double kappa = profile.kappa;
+    const long double lambda = profile.lambda;
+    const long double mu = profile.mu;
+    const long double gamma = profile.gamma;
+    const long double inertia_scale = mass / (dt * dt);
+    std::vector<long double> density(count, 0.0L);
+    std::vector<long double> excess(count, 0.0L);
+    std::vector<WideVec3> gradient(count);
+    std::vector<WideVec3> hvp(count);
+    std::vector<long double> pressure_q(count, 0.0L);
+    long double total_energy = 0.0L;
+    for (std::size_t row = 0U; row < count; ++row) {
+        const WideVec3 owner = wide(samples[row].current);
+        for (std::uint32_t slot = current_graph.offsets[row];
+             slot < current_graph.offsets[row + 1U]; ++slot) {
+            const WideVec3 candidate = current_position(current_graph.neighbor_ids[slot]);
+            density[row] += mass * kernel(norm(subtract(owner, candidate)),
+                profile.horizon).value;
+            ++result.work.density_kernel_evaluations;
+        }
+        excess[row] = std::max(density[row] / rho0 - 1.0L, 0.0L);
+        if (excess[row] > 0.0L) ++result.active_pressure_centers;
+    }
+    if (input_direction != nullptr) {
+        for (std::size_t row = 0U; row < count; ++row) {
+            const WideVec3 owner = wide(samples[row].current);
+            for (std::uint32_t slot = current_graph.offsets[row];
+                 slot < current_graph.offsets[row + 1U]; ++slot) {
+                const auto id = current_graph.neighbor_ids[slot];
+                const auto dynamic = dynamic_index.find(id);
+                if (dynamic != dynamic_index.end() && dynamic->second == row) continue;
+                const WideVec3 difference = subtract(owner, current_position(id));
+                const long double radius = norm(difference);
+                if (!(radius > 0.0L)) continue;
+                const WideVec3 normal = scale(difference, 1.0L / radius);
+                const WideVec3 neighbor_direction = dynamic != dynamic_index.end()
+                    ? direction[dynamic->second] : WideVec3{};
+                pressure_q[row] += mass / rho0
+                    * kernel(radius, profile.horizon).first
+                    * dot(normal, subtract(direction[row], neighbor_direction));
+            }
+        }
+    }
+    for (std::size_t row = 0U; row < count; ++row) {
+        const WideVec3 x = wide(samples[row].reference);
+        const WideVec3 y = wide(samples[row].current);
+        const WideVec3 velocity = wide(samples[row].velocity);
+        const WideVec3 predicted = add(x, add(scale(velocity, dt),
+            scale(wide(profile.gravity), dt * dt)));
+        const WideVec3 inertial_delta = subtract(y, predicted);
+        gradient[row] = scale(inertial_delta, inertia_scale);
+        total_energy += 0.5L * inertia_scale * dot(inertial_delta, inertial_delta)
+            + 0.5L * kappa * excess[row] * excess[row];
+        if (input_direction != nullptr) {
+            hvp[row] = scale(direction[row], inertia_scale);
+        }
+        for (std::uint32_t slot = current_graph.offsets[row];
+             slot < current_graph.offsets[row + 1U]; ++slot) {
+            const std::uint32_t id = current_graph.neighbor_ids[slot];
+            const auto dynamic = dynamic_index.find(id);
+            if (dynamic != dynamic_index.end() && dynamic->second == row) continue;
+            const WideVec3 difference = subtract(y, current_position(id));
+            const long double radius = norm(difference);
+            if (!(radius > 0.0L)) continue;
+            const WideVec3 normal = scale(difference, 1.0L / radius);
+            const WideKernel values = kernel(radius, profile.horizon);
+            const long double neighbor_excess = dynamic != dynamic_index.end()
+                    && variant != NonlocalGpuVariant::OwnerOnlyPressure
+                ? excess[dynamic->second] : 0.0L;
+            gradient[row] = add(gradient[row], scale(normal,
+                kappa * mass / rho0 * (excess[row] + neighbor_excess)
+                    * values.first));
+            ++result.work.gradient_pair_visits;
+            if (dynamic != dynamic_index.end()) {
+                long double potential = 0.0L;
+                long double force = 0.0L;
+                long double derivative = 0.0L;
+                surface(radius, profile.spacing, potential, force, derivative);
+                const long double surface_sign = variant
+                        == NonlocalGpuVariant::WrongSurfaceSign ? -1.0L : 1.0L;
+                gradient[row] = add(gradient[row], scale(normal,
+                    surface_sign * 2.0L * gamma * mass * mass * force));
+                ++result.work.gradient_pair_visits;
+                if (dynamic->second > row) {
+                    total_energy += 2.0L * gamma * mass * mass * potential;
+                    ++result.work.energy_pair_visits;
+                }
+            }
+            if (input_direction != nullptr) {
+                const WideVec3 neighbor_direction = dynamic != dynamic_index.end()
+                    ? direction[dynamic->second] : WideVec3{};
+                const WideVec3 dv = subtract(direction[row], neighbor_direction);
+                const WideVec3 b = scale(normal, mass / rho0 * values.first);
+                const long double neighbor_q = dynamic != dynamic_index.end()
+                        && variant != NonlocalGpuVariant::OwnerOnlyPressure
+                    ? pressure_q[dynamic->second] : 0.0L;
+                hvp[row] = add(hvp[row], scale(b,
+                    kappa * (pressure_q[row] + neighbor_q)));
+                hvp[row] = add(hvp[row], scale(radial_apply(normal,
+                    values.second, values.first / radius, dv),
+                    kappa * mass / rho0 * (excess[row] + neighbor_excess)));
+                if (dynamic != dynamic_index.end()) {
+                    long double potential = 0.0L;
+                    long double force = 0.0L;
+                    long double derivative = 0.0L;
+                    surface(radius, profile.spacing, potential, force, derivative);
+                    const long double surface_sign = variant
+                            == NonlocalGpuVariant::WrongSurfaceSign ? -1.0L : 1.0L;
+                    hvp[row] = add(hvp[row], scale(radial_apply(normal,
+                        derivative, force / radius, dv),
+                        surface_sign * 2.0L * gamma * mass * mass));
+                }
+                ++result.work.hvp_pair_visits;
+            }
+        }
+
+        const NonlocalGpuGraphResult& viscosity_graph =
+            variant == NonlocalGpuVariant::CurrentReferenceSwap
+            ? current_graph : reference_graph;
+        for (std::uint32_t slot = viscosity_graph.offsets[row];
+             slot < viscosity_graph.offsets[row + 1U]; ++slot) {
+            const auto dynamic = dynamic_index.find(viscosity_graph.neighbor_ids[slot]);
+            if (dynamic == dynamic_index.end() || dynamic->second == row) continue;
+            const WideVec3 reference_delta = subtract(x,
+                wide(samples[dynamic->second].reference));
+            const long double radius = norm(reference_delta);
+            if (!(radius > 0.0L)) continue;
+            const WideVec3 normal = scale(reference_delta, 1.0L / radius);
+            const WideVec3 delta = subtract(subtract(y,
+                wide(samples[dynamic->second].current)), reference_delta);
+            const long double normal_delta = dot(normal, delta);
+            const WideVec3 tangent_delta = subtract(delta,
+                scale(normal, normal_delta));
+            long double factor = mass * (-kernel(radius, profile.horizon).first)
+                / (rho0 * dt);
+            const long double force_scale = variant
+                    == NonlocalGpuVariant::HalfViscosity ? 0.5L : 1.0L;
+            gradient[row] = add(gradient[row], scale(add(
+                scale(tangent_delta, 2.0L * mu),
+                scale(normal, lambda * normal_delta)), factor * force_scale));
+            ++result.work.gradient_pair_visits;
+            if (dynamic->second > row) {
+                total_energy += factor * (mu * dot(tangent_delta, tangent_delta)
+                    + 0.5L * lambda * normal_delta * normal_delta);
+                ++result.work.energy_pair_visits;
+            }
+            if (input_direction != nullptr) {
+                const long double tangential = factor * 2.0L * mu * force_scale;
+                const long double radial = factor * lambda * force_scale;
+                hvp[row] = add(hvp[row], radial_apply(normal, radial,
+                    tangential, subtract(direction[row], direction[dynamic->second])));
+                ++result.work.hvp_pair_visits;
+            }
+        }
+        if (input_direction != nullptr
+            && variant == NonlocalGpuVariant::HvpSignFlip) {
+            hvp[row] = scale(hvp[row], -1.0L);
+        }
+    }
+    long double gradient_norm_squared = 0.0L;
+    result.gradient.reserve(count);
+    result.density.reserve(count);
+    if (input_direction != nullptr) result.hvp.reserve(count);
+    for (std::size_t index = 0U; index < count; ++index) {
+        gradient_norm_squared += dot(gradient[index], gradient[index]);
+        result.gradient.push_back({static_cast<double>(gradient[index].x),
+            static_cast<double>(gradient[index].y),
+            static_cast<double>(gradient[index].z)});
+        result.density.push_back(static_cast<double>(density[index]));
+        if (input_direction != nullptr) {
+            result.hvp.push_back({static_cast<double>(hvp[index].x),
+                static_cast<double>(hvp[index].y),
+                static_cast<double>(hvp[index].z)});
+        }
+    }
+    result.energy = static_cast<double>(total_energy);
+    result.gradient_norm = static_cast<double>(std::sqrt(gradient_norm_squared));
+    result.work.graph_builds = 2U;
+    result.work.hvp_applications = input_direction != nullptr ? 1U : 0U;
+    result.work.reduction_values = count * 2U;
+    result.failure = NonlocalGpuFailure::None;
     return result;
 }
 
