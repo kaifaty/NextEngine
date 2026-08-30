@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / N0.1_N0.2_COMPLETE / N0.3E_LISTENER_FIELD_REJECTED / N0.4A_V1_REPRESENTATION_REJECTED / N0.4A_V2_RESEARCH_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.3E_LISTENER_FIELD_REJECTED / N0.4A_V1_REJECTED / N0.4A_V2_INCONCLUSIVE_CONTROL / N0.4A_V3_NATIVE_RATE_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -396,6 +396,23 @@ authorize no neural model and start a bounded V2 source/representation research
 cycle with a new unopened development projection. Do not tune this family on
 the opened Blue Bowl development contact.
 
+V2 result: `INCONCLUSIVE_RESAMPLING_CONTROL`. The new Large Swan source,
+source-order `3 fit / 1 development / 1 sealed` split, pinned DAC dependency,
+sealed extraction and query-seeing oracle all repeat byte-identically. The
+48→44.1→48 kHz no-codec control fails full-band level and decay before the
+learned codec can receive representation credit; DAC also fails four absolute
+candidate endpoints. Preserve the
+[exact result](../development/physical-sound-r3a-v2-large-swan-dac-oracle-result-2026-08-30.md),
+keep row `2407` sealed and authorize neither N0.4B nor neural training.
+
+V3 entry protocol: use a new unopened development projection and freeze either
+the native-48 kHz general-audio NDAC-75 checkpoint published with
+[FlowDec](https://github.com/facebookresearch/FlowDec), excluding its stochastic
+postfilter, or a fully band-limited five-endpoint protocol with a separate
+out-of-band energy gate. A passing
+learned ceiling must be followed by a bounded deterministic modal/
+multiresolution distillation oracle before N0.4B.
+
 ### N0.4B — Object-specific contact-position few-shot field
 
 Entry condition: N0.4A passes one representation and published data provides
@@ -589,11 +606,13 @@ successful Git commit or a report-only model result.
    not as evidence that rank 96 generalizes to hidden positions.
 3. Preserve N0.4A V1 as a reproducible `REJECT_REPRESENTATION`; Blue Bowl row
    1807 is opened negative evidence and row 2407 remains sealed.
-4. Research a materially different structured-pole/multiresolution or learned-
-   codec representation and a bounded richer published source path; freeze the
-   choice before opening a new development contact.
-5. Run the N0.4A V2 query-seeing representation oracle exactly as frozen and
-   either authorize N0.4B or record `DATA_INSUFFICIENT`/another immutable
-   representation rejection.
-6. Only after a representation passes, freeze one AV-MSF-shaped N0.4B exact-
+4. Preserve N0.4A V2 as reproducible `INCONCLUSIVE_RESAMPLING_CONTROL`; Large
+   Swan row `1807` cannot select post-hoc filters, metrics, bitrate or codec.
+5. Audit/freeze deterministic NDAC-75 as the N0.4A V3 native-48 kHz learned
+   ceiling, or fall back to the fully band-limited protocol, on a new unopened
+   development projection.
+6. If that ceiling passes, freeze a bounded deterministic modal/
+   multiresolution distillation oracle; a neural decoder alone cannot satisfy
+   N0.4A.
+7. Only after the deterministic representation passes, freeze one AV-MSF-shaped N0.4B exact-
    object contact field, repeat it and evaluate it on unopened held positions.

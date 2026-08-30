@@ -1,9 +1,9 @@
-# Roadmap V4: geometry-aware modal neural physical sound
+# Roadmap V5: learned ceiling to deterministic physical sound field
 
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-30 |
-| Статус | `ACTIVE_R&D / R0_R1_COMPLETE / R2_LISTENER_FIELD_REJECTED / R3A_V1_REPRESENTATION_REJECTED / R3A_V2_RESEARCH_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R2_LISTENER_FIELD_REJECTED / R3A_V1_REJECTED / R3A_V2_INCONCLUSIVE_RESAMPLING_CONTROL / R3A_V3_NATIVE_RATE_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -32,7 +32,7 @@ authored clip.
 5. одного exact admitted domain с обязательным fallback;
 6. отдельного product decision перед любой runtime-интеграцией.
 
-## Что меняется в V4
+## Что меняется в V5
 
 Ручной поиск общей формулы `material -> sound` остаётся закрытой основной
 веткой. Q30 modal renderer, DCT residual, FEM/BEM и предыдущие real-data
@@ -43,8 +43,8 @@ coefficients и сохраняет energy/cooker boundary. Но единстве
 coordinate field, несмотря на практически нулевую context error, проиграл
 всем classical controls на всех пяти held-listener endpoints. Post-reject
 projection oracle сохраняет на query только `92.38%` полной энергии, имеет
-Frobenius NRMSE `0.2760` и сам пропускает mean-spectrum gate. Поэтому V4
-закрывает не neural route, а неверный первый task и порядок программы:
+Frobenius NRMSE `0.2760` и сам пропускает mean-spectrum gate. V4 поэтому
+закрыл не neural route, а неверный первый task и порядок программы:
 
 1. opened Green Goblet listener split остаётся immutable negative knowledge;
 2. первая полезная модель учит variation по impact/contact position при одной
@@ -57,6 +57,19 @@ Frobenius NRMSE `0.2760` и сам пропускает mean-spectrum gate. По
    pretraining и zero-shot claims;
 6. detailed listener radiation возвращается только отдельной веткой с более
    плотными published observations или independently validated BEM/FEM.
+
+V5 сохраняет этот порядок и добавляет результат R3A V2. Learned-codec ceiling
+на новом REALIMPACT Large Swan повторился точно, но 48→44.1→48 kHz control сам
+провалил full-band level и decay gates. DAC-кандидат тоже проиграл nearest
+contact на четырёх из пяти endpoints. После открытия development target
+метрики не меняются: результат остаётся `INCONCLUSIVE_RESAMPLING_CONTROL`, а
+R3A V3 получает один следующий discriminator — native-48 kHz codec либо
+полностью preregistered band-limited protocol на новом unopened объекте.
+
+Даже успешный learned codec остаётся representation ceiling. До R3B требуется
+отдельный bounded deterministic modal/multiresolution cooker: neural decoder
+не входит в runtime и не может самостоятельно выдать
+`READY_FOR_EXACT_OBJECT_FIELD`.
 
 Целевой первый кандидат теперь — offline geometry-aware modal contact field:
 
@@ -149,7 +162,7 @@ models и не маскирует провал обещанием универс
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
 | R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
 | R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `IN_PROGRESS / V1_REJECTED / V2_NEW_UNOPENED_DATA_REQUIRED` | M–L | Blue Bowl source/splits repeat, but both frozen 512-scalar representations fail the real development gate; a materially new source/representation is required before training. |
+| R3A | `IN_PROGRESS / V1_REJECTED / V2_INCONCLUSIVE / V3_NATIVE_RATE_NEXT` | M–L | Large Swan DAC oracle repeats, but its sample-rate control fails before codec quality can receive credit. Freeze one native-48 kHz or fully band-limited learned ceiling on new unopened data, then prove a bounded deterministic cooker. |
 | R3B | `BLOCKED_BY_R3A` | L | Geometry-aware exact-object few-shot field predicts held contact positions and cooks bounded modal/residual PCM. |
 | R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
 | R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
@@ -404,10 +417,25 @@ spectrum, modal-frequency and decay comparisons; equal-budget sparse DCT is
 worse. No neural training is authorized. See the
 [R3A Blue Bowl representation result](../development/physical-sound-r3a-blue-bowl-representation-gate-2026-08-30.md).
 
-R3A V2 must use a new unopened development projection and a materially
-different representation hypothesis. Nearby mode/bin/budget tuning on the
-opened Blue Bowl development contact carries no readiness credit. R3B remains
-blocked until a new compact representation passes.
+R3A V2 is complete and returns `INCONCLUSIVE_RESAMPLING_CONTROL`. Two
+zero-target-audio Large Swan/DAC preflights, two sealed extractions and two
+query-seeing codec reports repeat byte-identically. Row `2407` remains
+undecoded. The no-codec 48→44.1→48 kHz control changes level by `1.8956 dB`
+and decay by `5.8438x`, so it fails before DAC can receive representation
+credit. DAC itself has `5.1562 dB` level error, `9.5356 dB` spectrum RMSE and
+`257.25` cents modal error. See the
+[R3A V2 result](../development/physical-sound-r3a-v2-large-swan-dac-oracle-result-2026-08-30.md).
+
+R3A V3 must use a new unopened development projection. Preferred path: the
+native-48 kHz general-audio NDAC-75 checkpoint published with
+[FlowDec](https://github.com/facebookresearch/FlowDec), without its stochastic
+postfilter and only after exact-repeat preflight. Fallback research path: a
+band-limited target domain that applies one frozen filter to target, controls
+and candidates on all five endpoints, while separately gating lost
+out-of-band energy. The opened Large Swan target cannot select that protocol.
+If the learned ceiling passes, a separate bounded deterministic
+modal/multiresolution distillation oracle must pass before R3B. R3B remains
+blocked; no neural model training is authorized.
 
 ## R3B — Object-specific contact-position few-shot model
 
@@ -581,10 +609,14 @@ ledger, persistence и `AcousticFactV1` roots.
     `COMPLETE / REJECTED / REPRODUCIBLE`; source roles, bounded extraction and
     both 512-scalar oracles repeat, but neither representation passes and no
     neural training is authorized;
-12. `R3A V2 source and representation research` — `NEXT`; freeze a materially
-    different compact representation on a new unopened development projection
-    or return `DATA_INSUFFICIENT`, without opening Blue Bowl field holdout,
-    method holdout or admission shadow.
+12. `R3A V2 Large Swan learned-codec ceiling` —
+    `COMPLETE / INCONCLUSIVE_RESAMPLING_CONTROL / REPRODUCIBLE`; preflight,
+    sealed extraction and DAC oracle repeat byte-identically, but the sample-
+    rate control fails and no training is authorized;
+13. `R3A V3 native-rate representation and deterministic-cooker research` —
+    `NEXT`; freeze a native-48 kHz codec or fully band-limited protocol on a
+    new unopened development projection, then require a separate bounded
+    deterministic modal/multiresolution representation before R3B.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.
@@ -597,6 +629,7 @@ ledger, persistence и `AcousticFactV1` roots.
 | Context fit не обходит zero/global mean или теряет signal energy | `REJECT_TRAINING_SUBSTRATE`; query не открывать |
 | R2E не превосходит classical interpolation | `REJECT_LISTENER_FIELD`; сохранить counterexample и остановить этот field, не запускать tuning-grid |
 | R3A representation oracle не превосходит target baseline | `REJECT_REPRESENTATION`; neural model не запускать |
+| Sample-rate/filter control сам нарушает endpoint | `INCONCLUSIVE_CONTROL`; target не переоценивать, протокол не менять post-hoc, новый discriminator заморозить на unopened data |
 | R3B проходит exact object, R4 падает object-disjoint | `GO_EXACT_OBJECT`; zero-shot/shared claim закрыть |
 | Published listener sampling spatially aliases the requested field | Narrow to canonical listener or exact grid; arbitrary radiation remains fallback-only |
 | Direct waveform звучит лучше, но не проходит causal/exact cook | Оставить upper bound или authored asset source |
@@ -610,8 +643,9 @@ ledger, persistence и `AcousticFactV1` roots.
 
 - **Training substrate:** objective, optimizer and cooker pass micro-overfit,
   trivial-control and exact-cook gates before any held task is spent.
-- **Representation:** R3A query-seeing development oracle proves that the
-  bounded modal/residual record can carry the target before neural training.
+- **Representation:** R3A query-seeing learned ceiling сначала доказывает, что
+  target переносим без confounded sample-rate control; затем отдельный oracle
+  доказывает bounded deterministic modal/residual cooker до neural training.
 - **Research model:** R3B reproducibly supports an exact-object held-contact
   claim or honestly rejects the representation; listener radiation is separate.
 - **Automatic validation:** R5 принимает решения без per-sound human queue и
