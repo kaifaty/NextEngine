@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3_TIME_DOMAIN_FAMILY_REJECTED / N0.3B_DENSE_COMPLEX_FIELD_DATA_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3_TIME_DOMAIN_FAMILY_REJECTED / N0.3B_DENSE_COMPLEX_FIELD_DATA_READY / N0.3C_COMPLEX_TRAINING_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -141,7 +141,9 @@ and threshold tuning are forbidden on this opened slice.
 
 ### N0.3B — Dense complex-field data sufficiency preflight
 
-Status: `NEXT / NO_OPTIMIZER_AUTHORIZED`.
+Status: `COMPLETE / READY_FOR_COMPLEX_FIELD_TRAINING /
+NO_QUALITY_ADMISSION_OR_RUNTIME_AUTHORITY`. See the
+[R2B dense complex-field preflight](../development/physical-sound-r2b-dense-complex-field-preflight-2026-08-30.md).
 
 Purpose: test whether published spatial coverage and a phase-preserving field
 representation can support an honest R2 experiment before training a larger
@@ -180,6 +182,58 @@ to the 15-row latent or use local capture.
 
 Commit boundary: data projection, grouped split, representation preflight and
 immutable sufficiency report. Dataset payloads remain external.
+
+The V3 projection and full preflight have now repeated byte-identically. The
+frozen split is `420 context / 180 query` by complete angle planes; query rows
+contribute neither normalization nor fit features. The complex STFT inverse
+passes at `-153.348 dB` worst NRMSE, `9.031e-9` maximum absolute error and at
+most one PCM16 LSB. Three controls are evaluated on all 180 queries before any
+optimizer step. The exact decision is `ReadyForComplexFieldTraining`, not a
+model or quality pass.
+
+### N0.3C — Frozen dense complex-field physics ablation
+
+Status: `NEXT / TWO_CANDIDATES_ONLY / QUERY_EVALUATION_AFTER_FREEZE`.
+
+Purpose: determine whether the ready complex representation supports a learned
+listener field and whether a bounded exterior-air Helmholtz residual adds
+value under an otherwise identical protocol.
+
+Deliverables:
+
+- one hash-closed training manifest freezing environment, model shape,
+  initialization, seed, optimizer budget and the R2B data/representation
+  lineage before optimizer step one;
+- `dense_complex_field_data_only_v1` and
+  `dense_complex_field_helmholtz_v1`, sharing one
+  coordinate/time/frequency MLP that emits real and imaginary pressure;
+- context-only complex-STFT L1 plus log-magnitude L1 data loss;
+- Helmholtz weights `0` and `0.0001`, speed `343 m/s`, frequency band
+  `93.75–12,000 Hz` and deterministic midpoint collocation;
+- two independent training runs per candidate with tolerance-bound checkpoint
+  and context-loss reproducibility;
+- frozen checkpoint selection without query feedback, followed by one Rust
+  metric evaluation on the 180 query rows.
+
+Exit criteria:
+
+- no query audio contributes to normalization, fit, early stopping or
+  checkpoint selection;
+- both candidates remain finite and cook through the frozen inverse/PCM path;
+- repeated training satisfies the preregistered tolerance and cooked
+  prediction hashes repeat exactly from each frozen checkpoint;
+- `GO_COMPLEX_LISTENER_FIELD` requires one candidate to be strictly lower than
+  every frozen control on all five primary aggregates;
+- otherwise return `REJECT_COMPLEX_FIELD` with the failed endpoints and no
+  nearby width/weight/seed/step grid.
+
+Fallback: preserve both candidate results and keep authored clips. A failure
+may motivate a new representation only after bounded failure research; it does
+not reopen the 15-row time-domain latent family.
+
+Commit boundary: training manifest/runner, compact synthetic failure tests,
+external two-run lineage and immutable evaluation decision. Dataset,
+features, MLflow state, checkpoints and generated WAVs remain external.
 
 ### N0.4 — Object-specific impact/listener few-shot field
 
@@ -370,14 +424,14 @@ successful Git commit or a report-only model result.
 1. Preserve both direct and phase-aligned time-domain fields as immutable
    `REJECT_LISTENER_FIELD` results; do not tune their ranks, width, epochs,
    speed or thresholds on opened development rows.
-2. Acquire and hash-close the full 600-position Green Goblet fixed-impact
-   semicylinder through the existing internet-source boundary.
-3. Preregister grouped spatial splits, complex/time-frequency transforms,
-   inverse-cook tolerances, classical controls and query isolation.
-4. Repeat the data/representation preflight twice. Do not start an optimizer
-   until it returns `READY_FOR_COMPLEX_FIELD_TRAINING`.
-5. If ready, train one bounded complex-field candidate with physics/no-physics
-   ablation against the unchanged R1 aggregates. Otherwise record
-   `DATA_INSUFFICIENT` or reject the representation.
-6. Proceed to impact/listener few-shot N0.4 only if R2 passes and an internet
+2. Treat the byte-identical V3 acquisition/preflight decision
+   `ReadyForComplexFieldTraining` as data/representation authority only.
+3. Freeze one N0.3C manifest with the shared complex-pressure MLP, seed,
+   optimizer budget, context-only preprocessing and exact R2B lineage.
+4. Train only the data-only and `0.0001` Helmholtz ablations twice each; track
+   external lineage without opening query, method holdout or admission shadow.
+5. Freeze checkpoints without query feedback, then evaluate each once on the
+   180 grouped queries against all three controls and the unchanged
+   five-endpoint conjunctive rule.
+6. Proceed to impact/listener few-shot N0.4 only if R2C passes and an internet
    source closes the required impact axis.

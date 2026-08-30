@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-30 |
-| Статус | `ACTIVE_R&D / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_TIME_DOMAIN_FAMILY_REJECTED / R2B_DENSE_COMPLEX_FIELD_DATA_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_TIME_DOMAIN_FAMILY_REJECTED / R2B_DENSE_COMPLEX_FIELD_DATA_READY / R2C_COMPLEX_TRAINING_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -125,7 +125,7 @@ models и не маскирует провал обещанием универс
 | --- | --- | ---: | --- |
 | R0 | `COMPLETE` | S | Первый real transfer slice и five-role projection повторяются byte-identical; signal semantics и missing axes честно сохранены. |
 | R1 | `COMPLETE / FROZEN_CONTROLS` | M | Transfer-domain и recorded-waveform baselines покрывают только совместимые rows; метрики и fallback заморожены. |
-| R2 | `TIME_DOMAIN_FAMILY_REJECTED / R2B_DATA_NEXT` | M | Модель восстанавливает grouped held-out listener responses одного fixed-impact объекта лучше classical interpolation. |
+| R2 | `TIME_DOMAIN_FAMILY_REJECTED / R2B_DATA_READY / R2C_TRAINING_NEXT` | M | Модель восстанавливает grouped held-out listener responses одного fixed-impact объекта лучше classical interpolation. |
 | R3 | `BLOCKED_BY_R2_AND_DATA` | L | Few-shot model предсказывает новые impact/listener conditions exact объекта и cooks в exact PCM. |
 | R4 | `CONDITIONAL` | L–XL | Shared geometry-conditioned model либо проходит object/family-disjoint holdout, либо zero-shot claim явно отклонён. |
 | R5 | `BLOCKED_BY_R3` | M | Frozen automatic validator показывает bounded grouped risk и useful selective coverage без live human gate. |
@@ -212,11 +212,12 @@ Experiment ladder:
 1. frozen nearest/linear controls;
 2. direct time-domain rank-4/rank-7 listener latent — rejected;
 3. coordinate-derived propagation-delay-aligned latent — rejected;
-4. grouped dense complex/time-frequency field — data preflight next.
+4. grouped dense complex/time-frequency field — data/representation preflight
+   complete; frozen two-candidate training next.
 
 Exit criteria:
 
-- held-out listeners улучшаются относительно обоих classical controls по всем
+- held-out listeners улучшаются относительно каждого frozen control по всем
   preregistered primary aggregates;
 - relative amplitude, decay, finiteness и exact cook не регрессируют;
 - ablation показывает, какой компонент даёт улучшение;
@@ -233,20 +234,23 @@ fails the frozen P95 spectrum endpoint. A query-informed subspace diagnostic
 also fails the level/spectrum aggregates, so the opened time-domain latent
 family is retired rather than tuned.
 
-The next R2B boundary changes data coverage and representation, not thresholds
-or nearby MLP hyperparameters:
+R2B is now complete. The [dense complex-field preflight](../development/physical-sound-r2b-dense-complex-field-preflight-2026-08-30.md)
+projects the full 600-position fixed-impact REALIMPACT semicylinder, freezes
+complete-angle-plane groups with `420 context / 180 query`, and repeats both
+acquisition and 288 MB preflight trees byte-identically. Context-only
+normalization excludes all query rows; the complex STFT inverse reaches
+`-153.348 dB` worst NRMSE and at most one PCM16 LSB. Three controls are
+measured before optimization, while method holdout and admission shadow remain
+sealed. This closes data/representation readiness only.
 
-- project one full 600-position fixed-impact REALIMPACT semicylinder;
-- split by complete gantry/spatial groups rather than interleaved microphone
-  rows;
-- freeze a complex STFT or log-magnitude plus continuous-phase field and its
-  exact inverse-cook error before optimization;
-- preserve nearest/linear controls and add a simple complex-field control;
-- preregister an exterior-air Helmholtz/physics regularizer and a no-physics
-  ablation;
-- keep method holdout and admission shadow sealed.
+R2C is the next boundary. It compares exactly one shared
+coordinate/time/frequency complex-pressure MLP with Helmholtz weight `0`
+against the same model with weight `0.0001`, fixed seed/architecture/budget and
+deterministic midpoint collocation over `93.75–12,000 Hz`. Query audio cannot
+affect preprocessing, fit, checkpoint selection or stopping. Each candidate
+must repeat before one frozen query evaluation; no nearby grid is authorized.
 
-Only a grouped held-listener result that beats both controls on all unchanged
+Only a grouped held-listener result that beats all three frozen controls on all unchanged
 primary aggregates can close R2. `DATA_INSUFFICIENT` and
 `REJECT_COMPLEX_FIELD_REPRESENTATION` remain valid outcomes.
 
@@ -393,9 +397,12 @@ ledger, persistence и `AcousticFactV1` roots.
 4. `phase-aligned listener successor` — `REJECTED`; training/evaluation and
    failure diagnostic repeat, while the frozen conjunctive rule selects no
    candidate;
-5. `dense complex-field data preflight` — `NEXT`; acquire/project the full
-   fixed-impact semicylinder, freeze a grouped spatial split and complex
-   time-frequency representation, then measure controls before optimization.
+5. `dense complex-field data preflight` — `COMPLETE`; acquisition and full
+   representation/control trees repeat byte-identically, with query-isolated
+   normalization and zero optimizer steps;
+6. `dense complex-field physics ablation` — `NEXT`; train exactly the frozen
+   data-only and Helmholtz candidates, repeat each, then evaluate once against
+   all three controls and the unchanged five-endpoint rule.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.

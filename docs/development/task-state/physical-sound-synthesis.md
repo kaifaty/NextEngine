@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V2 / NEURAL_TRANSFER_FIELD / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_TIME_DOMAIN_FAMILY_REJECTED / R2B_DENSE_COMPLEX_FIELD_DATA_NEXT / ADMISSION_SHADOW_SEALED / AUTHORED_CLIP_FALLBACK / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V2 / NEURAL_TRANSFER_FIELD / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_TIME_DOMAIN_FAMILY_REJECTED / R2B_DENSE_COMPLEX_FIELD_DATA_READY / R2C_COMPLEX_TRAINING_NEXT / ADMISSION_SHADOW_SEALED / AUTHORED_CLIP_FALLBACK / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-30` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed architecture plus isolated fixed-point baseline, external neural acoustic-field experiments and independent validation |
@@ -18,10 +18,10 @@
   holdouts reject shared residual/spatial assumptions. The remaining problem
   is a conditional object/impact/listener field, while user recording remains
   out of scope and published internet evidence stays claim-scoped.
-- **Next action:** Preserve both R2 time-domain failures and run a data-only
-  preflight over the published 600-position fixed-impact Green Goblet block.
-  Freeze grouped spatial splits, complex time-frequency representation,
-  inverse-cook tolerance and controls before any optimizer step.
+- **Next action:** Freeze one hash-closed R2C training manifest, then train only
+  the preregistered data-only and `0.0001` Helmholtz complex-pressure MLPs with
+  identical architecture, seed and budget. Repeat each before one frozen query
+  evaluation.
 - **Current blocker:** No infrastructure blocker is recorded. Quality,
   synchronized axis coverage, validator risk and production contact/consumer
   evidence remain open engineering gates.
@@ -124,10 +124,38 @@
   insufficient, and a complex/physics-informed field has not yet been measured
   under grouped held-listener splits.
 - **Reconsideration condition:** A preregistered dense complex-field experiment
-  beats both controls on every unchanged endpoint, or its data preflight
+  beats every frozen control on every unchanged endpoint, or its data preflight
   returns an explicit insufficiency/rejection.
 - **Smallest next action:** Project the full fixed-impact block and freeze its
   grouped split, complex transform, inverse cook and controls before training.
+
+## Material transition: R2B dense complex-field data ready
+
+- **Observation:** Two independent V3 internet acquisitions and two full
+  representation/control preflights over the published 600-position Green
+  Goblet block are byte-identical.
+- **Exact evidence:** [R2B preflight](../physical-sound-r2b-dense-complex-field-preflight-2026-08-30.md).
+  Acquisition manifest/report hashes are `487423a2…b7b3` / `5a4a41f5…413e`;
+  the 499 MB block is `381e958c…5188`; both 288 MB preflight reports are
+  `e3db03ac…1696`.
+- **Conclusion:** The `420 context / 180 query` grouped split, context-only
+  normalization, complex STFT inverse and three controls are ready for one
+  bounded learning experiment. This is not learned-quality evidence.
+- **Decision:** Authorize exactly the shared complex-pressure MLP with physics
+  weights `0` and `0.0001`. Freeze seed, architecture, budget and checkpoint
+  policy before training; query audio remains evaluation-only.
+- **Rejected alternatives:** Query-informed normalization/selection, a
+  physics-weight or architecture grid, reopening the 15-row latent family, or
+  treating one-LSB inverse quantization as representation failure.
+- **Consequences:** R2B is complete and R2C is next. Method holdout and
+  admission shadow remain sealed; quality, admission, public and runtime
+  authority remain disabled.
+- **Remaining uncertainty:** Neither frozen candidate has trained, so learned
+  advantage and Helmholtz value remain unmeasured.
+- **Reconsideration condition:** R2C either beats every control on all five
+  endpoints or supplies clustered failure evidence for a new representation.
+- **Smallest next action:** Implement and validate the hash-closed R2C manifest
+  and two-candidate trainer before optimizer step one.
 
 ## Current evidence
 
@@ -170,7 +198,8 @@
 | [PS-2N0 neural data plane](../physical-sound-neural-data-plane-ps2n0-2026-08-30.md) | `PS_2N0_V2_IMPLEMENTED / REAL_PROJECTION_BYTE_IDENTICAL / MODEL_TRAINING_DISABLED` | External-only projection verifies typed lineage and signal semantics, rejects six cross-role leakage classes, reports missing axes without fabrication and emits only sealed commitments for method/admission roles. The real projection is ready for the bounded R2 benchmark, not broader corpus/admission credit. |
 | [R0–R1 real neural boundary](../physical-sound-neural-real-boundary-r0-r1-2026-08-30.md) | `R0_COMPLETE / R1_TRANSFER_CONTROLS_FROZEN / BYTE_IDENTICAL_REPEATS` | V2 projects 23 rows and keeps five roles disjoint; 15 Green Goblet transfer rows yield repeated nearest/linear listener controls over `8 context / 7 query`. This boundary froze the controls before R2 training; method holdout and admission shadow remain sealed. |
 | [R2 V1 listener field](../physical-sound-listener-field-r2-v1-result-2026-08-30.md) | `REJECT_LISTENER_FIELD_V1 / REPRODUCIBLE_TRAINING_AND_EVALUATION` | Rank-4 passes only mean waveform NRMSE; rank-7 passes only P95 level. The conjunctive frozen rule rejects both. Query references are read only by evaluation; method holdout and admission shadow remain sealed. |
-| [R2 phase-aligned field and failure research](../physical-sound-listener-field-r2-phase-research-2026-08-30.md) | `REJECT_TIME_DOMAIN_LISTENER_FIELD / DENSE_COMPLEX_FIELD_DATA_NEXT` | Phase rank-4 passes four of five frozen endpoints but fails P95 spectrum. Rank-7 context fit and a query-informed subspace oracle reject capacity-only and nearby time-domain tuning explanations. Full 600-position grouped complex-field preflight is next; sealed roles remain unopened. |
+| [R2 phase-aligned field and failure research](../physical-sound-listener-field-r2-phase-research-2026-08-30.md) | `REJECT_TIME_DOMAIN_LISTENER_FIELD / DENSE_COMPLEX_FIELD_DATA_NEXT` | Phase rank-4 passes four of five frozen endpoints but fails P95 spectrum. Rank-7 context fit and a query-informed subspace oracle reject capacity-only and nearby time-domain tuning explanations. This result motivated the now-complete R2B preflight below; sealed roles remain unopened. |
+| [R2B dense complex-field preflight](../physical-sound-r2b-dense-complex-field-preflight-2026-08-30.md) | `DENSE_COMPLEX_FIELD_DATA_READY / R2C_COMPLEX_TRAINING_NEXT / BYTE_IDENTICAL_REPEATS` | V3 projects 600 rows into `420 context / 180 query`; context-only normalization, complex inverse gates and three controls repeat exactly. No optimizer or sealed-role data ran; only the frozen data-only/Helmholtz ablation is authorized next. |
 | [N0.2 classical baseline export](../physical-sound-classical-baseline-export-ps2n0-2026-08-30.md) | `Q30_STRUCTURED_EXPORT_PASS / TRANSFER_CONTROLS_FROZEN / REAL_DEVELOPMENT_REPEAT_PASS` | The Q30 exporter preserves profile `19b051fe…ef181` and WAV `c912806c…b9c823`; the separate transfer baseline binds emitted PCM and freezes nearest/linear listener controls. DCT per-row cooking remains an explicit non-blocking fallback. |
 | [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) versus current Rust `ContactEventV1` | `IMPLEMENTATION_GAP_OBSERVED` | Normative contact facts include velocity/impulse/effective mass/tags, but current record omits them; production audio must close the existing projection rather than consume raw callbacks. |
 | `xtask physical-sound-lab` external audition and cost report | `PASS / NON_GATING_COST` | Frozen baselines remain exact; selected Q30 WAV SHA is `c912806c…b9c823`. On Ryzen 3950X, 16 voices cost `1.483/1.683 ms` p50/p99 per 1,600-frame lab tick, `5.05%` of that window; this is not a whole-engine budget. |
@@ -250,8 +279,9 @@ resume-critical consequences are:
   prompt-to-waveform as the engine path, and runtime neural inference first.
 - **Consequences:** `PS-2N0` contract and synthetic controls pass. The exact
   Q30 N0.2 exporter and real transfer controls are frozen. Both opened
-  time-domain neural fields are rejected; dense published coverage plus a
-  complex time-frequency field is the next representation discriminator.
+  time-domain neural fields are rejected; dense published coverage and the
+  complex time-frequency representation now pass R2B readiness. The frozen
+  data-only/Helmholtz R2C ablation is the next representation discriminator.
   Generator and validator roles remain disjoint; admission shadow stays
   sealed; authored clip fallback is mandatory.
 - **Reconsider when:** The compact representation loses a measured learned
@@ -267,7 +297,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A dense complex neural acoustic field can outperform frozen interpolation without losing bounded control | Phase alignment improves four of five rank-4 endpoints; prior art supports complex/STFT fields and physics regularization; REALIMPACT publishes 600 fixed-impact listener positions | Direct and phase-aligned 15-row time-domain fields fail; even a query-informed latent oracle loses held-query level/spectral distribution | Project the full 600-position block, freeze grouped splits/complex inverse cook/controls, then authorize at most one physics/no-physics candidate |
+| H6: A dense complex neural acoustic field can outperform frozen interpolation without losing bounded control | R2B verifies 600 positions, grouped query isolation, complex inverse and three controls; phase alignment previously improved four of five rank-4 endpoints | Direct and phase-aligned 15-row fields fail; no dense complex candidate has trained, so Helmholtz value and learned advantage are still unknown | Train the frozen data-only and `0.0001` Helmholtz candidates twice each, freeze without query feedback, then evaluate once on all five endpoints |
 
 ## Required context
 
@@ -282,13 +312,13 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Acquire/project the full published 600-position Green Goblet fixed-impact
-   semicylinder through the hash-closed internet boundary.
-2. Freeze complete spatial-group splits, complex time-frequency target,
-   inverse-cook tolerance, controls and query isolation.
-3. Repeat the data/representation preflight twice. Start no optimizer unless it
-   returns `READY_FOR_COMPLEX_FIELD_TRAINING`; keep method holdout and admission
-   shadow sealed.
+1. Implement one R2C manifest/runner that validates the exact V3 acquisition,
+   R2B report, environment, model, seed and optimizer budget before training.
+2. Train only the frozen data-only and Helmholtz candidates twice each on
+   context rows; checkpoint selection must not inspect query audio.
+3. Freeze each candidate, then evaluate once on all 180 grouped queries against
+   all three controls and the unchanged five-endpoint rule. Keep method holdout
+   and admission shadow sealed.
 
 ## Do not retry
 
@@ -317,27 +347,25 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** R0/R1 are complete. Direct and phase-aligned R2
-  time-domain fields are immutable rejections. External PyTorch/MLflow
-  training, raw-float checkpoints, cooked predictions, Rust-metric evaluation
-  and the failure diagnostic repeat; no generated artifact enters Git. Dense
-  complex-field data preflight is next; public schemas and ownership are
-  unchanged.
-- **Checks:** The complete physical-sound registry suite passes `153/153`;
-  transfer-field focused tests pass `2/2`, physical-sound evaluator tests pass
-  `11/11`; direct and phase-aligned R2 scripts compile and expose their CLI;
-  phase training/evaluation and diagnostic reports repeat exactly. Formatting,
-  `git diff --check` and
-  xtask all-target Clippy pass. Exact Q30 profile/WAV hashes remain
-  `19b051fe…ef181` / `c912806c…b9c823`. `boundary-scan` remains red only on the
-  pre-existing tracked `realimpact_transfer_fixture.rs` escape hatch from
-  `a26f070f`; new modules are below 1,000 lines and contain no escape hatch.
-  Phase training/evaluation ran only on external hash-closed development data;
-  method holdout and admission shadow remained sealed.
+- **Workspace state:** R0/R1 and the R2B dense data/representation preflight
+  are complete. Direct and phase-aligned R2 time-domain fields remain immutable
+  rejections. Two V3 acquisitions and two complete complex preflights repeat
+  byte-identically; no generated artifact enters Git. R2C training is next;
+  public schemas and ownership are unchanged.
+- **Checks:** REALIMPACT-row focused tests pass `18/18`; the R2B Python runner
+  compiles, exposes its CLI and keeps the lab lock valid; formatting,
+  `git diff --check` and xtask all-target Clippy pass. Two external acquisition
+  trees and two 288 MB preflight trees compare byte-identically. Exact Q30
+  profile/WAV hashes remain `19b051fe…ef181` / `c912806c…b9c823`.
+  `boundary-scan` remains red only on the pre-existing tracked
+  `realimpact_transfer_fixture.rs` escape hatch from `a26f070f`; both new
+  modules are below 1,000 lines and contain no escape hatch. All R2B payloads,
+  WAVs and reports remain external; method holdout and admission shadow remain
+  sealed.
 - **Remaining risk:** eight exact-domain claims, real 3D transfer, calibrated
   OOD/shadow risk, contact sufficiency, mixer cost and authoring are open.
-- **Quality status:** R1 controls are frozen and both R2 time-domain fields
-  select no candidate.
+- **Quality status:** R1 and dense R2B controls are frozen, both time-domain
+  fields select no candidate, and no dense complex candidate has trained.
   No accepted neural model, calibrated validator release, corpus admission or
   production claim exists.
 - **Promotion needed:** Concrete consumer, later ADR-046 promotion, then exact content/contact/DSP profiles and ProductChecks.
