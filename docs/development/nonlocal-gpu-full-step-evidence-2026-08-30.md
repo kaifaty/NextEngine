@@ -2,24 +2,32 @@
 
 | Field | Value |
 | --- | --- |
-| Research ID | `NCGP1` revisions 1--3 |
+| Research ID | `NCGP1` revisions 1--4 |
 | Author result | `PHYSICS_REFUTED / PERFORMANCE_NOT_RUN` |
-| Candidate commit | `c7c33e9bdc1be027ed61d24deb590f44b93ab44a` |
-| Candidate tree | `eb7c037550e54588607c007abf90a3fe091bc20f` |
+| Candidate commit | `3bc5e81d366a0f1e55bd6a3babb967ca26907db2` |
+| Candidate tree | `c65469fb4ba601a637757e6b88d72d28f3cf7221` |
 | Architecture parent | `62e8bd1f922ce8b8a2d03dd25a0695ac8f212c92` |
-| Parent-to-candidate diff SHA-256 | `b8abea9996e635a2deb44fdbd990595c0787c5bab224d913cb392372d807f754` |
-| Review state | independent review pending |
+| Parent-to-candidate diff SHA-256 | `04b57ae4370b7783ac402015f336bb41ffe47ce0c77405c7f444ee18814aee3e` |
+| Review state | initial `INCONCLUSIVE`; single repair complete; re-review pending |
 
 ## Result
 
-The scalable implementation closes the exact graph and matrix-free operator
+The initial independent review found load-bearing apparatus defects, so its
+verdict was `INCONCLUSIVE / ONE BATCHED REPAIR REQUIRED` (report SHA-256
+`8e19f05dcc6a60ebed4308d7c9e4ba372443402caa24b915d015c57cde1d08e9`).
+Revision 4 freezes and implements that one repair: active-set pressure HVP,
+direct tiny all-pairs oracle, common binary32 input bytes, exact full-HVP
+diagonal accounting, fail-closed admission, full rollback, swept boundary
+receipts, valid advected admission and typed result precedence.
+
+The repaired scalable implementation closes the exact graph and matrix-free operator
 boundaries, and its GPU-resident projected Newton--CG controller passes
-analytic free fall/contact controls. It does not pass the first frozen tiny
+analytic free fall/contact/rollback controls. It still does not pass the first frozen tiny
 solver gate. On the translated retained compressed pair, the strict-f32 GPU
 path accepts three trials, rejects 21 and reaches minimum trust radius at
 `R_x=1.50362650553e-5`, above the frozen `1e-5` terminal. The independent
-long-double CPU solver succeeds in six HVP. Canonical and permuted GPU inputs
-take the same rejected route.
+long-double direct/all-pairs CPU solver succeeds in six HVP. Canonical and
+permuted GPU inputs have identical route, work and result roots.
 
 This is `PHYSICS_REFUTED` under the revision-2 resolution firewall. The
 performance window, single-pass graph candidate, fusion cycles, 240-step 50k
@@ -36,8 +44,9 @@ a failed physical admission. The historical NCGA2 result
 | matrix-free CPU vs dense HVP | relative L2 `3.8620648814e-16` |
 | CUDA vs CPU HVP | relative L2 `9.33383431823e-7`, cosine loss `2.14939177567e-13`, active count exact |
 | formula/operator controls | missing `2/h`, half viscosity, surface sign, HVP sign, graph role and missing neighboring pressure center all rejected |
+| inactive/mixed pressure controls | inactive CUDA vs analytic inertia HVP `1.52446172052e-7`; oracle exact; mixed CUDA vs oracle `4.27521750692e-7`; independent energy FD error `2.2572944105e-9` |
 | analytic free fall | GPU error `7.77244568706e-9 m`; Jacobi/unpreconditioned identical |
-| boundary control | corrected lower-face state held exactly; disabled boundary returned `PhysicsGateFailed` |
+| boundary/admission/rollback controls | swept face receipt exact; disabled boundary rejected; post-finalize injection restored all state; invalid profile, ghost and f64-to-f32 overflow failed before mutation |
 | first 4k GPU/CPU step diagnostic | position RMSE `7.28544554644e-8 m`, max `2.35288370002e-7 m`; density RMSE `1.11118525785e-7 rho0`, max `4.13315272283e-7 rho0` |
 
 The 4k result is a diagnostic after the formal tiny failure, not authority to
@@ -50,18 +59,22 @@ rolls back transactionally. Its output SHA-256 is
 
 ## Identity and repeatability
 
-Two fresh Release/Ninja build directories used GCC 15.2.0, NVCC 13.3.73,
+Two fresh Release build directories used GCC 15.2.0, NVCC 13.3.73,
 `sm_86`, `--fmad=false`, precise division/sqrt and FTZ disabled. Both produced
 the same already-stripped executable and the same four-record report:
 
 | Artifact | SHA-256 |
 | --- | --- |
-| candidate executable A/B | `163098d8d98d0b449a5b6a64b4e5c9d8c250e12fbf703cfe41518867a6de4a47` |
-| graph/operator/solver/tiny stdout A/B | `315632ff7683dead595019179cddc542085a317035f609acefb30f2783f53b55` |
+| candidate executable A/B | `bf5df6352a717c2ef869f287bd6f30c4866b7aafbc09677501f0b2cfb927563f` |
+| graph/operator/solver/tiny stdout A/B | `0cf043845710d8014b9c4f138d3c9c27c1569becdafa69273549e127b1dc53f1` |
 | expected tiny diagnostic stderr A/B | `9accafc0c1cd589ecbe2e9ebd7fdadc9c03bb40bf07420078001d1911d01c881` |
 
-The exact tiny failure work root is
-`47d9924b4e6f93203c063093456af081af39cdaf8bc8f58bb09b159804c25626`.
+The exact budget/profile-bound tiny failure work root is
+`2d4622c5541157848031d815157830522b4845af0f730f6b977bad8d55fb77ed`;
+the result root is
+`e84f05cc6d0c17c53b21582a2bb67279880d55cff2021893966865d13eb7a5b9`.
+The corrected and permuted roots match. The healthy CPU-oracle result root is
+`9af96c2a5c256f8e98cbcff7ad83ae5f5d1fb98432900d26f1e21378e3086e75`.
 The full four-record stdout contains three `PASS` records followed by the
 expected `PHYSICS_REFUTED` record and exits 37 only on the tiny command.
 
@@ -72,17 +85,21 @@ expected `PHYSICS_REFUTED` record and exits 37 only on the tiny command.
 | revision-1 contract | `334418de01d0d8a1964331693e7d6846daef2cfb78fc93cc02d7c1bcf3ef32d7` |
 | revision-2 terminal | `dce467e0f17e9140592bbb8f01c6b595ebd42f65faf292f857c941a44fe28d57` |
 | revision-3 corpus | `64967d65787f3c94bf03c9d13c1112503be0b7a0259d4584f0707ef81585ecea` |
-| public tool-only header | `10be3ea2385b52e7d841ffb178e295b1deb69075e227f46b4ac57634b19299d1` |
-| CUDA candidate | `61f67481476217838f763ee1122ac0b688f260cff4339166407f5a6b62e107ea` |
-| independent formula reference | `c14a7921034514c0f7d205cd32a01cf5279b78a2ebbaaa8fdd918ef5a049da62` |
-| independent cached-CSR CPU solver | `040a13a844d82a52f3567c9c630efc92eb36c2d3caeaecfcefe11c731a93f5a4` |
-| harness | `b79131b7d986ebc1bcc88a66b5b5aa985232107ee40eeecb80f0224cb9dd7d9d` |
-| CMake target | `f4f62f211e43cc40db5b5bc0ec3b9f20481b076a2ba6397037d63eeb0e10fe40` |
+| revision-4 repair closure | `65f17900542e98488e15cc2ab6868680bf0eea8974252122a21e7a6302fbcf4d` |
+| public tool-only header | `7cd865217779e987b49920e555a6e23b725610cf35f0194223869872e8c8a47c` |
+| CUDA candidate | `3816ccff536a3f79b54cad8270d1392971a4e13d4907f4c0d81d83d3db69413f` |
+| independent formula reference | `b77cd047630fce53469ecf35daee4b0771c3a4422a58caa6c88b2653c96ee5e3` |
+| independent tiny-direct / 4k-CSR CPU solver | `65c31e4b80811ba1dda45f6cdc4cdc7be1cf9186b61771240fd37d7ca83583a2` |
+| harness | `e6e8d83e4a7078d8850a5cb9dbd35198a9453895fb21ea7328918bfd1c6320b0` |
+| CMake target | `eddcf5842d43439c4c5d153f93d60b9bf1483f7cc80ef06a8832b0712fd2c41e` |
 
 ## Sanitizers and immutable regressions
 
 Compute Sanitizer `memcheck`, `initcheck` and `synccheck` each report
-`ERROR SUMMARY: 0 errors` on the positive solver control. Retained outputs are
+`ERROR SUMMARY: 0 errors` on the positive solver control. Their complete
+stdout files are byte-identical at
+`68b8b4c8dc8fdfe622b41f2197c7cc98c2e34b7e062949d9f6efea89721f936c`.
+Retained outputs are
 byte-exact:
 
 | Regression | Result / stdout SHA-256 |
