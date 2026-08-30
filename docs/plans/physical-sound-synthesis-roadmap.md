@@ -2,29 +2,31 @@
 
 | Поле | Значение |
 | --- | --- |
-| Статус | `ACTIVE_R&D / PS-2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_HOLDOUT_REJECTED / RESIDUAL_COLORATION_HYPOTHESIS_SUPPORTED / CROSS_LISTENER_RANK1_FAILURE_SUPPORTED / COLORED_RESIDUAL_SUCCESSOR_FROZEN / ARCHIVE_IDENTITY_DISCOVERY_FROZEN / ZIP_TAIL_RUNNER_CONTROL_SUPPORTED / LOCAL_HEADER_RUNNER_CONTROL_SUPPORTED / BOUNDARY_PIPELINE_FROZEN / THREE_HEAD_REQUESTS_NEXT / SHADOW_SEALED / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / AUTOMATIC_PASS_DISABLED / PRODUCTION_P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / NEURAL_FIRST_STRATEGY_SELECTED / CLASSICAL_Q30_DCT_BASELINE_FROZEN / PS-2N0_DATA_PROJECTION_NEXT / ADMISSION_SHADOW_SEALED / AUTOMATIC_PASS_DISABLED / AUTHORED_CLIP_FALLBACK / PRODUCTION_P1_BLOCKED` |
 | Архитектурная граница | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
+| Актуальное решение | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Актуальное evidence | [PS-2 REALIMPACT colored-residual boundary pipeline preflight](../development/physical-sound-realimpact-colored-residual-pipeline-preflight-ps2-2026-08-28.md) |
 | Текущий evidence | [PS-2 Bempp quadrupole surface mode and Rust cooker](../development/physical-sound-bempp-quadrupole-surface-mode-ps2-2026-08-28.md), [PS-2 independent Bempp analytical control](../development/physical-sound-bempp-independent-control-ps2-2026-08-28.md), [BEM panel-quadrature discriminator](../development/physical-sound-bem-quadrature-discriminator-ps2-2026-08-28.md), [analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [REALIMPACT modal-radiation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [frequency-conditioned calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [shape-conditioned calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [internet-source feasibility](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [exact-domain matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [project split](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [corpus plan](../development/physical-sound-corpus-plan-ps2-2026-08-27.md) и [task state](../development/task-state/physical-sound-synthesis.md) |
-| Последний пакет | [REALIMPACT colored-residual boundary pipeline preflight](../development/physical-sound-realimpact-colored-residual-pipeline-preflight-ps2-2026-08-28.md) |
-| Детальный план | [Domain admission implementation plan](2026-08-27-physical-sound-domain-admission-implementation-plan.md) |
+| Последний пакет | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
+| Детальный план | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
 | Связь с продуктом | Изолированный R8 experiment; не меняет текущий R7 critical path и clip-based audio baseline |
-| Горизонт | Валидатор → корпус и риск → автономный поиск → база формул → один production impact vertical → persistent contact |
+| Горизонт | Frozen classical baseline → neural field benchmark → независимый validator → neural cooker/admission → neural-cooked formula base → production impact vertical → persistent contact |
 
 ## Цель
 
 Построить автономный контур, который без послушивания каждого результата:
 
-1. генерирует звук физического взаимодействия из ограниченной математической
-   модели;
+1. обучает внешний neural acoustic field на опубликованных internet data и
+   предсказывает ограниченную модально-пространственную модель;
 2. проверяет hard, causal, acoustic и out-of-domain свойства независимым
    версионированным валидатором;
-3. допускает формулу только для точного acoustic domain, на котором измерены
+3. cooks model output в bounded modal frequencies, damping, spatial gains и
+   compact coloured residual, не запуская нейросеть в первом runtime vertical;
+4. допускает запись только для точного acoustic domain, на котором измерены
    риск, покрытие, стоимость и fallback;
-4. накапливает reviewable базу условных формул, а не таблицу
+5. накапливает reviewable базу neural-cooked условных моделей, а не таблицу
    `material -> coefficients`;
-5. cooks допущенную модель в PresentationOnly content, сохраняя authored clip
-   как обязательный production fallback.
+6. сохраняет authored clip как обязательный production fallback.
 
 Первый продуктовый результат — один интерактивный rigid-impact object, который
 не выбирает event-specific impact WAV в основной ветке и непрерывно реагирует
@@ -38,8 +40,8 @@ impact vertical.
 
 - corpus registry с точными объектами, геометрией, опорой, возбуждением,
   listener/radiation conditions, provenance и frozen splits;
-- formula registry с семейством уравнений, revision параметров, domain
-  envelope, стоимостью и fallback;
+- model/cooker registry с архитектурой, data/model/checkpoint lineage,
+  bounded output representation, domain envelope, стоимостью и fallback;
 - validator release с hard gates, specialist heads, mutation suites, OOD и
   pre-registered risk/coverage policy;
 - immutable domain admission record с `Pass`, `Reject` или
@@ -47,12 +49,32 @@ impact vertical.
 
 Генератор не видит calibration/holdout/shadow валидатора. Валидатор не
 подстраивается под проверяемую generator revision. Исторический результат не
-переписывается: новый corpus, formula или validator создаёт новую revision.
+переписывается: новый corpus, model, cooker или validator создаёт новую revision.
 
-В production попадает только детерминированная cooked-формула и bounded
+В production попадает только детерминированная cooked-модель и bounded
 параметры точного допущенного домена. Корпуса, записи, generated WAVs, learned
 weights, embeddings и optimizer state остаются снаружи; runtime не обучается,
 не скачивает модели и не запускает validator inference.
+
+## Neural-first strategy
+
+Текущий Q30 modal renderer, FEM/BEM controls и frozen DCT coloured residual не
+выбрасываются. Они становятся deterministic classical baseline, synthetic
+teacher, компактным output representation, exact runtime reference,
+negative controls и fallback knowledge.
+
+Первый neural candidate — object-specific few-shot acoustic field: глобальные
+частоты/затухания, impact/listener-conditioned gains и compact residual. Только
+после успешной интерполяции новых impact/listener positions проверяется shared
+geometry-conditioned surrogate на object/family-disjoint holdout. Direct
+text/audio waveform generation остаётся report-only perceptual upper bound или
+источником authored asset: она не заменяет cooker, causal gates, exact replay и
+runtime fallback.
+
+Training/inference идут во внешнем research pipeline. Первый runtime consumer
+получает только проверенные и канонически quantized coefficients; никакая
+нейросеть не входит в game/headless/tools roots. Полное решение и stop rules
+зафиксированы в [neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md).
 
 ## Кто принимает решение о качестве
 
@@ -96,10 +118,11 @@ frozen `ValidatorRelease`:
 ```mermaid
 flowchart LR
     PS0["PS-0 Foundation<br/>COMPLETE"] --> PS1["PS-1 Envelope specialist<br/>COMPLETE"]
-    PS1 --> PS2["PS-2 Corpus and risk policy<br/>SPLIT FROZEN / DOMAIN AXES OPEN"]
-    PS2 --> PS3["PS-3 Validator Release V1<br/>BLOCKED"]
-    PS3 --> PS4["PS-4 AV-P0D autonomous search<br/>BLOCKED"]
-    PS4 --> PS5["PS-5 Formula Base V1<br/>BLOCKED"]
+    PS1 --> PS2["PS-2 Corpus and classical boundary<br/>IN PROGRESS"]
+    PS2 --> PS2N["PS-2N Neural field feasibility<br/>PS-2N0 NEXT"]
+    PS2N --> PS3["PS-3 Validator Release V1<br/>BLOCKED"]
+    PS3 --> PS4["PS-4 Neural cooker and admission<br/>BLOCKED"]
+    PS4 --> PS5["PS-5 Neural-Cooked Formula Base V1<br/>BLOCKED"]
     PS5 --> PS6["PS-6 Production impact vertical<br/>POST-V1 BLOCKED"]
     PS6 --> PS7["PS-7 Rolling and scraping<br/>DEFERRED"]
 ```
@@ -111,10 +134,11 @@ acquisition и внешняя model extraction могут занимать бо�
 | --- | --- | ---: | --- |
 | PS-0. Research foundation | `COMPLETE` | — | Lab/demo, AV-P0A/B, Registry V1, controlled mutations и grouped-risk measurement воспроизводимы; production baseline не изменён. |
 | PS-1. Envelope-specialist closure | `COMPLETE` | S–M | Consensus отвергает B4/B5 и все stationary/frozen controls; coverage `2/3`, `1/3`, `2/3`, но `Pass` остаётся выключен. |
-| PS-2. Corpus and risk closure | `IN_PROGRESS / PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_HOLDOUT_REJECTED / RESIDUAL_COLORATION_HYPOTHESIS_SUPPORTED / CROSS_LISTENER_RANK1_FAILURE_SUPPORTED / COLORED_RESIDUAL_SUCCESSOR_FROZEN / ARCHIVE_IDENTITY_DISCOVERY_FROZEN / ZIP_TAIL_RUNNER_CONTROL_SUPPORTED / LOCAL_HEADER_RUNNER_CONTROL_SUPPORTED / BOUNDARY_PIPELINE_FROZEN / THREE_HEAD_REQUESTS_NEXT / SHADOW_SEALED / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN` | L | Pipeline `456ea8e9…0cceb` freezes separate identity/tail/header stages with no retry or auto-continue; parser controls remain exact. The sandbox has executed no real request; ranges and Spatula payload remain sealed. |
-| PS-3. Validator Release V1 | `BLOCKED_BY_PS-2` | M | Один frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
-| PS-4. AV-P0D autonomous formula search | `BLOCKED_BY_PS-3` | M–L | Один полный поиск заканчивается reproducible registry decision без per-candidate human input. |
-| PS-5. Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback. |
+| PS-2. Corpus and classical boundary | `IN_PROGRESS / Q30_DCT_BASELINE_FROZEN / REAL_BOUNDARY_EXECUTION_OPEN / SHADOW_SEALED` | L | Frozen corpus roles, classical Q30/DCT baseline and one fail-closed real-data boundary exist; missing axes stay missing and no admission is claimed. |
+| PS-2N. Neural field feasibility | `PS-2N0_DATA_PROJECTION_NEXT` | L | Frozen few-shot/shared benchmark proves or rejects improvement on held-out impact/listener/object axes, cooks predictions exactly and never reads admission shadow. |
+| PS-3. Validator Release V1 | `BLOCKED_BY_PS-2N` | M | Один independently frozen release демонстрирует bounded false-pass risk и useful coverage на grouped holdout/shadow или честно остаётся fallback-only. |
+| PS-4. Neural cooker and one-shot admission | `BLOCKED_BY_PS-3` | M–L | Frozen generator and validator meet untouched shadow once and publish reproducible `Pass`, `Reject` or `FallbackOutOfDomain`. |
+| PS-5. Neural-Cooked Formula Base V1 | `BLOCKED_BY_PS-4` | XL | Есть минимум по одному exact admitted cooked domain для thin metal vessel/shell, thin glass vessel и dry hardwood block, каждый со своим fallback и без runtime model. |
 | PS-6. Production rigid-impact vertical | `POST_V1 / BLOCKED_BY_CONSUMER` | L–XL | Один player-visible object использует production contact/content/mixer path и проходит candidate `AUDIO-PHYS-*` checks. |
 | PS-7. Persistent contact | `DEFERRED_BY_PS-6` | XL | Rolling/scraping доказаны отдельным speed/load/roughness corpus и не зависят от callback-frequency artifacts. |
 
@@ -1102,6 +1126,45 @@ internet sources покрывает required claims и grouped evidence. Одн�
 а `E3` — real identity/envelope. Material-only AV-P0B/YCB rows не получают
 выдуманную геометрию, а отсутствие online coverage оставляет domain fallback-only.
 
+## PS-2N — Neural field feasibility
+
+PS-2N отвечает на один вопрос: умеет ли learned acoustic field лучше frozen
+Q30/DCT baseline восстанавливать новые impact/listener conditions, сохраняя
+bounded cooked representation и exact runtime repeat. Это feasibility gate, а
+не domain admission; `admission_shadow` остаётся закрыт.
+
+Работа разделена на пять пакетов:
+
+1. `PS-2N0` замораживает row projection, published axes, provenance и роли
+   `train/development/calibration/method_holdout/admission_shadow`;
+2. `PS-2N1` экспортирует неизменённый Q30/DCT baseline и одинаковые features;
+3. `PS-2N2` обучает object-specific few-shot modal/gain/residual field;
+4. `PS-2N3` только после успеха few-shot проверяет shared geometry-conditioned
+   surrogate на object/family-disjoint holdout;
+5. `PS-2N4` публикует frozen decision `GO_FEW_SHOT`, `GO_SHARED`,
+   `REJECT_REPRESENTATION` или `DATA_INSUFFICIENT`.
+
+Основные задачи benchmark: held-out impact position, held-out listener,
+bounded energy scaling, silence/rest/separation controls, OOD и exact cook.
+Direct waveform model может быть только report-only upper bound. Ни один
+candidate не проходит по одному pooled similarity score: hard/causal gates
+проверяются первыми, а per-object/position/listener distributions обязательны.
+
+Exit criterion:
+
+- data/split/model/code/environment/seed/checkpoint hashes заморожены;
+- candidate улучшает каждый preregistered primary aggregate относительно
+  classical baseline без hard/causal regression;
+- unseen-position/listener improvement не сводится к memorization;
+- object-disjoint failure сужает claim до exact-object few-shot, а не скрывается
+  средним score;
+- model output cooks в canonical bounded coefficients и exact PCM;
+- method holdout открыт один раз после заморозки candidate; admission shadow не
+  читался.
+
+Полный порядок пакетов и commit boundaries определён в
+[implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md).
+
 ## PS-3 — Заморозить Validator Release V1
 
 Release фиксирует corpus/split hashes, deterministic gates, specialist/model
@@ -1123,26 +1186,29 @@ Exit criterion:
 `FallbackOutOfDomain`-only. Это корректный milestone result, но он не открывает
 PS-4.
 
-## PS-4 — AV-P0D autonomous formula search
+## PS-4 — Neural cooker and one-shot admission
 
-Optimizer получает только development/fit evidence и отдельную cost axis.
-Frozen validator и shadow доступны лишь admission step. Каждый цикл меняет
-ровно одно source-model family hypothesis.
+В PS-4 встречаются frozen neural generator, frozen cooker и independently
+frozen Validator Release V1. Generator получает только train/development
+evidence; calibration/holdout/shadow валидатора недоступны во время обучения.
+Untouched admission shadow открывается один раз для exact candidate revision.
 
-Плановый первый discriminator — time-varying coloured residual против bounded
-modal interaction для thin-metal vessel. Он запускается только при наличии
-exact PS-2 domain corpus; иначе используется первый domain, реально прошедший
-PS-2, без ослабления axes.
+Cooker проверяет finiteness, counts, bounds, canonical mode order, duplicate
+modes, coordinate envelope и OOD; затем quantizes frequencies/damping,
+impact/listener gains и compact residual в deterministic reference profile.
+Invalid, unavailable или OOD output немедленно выбирает authored clip.
 
 Exit criterion:
 
-- manifest начинает run с exact corpus/formula/validator hashes;
-- candidate lineage и Pareto objective воспроизводимы;
+- manifest начинает run с exact corpus/model/checkpoint/cooker/validator hashes;
+- candidate lineage, uncertainty и cost objective воспроизводимы;
 - hard/causal gate не может быть компенсирован learned score;
 - frozen validator публикует `Pass`, `Reject` или `FallbackOutOfDomain`;
-- результат и negative controls повторяются без per-candidate human input.
+- accepted cooked PCM и negative controls повторяются без per-candidate human
+  input;
+- shadow не переоткрывается для настройки той же revision.
 
-## PS-5 — Formula Base V1
+## PS-5 — Neural-Cooked Formula Base V1
 
 Цель — три независимо допущенных bounded domain, а не один универсальный
 материал model:
@@ -1152,15 +1218,17 @@ Exit criterion:
 3. dry hardwood block impact.
 
 Каждая запись содержит exact geometry/support/excitation/listener envelope,
-formula/parameter revision, evidence hashes, risk/coverage, cost и authored
-fallback. Новая геометрия, опора, диапазон силы или listener set создаёт новую
-admission record. Rejected formulas и mutations остаются в базе как knowledge,
-которое не позволяет повторить неработающий путь.
+model/checkpoint/cooker revision, cooked parameters, evidence hashes,
+risk/coverage, cost и authored fallback. Новая геометрия, опора, диапазон силы
+или listener set создаёт новую admission record. Rejected models, formulas и
+mutations остаются в базе как knowledge, которое не позволяет повторить
+неработающий путь.
 
 Exit criterion: по одной exact domain revision на family имеет hard/causal
 PASS, confidence-bounded selective risk, useful coverage, untouched-shadow
-evidence, bounded offline/runtime-reference cost и exact fallback. Это всё ещё
-research admission, не shipping content.
+evidence, bounded offline/runtime-reference cost, exact fallback и полностью
+reconstructible cooked record без runtime model. Это всё ещё research
+admission, не shipping content.
 
 ## PS-6 — Первый production impact vertical
 
@@ -1177,8 +1245,8 @@ Work package:
 3. Freeze minimum consumer-driven `AcousticMaterialProfileV1`,
    `ModalSoundModelV1` and `PhysicalSoundBindingV1` cooked PresentationOnly
    shapes.
-4. Cook one admitted research record; never load research registry or learned
-   validator at runtime.
+4. Cook one admitted research record; never load research registry, model
+   weights or learned validator at runtime.
 5. Wire bounded extraction, fixed-point reference voice, admission/LOD and
    existing mixer/fallback path.
 6. Measure whole mixer/callback p95/p99 and memory/queue/voice bounds on the
@@ -1208,12 +1276,12 @@ Fracture, footsteps, cloth, liquids, fire, voice и biological synthesis не
 
 | Порядок | Work package | Gate после выполнения |
 | ---: | --- | --- |
-| 1 | Реализовать amplitude-envelope specialist и deterministic unit controls | PS-1 code complete; `Pass` всё ещё disabled |
-| 2 | Пересчитать frozen AV-P0C pack и зафиксировать grouped risk/coverage report | PS-1 evidence decision |
-| 3 | Спроектировать exact-domain acquisition и power analysis, затем заморозить splits/policy — `COMPLETE` | PS-2 corpus contract |
-| 4 | Controlled pilot, internet registry/cache, E2/E3 normalization, exact roles/source gates, transfer/spatial discriminators, report-only registry and metal batch — `PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_HOLDOUT_REJECTED / RESIDUAL_COLORATION_HYPOTHESIS_SUPPORTED / CROSS_LISTENER_RANK1_FAILURE_SUPPORTED / COLORED_RESIDUAL_SUCCESSOR_FROZEN / ARCHIVE_IDENTITY_DISCOVERY_FROZEN / ZIP_TAIL_RUNNER_CONTROL_SUPPORTED / LOCAL_HEADER_RUNNER_CONTROL_SUPPORTED / BOUNDARY_PIPELINE_FROZEN / THREE_HEAD_REQUESTS_NEXT / SHADOW_SEALED / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN`; execute pipeline `identity` once when network is available, inspect audits, then invoke tail/header separately; no range/shadow or quality/domain promotion | PS-2 domain-axis readiness |
-| 5 | Выпустить или отклонить frozen Validator Release V1 одним declared shadow evaluation | PS-3 go/no-go |
-| 6 | Только при go запустить один AV-P0D source-model discriminator | PS-4 first autonomous decision |
+| 1 | Заморозить `PS-2N0` row projection, пять split roles и leakage/capability audit; модель не обучать | Neural data contract |
+| 2 | Экспортировать неизменённый Q30/DCT baseline и exact cooked/PCM controls | Classical benchmark frozen |
+| 3 | Preregister и обучить external object-specific few-shot modal/gain/residual field | Held-out position/listener discriminator |
+| 4 | При успехе few-shot проверить shared geometry-conditioned surrogate на object/family-disjoint method holdout | `GO_FEW_SHOT`, `GO_SHARED`, `REJECT_REPRESENTATION` или `DATA_INSUFFICIENT` |
+| 5 | Выпустить independently frozen Validator Release V1 без открытия admission shadow во время разработки | PS-3 go/no-go |
+| 6 | Встретить frozen generator и validator на admission shadow один раз; cook и зафиксировать tri-state decision | PS-4 admission record |
 
 Каждый пакет является отдельным coherent commit/evidence boundary. External
 recordings, WAVs, features, weights and reports в commit не входят.
@@ -1225,8 +1293,11 @@ recordings, WAVs, features, weights and reports в commit не входят.
 | PS-1 не закрывает B4/B5 после двух coherent variants | Bounded research cycle; source tuning запрещён |
 | Corpus не позволяет pre-register meaningful confidence/coverage | Расширить independent groups или оставить validator fallback-only |
 | Published internet evidence не закрывает required claim/axis | Оставить claim/domain fallback-only; не требовать local capture и не придумывать metadata |
-| AV-P0D улучшает fit, но проигрывает frozen validator/shadow | `Reject`, сохранить counterexample, сменить одну hypothesis |
-| Ни одна formula family не даёт bounded quality/cost point | Остановить domain и использовать authored clips |
+| Neural candidate улучшает train, но не unseen impact/listener rows | `Reject` как memorization; не открывать shared/domain claim |
+| Shared model проигрывает object-disjoint holdout, но few-shot проходит | Поддержать только exact-object few-shot claim; zero-shot отклонить |
+| Direct waveform model звучит лучше, но не cooks/exact/causal | Оставить report-only upper bound или authored-asset source |
+| Frozen neural candidate проигрывает validator/shadow | `Reject`, сохранить counterexample, сменить одну preregistered hypothesis |
+| Ни neural, ни classical family не дают bounded quality/cost point | Остановить domain и использовать authored clips |
 | SPEC-26 projection недостаточна для production excitation | Не обходить raw callback; уточнить consumer-driven projection или остановить P1 |
 | Whole-mixer budget не проходит | Явно снизить modes/voices/LOD либо оставить clip fallback; не ослаблять authoritative isolation |
 | Нет roadmap slot или player-visible consumer | Research artifacts сохраняются; public schemas/runtime integration не начинаются |
@@ -1235,10 +1306,13 @@ recordings, WAVs, features, weights and reports в commit не входят.
 
 - **Validator done:** PS-3 публикует measured confidence-bounded automatic
   decision на grouped independent evidence без live human gate.
-- **Research loop done:** PS-4 воспроизводимо принимает или отклоняет новую
-  formula revision без изменения validator внутри цикла.
-- **Formula base V1 done:** PS-5 хранит по одной exact admitted domain для
-  metal, glass и wood вместе с negative knowledge и fallbacks.
+- **Neural feasibility done:** PS-2N воспроизводимо поддерживает few-shot/shared
+  claim или отклоняет representation, не читая admission shadow.
+- **Research loop done:** PS-4 воспроизводимо принимает или отклоняет frozen
+  model/cooker revision без изменения validator внутри цикла.
+- **Formula base V1 done:** PS-5 хранит по одной exact admitted neural-cooked
+  domain для metal, glass и wood вместе с negative knowledge и fallbacks; ни
+  одна запись не требует runtime model inference.
 - **First product value done:** PS-6 проходит production contact/content/PCM,
   root-isolation and whole-mixer gates для одного visible prop.
 - **Persistent-contact expansion done:** PS-7 отдельно доказывает rolling и

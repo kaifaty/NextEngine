@@ -2,31 +2,35 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PS2_PITCHER_COMBINED_PROTOCOL_REJECTED / CERAMIC_METHOD_DEVELOPMENT_CLOSED / IRON_SKILLET_METHOD_TRANSFER_REJECTED / FIXED_TAIL_TIMING_MISMATCH_SUPPORTED / BROADBAND_COMMON_POLE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_CAPACITY_COUNTERFACTUAL_REJECTED / DENSE_BROADBAND_SCALE_SYNTHETIC_CONTROL_SUPPORTED / IRON_BROADBAND_V2_METHOD_TRANSFER_SUPPORTED / INDEPENDENT_BROADBAND_METHOD_TRANSFER_SUPPORTED / MODAL_OBSERVATION_REGISTRY_V0_BUILT / METAL_BATCH_HOLDOUT_REJECTED / RESIDUAL_COLORATION_HYPOTHESIS_SUPPORTED / CROSS_LISTENER_RANK1_FAILURE_SUPPORTED / COLORED_RESIDUAL_SUCCESSOR_FROZEN / ARCHIVE_IDENTITY_DISCOVERY_FROZEN / ZIP_TAIL_RUNNER_CONTROL_SUPPORTED / LOCAL_HEADER_RUNNER_CONTROL_SUPPORTED / BOUNDARY_PIPELINE_FROZEN / THREE_HEAD_REQUESTS_NEXT / SHELL_NETWORK_BLOCKED / GIT_METADATA_READ_ONLY / SHADOW_SEALED / ABSOLUTE_PREDICTION_QUALITY_OPEN / MECHANICS_BLOCKED / PLANTER_AUDIO_SEALED / AUTHORED_CLIP_FALLBACK / EIGHT_EXACT_CLAIMS_OPEN / PASS_DISABLED / P1_BLOCKED` |
-| Updated | `2026-08-28` |
+| Status | `NEURAL_FIRST_STRATEGY_SELECTED / CLASSICAL_Q30_DCT_BASELINE_FROZEN / PS-2N0_DATA_PROJECTION_NEXT / ADMISSION_SHADOW_SEALED / AUTHORED_CLIP_FALLBACK / PASS_DISABLED / P1_BLOCKED` |
+| Updated | `2026-08-30` |
 | Task key | `physical-sound-synthesis` |
-| Scope | Proposed architecture plus isolated fixed-point impact/demo and external controlled-corpus experiments |
-| Definition of done | Demonstrate an external selective validator whose automatic pass has measured bounded false-pass risk on grouped real/mutation holdouts, with automatic clip fallback for OOD and no per-sound human gate |
+| Scope | Proposed architecture plus isolated fixed-point baseline, external neural acoustic-field experiments and independent validation |
+| Definition of done | Demonstrate a frozen offline neural candidate that beats the classical baseline on held-out impact/listener/object axes, cooks to exact deterministic runtime coefficients, and is admitted only by an independent selective validator with automatic clip fallback |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
-- **Current conclusion:** Pipeline preflight `456ea8e9…0cceb` freezes separate
-  identity/tail/header execution; parser controls `8be574bd…8e605` /
-  `1de7356a…377aa` remain exact and member access stays disabled.
-- **Why:** Product-owner constraint dated 2026-08-27. Evidence is claim-scoped:
-  external `E1` synchronized, `E2` transfer, `E3` identified-real and `E4`
-  synthetic sources receive only the credit their bytes/metadata establish.
-- **Next action:** When network is available, run pipeline `identity` exactly
-  once, then inspect its offline audits; it cannot auto-continue into ranges.
-- **Current blocker:** Shell DNS exits `2`; shared Git metadata is read-only.
-  Archive bytes stay unopened, the worktree uncommitted and Spatulas sealed.
+- **Current conclusion:** Manual formula/residual search is no longer the
+  primary successor. Use an offline neural acoustic field that predicts
+  bounded modes, impact/listener gains and a compact residual, then cook it
+  into the deterministic Q30 reference path.
+- **Why:** The classical path is exact and provides strong controls, but real
+  holdouts reject shared residual/spatial assumptions. The remaining problem
+  is a conditional object/impact/listener field, while user recording remains
+  out of scope and published internet evidence stays claim-scoped.
+- **Next action:** Freeze `PS-2N0` row projection, five split roles and leakage/
+  capability audit. Do not train a model in that package.
+- **Current blocker:** No infrastructure blocker is recorded. Quality,
+  synchronized axis coverage, validator risk and production contact/consumer
+  evidence remain open engineering gates.
 - **Do not retry:** Treating synthetic-target match as glass identity, blind preset tuning, or using FAD, CLAP, ViSQOL, an aesthetic
   model or a general audio model as the sole quality judge. Also retain the ban
   on universal material sound, raw PhysX-callback mixing and local recording;
   do not grow ObjectFolder gzip prefixes, weaken the Freesound direct-endpoint
-  policy or repeatedly probe HTTP 403 without a changed route/host condition.
-- **Reconsider when:** P0 produces a measured quality/cost point and a concrete
-  production impact consumer is selected.
+  policy, tune another manual residual family without a neural ablation, or
+  make prompt-to-waveform/runtime neural inference the first engine path.
+- **Reconsider when:** PS-2N produces a measured held-out quality/cost point or
+  new evidence falsifies the compact cooked representation.
 
 ## Current evidence
 
@@ -103,59 +107,10 @@ resume-critical consequences are:
 | D-002 | Start with cooked modal rigid impact; persistent contact and other source classes remain separate. | Exact-domain evidence shows another bounded source model is required. |
 | D-003 | Acoustic profiles remain PresentationOnly and separate from physics materials. | A concrete consumer proves a field is a shared physical source of truth. |
 | D-004 | Production wiring waits for the engine-owned committed contact projection and `PHYS-COLLISION-P1`. | The projection and its product evidence exist. |
-| D-005 | Classical cooked reference, offline fitting and clip fallback precede any runtime learning. | A controlled residual target and immutable non-neural fallback exist. |
+| D-005 | Classical cooked reference and clip fallback remain mandatory boundaries for offline neural fitting; the first vertical has no runtime model. | A measured product need cannot be met by cooked coefficients and a separate ADR defines runtime artifact/budget/fault/fallback semantics. |
 | D-006 | R8 remains an isolated experiment with no stage activation or shipping claim. | A roadmap slot and player-visible consumer are selected. |
-
-### D-008 — Transfer V1 is preserved as an invalid metric lineage
-
-- **Observation:** The repeated report passed provisional thresholds while its
-  mode list exposed duplicate tail assignments and identical damping tracks
-  for multiple unresolved peaks.
-- **Evidence:** V1 report SHA-256
-  `ad1e75149f8feb7016c7fb2f8c652a16e40d95112b112ddb14dda1e00a27c321`;
-  V2 manifest/report SHA-256
-  `52dbdc59235dfe88f1533dab5c1b11e1226318e1e50727300b84bdb94441e383`
-  and `01346767b596630061fe437e98d5213bf426e49e5b96c22565a77acfea50d444`.
-- **Decision:** Do not reinterpret V1 as modal success or retune it after the
-  opened Shell holdout. V2 requires injective matching and frequency-
-  resolution separation and used the previously unopened Skull row once; keep
-  its credit limited to relative modal/damping transfer.
-- **Rejected alternatives:** Raising the V1 threshold after inspection,
-  reporting the formal threshold pass, or opening Skull during diagnosis.
-- **Consequences:** V2 used Shell Plate for selection and Skull Cup once as the
-  fresh holdout. Its injective 16-mode extractor passes the frozen relative
-  modal/damping gates, but spatial fitting remains blocked on multi-listener
-  rows and all exact-domain claims remain open.
-- **Reconsider when:** Never for V1; a separately hash-closed V2 may supersede
-  only the extraction method, not the historical report.
-
-### D-009 — Listener blocks require source-order proof and preregistered opening
-
-- **Observation:** The official preprocessing loops over 15 microphones inside
-  each valid impact condition, but array position alone would still be an
-  inference without checking the published annotation bytes.
-- **Evidence:** Frozen script hashes plus repeated acquisition profile/manifest/
-  report/block SHA-256 `c2301789…7e28`, `fcf44d41…50de`,
-  `cef5d381…7680`, `8bcffd0a…75ca`; preregistration `077b9a46…f2cb`,
-  selection `0aea2b62…0320` and spatial report `abc13a9c…989d`.
-- **Decision:** Grant multi-listener acquisition credit only when scripts and
-  row arrays agree on impact, angle, distance, microphone and listener
-  coordinates. The Green/Shell/Skull experiment may grant only its
-  preregistered fixed-angle/distance vertical-line claim; keep the selected RBF
-  immutable for further object holdouts.
-- **Rejected alternatives:** Treating 15 adjacent rows as listeners by shape
-  alone, reporting raw amplitude variation as a spatial model, or inspecting
-  Shell/Skull blocks before freezing the decision rule.
-- **Consequences:** Green is development, Shell calibration and Skull the
-  one-shot holdout. Rows `1..14` are now opened under the frozen manifest and
-  repeat exactly. The later Blue/Glass axis extension rejects the generic RBF;
-  those objects remain holdout evidence and cannot be used for retuning. A
-  separate 10/2/2 split rejects one bbox-conditioned object bandwidth during
-  calibration; its per-mode frequency-conditioned successor also fails fresh
-  calibration. Both ceramic holdouts remain unopened.
-- **Reconsider when:** Only a new source revision changes preprocessing order or
-  a preregistered experiment proves the current split cannot test the intended
-  spatial claim.
+| D-008 | Transfer V1 remains invalid; V2 has only relative modal/damping credit and opened holdouts cannot be retuned. | Never for V1; a new hash-closed method may supersede extraction only. |
+| D-009 | Listener credit requires source-order/annotation proof and preregistered object/listener opening; failed RBF/bbox/frequency variants remain rejected. | A source revision changes ordering or a new preregistered field hypothesis is tested. |
 
 ### D-007 — Quality uses an internet corpus and automatic selective ensemble
 
@@ -163,7 +118,7 @@ resume-critical consequences are:
   not perform physical capture; required real evidence must be found online.
 - **Evidence:** Product-owner constraint 2026-08-27 plus the automated-validation
   report, external corpus pilots and selective-risk results.
-- **Decision:** Build a versioned internet-source/corpus/formula registry and an
+- **Decision:** Build a versioned internet-source/corpus/model-cooker registry and an
   offline oracle from claim-scoped `E1`–`E4` evidence, specialists, grouped
   holdouts and calibrated risk. Outcomes remain `Pass`, `Reject` or clip fallback.
 - **Rejected alternatives:** Local mic/hammer acquisition, a live human queue,
@@ -180,6 +135,24 @@ resume-critical consequences are:
 - **Reconsider when:** Only an explicit product-owner reversal permits local
   capture; validator simplification still requires equal bounded risk/coverage.
 
+### D-010 — Offline neural acoustic field is the primary successor
+
+- **Observation:** Exact Q30 rendering and synthetic DCT controls are stable,
+  but real holdouts reject global residual and rank-one spatial transfer.
+- **Evidence:** [Neural strategy](../physical-sound-neural-acoustic-field-strategy-2026-08-30.md)
+  plus the frozen metal/spatial/boundary reports linked above.
+- **Decision:** Learn bounded modes, impact/listener gains, compact residual and
+  OOD externally; cook them into the deterministic reference renderer. Test an
+  object-specific few-shot field before shared object-disjoint transfer.
+- **Rejected alternatives:** More unguided manual residual variants,
+  prompt-to-waveform as the engine path, and runtime neural inference first.
+- **Consequences:** `PS-2N0` data projection is next. Generator and validator
+  roles remain disjoint; admission shadow stays sealed; authored clip fallback
+  is mandatory.
+- **Reconsider when:** The compact representation loses a measured learned
+  advantage, or a future product need justifies a separately governed runtime
+  model boundary.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -189,7 +162,7 @@ resume-critical consequences are:
 | H3: Fixed-point reference resonators can meet both exact PCM and quality | Selected `09` repeats exactly; controlled-corpus Q30 RMS error is at most `7.987e-8` | One synthetic object is not a real quality or whole-mixer envelope | Preserve exact transfer while fitting only against held-out published real evidence |
 | H4: Rolling/scraping can use the ordinary committed contact stream | Rolling/contact synthesis prior art exists | High-quality work identifies micro-collision, chattering and stick-slip gaps | P2 speed/load/roughness corpus with resting/separation controls; add one flexible-contact counterfactual only if it fails |
 | H5: Physical synthesis fits a useful whole-mixer budget | 16 selected voices cost `1.683 ms` p99 in the isolated lab tick; cooked payload is 1,536 bytes | Measurement excludes normal mixer, callback/device and varied voices; no product budget exists | Measure full mixer/callback p95/p99 on a declared production consumer before setting a budget |
-| H6: A selective specialist ensemble can safely automate admitted impact domains | Synthetic controls reproduce; colored DCT excitation closes its known synthetic coloration/autocorrelation gates | Real colored-residual groups remain unopened; rank-one spatial model remains invalid | Execute/audit the three frozen archive identities, then evaluate colored representation in strict role order |
+| H6: An offline neural acoustic field can outperform the frozen classical baseline without losing bounded control | Modal-field, learned-radiation and differentiable-resonator prior art support structured learned outputs; the current renderer supplies exact cooking and controls | No Next Engine object/listener-disjoint benchmark exists; data-axis coverage may be insufficient | Freeze `PS-2N0`, export the Q30/DCT baseline, then run one object-specific few-shot held-out-position/listener discriminator |
 
 ## Required context
 
@@ -198,18 +171,19 @@ Read these sources in precedence order before acting:
 1. [Agent routing](../../architecture/agent-routing.md), [SPEC-00](../../architecture/00-product-contract.md) and [SPEC-01](../../architecture/01-system-architecture.md).
 2. [SPEC-08](../../architecture/08-audio-navigation-and-world-services.md), [SPEC-26](../../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../../architecture/30-presentation-extraction-and-render-content.md), ADR-027/046/058/071.
 3. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-4. [Research report](../physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../physical-sound-quality-evaluation-research-2026-08-26.md),
-   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [Kronland/split freeze](../physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [exact-domain matrix](../physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet-source feasibility](../physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [transfer calibration](../physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [vertical spatial calibration](../physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-object extension](../physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [shape calibration](../physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [frequency calibration](../physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [modal-radiation diagnostic](../physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md) and the [implementation plan](../../plans/2026-08-27-physical-sound-domain-admission-implementation-plan.md).
+4. [Neural acoustic field strategy](../physical-sound-neural-acoustic-field-strategy-2026-08-30.md), [research report](../physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../physical-sound-quality-evaluation-research-2026-08-26.md),
+   [automated validation](../physical-sound-automated-validation-research-2026-08-27.md), [AV-P0C](../physical-sound-validator-av-p0c-2026-08-27.md), [PS-1](../physical-sound-validator-ps1-2026-08-27.md), [internet corpus policy](../physical-sound-internet-corpus-policy-ps2-2026-08-27.md), prior E3/E2 pilots, [Kronland/split freeze](../physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [exact-domain matrix](../physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [internet-source feasibility](../physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [transfer calibration](../physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [multi-listener acquisition](../physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [vertical spatial calibration](../physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [multi-object extension](../physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [shape calibration](../physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [frequency calibration](../physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [modal-radiation diagnostic](../physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [PS-2 plan](../physical-sound-corpus-plan-ps2-2026-08-27.md) and the [neural implementation plan](../../plans/2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md).
 5. [Roadmap](../../roadmap.md) only for a future scheduling/scope decision.
 
 ## Next action
 
-1. Preserve every frozen evidence hash externally; never retune opened data or
-   reinterpret a control pass as quality, causality or P1 evidence.
-2. Run pipeline `identity` once when network is available, inspect its offline
-   audits, then invoke tail/header separately; keep Spatulas sealed.
-3. Promote only after measured quality/risk and a consumer ADR; otherwise keep
-   the unchanged authored-clip fallback.
+1. Freeze `PS-2N0` row projection with explicit published axes, provenance,
+   five split roles and leakage/capability audit; train no model yet.
+2. Export the unchanged Q30/DCT baseline into the same benchmark representation
+   and retain every frozen evidence hash and negative control.
+3. Preregister one object-specific few-shot impact/listener experiment; keep
+   admission shadow sealed and promote nothing without measured quality/risk
+   plus a future consumer ADR.
 
 ## Do not retry
 
@@ -217,8 +191,13 @@ Read these sources in precedence order before acting:
   not cover rigid contact, cloth, fluids, fire and biological sources.
 - Raw PhysX callback to mixer — violates engine-owned stable projection and
   leaves replay/order/backend semantics undefined.
-- Runtime neural residual first — there is no measured residual or bounded
-  classical comparator yet.
+- Runtime neural inference first — offline cooking can test learned quality
+  without introducing model artifacts, inference budgets or a runtime fault
+  domain.
+- Another manual residual family after frozen DCT — only a preregistered neural
+  ablation identifying one missing statistic can reopen that path.
+- Prompt-to-waveform as the primary engine path — it may be a report-only upper
+  bound or authored-asset source, not the controllable deterministic renderer.
 - Blind acoustic tuning or more stationary-white residual gain/T20 — without
   grouped holdouts it optimizes the score; v4 overfills the tail and shifts
   BEATs from metal toward glass.
@@ -233,16 +212,15 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Registry V1, PS-1, PS-2 corpus/evidence paths, repeated
-  empirical rejections, converged elastic FEM→Bempp, a full-angular Rust cooker
-  and synthetic broad-band common-pole support exist; public schemas/ownership are unchanged.
-- **Checks:** Pipeline preflight A/B repeats at `456ea8e9…0cceb`; tail/header
-  controls remain `8be574bd…8e605` / `1de7356a…377aa`. Real network, range,
-  local-header, member and shadow bytes remain zero; failure controls reject.
+- **Workspace state:** Registry V1, frozen Q30/DCT baseline, repeated empirical
+  rejections, FEM→Bempp controls and deterministic cooker exist. Neural-first
+  strategy/plan are selected; public schemas and ownership are unchanged.
+- **Checks:** Frozen pipeline preflight A/B remains `456ea8e9…0cceb`; tail/header
+  controls remain `8be574bd…8e605` / `1de7356a…377aa`. This strategy change
+  executes no new data acquisition, model training or shadow evaluation.
 - **Remaining risk:** eight exact-domain claims, real 3D transfer, calibrated
   OOD/shadow risk, contact sufficiency, mixer cost and authoring are open.
-- **Quality status:** V2 supports relative modal/damping extractor transfer;
-  the RBF supports only a narrow pilot; wider kernels and compact multipoles
-  fail. The matrix remains fallback-only, and no calibrated validator release,
-  perceptual quality, corpus admission or production claim exists.
+- **Quality status:** Classical baseline is frozen, not admitted. No neural
+  benchmark, calibrated validator release, corpus admission or production
+  claim exists; `PS-2N0` is the next exact package.
 - **Promotion needed:** Concrete consumer, later ADR-046 promotion, then exact content/contact/DSP profiles and ProductChecks.

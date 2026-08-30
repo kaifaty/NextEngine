@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.90 |
-| Last verified | 2026-08-28 |
+| Version | 0.91 |
+| Last verified | 2026-08-30 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [PS-2 YCB vertical reject-parent expansion](../development/physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Blue Bowl cross-tier E2 increment](../development/physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [PS-2 REALIMPACT Shell Plate bounded-range E2 pilot](../development/physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md), [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Skull Cup bounded-range E2 pilot](../development/physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md), [PS-2 SoundPacks Glass E3 and split audit](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md), [PS-2 Kronland reject expansion and split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [PS-2 exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [PS-2 internet-source feasibility and transfer route](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [PS-2 REALIMPACT transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [PS-2 REALIMPACT vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [PS-2 REALIMPACT shape-conditioned spatial calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT frequency-conditioned spatial calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT modal-radiation representation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [PS-2 analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [PS-2 Pitcher causal audit](../development/physical-sound-pitcher-causal-audit-ps2-2026-08-28.md), [PS-2 Iron selector/tail diagnostic](../development/physical-sound-realimpact-selector-tail-diagnostic-result-ps2-2026-08-28.md) |
-| Replaces | SPEC-45 0.89; freezes fail-closed orchestration across the separate identity, ZIP-tail and local-header discovery boundaries |
-| Latest evidence | [PS-2 REALIMPACT colored-residual boundary pipeline preflight](../development/physical-sound-realimpact-colored-residual-pipeline-preflight-ps2-2026-08-28.md) |
+| Neural strategy | [Offline neural acoustic field strategy, 2026-08-30](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
+| Replaces | SPEC-45 0.90; selects an offline neural acoustic field and deterministic cooker as the primary research successor while retaining the frozen classical baseline and no runtime model |
+| Latest evidence | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 
 ## Status and decision boundary
 
@@ -26,6 +27,36 @@ then bounded rolling and scraping. Cloth, fluids, fire, fracture and biological
 sound production are separate source-model tracks. They may reuse the same
 bounded excitation and mixer interfaces after their own owners and evidence
 exist, but they are not implied by the rigid modal vertical.
+
+### Candidate offline neural field and cooker boundary
+
+The primary research successor is an external neural acoustic field, not a
+runtime waveform generator. It may learn from published, hash-closed geometry,
+impact, listener and audio evidence and predict:
+
+- bounded object-global modal frequencies and damping;
+- impact- and listener-conditioned modal gains;
+- a compact coloured residual descriptor;
+- calibrated coverage and OOD evidence.
+
+The first vertical cooks this output into canonical sorted/quantized modal,
+gain and residual coefficients and renders it through the deterministic
+reference path. Training data, model weights, optimizer state, feature caches,
+generated WAVs and validator inference remain external. Runtime loads neither
+the neural model nor the research registry; invalid, unavailable and OOD
+conditions select the authored clip fallback.
+
+The existing Q30 modal renderer, synthetic FEM/BEM controls and frozen DCT
+coloured-residual path remain the classical baseline, synthetic teacher,
+compact output representation, exact runtime reference and negative controls.
+An object-specific few-shot field precedes any shared zero-shot claim. A direct
+waveform model may be evaluated only as a report-only perceptual upper bound or
+an authored-asset source.
+
+This v0.91 change refines a `Proposed` research route. It adds no current public
+schema, runtime dependency, ProductCheck or roadmap activation and therefore
+does not supersede an Accepted architecture decision. Production promotion
+still requires a concrete consumer and the ADR-046 workflow.
 
 Non-normative implementation note (2026-08-26): an isolated P0/P0.5
 laboratory now exists in `next_presentation::physical_sound_lab`. The `xtask
@@ -1230,10 +1261,10 @@ release may invalidate admission under a newer policy only by publishing a new
 record. Historical records remain immutable evidence rather than being
 rewritten.
 
-The research registry therefore accumulates conditional formula knowledge,
+The research registry therefore accumulates conditional model/cooker knowledge,
 not a universal table mapping `material -> coefficients`. Runtime fitting,
 training and validator inference are not implied: P1 cooks an admitted bounded
-record and evaluates only the deterministic source formula.
+record and evaluates only the deterministic source representation.
 
 ## Candidate content model
 
@@ -1460,7 +1491,7 @@ with exact synthetic impulses, render canonical 48 kHz PCM and compare modal
 frequencies, decay and bounded perceptual descriptors against reference
 recordings or a high-quality offline solver. P0 changes no runtime contract.
 
-P0 advances through four evidence checkpoints:
+P0 advances through five evidence checkpoints:
 
 1. `AV-P0A` keeps hard signal, deterministic repeat and causal/metamorphic
    controls independent from subjective material identity.
@@ -1471,15 +1502,21 @@ P0 advances through four evidence checkpoints:
    calibration-only selective risk measured on parent-grouped holdout/shadow.
    Automatic `Pass` remains disabled until this checkpoint demonstrates its
    declared confidence bound and coverage.
-4. `AV-P0D` may optimize formula parameters only against development/fit data;
-   the frozen validator release, mutation suite and untouched shadow decide
-   admission.
+4. `AV-P0D` freezes the neural feasibility benchmark: object-specific few-shot
+   first, shared geometry-conditioned transfer second, with separate train,
+   development, calibration, method-holdout and sealed admission-shadow roles.
+   It must cook predictions exactly and cannot claim admission.
+5. `AV-P0E` meets one frozen neural candidate/cooker with the independently
+   frozen validator release and untouched admission shadow exactly once. It
+   publishes `Pass`, `Reject` or `FallbackOutOfDomain` without retuning the same
+   revision on the opened shadow.
 
-Each research cycle changes one falsifiable source-model hypothesis or one
-validator release, not both. A generator failure adds a reproducible mutation
-or negative control before another similar tuning pass. Two coherent failures
-without a newly discriminating hypothesis trigger the repository research
-escalation rule rather than another coefficient grid.
+Each research cycle changes one falsifiable source-model hypothesis, one model
+architecture/cooker hypothesis or one validator release, not multiple sides of
+the same comparison. A generator failure adds a reproducible mutation or
+negative control before another similar pass. Two coherent failures without a
+newly discriminating hypothesis trigger the repository research escalation
+rule rather than another residual family or architecture sweep.
 
 A domain is complete for P0 when one immutable revision has all hard and
 metamorphic controls passing, measured selective risk/coverage on grouped
@@ -1520,9 +1557,11 @@ symptom.
   combustion exciters;
 - voice and bird syrinx models remain specialized biological instruments with
   separate controllability and quality criteria;
-- differentiable or learned methods may fit acoustic parameters offline, but
-  runtime neural residuals require a measured classical deficiency, immutable
-  local artifact, bounded inference and a complete non-neural fallback.
+- differentiable or learned methods may fit the bounded acoustic field
+  offline; the first product vertical consumes only its deterministic cooked
+  record. Runtime neural inference requires a later measured product need,
+  immutable local artifact, bounded inference/fault profile, complete
+  non-neural fallback and a separate architecture decision.
 
 ## Candidate ProductChecks
 
@@ -1557,9 +1596,11 @@ than rely on an unbounded solver.
 | Feed raw PhysX callbacks directly to the mixer | Violates engine-owned contracts, stable identity, canonical ordering and backend isolation. |
 | Put acoustic constants into `PhysicsMaterialDescriptorV2` | Creates parallel semantics in the physics authority and still lacks geometry, damping, radiation and calibration identity. |
 | Runtime FEM/eigenmode solve per object | Unbounded and unnecessary; preprocessing can cook a compact resonator model. |
+| Prompt-to-waveform model as the primary engine path | Produces an opaque asset rather than a controllable impact/listener field and does not by itself satisfy causality, exact cooking, OOD or deterministic fallback. |
+| Runtime neural inference in the first vertical | External offline fitting can test the learned representation without adding model artifacts, inference budgets and a new runtime fault domain. |
 | Make waveform propagation determine NPC hearing | Couples gameplay to voice admission, device state and optional presentation adapters. |
 | Start with scraping, fracture, liquids or a bird synthesizer | Expands the unknown source/owner surface before the smallest rigid-impact consumer is proven. |
-| Runtime neural residual as the base path | Adds artifact/provider/resource/fallback complexity before a measured classical quality gap exists. |
+| Another manual residual family after the frozen DCT baseline | The remaining failures vary across object, impact and listener conditions; another global residual revision is not justified without a preregistered neural ablation identifying one missing statistic. |
 
 ## Research basis and limits
 
