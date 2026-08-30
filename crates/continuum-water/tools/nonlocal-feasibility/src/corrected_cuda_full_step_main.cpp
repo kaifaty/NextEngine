@@ -584,6 +584,26 @@ int run_tiny_solver_correspondence() {
                       << " gpu_gradient=" << gpu.gradient_norm
                       << " gpu_accept=" << gpu.work.accepted_trials
                       << " gpu_reject=" << gpu.work.rejected_trials << '\n';
+            std::cout << std::setprecision(12)
+                      << "{\"research_id\":\"NCGP1\",\"mode\":"
+                         "\"tiny-solver-correspondence\",\"status\":"
+                         "\"PHYSICS_REFUTED\",\"first_case\":\""
+                      << input.name << "\",\"gpu_failure\":"
+                      << static_cast<std::uint32_t>(gpu.failure)
+                      << ",\"cpu_failure\":"
+                      << static_cast<std::uint32_t>(cpu.failure)
+                      << ",\"permuted_gpu_failure\":"
+                      << static_cast<std::uint32_t>(permuted_gpu.failure)
+                      << ",\"gpu_hvp\":" << gpu.hvp_used
+                      << ",\"cpu_hvp\":" << cpu.hvp_used
+                      << ",\"gpu_outer_trials\":" << gpu.outer_trials
+                      << ",\"gpu_scaled_residual\":"
+                      << gpu.scaled_displacement_residual
+                      << ",\"gpu_gradient_norm\":" << gpu.gradient_norm
+                      << ",\"gpu_accepted\":" << gpu.work.accepted_trials
+                      << ",\"gpu_rejected\":" << gpu.work.rejected_trials
+                      << ",\"gpu_work_root\":\""
+                      << work_semantic_root(gpu.work) << "\"}\n";
             return 37;
         }
         for (std::size_t index = 0U; index < gpu.state.size(); ++index) {
