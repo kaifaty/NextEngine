@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP4_UNPRECONDITIONED_SELECTED` |
+| Status | `ACTIVE / NCGP4_REFUTED_BOUNDED / NCGP5_DIAGNOSIS_NEXT` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,10 +19,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP4 revision 2 selects the retained unpreconditioned
-  solver after the exact trace showed it completes step 39 in 69 HVP while
-  scalar Jacobi fails at 126 HVP. Run the complete 240-step 4k corpus at
-  budgets `{32,64,128}` before any 50k timing.
+- **Current action:** NCGP4 is closed `REFUTED_BOUNDED`: unpreconditioned
+  repairs step 39 but hydrostatic crosses the 5 mm CPU/GPU max-position gate
+  on step 92 (`5.211209258 mm`). Freeze a bounded NCGP5 outlier diagnosis;
+  performance remains `NOT_RUN`.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -30,6 +30,7 @@
 
 - `docs/plans/nonlocal-gpu-full-step-performance/00-ncgp4-solver-diagnosis-contract.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/01-unpreconditioned-selection.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/02-step92-outlier-diagnosis.md`
 - `docs/development/task-state/nonlocal-gpu-compensated-scale.md`
 - `docs/development/nonlocal-gpu-compensated-scale-evidence-2026-08-30.md`
 - `docs/plans/nonlocal-gpu-compensated-scale/00-compensated-scale-contract.md`
@@ -77,6 +78,27 @@
   first failure with root-closed evidence; no second solver repair is allowed
   by NCGP4.
 
+### D-003 — Close NCGP4 at the first 240-step physical gate
+
+- **Observation:** budgets 32 and 64 exhaust work after 0 and 11 complete
+  hydrostatic steps. Budget 128 completes 92 steps, then maximum CPU/GPU
+  position error reaches `5.211209258 mm` against the frozen `5 mm` limit.
+- **Evidence:** exact final stdout SHA-256
+  `a3aca468e8eb5bef283db65e4891dc280970f50fa35596e57da6afd2ee6b4d05`,
+  result root `e9f888f0a611e5985b8d3d2d79323d1699186af7e2ff8362c42f5eb6f963cc16`,
+  binary `55db74591b893b71fd8d329d5a28505ae890c676143181896e0c4248c7344f6c`.
+- **Conclusion:** the solver-work repair is real, but no allowed HVP budget
+  passes the complete 4k corpus. The first remaining blocker is a localized
+  trajectory-correspondence outlier, not work exhaustion, NaN, capacity,
+  permutation, density, momentum, energy or containment.
+- **Decision:** close NCGP4 `REFUTED_BOUNDED`; keep dam/orifice, 16k/50k and
+  timing `NOT_RUN`. Begin a new bounded diagnosis rather than changing the
+  5 mm tolerance or timing a failed candidate.
+- **Rejected:** declaring `0.211 mm` noncritical after the result, timing only
+  the passing prefix, or treating RMSE as permission to ignore the max gate.
+- **Reconsider when:** a root-closed synchronized-state experiment identifies
+  a concrete implementation/semantic mismatch and one smallest repair.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -97,8 +119,10 @@
 
 ## Next action
 
-1. Bind revision 2 into the NCGP4 target and rebuild from a clean tree.
-2. Run retained controls, then the complete 4k corpus for budgets 32, 64 and
-   128 in ascending order, selecting the smallest full-corpus PASS.
-3. Run 16k/50k correctness and the 240-step 50k sealed basin.
-4. Measure two fresh processes only if every correctness gate passes.
+1. Freeze an NCGP5 diagnostic around hydrostatic steps 80--92 before code.
+2. Seal the max-error sample/component, active/contact history and exact
+   compensated state; compare CPU/GPU operators on one synchronized pre-step
+   state.
+3. If and only if a concrete implementation/semantic mismatch is isolated,
+   implement its smallest repair and restart the frozen correctness order.
+4. Keep 50k timing blocked until the complete corrected corpus passes.
