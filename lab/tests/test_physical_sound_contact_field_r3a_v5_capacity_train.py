@@ -120,15 +120,16 @@ class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
         continuous = capacity_train.curriculum_for_step(2_000)
         ramp_start = capacity_train.curriculum_for_step(2_001)
         quantized = capacity_train.curriculum_for_step(4_000)
-        full_start = capacity_train.curriculum_for_step(4_001)
-        full = capacity_train.curriculum_for_step(6_000)
+        refinement_start = capacity_train.curriculum_for_step(4_001)
+        refinement = capacity_train.curriculum_for_step(6_000)
         self.assertEqual(continuous["phase"], "continuous_bootstrap")
         self.assertEqual(continuous["quantizer_mix"], 0.0)
         self.assertTrue(math.isclose(ramp_start["quantizer_mix"], 0.0005))
         self.assertEqual(quantized["quantizer_mix"], 1.0)
         self.assertEqual(quantized["full_loss_weight"], 0.0)
-        self.assertTrue(math.isclose(full_start["full_loss_weight"], 0.0005))
-        self.assertEqual(full["full_loss_weight"], 1.0)
+        self.assertEqual(refinement_start["phase"], "quantized_decoder_refinement")
+        self.assertEqual(refinement_start["full_loss_weight"], 0.0)
+        self.assertEqual(refinement["full_loss_weight"], 0.0)
 
     def test_normalized_bootstrap_loss_is_zero_for_matching_signal(self) -> None:
         target = torch.linspace(-0.4, 0.4, 8_192).reshape(1, 1, -1)
@@ -136,7 +137,7 @@ class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
         self.assertEqual(float(total), 0.0)
         self.assertTrue(all(float(value) == 0.0 for value in terms.values()))
 
-    def test_quantizer_ramp_freezes_codec_and_full_phase_unfreezes_it(self) -> None:
+    def test_quantizer_ramp_freezes_codec_and_refinement_unfreezes_decoder(self) -> None:
         model = codec_model.NeuralImpactCodec(codec_model.CodecConfig.micro())
         capacity_train.configure_phase_trainability(
             model, "quantizer_ramp_bootstrap"
@@ -145,9 +146,11 @@ class PhysicalSoundContactFieldR3AV5CapacityTrainTests(unittest.TestCase):
         self.assertFalse(any(value.requires_grad for value in model.decoder.parameters()))
         self.assertTrue(all(value.requires_grad for value in model.quantizer.parameters()))
         capacity_train.configure_phase_trainability(
-            model, "quantized_full_loss_ramp"
+            model, "quantized_decoder_refinement"
         )
-        self.assertTrue(all(value.requires_grad for value in model.parameters()))
+        self.assertFalse(any(value.requires_grad for value in model.encoder.parameters()))
+        self.assertTrue(all(value.requires_grad for value in model.decoder.parameters()))
+        self.assertTrue(all(value.requires_grad for value in model.quantizer.parameters()))
 
     def test_anti_collapse_gate_waits_for_quantizer_then_passes_signal(self) -> None:
         initial = self._validation_metrics(

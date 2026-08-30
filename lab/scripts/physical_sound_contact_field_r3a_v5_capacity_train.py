@@ -27,7 +27,7 @@ from torch.nn import functional
 RUN_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity-run.v1"
 STATE_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity-state.v1"
 REPORT_SCHEMA = "nextengine.experimental-physical-sound-r3a-v5-capacity.report.v1"
-REVISION = "three-capacity-training-v4-frozen-quantizer-ramp"
+REVISION = "three-capacity-training-v5-evaluation-only-full-loss"
 TRAINING_PREFLIGHT_MANIFEST_SHA256 = (
     "d53561fdd4cc4a662dfe2d750a2f3109fb5d63dc154b14f73ce92cb475d60b95"
 )
@@ -47,7 +47,7 @@ IMPLEMENTATION_FILES = {
 CURRICULUM = {
     "continuous_bootstrap_end_step": 2_000,
     "quantizer_ramp_end_step": 4_000,
-    "full_loss_ramp_end_step": 6_000,
+    "quantized_refinement_checkpoint_step": 6_000,
     "codebook_initialization_segments": 8,
     "bootstrap_loss": {
         "relative_waveform_l1_weight": 1.0,
@@ -57,7 +57,9 @@ CURRICULUM = {
     },
     "quantized_latent_match_weight": 1.0,
     "quantizer_ramp_trainable_modules": ["quantizer"],
-    "full_loss_after_quantized_gate": True,
+    "quantized_refinement_trainable_modules": ["quantizer", "decoder"],
+    "full_perceptual_loss_role": "evaluation_and_checkpoint_selection_only",
+    "full_loss_after_quantized_gate": False,
     "bootstrap_auxiliary_retained": True,
 }
 BOOTSTRAP_GATE = {
@@ -374,7 +376,6 @@ def _tensor(value: np.ndarray, device: torch.device) -> torch.Tensor:
 def curriculum_for_step(step: int) -> dict[str, float | str]:
     continuous_end = CURRICULUM["continuous_bootstrap_end_step"]
     quantizer_end = CURRICULUM["quantizer_ramp_end_step"]
-    full_end = CURRICULUM["full_loss_ramp_end_step"]
     if step <= 0 or step > common.TRAINING_CONFIG["maximum_steps"]:
         raise common.V5Error("V5 curriculum step is outside the frozen run")
     if step <= continuous_end:
@@ -386,9 +387,9 @@ def curriculum_for_step(step: int) -> dict[str, float | str]:
             "full_loss_weight": 0.0,
         }
     return {
-        "phase": "quantized_full_loss_ramp",
+        "phase": "quantized_decoder_refinement",
         "quantizer_mix": 1.0,
-        "full_loss_weight": min(1.0, (step - quantizer_end) / (full_end - quantizer_end)),
+        "full_loss_weight": 0.0,
     }
 
 
@@ -470,7 +471,8 @@ def configure_phase_trainability(
     model: codec_model.NeuralImpactCodec, phase: str
 ) -> None:
     quantizer_only = phase == "quantizer_ramp_bootstrap"
-    model.encoder.requires_grad_(not quantizer_only)
+    refinement = phase == "quantized_decoder_refinement"
+    model.encoder.requires_grad_(not quantizer_only and not refinement)
     model.decoder.requires_grad_(not quantizer_only)
     model.quantizer.requires_grad_(True)
 
@@ -509,17 +511,9 @@ def _train_step(
         latent_match = functional.mse_loss(quantized, latent.detach()) / latent.detach().square().mean().clamp_min(1.0e-6)
     else:
         latent_match = latent.new_zeros(())
-    full_loss_weight = float(curriculum["full_loss_weight"])
-    if full_loss_weight > 0.0:
-        full_total, full_terms = training.frozen_reconstruction_loss(
-            masked_output,
-            masked_target,
-            codebook_loss,
-            commitment_loss,
-        )
-    else:
-        full_total = latent.new_zeros(())
-        full_terms = {}
+    full_loss_weight = 0.0
+    full_total = latent.new_zeros(())
+    full_terms: dict[str, torch.Tensor] = {}
     total = (
         bootstrap_total
         + quantizer_regularization
@@ -1263,6 +1257,8 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
                 "metrics_sha256": common.sha256_file(metrics_path),
                 "completed_steps": step,
                 "rejected_checkpoint": checkpoint_record,
+                "best_validation_loss": best_loss,
+                "best_checkpoint": best_checkpoint,
                 "anti_collapse_gate": last_gate,
                 "curriculum": CURRICULUM,
                 "codebook_transition": codebook_transition,
