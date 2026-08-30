@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA3_CONSEQUENCE_CONTRACT_FROZEN / NCGA2_STRICT_F32_RESULT_IMMUTABLE` |
+| Status | `ACTIVE / NCGA3_REV1_APPARATUS_INCONCLUSIVE / REV2_STEP_REPAIR_FROZEN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Test tiny strict-f32 CUDA energy/gradient/Hessian assembly for the corrected Nonlocal objective, without reviving the stopped SISSM solver |
@@ -28,6 +28,14 @@
   step, descent and short-sequence discriminators.
 - **Current blocker:** NCGA3 execution evidence is not yet produced; no
   corrected GPU solver or game-water claim is authorized.
+- **Revision-1 discriminator:** all HVP probes completed and strict f32 reached
+  only `1.0643e-6` maximum relative L2 error; reduction-only stayed outside the
+  old element gate while f64 pressure products reached `4.7195e-5`. The fixed
+  `H+7200I` reference system was not positive definite, so step/sequence fields
+  were invalid and the run is `INCONCLUSIVE`.
+- **Single apparatus repair:** revision 2 uses the reference symmetric
+  infinity-norm bound plus `7200` as one common, guaranteed-positive shift.
+  No threshold, fixture, arithmetic result or second repair is authorized.
 - **Claim ceiling:** tiny objective assembly correspondence only; no solve,
   trajectory, performance, runtime or product-water claim.
 
