@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `CANDIDATE PHYSICS_REFUTED / INDEPENDENT RE-REVIEW PENDING` |
+| Status | `FINAL INCONCLUSIVE / INDEPENDENT RE-REVIEW NO-GO` |
 | Candidate commit | `b74688b296cc6adfda1e975cbed45f31a0d9d983` |
 | Candidate tree | `780f4378745d8d8a4c888133384014bf28f2f842` |
 | Frozen contract aggregate | `d0e6875c9c894a89f9f78f3e220aff9b555fb0235486e5b3899413cec835477e` |
@@ -13,7 +13,8 @@
 
 ## Result
 
-The single revision-5 repair batch closes the initial review apparatus defects:
+The single revision-5 repair batch closed several initial review apparatus
+defects:
 
 - accepted steps rebuild `predicted` as a canonical device `(hi, lo)` pair;
 - an ordinary binary32 predictor is a reachable negative control;
@@ -27,17 +28,23 @@ The single revision-5 repair batch closes the initial review apparatus defects:
 - free fall, translation/rotation, tangential `mu=0`, pressure-inactive surface
   relaxation and identical-state HVP controls run before every 4k route.
 
-All pre-trajectory gates and the 16-step hydrostatic route pass. The next
-sequential gate, 16-step dam break, fails at step 6 in both canonical and
-permuted GPU routes with `WorkBudgetExceeded`. Both routes use 127 of the
-frozen 128 total-HVP budget, publish identical work roots and restore the exact
-prior public state. The independent CPU oracle succeeds. This is therefore a
-candidate first-specific `PHYSICS_REFUTED` result, subject to the one permitted
-independent re-review.
+All implemented pre-trajectory gates and the 16-step hydrostatic route pass.
+The author run then observed a deterministic 16-step dam-break failure at step
+6. The independent revision-5 re-review rejected the claimed first-specific
+result: the frozen corpus requires 240 steps per 4k scenario, and the omitted
+`hydrostatic-hold 240` route fails earlier, at step 39. The re-review also found
+load-bearing gaps in the reversible-energy control, root closure and
+fail-closed CUDA rollback.
 
-Per the frozen stop rule, orifice, 240-step, 50k and performance measurement
-were not run. The earlier `~1.0–1.18 ms p95` result remains neighbor-builder
-timing only and is not a full-water result.
+The one repair and one re-review allowance is exhausted. NCGP3 therefore
+closes `INCONCLUSIVE`; neither hydro nor dam is promoted as a verified physical
+refutation. Their deterministic work-ceiling failures remain useful successor
+evidence.
+
+The author package incorrectly omitted the mandatory 240-step hydro route.
+The reviewer ran it and correctly stopped before 50k/performance. The earlier
+`~1.0–1.18 ms p95` result remains neighbor-builder timing only and is not a
+full-water result.
 
 ## Numerical gates
 
@@ -78,7 +85,7 @@ and GPU accepted states differ numerically; revision 5 freezes these as a
 diagnostic, not a trajectory rejection. Corrected/permuted GPU active IDs are
 exact at every step.
 
-### First failing gate: 4k dam break
+### Author-observed 4k dam-break failure
 
 Both clean builds emitted byte-identical JSON, SHA-256
 `620a80cc6fe8c6eac0dfd226e4b1fb7b67c115949d151f2ed3241e969dc83cf5`:
@@ -100,6 +107,28 @@ Both clean builds emitted byte-identical JSON, SHA-256
 | Hot H2D / D2H for two routes | `0 / 188328` bytes across attempted steps |
 | Diagnostic snapshot D2H | `1536000` bytes, separately sealed and untimed |
 | Maximum directed pairs / degree | `401248 / 123` |
+
+This route is reproducible but is not the first frozen failure because the
+author ran only 16 hydro steps.
+
+### Independent frozen 4k hydrostatic result
+
+The reviewer built exact source commit `b74688b2` twice and ran
+`--correspondence-4k hydrostatic-hold 240 128`. Both runs were exact:
+
+| Observable | Value |
+| --- | --- |
+| Status / completed steps | `PHYSICS_REFUTED / 38`; failure at step 39 |
+| Corrected / permuted failure | `WorkBudgetExceeded / WorkBudgetExceeded` |
+| CPU failure | `None` |
+| Corrected / permuted HVP | `126 / 126` of 128 |
+| Shared work root | `0687e23dc524a83858a04d58b9cfd524a0e639c3ba282bf4cb7429a383c2d128` |
+| Restored public state root | `eeab4153c3f7ff783853350d506b8878523f2fb0ab44d85e6d3761cc72d3763f` |
+| Stdout SHA-256 | `313d5eb78babfd34b407876248c90881dca0a5c75f63308e707e781e8184c834` |
+
+This invalidates only the author's first-failure ordering claim. It does not
+promote hydro as verified physics-refuted because the remaining control/root
+defects are load-bearing.
 
 ## Build, retained controls and sanitizers
 
@@ -134,11 +163,29 @@ cmake --build <fresh> --target nonlocal-corrected-cuda-compensated-scale -j2
 compute-sanitizer --tool {memcheck,initcheck,synccheck} --error-exitcode=<nonzero> <binary> --physics-self-test
 ```
 
-## Remaining uncertainty
+## Independent re-review verdict
 
-The independent re-review must confirm that the repaired predictor, hot-step
-boundary, work roots, trajectory metrics and first-failure classification
-match the frozen revision-5 contract. Until that verdict, this document does
-not promote the candidate to a verified result. Even a verified refutation
-would say only that the frozen 128-HVP primary profile cannot complete the dam
-gate; it would not establish full-solver frame time or production readiness.
+The single revision-5 re-review returned `NO-GO / INCONCLUSIVE` with four
+load-bearing findings:
+
+1. the author changed the frozen 4k trajectory length from 240 to 16 and thus
+   missed the earlier hydro step-39 ceiling;
+2. `reversible_energy_drift` contains only a forward free-fall positive-excess
+   calculation and no reverse leg; the viscosity threshold is absolute rather
+   than the frozen relative `1e-6`;
+3. physics and trajectory roots omit gated metrics, identities and work fields,
+   while the failure-restored root covers rounded public state rather than the
+   full compensated transaction state;
+4. CUDA transaction restoration ignores errors from its own copies and final
+   synchronization, so a restoration failure is not fail-closed.
+
+Positive independent closure: exact source/contract identities, two clean
+builds, all implemented/retained controls and three sanitizers reproduced. The
+reviewer binaries were identical to each other (`c7f2bcc8b1135ae4440ed2f31796876ea9287575a7a7dd633664f45275d5d27b`);
+their difference from the author binary was traced to an anonymous-namespace
+CUDA source-path token, with normalized SASS identical.
+
+No further repair is allowed in NCGP3. A successor may reuse these observations
+only under a new frozen contract that restores the 240-step corpus, implements
+a real reversible leg, seals every gate/work/result field and makes rollback
+failure typed and fail-closed. Full-solver performance remains unknown.

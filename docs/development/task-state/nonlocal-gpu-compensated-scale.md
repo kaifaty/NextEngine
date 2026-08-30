@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP3_REVIEW_PENDING / CANDIDATE_PHYSICS_REFUTED` |
+| Status | `CLOSED / NCGP3_INCONCLUSIVE / REVIEW_ALLOWANCE_EXHAUSTED` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-compensated-scale` |
 | Scope | Extend verified NCGP2 device `(hi, lo)` state to dynamic graphs, analytic boundaries, real rollback and 4k multi-step correspondence |
@@ -11,20 +11,21 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** the revision-5 repair closes the reviewed apparatus
-  defects. All pre-trajectory controls and hydro16 pass, but the next gate,
-  dam16, reproducibly exhausts 127/128 HVP at step 6 in both GPU permutations.
-- **Current task:** obtain the one permitted independent NCGP3 re-review of
-  exact candidate `b74688b2` before recording a verified outcome.
+- **Current conclusion:** NCGP3 is `INCONCLUSIVE`. The repaired solver has
+  deterministic work-ceiling failures, but the package changed the frozen
+  4k trajectory length, lacked a real reversible-energy control, incompletely
+  sealed results and did not fail closed if rollback itself failed.
+- **Current task:** none inside NCGP3. Any continuation requires a separately
+  frozen successor; the repair/re-review allowance is exhausted.
 - **Completed apparatus:** pair-aware graph membership, pair-aware swept
   contacts and executable high/low rollback controls pass deterministically.
 - **Material correction:** the first 4k density failure used the historical raw
   FCR1/NCGP1 kernel and exactly reproduced its known `~1/8` normalization
   defect. It is a negative control, not a refutation of corrected FCR2.
-- **Current blocker:** the repaired corrected/permuted dam routes identically
-  hit `WorkBudgetExceeded` at step 6 while the CPU oracle succeeds. This is a
-  candidate physics/work-ceiling refutation pending independent review. 50k
-  and timing remain forbidden.
+- **Current blocker:** the mandatory 240-step hydro route independently fails
+  at step 39 before the author-observed dam step-6 failure, while remaining
+  apparatus defects prevent promoting either to a verified refutation. 50k and
+  timing remain forbidden.
 - **Do not retry:** the raw profile as physical evidence, host coordinate
   localization, high-only graph membership, tolerance widening or graph-only
   timing as a full-solver result.
@@ -49,6 +50,7 @@
 | Independent NCGP3 initial review | `NO-GO / INCONCLUSIVE`, candidate `1b638bfd` | multi-step predictor loses low part; missing corpus/metrics/closure and shared CPU validator invalidate refutation claim |
 | NCGP3 revision-5 repair contract | SHA-256 `0047ea9e3828b22cd433888fc22644ea7937f959934b55a112dc2c8623ed9fbc` | one batch: compensated predictor, complete gates, hot-step/snapshot split, independent validation and report closure |
 | NCGP3 repaired candidate | commit `b74688b2`, binary `a6a94a1c...`, evidence `docs/development/nonlocal-gpu-compensated-scale-evidence-2026-08-30.md` | physics/hydro PASS; dam step 6 candidate `PHYSICS_REFUTED`; two clean runs exact; sanitizers zero errors |
+| NCGP3 revision-5 independent re-review | `NO-GO / INCONCLUSIVE`; reviewer hydro240 SHA `313d5eb7...` | author changed 240 steps to 16; reversible gate/root closure/rollback remain load-bearing; review allowance exhausted |
 
 ### D-001 — Reconstruct only graph addresses in binary64
 
@@ -99,7 +101,7 @@
   state transition, skipping earlier gates, or running 50k timing anyway.
 - **Consequence:** the next admissible first failure may move or disappear.
 
-### D-005 — Stop at the repaired dam work ceiling
+### D-005 — Stop at the author-observed dam work ceiling
 
 - **Observation:** after the exact compensated predictor repair, physics and
   hydro16 pass, while dam16 reaches the same typed 127/128-HVP failure in both
@@ -110,21 +112,33 @@
 - **Rejected alternatives:** raising the frozen budget, selecting pressure-f64
   without an isolated pressure error, running orifice/50k out of sequence or
   reporting neighbor-only timing as full-solver performance.
-- **Consequence:** performance remains `NOT_RUN`; a reviewer GO would close
-  NCGP3 as verified refuted, not as a performant water solver.
+- **Consequence:** performance remains `NOT_RUN`; this candidate observation
+  required review before any status claim.
+
+### D-006 — Close NCGP3 inconclusive after the single re-review
+
+- **Observation:** the reviewer reproduced hydro240 failure at step 39, earlier
+  than dam, and found the reversible control, result roots and rollback failure
+  handling incomplete.
+- **Decision:** accept `NO-GO / INCONCLUSIVE` and do not apply another repair to
+  NCGP3.
+- **Rejected alternatives:** retroactively treating 16 steps as the frozen
+  corpus, calling deterministic work exhaustion a verified physics result, or
+  using a second repair/re-review after the explicit limit.
+- **Consequence:** a successor must freeze the complete 240-step order and
+  apparatus repairs before code; no full-solver performance number exists.
 
 ## Next action
 
-1. Re-review exact candidate `b74688b2` read-only against revision 5.
-2. If GO, record `VERIFIED_PHYSICS_REFUTED` and leave roadmap R8/performance
-   unchanged; if a load-bearing defect remains, close NCGP3 `INCONCLUSIVE`.
-3. Do not run orifice, 240-step, 50k or performance before a passing earlier
-   gate under a newly frozen successor contract.
+1. Stop NCGP3; do not modify or re-review this candidate again.
+2. If work resumes, freeze a successor with the 240-step order, actual reverse
+   energy leg, relative viscosity gate, complete roots and checked rollback.
+3. Only after every successor correctness gate passes may 50k/performance run.
 
 ## Handoff
 
-- **Workspace:** branch `codex/water-research`; repaired code candidate
-  `b74688b2`; evidence/task-state documentation follows as a separate commit.
+- **Workspace:** branch `codex/water-research`; code candidate `b74688b2`,
+  author evidence `6b157ff0`, final review-closure documentation follows.
 - **Performance status:** `NOT_RUN`; prior ~1.0–1.18 ms p95 result is only the
   neighbor stage and is not a full-water timing claim.
 - **Promotion:** none. This remains Proposed report-only research.
