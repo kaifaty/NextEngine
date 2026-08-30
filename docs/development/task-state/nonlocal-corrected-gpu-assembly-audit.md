@@ -2,16 +2,18 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `COMPLETE / NCGA3_AUTHOR_SUPPORTED_BOUNDED / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
+| Status | `ACTIVE / NCGA4_REV1_FROZEN / IMPLEMENTATION_PENDING / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
-| Scope | Determine whether the tiny strict-f32 corrected Nonlocal Hessian mismatch materially changes bounded local GPU operator/step behavior |
-| Definition of done | NCGA3 produces one hash-closed author result without changing NCGA2, or stops at the first invalid consequence boundary |
+| Scope | Determine whether strict-f32 corrected CUDA assembly can drive a bounded Steihaug--Toint trust-region solve prefix without material route or state drift |
+| Definition of done | NCGA4 produces one hash-closed eight-trial author result with negative controls and unchanged NCGA0--3 regressions, or stops at the first frozen solver boundary |
 | Authority | Working context only; SPEC-38, ADR-076/081, FCR0 and the frozen NCGA2 contract outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA3 revision 2 is hash-closed
+- **Current state:** NCGA4 revision 1 is frozen before implementation as a
+  GPU-assembled/host-controlled eight-trial Steihaug--Toint solve prefix.
+  NCGA3 revision 2 remains hash-closed
   `AUTHOR_SUPPORTED_BOUNDED / F32_CONSEQUENCE_NEGLIGIBLE_BOUNDED`. NCGA2 remains
   honestly refuted at `2.6247e-4`, but strict f32 reaches only `1.0643e-6` HVP
   and `2.0004e-6` regularized-step relative error; eight integer steps end with
@@ -22,12 +24,10 @@
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** if authorized, freeze a corrected nonlinear/operator solver
-  experiment that starts with strict f32 and keeps f64 pressure products as a
-  named fallback. Request independent review before treating NCGA3 as reviewed
-  evidence.
-- **Current blocker:** no corrected solver, physical trajectory or full
-  assembly/solve timing exists; NCGA3 independent review is `NOT_RUN`.
+- **Next action:** implement only the additive continuous-state evaluators and
+  frozen NCGA4 controller, then reproduce NCGA2/3 before the new run.
+- **Current blocker:** no corrected solve prefix, physical trajectory or full
+  assembly/solve timing exists; NCGA3/4 independent review is `NOT_RUN`.
 - **Revision-1 discriminator:** all HVP probes completed and strict f32 reached
   only `1.0643e-6` maximum relative L2 error; reduction-only stayed outside the
   old element gate while f64 pressure products reached `4.7195e-5`. The fixed
@@ -51,6 +51,7 @@
 | H6 the remaining element miss changes local behavior materially | HVP, regularized step or short sequence exceeds the product screen | thirteen probes, common norm-bounded solve and eight steps | refuted on the frozen fixture |
 | H7 binary64 reduction alone closes the miss | f32 products accumulated in f64 meet the old matrix gate | reduction-only arithmetic variant | refuted: `2.59425e-4` |
 | H8 binary64 pressure products close the miss | promoted pressure coefficients/products meet the old gate | mixed-product arithmetic variant | supported: `4.71951e-5`, but not selected yet |
+| H9 strict f32 preserves trust-region decisions | eight reference/CUDA outer signatures match and state drift stays below `5 um` | continuous-state fixed-graph Steihaug--Toint prefix plus sign-flipped HVP control | frozen / not run |
 
 ## Decisions
 
@@ -147,12 +148,32 @@
 - **Reconsider when:** a solver/corpus changes descent, convergence or physical
   acceptance under strict f32.
 
+### D-007 — Reuse the reviewed CPU globalization before GPU-resident optimization
+
+- **Observation:** the repository already contains an NSR1 Steihaug--Toint
+  trust-region Newton--CG candidate that solved the frozen static CPU controls;
+  later research failures concern multistep accuracy, constraints and finite
+  operator certificates rather than absence of a globalization algorithm.
+- **Evidence:** `docs/development/nonlocal-nsr1-trust-region-evidence-2026-08-20.md`
+  and the frozen NCGA4 contract.
+- **Conclusion:** writing another solver or reviving SISSM would duplicate or
+  contradict retained evidence. The smallest new uncertainty is whether the
+  verified CUDA evaluator changes trust/Krylov decisions.
+- **Decision:** NCGA4 keeps the controller on the host, adds continuous-state
+  evaluator overloads, and compares exactly eight fixed-graph outer trials.
+  GPU-resident CG, trajectory and timing remain later boundaries.
+- **Rejected alternatives:** quantized micrometre pseudo-solve, immediate
+  50k/full-frame timing, mixed precision before a strict-f32 solver failure,
+  or importing the stopped SISSM recurrence.
+- **Reconsider when:** NCGA4 closes its route/state gates or isolates a specific
+  f32 globalization boundary.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38 and ADR-076/081.
 2. FCR0 formula contract and FCR3-B2 stop evidence.
 3. NCGA0 and NCGA1 contracts, task states and independent reviews.
-4. All four NCGA2/NCGA3 contracts in
+4. All five NCGA2/NCGA4 contracts in
    `docs/plans/nonlocal-corrected-gpu-assembly-audit/` and the NCGA3 evidence.
 
 ## Do not retry or infer
