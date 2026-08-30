@@ -65,6 +65,22 @@ The NR2 `8 ms` threshold is a feasibility cutoff, not the existing `4/6 ms`
 standalone performance PASS. The eventual integrated consumer would still
 need the ADR-081 successor `world-dynamics-step` budget.
 
+## Corrected GPU correspondence follow-up
+
+A later report-only audit now separates the corrected FCR objective from the
+historical stopped SISSM solver. NCGA0 reviews corrected scalar/full-pair terms
+`GO`; NCGA1 reviews exact integer GPU neighborhood construction `GO`; NCGA2
+keeps a real strict-f32 combined-Hessian element failure; and NCGA3 author
+evidence finds that miss negligible across thirteen Hessian actions, one
+norm-regularized response and eight `50 um`-capped integer steps. Binary64
+pressure products close the old element gate but are retained only as a
+fallback because they do not improve the bounded response materially.
+
+See the [NCGA3 evidence](../../development/nonlocal-corrected-gpu-consequence-evidence-2026-08-30.md).
+Independent NCGA3 review, a corrected nonlinear solver, physical trajectories
+and full 50k assembly/solve timing remain open. This follow-up grants no NR4,
+W2 or ProductCheck credit and does not change CPU DFSPH product authority.
+
 ## Implementation boundary
 
 The intended implementation path is a standalone tool under
