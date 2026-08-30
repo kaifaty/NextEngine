@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V6 / R2_LISTENER_FIELD_REJECTED / R3A_V1_REJECTED / R3A_V2_INCONCLUSIVE / R3A_V3B_NATIVE_NDAC_REJECTED / R3A_V4_MODAL_BOTTLENECK_NEXT / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
-| Updated | `2026-08-30` |
+| Status | `ROADMAP_V7 / R3A_V4_FIT_REPRESENTATION_REJECTED / R3A_V5_NEURAL_RATE_DISTORTION_NEXT / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
 | Definition of done | A frozen offline model beats honest controls on held-out physical axes, cooks exact bounded coefficients and is admitted only by an independent selective validator with automatic clip fallback |
@@ -11,22 +11,20 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Native-48 kHz NDAC-75 is reproducibly rejected as
-  the R3A V3B representation ceiling. Identity is exact zero, but spectrum
-  (`12.1198 dB`) and modal frequency (`560.81` cents) fail.
-- **Exact evidence:** [R3A V3 result](../physical-sound-r3a-v3-native-ndac-result-2026-08-30.md),
-  V3B manifest `57dcc3b3…8959`, contacts `2dcab659…0b3c`, repeated oracle
-  `bcc24ef9…f8e1`; sealed row samples decoded: `0`.
-- **Infrastructure precursor:** V3A Plastic Bin stopped before quality metrics
-  because NDAC returned `143,992/144,000` samples. The eight-sample guard was
-  derived on synthetic audio only; Plastic Bin was not re-evaluated.
-- **Next action:** Implement Roadmap V6 R3A V4-DEV over already-opened contacts:
-  shared stable modal poles, contact gains and a learned multiresolution
-  residual basis with deterministic inverse at no more than three capacities.
-- **Spend rule:** Do not open another object unless one bounded V4-DEV
-  representation passes all five endpoints; then freeze it once for V4-HOLDOUT.
-- **Training rule:** Neural contact-field training remains forbidden until the
-  representation and deterministic cooker pass an unopened V4 holdout.
+- **Current conclusion:** R3A V4's bounded modal/gain/multiresidual frontier is
+  reproducibly rejected before development: every capacity loses the frozen
+  spectrum endpoint on `12/12` fit contacts despite passing both byte budgets.
+- **Exact evidence:** [R3A V4 fit result](../physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md),
+  manifest `6f9fe00e…86b1`, report `f2127117…9e0`, complete artifact tree
+  `fedfc005…849d`; development and sealed decoded samples: `0`.
+- **Next action:** Implement Roadmap V7 R3A V5 preflight: freeze an
+  internet-only impact corpus and a task-specific neural rate-distortion model
+  with direct spectral/modal losses and at most three latent capacities.
+- **Spend rule:** Do not read another object or the four development contacts
+  while building the corpus, model, losses and synthetic overfit controls.
+- **Deployment rule:** The first neural success may bake an ordinary bounded
+  contact clip atlas offline. Runtime neural inference remains forbidden;
+  deterministic modal distillation becomes optional later optimization.
 - **Product boundary:** SPEC-45 remains `Proposed`; clips remain mandatory;
   model inference, datasets, weights, WAVs and validator stay external.
 
@@ -42,33 +40,32 @@
 | R3A V2 | `INCONCLUSIVE_CONTROL` | 44.1 kHz conversion changes full-band level/decay; no codec credit. |
 | R3A V3A | `INVALID_INFRASTRUCTURE` | Plastic Bin target opened, no metrics; eight-sample NDAC deficit recorded, holdout sealed. |
 | R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
-| R3A V4 | `NEXT` | Domain-specific modal/gain/learned-residual bottleneck must pass before any field model. |
-| R3B+ | `BLOCKED` | No contact-field model, validator release, admitted domain or runtime promotion exists. |
+| R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
+| R3A V5 | `NEXT` | Train a task-specific external neural rate-distortion representation; no runtime neural inference or quality credit exists. |
+| R3B+ | `BLOCKED` | No contact-to-latent field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
-## Material transition: native codec rejected and Roadmap V6
+## Material transition: analytical fit rejected and Roadmap V7
 
-- **Observation:** Two Purple Scoop V3B runs reproduce all reports, codes and
-  WAVs. Native identity has zero error. NDAC beats nearest fit on level,
-  envelope and decay but is worse on spectrum and modal-frequency endpoints.
-- **Evidence:** Preflight `845d4598…66d5`, extraction `7f2d7de4…7164`, oracle
-  `bcc24ef9…f8e1`, learned WAV `a6d668ff…2b97`; row `2407` is undecoded.
-- **Conclusion:** Sample-rate conversion is no longer the explanation. A
-  general perceptual codec can preserve macroscopic sound shape while moving
-  narrow resonances required by a physical transfer representation.
-- **Decision:** Close nearby general-codec/bitrate/postfilter search. Rebaseline
-  to [Roadmap V6](../../plans/physical-sound-synthesis-roadmap.md): learn only
-  the task-specific modal residual representation and later the spatial gain
-  field; keep the final decoder deterministic.
-- **Rejected alternatives:** Retune NDAC on opened Purple Scoop, apply the
-  stochastic FlowDec postfilter, relax modal/spectrum thresholds, open either
-  row `2407`, or treat perceptual audition as physical fidelity.
-- **Consequences:** Purple Scoop row `1807` joins the development corpus;
-  V3B does not authorize deterministic distillation or neural field training.
-- **Remaining uncertainty:** A multi-contact stable pole bank plus learned
-  residual dictionary may preserve real transfer responses within a useful
-  cooker budget; V1's 32 local modes do not answer this stronger hypothesis.
-- **Reconsideration condition:** One preregistered V4 representation and exact
-  inverse pass the opened multi-object frontier and then a new unopened object.
+- **Observation:** Two V4 preflights and fit runs reproduce every manifest,
+  report, pole bank, basis and bin array. `compact`, `balanced` and `extended`
+  pass `4 MiB/64 KiB` budgets but fail spectrum on all twelve fit contacts.
+- **Evidence:** Implementation `e05d5593`, fit report `f2127117…9e0` and tree
+  `fedfc005…849d`; four development contacts and every row `2407` remain unread.
+- **Conclusion:** The tested analytical factorization is insufficient before
+  interpolation is even considered. More nearby pole/PCA/bin capacity is not
+  an evidence-backed next move.
+- **Decision:** Rebaseline to [Roadmap V7](../../plans/physical-sound-synthesis-roadmap.md):
+  learn task-specific neural rate allocation first, then a contact-to-latent
+  field, and bake validated outputs into ordinary clip assets for the first
+  deterministic product experiment.
+- **Rejected alternatives:** Evaluate failed fit on development, add capacity,
+  weaken endpoints, open a new object, retry a universal codec or add a runtime
+  neural decoder.
+- **Remaining uncertainty:** A small RVQ autoencoder trained on published
+  impact audio with the exact spectral/modal objective may beat universal
+  codecs and the failed analytical basis within the record budget.
+- **Reconsideration condition:** V5 development and one frozen source-disjoint
+  holdout pass; otherwise retain authored clips and stop the model family.
 
 ## Durable negative knowledge
 
@@ -101,13 +98,14 @@ kept bounded as the current resume surface.
 | D-010 | First neural product task is exact-object contact variation at one canonical listener; radiation is later. | A visible consumer proves radiation must precede contact variation. |
 | D-011 | A neural waveform decoder is report-only and cannot satisfy cooker admission. | A future Accepted ADR changes runtime determinism policy. |
 | D-012 | General neural codecs are closed as the next representation family after clean V3B rejection. | New evidence shows explicit modal-fidelity training and a materially different task-specific objective. |
+| D-013 | First neural deployment target is an offline-baked contact clip atlas, not runtime inference and not mandatory modal distillation. | A later measured consumer proves that bounded clip assets cannot meet variation/cost needs. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A bounded task-specific modal/residual record carries held contact sound | AV-MSF/ObjectFolder use global modal quantities and spatial gains; V3B preserves coarse envelope/decay | V1 and V3B lose spectral/modal structure | V4-DEV three-point capacity frontier plus deterministic inverse |
-| H2: Geometry-aware exact-object contact learning is possible | REALIMPACT source/mesh/splits repeat; AV-MSF reports few-shot contact fields | No representation has passed a sealed contact gate | V4-HOLDOUT, then one AV-MSF-shaped R3B model |
+| H1: A task-specific neural latent carries held impact sound within budget | Neural codecs succeed with explicit spectral and adversarial objectives; an exploratory near-ceiling codec passes `11/12` fit contacts | Universal NDAC and V4 analytical basis fail | V5 three-capacity task-specific RVQ development frontier |
+| H2: Geometry-aware exact-object contact learning is possible | REALIMPACT source/mesh/splits repeat; AV-MSF reports few-shot contact fields | No representation has passed a sealed contact gate | V5-HOLDOUT, then one contact-to-latent field |
 | H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 after a generator claim exists |
 | H4: Cooked coefficients fit product cost | Q30 reference is compact and exact | Whole-mixer/callback/varied-voice cost is unmeasured | Visible consumer plus p95/p99 before promotion |
 
@@ -120,6 +118,8 @@ kept bounded as the current resume surface.
 - Unguarded NDAC, guard repair on Plastic Bin, or another NDAC
   bitrate/postfilter/metric on opened Purple Scoop.
 - Another general perceptual codec presented as modal-fidelity evidence.
+- More V4 poles, PCA ranks, spectral bins or development evaluation after the
+  fit-only rejection.
 - Universal `material -> sound` coefficients before exact-object evidence.
 - Prompt-to-waveform as the engine path; it may remain authored/report-only.
 - Local microphone/hammer capture, raw PhysX-callback mixing or runtime neural
@@ -132,24 +132,26 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V6](../../plans/physical-sound-synthesis-roadmap.md),
+3. [Roadmap V7](../../plans/physical-sound-synthesis-roadmap.md),
    [implementation plan](../../plans/2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md)
    and [neural strategy](../physical-sound-neural-acoustic-field-strategy-2026-08-30.md).
 4. [R2E result](../physical-sound-listener-field-r2e-result-and-v4-research-2026-08-30.md),
    [R3A V1](../physical-sound-r3a-blue-bowl-representation-gate-2026-08-30.md),
    [R3A V2](../physical-sound-r3a-v2-large-swan-dac-oracle-result-2026-08-30.md)
-   and [R3A V3](../physical-sound-r3a-v3-native-ndac-result-2026-08-30.md).
+   [R3A V3](../physical-sound-r3a-v3-native-ndac-result-2026-08-30.md) and
+   [R3A V4](../physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
 
-- **Workspace:** Exact V3A invalid and V3B rejected runners/tests are in Git;
+- **Workspace:** Exact V3A/V3B and V4 fit-rejection runners/tests are in Git;
   datasets, checkpoints, compressed members, arrays and WAVs remain external.
 - **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
   contacts are opened. Every row `2407`, method holdout and admission shadow
   remains sealed.
-- **Quality:** No neural field, validator release, admitted formula record or
-  runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** R3A V4-DEV corpus manifest, bounded modal/residual
-  capacity frontier, exact deterministic inverse, focused tests and repeated
-  opened-development report. Do not download a new target unless it passes.
+- **Quality:** No neural representation, field, validator release, baked atlas,
+  admitted formula record or runtime integration exists. Clip fallback is
+  authoritative.
+- **Next commit boundary:** R3A V5 external corpus/training manifest, frozen
+  neural model/loss/capacity identity and synthetic deterministic overfit
+  controls. Do not read development contacts or start long training in it.

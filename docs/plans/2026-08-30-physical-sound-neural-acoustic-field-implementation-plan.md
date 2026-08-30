@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Date | 2026-08-30 |
-| Status | `IN_PROGRESS / N0.3E_LISTENER_FIELD_REJECTED / N0.4A_V1_REJECTED / N0.4A_V2_INCONCLUSIVE_CONTROL / N0.4A_V3B_NATIVE_NDAC_REJECTED / N0.4A_V4_MODAL_BOTTLENECK_NEXT / RESEARCH_ONLY` |
+| Date | 2026-08-31 |
+| Status | `IN_PROGRESS / N0.4A_V4_FIT_REPRESENTATION_REJECTED / N0.4A_V5_NEURAL_RATE_DISTORTION_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -11,9 +11,10 @@
 ## Objective
 
 Demonstrate whether an offline geometry-aware neural model can learn an
-impact/contact-position modal field better than compatible frozen classical
-baselines, while the game-facing result remains a bounded, deterministic
-cooked representation and listener spatialization remains a separate layer.
+impact/contact-position sound field better than compatible frozen classical
+baselines. The first game-facing experiment is a bounded, offline-baked clip
+atlas; deterministic modal/residual distillation is a later optional
+optimization and listener spatialization remains a separate layer.
 
 The plan does not authorize a public schema, runtime neural inference,
 checkpoint distribution, production contact wiring or a shipping claim.
@@ -27,6 +28,8 @@ checkpoint distribution, production contact wiring or a shipping claim.
   reports and deterministic cook/validation logic.
 - Published source fields are never completed by guessing.
 - Authored clips remain the mandatory fallback.
+- Neural encoder, quantizer, decoder and contact field remain external. Runtime
+  receives only ordinary baked clips plus bounded coverage/fallback metadata.
 - Generator and validator use separate calibration/holdout/shadow evidence.
 - The current frozen Q30/DCT path remains an immutable waveform-domain
   baseline.
@@ -416,57 +419,68 @@ frequency (`560.81` cents). Preserve the
 keep both row-`2407` holdouts sealed and do not search another general codec on
 opened targets.
 
-V4 implementation protocol:
+V4 result: `REJECT_FIT_REPRESENTATION`. The implementation is frozen at commit
+`e05d5593`; two preflights and fit runs reproduce all JSON/NPY artifacts.
+`compact`, `balanced` and `extended` pass shared/per-contact budgets, but every
+one of twelve fit contacts fails the spectrum endpoint. No development or
+sealed waveform is decoded. Preserve the
+[exact V4 result](../development/physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md)
+and do not run its evaluator, add another capacity or reopen this analytical
+family.
 
-1. Build one external development pack from already-authorized fit and opened
-   development contacts. Bind every source/object/contact role and keep all
-   row-`2407`, method-holdout and admission-shadow waveforms sealed.
-2. Freeze at most three capacity points before fitting. Each candidate uses an
-   object-global stable pole/frequency/damping bank, contact-specific complex
-   modal gains and a learned multiresolution residual basis with a
-   deterministic inverse.
-3. Fit the residual basis from fit-role residual frames only. Development
-   contacts select at most one representation/capacity; they cannot tune an
-   unopened object. A shallow task-specific autoencoder is report-only and
-   receives no deterministic-cooker credit.
-4. Require exact-repeat coefficients/PCM and the unchanged five endpoints.
-   If no bounded candidate passes the opened multi-object frontier, stop as
-   `REJECT_REPRESENTATION` without downloading another target.
-5. Freeze the smallest passing implementation, environment, budgets and
-   thresholds, then evaluate it twice on one new source-disjoint REALIMPACT
-   object with `3 fit / 1 development / 1 sealed` roles.
+V5 neural-representation implementation protocol:
 
-Only `V4-HOLDOUT = READY_FOR_EXACT_OBJECT_FIELD` opens N0.4B. A neural decoder,
-an unbounded coefficient record or a report-only perceptual win cannot satisfy
-this entry condition.
+1. Build a hash-closed external training pack from published impact recordings
+   whose source/object groups are disjoint from the four development objects,
+   future representation holdout, method holdout and admission shadow.
+2. Freeze one small 48 kHz mono convolutional encoder, residual vector
+   quantizer and decoder with periodic activations. Freeze no more than three
+   latent capacities before training.
+3. Freeze waveform/SI-SDR, multiresolution complex and log-spectrum,
+   multi-scale mel, envelope/decay and modal/pitch loss terms. The unchanged
+   five evaluator endpoints remain decision authority.
+4. Before real training, require synthetic identity, tiny-corpus overfit,
+   non-collapsed codebook usage, exact checkpoint reload and repeat inference.
+   These controls read no development waveform.
+5. Train on the internet train role plus twelve authorized fit contacts. Open
+   the four development contacts once to select the smallest capacity that
+   passes every endpoint and nearest-fit comparison. Architecture, losses,
+   thresholds, stopping and seeds cannot change afterward.
+6. Only a development pass may freeze one new source-disjoint REALIMPACT
+   `3 fit / 1 development / 1 sealed` representation holdout. Its fifth
+   contact remains sealed.
+
+Only `V5-HOLDOUT = READY_FOR_EXACT_OBJECT_FIELD` opens N0.4B. It authorizes an
+external contact-to-latent field and offline asset baking, not runtime neural
+inference, public content contracts or production quality.
 
 ### N0.4B — Object-specific contact-position few-shot field
 
-Entry condition: N0.4A passes one representation and published data provides
+Entry condition: N0.4A V5 passes one representation and published data provides
 multiple contact positions for one exact object.
 
 Deliverables:
 
 - external, hash-closed training manifest for one exact object with multiple
   contact observations at a canonical listener condition;
-- geometry-aware model with object-global frequency/damping, contact-
-  conditioned gain field, compact residual and coverage output;
-- modal extraction initialization and warm-up before end-to-end synthesis;
+- geometry-aware contact-to-latent model for the frozen V5 representation,
+  plus coverage/OOD output;
 - training/evaluation runner with fixed seeds and environment lock;
-- ablations for modal-only, modal-plus-gain and modal-plus-gain-plus-residual;
-- cooked deterministic replay of every prediction.
+- ablations for nearest latent, coordinate-only and geometry-aware fields;
+- deterministic offline decode and baked contact-atlas export for every
+  selected prediction.
 
 Exit criteria:
 
 - held-out contact positions beat every compatible frozen classical baseline
   on the preregistered primary aggregates;
-- all hard, causal, energy-scaling and exact-cook controls pass;
-- results repeat within the declared training tolerance and cooked PCM repeats
-  exactly;
+- all hard, causal and energy-scaling controls pass;
+- results repeat within the declared training tolerance and baked PCM/clip
+  hashes repeat exactly;
 - failure/OOD conditions choose fallback.
 
-Fallback: a failure closes the current representation hypothesis. Do not tune
-another residual family unless the ablation identifies one missing statistic.
+Fallback: a failure closes the current contact-to-latent hypothesis. Preserve
+ordinary authored clips and do not add runtime inference.
 
 Commit boundary: model interface/runner, compact fixtures and a report. Weights
 and datasets remain external.
@@ -638,11 +652,12 @@ successful Git commit or a report-only model result.
 5. Preserve N0.4A V3A as invalid infrastructure evidence and V3B as a
    reproducible native-rate learned-codec rejection; do not retry nearby
    codecs, bitrates or postfilters on opened Plastic Bin/Purple Scoop targets.
-6. Implement N0.4A V4-DEV: a bounded shared-modal/contact-gain plus learned-
-   residual representation frontier over already-opened objects, with the
-   deterministic inverse inside every candidate.
-7. If and only if one bounded capacity passes V4-DEV, freeze and repeat V4 on
-   one new unopened source-disjoint object. Otherwise stop without spending a
-   new target.
-8. Only after V4-HOLDOUT passes, freeze one AV-MSF-shaped N0.4B exact-object
-   contact field, repeat it and evaluate it on unopened held positions.
+6. Preserve N0.4A V4 as reproducible `REJECT_FIT_REPRESENTATION`; do not run
+   development evaluation or another modal/PCA/bin capacity.
+7. Implement V5-PREFLIGHT: external corpus projection, frozen neural
+   architecture/loss/capacity manifest and synthetic/tiny-corpus deterministic
+   controls. Do not read development or start long training in this commit.
+8. If V5 controls pass, train all frozen capacities, open development once and
+   select at most one. Only a development pass may spend one new holdout.
+9. Only after V5-HOLDOUT passes, freeze one N0.4B exact-object
+   contact-to-latent field and bake a bounded ordinary clip atlas offline.

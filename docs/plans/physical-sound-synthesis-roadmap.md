@@ -1,9 +1,9 @@
-# Roadmap V6: task-specific modal bottleneck to neural contact field
+# Roadmap V7: task-specific neural sound model to baked contact atlas
 
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-30 |
-| Статус | `ACTIVE_R&D / R2_LISTENER_FIELD_REJECTED / R3A_V1_REJECTED / R3A_V2_INCONCLUSIVE / R3A_V3B_NATIVE_NDAC_REJECTED / R3A_V4_MODAL_BOTTLENECK_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R3A_V4_FIT_REPRESENTATION_REJECTED / R3A_V5_NEURAL_RATE_DISTORTION_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -32,7 +32,7 @@ authored clip.
 5. одного exact admitted domain с обязательным fallback;
 6. отдельного product decision перед любой runtime-интеграцией.
 
-## Что меняется в V6
+## Что меняется в V7
 
 Ручной поиск общей формулы `material -> sound` остаётся закрытой основной
 веткой. Q30 modal renderer, DCT residual, FEM/BEM и предыдущие real-data
@@ -58,7 +58,7 @@ Frobenius NRMSE `0.2760` и сам пропускает mean-spectrum gate. V4 �
 6. detailed listener radiation возвращается только отдельной веткой с более
    плотными published observations или independently validated BEM/FEM.
 
-V6 добавляет clean native-rate R3A V3 result. Первый Plastic Bin runner
+V6 добавил clean native-rate R3A V3 result. Первый Plastic Bin runner
 fail-closed остановился из-за восьмисэмплового decoder deficit до публикации
 метрик; guard был выведен только на synthetic control и перенесён в новую
 V3B revision на unopened Purple Scoop. Два V3B прогона повторились
@@ -67,24 +67,47 @@ byte-identically, native identity control дал exact zero, но NDAC-75 про
 cents провалили frozen limits и nearest-contact comparison. Результат —
 `REJECT_LEARNED_CODEC_REPRESENTATION` без sample-rate confound.
 
-Следующий шаг больше не ищет другой general perceptual codec. R3A V4 сначала
-строит task-specific modal bottleneck на уже открытом development corpus:
-object-global poles/frequencies/damping, contact-specific complex gains и
-детерминированный learned multiresolution residual basis. Только один
-замороженный representation+cooker, прошедший bounded development frontier,
-получает один новый unopened discriminator. До этого новый объект не
-расходуется, а neural contact-field training остаётся запрещён.
+R3A V4 проверил следующий аналитический уровень до development. Два fit-only
+прогона побайтно повторили три capacity с object-global poles, complex gains,
+learned long/transient bases и object spectral bins. Все capacity уложились в
+`4 MiB` shared и `64 KiB` per-contact budgets, но spectrum провалился на всех
+`12/12` fit-контактах: даже extended даёт `8.3188–12.0782 dB`. Development,
+row `2407`, method holdout и admission shadow не читались. Результат —
+`REJECT_FIT_REPRESENTATION`, а не разрешение ещё одного PCA/modal тюнинга.
+
+V7 отвечает на этот отрицательный результат изменением порядка, которое прямо
+соответствует цели проекта — обучить ML-модель физического звука:
+
+1. сначала обучается task-specific neural rate-distortion representation на
+   опубликованном internet-only impact corpus;
+2. loss напрямую содержит waveform, multiresolution complex/log spectrum,
+   envelope/decay и modal/pitch terms из frozen evaluator;
+3. четыре уже открытых development-контакта выбирают не более одной из трёх
+   заранее замороженных latent capacities;
+4. только development-pass расходует один новый source-disjoint holdout;
+5. затем exact-object contact field предсказывает latent representation по
+   месту контакта;
+6. первый product experiment offline декодирует замороженную contact grid в
+   обычный bounded clip atlas. Runtime не загружает neural model;
+7. modal/residual distillation остаётся последующей оптимизацией, а не
+   prerequisite, который не позволяет проверить ML-гипотезу.
+
+Exploratory `168 kbps` Opus plus 5 ms envelope sidecar занимает `65,170` bytes
+и проходит `11/12` fit-контактов; один Large Swan contact сохраняет
+`6.1148 dB` spectrum error. Это не кандидат и не runtime dependency. Контроль
+показывает, что frozen budget близок к достижимому, но требует task-specific
+rate allocation, а не другого универсального codec checkpoint.
 
 Целевой первый кандидат теперь — offline geometry-aware modal contact field:
 
 ```text
-published geometry + force-normalized impact recordings
-  -> global modal frequency/damping extraction + residual analysis
-  -> representation-oracle gate on development contacts
-  -> neural geometry/contact-to-modal-gain field
-  -> bounded modes/gains/residual + coverage
-  -> deterministic cooker
-  -> canonical 48 kHz PCM -> SPEC-08 spatialization
+published impact recordings + geometry where available
+  -> task-specific neural encoder + RVQ + decoder
+  -> frozen latent-capacity gate on development and one new holdout
+  -> neural geometry/contact-to-latent field
+  -> offline decoded contact grid + coverage/OOD
+  -> canonical baked clip atlas with exact hashes
+  -> existing clip playback -> SPEC-08 spatialization
 ```
 
 Force-deconvolved transfer response и обычный recorded impact waveform —
@@ -98,8 +121,10 @@ Force-deconvolved transfer response и обычный recorded impact waveform �
   либо как источник authored assets.
 
 Первая модель не входит в runtime. Она работает во внешнем research pipeline,
-а движок в будущем может получить только проверенные и канонически quantized
-coefficients.
+а первый engine experiment получает только проверенный clip atlas и его
+coverage/fallback metadata. Канонически quantized modal coefficients остаются
+допустимым более поздним distillation target, если consumer докажет, что clip
+atlas недостаточен по размеру или вариативности.
 
 ## Неизменяемые ограничения
 
@@ -129,7 +154,9 @@ coefficients.
 | `CorpusRevision` | source hashes, provenance, signal semantics, published axes и пять split roles | Manifest/report в Git; payloads снаружи |
 | `ExperimentRevision` | preprocessing, features, model, environment, seeds, baseline и checkpoint lineage | Code/report в Git; weights/features снаружи |
 | `ValidatorRelease` | hard gates, specialists, thresholds, OOD и grouped risk policy | Версионированный report/contract |
-| `CookedAcousticModel` | bounded modes, damping, spatial gains, residual, domain envelope и fallback | Сначала external research artifact |
+| `NeuralRepresentationRevision` | corpus, encoder/RVQ/decoder, losses, capacities, checkpoint и held quality | Code/report в Git; weights снаружи |
+| `BakedContactAtlas` | exact object/contact grid, canonical clip hashes, coverage/OOD и fallback | Сначала external research artifact |
+| `CookedAcousticModel` | optional later modal/residual distillation of an admitted atlas | Сначала external research artifact |
 | `AdmissionRecord` | immutable `Pass`, `Reject` или `FallbackOutOfDomain` для exact domain | Reviewable evidence |
 
 Каждое изменение corpus, model, preprocessing, cooker или validator создаёт
@@ -143,13 +170,13 @@ flowchart LR
     R0["R0. Real data boundary"] --> R1["R1. Honest baselines"]
     R1 --> R2D["R2D. Trainability gate"]
     R2D --> R2E["R2E. Listener field reject"]
-    R2E --> R3A["R3A. New corpus and representation"]
-    R3A --> R3B["R3B. Exact-object contact field"]
+    R2E --> R3A["R3A. Neural representation"]
+    R3A --> R3B["R3B. Exact-object contact-to-latent field"]
     R3B --> R4["R4. Shared-object pretraining"]
     R3B --> R5["R5. Independent validator"]
     R4 --> R5
-    R5 --> R6["R6. Cooker and one-shot admission"]
-    R6 --> R7["R7. Formula base V1"]
+    R5 --> R6["R6. Atlas bake and one-shot admission"]
+    R6 --> R7["R7. Sound model base V1"]
     R7 --> R8["R8. Production impact vertical"]
 ```
 
@@ -166,8 +193,8 @@ models и не маскирует провал обещанием универс
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
 | R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
 | R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `IN_PROGRESS / V1_REJECTED / V2_INCONCLUSIVE / V3B_REJECTED / V4_MODAL_BOTTLENECK_NEXT` | M–L | Native identity passes exactly, but NDAC loses spectrum and modal frequencies. Build a bounded task-specific modal/residual representation and deterministic inverse on opened development data, then spend one new unopened discriminator. |
-| R3B | `BLOCKED_BY_R3A` | L | Geometry-aware exact-object few-shot field predicts held contact positions and cooks bounded modal/residual PCM. |
+| R3A | `IN_PROGRESS / V1_REJECTED / V2_INCONCLUSIVE / V3B_REJECTED / V4_FIT_REJECTED / V5_NEURAL_NEXT` | L | Freeze an internet-only training corpus and task-specific neural rate-distortion model; pass opened development and one new holdout before a contact field. |
+| R3B | `BLOCKED_BY_R3A` | L | Geometry-aware exact-object few-shot field predicts held contact latents and bakes a validated contact clip atlas offline. |
 | R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
 | R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
 | R6 | `BLOCKED_BY_R5` | M | Frozen generator/cooker/validator один раз открывают admission shadow и публикуют tri-state decision. |
@@ -376,7 +403,7 @@ architecture. See the [R2E result and V4 research](../development/physical-sound
 R2 is closed as `REJECT_LISTENER_FIELD`. This does not reject impact-
 conditioned object sound at a canonical listener condition.
 
-## R3A — Internet corpus and representation gate
+## R3A — Internet corpus and neural representation gate
 
 Entry condition: met by R2 closure and the independent product decision to
 separate contact variation from listener radiation. R3A must use a new
@@ -395,8 +422,10 @@ Deliverables:
   absent;
 - frozen nearest/KNN, modal, DiffSound/FEM when reproducible and authored/Q30
   compatible controls;
-- query-seeing development oracles for at least modal plus residual and one
-  alternative compact representation before neural training;
+- frozen fit-only modal/residual controls plus one task-specific neural
+  encoder/RVQ/decoder trained on source-disjoint published impact audio;
+- at most three preregistered latent capacities and direct waveform,
+  multiresolution complex/log-spectrum, envelope/decay and modal losses;
 - a spatial-sampling capability report that prohibits arbitrary listener
   directivity where published density is insufficient.
 
@@ -404,14 +433,14 @@ Exit criteria:
 
 - two projections and representation reports repeat under the declared exact
   or tolerance policy;
-- a compact representation preserves level, modal frequency/damping, envelope
+- one bounded neural latent preserves level, modal frequency/damping, envelope
   and spectrum strongly enough to beat its preregistered target baseline on
-  development contacts;
+  all development contacts and one later source-disjoint holdout;
 - at least one exact object exposes enough impact locations for few-shot train
   and held-contact evaluation;
 - method holdout and admission shadow remain commitments only;
-- result is `READY_FOR_EXACT_OBJECT_FIELD`, `DATA_INSUFFICIENT` or
-  `REJECT_REPRESENTATION`.
+- result is `READY_FOR_EXACT_OBJECT_FIELD`, `DATA_INSUFFICIENT_COMPRESSION` or
+  `REJECT_NEURAL_REPRESENTATION`.
 
 R3A V1 is complete and returns `REJECT_REPRESENTATION`. Two metadata-only
 Blue Bowl preflights, two bounded four-contact extractions and two real
@@ -444,26 +473,37 @@ improves level, envelope and decay, but has `12.1198 dB` spectrum RMSE and
 `2407` remains undecoded. See the
 [R3A V3 result](../development/physical-sound-r3a-v3-native-ndac-result-2026-08-30.md).
 
-R3A V4 has two bounded phases:
+R3A V4 is complete before development and returns
+`REJECT_FIT_REPRESENTATION`. Two preflights and two fit runs reproduce every
+JSON/NPY artifact. All three modal/gain/multiresidual capacities satisfy their
+byte budgets, but all twelve fit contacts fail the spectrum endpoint. No
+development or sealed waveform is decoded. See the
+[V4 fit result and V7 rebaseline](../development/physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md).
 
-1. `V4-DEV` uses only already-opened development contacts. It compares no more
-   than three preregistered capacity points for a shared pole bank,
-   contact-specific complex gains and a deterministic learned
-   multiresolution residual basis. A report-only task-specific residual
-   autoencoder may be an ablation, never the cooker.
-2. `V4-HOLDOUT` freezes the smallest development-passing representation,
-   inverse, budgets and thresholds before reading one new source-disjoint
-   object. Its fifth contact remains sealed.
+R3A V5 has three bounded phases:
 
-V4 passes only if the deterministic representation beats nearest fit and all
-five absolute limits within its bounded cooker budget. If no capacity point
-passes the opened frontier, return `REJECT_REPRESENTATION` without consuming a
-new object. If only an unbounded/report-only neural decoder passes, return
-`DATA_INSUFFICIENT_COMPRESSION`. R3B remains blocked until V4-HOLDOUT passes.
+1. `V5-PREFLIGHT` freezes a source-disjoint internet impact corpus, exact
+   preprocessing, a small convolutional encoder/RVQ/decoder, no more than
+   three latent capacities, all losses, seeds, checkpoint selection and cost
+   limits. It proves synthetic identity, tiny-corpus overfit and deterministic
+   checkpoint/inference without reading development contacts.
+2. `V5-DEV` trains only on the frozen internet training role plus the twelve
+   authorized fit contacts. The four already-opened development contacts may
+   select the smallest capacity passing every frozen endpoint and baseline.
+   They cannot select architecture, losses, thresholds or stopping rules.
+3. `V5-HOLDOUT` freezes the complete selected candidate before reading one new
+   source-disjoint object with `3 fit / 1 development / 1 sealed` roles. The
+   fifth contact remains sealed.
+
+The neural decoder is external and receives research quality credit only. A
+V5 pass authorizes R3B and offline asset baking, not runtime model inference or
+public content contracts. If no V5 capacity passes, return
+`REJECT_NEURAL_REPRESENTATION` and keep clips; do not reopen V4 or search more
+universal codec checkpoints.
 
 ## R3B — Object-specific contact-position few-shot model
 
-Entry condition: R3A passes one representation and publishes a new exact
+Entry condition: R3A V5 passes one neural representation and publishes a new exact
 object with disjoint held contact positions. Listener coordinate is fixed to
 the source's canonical condition and is not a learned axis.
 
@@ -476,27 +516,27 @@ Model inputs:
 
 Model outputs:
 
-- global modal frequencies and damping;
-- contact-conditioned modal gains with optionally spatial damping only when
-  development evidence requires it;
-- compact coloured residual;
+- frozen neural latent codes for the selected representation revision;
+- optional global/local physical auxiliary heads only when they improve frozen
+  validation rather than replacing it;
 - uncertainty, coverage distance и OOD reason.
 
 Exit criteria:
 
 - unseen impact positions beat every frozen compatible classical baseline;
 - bounded excitation scaling и negative controls проходят;
-- prediction cooks в canonical bounded coefficients;
-- одинаковый cooked record создаёт byte-identical 48 kHz PCM;
+- a frozen contact grid decodes offline to byte-identical canonical 48 kHz PCM;
+- the asset baker writes bounded atlas clips, exact hashes, coverage and
+  mandatory fallback metadata;
 - method holdout открывается один раз только после freeze candidate;
 - результат — `GO_EXACT_OBJECT`, `REJECT_REPRESENTATION` или
   `DATA_INSUFFICIENT`.
 
-Preferred first architecture is an AV-MSF-style factorization: object-global
-frequencies/damping, geometry-aware contact-to-gain field, explicit residual,
-modal initialization/warm-up and no opaque waveform decoder in the admitted
-path. A simpler mesh/point feature encoder is preferred over 3DGS when it
-preserves the same falsifiable geometry boundary.
+Preferred first architecture is a small mesh/point feature encoder feeding a
+contact-to-latent field for the already-qualified V5 codec. It precedes 3DGS or
+cross-object zero-shot complexity. The decoded grid stays external until the
+asset baker freezes ordinary clips; the runtime never executes the field or
+codec.
 
 ## R4 — Shared geometry-conditioned transfer
 
@@ -641,10 +681,13 @@ ledger, persistence и `AcousticFactV1` roots.
     `COMPLETE / REJECTED / REPRODUCIBLE`; V3A records one fail-closed length
     defect, V3B passes native identity exactly but loses spectrum and modal
     frequencies on Purple Scoop; no training is authorized.
-14. `R3A V4 task-specific modal bottleneck` — `NEXT`; establish one bounded
-    modal/gain/learned-residual frontier on opened development objects, freeze
-    the smallest passing deterministic cooker and only then spend one new
-    unopened representation holdout.
+14. `R3A V4 task-specific modal bottleneck` —
+    `COMPLETE / REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE`; all three bounded
+    capacities fail spectrum on `12/12` fit contacts, while development and
+    sealed contacts remain unread.
+15. `R3A V5 task-specific neural representation` — `NEXT`; freeze the external
+    corpus/model/loss manifest and synthetic deterministic controls, then
+    train at most three latent capacities before opening development once.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.
@@ -655,12 +698,14 @@ ledger, persistence и `AcousticFactV1` roots.
 | --- | --- |
 | Transfer и recorded-waveform semantics нельзя согласовать | Не смешивать losses; сузить task или добавить явную excitation model |
 | Context fit не обходит zero/global mean или теряет signal energy | `REJECT_TRAINING_SUBSTRATE`; query не открывать |
-| R3A representation oracle не превосходит target baseline | `REJECT_REPRESENTATION`; neural model не запускать |
+| V4 analytical fit fails its own frozen contacts | `REJECT_FIT_REPRESENTATION`; no development read, nearby modal/PCA tuning ends |
+| V5 synthetic/tiny-corpus controls do not overfit or repeat | `REJECT_TRAINING_SUBSTRATE`; development не читать |
+| V5 neural representation не превосходит target baseline | `REJECT_NEURAL_REPRESENTATION`; contact field не запускать |
 | Sample-rate/filter control сам нарушает endpoint | `INCONCLUSIVE_CONTROL`; target не переоценивать, протокол не менять post-hoc, новый discriminator заморозить на unopened data |
-| Native general codec сохраняет envelope, но теряет spectrum/modes | Закрыть general-codec family; проверить task-specific modal bottleneck, а не nearby bitrate/model |
+| Native general codec сохраняет envelope, но теряет spectrum/modes | Не искать соседний checkpoint; task-specific neural loss обязан оптимизировать exact endpoints |
 | R3B проходит exact object, R4 падает object-disjoint | `GO_EXACT_OBJECT`; zero-shot/shared claim закрыть |
 | Published listener sampling spatially aliases the requested field | Narrow to canonical listener or exact grid; arbitrary radiation remains fallback-only |
-| Direct waveform звучит лучше, но не проходит causal/exact cook | Оставить upper bound или authored asset source |
+| Neural waveform проходит quality, но не имеет runtime-safe inverse | Использовать только offline baked clip atlas; runtime inference запрещён |
 | Internet data не содержит нужную axis | `DATA_INSUFFICIENT`; искать другой published source, не local capture |
 | Learned metric расходится с hard/acoustic specialists | Fallback; одна model score не перевешивает disagreement |
 | Frozen candidate падает на shadow | `Reject`; сохранить counterexample и открыть новую revision с одной новой hypothesis |
@@ -669,19 +714,20 @@ ledger, persistence и `AcousticFactV1` roots.
 
 ## Definition of done
 
-- **Training substrate:** objective, optimizer and cooker pass micro-overfit,
-  trivial-control and exact-cook gates before any held task is spent.
-- **Representation:** R3A task-specific modal/residual representation и её
-  deterministic inverse вместе проходят opened development frontier и один
-  заранее frozen unopened holdout до neural contact-field training.
+- **Training substrate:** V5 objective, optimizer, RVQ usage and decoder pass
+  identity, micro-overfit, deterministic-checkpoint and exact-inference gates
+  before any development task is spent.
+- **Representation:** one task-specific neural latent passes all frozen
+  endpoints on opened development and one preregistered source-disjoint
+  holdout before contact-field training.
 - **Research model:** R3B reproducibly supports an exact-object held-contact
   claim or honestly rejects the representation; listener radiation is separate.
 - **Automatic validation:** R5 принимает решения без per-sound human queue и
   показывает confidence-bounded grouped risk.
 - **Closed research loop:** R6 один раз встречает frozen generator и validator
   на shadow и публикует immutable tri-state decision.
-- **Formula base:** R7 хранит bounded cooked domains, negative knowledge и
-  fallbacks без runtime neural inference.
+- **Sound model base:** R7 хранит bounded baked atlases, optional distilled
+  formula records, negative knowledge и fallbacks без runtime neural inference.
 - **Product value:** R8 даёт один visible prop, физически реагирующий на место и
   силу удара, при полном сохранении clip fallback и authoritative roots.
 
