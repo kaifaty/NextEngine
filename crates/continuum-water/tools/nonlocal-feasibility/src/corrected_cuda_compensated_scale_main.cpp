@@ -544,7 +544,16 @@ int run_correspondence_4k(const std::string& scenario,
     std::string receipt_material =
         "nextengine.nonlocal.ncgp3.trajectory-receipts.v1\n";
     NonlocalGpuFailure gpu_failure = NonlocalGpuFailure::None;
+    NonlocalGpuFailure corrected_gpu_failure = NonlocalGpuFailure::None;
+    NonlocalGpuFailure permuted_gpu_failure = NonlocalGpuFailure::None;
     NonlocalGpuFailure cpu_failure = NonlocalGpuFailure::None;
+    std::uint32_t failure_gpu_hvp = 0U;
+    std::uint32_t failure_permuted_hvp = 0U;
+    std::uint64_t failure_outer_trials = 0U;
+    std::uint64_t failure_accepted_trials = 0U;
+    std::uint64_t failure_rejected_trials = 0U;
+    std::string failure_work_root;
+    std::string failure_permuted_work_root;
     std::uint32_t completed = 0U;
     for (std::uint32_t step_index = 0U; step_index < steps; ++step_index) {
         const auto gpu_result = gpu.step(budget,
@@ -555,12 +564,26 @@ int run_correspondence_4k(const std::string& scenario,
             gpu_variant, true, false);
         const auto cpu_result = step_reference(profile, cpu_state, ghosts,
             128U, NonlocalGpuVariant::Corrected, true);
-        gpu_failure = gpu_result.failure != NonlocalGpuFailure::None
+        corrected_gpu_failure = gpu_result.failure;
+        permuted_gpu_failure = permuted_result.failure;
+        gpu_failure = corrected_gpu_failure != NonlocalGpuFailure::None
             ? gpu_result.failure : permuted_result.failure;
         cpu_failure = cpu_result.failure;
         receipt_material += step_work_semantic_root(profile, gpu_result) + ':'
             + step_work_semantic_root(profile, permuted_result) + ':'
             + step_work_semantic_root(profile, cpu_result) + '\n';
+        maximum_gpu_hvp = std::max(maximum_gpu_hvp, gpu_result.hvp_used);
+        maximum_cpu_hvp = std::max(maximum_cpu_hvp, cpu_result.hvp_used);
+        if (gpu_failure != NonlocalGpuFailure::None) {
+            failure_gpu_hvp = gpu_result.hvp_used;
+            failure_permuted_hvp = permuted_result.hvp_used;
+            failure_outer_trials = gpu_result.work.outer_trials;
+            failure_accepted_trials = gpu_result.work.accepted_trials;
+            failure_rejected_trials = gpu_result.work.rejected_trials;
+            failure_work_root = step_work_semantic_root(profile, gpu_result);
+            failure_permuted_work_root = step_work_semantic_root(
+                profile, permuted_result);
+        }
         if (gpu_failure != NonlocalGpuFailure::None
             || cpu_failure != NonlocalGpuFailure::None
             || gpu_result.state.size() != cpu_result.state.size()
@@ -660,8 +683,6 @@ int run_correspondence_4k(const std::string& scenario,
             != permuted_result.active_pressure_ids) {
             ++permutation_mismatch_steps;
         }
-        maximum_gpu_hvp = std::max(maximum_gpu_hvp, gpu_result.hvp_used);
-        maximum_cpu_hvp = std::max(maximum_cpu_hvp, cpu_result.hvp_used);
         cpu_state = cpu_result.state;
         ++completed;
         if (maximum_position_rmse > 0.0025
@@ -706,11 +727,19 @@ int run_correspondence_4k(const std::string& scenario,
         && (scenario != "hydrostatic-hold" || steps != 1U
             || active_mismatch_steps == 0U)
         && permutation_mismatch_steps == 0U;
-    const bool physical_refuted = !passed && completed > 0U
+    const bool work_refuted = !passed && budget == 128U
+        && corrected_gpu_failure == NonlocalGpuFailure::WorkBudgetExceeded
+        && permuted_gpu_failure == NonlocalGpuFailure::WorkBudgetExceeded
+        && cpu_failure == NonlocalGpuFailure::None
+        && failure_gpu_hvp <= budget
+        && failure_gpu_hvp == failure_permuted_hvp
+        && !failure_work_root.empty()
+        && failure_work_root == failure_permuted_work_root;
+    const bool physical_refuted = work_refuted || (!passed && completed > 0U
         && gpu_failure == NonlocalGpuFailure::None
         && cpu_failure == NonlocalGpuFailure::None
         && (maximum_compression_rmse > 0.05
-            || maximum_compression_error > 0.10);
+            || maximum_compression_error > 0.10));
     const long double lattice_density = infinite_lattice_density(profile);
     const char* status = passed ? "PASS"
         : (physical_refuted ? "PHYSICS_REFUTED" : "INCONCLUSIVE");
@@ -722,6 +751,10 @@ int run_correspondence_4k(const std::string& scenario,
               << ",\"completed_steps\":" << completed
               << ",\"budget\":" << budget
               << ",\"gpu_failure\":" << static_cast<std::uint32_t>(gpu_failure)
+              << ",\"corrected_gpu_failure\":"
+              << static_cast<std::uint32_t>(corrected_gpu_failure)
+              << ",\"permuted_gpu_failure\":"
+              << static_cast<std::uint32_t>(permuted_gpu_failure)
               << ",\"cpu_failure\":" << static_cast<std::uint32_t>(cpu_failure)
               << ",\"position_rmse_max_m\":" << maximum_position_rmse
               << ",\"position_error_max_m\":" << maximum_position_error
@@ -767,6 +800,16 @@ int run_correspondence_4k(const std::string& scenario,
               << permutation_mismatch_steps
               << ",\"gpu_hvp_max\":" << maximum_gpu_hvp
               << ",\"cpu_hvp_max\":" << maximum_cpu_hvp
+              << ",\"failure_gpu_hvp\":" << failure_gpu_hvp
+              << ",\"failure_permuted_hvp\":" << failure_permuted_hvp
+              << ",\"failure_outer_trials\":" << failure_outer_trials
+              << ",\"failure_accepted_trials\":"
+              << failure_accepted_trials
+              << ",\"failure_rejected_trials\":"
+              << failure_rejected_trials
+              << ",\"failure_work_root\":\"" << failure_work_root
+              << "\",\"failure_permuted_work_root\":\""
+              << failure_permuted_work_root << "\""
               << ",\"particle_count\":" << cpu_state.size()
               << ",\"mass_kg\":"
               << static_cast<double>(cpu_state.size()) * profile.mass

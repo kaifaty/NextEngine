@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP3_REV4_CORRECTED_FCR_PROFILE_FROZEN` |
+| Status | `ACTIVE / NCGP3_PRIMARY_WORK_BUDGET_REFUTED_PENDING_REVIEW` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-compensated-scale` |
 | Scope | Extend verified NCGP2 device `(hi, lo)` state to dynamic graphs, analytic boundaries, real rollback and 4k multi-step correspondence |
@@ -14,15 +14,16 @@
 - **Current conclusion:** NCGP2 independently verified H1. Canonical device
   `(hi, lo)` state closes the retained translated pair; surface-only f64 does
   not.
-- **Current task:** implement the FCR2 profile frozen in NCGP3 revision 4 in
-  CUDA, CPU and the independent long-double oracle, then rerun the 4k gates.
+- **Current task:** close reproducibility and independent review of the first
+  corrected-FCR2 240-step work-budget failure.
 - **Completed apparatus:** pair-aware graph membership, pair-aware swept
   contacts and executable high/low rollback controls pass deterministically.
 - **Material correction:** the first 4k density failure used the historical raw
   FCR1/NCGP1 kernel and exactly reproduced its known `~1/8` normalization
   defect. It is a negative control, not a refutation of corrected FCR2.
-- **Current blocker:** 16/240-step correctness, 50k and timing remain forbidden
-  until the corrected one-step 4k density/operator gates pass.
+- **Current blocker:** corrected 16-step trajectories pass, but 240-step hydro
+  reaches `WorkBudgetExceeded` at step 39 with the maximum admitted budget.
+  50k and timing remain forbidden pending exact reproduction/review.
 - **Do not retry:** the raw profile as physical evidence, host coordinate
   localization, high-only graph membership, tolerance widening or graph-only
   timing as a full-solver result.
@@ -40,6 +41,10 @@
 | Raw NCGP3 hydrostatic density run | lattice ratio `0.12522433816880058`, density mean `114.988 kg/m^3` | reproduces NSR3B0 raw-profile ineligibility; retain as negative control |
 | NSR3B0R selected FCR2 profile | `kernel_scale=7.985668078772472`, corrected material anchors | use this profile in every physical NCGP3 path |
 | NCGP3 revision-4 corrected-FCR corrigendum | SHA-256 `5ba46c6043a8942ad522f7a9299cc6a69b1cf06d34e19cd8cccea00d55b4bb18` | resolves profile lineage and one-sided compression-density semantics before code |
+| Corrected FCR2 profile/lattice gate | corrected density `999.9999999999986 kg/m^3`; raw `125.2243381688004 kg/m^3` | normalization and profile lineage closed |
+| Corrected one-step 4k hydro, budget 128 | PASS; position max `0.230 um`, compression max `0.0240%`, active/permutation exact; 81 GPU HVP | smallest successful one-step budget is 128 |
+| Corrected 16-step 4k corpus | hydro/dam/orifice PASS; position max `10.3/9.4/9.1 um`; compression max `0.132/0.124/0.132%`; permutation exact | short trajectory correspondence supported |
+| Corrected 240-step hydro | deterministic failure after 38 completed steps; corrected/permuted `WorkBudgetExceeded`, equal work roots, `126/128` HVP consumed before a 3-HVP Jacobi outer boundary | frozen complete-corpus work ceiling is not met; later correctness/performance blocked |
 
 ### D-001 — Reconstruct only graph addresses in binary64
 
@@ -66,14 +71,27 @@
 - **Consequence:** transaction work and recovery become part of the frozen
   scalable claim.
 
+### D-003 — Do not select the pressure-f64 discriminator for a work failure
+
+- **Observation:** primary f32 reaches the frozen maximum work budget while all
+  observed state/density correspondence metrics remain well inside their
+  gates. No isolated pressure-operator error has been established.
+- **Decision:** retain the implemented pressure-f64 route as an unselected
+  discriminator; do not use it to bypass the primary work-ceiling result.
+- **Rejected alternatives:** raising HVP beyond 128, weakening convergence,
+  classifying a near-threshold multi-step active switch as a force error, or
+  proceeding to timing after the first failed correctness gate.
+- **Consequence:** formal next work is reproduction and independent review,
+  not dam/orifice 240-step runs or 50k performance.
+
 ## Next action
 
-1. Add an explicit FCR2 profile and seal `kernel_scale` in its semantic root.
-2. Apply the scale identically to `W`, `dW/dr` and `d2W/dr2` in CUDA, CPU and
-   the independently written long-double oracle.
-3. Preserve retained NCGP1/NCGP2 output semantics and the raw negative route.
-4. Run the corrected lattice, one-step 4k and retained apparatus gates before
-   any longer trajectory.
+1. Freeze the expanded failure receipt and commit the exact candidate.
+2. Produce two clean Release builds/runs for the 240-step hydro request and
+   require identical numerical/result/work bytes apart from binary identity.
+3. Run the retained controls and proportional sanitizer routes.
+4. Request one read-only independent NCGP3 review. If it confirms the work
+   failure, record `VERIFIED_PHYSICS_REFUTED` and leave performance `NOT_RUN`.
 
 ## Handoff
 
