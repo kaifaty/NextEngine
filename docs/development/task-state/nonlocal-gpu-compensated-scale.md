@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP3_CONTRACT_FROZEN` |
+| Status | `ACTIVE / NCGP3_REV2_CONTRACT_FROZEN` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-compensated-scale` |
 | Scope | Extend verified NCGP2 device `(hi, lo)` state to dynamic graphs, analytic boundaries, real rollback and 4k multi-step correspondence |
@@ -17,7 +17,7 @@
 - **Current task:** implement the NCGP3 scalable semantics frozen in
   `docs/plans/nonlocal-gpu-compensated-scale/00-compensated-scale-contract.md`.
 - **First implementation slice:** make graph quantization/membership consume
-  both parts and add a boundary-radius control whose high parts are identical.
+  both parts and add the exact revision-2 boundary-radius pair fixture.
 - **Next slices:** pair-aware swept boundary, real post-finalize fault
   injection/rollback, then 4k 240-step CPU/GPU trajectories.
 - **Current blocker:** 50k correctness and timing remain forbidden until every
@@ -34,6 +34,7 @@
 | `docs/development/nonlocal-gpu-surface-translation-evidence-2026-08-30.md` | `VERIFIED H1 SUPPORTED / GO` | retain both state parts through accepted updates |
 | NCGP2 reviewer limitations | high-only graph and non-injected transaction controls were explicitly deferred | they are load-bearing in NCGP3 |
 | NCGP3 revision-1 contract | SHA-256 `4bc9f67b77457b28e5259ea2d4efb6aeb0019edab43270909f70ef0aa6827c5c` | implementation may not change corpus, gates or claim ceiling |
+| NCGP3 revision-2 graph-control corrigendum | SHA-256 `f026e33b7c5e9476d0af40f55acb59a95123713a90f198b060b930368b2e84f0` | physical corpus remains shared binary32; only the graph apparatus control admits direct pair bytes |
 
 ### D-001 — Reconstruct only graph addresses in binary64
 
@@ -62,7 +63,7 @@
 
 ## Next action
 
-1. Implement pair-aware graph quantization and the exact high-only negative.
+1. Implement pair-aware graph quantization and the exact revision-2 high-only negative.
 2. Preserve retained NCGP1/NCGP2 output semantics outside the new NCGP3 route.
 3. Add pair-aware swept contacts and actual rollback fault injection.
 4. Run tiny gates before constructing or running the 4k trajectory corpus.
