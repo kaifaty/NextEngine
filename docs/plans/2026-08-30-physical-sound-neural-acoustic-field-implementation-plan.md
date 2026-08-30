@@ -3,16 +3,17 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / N0.1_N0.2_COMPLETE / N0.3C_REJECTED / N0.3D_V2_PASS / N0.3E_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.1_N0.2_COMPLETE / N0.3E_LISTENER_FIELD_REJECTED / N0.4A_DATA_REPRESENTATION_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 
 ## Objective
 
-Demonstrate whether an offline neural model can learn an impact/listener
-acoustic field better than the frozen Q30 modal plus DCT baseline, while the
-game-facing result remains a bounded, deterministic cooked representation.
+Demonstrate whether an offline geometry-aware neural model can learn an
+impact/contact-position modal field better than compatible frozen classical
+baselines, while the game-facing result remains a bounded, deterministic
+cooked representation and listener spatialization remains a separate layer.
 
 The plan does not authorize a public schema, runtime neural inference,
 checkpoint distribution, production contact wiring or a shipping claim.
@@ -332,25 +333,80 @@ trainability and demonstrates a held-listener advantage.
 Commit boundary: basis/coefficient runner, compact tests, external two-run
 lineage and immutable grouped-query decision.
 
-### N0.4 — Object-specific impact/listener few-shot field
+Outcome: complete and rejected. The harmonic field fits context essentially
+exactly and repeats byte-for-byte, yet loses all five query endpoints to every
+frozen control. The post-reject rank-96 query oracle repeats with NRMSE
+`0.2760`, retains `92.38%` query energy and still misses mean-spectrum versus
+linear interpolation. Decision:
+`RepresentationAndInterpolationBothLimited`. The R2 listener split is retired;
+nearby architecture/rank/seed/step tuning is forbidden. See the
+[R2E result and V4 research](../development/physical-sound-listener-field-r2e-result-and-v4-research-2026-08-30.md).
 
-Entry condition: N0.3E proves the representation and published data provides
-multiple impact and listener conditions for one exact object.
+### N0.4A — New internet corpus and representation preflight
+
+Entry condition: `MET`; N0.3E closed the fixed-impact listener task without
+claiming that contact-position modeling is infeasible.
+
+Purpose: freeze a new, unopened product-aligned task before another neural
+model. The first task predicts sound over contact position for an exact object
+at one declared canonical listener condition. Detailed radiation is not a
+learned axis.
 
 Deliverables:
 
-- external, hash-closed training manifest for one object family with multiple
-  impact and listener observations;
-- a model with global frequency/damping parameters, conditioned gain field and
-  compact residual output;
+- availability/provenance audit for multi-object and multi-impact published
+  real data, starting with REALIMPACT and ObjectFolder Real;
+- force normalization, peak alignment, three-second or evidence-backed decay
+  window and explicit waveform/transfer semantics;
+- exact geometry/image/contact coordinate bindings and honest missing
+  support/composition metadata;
+- new object/source/project grouped train, development, calibration,
+  method-holdout and admission-shadow commitments;
+- compatible KNN/nearest, modal, Q30/DCT and reproducible DiffSound/FEM
+  controls;
+- modal plus residual and at least one alternative compact representation
+  oracle on query-seeing development contacts;
+- sampling-capability report that narrows listener radiation to canonical or
+  exact published conditions.
+
+Exit criteria:
+
+- two projections and reports reproduce under the declared policy;
+- at least one exact object has enough disjoint contact locations for few-shot
+  fit and held-contact evaluation;
+- one compact representation beats its preregistered target baseline while
+  preserving level, modes, damping, envelope and spectrum;
+- method holdout and admission shadow remain unopened;
+- result is `READY_FOR_EXACT_OBJECT_FIELD`, `DATA_INSUFFICIENT` or
+  `REJECT_REPRESENTATION`.
+
+Fallback: search another published source or retain canonical authored clips.
+Do not reuse the opened Green Goblet listener query as method evidence and do
+not ask the user for local recordings.
+
+Commit boundary: source/corpus manifest, representation-oracle runner, compact
+tests and immutable preflight report. Payloads and feature caches stay external.
+
+### N0.4B — Object-specific contact-position few-shot field
+
+Entry condition: N0.4A passes one representation and published data provides
+multiple contact positions for one exact object.
+
+Deliverables:
+
+- external, hash-closed training manifest for one exact object with multiple
+  contact observations at a canonical listener condition;
+- geometry-aware model with object-global frequency/damping, contact-
+  conditioned gain field, compact residual and coverage output;
+- modal extraction initialization and warm-up before end-to-end synthesis;
 - training/evaluation runner with fixed seeds and environment lock;
 - ablations for modal-only, modal-plus-gain and modal-plus-gain-plus-residual;
 - cooked deterministic replay of every prediction.
 
 Exit criteria:
 
-- held-out impact/listener results beat the classical baseline on the
-  preregistered primary aggregates;
+- held-out contact positions beat every compatible frozen classical baseline
+  on the preregistered primary aggregates;
 - all hard, causal, energy-scaling and exact-cook controls pass;
 - results repeat within the declared training tolerance and cooked PCM repeats
   exactly;
@@ -364,13 +420,12 @@ and datasets remain external.
 
 ### N0.5 — Shared geometry-conditioned surrogate
 
-Entry condition: N0.4 proves the representation on held-out positions and
-listeners.
+Entry condition: N0.4B proves the representation on held-out contact positions.
 
 Deliverables:
 
-- geometry encoder and shared modal/radiation heads trained only on the frozen
-  train role;
+- geometry encoder and shared modal/contact-gain heads trained only on the
+  frozen train role;
 - object- and family-disjoint method-holdout evaluation;
 - comparison with object-specific few-shot adaptation;
 - calibrated coverage/OOD output;
@@ -398,8 +453,9 @@ Deliverables:
   metrics, environment, seeds and output hashes;
 - per-object/position/listener distributions and failure clustering;
 - report-only direct-waveform upper bound when reproducible;
-- explicit `GO_LISTENER_FIELD`, `GO_EXACT_OBJECT`, `GO_SHARED`,
-  `REJECT_REPRESENTATION` or `DATA_INSUFFICIENT` decision.
+- explicit `GO_EXACT_OBJECT`, `GO_SHARED`, `REJECT_REPRESENTATION` or
+  `DATA_INSUFFICIENT` decision; listener-radiation evidence is reported
+  separately and cannot be inferred from contact-position success.
 
 Exit criteria:
 
@@ -501,7 +557,7 @@ inference is not part of N4.
 | Axis | Development task | Method-holdout task | Admission consequence |
 |---|---|---|---|
 | Impact position | interpolate known-object positions | unseen positions and object groups | narrow or reject spatial claim |
-| Listener position | reconstruct held-out microphones | unseen listeners/object groups | narrow or reject radiation claim |
+| Listener position | Canonical condition only in N0.4B; exact-grid diagnostics separate | Future dense/solver-backed radiation holdout | Never infer radiation from contact-field success |
 | Excitation | bounded energy scaling | unseen permitted energy bands | hard reject on causal failure |
 | Object geometry | known/few-shot object | object- and family-disjoint | choose shared or few-shot claim |
 | Residual | coloration/autocorrelation ablations | unopened real groups | select compact residual or reject |
@@ -518,13 +574,17 @@ successful Git commit or a report-only model result.
 
 ## Immediate queue
 
-1. Preserve direct, phase-aligned and R2C separable complex fields as immutable
-   rejected revisions; do not tune their opened families.
-2. Preserve N0.3D V1 as `RejectTrainingSubstrate` and V2 as the passing
-   optimizer-only successor; do not change either frozen revision.
-3. Freeze one data-only coordinate-to-coefficient N0.3E candidate over the
-   passed V2 context basis, with no query-informed selection.
-4. Repeat N0.3E without query feedback, then evaluate once on all 180 grouped
-   queries against the unchanged three controls and five endpoints.
-5. Proceed to impact/listener few-shot N0.4 only if N0.3E passes and an
-   internet source closes the required impact axis.
+1. Preserve direct, phase-aligned, R2C and R2E listener fields as immutable
+   rejected revisions; never reuse their opened query for model selection.
+2. Preserve N0.3D V2 as proof that the coefficient objective/cooker can train,
+   not as evidence that rank 96 generalizes to hidden positions.
+3. Audit published REALIMPACT/ObjectFolder Real multi-impact availability,
+   geometry, force, contact and canonical-listener semantics without importing
+   payloads into Git.
+4. Freeze a new N0.4A object/source-disjoint projection and compatible
+   baselines before representation fitting.
+5. Run query-seeing development oracles for modal-plus-residual and one
+   alternative compact representation; authorize no neural model unless one
+   passes.
+6. Freeze one AV-MSF-shaped N0.4B exact-object contact field, then repeat and
+   evaluate it on unopened held contact positions.

@@ -4,13 +4,13 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.99 |
+| Version | 1.00 |
 | Last verified | 2026-08-30 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [PS-2 YCB vertical reject-parent expansion](../development/physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Blue Bowl cross-tier E2 increment](../development/physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [PS-2 REALIMPACT Shell Plate bounded-range E2 pilot](../development/physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md), [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Skull Cup bounded-range E2 pilot](../development/physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md), [PS-2 SoundPacks Glass E3 and split audit](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md), [PS-2 Kronland reject expansion and split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [PS-2 exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [PS-2 internet-source feasibility and transfer route](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [PS-2 REALIMPACT transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [PS-2 REALIMPACT vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [PS-2 REALIMPACT shape-conditioned spatial calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT frequency-conditioned spatial calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT modal-radiation representation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [PS-2 analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [PS-2 Pitcher causal audit](../development/physical-sound-pitcher-causal-audit-ps2-2026-08-28.md), [PS-2 Iron selector/tail diagnostic](../development/physical-sound-realimpact-selector-tail-diagnostic-result-ps2-2026-08-28.md) |
 | Neural strategy | [Offline neural acoustic field strategy, 2026-08-30](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
-| Replaces | SPEC-45 0.98; records the reproducible R2D V2 context-trainability pass and authorizes one isolated R2E research candidate without changing the Proposed boundary or authorizing query quality/admission/runtime use |
-| Latest evidence | [R2D V2 context trainability result](../development/physical-sound-listener-field-r2d-trainability-v2-result-2026-08-30.md) |
+| Replaces | SPEC-45 0.99; records the reproducible R2E listener-field rejection and Roadmap V4 pivot to a geometry-aware canonical-listener contact field without changing the Proposed boundary or authorizing quality/admission/runtime use |
+| Latest evidence | [R2E result and Roadmap V4 research](../development/physical-sound-listener-field-r2e-result-and-v4-research-2026-08-30.md) |
 
 ## Status and decision boundary
 
@@ -41,10 +41,14 @@ impact, listener and audio evidence and predict:
 
 The first vertical cooks this output into canonical sorted/quantized modal,
 gain and residual coefficients and renders it through the deterministic
-reference path. Training data, model weights, optimizer state, feature caches,
-generated WAVs and validator inference remain external. Runtime loads neither
-the neural model nor the research registry; invalid, unavailable and OOD
-conditions select the authored clip fallback.
+reference path. Its first learned axis is contact position at one declared
+canonical listener condition. Detailed object radiation/listener variation is
+a later independent capability claim; environmental attenuation,
+spatialization and propagation remain SPEC-08 responsibilities. Training data,
+model weights, optimizer state, feature caches, generated WAVs and validator
+inference remain external. Runtime loads neither the neural model nor the
+research registry; invalid, unavailable and OOD conditions select the authored
+clip fallback.
 
 The existing Q30 modal renderer, synthetic FEM/BEM controls and frozen DCT
 coloured-residual path remain the classical baseline, synthetic teacher,
@@ -53,7 +57,7 @@ An object-specific few-shot field precedes any shared zero-shot claim. A direct
 waveform model may be evaluated only as a report-only perceptual upper bound or
 an authored-asset source.
 
-This v0.99 change refines a `Proposed` research route. It adds no current public
+This v1.00 change refines a `Proposed` research route. It adds no current public
 schema, runtime dependency, ProductCheck or roadmap activation and therefore
 does not supersede an Accepted architecture decision. Production promotion
 still requires a concrete consumer and the ADR-046 workflow.
@@ -1179,6 +1183,27 @@ admission, public content/runtime records or production use. R2E may open the
 grouped query exactly once only after its candidate and repeat policy freeze;
 query-informed tuning, a candidate grid and physics-loss rescue remain
 unauthorized.
+
+That sole R2E revision is now complete and rejected. The group-conditioned
+cosine coefficient field fits the complete context coefficients and energy to
+floating-point noise, and two training runs reproduce reports, checkpoints and
+all prediction WAVs byte-for-byte. The one permitted 180-row grouped query is
+worse than every frozen classical control on all five primary endpoints and
+returns `RejectLowRankCoefficientField`. A separate post-reject query-seeing
+projection oracle repeats exactly, retains only `92.38%` query energy at
+Frobenius NRMSE `0.2760`, and itself misses the mean-spectrum control. The
+bounded conclusion is `RepresentationAndInterpolationBothLimited`.
+
+This closes the opened fixed-impact listener-field family and forbids nearby
+rank, architecture, seed, step or threshold search on that query. It does not
+reject neural impact sound as a whole. The next permitted Roadmap V4 research
+boundary is a new internet-only multi-object/multi-impact corpus at one
+declared canonical listener condition, followed by a compact modal/residual
+representation-oracle gate before neural training. The first candidate after
+that gate may learn geometry/contact-position-conditioned modal gains;
+listener radiation requires a separate denser published corpus or independently
+validated solver. This change authorizes no quality, admission, public content,
+runtime or ProductCheck result.
 
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,
