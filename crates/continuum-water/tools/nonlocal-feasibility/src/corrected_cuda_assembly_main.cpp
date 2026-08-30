@@ -425,6 +425,7 @@ const char* variant_name(AssemblyVariant variant) {
     case AssemblyVariant::SissmLocalMatrix: return "sissm_local_matrix";
     case AssemblyVariant::CurrentGraphViscosity: return "current_graph_viscosity";
     case AssemblyVariant::NaiveF32Pressure: return "naive_f32_pressure";
+    case AssemblyVariant::F64Energy: return "f64_energy";
     }
     return "unknown";
 }

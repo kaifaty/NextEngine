@@ -27,6 +27,7 @@ enum class AssemblyVariant : std::uint32_t {
     SissmLocalMatrix = 5,
     CurrentGraphViscosity = 6,
     NaiveF32Pressure = 7,
+    F64Energy = 8,
 };
 
 struct AssemblyProfile {
@@ -84,6 +85,11 @@ struct AssemblyWorkReceipt {
     std::uint64_t host_device_scalar_transfers = 0;
     std::uint64_t compensated_additions = 0;
     std::uint64_t compensation_initializations = 0;
+    std::uint64_t f64_energy_density_terms = 0;
+    std::uint64_t f64_energy_particle_terms = 0;
+    std::uint64_t f64_energy_viscosity_pairs = 0;
+    std::uint64_t f64_energy_surface_pairs = 0;
+    std::uint64_t f64_energy_component_writes = 0;
 };
 
 struct AssemblyResult {

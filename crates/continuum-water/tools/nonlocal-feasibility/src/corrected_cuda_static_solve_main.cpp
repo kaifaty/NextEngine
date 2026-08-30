@@ -238,6 +238,11 @@ void add_assembly_work(AssemblyWorkReceipt& target,
     target.host_device_scalar_transfers += value.host_device_scalar_transfers;
     target.compensated_additions += value.compensated_additions;
     target.compensation_initializations += value.compensation_initializations;
+    target.f64_energy_density_terms += value.f64_energy_density_terms;
+    target.f64_energy_particle_terms += value.f64_energy_particle_terms;
+    target.f64_energy_viscosity_pairs += value.f64_energy_viscosity_pairs;
+    target.f64_energy_surface_pairs += value.f64_energy_surface_pairs;
+    target.f64_energy_component_writes += value.f64_energy_component_writes;
 }
 
 struct ControllerWork {
@@ -441,9 +446,22 @@ AssemblyResult gpu_evaluate(const AssemblyProfile& profile,
     return evaluate_gpu_assembly_state(profile, fixture, state, variant);
 }
 
+AssemblyResult gpu_evaluate_f64_energy_rounded(const AssemblyProfile& profile,
+    const AssemblyFixture& fixture, const AssemblyContinuousState& state,
+    AssemblyVariant) {
+    AssemblyResult result = evaluate_gpu_assembly_state(
+        profile, fixture, state, AssemblyVariant::F64Energy);
+    for (double& component : result.energy) {
+        component = static_cast<double>(static_cast<float>(component));
+    }
+    return result;
+}
+
 SolveResult solve(const StaticCase& input, const AssemblyFixture& fixture,
     EvaluationFunction evaluator, bool round_state_to_f32,
-    bool invert_first_hvp) {
+    bool invert_first_hvp,
+    AssemblyVariant variant = AssemblyVariant::Corrected,
+    double scale_aware_limit = 0.0) {
     SolveResult result;
     result.state = input.initial.current_m;
     const double minimum_radius = std::ldexp(input.profile.spacing, -40);
@@ -453,7 +471,7 @@ SolveResult solve(const StaticCase& input, const AssemblyFixture& fixture,
     AssemblyContinuousState state = input.initial;
     state.current_m = result.state;
     AssemblyResult current = evaluator(
-        input.profile, fixture, state, AssemblyVariant::Corrected);
+        input.profile, fixture, state, variant);
     ++result.work.evaluator_calls;
     result.work.state_scalar_uploads += 3U * result.state.size();
     add_assembly_work(result.work.assembly, current.work);
@@ -469,9 +487,14 @@ SolveResult solve(const StaticCase& input, const AssemblyFixture& fixture,
     for (int outer = 0; outer < MAXIMUM_OUTER_TRIALS; ++outer) {
         const double gradient_norm = vector_norm(current.gradient);
         ++result.work.dot_products;
-        if (gradient_norm <= RAW_GRADIENT_LIMIT) {
+        const double current_scaled = scaled_residual(
+            input.profile, current.gradient);
+        if (gradient_norm <= RAW_GRADIENT_LIMIT
+            || (scale_aware_limit > 0.0
+                && current_scaled <= scale_aware_limit)) {
             result.succeeded = true;
-            result.convergence_stop = "RAW_GRADIENT";
+            result.convergence_stop = gradient_norm <= RAW_GRADIENT_LIMIT
+                ? "RAW_GRADIENT" : "SCALED_DISPLACEMENT";
             break;
         }
         TrialRecord record;
@@ -522,7 +545,7 @@ SolveResult solve(const StaticCase& input, const AssemblyFixture& fixture,
             }
             state.current_m = trial;
             trial_evaluation = evaluator(
-                input.profile, fixture, state, AssemblyVariant::Corrected);
+                input.profile, fixture, state, variant);
             ++result.work.evaluator_calls;
             result.work.state_scalar_uploads += 3U * trial.size();
             add_assembly_work(result.work.assembly, trial_evaluation.work);
@@ -585,6 +608,12 @@ SolveResult solve(const StaticCase& input, const AssemblyFixture& fixture,
         && result.failure.empty()) {
         result.succeeded = true;
         result.convergence_stop = "RAW_GRADIENT";
+    }
+    if (!result.succeeded && scale_aware_limit > 0.0
+        && result.final_scaled_residual <= scale_aware_limit
+        && result.failure.empty()) {
+        result.succeeded = true;
+        result.convergence_stop = "SCALED_DISPLACEMENT";
     }
     if (!result.succeeded && result.failure.empty()) {
         result.failure = "OUTER_TRIAL_LIMIT";
@@ -667,6 +696,34 @@ std::string solve_root(const SolveResult& result) {
     std::string bytes = "nextengine.nonlocal.ncga5.solve.v1\0";
     bytes += route_root(result);
     bytes += work_root(result.work);
+    bytes += vector_root("nextengine.nonlocal.ncga5.state.v1\0", result.state);
+    bytes += result.final_active_root;
+    append_double(bytes, result.final_objective);
+    append_double(bytes, result.final_gradient_norm);
+    append_double(bytes, result.final_scaled_residual);
+    append_u64(bytes, result.succeeded ? 1U : 0U);
+    append_u64(bytes, result.monotonic ? 1U : 0U);
+    return sha256_hex(bytes);
+}
+
+std::string mixed_work_root(const ControllerWork& work) {
+    std::string bytes = "nextengine.nonlocal.ncga6.work.v1\0";
+    bytes += work_root(work);
+    const std::array<std::uint64_t, 5> fields{{
+        work.assembly.f64_energy_density_terms,
+        work.assembly.f64_energy_particle_terms,
+        work.assembly.f64_energy_viscosity_pairs,
+        work.assembly.f64_energy_surface_pairs,
+        work.assembly.f64_energy_component_writes,
+    }};
+    for (std::uint64_t field : fields) append_u64(bytes, field);
+    return sha256_hex(bytes);
+}
+
+std::string mixed_solve_root(const SolveResult& result) {
+    std::string bytes = "nextengine.nonlocal.ncga6.solve.v1\0";
+    bytes += route_root(result);
+    bytes += mixed_work_root(result.work);
     bytes += vector_root("nextengine.nonlocal.ncga5.state.v1\0", result.state);
     bytes += result.final_active_root;
     append_double(bytes, result.final_objective);
@@ -910,11 +967,184 @@ int run() {
     return apparatus && result != "INCONCLUSIVE" ? 0 : 1;
 }
 
+bool accepted_where_strict_rejected(
+    const SolveResult& strict, const SolveResult& mixed) {
+    const std::size_t count = std::min(strict.trials.size(), mixed.trials.size());
+    for (std::size_t index = 0; index < count; ++index) {
+        if (!strict.trials[index].accepted && mixed.trials[index].accepted
+            && strict.trials[index].actual_reduction <= 0.0) return true;
+        if (strict.trials[index].accepted != mixed.trials[index].accepted) break;
+    }
+    return false;
+}
+
+int run_mixed_energy() {
+    const std::array<StaticCase, 2> cases{{compressed_case(), combined_case()}};
+    std::array<SolveResult, 2> host_results;
+    std::array<SolveResult, 2> strict_results;
+    std::array<SolveResult, 2> mixed_results;
+    std::array<SolveResult, 2> permuted_results;
+    std::array<SolveResult, 2> rounded_energy_results;
+    for (std::size_t index = 0; index < cases.size(); ++index) {
+        host_results[index] = solve(
+            cases[index], cases[index].fixture, host_evaluate, false, false);
+    }
+    for (std::size_t index = 0; index < cases.size(); ++index) {
+        strict_results[index] = solve(cases[index], cases[index].fixture,
+            gpu_evaluate, true, false, AssemblyVariant::Corrected,
+            SUPPORTED_SCALED_RESIDUAL);
+    }
+    for (std::size_t index = 0; index < cases.size(); ++index) {
+        mixed_results[index] = solve(cases[index], cases[index].fixture,
+            gpu_evaluate, true, false, AssemblyVariant::F64Energy,
+            SUPPORTED_SCALED_RESIDUAL);
+    }
+    for (std::size_t index = 0; index < cases.size(); ++index) {
+        permuted_results[index] = solve(cases[index],
+            cases[index].permuted_fixture, gpu_evaluate, true, false,
+            AssemblyVariant::F64Energy, SUPPORTED_SCALED_RESIDUAL);
+        rounded_energy_results[index] = solve(cases[index], cases[index].fixture,
+            gpu_evaluate_f64_energy_rounded, true, false,
+            AssemblyVariant::F64Energy, SUPPORTED_SCALED_RESIDUAL);
+    }
+    const SolveResult negative = solve(cases[1], cases[1].fixture,
+        gpu_evaluate, true, true, AssemblyVariant::F64Energy,
+        SUPPORTED_SCALED_RESIDUAL);
+
+    bool host_valid = true;
+    bool strict_all_supported = true;
+    bool mixed_all_supported = true;
+    bool permutation_exact = true;
+    bool rounded_rejected = false;
+    bool causal_acceptance = false;
+    bool residual_exercised = false;
+    bool progress_changed = false;
+    for (std::size_t index = 0; index < cases.size(); ++index) {
+        host_valid = host_valid && host_shape_valid(cases[index], host_results[index]);
+        strict_all_supported = strict_all_supported && candidate_supported(
+            host_results[index], strict_results[index]);
+        mixed_all_supported = mixed_all_supported && candidate_supported(
+            host_results[index], mixed_results[index]);
+        permutation_exact = permutation_exact
+            && mixed_solve_root(mixed_results[index])
+                == mixed_solve_root(permuted_results[index]);
+        rounded_rejected = rounded_rejected
+            || !candidate_supported(host_results[index], rounded_energy_results[index]);
+        causal_acceptance = causal_acceptance || accepted_where_strict_rejected(
+            strict_results[index], mixed_results[index]);
+        residual_exercised = residual_exercised
+            || std::any_of(mixed_results[index].trials.begin(),
+                mixed_results[index].trials.end(), [](const TrialRecord& trial) {
+                    return trial.reason == "RESIDUAL" && trial.hvp > 1;
+                });
+        progress_changed = progress_changed
+            || mixed_results[index].work.accepted_trials
+                > strict_results[index].work.accepted_trials
+            || mixed_results[index].final_scaled_residual
+                < strict_results[index].final_scaled_residual;
+    }
+    const bool negative_rejected = mixed_solve_root(negative)
+        != mixed_solve_root(mixed_results[1]);
+    AssemblyContinuousState invalid_state = cases[1].initial;
+    invalid_state.current_m[0] = std::numeric_limits<double>::infinity();
+    const AssemblyResult invalid = evaluate_gpu_assembly_state(cases[1].profile,
+        cases[1].fixture, invalid_state, AssemblyVariant::F64Energy);
+    const bool controls = permutation_exact && rounded_rejected
+        && negative_rejected && invalid.failure == AssemblyFailure::InvalidInput;
+    const bool apparatus = host_valid && controls;
+
+    std::string result = "INCONCLUSIVE";
+    if (apparatus && mixed_all_supported && !strict_all_supported
+        && causal_acceptance && residual_exercised) {
+        result = "GPU_F64_ENERGY_STATIC_SOLVE_SUPPORTED";
+    } else if (apparatus && progress_changed) {
+        result = "PRESSURE_OPERATOR_PRECISION_REQUIRED";
+    } else if (apparatus) {
+        result = "F64_ENERGY_NOT_CAUSAL";
+    }
+
+    std::string semantic = "nextengine.nonlocal.ncga6.semantic.v1\0";
+    semantic += result;
+    for (const SolveResult& value : host_results) semantic += solve_root(value);
+    for (const SolveResult& value : strict_results) semantic += solve_root(value);
+    for (const SolveResult& value : mixed_results) semantic += mixed_solve_root(value);
+    semantic += mixed_solve_root(negative);
+    append_u64(semantic, permutation_exact ? 1U : 0U);
+    append_u64(semantic, rounded_rejected ? 1U : 0U);
+    append_u64(semantic, causal_acceptance ? 1U : 0U);
+
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.ncga6.v1\""
+           << ",\"result\":\"" << result << "\""
+           << ",\"apparatus_valid\":" << (apparatus ? "true" : "false")
+           << ",\"host_shape_valid\":" << (host_valid ? "true" : "false")
+           << ",\"strict_all_supported\":"
+           << (strict_all_supported ? "true" : "false")
+           << ",\"mixed_all_supported\":"
+           << (mixed_all_supported ? "true" : "false")
+           << ",\"causal_acceptance\":"
+           << (causal_acceptance ? "true" : "false")
+           << ",\"permutation_exact\":"
+           << (permutation_exact ? "true" : "false")
+           << ",\"rounded_energy_rejected\":"
+           << (rounded_rejected ? "true" : "false")
+           << ",\"negative_rejected\":"
+           << (negative_rejected ? "true" : "false")
+           << ",\"environment\":" << gpu_assembly_environment_json()
+           << ",\"cases\":[";
+    for (std::size_t index = 0; index < cases.size(); ++index) {
+        if (index != 0U) output << ',';
+        output << "{\"name\":\"" << cases[index].name << "\""
+               << ",\"strict_drift_um\":"
+               << maximum_particle_drift_um(
+                    host_results[index].state, strict_results[index].state)
+               << ",\"mixed_drift_um\":"
+               << maximum_particle_drift_um(
+                    host_results[index].state, mixed_results[index].state)
+               << ",\"strict_objective_difference\":"
+               << objective_difference(host_results[index], strict_results[index])
+               << ",\"mixed_objective_difference\":"
+               << objective_difference(host_results[index], mixed_results[index])
+               << ",\"host\":";
+        emit_solve(output, host_results[index]);
+        output << ",\"strict_f32\":";
+        emit_solve(output, strict_results[index]);
+        output << ",\"f64_energy\":";
+        emit_solve(output, mixed_results[index]);
+        output << ",\"f64_energy_work_root\":\""
+               << mixed_work_root(mixed_results[index].work) << "\""
+               << ",\"f64_energy_work\":{\"density_terms\":"
+               << mixed_results[index].work.assembly.f64_energy_density_terms
+               << ",\"particle_terms\":"
+               << mixed_results[index].work.assembly.f64_energy_particle_terms
+               << ",\"viscosity_pairs\":"
+               << mixed_results[index].work.assembly.f64_energy_viscosity_pairs
+               << ",\"surface_pairs\":"
+               << mixed_results[index].work.assembly.f64_energy_surface_pairs
+               << ",\"component_writes\":"
+               << mixed_results[index].work.assembly.f64_energy_component_writes
+               << "}}";
+    }
+    output << "],\"negative_root\":\"" << mixed_solve_root(negative)
+           << "\",\"semantic_root\":\"" << sha256_hex(semantic) << "\"}";
+    std::cout << output.str() << '\n';
+    return apparatus && result != "INCONCLUSIVE" ? 0 : 1;
+}
+
 } // namespace
 } // namespace nextengine::nonlocal::gpu_assembly_audit
 
-int main() {
+int main(int argc, char** argv) {
     try {
+        if (argc == 2 && std::string(argv[1]) == "--mixed-energy") {
+            return nextengine::nonlocal::gpu_assembly_audit::run_mixed_energy();
+        }
+        if (argc != 1) {
+            std::cerr << "usage: nonlocal-corrected-cuda-static-solve "
+                         "[--mixed-energy]\n";
+            return 2;
+        }
         return nextengine::nonlocal::gpu_assembly_audit::run();
     } catch (const std::exception& error) {
         std::cerr << "NCGA5_UNEXPECTED:" << error.what() << '\n';

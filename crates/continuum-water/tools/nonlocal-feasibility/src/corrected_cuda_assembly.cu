@@ -47,6 +47,14 @@ struct DeviceCompensationWork {
     unsigned long long initializations;
 };
 
+struct DeviceF64EnergyWork {
+    unsigned long long density_terms;
+    unsigned long long particle_terms;
+    unsigned long long viscosity_pairs;
+    unsigned long long surface_pairs;
+    unsigned long long component_writes;
+};
+
 struct F32Accumulator {
     float sum = 0.0F;
     float correction = 0.0F;
@@ -68,6 +76,12 @@ struct DeviceVec3 {
     float x;
     float y;
     float z;
+};
+
+struct DeviceVec3d {
+    double x;
+    double y;
+    double z;
 };
 
 __device__ bool use_compensation(const DeviceProfile& profile) {
@@ -140,6 +154,25 @@ __device__ float dot(DeviceVec3 lhs, DeviceVec3 rhs) {
 
 __device__ float length(DeviceVec3 value) { return sqrtf(dot(value, value)); }
 
+__device__ DeviceVec3d to_f64(DeviceVec3 value) {
+    return {static_cast<double>(value.x), static_cast<double>(value.y),
+        static_cast<double>(value.z)};
+}
+
+__device__ DeviceVec3d subtract(DeviceVec3d lhs, DeviceVec3d rhs) {
+    return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
+}
+
+__device__ DeviceVec3d multiply(double scalar, DeviceVec3d value) {
+    return {scalar * value.x, scalar * value.y, scalar * value.z};
+}
+
+__device__ double dot(DeviceVec3d lhs, DeviceVec3d rhs) {
+    return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+}
+
+__device__ double length(DeviceVec3d value) { return sqrt(dot(value, value)); }
+
 __device__ float component(DeviceVec3 value, int axis) {
     return axis == 0 ? value.x : (axis == 1 ? value.y : value.z);
 }
@@ -193,6 +226,43 @@ __device__ float cubic_weight(float radius, float horizon) {
         return alpha * delta * delta * delta / 6.0F;
     }
     return alpha * (2.0F / 3.0F - q * q + 0.5F * q * q * q);
+}
+
+__device__ double cubic_weight_f64(double radius, double horizon) {
+    constexpr float pi_f32 = 3.14159265358979323846F;
+    const double pi = static_cast<double>(pi_f32);
+    const double q = 2.0 * radius / horizon;
+    const double alpha = 3.0 / (2.0 * pi * horizon * horizon * horizon);
+    if (q > 2.0) return 0.0;
+    if (q >= 1.0) {
+        const double delta = 2.0 - q;
+        return alpha * delta * delta * delta / 6.0;
+    }
+    return alpha * (2.0 / 3.0 - q * q + 0.5 * q * q * q);
+}
+
+__device__ double cubic_gradient_f64(double radius, double horizon) {
+    constexpr float pi_f32 = 3.14159265358979323846F;
+    const double pi = static_cast<double>(pi_f32);
+    const double q = 2.0 * radius / horizon;
+    const double alpha = 3.0 / (2.0 * pi * horizon * horizon * horizon);
+    if (q > 2.0) return 0.0;
+    const double derivative_q = q >= 1.0
+        ? -0.5 * alpha * (2.0 - q) * (2.0 - q)
+        : alpha * (-2.0 * q + 1.5 * q * q);
+    return derivative_q * 2.0 / horizon;
+}
+
+__device__ double surface_potential_f64(double radius, double spacing) {
+    const double q = radius / spacing;
+    if (q <= 1.0) {
+        return spacing * (q * q * q / 3.0 - q - 2.0 / 3.0);
+    }
+    if (q < 3.0) {
+        return spacing * (q - (q - 2.0) * (q - 2.0) * (q - 2.0)
+            / 3.0 - 8.0 / 3.0);
+    }
+    return 0.0;
 }
 
 __device__ float cubic_gradient(float radius, const DeviceProfile& profile) {
@@ -485,6 +555,118 @@ __global__ void reduce_energy(const float* row_energy, int count,
     }
     publish_compensation_work(work, profile,
         4ULL * static_cast<unsigned long long>(count), 4ULL);
+}
+
+__global__ void compute_energy_f64(const DeviceSample* samples,
+    const unsigned int* owner_indices,
+    const unsigned int* current_counts, const unsigned int* current_rows,
+    const unsigned int* reference_counts, const unsigned int* reference_rows,
+    int count, DeviceProfile profile, double* energy,
+    DeviceF64EnergyWork* work) {
+    if (blockIdx.x != 0 || threadIdx.x != 0) return;
+    double density[ASSEMBLY_MAX_SAMPLES];
+    for (int row = 0; row < count; ++row) density[row] = 0.0;
+    unsigned long long density_terms = 0ULL;
+    unsigned long long particle_terms = 0ULL;
+    unsigned long long viscosity_pairs = 0ULL;
+    unsigned long long surface_pairs = 0ULL;
+    const double horizon = static_cast<double>(profile.horizon);
+    const double spacing = static_cast<double>(profile.spacing);
+    const double mass = static_cast<double>(profile.mass);
+    const double dt = static_cast<double>(profile.time_step);
+    const double rest_density = static_cast<double>(profile.rest_density);
+    const double kappa = static_cast<double>(profile.kappa);
+    const double lambda = static_cast<double>(profile.lambda);
+    const double mu = static_cast<double>(profile.mu);
+    const double gamma = static_cast<double>(profile.gamma);
+    double inertia = 0.0;
+    double pressure = 0.0;
+    double viscosity = 0.0;
+    double surface = 0.0;
+    if ((profile.terms & 2U) != 0U) {
+        for (int row = 0; row < count; ++row) {
+            const DeviceVec3d owner = to_f64(
+                position(samples[owner_indices[row]], 2));
+            for (unsigned int slot = 0U; slot < current_counts[row]; ++slot) {
+                const int neighbor = static_cast<int>(
+                    current_rows[row * count + static_cast<int>(slot)]);
+                const DeviceVec3d other = to_f64(
+                    position(samples[owner_indices[neighbor]], 2));
+                density[row] += mass * cubic_weight_f64(
+                    length(subtract(owner, other)), horizon);
+                ++density_terms;
+            }
+            const double compression = fmax(
+                density[row] / rest_density - 1.0, 0.0);
+            pressure += 0.5 * kappa * compression * compression;
+            ++particle_terms;
+        }
+    }
+    if ((profile.terms & 1U) != 0U) {
+        const double scale = mass / (dt * dt);
+        for (int row = 0; row < count; ++row) {
+            const DeviceSample sample = samples[owner_indices[row]];
+            const DeviceVec3d displacement = subtract(
+                to_f64(position(sample, 2)), to_f64(position(sample, 1)));
+            inertia += 0.5 * scale * dot(displacement, displacement);
+            ++particle_terms;
+        }
+    }
+    if ((profile.terms & 4U) != 0U) {
+        for (int row = 0; row < count; ++row) {
+            const DeviceSample sample = samples[owner_indices[row]];
+            for (unsigned int slot = 0U; slot < reference_counts[row]; ++slot) {
+                const int neighbor = static_cast<int>(
+                    reference_rows[row * count + static_cast<int>(slot)]);
+                if (neighbor <= row) continue;
+                const DeviceSample other = samples[owner_indices[neighbor]];
+                const DeviceVec3d reference = subtract(
+                    to_f64(position(sample, 0)), to_f64(position(other, 0)));
+                const double radius = length(reference);
+                if (radius <= 1.0e-15) continue;
+                const DeviceVec3d normal = multiply(1.0 / radius, reference);
+                const DeviceVec3d increment = subtract(subtract(
+                    to_f64(position(sample, 2)), to_f64(position(other, 2))),
+                    reference);
+                const DeviceVec3d normal_part = multiply(
+                    dot(increment, normal), normal);
+                const DeviceVec3d tangent_part = subtract(
+                    increment, normal_part);
+                const double omega = -cubic_gradient_f64(radius, horizon);
+                viscosity += mass * omega / (rest_density * dt)
+                    * (mu * dot(tangent_part, tangent_part)
+                        + 0.5 * lambda * dot(normal_part, normal_part));
+                ++viscosity_pairs;
+            }
+        }
+    }
+    if ((profile.terms & 8U) != 0U) {
+        for (int row = 0; row < count; ++row) {
+            const DeviceVec3d owner = to_f64(
+                position(samples[owner_indices[row]], 2));
+            for (unsigned int slot = 0U; slot < current_counts[row]; ++slot) {
+                const int neighbor = static_cast<int>(
+                    current_rows[row * count + static_cast<int>(slot)]);
+                if (neighbor <= row) continue;
+                const DeviceVec3d other = to_f64(
+                    position(samples[owner_indices[neighbor]], 2));
+                const double radius = length(subtract(owner, other));
+                if (radius <= 1.0e-15 || radius >= 3.0 * spacing) continue;
+                surface += 2.0 * gamma * mass * mass
+                    * surface_potential_f64(radius, spacing);
+                ++surface_pairs;
+            }
+        }
+    }
+    energy[0] = inertia;
+    energy[1] = pressure;
+    energy[2] = viscosity;
+    energy[3] = surface;
+    work->density_terms = density_terms;
+    work->particle_terms = particle_terms;
+    work->viscosity_pairs = viscosity_pairs;
+    work->surface_pairs = surface_pairs;
+    work->component_writes = 4ULL;
 }
 
 __global__ void build_pressure_jacobian(const DeviceSample* samples,
@@ -1123,6 +1305,13 @@ AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
     DeviceBuffer<float> diagonal_blocks(9U * host_samples.size());
     DeviceBuffer<float> hvp(static_cast<std::size_t>(dimension));
     DeviceBuffer<DeviceCompensationWork> compensation_work(1U);
+    const bool use_f64_energy = variant == AssemblyVariant::F64Energy;
+    DeviceBuffer<double> energy_f64;
+    DeviceBuffer<DeviceF64EnergyWork> energy_f64_work;
+    if (use_f64_energy) {
+        energy_f64.allocate(4U);
+        energy_f64_work.allocate(1U);
+    }
 
     check_cuda(cudaMemcpy(device_samples.get(), host_samples.data(),
                    host_samples.size() * sizeof(DeviceSample), cudaMemcpyHostToDevice),
@@ -1132,6 +1321,11 @@ AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
     check_cuda(cudaMemset(compensation_work.get(), 0,
                    sizeof(DeviceCompensationWork)),
         "reset NCGA2 compensation work");
+    if (use_f64_energy) {
+        check_cuda(cudaMemset(energy_f64_work.get(), 0,
+                       sizeof(DeviceF64EnergyWork)),
+            "reset NCGA6 f64 energy work");
+    }
     sort_owner_indices<<<1, 1>>>(device_samples.get(), owner_indices.get(),
         owner_ids.get(), count, sort_comparisons.get());
     check_cuda(cudaGetLastError(), "launch NCGA2 owner sort");
@@ -1153,6 +1347,13 @@ AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
     reduce_energy<<<1, 1>>>(row_energy.get(), count, device_profile,
         energy.get(), compensation_work.get());
     check_cuda(cudaGetLastError(), "launch NCGA2 energy reduction");
+    if (use_f64_energy) {
+        compute_energy_f64<<<1, 1>>>(device_samples.get(), owner_indices.get(),
+            current_counts.get(), current_rows.get(), reference_counts.get(),
+            reference_rows.get(), count, device_profile, energy_f64.get(),
+            energy_f64_work.get());
+        check_cuda(cudaGetLastError(), "launch NCGA6 f64 energy");
+    }
     build_pressure_jacobian<<<blocks_for(static_cast<std::size_t>(count) * dimension),
         THREADS>>>(device_samples.get(), owner_indices.get(), current_counts.get(),
         current_rows.get(), active.get(), count, device_profile, jacobian.get(),
@@ -1184,6 +1385,7 @@ AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
     std::vector<float> host_compression(host_samples.size());
     std::vector<unsigned char> host_active(host_samples.size());
     std::array<float, 4> host_energy{};
+    std::array<double, 4> host_energy_f64{};
     std::vector<float> host_gradient(static_cast<std::size_t>(dimension));
     std::vector<float> host_jacobian(static_cast<std::size_t>(count) * dimension);
     std::vector<float> host_hessian(dense_entries);
@@ -1191,6 +1393,7 @@ AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
     std::vector<float> host_hvp(static_cast<std::size_t>(dimension));
     unsigned long long host_sort_comparisons = 0ULL;
     DeviceCompensationWork host_compensation_work{};
+    DeviceF64EnergyWork host_energy_f64_work{};
 #define NCGA2_COPY(destination, source, bytes, label) \
     check_cuda(cudaMemcpy((destination), (source), (bytes), cudaMemcpyDeviceToHost), (label))
     NCGA2_COPY(host_owner_ids.data(), owner_ids.get(),
@@ -1210,6 +1413,12 @@ AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
     NCGA2_COPY(host_active.data(), active.get(),
         host_active.size() * sizeof(unsigned char), "copy NCGA2 active flags");
     NCGA2_COPY(host_energy.data(), energy.get(), sizeof(host_energy), "copy NCGA2 energy");
+    if (use_f64_energy) {
+        NCGA2_COPY(host_energy_f64.data(), energy_f64.get(),
+            sizeof(host_energy_f64), "copy NCGA6 f64 energy");
+        NCGA2_COPY(&host_energy_f64_work, energy_f64_work.get(),
+            sizeof(host_energy_f64_work), "copy NCGA6 f64 energy work");
+    }
     NCGA2_COPY(host_gradient.data(), gradient.get(),
         host_gradient.size() * sizeof(float), "copy NCGA2 gradient");
     NCGA2_COPY(host_jacobian.data(), jacobian.get(),
@@ -1232,7 +1441,10 @@ AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
     build_csr(host_reference_counts, host_reference_rows, host_owner_ids,
         output.reference_offsets, output.reference_neighbors);
     output.density.assign(host_density.begin(), host_density.end());
-    for (std::size_t index = 0; index < 4U; ++index) output.energy[index] = host_energy[index];
+    for (std::size_t index = 0; index < 4U; ++index) {
+        output.energy[index] = use_f64_energy
+            ? host_energy_f64[index] : static_cast<double>(host_energy[index]);
+    }
     output.gradient.assign(host_gradient.begin(), host_gradient.end());
     output.hessian.assign(host_hessian.begin(), host_hessian.end());
     output.diagonal_blocks.assign(host_blocks.begin(), host_blocks.end());
@@ -1301,6 +1513,19 @@ AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
     output.work.compensated_additions = host_compensation_work.additions;
     output.work.compensation_initializations
         = host_compensation_work.initializations;
+    if (use_f64_energy) {
+        output.work.f64_energy_density_terms
+            = host_energy_f64_work.density_terms;
+        output.work.f64_energy_particle_terms
+            = host_energy_f64_work.particle_terms;
+        output.work.f64_energy_viscosity_pairs
+            = host_energy_f64_work.viscosity_pairs;
+        output.work.f64_energy_surface_pairs
+            = host_energy_f64_work.surface_pairs;
+        output.work.f64_energy_component_writes
+            = host_energy_f64_work.component_writes;
+        output.work.host_device_scalar_transfers += 9U;
+    }
     output.failure = AssemblyFailure::None;
     return output;
 }
