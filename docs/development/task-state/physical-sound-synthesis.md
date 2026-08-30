@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V7 / R3A_V5B_REJECTED_BY_ANTI_COLLAPSE_GATE / V5C_STAGED_BOOTSTRAP_NEXT / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V7 / R3A_V5C_6KBPS_QUANTIZED_GATE_PASSED / CAPACITY_FRONTIER_NEXT / LONG_RUN_DISABLED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,17 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** V5-B is numerically stable but learns an
-  input-independent near-silent decoder with and without RVQ. A normalized
-  continuous bootstrap is the first full-size control to learn held internet
-  impacts: RMS ratio `0.620`, spectrum improvement `16.5%`, correlation
-  `0.351` and diversity ratio `1.85` at step `2000`.
+- **Current conclusion:** Staged V5-C `6 kbps` is the first fully quantized
+  checkpoint to pass the internal anti-collapse gate. Step `4000` keeps RMS
+  ratio `0.191`, spectrum improvement `5.47%`, at least `51` codes per stage
+  and diversity `1.99` with stable latent. Full-loss optimization is rejected;
+  that loss remains evaluation and checkpoint-selection only.
 - **Exact evidence:** [V5-B collapse and V5-C bootstrap](../physical-sound-r3a-v5b-collapse-and-v5c-bootstrap-2026-08-31.md),
-  rejected report `857b8066…55f9`, continuous control `45e2c4c7…2bb4` and
-  bootstrap control `ed888c4e…1229`.
-- **Next action:** Implement V5-C staged training: continuous normalized
-  bootstrap, gradual RVQ introduction, then the full perceptual objective;
-  require a quantized anti-collapse pass before any long capacity run.
+  quantized-pass report `047cec3f…229a`, full-loss rejection
+  `df805d76…32b9` and stable refinement report `8a41950b…9a60`.
+- **Next action:** Run the same bounded step-4000 frontier for `12/24 kbps`,
+  compare frozen full validation loss, then choose whether one capacity merits
+  a separately authorized longer run.
 - **Spend rule:** Development, new objects, row `2407`, method holdout and
   admission shadow remain unread throughout all three capacity runs.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -43,7 +43,7 @@
 | R3A V3A | `INVALID_INFRASTRUCTURE` | Plastic Bin target opened, no metrics; eight-sample NDAC deficit recorded, holdout sealed. |
 | R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
-| R3A V5 | `V5B REJECTED / V5C BOOTSTRAP SUPPORTED` | Stable factorized RVQ still collapses; continuous normalized bootstrap learns validation signal, so stage RVQ before any long capacity run. |
+| R3A V5 | `V5C 6KBPS QUANTIZED GATE PASSED / FRONTIER OPEN` | Staged bootstrap and frozen RVQ ramp pass internal checks; compare 12/24 kbps before any long run or development read. |
 | R3B+ | `BLOCKED` | No contact-to-latent field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Material transition: analytical fit rejected and Roadmap V7
@@ -123,7 +123,8 @@
 - **Conclusion:** The primary defect is optimizing the full clamped perceptual
   loss from near silence, not encoder explosion or RVQ capacity alone.
 - **Decision:** Supersede end-to-end-from-step-zero V5-B with staged V5-C.
-  Development and holdout access remain forbidden.
+  Keep the full perceptual loss evaluation-only, disable implicit 50k runs and
+  compare bounded capacities. Development and holdout remain forbidden.
 - **Reconsideration condition:** A fully quantized V5-C checkpoint must retain
   bootstrap signal and pass every frozen anti-collapse check; otherwise stop
   this codec family before development.
@@ -165,7 +166,7 @@ kept bounded as the current resume surface.
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: A task-specific neural latent carries held impact sound within budget | Neural codecs succeed with explicit spectral and adversarial objectives; an exploratory near-ceiling codec passes `11/12` fit contacts | Universal NDAC and V4 analytical basis fail | V5 three-capacity task-specific RVQ development frontier |
+| H1: A task-specific neural latent carries held impact sound within budget | V5-C `6 kbps` passes the fully quantized internal anti-collapse gate | Universal NDAC and V4 fail; no development or holdout pass exists | Bounded V5-C `12/24 kbps` frontier, then one frozen development evaluation |
 | H2: Geometry-aware exact-object contact learning is possible | REALIMPACT source/mesh/splits repeat; AV-MSF reports few-shot contact fields | No representation has passed a sealed contact gate | V5-HOLDOUT, then one contact-to-latent field |
 | H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 after a generator claim exists |
 | H4: Cooked coefficients fit product cost | Q30 reference is compact and exact | Whole-mixer/callback/varied-voice cost is unmeasured | Visible consumer plus p95/p99 before promotion |
@@ -223,6 +224,6 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** V5-C staged curriculum and an external step-4000
-  quantized discriminator over internet train plus twelve fit contacts, with
-  zero development and sealed reads.
+- **Next commit boundary:** External V5-C `12/24 kbps` step-4000
+  discriminators and a frozen capacity comparison, with zero development and
+  sealed reads.

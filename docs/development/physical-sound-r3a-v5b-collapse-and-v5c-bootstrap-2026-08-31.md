@@ -1,7 +1,8 @@
 # Physical sound R3A V5-B collapse and V5-C bootstrap — 2026-08-31
 
-Status: `V5B_REJECTED / ROOT_CAUSE_LOCALIZED / V5C_BOOTSTRAP_SUPPORTED /
-DEVELOPMENT_UNREAD / CLIP_FALLBACK_REQUIRED`
+Status: `V5B_REJECTED / ROOT_CAUSE_LOCALIZED /
+V5C_6KBPS_QUANTIZED_GATE_PASSED / DEVELOPMENT_UNREAD /
+CLIP_FALLBACK_REQUIRED`
 
 ## Result
 
@@ -87,6 +88,54 @@ The large initial diversity ratio is not quality credit because amplitude is
 nearly zero; the step-2000 result jointly satisfies amplitude, spectrum,
 correlation, diversity and stability evidence.
 
+## V5-C quantized boundary
+
+V5-C uses the supported continuous bootstrap through step `2000`, initializes
+four codebooks from eight distinct trained-latent segments, freezes the
+encoder/decoder and ramps quantized latent use from zero to one through step
+`4000`. The first joint ramp kept code diversity but exploded the mutable
+encoder; freezing the already-passing codec removes that scale freedom.
+
+External pass: `r3a-v5c2-frozen-rvq-discriminator-6kbps-step4000`.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Run manifest | `581e0c4105c4d151972db584fa5403afcd1c6c616da05f2a6ab3d29b1b20361f` |
+| Metrics | `439392476a3a7b73e6224dc0344fe07b91a6e9ea11ef82276c7c90a283fda854` |
+| Pass report | `047cec3f04c2ab098cf30c4be2036d913529fb0d129d465b58b0fc61c58a229a` |
+| Step-4000 checkpoint | `2f8fcffd868f7550096873fb404ab66048b274e8418ba5bcf44bc2e48d097922` |
+
+All automatic checks pass: RMS ratio `0.1907`, log-spectrum improvement
+`5.47%`, minimum `51` codes per stage, diversity ratio `1.991`, latent RMS
+`0.313` and maximum absolute latent `5.618`. This is internal representation
+evidence only; it does not admit development quality or a product asset.
+
+## Full-loss falsification and stable refinement
+
+Unfreezing the codec and gradually weighting the full perceptual loss is
+rejected at step `5000`. Latent RMS reaches `642.8`, amplitude falls to
+`0.0316` of target and the automated report is
+`df805d76cf078266f70a19fdc636904ff7aa719350793109c2f0444c2eed32b9`.
+This shows the full loss is unsuitable as an optimization objective even after
+successful quantization; it remains the independent validation and checkpoint
+selection endpoint.
+
+The evaluation-only refinement run
+`r3a-v5c4-eval-only-refinement-6kbps-step6000` keeps the encoder frozen and
+trains decoder plus quantizer with normalized bootstrap and latent matching.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Run manifest | `9cb514dbdfff80bf2f18b7c2a001376219529f5b4ff0b0678c6c1c81b1cd45ef` |
+| Metrics | `cf9191672e7e3997bfb694e14827e7020af1e48fae295c05b701349edcfd01df` |
+| Pass report | `8a41950be3007bb1d10ceb29f89f518b2fdc80ac55d3ab94b600694f97ce9a60` |
+| Step-6000 checkpoint | `cd1e7bb98e5e554500dc79fdd4da2bb458d809e214f341aa297fea480d3d240f` |
+
+Steps `5000` and `6000` remain stable and pass every anti-collapse check, but
+full validation loss worsens from `425.92` at step `4000` to `438.37` and
+`447.90`. The frozen selector therefore retains the earliest step-4000
+checkpoint. An implicit `50,000`-step launch is now disabled.
+
 ## Conclusion and next discriminator
 
 The full loss is useful as an evaluation endpoint but is a poor cold-start
@@ -95,16 +144,13 @@ little useful gradient below their floors, and lower-weight envelope terms can
 be reduced by an input-independent low-amplitude output. RVQ is a secondary
 challenge, not the primary cold-start cause.
 
-V5-C must therefore freeze and test this curriculum:
+V5-C proves that one `6 kbps` task-specific quantized representation can carry
+non-collapsed, input-dependent held internet impact signal. It does not yet
+prove adequate acoustic quality, the best capacity, exact-object development,
+source-disjoint generalization or runtime suitability.
 
-1. continuous encoder/decoder bootstrap with the normalized objective;
-2. deterministic codebook initialization from trained latents;
-3. gradual continuous-to-quantized latent mixing while retaining bootstrap
-   reconstruction and latent-matching losses;
-4. a fully quantized anti-collapse gate before the full perceptual objective;
-5. only after that gate, a bounded transition to the full objective.
-
-The smallest next run ends at the first fully quantized checkpoint, expected
-at step `4000`. It may proceed only if amplitude, spectrum, every RVQ stage,
-output diversity and latent stability all pass. Development contacts, row
-`2407`, method holdout and admission shadow remain forbidden.
+The smallest next action is the identical bounded step-4000 discriminator for
+`12` and `24 kbps`, followed by a frozen internal capacity comparison. Only
+that comparison may authorize a longer run or one development evaluation.
+Development contacts, row `2407`, method holdout and admission shadow remain
+forbidden meanwhile.
