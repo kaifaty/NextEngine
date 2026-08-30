@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA4_REV1_FROZEN / IMPLEMENTATION_PENDING / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
+| Status | `COMPLETE / NCGA4_AUTHOR_SUPPORTED_BOUNDED / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Determine whether strict-f32 corrected CUDA assembly can drive a bounded Steihaug--Toint trust-region solve prefix without material route or state drift |
@@ -11,9 +11,10 @@
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA4 revision 1 is frozen before implementation as a
-  GPU-assembled/host-controlled eight-trial Steihaug--Toint solve prefix.
-  NCGA3 revision 2 remains hash-closed
+- **Current state:** NCGA4 revision 1 is hash-closed
+  `AUTHOR_SUPPORTED_BOUNDED / GPU_ASSEMBLED_TRUST_PREFIX_SUPPORTED`. Its
+  GPU-assembled/host-controlled eight-trial Steihaug--Toint prefix exactly
+  matches the reference controller route. NCGA3 revision 2 remains hash-closed
   `AUTHOR_SUPPORTED_BOUNDED / F32_CONSEQUENCE_NEGLIGIBLE_BOUNDED`. NCGA2 remains
   honestly refuted at `2.6247e-4`, but strict f32 reaches only `1.0643e-6` HVP
   and `2.0004e-6` regularized-step relative error; eight integer steps end with
@@ -24,10 +25,12 @@
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** implement only the additive continuous-state evaluators and
-  frozen NCGA4 controller, then reproduce NCGA2/3 before the new run.
-- **Current blocker:** no corrected solve prefix, physical trajectory or full
-  assembly/solve timing exists; NCGA3/4 independent review is `NOT_RUN`.
+- **Next action:** freeze a separate NCGA5 full-static-solve correspondence on
+  the two retained NSR1 cases, including a positive-curvature/residual CG path;
+  do not start a physical trajectory before that closes.
+- **Current blocker:** NCGA4 is only an eight-trial negative-curvature prefix;
+  no full corrected solve, physical trajectory or full assembly/solve timing
+  exists, and NCGA3/4 independent review is `NOT_RUN`.
 - **Revision-1 discriminator:** all HVP probes completed and strict f32 reached
   only `1.0643e-6` maximum relative L2 error; reduction-only stayed outside the
   old element gate while f64 pressure products reached `4.7195e-5`. The fixed
@@ -51,7 +54,7 @@
 | H6 the remaining element miss changes local behavior materially | HVP, regularized step or short sequence exceeds the product screen | thirteen probes, common norm-bounded solve and eight steps | refuted on the frozen fixture |
 | H7 binary64 reduction alone closes the miss | f32 products accumulated in f64 meet the old matrix gate | reduction-only arithmetic variant | refuted: `2.59425e-4` |
 | H8 binary64 pressure products close the miss | promoted pressure coefficients/products meet the old gate | mixed-product arithmetic variant | supported: `4.71951e-5`, but not selected yet |
-| H9 strict f32 preserves trust-region decisions | eight reference/CUDA outer signatures match and state drift stays below `5 um` | continuous-state fixed-graph Steihaug--Toint prefix plus sign-flipped HVP control | frozen / not run |
+| H9 strict f32 preserves trust-region decisions | eight reference/CUDA outer signatures match and state drift stays below `5 um` | continuous-state fixed-graph Steihaug--Toint prefix plus sign-flipped HVP control | supported on NCGA4 |
 
 ## Decisions
 
@@ -167,6 +170,24 @@
   or importing the stopped SISSM recurrence.
 - **Reconsider when:** NCGA4 closes its route/state gates or isolates a specific
   f32 globalization boundary.
+
+### D-008 — Require a complete static solve before physical trajectories
+
+- **Observation:** NCGA4 matches all eight trust decisions with only
+  `0.000675 um` maximum state drift, but every inner path exits on negative
+  curvature after one HVP and the gradient norm increases during descent.
+- **Evidence:**
+  `docs/development/nonlocal-corrected-gpu-trust-prefix-evidence-2026-08-30.md`.
+- **Conclusion:** strict f32 is benign for this globalization prefix, but the
+  run does not exercise residual-terminated multi-iteration CG or convergence.
+- **Decision:** keep mixed pressure products unselected. Next reproduce the two
+  retained NSR1 static solves to their frozen convergence gates on CUDA; only
+  then reopen a boundary-free short trajectory.
+- **Rejected alternatives:** call the prefix a full solver, infer water
+  stability, time the dense 100-particle harness, or jump directly to contacts,
+  dam break or 50k.
+- **Reconsider when:** NCGA5 closes both negative-curvature and residual-CG
+  routes or identifies a specific f32 convergence boundary.
 
 ## Required context
 
