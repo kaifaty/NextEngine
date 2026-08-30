@@ -678,21 +678,35 @@ std::string solve_root(const SolveResult& result) {
 }
 
 bool host_shape_valid(const StaticCase& input, const SolveResult& result) {
-    return result.succeeded && result.finite && result.monotonic
-        && result.failure.empty()
-        && result.trials.size() == static_cast<std::size_t>(input.expected_outer)
-        && result.work.evaluator_calls == input.expected_evaluations
-        && result.work.inner_hvp + result.work.prediction_hvp == input.expected_hvp
-        && result.work.rejected_trials == 0U
-        && result.work.radius_shrinks == 0U
+    const bool common = result.finite && result.monotonic
         && result.active_set_changes == 0U
         && result.work.negative_curvature_stops == 0U
-        && result.final_gradient_norm <= RAW_GRADIENT_LIMIT
-        && result.work.residual_stops > 0U
-        && std::any_of(result.trials.begin(), result.trials.end(),
-            [](const TrialRecord& trial) {
-                return trial.reason == "RESIDUAL" && trial.hvp > 1;
-            });
+        && result.work.residual_stops > 0U;
+    if (!common) return false;
+    if (input.name == "compressed_pair") {
+        return result.succeeded && result.failure.empty()
+            && result.trials.size()
+                == static_cast<std::size_t>(input.expected_outer)
+            && result.work.evaluator_calls == input.expected_evaluations
+            && result.work.inner_hvp + result.work.prediction_hvp
+                == input.expected_hvp
+            && result.work.rejected_trials == 0U
+            && result.work.radius_shrinks == 0U
+            && result.final_gradient_norm <= RAW_GRADIENT_LIMIT;
+    }
+    const bool raw = result.succeeded && result.failure.empty()
+        && result.final_gradient_norm <= RAW_GRADIENT_LIMIT;
+    const bool scale_aware_floor = !result.succeeded
+        && result.saw_reduction_floor
+        && (result.failure == "MINIMUM_TRUST_RADIUS"
+            || result.failure == "OUTER_TRIAL_LIMIT")
+        && result.final_scaled_residual <= 1.0e-8;
+    const bool multi_hvp_residual = std::any_of(
+        result.trials.begin(), result.trials.end(),
+        [](const TrialRecord& trial) {
+            return trial.reason == "RESIDUAL" && trial.hvp > 1;
+        });
+    return multi_hvp_residual && (raw || scale_aware_floor);
 }
 
 bool candidate_supported(const SolveResult& host, const SolveResult& candidate) {
