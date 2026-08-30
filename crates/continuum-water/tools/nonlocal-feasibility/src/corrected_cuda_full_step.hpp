@@ -80,6 +80,7 @@ enum class NonlocalGpuVariant : std::uint32_t {
     CompensatedScaleStrictRadius = 16U,
     CompensatedScaleHighOnlyBoundary = 17U,
     CompensatedScalePostFinalizeFailure = 18U,
+    CompensatedScalePressureF64 = 19U,
 };
 
 enum class NonlocalGpuSolverProfile : std::uint32_t {

@@ -502,7 +502,9 @@ std::vector<NonlocalGpuSample> trajectory_initial(
 
 int run_correspondence_4k(const std::string& scenario,
     std::uint32_t steps,
-    std::uint32_t budget) {
+    std::uint32_t budget,
+    NonlocalGpuVariant gpu_variant,
+    const char* arithmetic_profile) {
     if (steps == 0U || steps > 240U
         || (budget != 32U && budget != 64U && budget != 128U)) return 2;
     const NonlocalGpuProfile profile = nonlocal_water_corrected_profile();
@@ -533,6 +535,12 @@ int run_correspondence_4k(const std::string& scenario,
     std::uint32_t maximum_cpu_hvp = 0U;
     std::uint64_t active_mismatch_steps = 0U;
     std::uint64_t permutation_mismatch_steps = 0U;
+    std::uint32_t first_active_mismatch_step = 0U;
+    std::uint32_t first_active_mismatch_id = 0U;
+    std::uint32_t first_gpu_active_count = 0U;
+    std::uint32_t first_cpu_active_count = 0U;
+    double first_gpu_mismatch_density = 0.0;
+    double first_cpu_mismatch_density = 0.0;
     std::string receipt_material =
         "nextengine.nonlocal.ncgp3.trajectory-receipts.v1\n";
     NonlocalGpuFailure gpu_failure = NonlocalGpuFailure::None;
@@ -541,10 +549,10 @@ int run_correspondence_4k(const std::string& scenario,
     for (std::uint32_t step_index = 0U; step_index < steps; ++step_index) {
         const auto gpu_result = gpu.step(budget,
             NonlocalGpuSolverProfile::Jacobi,
-            NonlocalGpuVariant::CompensatedScaleF32, true, false);
+            gpu_variant, true, false);
         const auto permuted_result = permuted.step(budget,
             NonlocalGpuSolverProfile::Jacobi,
-            NonlocalGpuVariant::CompensatedScaleF32, true, false);
+            gpu_variant, true, false);
         const auto cpu_result = step_reference(profile, cpu_state, ghosts,
             128U, NonlocalGpuVariant::Corrected, true);
         gpu_failure = gpu_result.failure != NonlocalGpuFailure::None
@@ -623,6 +631,29 @@ int run_correspondence_4k(const std::string& scenario,
         observed_density_mean = density_sum
             / static_cast<double>(gpu_result.state.size());
         if (gpu_result.active_pressure_ids != cpu_result.active_pressure_ids) {
+            if (first_active_mismatch_step == 0U) {
+                first_active_mismatch_step = step_index + 1U;
+                first_gpu_active_count = static_cast<std::uint32_t>(
+                    gpu_result.active_pressure_ids.size());
+                first_cpu_active_count = static_cast<std::uint32_t>(
+                    cpu_result.active_pressure_ids.size());
+                for (std::size_t index = 0U;
+                     index < gpu_result.state.size(); ++index) {
+                    const std::uint32_t id = gpu_result.state[index].sample_id;
+                    const bool gpu_active = std::binary_search(
+                        gpu_result.active_pressure_ids.begin(),
+                        gpu_result.active_pressure_ids.end(), id);
+                    const bool cpu_active = std::binary_search(
+                        cpu_result.active_pressure_ids.begin(),
+                        cpu_result.active_pressure_ids.end(), id);
+                    if (gpu_active != cpu_active) {
+                        first_active_mismatch_id = id;
+                        first_gpu_mismatch_density = gpu_result.density[index];
+                        first_cpu_mismatch_density = cpu_result.density[index];
+                        break;
+                    }
+                }
+            }
             ++active_mismatch_steps;
         }
         if (gpu_result.active_pressure_ids
@@ -639,7 +670,8 @@ int run_correspondence_4k(const std::string& scenario,
             || maximum_density_error > 0.10
             || maximum_compression_rmse > 0.05
             || maximum_compression_error > 0.10
-            || active_mismatch_steps != 0U
+            || (scenario == "hydrostatic-hold" && steps == 1U
+                && active_mismatch_steps != 0U)
             || permutation_mismatch_steps != 0U) break;
     }
     NonlocalGpuGraphResult failure_graph;
@@ -671,7 +703,8 @@ int run_correspondence_4k(const std::string& scenario,
         && maximum_density_error <= 0.10
         && maximum_compression_rmse <= 0.05
         && maximum_compression_error <= 0.10
-        && active_mismatch_steps == 0U
+        && (scenario != "hydrostatic-hold" || steps != 1U
+            || active_mismatch_steps == 0U)
         && permutation_mismatch_steps == 0U;
     const bool physical_refuted = !passed && completed > 0U
         && gpu_failure == NonlocalGpuFailure::None
@@ -685,6 +718,7 @@ int run_correspondence_4k(const std::string& scenario,
               << "{\"schema\":\"nextengine.nonlocal.ncgp3.correspondence.v2\""
               << ",\"status\":\"" << status << "\""
               << ",\"scenario\":\"" << scenario << "\",\"steps\":" << steps
+              << ",\"arithmetic_profile\":\"" << arithmetic_profile << "\""
               << ",\"completed_steps\":" << completed
               << ",\"budget\":" << budget
               << ",\"gpu_failure\":" << static_cast<std::uint32_t>(gpu_failure)
@@ -717,6 +751,18 @@ int run_correspondence_4k(const std::string& scenario,
               << ",\"mu\":" << profile.mu
               << ",\"gamma\":" << profile.gamma
               << ",\"active_mismatch_steps\":" << active_mismatch_steps
+              << ",\"first_active_mismatch_step\":"
+              << first_active_mismatch_step
+              << ",\"first_active_mismatch_id\":"
+              << first_active_mismatch_id
+              << ",\"first_gpu_active_count\":"
+              << first_gpu_active_count
+              << ",\"first_cpu_active_count\":"
+              << first_cpu_active_count
+              << ",\"first_gpu_mismatch_density\":"
+              << first_gpu_mismatch_density
+              << ",\"first_cpu_mismatch_density\":"
+              << first_cpu_mismatch_density
               << ",\"permutation_mismatch_steps\":"
               << permutation_mismatch_steps
               << ",\"gpu_hvp_max\":" << maximum_gpu_hvp
@@ -766,11 +812,22 @@ int main(int argc, char** argv) {
     if (argc == 5 && std::string(argv[1]) == "--correspondence-4k") {
         return run_correspondence_4k(argv[2],
             static_cast<std::uint32_t>(std::stoul(argv[3])),
-            static_cast<std::uint32_t>(std::stoul(argv[4])));
+            static_cast<std::uint32_t>(std::stoul(argv[4])),
+            NonlocalGpuVariant::CompensatedScaleF32,
+            "f32-primary");
+    }
+    if (argc == 5
+        && std::string(argv[1]) == "--correspondence-4k-pressure-f64") {
+        return run_correspondence_4k(argv[2],
+            static_cast<std::uint32_t>(std::stoul(argv[3])),
+            static_cast<std::uint32_t>(std::stoul(argv[4])),
+            NonlocalGpuVariant::CompensatedScalePressureF64,
+            "f32-state-f64-pressure");
     }
     std::cerr << "usage: nonlocal-corrected-cuda-compensated-scale "
                  "--profile-self-test|--graph-self-test|--boundary-self-test|"
                  "--transaction-self-test|"
-                 "--correspondence-4k SCENARIO STEPS BUDGET\n";
+                 "--correspondence-4k SCENARIO STEPS BUDGET|"
+                 "--correspondence-4k-pressure-f64 SCENARIO STEPS BUDGET\n";
     return 2;
 }

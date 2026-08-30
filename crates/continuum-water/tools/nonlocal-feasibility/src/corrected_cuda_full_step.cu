@@ -63,6 +63,11 @@ struct DeviceProfile {
     float lambda;
     float mu;
     float gamma;
+    double horizon_f64;
+    double mass_f64;
+    double rest_density_f64;
+    double kernel_scale_f64;
+    double kappa_f64;
 };
 
 struct KernelValues {
@@ -117,6 +122,8 @@ __host__ __device__ bool compensated_state_variant(unsigned int variant) {
             NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary)
         || variant == static_cast<unsigned int>(
             NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScalePressureF64)
 #endif
         ;
 }
@@ -137,8 +144,20 @@ __host__ __device__ bool compensated_formula_variant(unsigned int variant) {
             NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary)
         || variant == static_cast<unsigned int>(
             NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScalePressureF64)
 #endif
         ;
+}
+
+__host__ __device__ bool pressure_f64_variant(unsigned int variant) {
+#if defined(NCGP3_EXPERIMENTAL)
+    return variant == static_cast<unsigned int>(
+        NonlocalGpuVariant::CompensatedScalePressureF64);
+#else
+    (void)variant;
+    return false;
+#endif
 }
 
 #if defined(NCGP3_EXPERIMENTAL)
@@ -150,7 +169,9 @@ __host__ __device__ bool pair_aware_graph_variant(unsigned int variant) {
         || variant == static_cast<unsigned int>(
             NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary)
         || variant == static_cast<unsigned int>(
-            NonlocalGpuVariant::CompensatedScalePostFinalizeFailure);
+            NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScalePressureF64);
 }
 
 __host__ __device__ bool pair_aware_boundary_variant(unsigned int variant) {
@@ -161,8 +182,11 @@ __host__ __device__ bool pair_aware_boundary_variant(unsigned int variant) {
         || variant == static_cast<unsigned int>(
             NonlocalGpuVariant::CompensatedScaleHighOnlyGraph)
         || variant == static_cast<unsigned int>(
-            NonlocalGpuVariant::CompensatedScalePostFinalizeFailure);
+            NonlocalGpuVariant::CompensatedScalePostFinalizeFailure)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScalePressureF64);
 }
+
 #endif
 
 __device__ void two_sum(float lhs, float rhs, float& high, float& low) {
@@ -281,6 +305,22 @@ __device__ double kernel_first_double(
         first_q = -0.5 * alpha * tail * tail;
     }
     return first_q * 2.0 / horizon;
+}
+
+__device__ double kernel_second_double(
+    double radius, double horizon, double kernel_scale) {
+    constexpr double pi = 3.141592653589793238462643383279502884;
+    const double q = 2.0 * radius / horizon;
+    const double alpha = kernel_scale * 3.0
+        / (2.0 * pi * horizon * horizon * horizon);
+    double second_q = 0.0;
+    if (q < 1.0) {
+        second_q = alpha * (-2.0 + 3.0 * q);
+    } else if (q <= 2.0) {
+        second_q = alpha * (2.0 - q);
+    }
+    const double chain = 2.0 / horizon;
+    return second_q * chain * chain;
 }
 
 __device__ void surface_values(
@@ -781,6 +821,7 @@ __global__ void density_kernel(const DeviceVec3* current,
     float* density,
     double* energy_density,
     float* pressure_excess,
+    double* pressure_excess_f64,
     int dynamic_count,
     DeviceProfile profile,
 #if defined(NCGP2_EXPERIMENTAL)
@@ -793,7 +834,10 @@ __global__ void density_kernel(const DeviceVec3* current,
     const DeviceVec3 owner = current[row];
 #if defined(NCGP2_EXPERIMENTAL)
     const bool compensated = compensated_formula_variant(variant);
+    const bool pressure_f64 = pressure_f64_variant(variant);
     const DeviceVec3 owner_low = current_low[row];
+#else
+    const bool pressure_f64 = false;
 #endif
     float sum = 0.0F;
     double sum_double = 0.0;
@@ -835,15 +879,26 @@ __global__ void density_kernel(const DeviceVec3* current,
             - static_cast<double>(candidate.z);
 #endif
         const double radius_double = sqrt(dx * dx + dy * dy + dz * dz);
-        sum_double += static_cast<double>(profile.mass)
+        sum_double += (pressure_f64 ? profile.mass_f64
+                                    : static_cast<double>(profile.mass))
             * kernel_value_double(radius_double,
-                static_cast<double>(profile.horizon),
-                static_cast<double>(profile.kernel_scale));
+                pressure_f64 ? profile.horizon_f64
+                             : static_cast<double>(profile.horizon),
+                pressure_f64 ? profile.kernel_scale_f64
+                             : static_cast<double>(profile.kernel_scale));
         ++evaluations;
     }
     density[row] = sum;
     energy_density[row] = sum_double;
-    pressure_excess[row] = fmaxf(sum / profile.rest_density - 1.0F, 0.0F);
+    const double exact_excess = fmax(sum_double
+            / (pressure_f64 ? profile.rest_density_f64
+                            : static_cast<double>(profile.rest_density))
+            - 1.0,
+        0.0);
+    if (pressure_f64) pressure_excess_f64[row] = exact_excess;
+    pressure_excess[row] = pressure_f64
+        ? static_cast<float>(exact_excess)
+        : fmaxf(sum / profile.rest_density - 1.0F, 0.0F);
     if (!isfinite(sum) || !isfinite(sum_double)) {
         atomicExch(error, static_cast<int>(NonlocalGpuFailure::Nonfinite));
     }
@@ -873,6 +928,7 @@ __global__ void energy_gradient_kernel(const DeviceVec3* reference,
     const unsigned int* reference_offsets,
     const unsigned int* reference_neighbors,
     const float* pressure_excess,
+    const double* pressure_excess_f64,
     const double* energy_density,
     DeviceVec3* gradient,
     double* energy_rows,
@@ -897,8 +953,11 @@ __global__ void energy_gradient_kernel(const DeviceVec3* reference,
     const bool surface_f64 = variant
         == static_cast<unsigned int>(NonlocalGpuVariant::SurfaceF64);
     const bool compensated = compensated_formula_variant(variant);
+    const bool pressure_f64 = pressure_f64_variant(variant);
     const DeviceVec3 y_low = current_low[row];
     const DeviceVec3 x_low = reference_low[row];
+#else
+    const bool pressure_f64 = false;
 #endif
     const DeviceVec3 y = current[row];
     const DeviceVec3 x = reference[row];
@@ -937,9 +996,10 @@ __global__ void energy_gradient_kernel(const DeviceVec3* reference,
     double energy = 0.5 * inertia_scale_double
         * (inertial_x * inertial_x + inertial_y * inertial_y
             + inertial_z * inertial_z);
-    const double excess_double = fmax(
+    const double excess_double = pressure_f64 ? pressure_excess_f64[row] : fmax(
         energy_density[row] / static_cast<double>(profile.rest_density) - 1.0, 0.0);
-    energy += 0.5 * static_cast<double>(profile.kappa)
+    energy += 0.5 * (pressure_f64 ? profile.kappa_f64
+                                 : static_cast<double>(profile.kappa))
         * excess_double * excess_double;
     unsigned long long energy_visits = 0ULL;
     unsigned long long gradient_visits = 0ULL;
@@ -974,9 +1034,36 @@ __global__ void energy_gradient_kernel(const DeviceVec3* reference,
                 && !owner_pressure_only
             ? pressure_excess[neighbor]
             : 0.0F;
-        const float pressure_factor = profile.kappa * profile.mass
-            / profile.rest_density * (own_excess + neighbor_excess) * kernel.first;
-        result = add(result, scale(normal, pressure_factor));
+#if defined(NCGP2_EXPERIMENTAL)
+        if (pressure_f64) {
+            const double dx = compensated_difference_double(y.x, y_low.x,
+                all_positions[neighbor].x, all_positions_low[neighbor].x);
+            const double dy = compensated_difference_double(y.y, y_low.y,
+                all_positions[neighbor].y, all_positions_low[neighbor].y);
+            const double dz = compensated_difference_double(y.z, y_low.z,
+                all_positions[neighbor].z, all_positions_low[neighbor].z);
+            const double radius_double = sqrt(dx * dx + dy * dy + dz * dz);
+            const double neighbor_excess_double = neighbor
+                        < static_cast<unsigned int>(dynamic_count)
+                    && !owner_pressure_only
+                ? pressure_excess_f64[neighbor] : 0.0;
+            const double own_excess_f64 = pressure_excess_f64[row];
+            const double pressure_factor = profile.kappa_f64
+                * profile.mass_f64 / profile.rest_density_f64
+                * (own_excess_f64 + neighbor_excess_double)
+                * kernel_first_double(radius_double, profile.horizon_f64,
+                    profile.kernel_scale_f64) / radius_double;
+            result.x += static_cast<float>(dx * pressure_factor);
+            result.y += static_cast<float>(dy * pressure_factor);
+            result.z += static_cast<float>(dz * pressure_factor);
+        } else
+#endif
+        {
+            const float pressure_factor = profile.kappa * profile.mass
+                / profile.rest_density * (own_excess + neighbor_excess)
+                * kernel.first;
+            result = add(result, scale(normal, pressure_factor));
+        }
         ++gradient_visits;
 
         if (neighbor < static_cast<unsigned int>(dynamic_count)) {
@@ -1199,9 +1286,11 @@ __global__ void pressure_directional_kernel(const DeviceVec3* current,
 #endif
     const DeviceVec3* direction,
     const float* pressure_excess,
+    const double* pressure_excess_f64,
     const unsigned int* offsets,
     const unsigned int* neighbors,
     float* pressure_q,
+    double* pressure_q_f64,
     int dynamic_count,
     DeviceProfile profile,
     unsigned int variant,
@@ -1213,10 +1302,16 @@ __global__ void pressure_directional_kernel(const DeviceVec3* current,
         == static_cast<unsigned int>(NonlocalGpuVariant::MissingKernelChain);
 #if defined(NCGP2_EXPERIMENTAL)
     const bool compensated = compensated_formula_variant(variant);
+    const bool pressure_f64 = pressure_f64_variant(variant);
+#else
+    const bool pressure_f64 = false;
 #endif
     float value = 0.0F;
-    if (!(pressure_excess[row] > 0.0F)) {
+    double value_f64 = 0.0;
+    if (pressure_f64 ? !(pressure_excess_f64[row] > 0.0)
+                     : !(pressure_excess[row] > 0.0F)) {
         pressure_q[row] = 0.0F;
+        if (pressure_f64) pressure_q_f64[row] = 0.0;
         return;
     }
     const DeviceVec3 owner = current[row];
@@ -1238,10 +1333,37 @@ __global__ void pressure_directional_kernel(const DeviceVec3* current,
                 < static_cast<unsigned int>(dynamic_count)
             ? direction[neighbor] : DeviceVec3{0.0F, 0.0F, 0.0F};
         const KernelValues kernel = kernel_values(radius, profile, missing_chain);
-        value += profile.mass / profile.rest_density * kernel.first
-            * dot(normal, subtract(direction[row], neighbor_direction));
+#if defined(NCGP2_EXPERIMENTAL)
+        if (pressure_f64) {
+            const double dx = compensated_difference_double(owner.x,
+                current_low[row].x, all_positions[neighbor].x,
+                all_positions_low[neighbor].x);
+            const double dy = compensated_difference_double(owner.y,
+                current_low[row].y, all_positions[neighbor].y,
+                all_positions_low[neighbor].y);
+            const double dz = compensated_difference_double(owner.z,
+                current_low[row].z, all_positions[neighbor].z,
+                all_positions_low[neighbor].z);
+            const double radius_double = sqrt(dx * dx + dy * dy + dz * dz);
+            const double dvx = static_cast<double>(direction[row].x)
+                - neighbor_direction.x;
+            const double dvy = static_cast<double>(direction[row].y)
+                - neighbor_direction.y;
+            const double dvz = static_cast<double>(direction[row].z)
+                - neighbor_direction.z;
+            value_f64 += profile.mass_f64 / profile.rest_density_f64
+                * kernel_first_double(radius_double, profile.horizon_f64,
+                    profile.kernel_scale_f64)
+                * (dx * dvx + dy * dvy + dz * dvz) / radius_double;
+        } else
+#endif
+        {
+            value += profile.mass / profile.rest_density * kernel.first
+                * dot(normal, subtract(direction[row], neighbor_direction));
+        }
     }
-    pressure_q[row] = value;
+    if (pressure_f64) pressure_q_f64[row] = value_f64;
+    pressure_q[row] = pressure_f64 ? static_cast<float>(value_f64) : value;
 #if defined(NCGP2_EXPERIMENTAL)
     if (compensated) {
         const unsigned long long visited = static_cast<unsigned long long>(
@@ -1251,7 +1373,7 @@ __global__ void pressure_directional_kernel(const DeviceVec3* current,
 #else
     (void)work;
 #endif
-    if (!isfinite(value)) {
+    if (!isfinite(value) || !isfinite(value_f64)) {
         atomicExch(error, static_cast<int>(NonlocalGpuFailure::Nonfinite));
     }
 }
@@ -1270,7 +1392,9 @@ __global__ void hvp_kernel(const DeviceVec3* reference,
     const unsigned int* reference_offsets,
     const unsigned int* reference_neighbors,
     const float* pressure_excess,
+    const double* pressure_excess_f64,
     const float* pressure_q,
+    const double* pressure_q_f64,
     DeviceVec3* hvp,
     DeviceVec3* diagonal,
     int dynamic_count,
@@ -1294,8 +1418,11 @@ __global__ void hvp_kernel(const DeviceVec3* reference,
     const bool surface_f64 = variant
         == static_cast<unsigned int>(NonlocalGpuVariant::SurfaceF64);
     const bool compensated = compensated_formula_variant(variant);
+    const bool pressure_f64 = pressure_f64_variant(variant);
     const DeviceVec3 y_low = current_low[row];
     const DeviceVec3 x_low = reference_low[row];
+#else
+    const bool pressure_f64 = false;
 #endif
     const DeviceVec3 y = current[row];
     const DeviceVec3 x = reference[row];
@@ -1304,6 +1431,9 @@ __global__ void hvp_kernel(const DeviceVec3* reference,
     DeviceVec3 result = scale(v, inertia_scale);
     DeviceVec3 diag{inertia_scale, inertia_scale, inertia_scale};
     DeviceVec3 own_density_gradient{0.0F, 0.0F, 0.0F};
+    double own_density_gradient_x_f64 = 0.0;
+    double own_density_gradient_y_f64 = 0.0;
+    double own_density_gradient_z_f64 = 0.0;
     unsigned long long visits = 0ULL;
 #if defined(NCGP2_EXPERIMENTAL)
     unsigned long long compensated_differences = 0ULL;
@@ -1334,36 +1464,109 @@ __global__ void hvp_kernel(const DeviceVec3* reference,
         const KernelValues kernel = kernel_values(radius, profile, missing_chain);
         const float density_factor = profile.mass / profile.rest_density;
         const DeviceVec3 b = scale(normal, density_factor * kernel.first);
-        if (pressure_excess[row] > 0.0F) {
-            own_density_gradient = add(own_density_gradient, b);
-        }
-        const float neighbor_q = neighbor < static_cast<unsigned int>(dynamic_count)
-                && !owner_pressure_only
-            ? pressure_q[neighbor] : 0.0F;
-        result = add(result, scale(b,
-            profile.kappa * (pressure_q[row] + neighbor_q)));
-        const float neighbor_excess = neighbor
-                    < static_cast<unsigned int>(dynamic_count)
-                && !owner_pressure_only
-            ? pressure_excess[neighbor] : 0.0F;
-        const float excess_sum = pressure_excess[row] + neighbor_excess;
-        const float tangential = kernel.first / radius;
-        result = add(result, scale(radial_apply(normal, kernel.second,
-            tangential, dv), profile.kappa * density_factor * excess_sum));
-        const float geometric_scale = profile.kappa * density_factor * excess_sum;
-        diag.x += geometric_scale
-            * (tangential + (kernel.second - tangential) * normal.x * normal.x);
-        diag.y += geometric_scale
-            * (tangential + (kernel.second - tangential) * normal.y * normal.y);
-        diag.z += geometric_scale
-            * (tangential + (kernel.second - tangential) * normal.z * normal.z);
-        if (neighbor < static_cast<unsigned int>(dynamic_count)) {
-            const DeviceVec3 neighbor_b = b;
-            if (!owner_pressure_only && pressure_excess[neighbor] > 0.0F) {
-                diag.x += profile.kappa * neighbor_b.x * neighbor_b.x;
-                diag.y += profile.kappa * neighbor_b.y * neighbor_b.y;
-                diag.z += profile.kappa * neighbor_b.z * neighbor_b.z;
+#if defined(NCGP2_EXPERIMENTAL)
+        if (pressure_f64) {
+            const double dx = compensated_difference_double(y.x, y_low.x,
+                all_positions[neighbor].x, all_positions_low[neighbor].x);
+            const double dy = compensated_difference_double(y.y, y_low.y,
+                all_positions[neighbor].y, all_positions_low[neighbor].y);
+            const double dz = compensated_difference_double(y.z, y_low.z,
+                all_positions[neighbor].z, all_positions_low[neighbor].z);
+            const double radius_double = sqrt(dx * dx + dy * dy + dz * dz);
+            const double nx = dx / radius_double;
+            const double ny = dy / radius_double;
+            const double nz = dz / radius_double;
+            const double first = kernel_first_double(radius_double,
+                profile.horizon_f64, profile.kernel_scale_f64);
+            const double second = kernel_second_double(radius_double,
+                profile.horizon_f64, profile.kernel_scale_f64);
+            const double factor = profile.mass_f64 / profile.rest_density_f64;
+            const double bx = nx * factor * first;
+            const double by = ny * factor * first;
+            const double bz = nz * factor * first;
+            if (pressure_excess_f64[row] > 0.0) {
+                own_density_gradient_x_f64 += bx;
+                own_density_gradient_y_f64 += by;
+                own_density_gradient_z_f64 += bz;
             }
+            const double neighbor_q = neighbor
+                        < static_cast<unsigned int>(dynamic_count)
+                    && !owner_pressure_only
+                ? pressure_q_f64[neighbor] : 0.0;
+            const double q_scale = profile.kappa_f64
+                * (pressure_q_f64[row] + neighbor_q);
+            double tx = bx * q_scale;
+            double ty = by * q_scale;
+            double tz = bz * q_scale;
+            const double neighbor_excess = neighbor
+                        < static_cast<unsigned int>(dynamic_count)
+                    && !owner_pressure_only
+                ? pressure_excess_f64[neighbor] : 0.0;
+            const double excess_sum = pressure_excess_f64[row]
+                + neighbor_excess;
+            const double dvx = static_cast<double>(dv.x);
+            const double dvy = static_cast<double>(dv.y);
+            const double dvz = static_cast<double>(dv.z);
+            const double tangential = first / radius_double;
+            const double projected = nx * dvx + ny * dvy + nz * dvz;
+            const double correction = (second - tangential) * projected;
+            const double geometric_scale = profile.kappa_f64 * factor
+                * excess_sum;
+            tx += geometric_scale * (tangential * dvx + nx * correction);
+            ty += geometric_scale * (tangential * dvy + ny * correction);
+            tz += geometric_scale * (tangential * dvz + nz * correction);
+            result.x += static_cast<float>(tx);
+            result.y += static_cast<float>(ty);
+            result.z += static_cast<float>(tz);
+            diag.x += static_cast<float>(geometric_scale
+                * (tangential + (second - tangential) * nx * nx));
+            diag.y += static_cast<float>(geometric_scale
+                * (tangential + (second - tangential) * ny * ny));
+            diag.z += static_cast<float>(geometric_scale
+                * (tangential + (second - tangential) * nz * nz));
+            if (neighbor < static_cast<unsigned int>(dynamic_count)
+                && !owner_pressure_only
+                && pressure_excess_f64[neighbor] > 0.0) {
+                diag.x += static_cast<float>(profile.kappa_f64 * bx * bx);
+                diag.y += static_cast<float>(profile.kappa_f64 * by * by);
+                diag.z += static_cast<float>(profile.kappa_f64 * bz * bz);
+            }
+        } else
+#endif
+        {
+            if (pressure_excess[row] > 0.0F) {
+                own_density_gradient = add(own_density_gradient, b);
+            }
+            const float neighbor_q = neighbor
+                        < static_cast<unsigned int>(dynamic_count)
+                    && !owner_pressure_only
+                ? pressure_q[neighbor] : 0.0F;
+            result = add(result, scale(b,
+                profile.kappa * (pressure_q[row] + neighbor_q)));
+            const float neighbor_excess = neighbor
+                        < static_cast<unsigned int>(dynamic_count)
+                    && !owner_pressure_only
+                ? pressure_excess[neighbor] : 0.0F;
+            const float excess_sum = pressure_excess[row] + neighbor_excess;
+            const float tangential = kernel.first / radius;
+            result = add(result, scale(radial_apply(normal, kernel.second,
+                tangential, dv), profile.kappa * density_factor * excess_sum));
+            const float geometric_scale = profile.kappa * density_factor
+                * excess_sum;
+            diag.x += geometric_scale * (tangential
+                + (kernel.second - tangential) * normal.x * normal.x);
+            diag.y += geometric_scale * (tangential
+                + (kernel.second - tangential) * normal.y * normal.y);
+            diag.z += geometric_scale * (tangential
+                + (kernel.second - tangential) * normal.z * normal.z);
+            if (neighbor < static_cast<unsigned int>(dynamic_count)
+                && !owner_pressure_only && pressure_excess[neighbor] > 0.0F) {
+                diag.x += profile.kappa * b.x * b.x;
+                diag.y += profile.kappa * b.y * b.y;
+                diag.z += profile.kappa * b.z * b.z;
+            }
+        }
+        if (neighbor < static_cast<unsigned int>(dynamic_count)) {
             const float sign = wrong_surface ? -1.0F : 1.0F;
 #if defined(NCGP2_EXPERIMENTAL)
             if (surface_f64) {
@@ -1439,9 +1642,21 @@ __global__ void hvp_kernel(const DeviceVec3* reference,
         }
         ++visits;
     }
-    diag.x += profile.kappa * own_density_gradient.x * own_density_gradient.x;
-    diag.y += profile.kappa * own_density_gradient.y * own_density_gradient.y;
-    diag.z += profile.kappa * own_density_gradient.z * own_density_gradient.z;
+    if (pressure_f64) {
+        diag.x += static_cast<float>(profile.kappa_f64
+            * own_density_gradient_x_f64 * own_density_gradient_x_f64);
+        diag.y += static_cast<float>(profile.kappa_f64
+            * own_density_gradient_y_f64 * own_density_gradient_y_f64);
+        diag.z += static_cast<float>(profile.kappa_f64
+            * own_density_gradient_z_f64 * own_density_gradient_z_f64);
+    } else {
+        diag.x += profile.kappa * own_density_gradient.x
+            * own_density_gradient.x;
+        diag.y += profile.kappa * own_density_gradient.y
+            * own_density_gradient.y;
+        diag.z += profile.kappa * own_density_gradient.z
+            * own_density_gradient.z;
+    }
 
     const unsigned int* viscosity_offsets = current_reference_swap
         ? current_offsets : reference_offsets;
@@ -2115,7 +2330,9 @@ DeviceProfile device_profile(const NonlocalGpuProfile& profile) {
         static_cast<float>(profile.kappa),
         static_cast<float>(profile.lambda),
         static_cast<float>(profile.mu),
-        static_cast<float>(profile.gamma)};
+        static_cast<float>(profile.gamma),
+        profile.horizon, profile.mass, profile.rest_density,
+        profile.kernel_scale, profile.kappa};
 }
 
 } // namespace
@@ -2174,7 +2391,9 @@ struct NonlocalGpuWorkspace::Impl {
         allocate_device(&density, dynamic_capacity, allocated_bytes);
         allocate_device(&energy_density, dynamic_capacity, allocated_bytes);
         allocate_device(&pressure_excess, dynamic_capacity, allocated_bytes);
+        allocate_device(&pressure_excess_f64, dynamic_capacity, allocated_bytes);
         allocate_device(&pressure_q, dynamic_capacity, allocated_bytes);
+        allocate_device(&pressure_q_f64, dynamic_capacity, allocated_bytes);
         allocate_device(&gradient, dynamic_capacity, allocated_bytes);
         allocate_device(&hvp, dynamic_capacity, allocated_bytes);
         allocate_device(&diagonal, dynamic_capacity, allocated_bytes);
@@ -2274,7 +2493,9 @@ struct NonlocalGpuWorkspace::Impl {
         cudaFree(diagonal);
         cudaFree(hvp);
         cudaFree(gradient);
+        cudaFree(pressure_q_f64);
         cudaFree(pressure_q);
+        cudaFree(pressure_excess_f64);
         cudaFree(pressure_excess);
         cudaFree(energy_density);
         cudaFree(density);
@@ -2362,7 +2583,9 @@ struct NonlocalGpuWorkspace::Impl {
     float* density = nullptr;
     double* energy_density = nullptr;
     float* pressure_excess = nullptr;
+    double* pressure_excess_f64 = nullptr;
     float* pressure_q = nullptr;
+    double* pressure_q_f64 = nullptr;
     DeviceVec3* gradient = nullptr;
     DeviceVec3* hvp = nullptr;
     DeviceVec3* diagonal = nullptr;
@@ -2647,7 +2870,8 @@ NonlocalGpuGraphResult NonlocalGpuWorkspace::build_current_graph(
             || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyGraph
             || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius
             || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary
-            || variant == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure;
+            || variant == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure
+            || variant == NonlocalGpuVariant::CompensatedScalePressureF64;
         const bool pair_aware = pair_aware_graph_variant(
             static_cast<unsigned int>(variant));
 #endif
@@ -2981,7 +3205,8 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
             || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyGraph
             || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius
             || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyBoundary
-            || variant == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure;
+            || variant == NonlocalGpuVariant::CompensatedScalePostFinalizeFailure
+            || variant == NonlocalGpuVariant::CompensatedScalePressureF64;
 #else
             false;
 #endif
@@ -3048,14 +3273,18 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
             static_cast<float>(impl_->profile.kappa),
             static_cast<float>(impl_->profile.lambda),
             static_cast<float>(impl_->profile.mu),
-            static_cast<float>(impl_->profile.gamma)};
+            static_cast<float>(impl_->profile.gamma),
+            impl_->profile.horizon, impl_->profile.mass,
+            impl_->profile.rest_density, impl_->profile.kernel_scale,
+            impl_->profile.kappa};
         density_kernel<<<blocks_for(impl_->dynamic_count), kThreads>>>(
             impl_->current, impl_->all_positions,
 #if defined(NCGP2_EXPERIMENTAL)
             impl_->current_low, impl_->all_positions_low,
 #endif
             impl_->offsets, impl_->neighbors, impl_->density, impl_->energy_density,
-            impl_->pressure_excess, impl_->dynamic_count, profile,
+            impl_->pressure_excess, impl_->pressure_excess_f64,
+            impl_->dynamic_count, profile,
 #if defined(NCGP2_EXPERIMENTAL)
             static_cast<unsigned int>(variant),
 #endif
@@ -3070,7 +3299,8 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
 #endif
             impl_->offsets, impl_->neighbors,
             impl_->reference_offsets, impl_->reference_neighbors,
-            impl_->pressure_excess, impl_->energy_density, impl_->gradient,
+            impl_->pressure_excess, impl_->pressure_excess_f64,
+            impl_->energy_density, impl_->gradient,
             impl_->energy_rows, impl_->dynamic_count, profile,
             static_cast<unsigned int>(variant), impl_->evaluation_work,
             impl_->error);
@@ -3095,8 +3325,10 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
                 impl_->current_low, impl_->all_positions_low,
 #endif
                 impl_->direction, impl_->pressure_excess,
+                impl_->pressure_excess_f64,
                 impl_->offsets, impl_->neighbors,
-                impl_->pressure_q, impl_->dynamic_count, profile,
+                impl_->pressure_q, impl_->pressure_q_f64,
+                impl_->dynamic_count, profile,
                 static_cast<unsigned int>(variant), impl_->evaluation_work,
                 impl_->error);
             cuda_check(cudaGetLastError(), "evaluate pressure directional");
@@ -3108,7 +3340,8 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
 #endif
                 impl_->direction, impl_->offsets, impl_->neighbors,
                 impl_->reference_offsets, impl_->reference_neighbors,
-                impl_->pressure_excess, impl_->pressure_q, impl_->hvp,
+                impl_->pressure_excess, impl_->pressure_excess_f64,
+                impl_->pressure_q, impl_->pressure_q_f64, impl_->hvp,
                 impl_->diagonal, impl_->dynamic_count, profile,
                 static_cast<unsigned int>(variant), impl_->evaluation_work,
                 impl_->error);
@@ -3448,8 +3681,9 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 impl_->current_low, impl_->all_positions_low,
 #endif
                 input,
-                impl_->pressure_excess, impl_->offsets, impl_->neighbors,
-                impl_->pressure_q,
+                impl_->pressure_excess, impl_->pressure_excess_f64,
+                impl_->offsets, impl_->neighbors, impl_->pressure_q,
+                impl_->pressure_q_f64,
                 impl_->dynamic_count, profile, static_cast<unsigned int>(variant),
                 impl_->evaluation_work, impl_->error);
             hvp_kernel<<<blocks_for(impl_->dynamic_count), kThreads>>>(
@@ -3461,7 +3695,8 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 input,
                 impl_->offsets, impl_->neighbors, impl_->reference_offsets,
                 impl_->reference_neighbors, impl_->pressure_excess,
-                impl_->pressure_q, impl_->hvp, impl_->diagonal,
+                impl_->pressure_excess_f64, impl_->pressure_q,
+                impl_->pressure_q_f64, impl_->hvp, impl_->diagonal,
                 impl_->dynamic_count, profile, static_cast<unsigned int>(variant),
                 impl_->evaluation_work, impl_->error);
             mask_vector_kernel<<<blocks_for(impl_->dynamic_count), kThreads>>>(
