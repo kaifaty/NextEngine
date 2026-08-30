@@ -28,6 +28,7 @@ enum class AssemblyVariant : std::uint32_t {
     CurrentGraphViscosity = 6,
     NaiveF32Pressure = 7,
     F64Energy = 8,
+    F64PressureOperator = 9,
 };
 
 struct AssemblyProfile {
@@ -90,6 +91,12 @@ struct AssemblyWorkReceipt {
     std::uint64_t f64_energy_viscosity_pairs = 0;
     std::uint64_t f64_energy_surface_pairs = 0;
     std::uint64_t f64_energy_component_writes = 0;
+    std::uint64_t f64_pressure_density_terms = 0;
+    std::uint64_t f64_pressure_gradient_pairs = 0;
+    std::uint64_t f64_pressure_jacobian_terms = 0;
+    std::uint64_t f64_pressure_outer_products = 0;
+    std::uint64_t f64_pressure_geometric_blocks = 0;
+    std::uint64_t f64_pressure_component_writes = 0;
 };
 
 struct AssemblyResult {

@@ -243,6 +243,12 @@ void add_assembly_work(AssemblyWorkReceipt& target,
     target.f64_energy_viscosity_pairs += value.f64_energy_viscosity_pairs;
     target.f64_energy_surface_pairs += value.f64_energy_surface_pairs;
     target.f64_energy_component_writes += value.f64_energy_component_writes;
+    target.f64_pressure_density_terms += value.f64_pressure_density_terms;
+    target.f64_pressure_gradient_pairs += value.f64_pressure_gradient_pairs;
+    target.f64_pressure_jacobian_terms += value.f64_pressure_jacobian_terms;
+    target.f64_pressure_outer_products += value.f64_pressure_outer_products;
+    target.f64_pressure_geometric_blocks += value.f64_pressure_geometric_blocks;
+    target.f64_pressure_component_writes += value.f64_pressure_component_writes;
 }
 
 struct ControllerWork {
@@ -453,6 +459,64 @@ AssemblyResult gpu_evaluate_f64_energy_rounded(const AssemblyProfile& profile,
         profile, fixture, state, AssemblyVariant::F64Energy);
     for (double& component : result.energy) {
         component = static_cast<double>(static_cast<float>(component));
+    }
+    return result;
+}
+
+AssemblyResult gpu_evaluate_f64_pressure(const AssemblyProfile& profile,
+    const AssemblyFixture& fixture, const AssemblyContinuousState& state,
+    AssemblyVariant) {
+    AssemblyResult full = evaluate_gpu_assembly_state(
+        profile, fixture, state, AssemblyVariant::F64Energy);
+    AssemblyFixture pressure_fixture = fixture;
+    pressure_fixture.terms = {false, true, false, false};
+    AssemblyResult strict_pressure = evaluate_gpu_assembly_state(
+        profile, pressure_fixture, state, AssemblyVariant::Corrected);
+    AssemblyResult f64_pressure = evaluate_gpu_assembly_state(
+        profile, pressure_fixture, state, AssemblyVariant::F64PressureOperator);
+    if (full.failure != AssemblyFailure::None
+        || strict_pressure.failure != AssemblyFailure::None
+        || f64_pressure.failure != AssemblyFailure::None
+        || full.gradient.size() != strict_pressure.gradient.size()
+        || full.gradient.size() != f64_pressure.gradient.size()
+        || full.hessian.size() != strict_pressure.hessian.size()
+        || full.hessian.size() != f64_pressure.hessian.size()) {
+        full.failure = AssemblyFailure::DeviceFailure;
+        return full;
+    }
+    for (std::size_t index = 0; index < full.gradient.size(); ++index) {
+        full.gradient[index] += f64_pressure.gradient[index]
+            - strict_pressure.gradient[index];
+    }
+    for (std::size_t index = 0; index < full.hessian.size(); ++index) {
+        full.hessian[index] += f64_pressure.hessian[index]
+            - strict_pressure.hessian[index];
+    }
+    for (std::size_t index = 0; index < full.diagonal_blocks.size(); ++index) {
+        full.diagonal_blocks[index] += f64_pressure.diagonal_blocks[index]
+            - strict_pressure.diagonal_blocks[index];
+    }
+    for (std::size_t index = 0; index < full.hvp.size(); ++index) {
+        full.hvp[index] += f64_pressure.hvp[index] - strict_pressure.hvp[index];
+    }
+    full.density = f64_pressure.density;
+    full.pressure_active = f64_pressure.pressure_active;
+    full.minimum_density_clamp_margin = f64_pressure.minimum_density_clamp_margin;
+    add_assembly_work(full.work, strict_pressure.work);
+    add_assembly_work(full.work, f64_pressure.work);
+    return full;
+}
+
+AssemblyResult gpu_evaluate_f64_pressure_rounded(const AssemblyProfile& profile,
+    const AssemblyFixture& fixture, const AssemblyContinuousState& state,
+    AssemblyVariant variant) {
+    AssemblyResult result = gpu_evaluate_f64_pressure(
+        profile, fixture, state, variant);
+    for (double& value : result.gradient) {
+        value = static_cast<double>(static_cast<float>(value));
+    }
+    for (double& value : result.hessian) {
+        value = static_cast<double>(static_cast<float>(value));
     }
     return result;
 }
@@ -724,6 +788,35 @@ std::string mixed_solve_root(const SolveResult& result) {
     std::string bytes = "nextengine.nonlocal.ncga6.solve.v1\0";
     bytes += route_root(result);
     bytes += mixed_work_root(result.work);
+    bytes += vector_root("nextengine.nonlocal.ncga5.state.v1\0", result.state);
+    bytes += result.final_active_root;
+    append_double(bytes, result.final_objective);
+    append_double(bytes, result.final_gradient_norm);
+    append_double(bytes, result.final_scaled_residual);
+    append_u64(bytes, result.succeeded ? 1U : 0U);
+    append_u64(bytes, result.monotonic ? 1U : 0U);
+    return sha256_hex(bytes);
+}
+
+std::string pressure_work_root(const ControllerWork& work) {
+    std::string bytes = "nextengine.nonlocal.ncga7.work.v1\0";
+    bytes += mixed_work_root(work);
+    const std::array<std::uint64_t, 6> fields{{
+        work.assembly.f64_pressure_density_terms,
+        work.assembly.f64_pressure_gradient_pairs,
+        work.assembly.f64_pressure_jacobian_terms,
+        work.assembly.f64_pressure_outer_products,
+        work.assembly.f64_pressure_geometric_blocks,
+        work.assembly.f64_pressure_component_writes,
+    }};
+    for (std::uint64_t field : fields) append_u64(bytes, field);
+    return sha256_hex(bytes);
+}
+
+std::string pressure_solve_root(const SolveResult& result) {
+    std::string bytes = "nextengine.nonlocal.ncga7.solve.v1\0";
+    bytes += route_root(result);
+    bytes += pressure_work_root(result.work);
     bytes += vector_root("nextengine.nonlocal.ncga5.state.v1\0", result.state);
     bytes += result.final_active_root;
     append_double(bytes, result.final_objective);
@@ -1132,6 +1225,153 @@ int run_mixed_energy() {
     return apparatus && result != "INCONCLUSIVE" ? 0 : 1;
 }
 
+int run_mixed_pressure() {
+    const std::array<StaticCase, 2> cases{{compressed_case(), combined_case()}};
+    std::array<SolveResult, 2> host_results;
+    std::array<SolveResult, 2> energy_results;
+    std::array<SolveResult, 2> pressure_results;
+    std::array<SolveResult, 2> permuted_results;
+    std::array<SolveResult, 2> rounded_results;
+    for (std::size_t index = 0; index < cases.size(); ++index) {
+        host_results[index] = solve(
+            cases[index], cases[index].fixture, host_evaluate, false, false);
+        energy_results[index] = solve(cases[index], cases[index].fixture,
+            gpu_evaluate, true, false, AssemblyVariant::F64Energy,
+            SUPPORTED_SCALED_RESIDUAL);
+        pressure_results[index] = solve(cases[index], cases[index].fixture,
+            gpu_evaluate_f64_pressure, true, false,
+            AssemblyVariant::F64PressureOperator, SUPPORTED_SCALED_RESIDUAL);
+        permuted_results[index] = solve(cases[index],
+            cases[index].permuted_fixture, gpu_evaluate_f64_pressure, true, false,
+            AssemblyVariant::F64PressureOperator, SUPPORTED_SCALED_RESIDUAL);
+        rounded_results[index] = solve(cases[index], cases[index].fixture,
+            gpu_evaluate_f64_pressure_rounded, true, false,
+            AssemblyVariant::F64PressureOperator, SUPPORTED_SCALED_RESIDUAL);
+    }
+    const SolveResult negative = solve(cases[1], cases[1].fixture,
+        gpu_evaluate_f64_pressure, true, true,
+        AssemblyVariant::F64PressureOperator, SUPPORTED_SCALED_RESIDUAL);
+
+    bool host_valid = true;
+    bool pressure_all_supported = true;
+    bool energy_all_supported = true;
+    bool permutation_exact = true;
+    bool rounded_rejected = false;
+    bool progress_beyond_energy = false;
+    bool residual_exercised = false;
+    for (std::size_t index = 0; index < cases.size(); ++index) {
+        host_valid = host_valid && host_shape_valid(cases[index], host_results[index]);
+        pressure_all_supported = pressure_all_supported && candidate_supported(
+            host_results[index], pressure_results[index]);
+        energy_all_supported = energy_all_supported && candidate_supported(
+            host_results[index], energy_results[index]);
+        permutation_exact = permutation_exact
+            && pressure_solve_root(pressure_results[index])
+                == pressure_solve_root(permuted_results[index]);
+        rounded_rejected = rounded_rejected
+            || !candidate_supported(host_results[index], rounded_results[index]);
+        progress_beyond_energy = progress_beyond_energy
+            || pressure_results[index].work.accepted_trials
+                > energy_results[index].work.accepted_trials
+            || pressure_results[index].final_scaled_residual
+                < energy_results[index].final_scaled_residual;
+        residual_exercised = residual_exercised
+            || std::any_of(pressure_results[index].trials.begin(),
+                pressure_results[index].trials.end(), [](const TrialRecord& trial) {
+                    return trial.reason == "RESIDUAL" && trial.hvp > 1;
+                });
+    }
+    const bool negative_rejected = pressure_solve_root(negative)
+        != pressure_solve_root(pressure_results[1]);
+    AssemblyContinuousState invalid_state = cases[1].initial;
+    invalid_state.current_m.pop_back();
+    const AssemblyResult invalid = evaluate_gpu_assembly_state(cases[1].profile,
+        cases[1].fixture, invalid_state, AssemblyVariant::F64PressureOperator);
+    const bool controls = permutation_exact && rounded_rejected
+        && negative_rejected && invalid.failure == AssemblyFailure::InvalidInput;
+    const bool apparatus = host_valid && controls;
+
+    std::string result = "INCONCLUSIVE";
+    if (apparatus && pressure_all_supported && !energy_all_supported
+        && progress_beyond_energy && residual_exercised) {
+        result = "GPU_F64_PRESSURE_STATIC_SOLVE_SUPPORTED";
+    } else if (apparatus) {
+        result = "MIXED_PRESSURE_STATIC_SOLVE_FAILED";
+    }
+
+    std::string semantic = "nextengine.nonlocal.ncga7.semantic.v1\0";
+    semantic += result;
+    for (const SolveResult& value : host_results) semantic += solve_root(value);
+    for (const SolveResult& value : energy_results) semantic += mixed_solve_root(value);
+    for (const SolveResult& value : pressure_results) {
+        semantic += pressure_solve_root(value);
+    }
+    semantic += pressure_solve_root(negative);
+    append_u64(semantic, permutation_exact ? 1U : 0U);
+    append_u64(semantic, rounded_rejected ? 1U : 0U);
+    append_u64(semantic, progress_beyond_energy ? 1U : 0U);
+
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.ncga7.v1\""
+           << ",\"result\":\"" << result << "\""
+           << ",\"apparatus_valid\":" << (apparatus ? "true" : "false")
+           << ",\"host_shape_valid\":" << (host_valid ? "true" : "false")
+           << ",\"energy_all_supported\":"
+           << (energy_all_supported ? "true" : "false")
+           << ",\"pressure_all_supported\":"
+           << (pressure_all_supported ? "true" : "false")
+           << ",\"progress_beyond_energy\":"
+           << (progress_beyond_energy ? "true" : "false")
+           << ",\"permutation_exact\":"
+           << (permutation_exact ? "true" : "false")
+           << ",\"rounded_pressure_rejected\":"
+           << (rounded_rejected ? "true" : "false")
+           << ",\"negative_rejected\":"
+           << (negative_rejected ? "true" : "false")
+           << ",\"environment\":" << gpu_assembly_environment_json()
+           << ",\"cases\":[";
+    for (std::size_t index = 0; index < cases.size(); ++index) {
+        if (index != 0U) output << ',';
+        output << "{\"name\":\"" << cases[index].name << "\""
+               << ",\"energy_drift_um\":"
+               << maximum_particle_drift_um(
+                    host_results[index].state, energy_results[index].state)
+               << ",\"pressure_drift_um\":"
+               << maximum_particle_drift_um(
+                    host_results[index].state, pressure_results[index].state)
+               << ",\"energy_objective_difference\":"
+               << objective_difference(host_results[index], energy_results[index])
+               << ",\"pressure_objective_difference\":"
+               << objective_difference(host_results[index], pressure_results[index])
+               << ",\"host\":";
+        emit_solve(output, host_results[index]);
+        output << ",\"f64_energy\":";
+        emit_solve(output, energy_results[index]);
+        output << ",\"f64_pressure\":";
+        emit_solve(output, pressure_results[index]);
+        output << ",\"pressure_work_root\":\""
+               << pressure_work_root(pressure_results[index].work) << "\""
+               << ",\"pressure_work\":{\"density_terms\":"
+               << pressure_results[index].work.assembly.f64_pressure_density_terms
+               << ",\"gradient_pairs\":"
+               << pressure_results[index].work.assembly.f64_pressure_gradient_pairs
+               << ",\"jacobian_terms\":"
+               << pressure_results[index].work.assembly.f64_pressure_jacobian_terms
+               << ",\"outer_products\":"
+               << pressure_results[index].work.assembly.f64_pressure_outer_products
+               << ",\"geometric_blocks\":"
+               << pressure_results[index].work.assembly.f64_pressure_geometric_blocks
+               << ",\"component_writes\":"
+               << pressure_results[index].work.assembly.f64_pressure_component_writes
+               << "}}";
+    }
+    output << "],\"negative_root\":\"" << pressure_solve_root(negative)
+           << "\",\"semantic_root\":\"" << sha256_hex(semantic) << "\"}";
+    std::cout << output.str() << '\n';
+    return apparatus && result != "INCONCLUSIVE" ? 0 : 1;
+}
+
 } // namespace
 } // namespace nextengine::nonlocal::gpu_assembly_audit
 
@@ -1140,9 +1380,12 @@ int main(int argc, char** argv) {
         if (argc == 2 && std::string(argv[1]) == "--mixed-energy") {
             return nextengine::nonlocal::gpu_assembly_audit::run_mixed_energy();
         }
+        if (argc == 2 && std::string(argv[1]) == "--mixed-pressure") {
+            return nextengine::nonlocal::gpu_assembly_audit::run_mixed_pressure();
+        }
         if (argc != 1) {
             std::cerr << "usage: nonlocal-corrected-cuda-static-solve "
-                         "[--mixed-energy]\n";
+                         "[--mixed-energy|--mixed-pressure]\n";
             return 2;
         }
         return nextengine::nonlocal::gpu_assembly_audit::run();
