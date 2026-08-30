@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V7 / R3A_V5_TRAINING_CONTROLS_REPRODUCIBLE / THREE_CAPACITY_TRAINING_NEXT / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V7 / R3A_V5B_REJECTED_BY_ANTI_COLLAPSE_GATE / V5C_STAGED_BOOTSTRAP_NEXT / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,16 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R3A V5 CUDA runner controls repeat byte-identically,
-  including checkpoint bytes and exact continuation. The frozen full model
-  improves L1 and activates every train RVQ stage; no quality endpoint has
-  passed yet.
-- **Exact evidence:** [R3A V5 training runner preflight](../physical-sound-r3a-v5-training-runner-preflight-2026-08-31.md),
-  implementation `90984de2`, manifest `75ed5e06…2679`, report
-  `a4e30d87…b1e1`, checkpoint `74fccfac…7659`.
-- **Next action:** Implement and launch the hash-closed `6/12/24 kbps` runs on
-  the frozen internet train role plus twelve authorized fit contacts; select
-  checkpoints only with internet internal validation.
+- **Current conclusion:** V5-B is numerically stable but learns an
+  input-independent near-silent decoder with and without RVQ. A normalized
+  continuous bootstrap is the first full-size control to learn held internet
+  impacts: RMS ratio `0.620`, spectrum improvement `16.5%`, correlation
+  `0.351` and diversity ratio `1.85` at step `2000`.
+- **Exact evidence:** [V5-B collapse and V5-C bootstrap](../physical-sound-r3a-v5b-collapse-and-v5c-bootstrap-2026-08-31.md),
+  rejected report `857b8066…55f9`, continuous control `45e2c4c7…2bb4` and
+  bootstrap control `ed888c4e…1229`.
+- **Next action:** Implement V5-C staged training: continuous normalized
+  bootstrap, gradual RVQ introduction, then the full perceptual objective;
+  require a quantized anti-collapse pass before any long capacity run.
 - **Spend rule:** Development, new objects, row `2407`, method holdout and
   admission shadow remain unread throughout all three capacity runs.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -42,7 +43,7 @@
 | R3A V3A | `INVALID_INFRASTRUCTURE` | Plastic Bin target opened, no metrics; eight-sample NDAC deficit recorded, holdout sealed. |
 | R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
-| R3A V5 | `TRAINING_CONTROLS_COMPLETE / CAPACITY_TRAINING_AUTHORIZED` | CUDA runner, full loss, active RVQ and exact resume repeat; train three frozen capacities without development reads. |
+| R3A V5 | `V5B REJECTED / V5C BOOTSTRAP SUPPORTED` | Stable factorized RVQ still collapses; continuous normalized bootstrap learns validation signal, so stage RVQ before any long capacity run. |
 | R3B+ | `BLOCKED` | No contact-to-latent field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Material transition: analytical fit rejected and Roadmap V7
@@ -112,6 +113,21 @@
   frozen internal-validation criterion; then stop and run bounded research
   instead of tuning development.
 
+## Material transition: V5-B collapse isolated and V5-C bootstrap selected
+
+- **Observation:** The automated step-2000 gate rejects factorized V5-B on
+  amplitude, spectrum, code use and output diversity. Removing RVQ produces
+  the same near-silent constant output, while normalized continuous bootstrap
+  learns distinct validation waveforms.
+- **Evidence:** Implementation `ed5e65ca`; [bounded research report](../physical-sound-r3a-v5b-collapse-and-v5c-bootstrap-2026-08-31.md).
+- **Conclusion:** The primary defect is optimizing the full clamped perceptual
+  loss from near silence, not encoder explosion or RVQ capacity alone.
+- **Decision:** Supersede end-to-end-from-step-zero V5-B with staged V5-C.
+  Development and holdout access remain forbidden.
+- **Reconsideration condition:** A fully quantized V5-C checkpoint must retain
+  bootstrap signal and pass every frozen anti-collapse check; otherwise stop
+  this codec family before development.
+
 ## Durable negative knowledge
 
 - R2 direct/phase and separable listener fields collapse or lose every held
@@ -167,6 +183,10 @@ kept bounded as the current resume surface.
   fit-only rejection.
 - Original tiny-uniform V5 codebook initialization; it uses one code per active
   stage in the frozen full-model smoke despite improving reconstruction L1.
+- Full perceptual-loss training from a near-silent decoder, with or without
+  factorized RVQ; both collapse on internal validation by step `2000`.
+- Lowering the anti-collapse thresholds or resuming a rejected V5-A/V5-B
+  checkpoint.
 - Universal `material -> sound` coefficients before exact-object evidence.
 - Prompt-to-waveform as the engine path; it may remain authored/report-only.
 - Local microphone/hammer capture, raw PhysX-callback mixing or runtime neural
@@ -187,8 +207,9 @@ Read in precedence order:
    [R3A V2](../physical-sound-r3a-v2-large-swan-dac-oracle-result-2026-08-30.md)
    [R3A V3](../physical-sound-r3a-v3-native-ndac-result-2026-08-30.md),
    [R3A V4](../physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md),
-   [R3A V5 preflight A](../physical-sound-r3a-v5-neural-preflight-a-2026-08-31.md)
-   and [R3A V5 training runner preflight](../physical-sound-r3a-v5-training-runner-preflight-2026-08-31.md).
+   [R3A V5 preflight A](../physical-sound-r3a-v5-neural-preflight-a-2026-08-31.md),
+   [R3A V5 training runner preflight](../physical-sound-r3a-v5-training-runner-preflight-2026-08-31.md)
+   and [V5-B/V5-C bounded research](../physical-sound-r3a-v5b-collapse-and-v5c-bootstrap-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
@@ -202,7 +223,6 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** R3A V5 hash-closed capacity trainer and external
-  `6/12/24 kbps` runs over internet train plus twelve fit contacts, with
-  internet internal-validation checkpoint selection and zero development
-  reads.
+- **Next commit boundary:** V5-C staged curriculum and an external step-4000
+  quantized discriminator over internet train plus twelve fit contacts, with
+  zero development and sealed reads.
