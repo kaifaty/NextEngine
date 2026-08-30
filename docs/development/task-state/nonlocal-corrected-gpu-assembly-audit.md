@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGA5_R1_INCONCLUSIVE / NCGA5_R2_FROZEN / SINGLE_APPARATUS_REPAIR / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
+| Status | `ACTIVE / NCGA5_R1_INCONCLUSIVE / NCGA5_R2_FROZEN / CORRIGENDUM_FROZEN / SINGLE_APPARATUS_REPAIR / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
 | Scope | Determine whether strict-f32 corrected CUDA assembly can complete both retained NSR1 static solves before any trajectory or performance claim |
@@ -16,8 +16,11 @@
   combined reference reached `R_x=9.54e-11` and then the arithmetic floor
   instead of reproducing the historical matrix-free binary64 terminal ratio.
   Revision 2 freezes one apparatus-only repair using the pre-existing NSR2-A1
-  `R_x<=1e-8` reference criterion. Every strict-f32 candidate gate is
-  unchanged; mixed precision remains unauthorized. NCGA4 revision 1 remains
+  `R_x<=1e-8` reference criterion. A pre-run logical corrigendum assigns the
+  multi-HVP residual gate to the combined/corpus path, since compressed
+  `4 outer / 8 total HVP` proves one inner HVP per step. Every strict-f32
+  candidate gate is unchanged; mixed precision remains unauthorized. NCGA4
+  revision 1 remains
   hash-closed
   `AUTHOR_SUPPORTED_BOUNDED / GPU_ASSEMBLED_TRUST_PREFIX_SUPPORTED`. Its
   GPU-assembled/host-controlled eight-trial Steihaug--Toint prefix exactly
