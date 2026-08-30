@@ -161,6 +161,31 @@ __device__ void surface_values(
     }
 }
 
+#if defined(NCGP2_EXPERIMENTAL)
+__device__ void surface_values_double(double radius,
+    double spacing,
+    double& potential,
+    double& force,
+    double& derivative) {
+    const double q = radius / spacing;
+    if (q <= 1.0) {
+        force = q * q - 1.0;
+        derivative = 2.0 * q / spacing;
+        potential = spacing * (q * q * q / 3.0 - q - 2.0 / 3.0);
+    } else if (q < 3.0) {
+        const double shifted = q - 2.0;
+        force = 1.0 - shifted * shifted;
+        derivative = -2.0 * shifted / spacing;
+        potential = spacing
+            * (q - shifted * shifted * shifted / 3.0 - 8.0 / 3.0);
+    } else {
+        potential = 0.0;
+        force = 0.0;
+        derivative = 0.0;
+    }
+}
+#endif
+
 __device__ double surface_potential_double(double radius, double spacing) {
     const double q = radius / spacing;
     if (q <= 1.0) return spacing * (q * q * q / 3.0 - q - 2.0 / 3.0);
@@ -538,6 +563,10 @@ __global__ void energy_gradient_kernel(const DeviceVec3* reference,
         == static_cast<unsigned int>(NonlocalGpuVariant::OwnerOnlyPressure);
     const bool current_reference_swap = variant
         == static_cast<unsigned int>(NonlocalGpuVariant::CurrentReferenceSwap);
+#if defined(NCGP2_EXPERIMENTAL)
+    const bool surface_f64 = variant
+        == static_cast<unsigned int>(NonlocalGpuVariant::SurfaceF64);
+#endif
     const DeviceVec3 y = current[row];
     const DeviceVec3 x = reference[row];
     const DeviceVec3 inertial_delta = subtract(y, predicted[row]);
@@ -581,14 +610,44 @@ __global__ void energy_gradient_kernel(const DeviceVec3* reference,
         ++gradient_visits;
 
         if (neighbor < static_cast<unsigned int>(dynamic_count)) {
-            float potential = 0.0F;
-            float surface_force = 0.0F;
-            float derivative = 0.0F;
-            surface_values(radius, profile.spacing, potential, surface_force, derivative);
             const float sign = wrong_surface ? -1.0F : 1.0F;
-            result = add(result, scale(normal,
-                sign * 2.0F * profile.gamma * profile.mass * profile.mass
-                    * surface_force));
+#if defined(NCGP2_EXPERIMENTAL)
+            if (surface_f64) {
+                const double dx = static_cast<double>(y.x)
+                    - static_cast<double>(all_positions[neighbor].x);
+                const double dy = static_cast<double>(y.y)
+                    - static_cast<double>(all_positions[neighbor].y);
+                const double dz = static_cast<double>(y.z)
+                    - static_cast<double>(all_positions[neighbor].z);
+                const double radius_double = sqrt(dx * dx + dy * dy + dz * dz);
+                double surface_potential = 0.0;
+                double surface_force = 0.0;
+                double surface_derivative = 0.0;
+                surface_values_double(radius_double,
+                    static_cast<double>(profile.spacing), surface_potential,
+                    surface_force, surface_derivative);
+                const double surface_scale = static_cast<double>(sign) * 2.0
+                    * static_cast<double>(profile.gamma)
+                    * static_cast<double>(profile.mass)
+                    * static_cast<double>(profile.mass) * surface_force
+                    / radius_double;
+                const DeviceVec3 surface_term{
+                    static_cast<float>(dx * surface_scale),
+                    static_cast<float>(dy * surface_scale),
+                    static_cast<float>(dz * surface_scale)};
+                result = add(result, surface_term);
+            } else
+#endif
+            {
+                float potential = 0.0F;
+                float surface_force = 0.0F;
+                float derivative = 0.0F;
+                surface_values(radius, profile.spacing, potential, surface_force,
+                    derivative);
+                result = add(result, scale(normal,
+                    sign * 2.0F * profile.gamma * profile.mass * profile.mass
+                        * surface_force));
+            }
             ++gradient_visits;
             if (neighbor > static_cast<unsigned int>(row)) {
                 const double dx = static_cast<double>(y.x)
@@ -744,6 +803,10 @@ __global__ void hvp_kernel(const DeviceVec3* reference,
         == static_cast<unsigned int>(NonlocalGpuVariant::OwnerOnlyPressure);
     const bool current_reference_swap = variant
         == static_cast<unsigned int>(NonlocalGpuVariant::CurrentReferenceSwap);
+#if defined(NCGP2_EXPERIMENTAL)
+    const bool surface_f64 = variant
+        == static_cast<unsigned int>(NonlocalGpuVariant::SurfaceF64);
+#endif
     const DeviceVec3 y = current[row];
     const DeviceVec3 x = reference[row];
     const DeviceVec3 v = direction[row];
@@ -798,25 +861,78 @@ __global__ void hvp_kernel(const DeviceVec3* reference,
                 diag.y += profile.kappa * neighbor_b.y * neighbor_b.y;
                 diag.z += profile.kappa * neighbor_b.z * neighbor_b.z;
             }
-            float potential = 0.0F;
-            float surface_force = 0.0F;
-            float surface_derivative = 0.0F;
-            surface_values(radius, profile.spacing, potential, surface_force,
-                surface_derivative);
             const float sign = wrong_surface ? -1.0F : 1.0F;
-            const float surface_scale = sign * 2.0F * profile.gamma
-                * profile.mass * profile.mass;
-            result = add(result, scale(radial_apply(normal, surface_derivative,
-                surface_force / radius, dv), surface_scale));
-            diag.x += surface_scale * (surface_force / radius
-                + (surface_derivative - surface_force / radius)
-                    * normal.x * normal.x);
-            diag.y += surface_scale * (surface_force / radius
-                + (surface_derivative - surface_force / radius)
-                    * normal.y * normal.y);
-            diag.z += surface_scale * (surface_force / radius
-                + (surface_derivative - surface_force / radius)
-                    * normal.z * normal.z);
+#if defined(NCGP2_EXPERIMENTAL)
+            if (surface_f64) {
+                const double dx = static_cast<double>(y.x)
+                    - static_cast<double>(all_positions[neighbor].x);
+                const double dy = static_cast<double>(y.y)
+                    - static_cast<double>(all_positions[neighbor].y);
+                const double dz = static_cast<double>(y.z)
+                    - static_cast<double>(all_positions[neighbor].z);
+                const double radius_double = sqrt(dx * dx + dy * dy + dz * dz);
+                const double nx = dx / radius_double;
+                const double ny = dy / radius_double;
+                const double nz = dz / radius_double;
+                const double dvx = static_cast<double>(v.x)
+                    - static_cast<double>(neighbor_direction.x);
+                const double dvy = static_cast<double>(v.y)
+                    - static_cast<double>(neighbor_direction.y);
+                const double dvz = static_cast<double>(v.z)
+                    - static_cast<double>(neighbor_direction.z);
+                double surface_potential = 0.0;
+                double surface_force = 0.0;
+                double surface_derivative = 0.0;
+                surface_values_double(radius_double,
+                    static_cast<double>(profile.spacing), surface_potential,
+                    surface_force, surface_derivative);
+                const double tangential_surface = surface_force / radius_double;
+                const double projected = nx * dvx + ny * dvy + nz * dvz;
+                const double correction =
+                    (surface_derivative - tangential_surface) * projected;
+                const double surface_scale = static_cast<double>(sign) * 2.0
+                    * static_cast<double>(profile.gamma)
+                    * static_cast<double>(profile.mass)
+                    * static_cast<double>(profile.mass);
+                const DeviceVec3 surface_term{
+                    static_cast<float>(surface_scale
+                        * (tangential_surface * dvx + nx * correction)),
+                    static_cast<float>(surface_scale
+                        * (tangential_surface * dvy + ny * correction)),
+                    static_cast<float>(surface_scale
+                        * (tangential_surface * dvz + nz * correction))};
+                result = add(result, surface_term);
+                diag.x += static_cast<float>(surface_scale
+                    * (tangential_surface
+                        + (surface_derivative - tangential_surface) * nx * nx));
+                diag.y += static_cast<float>(surface_scale
+                    * (tangential_surface
+                        + (surface_derivative - tangential_surface) * ny * ny));
+                diag.z += static_cast<float>(surface_scale
+                    * (tangential_surface
+                        + (surface_derivative - tangential_surface) * nz * nz));
+            } else
+#endif
+            {
+                float potential = 0.0F;
+                float surface_force = 0.0F;
+                float surface_derivative = 0.0F;
+                surface_values(radius, profile.spacing, potential, surface_force,
+                    surface_derivative);
+                const float surface_scale = sign * 2.0F * profile.gamma
+                    * profile.mass * profile.mass;
+                result = add(result, scale(radial_apply(normal, surface_derivative,
+                    surface_force / radius, dv), surface_scale));
+                diag.x += surface_scale * (surface_force / radius
+                    + (surface_derivative - surface_force / radius)
+                        * normal.x * normal.x);
+                diag.y += surface_scale * (surface_force / radius
+                    + (surface_derivative - surface_force / radius)
+                        * normal.y * normal.y);
+                diag.z += surface_scale * (surface_force / radius
+                    + (surface_derivative - surface_force / radius)
+                        * normal.z * normal.z);
+            }
         }
         ++visits;
     }
@@ -2003,16 +2119,26 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
         * sizeof(DeviceVec3);
     const int reduction_blocks = (impl_->dynamic_count + 255) / 256;
     const DeviceProfile profile = device_profile(impl_->profile);
-    const DeviceVec3 lower{static_cast<float>(0.5 * impl_->profile.spacing),
-        static_cast<float>(0.5 * impl_->profile.spacing),
-        static_cast<float>(0.5 * impl_->profile.spacing)};
-    const DeviceVec3 upper{
-        static_cast<float>(impl_->profile.basin_extent.x
-            - 0.5 * impl_->profile.spacing),
-        static_cast<float>(impl_->profile.basin_extent.y
-            - 0.5 * impl_->profile.spacing),
-        static_cast<float>(impl_->profile.basin_extent.z
-            - 0.5 * impl_->profile.spacing)};
+#if defined(NCGP2_EXPERIMENTAL)
+    const bool compensated_state =
+        variant == NonlocalGpuVariant::CompensatedStateF32;
+#else
+    constexpr bool compensated_state = false;
+#endif
+    const DeviceVec3 lower = compensated_state
+        ? DeviceVec3{-1.0e20F, -1.0e20F, -1.0e20F}
+        : DeviceVec3{static_cast<float>(0.5 * impl_->profile.spacing),
+            static_cast<float>(0.5 * impl_->profile.spacing),
+            static_cast<float>(0.5 * impl_->profile.spacing)};
+    const DeviceVec3 upper = compensated_state
+        ? DeviceVec3{1.0e20F, 1.0e20F, 1.0e20F}
+        : DeviceVec3{
+            static_cast<float>(impl_->profile.basin_extent.x
+                - 0.5 * impl_->profile.spacing),
+            static_cast<float>(impl_->profile.basin_extent.y
+                - 0.5 * impl_->profile.spacing),
+            static_cast<float>(impl_->profile.basin_extent.z
+                - 0.5 * impl_->profile.spacing)};
     const bool disable_boundary = variant == NonlocalGpuVariant::DisableBoundary;
     const bool jacobi = solver_profile == NonlocalGpuSolverProfile::Jacobi;
     const double minimum_radius = std::ldexp(impl_->profile.spacing, -40);

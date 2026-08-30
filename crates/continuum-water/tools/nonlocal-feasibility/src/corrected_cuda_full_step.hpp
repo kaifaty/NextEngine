@@ -70,6 +70,8 @@ enum class NonlocalGpuVariant : std::uint32_t {
     OwnerOnlyPressure = 7U,
     DisableBoundary = 8U,
     PostFinalizeFailure = 9U,
+    SurfaceF64 = 10U,
+    CompensatedStateF32 = 11U,
 };
 
 enum class NonlocalGpuSolverProfile : std::uint32_t {

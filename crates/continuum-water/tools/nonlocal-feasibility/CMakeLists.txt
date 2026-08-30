@@ -87,6 +87,16 @@ add_executable(
     src/corrected_cuda_assembly_reference.cpp
     src/sha256.cpp
 )
+
+add_executable(
+    nonlocal-corrected-cuda-surface-translation
+    src/corrected_cuda_full_step.cu
+    src/corrected_cuda_surface_translation_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_full_step_cpu_solver.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/sha256.cpp
+)
 set(NCGP1_SOURCE_FILES
     CMakeLists.txt
     src/corrected_cuda_full_step.hpp
@@ -162,6 +172,61 @@ target_compile_options(
 )
 target_link_options(
     nonlocal-corrected-cuda-full-step
+    PRIVATE
+        $<$<CONFIG:Release>:-s>
+)
+
+set(NCGP2_SOURCE_FILES
+    CMakeLists.txt
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step.cu
+    src/corrected_cuda_surface_translation_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_full_step_cpu_solver.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/corrected_cuda_assembly.hpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP2_SOURCE_MATERIAL "")
+foreach(NCGP2_SOURCE_FILE IN LISTS NCGP2_SOURCE_FILES)
+    file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP2_SOURCE_FILE}"
+        NCGP2_SOURCE_FILE_HASH)
+    string(APPEND NCGP2_SOURCE_MATERIAL
+        "${NCGP2_SOURCE_FILE}:${NCGP2_SOURCE_FILE_HASH}\n")
+endforeach()
+string(SHA256 NCGP2_SOURCE_ROOT "${NCGP2_SOURCE_MATERIAL}")
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-surface-translation/00-surface-translation-contract.md"
+    NCGP2_CONTRACT_ROOT)
+set(NCGP2_COMPILER_FLAGS
+    "CXX:-O3,-Wall,-Wextra,-Wpedantic,-Werror,-ffp-contract=off,-fno-fast-math|CUDA:-O3,--fmad=false,--prec-div=true,--prec-sqrt=true,--ftz=false|SM=86")
+target_compile_definitions(
+    nonlocal-corrected-cuda-surface-translation
+    PRIVATE
+        NCGP2_CONTRACT_ROOT="${NCGP2_CONTRACT_ROOT}"
+        NCGP2_SOURCE_ROOT="${NCGP2_SOURCE_ROOT}"
+        NCGP2_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP2_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP2_COMPILER_FLAGS="${NCGP2_COMPILER_FLAGS}"
+        NCGP2_EXPERIMENTAL=1
+)
+target_compile_features(
+    nonlocal-corrected-cuda-surface-translation PRIVATE cxx_std_17 cuda_std_17)
+set_target_properties(
+    nonlocal-corrected-cuda-surface-translation
+    PROPERTIES
+        CUDA_ARCHITECTURES 86
+        CUDA_SEPARABLE_COMPILATION OFF
+)
+target_compile_options(
+    nonlocal-corrected-cuda-surface-translation
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+        $<$<COMPILE_LANGUAGE:CUDA>:-O3;--fmad=false;--prec-div=true;--prec-sqrt=true;--ftz=false>
+)
+target_link_options(
+    nonlocal-corrected-cuda-surface-translation
     PRIVATE
         $<$<CONFIG:Release>:-s>
 )
