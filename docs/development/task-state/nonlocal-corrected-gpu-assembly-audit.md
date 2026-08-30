@@ -2,16 +2,19 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `COMPLETE / NCGA4_AUTHOR_SUPPORTED_BOUNDED / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
+| Status | `ACTIVE / NCGA5_FROZEN / IMPLEMENTATION_IN_PROGRESS / REVIEW_NOT_RUN / NCGA2_IMMUTABLE` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-corrected-gpu-assembly-audit` |
-| Scope | Determine whether strict-f32 corrected CUDA assembly can drive a bounded Steihaug--Toint trust-region solve prefix without material route or state drift |
-| Definition of done | NCGA4 produces one hash-closed eight-trial author result with negative controls and unchanged NCGA0--3 regressions, or stops at the first frozen solver boundary |
+| Scope | Determine whether strict-f32 corrected CUDA assembly can complete both retained NSR1 static solves before any trajectory or performance claim |
+| Definition of done | NCGA5 produces one hash-closed two-case author result with full continuous state ownership, negative controls and unchanged NCGA0--4/NSR1 regressions, or stops at the first frozen convergence boundary |
 | Authority | Working context only; SPEC-38, ADR-076/081, FCR0 and the frozen NCGA2 contract outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current state:** NCGA4 revision 1 is hash-closed
+- **Current state:** NCGA5 revision 1 is frozen and implementation-authorized.
+  It reproduces the exact two NSR1 static cases with continuous reference,
+  predicted and current coordinates; mixed precision is not authorized in
+  this revision. NCGA4 revision 1 remains hash-closed
   `AUTHOR_SUPPORTED_BOUNDED / GPU_ASSEMBLED_TRUST_PREFIX_SUPPORTED`. Its
   GPU-assembled/host-controlled eight-trial Steihaug--Toint prefix exactly
   matches the reference controller route. NCGA3 revision 2 remains hash-closed
@@ -25,9 +28,10 @@
 - **Why:** FCR3-B2 already rejected the pressure-bearing SISSM/Chebyshev
   recurrence. The nonlinear objective and its derivatives remain the valid
   mathematical boundary for a future separately selected solver.
-- **Next action:** freeze a separate NCGA5 full-static-solve correspondence on
-  the two retained NSR1 cases, including a positive-curvature/residual CG path;
-  do not start a physical trajectory before that closes.
+- **Next action:** implement and run the frozen NCGA5 full-static-solve
+  correspondence. A positive result selects a short boundary-free trajectory;
+  a classified strict-f32 reduction floor selects one energy/globalization
+  mixed-precision discriminator instead.
 - **Current blocker:** NCGA4 is only an eight-trial negative-curvature prefix;
   no full corrected solve, physical trajectory or full assembly/solve timing
   exists, and NCGA3/4 independent review is `NOT_RUN`.
@@ -55,6 +59,7 @@
 | H7 binary64 reduction alone closes the miss | f32 products accumulated in f64 meet the old matrix gate | reduction-only arithmetic variant | refuted: `2.59425e-4` |
 | H8 binary64 pressure products close the miss | promoted pressure coefficients/products meet the old gate | mixed-product arithmetic variant | supported: `4.71951e-5`, but not selected yet |
 | H9 strict f32 preserves trust-region decisions | eight reference/CUDA outer signatures match and state drift stays below `5 um` | continuous-state fixed-graph Steihaug--Toint prefix plus sign-flipped HVP control | supported on NCGA4 |
+| H10 strict f32 completes the retained static solves | both NSR1 cases reach the raw gradient stop while preserving state/objective/active-set bands | NCGA5 exact full solve with multi-HVP residual CG | active / frozen |
 
 ## Decisions
 
@@ -188,6 +193,21 @@
   dam break or 50k.
 - **Reconsider when:** NCGA5 closes both negative-curvature and residual-CG
   routes or identifies a specific f32 convergence boundary.
+
+### D-009 — Preserve the raw NSR1 stop and classify, rather than hide, an f32 floor
+
+- **Observation:** NCGA4 establishes eight safe updates but does not approach
+  convergence; binary32 energy may lose positive actual reduction before the
+  raw `1e-10` gradient threshold becomes representable.
+- **Decision:** NCGA5 keeps the exact NSR1 trust policy and raw success stop.
+  It separately reports a scale-aware displacement residual and may classify a
+  tightly bounded `STRICT_F32_CONVERGENCE_FLOOR`, but that classification is
+  not solve success and cannot authorize a trajectory.
+- **Rejected alternatives:** widen the convergence tolerance after the run,
+  call a nearby state converged, introduce mixed precision inside revision 1,
+  or proceed directly to performance.
+- **Reconsider when:** NCGA5 reaches raw convergence or isolates the exact
+  energy/globalization floor needed for a separately frozen repair.
 
 ## Required context
 
