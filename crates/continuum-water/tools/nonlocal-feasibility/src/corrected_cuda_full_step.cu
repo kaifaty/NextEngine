@@ -99,15 +99,42 @@ __host__ __device__ bool compensated_state_variant(unsigned int variant) {
         || variant
             == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedOmitLow)
         || variant
-            == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedBrokenEft);
+            == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedBrokenEft)
+#if defined(NCGP3_EXPERIMENTAL)
+        || variant
+            == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedScaleF32)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleHighOnlyGraph)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleStrictRadius)
+#endif
+        ;
 }
 
 __host__ __device__ bool compensated_formula_variant(unsigned int variant) {
     return variant
             == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedStateF32)
         || variant
-            == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedBrokenEft);
+            == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedBrokenEft)
+#if defined(NCGP3_EXPERIMENTAL)
+        || variant
+            == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedScaleF32)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleHighOnlyGraph)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleStrictRadius)
+#endif
+        ;
 }
+
+#if defined(NCGP3_EXPERIMENTAL)
+__host__ __device__ bool pair_aware_graph_variant(unsigned int variant) {
+    return variant
+            == static_cast<unsigned int>(NonlocalGpuVariant::CompensatedScaleF32)
+        || variant == static_cast<unsigned int>(
+            NonlocalGpuVariant::CompensatedScaleStrictRadius);
+}
+#endif
 
 __device__ void two_sum(float lhs, float rhs, float& high, float& low) {
     high = lhs + rhs;
@@ -303,6 +330,19 @@ __device__ long long quantize_axis(float value, int* error) {
     }
     return llrintf(value * static_cast<float>(kMicrometresPerMetre));
 }
+
+#if defined(NCGP3_EXPERIMENTAL)
+__device__ long long quantize_axis_pair(
+    float high, float low, bool pair_aware, int* error) {
+    const double value = static_cast<double>(high)
+        + (pair_aware ? static_cast<double>(low) : 0.0);
+    if (!isfinite(value) || fabs(value) > 1000000.0) {
+        atomicExch(error, static_cast<int>(NonlocalGpuFailure::Nonfinite));
+        return 0LL;
+    }
+    return llrint(value * kMicrometresPerMetre);
+}
+#endif
 
 __device__ long long floor_division(long long numerator, long long denominator) {
     const long long quotient = numerator / denominator;
@@ -515,6 +555,10 @@ __global__ void validate_compensated_pairs(const DeviceVec3* high,
 #endif
 
 __global__ void compute_cell_keys(const DeviceVec3* positions,
+#if defined(NCGP3_EXPERIMENTAL)
+    const DeviceVec3* low_parts,
+    bool pair_aware,
+#endif
     unsigned long long* keys,
     unsigned int* indices,
     int count,
@@ -523,9 +567,16 @@ __global__ void compute_cell_keys(const DeviceVec3* positions,
     const int index = blockIdx.x * blockDim.x + threadIdx.x;
     if (index >= count) return;
     const DeviceVec3 p = positions[index];
+#if defined(NCGP3_EXPERIMENTAL)
+    const DeviceVec3 l = low_parts[index];
+    const long long x = quantize_axis_pair(p.x, l.x, pair_aware, error);
+    const long long y = quantize_axis_pair(p.y, l.y, pair_aware, error);
+    const long long z = quantize_axis_pair(p.z, l.z, pair_aware, error);
+#else
     const long long x = quantize_axis(p.x, error);
     const long long y = quantize_axis(p.y, error);
     const long long z = quantize_axis(p.z, error);
+#endif
     keys[index] = pack_cell(floor_division(x, cell_size_um),
         floor_division(y, cell_size_um), floor_division(z, cell_size_um), error);
     indices[index] = static_cast<unsigned int>(index);
@@ -533,6 +584,10 @@ __global__ void compute_cell_keys(const DeviceVec3* positions,
 
 template <bool Fill>
 __global__ void visit_neighbors(const DeviceVec3* positions,
+#if defined(NCGP3_EXPERIMENTAL)
+    const DeviceVec3* low_parts,
+    bool pair_aware,
+#endif
     const unsigned int* ids,
     const unsigned long long* sorted_keys,
     const unsigned int* sorted_indices,
@@ -548,9 +603,19 @@ __global__ void visit_neighbors(const DeviceVec3* positions,
     const int row = blockIdx.x * blockDim.x + threadIdx.x;
     if (row >= dynamic_count) return;
     const DeviceVec3 owner_position = positions[row];
+#if defined(NCGP3_EXPERIMENTAL)
+    const DeviceVec3 owner_low = low_parts[row];
+    const long long owner_x_um = quantize_axis_pair(
+        owner_position.x, owner_low.x, pair_aware, error);
+    const long long owner_y_um = quantize_axis_pair(
+        owner_position.y, owner_low.y, pair_aware, error);
+    const long long owner_z_um = quantize_axis_pair(
+        owner_position.z, owner_low.z, pair_aware, error);
+#else
     const long long owner_x_um = quantize_axis(owner_position.x, error);
     const long long owner_y_um = quantize_axis(owner_position.y, error);
     const long long owner_z_um = quantize_axis(owner_position.z, error);
+#endif
     const long long cx = floor_division(owner_x_um, support_um);
     const long long cy = floor_division(owner_y_um, support_um);
     const long long cz = floor_division(owner_z_um, support_um);
@@ -571,9 +636,19 @@ __global__ void visit_neighbors(const DeviceVec3* positions,
                     ++local_predicates;
                     const unsigned int candidate = sorted_indices[slot];
                     const DeviceVec3 q = positions[candidate];
+#if defined(NCGP3_EXPERIMENTAL)
+                    const DeviceVec3 q_low = low_parts[candidate];
+                    const long long qx = quantize_axis_pair(
+                        q.x, q_low.x, pair_aware, error);
+                    const long long qy = quantize_axis_pair(
+                        q.y, q_low.y, pair_aware, error);
+                    const long long qz = quantize_axis_pair(
+                        q.z, q_low.z, pair_aware, error);
+#else
                     const long long qx = quantize_axis(q.x, error);
                     const long long qy = quantize_axis(q.y, error);
                     const long long qz = quantize_axis(q.z, error);
+#endif
                     const unsigned long long distance = square(owner_x_um - qx)
                         + square(owner_y_um - qy) + square(owner_z_um - qz);
                     const bool member = strict_radius ? distance < limit : distance <= limit;
@@ -1886,6 +1961,8 @@ void add_work(NonlocalGpuWorkReceipt& target,
     target.compensated_transaction_components +=
         source.compensated_transaction_components;
     target.compensated_publish_components += source.compensated_publish_components;
+    target.compensated_graph_quantizations +=
+        source.compensated_graph_quantizations;
 }
 
 DeviceProfile device_profile(const NonlocalGpuProfile& profile) {
@@ -2423,8 +2500,20 @@ NonlocalGpuGraphResult NonlocalGpuWorkspace::build_current_graph(
             impl_->current_low, impl_->all_positions_low, impl_->dynamic_count);
         cuda_check(cudaGetLastError(), "copy current graph low parts");
 #endif
+#if defined(NCGP3_EXPERIMENTAL)
+        const bool scale_quantization =
+            variant == NonlocalGpuVariant::CompensatedScaleF32
+            || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyGraph
+            || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius;
+        const bool pair_aware = pair_aware_graph_variant(
+            static_cast<unsigned int>(variant));
+#endif
         compute_cell_keys<<<blocks_for(total_count), kThreads>>>(
-            impl_->all_positions, impl_->cell_keys_input,
+            impl_->all_positions,
+#if defined(NCGP3_EXPERIMENTAL)
+            impl_->all_positions_low, pair_aware,
+#endif
+            impl_->cell_keys_input,
             impl_->cell_indices_input, total_count,
             static_cast<long long>(std::llround(
                 impl_->profile.horizon * kMicrometresPerMetre)),
@@ -2434,11 +2523,19 @@ NonlocalGpuGraphResult NonlocalGpuWorkspace::build_current_graph(
             impl_->cell_sort_bytes, impl_->cell_keys_input,
             impl_->cell_keys_sorted, impl_->cell_indices_input,
             impl_->cell_indices_sorted, total_count), "sort graph cells");
-        const bool strict = variant == NonlocalGpuVariant::StrictRadius;
+        const bool strict = variant == NonlocalGpuVariant::StrictRadius
+#if defined(NCGP3_EXPERIMENTAL)
+            || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius
+#endif
+            ;
         const long long support_um = static_cast<long long>(std::llround(
             impl_->profile.horizon * kMicrometresPerMetre));
         visit_neighbors<false><<<blocks_for(impl_->dynamic_count), kThreads>>>(
-            impl_->all_positions, impl_->ids, impl_->cell_keys_sorted,
+            impl_->all_positions,
+#if defined(NCGP3_EXPERIMENTAL)
+            impl_->all_positions_low, pair_aware,
+#endif
+            impl_->ids, impl_->cell_keys_sorted,
             impl_->cell_indices_sorted, impl_->counts, nullptr, nullptr,
             impl_->dynamic_count, total_count, support_um, strict,
             impl_->graph_work, impl_->error);
@@ -2450,7 +2547,11 @@ NonlocalGpuGraphResult NonlocalGpuWorkspace::build_current_graph(
             impl_->dynamic_count);
         cuda_check(cudaGetLastError(), "finish graph offsets");
         visit_neighbors<true><<<blocks_for(impl_->dynamic_count), kThreads>>>(
-            impl_->all_positions, impl_->ids, impl_->cell_keys_sorted,
+            impl_->all_positions,
+#if defined(NCGP3_EXPERIMENTAL)
+            impl_->all_positions_low, pair_aware,
+#endif
+            impl_->ids, impl_->cell_keys_sorted,
             impl_->cell_indices_sorted, nullptr, impl_->offsets,
             impl_->neighbors, impl_->dynamic_count, total_count, support_um,
             strict, impl_->graph_work, impl_->error);
@@ -2492,6 +2593,14 @@ NonlocalGpuGraphResult NonlocalGpuWorkspace::build_current_graph(
         result.work.distance_predicates = device_work.distance_predicates;
         result.work.emitted_directed_pairs = device_work.emitted_pairs;
         result.work.row_sort_items = result.directed_pairs;
+#if defined(NCGP3_EXPERIMENTAL)
+        if (scale_quantization) {
+            result.work.compensated_graph_quantizations =
+                3U * static_cast<std::uint64_t>(total_count)
+                + 6U * static_cast<std::uint64_t>(impl_->dynamic_count)
+                + 3U * result.work.distance_predicates;
+        }
+#endif
         result.work.device_to_host_bytes = sizeof(error) + sizeof(device_work)
             + 2U * sizeof(unsigned int);
         if (capture_payload && result.failure == NonlocalGpuFailure::None) {
@@ -2543,8 +2652,17 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
 #if defined(NCGP2_EXPERIMENTAL)
         std::swap(impl_->current_low, impl_->reference_low);
 #endif
+        const bool scale_graph =
+#if defined(NCGP3_EXPERIMENTAL)
+            variant == NonlocalGpuVariant::CompensatedScaleF32
+            || variant == NonlocalGpuVariant::CompensatedScaleHighOnlyGraph
+            || variant == NonlocalGpuVariant::CompensatedScaleStrictRadius;
+#else
+            false;
+#endif
         const auto reference_graph = build_current_graph(
-            NonlocalGpuVariant::Corrected, false, measure);
+            scale_graph ? variant : NonlocalGpuVariant::Corrected,
+            false, measure);
         std::swap(impl_->current, impl_->reference);
 #if defined(NCGP2_EXPERIMENTAL)
         std::swap(impl_->current_low, impl_->reference_low);
@@ -2561,10 +2679,11 @@ NonlocalGpuEvaluationResult NonlocalGpuWorkspace::evaluate(
             static_cast<std::size_t>(reference_graph.directed_pairs)
                 * sizeof(unsigned int),
             cudaMemcpyDeviceToDevice), "retain reference neighbors");
-        const NonlocalGpuVariant graph_variant = variant
-                == NonlocalGpuVariant::StrictRadius
-            ? NonlocalGpuVariant::StrictRadius
-            : NonlocalGpuVariant::Corrected;
+        const NonlocalGpuVariant graph_variant = scale_graph
+            ? variant
+            : (variant == NonlocalGpuVariant::StrictRadius
+                    ? NonlocalGpuVariant::StrictRadius
+                    : NonlocalGpuVariant::Corrected);
         const auto current_graph = build_current_graph(
             graph_variant, false, measure);
         if (current_graph.failure != NonlocalGpuFailure::None) {

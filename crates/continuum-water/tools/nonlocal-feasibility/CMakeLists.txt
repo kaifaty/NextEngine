@@ -97,6 +97,15 @@ add_executable(
     src/corrected_cuda_assembly_reference.cpp
     src/sha256.cpp
 )
+add_executable(
+    nonlocal-corrected-cuda-compensated-scale
+    src/corrected_cuda_full_step.cu
+    src/corrected_cuda_compensated_scale_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_full_step_cpu_solver.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/sha256.cpp
+)
 set(NCGP1_SOURCE_FILES
     CMakeLists.txt
     src/corrected_cuda_full_step.hpp
@@ -227,6 +236,67 @@ target_compile_options(
 )
 target_link_options(
     nonlocal-corrected-cuda-surface-translation
+    PRIVATE
+        $<$<CONFIG:Release>:-s>
+)
+
+set(NCGP3_SOURCE_FILES
+    CMakeLists.txt
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step.cu
+    src/corrected_cuda_compensated_scale_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_full_step_cpu_solver.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/corrected_cuda_assembly.hpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP3_SOURCE_MATERIAL "")
+foreach(NCGP3_SOURCE_FILE IN LISTS NCGP3_SOURCE_FILES)
+    file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP3_SOURCE_FILE}"
+        NCGP3_SOURCE_FILE_HASH)
+    string(APPEND NCGP3_SOURCE_MATERIAL
+        "${NCGP3_SOURCE_FILE}:${NCGP3_SOURCE_FILE_HASH}\n")
+endforeach()
+string(SHA256 NCGP3_SOURCE_ROOT "${NCGP3_SOURCE_MATERIAL}")
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-compensated-scale/00-compensated-scale-contract.md"
+    NCGP3_CONTRACT_0_ROOT)
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-compensated-scale/01-graph-control-corrigendum.md"
+    NCGP3_CONTRACT_1_ROOT)
+string(SHA256 NCGP3_CONTRACT_ROOT
+    "${NCGP3_CONTRACT_0_ROOT}:${NCGP3_CONTRACT_1_ROOT}")
+set(NCGP3_COMPILER_FLAGS
+    "CXX:-O3,-Wall,-Wextra,-Wpedantic,-Werror,-ffp-contract=off,-fno-fast-math|CUDA:-O3,--fmad=false,--prec-div=true,--prec-sqrt=true,--ftz=false|SM=86")
+target_compile_definitions(
+    nonlocal-corrected-cuda-compensated-scale
+    PRIVATE
+        NCGP3_CONTRACT_ROOT="${NCGP3_CONTRACT_ROOT}"
+        NCGP3_SOURCE_ROOT="${NCGP3_SOURCE_ROOT}"
+        NCGP3_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP3_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP3_COMPILER_FLAGS="${NCGP3_COMPILER_FLAGS}"
+        NCGP2_EXPERIMENTAL=1
+        NCGP3_EXPERIMENTAL=1
+)
+target_compile_features(
+    nonlocal-corrected-cuda-compensated-scale PRIVATE cxx_std_17 cuda_std_17)
+set_target_properties(
+    nonlocal-corrected-cuda-compensated-scale
+    PROPERTIES
+        CUDA_ARCHITECTURES 86
+        CUDA_SEPARABLE_COMPILATION OFF
+)
+target_compile_options(
+    nonlocal-corrected-cuda-compensated-scale
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+        $<$<COMPILE_LANGUAGE:CUDA>:-O3;--fmad=false;--prec-div=true;--prec-sqrt=true;--ftz=false>
+)
+target_link_options(
+    nonlocal-corrected-cuda-compensated-scale
     PRIVATE
         $<$<CONFIG:Release>:-s>
 )

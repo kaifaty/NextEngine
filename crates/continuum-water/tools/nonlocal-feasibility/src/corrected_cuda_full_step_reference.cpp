@@ -464,6 +464,7 @@ std::string graph_semantic_root(const NonlocalGpuGraphResult& graph) {
 }
 
 std::string work_semantic_root(const NonlocalGpuWorkReceipt& work) {
+    const bool compensated_graph = work.compensated_graph_quantizations != 0U;
     const bool boundary_extended = work.boundary_face_tests != 0U
         || work.boundary_face_hits != 0U || work.boundary_face_mask_xor != 0U;
     const bool extended = work.diagonal_probes != 0U
@@ -472,11 +473,19 @@ std::string work_semantic_root(const NonlocalGpuWorkReceipt& work) {
         || work.radius_expands != 0U
         || work.projected_gradient_components != 0U
         || work.contact_projections != 0U || work.state_updates != 0U;
-    std::string bytes = boundary_extended
+    std::string bytes = compensated_graph
+        ? "nextengine.nonlocal.ncgp3.work.v1\0"
+        : boundary_extended
         ? "nextengine.nonlocal.ncgp1.work.v3\0"
         : (extended ? "nextengine.nonlocal.ncgp1.work.v2\0"
                     : "nextengine.nonlocal.ncgp1.work.v1\0");
-    const std::vector<std::uint64_t> values = boundary_extended
+    const std::vector<std::uint64_t> values = compensated_graph
+        ? std::vector<std::uint64_t>{work.uploads, work.graph_builds,
+              work.key_evaluations, work.radix_sort_items, work.cell_probes,
+              work.distance_predicates, work.emitted_directed_pairs,
+              work.row_sort_items, work.compensated_graph_quantizations,
+              work.host_to_device_bytes, work.device_to_host_bytes}
+        : boundary_extended
         ? std::vector<std::uint64_t>{work.uploads, work.graph_builds,
               work.key_evaluations, work.radix_sort_items, work.cell_probes,
               work.distance_predicates, work.emitted_directed_pairs,

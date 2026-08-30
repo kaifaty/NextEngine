@@ -74,6 +74,9 @@ enum class NonlocalGpuVariant : std::uint32_t {
     CompensatedStateF32 = 11U,
     CompensatedOmitLow = 12U,
     CompensatedBrokenEft = 13U,
+    CompensatedScaleF32 = 14U,
+    CompensatedScaleHighOnlyGraph = 15U,
+    CompensatedScaleStrictRadius = 16U,
 };
 
 enum class NonlocalGpuSolverProfile : std::uint32_t {
@@ -122,6 +125,7 @@ struct NonlocalGpuWorkReceipt {
     std::uint64_t compensated_trial_eft_components = 0U;
     std::uint64_t compensated_transaction_components = 0U;
     std::uint64_t compensated_publish_components = 0U;
+    std::uint64_t compensated_graph_quantizations = 0U;
 };
 
 struct NonlocalGpuTimings {
