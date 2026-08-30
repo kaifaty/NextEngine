@@ -1,0 +1,208 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+namespace nextengine::nonlocal::gpu_full_step {
+
+constexpr std::uint32_t kMaximumDynamicSamples = 50000U;
+constexpr std::uint32_t kMaximumNeighbors = 256U;
+
+struct Vec3d {
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+};
+
+struct NonlocalGpuProfile {
+    std::string id;
+    double dt = 1.0 / 240.0;
+    double spacing = 0.05;
+    double horizon = 0.15;
+    double mass = 0.125;
+    double rest_density = 1000.0;
+    double kappa = 9196.875;
+    double lambda = 2.5;
+    double mu = 1.7;
+    double gamma = 3.5;
+    Vec3d gravity{0.0, 0.0, -9.81};
+    Vec3d basin_extent{3.0, 2.5, 1.5};
+    std::uint32_t ghost_layers = 3U;
+    std::uint32_t maximum_dynamic_samples = kMaximumDynamicSamples;
+    std::uint32_t maximum_neighbors = kMaximumNeighbors;
+};
+
+struct NonlocalGpuSample {
+    std::uint32_t sample_id = 0U;
+    Vec3d reference;
+    Vec3d current;
+    Vec3d velocity;
+};
+
+struct NonlocalGpuGhost {
+    std::uint32_t sample_id = 0U;
+    Vec3d position;
+};
+
+enum class NonlocalGpuFailure : std::uint32_t {
+    None = 0U,
+    InvalidProfile = 1U,
+    InvalidState = 2U,
+    DuplicateSampleId = 3U,
+    CapacityExceeded = 4U,
+    CellRangeExceeded = 5U,
+    Nonfinite = 6U,
+    WorkBudgetExceeded = 7U,
+    DeviceFailure = 8U,
+    PhysicsGateFailed = 9U,
+};
+
+enum class NonlocalGpuVariant : std::uint32_t {
+    Corrected = 0U,
+    StrictRadius = 1U,
+    MissingKernelChain = 2U,
+    HalfViscosity = 3U,
+    WrongSurfaceSign = 4U,
+    HvpSignFlip = 5U,
+    CurrentReferenceSwap = 6U,
+    OwnerOnlyPressure = 7U,
+    DisableBoundary = 8U,
+};
+
+struct NonlocalGpuWorkReceipt {
+    std::uint64_t uploads = 0U;
+    std::uint64_t graph_builds = 0U;
+    std::uint64_t key_evaluations = 0U;
+    std::uint64_t radix_sort_items = 0U;
+    std::uint64_t cell_probes = 0U;
+    std::uint64_t distance_predicates = 0U;
+    std::uint64_t emitted_directed_pairs = 0U;
+    std::uint64_t row_sort_items = 0U;
+    std::uint64_t density_kernel_evaluations = 0U;
+    std::uint64_t energy_pair_visits = 0U;
+    std::uint64_t gradient_pair_visits = 0U;
+    std::uint64_t hvp_pair_visits = 0U;
+    std::uint64_t hvp_applications = 0U;
+    std::uint64_t reduction_values = 0U;
+    std::uint64_t outer_trials = 0U;
+    std::uint64_t accepted_trials = 0U;
+    std::uint64_t rejected_trials = 0U;
+    std::uint64_t contact_projections = 0U;
+    std::uint64_t host_to_device_bytes = 0U;
+    std::uint64_t device_to_host_bytes = 0U;
+};
+
+struct NonlocalGpuTimings {
+    float total_ms = 0.0F;
+    float graph_ms = 0.0F;
+    float density_energy_gradient_ms = 0.0F;
+    float hvp_ms = 0.0F;
+    float solver_control_ms = 0.0F;
+    float boundary_integration_ms = 0.0F;
+};
+
+struct NonlocalGpuGraphResult {
+    NonlocalGpuFailure failure = NonlocalGpuFailure::None;
+    std::uint32_t dynamic_samples = 0U;
+    std::uint32_t ghost_samples = 0U;
+    std::uint32_t directed_pairs = 0U;
+    std::uint32_t maximum_degree = 0U;
+    std::vector<std::uint32_t> owner_ids;
+    std::vector<std::uint32_t> offsets;
+    std::vector<std::uint32_t> neighbor_ids;
+    NonlocalGpuWorkReceipt work;
+    NonlocalGpuTimings timing;
+};
+
+struct NonlocalGpuEvaluationResult {
+    NonlocalGpuFailure failure = NonlocalGpuFailure::None;
+    double energy = 0.0;
+    double gradient_norm = 0.0;
+    std::uint32_t active_pressure_centers = 0U;
+    std::vector<Vec3d> gradient;
+    std::vector<Vec3d> hvp;
+    std::vector<double> density;
+    NonlocalGpuWorkReceipt work;
+    NonlocalGpuTimings timing;
+};
+
+struct NonlocalGpuStepResult {
+    NonlocalGpuFailure failure = NonlocalGpuFailure::None;
+    std::vector<NonlocalGpuSample> state;
+    double initial_energy = 0.0;
+    double final_energy = 0.0;
+    double gradient_norm = 0.0;
+    std::uint32_t active_pressure_centers = 0U;
+    std::uint32_t hvp_budget = 0U;
+    std::uint32_t hvp_used = 0U;
+    std::uint32_t outer_trials = 0U;
+    double maximum_penetration_m = 0.0;
+    NonlocalGpuWorkReceipt work;
+    NonlocalGpuTimings timing;
+};
+
+class NonlocalGpuWorkspace {
+public:
+    explicit NonlocalGpuWorkspace(const NonlocalGpuProfile& profile);
+    ~NonlocalGpuWorkspace();
+    NonlocalGpuWorkspace(const NonlocalGpuWorkspace&) = delete;
+    NonlocalGpuWorkspace& operator=(const NonlocalGpuWorkspace&) = delete;
+
+    NonlocalGpuFailure upload(const std::vector<NonlocalGpuSample>& samples,
+        const std::vector<NonlocalGpuGhost>& ghosts);
+
+    NonlocalGpuGraphResult build_current_graph(NonlocalGpuVariant variant,
+        bool capture_payload,
+        bool measure);
+
+    NonlocalGpuEvaluationResult evaluate(const std::vector<Vec3d>* direction,
+        NonlocalGpuVariant variant,
+        bool capture_payload,
+        bool measure);
+
+    NonlocalGpuStepResult step(std::uint32_t total_hvp_budget,
+        NonlocalGpuVariant variant,
+        bool capture_state,
+        bool measure);
+
+    std::string environment_json() const;
+    std::size_t allocated_device_bytes() const;
+
+private:
+    struct Impl;
+    Impl* impl_ = nullptr;
+};
+
+NonlocalGpuProfile nonlocal_water_profile();
+
+std::vector<NonlocalGpuSample> make_lattice_state(
+    const NonlocalGpuProfile& profile,
+    std::uint32_t nx,
+    std::uint32_t ny,
+    std::uint32_t nz,
+    bool permuted,
+    bool advected);
+
+std::vector<NonlocalGpuGhost> make_basin_ghosts(
+    const NonlocalGpuProfile& profile,
+    std::uint32_t first_sample_id = 0x80000000U);
+
+NonlocalGpuGraphResult build_reference_graph(
+    const NonlocalGpuProfile& profile,
+    const std::vector<NonlocalGpuSample>& samples,
+    const std::vector<NonlocalGpuGhost>& ghosts,
+    bool strict_radius);
+
+NonlocalGpuEvaluationResult evaluate_reference(
+    const NonlocalGpuProfile& profile,
+    const std::vector<NonlocalGpuSample>& samples,
+    const std::vector<NonlocalGpuGhost>& ghosts,
+    const std::vector<Vec3d>* direction,
+    NonlocalGpuVariant variant);
+
+std::string graph_semantic_root(const NonlocalGpuGraphResult& graph);
+std::string work_semantic_root(const NonlocalGpuWorkReceipt& work);
+
+} // namespace nextengine::nonlocal::gpu_full_step

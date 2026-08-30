@@ -17,6 +17,8 @@ cmake -S crates/continuum-water/tools/nonlocal-feasibility \
 cmake --build /tmp/nextengine-nonlocal-feasibility-build
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-corrected-cuda-terms \
   --self-test
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-corrected-cuda-full-step \
+  --graph-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
   --normalized-kernel-reclosure-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \

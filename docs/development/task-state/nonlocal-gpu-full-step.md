@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP1_CONTRACT_FROZEN / IMPLEMENTATION_PENDING` |
+| Status | `ACTIVE / NCGP1_GRAPH_BASELINE_PASS / MATRIX_FREE_PENDING` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-full-step` |
 | Scope | Implement and audit a standalone matrix-free corrected Nonlocal CUDA step for the frozen 50k physical/performance profile |
@@ -11,15 +11,15 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** the product-oriented physical gate is now separate
-  from the retained NCGA2 elementwise failure; implementation may replace the
-  90 GB dense Hessian with a matrix-free GPU operator.
-- **Why:** NCGA3 bounds the old element miss at `1.0643e-6` HVP relative error
-  and sub-micrometre local drift, while NCGA5--7 show that raw static residual
-  precision is not a useful 50k representation selector.
-- **Next action:** implement the tool-only profile, independent CPU oracle and
-  preallocated scalable GPU workspace without changing NCGA0--7.
-- **Current blocker:** matrix-free full-step code and trajectory evidence do
+- **Current conclusion:** the preallocated CUDA workspace now closes the
+  scalable graph/capacity boundary for the frozen 50k state plus three-layer
+  basin shell; matrix-free formula correspondence is the next boundary.
+- **Why:** coherent/permuted 50k inputs emit the same complete graph root,
+  maximum degree is 123, strict-radius and 257-neighbor controls reject, and
+  two clean binaries/stdout streams are byte-identical.
+- **Next action:** implement independent CPU and CUDA corrected
+  energy/gradient/HVP over this CSR without dense matrices.
+- **Current blocker:** matrix-free formulas, solver and trajectory evidence do
   not yet exist.
 - **Do not retry:** dense Hessian, source-shaped SISSM/Chebyshev, tolerance
   widening or adding NCGP0 neighbor time to an unmeasured solve.
@@ -35,6 +35,7 @@
 | `docs/development/task-state/nonlocal-corrected-gpu-neighborhood-audit.md` | `NCGA1_REVIEWED_GO` | exact integer device graph may be reused as immutable indexing boundary |
 | `docs/development/task-state/nonlocal-corrected-gpu-assembly-audit.md` | `NCGA7_FAILED / NCGA2_IMMUTABLE` | old dense/static precision ladder stays closed; matrix-free physical claim is new |
 | `docs/development/nonlocal-corrected-gpu-neighborhood-performance-evidence-2026-08-30.md` | `50K_SUPPORTED_BOUNDED` | graph-only p95 is `1.02..1.18 ms`; duplicate traversal is the first measured graph bottleneck |
+| `docs/development/nonlocal-gpu-full-step-graph-evidence-2026-08-30.md` | `GRAPH_BASELINE_PASS` | 50k plus 43,056 ghosts fits 63.05 MB, exact permutation root and capacity controls |
 
 ## Decisions that still constrain the work
 
@@ -71,7 +72,7 @@
 | --- | --- | --- | --- |
 | H1 f32 operator plus f64 reductions is physically adequate | NCGA3 HVP/state consequence is tiny | no dynamic trajectory exists | tiny matrix-free correspondence, then 4k trajectory |
 | H2 pressure-product precision is the first physical boundary | NCGA7 changes residual behavior | combined static case still regresses | predeclared f64-pressure discriminator only after primary semantic pass |
-| H3 representation/launch cost, not physics, blocks 4/6 ms | exact graph already costs 1.02--1.18 ms p95 and duplicate traversal dominates | full operator/solver unmeasured | stage-timed 50k full step after physical gate |
+| H3 representation/launch cost, not physics, blocks 4/6 ms | the larger support+ghost graph has one exploratory `3.49 ms` call | no percentile and full operator/solver unmeasured | stage-timed 50k full step after physical gate |
 | H4 boundary/model behavior blocks before performance | no corrected dynamic sealed-basin evidence exists | FCR objective passes local term controls | independent 4k basin corpus and 50k 240-step run |
 
 ## Required context
@@ -85,9 +86,9 @@
 
 ## Next action
 
-1. Add the exact profile and independent CPU reference/corpus.
-2. Add the preallocated device workspace and reviewed two-pass graph baseline.
-3. Prove the matrix-free HVP on tiny cases before any trajectory or timing.
+1. Implement independent CPU and CUDA objective/gradient/HVP.
+2. Prove the matrix-free HVP on tiny cases before any trajectory or timing.
+3. Preserve the graph roots and old NCGA0--7 files unchanged.
 
 ## Do not retry
 
@@ -97,7 +98,7 @@
 
 ## Handoff
 
-- **Workspace state:** main worktree on `codex/water-research`; contract-only checkpoint pending.
-- **Checks:** not run; implementation has not started.
+- **Workspace state:** main worktree on `codex/water-research`; graph checkpoint ready to commit.
+- **Checks:** two clean Release graph self-tests pass with exact binary/stdout; sanitizers not yet run.
 - **Remaining risk:** boundary model, dynamic convergence, work budget and complete 50k cost are untested.
 - **Promotion needed:** none; the track remains Proposed/report-only.
