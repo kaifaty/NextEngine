@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP3_REV2_CONTRACT_FROZEN` |
+| Status | `ACTIVE / NCGP3_REV3_CONTRACT_FROZEN` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-compensated-scale` |
 | Scope | Extend verified NCGP2 device `(hi, lo)` state to dynamic graphs, analytic boundaries, real rollback and 4k multi-step correspondence |
@@ -35,6 +35,7 @@
 | NCGP2 reviewer limitations | high-only graph and non-injected transaction controls were explicitly deferred | they are load-bearing in NCGP3 |
 | NCGP3 revision-1 contract | SHA-256 `4bc9f67b77457b28e5259ea2d4efb6aeb0019edab43270909f70ef0aa6827c5c` | implementation may not change corpus, gates or claim ceiling |
 | NCGP3 revision-2 graph-control corrigendum | SHA-256 `f026e33b7c5e9476d0af40f55acb59a95123713a90f198b060b930368b2e84f0` | physical corpus remains shared binary32; only the graph apparatus control admits direct pair bytes |
+| NCGP3 revision-3 boundary/transaction addendum | SHA-256 `5f487d3dc097b20becb2cfffd41b6886210ce213a0773a810496e54df2273558` | high-only boundary and root-only rollback controls are no longer admissible |
 
 ### D-001 — Reconstruct only graph addresses in binary64
 
