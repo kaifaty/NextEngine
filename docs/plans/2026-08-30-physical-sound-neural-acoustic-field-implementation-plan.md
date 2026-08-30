@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3_TIME_DOMAIN_FAMILY_REJECTED / N0.3B_DENSE_COMPLEX_FIELD_DATA_READY / N0.3C_COMPLEX_TRAINING_NEXT / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.1_COMPLETE / N0.2_COMPLETE / N0.3_TIME_DOMAIN_FAMILY_REJECTED / N0.3B_DATA_READY / N0.3C_COMPLEX_FIELD_REJECTED / N0.3D_TRAINABILITY_GATE_NEXT / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -193,7 +193,8 @@ model or quality pass.
 
 ### N0.3C — Frozen dense complex-field physics ablation
 
-Status: `NEXT / TWO_CANDIDATES_ONLY / QUERY_EVALUATION_AFTER_FREEZE`.
+Status: `COMPLETE / REJECTED / REPRODUCIBLE / NO_CANDIDATE_SELECTED`. See the
+[R2C result and failure diagnostic](../development/physical-sound-listener-field-r2c-result-2026-08-30.md).
 
 Purpose: determine whether the ready complex representation supports a learned
 listener field and whether a bounded exterior-air Helmholtz residual adds
@@ -235,9 +236,87 @@ Commit boundary: training manifest/runner, compact synthetic failure tests,
 external two-run lineage and immutable evaluation decision. Dataset,
 features, MLflow state, checkpoints and generated WAVs remain external.
 
+Outcome: both `341,410`-parameter candidates complete `8,000` deterministic
+GPU steps and repeat byte-identically, but each fails four of five endpoints.
+Mean level error is about `53 dB`; no checkpoint is selected. Context-only
+failure research shows that rank 96 retains `99.64%` of energy, while the
+trained data-only objective is `1.0498x` the zero predictor and all logged
+steps reach gradient clipping. Helmholtz value and rank capacity are rejected
+as primary causes. Do not retry this separable SIREN/objective revision with a
+nearby architecture, rank, seed, step or physics-weight grid.
+
+### N0.3D — Context trainability and energy-preservation gate
+
+Status: `NEXT / QUERY_AUDIO_FORBIDDEN`.
+
+Purpose: prove that the objective, sampling, optimizer and real cooker can
+retain the signal before another held-listener candidate is authorized.
+
+Deliverables:
+
+- a hash-closed context-only profile binding objective terms, sampling,
+  normalization, optimizer, clipping diagnostics and inverse/PCM cooker;
+- zero and global-mean predictors plus exact context-only low-rank oracles;
+- identity, one-row and small spatial-block micro-overfit controls;
+- absolute level, multi-resolution spectrum, complex reconstruction, waveform,
+  active-bin and gradient/clipping reports;
+- two repeated full-context fits with zero query, method-holdout and shadow
+  audio reads.
+
+Exit criteria:
+
+- identity and micro-overfit controls pass their preregistered cooker metrics;
+- full-context fit strictly improves zero and global-mean controls and stays
+  within the frozen low-rank oracle envelope;
+- output energy does not collapse, values remain finite, and clipping
+  saturation satisfies the frozen policy;
+- repeated artifacts meet their declared exact/tolerance policy;
+- failure returns `REJECT_TRAINING_SUBSTRATE` and does not open query audio.
+
+Fallback: preserve R2B representation/data readiness but reject the current
+training substrate. Change one preregistered objective/optimization hypothesis
+per revision; do not spend query evidence on trainability debugging.
+
+Commit boundary: context controls, micro-overfit runner/tests and immutable
+trainability decision. No query WAVs or candidate quality report.
+
+### N0.3E — Frozen low-rank spatial coefficient field
+
+Entry condition: N0.3D passes.
+
+Purpose: separate high-dimensional time/frequency reconstruction from spatial
+generalization. Compute one complex basis from context rows only and train a
+coordinate network to predict its complex coefficients.
+
+Deliverables:
+
+- a context-only frozen basis and rank selected before query access;
+- non-neural coefficient interpolation controls;
+- one data-only coordinate-to-coefficient network using the passed N0.3D
+  objective/cooker;
+- two independent training repeats and one frozen 180-query evaluation;
+- failure clustering by angle plane, distance, microphone height and spectrum.
+
+Exit criteria:
+
+- N0.3D gates remain green for the complete candidate path;
+- query audio is used only by the frozen final evaluator;
+- the candidate strictly beats all three R2B controls on every unchanged
+  primary aggregate;
+- prediction/cook/report reproducibility satisfies the frozen policy;
+- failure returns `REJECT_LOW_RANK_COEFFICIENT_FIELD` or
+  `DATA_INSUFFICIENT` without a nearby tuning grid.
+
+Fallback: stop the fixed-impact listener-field representation and keep authored
+clips. A physics regularizer may be tested only after a data-only model passes
+trainability and demonstrates a held-listener advantage.
+
+Commit boundary: basis/coefficient runner, compact tests, external two-run
+lineage and immutable grouped-query decision.
+
 ### N0.4 — Object-specific impact/listener few-shot field
 
-Entry condition: N0.3 proves the representation and published data provides
+Entry condition: N0.3E proves the representation and published data provides
 multiple impact and listener conditions for one exact object.
 
 Deliverables:
@@ -421,17 +500,15 @@ successful Git commit or a report-only model result.
 
 ## Immediate queue
 
-1. Preserve both direct and phase-aligned time-domain fields as immutable
-   `REJECT_LISTENER_FIELD` results; do not tune their ranks, width, epochs,
-   speed or thresholds on opened development rows.
-2. Treat the byte-identical V3 acquisition/preflight decision
-   `ReadyForComplexFieldTraining` as data/representation authority only.
-3. Freeze one N0.3C manifest with the shared complex-pressure MLP, seed,
-   optimizer budget, context-only preprocessing and exact R2B lineage.
-4. Train only the data-only and `0.0001` Helmholtz ablations twice each; track
-   external lineage without opening query, method holdout or admission shadow.
-5. Freeze checkpoints without query feedback, then evaluate each once on the
-   180 grouped queries against all three controls and the unchanged
-   five-endpoint conjunctive rule.
-6. Proceed to impact/listener few-shot N0.4 only if R2C passes and an internet
-   source closes the required impact axis.
+1. Preserve direct, phase-aligned and R2C separable complex fields as immutable
+   rejected revisions; do not tune their opened families.
+2. Freeze N0.3D zero/mean/rank-oracle controls and micro-overfit metrics before
+   changing the objective or starting an optimizer.
+3. Run N0.3D entirely on context; reject any revision that cannot preserve
+   energy and beat trivial controls through the real cooker.
+4. If N0.3D passes, freeze one context-only complex basis and one data-only
+   coordinate-to-coefficient N0.3E candidate.
+5. Repeat N0.3E without query feedback, then evaluate once on all 180 grouped
+   queries against the unchanged three controls and five endpoints.
+6. Proceed to impact/listener few-shot N0.4 only if N0.3E passes and an
+   internet source closes the required impact axis.

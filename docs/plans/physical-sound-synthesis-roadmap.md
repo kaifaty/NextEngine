@@ -1,9 +1,9 @@
-# Roadmap V2: neural physical sound
+# Roadmap V3: self-validating neural physical sound
 
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-30 |
-| Статус | `ACTIVE_R&D / R0_COMPLETE / R1_CONTROLS_FROZEN / R2_TIME_DOMAIN_FAMILY_REJECTED / R2B_DENSE_COMPLEX_FIELD_DATA_READY / R2C_COMPLEX_TRAINING_NEXT / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R0_COMPLETE / R1_CONTROLS_FROZEN / R2C_COMPLEX_FIELD_REJECTED / R2D_TRAINABILITY_GATE_NEXT / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -30,25 +30,37 @@ cooked physical model; для неизвестных, ошибочных или 
 5. одного exact admitted domain с обязательным fallback;
 6. отдельного product decision перед любой runtime-интеграцией.
 
-## Что меняется относительно старого плана
+## Что меняется в V3
 
-Ручной поиск общей формулы `material -> sound` больше не является основной
+Ручной поиск общей формулы `material -> sound` остаётся закрытой основной
 веткой. Q30 modal renderer, DCT residual, FEM/BEM и предыдущие real-data
 эксперименты сохраняются как baseline, teacher, controls и negative knowledge.
 
-Основной кандидат — offline neural transfer field:
+V2 доказал, что наличие большой нейросети и физического loss само по себе не
+решает задачу. Первый dense complex field воспроизводимо схлопнулся к почти
+нулевому сигналу: обе модели проиграли даже trivial context predictors, хотя
+context-only rank-96 oracle сохраняет `99.64%` энергии. Поэтому V3 меняет
+порядок программы:
+
+1. сначала objective/optimizer/cooker проходят context-only trainability gate;
+2. затем сеть учит только spatial coefficients над замороженным low-rank
+   complex basis;
+3. grouped query открывается один раз только для прошедшей context revision;
+4. physics regularization возвращается как ablation лишь после того, как
+   data-only путь доказал сохранение энергии и обучаемость;
+5. расширение к impact/object/material axes запрещено до победы над простыми
+   интерполяционными controls на одном fixed-impact объекте.
+
+Целевой кандидат остаётся offline neural transfer field, но training boundary
+становится двухступенчатым:
 
 ```text
-geometry + support + impact position + listener position
-                         |
-                         v
-       global modes + damping + conditional gains + residual
-                         |
-                         v
-             bounded deterministic cooker
-                         |
-                         v
-            excitation convolution -> 48 kHz PCM
+published transfer field
+  -> context-only complex basis + energy-preserving normalization
+  -> neural coordinate-to-coefficient field
+  -> bounded modes/gains/residual
+  -> deterministic cooker
+  -> excitation convolution -> 48 kHz PCM
 ```
 
 Force-deconvolved transfer response и обычный recorded impact waveform —
@@ -105,8 +117,9 @@ coefficients.
 ```mermaid
 flowchart LR
     R0["R0. Real data boundary"] --> R1["R1. Honest baselines"]
-    R1 --> R2["R2. Listener-field pilot"]
-    R2 --> R3["R3. Impact/listener few-shot model"]
+    R1 --> R2D["R2D. Trainability gate"]
+    R2D --> R2E["R2E. Low-rank neural field"]
+    R2E --> R3["R3. Impact/listener few-shot model"]
     R3 --> R4["R4. Shared-object transfer"]
     R3 --> R5["R5. Independent validator"]
     R4 --> R5
@@ -125,7 +138,9 @@ models и не маскирует провал обещанием универс
 | --- | --- | ---: | --- |
 | R0 | `COMPLETE` | S | Первый real transfer slice и five-role projection повторяются byte-identical; signal semantics и missing axes честно сохранены. |
 | R1 | `COMPLETE / FROZEN_CONTROLS` | M | Transfer-domain и recorded-waveform baselines покрывают только совместимые rows; метрики и fallback заморожены. |
-| R2 | `TIME_DOMAIN_FAMILY_REJECTED / R2B_DATA_READY / R2C_TRAINING_NEXT` | M | Модель восстанавливает grouped held-out listener responses одного fixed-impact объекта лучше classical interpolation. |
+| R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
+| R2D | `NEXT` | S–M | Новый objective/optimizer/cooker проходит zero/mean/oracle controls и micro-overfit без чтения query audio. |
+| R2E | `BLOCKED_BY_R2D` | M | Coordinate network над frozen context-only low-rank basis лучше всех classical controls на grouped held listeners. |
 | R3 | `BLOCKED_BY_R2_AND_DATA` | L | Few-shot model предсказывает новые impact/listener conditions exact объекта и cooks в exact PCM. |
 | R4 | `CONDITIONAL` | L–XL | Shared geometry-conditioned model либо проходит object/family-disjoint holdout, либо zero-shot claim явно отклонён. |
 | R5 | `BLOCKED_BY_R3` | M | Frozen automatic validator показывает bounded grouped risk и useful selective coverage без live human gate. |
@@ -203,17 +218,21 @@ absolute level error; эти числа не являются quality pass, а �
 
 ## R2 — Fixed-impact listener-field pilot
 
-Первый дешёвый neural experiment использует один объект и один impact point с
-несколькими listener positions. Он проверяет только пространственное поле и не
-притворяется полной моделью удара.
+R2 использует один объект и один impact point с несколькими listener positions.
+Он проверяет только пространственное поле и не притворяется полной моделью
+удара. Milestone закрывается только моделью, которая обходит честную
+интерполяцию; воспроизводимое обучение само по себе не является успехом.
 
 Experiment ladder:
 
 1. frozen nearest/linear controls;
 2. direct time-domain rank-4/rank-7 listener latent — rejected;
 3. coordinate-derived propagation-delay-aligned latent — rejected;
-4. grouped dense complex/time-frequency field — data/representation preflight
-   complete; frozen two-candidate training next.
+4. grouped dense complex/time-frequency separable SIREN — rejected after
+   reproducible two-candidate training and one-shot query evaluation;
+5. context trainability and objective gate — next;
+6. frozen low-rank complex basis plus neural spatial coefficient field — only
+   after the trainability gate passes.
 
 Exit criteria:
 
@@ -243,12 +262,70 @@ normalization excludes all query rows; the complex STFT inverse reaches
 measured before optimization, while method holdout and admission shadow remain
 sealed. This closes data/representation readiness only.
 
-R2C is the next boundary. It compares exactly one shared
-coordinate/time/frequency complex-pressure MLP with Helmholtz weight `0`
-against the same model with weight `0.0001`, fixed seed/architecture/budget and
-deterministic midpoint collocation over `93.75–12,000 Hz`. Query audio cannot
-affect preprocessing, fit, checkpoint selection or stopping. Each candidate
-must repeat before one frozen query evaluation; no nearby grid is authorized.
+R2C is now complete and rejected. The [dense complex-field result and bounded
+failure research](../development/physical-sound-listener-field-r2c-result-2026-08-30.md)
+records byte-identical repetitions for the data-only and `0.0001` Helmholtz
+candidates. They produce about `53 dB` mean level error and `27 dB` mean
+spectrum error, passing only the near-zero waveform endpoint. Helmholtz is not
+the primary cause: both candidates collapse alike.
+
+The context diagnostic changes the next hypothesis. Rank 96 can retain
+`99.6396%` of context energy with Frobenius NRMSE `0.0600`, but the trained
+data-only full-context objective is `1.0498x` the zero predictor and every
+logged step reaches gradient clipping. The joint separable SIREN has therefore
+failed before spatial generalization. Width, rank, step, seed and physics-loss
+grids on the opened query are forbidden.
+
+### R2D — Context trainability and objective gate
+
+R2D reads only context data and performs no grouped-query candidate evaluation.
+It freezes an energy-preserving objective, sampling policy and optimizer
+diagnostics, then proves them in increasing order:
+
+1. exact identity/cooker control;
+2. one-row micro-overfit;
+3. small spatial-block micro-overfit;
+4. full-context fit against zero, global-mean and context-only rank oracles;
+5. deterministic repeat with clipping/gradient and emitted-PCM metrics.
+
+The profile must explicitly measure absolute RMS level, multi-resolution
+spectrum, complex reconstruction, waveform NRMSE, active-bin coverage and
+gradient clipping. A candidate cannot pass merely because a sampled loss falls.
+All numeric thresholds are frozen from context controls before optimization;
+query audio, method holdout and admission shadow reads remain zero.
+
+Exit criteria:
+
+- one-row and small-block controls reconstruct through the real inverse/PCM
+  cooker within their preregistered bounds;
+- the full-context result strictly improves both zero and global-mean controls
+  and approaches the declared context-only low-rank oracle envelope;
+- signal level does not collapse and no non-finite output occurs;
+- two runs reproduce under the declared deterministic/tolerance policy;
+- failure returns `REJECT_TRAINING_SUBSTRATE`, without opening query audio.
+
+### R2E — Low-rank neural spatial coefficient field
+
+R2E begins only after R2D passes. It computes one frozen complex basis from
+context rows only, then learns `listener coordinates -> complex basis
+coefficients`. The time/frequency basis is not learned jointly with the
+coordinate field in this revision. Non-neural coefficient interpolation and
+the three original waveform controls remain explicit baselines.
+
+One data-only candidate is trained and repeated before one frozen evaluation
+on all 180 grouped queries. Physics regularization is deferred until this
+candidate preserves context energy and demonstrates a held-listener advantage;
+it cannot rescue a failed trainability substrate.
+
+Exit criteria:
+
+- all R2D trainability gates remain green under the final R2E path;
+- query audio affects only the single frozen evaluation;
+- the candidate is strictly better than every frozen control on all unchanged
+  five primary aggregates;
+- cooked outputs and reports repeat under the frozen policy;
+- otherwise return `REJECT_LOW_RANK_COEFFICIENT_FIELD` or
+  `DATA_INSUFFICIENT`, preserve the counterexample and stop R2.
 
 Only a grouped held-listener result that beats all three frozen controls on all unchanged
 primary aggregates can close R2. `DATA_INSUFFICIENT` and
@@ -386,7 +463,7 @@ Required product work:
 Enabled и disabled paths должны сохранять одинаковые gameplay, physics,
 ledger, persistence и `AcousticFactV1` roots.
 
-## Текущие commit boundary
+## Текущие commit boundaries
 
 1. `real neural transfer slice` — `COMPLETE`; schema V2, verified REALIMPACT
    slice, five-role projection и R0 evidence повторены;
@@ -400,9 +477,15 @@ ledger, persistence и `AcousticFactV1` roots.
 5. `dense complex-field data preflight` — `COMPLETE`; acquisition and full
    representation/control trees repeat byte-identically, with query-isolated
    normalization and zero optimizer steps;
-6. `dense complex-field physics ablation` — `NEXT`; train exactly the frozen
-   data-only and Helmholtz candidates, repeat each, then evaluate once against
-   all three controls and the unchanged five-endpoint rule.
+6. `dense complex-field physics ablation` — `COMPLETE / REJECTED`; both frozen
+   candidates and their checkpoints repeat, one-shot evaluation selects none,
+   and the context diagnostic attributes the primary failure to loss/sampling/
+   clipped optimization rather than Helmholtz or rank-96 capacity;
+7. `context trainability gate` — `NEXT`; freeze energy-preserving objective,
+   zero/mean/oracle controls and micro-overfit checks without query reads;
+8. `low-rank coefficient field` — `BLOCKED_BY_7`; freeze the successful
+   context protocol, train one coordinate-to-coefficient model, repeat it, then
+   evaluate once against all unchanged controls and endpoints.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.
@@ -412,7 +495,8 @@ ledger, persistence и `AcousticFactV1` roots.
 | Наблюдение | Решение |
 | --- | --- |
 | Transfer и recorded-waveform semantics нельзя согласовать | Не смешивать losses; сузить task или добавить явную excitation model |
-| R2 не превосходит classical interpolation | `REJECT_LISTENER_FIELD`; исследовать representation/data, не tuning-grid |
+| Context fit не обходит zero/global mean или теряет signal energy | `REJECT_TRAINING_SUBSTRATE`; query не открывать |
+| R2E не превосходит classical interpolation | `REJECT_LISTENER_FIELD`; сохранить counterexample и остановить этот field, не запускать tuning-grid |
 | R3 проходит exact object, R4 падает object-disjoint | `GO_EXACT_OBJECT`; zero-shot/shared claim закрыть |
 | Direct waveform звучит лучше, но не проходит causal/exact cook | Оставить upper bound или authored asset source |
 | Internet data не содержит нужную axis | `DATA_INSUFFICIENT`; искать другой published source, не local capture |
@@ -423,8 +507,10 @@ ledger, persistence и `AcousticFactV1` roots.
 
 ## Definition of done
 
-- **Research model:** R3 воспроизводимо поддерживает exact-object few-shot claim
-  или честно отклоняет representation.
+- **Training substrate:** R2D автоматически доказывает, что objective,
+  optimizer и cooker сохраняют сигнал до любой query оценки.
+- **Research model:** R2E/R3 воспроизводимо поддерживает listener/exact-object
+  claim или честно отклоняет representation.
 - **Automatic validation:** R5 принимает решения без per-sound human queue и
   показывает confidence-bounded grouped risk.
 - **Closed research loop:** R6 один раз встречает frozen generator и validator

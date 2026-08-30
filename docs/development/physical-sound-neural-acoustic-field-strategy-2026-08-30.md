@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-30 |
-| Status | `STRATEGY_SELECTED / RESEARCH_ONLY / NO_RUNTIME_MODEL` |
+| Status | `STRATEGY_SELECTED / R2C_REJECTED / R2D_TRAINABILITY_NEXT / RESEARCH_ONLY / NO_RUNTIME_MODEL` |
 | Architecture boundary | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Roadmap | [Physical sound synthesis roadmap](../plans/physical-sound-synthesis-roadmap.md) |
 | Implementation plan | [Neural acoustic field implementation plan](../plans/2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -253,5 +253,15 @@ meet the untouched admission shadow.
 - whether any admitted research record later fits a player-visible whole-mixer
   budget.
 
-The smallest next action is to freeze the `PS-2N0` data projection and
-benchmark manifest without downloading model weights or training a network.
+PS-2N0, the classical controls and the 600-position dense representation are
+now frozen. The first joint separable complex field is also complete and
+rejected: both data-only and Helmholtz variants collapse toward silence. The
+[R2C failure diagnostic](physical-sound-listener-field-r2c-result-2026-08-30.md)
+shows that rank-96 context capacity is sufficient to retain `99.64%` energy,
+while the trained objective remains worse than a zero predictor.
+
+The smallest next action is therefore query-free: freeze an energy-preserving
+objective/optimizer/cooker trainability profile with identity, one-row,
+small-block, zero, global-mean and low-rank oracle controls. Only a passing
+context revision may start one coordinate-to-low-rank-coefficient candidate
+and one grouped query evaluation under Roadmap V3.
