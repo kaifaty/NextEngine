@@ -37,6 +37,7 @@ FIT_CONTACTS_PER_OBJECT = 3
 INTERNET_TRAIN_CLIP_COUNT = 56
 INTERNET_VALIDATION_CLIP_COUNT = 17
 TOTAL_TRAIN_ITEM_COUNT = 68
+LONG_CAPACITY_TRAINING_AUTHORIZED = False
 IMPLEMENTATION_FILES = {
     "common": "physical_sound_contact_field_r3a_v5_common.py",
     "model": "physical_sound_contact_field_r3a_v5_model.py",
@@ -992,6 +993,10 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         raise common.V5Error("V5 capacity output must stay outside the repository")
     frozen_maximum_steps = common.TRAINING_CONFIG["maximum_steps"]
     checkpoint_interval = common.TRAINING_CONFIG["checkpoint_interval_steps"]
+    if arguments.stop_after_step is None and not LONG_CAPACITY_TRAINING_AUTHORIZED:
+        raise common.V5Error(
+            "V5 long capacity training is not authorized before the bounded frontier"
+        )
     execution_steps = arguments.stop_after_step or frozen_maximum_steps
     if (
         execution_steps < ANTI_COLLAPSE_GATE["evaluation_step"]
@@ -1059,6 +1064,7 @@ def run(root: Path, arguments: argparse.Namespace) -> Path:
         "execution": {
             "frozen_maximum_steps": frozen_maximum_steps,
             "requested_stop_after_step": arguments.stop_after_step,
+            "long_capacity_training_authorized": LONG_CAPACITY_TRAINING_AUTHORIZED,
             "curriculum": CURRICULUM,
             "bootstrap_gate": BOOTSTRAP_GATE,
             "anti_collapse_gate": ANTI_COLLAPSE_GATE,
