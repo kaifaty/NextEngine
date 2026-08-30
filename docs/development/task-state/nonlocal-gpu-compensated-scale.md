@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP3_PRIMARY_WORK_BUDGET_REFUTED_PENDING_REVIEW` |
+| Status | `ACTIVE / NCGP3_REV5_SINGLE_REPAIR_FROZEN` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-compensated-scale` |
 | Scope | Extend verified NCGP2 device `(hi, lo)` state to dynamic graphs, analytic boundaries, real rollback and 4k multi-step correspondence |
@@ -14,16 +14,17 @@
 - **Current conclusion:** NCGP2 independently verified H1. Canonical device
   `(hi, lo)` state closes the retained translated pair; surface-only f64 does
   not.
-- **Current task:** close reproducibility and independent review of the first
-  corrected-FCR2 240-step work-budget failure.
+- **Current task:** implement the single revision-5 review repair before the
+  only NCGP3 re-review.
 - **Completed apparatus:** pair-aware graph membership, pair-aware swept
   contacts and executable high/low rollback controls pass deterministically.
 - **Material correction:** the first 4k density failure used the historical raw
   FCR1/NCGP1 kernel and exactly reproduced its known `~1/8` normalization
   defect. It is a negative control, not a refutation of corrected FCR2.
-- **Current blocker:** corrected 16-step trajectories pass, but 240-step hydro
-  reaches `WorkBudgetExceeded` at step 39 with the maximum admitted budget.
-  50k and timing remain forbidden pending exact reproduction/review.
+- **Current blocker:** the observed step-39 work failure was produced after the
+  CUDA finalizer lost the compensated predictor and before the complete FCR2
+  corpus/metrics ran. It is reproducible but not an admissible refutation.
+  50k and timing remain forbidden.
 - **Do not retry:** the raw profile as physical evidence, host coordinate
   localization, high-only graph membership, tolerance widening or graph-only
   timing as a full-solver result.
@@ -45,6 +46,8 @@
 | Corrected one-step 4k hydro, budget 128 | PASS; position max `0.230 um`, compression max `0.0240%`, active/permutation exact; 81 GPU HVP | smallest successful one-step budget is 128 |
 | Corrected 16-step 4k corpus | hydro/dam/orifice PASS; position max `10.3/9.4/9.1 um`; compression max `0.132/0.124/0.132%`; permutation exact | short trajectory correspondence supported |
 | Corrected 240-step hydro | deterministic failure after 38 completed steps; corrected/permuted `WorkBudgetExceeded`, equal work roots, `126/128` HVP consumed before a 3-HVP Jacobi outer boundary | frozen complete-corpus work ceiling is not met; later correctness/performance blocked |
+| Independent NCGP3 initial review | `NO-GO / INCONCLUSIVE`, candidate `1b638bfd` | multi-step predictor loses low part; missing corpus/metrics/closure and shared CPU validator invalidate refutation claim |
+| NCGP3 revision-5 repair contract | SHA-256 `0047ea9e3828b22cd433888fc22644ea7937f959934b55a112dc2c8623ed9fbc` | one batch: compensated predictor, complete gates, hot-step/snapshot split, independent validation and report closure |
 
 ### D-001 — Reconstruct only graph addresses in binary64
 
@@ -84,14 +87,26 @@
 - **Consequence:** formal next work is reproduction and independent review,
   not dam/orifice 240-step runs or 50k performance.
 
+### D-004 — Treat the step-39 result as apparatus evidence, not physics
+
+- **Observation:** `finalize_step_kernel` rebuilds subsequent prediction with
+  ordinary f32 addition and zero low part; mandatory FCR2 controls and
+  trajectory momentum/energy/penetration gates are absent.
+- **Decision:** freeze revision 5 and repair the complete sequence once before
+  re-review. Do not cite `1b638bfd` as a physical/work refutation.
+- **Rejected alternatives:** accepting a reproducible result from the wrong
+  state transition, skipping earlier gates, or running 50k timing anyway.
+- **Consequence:** the next admissible first failure may move or disappear.
+
 ## Next action
 
-1. Freeze the expanded failure receipt and commit the exact candidate.
-2. Produce two clean Release builds/runs for the 240-step hydro request and
-   require identical numerical/result/work bytes apart from binary identity.
-3. Run the retained controls and proportional sanitizer routes.
-4. Request one read-only independent NCGP3 review. If it confirms the work
-   failure, record `VERIFIED_PHYSICS_REFUTED` and leave performance `NOT_RUN`.
+1. Repair accepted-step prediction with the upload-time TwoSum chain and add
+   the ordinary-f32 predictor negative.
+2. Split hot `step()` from diagnostic full-state download and seal both work
+   routes, including device allocation.
+3. Add the missing FCR2 controls and 4k momentum/energy/penetration metrics.
+4. Remove the shared validator from the CPU oracle, close report identities,
+   rerun sequential gates and request the single re-review.
 
 ## Handoff
 
