@@ -781,7 +781,7 @@ std::string step_semantic_root(const NonlocalGpuProfile& profile,
 
 std::string solver_trace_semantic_root(
     const NonlocalGpuStepResult& result) {
-    std::string bytes = "nextengine.nonlocal.ncgp4.solver-trace.v1\0";
+    std::string bytes = "nextengine.nonlocal.ncgp5.solver-trace.v2\0";
     append_u32(bytes, static_cast<std::uint32_t>(result.failure));
     append_u32(bytes, result.hvp_budget);
     append_u32(bytes, result.hvp_used);
@@ -811,6 +811,16 @@ std::string solver_trace_semantic_root(
             append_f64(bytes, value);
         }
     }
+    append_u64(bytes, result.diagnostic_contact_impulse.size());
+    for (const Vec3d impulse : result.diagnostic_contact_impulse) {
+        append_f64(bytes, impulse.x);
+        append_f64(bytes, impulse.y);
+        append_f64(bytes, impulse.z);
+    }
+    append_u64(bytes, result.diagnostic_contact_face_masks.size());
+    for (const std::uint32_t mask : result.diagnostic_contact_face_masks) {
+        append_u32(bytes, mask);
+    }
     return sha256_hex(bytes);
 }
 
@@ -819,6 +829,20 @@ bool solver_trace_valid(const NonlocalGpuStepResult& result) {
         || result.trace.front().kind != NonlocalGpuTraceKind::OuterStart
         || result.trace.back().kind != NonlocalGpuTraceKind::Terminal) {
         return false;
+    }
+    if (result.diagnostic_contact_impulse.empty()
+        || result.diagnostic_contact_impulse.size()
+            != result.diagnostic_contact_face_masks.size()) {
+        return false;
+    }
+    for (std::size_t index = 0U;
+         index < result.diagnostic_contact_impulse.size(); ++index) {
+        const Vec3d impulse = result.diagnostic_contact_impulse[index];
+        if (!std::isfinite(impulse.x) || !std::isfinite(impulse.y)
+            || !std::isfinite(impulse.z)
+            || result.diagnostic_contact_face_masks[index] > 63U) {
+            return false;
+        }
     }
     std::uint32_t previous_hvp = 0U;
     std::uint32_t previous_outer = 0U;

@@ -1949,6 +1949,7 @@ __global__ void project_trial_kernel(const DeviceVec3* base,
 #endif
     DeviceVec3* actual_step,
     DeviceVec3* contact_impulse,
+    unsigned int* contact_face_masks,
     int count,
     DeviceVec3 lower,
     DeviceVec3 upper,
@@ -2080,6 +2081,7 @@ __global__ void project_trial_kernel(const DeviceVec3* base,
 #endif
     contact_impulse[index] = scale(subtract(actual_step[index], proposal[index]),
         impulse_scale);
+    contact_face_masks[index] = face_mask;
     if (!disable_boundary) atomicAdd(&boundary_work[0], 6ULL);
     if (face_mask != 0U) {
         atomicAdd(&boundary_work[1], static_cast<unsigned long long>(__popc(face_mask)));
@@ -2087,6 +2089,19 @@ __global__ void project_trial_kernel(const DeviceVec3* base,
             (static_cast<unsigned long long>(ids[index]) << 8U) | face_mask);
         atomicAdd(&boundary_work[3], 1ULL);
     }
+}
+
+__global__ void accumulate_contact_diagnostics_kernel(
+    const DeviceVec3* contact_impulse,
+    const unsigned int* contact_face_masks,
+    DeviceVec3* accumulated_impulse,
+    unsigned int* accumulated_face_masks,
+    int count) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index >= count) return;
+    accumulated_impulse[index] = add(
+        accumulated_impulse[index], contact_impulse[index]);
+    accumulated_face_masks[index] |= contact_face_masks[index];
 }
 
 __global__ void vector_component_rows(const DeviceVec3* values,
@@ -2438,6 +2453,11 @@ struct NonlocalGpuWorkspace::Impl {
         allocate_device(&cg_candidate, dynamic_capacity, allocated_bytes);
         allocate_device(&trial_position, dynamic_capacity, allocated_bytes);
         allocate_device(&contact_impulse, dynamic_capacity, allocated_bytes);
+        allocate_device(&contact_face_masks, dynamic_capacity, allocated_bytes);
+        allocate_device(&diagnostic_contact_impulse, dynamic_capacity,
+            allocated_bytes);
+        allocate_device(&diagnostic_contact_face_masks, dynamic_capacity,
+            allocated_bytes);
         allocate_device(&outer_base, dynamic_capacity, allocated_bytes);
         allocate_device(&transaction_start, dynamic_capacity, allocated_bytes);
         allocate_device(&transaction_reference, dynamic_capacity, allocated_bytes);
@@ -2516,6 +2536,9 @@ struct NonlocalGpuWorkspace::Impl {
         cudaFree(transaction_reference);
         cudaFree(transaction_start);
         cudaFree(outer_base);
+        cudaFree(diagnostic_contact_face_masks);
+        cudaFree(diagnostic_contact_impulse);
+        cudaFree(contact_face_masks);
         cudaFree(contact_impulse);
         cudaFree(trial_position);
         cudaFree(cg_candidate);
@@ -2630,6 +2653,9 @@ struct NonlocalGpuWorkspace::Impl {
     DeviceVec3* cg_candidate = nullptr;
     DeviceVec3* trial_position = nullptr;
     DeviceVec3* contact_impulse = nullptr;
+    unsigned int* contact_face_masks = nullptr;
+    DeviceVec3* diagnostic_contact_impulse = nullptr;
+    unsigned int* diagnostic_contact_face_masks = nullptr;
     DeviceVec3* outer_base = nullptr;
     DeviceVec3* transaction_start = nullptr;
     DeviceVec3* transaction_reference = nullptr;
@@ -3107,6 +3133,7 @@ NonlocalGpuBoundaryProbeResult NonlocalGpuWorkspace::probe_boundary(
             impl_->trial_position_low,
 #endif
             impl_->cg_candidate, impl_->contact_impulse,
+            impl_->contact_face_masks,
             impl_->dynamic_count, lower, upper, false,
 #if defined(NCGP2_EXPERIMENTAL)
             true, false,
@@ -3655,6 +3682,14 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
         return restored;
     };
     try {
+        if (capture_trace) {
+            cuda_check(cudaMemset(impl_->diagnostic_contact_impulse, 0,
+                vector_bytes), "reset diagnostic contact impulse");
+            cuda_check(cudaMemset(impl_->diagnostic_contact_face_masks, 0,
+                static_cast<std::size_t>(impl_->dynamic_count)
+                    * sizeof(unsigned int)),
+                "reset diagnostic contact face masks");
+        }
         cuda_check(cudaMemcpy(impl_->transaction_start, impl_->current,
             vector_bytes, cudaMemcpyDeviceToDevice), "save step transaction");
         cuda_check(cudaMemcpy(impl_->transaction_reference, impl_->reference,
@@ -4207,7 +4242,8 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 impl_->trial_position_low,
 #endif
                 impl_->cg_candidate,
-                impl_->contact_impulse, impl_->dynamic_count, lower, upper,
+                impl_->contact_impulse, impl_->contact_face_masks,
+                impl_->dynamic_count, lower, upper,
                 disable_boundary,
 #if defined(NCGP2_EXPERIMENTAL)
                 compensated_state,
@@ -4330,6 +4366,18 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
                 result.boundary_impulse.z += reduce_component(
                     impl_->contact_impulse, 2U);
                 result.boundary_face_mask_xor ^= boundary[2];
+                if (capture_trace) {
+                    accumulate_contact_diagnostics_kernel<<<
+                        blocks_for(impl_->dynamic_count), kThreads>>>(
+                        impl_->contact_impulse, impl_->contact_face_masks,
+                        impl_->diagnostic_contact_impulse,
+                        impl_->diagnostic_contact_face_masks,
+                        impl_->dynamic_count);
+                    cuda_check(cudaGetLastError(),
+                        "accumulate diagnostic contact ownership");
+                    result.work.vector_kernel_values +=
+                        static_cast<std::uint64_t>(impl_->dynamic_count);
+                }
                 result.final_energy = trial_evaluation.energy;
                 result.active_pressure_centers =
                     trial_evaluation.active_pressure_centers;
@@ -4541,6 +4589,31 @@ NonlocalGpuStepResult NonlocalGpuWorkspace::step(
         if (result.failure != NonlocalGpuFailure::None
             && !restore_transaction()) {
             result.failure = NonlocalGpuFailure::DeviceFailure;
+        }
+        if (capture_trace) {
+            std::vector<DeviceVec3> contact_impulse(
+                static_cast<std::size_t>(impl_->dynamic_count));
+            std::vector<unsigned int> contact_face_masks(
+                static_cast<std::size_t>(impl_->dynamic_count));
+            cuda_check(cudaMemcpy(contact_impulse.data(),
+                impl_->diagnostic_contact_impulse, vector_bytes,
+                cudaMemcpyDeviceToHost),
+                "capture diagnostic contact impulse");
+            cuda_check(cudaMemcpy(contact_face_masks.data(),
+                impl_->diagnostic_contact_face_masks,
+                contact_face_masks.size() * sizeof(unsigned int),
+                cudaMemcpyDeviceToHost),
+                "capture diagnostic contact face masks");
+            result.diagnostic_contact_impulse.reserve(contact_impulse.size());
+            for (const DeviceVec3 value : contact_impulse) {
+                result.diagnostic_contact_impulse.push_back(
+                    {value.x, value.y, value.z});
+            }
+            result.diagnostic_contact_face_masks = std::move(
+                contact_face_masks);
+            result.work.device_to_host_bytes += vector_bytes
+                + result.diagnostic_contact_face_masks.size()
+                    * sizeof(unsigned int);
         }
         if (capture_trace && (result.trace.empty()
                 || result.trace.back().kind != NonlocalGpuTraceKind::Terminal)) {

@@ -285,6 +285,8 @@ struct NonlocalGpuStepResult {
     NonlocalGpuWorkReceipt work;
     NonlocalGpuTimings timing;
     std::vector<NonlocalGpuSolverTraceEvent> trace;
+    std::vector<Vec3d> diagnostic_contact_impulse;
+    std::vector<std::uint32_t> diagnostic_contact_face_masks;
 };
 
 class NonlocalGpuWorkspace {

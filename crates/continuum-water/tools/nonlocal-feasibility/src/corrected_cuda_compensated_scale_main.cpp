@@ -47,6 +47,21 @@
 #ifndef NCGP4_COMPILER_FLAGS
 #define NCGP4_COMPILER_FLAGS "unconfigured"
 #endif
+#ifndef NCGP5_CONTRACT_ROOT
+#define NCGP5_CONTRACT_ROOT "unconfigured"
+#endif
+#ifndef NCGP5_SOURCE_ROOT
+#define NCGP5_SOURCE_ROOT "unconfigured"
+#endif
+#ifndef NCGP5_SOURCE_COMMIT
+#define NCGP5_SOURCE_COMMIT "unconfigured"
+#endif
+#ifndef NCGP5_SOURCE_TREE
+#define NCGP5_SOURCE_TREE "unconfigured"
+#endif
+#ifndef NCGP5_COMPILER_FLAGS
+#define NCGP5_COMPILER_FLAGS "unconfigured"
+#endif
 
 namespace {
 
@@ -63,6 +78,21 @@ std::uint32_t float_bits(float value) {
     std::uint32_t bits = 0U;
     std::memcpy(&bits, &value, sizeof(bits));
     return bits;
+}
+
+std::uint64_t double_bits(double value) {
+    std::uint64_t bits = 0U;
+    static_assert(sizeof(value) == sizeof(bits));
+    std::memcpy(&bits, &value, sizeof(value));
+    return bits;
+}
+
+Vec3d subtract(Vec3d lhs, Vec3d rhs) {
+    return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
+}
+
+double squared_norm(Vec3d value) {
+    return value.x * value.x + value.y * value.y + value.z * value.z;
 }
 
 std::string file_root(const std::string& path) {
@@ -1622,6 +1652,687 @@ int run_ncgp4_solver_diagnosis() {
 }
 #endif
 
+#if defined(NCGP5_EXPERIMENTAL)
+struct Ncgp5StepRecord {
+    std::uint32_t step = 0U;
+    std::uint32_t maximum_id = 0U;
+    std::uint32_t maximum_component = 0U;
+    double p50_position_error = 0.0;
+    double p95_position_error = 0.0;
+    double p99_position_error = 0.0;
+    double maximum_position_error = 0.0;
+    double position_rmse = 0.0;
+    double maximum_velocity_error = 0.0;
+    double maximum_density_error = 0.0;
+    double outlier_density_error = 0.0;
+    double outlier_face_distance = 0.0;
+    bool gpu_active = false;
+    bool cpu_active = false;
+    std::uint32_t inferred_face_mask = 0U;
+    std::uint32_t contact_face_mask = 0U;
+    Vec3d contact_impulse;
+    Vec3d gpu_position;
+    Vec3d cpu_position;
+    Vec3d position_delta;
+    Vec3d gpu_velocity;
+    Vec3d cpu_velocity;
+    Vec3d current_high;
+    Vec3d current_low;
+    Vec3d predicted_high;
+    Vec3d predicted_low;
+    std::uint32_t gpu_hvp = 0U;
+    std::uint32_t cpu_hvp = 0U;
+    std::uint64_t gpu_outer = 0U;
+    std::uint64_t gpu_accepted = 0U;
+    std::uint64_t gpu_rejected = 0U;
+    std::uint64_t gpu_radius_shrinks = 0U;
+    std::uint64_t contact_projections = 0U;
+    std::uint64_t boundary_face_mask_xor = 0U;
+    std::uint32_t neighbor_count = 0U;
+    std::uint32_t active_neighbor_centers = 0U;
+    std::string sample_records_root;
+    std::string neighbor_root;
+    std::string graph_work_root;
+    std::string step_work_root;
+    std::string permuted_step_work_root;
+    std::string cpu_step_work_root;
+    std::string trace_root;
+    std::string state_root;
+};
+
+struct Ncgp5Discriminator {
+    bool valid = false;
+    bool active_signature_equal = false;
+    SameStateOperatorError operator_error;
+    std::uint32_t gpu_hvp = 0U;
+    std::uint32_t cpu_hvp = 0U;
+    std::uint32_t gpu_outer = 0U;
+    std::uint32_t cpu_outer = 0U;
+    double position_rmse = std::numeric_limits<double>::infinity();
+    double position_maximum = std::numeric_limits<double>::infinity();
+    std::string input_root;
+    std::string gpu_result_root;
+    std::string cpu_result_root;
+    std::string trace_root;
+};
+
+std::string cpu_state_semantic_root(
+    const std::vector<NonlocalGpuSample>& unordered_state) {
+    std::vector<NonlocalGpuSample> state = unordered_state;
+    std::sort(state.begin(), state.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.sample_id < rhs.sample_id;
+    });
+    std::ostringstream material;
+    material << "nextengine.nonlocal.ncgp5.cpu-state.v1\n";
+    for (const NonlocalGpuSample& sample : state) {
+        material << sample.sample_id << ':' << std::hex;
+        for (const double value : std::array<double, 9>{sample.reference.x,
+                 sample.reference.y, sample.reference.z, sample.current.x,
+                 sample.current.y, sample.current.z, sample.velocity.x,
+                 sample.velocity.y, sample.velocity.z}) {
+            material << double_bits(value) << ',';
+        }
+        material << std::dec << '\n';
+    }
+    return nextengine::nonlocal::sha256_hex(material.str());
+}
+
+std::uint32_t inferred_inset_face_mask(
+    const NonlocalGpuProfile& profile, Vec3d position) {
+    constexpr double kFaceTolerance = 2.0e-7;
+    const double lower = 0.5 * profile.spacing;
+    const Vec3d upper{profile.basin_extent.x - lower,
+        profile.basin_extent.y - lower, profile.basin_extent.z - lower};
+    std::uint32_t mask = 0U;
+    if (std::abs(position.x - lower) <= kFaceTolerance) mask |= 1U;
+    if (std::abs(position.x - upper.x) <= kFaceTolerance) mask |= 2U;
+    if (std::abs(position.y - lower) <= kFaceTolerance) mask |= 4U;
+    if (std::abs(position.y - upper.y) <= kFaceTolerance) mask |= 8U;
+    if (std::abs(position.z - lower) <= kFaceTolerance) mask |= 16U;
+    if (std::abs(position.z - upper.z) <= kFaceTolerance) mask |= 32U;
+    return mask;
+}
+
+double inset_face_distance(
+    const NonlocalGpuProfile& profile, Vec3d position) {
+    const double lower = 0.5 * profile.spacing;
+    const Vec3d upper{profile.basin_extent.x - lower,
+        profile.basin_extent.y - lower, profile.basin_extent.z - lower};
+    return std::min({position.x - lower, upper.x - position.x,
+        position.y - lower, upper.y - position.y, position.z - lower,
+        upper.z - position.z});
+}
+
+Ncgp5Discriminator run_ncgp5_discriminator(
+    NonlocalGpuWorkspace& source_workspace,
+    const NonlocalGpuProfile& profile,
+    const NonlocalGpuPublicSnapshot& source_snapshot,
+    const std::vector<NonlocalGpuGhost>& ghosts) {
+    Ncgp5Discriminator result;
+    result.operator_error = compare_same_state_operator(
+        source_workspace, profile, source_snapshot, ghosts);
+    result.input_root = input_semantic_root(
+        profile, source_snapshot.state, ghosts);
+    NonlocalGpuWorkspace synchronized_gpu(profile);
+    if (synchronized_gpu.upload(source_snapshot.state, ghosts, true)
+        != NonlocalGpuFailure::None) return result;
+    const NonlocalGpuStepResult gpu_step = synchronized_gpu.step(128U,
+        NonlocalGpuSolverProfile::Unpreconditioned,
+        NonlocalGpuVariant::CompensatedScaleF32, false, false, true);
+    const NonlocalGpuPublicSnapshot gpu_snapshot =
+        synchronized_gpu.capture_public_snapshot();
+    const NonlocalGpuStepResult cpu_step = step_reference(profile,
+        source_snapshot.state, ghosts, 128U, NonlocalGpuVariant::Corrected,
+        true);
+    result.gpu_hvp = gpu_step.hvp_used;
+    result.cpu_hvp = cpu_step.hvp_used;
+    result.gpu_outer = gpu_step.outer_trials;
+    result.cpu_outer = cpu_step.outer_trials;
+    result.gpu_result_root = step_semantic_root(
+        profile, result.input_root, gpu_step);
+    result.cpu_result_root = step_semantic_root(
+        profile, result.input_root, cpu_step);
+    result.trace_root = solver_trace_semantic_root(gpu_step);
+    if (gpu_step.failure != NonlocalGpuFailure::None
+        || cpu_step.failure != NonlocalGpuFailure::None
+        || gpu_snapshot.failure != NonlocalGpuFailure::None
+        || gpu_snapshot.state.size() != cpu_step.state.size()
+        || gpu_snapshot.state.empty()
+        || !solver_trace_valid(gpu_step)) return result;
+    long double squared = 0.0L;
+    double maximum = 0.0;
+    for (std::size_t index = 0U; index < gpu_snapshot.state.size(); ++index) {
+        if (gpu_snapshot.state[index].sample_id
+            != cpu_step.state[index].sample_id) return result;
+        const Vec3d delta{subtract(gpu_snapshot.state[index].current,
+            cpu_step.state[index].current)};
+        const double error = std::sqrt(
+            delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+        squared += static_cast<long double>(error) * error;
+        maximum = std::max(maximum, error);
+    }
+    result.position_rmse = static_cast<double>(std::sqrt(
+        squared / static_cast<long double>(gpu_snapshot.state.size())));
+    result.position_maximum = maximum;
+    result.active_signature_equal = gpu_snapshot.active_pressure_ids
+        == cpu_step.active_pressure_ids;
+    result.valid = result.operator_error.valid
+        && result.operator_error.active_signature_equal
+        && result.position_rmse <= 0.0025
+        && result.position_maximum <= 0.005;
+    return result;
+}
+
+int run_ncgp5_step92_diagnosis() {
+    constexpr std::uint32_t kLastStep = 92U;
+    constexpr std::uint32_t kRecordFirst = 80U;
+    const NonlocalGpuProfile profile = nonlocal_water_corrected_profile();
+    const auto ghosts = canonicalize_ghosts_binary32(make_basin_ghosts(profile));
+    auto cpu_state = trajectory_initial(profile, "hydrostatic-hold", false);
+    const auto coherent_input = cpu_state;
+    const auto permuted_input = trajectory_initial(
+        profile, "hydrostatic-hold", true);
+    const std::string input_root = input_semantic_root(
+        profile, coherent_input, ghosts);
+    NonlocalGpuWorkspace gpu(profile);
+    NonlocalGpuWorkspace permuted(profile);
+    if (gpu.upload(coherent_input, ghosts, true) != NonlocalGpuFailure::None
+        || permuted.upload(permuted_input, ghosts, true)
+            != NonlocalGpuFailure::None) return 51;
+    std::vector<Ncgp5StepRecord> records;
+    Ncgp5Discriminator slope_discriminator;
+    Ncgp5Discriminator pre_failure_discriminator;
+    std::uint32_t slope_step = 0U;
+    double prior_maximum = 0.0;
+    double prior_slope = 0.0;
+    bool apparatus_valid = true;
+    bool permutation_exact = true;
+    bool sample_mutation_rejected = true;
+    bool neighbor_mutation_rejected = true;
+    NonlocalGpuStepResult final_gpu_step;
+    std::ostringstream all_receipts;
+    all_receipts << "nextengine.nonlocal.ncgp5.step92-receipts.v1\n";
+    for (std::uint32_t step = 1U; step <= kLastStep; ++step) {
+        const bool diagnostic = step >= kRecordFirst;
+        const NonlocalGpuStepResult gpu_step = gpu.step(128U,
+            NonlocalGpuSolverProfile::Unpreconditioned,
+            NonlocalGpuVariant::CompensatedScaleF32, false, false,
+            diagnostic);
+        const NonlocalGpuStepResult permuted_step = permuted.step(128U,
+            NonlocalGpuSolverProfile::Unpreconditioned,
+            NonlocalGpuVariant::CompensatedScaleF32, false, false,
+            diagnostic);
+        const NonlocalGpuPublicSnapshot gpu_snapshot =
+            gpu.capture_public_snapshot();
+        const NonlocalGpuPublicSnapshot permuted_snapshot =
+            permuted.capture_public_snapshot();
+        const NonlocalGpuCompensatedStateSnapshot compensated =
+            gpu.capture_compensated_state();
+        const NonlocalGpuCompensatedStateSnapshot permuted_compensated =
+            permuted.capture_compensated_state();
+        const NonlocalGpuStepResult cpu_step = step_reference(profile,
+            cpu_state, ghosts, 128U, NonlocalGpuVariant::Corrected, true);
+        all_receipts << step << ':'
+                     << step_work_semantic_root(profile, gpu_step) << ':'
+                     << step_work_semantic_root(profile, permuted_step) << ':'
+                     << step_work_semantic_root(profile, cpu_step) << ':'
+                     << work_semantic_root(gpu_snapshot.work) << ':'
+                     << work_semantic_root(permuted_snapshot.work) << ':'
+                     << work_semantic_root(compensated.work) << ':'
+                     << work_semantic_root(permuted_compensated.work) << '\n';
+        if (gpu_step.failure != NonlocalGpuFailure::None
+            || permuted_step.failure != NonlocalGpuFailure::None
+            || cpu_step.failure != NonlocalGpuFailure::None
+            || gpu_snapshot.failure != NonlocalGpuFailure::None
+            || permuted_snapshot.failure != NonlocalGpuFailure::None
+            || compensated.failure != NonlocalGpuFailure::None
+            || permuted_compensated.failure != NonlocalGpuFailure::None
+            || gpu_snapshot.state.size() != cpu_step.state.size()
+            || gpu_snapshot.state.size() != permuted_snapshot.state.size()) {
+            apparatus_valid = false;
+            break;
+        }
+        if (diagnostic
+            && (gpu_step.diagnostic_contact_impulse.size()
+                    != gpu_snapshot.state.size()
+                || gpu_step.diagnostic_contact_face_masks.size()
+                    != gpu_snapshot.state.size()
+                || permuted_step.diagnostic_contact_impulse.size()
+                    != permuted_snapshot.state.size()
+                || permuted_step.diagnostic_contact_face_masks.size()
+                    != permuted_snapshot.state.size())) {
+            apparatus_valid = false;
+            break;
+        }
+        if (compensated_state_root(compensated)
+                != compensated_state_root(permuted_compensated)
+            || gpu_snapshot.active_pressure_ids
+                != permuted_snapshot.active_pressure_ids) {
+            permutation_exact = false;
+            apparatus_valid = false;
+            break;
+        }
+        std::vector<double> position_errors;
+        position_errors.reserve(gpu_snapshot.state.size());
+        long double position_squared = 0.0L;
+        double maximum_position = -1.0;
+        double maximum_velocity = 0.0;
+        double maximum_density = 0.0;
+        std::size_t maximum_index = 0U;
+        std::ostringstream sample_material;
+        sample_material << std::setprecision(17)
+                        << "nextengine.nonlocal.ncgp5.sample-records.v1\n"
+                        << step << '\n';
+        for (std::size_t index = 0U; index < gpu_snapshot.state.size(); ++index) {
+            if (gpu_snapshot.state[index].sample_id
+                    != cpu_step.state[index].sample_id
+                || gpu_snapshot.state[index].sample_id
+                    != permuted_snapshot.state[index].sample_id) {
+                apparatus_valid = false;
+                break;
+            }
+            const Vec3d position_delta = subtract(
+                gpu_snapshot.state[index].current,
+                cpu_step.state[index].current);
+            const Vec3d velocity_delta = subtract(
+                gpu_snapshot.state[index].velocity,
+                cpu_step.state[index].velocity);
+            const double position_error = std::sqrt(
+                squared_norm(position_delta));
+            const double velocity_error = std::sqrt(
+                squared_norm(velocity_delta));
+            const double density_error = std::abs(
+                gpu_snapshot.density[index] - cpu_step.density[index])
+                / profile.rest_density;
+            position_errors.push_back(position_error);
+            position_squared += static_cast<long double>(position_error)
+                * position_error;
+            if (position_error > maximum_position) {
+                maximum_position = position_error;
+                maximum_index = index;
+            }
+            maximum_velocity = std::max(maximum_velocity, velocity_error);
+            maximum_density = std::max(maximum_density, density_error);
+            const std::uint32_t id = gpu_snapshot.state[index].sample_id;
+            const bool gpu_active = std::binary_search(
+                gpu_snapshot.active_pressure_ids.begin(),
+                gpu_snapshot.active_pressure_ids.end(), id);
+            const bool cpu_active = std::binary_search(
+                cpu_step.active_pressure_ids.begin(),
+                cpu_step.active_pressure_ids.end(), id);
+            sample_material << id << ':' << std::hex
+                            << float_bits(static_cast<float>(
+                                   gpu_snapshot.state[index].current.x)) << ','
+                            << float_bits(static_cast<float>(
+                                   gpu_snapshot.state[index].current.y)) << ','
+                            << float_bits(static_cast<float>(
+                                   gpu_snapshot.state[index].current.z)) << ':'
+                            << double_bits(cpu_step.state[index].current.x) << ','
+                            << double_bits(cpu_step.state[index].current.y) << ','
+                            << double_bits(cpu_step.state[index].current.z) << ':'
+                            << float_bits(static_cast<float>(
+                                   gpu_snapshot.density[index])) << ','
+                            << double_bits(cpu_step.density[index]) << ':'
+                            << std::dec << gpu_active << ',' << cpu_active
+                            << ',' << position_error << ',' << velocity_error
+                            << ',' << density_error;
+            if (diagnostic) {
+                const Vec3d contact =
+                    gpu_step.diagnostic_contact_impulse[index];
+                sample_material << ','
+                    << gpu_step.diagnostic_contact_face_masks[index] << ','
+                    << std::hex
+                    << float_bits(static_cast<float>(contact.x)) << ','
+                    << float_bits(static_cast<float>(contact.y)) << ','
+                    << float_bits(static_cast<float>(contact.z)) << ','
+                    << std::dec << inset_face_distance(
+                           profile, gpu_snapshot.state[index].current) << ','
+                    << inferred_inset_face_mask(
+                           profile, gpu_snapshot.state[index].current);
+            }
+            sample_material << '\n';
+        }
+        if (!apparatus_valid || position_errors.empty()) break;
+        std::sort(position_errors.begin(), position_errors.end());
+        const auto nearest_rank = [&](double fraction) {
+            const std::size_t rank = static_cast<std::size_t>(
+                std::ceil(fraction * position_errors.size()));
+            return position_errors[std::max<std::size_t>(rank, 1U) - 1U];
+        };
+        const double slope = maximum_position - prior_maximum;
+        if (step >= kRecordFirst && slope_step == 0U && prior_slope > 0.0
+            && slope > 2.0 * prior_slope) {
+            slope_step = step;
+            slope_discriminator = run_ncgp5_discriminator(
+                gpu, profile, gpu_snapshot, ghosts);
+        }
+        prior_maximum = maximum_position;
+        prior_slope = slope;
+        if (step == kLastStep - 1U) {
+            pre_failure_discriminator = run_ncgp5_discriminator(
+                gpu, profile, gpu_snapshot, ghosts);
+        }
+        if (diagnostic) {
+            Ncgp5StepRecord record;
+            record.step = step;
+            record.maximum_id = gpu_snapshot.state[maximum_index].sample_id;
+            record.p50_position_error = nearest_rank(0.50);
+            record.p95_position_error = nearest_rank(0.95);
+            record.p99_position_error = nearest_rank(0.99);
+            record.maximum_position_error = maximum_position;
+            record.position_rmse = static_cast<double>(std::sqrt(
+                position_squared / static_cast<long double>(
+                    gpu_snapshot.state.size())));
+            record.maximum_velocity_error = maximum_velocity;
+            record.maximum_density_error = maximum_density;
+            record.gpu_position = gpu_snapshot.state[maximum_index].current;
+            record.cpu_position = cpu_step.state[maximum_index].current;
+            record.position_delta = subtract(
+                record.gpu_position, record.cpu_position);
+            const std::array<double, 3> components{
+                std::abs(record.position_delta.x),
+                std::abs(record.position_delta.y),
+                std::abs(record.position_delta.z)};
+            record.maximum_component = static_cast<std::uint32_t>(
+                std::distance(components.begin(), std::max_element(
+                    components.begin(), components.end())));
+            record.gpu_velocity = gpu_snapshot.state[maximum_index].velocity;
+            record.cpu_velocity = cpu_step.state[maximum_index].velocity;
+            record.outlier_density_error = std::abs(
+                gpu_snapshot.density[maximum_index]
+                    - cpu_step.density[maximum_index])
+                / profile.rest_density;
+            record.gpu_active = std::binary_search(
+                gpu_snapshot.active_pressure_ids.begin(),
+                gpu_snapshot.active_pressure_ids.end(), record.maximum_id);
+            record.cpu_active = std::binary_search(
+                cpu_step.active_pressure_ids.begin(),
+                cpu_step.active_pressure_ids.end(), record.maximum_id);
+            record.outlier_face_distance = inset_face_distance(
+                profile, record.gpu_position);
+            record.inferred_face_mask = inferred_inset_face_mask(
+                profile, record.gpu_position);
+            record.contact_face_mask =
+                gpu_step.diagnostic_contact_face_masks[maximum_index];
+            record.contact_impulse =
+                gpu_step.diagnostic_contact_impulse[maximum_index];
+            record.current_high = compensated.current_high[maximum_index];
+            record.current_low = compensated.current_low[maximum_index];
+            record.predicted_high = compensated.predicted_high[maximum_index];
+            record.predicted_low = compensated.predicted_low[maximum_index];
+            record.gpu_hvp = gpu_step.hvp_used;
+            record.cpu_hvp = cpu_step.hvp_used;
+            record.gpu_outer = gpu_step.work.outer_trials;
+            record.gpu_accepted = gpu_step.work.accepted_trials;
+            record.gpu_rejected = gpu_step.work.rejected_trials;
+            record.gpu_radius_shrinks = gpu_step.work.radius_shrinks;
+            record.contact_projections = gpu_step.work.contact_projections;
+            record.boundary_face_mask_xor =
+                gpu_step.boundary_face_mask_xor;
+            record.sample_records_root = nextengine::nonlocal::sha256_hex(
+                sample_material.str());
+            std::string mutated_samples = sample_material.str();
+            if (!mutated_samples.empty()) mutated_samples.back() ^= 1;
+            sample_mutation_rejected = sample_mutation_rejected
+                && nextengine::nonlocal::sha256_hex(mutated_samples)
+                    != record.sample_records_root;
+            const NonlocalGpuGraphResult graph = gpu.build_current_graph(
+                NonlocalGpuVariant::CompensatedScaleF32, true, false);
+            if (graph.failure != NonlocalGpuFailure::None) {
+                apparatus_valid = false;
+                break;
+            }
+            const auto owner = std::lower_bound(graph.owner_ids.begin(),
+                graph.owner_ids.end(), record.maximum_id);
+            if (owner == graph.owner_ids.end() || *owner != record.maximum_id) {
+                apparatus_valid = false;
+                break;
+            }
+            const std::size_t row = static_cast<std::size_t>(
+                std::distance(graph.owner_ids.begin(), owner));
+            std::ostringstream neighbor_material;
+            neighbor_material << "nextengine.nonlocal.ncgp5.outlier-row.v1\n"
+                              << step << ':' << record.maximum_id << '\n';
+            for (std::uint32_t offset = graph.offsets[row];
+                 offset < graph.offsets[row + 1U]; ++offset) {
+                const std::uint32_t neighbor = graph.neighbor_ids[offset];
+                const bool active = std::binary_search(
+                    gpu_snapshot.active_pressure_ids.begin(),
+                    gpu_snapshot.active_pressure_ids.end(), neighbor);
+                neighbor_material << neighbor << ':' << active << '\n';
+                ++record.neighbor_count;
+                if (active) ++record.active_neighbor_centers;
+            }
+            record.neighbor_root = nextengine::nonlocal::sha256_hex(
+                neighbor_material.str());
+            std::string mutated_neighbors = neighbor_material.str();
+            if (!mutated_neighbors.empty()) mutated_neighbors.back() ^= 1;
+            neighbor_mutation_rejected = neighbor_mutation_rejected
+                && nextengine::nonlocal::sha256_hex(mutated_neighbors)
+                    != record.neighbor_root;
+            record.graph_work_root = work_semantic_root(graph.work);
+            record.step_work_root = step_work_semantic_root(profile, gpu_step);
+            record.permuted_step_work_root = step_work_semantic_root(
+                profile, permuted_step);
+            record.cpu_step_work_root = step_work_semantic_root(
+                profile, cpu_step);
+            record.trace_root = solver_trace_semantic_root(gpu_step);
+            record.state_root = compensated_state_root(compensated);
+            records.push_back(record);
+        }
+        cpu_state = cpu_step.state;
+        final_gpu_step = gpu_step;
+    }
+    NonlocalGpuStepResult work_mutation = final_gpu_step;
+    ++work_mutation.hvp_used;
+    const bool work_mutation_rejected = !solver_trace_valid(work_mutation);
+    const bool witness_reproduced = apparatus_valid && permutation_exact
+        && records.size() == kLastStep - kRecordFirst + 1U
+        && records.back().step == kLastStep
+        && records.back().maximum_position_error > 0.005
+        && records.back().position_rmse <= 0.0025;
+    const bool discriminators_valid = pre_failure_discriminator.valid
+        && (slope_step == 0U || slope_discriminator.valid);
+    const bool controls_pass = sample_mutation_rejected
+        && neighbor_mutation_rejected && work_mutation_rejected;
+    const bool passed = witness_reproduced && discriminators_valid
+        && controls_pass;
+    const std::string receipt_root = nextengine::nonlocal::sha256_hex(
+        all_receipts.str());
+    const std::string executable_root = binary_root();
+    const std::string environment = gpu.environment_json();
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << "nextengine.nonlocal.ncgp5.step92-result.v1\n"
+                    << passed << '\n' << input_root << '\n' << receipt_root
+                    << '\n' << slope_step << '\n';
+    for (const Ncgp5StepRecord& record : records) {
+        result_material << record.step << ':' << record.maximum_id << ':'
+                        << record.maximum_component << ':'
+                        << record.p50_position_error << ':'
+                        << record.p95_position_error << ':'
+                        << record.p99_position_error << ':'
+                        << record.maximum_position_error << ':'
+                        << record.position_rmse << ':'
+                        << record.maximum_velocity_error << ':'
+                        << record.maximum_density_error << ':'
+                        << record.outlier_density_error << ':'
+                        << record.outlier_face_distance << ':'
+                        << record.gpu_active << ':' << record.cpu_active << ':'
+                        << record.inferred_face_mask << ':'
+                        << record.contact_face_mask << ':'
+                        << record.contact_impulse.x << ':'
+                        << record.contact_impulse.y << ':'
+                        << record.contact_impulse.z << ':'
+                        << record.gpu_hvp << ':' << record.cpu_hvp << ':'
+                        << record.gpu_outer << ':' << record.gpu_accepted << ':'
+                        << record.gpu_rejected << ':'
+                        << record.gpu_radius_shrinks << ':'
+                        << record.contact_projections << ':'
+                        << record.boundary_face_mask_xor << ':'
+                        << record.neighbor_count << ':'
+                        << record.active_neighbor_centers << ':'
+                        << record.sample_records_root << ':'
+                        << record.neighbor_root << ':'
+                        << record.graph_work_root << ':'
+                        << record.step_work_root << ':'
+                        << record.permuted_step_work_root << ':'
+                        << record.cpu_step_work_root << ':'
+                        << record.trace_root << ':' << record.state_root << '\n';
+    }
+    const auto append_discriminator = [&](const char* label,
+                                          const Ncgp5Discriminator& value) {
+        result_material << label << ':' << value.valid << ':'
+                        << value.active_signature_equal << ':'
+                        << value.operator_error.gradient_relative_l2 << ':'
+                        << value.operator_error.hvp_relative_l2 << ':'
+                        << value.operator_error.hvp_cosine_loss << ':'
+                        << value.position_rmse << ':' << value.position_maximum
+                        << ':' << value.gpu_hvp << ':' << value.cpu_hvp << ':'
+                        << value.gpu_outer << ':' << value.cpu_outer << ':'
+                        << value.input_root << ':' << value.gpu_result_root << ':'
+                        << value.cpu_result_root << ':' << value.trace_root
+                        << '\n';
+    };
+    append_discriminator("slope", slope_discriminator);
+    append_discriminator("pre-failure", pre_failure_discriminator);
+    result_material << controls_pass << '\n' << NCGP5_CONTRACT_ROOT << '\n'
+                    << NCGP5_SOURCE_ROOT << '\n' << NCGP5_SOURCE_COMMIT << '\n'
+                    << NCGP5_SOURCE_TREE << '\n' << NCGP5_COMPILER_FLAGS << '\n'
+                    << executable_root << '\n' << environment << '\n';
+    const std::string result_root = nextengine::nonlocal::sha256_hex(
+        result_material.str());
+    const auto emit_vec = [](Vec3d value) {
+        std::cout << '[' << value.x << ',' << value.y << ',' << value.z << ']';
+    };
+    const auto emit_discriminator = [&](const Ncgp5Discriminator& value) {
+        std::cout << "{\"valid\":" << (value.valid ? "true" : "false")
+                  << ",\"active_signature_equal\":"
+                  << (value.active_signature_equal ? "true" : "false")
+                  << ",\"gradient_relative_l2\":"
+                  << value.operator_error.gradient_relative_l2
+                  << ",\"hvp_relative_l2\":"
+                  << value.operator_error.hvp_relative_l2
+                  << ",\"hvp_cosine_loss\":"
+                  << value.operator_error.hvp_cosine_loss
+                  << ",\"position_rmse_m\":" << value.position_rmse
+                  << ",\"position_max_m\":" << value.position_maximum
+                  << ",\"gpu_hvp\":" << value.gpu_hvp
+                  << ",\"cpu_hvp\":" << value.cpu_hvp
+                  << ",\"gpu_outer\":" << value.gpu_outer
+                  << ",\"cpu_outer\":" << value.cpu_outer
+                  << ",\"input_root\":\"" << value.input_root
+                  << "\",\"gpu_result_root\":\"" << value.gpu_result_root
+                  << "\",\"cpu_result_root\":\"" << value.cpu_result_root
+                  << "\",\"trace_root\":\"" << value.trace_root << "\"}";
+    };
+    std::cout << std::setprecision(17)
+              << "{\"schema\":\"nextengine.nonlocal.ncgp5.step92.v1\""
+              << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
+              << ",\"witness_reproduced\":"
+              << (witness_reproduced ? "true" : "false")
+              << ",\"permutation_exact\":"
+              << (permutation_exact ? "true" : "false")
+              << ",\"slope_step\":" << slope_step
+              << ",\"sample_mutation_rejected\":"
+              << (sample_mutation_rejected ? "true" : "false")
+              << ",\"neighbor_mutation_rejected\":"
+              << (neighbor_mutation_rejected ? "true" : "false")
+              << ",\"work_mutation_rejected\":"
+              << (work_mutation_rejected ? "true" : "false")
+              << ",\"records\":[";
+    for (std::size_t index = 0U; index < records.size(); ++index) {
+        const Ncgp5StepRecord& record = records[index];
+        if (index != 0U) std::cout << ',';
+        std::cout << "{\"step\":" << record.step
+                  << ",\"maximum_id\":" << record.maximum_id
+                  << ",\"maximum_component\":" << record.maximum_component
+                  << ",\"p50_m\":" << record.p50_position_error
+                  << ",\"p95_m\":" << record.p95_position_error
+                  << ",\"p99_m\":" << record.p99_position_error
+                  << ",\"max_m\":" << record.maximum_position_error
+                  << ",\"rmse_m\":" << record.position_rmse
+                  << ",\"velocity_max_m_s\":"
+                  << record.maximum_velocity_error
+                  << ",\"density_max_fraction\":"
+                  << record.maximum_density_error
+                  << ",\"outlier_density_fraction\":"
+                  << record.outlier_density_error
+                  << ",\"outlier_face_distance_m\":"
+                  << record.outlier_face_distance
+                  << ",\"gpu_active\":"
+                  << (record.gpu_active ? "true" : "false")
+                  << ",\"cpu_active\":"
+                  << (record.cpu_active ? "true" : "false")
+                  << ",\"inferred_face_mask\":"
+                  << record.inferred_face_mask
+                  << ",\"contact_face_mask\":"
+                  << record.contact_face_mask
+                  << ",\"contact_impulse\":";
+        emit_vec(record.contact_impulse);
+        std::cout
+                  << ",\"gpu_position\":";
+        emit_vec(record.gpu_position);
+        std::cout << ",\"cpu_position\":";
+        emit_vec(record.cpu_position);
+        std::cout << ",\"position_delta\":";
+        emit_vec(record.position_delta);
+        std::cout << ",\"gpu_velocity\":";
+        emit_vec(record.gpu_velocity);
+        std::cout << ",\"cpu_velocity\":";
+        emit_vec(record.cpu_velocity);
+        std::cout << ",\"current_high\":";
+        emit_vec(record.current_high);
+        std::cout << ",\"current_low\":";
+        emit_vec(record.current_low);
+        std::cout << ",\"predicted_high\":";
+        emit_vec(record.predicted_high);
+        std::cout << ",\"predicted_low\":";
+        emit_vec(record.predicted_low);
+        std::cout << ",\"gpu_hvp\":" << record.gpu_hvp
+                  << ",\"cpu_hvp\":" << record.cpu_hvp
+                  << ",\"gpu_outer\":" << record.gpu_outer
+                  << ",\"gpu_accepted\":" << record.gpu_accepted
+                  << ",\"gpu_rejected\":" << record.gpu_rejected
+                  << ",\"gpu_radius_shrinks\":"
+                  << record.gpu_radius_shrinks
+                  << ",\"contact_projections\":"
+                  << record.contact_projections
+                  << ",\"boundary_face_mask_xor\":"
+                  << record.boundary_face_mask_xor
+                  << ",\"neighbor_count\":" << record.neighbor_count
+                  << ",\"active_neighbor_centers\":"
+                  << record.active_neighbor_centers
+                  << ",\"sample_records_root\":\""
+                  << record.sample_records_root
+                  << "\",\"neighbor_root\":\"" << record.neighbor_root
+                  << "\",\"graph_work_root\":\""
+                  << record.graph_work_root
+                  << "\",\"step_work_root\":\"" << record.step_work_root
+                  << "\",\"trace_root\":\"" << record.trace_root
+                  << "\",\"state_root\":\"" << record.state_root << "\"}";
+    }
+    std::cout << "],\"slope_discriminator\":";
+    emit_discriminator(slope_discriminator);
+    std::cout << ",\"pre_failure_discriminator\":";
+    emit_discriminator(pre_failure_discriminator);
+    std::cout << ",\"cpu_final_state_root\":\""
+              << cpu_state_semantic_root(cpu_state)
+              << "\",\"input_root\":\"" << input_root
+              << "\",\"receipt_root\":\"" << receipt_root
+              << "\",\"result_root\":\"" << result_root
+              << "\",\"contract_root\":\"" << NCGP5_CONTRACT_ROOT
+              << "\",\"source_root\":\"" << NCGP5_SOURCE_ROOT
+              << "\",\"source_commit\":\"" << NCGP5_SOURCE_COMMIT
+              << "\",\"source_tree\":\"" << NCGP5_SOURCE_TREE
+              << "\",\"compiler_flags\":\"" << NCGP5_COMPILER_FLAGS
+              << "\",\"binary_root\":\"" << executable_root
+              << "\",\"environment\":" << environment
+              << ",\"exact_command\":\"--diagnose-hydro-step92-outlier\"}\n";
+    return passed ? 0 : 54;
+}
+#endif
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -1668,9 +2379,17 @@ int main(int argc, char** argv) {
             "f32-primary", NonlocalGpuSolverProfile::Unpreconditioned);
     }
 #endif
+#if defined(NCGP5_EXPERIMENTAL)
+    if (argc == 2
+        && std::string(argv[1]) == "--diagnose-hydro-step92-outlier") {
+        return run_ncgp5_step92_diagnosis();
+    }
+#endif
     std::cerr << "usage: nonlocal-corrected-cuda-compensated-scale "
                  "--profile-self-test|--graph-self-test|--boundary-self-test|"
                  "--transaction-self-test|--physics-self-test|"
+                 "--diagnose-hydro-step39|"
+                 "--diagnose-hydro-step92-outlier|"
                  "--correspondence-4k SCENARIO STEPS BUDGET|"
                  "--correspondence-4k-unpreconditioned SCENARIO STEPS BUDGET|"
                  "--correspondence-4k-pressure-f64 SCENARIO STEPS BUDGET\n";
