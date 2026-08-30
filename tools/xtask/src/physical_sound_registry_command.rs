@@ -15,6 +15,7 @@ mod corpus_plan;
 mod domain_claims;
 mod internet_sources;
 mod neural_data_plane;
+mod realimpact_neural_slice;
 mod realimpact_row;
 mod realimpact_transfer_fixture;
 mod realimpact_transfer_preregistration;
@@ -94,6 +95,10 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         Some("realimpact-row") => {
             arguments.next();
             return realimpact_row::run_cli(root, arguments);
+        }
+        Some("realimpact-neural-slice") => {
+            arguments.next();
+            return realimpact_neural_slice::run_cli(root, arguments);
         }
         Some("realimpact-transfer-preregister") => {
             return realimpact_transfer_preregistration::run_cli(root, arguments.skip(1));

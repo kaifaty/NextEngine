@@ -849,7 +849,7 @@ fn parse_mesh(bytes: &[u8]) -> Result<ParsedMesh, String> {
     Ok((vertices, minimum, maximum))
 }
 
-fn normalized_wav(row: &[u8], peak_abs: f64) -> Result<Vec<u8>, String> {
+pub(super) fn normalized_wav(row: &[u8], peak_abs: f64) -> Result<Vec<u8>, String> {
     if !row.len().is_multiple_of(4) || !peak_abs.is_finite() || peak_abs <= 0.0 {
         return Err("cannot normalize invalid REALIMPACT transfer row".to_owned());
     }

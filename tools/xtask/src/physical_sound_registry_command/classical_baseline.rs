@@ -24,7 +24,7 @@ use super::{
 const MANIFEST_SCHEMA: &str =
     "nextengine.experimental-physical-sound-classical-baseline.manifest.v1";
 const PROJECTION_SCHEMA: &str =
-    "nextengine.experimental-physical-sound-neural-data-plane.projection.v1";
+    "nextengine.experimental-physical-sound-neural-data-plane.projection.v2";
 const PROFILE_SCHEMA: &str = "nextengine.experimental-physical-sound-classical-q30-profile.v1";
 const RECORDS_SCHEMA: &str = "nextengine.experimental-physical-sound-classical-baseline.records.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-classical-baseline.report.v1";
@@ -132,8 +132,16 @@ struct ProjectionRow {
     split_role: String,
     sample_role: String,
     corpus_role: String,
+    audio_semantics: AudioSemantics,
     audio: ProjectedArtifact,
     axes: ProjectionAxes,
+}
+
+#[derive(Clone, Copy, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum AudioSemantics {
+    RecordedImpactWaveform,
+    ForceDeconvolvedTransferResponse,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -732,6 +740,12 @@ fn fallback_reason(row: &ProjectionRow, profile: BaselineProfile) -> Option<Cove
         return Some(CoverageStatus {
             decision: "FallbackOutOfDomain",
             reason: "reject_parent_is_validation_evidence_not_a_target_prediction",
+        });
+    }
+    if row.audio_semantics != AudioSemantics::RecordedImpactWaveform {
+        return Some(CoverageStatus {
+            decision: "FallbackOutOfDomain",
+            reason: "force_deconvolved_transfer_requires_a_transfer_domain_baseline",
         });
     }
     if !row.axes.complete_for_modal_field() {

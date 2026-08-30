@@ -77,6 +77,11 @@ fn projection_is_hash_closed_repeatable_and_keeps_sealed_rows_private() {
     assert_eq!(report["status"], "Validated");
     assert_eq!(report["decision"], "DeclaredAxisCoverageComplete");
     assert_eq!(report["row_count"], 10);
+    assert_eq!(report["capability_counts"]["recorded_impact_waveform"], 10);
+    assert_eq!(
+        report["capability_counts"]["force_deconvolved_transfer_response"],
+        0
+    );
     assert_eq!(report["model_training_authorized"], false);
     assert_eq!(report["method_holdout_materialized"], false);
     assert_eq!(report["admission_shadow_materialized"], false);
@@ -178,6 +183,55 @@ fn missing_axis_is_reported_and_never_fabricated() {
 }
 
 #[test]
+fn transfer_semantics_and_missing_surface_normal_are_preserved() {
+    let directory = TestDirectory::new();
+    let mut manifest = write_manifest(&directory.path);
+    let train_row = manifest
+        .rows
+        .iter_mut()
+        .find(|row| row.split_role == SplitRole::Train)
+        .expect("train row");
+    train_row.audio_semantics = AudioSemantics::ForceDeconvolvedTransferResponse;
+    train_row
+        .axes
+        .impact
+        .as_mut()
+        .expect("impact claim")
+        .outward_normal = None;
+    let train_row_id = train_row.row_id.clone();
+
+    let bytes = serde_json::to_vec_pretty(&manifest).expect("serialize transfer manifest");
+    let built = build_projection(
+        workspace_root(),
+        &directory.path,
+        &manifest,
+        &sha256_hex(&bytes),
+    )
+    .expect("partial impact metadata remains valid");
+    assert_eq!(
+        built
+            .report
+            .capability_counts
+            .force_deconvolved_transfer_response,
+        1
+    );
+    assert_eq!(built.report.capability_counts.impact, 10);
+    assert_eq!(built.report.capability_counts.impact_normal, 9);
+    let projected = serde_json::to_value(&built.fit_projection).expect("serialize projection");
+    let row = projected["rows"]
+        .as_array()
+        .expect("projected rows")
+        .iter()
+        .find(|row| row["row_id"] == train_row_id)
+        .expect("transfer row is projected");
+    assert_eq!(
+        row["audio_semantics"],
+        "force_deconvolved_transfer_response"
+    );
+    assert!(row["axes"]["impact"].get("outward_normal").is_none());
+}
+
+#[test]
 fn invalid_normal_missing_excitation_and_unsealed_policy_reject() {
     let directory = TestDirectory::new();
     let manifest = write_manifest(&directory.path);
@@ -188,7 +242,7 @@ fn invalid_normal_missing_excitation_and_unsealed_policy_reject() {
         .impact
         .as_mut()
         .expect("impact claim")
-        .outward_normal = [0.0, 0.0, 0.0];
+        .outward_normal = Some([0.0, 0.0, 0.0]);
     assert!(
         validate_manifest(&invalid_normal)
             .expect_err("invalid normal rejects")
@@ -268,6 +322,7 @@ fn write_manifest(directory: &Path) -> NeuralDataPlaneManifest {
                 split_role: role,
                 sample_role,
                 corpus_role: CorpusRole::Target,
+                audio_semantics: AudioSemantics::RecordedImpactWaveform,
                 source_group_id: format!("source-{role_name}"),
                 family_group_id: "thin-glass-vessel".to_owned(),
                 object_group_id: format!("object-{role_name}"),
@@ -330,7 +385,7 @@ fn complete_axes(
         impact: Some(ImpactClaim {
             coordinate_profile: "right-handed-metres".to_owned(),
             point_metres: [sample_index as f64 * 0.01, 0.0, 0.0],
-            outward_normal: [0.0, 0.0, 1.0],
+            outward_normal: Some([0.0, 0.0, 1.0]),
             evidence: evidence.clone(),
         }),
         listener: Some(ListenerClaim {

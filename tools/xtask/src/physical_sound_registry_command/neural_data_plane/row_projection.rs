@@ -90,6 +90,7 @@ pub(super) fn project_row(
         split_role: row.split_role.as_str(),
         sample_role: row.sample_role.as_str(),
         corpus_role: row.corpus_role.as_str(),
+        audio_semantics: row.audio_semantics.as_str(),
         source_group_id: row.source_group_id.clone(),
         family_group_id: row.family_group_id.clone(),
         object_group_id: row.object_group_id.clone(),

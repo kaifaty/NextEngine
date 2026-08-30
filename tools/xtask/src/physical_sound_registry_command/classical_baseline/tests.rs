@@ -117,10 +117,13 @@ fn incomplete_axis_dct_and_reject_parent_rows_fall_back_without_partial_pcm() {
     let directory = TestDirectory::new();
     let wav = selected_wav(65_536);
     fs::write(directory.path.join("reference.wav"), &wav).expect("write reference WAV");
+    let mut transfer_row = projection_row("row-development-transfer", &wav, true, "target");
+    transfer_row["audio_semantics"] = json!("force_deconvolved_transfer_response");
     let rows = [
         projection_row("row-development-dct", &wav, true, "target"),
         projection_row("row-development-incomplete", &wav, false, "target"),
         projection_row("row-development-reject-parent", &wav, true, "reject_parent"),
+        transfer_row,
     ];
     write_projection(&directory.path, &rows);
     write_manifest(
@@ -141,6 +144,11 @@ fn incomplete_axis_dct_and_reject_parent_rows_fall_back_without_partial_pcm() {
                 "row-development-reject-parent",
                 BaselineProfile::SelectedThinContainerQ30V1,
             ),
+            binding(
+                &directory.path,
+                "row-development-transfer",
+                BaselineProfile::SelectedThinContainerQ30V1,
+            ),
         ],
     );
     let output = directory.path.join("output");
@@ -159,7 +167,7 @@ fn incomplete_axis_dct_and_reject_parent_rows_fall_back_without_partial_pcm() {
     .expect("parse fallback report");
     assert_eq!(report["decision"], "ClassicalBaselineUnavailable");
     assert_eq!(report["baseline_available_rows"], 0);
-    assert_eq!(report["fallback_out_of_domain_rows"], 3);
+    assert_eq!(report["fallback_out_of_domain_rows"], 4);
     let records: Value = serde_json::from_slice(
         &fs::read(output.join("baseline-records.json")).expect("read fallback records"),
     )
@@ -266,6 +274,7 @@ fn projection_row(row_id: &str, audio: &[u8], complete_axes: bool, corpus_role: 
         "split_role": "development",
         "sample_role": "query",
         "corpus_role": corpus_role,
+        "audio_semantics": "recorded_impact_waveform",
         "audio": {"sha256":sha256_hex(audio),"byte_count":audio.len()},
         "axes": axes
     })

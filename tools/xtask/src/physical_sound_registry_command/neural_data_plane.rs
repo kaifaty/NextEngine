@@ -19,9 +19,9 @@ use super::{
 };
 
 const MANIFEST_SCHEMA: &str =
-    "nextengine.experimental-physical-sound-neural-data-plane.manifest.v1";
+    "nextengine.experimental-physical-sound-neural-data-plane.manifest.v2";
 const PROJECTION_SCHEMA: &str =
-    "nextengine.experimental-physical-sound-neural-data-plane.projection.v1";
+    "nextengine.experimental-physical-sound-neural-data-plane.projection.v2";
 const COMMITMENT_SCHEMA: &str =
     "nextengine.experimental-physical-sound-neural-data-plane.sealed-roles.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-neural-data-plane.report.v1";
@@ -139,6 +139,7 @@ struct NeuralRow {
     split_role: SplitRole,
     sample_role: SampleRole,
     corpus_role: CorpusRole,
+    audio_semantics: AudioSemantics,
     source_group_id: String,
     family_group_id: String,
     object_group_id: String,
@@ -151,6 +152,22 @@ struct NeuralRow {
     audio_provenance: FileRef,
     #[serde(default)]
     axes: AxisClaims,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum AudioSemantics {
+    RecordedImpactWaveform,
+    ForceDeconvolvedTransferResponse,
+}
+
+impl AudioSemantics {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::RecordedImpactWaveform => "recorded_impact_waveform",
+            Self::ForceDeconvolvedTransferResponse => "force_deconvolved_transfer_response",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -248,7 +265,8 @@ struct GeometryClaim {
 struct ImpactClaim {
     coordinate_profile: String,
     point_metres: [f64; 3],
-    outward_normal: [f64; 3],
+    #[serde(default)]
+    outward_normal: Option<[f64; 3]>,
     evidence: FileRef,
 }
 
@@ -301,6 +319,7 @@ struct ProjectedRow {
     split_role: &'static str,
     sample_role: &'static str,
     corpus_role: &'static str,
+    audio_semantics: &'static str,
     source_group_id: String,
     family_group_id: String,
     object_group_id: String,
@@ -358,7 +377,8 @@ struct ProjectedGeometryClaim {
 struct ProjectedImpactClaim {
     coordinate_profile: String,
     point_metres: [f64; 3],
-    outward_normal: [f64; 3],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    outward_normal: Option<[f64; 3]>,
     evidence: VerifiedArtifact,
 }
 
@@ -448,10 +468,13 @@ struct RoleCountReport {
 #[derive(Default, Serialize)]
 struct CapabilityCounts {
     audio: usize,
+    recorded_impact_waveform: usize,
+    force_deconvolved_transfer_response: usize,
     material: usize,
     geometry: usize,
     support: usize,
     impact: usize,
+    impact_normal: usize,
     listener: usize,
     excitation: usize,
     complete_modal_field: usize,
@@ -629,7 +652,9 @@ fn validate_axis_claims(axes: &AxisClaims) -> Result<(), String> {
     if let Some(claim) = &axes.impact {
         validate_label(&claim.coordinate_profile, "impact coordinate profile")?;
         validate_finite_vector(claim.point_metres, "impact point")?;
-        validate_unit_normal(claim.outward_normal)?;
+        if let Some(normal) = claim.outward_normal {
+            validate_unit_normal(normal)?;
+        }
         validate_file_ref(&claim.evidence, "impact claim evidence")?;
     }
     if let Some(claim) = &axes.listener {
@@ -931,10 +956,20 @@ fn build_capability_counts(rows: &[ProjectedRow]) -> CapabilityCounts {
     let mut counts = CapabilityCounts::default();
     for row in rows {
         counts.audio += 1;
+        counts.recorded_impact_waveform +=
+            usize::from(row.audio_semantics == "recorded_impact_waveform");
+        counts.force_deconvolved_transfer_response +=
+            usize::from(row.audio_semantics == "force_deconvolved_transfer_response");
         counts.material += usize::from(row.axes.material.is_some());
         counts.geometry += usize::from(row.axes.geometry.is_some());
         counts.support += usize::from(row.axes.support.is_some());
         counts.impact += usize::from(row.axes.impact.is_some());
+        counts.impact_normal += usize::from(
+            row.axes
+                .impact
+                .as_ref()
+                .is_some_and(|impact| impact.outward_normal.is_some()),
+        );
         counts.listener += usize::from(row.axes.listener.is_some());
         counts.excitation += usize::from(row.axes.excitation.is_some());
         counts.complete_modal_field += usize::from(row.axes.complete_for_modal_field());
