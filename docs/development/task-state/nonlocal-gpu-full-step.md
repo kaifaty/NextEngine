@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP1_REV2_TERMINAL_FROZEN / SOLVER_PENDING` |
+| Status | `ACTIVE / NCGP1_REV3_CORPUS_FROZEN / TRAJECTORY_PENDING` |
 | Updated | `2026-08-30` |
 | Task key | `nonlocal-gpu-full-step` |
 | Scope | Implement and audit a standalone matrix-free corrected Nonlocal CUDA step for the frozen 50k physical/performance profile |
@@ -11,15 +11,16 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** corrected matrix-free energy/gradient/HVP now matches
-  the independent dense long-double oracle and rejects all six formula/operator
-  wrong identities; the nonlinear solver is the next boundary.
-- **Why:** CPU matrix-free versus dense HVP is `3.86e-16`; CUDA versus reference
-  HVP is `9.33e-7` with cosine loss `2.15e-13`, inside the frozen physical gate.
-- **Next action:** implement the device-vector projected Steihaug--Toint
-  controller with the frozen `R_x<=1e-5` terminal and compare its retained tiny
-  solve against NCGA5 before boundary trajectories.
-- **Current blocker:** no matrix-free nonlinear step or trajectory exists yet.
+- **Current conclusion:** the projected device-vector Newton--CG controller
+  passes analytic free fall and contact controls; 64 HVP is the first ceiling
+  passing a one-step 4k/50k baseline, but no trajectory gate has passed yet.
+- **Why:** 32 HVP exhausts at 4k, while 64 converges in 19 outer trials at 4k
+  and 18 at 50k. The unoptimized 50k step is about `560 ms`, so performance is
+  at serious risk but cannot be classified before physical admission and the
+  two frozen optimization cycles.
+- **Next action:** implement the independent cached-CSR CPU solver and exact
+  revision-3 trajectory corpus, then freeze the corpus-wide HVP ceiling.
+- **Current blocker:** no 4k CPU trajectory correspondence or 240-step 50k run.
 - **Do not retry:** dense Hessian, source-shaped SISSM/Chebyshev, tolerance
   widening or adding NCGP0 neighbor time to an unmeasured solve.
 - **Reconsider when:** NCGP1 physical evidence selects a specific operator,
@@ -37,6 +38,7 @@
 | `docs/development/nonlocal-gpu-full-step-graph-evidence-2026-08-30.md` | `GRAPH_BASELINE_PASS` | 50k plus 43,056 ghosts fits 63.05 MB, exact permutation root and capacity controls |
 | `docs/development/nonlocal-gpu-full-step-operator-evidence-2026-08-30.md` | `MATRIX_FREE_OPERATOR_PASS` | dense/CPU/CUDA HVP correspondence and six wrong identities close locally |
 | `docs/plans/nonlocal-corrected-gpu-full-step/01-scale-aware-solver-terminal.md` | `FROZEN` | projected `R_x<=1e-5` is the only NCGP1 physical terminal; raw NCGA5 stop remains historical |
+| `docs/plans/nonlocal-corrected-gpu-full-step/02-trajectory-corpus.md` | `FROZEN` | fixes exact tiny, 4k and 50k durations/initial states before trajectory code |
 
 ## Decisions that still constrain the work
 
@@ -87,8 +89,8 @@
 
 ## Next action
 
-1. Implement unpreconditioned tiny matrix-free Steihaug--Toint correspondence.
-2. Add the positive Jacobi scalable profile without changing trust semantics.
+1. Implement the independent cached-CSR CPU solve and tiny correspondence.
+2. Run the exact 4k scenarios at 32/64/128 and freeze the smallest full-corpus ceiling.
 3. Preserve graph/operator roots and old NCGA0--7 files unchanged.
 
 ## Do not retry
