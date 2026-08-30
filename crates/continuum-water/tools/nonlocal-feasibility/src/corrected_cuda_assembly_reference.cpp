@@ -250,9 +250,10 @@ void add_block(std::vector<long double>& matrix, std::size_t dimension,
 
 } // namespace
 
-AssemblyResult evaluate_reference_assembly(
+AssemblyResult evaluate_reference_assembly_impl(
     const AssemblyProfile& profile,
-    const AssemblyFixture& fixture) {
+    const AssemblyFixture& fixture,
+    const std::vector<double>* canonical_current_m) {
     AssemblyResult output;
     if (!profile_valid(profile)) {
         output.failure = AssemblyFailure::InvalidInput;
@@ -262,6 +263,25 @@ AssemblyResult evaluate_reference_assembly(
     std::vector<CanonicalState> state = canonicalize(
         fixture, output.failure, sort_comparisons);
     if (output.failure != AssemblyFailure::None) return output;
+    if (canonical_current_m != nullptr) {
+        if (canonical_current_m->size() != 3U * state.size()) {
+            output.failure = AssemblyFailure::InvalidInput;
+            return output;
+        }
+        for (std::size_t row = 0; row < state.size(); ++row) {
+            const double x = (*canonical_current_m)[3U * row];
+            const double y = (*canonical_current_m)[3U * row + 1U];
+            const double z = (*canonical_current_m)[3U * row + 2U];
+            if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)
+                || std::abs(x) > 1000.0 || std::abs(y) > 1000.0
+                || std::abs(z) > 1000.0) {
+                output.failure = AssemblyFailure::InvalidInput;
+                return output;
+            }
+            state[row].current = {static_cast<long double>(x),
+                static_cast<long double>(y), static_cast<long double>(z)};
+        }
+    }
 
     const std::size_t count = state.size();
     const std::size_t dimension = 3U * count;
@@ -573,6 +593,20 @@ AssemblyResult evaluate_reference_assembly(
         ? 0 : surface_margin;
     output.failure = AssemblyFailure::None;
     return output;
+}
+
+AssemblyResult evaluate_reference_assembly(
+    const AssemblyProfile& profile,
+    const AssemblyFixture& fixture) {
+    return evaluate_reference_assembly_impl(profile, fixture, nullptr);
+}
+
+AssemblyResult evaluate_reference_assembly_at(
+    const AssemblyProfile& profile,
+    const AssemblyFixture& fixture,
+    const std::vector<double>& canonical_current_m) {
+    return evaluate_reference_assembly_impl(
+        profile, fixture, &canonical_current_m);
 }
 
 } // namespace nextengine::nonlocal::gpu_assembly_audit

@@ -22,6 +22,7 @@ struct DeviceSample {
     long long reference[3];
     long long predicted[3];
     long long current[3];
+    float current_m[3];
     int direction[3];
 };
 
@@ -142,9 +143,11 @@ __device__ float component(DeviceVec3 value, int axis) {
 }
 
 __device__ DeviceVec3 position(const DeviceSample& sample, int kind) {
-    const long long* value = kind == 0 ? sample.reference
-        : (kind == 1 ? sample.predicted : sample.current);
     constexpr float scale = 1.0e-6F;
+    if (kind == 2) {
+        return {sample.current_m[0], sample.current_m[1], sample.current_m[2]};
+    }
+    const long long* value = kind == 0 ? sample.reference : sample.predicted;
     return {scale * static_cast<float>(value[0]),
         scale * static_cast<float>(value[1]),
         scale * static_cast<float>(value[2])};
@@ -1011,10 +1014,23 @@ void compute_margins(const AssemblyFixture& fixture, AssemblyResult& result) {
 
 } // namespace
 
-AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
-    const AssemblyFixture& fixture, AssemblyVariant variant) {
+AssemblyResult evaluate_gpu_assembly_impl(const AssemblyProfile& profile,
+    const AssemblyFixture& fixture,
+    const std::vector<double>* canonical_current_m,
+    AssemblyVariant variant) {
     AssemblyResult output;
     if (!admitted(profile, fixture, output.failure)) return output;
+    if (canonical_current_m != nullptr
+        && canonical_current_m->size() != 3U * fixture.samples.size()) {
+        output.failure = AssemblyFailure::InvalidInput;
+        return output;
+    }
+    std::vector<std::uint32_t> canonical_ids;
+    canonical_ids.reserve(fixture.samples.size());
+    for (const AssemblySample& sample : fixture.samples) {
+        canonical_ids.push_back(sample.sample_id);
+    }
+    std::sort(canonical_ids.begin(), canonical_ids.end());
     const int count = static_cast<int>(fixture.samples.size());
     const int dimension = 3 * count;
     const std::size_t dense_entries = static_cast<std::size_t>(dimension) * dimension;
@@ -1023,10 +1039,24 @@ AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
     for (const AssemblySample& sample : fixture.samples) {
         DeviceSample value{};
         value.id = sample.sample_id;
+        const std::size_t canonical_row = static_cast<std::size_t>(
+            std::lower_bound(canonical_ids.begin(), canonical_ids.end(), sample.sample_id)
+            - canonical_ids.begin());
         for (std::size_t axis = 0; axis < 3U; ++axis) {
             value.reference[axis] = sample.reference_um[axis];
             value.predicted[axis] = sample.predicted_um[axis];
             value.current[axis] = sample.current_um[axis];
+            const double current = canonical_current_m == nullptr
+                ? 1.0e-6 * static_cast<double>(sample.current_um[axis])
+                : (*canonical_current_m)[3U * canonical_row + axis];
+            if (!std::isfinite(current) || std::abs(current) > 1000.0
+                || !std::isfinite(static_cast<float>(current))) {
+                output.failure = AssemblyFailure::InvalidInput;
+                return output;
+            }
+            value.current_m[axis] = canonical_current_m == nullptr
+                ? 1.0e-6F * static_cast<float>(sample.current_um[axis])
+                : static_cast<float>(current);
             value.direction[axis] = sample.direction_milli[axis];
         }
         host_samples.push_back(value);
@@ -1238,6 +1268,19 @@ AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
         = host_compensation_work.initializations;
     output.failure = AssemblyFailure::None;
     return output;
+}
+
+AssemblyResult evaluate_gpu_assembly(const AssemblyProfile& profile,
+    const AssemblyFixture& fixture, AssemblyVariant variant) {
+    return evaluate_gpu_assembly_impl(profile, fixture, nullptr, variant);
+}
+
+AssemblyResult evaluate_gpu_assembly_at(const AssemblyProfile& profile,
+    const AssemblyFixture& fixture,
+    const std::vector<double>& canonical_current_m,
+    AssemblyVariant variant) {
+    return evaluate_gpu_assembly_impl(
+        profile, fixture, &canonical_current_m, variant);
 }
 
 std::string gpu_assembly_environment_json() {

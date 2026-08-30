@@ -114,6 +114,11 @@ AssemblyResult evaluate_reference_assembly(
     const AssemblyProfile& profile,
     const AssemblyFixture& fixture);
 
+AssemblyResult evaluate_reference_assembly_at(
+    const AssemblyProfile& profile,
+    const AssemblyFixture& fixture,
+    const std::vector<double>& canonical_current_m);
+
 EnergyDerivativeResult evaluate_energy_derivatives(
     const AssemblyProfile& profile,
     const AssemblyFixture& fixture);
@@ -121,6 +126,12 @@ EnergyDerivativeResult evaluate_energy_derivatives(
 AssemblyResult evaluate_gpu_assembly(
     const AssemblyProfile& profile,
     const AssemblyFixture& fixture,
+    AssemblyVariant variant);
+
+AssemblyResult evaluate_gpu_assembly_at(
+    const AssemblyProfile& profile,
+    const AssemblyFixture& fixture,
+    const std::vector<double>& canonical_current_m,
     AssemblyVariant variant);
 
 std::string gpu_assembly_environment_json();
