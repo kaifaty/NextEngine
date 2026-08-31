@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PAUSED / NCGP10_PHYSICS_REFUTED / PERFORMANCE_BLOCKED / PRODUCT_DECISION_REQUIRED` |
+| Status | `ACTIVE / NCGP11_INVALID_PHYSICS_COST_ONLY / NO_WATER_QUALITY_CLAIM` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -13,16 +13,16 @@
 
 - **Goal:** measure the complete corrected Nonlocal GPU water step on 50,000
   particles against `p95 <= 4 ms`, `p99 <= 6 ms` on RTX 3080.
-- **Current boundary:** performance is still `NOT_RUN`; only the neighbor stage
-  has prior `~1.0--1.18 ms p95` evidence.
+- **Current boundary:** correct-water performance is still `NOT_RUN`; NCGP11 is
+  authorized only to measure the implementation cost of the physically failed
+  NCGP10 route.
 - **First failing fact:** exact corrected NCGP3 hydrostatic hold fails GPU step
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP10 pressure-f64 fixes exact GPU/CPU pressure
-  correspondence, but both routes form six visible components and `~2.36%`
-  satellite area at hydro step 82. Choose pressure-state redesign or an
-  explicitly invalid-physics cost diagnostic; full water timing is blocked.
+- **Current action:** run the separately frozen NCGP11 reset-single-step cost
+  benchmark at 4k/16k/50k. Every result is labelled
+  `INVALID_PHYSICS_COST_ONLY`; the NCGP10 physical failure remains unchanged.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -37,6 +37,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/06-visible-surface-control-corrigendum.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/07-complete-4k-corpus.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/08-pressure-f64-complete-4k.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/09-invalid-physics-cost-only.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
@@ -342,6 +343,26 @@
 - **Reconsider when:** the user authorizes one of the two materially different
   next scopes.
 
+### D-015 — Authorize cost measurement without a water-quality claim
+
+- **Observation:** the current pressure-f64 CUDA route is not admissible as a
+  water solver because NCGP10 fragments in the shared CPU/GPU physical model,
+  but it already contains the complete scalable GPU step whose cost is needed
+  to guide the next model iteration.
+- **Decision:** the user explicitly selected the second D-014 option. Freeze
+  NCGP11 before implementation and measure identical reset single steps at
+  4k/16k/50k with the current compensated pressure-f64 route. Exclude reset
+  upload from the primary CUDA-event window and report it separately.
+- **Claim ceiling:** every number is
+  `INVALID_PHYSICS_COST_ONLY / NO_WATER_QUALITY_CLAIM`. It cannot close the
+  correctness corpus, R8, runtime integration or product readiness; CPU DFSPH
+  remains fallback.
+- **Rejected:** silently timing only a passing trajectory prefix, describing
+  the result as correct water, weakening NCGP10, hiding a capacity/work failure
+  or mixing reset/upload time into the full-step distribution.
+- **Reconsider when:** the exact 50k probe either returns a typed capacity/work
+  result or admits the frozen two-process sampling window.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -377,10 +398,8 @@
 
 ## Next action
 
-1. Obtain an explicit product decision: redesign the model around the selected
-   explicit pressure state, or run a separately contracted cost-only benchmark
-   that admits invalid physics and makes no water-quality claim.
-2. Do not run dam/orifice, 16k/50k or full-step timing under the current water
-   performance claim.
-3. Preserve CPU DFSPH as the product fallback and keep SPEC-38/ADR-076
-   Proposed.
+1. Implement and run the frozen NCGP11 4k/16k/50k reset-single-step probe.
+2. If 50k admits capacity and 128-HVP work, run the exact two-process timing
+   window and publish p50/p95/p99 by stage.
+3. Keep all results explicitly outside the correct-water performance claim;
+   preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed.
