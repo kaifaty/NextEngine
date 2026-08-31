@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / V12_DATA_INSUFFICIENT_CLOSED / RESEARCH_RECORD_NEXT / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / M1A_COMPLETE / EXPOSURE_LEDGER_NEXT / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V12](physical-sound-synthesis-roadmap-v12.md), закрыт на real force coverage |
 | Exact основание | [V12-C4a result](../development/physical-sound-r3a-v12-c4a-object41-real-frf-fit-result-2026-08-31.md) |
 | Research basis | [V13 canonical modal-field research](../development/physical-sound-v13-canonical-modal-field-research-2026-08-31.md) |
@@ -93,7 +93,7 @@ preregistered family revision.
 | ID | Этап | Статус | Exit criterion |
 | --- | --- | --- | --- |
 | M0 | V12 closure | `COMPLETE / REPEAT_EXACT_DATA_INSUFFICIENT` | C4a A/B совпадают; microphone/protected decode `0`; stop rule соблюдён. |
-| M1 | Research Record V0 + exposure ledger | `NEXT` | Experimental schema, lifecycle, exact prior exposure и source axes валидируются без нового signal decode. |
+| M1 | Research Record V0 + exposure ledger | `IN_PROGRESS / M1A_COMPLETE_M1B_NEXT` | Experimental schema, lifecycle, exact prior exposure и source axes валидируются без нового signal decode. |
 | M2 | Canonical source adapters and role freeze | `BLOCKED_BY_M1` | Один fresh ObjectFolder exact object и один RealImpact derived-response control получают immutable contact/object roles and budgets. |
 | M3 | Known-truth modal-field oracle | `BLOCKED_BY_M2` | Global poles/damping и spatial gains восстанавливаются на synthetic held contacts; collapse/OOD mutations отвергаются. |
 | M4 | Fresh exact-object formula fit | `BLOCKED_BY_M3` | Fit-only global modes reconstruct every opened contact within absolute gates; no residual/waveform shortcut. |
@@ -114,7 +114,7 @@ preregistered family revision.
 - фиксировать project/object/contact/listener/mutation parent groups;
 - валидировать, что одна sample identity не попала в fit и validator;
 - реализовать experimental JSON schema и current-version canonical roundtrip;
-- сохранить четыре состояния объекта и обязательный fallback;
+- сохранить три progressive и два terminal состояния объекта с обязательным fallback;
 - запрещать promotion при неизвестной claim-kind или отсутствующем axis.
 
 Exit: два независимых построения ledger/records byte-identical; intentional
@@ -223,8 +223,8 @@ ProductChecks. SPEC-45 до этого остаётся `Proposed`.
 ## Ближайшие commit boundaries
 
 1. `M0a`: `COMPLETE`; V12-C4a repeated negative result and V13 research.
-2. `M1a` — next: [Research Record V0 protocol](../development/physical-sound-v13-m1a-research-record-v0-protocol-2026-08-31.md), schema/lifecycle and synthetic fixtures.
-3. `M1b`: deterministic exposure-ledger builder over existing manifests.
+2. `M1a` — `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL`: [protocol](../development/physical-sound-v13-m1a-research-record-v0-protocol-2026-08-31.md), [result](../development/physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md).
+3. `M1b` — next: deterministic exposure-ledger builder over existing manifests.
 4. `M1c`: repeated zero-signal ledger/record evidence and fresh-source shortlist.
 5. `M2a`: source/role protocol and exact budgets before any new decode.
 6. `M3a–M5a`: known-truth oracle, fit-only formula, then held tournament as
