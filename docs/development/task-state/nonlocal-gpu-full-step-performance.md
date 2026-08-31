@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP12_SUPPORT_REDESIGN_REQUIRED / PRESSURE_QP_NUMERICALLY_SUPPORTED / REVIEW_PENDING` |
+| Status | `ACTIVE / NCGP12_INDEPENDENT_GO / NCGP13_PRESSURE_CONTACT_NEXT` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,11 +20,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** independently review exact NCGP12. Its pressure QP closes
-  derivative/KKT/density/stationarity gates, but the pressure-only trial crosses
-  the analytic wall inset by `0.179 mm` and has zero bottom/top median pressure.
-  If review confirms the result, freeze pressure plus analytic-contact
-  relinearization before any trajectory, CUDA work or timing.
+- **Current action:** NCGP12 independent review reproduced every root and
+  returned `GO` for the bounded result. Freeze NCGP13 pressure plus swept
+  analytic-contact relinearization, then run its one-step admission and tiny
+  hydrostatic trajectory before any CUDA work or timing.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -429,9 +428,14 @@
   nonnegative constraint pressure, but ghost density support alone is not the
   wall constraint. This stage does not yet separate penalty from surface as
   the first trajectory cause.
-- **Decision:** preserve exact `NONLOCAL_SUPPORT_REDESIGN_REQUIRED`. Request
-  independent review. If confirmed, freeze a pressure/contact composition with
-  relinearization and only then a tiny hydrostatic trajectory.
+- **Independent review:** fresh-clone Release reproduced binary `008799c4...`,
+  stdout `be63239a...` and result `df013dd7...`, independently recomputed every
+  root and found no load-bearing defect. It classified the zero layer medians
+  as a coarse secondary diagnostic; exact `0.178781 mm` inset crossing remains
+  sufficient evidence for a separate contact constraint.
+- **Decision:** preserve exact `NONLOCAL_SUPPORT_REDESIGN_REQUIRED` with
+  independent `GO` for its bounded claim. Freeze a pressure/contact composition
+  with relinearization and only then a tiny hydrostatic trajectory.
 - **Rejected:** relabelling the near-zero density error as PASS, weakening the
   exact inset post hoc, treating pressure as a replacement for contact, or
   reintroducing surface before pressure/contact holds.
@@ -460,7 +464,7 @@
 | H10A | remaining topology failure is GPU drift | falsified: CPU/GPU both have 6 components and `~2.36%` satellites; GPU permutation exact | closed |
 | H10B | observer noise creates only sparse false satellites | falsified: about 403 wet pixels lie outside the largest component in each route | closed |
 | H10C | uniform penalty startup is not hydrostatic equilibrium | supported by exact common fragmentation and prior pressure-state analysis | pressure-state redesign if authorized |
-| H12A | explicit nonnegative pressure is a viable repair ingredient | supported author-side: QP/KKT/density close, but sole causality remains unresolved | independent NCGP12 review |
+| H12A | explicit nonnegative pressure is a viable repair ingredient | supported independently: QP/KKT/density close, but sole causality remains unresolved | NCGP13 pressure/contact composition |
 | H12B | surface tension is the first cause | isolated pressure passes but surface-enabled successor fails | only after NCGP12 |
 | H12C | ghost density support alone cannot own wall contact | selected author-side: density closes but exact inset penetration is `0.179 mm` | pressure plus analytic contact |
 | H12D | one projection is insufficient, but pressure state is viable | KKT/stationarity pass and only nonlinear density fails | bounded nonlinear successor |
@@ -476,8 +480,7 @@
 
 ## Next action
 
-1. Complete the independent read-only NCGP12 review.
-2. If it confirms the bounded negative result, freeze pressure plus swept
-   analytic contact and relinearization, then a tiny 240-step hydrostatic
-   trajectory before 4k or CUDA.
+1. Freeze NCGP13 pressure plus swept analytic contact and relinearization.
+2. Run its one-step admission and tiny 240-step hydrostatic trajectory before
+   4k or CUDA.
 3. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.

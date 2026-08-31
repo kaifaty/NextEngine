@@ -2,7 +2,7 @@
 
 Date: `2026-08-31`
 
-Author result: `NONLOCAL_SUPPORT_REDESIGN_REQUIRED / REVIEW_PENDING`
+Final result: `NONLOCAL_SUPPORT_REDESIGN_REQUIRED / INDEPENDENT_GO`
 
 Claim ceiling: `512-SAMPLE CPU LINEARIZED PRESSURE ORACLE ONLY`
 
@@ -138,3 +138,24 @@ Relevant primary literature remains the 2026
 [Nonlocal framework](https://doi.org/10.1145/3799902.3811196) and the
 [DFSPH incompressibility analysis](https://doi.org/10.1109/TVCG.2016.2578335).
 They motivate the experiment but do not certify this implementation.
+
+## Independent review
+
+The independent read-only review returned `GO` for the bounded NCGP12 claim
+and authorizes the separately frozen NCGP13 pressure/contact successor. From a
+fresh clone of implementation commit `4a788ea1`, it reproduced the exact
+Release binary, stdout and final result roots listed above, repeated the run
+byte-for-byte and independently recomputed the contract, source, input, work,
+metrics and final roots. It also checked the QP signs and dimensions, `J`,
+`J J^T`, `J^T lambda`, KKT and stationarity equations and every required
+control. No load-bearing defect was found; the candidate remained unmodified
+and `git diff --check` passed.
+
+The reviewer classified the zero bottom/top median as a secondary diagnostic:
+with only `60/512` active multipliers, a median is too coarse to identify the
+support mechanism. The independently reproduced `0.178781 mm` inset crossing
+is sufficient and unambiguous evidence that density pressure plus ghosts does
+not replace analytical wall contact. The zero-multiplier ratio is likewise a
+weak standalone control because it is one by construction when the source
+violation is nonzero; the other sign, derivative, permutation and mutation
+controls keep the bounded numerical conclusion closed.
