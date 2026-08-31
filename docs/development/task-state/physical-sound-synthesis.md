@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V13 / M1A_REPEAT_EXACT_ZERO_SIGNAL / EXPOSURE_LEDGER_NEXT / CANONICAL_MODAL_FIELD / MEASURED_TRANSFER_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V13 / M1A_M1B_REPEAT_EXACT_ZERO_SIGNAL / HISTORICAL_LEDGER_NEXT / CANONICAL_MODAL_FIELD / MEASURED_TRANSFER_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External exact-object modal-field research, deterministic clip cooker and independent automatic validation |
@@ -23,8 +23,11 @@
 - **M1a result:** [Research Record V0](../physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md)
   passes 12 focused guards, repeat-exact synthetic builds and exact
   current-version roundtrip with all access counters zero.
-- **Next action:** implement M1b deterministic exposure-ledger construction
-  over existing manifests/reports without decoding any fresh signal.
+- **M1b result:** [Exposure Ledger V0](../physical-sound-v13-m1b-exposure-ledger-v0-result-2026-08-31.md)
+  passes 13 focused guards, including contact/mutation leakage, and two
+  byte-identical builds with zero build-time source/signal access.
+- **Next action:** freeze and repeat M1c real historical catalog/ledger, then
+  derive a conservative fresh-source shortlist without waveform decode.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -45,7 +48,7 @@
 | V12 C1 | `COMPLETE / REPEAT_EXACT_PASS` | Coverage-certified oracle recovers `7/7` truth poles with calibrated OOD. |
 | V12 C2–C3 | `COMPLETE / REPEAT_EXACT_PASS` | ObjectFolder object `41` and six signal-blind roles are hash-frozen. |
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
-| V13 M1 | `IN_PROGRESS / M1A_COMPLETE_M1B_NEXT` | Strict current-only record/lifecycle passes; exact prior-exposure ledger remains. |
+| V13 M1 | `IN_PROGRESS / M1A_M1B_COMPLETE_M1C_NEXT` | Record and builder pass synthetic gates; exhaustive real historical ledger remains. |
 | V13 M2–M5 | `BLOCKED_BY_M1` | Canonical source freeze, oracle, formula fit and held-contact tournament wait. |
 | V13 M6–M9 | `BLOCKED` | Multi-object batch, validator, cooker and shadow admission need a held winner. |
 | V13 M10–M11 | `BLOCKED / ADR_REQUIRED` | Material expansion and a production prop are not authorized. |
@@ -85,6 +88,19 @@
 - **Decision:** M1a is complete. Unknown schema/axis, lifecycle skips, claim
   widening and terminal reopening fail closed; no synthetic migration is
   promised. M1b now supplies the real prior-exposure ledger hashes.
+
+## Material transition: M1b makes exposure machine-checkable
+
+- **Observation:** 271 external experiment directories contain 1,356 JSON
+  files across incompatible schemas; key-name inference cannot safely recover
+  sample semantics.
+- **Evidence:** [M1b result](../physical-sound-v13-m1b-exposure-ledger-v0-result-2026-08-31.md)
+  records exact artifact/pointer binding, 13 guards and repeated zero-source-
+  signal builds.
+- **Conclusion:** a declarative hash-closed catalog can normalize historical
+  identities and detect contact/mutation leakage without opening waveforms.
+- **Decision:** M1b is complete. M1c must populate the exhaustive
+  `historical_union`; no source is clean merely because an adapter is absent.
 
 ## Durable negative knowledge
 
@@ -154,6 +170,8 @@ Read in precedence order:
 3. [Roadmap V13](../../plans/physical-sound-synthesis-roadmap-v13.md),
    [M1a protocol](../physical-sound-v13-m1a-research-record-v0-protocol-2026-08-31.md),
    [M1a result](../physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md),
+   [M1b protocol](../physical-sound-v13-m1b-exposure-ledger-v0-protocol-2026-08-31.md),
+   [M1b result](../physical-sound-v13-m1b-exposure-ledger-v0-result-2026-08-31.md),
    [V13 research](../physical-sound-v13-canonical-modal-field-research-2026-08-31.md),
    [C4a result](../physical-sound-r3a-v12-c4a-object41-real-frf-fit-result-2026-08-31.md),
    [C4 protocol](../physical-sound-r3a-v12-c4-object41-real-frf-fit-protocol-2026-08-31.md)
@@ -172,5 +190,6 @@ Read in precedence order:
   development/holdout/validator/shadow role remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V13 M1b, deterministic prior-exposure ledger over
-  existing manifests/reports with zero fresh signal access.
+- **Next commit boundary:** V13 M1c, exhaustive real historical catalog,
+  repeat-exact ledger and conservative fresh-source shortlist with zero fresh
+  signal access.
