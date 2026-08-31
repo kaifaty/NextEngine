@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / B1R3_REPEAT_REJECTED / COVERAGE_CERTIFICATE_NEXT / ZERO_DECODE_SOURCE_SEARCH_OPEN / REAL_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / C1_PROTOCOL_FROZEN / C1_RUNNER_NEXT / ZERO_DECODE_SOURCE_SEARCH_OPEN / REAL_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V11](physical-sound-synthesis-roadmap-v11.md), закрыт после B1R3 |
 | Exact основание | [B1R3 result](../development/physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -70,7 +70,7 @@ flowchart LR
 | ID | Этап | Статус | Exit criterion |
 | --- | --- | --- | --- |
 | C0 | B1R3 exact result и V12 rebaseline | `COMPLETE / REPRODUCIBLE` | Два запуска и все артефакты byte-identical; reject и нулевой holdout зафиксированы. |
-| C1 | Coverage-certified known-truth oracle | `NEXT / ONE_FRESH_REVISION` | Все acquisition-supported truth modes восстановлены, unsupported controls не изобретены, held responses и OOD gates проходят дважды побитово. |
+| C1 | Coverage-certified known-truth oracle | `PROTOCOL_FROZEN / RUNNER_NEXT / ONE_FRESH_REVISION` | Все acquisition-supported truth modes восстановлены, unsupported controls не изобретены, held responses и OOD gates проходят дважды побитово. |
 | C2 | Internet-source zero-decode inventory | `OPEN_IN_PARALLEL` | Найден хотя бы один stable paired force+mic source с доказуемыми axes/lineage; PCM не читается. |
 | C3 | Source role freeze и bounded importer | `BLOCKED_BY_C1_C2` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
 | C4 | Real transfer-response model | `BLOCKED_BY_C3` | Fit и development проходят против raw-H1, impulse, peak-picking и nearest controls; one-shot holdout подтверждает перенос. |
@@ -85,6 +85,11 @@ flowchart LR
 ## C1 — последний bounded synthetic oracle
 
 Это одна свежая revision, а не серия подстроек B1R3.
+
+Протокол [V12-C1](../development/physical-sound-r3a-v12-c1-acquisition-coverage-oracle-protocol-2026-08-31.md)
+и его [bounded research](../development/physical-sound-r3a-v12-c1-coverage-and-source-research-2026-08-31.md)
+зафиксированы до runner. Force-only prefreeze подтверждает полную
+`200…9,500 Hz` coverage минимум тремя профилями и не читает object response.
 
 ### Fixture и blind separation
 

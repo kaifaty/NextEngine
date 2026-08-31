@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V12 / B1R3_REPEAT_REJECTED / COVERAGE_CERTIFICATE_NEXT / ZERO_DECODE_SOURCE_SEARCH_OPEN / REAL_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V12 / C1_PROTOCOL_FROZEN / C1_RUNNER_NEXT / ZERO_DECODE_SOURCE_SEARCH_OPEN / REAL_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -27,9 +27,11 @@
 - **B1R3 evidence:** [exact result](../physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md),
   repeated manifest/model/report `00961dab…e638`/`f841be2e…60e5`/
   `69145ba7…912b`; `6/7` modes, zero false positives and zero holdout.
-- **Next action:** preregister one fresh coverage-certified oracle that
-  separates acquisition identifiability, object model and query relevance.
-  Run zero-decode internet-source inventory independently in parallel.
+- **C1 protocol:** [acquisition-coverage oracle](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-protocol-2026-08-31.md)
+  is frozen before runner; force-only research certifies `200…9,500 Hz` with
+  at least three profiles and no object response.
+- **Next action:** implement and unit-test the C1 runner without numeric modal
+  prechecks. Zero-decode source inventory remains independently open.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -238,6 +240,6 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** V12-C1 coverage-certificate protocol before its
-  runner; C2 zero-decode source inventory may proceed independently. Authored
-  clips remain the product path.
+- **Next commit boundary:** V12-C1 runner and focused tests, then hash-closed
+  staged evidence. C2 zero-decode source inventory may proceed independently.
+  Authored clips remain the product path.
