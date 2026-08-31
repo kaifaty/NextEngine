@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / B1_V1_REPEAT_REJECTED / B1R_INVALID_PRECHECK / NOISE_AWARE_FRF_NEXT / REAL_DATA_CLOSED / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / B1R2_REPEAT_REJECTED / LOCAL_MODAL_SUPPORT_NEXT / REAL_DATA_CLOSED / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V10](physical-sound-synthesis-roadmap.md), закрыт после A1R |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Exact rebaseline | [A1R result and V11 research](../development/physical-sound-r3a-v10-a1r-force-onset-fit-result-and-v11-research-2026-08-31.md) |
@@ -81,7 +81,7 @@ flowchart LR
 | ID | Этап | Статус | Размер | Наблюдаемый выход |
 | --- | --- | --- | ---: | --- |
 | B0 | A1R exact result и bounded research | `COMPLETE / REPRODUCIBLE` | S | Force onset валиден; V9 real representation закрыта; exact report `5c9e87e…c2ca`. |
-| B1 | Synthetic force→response oracle | `V1_REJECTED / B1R_INVALID / B1R2_NEXT` | S–M | H1 точно предсказывает unseen force и `6/7` poles; B1R precheck выявил noise-relative force mask. Следующая revision сравнивает H1/H2/noise-aware errors-in-variables local rational FRF. |
+| B1 | Synthetic force→response oracle | `V1_REJECTED / B1R_INVALID / B1R2_REJECTED / LOCAL_SUPPORT_NEXT` | S–M | Noise-aware GTLS исправляет weak-force OOD и точно восстанавливает `5/7` admitted poles, но broad-band SNR policy режет верхние моды, а calibrated interference скрывает low-coherence OOD. |
 | B2 | Fresh internet corpus и zero-decode roles | `BLOCKED_BY_B1` | M | Доказаны force/mic timebase, coordinate, geometry, listener, support и parent-disjoint roles без чтения protected PCM. |
 | B3 | Real transfer-response representation | `BLOCKED_BY_B2` | M | Frozen estimator на fit и development лучше raw-output/modal и nearest controls; holdout остаётся one-shot. |
 | B4 | Exact-object contact-to-residue ML | `BLOCKED_BY_B3` | M–L | ML предсказывает unseen contact modal residues/uncertainty лучше KNN/classical interpolation. |
@@ -146,6 +146,15 @@ development-before-holdout stop rule. B2 остаётся закрыт до repe
 измерять force/response noise floor, считать input SNR и сравнить H1/H2 с одним
 errors-in-variables/TLS либо local-rational estimator. Старый B1R protocol не
 исправляется задним числом; real data и оба synthetic holdout остаются закрыты.
+
+[B1R2](../development/physical-sound-r3a-v11-b1r2-noise-aware-gtls-result-2026-08-31.md)
+repeat-exact исправляет этот дефект: weak-force high-band coverage равен `0`,
+GTLS даёт `0.030031` mean held NRMSE и почти совпадает с corrected H1/H2.
+Revision всё равно отклонён до holdout: общий coverage `0.661254`, retained
+`5/7`, а дополнительная interference ошибочно входит в known noise calibration
+и получает coherence `1.0`. Следующая гипотеза измеряет force support только в
+локальных modal neighborhoods и отделяет stationary calibration noise от
+unmeasured interference. B2 по-прежнему закрыт.
 
 ## B2 — Fresh internet corpus
 
