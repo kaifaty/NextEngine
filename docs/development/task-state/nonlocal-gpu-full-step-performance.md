@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP11_INVALID_PHYSICS_COST_ONLY / NO_WATER_QUALITY_CLAIM` |
+| Status | `PAUSED / NCGP11_INVALID_PHYSICS_COST_ABOVE_BUDGET / NO_WATER_QUALITY_CLAIM` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -13,16 +13,16 @@
 
 - **Goal:** measure the complete corrected Nonlocal GPU water step on 50,000
   particles against `p95 <= 4 ms`, `p99 <= 6 ms` on RTX 3080.
-- **Current boundary:** correct-water performance is still `NOT_RUN`; NCGP11 is
-  authorized only to measure the implementation cost of the physically failed
-  NCGP10 route.
+- **Current boundary:** correct-water performance is still `NOT_RUN`. NCGP11
+  measured only the implementation cost of the physically failed NCGP10 route
+  and found 50k `p95=1.145--1.165 s`, `p99=1.168--1.176 s`.
 - **First failing fact:** exact corrected NCGP3 hydrostatic hold fails GPU step
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** run the separately frozen NCGP11 reset-single-step cost
-  benchmark at 4k/16k/50k. Every result is labelled
-  `INVALID_PHYSICS_COST_ONLY`; the NCGP10 physical failure remains unchanged.
+- **Current action:** choose whether to freeze a cost-only optimization
+  successor focused on 54 repeated graph builds and 46 HVP per 50k step, or
+  return first to the pressure-state physical redesign. NCGP10 remains failed.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -40,6 +40,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/09-invalid-physics-cost-only.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
+- `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -363,6 +364,29 @@
 - **Reconsider when:** the exact 50k probe either returns a typed capacity/work
   result or admits the frozen two-process sampling window.
 
+### D-016 — Close NCGP11 above the original compute budget
+
+- **Observation:** all 4k/16k/50k profiles admit capacity and deterministic
+  work. Two fresh 50k processes measure `p50=1.111/1.116 s`,
+  `p95=1.145/1.165 s` and `p99=1.176/1.168 s` for the complete GPU step.
+- **Evidence:** exact source commit `982c9235`, byte-identical clean binary
+  `9b45d158...`; 50k result roots `c6298eb7...` and `f731a920...`; work root
+  `8ce569d4...`, step root `6111deb2...`. Full evidence is linked above.
+- **Conclusion:** memory and neighbor capacity are not the blocker: 137 MB,
+  5.71 million directed pairs and maximum degree 123 are admitted. The current
+  implementation is about 286--291x over the 4 ms p95 budget. About 46% of the
+  step is 54 graph builds and about 31% is 46 HVP.
+- **Decision:** classify NCGP11
+  `INVALID_PHYSICS_COST_ABOVE_ORIGINAL_BUDGET`. Do not call this water or game
+  performance. Pause before changing solver/graph work because a cost-only
+  optimization successor and a pressure-state physics redesign have different
+  claims and validation order.
+- **Rejected:** reporting only the ~1 ms standalone neighbor kernel, hiding
+  repeated graph work, extrapolating from 4k, or treating capacity admission as
+  game feasibility.
+- **Reconsider when:** the user selects cost optimization first or physical
+  correctness first.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -398,8 +422,9 @@
 
 ## Next action
 
-1. Implement and run the frozen NCGP11 4k/16k/50k reset-single-step probe.
-2. If 50k admits capacity and 128-HVP work, run the exact two-process timing
-   window and publish p50/p95/p99 by stage.
-3. Keep all results explicitly outside the correct-water performance claim;
-   preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed.
+1. If cost optimization is selected, freeze a successor that first removes
+   redundant graph rebuilds for unchanged states, then fuses compatible
+   owner-row evaluations without changing physics, workload or HVP rules.
+2. If physical correctness is selected, redesign the pressure state before any
+   new game-performance claim and rerun the correctness corpus.
+3. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed in either path.
