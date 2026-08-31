@@ -1,4 +1,5 @@
 #include "corrected_cuda_full_step.hpp"
+#include "corrected_cuda_retained_bulk.hpp"
 #include "sha256.hpp"
 
 #include <algorithm>
@@ -78,6 +79,12 @@ struct VisibleSurfaceWork {
     std::uint64_t root_derivations = 0U;
 };
 
+struct DepthContribution {
+    std::uint32_t pixel = 0U;
+    std::array<std::uint64_t, 4> order{};
+    double depth = 0.0;
+};
+
 struct VisibleSurfaceImage {
     bool valid = false;
     std::uint32_t width = 0U;
@@ -89,12 +96,14 @@ struct VisibleSurfaceImage {
     double expected_mass = 0.0;
     std::vector<std::uint8_t> wet;
     std::vector<double> depth;
+    std::vector<DepthContribution> depth_records;
     std::vector<std::uint32_t> component_label;
     std::vector<std::uint32_t> component_sizes;
     std::uint32_t material_component_count = 0U;
     double largest_component_fraction = 0.0;
     double satellite_area_fraction = 0.0;
     VisibleSurfaceWork work;
+    std::string records_root;
     std::string mask_root;
     std::string depth_root;
     std::string component_root;
@@ -104,8 +113,16 @@ struct VisibleSurfaceImage {
 
 struct VisibleComparisonWork {
     std::uint64_t image_validations = 0U;
+    std::uint64_t validation_header_checks = 0U;
     std::uint64_t validation_pixel_reads = 0U;
+    std::uint64_t validation_depth_record_reads = 0U;
+    std::uint64_t validation_depth_record_order_checks = 0U;
+    std::uint64_t validation_depth_records_reduced = 0U;
     std::uint64_t validation_component_reads = 0U;
+    std::uint64_t validation_flood_pixels = 0U;
+    std::uint64_t validation_flood_neighbor_tests = 0U;
+    std::uint64_t validation_components_reduced = 0U;
+    std::uint64_t validation_root_derivations = 0U;
     std::uint64_t pixel_comparisons = 0U;
     std::uint64_t depth_error_records = 0U;
     std::uint64_t depth_error_records_sorted = 0U;
@@ -137,12 +154,6 @@ struct VisibleSurfaceComparison {
     std::string metrics_root;
 };
 
-struct DepthContribution {
-    std::uint32_t pixel = 0U;
-    std::array<std::uint64_t, 4> order{};
-    double depth = 0.0;
-};
-
 std::string surface_work_root(const VisibleSurfaceWork& work) {
     std::ostringstream material;
     material << "nextengine.nonlocal.ncgp8.surface-work.v1\n"
@@ -154,6 +165,19 @@ std::string surface_work_root(const VisibleSurfaceWork& work) {
              << work.flood_pixels << ':' << work.flood_neighbor_tests << ':'
              << work.components_reduced << ':' << work.root_derivations
              << '\n';
+    return nextengine::nonlocal::sha256_hex(material.str());
+}
+
+std::string surface_records_root(const VisibleSurfaceImage& image) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.ncgp8.surface-depth-records.v1\n"
+             << image.width << ':' << image.height << ':'
+             << image.depth_records.size() << '\n' << std::hex;
+    for (const DepthContribution& record : image.depth_records) {
+        material << record.pixel;
+        for (std::uint64_t value : record.order) material << ':' << value;
+        material << ':' << bits(record.depth) << '\n';
+    }
     return nextengine::nonlocal::sha256_hex(material.str());
 }
 
@@ -200,14 +224,16 @@ std::string surface_image_root(const VisibleSurfaceImage& image) {
              << bits(image.pixel_pitch) << ':' << bits(image.sphere_radius)
              << ':' << std::dec << image.expected_samples << ':' << std::hex
              << bits(image.expected_mass) << std::dec << '\n'
-             << image.mask_root << ':' << image.depth_root << ':'
+             << image.records_root << ':' << image.mask_root << ':'
+             << image.depth_root << ':'
              << image.component_root << ':' << image.work_root << '\n';
     return nextengine::nonlocal::sha256_hex(material.str());
 }
 
 void seal_image(VisibleSurfaceImage& image) {
-    image.work.root_derivations = 5U;
+    image.work.root_derivations = 6U;
     image.valid = true;
+    image.records_root = surface_records_root(image);
     image.mask_root = surface_mask_root(image);
     image.depth_root = surface_depth_root(image);
     image.component_root = surface_component_root(image);
@@ -346,8 +372,7 @@ VisibleSurfaceImage build_visible_surface(const NonlocalGpuProfile& profile,
         static_cast<std::size_t>(image.width) * image.height;
     image.wet.assign(pixels, 0U);
     image.depth.assign(pixels, 0.0);
-    std::vector<DepthContribution> records;
-    records.reserve(state.size() * 20U);
+    image.depth_records.reserve(state.size() * 20U);
     const long double radius_squared =
         static_cast<long double>(sphere_radius) * sphere_radius;
     for (const NonlocalGpuSample& sample : state) {
@@ -400,22 +425,24 @@ VisibleSurfaceImage build_visible_surface(const NonlocalGpuProfile& profile,
                 record.order = {bits(depth), bits(sample.current.x),
                     bits(sample.current.y), bits(sample.current.z)};
                 record.depth = depth;
-                records.push_back(record);
+                image.depth_records.push_back(record);
             }
         }
     }
-    image.work.depth_records_emitted = records.size();
-    std::sort(records.begin(), records.end(), [](const auto& lhs, const auto& rhs) {
+    image.work.depth_records_emitted = image.depth_records.size();
+    std::sort(image.depth_records.begin(), image.depth_records.end(),
+        [](const auto& lhs, const auto& rhs) {
         return std::tie(lhs.pixel, lhs.order)
             < std::tie(rhs.pixel, rhs.order);
     });
-    image.work.depth_records_sorted = records.size();
+    image.work.depth_records_sorted = image.depth_records.size();
     std::size_t cursor = 0U;
-    while (cursor < records.size()) {
-        const std::uint32_t pixel = records[cursor].pixel;
+    while (cursor < image.depth_records.size()) {
+        const std::uint32_t pixel = image.depth_records[cursor].pixel;
         double maximum = -std::numeric_limits<double>::infinity();
-        while (cursor < records.size() && records[cursor].pixel == pixel) {
-            maximum = std::max(maximum, records[cursor].depth);
+        while (cursor < image.depth_records.size()
+            && image.depth_records[cursor].pixel == pixel) {
+            maximum = std::max(maximum, image.depth_records[cursor].depth);
             ++cursor;
             ++image.work.depth_records_reduced;
         }
@@ -431,37 +458,101 @@ VisibleSurfaceImage build_visible_surface(const NonlocalGpuProfile& profile,
 
 bool image_consistent(const VisibleSurfaceImage& image,
     VisibleComparisonWork* work = nullptr) {
-    if (!image.valid || image.width == 0U || image.height == 0U
-        || image.wet.size() != image.depth.size()
-        || image.wet.size() != image.component_label.size()
-        || image.wet.size() != static_cast<std::size_t>(image.width) * image.height
-        || image.work.wet_pixels
-            != static_cast<std::uint64_t>(std::count(
-                image.wet.begin(), image.wet.end(), std::uint8_t{1U}))) {
-        return false;
-    }
+    constexpr std::uint64_t header_checks = 12U;
     if (work != nullptr) {
         ++work->image_validations;
-        work->validation_pixel_reads += image.wet.size();
-        work->validation_component_reads += image.component_sizes.size();
+        work->validation_header_checks += header_checks;
     }
-    VisibleSurfaceImage derived = image;
-    derived.work.flood_pixels = 0U;
-    derived.work.flood_neighbor_tests = 0U;
-    derived.work.components_reduced = 0U;
+    const std::size_t pixel_count = static_cast<std::size_t>(image.width)
+        * image.height;
+    const std::uint64_t wet_count = static_cast<std::uint64_t>(std::count(
+        image.wet.begin(), image.wet.end(), std::uint8_t{1U}));
+    const bool header_valid = image.valid && image.width != 0U
+        && image.height != 0U && image.wet.size() == image.depth.size()
+        && image.wet.size() == image.component_label.size()
+        && image.wet.size() == pixel_count
+        && image.work.depth_records_emitted == image.depth_records.size()
+        && image.work.depth_records_sorted == image.depth_records.size()
+        && image.work.depth_records_reduced == image.depth_records.size()
+        && image.work.wet_pixels == wet_count && wet_count != 0U
+        && !image.depth_records.empty();
+    if (!header_valid) {
+        return false;
+    }
+
+    bool records_valid = true;
+    for (std::size_t index = 0U; index < image.depth_records.size(); ++index) {
+        const DepthContribution& record = image.depth_records[index];
+        if (work != nullptr) ++work->validation_depth_record_reads;
+        records_valid = records_valid && record.pixel < pixel_count
+            && std::isfinite(record.depth)
+            && record.order[0] == bits(record.depth);
+        if (index != 0U) {
+            if (work != nullptr) ++work->validation_depth_record_order_checks;
+            const DepthContribution& previous = image.depth_records[index - 1U];
+            records_valid = records_valid
+                && std::tie(previous.pixel, previous.order)
+                    <= std::tie(record.pixel, record.order);
+        }
+    }
+    if (!records_valid) return false;
+
+    VisibleSurfaceImage derived;
+    derived.width = image.width;
+    derived.height = image.height;
+    derived.wet.assign(pixel_count, 0U);
+    derived.depth.assign(pixel_count, 0.0);
+    std::size_t cursor = 0U;
+    while (cursor < image.depth_records.size()) {
+        const std::uint32_t pixel = image.depth_records[cursor].pixel;
+        double maximum = -std::numeric_limits<double>::infinity();
+        while (cursor < image.depth_records.size()
+            && image.depth_records[cursor].pixel == pixel) {
+            maximum = std::max(maximum, image.depth_records[cursor].depth);
+            ++cursor;
+            if (work != nullptr) ++work->validation_depth_records_reduced;
+        }
+        derived.wet[pixel] = 1U;
+        derived.depth[pixel] = maximum;
+        ++derived.work.wet_pixels;
+    }
+    bool pixels_exact = true;
+    for (std::size_t pixel = 0U; pixel < pixel_count; ++pixel) {
+        if (work != nullptr) work->validation_pixel_reads += 2U;
+        pixels_exact = pixels_exact && derived.wet[pixel] == image.wet[pixel]
+            && bits(derived.depth[pixel]) == bits(image.depth[pixel]);
+    }
     derive_components(derived);
-    return derived.component_label == image.component_label
+    if (work != nullptr) {
+        work->validation_component_reads += image.component_label.size()
+            + image.component_sizes.size();
+        work->validation_flood_pixels += derived.work.flood_pixels;
+        work->validation_flood_neighbor_tests +=
+            derived.work.flood_neighbor_tests;
+        work->validation_components_reduced +=
+            derived.work.components_reduced;
+        work->validation_root_derivations += 6U;
+    }
+    const bool topology_exact =
+        derived.component_label == image.component_label
         && derived.component_sizes == image.component_sizes
         && derived.material_component_count == image.material_component_count
         && bits(derived.largest_component_fraction)
             == bits(image.largest_component_fraction)
         && bits(derived.satellite_area_fraction)
-            == bits(image.satellite_area_fraction)
-        && surface_mask_root(image) == image.mask_root
-        && surface_depth_root(image) == image.depth_root
-        && surface_component_root(image) == image.component_root
-        && surface_work_root(image.work) == image.work_root
-        && surface_image_root(image) == image.image_root;
+            == bits(image.satellite_area_fraction);
+    const bool records_root_exact =
+        surface_records_root(image) == image.records_root;
+    const bool mask_root_exact = surface_mask_root(image) == image.mask_root;
+    const bool depth_root_exact = surface_depth_root(image) == image.depth_root;
+    const bool component_root_exact =
+        surface_component_root(image) == image.component_root;
+    const bool work_root_exact =
+        surface_work_root(image.work) == image.work_root;
+    const bool image_root_exact = surface_image_root(image) == image.image_root;
+    return pixels_exact && topology_exact && records_root_exact
+        && mask_root_exact && depth_root_exact && component_root_exact
+        && work_root_exact && image_root_exact;
 }
 
 std::size_t nearest_rank_index(
@@ -472,8 +563,17 @@ std::size_t nearest_rank_index(
 std::string comparison_work_root(const VisibleComparisonWork& work) {
     std::ostringstream material;
     material << "nextengine.nonlocal.ncgp8.comparison-work.v1\n"
-             << work.image_validations << ':' << work.validation_pixel_reads
-             << ':' << work.validation_component_reads << ':'
+             << work.image_validations << ':'
+             << work.validation_header_checks << ':'
+             << work.validation_pixel_reads << ':'
+             << work.validation_depth_record_reads << ':'
+             << work.validation_depth_record_order_checks << ':'
+             << work.validation_depth_records_reduced << ':'
+             << work.validation_component_reads << ':'
+             << work.validation_flood_pixels << ':'
+             << work.validation_flood_neighbor_tests << ':'
+             << work.validation_components_reduced << ':'
+             << work.validation_root_derivations << ':'
              << work.pixel_comparisons << ':' << work.depth_error_records
              << ':' << work.depth_error_records_sorted << ':'
              << work.quantile_reads << ':' << work.topology_comparisons << ':'
@@ -658,6 +758,188 @@ bool identity_valid(const std::string& executable_root) {
         && std::string(NCGP8_COMPILER_FLAGS) != "unconfigured";
 }
 
+int emit_apparatus_failure(const char* stage, std::uint32_t completed_steps,
+    std::uint32_t failure_code, const NonlocalGpuWorkspace& workspace) {
+    const std::string executable_root = binary_root();
+    std::ostringstream material;
+    material << "nextengine.nonlocal.ncgp8.apparatus-failure.v1\n"
+             << stage << ':' << completed_steps << ':' << failure_code << '\n'
+             << NCGP8_CONTRACT_ROOT << ':' << NCGP8_SOURCE_ROOT << ':'
+             << NCGP8_SOURCE_COMMIT << ':' << NCGP8_SOURCE_TREE << ':'
+             << NCGP8_COMPILER_FLAGS << ':' << executable_root << ':'
+             << workspace.environment_json() << '\n';
+    const std::string result_root =
+        nextengine::nonlocal::sha256_hex(material.str());
+    std::cout << "{\"schema\":\"nextengine.nonlocal.ncgp8.apparatus-failure.v1\""
+              << ",\"status\":\"APPARATUS_INCONCLUSIVE\""
+              << ",\"stage\":\"" << stage << "\""
+              << ",\"completed_steps\":" << completed_steps
+              << ",\"failure_code\":" << failure_code
+              << ",\"result_root\":\"" << result_root
+              << "\",\"contract_root\":\"" << NCGP8_CONTRACT_ROOT
+              << "\",\"source_root\":\"" << NCGP8_SOURCE_ROOT
+              << "\",\"source_commit\":\"" << NCGP8_SOURCE_COMMIT
+              << "\",\"source_tree\":\"" << NCGP8_SOURCE_TREE
+              << "\",\"compiler_flags\":\"" << NCGP8_COMPILER_FLAGS
+              << "\",\"binary_root\":\"" << executable_root
+              << "\",\"environment\":" << workspace.environment_json()
+              << ",\"allocated_device_bytes\":"
+              << workspace.allocated_device_bytes() << "}\n";
+    return 4;
+}
+
+void emit_surface_work(const VisibleSurfaceWork& work) {
+    std::cout << "{\"samples_validated\":" << work.samples_validated
+              << ",\"candidate_pixel_tests\":"
+              << work.candidate_pixel_tests
+              << ",\"depth_records_emitted\":"
+              << work.depth_records_emitted
+              << ",\"depth_records_sorted\":"
+              << work.depth_records_sorted
+              << ",\"depth_records_reduced\":"
+              << work.depth_records_reduced << ",\"wet_pixels\":"
+              << work.wet_pixels << ",\"flood_pixels\":"
+              << work.flood_pixels << ",\"flood_neighbor_tests\":"
+              << work.flood_neighbor_tests << ",\"components_reduced\":"
+              << work.components_reduced << ",\"root_derivations\":"
+              << work.root_derivations << '}';
+}
+
+void emit_comparison_work(const VisibleComparisonWork& work) {
+    std::cout << "{\"image_validations\":" << work.image_validations
+              << ",\"validation_header_checks\":"
+              << work.validation_header_checks
+              << ",\"validation_pixel_reads\":"
+              << work.validation_pixel_reads
+              << ",\"validation_depth_record_reads\":"
+              << work.validation_depth_record_reads
+              << ",\"validation_depth_record_order_checks\":"
+              << work.validation_depth_record_order_checks
+              << ",\"validation_depth_records_reduced\":"
+              << work.validation_depth_records_reduced
+              << ",\"validation_component_reads\":"
+              << work.validation_component_reads
+              << ",\"validation_flood_pixels\":"
+              << work.validation_flood_pixels
+              << ",\"validation_flood_neighbor_tests\":"
+              << work.validation_flood_neighbor_tests
+              << ",\"validation_components_reduced\":"
+              << work.validation_components_reduced
+              << ",\"validation_root_derivations\":"
+              << work.validation_root_derivations
+              << ",\"pixel_comparisons\":" << work.pixel_comparisons
+              << ",\"depth_error_records\":" << work.depth_error_records
+              << ",\"depth_error_records_sorted\":"
+              << work.depth_error_records_sorted << ",\"quantile_reads\":"
+              << work.quantile_reads << ",\"topology_comparisons\":"
+              << work.topology_comparisons << ",\"root_derivations\":"
+              << work.root_derivations << '}';
+}
+
+void emit_image(const VisibleSurfaceImage& image) {
+    std::cout << std::setprecision(17)
+              << "{\"valid\":" << (image.valid ? "true" : "false")
+              << ",\"width\":" << image.width << ",\"height\":"
+              << image.height << ",\"vertical_axis\":"
+              << image.vertical_axis << ",\"pixel_pitch_m\":"
+              << image.pixel_pitch << ",\"sphere_radius_m\":"
+              << image.sphere_radius << ",\"expected_samples\":"
+              << image.expected_samples << ",\"expected_mass_kg\":"
+              << image.expected_mass << ",\"records_root\":\""
+              << image.records_root << "\",\"mask_root\":\""
+              << image.mask_root << "\",\"depth_root\":\""
+              << image.depth_root << "\",\"component_root\":\""
+              << image.component_root << "\",\"work_root\":\""
+              << image.work_root << "\",\"image_root\":\""
+              << image.image_root << "\",\"work\":";
+    emit_surface_work(image.work);
+    std::cout << '}';
+}
+
+void emit_bulk_work(const nextengine::nonlocal::ncgp8::RetainedBulkWork& work) {
+    std::cout << "{\"samples_validated\":" << work.samples_validated
+              << ",\"cic_records_emitted\":" << work.cic_records_emitted
+              << ",\"cic_records_sorted\":" << work.cic_records_sorted
+              << ",\"cic_records_reduced\":" << work.cic_records_reduced
+              << ",\"column_records_emitted\":"
+              << work.column_records_emitted
+              << ",\"column_records_sorted\":"
+              << work.column_records_sorted
+              << ",\"column_records_reduced\":"
+              << work.column_records_reduced << ",\"quantile_reads\":"
+              << work.quantile_reads << ",\"node_comparisons\":"
+              << work.node_comparisons << ",\"column_comparisons\":"
+              << work.column_comparisons << ",\"root_derivations\":"
+              << work.root_derivations << '}';
+}
+
+void emit_bulk_field(
+    const nextengine::nonlocal::ncgp8::RetainedBulkFieldReceipt& field) {
+    std::cout << "{\"valid\":" << (field.valid ? "true" : "false")
+              << ",\"node_root\":\"" << field.node_root
+              << "\",\"surface_root\":\"" << field.surface_root
+              << "\",\"work_root\":\"" << field.work_root
+              << "\",\"field_root\":\"" << field.field_root
+              << "\",\"work\":";
+    emit_bulk_work(field.work);
+    std::cout << '}';
+}
+
+void emit_bulk_comparison(const nextengine::nonlocal::ncgp8::
+        RetainedBulkComparisonReceipt& value) {
+    std::cout << std::setprecision(17)
+              << "{\"valid\":" << (value.valid ? "true" : "false")
+              << ",\"mass_tv\":" << value.mass_tv
+              << ",\"density_rmse\":" << value.density_rmse
+              << ",\"velocity_rmse_normalized\":"
+              << value.velocity_rmse_normalized
+              << ",\"center_of_mass_error_m\":"
+              << value.center_of_mass_error
+              << ",\"maximum_node_mass_difference_particles\":"
+              << value.maximum_node_mass_difference_particles
+              << ",\"wet_column_symmetric_difference\":"
+              << value.wet_column_symmetric_difference
+              << ",\"surface_rmse_m\":" << value.surface_rmse
+              << ",\"surface_p95_m\":" << value.surface_p95
+              << ",\"surface_maximum_m\":" << value.surface_maximum
+              << ",\"common_nodes\":" << value.common_nodes
+              << ",\"common_wet_columns\":" << value.common_wet_columns
+              << ",\"union_wet_columns\":" << value.union_wet_columns
+              << ",\"work_root\":\"" << value.work_root
+              << "\",\"metrics_root\":\"" << value.metrics_root
+              << "\",\"work\":";
+    emit_bulk_work(value.work);
+    std::cout << '}';
+}
+
+void emit_retained_bulk(
+    const nextengine::nonlocal::ncgp8::RetainedBulkClosure& value) {
+    std::cout << "{\"valid\":" << (value.valid ? "true" : "false")
+              << ",\"bulk_bands_passed\":"
+              << (value.bulk_bands_passed ? "true" : "false")
+              << ",\"permutation_exact\":"
+              << (value.permutation_exact ? "true" : "false")
+              << ",\"frozen_roots_exact\":"
+              << (value.frozen_roots_exact ? "true" : "false")
+              << ",\"gpu_coarse\":";
+    emit_bulk_field(value.gpu_coarse);
+    std::cout << ",\"cpu_coarse\":";
+    emit_bulk_field(value.cpu_coarse);
+    std::cout << ",\"permuted_coarse\":";
+    emit_bulk_field(value.permuted_coarse);
+    std::cout << ",\"gpu_fine\":";
+    emit_bulk_field(value.gpu_fine);
+    std::cout << ",\"cpu_fine\":";
+    emit_bulk_field(value.cpu_fine);
+    std::cout << ",\"permuted_fine\":";
+    emit_bulk_field(value.permuted_fine);
+    std::cout << ",\"coarse\":";
+    emit_bulk_comparison(value.coarse);
+    std::cout << ",\"fine\":";
+    emit_bulk_comparison(value.fine);
+    std::cout << ",\"closure_root\":\"" << value.closure_root << "\"}";
+}
+
 void emit_comparison(const VisibleSurfaceComparison& value) {
     std::cout << std::setprecision(17)
               << "{\"valid\":" << (value.valid ? "true" : "false")
@@ -680,10 +962,14 @@ void emit_comparison(const VisibleSurfaceComparison& value) {
               << ",\"gpu_satellite_area_fraction\":"
               << value.gpu_satellite_area_fraction
               << ",\"work_root\":\"" << value.work_root
-              << "\",\"metrics_root\":\"" << value.metrics_root << "\"}";
+              << "\",\"metrics_root\":\"" << value.metrics_root
+              << "\",\"work\":";
+    emit_comparison_work(value.work);
+    std::cout << '}';
 }
 
 void reseal_image(VisibleSurfaceImage& image) {
+    image.records_root = surface_records_root(image);
     image.mask_root = surface_mask_root(image);
     image.depth_root = surface_depth_root(image);
     image.component_root = surface_component_root(image);
@@ -712,6 +998,22 @@ int run_self_test() {
     const auto z_image = build_visible_surface(
         profile, z_translated, state.size(), mass);
     const auto z_comparison = compare_visible_surfaces(z_image, base);
+    auto top_sheet = state;
+    const double maximum_z = std::max_element(top_sheet.begin(), top_sheet.end(),
+        [](const auto& lhs, const auto& rhs) {
+            return lhs.current.z < rhs.current.z;
+        })->current.z;
+    std::uint64_t top_sheet_samples = 0U;
+    for (auto& sample : top_sheet) {
+        if (bits(sample.current.z) != bits(maximum_z)) continue;
+        sample.reference.z += 0.05;
+        sample.current.z += 0.05;
+        ++top_sheet_samples;
+    }
+    const auto top_sheet_image = build_visible_surface(
+        profile, top_sheet, state.size(), mass);
+    const auto sheet_comparison = compare_visible_surfaces(
+        top_sheet_image, base);
     auto x_translated = state;
     for (auto& sample : x_translated) {
         sample.reference.x += 0.05;
@@ -733,11 +1035,24 @@ int run_self_test() {
     if (first_wet == sparse_tail.wet.end()) return 4;
     const std::size_t tail_pixel =
         static_cast<std::size_t>(first_wet - sparse_tail.wet.begin());
+    const double old_tail_depth = sparse_tail.depth[tail_pixel];
     sparse_tail.depth[tail_pixel] += 0.05;
+    const auto tail_record = std::find_if(sparse_tail.depth_records.begin(),
+        sparse_tail.depth_records.end(), [tail_pixel, old_tail_depth](
+            const DepthContribution& record) {
+            return record.pixel == tail_pixel
+                && bits(record.depth) == bits(old_tail_depth);
+        });
+    if (tail_record == sparse_tail.depth_records.end()) return 4;
+    tail_record->depth += 0.05;
+    tail_record->order[0] = bits(tail_record->depth);
+    std::sort(sparse_tail.depth_records.begin(), sparse_tail.depth_records.end(),
+        [](const auto& lhs, const auto& rhs) {
+            return std::tie(lhs.pixel, lhs.order)
+                < std::tie(rhs.pixel, rhs.order);
+        });
     reseal_image(sparse_tail);
     const auto sparse_comparison = compare_visible_surfaces(sparse_tail, base);
-    const auto sheet_comparison = z_comparison;
-
     std::vector<NonlocalGpuSample> tangent_state{
         {1U, {0.03125, 0.00625, 0.10}, {0.03125, 0.00625, 0.10}, {}}};
     const double tangent_mass = profile.mass;
@@ -754,6 +1069,12 @@ int run_self_test() {
     auto depth_mutation = base;
     depth_mutation.depth[tail_pixel] += 0.001;
     const bool depth_mutation_rejected = !image_consistent(depth_mutation);
+    auto depth_record_mutation = base;
+    depth_record_mutation.depth_records.front().depth = std::nextafter(
+        depth_record_mutation.depth_records.front().depth,
+        std::numeric_limits<double>::infinity());
+    const bool depth_record_mutation_rejected =
+        !image_consistent(depth_record_mutation);
     auto component_mutation = base;
     component_mutation.component_label[tail_pixel] += 1U;
     const bool component_mutation_rejected = !image_consistent(component_mutation);
@@ -777,7 +1098,7 @@ int run_self_test() {
     const bool sparse_tail_robust = h8a_band(sparse_comparison)
         && sparse_comparison.depth_maximum > sparse_comparison.depth_p99;
     const bool sheet_rejected = !h8a_band(sheet_comparison)
-        && h8b_band(sheet_comparison);
+        && h8b_band(sheet_comparison) && top_sheet_samples == 16U;
     const bool strict_radius_rejected = inclusive.valid && strict.valid
         && inclusive.image_root != strict.image_root;
     const bool pitch_mutation_rejected = changed_pitch.valid
@@ -792,11 +1113,13 @@ int run_self_test() {
                     << strict_radius_rejected << ':' << pitch_mutation_rejected
                     << ':' << omitted_topology_rejected << ':'
                     << depth_mutation_rejected << ':'
+                    << depth_record_mutation_rejected << ':'
                     << component_mutation_rejected << ':'
                     << work_mutation_rejected << '\n'
                     << base.image_root << ':' << relabelled_image.image_root
                     << ':' << z_image.image_root << ':' << x_image.image_root
-                    << ':' << sparse_tail.image_root << ':'
+                    << ':' << top_sheet_image.image_root << ':'
+                    << sparse_tail.image_root << ':'
                     << inclusive.image_root << ':' << strict.image_root << ':'
                     << changed_pitch.image_root << '\n'
                     << exact.metrics_root << ':' << z_comparison.metrics_root
@@ -814,6 +1137,7 @@ int run_self_test() {
         && wrong_axis_rejected && deletion_rejected && sparse_tail_robust
         && sheet_rejected && strict_radius_rejected && pitch_mutation_rejected
         && omitted_topology_rejected && depth_mutation_rejected
+        && depth_record_mutation_rejected
         && component_mutation_rejected && work_mutation_rejected
         && result_mutation_rejected && identity_valid(executable_root);
     std::cout << std::setprecision(17)
@@ -843,12 +1167,15 @@ int run_self_test() {
               << (omitted_topology_rejected ? "true" : "false")
               << ",\"depth_mutation_rejected\":"
               << (depth_mutation_rejected ? "true" : "false")
+              << ",\"depth_record_mutation_rejected\":"
+              << (depth_record_mutation_rejected ? "true" : "false")
               << ",\"component_mutation_rejected\":"
               << (component_mutation_rejected ? "true" : "false")
               << ",\"work_mutation_rejected\":"
               << (work_mutation_rejected ? "true" : "false")
               << ",\"result_mutation_rejected\":"
               << (result_mutation_rejected ? "true" : "false")
+              << ",\"top_sheet_samples\":" << top_sheet_samples
               << ",\"sparse_tail\":";
     emit_comparison(sparse_comparison);
     std::cout << ",\"sheet\":";
@@ -885,9 +1212,16 @@ int run_witness() {
         profile, initial_state, ghosts);
     NonlocalGpuWorkspace gpu(profile);
     NonlocalGpuWorkspace permuted(profile);
-    if (gpu.upload(initial_state, ghosts, true) != NonlocalGpuFailure::None
-        || permuted.upload(permuted_input, ghosts, true)
-            != NonlocalGpuFailure::None) return 51;
+    const NonlocalGpuFailure gpu_upload = gpu.upload(initial_state, ghosts, true);
+    const NonlocalGpuFailure permuted_upload =
+        permuted.upload(permuted_input, ghosts, true);
+    if (gpu_upload != NonlocalGpuFailure::None
+        || permuted_upload != NonlocalGpuFailure::None) {
+        const std::uint32_t failure_code =
+            (static_cast<std::uint32_t>(gpu_upload) << 16U)
+            | static_cast<std::uint32_t>(permuted_upload);
+        return emit_apparatus_failure("upload", 0U, failure_code, gpu);
+    }
     NonlocalGpuPublicSnapshot final_gpu;
     NonlocalGpuPublicSnapshot final_permuted;
     NonlocalGpuStepResult final_gpu_step;
@@ -951,6 +1285,9 @@ int run_witness() {
             final_cpu = cpu_step;
         }
     }
+    if (!replay_valid || completed != kWitnessStep) {
+        return emit_apparatus_failure("replay", completed, 1U, gpu);
+    }
     std::vector<double> position_errors;
     double position_squared = 0.0;
     if (replay_valid && completed == kWitnessStep) {
@@ -1003,6 +1340,11 @@ int run_witness() {
     const auto permuted_image = build_visible_surface(
         profile, final_permuted.state, kWitnessSamples, exact_mass);
     const auto comparison = compare_visible_surfaces(gpu_image, cpu_image);
+    const auto retained_bulk =
+        nextengine::nonlocal::ncgp8::evaluate_retained_bulk(profile,
+            final_gpu.state, final_gpu.density, final_cpu.state,
+            final_cpu.density, final_permuted.state,
+            final_permuted.density);
     const bool permutation_exact = gpu_image.image_root
         == permuted_image.image_root;
     const Vec3d gpu_momentum = total_momentum(profile, final_gpu.state);
@@ -1023,7 +1365,8 @@ int run_witness() {
         && momentum_correspondence <= 0.01
         && maximum_penetration <= 0.0025 && contained
         && step_work_semantic_root(profile, final_gpu_step)
-            == step_work_semantic_root(profile, final_permuted_step);
+            == step_work_semantic_root(profile, final_permuted_step)
+        && retained_bulk.valid;
     const std::string executable_root = binary_root();
     const bool apparatus_valid = replay_valid && completed == kWitnessStep
         && vertical_axis_valid(profile, kVerticalAxisZ) && parent_exact
@@ -1043,6 +1386,7 @@ int run_witness() {
                     << input_root << ':' << receipt_root << ':'
                     << gpu_state_root << ':' << cpu_state_root_value << ':'
                     << permuted_state_root << ':' << ncgp7_result_root << '\n'
+                    << retained_bulk.closure_root << '\n'
                     << gpu_image.image_root << ':' << cpu_image.image_root
                     << ':' << permuted_image.image_root << ':'
                     << comparison.metrics_root << '\n'
@@ -1066,6 +1410,10 @@ int run_witness() {
               << ",\"witness_exact\":"
               << (witness_exact ? "true" : "false")
               << ",\"parent_exact\":" << (parent_exact ? "true" : "false")
+              << ",\"retained_passed\":"
+              << (retained_passed ? "true" : "false")
+              << ",\"apparatus_valid\":"
+              << (apparatus_valid ? "true" : "false")
               << ",\"position_rmse_m\":" << position_rmse
               << ",\"position_p99_m\":" << position_p99
               << ",\"position_maximum_m\":" << position_maximum
@@ -1083,11 +1431,15 @@ int run_witness() {
               << (permutation_exact ? "true" : "false")
               << ",\"comparison\":";
     emit_comparison(comparison);
-    std::cout << ",\"gpu_image_root\":\"" << gpu_image.image_root
-              << "\",\"cpu_image_root\":\"" << cpu_image.image_root
-              << "\",\"permuted_image_root\":\""
-              << permuted_image.image_root
-              << "\",\"gpu_state_root\":\"" << gpu_state_root
+    std::cout << ",\"gpu_image\":";
+    emit_image(gpu_image);
+    std::cout << ",\"cpu_image\":";
+    emit_image(cpu_image);
+    std::cout << ",\"permuted_image\":";
+    emit_image(permuted_image);
+    std::cout << ",\"retained_bulk\":";
+    emit_retained_bulk(retained_bulk);
+    std::cout << ",\"gpu_state_root\":\"" << gpu_state_root
               << "\",\"cpu_state_root\":\"" << cpu_state_root_value
               << "\",\"permuted_state_root\":\"" << permuted_state_root
               << "\",\"input_root\":\"" << input_root

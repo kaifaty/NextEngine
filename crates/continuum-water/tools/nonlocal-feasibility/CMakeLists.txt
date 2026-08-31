@@ -152,6 +152,7 @@ add_executable(
     nonlocal-corrected-cuda-visible-surface
     src/corrected_cuda_full_step.cu
     src/corrected_cuda_visible_surface_main.cpp
+    src/corrected_cuda_retained_bulk.cpp
     src/corrected_cuda_full_step_reference.cpp
     src/corrected_cuda_full_step_cpu_solver.cpp
     src/corrected_cuda_assembly_reference.cpp
@@ -630,6 +631,10 @@ set(NCGP8_SOURCE_FILES
     src/corrected_cuda_full_step.hpp
     src/corrected_cuda_full_step.cu
     src/corrected_cuda_visible_surface_main.cpp
+    src/corrected_cuda_retained_bulk.cpp
+    src/corrected_cuda_retained_bulk.hpp
+    src/corrected_cuda_eulerian_diagnostic.cpp
+    src/corrected_cuda_eulerian_diagnostic.hpp
     src/corrected_cuda_full_step_reference.cpp
     src/corrected_cuda_full_step_cpu_solver.cpp
     src/corrected_cuda_assembly_reference.cpp
