@@ -1,875 +1,391 @@
-# Roadmap V9: explicit modes plus neural time-varying residual to baked contact atlas
+# Roadmap V10: internet data to an autonomously validated physical-sound base
 
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-31 |
-| Статус | `ACTIVE_R&D / R3A_V8_REAL_FIT_REJECTED / V9_SYNTHETIC_PASS / SOURCE_DISJOINT_REAL_PROTOCOL_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / V9_SYNTHETIC_PASS / NEW_REAL_SOURCE_GATE_NEXT / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Стратегия | [V8 rejection and V9 residual research](../development/physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md) |
-| Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
 | Текущее состояние | [Physical sound task state](../development/task-state/physical-sound-synthesis.md) |
-| Продуктовый статус | Изолированный post-v1 experiment; текущий clip-based audio baseline не меняется |
+| Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
+| Продуктовый fallback | Обычные authored clips; они остаются обязательным и авторитетным путём |
 
-## North star
+## Цель
 
-Построить автономный цикл, который по опубликованным internet data обучает
-модель физического звука, автоматически проверяет её на независимых данных и
-превращает принятый результат в компактную детерминированную модель для движка.
+Создать автономный offline-конвейер, который:
 
-Первый целевой результат — один конкретный объект с несколькими опубликованными
-позициями удара, геометрией и одной объявленной canonical-listener condition.
-Модель предсказывает bounded modal sound field по месту контакта; обычное
-пространственное представление слушателю остаётся ответственностью SPEC-08.
-Для неизвестных, ошибочных или out-of-domain условий всегда используется
-authored clip.
+1. находит опубликованные записи и геометрию объектов в интернете;
+2. обучает компактную модель физического звука;
+3. проверяет её на данных, которых generator не видел;
+4. принимает, отклоняет или ограничивает результат без очереди ручного
+   прослушивания;
+5. превращает принятый результат в обычный детерминированный clip atlas для
+   движка.
 
-Работа не считается завершённой, пока нет одновременно:
+Первая доказуемая цель — не универсальная формула `material -> sound`, а один
+точно описанный стеклянный объект с несколькими положениями удара, одной
+canonical-listener condition и опубликованной геометрией. После него тот же
+контур должен быть повторён для дерева и металла.
 
-1. обученной модели с замороженным lineage;
-2. преимущества над честным classical baseline на неиспользованных условиях;
-3. независимого автоматического validator decision;
-4. детерминированного cooker и byte-identical reference PCM;
-5. одного exact admitted domain с обязательным fallback;
-6. отдельного product decision перед любой runtime-интеграцией.
+Нейросеть работает только во внешнем research/cooking pipeline. Runtime не
+загружает weights и не выполняет neural inference. SPEC-45 остаётся
+`Proposed`; этот roadmap не создаёт public schema и не обещает shipping.
 
-## Что меняется в V9
+## Где мы находимся
 
-Ручной поиск общей формулы `material -> sound` остаётся закрытой основной
-веткой. Q30 modal renderer, DCT residual, FEM/BEM и предыдущие real-data
-эксперименты сохраняются как baseline, teacher, controls и negative knowledge.
-
-V3 исправил optimization collapse: R2D V2 точно обучает rank-96 context
-coefficients и сохраняет energy/cooker boundary. Но единственный R2E
-coordinate field, несмотря на практически нулевую context error, проиграл
-всем classical controls на всех пяти held-listener endpoints. Post-reject
-projection oracle сохраняет на query только `92.38%` полной энергии, имеет
-Frobenius NRMSE `0.2760` и сам пропускает mean-spectrum gate. V4 поэтому
-закрыл не neural route, а неверный первый task и порядок программы:
-
-1. opened Green Goblet listener split остаётся immutable negative knowledge;
-2. первая полезная модель учит variation по impact/contact position при одной
-   canonical-listener condition, а не произвольную object radiation field;
-3. новый internet-only multi-object/multi-impact corpus и его disjoint roles
-   замораживаются до выбора representation или model;
-4. query-seeing development oracle сначала доказывает достаточность modal/
-   residual representation; только затем разрешается neural training;
-5. exact-object few-shot geometry-aware field предшествует cross-object
-   pretraining и zero-shot claims;
-6. detailed listener radiation возвращается только отдельной веткой с более
-   плотными published observations или independently validated BEM/FEM.
-
-V6 добавил clean native-rate R3A V3 result. Первый Plastic Bin runner
-fail-closed остановился из-за восьмисэмплового decoder deficit до публикации
-метрик; guard был выведен только на synthetic control и перенесён в новую
-V3B revision на unopened Purple Scoop. Два V3B прогона повторились
-byte-identically, native identity control дал exact zero, но NDAC-75 прошёл
-только level, envelope и decay. Spectrum `12.1198 dB` и modal error `560.81`
-cents провалили frozen limits и nearest-contact comparison. Результат —
-`REJECT_LEARNED_CODEC_REPRESENTATION` без sample-rate confound.
-
-R3A V4 проверил следующий аналитический уровень до development. Два fit-only
-прогона побайтно повторили три capacity с object-global poles, complex gains,
-learned long/transient bases и object spectral bins. Все capacity уложились в
-`4 MiB` shared и `64 KiB` per-contact budgets, но spectrum провалился на всех
-`12/12` fit-контактах: даже extended даёт `8.3188–12.0782 dB`. Development,
-row `2407`, method holdout и admission shadow не читались. Результат —
-`REJECT_FIT_REPRESENTATION`, а не разрешение ещё одного PCA/modal тюнинга.
-
-V7 ответил на отрицательный V4 result переходом к task-specific waveform RVQ.
-V5 доказал, что runner и anti-collapse controls работают, но все три
-`6/12/24 kbps` capacity провалили real development: spectrum и modal frequency
-не прошли `12/12`, decay — `11/12`. Поэтому более длинный V5, ещё один bitrate
-или tuning по открытым объектам запрещены.
-
-V8 сохраняет цель — обучить ML-модель физического звука — но меняет саму
-representation hypothesis:
-
-1. object-global modal frequencies и damping остаются явными параметрами;
-2. neural field предсказывает spatial mode shapes/gains по contact position;
-3. excitation/onset и bounded filtered residual моделируются отдельно;
-4. synthetic FEM labels сначала проверяют renderer recovery и held-position
-   field learning без claims о real quality;
-5. новая real representation development использует только fresh
-   source/object-disjoint internet data; четыре V5 объекта не участвуют в
-   выборе V8;
-6. global damping сравнивается не более чем с одной заранее замороженной
-   spatial-damping capacity; residual имеет отдельную ablation;
-7. только fresh development-pass расходует один новый source-disjoint holdout;
-8. первый product experiment offline рендерит accepted contact grid в обычный
-   bounded clip atlas. Runtime не загружает neural model.
-
-V8-SYNTH подтвердил renderer и neural mode-shape field на известной FEM truth,
-но fresh object-91 fit отверг bounded residual до development. Два точных
-прогона показывают одинаковую причину: обе `63–64 KiB` capacity проходят cost,
-но spectrum/modal identity падают на всех `3/3` fit-контактах. Dense
-phase-preserving residual восстанавливает spectrum, однако требует `214,564`
-bytes только на in-band complex bins; stationary magnitude-shaped noise
-проваливает те же endpoints. Полный результат и competing hypotheses находятся
-в [V8 fit rejection/V9 research](../development/physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md).
-
-V9 сохраняет явные modes и меняет только residual hypothesis:
-
-1. стабильные узкие resonances остаются frequency/damping/complex gains;
-2. broadband/inharmonic tail представляется deterministic loopable noise bands
-   с time-varying amplitudes, а не одним sparse global FFT;
-3. внешний neural decoder/field предсказывает компактный contact latent и
-   spectro-temporal amplitude surface;
-4. upstream DDSP/NoiseBandNet служат prior art, не runtime dependency: V9
-   использует меньший residual bank, потому что modes уже вынесены явно;
-5. первый gate — synthetic known-truth exact repeat без real audio;
-6. object `91` закрыт как negative evidence и не выбирает V9; следующий real
-   protocol обязан быть source-disjoint;
-7. runtime inference по-прежнему запрещён, accepted output — обычные baked
-   clips с обязательным fallback.
-
-Exploratory `168 kbps` Opus plus 5 ms envelope sidecar занимает `65,170` bytes
-и проходит `11/12` fit-контактов; один Large Swan contact сохраняет
-`6.1148 dB` spectrum error. Это не кандидат и не runtime dependency. Контроль
-показывает, что frozen budget близок к достижимому, но требует task-specific
-rate allocation, а не другого универсального codec checkpoint.
-
-Целевой первый кандидат теперь — offline explicit-modal neural contact field:
-
-```text
-published FEM labels + fresh real impact recordings + geometry
-  -> explicit frequency/damping initializer + differentiable renderer
-  -> neural geometry/contact-to-mode-shape field + bounded residual
-  -> fresh representation gate on development and one new holdout
-  -> offline decoded contact grid + coverage/OOD
-  -> canonical baked clip atlas with exact hashes
-  -> existing clip playback -> SPEC-08 spatialization
-```
-
-Force-deconvolved transfer response и обычный recorded impact waveform —
-разные типы сигнала. Они не сравниваются sample-to-sample и не смешиваются в
-одной loss без явной excitation model:
-
-- transfer responses обучают отклик объекта и могут позднее обучать radiation;
-- recorded impacts проверяют итоговую perceptual identity и envelope;
-- synthetic FEM/BEM дают физические controls и дополнительный teacher signal;
-- direct waveform generation используется только как report-only upper bound
-  либо как источник authored assets.
-
-Первая модель не входит в runtime. Она работает во внешнем research pipeline,
-а первый engine experiment получает только проверенный clip atlas и его
-coverage/fallback metadata. Канонически quantized modal coefficients остаются
-допустимым более поздним distillation target, если consumer докажет, что clip
-atlas недостаточен по размеру или вариативности.
-
-## Неизменяемые ограничения
-
-- Training data, recordings, generated WAVs, weights, optimizer state и
-  feature caches остаются вне Git.
-- Пользователь ничего не записывает и не бьёт по объектам; real evidence
-  добывается только из опубликованных internet sources.
-- Отсутствующая geometry, material, support, excitation или listener metadata
-  остаётся отсутствующей и сужает claim.
-- Generator не читает validator calibration, method holdout или admission
-  shadow.
-- Validator не обучается на candidate outputs той же revision и не меняет
-  thresholds после открытия shadow.
-- Один pooled similarity score, одна audio-language model и человеческое
-  прослушивание не могут самостоятельно выдать `Pass`.
-- Невалидный, неопределённый или OOD результат всегда означает
-  `FallbackOutOfDomain`.
-- Physics и gameplay остаются authoritative. Audio presentation не меняет
-  world state, replay, save или deterministic `AcousticFactV1`.
-- Runtime neural inference, public schema и production integration требуют
-  отдельного consumer-driven architecture decision.
-
-## Артефакты конечного контура
-
-| Артефакт | Что фиксирует | Где хранится |
+| Результат | Состояние | Что это означает |
 | --- | --- | --- |
-| `CorpusRevision` | source hashes, provenance, signal semantics, published axes и пять split roles | Manifest/report в Git; payloads снаружи |
-| `ExperimentRevision` | preprocessing, features, model, environment, seeds, baseline и checkpoint lineage | Code/report в Git; weights/features снаружи |
-| `ValidatorRelease` | hard gates, specialists, thresholds, OOD и grouped risk policy | Версионированный report/contract |
-| `NeuralRepresentationRevision` | corpus, encoder/RVQ/decoder, losses, capacities, checkpoint и held quality | Code/report в Git; weights снаружи |
-| `BakedContactAtlas` | exact object/contact grid, canonical clip hashes, coverage/OOD и fallback | Сначала external research artifact |
-| `CookedAcousticModel` | optional later modal/residual distillation of an admitted atlas | Сначала external research artifact |
-| `AdmissionRecord` | immutable `Pass`, `Reject` или `FallbackOutOfDomain` для exact domain | Reviewable evidence |
+| Data boundary и честные classical controls | `COMPLETE` | Типы сигналов, split roles, leakage rules, метрики и fallback определены. |
+| Listener-field experiments | `REJECTED / RECORDED` | Модель может идеально запомнить известные точки и всё равно плохо предсказывать новые; эту ветку не повторяем. |
+| V5 waveform neural codec | `REJECTED / RECORDED` | Компактный codec сохранял общий envelope, но терял спектр и модальные частоты. |
+| V8 explicit modes + sparse residual | `REJECTED_ON_REAL_FIT` | Явные резонансы полезны, но стационарного sparse residual недостаточно для настоящего удара. |
+| V9 explicit modes + time-varying residual | `SYNTHETIC_PASS / REPRODUCIBLE` | На известной synthetic truth модель компактна и предсказывает неизвестный контакт лучше nearest control. |
+| V9 на новом реальном объекте | `NOT_RUN` | Реальное качество ещё не доказано; нужен новый source-disjoint protocol. |
+| Автоматический validator release | `NOT_AUTHORIZED` | Компоненты метрик есть, но independent release ещё не калиброван. |
+| База моделей и интеграция с движком | `BLOCKED` | Сначала должны пройти real representation, exact-object и validator gates. |
 
-Каждое изменение corpus, model, preprocessing, cooker или validator создаёт
-новую revision. Неудачные результаты не переписываются и остаются в базе как
-запрет на повторение уже опровергнутой гипотезы.
+Точное текущее evidence: [V8 real-fit rejection and V9 research](../development/physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md)
+и [V9 synthetic result](../development/physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md).
 
-## Карта программы
+## Целевая система
 
 ```mermaid
 flowchart LR
-    R0["R0. Real data boundary"] --> R1["R1. Honest baselines"]
-    R1 --> R2D["R2D. Trainability gate"]
-    R2D --> R2E["R2E. Listener field reject"]
-    R2E --> R3A["R3A. Explicit-modal neural representation"]
-    R3A --> R3B["R3B. Exact-object contact-to-modal field"]
-    R3B --> R4["R4. Shared-object pretraining"]
-    R3B --> R5["R5. Independent validator"]
-    R4 --> R5
-    R5 --> R6["R6. Atlas bake and one-shot admission"]
-    R6 --> R7["R7. Sound model base V1"]
-    R7 --> R8["R8. Production impact vertical"]
+    S["Published internet sources"] --> R["Hash-closed corpus registry"]
+    R --> G["Offline generator training"]
+    G --> C["Frozen candidate"]
+    R --> V["Independent validator"]
+    C --> V
+    V --> D{"Admission decision"}
+    D -->|Pass| A["Baked contact clip atlas"]
+    D -->|Out of domain| F["Authored clip fallback"]
+    D -->|Reject| N["New falsifiable model revision"]
+    A --> E["Existing engine audio path"]
+    F --> E
 ```
 
-R4 является условной веткой. Если exact-object few-shot model работает, а
-object-disjoint transfer нет, программа продолжает работу с exact-object
-models и не маскирует провал обещанием универсального материала.
-
-## Milestones
-
-| ID | Статус | Размер | Проверяемый результат |
-| --- | --- | ---: | --- |
-| R0 | `COMPLETE` | S | Первый real transfer slice и five-role projection повторяются byte-identical; signal semantics и missing axes честно сохранены. |
-| R1 | `COMPLETE / FROZEN_CONTROLS` | M | Transfer-domain и recorded-waveform baselines покрывают только совместимые rows; метрики и fallback заморожены. |
-| R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
-| R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
-| R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `IN_PROGRESS / V1–V5_NEGATIVE_OR_INCONCLUSIVE / V8_REAL_FIT_REJECTED / V9_SYNTH_PASS / REAL_PROTOCOL_NEXT` | L | V9 known-truth rendering, compact records and held-contact field repeat/pass; select and freeze a new internet-published source with exact coordinates before any real decode. |
-| R3B | `NOT_AUTHORIZED_BY_R3A` | L | A real exact-object contact field cannot start without V9 fresh-real representation development and source-disjoint holdout passes. |
-| R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
-| R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
-| R6 | `BLOCKED_BY_R5` | M | Frozen generator/cooker/validator один раз открывают admission shadow и публикуют tri-state decision. |
-| R7 | `BLOCKED_BY_R6` | L–XL | Есть exact admitted neural-cooked domains для glass, wood и metal либо явно зафиксированы недоступные families. |
-| R8 | `POST_V1 / BLOCKED_BY_CONSUMER` | XL | Один visible prop использует production contact/content/mixer path с exact clip fallback. |
-
-Размеры относительные; это порядок зависимостей, а не календарное обещание.
-
-## R0 — Real data boundary
-
-Цель — подготовить данные так, чтобы модель не обучалась на неверной
-интерпретации сигнала или скрытой leakage.
-
-Deliverables:
-
-- schema V2 с явным `recorded_impact_waveform` или
-  `force_deconvolved_transfer_response`;
-- независимые optional claims для impact point и outward normal;
-- verified REALIMPACT multi-listener slice с общим scale, сохраняющим
-  относительную амплитуду между микрофонами;
-- роли `train`, `development`, `calibration`, `method_holdout` и
-  `admission_shadow` с object/source/recording/mutation-parent disjointness;
-- capability report, где каждая отсутствующая axis указана явно;
-- sealed rows представлены commitments, а не доступным audio payload.
-
-Exit criteria:
-
-- два запуска дают byte-identical manifests, reports и rendered references;
-- stale lineage, non-finite samples, duplicate parents и cross-role leakage
-  отвергаются до создания output;
-- ни один transfer row не попадает в waveform baseline;
-- выбран exact permitted internet slice для R1/R2;
-- модель ещё не обучается, admission shadow не открывается.
-
-Evidence: [R0–R1 real boundary](../development/physical-sound-neural-real-boundary-r0-r1-2026-08-30.md).
-R0 закрыт: 15-row REALIMPACT slice и 23-row five-role projection повторены
-byte-identical; все missing axes сохранены, sealed roles не materialized.
-
-## R1 — Honest baselines and metric contract
-
-Нужны две разные baseline surfaces:
-
-1. transfer-domain baseline — nearest-neighbour/interpolation либо другой
-   frozen classical field над impact/listener coordinates;
-2. waveform-domain baseline — существующий Q30 modal/DCT или PCM-only path для
-   совместимых recorded impacts и synthetic controls.
-
-Одинаковые preprocessing и splits используются всеми будущими candidates.
-Метрики замораживаются до обучения:
-
-- multi-resolution log-spectrum и spectral-envelope error;
-- modal frequency/damping error там, где extractor допустим;
-- time-decay/envelope и residual autocorrelation;
-- spatial relative-level and held-out-listener error;
-- energy-scaling, silence, rest, separation, finiteness и exact-repeat gates;
-- независимые learned-representation diagnostics только как часть ensemble;
-- per-object/impact/listener distributions, а не только pooled mean;
-- cooker size, offline latency и deterministic reference cost.
-
-Exit criteria:
-
-- каждый development row имеет `Supported` или точный
-  `FallbackOutOfDomain` reason;
-- baseline и feature reports повторяются byte-identical;
-- metric direction, aggregation, primary endpoints и stop thresholds
-  preregistered до R2;
-- admission shadow остаётся sealed.
-
-Evidence: [R0–R1 real boundary](../development/physical-sound-neural-real-boundary-r0-r1-2026-08-30.md).
-R1 закрыт профилем `transfer-listener-field-r1-v1`: восемь context и семь
-query listeners имеют повторяемые nearest/linear predictions. Linear control
-достигает `9.1745 dB` mean gain-matched spectrum RMSE и `2.5373 dB` mean
-absolute level error; эти числа не являются quality pass, а задают порог R2.
-
-## R2 — Fixed-impact listener-field pilot
-
-R2 использует один объект и один impact point с несколькими listener positions.
-Он проверяет только пространственное поле и не притворяется полной моделью
-удара. Milestone закрывается только моделью, которая обходит честную
-интерполяцию; воспроизводимое обучение само по себе не является успехом.
-
-Experiment ladder:
-
-1. frozen nearest/linear controls;
-2. direct time-domain rank-4/rank-7 listener latent — rejected;
-3. coordinate-derived propagation-delay-aligned latent — rejected;
-4. grouped dense complex/time-frequency separable SIREN — rejected after
-   reproducible two-candidate training and one-shot query evaluation;
-5. context trainability and objective gate — next;
-6. frozen low-rank complex basis plus neural spatial coefficient field — only
-   after the trainability gate passes.
-
-Exit criteria:
-
-- held-out listeners улучшаются относительно каждого frozen control по всем
-  preregistered primary aggregates;
-- relative amplitude, decay, finiteness и exact cook не регрессируют;
-- ablation показывает, какой компонент даёт улучшение;
-- training повторяется на фиксированных seeds в объявленном tolerance;
-- failure публикуется как `REJECT_LISTENER_FIELD` или `DATA_INSUFFICIENT`, а не
-  запускает свободный hyperparameter search.
-
-Evidence: [V1 result](../development/physical-sound-listener-field-r2-v1-result-2026-08-30.md)
-and [phase-aligned result and failure research](../development/physical-sound-listener-field-r2-phase-research-2026-08-30.md).
-V1 and its separately preregistered propagation-delay-aligned successor both
-repeat deterministically and return `RejectListenerField`. Phase alignment
-makes rank 4 better than both controls on four of five endpoints, but it still
-fails the frozen P95 spectrum endpoint. A query-informed subspace diagnostic
-also fails the level/spectrum aggregates, so the opened time-domain latent
-family is retired rather than tuned.
-
-R2B is now complete. The [dense complex-field preflight](../development/physical-sound-r2b-dense-complex-field-preflight-2026-08-30.md)
-projects the full 600-position fixed-impact REALIMPACT semicylinder, freezes
-complete-angle-plane groups with `420 context / 180 query`, and repeats both
-acquisition and 288 MB preflight trees byte-identically. Context-only
-normalization excludes all query rows; the complex STFT inverse reaches
-`-153.348 dB` worst NRMSE and at most one PCM16 LSB. Three controls are
-measured before optimization, while method holdout and admission shadow remain
-sealed. This closes data/representation readiness only.
-
-R2C is now complete and rejected. The [dense complex-field result and bounded
-failure research](../development/physical-sound-listener-field-r2c-result-2026-08-30.md)
-records byte-identical repetitions for the data-only and `0.0001` Helmholtz
-candidates. They produce about `53 dB` mean level error and `27 dB` mean
-spectrum error, passing only the near-zero waveform endpoint. Helmholtz is not
-the primary cause: both candidates collapse alike.
-
-The context diagnostic changes the next hypothesis. Rank 96 can retain
-`99.6396%` of context energy with Frobenius NRMSE `0.0600`, but the trained
-data-only full-context objective is `1.0498x` the zero predictor and every
-logged step reaches gradient clipping. The joint separable SIREN has therefore
-failed before spatial generalization. Width, rank, step, seed and physics-loss
-grids on the opened query are forbidden.
-
-### R2D — Context trainability and objective gate
-
-R2D reads only context data and performs no grouped-query candidate evaluation.
-It freezes an energy-preserving objective, sampling policy and optimizer
-diagnostics, then proves them in increasing order:
-
-1. exact identity/cooker control;
-2. one-row micro-overfit;
-3. small spatial-block micro-overfit;
-4. full-context fit against zero, global-mean and context-only rank oracles;
-5. deterministic repeat with clipping/gradient and emitted-PCM metrics.
-
-The profile must explicitly measure absolute RMS level, multi-resolution
-spectrum, complex reconstruction, waveform NRMSE, active-bin coverage and
-gradient clipping. A candidate cannot pass merely because a sampled loss falls.
-All numeric thresholds are frozen from context controls before optimization;
-query audio, method holdout and admission shadow reads remain zero.
-
-Exit criteria:
-
-- one-row and small-block controls reconstruct through the real inverse/PCM
-  cooker within their preregistered bounds;
-- the full-context result strictly improves both zero and global-mean controls
-  and approaches the declared context-only low-rank oracle envelope;
-- signal level does not collapse and no non-finite output occurs;
-- two runs reproduce under the declared deterministic/tolerance policy;
-- failure returns `REJECT_TRAINING_SUBSTRATE`, without opening query audio.
-
-[R2D V1](../development/physical-sound-listener-field-r2d-trainability-v1-result-2026-08-30.md)
-is complete and reproducible. The rank-96 basis retains `99.6396%` energy and
-is orthonormal within `1.67e-6`; one-row fit and every coefficient, cooker,
-oracle-proximity, clipping and trivial-control gate pass. The eight-row and
-full-context tasks miss only the unchanged mean absolute log-energy limit:
-`0.007785` and `0.005062` versus `0.005`. V1 remains rejected. The next
-revision may change only the fixed learning rate to a preregistered decay
-schedule; it may not relax thresholds, add query reads or alter the basis/loss.
-
-[R2D V2](../development/physical-sound-listener-field-r2d-trainability-v2-result-2026-08-30.md)
-is complete and passes. It changes only fixed `0.05` AdamW learning rate to a
-frozen half-cosine `0.05 -> 0.00001` schedule. Both runs produce the same
-`898ee201…0875` normalized report, all checkpoints and all 37 prediction WAVs
-match byte-for-byte, and every unchanged coefficient, energy, clipping,
-oracle-proximity and cooker comparison is green. Query, method-holdout and
-shadow reads remain zero. This authorizes one separately frozen R2E candidate;
-it does not grant held-listener quality, admission or runtime authority.
-
-### R2E — Low-rank neural spatial coefficient field
-
-R2E is complete and rejected. The sole data-only harmonic coordinate field
-fits all 420 context rows essentially exactly, two runs reproduce checkpoint,
-report and 208 prediction WAVs byte-for-byte, and query audio remains unread
-until the frozen evaluation. On all 180 grouped queries it is worse than every
-classical control on all five primary endpoints.
-
-Exit criteria:
-
-- all R2D trainability gates remain green under the final R2E path;
-- query audio affects only the single frozen evaluation;
-- the candidate is strictly better than every frozen control on all unchanged
-  five primary aggregates;
-- cooked outputs and reports repeat under the frozen policy;
-- otherwise return `REJECT_LOW_RANK_COEFFICIENT_FIELD` or
-  `DATA_INSUFFICIENT`, preserve the counterexample and stop R2.
-
-The exact decision is `RejectLowRankCoefficientField`. A post-reject rank-96
-query projection oracle also misses the mean-spectrum gate and retains only
-`92.38%` query energy at NRMSE `0.2760`; its repeated report is
-`b6dcc5fc…47ac2`. This distinguishes a representation ceiling from the larger
-coordinate interpolation failure. The opened split cannot select another
-architecture. See the [R2E result and V4 research](../development/physical-sound-listener-field-r2e-result-and-v4-research-2026-08-30.md).
-
-R2 is closed as `REJECT_LISTENER_FIELD`. This does not reject impact-
-conditioned object sound at a canonical listener condition.
-
-## R3A — Internet corpus and explicit-modal neural representation gate
-
-Entry condition: met by R2 closure and the independent product decision to
-separate contact variation from listener radiation. R3A must use a new
-unopened projection; the Green Goblet R2 query is diagnostic-only.
-
-Deliverables:
-
-- source audit for published multi-object/multi-impact real datasets, starting
-  with REALIMPACT and ObjectFolder Real availability without redistributing
-  their payloads;
-- one canonical-listener policy per source, force normalization, peak/time
-  alignment and explicit recorded-waveform versus transfer semantics;
-- object/source/project/mutation-parent grouped `train`, `development`,
-  `calibration`, `method_holdout` and `admission_shadow` roles;
-- geometry/visual artifact binding with absent support/composition axes left
-  absent;
-- frozen nearest/KNN, modal, DiffSound/FEM when reproducible and authored/Q30
-  compatible controls;
-- frozen fit-only modal/residual controls; rejected V5 waveform-RVQ remains an
-  immutable negative control rather than the active candidate;
-- explicit object-global frequencies/damping, neural contact-to-mode-shape or
-  gain field, declared excitation and one bounded residual;
-- global damping plus at most one preregistered spatial-damping capacity, with
-  direct waveform, multiresolution complex/log-spectrum, envelope/decay and
-  modal losses;
-- a spatial-sampling capability report that prohibits arbitrary listener
-  directivity where published density is insufficient.
-
-Exit criteria:
-
-- two projections and representation reports repeat under the declared exact
-  or tolerance policy;
-- one bounded explicit-modal neural representation preserves level, modal
-  frequency/damping, envelope and spectrum strongly enough to beat its
-  preregistered target baseline on all fresh development contacts and one later
-  source-disjoint holdout;
-- at least one exact object exposes enough impact locations for few-shot train
-  and held-contact evaluation;
-- method holdout and admission shadow remain commitments only;
-- result is `READY_FOR_EXACT_OBJECT_FIELD`, `DATA_INSUFFICIENT_COMPRESSION` or
-  `REJECT_NEURAL_REPRESENTATION`.
-
-R3A V1 is complete and returns `REJECT_REPRESENTATION`. Two metadata-only
-Blue Bowl preflights, two bounded four-contact extractions and two real
-representation oracles repeat byte-identically. The fifth contact remains
-undecoded. Modal plus sparse residual improves level and envelope but loses
-spectrum, modal-frequency and decay comparisons; equal-budget sparse DCT is
-worse. No neural training is authorized. See the
-[R3A Blue Bowl representation result](../development/physical-sound-r3a-blue-bowl-representation-gate-2026-08-30.md).
-
-R3A V2 is complete and returns `INCONCLUSIVE_RESAMPLING_CONTROL`. Two
-zero-target-audio Large Swan/DAC preflights, two sealed extractions and two
-query-seeing codec reports repeat byte-identically. Row `2407` remains
-undecoded. The no-codec 48→44.1→48 kHz control changes level by `1.8956 dB`
-and decay by `5.8438x`, so it fails before DAC can receive representation
-credit. DAC itself has `5.1562 dB` level error, `9.5356 dB` spectrum RMSE and
-`257.25` cents modal error. See the
-[R3A V2 result](../development/physical-sound-r3a-v2-large-swan-dac-oracle-result-2026-08-30.md).
-
-R3A V3A is invalid infrastructure evidence. Plastic Bin preflight and sealed
-extraction repeat, but the unguarded official decoder returns `143,992`
-samples for a `144,000`-sample target and no quality report is published. The
-eight-sample guard is derived on synthetic audio only; Plastic Bin is not
-re-evaluated.
-
-R3A V3B is complete and returns `REJECT_LEARNED_CODEC_REPRESENTATION`. Two
-Purple Scoop preflights, sealed extractions and native-48 kHz NDAC-75 oracles
-repeat byte-identically. Identity is exact zero on all five endpoints. NDAC
-improves level, envelope and decay, but has `12.1198 dB` spectrum RMSE and
-`560.81` cents modal error and improves only three of five endpoints. Row
-`2407` remains undecoded. See the
-[R3A V3 result](../development/physical-sound-r3a-v3-native-ndac-result-2026-08-30.md).
-
-R3A V4 is complete before development and returns
-`REJECT_FIT_REPRESENTATION`. Two preflights and two fit runs reproduce every
-JSON/NPY artifact. All three modal/gain/multiresidual capacities satisfy their
-byte budgets, but all twelve fit contacts fail the spectrum endpoint. No
-development or sealed waveform is decoded. See the
-[V4 fit result and V7 rebaseline](../development/physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md).
-
-R3A V5 has three bounded phases:
-
-1. `V5-PREFLIGHT` freezes a source-disjoint internet impact corpus, exact
-   preprocessing, a small convolutional encoder/RVQ/decoder, no more than
-   three latent capacities, all losses, seeds, checkpoint selection and cost
-   limits. It proves synthetic identity, tiny-corpus overfit and deterministic
-   checkpoint/inference without reading development contacts.
-2. `V5-DEV` trains only on the frozen internet training role plus the twelve
-   authorized fit contacts. The four already-opened development contacts may
-   select the smallest capacity passing every frozen endpoint and baseline.
-   They cannot select architecture, losses, thresholds or stopping rules.
-3. `V5-HOLDOUT` freezes the complete selected candidate before reading one new
-   source-disjoint object with `3 fit / 1 development / 1 sealed` roles. The
-   fifth contact remains sealed.
-
-`V5-PREFLIGHT-A` is complete and reproducible. The exact Heller/CMU archive
-projects to `73` clips in `17` immutable event groups (`56` train, `17`
-internal validation). Two runs repeat manifest `1cc23496…fb31` and report
-`38176a41…3bf3`; the full model repeats exactly and the micro-codec reaches an
-L1 improvement ratio of `0.1499882595`. No source, development or sealed
-waveform sample was decoded numerically and no real training step ran. See the
-[exact preflight evidence](../development/physical-sound-r3a-v5-neural-preflight-a-2026-08-31.md).
-
-The CUDA/PyTorch runner boundary is also complete and reproducible. Two runs
-repeat manifest `75ed5e06…2679`, report `a4e30d87…b1e1` and checkpoint
-`74fccfac…7659` byte for byte. Full loss/backward is finite, L1 improves
-`24.0%`, train RVQ use is `[8,7,6,7]` and checkpoint continuation is exact.
-The original tiny-uniform codebook start is rejected because it used one code
-per stage; deterministic first-train-latent residual-share initialization is
-now frozen. See the
-[training runner evidence](../development/physical-sound-r3a-v5-training-runner-preflight-2026-08-31.md).
-
-The paired `6/12/24 kbps` capacity frontier and frozen development gate are
-complete and reproducible. All capacities pass anti-collapse and byte-budget
-checks, but spectrum and modal frequency fail on all `12/12` real development
-comparisons and decay fails on `11/12`. Two development evaluations repeat
-report `74a6f4ea…bbb4`; sealed, method-holdout and admission-shadow reads stay
-zero. See the [exact V5-C result](../development/physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md).
-
-The neural decoder is external and receives research quality credit only. V5
-returns `REJECT_NEURAL_REPRESENTATION`: keep
-clips, select no capacity, spend no new representation holdout and do not
-start R3B. Reconsideration requires a materially different preregistered
-modal/decay-preserving representation and new source-disjoint development
-evidence, not a longer V5-C run or another bitrate.
-
-R3A V8 tested that reconsideration condition and is now complete/rejected at
-real fit. The [V8 explicit-modal neural rebaseline](../development/physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md)
-froze this order:
-
-1. `V8-SYNTH` uses two opened, exact-hash NISR Glass FEM label files. A
-   differentiable damped-sinusoid renderer must recover perturbed known truth,
-   and a deterministic coordinate MLP must predict held boundary mode-shape
-   components better than frozen constant and KNN controls.
-2. `V8-REAL-FIT` may select a fresh ObjectFolder Real slice only after the
-   synthetic preflight passes. It freezes analytic modal initialization,
-   excitation, global damping, one bounded residual and all fit gates before
-   reading real development.
-3. `V8-REAL-DEV` evaluates global damping and at most one frozen spatial-
-   damping capacity on new source/object-disjoint development. The four V5
-   objects cannot select V8.
-4. `V8-REAL-HOLDOUT` opens one new source-disjoint holdout only after every
-   development endpoint and compatible baseline passes.
-5. Only `V8-REAL-HOLDOUT = READY_FOR_EXACT_OBJECT_FIELD` opens R3B and offline
-   atlas work. It never authorizes runtime inference or public contracts.
-
-`V8-SYNTH` is complete and returns
-`READY_FOR_FRESH_REAL_MODAL_PROTOCOL`. Two independent runs repeat manifest
-`b2bb931d…6934` and report `391854fe…3b78`; modal recovery passes and the two
-held mode-shape fields reach `0.262x` and `0.097x` nearest-neighbour RMSE.
-Real/sealed/method/shadow reads are zero. See the
-[exact V8-SYNTH result](../development/physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md).
-This is not acoustic quality. The later object-91 fit runner now repeats
-byte-identically and returns `REJECT_V8_REAL_FIT_REPRESENTATION`: both bounded
-damping capacities fail spectrum/modal identity on all fit contacts, while
-development `20` and sealed `27` remain unread. V8 development is closed.
-
-R3A V9 is frozen in the
-[synthetic preflight protocol](../development/physical-sound-r3a-v9-time-varying-residual-preflight-protocol-2026-08-31.md).
-It keeps explicit modes, replaces the sparse stationary tail with deterministic
-time-varying noise bands and asks a small neural field to interpolate the
-contact latent. A complete pass can authorize only a newly frozen,
-source-disjoint real protocol.
-
-V9-SYNTH is now `COMPLETE / PASS / REPRODUCIBLE`. Two exact runs repeat
-manifest `15616a58…36c9` and report `6df03217…779a`. The `25,888`-byte shared
-boundary and `104`-byte contact record pass cost; neural held-query latent and
-waveform errors are `0.521x` and `0.472x` nearest. See the
-[exact V9 result](../development/physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md).
-This is implementation evidence only. The current step is source research and
-a zero-decode source/role/protocol freeze; object `91` is forbidden for V9
-selection.
-
-## R3B — Object-specific contact-position few-shot model
-
-Entry condition: R3A V9 passes fresh real development and one source-disjoint
-representation holdout, then publishes a new exact object with disjoint held
-contact positions. Listener coordinate is fixed to the source's canonical
-condition and is not a learned axis.
-
-Model inputs:
+У контура нет решения «на глаз». Каждая стрелка связывается exact source,
+code, configuration, model, validator и output hashes. Изменение любого из них
+создаёт новую revision.
+
+## Неизменяемые ограничения
+
+- Пользователь не записывает удары и не собирает локальный corpus. Real data
+  поступают только из опубликованных internet sources.
+- Dataset payloads, WAVs, weights, checkpoints, feature caches и generated
+  atlases остаются вне Git. В репозитории находятся code, manifests, компактные
+  fixtures и reviewable reports.
+- `recorded_impact_waveform` и `force_deconvolved_transfer_response` — разные
+  задачи. Они не смешиваются в одной loss или sample-to-sample метрике без
+  явной excitation model.
+- Отсутствующая coordinate, geometry, force, support, composition или listener
+  axis остаётся отсутствующей и сужает claim; она не угадывается по label.
+- Generator не читает validator calibration internals, method holdout или
+  admission shadow. Validator той же revision не обучается на candidate
+  outputs.
+- Один pooled score, одна audio-language model или человеческое прослушивание
+  не могут самостоятельно выдать `Pass`.
+- Неопределённый, ошибочный или OOD результат всегда использует authored clip.
+- Audio остаётся presentation-only и не влияет на physics, gameplay hearing,
+  save, replay или authoritative world state.
+- Runtime neural inference и прямое микширование raw PhysX callback запрещены.
+
+## Программа работ
+
+Размеры `S/M/L/XL` показывают относительный объём и риск, а не календарное
+обещание.
+
+| ID | Этап | Статус | Размер | Выход |
+| --- | --- | --- | ---: | --- |
+| A0 | Новый real source и coordinate proof | `IN_PROGRESS` | S–M | Hash-closed source, точные contact coordinates и заранее замороженные роли без waveform decode. |
+| A1 | V9 real representation gate | `BLOCKED_BY_A0` | M | Explicit modes + time-varying residual проходят fit, development и один source-disjoint holdout. |
+| A2 | Exact-object contact field | `BLOCKED_BY_A1` | M–L | Модель предсказывает звук в новых точках объекта и печёт bounded clip atlas. |
+| A3 | Independent Validator V1 | `BLOCKED_BY_A1` | M | Frozen ensemble показывает bounded false-pass risk и useful selective coverage. |
+| A4 | One-shot admission | `BLOCKED_BY_A2_A3` | S | Frozen generator и validator один раз открывают shadow и публикуют tri-state decision. |
+| A5 | Physical Sound Base V1 | `BLOCKED_BY_A4` | L–XL | Glass, wood и metal имеют admitted exact domains либо честный fallback-only status. |
+| A6 | Один production impact prop | `POST_V1 / BLOCKED_BY_CONSUMER_ADR` | L | Visible object использует committed contact projection, baked clips и обязательный fallback. |
+| A7 | Cross-object generalization | `OPTIONAL_AFTER_A5` | XL | Shared/few-shot модель проходит object/family-disjoint tests либо broad claim закрывается. |
+
+## A0 — Новый real source и доказательство координат
+
+### Задача
+
+Выбрать полностью новую опубликованную ревизию, которая не участвовала в
+выборе V9, и до чтения waveform samples доказать связь:
+
+```text
+object revision + contact id
+  -> published 3D contact position/normal
+  -> exact audio member
+  -> exact geometry revision
+```
+
+Приоритетный кандидат исследования — новый стеклянный объект ObjectFolder
+Real. Он становится выбранным source только после доказательства, что tactile/
+pose metadata и audio contact IDs описывают одну точку в одной системе
+координат. Если это невозможно доказать из primary source code/data, кандидат
+возвращает `DATA_INSUFFICIENT`; fallback исследования — новый unopened source
+с явными impact vertices, но claim сужается до опубликованной signal semantics.
+
+### Порядок
+
+1. Зафиксировать official URLs, source revision, sizes, hashes и signal
+   semantics.
+2. Доказать coordinate transform и audio/contact ID alignment из primary
+   source, не из имени файла или предположения.
+3. Выполнить zero-decode inventory: разрешены archive headers и metadata,
+   decoded audio sample count обязан остаться нулём.
+4. До декодирования распределить complete parent groups по ролям
+   `fit/development/representation_holdout/calibration/method_holdout/
+   admission_shadow`.
+5. Заморозить preprocessing, baselines, metrics, thresholds, read counters и
+   stop policy.
+
+### Exit criterion
+
+- Два inventory запуска дают byte-identical manifest/report.
+- Все выбранные contacts имеют доказанную coordinate/audio/geometry binding.
+- Ни один protected waveform не прочитан и не участвует в normalization.
+- Duplicate и mutation-parent leakage отсутствуют.
+- Результат ровно один из `READY_FOR_V9_REAL_FIT` или `DATA_INSUFFICIENT`.
+
+## A1 — V9 на реальном звуке
+
+### Гипотеза
+
+Настоящий удар можно компактно представить как:
+
+```text
+explicit stable modes
+  + contact-conditioned modal gains
+  + deterministic time-varying noise-band residual
+  + bounded excitation/onset description
+```
+
+V9-SYNTH проверил вычислительный substrate, но не realism. A1 проверяет саму
+representation hypothesis, прежде чем учить полноценное spatial field.
+
+### Последовательные ворота
+
+1. **Fit-only:** representation обязана восстановить открытые fit contacts и
+   уложиться в frozen shared/per-contact budgets. Development остаётся
+   непрочитанным.
+2. **Development:** одна полностью замороженная capacity сравнивается с
+   nearest, modal-only, compatible classical и reconstruction controls.
+3. **Representation holdout:** открывается один раз только если каждый
+   development endpoint прошёл.
+
+Проверяются level, attack, envelope, decay, modal frequencies/damping,
+multi-resolution spectrum, spectro-temporal residual, waveform reconstruction,
+finiteness, exact repeat и storage cost. Пороговые значения берутся из
+предварительно замороженного A0 protocol, а не подгоняются после результата.
+
+### Решения
+
+- `READY_FOR_EXACT_OBJECT_FIELD`: все gates и compatible baselines пройдены.
+- `REJECT_V9_REAL_REPRESENTATION`: сохранён counterexample; A2 не запускается.
+- `DATA_INSUFFICIENT`: источник не позволяет проверить заявленную axis.
+
+При reject разрешена только новая falsifiable representation hypothesis и
+новая source-disjoint revision. Ещё один bank size, epoch, threshold или
+postfilter на открытых contacts запрещён.
+
+## A2 — Exact-object contact field и clip atlas
+
+A2 отвечает на практический вопрос: умеет ли модель по координате удара
+предсказывать различия звука одного реального объекта.
+
+### Model boundary
+
+Входы:
 
 - exact object/geometry revision;
-- available material/support evidence;
-- impact point/normal and available excitation descriptor;
-- declared canonical listener and preprocessing revision.
+- published contact point и доступная normal;
+- available excitation descriptor;
+- одна canonical-listener condition.
 
-Model outputs:
+Выходы:
 
-- explicit modal parameters and contact-conditioned mode-shape/gain values for
-  the selected representation revision;
-- optional global/local physical auxiliary heads only when they improve frozen
-  validation rather than replacing it;
-- uncertainty, coverage distance и OOD reason.
+- explicit modal gains и V9 residual latent;
+- coverage distance, uncertainty и OOD reason;
+- offline-decoded canonical 48 kHz PCM для bounded contact grid.
 
-Exit criteria:
+### Exit criterion
 
-- unseen impact positions beat every frozen compatible classical baseline;
-- bounded excitation scaling и negative controls проходят;
-- a frozen contact grid decodes offline to byte-identical canonical 48 kHz PCM;
-- the asset baker writes bounded atlas clips, exact hashes, coverage and
-  mandatory fallback metadata;
-- method holdout открывается один раз только после freeze candidate;
-- результат — `GO_EXACT_OBJECT`, `REJECT_REPRESENTATION` или
-  `DATA_INSUFFICIENT`.
+- Held contact groups не участвовали в fitting или normalization.
+- Candidate лучше каждого compatible nearest/KNN/classical control по всем
+  preregistered primary aggregates, а не только по среднему score.
+- Повторные training/evaluation runs воспроизводимы по объявленной policy.
+- Frozen grid декодируется в byte-identical clips и manifest.
+- Atlas содержит exact hashes, coordinate coverage и authored fallback для
+  каждой неподдержанной точки.
 
-Preferred first architecture is the qualified V8 coordinate/mode-shape field,
-optionally preceded by a small mesh/point feature encoder only when a frozen
-ablation requires it. It precedes 3DGS or cross-object zero-shot complexity.
-The rendered grid stays external until the asset baker freezes ordinary clips;
-the runtime never executes the field or neural renderer.
+Успех A2 доказывает только exact object при одной listener condition. Он не
+означает, что модель знает всё стекло или произвольную форму.
 
-## R4 — Shared geometry-conditioned transfer
+## A3 — Independent Validator Release V1
 
-Entry condition: R3B proved the exact-object representation. Shared model gets
-geometry encoder и проверяется на object- и family-disjoint method holdout.
+Validator — отдельный frozen ensemble:
 
-Обязательные ablations:
-
-- real-only training;
-- synthetic FEM/BEM pretraining plus real adaptation;
-- object-specific few-shot adaptation;
-- shared zero-shot prediction;
-- direct waveform model как report-only perceptual upper bound, если его можно
-  воспроизвести без нарушения split policy.
-
-Exit criteria:
-
-- `GO_SHARED` выдаётся только при per-object improvement и calibrated OOD;
-- pooled mean не скрывает провал отдельных объектов;
-- source-project или near-duplicate leakage отсутствует;
-- провал shared model оставляет допустимым `GO_EXACT_OBJECT`, но закрывает
-  zero-shot/material-wide claim.
-
-## R5 — Independent Validator Release V1
-
-Validator — frozen ensemble, а не одна judge-network:
-
-| Слой | Роль |
+| Слой | Проверяет |
 | --- | --- |
-| Hard/causal gates | Finiteness, bounds, exact repeat, silence/rest/separation, energy relations |
-| Acoustic specialists | Modes, decay, envelope, spectral evolution, spatial field, transient/residual |
-| Learned representations | Real-corpus similarity и artifact evidence; не самостоятельный `Pass` |
-| OOD/selective controller | Принимает только calibrated covered region |
-| Grouped risk report | Confidence-bounded false-pass risk и useful coverage по независимым parent groups |
+| Hard/causal gates | Finiteness, bounds, exact repeat, silence/rest, energy scaling, lineage и leakage. |
+| Acoustic specialists | Attack, envelope, decay, stable modes, spectral evolution, residual texture и contact variation. |
+| Learned representations | Similarity к независимому real corpus и признаки артефактов; сами по себе не выдают `Pass`. |
+| OOD controller | Находится ли candidate внутри откалиброванной области применимости. |
+| Grouped risk report | Confidence-bounded false-pass risk и useful coverage по независимым source/object parent groups. |
 
-Exit criteria:
+### Calibration protocol
 
-- calibration выбирает policy без holdout/shadow;
-- frozen mutations, positives, negatives, unavailable-model и reward-hack
-  controls имеют declared outcomes;
-- report повторяется byte-identical;
-- threshold нельзя менять после holdout/shadow;
-- если useful coverage несовместима с bounded risk, release честно остаётся
-  fallback-only.
+- Positive, negative и controlled mutation sets формируются по parent groups.
+- Thresholds выбираются только на calibration.
+- Method holdout измеряет перенос validator policy и не меняет её.
+- Candidate outputs той же revision не входят в обучение judge components.
+- Unavailable learned specialist, disagreement или low confidence дают
+  `FallbackOutOfDomain`, а не optimistic pass.
 
-## R6 — Neural cooker and one-shot admission
+### Exit criterion
 
-Frozen model, cooker и Validator Release встречаются на untouched admission
-shadow один раз.
+Release повторяет report byte-identically, обнаруживает frozen corruptions и
+reward-hack controls, сохраняет declared false-pass bound и имеет ненулевую
+useful coverage. Иначе validator остаётся fallback-only.
 
-Cooker обязан проверить finiteness, counts, coordinate envelope, canonical mode
-order, duplicate/unstable modes, coefficient bounds, quantization и fallback.
-Model failure, missing artifact или OOD не являются audio fault: выбирается
-authored clip.
+## A4 — One-shot admission
 
-Exit criteria:
+Frozen `CorpusRevision`, generator checkpoint, cooker и `ValidatorRelease`
+один раз встречаются на untouched admission shadow.
 
-- run manifest связывает corpus/model/checkpoint/code/environment/seed/cooker/
-  validator hashes;
-- validator публикует immutable `Pass`, `Reject` или
-  `FallbackOutOfDomain`;
-- accepted coefficients и reference PCM повторяются без human approval;
-- та же revision не донастраивается по открытому shadow.
+Выход — immutable `AdmissionRecord`:
 
-## R7 — Neural-cooked formula base V1
+- `Pass`: публикуются exact atlas hashes и bounded domain;
+- `Reject`: counterexample сохраняется, shadow этой revision больше не
+  используется для tuning;
+- `FallbackOutOfDomain`: система честно не принимает решение за пределами
+  coverage.
 
-База хранит не общие коэффициенты материала, а independently admitted exact
-domains:
+Human listening может быть report-only sanity check, но не обязательным
+элементом admission и не способом изменить решение после shadow.
 
-1. thin glass vessel;
-2. dry hardwood block;
-3. thin metal vessel/shell.
+## A5 — Physical Sound Base V1
 
-Каждая запись содержит geometry/support/excitation/listener envelope,
-model/checkpoint/cooker/validator revisions, cooked coefficients, risk,
-coverage, cost, evidence hashes и authored fallback. Новая geometry, fixture,
-energy band или listener envelope создаёт новую admission revision.
+База хранит не одну формулу материала, а набор независимо принятых exact
+domains. Первая версия покрывает:
 
-V1 считается готовой, если для каждой family либо существует один exact
-admitted domain, либо зафиксировано воспроизводимое решение, почему family
-остаётся fallback-only. Широкий claim `glass`, `wood` или `metal` не выводится
-из одного объекта.
+1. стеклянную ёмкость с относительно тонкой стенкой;
+2. сухой деревянный объект;
+3. тонкую металлическую ёмкость или оболочку.
 
-## R8 — Production rigid-impact vertical
+Каждая запись связывает geometry/support/excitation/listener envelope,
+corpus/model/cooker/validator revisions, atlas or optional distilled record,
+coverage, risk, cost и authored fallback.
 
-Runtime work начинается только после отдельного slot в основном roadmap и
-consumer-driven ADR. Recommended consumer — один visible interactable prop с
-несколькими impact positions/energies.
+A5 считается закрытым, если каждая family имеет хотя бы один admitted exact
+domain либо воспроизводимый `fallback-only` result. Один объект не разрешает
+широкий claim `glass`, `wood` или `metal`.
 
-Required product work:
+## A6 — Один production impact prop
 
-1. закрыть engine-owned committed contact projection вместо raw PhysX callback;
-2. определить минимальные cooked PresentationOnly content shapes;
-3. импортировать один admitted record без datasets/weights/validator runtime;
-4. подключить bounded extraction, deterministic voice и текущий mixer;
-5. проверить enabled/disabled/OOD/fault/voice-limit clip fallbacks;
-6. измерить whole-mixer p95/p99, memory, queue и voice bounds;
-7. пройти candidate `AUDIO-PHYS-SOURCE-P1`, `AUDIO-PHYS-CONTENT-P1` и
-   `AUDIO-PHYS-PCM-P1` checks.
+Runtime-интеграция начинается только после отдельного roadmap slot и
+consumer-driven Accepted ADR. Первый consumer — один видимый предмет с
+несколькими областями и энергиями удара.
 
-Enabled и disabled paths должны сохранять одинаковые gameplay, physics,
-ledger, persistence и `AcousticFactV1` roots.
+Требуется:
 
-## Текущие commit boundaries
+1. engine-owned committed contact projection вместо raw backend callback;
+2. минимальный PresentationOnly content contract для atlas и coverage;
+3. существующий deterministic clip playback и spatialization SPEC-08;
+4. enabled, disabled, missing, OOD, corrupt и voice-limit fallbacks;
+5. byte-identical displayless PCM на reference path;
+6. одинаковые gameplay, physics, ledger, persistence и `AcousticFactV1` roots
+   при включённом и выключенном physical audio;
+7. будущие `AUDIO-PHYS-SOURCE-P1`, `AUDIO-PHYS-CONTACT-P1`,
+   `AUDIO-PHYS-CONTENT-P1` и `AUDIO-PHYS-PCM-P1` checks.
 
-1. `real neural transfer slice` — `COMPLETE`; schema V2, verified REALIMPACT
-   slice, five-role projection и R0 evidence повторены;
-2. `transfer-domain classical baseline` — `COMPLETE`; compatible controls,
-   preprocessing, metrics и real development report заморожены;
-3. `listener-field experiment v1` — `REJECTED`; two-run training, MLflow
-   lineage и Rust-metric evaluation повторены, candidate не выбран;
-4. `phase-aligned listener successor` — `REJECTED`; training/evaluation and
-   failure diagnostic repeat, while the frozen conjunctive rule selects no
-   candidate;
-5. `dense complex-field data preflight` — `COMPLETE`; acquisition and full
-   representation/control trees repeat byte-identically, with query-isolated
-   normalization and zero optimizer steps;
-6. `dense complex-field physics ablation` — `COMPLETE / REJECTED`; both frozen
-   candidates and their checkpoints repeat, one-shot evaluation selects none,
-   and the context diagnostic attributes the primary failure to loss/sampling/
-   clipped optimization rather than Helmholtz or rank-96 capacity;
-7. `context trainability gate V1` — `COMPLETE / REJECTED`; all gates except
-   small-block/full-context log energy pass byte-identically, with zero query
-   reads;
-8. `context trainability gate V2` — `COMPLETE / PASS`; the optimizer-only
-   half-cosine revision passes twice with byte-identical normalized reports,
-   checkpoints and prediction WAVs and zero query reads;
-9. `low-rank coefficient field` — `COMPLETE / REJECTED`; context fit and two
-   repetitions pass, but the one-shot grouped query loses all five endpoints;
-10. `R2E representation diagnostic` — `COMPLETE / REPRODUCIBLE`; two
-    post-reject query projection runs return the same
-    `RepresentationAndInterpolationBothLimited` evidence;
-11. `R3A Blue Bowl corpus and representation preflight V1` —
-    `COMPLETE / REJECTED / REPRODUCIBLE`; source roles, bounded extraction and
-    both 512-scalar oracles repeat, but neither representation passes and no
-    neural training is authorized;
-12. `R3A V2 Large Swan learned-codec ceiling` —
-    `COMPLETE / INCONCLUSIVE_RESAMPLING_CONTROL / REPRODUCIBLE`; preflight,
-    sealed extraction and DAC oracle repeat byte-identically, but the sample-
-    rate control fails and no training is authorized;
-13. `R3A V3 native-rate NDAC ceiling` —
-    `COMPLETE / REJECTED / REPRODUCIBLE`; V3A records one fail-closed length
-    defect, V3B passes native identity exactly but loses spectrum and modal
-    frequencies on Purple Scoop; no training is authorized.
-14. `R3A V4 task-specific modal bottleneck` —
-    `COMPLETE / REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE`; all three bounded
-    capacities fail spectrum on `12/12` fit contacts, while development and
-    sealed contacts remain unread.
-15. `R3A V5 neural preflight A` — `COMPLETE / REPRODUCIBLE`; external corpus,
-    model/loss/capacity identity and deterministic CPU construction/overfit
-    controls repeat with zero development reads and zero real training steps.
-16. `R3A V5 training environment and runner controls` —
-    `COMPLETE / REPRODUCIBLE`; CUDA identity, bounded decoder, full
-    loss/backward, active RVQ and exact checkpoint continuation repeat.
-17. `R3A V5 capacity frontier and development gate` —
-    `COMPLETE / REJECT_NEURAL_REPRESENTATION / REPRODUCIBLE`; all three
-    bounded records fit the byte budget, but every capacity fails the four
-    real development objects. No V5 holdout or R3B work is authorized.
-18. `R3A V8 explicit-modal neural preflight` —
-    `COMPLETE / SYNTHETIC_PASS / REPRODUCIBLE`; modal recovery and both opened
-    NISR held-position mode-shape fields pass with byte-identical reports. Only
-    a fresh real protocol is authorized; no quality, holdout, R3B or runtime
-    authority exists.
-19. `R3A V8 fresh-real source and gate freeze` —
-    `COMPLETE / REPRODUCIBLE`; exact 512 MiB official archive prefix and five
-    object-91 roles are frozen, and zero-decode member/header inventory repeats.
-20. `R3A V8 object-91 fit-only representation` —
-    `COMPLETE / REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE`; both bounded
-    damping capacities fail spectrum/modal endpoints on every fit contact.
-    Development `20`, sealed `27`, method holdout and shadow remain unread.
-21. `R3A V9 time-varying residual synthetic preflight` —
-    `COMPLETE / PASS / REPRODUCIBLE`; deterministic noise bands, compact
-    records and held-contact neural latent interpolation pass every frozen gate
-    with all real/protected counters at zero.
-22. `R3A V9 source-disjoint real protocol` — `SOURCE_RESEARCH_NEXT`; require
-    exact published contact coordinates, hash-closed internet data and frozen
-    fit/development/sealed roles before waveform decode.
+До этого этапа никакой experimental model/atlas не является shipped content.
 
-После каждого boundary обновляются exact evidence, task state и этот roadmap.
-Успешный commit без измеренного exit criterion не меняет milestone status.
+## A7 — Cross-object generalization
+
+Это опциональная ветка после нескольких admitted exact domains. Она проверяет:
+
+- shared geometry encoder;
+- synthetic FEM/BEM pretraining плюс real adaptation;
+- few-shot adaptation нового объекта;
+- object- и family-disjoint transfer;
+- calibrated OOD для незнакомых форм и материалов.
+
+Если shared model падает, проект продолжает использовать exact-object models.
+Провал generalization не отменяет уже admitted atlases и не маскируется pooled
+average.
+
+## Ближайшие commit boundaries
+
+Работа продолжается строго в таком порядке:
+
+1. **Source/coordinate feasibility:** primary-source доказательство связи
+   contact pose, mesh и audio ID для нового glass candidate; без audio decode.
+2. **A0 zero-decode freeze:** deterministic inventory tool, exact hashes,
+   roles, gates и evidence report.
+3. **A1 fit-only runner:** V9 decomposition только на fit contacts; protected
+   read counters равны нулю.
+4. **A1 development/holdout:** каждый следующий gate открывается отдельным
+   commit только после pass предыдущего.
+5. **A2 contact field:** held-position training/evaluation и внешний baked
+   contact atlas.
+6. **A3 validator release:** independent calibration, method holdout, OOD и
+   grouped risk evidence.
+7. **A4 admission:** один frozen shadow run и immutable decision.
+8. **A5 expansion:** тот же закрытый цикл сначала для wood, затем для metal.
+
+Отрицательный результат является полноценным выходом commit boundary. Он
+обновляет hypothesis и stop policy, но не понижает требования.
 
 ## Stop/go policy
 
 | Наблюдение | Решение |
 | --- | --- |
-| Transfer и recorded-waveform semantics нельзя согласовать | Не смешивать losses; сузить task или добавить явную excitation model |
-| Context fit не обходит zero/global mean или теряет signal energy | `REJECT_TRAINING_SUBSTRATE`; query не открывать |
-| V4 analytical fit fails its own frozen contacts | `REJECT_FIT_REPRESENTATION`; no development read, nearby modal/PCA tuning ends |
-| V5 synthetic/tiny-corpus controls do not overfit or repeat | `REJECT_TRAINING_SUBSTRATE`; development не читать |
-| V5 neural representation не превосходит target baseline | `REJECT_NEURAL_REPRESENTATION`; contact field не запускать |
-| V8 synthetic modal recovery or mode-shape field does not repeat/pass | `STOP_V8_SYNTH_KEEP_CLIPS`; real V8 source не открывать, провести bounded diagnosis |
-| V8 synthetic preflight passes | Freeze fresh ObjectFolder Real fit/development protocol; do not claim acoustic quality or start R3B |
-| V8 fresh-real representation fails fit/development | Close V8 before development; preserve explicit modes but require a materially different residual and new source-disjoint revision |
-| V9 synthetic renderer, compact record or neural latent field fails | `REJECT_V9_RESIDUAL_SUBSTRATE`; do not select/read fresh real data |
-| V9 synthetic preflight passes | Freeze a new source-disjoint real protocol; no acoustic-quality, R3B or runtime credit |
-| Sample-rate/filter control сам нарушает endpoint | `INCONCLUSIVE_CONTROL`; target не переоценивать, протокол не менять post-hoc, новый discriminator заморозить на unopened data |
-| Native general codec сохраняет envelope, но теряет spectrum/modes | Не искать соседний checkpoint; task-specific neural loss обязан оптимизировать exact endpoints |
-| R3B проходит exact object, R4 падает object-disjoint | `GO_EXACT_OBJECT`; zero-shot/shared claim закрыть |
-| Published listener sampling spatially aliases the requested field | Narrow to canonical listener or exact grid; arbitrary radiation remains fallback-only |
-| Neural waveform проходит quality, но не имеет runtime-safe inverse | Использовать только offline baked clip atlas; runtime inference запрещён |
-| Internet data не содержит нужную axis | `DATA_INSUFFICIENT`; искать другой published source, не local capture |
-| Learned metric расходится с hard/acoustic specialists | Fallback; одна model score не перевешивает disagreement |
-| Frozen candidate падает на shadow | `Reject`; сохранить counterexample и открыть новую revision с одной новой hypothesis |
-| Ни neural, ни classical path не дают bounded quality/cost | Остановить domain и использовать authored clips |
-| Нет concrete consumer или roadmap slot | Не создавать public/runtime contract |
+| Coordinate/audio binding нельзя доказать | `DATA_INSUFFICIENT`; выбрать другой internet source, ничего не угадывать. |
+| V9 не восстанавливает собственные fit contacts | `REJECT_V9_REAL_REPRESENTATION`; development не читать. |
+| Fit проходит, development проигрывает baseline | Закрыть revision; holdout не открывать и не тюнить thresholds. |
+| Representation holdout проходит | Разрешить A2, но не заявлять validator, database или runtime success. |
+| Exact-object field проходит, shared field падает | Сохранить exact-object path и закрыть broad generalization claim. |
+| Validator не удерживает false-pass risk | `FALLBACK_ONLY`; generator не может быть admitted. |
+| Generator и acoustic specialists расходятся | Fallback; один learned score не имеет veto над hard evidence. |
+| Shadow падает | Immutable `Reject`; следующая revision использует новую hypothesis и новые защищённые данные. |
+| Cost atlas приемлем, formula distillation хуже | Использовать clips; компактная формула не обязательна. |
+| Нет production consumer или Accepted ADR | Не создавать runtime/public contract. |
 
-## Definition of done
+## Критерии завершения
 
-- **Training substrate:** V5/V8 remain reproducible negative history; V9
-  deterministic residual rendering and neural held-contact latent prediction
-  pass exact-repeat, known-truth and cost gates before fresh real data is spent.
-- **Representation:** one explicit-modal neural candidate passes all frozen
-  endpoints on fresh development and one preregistered source-disjoint holdout
-  before real contact-field training.
-- **Research model:** R3B reproducibly supports an exact-object held-contact
-  claim or honestly rejects the representation; listener radiation is separate.
-- **Automatic validation:** R5 принимает решения без per-sound human queue и
-  показывает confidence-bounded grouped risk.
-- **Closed research loop:** R6 один раз встречает frozen generator и validator
-  на shadow и публикует immutable tri-state decision.
-- **Sound model base:** R7 хранит bounded baked atlases, optional distilled
-  formula records, negative knowledge и fallbacks без runtime neural inference.
-- **Product value:** R8 даёт один visible prop, физически реагирующий на место и
-  силу удара, при полном сохранении clip fallback и authoritative roots.
+### Research MVP
+
+- A0–A4 закрыты для одного нового стеклянного объекта.
+- Generator лучше честных controls на unseen contacts.
+- Validator принимает решение без per-sound human queue.
+- Baked atlas и reference PCM воспроизводятся детерминированно.
+- OOD и любой fault выбирают authored fallback.
+
+### Physical Sound Base V1
+
+- A5 закрыт для glass, wood и metal через admitted exact domain или явный
+  fallback-only result.
+- Каждая запись имеет полное lineage, coverage, risk и negative knowledge.
+- Новая запись может быть построена тем же автоматизированным pipeline без
+  изменения правил задним числом.
+
+### Product vertical
+
+- A6 имеет отдельное архитектурное разрешение и visible production consumer.
+- Runtime получает только проверенные cooked assets, не datasets или weights.
+- Physical sound не меняет authoritative simulation и всегда сохраняет clip
+  fallback.
 
 Rolling, scraping, fracture, footsteps, cloth, liquids, fire, voice и
-biological sound не входят в этот roadmap. Для каждого потребуется отдельный
-source model, corpus и validator domain после успешного impact vertical.
+biological sound не входят в V10. Для каждого потребуется отдельный source
+model, corpus и validator domain после успешного impact vertical.
+
+## Durable negative knowledge
+
+Подробная история не дублируется в roadmap. Обязательные запреты и условия
+пересмотра находятся в [task-state](../development/task-state/physical-sound-synthesis.md),
+а точные измерения — в связанных dated evidence reports. В частности, нельзя
+повторять listener-field tuning, nearby codec capacities, V8 sparse/stationary
+residual tuning или использовать object `91` для выбора V9.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V9 / R3A_V8_REAL_FIT_REJECTED / V9_SYNTHETIC_PASS / SOURCE_DISJOINT_REAL_PROTOCOL_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V10 / V9_SYNTHETIC_PASS / A0_NEW_REAL_SOURCE_GATE_IN_PROGRESS / REAL_QUALITY_NOT_PROVEN / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -210,7 +210,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V9](../../plans/physical-sound-synthesis-roadmap.md),
+3. [Roadmap V10](../../plans/physical-sound-synthesis-roadmap.md),
    [implementation plan](../../plans/2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md)
    and [neural strategy](../physical-sound-neural-acoustic-field-strategy-2026-08-30.md).
 4. [R2E result](../physical-sound-listener-field-r2e-result-and-v4-research-2026-08-30.md),

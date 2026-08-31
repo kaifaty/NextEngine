@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `IN_PROGRESS / N0.4A_V8_REAL_FIT_REJECTED / V9_SYNTHETIC_PASS / SOURCE_DISJOINT_REAL_PROTOCOL_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
+| Status | `ROADMAP_V10 / IN_PROGRESS / V9_SYNTHETIC_PASS / A0_NEW_REAL_SOURCE_GATE_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
