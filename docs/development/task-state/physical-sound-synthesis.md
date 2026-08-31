@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V8 / R3A_V8_SYNTHETIC_PREFLIGHT_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V8 / R3A_V8_SYNTHETIC_PASS / FRESH_REAL_PROTOCOL_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,14 +11,13 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** V5 waveform-RVQ is rejected, not ML as a whole. V8
-  freezes a materially different explicit-modal representation: global
-  frequency/damping, neural contact-to-mode-shape/gain field and bounded
-  residual/excitation components.
-- **Exact evidence:** [V5-C rejection](../physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md)
-  plus the [V8 research decision and frozen preflight](../physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md).
-- **Next action:** Implement and repeat V8-SYNTH on the two opened exact-hash
-  NISR FEM label files. Do not select or read any fresh real V8 object yet.
+- **Current conclusion:** V8-SYNTH passes and repeats byte-identically. The
+  explicit renderer recovers known modes, and the neural mode-shape field beats
+  nearest-position RMSE by `0.262x` and `0.097x` on two opened FEM objects.
+- **Exact evidence:** [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md),
+  manifest `b2bb931d…6934`, report `391854fe…3b78`, implementation `9187e26e`.
+- **Next action:** Freeze a fresh ObjectFolder Real source/fit/development
+  protocol before reading its audio. Synthetic pass is not real quality.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -41,7 +40,7 @@
 | R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
 | R3A V5 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | All capacities fit the byte budget but fail real spectrum/modal transfer; no capacity or holdout is selected. |
-| R3A V8 | `PREREGISTERED / SYNTHETIC_PREFLIGHT_NEXT` | Opened FEM truth may test renderer recovery and held mode-shape learning only; no real quality credit. |
+| R3A V8 | `SYNTHETIC_PASS / REAL_PROTOCOL_NEXT` | Renderer and held FEM mode-shape field repeat/pass; only a fresh real protocol is authorized, not quality or R3B. |
 | R3B+ | `NOT_AUTHORIZED` | No real contact-to-modal field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Compressed V4–V5 transition history
@@ -109,6 +108,21 @@
   ObjectFolder Real fit/development revision before reading its waveforms. If
   it fails, diagnose the renderer/field rather than opening real data.
 
+## Material transition: V8-SYNTH passes
+
+- **Observation:** Two independent runs emit identical manifest/report bytes;
+  modal recovery passes by wide margins and both held-surface fields beat KNN
+  under the frozen `<= 0.50x` gate.
+- **Evidence:** [Exact result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md),
+  report `391854fe…3b78`; real, sealed, method and shadow reads are zero.
+- **Conclusion:** The explicit-modal neural substrate is viable on exact FEM
+  truth. This does not establish real-audio initialization, residual adequacy
+  or perceptual identity.
+- **Decision:** Authorize only a hash-closed ObjectFolder Real protocol freeze.
+  Keep R3B, holdout, atlas, validator and runtime work closed.
+- **Smallest next action:** inventory a bounded official real slice without
+  decoding audio, then preregister fit-only and development gates.
+
 ## Durable negative knowledge
 
 - R2 direct/phase and separable listener fields collapse or lose every held
@@ -147,7 +161,7 @@ kept bounded as the current resume surface.
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Explicit modal identity plus a neural spatial field carries held impact sound | Differentiable modal prior art and exact NISR field labels; V5 failure clusters on spectrum/modes | V4 fixed modal factorization failed fit spectrum; no V8 real result exists | V8-SYNTH, then fresh ObjectFolder Real fit/development |
+| H1: Explicit modal identity plus a neural spatial field carries held impact sound | V8-SYNTH passes modal recovery and beats KNN on two held FEM surfaces | V4 fixed modal factorization failed fit spectrum; no V8 real result exists | Fresh ObjectFolder Real fit/development |
 | H2: Geometry-aware exact-object contact learning is possible | REALIMPACT/ObjectFolder geometry and AV-MSF few-shot evidence | No representation has passed fresh real development/holdout | Blocked until V8 independently passes R3A |
 | H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 after a generator claim exists |
 | H4: Cooked coefficients fit product cost | Q30 reference is compact and exact | Whole-mixer/callback/varied-voice cost is unmeasured | Visible consumer plus p95/p99 before promotion |
@@ -195,20 +209,21 @@ Read in precedence order:
    [R3A V5 training runner preflight](../physical-sound-r3a-v5-training-runner-preflight-2026-08-31.md),
    [V5-B/V5-C bounded research](../physical-sound-r3a-v5b-collapse-and-v5c-bootstrap-2026-08-31.md)
    [V5-C development result](../physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md)
-   and [V8 rebaseline](../physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md).
+   [V8 rebaseline](../physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md)
+   and [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
 
-- **Workspace:** Exact V3A/V3B, V4 rejection and V5 runners/tests are in Git;
-  V8 protocol is frozen but its runner is the next commit. Datasets,
-  checkpoints, arrays and WAVs remain external.
+- **Workspace:** V8 protocol/runner/tests are in Git and the two-run synthetic
+  report is external; datasets, checkpoints, predictions, arrays and WAVs
+  remain external.
 - **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
   contacts are opened. Every row `2407`, method holdout and admission shadow
   remains sealed.
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** V8-SYNTH runner, focused tests and repeated external
-  report. It must read only the two opened NISR label files; authored clips
-  remain the product path.
+- **Next commit boundary:** Fresh ObjectFolder Real metadata inventory and
+  preregistered fit/development protocol with zero waveform decode; authored
+  clips remain the product path.

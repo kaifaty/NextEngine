@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `IN_PROGRESS / N0.4A_V8_SYNTHETIC_PREFLIGHT_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.4A_V8_SYNTHETIC_PASS / FRESH_REAL_PROTOCOL_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -511,6 +511,14 @@ Its implementation protocol is:
 7. A failure returns `STOP_V8_SYNTH_KEEP_CLIPS`; diagnose before selecting or
    reading any fresh real V8 source.
 
+V8-SYNTH result: `READY_FOR_FRESH_REAL_MODAL_PROTOCOL`. Two independent runs
+repeat manifest `b2bb931d…6934` and report `391854fe…3b78`. Known modal
+frequency/damping/gain recovery passes, and the two held NISR mode-shape fields
+reach `0.262x` and `0.097x` nearest-neighbour RMSE. All real, sealed, method and
+shadow reads remain zero. Preserve the
+[exact result](../development/physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md).
+The result authorizes only a fresh ObjectFolder Real source/gate freeze.
+
 ### N0.4B — Object-specific contact-position few-shot field
 
 Entry condition: N0.4A V8 passes fresh real development and one source-disjoint
@@ -719,8 +727,11 @@ successful Git commit or a report-only model result.
    `COMPLETE / REPRODUCIBLE`; do not restore the dead-code initialization.
 9. Preserve the reproducible V5-C development result as
    `REJECT_NEURAL_REPRESENTATION`; select no capacity and spend no new holdout.
-10. Run only the frozen V8-SYNTH explicit-modal preflight on its two opened
-    NISR label files and repeat it exactly. Do not read fresh real V8 data.
-11. Keep N0.4B closed. Only a later V8 fresh-real development and
+10. Preserve V8-SYNTH as `COMPLETE / REPRODUCIBLE`; do not widen its synthetic
+    result into a real-quality claim.
+11. Inventory a bounded official ObjectFolder Real slice without waveform
+    decode, then freeze exact source hashes, object/contact roles, modal
+    initializer, damping/residual ablations and fit/development gates.
+12. Keep N0.4B closed. Only a later V8 fresh-real development and
     source-disjoint representation-holdout pass may open it; the product
     continues to use authored clips.

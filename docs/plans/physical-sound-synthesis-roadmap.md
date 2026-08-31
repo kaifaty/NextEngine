@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-31 |
-| Статус | `ACTIVE_R&D / R3A_V5_REJECTED / V8_SYNTHETIC_PREFLIGHT_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R3A_V8_SYNTHETIC_PASS / FRESH_REAL_PROTOCOL_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [V8 explicit-modal neural rebaseline](../development/physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -199,7 +199,7 @@ models и не маскирует провал обещанием универс
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
 | R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
 | R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `IN_PROGRESS / V1_REJECTED / V2_INCONCLUSIVE / V3B_REJECTED / V4_FIT_REJECTED / V5_DEV_REJECTED / V8_SYNTH_NEXT` | L | V5 is closed. V8 first tests explicit modal recovery and a neural mode-shape field on opened FEM truth; real quality and representation holdout remain unauthorized. |
+| R3A | `IN_PROGRESS / V1_REJECTED / V2_INCONCLUSIVE / V3B_REJECTED / V4_FIT_REJECTED / V5_DEV_REJECTED / V8_SYNTH_PASS / REAL_PROTOCOL_NEXT` | L | V8 modal recovery and two held FEM mode-shape fields repeat/pass; only a fresh ObjectFolder Real protocol is authorized, not quality or representation holdout. |
 | R3B | `NOT_AUTHORIZED_BY_R3A` | L | A real exact-object contact field cannot start without V8 fresh-real representation development and holdout passes. |
 | R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
 | R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
@@ -556,9 +556,14 @@ freezes this order:
 5. Only `V8-REAL-HOLDOUT = READY_FOR_EXACT_OBJECT_FIELD` opens R3B and offline
    atlas work. It never authorizes runtime inference or public contracts.
 
-`V8-SYNTH` is the current step. Its pass means
-`READY_FOR_FRESH_REAL_MODAL_PROTOCOL`, not acoustic quality. Its failure means
-`STOP_V8_SYNTH_KEEP_CLIPS` and no real V8 development read.
+`V8-SYNTH` is complete and returns
+`READY_FOR_FRESH_REAL_MODAL_PROTOCOL`. Two independent runs repeat manifest
+`b2bb931d…6934` and report `391854fe…3b78`; modal recovery passes and the two
+held mode-shape fields reach `0.262x` and `0.097x` nearest-neighbour RMSE.
+Real/sealed/method/shadow reads are zero. See the
+[exact V8-SYNTH result](../development/physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md).
+This is not acoustic quality. The current step is to freeze a fresh
+ObjectFolder Real protocol without decoding its waveforms.
 
 ## R3B — Object-specific contact-position few-shot model
 
@@ -757,9 +762,14 @@ ledger, persistence и `AcousticFactV1` roots.
     bounded records fit the byte budget, but every capacity fails the four
     real development objects. No V5 holdout or R3B work is authorized.
 18. `R3A V8 explicit-modal neural preflight` —
-    `PREREGISTERED / NEXT`; two opened NISR FEM label files test deterministic
-    modal recovery and held-position mode-shape learning only. No real quality,
-    representation holdout, R3B or runtime authority exists.
+    `COMPLETE / SYNTHETIC_PASS / REPRODUCIBLE`; modal recovery and both opened
+    NISR held-position mode-shape fields pass with byte-identical reports. Only
+    a fresh real protocol is authorized; no quality, holdout, R3B or runtime
+    authority exists.
+19. `R3A V8 fresh-real source and gate freeze` — `NEXT`; inventory a bounded
+    official ObjectFolder Real slice with zero waveform decode, then freeze
+    exact fit/development roles, initializer, residual/damping ablations and
+    stop/go gates before opening audio.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.
