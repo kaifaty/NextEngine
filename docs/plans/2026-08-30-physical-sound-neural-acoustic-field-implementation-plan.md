@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `IN_PROGRESS / N0.4A_V8_OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.4A_V8_OBJECT91_FIT_PROTOCOL_FROZEN / FIT_RUNNER_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -745,3 +745,9 @@ The inventory now returns `READY_FOR_V8_REAL_FIT_EXTRACTION` twice with exact
 manifest `e1651b64…147b` and report `d9888302…dace`; see the
 [exact result](../development/physical-sound-r3a-v8-objectfolder-real-inventory-result-2026-08-31.md).
 Freeze the complete fit-only runner before decoding contacts `18/12/4`.
+
+The [fit protocol](../development/physical-sound-r3a-v8-object91-fit-protocol-2026-08-31.md)
+now fixes native extraction/alignment, 64 measured-force modal responses, two
+damping capacities, a `14,500`-bin phase-preserving residual, 63–64 KiB record
+costs and unchanged acoustic gates. Implement and commit the runner before the
+first numerical fit read.

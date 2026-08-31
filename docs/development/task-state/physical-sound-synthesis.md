@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V8 / R3A_V8_SYNTHETIC_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V8 / R3A_V8_SYNTHETIC_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_FROZEN / FIT_RUNNER_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -16,8 +16,8 @@
   nearest-position RMSE by `0.262x` and `0.097x` on two opened FEM objects.
 - **Exact evidence:** [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md),
   manifest `b2bb931d…6934`, report `391854fe…3b78`, implementation `9187e26e`.
-- **Next action:** Freeze the complete object-91 fit-only representation runner,
-  gates and capacities before extracting fit PCM.
+- **Next action:** Implement the frozen object-91 fit-only representation
+  runner; fit PCM remains closed until that implementation is committed.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -40,7 +40,7 @@
 | R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
 | R3A V5 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | All capacities fit the byte budget but fail real spectrum/modal transfer; no capacity or holdout is selected. |
-| R3A V8 | `SYNTHETIC_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_NEXT` | Five roles and 20 members repeat exactly with zero decoded samples; only fit-runner freeze/extraction is authorized. |
+| R3A V8 | `SYNTHETIC_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_FROZEN / RUNNER_NEXT` | Two damping capacities, measured-force modal fit and 63–64 KiB residual records are fixed before fit extraction. |
 | R3B+ | `NOT_AUTHORIZED` | No real contact-to-modal field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Compressed V4–V5 transition history
@@ -128,6 +128,10 @@
   numerically unread.
 - **Smallest next action:** freeze modal initializer, measured-force excitation,
   residual/damping capacities, cost and unchanged five acoustic endpoints.
+
+The [exact fit protocol](../physical-sound-r3a-v8-object91-fit-protocol-2026-08-31.md)
+now freezes those choices. Implement it without reading fit PCM during tests;
+only committed production-path code may perform the first fit extraction.
 
 ## Durable negative knowledge
 
@@ -218,7 +222,8 @@ Read in precedence order:
    [V8 rebaseline](../physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md)
    [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md)
    [ObjectFolder Real source freeze](../physical-sound-r3a-v8-objectfolder-real-source-and-gate-freeze-2026-08-31.md)
-   and [inventory result](../physical-sound-r3a-v8-objectfolder-real-inventory-result-2026-08-31.md).
+   [inventory result](../physical-sound-r3a-v8-objectfolder-real-inventory-result-2026-08-31.md)
+   and [object-91 fit protocol](../physical-sound-r3a-v8-object91-fit-protocol-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
