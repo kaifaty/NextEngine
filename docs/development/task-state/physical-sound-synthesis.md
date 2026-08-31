@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V15 / S0_IDENTITY_AND_SCOPE_FREEZE_NEXT / METAL_FIRST / WOOD_PENDING / GLASS_FALLBACK_ONLY_SOURCE_GROWTH / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V15 / S0A_COMPLETE / S0B_YCB_CAPABILITY_NEXT / METAL_FIRST_12_FRESH_GROUPS / WOOD_PENDING / GLASS_FALLBACK_ONLY_SOURCE_GROWTH / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object neural canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** bounded source research confirms that the first
-  protected vertical must admit materials progressively: Metal first, Wood
-  pending a source certificate, Glass fallback-only until source growth.
-- **Exact evidence:** [N1b result](../physical-sound-v14-n1b-real-source-metadata-inventory-result-2026-09-01.md),
-  inventory `2861bb0e…fc0`, costs `c7710b44…3df`, report `45d81f04…05c`;
-  PCM, force, protected signal and network body counters are zero.
+- **Current conclusion:** [S0a](../physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md)
+  is repeat-exact and leaves `2/0/12` fresh Glass/Wood/Metal physical groups;
+  Metal keeps the unchanged eight-group potential.
+- **Exact evidence:** S0a identity `66e9a29e…ea40`, census
+  `ce3c5ab8…7365`, report `da0792fb…4f7c`; PCM, force, protected signal and
+  network body counters are zero.
 - **Rebaseline:** [Roadmap V15](../../plans/physical-sound-synthesis-roadmap-v15.md)
   keeps the complete `4/1/1/1/1` shape per admitted material and makes AV-MSF's
   modal-field factorization a hypothesis, not an unpublished dependency.
@@ -26,11 +26,11 @@
 - **M1b result:** [Exposure Ledger V0](../physical-sound-v13-m1b-exposure-ledger-v0-result-2026-08-31.md)
   passes 13 focused guards, including contact/mutation leakage, and two
   byte-identical builds with zero build-time source/signal access.
-- **M1c result:** [historical census](../physical-sound-v13-m1c-historical-census-and-shortlist-result-2026-08-31.md)
-  closes M1 and leaves fresh glass candidates `59/82/92/93`.
-- **Next action:** S0a exact revision-aware identity and historical exposure
-  recensus across ObjectFolder/RealImpact, followed by the signal-blind YCB
-  capability adapter; all real waveform decode remains forbidden.
+- **M1c predecessor:** its numeric shortlist is superseded by S0a's
+  revision-aware physical-group census and must not be reused for freshness.
+- **Next action:** S0b signal-blind YCB object/mesh/material/recording-parent,
+  axis and acquisition-cost adapter; all real waveform decode remains
+  forbidden.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -55,7 +55,7 @@
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
-| V15 S0–S4 | `S0A_NEXT / METAL_FIRST / MODEL_BLOCKED` | Progressive admission preserves the full role shape; identity/exposure and YCB metadata must freeze before Metal roles or neural work. |
+| V15 S0–S4 | `S0A_COMPLETE / S0B_NEXT / METAL_FIRST / MODEL_BLOCKED` | Revision-aware exposure leaves 12 fresh Metal metadata groups; YCB capability must freeze before S0c roles or neural work. |
 | V15 V0–D0 | `VALIDATOR_DATA_AFTER_S0 / ADMISSION_BLOCKED` | Validator can develop independently after S0; shadow, cooker and demo require a held cross-object winner. |
 | V15 G0–P0 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence and a separate Accepted ADR. |
 
@@ -118,17 +118,17 @@
 - **Decision:** N1c must resolve bounded metadata/source options or narrow the
   first admitted domain before any waveform decode; no role minimum changes.
 
-## Material transition: V15 selects progressive admission
+## Material transition: S0a proves revision-aware Metal potential
 
-- **Observation:** RealImpact revision lineage can recover metadata identities,
-  YCB-impact adds only three primary Glass and three primary Wood objects, and
-  AV-MSF code/data are still unpublished.
-- **Evidence:** [V15 rebaseline](../physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md)
-  records the publisher sources and preserves zero new signal access.
-- **Conclusion:** Metal is the only bounded first-domain candidate; waiting for
-  simultaneous Glass/Wood coverage does not test the modal representation.
-- **Decision:** V15 attempts Metal with the unchanged role shape, then grows
-  Wood and Glass through the identical pipeline or keeps them fallback-only.
+- **Observation:** numeric-only lineage missed exact RealImpact names and could
+  falsely classify an opened historical object as fresh after ID drift.
+- **Evidence:** [S0a result](../physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md)
+  resolves 130 groups and repeats exact over 1,340 historical JSON files with
+  zero source/PCM/force/protected access.
+- **Conclusion:** corrected fresh counts are Glass/Wood/Metal `2/0/12`; Metal
+  alone retains the unchanged eight-group entry potential.
+- **Decision:** S0a opens only the YCB metadata adapter. Roles and waveform
+  access remain blocked until S0b and S0c.
 
 ## Durable negative knowledge
 
@@ -201,6 +201,7 @@ Read in precedence order:
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 3. [Roadmap V15](../../plans/physical-sound-synthesis-roadmap-v15.md),
    [V15 rebaseline](../physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md),
+   [S0a result](../physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md),
    [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md),
    [V14 research](../physical-sound-v14-data-first-neural-rebaseline-2026-08-31.md),
    [N1a protocol](../physical-sound-v14-n1a-dataset-contract-v1-protocol-2026-09-01.md),
@@ -234,5 +235,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V15 S0a revision-aware identity/exposure resolver;
-  roles remain unfrozen and real signal remains sealed.
+- **Next commit boundary:** V15 S0b YCB metadata/cost capability adapter; roles
+  remain unfrozen and real signal remains sealed.

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ACTIVE_R&D / S0_IDENTITY_AND_SCOPE_FREEZE_NEXT / METAL_FIRST / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ACTIVE_R&D / S0A_COMPLETE / S0B_YCB_CAPABILITY_NEXT / METAL_FIRST / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V14](physical-sound-synthesis-roadmap-v14.md) as the active execution plan |
 | Evidence basis | [V15 progressive-admission rebaseline](../development/physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -80,9 +80,9 @@ Synthetic teachers can enlarge training but cannot provide protected credit.
 
 | Material | Current evidence | V15 state | Entry condition |
 | --- | --- | --- | --- |
-| Metal | `18` conservative unexposed candidates | `FIRST_DOMAIN_CANDIDATE` | Revision-aware census still yields eight eligible groups and all required axes. |
-| Wood | `7` conservative candidates; YCB may add independent groups | `PENDING_SOURCE_CERTIFICATE` | YCB/revision adapter yields eight fresh evaluation-complete groups without changing gates. |
-| Glass | `1` conservative candidate; YCB adds only three primary-glass objects | `FALLBACK_ONLY / SOURCE_GROWTH` | A new or newly resolved published source yields the unchanged eight-group shape. |
+| Metal | S0a proves `12` unexposed physical-group metadata candidates | `FIRST_DOMAIN_CANDIDATE` | S0c still proves at least eight structurally eligible groups and all required axes. |
+| Wood | S0a proves `0` unexposed current-source groups; YCB may add independent groups | `PENDING_SOURCE_CERTIFICATE` | YCB/revision adapter yields eight fresh evaluation-complete groups without changing gates. |
+| Glass | S0a proves `2` unexposed groups; YCB has only three primary-glass objects | `FALLBACK_ONLY / SOURCE_GROWTH` | A new or newly resolved published source yields the unchanged eight-group shape. |
 
 An admitted material uses one immutable role freeze through representation,
 validator and shadow. Later materials run the same versioned pipeline; their
@@ -128,8 +128,8 @@ freezes a generator release.
 
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
-| S0a | Revision-aware identity and exposure | `NEXT` | Exact source/revision/object aliases resolve ObjectFolder `71…100`, RealImpact names and all historical experiments; ambiguous or previously opened identities fail closed; signal counters remain zero. |
-| S0b | YCB capability adapter | `PENDING` | Repeat-exact metadata-only inventory binds YCB object/mesh/material/recording parents and available contact/support/listener axes without downloading or decoding audio. |
+| S0a | Revision-aware identity and exposure | `COMPLETE / REPEAT_EXACT / ZERO_SIGNAL` | [S0a](../development/physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md) resolves 130 groups and 30 drift conflicts; exact-name exposure corrects the fresh counts to Glass/Wood/Metal `2/0/12`. |
+| S0b | YCB capability adapter | `NEXT` | Repeat-exact metadata-only inventory binds YCB object/mesh/material/recording parents and available contact/support/listener axes without downloading or decoding audio. |
 | S0c | First-domain role freeze | `BLOCKED_BY_S0A_S0B` | Metal either fills the unchanged `4/1/1/1/1` shape with exact hashes or V15 closes as `SOURCE_INSUFFICIENT`; Wood/Glass receive explicit pending/fallback certificates. |
 | S1 | Known-truth neural oracle | `BLOCKED_BY_S0C` | On engine-owned truth scenes, a small model recovers stable poles and held surface gains and rejects instability, contact shuffle, wrong scale/material and coverage-collapse mutations. |
 | S2 | Real modal representation | `BLOCKED_BY_S1` | On opened Metal train/development data, structured analysis/synthesis beats classical Q30/DCT and identity-budget controls on frozen spectrum, onset, envelope, decay and mode metrics. |
@@ -197,8 +197,9 @@ scientific result; it stops the family before more material data is consumed.
 
 ## Immediate commit sequence
 
-1. `S0a` — implement exact revision-aware aliases and historical exposure
-   recensus; specifically prevent current/historical numeric-ID collisions.
+1. `S0a` — `COMPLETE`: [repeat-exact identity/exposure](../development/physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md)
+   prevents current/historical numeric-ID collisions and preserves 12 fresh
+   Metal metadata groups.
 2. `S0b` — implement repeat-exact YCB metadata/cost adapter with zero audio
    body and zero signal access.
 3. `S0c` — publish immutable Metal role descriptor or close source sufficiency;
