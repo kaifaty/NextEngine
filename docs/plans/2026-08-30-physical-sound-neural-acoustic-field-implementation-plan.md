@@ -3,18 +3,18 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `COMPLETE / N0.4A_V5_DEV_REJECTED / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.4A_V8_SYNTHETIC_PREFLIGHT_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 
 ## Objective
 
-Demonstrate whether an offline geometry-aware neural model can learn an
-impact/contact-position sound field better than compatible frozen classical
-baselines. The first game-facing experiment is a bounded, offline-baked clip
-atlas; deterministic modal/residual distillation is a later optional
-optimization and listener spatialization remains a separate layer.
+Demonstrate whether an offline explicit-modal neural model can learn an
+impact/contact-position mode-shape or gain field better than compatible frozen
+classical baselines while preserving frequency and damping explicitly. The
+first game-facing experiment is a bounded, offline-baked clip atlas and
+listener spatialization remains a separate layer.
 
 The plan does not authorize a public schema, runtime neural inference,
 checkpoint distribution, production contact wiring or a shipping claim.
@@ -480,24 +480,52 @@ beats nearest fit on the required four endpoints. Two evaluator runs repeat
 report `74a6f4ea…bbb4`; sealed, method-holdout and admission-shadow reads are
 zero. Preserve the [exact result](../development/physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md).
 
-N0.4A closes as `REJECT_NEURAL_REPRESENTATION`. No capacity, new
+N0.4A V5 closes as `REJECT_NEURAL_REPRESENTATION`. No V5 capacity, new
 representation holdout, N0.4B field or baked atlas is authorized. Do not tune
 losses, thresholds, gain, postfilters, stopping or bitrate using the opened
 development contacts.
 
+V8 reopens N0.4A only for the materially different explicit-modal hypothesis
+frozen in the [V8 rebaseline](../development/physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md).
+Its implementation protocol is:
+
+1. Validate two exact-hash opened NISR Glass FEM label files outside Git. Use
+   only published frequencies, coordinates, surface encoding and 3D mode
+   shapes; infer no missing force, normal ordering or real acoustics.
+2. Repeat a deterministic float64 damped-sinusoid recovery control from bounded
+   perturbations of known synthetic truth. Require frequency, damping, gain and
+   waveform gates before any field credit.
+3. For each NISR object, select `ceil(20%)` boundary context positions by
+   deterministic farthest-point sampling. Predict all `3 x 20` held mode-shape
+   components from coordinate Fourier features and published surface encoding.
+4. Compare the coordinate MLP with context-mean and nearest-context baselines.
+   Require every object to reach normalized RMSE no greater than `0.50` times
+   nearest-neighbour, remain finite/nonconstant and repeat exactly.
+5. Publish only manifest, report, hashes and metrics outside Git. Source
+   payloads and weights remain external. Real-development and sealed reads are
+   zero.
+6. A complete synthetic pass returns
+   `READY_FOR_FRESH_REAL_MODAL_PROTOCOL`. It authorizes a new preregistered
+   ObjectFolder Real fit/development protocol only—not quality, N0.4B, atlas,
+   validator or runtime work.
+7. A failure returns `STOP_V8_SYNTH_KEEP_CLIPS`; diagnose before selecting or
+   reading any fresh real V8 source.
+
 ### N0.4B — Object-specific contact-position few-shot field
 
-Entry condition: N0.4A V5 passes one representation and published data provides
-multiple contact positions for one exact object.
+Entry condition: N0.4A V8 passes fresh real development and one source-disjoint
+representation holdout, and published data provides multiple contact positions
+for one exact object.
 
 Deliverables:
 
 - external, hash-closed training manifest for one exact object with multiple
   contact observations at a canonical listener condition;
-- geometry-aware contact-to-latent model for the frozen V5 representation,
-  plus coverage/OOD output;
+- geometry-aware contact-to-modal-gain/mode-shape model for the frozen V8
+  representation, plus coverage/OOD output;
 - training/evaluation runner with fixed seeds and environment lock;
-- ablations for nearest latent, coordinate-only and geometry-aware fields;
+- ablations for nearest modal response, coordinate-only and geometry-aware
+  fields;
 - deterministic offline decode and baked contact-atlas export for every
   selected prediction.
 
@@ -510,7 +538,7 @@ Exit criteria:
   hashes repeat exactly;
 - failure/OOD conditions choose fallback.
 
-Fallback: a failure closes the current contact-to-latent hypothesis. Preserve
+Fallback: a failure closes the current contact-to-modal-field hypothesis. Preserve
 ordinary authored clips and do not add runtime inference.
 
 Commit boundary: model interface/runner, compact fixtures and a report. Weights
@@ -691,6 +719,8 @@ successful Git commit or a report-only model result.
    `COMPLETE / REPRODUCIBLE`; do not restore the dead-code initialization.
 9. Preserve the reproducible V5-C development result as
    `REJECT_NEURAL_REPRESENTATION`; select no capacity and spend no new holdout.
-10. Keep N0.4B closed. A future revision first requires a materially different
-    preregistered representation and new source-disjoint development evidence;
-    the product continues to use authored clips.
+10. Run only the frozen V8-SYNTH explicit-modal preflight on its two opened
+    NISR label files and repeat it exactly. Do not read fresh real V8 data.
+11. Keep N0.4B closed. Only a later V8 fresh-real development and
+    source-disjoint representation-holdout pass may open it; the product
+    continues to use authored clips.
