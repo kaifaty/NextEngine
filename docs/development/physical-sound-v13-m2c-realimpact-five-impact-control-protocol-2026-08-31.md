@@ -56,7 +56,7 @@ Official source identity:
 | Dataset object | `93_GreenGoblet` |
 | Archive URL | `https://downloads.cs.stanford.edu/viscam/RealImpact/93_GreenGoblet.zip` |
 | Archive bytes | `2,311,697,935` |
-| ETag | `6433e478-89c9b60f` |
+| HTTP ETag | `"6433e478-89c9b60f"` (legacy profile stores the inner value) |
 | Last-Modified | `Mon, 10 Apr 2023 10:27:04 GMT` |
 | Central directory | offset `2,311,696,618`, bytes `1,295`, SHA-256 `083a0677…3a4` |
 | Source repository revision | `fca2bd6cbb7e9f96ac61328d2a0d51594bf01987` |

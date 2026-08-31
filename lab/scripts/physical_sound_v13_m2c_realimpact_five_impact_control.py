@@ -27,7 +27,7 @@ PROFILE_SHA256 = "c2301789813b836b84ffb9a41380af02421490073d6585c488e276f1a5677e
 URL = "https://downloads.cs.stanford.edu/viscam/RealImpact/93_GreenGoblet.zip"
 HOST = "downloads.cs.stanford.edu"
 ARCHIVE_BYTES = 2_311_697_935
-ETAG = "6433e478-89c9b60f"
+ETAG = '"6433e478-89c9b60f"'
 LAST_MODIFIED = "Mon, 10 Apr 2023 10:27:04 GMT"
 CENTRAL = {
     "name": "zip-central-directory",
