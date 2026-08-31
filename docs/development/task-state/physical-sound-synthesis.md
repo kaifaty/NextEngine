@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V8 / R3A_V8_SYNTHETIC_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_FROZEN / FIT_RUNNER_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V9 / R3A_V8_REAL_FIT_REJECTED / V9_TIME_VARYING_RESIDUAL_PREREGISTERED / SYNTHETIC_PREFLIGHT_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,13 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** V8-SYNTH passes and repeats byte-identically. The
-  explicit renderer recovers known modes, and the neural mode-shape field beats
-  nearest-position RMSE by `0.262x` and `0.097x` on two opened FEM objects.
-- **Exact evidence:** [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md),
-  manifest `b2bb931d…6934`, report `391854fe…3b78`, implementation `9187e26e`.
-- **Next action:** Implement the frozen object-91 fit-only representation
-  runner; fit PCM remains closed until that implementation is committed.
+- **Current conclusion:** V8-SYNTH passes, but its fresh object-91 real
+  representation is rejected before development. Both capacities fit the byte
+  budget and fail spectrum/modal identity on every fit contact.
+- **Exact evidence:** [V8 fit rejection and V9 research](../physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md),
+  manifest `6077250c…91f6`, model `cf9c09cd…8954`, report `9c49abc8…d438`.
+- **Next action:** implement the no-real-audio
+  [V9 synthetic preflight](../physical-sound-r3a-v9-time-varying-residual-preflight-protocol-2026-08-31.md)
+  for explicit modes plus a compact time-varying noise-band residual.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -40,7 +41,8 @@
 | R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
 | R3A V5 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | All capacities fit the byte budget but fail real spectrum/modal transfer; no capacity or holdout is selected. |
-| R3A V8 | `SYNTHETIC_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_FROZEN / RUNNER_NEXT` | Two damping capacities, measured-force modal fit and 63–64 KiB residual records are fixed before fit extraction. |
+| R3A V8 | `REAL_FIT_REJECTED / REPRODUCIBLE` | Fit contacts `18/12/4` repeat exactly; both bounded capacities fail spectrum/modal identity, while development `20` and sealed `27` remain unread. |
+| R3A V9 | `TIME_VARYING_RESIDUAL_PREREGISTERED / SYNTHETIC_PREFLIGHT_NEXT` | Explicit modes remain; a neural time-varying noise-band residual must first pass known-truth, interpolation, exact-repeat and cost controls without real audio. |
 | R3B+ | `NOT_AUTHORIZED` | No real contact-to-modal field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Compressed V4–V5 transition history
@@ -118,20 +120,21 @@
 - **Smallest next action:** implement a zero-payload inventory report with
   exact repeat and all decoded-sample counters at zero.
 
-## Material transition: object-91 inventory passes
+## Material transition: V8 real fit rejects the residual representation
 
-- **Observation:** Two inventories repeat manifest `e1651b64…147b` and report
-  `d9888302…dace`; all 20 members and ten native-48 kHz headers pass.
-- **Evidence:** [Exact inventory result](../physical-sound-r3a-v8-objectfolder-real-inventory-result-2026-08-31.md).
-- **Decision:** Authorize only a fully preregistered fit-only runner and later
-  extraction of contacts `18/12/4`. Development `20` and sealed `27` stay
-  numerically unread.
-- **Smallest next action:** freeze modal initializer, measured-force excitation,
-  residual/damping capacities, cost and unchanged five acoustic endpoints.
-
-The [exact fit protocol](../physical-sound-r3a-v8-object91-fit-protocol-2026-08-31.md)
-now freezes those choices. Implement it without reading fit PCM during tests;
-only committed production-path code may perform the first fit extraction.
+- **Observation:** Two runs repeat every artifact. Global and per-contact
+  damping records cost `63,392/63,520` bytes, yet spectrum and modal endpoints
+  fail on every fit contact; envelope passes everywhere.
+- **Evidence:** [Exact result and bounded research](../physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md),
+  report `9c49abc8…d438`; development/sealed decoded counters are zero.
+- **Conclusion:** sparse global complex bins are the causal bottleneck. A dense
+  phase-preserving residual recovers spectrum but costs `214,564` bytes; global
+  magnitude-shaped noise remains inadequate. Damping is not the main cause.
+- **Decision:** close V8 before development. Start V9 with explicit modes plus
+  a compact neural time-varying filterbank residual on synthetic known truth,
+  then require entirely source-disjoint real roles.
+- **Rejected alternatives:** another V8 bin/damping capacity, threshold repair,
+  stationary random-phase noise, or using object `91` to select V9.
 
 ## Durable negative knowledge
 
@@ -165,13 +168,14 @@ kept bounded as the current resume surface.
 | D-011 | A neural waveform decoder is report-only and cannot satisfy cooker admission. | A future Accepted ADR changes runtime determinism policy. |
 | D-012 | General neural codecs are closed as the next representation family after clean V3B rejection. | New evidence shows explicit modal-fidelity training and a materially different task-specific objective. |
 | D-013 | First neural deployment target is an offline-baked contact clip atlas, not runtime inference and not mandatory modal distillation. | A later measured consumer proves that bounded clip assets cannot meet variation/cost needs. |
-| D-014 | V8 learns an explicit contact-to-mode-shape/gain field around global frequency/damping; synthetic FEM is substrate evidence only. | Fresh real development and holdout reject this factorization or require a preregistered spatial-damping/residual successor. |
+| D-014 | Explicit contact-to-mode-shape/gain learning remains around global frequency/damping; synthetic FEM is substrate evidence only. | Fresh source-disjoint real development and holdout reject the factorization. |
+| D-015 | V9 residuals use deterministic time-varying noise bands behind an offline neural decoder; stable narrow resonances stay explicit. | Synthetic controls or new real fit reject the representation under unchanged gates/budgets. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Explicit modal identity plus a neural spatial field carries held impact sound | V8-SYNTH passes modal recovery and beats KNN on two held FEM surfaces | V4 fixed modal factorization failed fit spectrum; no V8 real result exists | Fresh ObjectFolder Real fit/development |
+| H1: Explicit modes plus a neural time-varying residual carry held impact sound | V8-SYNTH validates modal/field substrate; dense phase residual diagnoses missing information | V8 sparse residual fails all real fit contacts; stationary noise also fails | V9 synthetic control, then new source-disjoint real fit |
 | H2: Geometry-aware exact-object contact learning is possible | REALIMPACT/ObjectFolder geometry and AV-MSF few-shot evidence | No representation has passed fresh real development/holdout | Blocked until V8 independently passes R3A |
 | H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 after a generator claim exists |
 | H4: Cooked coefficients fit product cost | Q30 reference is compact and exact | Whole-mixer/callback/varied-voice cost is unmeasured | Visible consumer plus p95/p99 before promotion |
@@ -195,6 +199,8 @@ kept bounded as the current resume surface.
   checkpoint.
 - Longer V5-C training, a fourth bitrate, or evaluator/loss/gain/postfilter
   tuning after the four V5 development contacts were opened.
+- More V8 residual bins, another damping capacity, threshold repair or
+  stationary random-phase magnitude noise on object `91`.
 - Universal `material -> sound` coefficients before exact-object evidence.
 - Prompt-to-waveform as the engine path; it may remain authored/report-only.
 - Local microphone/hammer capture, raw PhysX-callback mixing or runtime neural
@@ -207,7 +213,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V8](../../plans/physical-sound-synthesis-roadmap.md),
+3. [Roadmap V9](../../plans/physical-sound-synthesis-roadmap.md),
    [implementation plan](../../plans/2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md)
    and [neural strategy](../physical-sound-neural-acoustic-field-strategy-2026-08-30.md).
 4. [R2E result](../physical-sound-listener-field-r2e-result-and-v4-research-2026-08-30.md),
@@ -222,20 +228,22 @@ Read in precedence order:
    [V8 rebaseline](../physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md)
    [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md)
    [ObjectFolder Real source freeze](../physical-sound-r3a-v8-objectfolder-real-source-and-gate-freeze-2026-08-31.md)
-   [inventory result](../physical-sound-r3a-v8-objectfolder-real-inventory-result-2026-08-31.md)
-   and [object-91 fit protocol](../physical-sound-r3a-v8-object91-fit-protocol-2026-08-31.md).
+   [inventory result](../physical-sound-r3a-v8-objectfolder-real-inventory-result-2026-08-31.md),
+   [object-91 fit protocol](../physical-sound-r3a-v8-object91-fit-protocol-2026-08-31.md),
+   [V8 fit rejection/V9 research](../physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md)
+   and [V9 synthetic protocol](../physical-sound-r3a-v9-time-varying-residual-preflight-protocol-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
 
-- **Workspace:** V8 protocol/runner/tests are in Git and the two-run synthetic
-  report is external; datasets, checkpoints, predictions, arrays and WAVs
-  remain external.
+- **Workspace:** V8 fit runner/tests and exact negative evidence are in Git;
+  both fit outputs and all datasets, predictions, arrays and WAVs are external.
 - **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
   contacts are opened. Every row `2407`, method holdout and admission shadow
   remains sealed.
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** Object `91` fit-only protocol and runner before any
-  fit sample decode; authored clips remain the product path.
+- **Next commit boundary:** V9 synthetic noise-band renderer, neural latent
+  field and tests; no real waveform may be read. Authored clips remain the
+  product path.

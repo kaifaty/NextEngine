@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `IN_PROGRESS / N0.4A_V8_OBJECT91_FIT_PROTOCOL_FROZEN / FIT_RUNNER_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.4A_V8_REAL_FIT_REJECTED / V9_SYNTHETIC_RESIDUAL_PREFLIGHT_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -517,11 +517,21 @@ frequency/damping/gain recovery passes, and the two held NISR mode-shape fields
 reach `0.262x` and `0.097x` nearest-neighbour RMSE. All real, sealed, method and
 shadow reads remain zero. Preserve the
 [exact result](../development/physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md).
-The result authorizes only a fresh ObjectFolder Real source/gate freeze.
+The result authorized only a fresh ObjectFolder Real source/gate freeze. That
+fit protocol and runner are now complete. Two executions repeat every artifact,
+but both bounded damping capacities fail spectrum/modal identity on contacts
+`18/12/4`; development `20` and sealed `27` remain unread. Preserve the
+[exact V8 rejection and V9 research](../development/physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md).
+
+V9 reopens N0.4A only for a materially different residual: explicit modes plus
+deterministic time-varying noise bands behind an offline neural decoder. Its
+[synthetic protocol](../development/physical-sound-r3a-v9-time-varying-residual-preflight-protocol-2026-08-31.md)
+requires known-truth rendering, compact record decode, exact repeat and
+held-contact latent interpolation before any new real source is selected.
 
 ### N0.4B — Object-specific contact-position few-shot field
 
-Entry condition: N0.4A V8 passes fresh real development and one source-disjoint
+Entry condition: N0.4A V9 passes fresh real development and one source-disjoint
 representation holdout, and published data provides multiple contact positions
 for one exact object.
 
@@ -729,10 +739,14 @@ successful Git commit or a report-only model result.
    `REJECT_NEURAL_REPRESENTATION`; select no capacity and spend no new holdout.
 10. Preserve V8-SYNTH as `COMPLETE / REPRODUCIBLE`; do not widen its synthetic
     result into a real-quality claim.
-11. Inventory a bounded official ObjectFolder Real slice without waveform
-    decode, then freeze exact source hashes, object/contact roles, modal
-    initializer, damping/residual ablations and fit/development gates.
-12. Keep N0.4B closed. Only a later V8 fresh-real development and
+11. Preserve the object-91 V8 fit as
+    `COMPLETE / REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE`; do not change its
+    bins, damping capacities, thresholds or postfilter, and do not read
+    development `20` or sealed `27`.
+12. Implement V9-SYNTH using only deterministic known truth. Require compact
+    time-varying residual rendering and held-contact neural latent prediction
+    to beat frozen controls exactly as preregistered.
+13. Keep N0.4B closed. Only a later V9 fresh-real development and
     source-disjoint representation-holdout pass may open it; the product
     continues to use authored clips.
 
@@ -741,13 +755,13 @@ now freezes the official archive identity, exact 512 MiB prefix, member
 commitments and `18/12/4 fit`, `20 development`, `27 sealed` roles. Implement
 the zero-decode inventory before any fit extraction.
 
-The inventory now returns `READY_FOR_V8_REAL_FIT_EXTRACTION` twice with exact
+The inventory returned `READY_FOR_V8_REAL_FIT_EXTRACTION` twice with exact
 manifest `e1651b64…147b` and report `d9888302…dace`; see the
 [exact result](../development/physical-sound-r3a-v8-objectfolder-real-inventory-result-2026-08-31.md).
-Freeze the complete fit-only runner before decoding contacts `18/12/4`.
+That authorization was consumed only by the committed fit runner.
 
 The [fit protocol](../development/physical-sound-r3a-v8-object91-fit-protocol-2026-08-31.md)
-now fixes native extraction/alignment, 64 measured-force modal responses, two
+fixed native extraction/alignment, 64 measured-force modal responses, two
 damping capacities, a `14,500`-bin phase-preserving residual, 63–64 KiB record
-costs and unchanged acoustic gates. Implement and commit the runner before the
-first numerical fit read.
+costs and unchanged acoustic gates. Its exact result is
+`REJECT_V8_REAL_FIT_REPRESENTATION`; no V8 development evaluation follows.

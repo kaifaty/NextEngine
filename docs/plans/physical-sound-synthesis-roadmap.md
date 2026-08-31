@@ -1,11 +1,11 @@
-# Roadmap V8: explicit-modal neural sound field to baked contact atlas
+# Roadmap V9: explicit modes plus neural time-varying residual to baked contact atlas
 
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-31 |
-| Статус | `ACTIVE_R&D / R3A_V8_SYNTHETIC_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_FROZEN / FIT_RUNNER_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R3A_V8_REAL_FIT_REJECTED / V9_TIME_VARYING_RESIDUAL_PREREGISTERED / SYNTHETIC_PREFLIGHT_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
-| Стратегия | [V8 explicit-modal neural rebaseline](../development/physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md) |
+| Стратегия | [V8 rejection and V9 residual research](../development/physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
 | Текущее состояние | [Physical sound task state](../development/task-state/physical-sound-synthesis.md) |
 | Продуктовый статус | Изолированный post-v1 experiment; текущий clip-based audio baseline не меняется |
@@ -32,7 +32,7 @@ authored clip.
 5. одного exact admitted domain с обязательным fallback;
 6. отдельного product decision перед любой runtime-интеграцией.
 
-## Что меняется в V8
+## Что меняется в V9
 
 Ручной поиск общей формулы `material -> sound` остаётся закрытой основной
 веткой. Q30 modal renderer, DCT residual, FEM/BEM и предыдущие real-data
@@ -97,6 +97,30 @@ representation hypothesis:
 7. только fresh development-pass расходует один новый source-disjoint holdout;
 8. первый product experiment offline рендерит accepted contact grid в обычный
    bounded clip atlas. Runtime не загружает neural model.
+
+V8-SYNTH подтвердил renderer и neural mode-shape field на известной FEM truth,
+но fresh object-91 fit отверг bounded residual до development. Два точных
+прогона показывают одинаковую причину: обе `63–64 KiB` capacity проходят cost,
+но spectrum/modal identity падают на всех `3/3` fit-контактах. Dense
+phase-preserving residual восстанавливает spectrum, однако требует `214,564`
+bytes только на in-band complex bins; stationary magnitude-shaped noise
+проваливает те же endpoints. Полный результат и competing hypotheses находятся
+в [V8 fit rejection/V9 research](../development/physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md).
+
+V9 сохраняет явные modes и меняет только residual hypothesis:
+
+1. стабильные узкие resonances остаются frequency/damping/complex gains;
+2. broadband/inharmonic tail представляется deterministic loopable noise bands
+   с time-varying amplitudes, а не одним sparse global FFT;
+3. внешний neural decoder/field предсказывает компактный contact latent и
+   spectro-temporal amplitude surface;
+4. upstream DDSP/NoiseBandNet служат prior art, не runtime dependency: V9
+   использует меньший residual bank, потому что modes уже вынесены явно;
+5. первый gate — synthetic known-truth exact repeat без real audio;
+6. object `91` закрыт как negative evidence и не выбирает V9; следующий real
+   protocol обязан быть source-disjoint;
+7. runtime inference по-прежнему запрещён, accepted output — обычные baked
+   clips с обязательным fallback.
 
 Exploratory `168 kbps` Opus plus 5 ms envelope sidecar занимает `65,170` bytes
 и проходит `11/12` fit-контактов; один Large Swan contact сохраняет
@@ -199,8 +223,8 @@ models и не маскирует провал обещанием универс
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
 | R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
 | R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `IN_PROGRESS / V1–V5_NEGATIVE_OR_INCONCLUSIVE / V8_SYNTH_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_FROZEN / RUNNER_NEXT` | L | Measured-force 64-mode fit plus two fixed damping capacities and bounded residual records are frozen before extracting contacts `18/12/4`. |
-| R3B | `NOT_AUTHORIZED_BY_R3A` | L | A real exact-object contact field cannot start without V8 fresh-real representation development and holdout passes. |
+| R3A | `IN_PROGRESS / V1–V5_NEGATIVE_OR_INCONCLUSIVE / V8_REAL_FIT_REJECTED / V9_SYNTH_PROTOCOL_FROZEN / PREFLIGHT_NEXT` | L | Prove deterministic compact time-varying residual rendering and held-contact latent learning on known synthetic truth before selecting any fresh real source. |
+| R3B | `NOT_AUTHORIZED_BY_R3A` | L | A real exact-object contact field cannot start without V9 fresh-real representation development and source-disjoint holdout passes. |
 | R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
 | R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
 | R6 | `BLOCKED_BY_R5` | M | Frozen generator/cooker/validator один раз открывают admission shadow и публикуют tri-state decision. |
@@ -536,9 +560,9 @@ start R3B. Reconsideration requires a materially different preregistered
 modal/decay-preserving representation and new source-disjoint development
 evidence, not a longer V5-C run or another bitrate.
 
-R3A V8 satisfies that reconsideration condition at the hypothesis level but
-has not passed a gate. The [V8 explicit-modal neural rebaseline](../development/physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md)
-freezes this order:
+R3A V8 tested that reconsideration condition and is now complete/rejected at
+real fit. The [V8 explicit-modal neural rebaseline](../development/physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md)
+froze this order:
 
 1. `V8-SYNTH` uses two opened, exact-hash NISR Glass FEM label files. A
    differentiable damped-sinusoid renderer must recover perturbed known truth,
@@ -562,12 +586,21 @@ freezes this order:
 held mode-shape fields reach `0.262x` and `0.097x` nearest-neighbour RMSE.
 Real/sealed/method/shadow reads are zero. See the
 [exact V8-SYNTH result](../development/physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md).
-This is not acoustic quality. The current step is to freeze a fresh
-ObjectFolder Real protocol without decoding its waveforms.
+This is not acoustic quality. The later object-91 fit runner now repeats
+byte-identically and returns `REJECT_V8_REAL_FIT_REPRESENTATION`: both bounded
+damping capacities fail spectrum/modal identity on all fit contacts, while
+development `20` and sealed `27` remain unread. V8 development is closed.
+
+R3A V9 is frozen in the
+[synthetic preflight protocol](../development/physical-sound-r3a-v9-time-varying-residual-preflight-protocol-2026-08-31.md).
+It keeps explicit modes, replaces the sparse stationary tail with deterministic
+time-varying noise bands and asks a small neural field to interpolate the
+contact latent. A complete pass can authorize only a newly frozen,
+source-disjoint real protocol.
 
 ## R3B — Object-specific contact-position few-shot model
 
-Entry condition: R3A V8 passes fresh real development and one source-disjoint
+Entry condition: R3A V9 passes fresh real development and one source-disjoint
 representation holdout, then publishes a new exact object with disjoint held
 contact positions. Listener coordinate is fixed to the source's canonical
 condition and is not a learned axis.
@@ -766,14 +799,17 @@ ledger, persistence и `AcousticFactV1` roots.
     NISR held-position mode-shape fields pass with byte-identical reports. Only
     a fresh real protocol is authorized; no quality, holdout, R3B or runtime
     authority exists.
-19. `R3A V8 fresh-real source and gate freeze` — `PREREGISTERED`; exact 512 MiB
-    official archive prefix and five object-91 roles are frozen. Zero-decode
-    member/header inventory now repeats and passes; fit PCM remains closed
-    until the complete fit runner is committed.
-20. `R3A V8 object-91 fit-only representation` — `PREREGISTERED / RUNNER_NEXT`;
-    measured-force excitation, 64-mode initializer, `global/per-contact`
-    damping, `14,500` complex residual bins, 63–64 KiB records and unchanged
-    endpoints are fixed. Decode only `18/12/4` after runner commit.
+19. `R3A V8 fresh-real source and gate freeze` —
+    `COMPLETE / REPRODUCIBLE`; exact 512 MiB official archive prefix and five
+    object-91 roles are frozen, and zero-decode member/header inventory repeats.
+20. `R3A V8 object-91 fit-only representation` —
+    `COMPLETE / REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE`; both bounded
+    damping capacities fail spectrum/modal endpoints on every fit contact.
+    Development `20`, sealed `27`, method holdout and shadow remain unread.
+21. `R3A V9 time-varying residual synthetic preflight` —
+    `PREREGISTERED / IMPLEMENTATION_NEXT`; test deterministic noise bands,
+    compact contact records and held-contact neural latent interpolation on
+    known truth with all real counters at zero.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.
@@ -789,7 +825,9 @@ ledger, persistence и `AcousticFactV1` roots.
 | V5 neural representation не превосходит target baseline | `REJECT_NEURAL_REPRESENTATION`; contact field не запускать |
 | V8 synthetic modal recovery or mode-shape field does not repeat/pass | `STOP_V8_SYNTH_KEEP_CLIPS`; real V8 source не открывать, провести bounded diagnosis |
 | V8 synthetic preflight passes | Freeze fresh ObjectFolder Real fit/development protocol; do not claim acoustic quality or start R3B |
-| V8 fresh-real representation fails fit/development | `REJECT_EXPLICIT_MODAL_REPRESENTATION`; no source-disjoint holdout or contact field |
+| V8 fresh-real representation fails fit/development | Close V8 before development; preserve explicit modes but require a materially different residual and new source-disjoint revision |
+| V9 synthetic renderer, compact record or neural latent field fails | `REJECT_V9_RESIDUAL_SUBSTRATE`; do not select/read fresh real data |
+| V9 synthetic preflight passes | Freeze a new source-disjoint real protocol; no acoustic-quality, R3B or runtime credit |
 | Sample-rate/filter control сам нарушает endpoint | `INCONCLUSIVE_CONTROL`; target не переоценивать, протокол не менять post-hoc, новый discriminator заморозить на unopened data |
 | Native general codec сохраняет envelope, но теряет spectrum/modes | Не искать соседний checkpoint; task-specific neural loss обязан оптимизировать exact endpoints |
 | R3B проходит exact object, R4 падает object-disjoint | `GO_EXACT_OBJECT`; zero-shot/shared claim закрыть |
@@ -803,9 +841,9 @@ ledger, persistence и `AcousticFactV1` roots.
 
 ## Definition of done
 
-- **Training substrate:** V5 controls remain reproducible negative history;
-  V8 renderer recovery and neural mode-shape field pass exact-repeat and
-  held-surface synthetic gates before any fresh real task is spent.
+- **Training substrate:** V5/V8 remain reproducible negative history; V9
+  deterministic residual rendering and neural held-contact latent prediction
+  pass exact-repeat, known-truth and cost gates before fresh real data is spent.
 - **Representation:** one explicit-modal neural candidate passes all frozen
   endpoints on fresh development and one preregistered source-disjoint holdout
   before real contact-field training.
