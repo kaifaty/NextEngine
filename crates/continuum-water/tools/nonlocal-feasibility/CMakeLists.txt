@@ -178,6 +178,13 @@ add_executable(
     src/corrected_cuda_assembly_reference.cpp
     src/sha256.cpp
 )
+add_executable(
+    nonlocal-corrected-cpu-pressure-state
+    src/corrected_cpu_pressure_state_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/sha256.cpp
+)
 set(NCGP1_SOURCE_FILES
     CMakeLists.txt
     src/corrected_cuda_full_step.hpp
@@ -842,6 +849,54 @@ target_compile_options(
 )
 target_link_options(
     nonlocal-corrected-cuda-cost-benchmark
+    PRIVATE
+        $<$<CONFIG:Release>:-s>
+)
+
+set(NCGP12_SOURCE_FILES
+    CMakeLists.txt
+    src/corrected_cpu_pressure_state_main.cpp
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/corrected_cuda_assembly.hpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP12_SOURCE_MATERIAL "")
+foreach(NCGP12_SOURCE_FILE IN LISTS NCGP12_SOURCE_FILES)
+    file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP12_SOURCE_FILE}"
+        NCGP12_SOURCE_FILE_HASH)
+    string(APPEND NCGP12_SOURCE_MATERIAL
+        "${NCGP12_SOURCE_FILE}:${NCGP12_SOURCE_FILE_HASH}\n")
+endforeach()
+string(SHA256 NCGP12_SOURCE_ROOT "${NCGP12_SOURCE_MATERIAL}")
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/10-pressure-state-equilibrium-discriminator.md"
+    NCGP12_CONTRACT_10_ROOT)
+string(SHA256 NCGP12_CONTRACT_ROOT
+    "${NCGP11_CONTRACT_ROOT}:${NCGP12_CONTRACT_10_ROOT}")
+target_compile_definitions(
+    nonlocal-corrected-cpu-pressure-state
+    PRIVATE
+        NCGP12_CONTRACT_ROOT="${NCGP12_CONTRACT_ROOT}"
+        NCGP12_SOURCE_ROOT="${NCGP12_SOURCE_ROOT}"
+        NCGP12_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP12_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP12_COMPILER_FLAGS="CXX:-O3,-Wall,-Wextra,-Wpedantic,-Werror,-ffp-contract=off,-fno-fast-math"
+)
+target_compile_features(
+    nonlocal-corrected-cpu-pressure-state PRIVATE cxx_std_17)
+set_target_properties(
+    nonlocal-corrected-cpu-pressure-state
+    PROPERTIES CXX_EXTENSIONS OFF)
+target_compile_options(
+    nonlocal-corrected-cpu-pressure-state
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+)
+target_link_options(
+    nonlocal-corrected-cpu-pressure-state
     PRIVATE
         $<$<CONFIG:Release>:-s>
 )
