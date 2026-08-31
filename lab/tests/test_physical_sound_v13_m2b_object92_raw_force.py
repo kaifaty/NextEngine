@@ -151,6 +151,14 @@ class RawForceM2bTests(unittest.TestCase):
             "DATA_INSUFFICIENT_ACQUISITION",
         )
 
+    def test_identity_check_is_not_relaxed_by_missing_non_audio_metadata(self) -> None:
+        self.assertTrue(
+            all(
+                f"92/audio/{contact}/mic.wav" in inventory.selected_paths()
+                for contact in inventory.EXPECTED_CONTACT_IDS
+            )
+        )
+
     def test_repository_outputs_are_rejected(self) -> None:
         with self.assertRaisesRegex(inventory.InventoryError, "outside the repository"):
             inventory.prepare_output(inventory.repository_root() / "forbidden-m2b")

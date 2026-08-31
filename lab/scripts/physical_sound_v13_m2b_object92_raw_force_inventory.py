@@ -297,11 +297,15 @@ def run(
     complete = set(found) == expected
     if complete and observed_contacts != set(EXPECTED_CONTACT_IDS):
         raise InventoryError("raw object-92 contact set changed")
-    if complete:
-        for contact in EXPECTED_CONTACT_IDS:
-            raw_microphone = found[f"{OBJECT_ID}/audio/{contact}/mic.wav"]
-            if raw_microphone["sha256"] != compact_hashes[contact]:
-                raise InventoryError(f"raw/compact microphone mismatch for contact {contact}")
+    identity_comparisons = 0
+    for contact in EXPECTED_CONTACT_IDS:
+        raw_microphone = found.get(f"{OBJECT_ID}/audio/{contact}/mic.wav")
+        if raw_microphone is None:
+            continue
+        identity_comparisons += 1
+        if raw_microphone["sha256"] != compact_hashes[contact]:
+            raise InventoryError(f"raw/compact microphone mismatch for contact {contact}")
+    raw_compact_identity_passed = identity_comparisons == len(EXPECTED_CONTACT_IDS)
 
     selected_bytes = sum(record["bytes"] for record in found.values())
     records = []
@@ -334,7 +338,7 @@ def run(
         "wav_header_bytes_parsed": sum(
             64 for path in found if path.endswith(("mic.wav", "Force.wav"))
         ),
-        "raw_compact_microphone_identity_comparisons": 36 if complete else 0,
+        "raw_compact_microphone_identity_comparisons": identity_comparisons,
         "microphone_sample_values_decoded": 0,
         "force_sample_values_decoded": 0,
         "striking_force_numeric_values_decoded": 0,
@@ -393,7 +397,7 @@ def run(
         "selected_member_count": len(found),
         "missing_member_count": len(missing),
         "missing_member_paths": missing,
-        "raw_compact_microphone_identity_passed": complete,
+        "raw_compact_microphone_identity_passed": raw_compact_identity_passed,
         "read_accounting": read_accounting,
         "formula_or_model_fit_authorized": False,
         "real_quality_credit": False,
