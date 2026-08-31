@@ -148,6 +148,15 @@ add_executable(
     src/corrected_cuda_assembly_reference.cpp
     src/sha256.cpp
 )
+add_executable(
+    nonlocal-corrected-cuda-visible-surface
+    src/corrected_cuda_full_step.cu
+    src/corrected_cuda_visible_surface_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_full_step_cpu_solver.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/sha256.cpp
+)
 set(NCGP1_SOURCE_FILES
     CMakeLists.txt
     src/corrected_cuda_full_step.hpp
@@ -612,6 +621,66 @@ target_compile_options(
 )
 target_link_options(
     nonlocal-corrected-cuda-eulerian-diagnostic
+    PRIVATE
+        $<$<CONFIG:Release>:-s>
+)
+
+set(NCGP8_SOURCE_FILES
+    CMakeLists.txt
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step.cu
+    src/corrected_cuda_visible_surface_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_full_step_cpu_solver.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/corrected_cuda_assembly.hpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP8_SOURCE_MATERIAL "")
+foreach(NCGP8_SOURCE_FILE IN LISTS NCGP8_SOURCE_FILES)
+    file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP8_SOURCE_FILE}"
+        NCGP8_SOURCE_FILE_HASH)
+    string(APPEND NCGP8_SOURCE_MATERIAL
+        "${NCGP8_SOURCE_FILE}:${NCGP8_SOURCE_FILE_HASH}\n")
+endforeach()
+string(SHA256 NCGP8_SOURCE_ROOT "${NCGP8_SOURCE_MATERIAL}")
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/05-visible-surface-observer.md"
+    NCGP8_CONTRACT_5_ROOT)
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/06-visible-surface-control-corrigendum.md"
+    NCGP8_CONTRACT_6_ROOT)
+string(SHA256 NCGP8_CONTRACT_ROOT
+    "${NCGP7_CONTRACT_ROOT}:${NCGP8_CONTRACT_5_ROOT}:${NCGP8_CONTRACT_6_ROOT}")
+target_compile_definitions(
+    nonlocal-corrected-cuda-visible-surface
+    PRIVATE
+        NCGP8_CONTRACT_ROOT="${NCGP8_CONTRACT_ROOT}"
+        NCGP8_SOURCE_ROOT="${NCGP8_SOURCE_ROOT}"
+        NCGP8_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP8_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP8_COMPILER_FLAGS="${NCGP4_COMPILER_FLAGS}"
+        NCGP2_EXPERIMENTAL=1
+        NCGP3_EXPERIMENTAL=1
+        NCGP8_EXPERIMENTAL=1
+)
+target_compile_features(
+    nonlocal-corrected-cuda-visible-surface PRIVATE cxx_std_17 cuda_std_17)
+set_target_properties(
+    nonlocal-corrected-cuda-visible-surface
+    PROPERTIES
+        CUDA_ARCHITECTURES 86
+        CUDA_SEPARABLE_COMPILATION OFF
+)
+target_compile_options(
+    nonlocal-corrected-cuda-visible-surface
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+        $<$<COMPILE_LANGUAGE:CUDA>:-O3;--fmad=false;--prec-div=true;--prec-sqrt=true;--ftz=false>
+)
+target_link_options(
+    nonlocal-corrected-cuda-visible-surface
     PRIVATE
         $<$<CONFIG:Release>:-s>
 )
