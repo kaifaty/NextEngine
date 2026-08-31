@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP12_INDEPENDENT_GO / NCGP13_PRESSURE_CONTACT_NEXT` |
+| Status | `ACTIVE / NCGP13_REV2_FROZEN / IMPLEMENTATION_NEXT` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,10 +20,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP12 independent review reproduced every root and
-  returned `GO` for the bounded result. Freeze NCGP13 pressure plus swept
-  analytic-contact relinearization, then run its one-step admission and tiny
-  hydrostatic trajectory before any CUDA work or timing.
+- **Current action:** implement frozen NCGP13 revision 2: frictionless swept
+  analytic contact plus pressure relinearization, then run its 512-sample
+  one-step admission and 128-sample 240-step hydrostatic trajectory before any
+  CUDA work or timing.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -40,6 +40,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/08-pressure-f64-complete-4k.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/09-invalid-physics-cost-only.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/10-pressure-state-equilibrium-discriminator.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/11-pressure-contact-tiny-trajectory.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
@@ -439,7 +440,29 @@
 - **Rejected:** relabelling the near-zero density error as PASS, weakening the
   exact inset post hoc, treating pressure as a replacement for contact, or
   reintroducing surface before pressure/contact holds.
-- **Reconsider when:** the independent NCGP12 review closes.
+- **Reconsider when:** a later pressure/contact result contradicts the exact
+  retained NCGP12 witness; otherwise this discriminator is closed.
+
+### D-019 — Freeze frictionless pressure/contact composition before code
+
+- **Observation:** NCGP12 independent review returned `GO` and confirmed exact
+  inset crossing. Three pre-code NCGP13 audits then found that the first draft
+  had hidden sticking contact, an impossible `kappa=0` retained input root, no
+  exact baseline radius-equality witness and underspecified precedence,
+  momentum, stale-assembly and independent-contact checks.
+- **Decision:** freeze NCGP13 revision 2 before implementation. Retain corrected
+  `kappa` only in profile identity with zero penalty work; alternate explicit
+  pressure projection with frictionless componentwise box projection; bind
+  every assembly to its state root; run independent density/inset checks; and
+  execute one 512-sample step before the 128-sample 240-step hold.
+- **Claim ceiling:** success authorizes only separately frozen tiny CPU surface
+  and viscosity discriminators. It is not correct-water, CUDA feasibility,
+  performance, runtime integration or an R8 status change.
+- **Rejected:** full-segment sticky stopping, quantizing the baseline graph to
+  manufacture radius equality, tuning after a trajectory result, skipping to
+  4k/GPU, or weakening the exact wall/density gates.
+- **Reconsider when:** NCGP13 returns its first exact route and independent
+  review closes its apparatus.
 
 ## Hypothesis ledger
 
@@ -468,6 +491,9 @@
 | H12B | surface tension is the first cause | isolated pressure passes but surface-enabled successor fails | only after NCGP12 |
 | H12C | ghost density support alone cannot own wall contact | selected author-side: density closes but exact inset penetration is `0.179 mm` | pressure plus analytic contact |
 | H12D | one projection is insufficient, but pressure state is viable | KKT/stationarity pass and only nonlinear density fails | bounded nonlinear successor |
+| H13A | explicit pressure plus frictionless analytic contact forms a viable support step | not yet tested under frozen revision 2 | implement 512 step, then 128x240 hold |
+| H13B | the alternating pressure/contact composition is insufficient | not yet tested | first exact phase-A physical route |
+| H13C | one step passes but the state is dynamically unstable | not yet tested | first exact phase-B trajectory route |
 
 ## Do not retry
 
@@ -480,7 +506,8 @@
 
 ## Next action
 
-1. Freeze NCGP13 pressure plus swept analytic contact and relinearization.
+1. Implement frozen NCGP13 revision 2 without calling the NCGP12 solve or
+   CUDA/full-step evaluators.
 2. Run its one-step admission and tiny 240-step hydrostatic trajectory before
-   4k or CUDA.
+   4k or CUDA, then request independent review.
 3. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
