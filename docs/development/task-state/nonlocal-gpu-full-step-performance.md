@@ -34,6 +34,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/03-product-trajectory-gate.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/04-eulerian-step112-diagnostic.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/05-visible-surface-observer.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/06-visible-surface-control-corrigendum.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
