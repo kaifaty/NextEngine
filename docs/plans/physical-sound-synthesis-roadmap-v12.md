@@ -3,12 +3,16 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_REPEAT_PASS / C4A_PREFLIGHT_REPEAT_PASS / FIT_RUN_NEXT / FIT_ROLE_ONLY_AUTHORIZED / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `CLOSED / C4A_REPEAT_DATA_INSUFFICIENT_FORCE_COVERAGE / V13_REBASELINED / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V11](physical-sound-synthesis-roadmap-v11.md), закрыт после B1R3 |
 | Exact основание | [C1 repeat-exact result](../development/physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Текущее состояние | [Physical sound task state](../development/task-state/physical-sound-synthesis.md) |
 | Product fallback | Обычные authored clips обязательны для любого reject/OOD/fault |
+
+> V12 закрыт повторяемым отрицательным результатом C4a. Активная программа
+> продолжена в [Roadmap V13](physical-sound-synthesis-roadmap-v13.md), который
+> отделяет canonical-impact modal field от недоказанного measured transfer.
 
 ## Куда мы идём
 
@@ -56,9 +60,9 @@ C1 прошёл дважды побитово на новой known-truth revisi
 - notch только в query не уничтожает уже доказанную object model;
 - network, real payload и parent holdout reads равны нулю.
 
-Это закрывает synthetic identifiability prerequisite, но не является
-доказательством качества реального стекла. C2 затем подтвердил пригодный
-интернет-источник; следующий шаг — C3 source/role freeze до чтения PCM.
+Это закрыло synthetic identifiability prerequisite, но не стало доказательством
+качества реального звука. Затем C2 подтвердил интернет-источник, C3 заморозил
+роли, а C4a остановил ветку на недостаточном force coverage до чтения response.
 
 ## Три разных домена, которые нельзя снова смешивать
 
@@ -90,14 +94,14 @@ flowchart LR
 | C1 | Coverage-certified known-truth oracle | `COMPLETE / REPEAT_EXACT_PASS` | Все acquisition-supported truth modes восстановлены, unsupported controls не изобретены, held responses и OOD gates проходят дважды побитово. |
 | C2 | Internet-source zero-decode inventory | `COMPLETE / NARROWED_SOURCE_PASS` | Найден хотя бы один stable paired force+mic source с доказуемыми axes/lineage; PCM не читается. |
 | C3 | Source role freeze и bounded importer | `COMPLETE / REPEAT_EXACT_PASS` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
-| C4 | Real transfer-response model | `C4A_PREFLIGHT_REPEAT_PASS / FIT_RUN_NEXT / FIT_ROLE_ONLY_AUTHORIZED` | Fit и development проходят против raw-H1, impulse, input-ignorant и causal controls; one-shot holdout подтверждает перенос. |
-| C5 | Physical Sound Record V1 | `BLOCKED_BY_C4` | Версионированная external record-база хранит poles, damping, contact residues, coverage/OOD и provenance без waveform в Git. |
-| C6 | Exact-object contact ML | `BLOCKED_BY_C5` | Geometry/contact model выигрывает у nearest, RBF/barycentric и linear-basis controls на unseen parent groups. |
-| C7 | Independent Validator V1 | `BLOCKED_BY_C4` | Frozen validator имеет bounded false-pass risk, useful coverage и tri-state решение на method holdout. |
-| C8 | Deterministic atlas cooker | `BLOCKED_BY_C5_C6` | Несколько force/energy profiles печатают byte-identical bounded clips и complete fallback map. |
-| C9 | One-shot exact-object admission | `BLOCKED_BY_C7_C8` | Untouched shadow получает immutable `Pass`, `Reject` или `FallbackOutOfDomain`. |
-| C10 | Material-family expansion | `BLOCKED_BY_C9` | Glass, wood и metal имеют admitted exact domains либо честные reproducible fallback-only результаты. |
-| C11 | Один production impact prop | `POST_RESEARCH / ADR_REQUIRED` | Visible consumer использует committed contact projection, cooked atlas и mandatory clip fallback. |
+| C4 | Real transfer-response model | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT_FORCE_COVERAGE` | Fit-force certificate дважды показал нулевое общее покрытие; microphone и protected roles не открыты. |
+| C5 | Physical Sound Record V1 | `REBASELINED_TO_V13_M1` | Новая experimental record-схема сначала различает canonical-impact и measured-transfer claims. |
+| C6 | Exact-object contact ML | `REBASELINED_TO_V13_M3_M5` | Geometry/contact model проверяется как modal-gain field на canonical-impact данных. |
+| C7 | Independent Validator V1 | `REBASELINED_TO_V13_M7` | Frozen validator остаётся обязательным независимым gate. |
+| C8 | Deterministic atlas cooker | `REBASELINED_TO_V13_M8` | Byte-identical clips и complete fallback map остаются product boundary. |
+| C9 | One-shot exact-object admission | `REBASELINED_TO_V13_M9` | Shadow admission перенесён без открытия ролей V12. |
+| C10 | Material-family expansion | `REBASELINED_TO_V13_M10` | Material families остаются агрегацией exact domains. |
+| C11 | Один production impact prop | `REBASELINED_TO_V13_M11 / ADR_REQUIRED` | Runtime/public promotion по-прежнему не разрешена. |
 
 ## C1 — последний bounded synthetic oracle
 
@@ -185,7 +189,8 @@ SHA-256 partition `16/5/4/4/3/3`. Raw scan ограничен первыми `4 
 [C3 exact result](../development/physical-sound-r3a-v12-c3-object41-source-role-freeze-result-2026-08-31.md)
 проходит дважды побитово: `35/35` paired headers, `35/35` raw/compact microphone
 identities, complete geometry/scale и нулевой PCM decode. Это открывает только
-C4 fit protocol; все шесть ролей остаются decode-closed.
+C4 fit protocol на том checkpoint; итоговый C4a затем закрыл V12 без открытия
+microphone и protected roles.
 
 ## C4–C6 — от реального отклика к формулам и ML
 
@@ -201,10 +206,14 @@ Unexplained residual budget
 Source lineage and protected role
 ```
 
-C4 сначала доказывает real representation на одном exact object. Только затем
-C5 фиксирует external Physical Sound Record schema и миграции. C6 обучает
-contact→residue field; frequencies/damping остаются измеренными или
-solver-verified. Runtime weights запрещены: accepted model используется offline.
+C4 остановлен до чтения microphone: повторяемый fit-force certificate показал,
+что удары high-SNR, но спектрально узкие и почти не перекрываются. Точный
+результат находится в [C4a result](../development/physical-sound-r3a-v12-c4a-object41-real-frf-fit-result-2026-08-31.md).
+
+Этот источник не поддерживает заявленную arbitrary-force transfer-модель.
+Object `41` остаётся acquisition-OOD fixture, а record/contact ML/validator/
+atlas продолжаются в V13 для более узкого canonical-impact claim. Runtime
+weights запрещены: любой accepted model используется offline.
 
 Если classical interpolation выигрывает у ML, база и atlas продолжают работать
 без ML. Это успешный инженерный fallback, а не повод подменить метрики.
@@ -259,10 +268,12 @@ Accepted ADR. До этого SPEC-45 остаётся `Proposed` и authored cl
 6. `C4a`: `COMPLETE`; fit-only force/FRF protocol and one-shot limitations are
    frozen before PCM decode.
 7. `C4b`: `COMPLETE`; runner, synthetic/no-access tests and repeated zero-read
-   preflight pass; only the exact sixteen-contact fit budget is open.
-8. `C4c` — next; run fit A/B. `C4d–C4e` remain gated development and holdout.
-9. `C5–C9`: record schema, controls-first ML, validator, atlas and admission as
-   independently reviewable artifacts.
+   preflight passed and opened only the exact sixteen-contact force-first fit
+   budget at that historical checkpoint.
+8. `C4c`: `COMPLETE / REPEAT_EXACT_DATA_INSUFFICIENT`; force A/B совпадают,
+   microphone/development/holdout/validator/shadow decode остаётся нулевым.
+9. `C4d–C4e`: `NOT_RUN / CLOSED_WITH_V12`; дальнейшее исполнение перенесено в
+   V13 без переноса stronger measured-transfer claim.
 
 ## Definition of done
 
