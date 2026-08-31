@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ACTIVE_R&D / S0A_COMPLETE / S0B_YCB_CAPABILITY_NEXT / METAL_FIRST / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ACTIVE_R&D / S0B_COMPLETE / S0C_ROLE_FREEZE_NEXT / METAL_FIRST / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V14](physical-sound-synthesis-roadmap-v14.md) as the active execution plan |
 | Evidence basis | [V15 progressive-admission rebaseline](../development/physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -80,9 +80,9 @@ Synthetic teachers can enlarge training but cannot provide protected credit.
 
 | Material | Current evidence | V15 state | Entry condition |
 | --- | --- | --- | --- |
-| Metal | S0a proves `12` unexposed physical-group metadata candidates | `FIRST_DOMAIN_CANDIDATE` | S0c still proves at least eight structurally eligible groups and all required axes. |
-| Wood | S0a proves `0` unexposed current-source groups; YCB may add independent groups | `PENDING_SOURCE_CERTIFICATE` | YCB/revision adapter yields eight fresh evaluation-complete groups without changing gates. |
-| Glass | S0a proves `2` unexposed groups; YCB has only three primary-glass objects | `FALLBACK_ONLY / SOURCE_GROWTH` | A new or newly resolved published source yields the unchanged eight-group shape. |
+| Metal | S0a proves `12` unexposed current-source groups; [S0b](../development/physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md) adds `9` exact YCB vertical parent candidates, six with freshness still unassessed | `FIRST_DOMAIN_CANDIDATE` | S0c deduplicates lineages and proves at least eight structurally eligible groups with every required axis. |
+| Wood | S0b binds `3` YCB vertical parents, all repository-adapter referenced, with only `2` non-ambiguous mesh routes | `PENDING_SOURCE_CERTIFICATE` | A source yields eight fresh evaluation-complete groups without changing gates. |
+| Glass | S0b finds `0` exact YCB object parents; horizontal recordings are material aggregates | `FALLBACK_ONLY / SOURCE_GROWTH` | A new published source yields the unchanged eight-group shape. |
 
 An admitted material uses one immutable role freeze through representation,
 validator and shadow. Later materials run the same versioned pipeline; their
@@ -129,8 +129,8 @@ freezes a generator release.
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | S0a | Revision-aware identity and exposure | `COMPLETE / REPEAT_EXACT / ZERO_SIGNAL` | [S0a](../development/physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md) resolves 130 groups and 30 drift conflicts; exact-name exposure corrects the fresh counts to Glass/Wood/Metal `2/0/12`. |
-| S0b | YCB capability adapter | `NEXT` | Repeat-exact metadata-only inventory binds YCB object/mesh/material/recording parents and available contact/support/listener axes without downloading or decoding audio. |
-| S0c | First-domain role freeze | `BLOCKED_BY_S0A_S0B` | Metal either fills the unchanged `4/1/1/1/1` shape with exact hashes or V15 closes as `SOURCE_INSUFFICIENT`; Wood/Glass receive explicit pending/fallback certificates. |
+| S0b | YCB capability adapter | `COMPLETE / REPEAT_EXACT / ZERO_SIGNAL` | [S0b](../development/physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md) inventories 77 objects and 926 OSF entries; exact target parents are Metal/Wood/Glass `9/3/0`, while usable/evaluation credit remains zero. |
+| S0c | First-domain role freeze | `NEXT / SOURCE_SUFFICIENCY` | Metal either fills the unchanged `4/1/1/1/1` shape with exact hashes or V15 closes as `SOURCE_INSUFFICIENT`; Wood/Glass receive explicit pending/fallback certificates. |
 | S1 | Known-truth neural oracle | `BLOCKED_BY_S0C` | On engine-owned truth scenes, a small model recovers stable poles and held surface gains and rejects instability, contact shuffle, wrong scale/material and coverage-collapse mutations. |
 | S2 | Real modal representation | `BLOCKED_BY_S1` | On opened Metal train/development data, structured analysis/synthesis beats classical Q30/DCT and identity-budget controls on frozen spectrum, onset, envelope, decay and mode metrics. |
 | S3 | Exact-object few-shot field | `BLOCKED_BY_S2` | One shared revision, using about 20% signal-blind contacts, beats nearest-contact, Euclidean/geodesic RBF, local-linear and geometry-agnostic controls on untouched contacts; otherwise representation closes. |
@@ -200,8 +200,8 @@ scientific result; it stops the family before more material data is consumed.
 1. `S0a` — `COMPLETE`: [repeat-exact identity/exposure](../development/physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md)
    prevents current/historical numeric-ID collisions and preserves 12 fresh
    Metal metadata groups.
-2. `S0b` — implement repeat-exact YCB metadata/cost adapter with zero audio
-   body and zero signal access.
+2. `S0b` — `COMPLETE`: [repeat-exact YCB capability/cost inventory](../development/physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md)
+   binds exact vertical parents with zero audio body and zero signal access.
 3. `S0c` — publish immutable Metal role descriptor or close source sufficiency;
    publish Wood/Glass pending/fallback certificates in the same result.
 4. `S1a` — preregister truth-scene distribution, structured model, controls,

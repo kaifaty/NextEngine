@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V15 / S0A_COMPLETE / S0B_YCB_CAPABILITY_NEXT / METAL_FIRST_12_FRESH_GROUPS / WOOD_PENDING / GLASS_FALLBACK_ONLY_SOURCE_GROWTH / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V15 / S0B_COMPLETE / S0C_ROLE_FREEZE_NEXT / METAL_FIRST / WOOD_PENDING / GLASS_FALLBACK_ONLY_SOURCE_GROWTH / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object neural canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [S0a](../physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md)
-  is repeat-exact and leaves `2/0/12` fresh Glass/Wood/Metal physical groups;
-  Metal keeps the unchanged eight-group potential.
-- **Exact evidence:** S0a identity `66e9a29e…ea40`, census
-  `ce3c5ab8…7365`, report `da0792fb…4f7c`; PCM, force, protected signal and
-  network body counters are zero.
+- **Current conclusion:** [S0b](../physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md)
+  is repeat-exact and binds Metal/Wood/Glass YCB vertical parents `9/3/0`;
+  non-ambiguous route-plus-parent counts are `9/2/0`, with zero role credit.
+- **Exact evidence:** OSF snapshot `0efe649d…1645`, capability
+  `7f1b316e…58cf`, cost `03a60ecd…1055`, report `9febc509…6d44`; all
+  audio/video/mesh/archive/force body and decoded-signal counters are zero.
 - **Rebaseline:** [Roadmap V15](../../plans/physical-sound-synthesis-roadmap-v15.md)
   keeps the complete `4/1/1/1/1` shape per admitted material and makes AV-MSF's
   modal-field factorization a hypothesis, not an unpublished dependency.
@@ -28,9 +28,9 @@
   byte-identical builds with zero build-time source/signal access.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** S0b signal-blind YCB object/mesh/material/recording-parent,
-  axis and acquisition-cost adapter; all real waveform decode remains
-  forbidden.
+- **Next action:** S0c merges exact YCB parents with S0a exposure and either
+  freezes the unchanged Metal `4/1/1/1/1` roles or closes source sufficiency;
+  all real waveform and mesh-body access remains forbidden.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -55,7 +55,7 @@
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
-| V15 S0–S4 | `S0A_COMPLETE / S0B_NEXT / METAL_FIRST / MODEL_BLOCKED` | Revision-aware exposure leaves 12 fresh Metal metadata groups; YCB capability must freeze before S0c roles or neural work. |
+| V15 S0–S4 | `S0B_COMPLETE / S0C_NEXT / METAL_FIRST / MODEL_BLOCKED` | YCB binds exact Metal/Wood/Glass vertical parents `9/3/0`, but every row remains ineligible until S0c proves axes, exposure and roles. |
 | V15 V0–D0 | `VALIDATOR_DATA_AFTER_S0 / ADMISSION_BLOCKED` | Validator can develop independently after S0; shadow, cooker and demo require a held cross-object winner. |
 | V15 G0–P0 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence and a separate Accepted ADR. |
 
@@ -130,6 +130,16 @@
 - **Decision:** S0a opens only the YCB metadata adapter. Roles and waveform
   access remain blocked until S0b and S0c.
 
+## Material transition: S0b separates YCB parents from aggregates
+
+- **Observation:** the robot vertical tree has exact object parents, while
+  horizontal and manual trees expose only material/aggregate parents.
+- **Evidence:** [S0b result](../physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md)
+  repeats byte-exact over 926 OSF entries with target parent counts `9/3/0`.
+- **Conclusion:** Metal retains a structural pool; Wood is too small/already
+  referenced and Glass has no exact YCB object parent.
+- **Decision:** open only S0c source-sufficiency/role freeze; signal stays sealed.
+
 ## Durable negative knowledge
 
 - R2 direct/phase, separable and low-rank listener fields collapse or lose
@@ -202,6 +212,7 @@ Read in precedence order:
 3. [Roadmap V15](../../plans/physical-sound-synthesis-roadmap-v15.md),
    [V15 rebaseline](../physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md),
    [S0a result](../physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md),
+   [S0b result](../physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md),
    [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md),
    [V14 research](../physical-sound-v14-data-first-neural-rebaseline-2026-08-31.md),
    [N1a protocol](../physical-sound-v14-n1a-dataset-contract-v1-protocol-2026-09-01.md),
@@ -235,5 +246,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V15 S0b YCB metadata/cost capability adapter; roles
-  remain unfrozen and real signal remains sealed.
+- **Next commit boundary:** V15 S0c source-sufficiency and immutable Metal role
+  decision; roles remain unfrozen and real signal remains sealed.
