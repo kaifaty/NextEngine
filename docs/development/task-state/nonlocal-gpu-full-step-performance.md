@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP12_PRESSURE_STATE_DISCRIMINATOR_FROZEN / CPU_CORRECTNESS_FIRST` |
+| Status | `ACTIVE / NCGP12_SUPPORT_REDESIGN_REQUIRED / PRESSURE_QP_NUMERICALLY_SUPPORTED / REVIEW_PENDING` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,10 +20,11 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** implement the frozen CPU-only NCGP12 pressure-state
-  discriminator. It tests whether the corrected Nonlocal density Jacobian and
-  existing ghost support admit a nonnegative constraint pressure before any
-  new trajectory, CUDA work or timing. NCGP10 remains failed.
+- **Current action:** independently review exact NCGP12. Its pressure QP closes
+  derivative/KKT/density/stationarity gates, but the pressure-only trial crosses
+  the analytic wall inset by `0.179 mm` and has zero bottom/top median pressure.
+  If review confirms the result, freeze pressure plus analytic-contact
+  relinearization before any trajectory, CUDA work or timing.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -43,6 +44,7 @@
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
+- `docs/development/nonlocal-gpu-pressure-state-discriminator-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -413,6 +415,28 @@
   the NCGP11 implementation before physical selection.
 - **Reconsider when:** NCGP12 returns its first exact route.
 
+### D-018 — Pressure QP closes; ghost density support does not own contact
+
+- **Observation:** two clean byte-identical NCGP12 runs converge in `726`
+  coordinate sweeps. Jacobian error is `2.80e-11`, primal/KKT are
+  `9.90e-9 / 1.56e-11`, exact maximum/RMS strain are
+  `3.57e-6 / 5.80e-7`, and stationarity is `2.08e-20`. All five controls pass.
+- **Failure:** only `60/512` multipliers are positive, frozen bottom/top medians
+  are both zero, and the trial crosses the exact wall inset by `0.178781 mm`.
+- **Evidence:** implementation `4a788ea1`, binary `008799c4...`, repeated
+  stdout `be63239a...`, result `df013dd7...`; full evidence is linked above.
+- **Conclusion:** the corrected Nonlocal density Jacobian admits a useful
+  nonnegative constraint pressure, but ghost density support alone is not the
+  wall constraint. This stage does not yet separate penalty from surface as
+  the first trajectory cause.
+- **Decision:** preserve exact `NONLOCAL_SUPPORT_REDESIGN_REQUIRED`. Request
+  independent review. If confirmed, freeze a pressure/contact composition with
+  relinearization and only then a tiny hydrostatic trajectory.
+- **Rejected:** relabelling the near-zero density error as PASS, weakening the
+  exact inset post hoc, treating pressure as a replacement for contact, or
+  reintroducing surface before pressure/contact holds.
+- **Reconsider when:** the independent NCGP12 review closes.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -436,9 +460,9 @@
 | H10A | remaining topology failure is GPU drift | falsified: CPU/GPU both have 6 components and `~2.36%` satellites; GPU permutation exact | closed |
 | H10B | observer noise creates only sparse false satellites | falsified: about 403 wet pixels lie outside the largest component in each route | closed |
 | H10C | uniform penalty startup is not hydrostatic equilibrium | supported by exact common fragmentation and prior pressure-state analysis | pressure-state redesign if authorized |
-| H12A | explicit nonnegative pressure fixes the first structural defect | frozen test: linearized pressure QP closes KKT/density while zero pressure fails | NCGP12 |
+| H12A | explicit nonnegative pressure is a viable repair ingredient | supported author-side: QP/KKT/density close, but sole causality remains unresolved | independent NCGP12 review |
 | H12B | surface tension is the first cause | isolated pressure passes but surface-enabled successor fails | only after NCGP12 |
-| H12C | density/boundary support cannot carry hydrostatic pressure | converged pressure solve leaves material residual | NCGP12 |
+| H12C | ghost density support alone cannot own wall contact | selected author-side: density closes but exact inset penetration is `0.179 mm` | pressure plus analytic contact |
 | H12D | one projection is insufficient, but pressure state is viable | KKT/stationarity pass and only nonlinear density fails | bounded nonlinear successor |
 
 ## Do not retry
@@ -452,7 +476,8 @@
 
 ## Next action
 
-1. Implement and run the frozen NCGP12 CPU pressure-state discriminator.
-2. If it selects pressure-state viability, freeze repeated nonlinear
-   projection and a tiny 240-step hydrostatic trajectory before 4k or CUDA.
+1. Complete the independent read-only NCGP12 review.
+2. If it confirms the bounded negative result, freeze pressure plus swept
+   analytic contact and relinearization, then a tiny 240-step hydrostatic
+   trajectory before 4k or CUDA.
 3. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
