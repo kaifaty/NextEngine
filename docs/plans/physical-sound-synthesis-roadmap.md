@@ -1,9 +1,12 @@
 # Roadmap V10: internet data to an autonomously validated physical-sound base
 
+> Historical roadmap. A1R completed with a repeat-exact real-fit rejection;
+> current planning continues in [Roadmap V11](physical-sound-synthesis-roadmap-v11.md).
+
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-31 |
-| Статус | `ACTIVE_R&D / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_REJECTED_AT_ONSET / A1R_FORCE_SOURCE_PASS / A1R_FIT_NEXT / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `CLOSED / A1R_FORCE_ONSET_PASS / V9_REAL_REPRESENTATION_REJECTED / SUPERSEDED_BY_V11` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Текущее состояние | [Physical sound task state](../development/task-state/physical-sound-synthesis.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
