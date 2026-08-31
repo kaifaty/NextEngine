@@ -3,8 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-08-31` |
-| Status | `ACTIVE_R&D / N1B_REPEAT_EXACT_COVERAGE_INSUFFICIENT / N1C_SCOPE_SOURCE_DECISION_NEXT / RUNTIME_NOT_AUTHORIZED` |
+| Status | `SUPERSEDED_BY_V15 / N1B_REPEAT_EXACT_COVERAGE_INSUFFICIENT / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V13](physical-sound-synthesis-roadmap-v13.md) as the active execution plan |
+| Replaced by | [Roadmap V15](physical-sound-synthesis-roadmap-v15.md), progressive material admission |
 | Evidence basis | [V14 data-first neural rebaseline](../development/physical-sound-v14-data-first-neural-rebaseline-2026-08-31.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clips for every reject, OOD, missing-data or tooling failure |

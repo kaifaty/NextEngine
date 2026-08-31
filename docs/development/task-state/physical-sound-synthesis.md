@@ -2,24 +2,24 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V14 / N1B_REPEAT_EXACT_COVERAGE_INSUFFICIENT / N1C_SCOPE_SOURCE_DECISION_NEXT / MEASURED_TRANSFER_OPTIONAL_SOURCE_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V15 / S0_IDENTITY_AND_SCOPE_FREEZE_NEXT / METAL_FIRST / WOOD_PENDING / GLASS_FALLBACK_ONLY_SOURCE_GROWTH / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object neural canonical-impact research, deterministic clip cooker and independent automatic validation |
-| Definition of done | One frozen generator/cooker and independent validator process untouched Glass/Wood/Metal shadows exactly once; every decision bakes byte-identical clips or selects complete fallback |
+| Definition of done | One frozen Metal generator/cooker and independent validator process one untouched Metal shadow exactly once; later materials repeat the identical gates and unavailable domains select complete fallback |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** N1b repeat-exact proves that the current published
-  pool cannot fill the unchanged protected shape: only `1/7/18` unexposed real
-  Glass/Wood/Metal metadata candidates are currently admissible.
+- **Current conclusion:** bounded source research confirms that the first
+  protected vertical must admit materials progressively: Metal first, Wood
+  pending a source certificate, Glass fallback-only until source growth.
 - **Exact evidence:** [N1b result](../physical-sound-v14-n1b-real-source-metadata-inventory-result-2026-09-01.md),
   inventory `2861bb0e…fc0`, costs `c7710b44…3df`, report `45d81f04…05c`;
   PCM, force, protected signal and network body counters are zero.
-- **Rebaseline:** [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md)
-  preserves the canonical/measured claim split and makes measured transfer an
-  optional upgrade rather than a prerequisite for neural authoring.
+- **Rebaseline:** [Roadmap V15](../../plans/physical-sound-synthesis-roadmap-v15.md)
+  keeps the complete `4/1/1/1/1` shape per admitted material and makes AV-MSF's
+  modal-field factorization a hypothesis, not an unpublished dependency.
 - **M1a result:** [Research Record V0](../physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md)
   passes 12 focused guards, repeat-exact synthetic builds and exact
   current-version roundtrip with all access counters zero.
@@ -28,9 +28,9 @@
   byte-identical builds with zero build-time source/signal access.
 - **M1c result:** [historical census](../physical-sound-v13-m1c-historical-census-and-shortlist-result-2026-08-31.md)
   closes M1 and leaves fresh glass candidates `59/82/92/93`.
-- **Next action:** N1c bounded revision/source and scope decision: resolve
-  `71…100` only from metadata, seek one additional published T2/T3 route, then
-  freeze roles or narrow the first domain; sample decode remains forbidden.
+- **Next action:** S0a exact revision-aware identity and historical exposure
+  recensus across ObjectFolder/RealImpact, followed by the signal-blind YCB
+  capability adapter; all real waveform decode remains forbidden.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -55,9 +55,9 @@
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
-| V14 N1–N5 | `N1B_COVERAGE_INSUFFICIENT / N1C_NEXT / N2_N5_BLOCKED` | Contract and source inventory are executable; insufficient fresh Glass/Wood evidence requires a bounded source/scope decision before role freeze and neural work. |
-| V14 N6–N8 | `VALIDATOR_CAN_DEVELOP / ADMISSION_BLOCKED` | Validator structure may advance after N1; admission and cooker require a held generator winner. |
-| V14 N9–N12 | `BLOCKED / ADR_REQUIRED / TRANSFER_OPTIONAL` | Domain growth and production wait for shadow evidence; measured transfer is a separate source-gated upgrade. |
+| V15 S0–S4 | `S0A_NEXT / METAL_FIRST / MODEL_BLOCKED` | Progressive admission preserves the full role shape; identity/exposure and YCB metadata must freeze before Metal roles or neural work. |
+| V15 V0–D0 | `VALIDATOR_DATA_AFTER_S0 / ADMISSION_BLOCKED` | Validator can develop independently after S0; shadow, cooker and demo require a held cross-object winner. |
+| V15 G0–P0 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence and a separate Accepted ADR. |
 
 ## Material transition: V12 closes on force coverage
 
@@ -80,17 +80,6 @@
 - **External basis:** [V13 research](../physical-sound-v13-canonical-modal-field-research-2026-08-31.md)
   records RealImpact, AV-MSF, DiffSound and NeuralSound evidence and the limits
   on what each can support.
-
-## Material transition: M2b rejects incomplete raw lineage
-
-- **Observation:** the 8-GiB prefix reaches object 93 with 143/144 selected
-  object-92 members; only `92/audio/35/metadata.yaml` is absent.
-- **Evidence:** two final inventories are byte-identical; 36/36 raw microphone
-  hashes equal compact hashes and all signal/numeric-force counters are zero.
-- **Conclusion:** more prefix bytes cannot repair the source. The complete-
-  quartet contract fails before fitting.
-- **Decision:** close object 92 without role reduction. Continue independent
-  M2c control freeze, then choose a different preregistered canonical source.
 
 ## Material transition: V14 removes the perfect-source bottleneck
 
@@ -129,6 +118,18 @@
 - **Decision:** N1c must resolve bounded metadata/source options or narrow the
   first admitted domain before any waveform decode; no role minimum changes.
 
+## Material transition: V15 selects progressive admission
+
+- **Observation:** RealImpact revision lineage can recover metadata identities,
+  YCB-impact adds only three primary Glass and three primary Wood objects, and
+  AV-MSF code/data are still unpublished.
+- **Evidence:** [V15 rebaseline](../physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md)
+  records the publisher sources and preserves zero new signal access.
+- **Conclusion:** Metal is the only bounded first-domain candidate; waiting for
+  simultaneous Glass/Wood coverage does not test the modal representation.
+- **Decision:** V15 attempts Metal with the unchanged role shape, then grows
+  Wood and Glass through the identical pipeline or keeps them fallback-only.
+
 ## Durable negative knowledge
 
 - R2 direct/phase, separable and low-rank listener fields collapse or lose
@@ -164,15 +165,16 @@
 | D-013 | `FallbackOnly` and `FallbackOutOfDomain` are valid terminal object states, not invitations to tune. | A new preregistered method family revision supplies new evidence. |
 | D-014 | Research Record V0 remains external and experimental until a concrete product consumer and ADR justify a public contract. | Accepted architecture promotion. |
 | D-015 | A learned canonical-impact prior may claim bounded plausibility, not true material recovery or arbitrary-force transfer; network output is cooked offline. | Independent exact-object and measured-transfer evidence justifies a stronger record. |
+| D-016 | Materials enter progressively with the unchanged `4/1/1/1/1` real role shape; Metal is first, while Wood and Glass remain pending/fallback until separately eligible. | A hash-closed published source makes another material eligible before S0c freezes. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: hybrid neural modes plus spatial gains represent canonical impacts | Physical factorization, AV-MSF evidence and multi-object contact data | No fresh Next Engine real held-contact pass | V14 N2–N4 |
-| H2: shared mesh/material prior beats interpolation on unseen objects | ObjectFolder spans many objects/materials | Prior coordinate-only fields failed | V14 N5 object-disjoint tournament |
-| H3: automatic validator reaches useful bounded risk | Hard/acoustic/physics/corpus components are defined | No independent release or shadow result | V14 N6 then N8 |
-| H4: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V14 N7 then visible consumer |
+| H1: hybrid neural modes plus spatial gains represent canonical impacts | Physical factorization, AV-MSF evidence and multi-object contact data | No fresh Next Engine real held-contact pass | V15 S1–S3 |
+| H2: shared mesh/material prior beats interpolation on unseen objects | ObjectFolder spans many objects/materials | Prior coordinate-only fields failed | V15 S4 object-disjoint tournament |
+| H3: automatic validator reaches useful bounded risk | Hard/acoustic/physics/corpus components are defined | No independent release or shadow result | V15 V0–A0 |
+| H4: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V15 C0 then demo consumer |
 
 ## Do not retry
 
@@ -197,7 +199,9 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md),
+3. [Roadmap V15](../../plans/physical-sound-synthesis-roadmap-v15.md),
+   [V15 rebaseline](../physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md),
+   [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md),
    [V14 research](../physical-sound-v14-data-first-neural-rebaseline-2026-08-31.md),
    [N1a protocol](../physical-sound-v14-n1a-dataset-contract-v1-protocol-2026-09-01.md),
    [N1a result](../physical-sound-v14-n1a-dataset-contract-v1-result-2026-09-01.md),
@@ -230,5 +234,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V14 N1c bounded revision/source and first-domain
-  scope decision; roles remain unfrozen and signal remains sealed.
+- **Next commit boundary:** V15 S0a revision-aware identity/exposure resolver;
+  roles remain unfrozen and real signal remains sealed.
