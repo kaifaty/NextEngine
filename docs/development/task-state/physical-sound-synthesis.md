@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V13 / M1A_M1B_REPEAT_EXACT_ZERO_SIGNAL / HISTORICAL_LEDGER_NEXT / CANONICAL_MODAL_FIELD / MEASURED_TRANSFER_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V13 / M1_COMPLETE_REPEAT_EXACT_ZERO_SIGNAL / M2_SOURCE_FREEZE_NEXT / CANONICAL_MODAL_FIELD / MEASURED_TRANSFER_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External exact-object modal-field research, deterministic clip cooker and independent automatic validation |
@@ -26,8 +26,10 @@
 - **M1b result:** [Exposure Ledger V0](../physical-sound-v13-m1b-exposure-ledger-v0-result-2026-08-31.md)
   passes 13 focused guards, including contact/mutation leakage, and two
   byte-identical builds with zero build-time source/signal access.
-- **Next action:** freeze and repeat M1c real historical catalog/ledger, then
-  derive a conservative fresh-source shortlist without waveform decode.
+- **M1c result:** [historical census](../physical-sound-v13-m1c-historical-census-and-shortlist-result-2026-08-31.md)
+  closes M1 and leaves fresh glass candidates `59/82/92/93`.
+- **Next action:** M2 signal-blind candidate choice and immutable source/role
+  freeze; waveform access remains forbidden.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -48,8 +50,8 @@
 | V12 C1 | `COMPLETE / REPEAT_EXACT_PASS` | Coverage-certified oracle recovers `7/7` truth poles with calibrated OOD. |
 | V12 C2–C3 | `COMPLETE / REPEAT_EXACT_PASS` | ObjectFolder object `41` and six signal-blind roles are hash-frozen. |
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
-| V13 M1 | `IN_PROGRESS / M1A_M1B_COMPLETE_M1C_NEXT` | Record and builder pass synthetic gates; exhaustive real historical ledger remains. |
-| V13 M2–M5 | `BLOCKED_BY_M1` | Canonical source freeze, oracle, formula fit and held-contact tournament wait. |
+| V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
+| V13 M2–M5 | `M2_NEXT / M3_M5_BLOCKED` | Signal-blind source freeze is next; oracle, formula and tournament wait. |
 | V13 M6–M9 | `BLOCKED` | Multi-object batch, validator, cooker and shadow admission need a held winner. |
 | V13 M10–M11 | `BLOCKED / ADR_REQUIRED` | Material expansion and a production prop are not authorized. |
 
@@ -190,6 +192,5 @@ Read in precedence order:
   development/holdout/validator/shadow role remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V13 M1c, exhaustive real historical catalog,
-  repeat-exact ledger and conservative fresh-source shortlist with zero fresh
-  signal access.
+- **Next commit boundary:** V13 M2a, signal-blind choice and immutable source/
+  role freeze for one fresh candidate; no waveform access.

@@ -51,9 +51,11 @@ an exclusion token. Duplicate JSON keys, parse failure, symlink, path escape,
 file change during the scan, more than `4096` files or an artifact over the
 M1b limit fail closed.
 
-The manifest freezes both included and excluded counts/bytes and the hashes of
-their sorted relative-path lists. Excluded tool/generated files are never
-silently omitted.
+The manifest freezes included files and stable excluded tool files, including
+counts/bytes and hashes of their sorted relative-path lists. Generated M1
+evidence directories are excluded as whole subtrees and are intentionally not
+enumerated: the frozen prefix rule is recorded, so A output cannot perturb B
+diagnostics merely by existing. No other excluded file is silently omitted.
 
 ## Official candidate universe
 
