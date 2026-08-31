@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-31 |
-| Статус | `ACTIVE_R&D / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_REJECTED_AT_ONSET / A1R_SOURCE_SEMANTICS_NEXT / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_REJECTED_AT_ONSET / A1R_FORCE_SOURCE_PASS / A1R_FIT_NEXT / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Текущее состояние | [Physical sound task state](../development/task-state/physical-sound-synthesis.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -98,7 +98,7 @@ code, configuration, model, validator и output hashes. Изменение лю�
 | --- | --- | --- | ---: | --- |
 | A0 | Новый real source и coordinate proof | `COMPLETE / REPRODUCIBLE` | S–M | Beer Glass target и Rinsing Cup archive/object holdout имеют exact audio-coordinate-point-cloud binding и frozen roles с нулевым waveform decode. |
 | A1 | V9 real representation gate | `REJECTED_AT_PREPROCESSING / REPRODUCIBLE` | M | Два fit-run повторяются точно; frozen onset не существует для `18/29`, representation fitting не начинался, protected reads равны нулю. |
-| A1R | Source-semantic synchronization revision | `NEXT` | S–M | Новый source-disjoint protocol получает published timestamp/force onset до decode и повторяет один V9 fit без post-hoc threshold tuning. |
+| A1R | Source-semantic synchronization revision | `OBJECT51_FORCE_SOURCE_PASS / FIT_NEXT` | S–M | Object-disjoint Fruit Bowl raw force/microphone/coordinate binding повторяется с нулевым PCM decode; тот же V9 fit запускается только на четырёх fit contacts. |
 | A2 | Exact-object contact field | `BLOCKED_BY_A1R` | M–L | Модель предсказывает звук в новых точках объекта и печёт bounded clip atlas. |
 | A3 | Independent Validator V1 | `BLOCKED_BY_A1R` | M | Frozen ensemble показывает bounded false-pass risk и useful selective coverage. |
 | A4 | One-shot admission | `BLOCKED_BY_A2_A3` | S | Frozen generator и validator один раз открывают shadow и публикуют tri-state decision. |
@@ -205,10 +205,15 @@ noise thresholds `0.0061645508/0.0032958984` выше полных peaks
 `7d7bb630…9db9b`; все protected counters равны нулю. Это отвергает protocol,
 но не доказывает плохое качество V9, потому что candidate не создавался.
 
-A1R не меняет порог на открытых контактах. Он ищет published event timestamp,
-raw force channel либо новый source-disjoint corpus с явной синхронизацией,
-замораживает transform до decode и только затем повторяет один fit. Exact
-evidence: [A1 result](../development/physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md).
+A1R не меняет порог на открытых контактах. Object `51 / Fruit_Bowl / Glass`
+даёт synchronized raw `Force.wav`: шесть raw microphones byte-identical
+processed recordings с координатами, а четыре fit + development + sealed роли
+заморожены по archive order. Два inventory-run повторяют manifest
+`3041c19d…6ed5` и report `b421743e…7cb9` при нулевом PCM decode. Это новый
+физический объект, но тот же ObjectFolder project/archive family, поэтому он
+годится для onset/fit discriminator, а не project-disjoint validation. Exact
+evidence: [A1 result](../development/physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md)
+и [A1R source freeze](../development/physical-sound-r3a-v10-a1r-object51-force-source-freeze-2026-08-31.md).
 
 ## A2 — Exact-object contact field и clip atlas
 
@@ -347,8 +352,9 @@ average.
    roles, gates and evidence with zero decoded waveform samples.
 3. **A1 fit-only runner — REJECTED:** repeat-exact onset failure on contacts
    `18/29`; no candidate, metrics or protected reads.
-4. **A1R source semantics — NEXT:** source-disjoint timestamp/force proof and
-   one newly preregistered fit; no current-contact threshold repair.
+4. **A1R source semantics — SOURCE PASS / FIT NEXT:** object-51 raw force,
+   microphone, coordinate and point-cloud identity is frozen; run only four fit
+   contacts under the committed force-onset protocol.
 5. **A1R development/holdout:** каждый следующий gate открывается отдельным
    commit только после pass предыдущего.
 6. **A2 contact field:** held-position training/evaluation и внешний baked

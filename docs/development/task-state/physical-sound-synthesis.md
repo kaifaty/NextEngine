@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V10 / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_REJECTED_AT_ONSET / A1R_SOURCE_SEMANTICS_NEXT / REAL_QUALITY_NOT_PROVEN / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V10 / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_REJECTED_AT_ONSET / A1R_FORCE_SOURCE_PASS / A1R_FIT_NEXT / REAL_QUALITY_NOT_PROVEN / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -20,8 +20,10 @@
   repeated manifest `8a30cef0…8728`, report `3522c677…00d3`.
 - **A1 evidence:** [repeat-exact Beer Glass rejection](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md),
   report `7d7bb630…9db9b`; contacts `18/29` fail the frozen onset gate before fit.
-- **Next action:** A1R must find a source-disjoint published timestamp/force
-  onset, freeze its transform and roles, then run one new fit.
+- **A1R evidence:** [object-51 force-source freeze](../physical-sound-r3a-v10-a1r-object51-force-source-freeze-2026-08-31.md),
+  manifest `3041c19d…6ed5`, report `b421743e…7cb9`; two zero-decode runs repeat.
+- **Next action:** decode only four fit microphone/force pairs under the frozen
+  A1R protocol and test the unchanged V9 representation.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -45,7 +47,7 @@
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
 | R3A V5 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | All capacities fit the byte budget but fail real spectrum/modal transfer; no capacity or holdout is selected. |
 | R3A V8 | `REAL_FIT_REJECTED / REPRODUCIBLE` | Fit contacts `18/12/4` repeat exactly; both bounded capacities fail spectrum/modal identity, while development `20` and sealed `27` remain unread. |
-| R3A V9 | `SYNTHETIC_PASS / A0_PASS / A1_REJECTED_BEFORE_FIT` | Two Beer Glass runs repeat; frozen onset is unreachable on `18/29`, no candidate/metrics exist, and every protected role stays closed. |
+| R3A V9 | `SYNTHETIC_PASS / A0_PASS / A1_REJECTED / A1R_FORCE_SOURCE_PASS` | Object-51 synchronized force is exact and repeatable; only its four fit pairs may open next. |
 | R3B+ | `NOT_AUTHORIZED` | No real contact-to-modal field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Material transition: V5-C development rejects the neural representation
@@ -79,6 +81,9 @@
   then require entirely source-disjoint real roles.
 - **Rejected alternatives:** another V8 bin/damping capacity, threshold repair,
   stationary random-phase noise, or using object `91` to select V9.
+- **Evidence correction:** the frozen official page maps object `91` to
+  `Solid_Spoon / Steel`, not Glass. The byte-level negative remains valid, but
+  it supplies no Glass-material evidence.
 
 ## Material transition: V9-SYNTH passes
 
@@ -113,6 +118,17 @@
   source. V9 quality remains unknown because representation fitting never ran.
 - **Decision:** do not repair the opened threshold/subset. A1R requires a new
   source revision with published event time or force-derived onset.
+
+## Material transition: A1R force source passes
+
+- **Observation:** object `51 / Fruit_Bowl / Glass` exposes six complete raw
+  microphone/force pairs; every raw microphone matches its processed WAV.
+- **Evidence:** [A1R source freeze](../physical-sound-r3a-v10-a1r-object51-force-source-freeze-2026-08-31.md),
+  repeated manifest/report `3041c19d…6ed5`/`b421743e…7cb9`; PCM reads are zero.
+- **Decision:** authorize only contacts `27/15/4/3` for the committed
+  [force-onset fit](../physical-sound-r3a-v10-a1r-object51-force-onset-fit-protocol-2026-08-31.md).
+  Development `9` and sealed `18` remain closed.
+- **Limit:** this is object-disjoint, not project/archive-disjoint evidence.
 
 ## Durable negative knowledge
 
@@ -215,7 +231,9 @@ Read in precedence order:
    [V9 synthetic result](../physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md),
    [V10 A0 source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md),
    [Beer Glass fit protocol](../physical-sound-r3a-v10-beer-glass-real-fit-protocol-2026-08-31.md)
-   and [Beer Glass fit result](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md).
+   [Beer Glass fit result](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md),
+   [A1R source freeze](../physical-sound-r3a-v10-a1r-object51-force-source-freeze-2026-08-31.md)
+   and [A1R fit protocol](../physical-sound-r3a-v10-a1r-object51-force-onset-fit-protocol-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
@@ -228,5 +246,5 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** A1R source-semantic timestamp/force feasibility and
-  zero-decode role freeze. Authored clips remain the product path.
+- **Next commit boundary:** A1R force-onset fit on contacts `27/15/4/3` only.
+  Authored clips remain the product path.
