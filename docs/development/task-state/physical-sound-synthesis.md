@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V11 / A1R_FORCE_ONSET_PASS / V9_REAL_FIT_REJECTED / FRF_KNOWN_TRUTH_NEXT / REAL_QUALITY_NOT_PROVEN / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V11 / B1_V1_REPEAT_REJECTED / JOINT_MODAL_FRF_NEXT / REAL_DATA_CLOSED / REAL_QUALITY_NOT_PROVEN / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,19 +11,21 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** V9-SYNTH passes every frozen known-truth, exact-repeat,
-  field and cost gate. Neural query waveform NRMSE is `0.472x` nearest; the
-  shared boundary/contact record cost `25,888/104` bytes.
-- **Exact evidence:** [V9 synthetic result](../physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md),
-  manifest `15616a58…36c9`, report `6df03217…779a`.
+- **Current conclusion:** B1 V1 proves useful force-normalized reconstruction
+  but rejects its combined confidence mask. H1 reaches `0.025706` mean unseen-
+  force NRMSE and accurate `6/7` poles; minimum coverage is only `0.566656`.
+- **Exact evidence:** [B1 result](../physical-sound-r3a-v11-b1-force-response-oracle-result-2026-08-31.md),
+  manifest/model/report `4de87ee4…b3db`/`1e699d34…909a`/`700ada20…376`;
+  two runs are byte-identical and holdout trial count is zero.
 - **A0 evidence:** [Beer Glass/Rinsing Cup source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md),
   repeated manifest `8a30cef0…8728`, report `3522c677…00d3`.
 - **A1 evidence:** [repeat-exact Beer Glass rejection](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md),
   report `7d7bb630…9db9b`; contacts `18/29` fail the frozen onset gate before fit.
 - **A1R evidence:** [repeat-exact fit result and V11 research](../physical-sound-r3a-v10-a1r-force-onset-fit-result-and-v11-research-2026-08-31.md),
   report `5c9e87e…c2ca`; force onset passes, every real V9 fit contact fails.
-- **Next action:** implement the V11-B1 synthetic force→response oracle and
-  reject ill-conditioned transfer estimates before opening fresh real data.
+- **Next action:** preregister B1R with separate force observability, pooled
+  shared-pole support and contact-local residue uncertainty on fresh synthetic
+  phases/seeds. Do not relax the opened B1 V1 gates.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -48,42 +50,8 @@
 | R3A V5 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | All capacities fit the byte budget but fail real spectrum/modal transfer; no capacity or holdout is selected. |
 | R3A V8 | `REAL_FIT_REJECTED / REPRODUCIBLE` | Fit contacts `18/12/4` repeat exactly; both bounded capacities fail spectrum/modal identity, while development `20` and sealed `27` remain unread. |
 | R3A V9 | `CLOSED / REAL_FIT_REJECTED / REPRODUCIBLE` | Force onset is valid; all four object-51 contacts fail spectrum/modal identity under unchanged gates. |
+| V11 B1 V1 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | H1 beats all compatible controls and recovers `6/7` poles, but combined mask coverage fails; holdout and all fresh real sources remain unopened. |
 | R3B+ | `NOT_AUTHORIZED` | No real contact-to-modal field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
-
-## Material transition: V5-C development rejects the neural representation
-
-- **Observation:** Paired `6/12/24 kbps` runs pass internal anti-collapse and
-  record-cost checks, but all three fail every real development object.
-- **Evidence:** [Exact result](../physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md),
-  repeated development report `74a6f4ea…bbb4`; spectrum and modal frequency
-  fail `12/12`, decay fails `11/12`, sealed/method/shadow reads remain zero.
-- **Conclusion:** More bitrate or longer training in this V5-C family is not
-  evidence-backed. Internal validation did not predict physical transfer.
-- **Decision:** Close R3A V5 as `REJECT_NEURAL_REPRESENTATION`; authorize no
-  V5 holdout, R3B field, baked atlas or runtime promotion.
-- **Rejected alternatives:** Threshold/loss/postfilter tuning on opened rows,
-  selecting 24 kbps from internal loss, or continuing any rejected checkpoint.
-- **Reconsideration condition:** A materially different preregistered modal/
-  decay-preserving representation and new source-disjoint development data.
-
-## Material transition: V8 real fit rejects the residual representation
-
-- **Observation:** Two runs repeat every artifact. Global and per-contact
-  damping records cost `63,392/63,520` bytes, yet spectrum and modal endpoints
-  fail on every fit contact; envelope passes everywhere.
-- **Evidence:** [Exact result and bounded research](../physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md),
-  report `9c49abc8…d438`; development/sealed decoded counters are zero.
-- **Conclusion:** sparse global complex bins are the causal bottleneck. A dense
-  phase-preserving residual recovers spectrum but costs `214,564` bytes; global
-  magnitude-shaped noise remains inadequate. Damping is not the main cause.
-- **Decision:** close V8 before development. Start V9 with explicit modes plus
-  a compact neural time-varying filterbank residual on synthetic known truth,
-  then require entirely source-disjoint real roles.
-- **Rejected alternatives:** another V8 bin/damping capacity, threshold repair,
-  stationary random-phase noise, or using object `91` to select V9.
-- **Evidence correction:** the frozen official page maps object `91` to
-  `Solid_Spoon / Steel`, not Glass. The byte-level negative remains valid, but
-  it supplies no Glass-material evidence.
 
 ## Material transition: V9-SYNTH passes
 
@@ -130,6 +98,22 @@
   transfer response on synthetic known truth; object `51` is diagnostic-only.
 - **Limit:** development `9`, sealed `18` and every admission shadow stay closed.
 
+## Material transition: B1 V1 rejects the combined confidence mask
+
+- **Observation:** two exact runs pass identity, unseen-force reconstruction,
+  control ratios and both development OOD cases. H1 reaches `0.025706` mean
+  NRMSE and `6/7` highly accurate poles, but minimum coverage is `0.566656`
+  against `0.90`; holdout generation stays zero.
+- **Evidence:** [B1 exact result](../physical-sound-r3a-v11-b1-force-response-oracle-result-2026-08-31.md),
+  report `700ada20…376`; force-only coverage is approximately `99.98%`, while
+  contact-local response coherence removes the seventh modal neighborhood.
+- **Conclusion:** force normalization is supported; one combined broad-band
+  mask incorrectly conflates source excitation with contact antiresonance and
+  response observability.
+- **Decision:** reject V1 without relaxing thresholds. B1R must use fresh
+  phases/seeds and separate force OOD, pooled shared-pole evidence and
+  contact-local residue uncertainty. B2 real source work remains blocked.
+
 ## Durable negative knowledge
 
 - R2 direct/phase and separable listener fields collapse or lose every held
@@ -165,12 +149,13 @@ kept bounded as the current resume surface.
 | D-014 | Explicit contact-to-mode-shape/gain learning remains around global frequency/damping; synthetic FEM is substrate evidence only. | Fresh source-disjoint real development and holdout reject the factorization. |
 | D-015 | V9 time-varying residual is retired after repeat-exact real-fit rejection. | A materially different fresh-source representation, not nearby capacity tuning. |
 | D-016 | V11 separates force from transfer response; ML predicts constrained modal residues/radiation or solver proposals, not an unconstrained runtime waveform. | Known-truth and fresh real evidence reject this factorization. |
+| D-017 | Source-force observability and response/modal observability are separate confidence axes; a quiet contact response bin is not automatically weak excitation. | Fresh known-truth evidence shows one combined mask is both safe and complete. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Force-normalized transfer identification recovers stable poles | RealImpact uses force deconvolution before modal fitting; A1R force is synchronized | No NextEngine known-truth or real FRF pass exists | V11-B1 synthetic oracle |
+| H1: Joint force-normalized modal identification recovers stable poles | B1 H1 predicts unseen force and recovers `6/7` poles accurately | Contact-local combined mask fails broad coverage and drops the weakest mode | Fresh B1R joint modal oracle |
 | H2: Geometry-aware ML predicts contact modal residues | Coordinates/geometry and physically constrained outputs exist | No fresh real representation/development pass exists | V11-B4 after B3 |
 | H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | V11-B6 after a generator claim |
 | H4: Baked atlas meets product cost | Offline clips preserve exact output and fallback | Whole-mixer/voice cost is unmeasured | V11-B5 then visible consumer |
@@ -200,6 +185,8 @@ kept bounded as the current resume surface.
   twenty passing contacts or exploiting the observed one-second maxima.
 - More V9 modes/bands/DCT coefficients, threshold/loss/postfilter tuning or
   development reads on opened object `51` contacts.
+- Lowering B1 V1 coherence/coverage thresholds, dropping its seventh truth mode
+  or opening real data after the development reject.
 - Universal `material -> sound` coefficients before exact-object evidence.
 - Prompt-to-waveform as the engine path; it may remain authored/report-only.
 - Local microphone/hammer capture, raw PhysX-callback mixing or runtime neural
@@ -213,7 +200,7 @@ Read in precedence order:
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 3. [Roadmap V11](../../plans/physical-sound-synthesis-roadmap-v11.md) and
-   [A1R exact result/V11 research](../physical-sound-r3a-v10-a1r-force-onset-fit-result-and-v11-research-2026-08-31.md).
+   [B1 exact result](../physical-sound-r3a-v11-b1-force-response-oracle-result-2026-08-31.md).
 4. [V9 synthetic result](../physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md),
    [A0 source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md),
    [A1 rejection](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md),
@@ -223,13 +210,13 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** V9 synthetic plus V10 A0/A1/A1R code and evidence are in Git;
-  all run outputs, datasets, arrays and WAVs are external.
+- **Workspace:** V9/V10 and V11 B1 V1 code/evidence are in Git; all run outputs,
+  datasets, arrays and WAVs are external.
 - **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
   contacts are opened. Every row `2407`, method holdout and admission shadow
   remains sealed.
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** V11-B1 known-truth force→response protocol and
-  synthetic oracle. Authored clips remain the product path.
+- **Next commit boundary:** fresh B1R joint modal FRF protocol, then its runner
+  and staged development/holdout evidence. Authored clips remain the product path.

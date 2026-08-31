@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / V9_REAL_REJECTED / FORCE_ONSET_PASS / FRF_KNOWN_TRUTH_NEXT / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / B1_V1_REPEAT_REJECTED / JOINT_MODAL_FRF_NEXT / REAL_DATA_CLOSED / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V10](physical-sound-synthesis-roadmap.md), закрыт после A1R |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Exact rebaseline | [A1R result and V11 research](../development/physical-sound-r3a-v10-a1r-force-onset-fit-result-and-v11-research-2026-08-31.md) |
@@ -81,7 +81,7 @@ flowchart LR
 | ID | Этап | Статус | Размер | Наблюдаемый выход |
 | --- | --- | --- | ---: | --- |
 | B0 | A1R exact result и bounded research | `COMPLETE / REPRODUCIBLE` | S | Force onset валиден; V9 real representation закрыта; exact report `5c9e87e…c2ca`. |
-| B1 | Synthetic force→response oracle | `NEXT` | S–M | Известные poles/damping восстанавливаются из нескольких force/response trials; плохая conditioning явно даёт OOD. |
+| B1 | Synthetic force→response oracle | `V1_REJECTED / B1R_NEXT` | S–M | H1 точно предсказывает unseen force и `6/7` poles, но contact-local coherence mask даёт лишь `56.7%` coverage; joint modal FRF revision обязана пройти fresh known truth. |
 | B2 | Fresh internet corpus и zero-decode roles | `BLOCKED_BY_B1` | M | Доказаны force/mic timebase, coordinate, geometry, listener, support и parent-disjoint roles без чтения protected PCM. |
 | B3 | Real transfer-response representation | `BLOCKED_BY_B2` | M | Frozen estimator на fit и development лучше raw-output/modal и nearest controls; holdout остаётся one-shot. |
 | B4 | Exact-object contact-to-residue ML | `BLOCKED_BY_B3` | M–L | ML предсказывает unseen contact modal residues/uncertainty лучше KNN/classical interpolation. |
@@ -123,6 +123,22 @@ flowchart LR
 
 Только `PASS_KNOWN_TRUTH_FRF` открывает B2. Иначе меняется математическая
 гипотеза, а не real thresholds.
+
+### B1 V1 exact result
+
+[Первая preregistered revision](../development/physical-sound-r3a-v11-b1-force-response-oracle-result-2026-08-31.md)
+повторяется byte-for-byte и возвращает `REJECT_ESTIMATOR`. Она проходит
+noiseless identity, unseen-force reconstruction, все control ratios и
+weak-excitation/low-coherence OOD. H1 получает `0.025706` mean held NRMSE,
+находит `6/7` poles с максимумом `0.034 Hz / 0.307 s^-1`, но minimum valid
+coverage равен `0.566656` против `0.90`; holdout не сгенерирован.
+
+Следующий B1R меняет не пороги, а факторизацию confidence. Force-only
+conditioning определяет, возбуждён ли источник; pooled cross-contact evidence
+определяет shared poles; contact-local coherence ограничивает residue и его
+uncertainty. B1R использует fresh phases/noise seeds и тот же staged
+development-before-holdout stop rule. B2 остаётся закрыт до repeat-exact
+`PASS_KNOWN_TRUTH_FRF`.
 
 ## B2 — Fresh internet corpus
 
