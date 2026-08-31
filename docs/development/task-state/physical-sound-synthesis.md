@@ -2,24 +2,24 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V13 / M2C_REPEAT_EXACT_CONTROL_PASS / M2D_CANONICAL_SOURCE_RECOVERY_NEXT / MEASURED_TRANSFER_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V14 / N0_REBASELINE_COMPLETE / N1_DATASET_CONTRACT_NEXT / MEASURED_TRANSFER_OPTIONAL_SOURCE_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
-| Scope | External exact-object modal-field research, deterministic clip cooker and independent automatic validation |
-| Definition of done | One frozen offline formula beats compatible controls on untouched contacts, or becomes reproducible `FallbackOnly`; admitted records bake byte-identical clips behind automatic OOD/fallback |
+| Scope | External multi-object neural canonical-impact research, deterministic clip cooker and independent automatic validation |
+| Definition of done | One frozen generator/cooker and independent validator process untouched Glass/Wood/Metal shadows exactly once; every decision bakes byte-identical clips or selects complete fallback |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** V13-M2c repeat-exact binds RealImpact
-  `93_GreenGoblet` as metadata-only derived-response control with five impact
-  parents/folds; audio bytes and samples read are zero.
+- **Current conclusion:** V14 removes recovery of one perfect exact source from
+  the critical path. The next useful target is a multi-object, offline neural
+  canonical-impact prior followed by deterministic clip cooking.
 - **Exact evidence:** [M2c result](../physical-sound-v13-m2c-realimpact-five-impact-control-result-2026-08-31.md),
   manifest `c003ace2…b3a8`, report `afb9ae5c…e8af`; object 92 remains closed by
   [M2b](../physical-sound-v13-m2b-object92-raw-force-inventory-result-2026-08-31.md).
-- **Rebaseline:** [Roadmap V13](../../plans/physical-sound-synthesis-roadmap-v13.md)
-  separates `CanonicalImpactField` from the stronger, currently blocked
-  `MeasuredTransferField` claim.
+- **Rebaseline:** [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md)
+  preserves the canonical/measured claim split and makes measured transfer an
+  optional upgrade rather than a prerequisite for neural authoring.
 - **M1a result:** [Research Record V0](../physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md)
   passes 12 focused guards, repeat-exact synthetic builds and exact
   current-version roundtrip with all access counters zero.
@@ -28,8 +28,8 @@
   byte-identical builds with zero build-time source/signal access.
 - **M1c result:** [historical census](../physical-sound-v13-m1c-historical-census-and-shortlist-result-2026-08-31.md)
   closes M1 and leaves fresh glass candidates `59/82/92/93`.
-- **Next action:** bounded M2d source-feasibility research and preregistered
-  choice of a viable fresh canonical source; sample decode remains forbidden.
+- **Next action:** N1a Dataset Contract V1 schema and signal-blind source-quality,
+  exposure and object-disjoint split invariants; sample decode remains forbidden.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -53,9 +53,10 @@
 | V12 C2–C3 | `COMPLETE / REPEAT_EXACT_PASS` | ObjectFolder object `41` and six signal-blind roles are hash-frozen. |
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
-| V13 M2–M5 | `M2C_CONTROL_PASS / M2D_NEXT / M3_M5_BLOCKED` | RealImpact control is exact; canonical-source recovery remains before real work. |
-| V13 M6–M9 | `BLOCKED` | Multi-object batch, validator, cooker and shadow admission need a held winner. |
-| V13 M10–M11 | `BLOCKED / ADR_REQUIRED` | Material expansion and a production prop are not authorized. |
+| V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
+| V14 N1–N5 | `N1_NEXT / N2_N5_BLOCKED` | Freeze the multi-object dataset contract, then prove known-truth, real representation, few-shot contact field and cross-object prior in order. |
+| V14 N6–N8 | `VALIDATOR_CAN_DEVELOP / ADMISSION_BLOCKED` | Validator structure may advance after N1; admission and cooker require a held generator winner. |
+| V14 N9–N12 | `BLOCKED / ADR_REQUIRED / TRANSFER_OPTIONAL` | Domain growth and production wait for shadow evidence; measured transfer is a separate source-gated upgrade. |
 
 ## Material transition: V12 closes on force coverage
 
@@ -128,14 +129,18 @@
 - **Decision:** close object 92 without role reduction. Continue independent
   M2c control freeze, then choose a different preregistered canonical source.
 
-## Material transition: M2c closes the derived-response control
+## Material transition: V14 removes the perfect-source bottleneck
 
-- **Observation:** Green Goblet metadata exposes five distinct impact parents
-  over one repeated 600-listener grid.
-- **Evidence:** two metadata-only runs are byte-identical; eight exact ranges
-  read `563,002` compressed bytes and zero audio bytes each.
-- **Conclusion:** five leave-one-impact-out control folds are now exact.
-- **Decision:** M2c is complete; M2d must recover a fresh canonical source.
+- **Observation:** two independently frozen exact-source lineages failed before
+  real model fitting for different reasons, while synthetic and multi-object
+  real evidence can test representation feasibility without those axes.
+- **Evidence:** [V14 research](../physical-sound-v14-data-first-neural-rebaseline-2026-08-31.md)
+  cross-checks current ObjectFolder, ObjectFolder 2.0, RealImpact, AV-MSF and
+  ModalSound publisher surfaces against the existing exact failures.
+- **Conclusion:** a perfect raw-force object is necessary for measured transfer,
+  not for a learned canonical-impact authoring prior.
+- **Decision:** close V13-M2d as a sequential prerequisite. N1 freezes a
+  multi-object Dataset Contract before N2 known-truth neural work.
 
 ## Durable negative knowledge
 
@@ -171,15 +176,16 @@
 | D-012 | `CanonicalImpactField` and `MeasuredTransferField` are distinct claims in every record and validator decision. | A paired broadband source and accepted evidence safely unify them. |
 | D-013 | `FallbackOnly` and `FallbackOutOfDomain` are valid terminal object states, not invitations to tune. | A new preregistered method family revision supplies new evidence. |
 | D-014 | Research Record V0 remains external and experimental until a concrete product consumer and ADR justify a public contract. | Accepted architecture promotion. |
+| D-015 | A learned canonical-impact prior may claim bounded plausibility, not true material recovery or arbitrary-force transfer; network output is cooked offline. | Independent exact-object and measured-transfer evidence justifies a stronger record. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: global modes plus spatial gain field represent canonical impacts | Physical factorization and recent AV-MSF evidence | No fresh Next Engine real held-contact pass | V13 M3–M5 |
-| H2: geometry-aware ML improves over interpolation | Dense contact geometry exists in ObjectFolder | Prior coordinate-only fields failed | Frozen KNN/RBF/barycentric/low-rank tournament |
-| H3: automatic validator reaches useful bounded risk | Hard/acoustic/physics/corpus components are defined | No independent release or shadow result | V13 M7 then M9 |
-| H4: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V13 M8 then visible consumer |
+| H1: hybrid neural modes plus spatial gains represent canonical impacts | Physical factorization, AV-MSF evidence and multi-object contact data | No fresh Next Engine real held-contact pass | V14 N2–N4 |
+| H2: shared mesh/material prior beats interpolation on unseen objects | ObjectFolder spans many objects/materials | Prior coordinate-only fields failed | V14 N5 object-disjoint tournament |
+| H3: automatic validator reaches useful bounded risk | Hard/acoustic/physics/corpus components are defined | No independent release or shadow result | V14 N6 then N8 |
+| H4: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V14 N7 then visible consumer |
 
 ## Do not retry
 
@@ -204,7 +210,9 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V13](../../plans/physical-sound-synthesis-roadmap-v13.md),
+3. [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md),
+   [V14 research](../physical-sound-v14-data-first-neural-rebaseline-2026-08-31.md),
+   [Roadmap V13](../../plans/physical-sound-synthesis-roadmap-v13.md),
    [M2c protocol](../physical-sound-v13-m2c-realimpact-five-impact-control-protocol-2026-08-31.md),
    [M2c result](../physical-sound-v13-m2c-realimpact-five-impact-control-result-2026-08-31.md),
    [M2b protocol](../physical-sound-v13-m2b-object92-raw-force-inventory-protocol-2026-08-31.md),
@@ -233,5 +241,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V13 M2d source-feasibility report and immutable
-  canonical-source choice; no new signal decode.
+- **Next commit boundary:** V14 N1a Dataset Contract V1 and zero-signal
+  source-quality/split invariants.
