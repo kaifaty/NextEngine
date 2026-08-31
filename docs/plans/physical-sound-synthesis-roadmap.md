@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-31 |
-| Статус | `ACTIVE_R&D / R3A_V8_REAL_FIT_REJECTED / V9_TIME_VARYING_RESIDUAL_PREREGISTERED / SYNTHETIC_PREFLIGHT_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R3A_V8_REAL_FIT_REJECTED / V9_SYNTHETIC_PASS / SOURCE_DISJOINT_REAL_PROTOCOL_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [V8 rejection and V9 residual research](../development/physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -223,7 +223,7 @@ models и не маскирует провал обещанием универс
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
 | R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
 | R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `IN_PROGRESS / V1–V5_NEGATIVE_OR_INCONCLUSIVE / V8_REAL_FIT_REJECTED / V9_SYNTH_PROTOCOL_FROZEN / PREFLIGHT_NEXT` | L | Prove deterministic compact time-varying residual rendering and held-contact latent learning on known synthetic truth before selecting any fresh real source. |
+| R3A | `IN_PROGRESS / V1–V5_NEGATIVE_OR_INCONCLUSIVE / V8_REAL_FIT_REJECTED / V9_SYNTH_PASS / REAL_PROTOCOL_NEXT` | L | V9 known-truth rendering, compact records and held-contact field repeat/pass; select and freeze a new internet-published source with exact coordinates before any real decode. |
 | R3B | `NOT_AUTHORIZED_BY_R3A` | L | A real exact-object contact field cannot start without V9 fresh-real representation development and source-disjoint holdout passes. |
 | R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
 | R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
@@ -598,6 +598,15 @@ time-varying noise bands and asks a small neural field to interpolate the
 contact latent. A complete pass can authorize only a newly frozen,
 source-disjoint real protocol.
 
+V9-SYNTH is now `COMPLETE / PASS / REPRODUCIBLE`. Two exact runs repeat
+manifest `15616a58…36c9` and report `6df03217…779a`. The `25,888`-byte shared
+boundary and `104`-byte contact record pass cost; neural held-query latent and
+waveform errors are `0.521x` and `0.472x` nearest. See the
+[exact V9 result](../development/physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md).
+This is implementation evidence only. The current step is source research and
+a zero-decode source/role/protocol freeze; object `91` is forbidden for V9
+selection.
+
 ## R3B — Object-specific contact-position few-shot model
 
 Entry condition: R3A V9 passes fresh real development and one source-disjoint
@@ -807,9 +816,12 @@ ledger, persistence и `AcousticFactV1` roots.
     damping capacities fail spectrum/modal endpoints on every fit contact.
     Development `20`, sealed `27`, method holdout and shadow remain unread.
 21. `R3A V9 time-varying residual synthetic preflight` —
-    `PREREGISTERED / IMPLEMENTATION_NEXT`; test deterministic noise bands,
-    compact contact records and held-contact neural latent interpolation on
-    known truth with all real counters at zero.
+    `COMPLETE / PASS / REPRODUCIBLE`; deterministic noise bands, compact
+    records and held-contact neural latent interpolation pass every frozen gate
+    with all real/protected counters at zero.
+22. `R3A V9 source-disjoint real protocol` — `SOURCE_RESEARCH_NEXT`; require
+    exact published contact coordinates, hash-closed internet data and frozen
+    fit/development/sealed roles before waveform decode.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.

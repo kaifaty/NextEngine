@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `IN_PROGRESS / N0.4A_V8_REAL_FIT_REJECTED / V9_SYNTHETIC_RESIDUAL_PREFLIGHT_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.4A_V8_REAL_FIT_REJECTED / V9_SYNTHETIC_PASS / SOURCE_DISJOINT_REAL_PROTOCOL_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -529,6 +529,12 @@ deterministic time-varying noise bands behind an offline neural decoder. Its
 requires known-truth rendering, compact record decode, exact repeat and
 held-contact latent interpolation before any new real source is selected.
 
+V9-SYNTH now passes and repeats exactly. Neural held-query latent/waveform RMSE
+is `0.521x/0.472x` nearest, maximum record reconstruction NRMSE is `0.0001944`,
+and shared/contact cost is `25,888/104` bytes. Preserve the
+[exact result](../development/physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md).
+It authorizes only source research and a new zero-decode real protocol.
+
 ### N0.4B — Object-specific contact-position few-shot field
 
 Entry condition: N0.4A V9 passes fresh real development and one source-disjoint
@@ -743,17 +749,19 @@ successful Git commit or a report-only model result.
     `COMPLETE / REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE`; do not change its
     bins, damping capacities, thresholds or postfilter, and do not read
     development `20` or sealed `27`.
-12. Implement V9-SYNTH using only deterministic known truth. Require compact
-    time-varying residual rendering and held-contact neural latent prediction
-    to beat frozen controls exactly as preregistered.
-13. Keep N0.4B closed. Only a later V9 fresh-real development and
+12. Preserve V9-SYNTH as `COMPLETE / PASS / REPRODUCIBLE`; its wide synthetic
+    margins are no claim about real glass.
+13. Find internet-published data disjoint from object `91` and every V5 object.
+    Require exact contact coordinates and freeze hashes/roles/baselines/gates
+    before waveform decode.
+14. Keep N0.4B closed. Only a later V9 fresh-real development and
     source-disjoint representation-holdout pass may open it; the product
     continues to use authored clips.
 
 The [object-91 source/gate revision](../development/physical-sound-r3a-v8-objectfolder-real-source-and-gate-freeze-2026-08-31.md)
-now freezes the official archive identity, exact 512 MiB prefix, member
-commitments and `18/12/4 fit`, `20 development`, `27 sealed` roles. Implement
-the zero-decode inventory before any fit extraction.
+froze the official archive identity, exact 512 MiB prefix, member commitments
+and `18/12/4 fit`, `20 development`, `27 sealed` roles. Its zero-decode
+inventory preceded the now-complete fit extraction.
 
 The inventory returned `READY_FOR_V8_REAL_FIT_EXTRACTION` twice with exact
 manifest `e1651b64…147b` and report `d9888302…dace`; see the
