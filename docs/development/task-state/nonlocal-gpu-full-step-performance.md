@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP9_CONTRACT_FROZEN / IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE / NCGP9_F32_REFUTED / NCGP10_PRESSURE_F64_FROZEN` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,10 +19,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP9 revision 1 is frozen before implementation. Build
-  the complete ordered 4k hydrostatic/dam-break/orifice corpus using the
-  reviewed visible observer, quarterly retained bulk fields and all strict
-  same-state/physical gates; performance remains blocked.
+- **Current action:** NCGP9 primary f32 is exactly refuted at its initial 4k
+  operator gate. Its predeclared pressure-f64 discriminator passes. Implement
+  the separately frozen NCGP10 mixed-precision corpus; performance remains
+  blocked.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -36,6 +36,8 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/05-visible-surface-observer.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/06-visible-surface-control-corrigendum.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/07-complete-4k-corpus.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/08-pressure-f64-complete-4k.md`
+- `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -292,6 +294,26 @@
 - **Reconsider when:** the ordered NCGP9 corpus reaches its first exact result;
   later thresholds or scenario order are not tunable from that result.
 
+### D-013 — Select only the predeclared pressure-f64 discriminator
+
+- **Observation:** exact NCGP9 fails before step 1. Density correspondence is
+  `2.40e-7` relative RMSE, but the hard pressure kink yields GPU/CPU active
+  counts `1362/978`, HVP relative L2 `0.32756` and cosine loss `0.04732`.
+- **Evidence:** exact commit `42ded232`, binary `dcc11c81...`, primary stdout
+  `da52d965...`, result root `0c32d568...`. The pressure-only discriminator
+  has exact active IDs `978/978`, HVP relative L2 `5.45e-7` and cosine loss
+  `1.46e-13`; stdout `f353b0e8...`, result `bd2e5552...`.
+- **Conclusion:** this is an isolated pressure active-set/coefficients failure,
+  not graph ordering, surface, viscosity, inertia or full-state precision.
+- **Decision:** retain NCGP9 as `PHYSICS_REFUTED_BOUNDED`. Freeze NCGP10 before
+  changing the corpus route, using f64 only for pressure accumulation,
+  active-set classification and pressure products. Keep f32 `(hi,lo)` state,
+  all tolerances, unpreconditioned solver and 128-HVP ceiling unchanged.
+- **Rejected:** an active-set epsilon, tolerance widening, full f64 state,
+  CPU-provided masks, skipping the initial operator gate or timing the failed
+  route.
+- **Reconsider when:** the ordered NCGP10 corpus reaches its first exact result.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -310,22 +332,24 @@
 | H8A | corrected-axis visible sphere geometry remains close | selected bounded with independent GO on exact step-112 witness | freeze complete 4k successor corpus |
 | H8B | the stable-ID tail is visible as macroscopic surface divergence | falsified on this witness by silhouette/depth/topology bands | reconsider on later dam/orifice evidence |
 | H8C | corrected-axis observer still cannot select a product gate | not selected by author result | review may reopen only for apparatus defect |
+| H9A | f32 density error is harmless away from the pressure kink | falsified: tiny density error changes 384 active centres and HVP by 32.8% | closed for primary f32 |
+| H9B | f64 pressure coefficients/products close the kink without full f64 state | selected on exact same-state discriminator: active IDs exact, HVP `5.45e-7` | run frozen NCGP10 corpus |
 
 ## Do not retry
 
 - NCGP3 repair/re-review; its allowance is exhausted.
 - raw FCR1 profile as physical evidence;
 - global one-part f32 state, host-origin localization or high-only graph/contact;
-- tolerance widening, HVP above 128 or pressure-f64 without isolated pressure
-  operator error;
+- tolerance widening or HVP above 128; pressure-f64 is allowed only in the
+  frozen NCGP10 route selected by the exact isolated pressure-operator error;
 - neighbor-only timing as water/frame performance.
 
 ## Next action
 
-1. Freeze NCGP9 before implementation: exact hydrostatic, dam-break and orifice
-   4k inputs, 240-step order, visible-surface aggregation, physical gates,
-   work/identity closure and stop precedence.
-2. Implement and run the smallest complete 4k corpus without changing physics,
-   solver, 128-HVP ceiling or reviewed surface thresholds.
+1. Implement NCGP10 by changing only the GPU route from
+   `CompensatedScaleF32` to `CompensatedScalePressureF64` and sealing the
+   predeclared discriminator plus arithmetic variant.
+2. Run the unchanged ordered complete 4k corpus and stop at its first exact
+   physical, work/capacity, visible or bulk result.
 3. Keep 16k/50k, sealed-basin correctness and complete-step timing blocked
-   until that successor corpus passes.
+   until NCGP10 passes.
