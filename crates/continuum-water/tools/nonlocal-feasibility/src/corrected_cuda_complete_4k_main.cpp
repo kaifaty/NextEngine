@@ -21,6 +21,21 @@
 #ifndef NCGP9_COMPILER_FLAGS
 #define NCGP9_COMPILER_FLAGS "unconfigured"
 #endif
+#ifndef NCGP10_CONTRACT_ROOT
+#define NCGP10_CONTRACT_ROOT "unconfigured"
+#endif
+#ifndef NCGP10_SOURCE_ROOT
+#define NCGP10_SOURCE_ROOT "unconfigured"
+#endif
+#ifndef NCGP10_SOURCE_COMMIT
+#define NCGP10_SOURCE_COMMIT "unconfigured"
+#endif
+#ifndef NCGP10_SOURCE_TREE
+#define NCGP10_SOURCE_TREE "unconfigured"
+#endif
+#ifndef NCGP10_COMPILER_FLAGS
+#define NCGP10_COMPILER_FLAGS "unconfigured"
+#endif
 
 namespace {
 
@@ -55,6 +70,7 @@ struct OperatorGate {
 
 struct ScenarioResult {
     std::string name;
+    std::string arithmetic_profile;
     std::string status = "APPARATUS_INCONCLUSIVE";
     std::string first_gate;
     std::uint32_t first_gate_step = 0U;
@@ -77,6 +93,16 @@ struct ScenarioResult {
     double maximum_depth_max = 0.0;
     double maximum_component_fraction_difference = 0.0;
     double maximum_satellite_fraction_difference = 0.0;
+    double maximum_cpu_satellite_fraction = 0.0;
+    double maximum_gpu_satellite_fraction = 0.0;
+    double failure_cpu_satellite_fraction = 0.0;
+    double failure_gpu_satellite_fraction = 0.0;
+    double failure_cpu_largest_component_fraction = 0.0;
+    double failure_gpu_largest_component_fraction = 0.0;
+    std::uint32_t failure_cpu_components = 0U;
+    std::uint32_t failure_gpu_components = 0U;
+    std::uint64_t failure_cpu_wet_pixels = 0U;
+    std::uint64_t failure_gpu_wet_pixels = 0U;
     std::uint32_t maximum_gpu_hvp = 0U;
     std::uint32_t maximum_cpu_hvp = 0U;
     std::uint32_t maximum_degree = 0U;
@@ -102,6 +128,17 @@ struct ScenarioResult {
     std::string final_gpu_state_root;
     std::string final_cpu_state_root;
     std::string final_permuted_state_root;
+    std::string failure_gpu_state_root;
+    std::string failure_cpu_state_root;
+    std::string failure_permuted_state_root;
+    std::string failure_gpu_image_root;
+    std::string failure_cpu_image_root;
+    std::string failure_permuted_image_root;
+    bool failure_visible_present = false;
+    VisibleSurfaceImage failure_gpu_image;
+    VisibleSurfaceImage failure_cpu_image;
+    VisibleSurfaceImage failure_permuted_image;
+    VisibleSurfaceComparison failure_visible;
     std::string result_root;
 };
 
@@ -117,7 +154,8 @@ void seal_scenario_4k(
     std::ostringstream material;
     material << std::setprecision(17)
              << "nextengine.nonlocal.ncgp9.scenario-result.v1\n"
-             << result.name << ':' << result.status << ':'
+             << result.name << ':' << result.arithmetic_profile << ':'
+             << result.status << ':'
              << result.first_gate << ':' << result.first_gate_step << ':'
              << result.completed_steps << ':' << result.visible_steps << ':'
              << result.bulk_checkpoints << '\n'
@@ -134,7 +172,17 @@ void seal_scenario_4k(
              << ':' << result.maximum_depth_p95 << ':'
              << result.maximum_depth_p99 << ':' << result.maximum_depth_max
              << ':' << result.maximum_component_fraction_difference << ':'
-             << result.maximum_satellite_fraction_difference << '\n'
+             << result.maximum_satellite_fraction_difference << ':'
+             << result.maximum_cpu_satellite_fraction << ':'
+             << result.maximum_gpu_satellite_fraction << ':'
+             << result.failure_cpu_satellite_fraction << ':'
+             << result.failure_gpu_satellite_fraction << ':'
+             << result.failure_cpu_largest_component_fraction << ':'
+             << result.failure_gpu_largest_component_fraction << ':'
+             << result.failure_cpu_components << ':'
+             << result.failure_gpu_components << ':'
+             << result.failure_cpu_wet_pixels << ':'
+             << result.failure_gpu_wet_pixels << '\n'
              << result.operator_relative_l2 << ':'
              << result.operator_cosine_loss << ':'
              << result.operator_active_signature_exact << ':'
@@ -155,7 +203,13 @@ void seal_scenario_4k(
              << result.operator_cpu_work_root << ':' << result.receipt_root
              << ':' << result.final_gpu_state_root << ':'
              << result.final_cpu_state_root << ':'
-             << result.final_permuted_state_root << '\n';
+             << result.final_permuted_state_root << ':'
+             << result.failure_gpu_state_root << ':'
+             << result.failure_cpu_state_root << ':'
+             << result.failure_permuted_state_root << ':'
+             << result.failure_gpu_image_root << ':'
+             << result.failure_cpu_image_root << ':'
+             << result.failure_permuted_image_root << '\n';
     result.result_root = nextengine::nonlocal::sha256_hex(material.str());
 }
 
@@ -491,9 +545,11 @@ bool is_bulk_checkpoint(std::uint32_t step) {
 }
 
 ScenarioResult run_scenario(const NonlocalGpuProfile& profile,
-    const std::vector<NonlocalGpuGhost>& ghosts, const std::string& scenario) {
+    const std::vector<NonlocalGpuGhost>& ghosts, const std::string& scenario,
+    NonlocalGpuVariant variant, const char* arithmetic_profile) {
     ScenarioResult result;
     result.name = scenario;
+    result.arithmetic_profile = arithmetic_profile;
     auto cpu_state = corpus_initial(profile, scenario, false);
     const auto permuted_input = corpus_initial(profile, scenario, true);
     result.input_root = input_semantic_root(profile, cpu_state, ghosts);
@@ -516,7 +572,7 @@ ScenarioResult run_scenario(const NonlocalGpuProfile& profile,
     }
     const OperatorGate operator_gate =
         operator_gate_4k(profile, gpu, cpu_state, ghosts,
-            NonlocalGpuVariant::CompensatedScaleF32);
+            variant);
     result.operator_root = operator_gate.root;
     result.operator_relative_l2 = operator_gate.relative_l2;
     result.operator_cosine_loss = operator_gate.cosine_loss;
@@ -561,10 +617,10 @@ ScenarioResult run_scenario(const NonlocalGpuProfile& profile,
     for (std::uint32_t step = 1U; step <= kCorpusSteps; ++step) {
         const auto gpu_step = gpu.step(kCorpusBudget,
             NonlocalGpuSolverProfile::Unpreconditioned,
-            NonlocalGpuVariant::CompensatedScaleF32, false, false);
+            variant, false, false);
         const auto permuted_step = permuted.step(kCorpusBudget,
             NonlocalGpuSolverProfile::Unpreconditioned,
-            NonlocalGpuVariant::CompensatedScaleF32, false, false);
+            variant, false, false);
         const auto gpu_snapshot = gpu.capture_public_snapshot();
         const auto permuted_snapshot = permuted.capture_public_snapshot();
         const auto gpu_compensated = gpu.capture_compensated_state();
@@ -760,6 +816,12 @@ ScenarioResult run_scenario(const NonlocalGpuProfile& profile,
             result.maximum_satellite_fraction_difference = std::max(
                 result.maximum_satellite_fraction_difference,
                 satellite_difference);
+            result.maximum_cpu_satellite_fraction = std::max(
+                result.maximum_cpu_satellite_fraction,
+                visible.cpu_satellite_area_fraction);
+            result.maximum_gpu_satellite_fraction = std::max(
+                result.maximum_gpu_satellite_fraction,
+                visible.gpu_satellite_area_fraction);
             if (visible.silhouette_symmetric_difference > 0.01) {
                 result.first_gate = "visible_silhouette";
             } else if (visible.depth_rmse > 0.00625) {
@@ -825,6 +887,36 @@ ScenarioResult run_scenario(const NonlocalGpuProfile& profile,
                  << bits(result.maximum_positive_energy_excess) << '\n';
         if (!result.first_gate.empty()) {
             result.first_gate_step = step;
+            result.failure_gpu_state_root = gpu_state;
+            result.failure_cpu_state_root = state_root(cpu_step.state,
+                cpu_step.density, cpu_step.active_pressure_ids);
+            result.failure_permuted_state_root = permuted_state;
+            if (visible.valid && gpu_image.valid && cpu_image.valid
+                && permuted_image.valid) {
+                result.failure_cpu_satellite_fraction =
+                    visible.cpu_satellite_area_fraction;
+                result.failure_gpu_satellite_fraction =
+                    visible.gpu_satellite_area_fraction;
+                result.failure_cpu_largest_component_fraction =
+                    cpu_image.largest_component_fraction;
+                result.failure_gpu_largest_component_fraction =
+                    gpu_image.largest_component_fraction;
+                result.failure_cpu_components =
+                    visible.cpu_material_components;
+                result.failure_gpu_components =
+                    visible.gpu_material_components;
+                result.failure_cpu_wet_pixels = cpu_image.work.wet_pixels;
+                result.failure_gpu_wet_pixels = gpu_image.work.wet_pixels;
+                result.failure_gpu_image_root = gpu_image.image_root;
+                result.failure_cpu_image_root = cpu_image.image_root;
+                result.failure_permuted_image_root =
+                    permuted_image.image_root;
+                result.failure_visible_present = true;
+                result.failure_gpu_image = gpu_image;
+                result.failure_cpu_image = cpu_image;
+                result.failure_permuted_image = permuted_image;
+                result.failure_visible = visible;
+            }
             if (result.status != "APPARATUS_INCONCLUSIVE") {
                 result.status = "PHYSICS_REFUTED_BOUNDED";
             } else if (result.first_gate.find("apparatus") == std::string::npos
@@ -851,6 +943,8 @@ ScenarioResult run_scenario(const NonlocalGpuProfile& profile,
 
 void emit_scenario(const ScenarioResult& value) {
     std::cout << std::setprecision(17) << "{\"name\":\"" << value.name
+              << "\",\"arithmetic_profile\":\""
+              << value.arithmetic_profile
               << "\",\"status\":\"" << value.status
               << "\",\"first_gate\":\"" << value.first_gate
               << "\",\"first_gate_step\":" << value.first_gate_step
@@ -882,6 +976,26 @@ void emit_scenario(const ScenarioResult& value) {
               << value.maximum_component_fraction_difference
               << ",\"maximum_satellite_fraction_difference\":"
               << value.maximum_satellite_fraction_difference
+              << ",\"maximum_cpu_satellite_fraction\":"
+              << value.maximum_cpu_satellite_fraction
+              << ",\"maximum_gpu_satellite_fraction\":"
+              << value.maximum_gpu_satellite_fraction
+              << ",\"failure_cpu_satellite_fraction\":"
+              << value.failure_cpu_satellite_fraction
+              << ",\"failure_gpu_satellite_fraction\":"
+              << value.failure_gpu_satellite_fraction
+              << ",\"failure_cpu_largest_component_fraction\":"
+              << value.failure_cpu_largest_component_fraction
+              << ",\"failure_gpu_largest_component_fraction\":"
+              << value.failure_gpu_largest_component_fraction
+              << ",\"failure_cpu_components\":"
+              << value.failure_cpu_components
+              << ",\"failure_gpu_components\":"
+              << value.failure_gpu_components
+              << ",\"failure_cpu_wet_pixels\":"
+              << value.failure_cpu_wet_pixels
+              << ",\"failure_gpu_wet_pixels\":"
+              << value.failure_gpu_wet_pixels
               << ",\"maximum_gpu_hvp\":" << value.maximum_gpu_hvp
               << ",\"maximum_cpu_hvp\":" << value.maximum_cpu_hvp
               << ",\"maximum_degree\":" << value.maximum_degree
@@ -926,23 +1040,84 @@ void emit_scenario(const ScenarioResult& value) {
               << value.final_cpu_state_root
               << "\",\"final_permuted_state_root\":\""
               << value.final_permuted_state_root
-              << "\",\"result_root\":\"" << value.result_root << "\"}";
+              << "\",\"failure_gpu_state_root\":\""
+              << value.failure_gpu_state_root
+              << "\",\"failure_cpu_state_root\":\""
+              << value.failure_cpu_state_root
+              << "\",\"failure_permuted_state_root\":\""
+              << value.failure_permuted_state_root
+              << "\",\"failure_gpu_image_root\":\""
+              << value.failure_gpu_image_root
+              << "\",\"failure_cpu_image_root\":\""
+              << value.failure_cpu_image_root
+              << "\",\"failure_permuted_image_root\":\""
+              << value.failure_permuted_image_root
+              << "\",\"result_root\":\"" << value.result_root << "\"";
+    if (value.failure_visible_present) {
+        std::cout << ",\"failure_visible\":{";
+        std::cout << "\"gpu_image\":";
+        emit_image(value.failure_gpu_image);
+        std::cout << ",\"cpu_image\":";
+        emit_image(value.failure_cpu_image);
+        std::cout << ",\"permuted_image\":";
+        emit_image(value.failure_permuted_image);
+        std::cout << ",\"comparison\":";
+        emit_comparison(value.failure_visible);
+        std::cout << '}';
+    }
+    std::cout << '}';
 }
 
-int run_complete_corpus() {
+void emit_operator_diagnostic_4k(
+    const char* name, const OperatorGate& value);
+
+int run_complete_corpus(bool pressure_f64) {
     const NonlocalGpuProfile profile = nonlocal_water_corrected_profile();
     const auto ghosts = canonicalize_ghosts_binary32(make_basin_ghosts(profile));
     const bool physics_controls = run_ncgp3_physics_self_test(false) == 0;
+    OperatorGate primary_discriminator;
+    OperatorGate pressure_discriminator;
+    bool discriminator_passed = !pressure_f64;
+    if (pressure_f64 && physics_controls) {
+        const auto state = corpus_initial(profile, "hydrostatic-hold", false);
+        NonlocalGpuWorkspace primary_workspace(profile);
+        NonlocalGpuWorkspace pressure_workspace(profile);
+        const bool uploaded = primary_workspace.upload(state, ghosts, true)
+                == NonlocalGpuFailure::None
+            && pressure_workspace.upload(state, ghosts, true)
+                == NonlocalGpuFailure::None;
+        if (uploaded) {
+            primary_discriminator = operator_gate_4k(profile,
+                primary_workspace, state, ghosts,
+                NonlocalGpuVariant::CompensatedScaleF32);
+            pressure_discriminator = operator_gate_4k(profile,
+                pressure_workspace, state, ghosts,
+                NonlocalGpuVariant::CompensatedScalePressureF64);
+            discriminator_passed = !primary_discriminator.valid
+                && pressure_discriminator.valid
+                && primary_discriminator.gpu_active_count == 1362U
+                && primary_discriminator.cpu_active_count == 978U
+                && pressure_discriminator.gpu_active_count == 978U
+                && pressure_discriminator.cpu_active_count == 978U;
+        }
+    }
+    const NonlocalGpuVariant variant = pressure_f64
+        ? NonlocalGpuVariant::CompensatedScalePressureF64
+        : NonlocalGpuVariant::CompensatedScaleF32;
+    const char* arithmetic_profile = pressure_f64
+        ? "f32-state-f64-pressure" : "f32-primary";
     std::vector<ScenarioResult> scenarios;
     const std::array<std::string, 3> order{
         "hydrostatic-hold", "dam-break", "orifice-jet"};
     for (const auto& name : order) {
-        if (!physics_controls) break;
-        scenarios.push_back(run_scenario(profile, ghosts, name));
+        if (!physics_controls || !discriminator_passed) break;
+        scenarios.push_back(run_scenario(
+            profile, ghosts, name, variant, arithmetic_profile));
         if (scenarios.back().status != "PASS") break;
     }
     std::string status = "APPARATUS_INCONCLUSIVE";
-    if (physics_controls && scenarios.size() == order.size()
+    if (physics_controls && discriminator_passed
+        && scenarios.size() == order.size()
         && std::all_of(scenarios.begin(), scenarios.end(), [](const auto& value) {
                return value.status == "PASS";
            })) {
@@ -955,22 +1130,48 @@ int run_complete_corpus() {
     NonlocalGpuWorkspace environment_workspace(profile);
     const std::string environment = environment_workspace.environment_json();
     std::ostringstream material;
-    material << "nextengine.nonlocal.ncgp9.corpus-result.v1\n"
-             << status << ':' << physics_controls << ':' << scenarios.size()
-             << '\n';
+    material << (pressure_f64
+            ? "nextengine.nonlocal.ncgp10.corpus-result.v1\n"
+            : "nextengine.nonlocal.ncgp9.corpus-result.v1\n")
+             << status << ':' << arithmetic_profile << ':' << physics_controls
+             << ':' << discriminator_passed << ':' << scenarios.size() << '\n';
     for (const auto& scenario : scenarios) {
         material << scenario.name << ':' << scenario.result_root << '\n';
     }
-    material << kReviewedNcgp8ResultRoot << ':' << NCGP9_CONTRACT_ROOT << ':'
-             << NCGP9_SOURCE_ROOT << ':' << NCGP9_SOURCE_COMMIT << ':'
-             << NCGP9_SOURCE_TREE << ':' << NCGP9_COMPILER_FLAGS << ':'
+    material << primary_discriminator.root << ':'
+             << pressure_discriminator.root << ':'
+             << kReviewedNcgp8ResultRoot << ':'
+             << (pressure_f64 ? NCGP10_CONTRACT_ROOT : NCGP9_CONTRACT_ROOT)
+             << ':'
+             << (pressure_f64 ? NCGP10_SOURCE_ROOT : NCGP9_SOURCE_ROOT) << ':'
+             << (pressure_f64 ? NCGP10_SOURCE_COMMIT : NCGP9_SOURCE_COMMIT)
+             << ':' << (pressure_f64 ? NCGP10_SOURCE_TREE : NCGP9_SOURCE_TREE)
+             << ':'
+             << (pressure_f64 ? NCGP10_COMPILER_FLAGS : NCGP9_COMPILER_FLAGS)
+             << ':'
              << executable_root << ':' << environment << '\n';
     const std::string result_root =
         nextengine::nonlocal::sha256_hex(material.str());
-    std::cout << "{\"schema\":\"nextengine.nonlocal.ncgp9.complete-4k.v1\""
+    std::cout << "{\"schema\":\""
+              << (pressure_f64
+                      ? "nextengine.nonlocal.ncgp10.complete-4k.v1"
+                      : "nextengine.nonlocal.ncgp9.complete-4k.v1")
+              << "\""
               << ",\"status\":\"" << status << "\""
+              << ",\"arithmetic_profile\":\"" << arithmetic_profile << "\""
               << ",\"physics_controls\":"
               << (physics_controls ? "true" : "false")
+              << ",\"discriminator_passed\":"
+              << (discriminator_passed ? "true" : "false");
+    if (pressure_f64) {
+        std::cout << ",\"operator_discriminator\":{";
+        emit_operator_diagnostic_4k("primary_f32", primary_discriminator);
+        std::cout << ',';
+        emit_operator_diagnostic_4k(
+            "pressure_f64", pressure_discriminator);
+        std::cout << '}';
+    }
+    std::cout
               << ",\"scenarios\":[";
     for (std::size_t index = 0U; index < scenarios.size(); ++index) {
         if (index != 0U) std::cout << ',';
@@ -979,15 +1180,23 @@ int run_complete_corpus() {
     std::cout << "]\n,\"parent_ncgp8_result_root\":\""
               << kReviewedNcgp8ResultRoot << "\",\"result_root\":\""
               << result_root << "\",\"contract_root\":\""
-              << NCGP9_CONTRACT_ROOT << "\",\"source_root\":\""
-              << NCGP9_SOURCE_ROOT << "\",\"source_commit\":\""
-              << NCGP9_SOURCE_COMMIT << "\",\"source_tree\":\""
-              << NCGP9_SOURCE_TREE << "\",\"compiler_flags\":\""
-              << NCGP9_COMPILER_FLAGS << "\",\"binary_root\":\""
+              << (pressure_f64 ? NCGP10_CONTRACT_ROOT : NCGP9_CONTRACT_ROOT)
+              << "\",\"source_root\":\""
+              << (pressure_f64 ? NCGP10_SOURCE_ROOT : NCGP9_SOURCE_ROOT)
+              << "\",\"source_commit\":\""
+              << (pressure_f64 ? NCGP10_SOURCE_COMMIT : NCGP9_SOURCE_COMMIT)
+              << "\",\"source_tree\":\""
+              << (pressure_f64 ? NCGP10_SOURCE_TREE : NCGP9_SOURCE_TREE)
+              << "\",\"compiler_flags\":\""
+              << (pressure_f64 ? NCGP10_COMPILER_FLAGS : NCGP9_COMPILER_FLAGS)
+              << "\",\"binary_root\":\""
               << executable_root << "\",\"environment\":" << environment
               << ",\"allocated_device_bytes\":"
               << environment_workspace.allocated_device_bytes()
-              << ",\"exact_command\":\"--complete-4k-corpus\""
+              << ",\"exact_command\":\""
+              << (pressure_f64 ? "--complete-4k-pressure-f64-corpus"
+                               : "--complete-4k-corpus")
+              << "\""
               << ",\"performance_status\":\"NOT_RUN\"}\n";
     return status == "CORPUS_PASS" ? 0
         : (status == "PHYSICS_REFUTED_BOUNDED" ? 37 : 4);
@@ -1087,14 +1296,25 @@ int main(int argc, char** argv) {
             return emit_constructor_failure("unknown");
         }
     }
+    if (argc == 2
+        && std::string(argv[1]) == "--complete-4k-pressure-f64-corpus") {
+        try {
+            return run_complete_corpus(true);
+        } catch (const std::exception& exception) {
+            return emit_constructor_failure(exception.what());
+        } catch (...) {
+            return emit_constructor_failure("unknown");
+        }
+    }
     if (argc != 2 || std::string(argv[1]) != "--complete-4k-corpus") {
         std::cerr << "usage: nonlocal-corrected-cuda-complete-4k "
                      "--complete-4k-corpus|"
+                     "--complete-4k-pressure-f64-corpus|"
                      "--diagnose-4k-operator-pressure\n";
         return 2;
     }
     try {
-        return run_complete_corpus();
+        return run_complete_corpus(false);
     } catch (const std::exception& exception) {
         return emit_constructor_failure(exception.what());
     } catch (...) {
