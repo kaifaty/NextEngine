@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP8_H8A_CANDIDATE / INDEPENDENT_REVIEW_PENDING` |
+| Status | `ACTIVE / NCGP8_REPAIRED_H8A_CANDIDATE / RE_REVIEW_PENDING` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,10 +19,11 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP8 reproduces the exact step-112 witness twice and
-  passes its corrected-axis visible-sphere bands. Retained controls and three
-  CUDA sanitizers pass; independent read-only review is in progress before
-  any successor corpus is authorized.
+- **Current action:** the initial NCGP8 review reproduced H8A but rejected its
+  evidence closure. The one allowed repair batch at `8f7d9850` now recomputes
+  retained bulk fields, seals exact validation work, uses the frozen top-sheet
+  fixture and publishes complete observer roots. Two clean runs and three CUDA
+  sanitizers pass; the one permitted re-review is in progress.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -226,6 +227,33 @@
 - **Reconsider when:** independent review returns GO on the exact candidate,
   or identifies one load-bearing apparatus defect.
 
+### D-010 — Repair NCGP8 evidence closure once
+
+- **Observation:** the initial independent review reproduced every H8A number
+  but found four load-bearing apparatus gaps: NCGP7 coarse/fine bulk fields
+  were not recomputed, validation flood-fill work was omitted, the top-sheet
+  control shifted the whole fixture and JSON did not expose separate image
+  roots/work counters.
+- **Evidence:** repaired exact commit
+  `8f7d98501f3dc595ce9666bb0d27a1c4564eaccb`, tree
+  `bbaf24af906b788505dac4f610eba908aca026e9`; clean binary A/B
+  `c5213dd1f354f86e93497ef87b6856801c38b6636809179c6fdb8545afb98e86`;
+  byte-identical witness stdout
+  `f22c68b1e1eeaeff53913b098bb08a14b7b540551cb9fe2bd69bf38fd998f14b`,
+  result root
+  `ad982ab8cf5363b5222b4a5014076d55df393cba0c1facf01e2361d1e9cbce84`.
+- **Conclusion:** the repair leaves every visible metric unchanged and closes
+  the four frozen findings. Six retained fields and both comparisons reproduce
+  exact NCGP7 roots; ordered depth records and repeated validation work are
+  sealed and published; the sheet control moves exactly 16 top-layer samples.
+- **Decision:** spend the one allowed repair on this exact batch and only the
+  one permitted re-review. Keep the successor corpus and performance blocked
+  until that verdict.
+- **Rejected:** treating the initial numerical H8A as sufficient, changing an
+  H8 threshold or skipping bulk recomputation because parent state roots match.
+- **Reconsider when:** the exact repair re-review returns GO or finds a
+  remaining load-bearing defect; there is no second repair allowance.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -241,7 +269,7 @@
 | H7A | stable particle identities separate while Eulerian water fields remain close | not selected: bulk passes, but both surface gates do not pass on both grids | new visible-surface QoI only |
 | H7B | the NCGP6 tail reflects a real macroscopic water-state divergence | not selected: no coarse metric reaches the clear-divergence band | reconsider only on new physical evidence |
 | H7C | the field verdict is dominated by arbitrary voxel resolution | superseded as a product explanation: NCGP7 surface used the wrong vertical axis; bulk evidence remains close | do not reuse NCGP7 surface metrics |
-| H8A | corrected-axis visible sphere geometry remains close | author candidate supported: all frozen bands pass twice byte-identically; review pending | independent read-only review |
+| H8A | corrected-axis visible sphere geometry remains close | repaired candidate supported: all frozen bands and retained bulk roots pass twice byte-identically | one permitted independent re-review |
 | H8B | the stable-ID tail is visible as macroscopic surface divergence | falsified on this witness by silhouette/depth/topology bands | reconsider on later dam/orifice evidence |
 | H8C | corrected-axis observer still cannot select a product gate | not selected by author result | review may reopen only for apparatus defect |
 
@@ -256,10 +284,10 @@
 
 ## Next action
 
-1. Complete the single independent NCGP8 review without modifying candidate
-   source.
+1. Complete the one permitted NCGP8 re-review of exact repair commit
+   `8f7d9850` without modifying candidate source.
 2. On GO, freeze a successor complete 4k product-correctness corpus using the
    reviewed visible-surface observer plus every strict same-state/invariant
-   gate; on NO-GO, apply at most the one allowed batched apparatus repair.
+   gate. On NO-GO, close NCGP8 inconclusive; the repair allowance is exhausted.
 3. Keep 16k/50k, sealed-basin correctness and complete-step timing blocked
    until that successor corpus passes.

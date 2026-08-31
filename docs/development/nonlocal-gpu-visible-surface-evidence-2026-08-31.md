@@ -2,15 +2,18 @@
 
 ## Current verdict
 
-`H8A_VISIBLE_SURFACE_SUPPORTED_BOUNDED / INDEPENDENT_REVIEW_PENDING /
-PERFORMANCE_NOT_RUN`.
+`H8A_VISIBLE_SURFACE_SUPPORTED_BOUNDED / REPAIRED_CANDIDATE /
+INDEPENDENT_RE_REVIEW_PENDING / PERFORMANCE_NOT_RUN`.
 
 The exact NCGP6 hydrostatic step-112 CPU/GPU witness reproduces, and its
 corrected-axis top-view sphere presentation is close under every pre-frozen
 NCGP8 observable. Two clean Release builds and two complete fresh processes
 are byte-identical. Retained controls and all three Compute Sanitizer tools
-pass. The required independent review is still running, so this is an author
-candidate result rather than final authority to resume the complete corpus.
+pass. The initial independent review reproduced the numerical H8A result but
+found incomplete retained-bulk, validation-work, top-sheet-control and JSON
+root closure. Commit `8f7d9850` is the single allowed repair batch; its one
+permitted re-review is in progress. This remains an author candidate rather
+than authority to resume the complete corpus.
 
 NCGP7's three-dimensional bulk evidence remains useful. Its surface layer is
 invalid as a product quantity of interest because it used `y` as height and
@@ -27,14 +30,15 @@ invalid as a product quantity of interest because it used `y` as height and
   `342f1acfa86ef0399d7c9ea1d7cd9b794f02ecd44544a70591b0fc91bbdc28f4`;
 - aggregate NCGP8 contract root:
   `273d6b54d5cb6891204db730ab66566c1cb7b259c24ec7a4f29037eca590072f`;
-- source commit:
-  `7db62f7459834c7f71bfba4fa4bf9ece6033548c`;
+- initial source commit: `7db62f7459834c7f71bfba4fa4bf9ece6033548c`;
+- repaired source commit:
+  `8f7d98501f3dc595ce9666bb0d27a1c4564eaccb`;
 - source tree:
-  `9c37e4f72f1f9c5f7cb2a12715d9b57414affb0c`;
+  `bbaf24af906b788505dac4f610eba908aca026e9`;
 - source root:
-  `a2da458552dedf6555f6233d8f317e531d235f17df9743f78e0f867ed3501f1d`;
+  `ad0a835ec276eed665ff7a89ef4276cae3be1467375c7c006ee9838a06cf1e8e`;
 - clean Release binary A/B SHA-256:
-  `431bfac8931150e6cc4949d8f6307ec1cb215edffd6b07be8abb03552b7cf878`;
+  `c5213dd1f354f86e93497ef87b6856801c38b6636809179c6fdb8545afb98e86`;
 - environment: NVIDIA GeForce RTX 3080, SM 8.6, CUDA runtime/driver 13.3;
   allocated device memory `137251397` bytes;
 - compiler flags: C++ `-O3 -Wall -Wextra -Wpedantic -Werror
@@ -56,13 +60,13 @@ cmake --build <fresh-a-or-b> \
 ```
 
 Both self-tests pass with byte-identical stdout SHA-256
-`f7f4a3330148deea405415251fdd7f8f8ee301e9dfc20dbe45a4c3ae07e9cd2a`.
+`6ff062f5c432c3fe6fab02736ebbb75d37f3c8b0db726d77cc04947956db9db3`.
 Both complete witness processes pass H8A with byte-identical stdout SHA-256
-`9681e4c17639bf3fc0fd50a4e46edc2fa02170b08b071b19c37e6a8557e98cae`
+`f22c68b1e1eeaeff53913b098bb08a14b7b540551cb9fe2bd69bf38fd998f14b`
 and result root
-`1c953b54eefa402dbe9b66c554e3a21fcd60b2c28224398cd4fa6fcd9e998bd0`.
-Raw JSON remains outside Git at `/tmp/ncgp8-a-step112.json` and
-`/tmp/ncgp8-b-step112.json` for this host session.
+`ad982ab8cf5363b5222b4a5014076d55df393cba0c1facf01e2361d1e9cbce84`.
+Raw JSON remains outside Git at `/tmp/ncgp8-repair-a-witness.json` and
+`/tmp/ncgp8-repair-b-witness.json` for this host session.
 
 ## Parent witness closure
 
@@ -97,11 +101,11 @@ pixel pitch. Each sample is one unsmoothed sphere of radius `25 mm`.
 
 There are `20,718` common wet pixels and `20,758` union wet pixels. Corrected
 and stable-ID-permuted GPU image roots are exact:
-`f09c316d7242dc481a19d89c442a9a37b374fc3a41b3af613093c2d383146b75`.
+`ff44ccc5eba113280170a022fcf35cbf6c44543982ec051dcc3cfa61814a79ad`.
 The CPU image root is
-`9c4d217d7dc3f1003549c1f7a1a819663a7003911b020a67f1b3681c28a9f9a2`;
+`0ddd574daea83b46a818a31bd1ffd5d66e11300f1fd3b12e2bd051dd534564d8`;
 the comparison metrics root is
-`82748e152be7aeebc69f54292d8ee388554d8ad8804dc8ef76dabbb3f50a0c06`.
+`654bffc9c5b1d531a9067fd22fd89847627030ca782effcea20419b750402223`.
 
 The diagnostic maximum depth error is `0.507051559 m` at a rare common pixel.
 It is not hidden or deleted. The frozen product observer deliberately treats
@@ -116,31 +120,51 @@ The witness preserves exactly 4,000 samples and 500 kg, zero basin penetration,
 corrected/permuted identity and normalized momentum correspondence
 `0.00174968%`. The GPU/CPU HVP maxima remain `125/110` under budget 128.
 
+The repaired witness recomputes all six NCGP7 fields (GPU, CPU and permuted at
+50 mm and 25 mm), both field comparisons and their work roots. Every frozen
+field/work/metrics root is exact; the retained-bulk closure root is
+`0ed939290e3efd0e2dcd960af424b3846ee1f1a2feaa1f2f38ce814f6c445595`.
+Both coarse and fine bulk mass/density/velocity/centre-of-mass bands pass.
+The result no longer relies on the literal NCGP7 final root alone.
+
+Observer validation now replays and accounts for the depth reductions and
+component flood fill. For the CPU/GPU comparison it seals 100,426 depth-record
+reads/reductions, 41,476 flood pixels, 331,808 flood-neighbour tests and 12
+validation-root derivations. Each image publishes ordered contribution, mask,
+depth, component, work and image roots with its exact work counters. The
+negative sheet fixture shifts exactly the 16 samples in the top layer by
+50 mm; the depth-record mutation control also exercises the real receipt.
+
 All build-A/build-B control outputs are byte-identical:
 
 | Control | stdout SHA-256 | Result |
 | --- | --- | --- |
-| NCGP8 visible observer | `f7f4a3330148deea405415251fdd7f8f8ee301e9dfc20dbe45a4c3ae07e9cd2a` | PASS |
-| NCGP7 Eulerian apparatus | `a4b98636f57516c09e1cbc89daed1601829799760668fc1e0dfab8fbb3c7852d` | PASS |
-| corrected profile | `da062aa21ca22fc9331370e27ae975841e78ac1f12df94a8497481fe6fb3e375` | PASS |
-| compensated graph | `59472fa2bf77af89d2974bad0b53e21290ace27e22f0c28161220da411b76022` | PASS |
-| analytical boundary | `c3ca395cdd28c0f2486c7a735dd36d3b16391d1ac7f55d21d3e1ac9ba75c43a2` | PASS |
-| transaction rollback | `b1d6a81359146e58c17832a854f4528a8d946f67464c8058e9c5404995da46fe` | PASS |
-| physics/HVP/predictor | `ac5cb8ca6897b99f5faf51014adf6c687681f52ec7d5203ccd1c0188894b477b` | PASS |
-| NCGP6 gate apparatus | `312c6255faf7874e1339c61135a00eb15be8b510c3e1dd62a18455f389b123d3` | PASS |
+| NCGP8 visible observer | `6ff062f5c432c3fe6fab02736ebbb75d37f3c8b0db726d77cc04947956db9db3` | PASS |
+| NCGP7 Eulerian apparatus | `0a2ae8b713ad6f9805728968b5ce621927b3eeeeef981fe27577a3b419ad1d9d` | PASS |
+| corrected profile | `84768a122b91c68b5d130b1a4d3d75a531abf5e3c82360d323b17ef89efaee18` | PASS |
+| compensated graph | `01f633aa12e055242ebad8783c270a033e197c483e593f9b3782c6308c01c2e8` | PASS |
+| analytical boundary | `a166f42660084ed6e54bdcf2911dfab652337498ead7ececa98ec0848f7cf6bc` | PASS |
+| transaction rollback | `44111838dd62c2d83e2336f7b4a080c1898602153a5357f64233beb8469fb7a9` | PASS |
+| physics/HVP/predictor | `4fb9a58459e4de7754886f819634a4cc61cd2c14c532be81a7545c5b231c1727` | PASS |
+| NCGP6 gate apparatus | `9ef6954c9c8a6c824ccacd974469045becc23fa3773214f2fa12c9fcaae2dbad` | PASS |
 
 The NCGP8 self-test executes exact-zero/relabel, vertical and horizontal
-translation, wrong-axis, deletion, sparse-tail, complete-sheet, strict-radius,
-pixel-pitch, omitted-topology, depth/component/work and result-root controls.
+translation, wrong-axis, deletion, sparse-tail, top-sheet-only, strict-radius,
+pixel-pitch, omitted-topology, depth-record/depth/component/work and
+result-root controls.
 
 Compute Sanitizer memcheck, initcheck and synccheck each execute the retained
 physics suite, exit zero and report `ERROR SUMMARY: 0 errors`. Their captured
 stdout/stderr SHA-256 is identical:
-`6c7819e634b6ac4a4e733d922bf17836d4f5cf039c720c374f72bbf29358322c`.
+`e42bbcfbf51e8990b8403cbba3fa0e12ed6c86127e8bfcd7744b68d16c5bc2bc`
+for stdout and the empty-file root
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+for stderr.
 
 ## Decision boundary
 
-Pending independent review, the author result supports H8A only for the exact
+Pending the one permitted independent re-review, the repaired author result
+supports H8A only for the exact
 hydrostatic step-112 presentation. Performance remains `NOT_RUN`; the prior
 `~1.0--1.18 ms p95` result is still neighbor-only.
 
