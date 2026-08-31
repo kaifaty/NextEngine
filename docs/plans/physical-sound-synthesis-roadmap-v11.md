@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / B1_V1_REPEAT_REJECTED / JOINT_MODAL_FRF_NEXT / REAL_DATA_CLOSED / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / B1_V1_REPEAT_REJECTED / B1R_INVALID_PRECHECK / NOISE_AWARE_FRF_NEXT / REAL_DATA_CLOSED / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V10](physical-sound-synthesis-roadmap.md), закрыт после A1R |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Exact rebaseline | [A1R result and V11 research](../development/physical-sound-r3a-v10-a1r-force-onset-fit-result-and-v11-research-2026-08-31.md) |
@@ -81,7 +81,7 @@ flowchart LR
 | ID | Этап | Статус | Размер | Наблюдаемый выход |
 | --- | --- | --- | ---: | --- |
 | B0 | A1R exact result и bounded research | `COMPLETE / REPRODUCIBLE` | S | Force onset валиден; V9 real representation закрыта; exact report `5c9e87e…c2ca`. |
-| B1 | Synthetic force→response oracle | `V1_REJECTED / B1R_NEXT` | S–M | H1 точно предсказывает unseen force и `6/7` poles, но contact-local coherence mask даёт лишь `56.7%` coverage; joint modal FRF revision обязана пройти fresh known truth. |
+| B1 | Synthetic force→response oracle | `V1_REJECTED / B1R_INVALID / B1R2_NEXT` | S–M | H1 точно предсказывает unseen force и `6/7` poles; B1R precheck выявил noise-relative force mask. Следующая revision сравнивает H1/H2/noise-aware errors-in-variables local rational FRF. |
 | B2 | Fresh internet corpus и zero-decode roles | `BLOCKED_BY_B1` | M | Доказаны force/mic timebase, coordinate, geometry, listener, support и parent-disjoint roles без чтения protected PCM. |
 | B3 | Real transfer-response representation | `BLOCKED_BY_B2` | M | Frozen estimator на fit и development лучше raw-output/modal и nearest controls; holdout остаётся one-shot. |
 | B4 | Exact-object contact-to-residue ML | `BLOCKED_BY_B3` | M–L | ML предсказывает unseen contact modal residues/uncertainty лучше KNN/classical interpolation. |
@@ -139,6 +139,13 @@ conditioning определяет, возбуждён ли источник; poo
 uncertainty. B1R использует fresh phases/noise seeds и тот же staged
 development-before-holdout stop rule. B2 остаётся закрыт до repeat-exact
 `PASS_KNOWN_TRUTH_FRF`.
+
+Этот первый B1R был [закрыт на implementation precheck](../development/physical-sound-r3a-v11-b1r-precheck-rejection-and-frf-noise-research-2026-08-31.md),
+до runner/manifest/evidence run: нормализация observed `Sxx` на in-band maximum
+делает noise-only high band на `100%` «observable». B1R2 обязан отдельно
+измерять force/response noise floor, считать input SNR и сравнить H1/H2 с одним
+errors-in-variables/TLS либо local-rational estimator. Старый B1R protocol не
+исправляется задним числом; real data и оба synthetic holdout остаются закрыты.
 
 ## B2 — Fresh internet corpus
 
