@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V12 / C1_RUNNER_IMPLEMENTED / C1_EVIDENCE_NEXT / ZERO_DECODE_SOURCE_SEARCH_OPEN / REAL_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V12 / C1_REPEAT_PASS / C2_ZERO_DECODE_NEXT / REAL_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,9 +11,8 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** B1R3 makes local support and unmeasured-interference
-  OOD work, and reconstructs six observable modes at `0.007180` mean NRMSE.
-  It rejects because its own force bank has an incidental `6,643 Hz` hole.
+- **Current conclusion:** C1 fixes the B1R3 coverage hole. Two byte-identical
+  runs recover `7/7` poles at `0.004961` holdout mean NRMSE with calibrated OOD.
 - **A0 evidence:** [Beer Glass/Rinsing Cup source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md),
   repeated manifest `8a30cef0…8728`, report `3522c677…00d3`.
 - **A1 evidence:** [repeat-exact Beer Glass rejection](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md),
@@ -27,12 +26,11 @@
 - **B1R3 evidence:** [exact result](../physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md),
   repeated manifest/model/report `00961dab…e638`/`f841be2e…60e5`/
   `69145ba7…912b`; `6/7` modes, zero false positives and zero holdout.
-- **C1 protocol:** [acquisition-coverage oracle](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-protocol-2026-08-31.md)
-  is frozen before runner; force-only research certifies `200…9,500 Hz` with
-  at least three profiles and no object response.
-- **Next action:** commit the tested C1 runner before any numeric modal run,
-  then create hash-closed freeze/preflights and repeat-exact evidence.
-  Zero-decode source inventory remains independently open.
+- **C1 evidence:** [repeat-exact result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md);
+  manifest/model/report `67b2c472…a7b2`/`11f75af9…ca6c`/`33371827…e85f`.
+- **Next action:** C2 zero-decode inventory must prove a stable internet source
+  with paired force+microphone lineage and explicit axes before C3 may freeze
+  roles or decode PCM.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -125,6 +123,14 @@
 - **Decision:** close V11. V12 permits one fresh coverage-certified oracle and
   zero-decode source inventory; real PCM and all protected roles remain closed.
 
+## Material transition: C1 closes the synthetic identifiability prerequisite
+
+- **Evidence:** [C1 exact result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md),
+  two byte-identical runs, `7/7` poles, zero false positives and calibrated
+  acquisition/query/OOD controls.
+- **Decision:** keep the coverage/object/query split and current common-pole
+  estimator. Open C2 only; C3 remains blocked until a zero-decode source passes.
+
 ## Durable negative knowledge
 
 - R2 direct/phase and separable listener fields collapse or lose every held
@@ -169,7 +175,6 @@ kept bounded as the current resume surface.
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Coverage-certified local modal identification recovers stable poles | B1R3 recovers every admitted pole accurately and fixes unmeasured-interference OOD | Frozen force bank leaves `6,643 Hz` unidentifiable; one-notch control loses two modes | One fresh acquisition-coverage oracle |
 | H2: Geometry-aware ML predicts contact modal residues | Coordinates/geometry and physically constrained outputs exist | No fresh real representation/development pass exists | V12-C6 after C5 |
 | H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | V12-C7 after a real generator claim |
 | H4: Baked atlas meets product cost | Offline clips preserve exact output and fallback | Whole-mixer/voice cost is unmeasured | V12-C8 then visible consumer |
@@ -219,8 +224,8 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V12](../../plans/physical-sound-synthesis-roadmap-v12.md) and
-   [B1R3 exact result](../physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md),
+3. [Roadmap V12](../../plans/physical-sound-synthesis-roadmap-v12.md),
+   [C1 exact result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md) and [B1R3 exact result](../physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md),
    then [Roadmap V11](../../plans/physical-sound-synthesis-roadmap-v11.md) and
    [B1R2 exact result](../physical-sound-r3a-v11-b1r2-noise-aware-gtls-result-2026-08-31.md)
    plus [B1R noise research](../physical-sound-r3a-v11-b1r-precheck-rejection-and-frf-noise-research-2026-08-31.md).
@@ -233,7 +238,7 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** V9/V10 and V11 B1/B1R/B1R2/B1R3 code/evidence are in Git; all run
+- **Workspace:** V9/V10, V11 and V12-C1 code/evidence are in Git; all run
   outputs, datasets, arrays and WAVs are external.
 - **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
   contacts are opened. Every row `2407`, method holdout and admission shadow
@@ -241,6 +246,5 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** hash-closed C1 freeze/preflights and staged
-  development/holdout evidence. C2 zero-decode source inventory may proceed
-  independently. Authored clips remain the product path.
+- **Next commit boundary:** C2 official-source report and axis matrix with zero
+  waveform decode. Authored clips remain the product path.

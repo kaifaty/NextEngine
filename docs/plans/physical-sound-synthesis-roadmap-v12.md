@@ -3,9 +3,9 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / C1_RUNNER_IMPLEMENTED / C1_EVIDENCE_NEXT / ZERO_DECODE_SOURCE_SEARCH_OPEN / REAL_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / C1_REPEAT_PASS / C2_ZERO_DECODE_NEXT / REAL_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V11](physical-sound-synthesis-roadmap-v11.md), закрыт после B1R3 |
-| Exact основание | [B1R3 result](../development/physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md) |
+| Exact основание | [C1 repeat-exact result](../development/physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Текущее состояние | [Physical sound task state](../development/task-state/physical-sound-synthesis.md) |
 | Product fallback | Обычные authored clips обязательны для любого reject/OOD/fault |
@@ -43,6 +43,23 @@ B1R3 repeat-exact отклонён, но локализовал проблему
 Значит, следующий слой — не ещё один порог и не более крупная сеть, а явный
 **сертификат наблюдаемости входного возбуждения**.
 
+## Что доказал C1
+
+C1 прошёл дважды побитово на новой known-truth revision:
+
+- force-only certificate покрывает `200…9,500 Hz` минимум тремя профилями;
+- все пять leave-one-profile-out fits восстанавливают `7/7` мод без false
+  positives;
+- holdout достигает `0.004961` mean NRMSE и `0.021430 dB` spectrum RMSE;
+- acquisition notch, weak excitation, dynamic interference и missing impact
+  получают правильные OOD-решения;
+- notch только в query не уничтожает уже доказанную object model;
+- network, real payload и parent holdout reads равны нулю.
+
+Это закрывает synthetic identifiability prerequisite, но не является
+доказательством качества реального стекла. Следующий блокер — C2: найти и
+описать пригодный интернет-источник до чтения PCM.
+
 ## Три разных домена, которые нельзя снова смешивать
 
 ```mermaid
@@ -70,9 +87,9 @@ flowchart LR
 | ID | Этап | Статус | Exit criterion |
 | --- | --- | --- | --- |
 | C0 | B1R3 exact result и V12 rebaseline | `COMPLETE / REPRODUCIBLE` | Два запуска и все артефакты byte-identical; reject и нулевой holdout зафиксированы. |
-| C1 | Coverage-certified known-truth oracle | `RUNNER_IMPLEMENTED / EVIDENCE_NEXT / ONE_FRESH_REVISION` | Все acquisition-supported truth modes восстановлены, unsupported controls не изобретены, held responses и OOD gates проходят дважды побитово. |
-| C2 | Internet-source zero-decode inventory | `OPEN_IN_PARALLEL` | Найден хотя бы один stable paired force+mic source с доказуемыми axes/lineage; PCM не читается. |
-| C3 | Source role freeze и bounded importer | `BLOCKED_BY_C1_C2` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
+| C1 | Coverage-certified known-truth oracle | `COMPLETE / REPEAT_EXACT_PASS` | Все acquisition-supported truth modes восстановлены, unsupported controls не изобретены, held responses и OOD gates проходят дважды побитово. |
+| C2 | Internet-source zero-decode inventory | `NEXT` | Найден хотя бы один stable paired force+mic source с доказуемыми axes/lineage; PCM не читается. |
+| C3 | Source role freeze и bounded importer | `BLOCKED_BY_C2` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
 | C4 | Real transfer-response model | `BLOCKED_BY_C3` | Fit и development проходят против raw-H1, impulse, peak-picking и nearest controls; one-shot holdout подтверждает перенос. |
 | C5 | Physical Sound Record V1 | `BLOCKED_BY_C4` | Версионированная external record-база хранит poles, damping, contact residues, coverage/OOD и provenance без waveform в Git. |
 | C6 | Exact-object contact ML | `BLOCKED_BY_C5` | Geometry/contact model выигрывает у nearest, RBF/barycentric и linear-basis controls на unseen parent groups. |
@@ -84,7 +101,9 @@ flowchart LR
 
 ## C1 — последний bounded synthetic oracle
 
-Это одна свежая revision, а не серия подстроек B1R3.
+Это одна свежая revision, а не серия подстроек B1R3. Она завершена решением
+`PASS_KNOWN_TRUTH_FRF`; точный результат и hashes находятся в
+[C1 result](../development/physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md).
 
 Протокол [V12-C1](../development/physical-sound-r3a-v12-c1-acquisition-coverage-oracle-protocol-2026-08-31.md)
 и его [bounded research](../development/physical-sound-r3a-v12-c1-coverage-and-source-research-2026-08-31.md)
@@ -118,7 +137,7 @@ flowchart LR
 
 ### Жёсткий stop rule
 
-- `PASS_KNOWN_TRUTH_FRF` открывает C3, если C2 также нашёл источник.
+- Полученный `PASS_KNOWN_TRUTH_FRF` откроет C3, если C2 также найдёт источник.
 - Valid failure на восстановлении **сертифицированной** моды закрывает текущую
   Gabor/common-pole ветку. Следующий выбор делается только после отдельного
   bounded comparison с local-rational/vector-fitting control; B1R3 fixture и
@@ -207,15 +226,14 @@ Accepted ADR. До этого SPEC-45 остаётся `Proposed` и authored cl
 
 ## Ближайшие commit boundaries
 
-1. `C0`: B1R3 result, task-state, V11 closure, V12 and main-roadmap rebaseline.
-2. `C1a`: fresh coverage-certificate protocol committed before runner.
-3. `C1b`: runner and focused unit tests without numeric evidence.
-4. `C1c`: freeze, paired preflights, run A/B and exact result.
-5. `C2a`: web source report with official URLs, versions and axis matrix; zero
+1. `C0–C1c`: `COMPLETE`; B1R3 result/rebaseline, frozen C1 protocol, runner,
+   paired preflights and byte-identical run A/B evidence are in Git or external
+   evidence roots as appropriate.
+2. `C2a` — next: web source report with official URLs, versions and axis matrix; zero
    waveform decode.
-6. `C3`: source/role manifest and read budgets only after C1+C2 pass.
-7. `C4`: real fit → development → one-shot holdout as separate gates/commits.
-8. `C5–C9`: record schema, controls-first ML, validator, atlas and admission as
+3. `C3`: source/role manifest and read budgets only after C1+C2 pass.
+4. `C4`: real fit → development → one-shot holdout as separate gates/commits.
+5. `C5–C9`: record schema, controls-first ML, validator, atlas and admission as
    independently reviewable artifacts.
 
 ## Definition of done
