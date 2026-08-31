@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP13_REV2_FROZEN / IMPLEMENTATION_NEXT` |
-| Updated | `2026-08-31` |
+| Status | `ACTIVE / NCGP13_TRAJECTORY_REFUTED / NCGP14_FREEZE_NEXT` |
+| Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
 | Definition of done | complete frozen correctness followed by two-process 50k p95/p99 evidence, or the first honest bounded refutation |
@@ -20,10 +20,13 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** implement frozen NCGP13 revision 2: frictionless swept
-  analytic contact plus pressure relinearization, then run its 512-sample
-  one-step admission and 128-sample 240-step hydrostatic trajectory before any
-  CUDA work or timing.
+- **Current action:** freeze NCGP14 as a geometry/work discriminator: retain
+  the open 128-particle NCGP13 state, add an open 512-particle size control and
+  test the same 128 particles in a tight side/bottom-supported tank before any
+  surface repair, CUDA work or timing.
+- **Latest exact result:** reviewed NCGP13 Phase A passes. Phase B commits one
+  step and transactionally rejects trial 2 at velocity RMS
+  `0.076470122842192428 > 0.05 m/s`; independent re-review is `GO`.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -45,6 +48,7 @@
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-state-discriminator-evidence-2026-08-31.md`
+- `docs/development/nonlocal-gpu-pressure-contact-trajectory-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -464,6 +468,36 @@
 - **Reconsider when:** NCGP13 returns its first exact route and independent
   review closes its apparatus.
 
+### D-020 — Pressure/contact step passes; the trajectory fixture is open
+
+- **Observation:** repaired NCGP13 passes every apparatus control and its
+  512-particle Phase-A step in two projection rounds. Maximum/RMS positive
+  density strain are `7.40e-5 / 1.10e-5`, exact inset penetration is zero and
+  normalized balance is `3.30e-16`.
+- **Trajectory result:** Phase B commits step 1, then rejects private trial 2
+  only because velocity RMS is `0.076470122842192428 m/s`; speed,
+  displacement, energy, momentum and topology remain inside their gates. The
+  accepted state remains step 1 and the failing trial is separately sealed.
+- **Evidence:** reviewed repair `b1fdcd59`, tree `c541413c`, byte-identical
+  Release binary `877c0e99...`, stdout `496c450f...`, final root
+  `053a6a92...`. The independent re-review rebuilt twice, recomputed 72 roots,
+  reran NCGP12 and returned `GO`. Full evidence is linked above.
+- **Geometry finding:** the frozen `4x4x8` block is centred around
+  `x,y=0.275..0.425 m` in a `3.0x2.5 m` basin. Lateral walls lie outside the
+  `0.15 m` support horizon. Trial 2 is therefore almost exactly the ballistic
+  value `sqrt(112/128)*2*g*dt`, with only the bottom 16 particles clamped.
+- **Conclusion:** NCGP13 validly refutes its frozen Phase-B fixture, but it
+  does not show that explicit pressure plus frictionless contact fails in a
+  confined tank. The old label “hydrostatic hold” was physically misleading.
+- **Decision:** freeze a CPU-only NCGP14 geometry/work discriminator before
+  reintroducing surface or returning to CUDA. Compare open 128, open 512 and a
+  tight side/bottom-supported 128-particle tank. Freeze a work-cap lane so QP
+  budget exhaustion cannot be mistaken for physical failure.
+- **Rejected:** weakening the velocity gate, tuning `gamma`, calling the
+  ballistic open column a pressure instability, or timing the current route.
+- **Reconsider when:** the tight-tank lane reaches its first independently
+  reviewed two-step route with converged QPs.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -491,9 +525,12 @@
 | H12B | surface tension is the first cause | isolated pressure passes but surface-enabled successor fails | only after NCGP12 |
 | H12C | ghost density support alone cannot own wall contact | selected author-side: density closes but exact inset penetration is `0.179 mm` | pressure plus analytic contact |
 | H12D | one projection is insufficient, but pressure state is viable | KKT/stationarity pass and only nonlinear density fails | bounded nonlinear successor |
-| H13A | explicit pressure plus frictionless analytic contact forms a viable support step | not yet tested under frozen revision 2 | implement 512 step, then 128x240 hold |
-| H13B | the alternating pressure/contact composition is insufficient | not yet tested | first exact phase-A physical route |
-| H13C | one step passes but the state is dynamically unstable | not yet tested | first exact phase-B trajectory route |
+| H13A | explicit pressure plus frictionless analytic contact forms a viable support step | supported independently for the 512-particle one-step fixture | retain as NCGP14 baseline |
+| H13B | the alternating pressure/contact composition is insufficient | not selected by Phase A; remains open for a correctly confined trajectory | NCGP14 tight-tank lane |
+| H13C | one step passes but the frozen Phase-B state is dynamically unstable | selected exactly at private trial 2, but the state is a freestanding open column rather than a confined hold | do not generalize beyond the fixture |
+| H14A | NCGP13 failure is caused by missing lateral support in the fixture | predicts tight-tank 128 passes while open 128/512 remain ballistic | NCGP14 geometry discriminator |
+| H14B | the pressure/contact operator still fails with valid wall support | predicts converged tight-tank QPs still violate two-step physical gates | static-equilibrium/support redesign |
+| H14C | the apparent tight-tank failure is only the 4096-sweep work ceiling | predicts a frozen larger-cap lane closes the same equations without tolerance changes | dual-cap NCGP14 lane |
 
 ## Do not retry
 
@@ -506,8 +543,10 @@
 
 ## Next action
 
-1. Implement frozen NCGP13 revision 2 without calling the NCGP12 solve or
-   CUDA/full-step evaluators.
-2. Run its one-step admission and tiny 240-step hydrostatic trajectory before
-   4k or CUDA, then request independent review.
-3. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
+1. Freeze NCGP14 before code with open-128, open-512 and tight-tank-128 lanes,
+   exact input/geometry roots and predeclared QP work-cap interpretation.
+2. Run the two-step CPU long-double discriminator and request independent
+   review before any surface/free-surface repair.
+3. Only after a confined pressure/contact baseline passes, freeze surface and
+   viscosity reintroduction; only then return to 4k/CUDA/performance.
+4. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
