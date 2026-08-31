@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PAUSED / NCGP11_INVALID_PHYSICS_COST_ABOVE_BUDGET / NO_WATER_QUALITY_CLAIM` |
+| Status | `ACTIVE / NCGP12_PRESSURE_STATE_DISCRIMINATOR_FROZEN / CPU_CORRECTNESS_FIRST` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,9 +20,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** choose whether to freeze a cost-only optimization
-  successor focused on 54 repeated graph builds and 46 HVP per 50k step, or
-  return first to the pressure-state physical redesign. NCGP10 remains failed.
+- **Current action:** implement the frozen CPU-only NCGP12 pressure-state
+  discriminator. It tests whether the corrected Nonlocal density Jacobian and
+  existing ghost support admit a nonnegative constraint pressure before any
+  new trajectory, CUDA work or timing. NCGP10 remains failed.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -38,6 +39,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/07-complete-4k-corpus.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/08-pressure-f64-complete-4k.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/09-invalid-physics-cost-only.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/10-pressure-state-equilibrium-discriminator.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
@@ -387,6 +389,30 @@
 - **Reconsider when:** the user selects cost optimization first or physical
   correctness first.
 
+### D-017 — Select physical correctness and isolate pressure-state viability
+
+- **Observation:** the user selected correct physics before further timing.
+  NCGP10 already shows that CPU/GPU correspondence and pressure arithmetic are
+  not sufficient: the shared penalty-only model cannot hold a zero-compression
+  hydrostatic state. Earlier B4E2D5/B4E2D6 research proves the PHR algebra and
+  a true-kernel scalar path, but no current nominal trajectory owns that
+  pressure state.
+- **External check:** the Nonlocal paper presents a unified position objective,
+  while implicit incompressible SPH literature independently treats pressure
+  as a global constraint solve. Neither source proves the current basin
+  discretization or a scalable implementation.
+- **Decision:** freeze NCGP12 before code. Keep the corrected Nonlocal density
+  kernel and ghost geometry, disable surface/viscosity only to isolate the
+  cause, and solve one 512-centre linearized nonnegative pressure QP with an
+  independently assembled long-double Jacobian.
+- **Claim ceiling:** a pass authorizes only a repeated nonlinear CPU projection
+  and tiny hydrostatic trajectory successor. It does not authorize GPU work,
+  timing or a claim that the paper's monolithic coupling is already repaired.
+- **Rejected:** another penalty/kappa sweep, hiding startup with damping,
+  weakening the topology gate, calling DFSPH the Nonlocal result, or optimizing
+  the NCGP11 implementation before physical selection.
+- **Reconsider when:** NCGP12 returns its first exact route.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -410,6 +436,10 @@
 | H10A | remaining topology failure is GPU drift | falsified: CPU/GPU both have 6 components and `~2.36%` satellites; GPU permutation exact | closed |
 | H10B | observer noise creates only sparse false satellites | falsified: about 403 wet pixels lie outside the largest component in each route | closed |
 | H10C | uniform penalty startup is not hydrostatic equilibrium | supported by exact common fragmentation and prior pressure-state analysis | pressure-state redesign if authorized |
+| H12A | explicit nonnegative pressure fixes the first structural defect | frozen test: linearized pressure QP closes KKT/density while zero pressure fails | NCGP12 |
+| H12B | surface tension is the first cause | isolated pressure passes but surface-enabled successor fails | only after NCGP12 |
+| H12C | density/boundary support cannot carry hydrostatic pressure | converged pressure solve leaves material residual | NCGP12 |
+| H12D | one projection is insufficient, but pressure state is viable | KKT/stationarity pass and only nonlinear density fails | bounded nonlinear successor |
 
 ## Do not retry
 
@@ -422,9 +452,7 @@
 
 ## Next action
 
-1. If cost optimization is selected, freeze a successor that first removes
-   redundant graph rebuilds for unchanged states, then fuses compatible
-   owner-row evaluations without changing physics, workload or HVP rules.
-2. If physical correctness is selected, redesign the pressure state before any
-   new game-performance claim and rerun the correctness corpus.
-3. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed in either path.
+1. Implement and run the frozen NCGP12 CPU pressure-state discriminator.
+2. If it selects pressure-state viability, freeze repeated nonlinear
+   projection and a tiny 240-step hydrostatic trajectory before 4k or CUDA.
+3. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
