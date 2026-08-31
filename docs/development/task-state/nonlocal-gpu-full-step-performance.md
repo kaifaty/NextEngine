@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP9_F32_REFUTED / NCGP10_PRESSURE_F64_FROZEN` |
+| Status | `PAUSED / NCGP10_PHYSICS_REFUTED / PERFORMANCE_BLOCKED / PRODUCT_DECISION_REQUIRED` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,10 +19,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP9 primary f32 is exactly refuted at its initial 4k
-  operator gate. Its predeclared pressure-f64 discriminator passes. Implement
-  the separately frozen NCGP10 mixed-precision corpus; performance remains
-  blocked.
+- **Current action:** NCGP10 pressure-f64 fixes exact GPU/CPU pressure
+  correspondence, but both routes form six visible components and `~2.36%`
+  satellite area at hydro step 82. Choose pressure-state redesign or an
+  explicitly invalid-physics cost diagnostic; full water timing is blocked.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -38,6 +38,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/07-complete-4k-corpus.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/08-pressure-f64-complete-4k.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
+- `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -314,6 +315,33 @@
   route.
 - **Reconsider when:** the ordered NCGP10 corpus reaches its first exact result.
 
+### D-014 — Stop NCGP10 at common CPU/GPU hydrostatic fragmentation
+
+- **Observation:** pressure-f64 closes the initial active-set/HVP mismatch and
+  completes 81 hydrostatic steps. At step 82 both CPU and GPU show six material
+  components and about `2.36%` satellite area, exceeding the frozen `1%`
+  hydrostatic limit. Correspondence and all earlier physical gates remain
+  close: silhouette `0.0468%`, position RMSE `0.112 mm`, density RMSE
+  `0.0269%`, momentum residual `0.235%`, zero positive energy excess and zero
+  penetration.
+- **Evidence:** exact commit `d2d660d3`, binary `c100933a...`, repeated stdout
+  `d1b72200...`, corpus result `482e8374...`, scenario result `1b063d6f...`,
+  exact GPU/permuted state/image roots and complete failure image work roots.
+- **Conclusion:** the mixed-precision CUDA repair is real. The new failure is
+  common physical behavior of the penalty-only CPU/GPU model, not a GPU port
+  error or observer mismatch. A uniform lattice under gravity is not its
+  discrete hydrostatic equilibrium, and finite unilateral penalty pressure
+  cannot carry hydrostatic load at zero compression.
+- **Decision:** close NCGP10 `PHYSICS_REFUTED_BOUNDED`; keep dam/orifice,
+  16k/50k and timing `NOT_RUN`. Do not weaken the frozen topology gate. Pause
+  for an explicit product choice between a pressure-state/augmented-Lagrangian
+  redesign and a separately labelled invalid-physics cost diagnostic.
+- **Rejected:** another precision change, surface/viscosity tuning, calling the
+  six-component reference state hydrostatic, skipping to timing or treating
+  CPU/GPU agreement as physical validity.
+- **Reconsider when:** the user authorizes one of the two materially different
+  next scopes.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -334,6 +362,9 @@
 | H8C | corrected-axis observer still cannot select a product gate | not selected by author result | review may reopen only for apparatus defect |
 | H9A | f32 density error is harmless away from the pressure kink | falsified: tiny density error changes 384 active centres and HVP by 32.8% | closed for primary f32 |
 | H9B | f64 pressure coefficients/products close the kink without full f64 state | selected on exact same-state discriminator: active IDs exact, HVP `5.45e-7` | run frozen NCGP10 corpus |
+| H10A | remaining topology failure is GPU drift | falsified: CPU/GPU both have 6 components and `~2.36%` satellites; GPU permutation exact | closed |
+| H10B | observer noise creates only sparse false satellites | falsified: about 403 wet pixels lie outside the largest component in each route | closed |
+| H10C | uniform penalty startup is not hydrostatic equilibrium | supported by exact common fragmentation and prior pressure-state analysis | pressure-state redesign if authorized |
 
 ## Do not retry
 
@@ -346,10 +377,10 @@
 
 ## Next action
 
-1. Implement NCGP10 by changing only the GPU route from
-   `CompensatedScaleF32` to `CompensatedScalePressureF64` and sealing the
-   predeclared discriminator plus arithmetic variant.
-2. Run the unchanged ordered complete 4k corpus and stop at its first exact
-   physical, work/capacity, visible or bulk result.
-3. Keep 16k/50k, sealed-basin correctness and complete-step timing blocked
-   until NCGP10 passes.
+1. Obtain an explicit product decision: redesign the model around the selected
+   explicit pressure state, or run a separately contracted cost-only benchmark
+   that admits invalid physics and makes no water-quality claim.
+2. Do not run dam/orifice, 16k/50k or full-step timing under the current water
+   performance claim.
+3. Preserve CPU DFSPH as the product fallback and keep SPEC-38/ADR-076
+   Proposed.
