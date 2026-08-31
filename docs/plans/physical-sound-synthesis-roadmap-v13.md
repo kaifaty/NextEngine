@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / M1_COMPLETE / M2_ZERO_SIGNAL_FREEZE_NEXT / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / M2A_REPEAT_EXACT_PASS / M2B_RAW_FORCE_PROTOCOL_NEXT / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V12](physical-sound-synthesis-roadmap-v12.md), закрыт на real force coverage |
 | Exact основание | [V12-C4a result](../development/physical-sound-r3a-v12-c4a-object41-real-frf-fit-result-2026-08-31.md) |
 | Research basis | [V13 canonical modal-field research](../development/physical-sound-v13-canonical-modal-field-research-2026-08-31.md) |
@@ -94,7 +94,7 @@ preregistered family revision.
 | --- | --- | --- | --- |
 | M0 | V12 closure | `COMPLETE / REPEAT_EXACT_DATA_INSUFFICIENT` | C4a A/B совпадают; microphone/protected decode `0`; stop rule соблюдён. |
 | M1 | Research Record V0 + exposure ledger | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Experimental schema, lifecycle, prior-exposure census and source shortlist validate without new signal decode. |
-| M2 | Canonical source adapters and role freeze | `NEXT / ZERO_SIGNAL_ONLY` | Один fresh ObjectFolder exact object и один RealImpact derived-response control получают immutable contact/object roles and budgets. |
+| M2 | Canonical source adapters and role freeze | `IN_PROGRESS / M2A_REPEAT_EXACT_PASS / M2B_NEXT` | Один fresh ObjectFolder exact object и один RealImpact derived-response control получают immutable contact/object roles and budgets. |
 | M3 | Known-truth modal-field oracle | `BLOCKED_BY_M2` | Global poles/damping и spatial gains восстанавливаются на synthetic held contacts; collapse/OOD mutations отвергаются. |
 | M4 | Fresh exact-object formula fit | `BLOCKED_BY_M3` | Fit-only global modes reconstruct every opened contact within absolute gates; no residual/waveform shortcut. |
 | M5 | Held-contact model tournament | `BLOCKED_BY_M4` | Neural modal-gain field wins over KNN, geodesic RBF, barycentric/linear and geometry-agnostic controls, либо объект получает `FallbackOnly`. |
@@ -134,6 +134,14 @@ development, representation holdout, validator calibration, validator method
 holdout, admission shadow. Для 30–50 контактов ориентир — few-shot fit около
 20%, но exact count/farthest-point/hash policy замораживаются отдельным
 protocol до сигнала.
+
+M2a выбрал fresh object `92 / Glass_Red / Glass`: это единственный кандидат
+M1c с полным selected contact-localization binding. [Повторяемый zero-sample
+freeze](../development/physical-sound-v13-m2a-object92-source-role-freeze-result-2026-08-31.md)
+зафиксировал `36` parent-контактов как `8/6/12/3/4/3` для fit, development,
+representation holdout, validator calibration, validator method holdout и
+admission shadow. M2b должен отдельно заморозить и выполнить bounded raw-force
+prefix inventory; никакой real PCM decode пока не разрешён.
 
 ### RealImpact derived-response lane
 
@@ -226,10 +234,14 @@ ProductChecks. SPEC-45 до этого остаётся `Proposed`.
 2. `M1a` — `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL`: [protocol](../development/physical-sound-v13-m1a-research-record-v0-protocol-2026-08-31.md), [result](../development/physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md).
 3. `M1b` — `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL`: [protocol](../development/physical-sound-v13-m1b-exposure-ledger-v0-protocol-2026-08-31.md), [result](../development/physical-sound-v13-m1b-exposure-ledger-v0-result-2026-08-31.md).
 4. `M1c` — `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL`: [protocol](../development/physical-sound-v13-m1c-historical-census-and-shortlist-protocol-2026-08-31.md), [result](../development/physical-sound-v13-m1c-historical-census-and-shortlist-result-2026-08-31.md).
-5. `M2a` — next: choose one of `59/82/92/93` by signal-blind metadata, then freeze source/roles and exact budgets before any decode.
-6. `M3a–M5a`: known-truth oracle, fit-only formula, then held tournament as
+5. `M2a` — `COMPLETE / REPEAT_EXACT_ZERO_SAMPLE`: object `92` selected by
+   signal-blind metadata; [source/role result](../development/physical-sound-v13-m2a-object92-source-role-freeze-result-2026-08-31.md)
+   freezes all `36` contacts and reports zero PCM/force samples decoded.
+6. `M2b` — next: preregister bounded raw object-92 force inventory and freeze
+   the independent RealImpact derived-response control without signal decode.
+7. `M3a–M5a`: known-truth oracle, fit-only formula, then held tournament as
    separate commits with hard stop rules.
-7. `M6–M9`: batch, validator, cooker and shadow admission independently.
+8. `M6–M9`: batch, validator, cooker and shadow admission independently.
 
 ## Definition of done
 

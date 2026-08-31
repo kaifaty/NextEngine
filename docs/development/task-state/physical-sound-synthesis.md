@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V13 / M1_COMPLETE_REPEAT_EXACT_ZERO_SIGNAL / M2_SOURCE_FREEZE_NEXT / CANONICAL_MODAL_FIELD / MEASURED_TRANSFER_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V13 / M2A_REPEAT_EXACT_ZERO_SAMPLE / M2B_RAW_FORCE_PROTOCOL_NEXT / CANONICAL_MODAL_FIELD / MEASURED_TRANSFER_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External exact-object modal-field research, deterministic clip cooker and independent automatic validation |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** V12-C4a closed repeat-exact as
-  `DATA_INSUFFICIENT_FORCE_COVERAGE`. Sixteen object-41 force records contain
-  valid high-SNR impacts, but maximum common target-bin support is two against
-  the frozen minimum four. No microphone or protected signal was decoded.
-- **Exact evidence:** [C4a result](../physical-sound-r3a-v12-c4a-object41-real-frf-fit-result-2026-08-31.md),
-  force-certificate `e234b7ee…524`, report `4144a8fe…07f` in both runs.
+- **Current conclusion:** V13-M2a selected fresh ObjectFolder object
+  `92 / Glass_Red` by metadata and repeat-exact froze all `36` compact
+  microphone/contact/geometry parents into six roles before PCM access.
+- **Exact evidence:** [M2a result](../physical-sound-v13-m2a-object92-source-role-freeze-result-2026-08-31.md),
+  manifest `b30f8897…a6b1`, report `aafcbfdd…0276`, role root
+  `a271bcd6…b867`; PCM/force decode counters are zero in both runs.
 - **Rebaseline:** [Roadmap V13](../../plans/physical-sound-synthesis-roadmap-v13.md)
   separates `CanonicalImpactField` from the stronger, currently blocked
   `MeasuredTransferField` claim.
@@ -28,8 +28,9 @@
   byte-identical builds with zero build-time source/signal access.
 - **M1c result:** [historical census](../physical-sound-v13-m1c-historical-census-and-shortlist-result-2026-08-31.md)
   closes M1 and leaves fresh glass candidates `59/82/92/93`.
-- **Next action:** M2 signal-blind candidate choice and immutable source/role
-  freeze; waveform access remains forbidden.
+- **Next action:** preregister M2b bounded raw object-92 force inventory and
+  freeze the independent RealImpact derived-response control; sample decode
+  remains forbidden.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -51,7 +52,7 @@
 | V12 C2–C3 | `COMPLETE / REPEAT_EXACT_PASS` | ObjectFolder object `41` and six signal-blind roles are hash-frozen. |
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
-| V13 M2–M5 | `M2_NEXT / M3_M5_BLOCKED` | Signal-blind source freeze is next; oracle, formula and tournament wait. |
+| V13 M2–M5 | `M2A_COMPLETE / M2B_NEXT / M3_M5_BLOCKED` | Object 92 compact source/roles are exact; raw force and RealImpact control remain before oracle. |
 | V13 M6–M9 | `BLOCKED` | Multi-object batch, validator, cooker and shadow admission need a held winner. |
 | V13 M10–M11 | `BLOCKED / ADR_REQUIRED` | Material expansion and a production prop are not authorized. |
 
@@ -103,6 +104,17 @@
   identities and detect contact/mutation leakage without opening waveforms.
 - **Decision:** M1b is complete. M1c must populate the exhaustive
   `historical_union`; no source is clean merely because an adapter is absent.
+
+## Material transition: M2a freezes the fresh exact object
+
+- **Observation:** of fresh glass candidates `59/82/92/93`, only object `92`
+  has the complete selected compact audio/contact/point-cloud/scale/split chain.
+- **Evidence:** two real-source executions emit byte-identical manifest/report,
+  bind `36` WAV headers and coordinates, and retain zero PCM/force decode.
+- **Conclusion:** object `92` can support the canonical exact-contact lane
+  without selecting on sound; its six roles are now immutable.
+- **Decision:** M2a is complete. M2b may only inventory raw force under the
+  frozen `1 GiB` increment and `12 GiB` ceiling, then bind RealImpact control.
 
 ## Durable negative knowledge
 
@@ -170,6 +182,8 @@ Read in precedence order:
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 3. [Roadmap V13](../../plans/physical-sound-synthesis-roadmap-v13.md),
+   [M2a protocol](../physical-sound-v13-m2a-object92-source-role-freeze-protocol-2026-08-31.md),
+   [M2a result](../physical-sound-v13-m2a-object92-source-role-freeze-result-2026-08-31.md),
    [M1a protocol](../physical-sound-v13-m1a-research-record-v0-protocol-2026-08-31.md),
    [M1a result](../physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md),
    [M1b protocol](../physical-sound-v13-m1b-exposure-ledger-v0-protocol-2026-08-31.md),
@@ -192,5 +206,5 @@ Read in precedence order:
   development/holdout/validator/shadow role remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V13 M2a, signal-blind choice and immutable source/
-  role freeze for one fresh candidate; no waveform access.
+- **Next commit boundary:** V13 M2b, bounded object-92 raw force inventory
+  protocol plus independent RealImpact control freeze; no sample decode.
