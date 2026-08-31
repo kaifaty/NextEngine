@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -61,6 +62,21 @@
 #endif
 #ifndef NCGP5_COMPILER_FLAGS
 #define NCGP5_COMPILER_FLAGS "unconfigured"
+#endif
+#ifndef NCGP6_CONTRACT_ROOT
+#define NCGP6_CONTRACT_ROOT "unconfigured"
+#endif
+#ifndef NCGP6_SOURCE_ROOT
+#define NCGP6_SOURCE_ROOT "unconfigured"
+#endif
+#ifndef NCGP6_SOURCE_COMMIT
+#define NCGP6_SOURCE_COMMIT "unconfigured"
+#endif
+#ifndef NCGP6_SOURCE_TREE
+#define NCGP6_SOURCE_TREE "unconfigured"
+#endif
+#ifndef NCGP6_COMPILER_FLAGS
+#define NCGP6_COMPILER_FLAGS "unconfigured"
 #endif
 
 namespace {
@@ -671,16 +687,240 @@ std::vector<NonlocalGpuSample> trajectory_initial(
     return result;
 }
 
+struct PositionDistribution {
+    double rmse = std::numeric_limits<double>::infinity();
+    double p50 = std::numeric_limits<double>::infinity();
+    double p95 = std::numeric_limits<double>::infinity();
+    double p99 = std::numeric_limits<double>::infinity();
+    double maximum = std::numeric_limits<double>::infinity();
+};
+
+struct PositionMetricWork {
+    std::uint64_t samples_loaded = 0U;
+    std::uint64_t squared_accumulations = 0U;
+    std::uint64_t sorted_values = 0U;
+    std::uint64_t nearest_rank_reads = 0U;
+    std::uint64_t maximum_reads = 0U;
+    std::uint64_t hashed_sample_records = 0U;
+    std::uint64_t root_derivations = 0U;
+};
+
+std::size_t nearest_rank_index(
+    std::size_t size, std::size_t numerator, std::size_t denominator) {
+    if (size == 0U || numerator == 0U || numerator > denominator) {
+        throw std::invalid_argument("invalid nearest-rank request");
+    }
+    return (numerator * size + denominator - 1U) / denominator - 1U;
+}
+
+PositionDistribution position_distribution(
+    const std::vector<double>& unsorted_errors) {
+    PositionDistribution result;
+    if (unsorted_errors.empty()) return result;
+    std::vector<double> errors = unsorted_errors;
+    long double squared = 0.0L;
+    for (const double error : errors) {
+        if (!std::isfinite(error) || error < 0.0) return result;
+        squared += static_cast<long double>(error) * error;
+    }
+    std::sort(errors.begin(), errors.end());
+    result.rmse = static_cast<double>(std::sqrt(
+        squared / static_cast<long double>(errors.size())));
+    result.p50 = errors[nearest_rank_index(errors.size(), 50U, 100U)];
+    result.p95 = errors[nearest_rank_index(errors.size(), 95U, 100U)];
+    result.p99 = errors[nearest_rank_index(errors.size(), 99U, 100U)];
+    result.maximum = errors.back();
+    return result;
+}
+
+bool product_position_gate(const PositionDistribution& distribution) {
+    return std::isfinite(distribution.rmse)
+        && std::isfinite(distribution.p99)
+        && distribution.rmse <= 0.0025
+        && distribution.p99 <= 0.0025;
+}
+
+std::string position_metric_work_root(const PositionMetricWork& work) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.ncgp6.position-metric-work.v1\n"
+             << work.samples_loaded << ':' << work.squared_accumulations << ':'
+             << work.sorted_values << ':' << work.nearest_rank_reads << ':'
+             << work.maximum_reads << ':' << work.hashed_sample_records << ':'
+             << work.root_derivations << '\n';
+    return nextengine::nonlocal::sha256_hex(material.str());
+}
+
+std::string position_sample_records_root(std::uint32_t step,
+    const std::vector<std::pair<std::uint32_t, double>>& records) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.ncgp6.position-samples.v1\n"
+             << step << ':' << records.size() << '\n' << std::hex;
+    for (const auto& [sample_id, error] : records) {
+        material << sample_id << ':' << double_bits(error) << '\n';
+    }
+    return nextengine::nonlocal::sha256_hex(material.str());
+}
+
+#if defined(NCGP6_EXPERIMENTAL)
+int run_ncgp6_product_gate_self_test() {
+    constexpr std::size_t kSamples = 4000U;
+    constexpr double kTail = 0.0052112092581191585;
+    constexpr double kAboveP99Gate = 0.002500001;
+    std::vector<double> one_tail(kSamples, 0.0);
+    one_tail.back() = kTail;
+    const PositionDistribution one = position_distribution(one_tail);
+    std::vector<double> forty_tail(kSamples, 0.0);
+    std::fill(forty_tail.end() - 40, forty_tail.end(), kAboveP99Gate);
+    const PositionDistribution forty = position_distribution(forty_tail);
+    std::vector<double> forty_one_tail(kSamples, 0.0);
+    std::fill(forty_one_tail.end() - 41, forty_one_tail.end(),
+        kAboveP99Gate);
+    const PositionDistribution forty_one = position_distribution(
+        forty_one_tail);
+    const std::size_t p99_index = nearest_rank_index(kSamples, 99U, 100U);
+    std::vector<double> sorted_forty = forty_tail;
+    std::sort(sorted_forty.begin(), sorted_forty.end());
+    const bool rank_mutation_rejected = forty.p99 <= 0.0025
+        && sorted_forty[p99_index + 1U] > 0.0025;
+    const bool old_maximum_rejects = one.maximum > 0.005;
+    const bool one_tail_passes = product_position_gate(one)
+        && old_maximum_rejects;
+    const bool forty_one_tail_rejected = forty_one.rmse <= 0.0025
+        && forty_one.p99 > 0.0025
+        && !product_position_gate(forty_one);
+    PositionMetricWork work{3U * kSamples, 3U * kSamples, 4U * kSamples,
+        10U, 3U, 2U * kSamples, 7U};
+    const std::string work_root = position_metric_work_root(work);
+    PositionMetricWork mutated_work = work;
+    ++mutated_work.sorted_values;
+    const bool work_mutation_rejected = work_root
+        != position_metric_work_root(mutated_work);
+    std::vector<std::pair<std::uint32_t, double>> sample_records;
+    sample_records.reserve(kSamples);
+    for (std::size_t index = 0U; index < kSamples; ++index) {
+        sample_records.emplace_back(static_cast<std::uint32_t>(index),
+            one_tail[index]);
+    }
+    const std::string sample_root = position_sample_records_root(
+        92U, sample_records);
+    sample_records[0].second = std::nextafter(0.0, 1.0);
+    const bool sample_mutation_rejected = sample_root
+        != position_sample_records_root(92U, sample_records);
+    const std::string executable_root = binary_root();
+    std::ostringstream complete_material;
+    complete_material << std::setprecision(17)
+                      << "nextengine.nonlocal.ncgp6.gate-result.v1\n"
+                      << one.rmse << ':' << one.p50 << ':' << one.p95 << ':'
+                      << one.p99 << ':' << one.maximum << ':' << p99_index
+                      << ':' << sample_root << ':' << work_root << '\n'
+                      << old_maximum_rejects << ':' << one_tail_passes << ':'
+                      << forty_one_tail_rejected << ':'
+                      << rank_mutation_rejected << ':'
+                      << sample_mutation_rejected << ':'
+                      << work_mutation_rejected << ':' << forty.rmse << ':'
+                      << forty.p99 << ':' << forty.maximum << ':'
+                      << forty_one.rmse << ':' << forty_one.p99 << ':'
+                      << forty_one.maximum << '\n'
+                      << NCGP6_CONTRACT_ROOT << ':' << NCGP6_SOURCE_ROOT << ':'
+                      << NCGP6_SOURCE_COMMIT << ':' << NCGP6_SOURCE_TREE << ':'
+                      << NCGP6_COMPILER_FLAGS << ':' << executable_root << '\n';
+    std::ostringstream omitted_material;
+    omitted_material << std::setprecision(17)
+                     << "nextengine.nonlocal.ncgp6.gate-result.v1\n"
+                     << one.rmse << ':' << one.p50 << ':' << one.p95 << ':'
+                     << one.maximum << ':' << p99_index << ':' << sample_root
+                     << ':' << work_root << '\n'
+                     << old_maximum_rejects << ':' << one_tail_passes << ':'
+                     << forty_one_tail_rejected << ':'
+                     << rank_mutation_rejected << ':'
+                     << sample_mutation_rejected << ':'
+                     << work_mutation_rejected << ':' << forty.rmse << ':'
+                     << forty.p99 << ':' << forty.maximum << ':'
+                     << forty_one.rmse << ':' << forty_one.p99 << ':'
+                     << forty_one.maximum << '\n'
+                     << NCGP6_CONTRACT_ROOT << ':' << NCGP6_SOURCE_ROOT << ':'
+                     << NCGP6_SOURCE_COMMIT << ':' << NCGP6_SOURCE_TREE << ':'
+                     << NCGP6_COMPILER_FLAGS << ':' << executable_root << '\n';
+    const std::string result_root = nextengine::nonlocal::sha256_hex(
+        complete_material.str());
+    const bool omitted_p99_rejected = result_root
+        != nextengine::nonlocal::sha256_hex(omitted_material.str());
+    const bool identity_valid = !executable_root.empty()
+        && std::string(NCGP6_CONTRACT_ROOT) != "unconfigured"
+        && std::string(NCGP6_SOURCE_ROOT) != "unconfigured"
+        && std::string(NCGP6_SOURCE_COMMIT) != "unconfigured"
+        && std::string(NCGP6_SOURCE_TREE) != "unconfigured"
+        && std::string(NCGP6_COMPILER_FLAGS) != "unconfigured";
+    const bool passed = p99_index == 3959U && one_tail_passes
+        && forty.p99 <= 0.0025 && forty_one_tail_rejected
+        && rank_mutation_rejected && work_mutation_rejected
+        && sample_mutation_rejected && omitted_p99_rejected && identity_valid;
+    std::cout << std::setprecision(17)
+              << "{\"schema\":\"nextengine.nonlocal.ncgp6.gate-self-test.v1\""
+              << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
+              << ",\"samples\":" << kSamples
+              << ",\"p99_index\":" << p99_index
+              << ",\"one_tail_rmse_m\":" << one.rmse
+              << ",\"one_tail_p99_m\":" << one.p99
+              << ",\"one_tail_max_m\":" << one.maximum
+              << ",\"old_maximum_rejects\":"
+              << (old_maximum_rejects ? "true" : "false")
+              << ",\"one_tail_product_passes\":"
+              << (one_tail_passes ? "true" : "false")
+              << ",\"forty_tail_p99_m\":" << forty.p99
+              << ",\"forty_one_tail_rmse_m\":" << forty_one.rmse
+              << ",\"forty_one_tail_p99_m\":" << forty_one.p99
+              << ",\"forty_one_tail_rejected\":"
+              << (forty_one_tail_rejected ? "true" : "false")
+              << ",\"rank_mutation_rejected\":"
+              << (rank_mutation_rejected ? "true" : "false")
+              << ",\"sample_mutation_rejected\":"
+              << (sample_mutation_rejected ? "true" : "false")
+              << ",\"work_mutation_rejected\":"
+              << (work_mutation_rejected ? "true" : "false")
+              << ",\"omitted_p99_rejected\":"
+              << (omitted_p99_rejected ? "true" : "false")
+              << ",\"sample_records_root\":\"" << sample_root
+              << "\",\"work_root\":\"" << work_root
+              << "\",\"result_root\":\"" << result_root
+              << "\",\"contract_root\":\"" << NCGP6_CONTRACT_ROOT
+              << "\",\"source_root\":\"" << NCGP6_SOURCE_ROOT
+              << "\",\"source_commit\":\"" << NCGP6_SOURCE_COMMIT
+              << "\",\"source_tree\":\"" << NCGP6_SOURCE_TREE
+              << "\",\"compiler_flags\":\"" << NCGP6_COMPILER_FLAGS
+              << "\",\"binary_root\":\"" << executable_root
+              << "\",\"exact_command\":\"--product-gate-self-test\"}\n";
+    return passed ? 0 : 54;
+}
+#endif
+
 int run_correspondence_4k(const std::string& scenario,
     std::uint32_t steps,
     std::uint32_t budget,
     NonlocalGpuVariant gpu_variant,
     const char* arithmetic_profile,
     NonlocalGpuSolverProfile solver_profile =
-        NonlocalGpuSolverProfile::Jacobi) {
+        NonlocalGpuSolverProfile::Jacobi,
+    bool product_trajectory_gate = false) {
     if (steps == 0U || steps > 240U
         || (budget != 32U && budget != 64U && budget != 128U)) return 2;
-#if defined(NCGP4_EXPERIMENTAL)
+    if (product_trajectory_gate
+        && (steps != 240U || budget != 128U
+            || gpu_variant != NonlocalGpuVariant::CompensatedScaleF32
+            || solver_profile != NonlocalGpuSolverProfile::Unpreconditioned)) {
+        return 2;
+    }
+#if defined(NCGP6_EXPERIMENTAL)
+    constexpr const char* kCorrespondenceSchema =
+        "nextengine.nonlocal.ncgp6.product-correspondence.v1";
+    constexpr const char* kResultDomain =
+        "nextengine.nonlocal.ncgp6.product-correspondence-result.v1\n";
+    constexpr const char* kContractRoot = NCGP6_CONTRACT_ROOT;
+    constexpr const char* kSourceRoot = NCGP6_SOURCE_ROOT;
+    constexpr const char* kSourceCommit = NCGP6_SOURCE_COMMIT;
+    constexpr const char* kSourceTree = NCGP6_SOURCE_TREE;
+    constexpr const char* kCompilerFlags = NCGP6_COMPILER_FLAGS;
+#elif defined(NCGP4_EXPERIMENTAL)
     constexpr const char* kCorrespondenceSchema =
         "nextengine.nonlocal.ncgp4.correspondence.v1";
     constexpr const char* kResultDomain =
@@ -735,6 +975,14 @@ int run_correspondence_4k(const std::string& scenario,
         -std::numeric_limits<double>::infinity()};
     double maximum_position_rmse = 0.0;
     double maximum_position_error = 0.0;
+    double maximum_position_p50 = 0.0;
+    double maximum_position_p95 = 0.0;
+    double maximum_position_p99 = 0.0;
+    std::uint32_t maximum_position_error_id = 0U;
+    std::uint32_t maximum_position_error_component = 0U;
+    double same_state_first_step_rmse = 0.0;
+    double same_state_first_step_maximum = 0.0;
+    bool same_state_first_step_active_signature_equal = true;
     double maximum_density_rmse = 0.0;
     double maximum_density_error = 0.0;
     double maximum_compression_rmse = 0.0;
@@ -788,6 +1036,9 @@ int run_correspondence_4k(const std::string& scenario,
         initial_permuted_compensated);
     std::string snapshot_receipt_material =
         "nextengine.nonlocal.ncgp3.snapshot-receipts.v1\n";
+    std::string position_receipt_material =
+        "nextengine.nonlocal.ncgp6.position-receipts.v1\n";
+    PositionMetricWork position_metric_work;
     std::uint32_t completed = 0U;
     for (std::uint32_t step_index = 0U; step_index < steps; ++step_index) {
         const auto gpu_result = gpu.step(budget,
@@ -897,6 +1148,10 @@ int run_correspondence_4k(const std::string& scenario,
         double density_squared = 0.0;
         double compression_squared = 0.0;
         double density_sum = 0.0;
+        std::vector<double> position_errors;
+        position_errors.reserve(gpu_snapshot.state.size());
+        std::vector<std::pair<std::uint32_t, double>> position_records;
+        position_records.reserve(gpu_snapshot.state.size());
         for (std::size_t index = 0U; index < gpu_snapshot.state.size(); ++index) {
             if (gpu_snapshot.state[index].sample_id
                     != cpu_result.state[index].sample_id
@@ -915,8 +1170,19 @@ int run_correspondence_4k(const std::string& scenario,
             const double distance = std::sqrt(delta.x * delta.x
                 + delta.y * delta.y + delta.z * delta.z);
             position_squared += distance * distance;
-            maximum_position_error = std::max(
-                maximum_position_error, distance);
+            position_errors.push_back(distance);
+            position_records.emplace_back(
+                gpu_snapshot.state[index].sample_id, distance);
+            if (distance > maximum_position_error) {
+                maximum_position_error = distance;
+                maximum_position_error_id =
+                    gpu_snapshot.state[index].sample_id;
+                const std::array<double, 3> components{
+                    std::abs(delta.x), std::abs(delta.y), std::abs(delta.z)};
+                maximum_position_error_component = static_cast<std::uint32_t>(
+                    std::distance(components.begin(),
+                        std::max_element(components.begin(), components.end())));
+            }
             gpu_minimum.x = std::min(gpu_minimum.x,
                 gpu_snapshot.state[index].current.x);
             gpu_minimum.y = std::min(gpu_minimum.y,
@@ -961,6 +1227,32 @@ int run_correspondence_4k(const std::string& scenario,
         maximum_position_rmse = std::max(maximum_position_rmse,
             std::sqrt(position_squared
                 / static_cast<double>(gpu_snapshot.state.size())));
+        const PositionDistribution position = position_distribution(
+            position_errors);
+        maximum_position_p50 = std::max(maximum_position_p50, position.p50);
+        maximum_position_p95 = std::max(maximum_position_p95, position.p95);
+        maximum_position_p99 = std::max(maximum_position_p99, position.p99);
+        position_metric_work.samples_loaded += position_errors.size();
+        position_metric_work.squared_accumulations += position_errors.size();
+        position_metric_work.sorted_values += position_errors.size();
+        position_metric_work.nearest_rank_reads += 3U;
+        ++position_metric_work.maximum_reads;
+        position_metric_work.hashed_sample_records += position_records.size();
+        position_metric_work.root_derivations += 2U;
+        const std::string position_samples_root = position_sample_records_root(
+            step_index + 1U, position_records);
+        position_receipt_material += std::to_string(step_index + 1U) + ':'
+            + std::to_string(double_bits(position.rmse)) + ':'
+            + std::to_string(double_bits(position.p50)) + ':'
+            + std::to_string(double_bits(position.p95)) + ':'
+            + std::to_string(double_bits(position.p99)) + ':'
+            + std::to_string(double_bits(position.maximum)) + ':'
+            + position_samples_root + ':'
+            + position_metric_work_root(position_metric_work) + '\n';
+        if (product_trajectory_gate && step_index == 0U) {
+            same_state_first_step_rmse = position.rmse;
+            same_state_first_step_maximum = position.maximum;
+        }
         maximum_density_rmse = std::max(maximum_density_rmse,
             std::sqrt(density_squared
                 / static_cast<double>(gpu_snapshot.state.size())));
@@ -995,6 +1287,11 @@ int run_correspondence_4k(const std::string& scenario,
             }
             ++active_mismatch_steps;
         }
+        if (product_trajectory_gate && step_index == 0U) {
+            same_state_first_step_active_signature_equal =
+                gpu_snapshot.active_pressure_ids
+                == cpu_result.active_pressure_ids;
+        }
         if (gpu_snapshot.active_pressure_ids
             != permuted_snapshot.active_pressure_ids) {
             ++permutation_mismatch_steps;
@@ -1007,9 +1304,17 @@ int run_correspondence_4k(const std::string& scenario,
         }
         cpu_state = cpu_result.state;
         ++completed;
-        if (maximum_position_rmse > 0.0025) {
+        if (product_trajectory_gate && step_index == 0U
+            && same_state_first_step_maximum > 5.0e-6) {
+            first_gate_failure = "same_state_position_max";
+        } else if (product_trajectory_gate && step_index == 0U
+            && !same_state_first_step_active_signature_equal) {
+            first_gate_failure = "same_state_active_signature";
+        } else if (maximum_position_rmse > 0.0025) {
             first_gate_failure = "position_rmse";
-        } else if (maximum_position_error > 0.005) {
+        } else if (product_trajectory_gate && maximum_position_p99 > 0.0025) {
+            first_gate_failure = "position_p99";
+        } else if (!product_trajectory_gate && maximum_position_error > 0.005) {
             first_gate_failure = "position_max";
         } else if (maximum_density_rmse > 0.05) {
             first_gate_failure = "density_rmse";
@@ -1055,11 +1360,20 @@ int run_correspondence_4k(const std::string& scenario,
         && std::string(kSourceCommit) != "unconfigured"
         && std::string(kSourceTree) != "unconfigured"
         && std::string(kCompilerFlags) != "unconfigured";
+    const bool long_trajectory_position_passed =
+        maximum_position_rmse <= 0.0025
+        && (product_trajectory_gate
+                ? maximum_position_p99 <= 0.0025
+                : maximum_position_error <= 0.005);
+    const bool same_state_first_step_passed = !product_trajectory_gate
+        || (same_state_first_step_rmse <= 0.0025
+            && same_state_first_step_maximum <= 5.0e-6
+            && same_state_first_step_active_signature_equal);
     const bool passed = completed == steps
         && gpu_failure == NonlocalGpuFailure::None
         && cpu_failure == NonlocalGpuFailure::None
-        && maximum_position_rmse <= 0.0025
-        && maximum_position_error <= 0.005
+        && long_trajectory_position_passed
+        && same_state_first_step_passed
         && maximum_density_rmse <= 0.05
         && maximum_density_error <= 0.10
         && maximum_compression_rmse <= 0.05
@@ -1084,8 +1398,8 @@ int run_correspondence_4k(const std::string& scenario,
     const bool physical_refuted = work_refuted || (!passed && completed > 0U
         && gpu_failure == NonlocalGpuFailure::None
         && cpu_failure == NonlocalGpuFailure::None
-        && (maximum_position_rmse > 0.0025
-            || maximum_position_error > 0.005
+        && (!long_trajectory_position_passed
+            || !same_state_first_step_passed
             || maximum_density_rmse > 0.05
             || maximum_density_error > 0.10
             || maximum_compression_rmse > 0.05
@@ -1106,6 +1420,11 @@ int run_correspondence_4k(const std::string& scenario,
         receipt_material);
     const std::string snapshot_receipt_root =
         nextengine::nonlocal::sha256_hex(snapshot_receipt_material);
+    position_metric_work.root_derivations += 2U;
+    const std::string position_receipt_root =
+        nextengine::nonlocal::sha256_hex(position_receipt_material);
+    const std::string position_work_root = position_metric_work_root(
+        position_metric_work);
     std::ostringstream result_material;
     result_material << std::setprecision(17)
                     << kResultDomain
@@ -1185,6 +1504,19 @@ int run_correspondence_4k(const std::string& scenario,
                     << ',' << kSourceCommit << ',' << kSourceTree << ','
                     << kCompilerFlags << ',' << executable_root << '\n'
                     << "environment=" << environment << '\n';
+    if (product_trajectory_gate) {
+        result_material << "product-position=" << maximum_position_p50 << ','
+                        << maximum_position_p95 << ','
+                        << maximum_position_p99 << ','
+                        << maximum_position_error_id << ','
+                        << maximum_position_error_component << ','
+                        << same_state_first_step_rmse << ','
+                        << same_state_first_step_maximum << ','
+                        << same_state_first_step_active_signature_equal << ','
+                        << nearest_rank_index(4000U, 99U, 100U) << ','
+                        << position_receipt_root << ',' << position_work_root
+                        << '\n';
+    }
     const std::string result_root = nextengine::nonlocal::sha256_hex(
         result_material.str());
     std::cout << std::setprecision(17)
@@ -1204,6 +1536,26 @@ int run_correspondence_4k(const std::string& scenario,
               << ",\"cpu_failure\":" << static_cast<std::uint32_t>(cpu_failure)
               << ",\"position_rmse_max_m\":" << maximum_position_rmse
               << ",\"position_error_max_m\":" << maximum_position_error
+              << ",\"position_p50_max_m\":" << maximum_position_p50
+              << ",\"position_p95_max_m\":" << maximum_position_p95
+              << ",\"position_p99_max_m\":" << maximum_position_p99
+              << ",\"position_error_max_sample_id\":"
+              << maximum_position_error_id
+              << ",\"position_error_max_component\":"
+              << maximum_position_error_component
+              << ",\"position_p99_rank_index\":"
+              << nearest_rank_index(4000U, 99U, 100U)
+              << ",\"product_trajectory_gate\":"
+              << (product_trajectory_gate ? "true" : "false")
+              << ",\"position_maximum_is_diagnostic\":"
+              << (product_trajectory_gate ? "true" : "false")
+              << ",\"same_state_first_step_rmse_m\":"
+              << same_state_first_step_rmse
+              << ",\"same_state_first_step_max_m\":"
+              << same_state_first_step_maximum
+              << ",\"same_state_first_step_active_signature_equal\":"
+              << (same_state_first_step_active_signature_equal
+                      ? "true" : "false")
               << ",\"density_correspondence_rmse_max_fraction\":"
               << maximum_density_rmse
               << ",\"density_correspondence_error_max_fraction\":"
@@ -1293,6 +1645,10 @@ int run_correspondence_4k(const std::string& scenario,
               << receipt_root
               << "\",\"snapshot_receipt_root\":\""
               << snapshot_receipt_root
+              << "\",\"position_receipt_root\":\""
+              << position_receipt_root
+              << "\",\"position_metric_work_root\":\""
+              << position_work_root
               << "\",\"final_state_root\":\"" << prior_gpu_state_root
               << "\",\"final_permuted_state_root\":\""
               << prior_permuted_state_root
@@ -1318,9 +1674,12 @@ int run_correspondence_4k(const std::string& scenario,
               << "\",\"compiler_flags\":\"" << kCompilerFlags
               << "\",\"environment\":" << environment
               << ",\"exact_command\":\""
-              << (solver_profile == NonlocalGpuSolverProfile::Unpreconditioned
-                      ? "--correspondence-4k-unpreconditioned "
-                      : "--correspondence-4k ")
+              << (product_trajectory_gate
+                      ? "--correspondence-4k-product "
+                      : (solver_profile
+                                == NonlocalGpuSolverProfile::Unpreconditioned
+                              ? "--correspondence-4k-unpreconditioned "
+                              : "--correspondence-4k "))
               << scenario << ' ' << steps << ' ' << budget << "\""
               << ",\"timing_status\":\"NOT_RUN\""
               << ",\"binary_root\":\"" << executable_root
@@ -2385,13 +2744,28 @@ int main(int argc, char** argv) {
         return run_ncgp5_step92_diagnosis();
     }
 #endif
+#if defined(NCGP6_EXPERIMENTAL)
+    if (argc == 2 && std::string(argv[1]) == "--product-gate-self-test") {
+        return run_ncgp6_product_gate_self_test();
+    }
+    if (argc == 5
+        && std::string(argv[1]) == "--correspondence-4k-product") {
+        return run_correspondence_4k(argv[2],
+            static_cast<std::uint32_t>(std::stoul(argv[3])),
+            static_cast<std::uint32_t>(std::stoul(argv[4])),
+            NonlocalGpuVariant::CompensatedScaleF32,
+            "f32-primary", NonlocalGpuSolverProfile::Unpreconditioned, true);
+    }
+#endif
     std::cerr << "usage: nonlocal-corrected-cuda-compensated-scale "
                  "--profile-self-test|--graph-self-test|--boundary-self-test|"
                  "--transaction-self-test|--physics-self-test|"
                  "--diagnose-hydro-step39|"
                  "--diagnose-hydro-step92-outlier|"
+                 "--product-gate-self-test|"
                  "--correspondence-4k SCENARIO STEPS BUDGET|"
                  "--correspondence-4k-unpreconditioned SCENARIO STEPS BUDGET|"
+                 "--correspondence-4k-product SCENARIO 240 128|"
                  "--correspondence-4k-pressure-f64 SCENARIO STEPS BUDGET\n";
     return 2;
 }
