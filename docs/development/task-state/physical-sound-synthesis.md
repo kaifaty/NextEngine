@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V12 / C1_REPEAT_PASS / C2_ZERO_DECODE_NEXT / REAL_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V12 / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_ROLE_FREEZE_NEXT / REAL_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,10 +11,11 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** C1 fixes the B1R3 coverage hole. Two byte-identical
-  runs recover `7/7` poles at `0.004961` holdout mean NRMSE with calibrated OOD.
-- **A0 evidence:** [Beer Glass/Rinsing Cup source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md),
-  repeated manifest `8a30cef0…8728`, report `3522c677…00d3`.
+- **Current conclusion:** C1 recovers `7/7` poles repeat-exactly. C2 proves a
+  stable paired ObjectFolder force+mic source with narrowed canonical-setup,
+  instrument-count semantics; C3 role freeze is next and PCM remains closed.
+- **C2 evidence:** [zero-decode source result](../physical-sound-r3a-v12-c2-internet-source-zero-decode-inventory-2026-08-31.md),
+  prior repeated manifest/report `3041c19d…ed5`/`b421743e…cb9`.
 - **A1 evidence:** [repeat-exact Beer Glass rejection](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md),
   report `7d7bb630…9db9b`; contacts `18/29` fail the frozen onset gate before fit.
 - **A1R evidence:** [repeat-exact fit result and V11 research](../physical-sound-r3a-v10-a1r-force-onset-fit-result-and-v11-research-2026-08-31.md),
@@ -28,9 +29,9 @@
   `69145ba7…912b`; `6/7` modes, zero false positives and zero holdout.
 - **C1 evidence:** [repeat-exact result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md);
   manifest/model/report `67b2c472…a7b2`/`11f75af9…ca6c`/`33371827…e85f`.
-- **Next action:** C2 zero-decode inventory must prove a stable internet source
-  with paired force+microphone lineage and explicit axes before C3 may freeze
-  roles or decode PCM.
+- **Next action:** C3 chooses a fresh exact object, freezes six disjoint roles,
+  source/geometry hashes and read budgets, then commits zero-read preflight
+  evidence before any raw-channel decode.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -123,13 +124,12 @@
 - **Decision:** close V11. V12 permits one fresh coverage-certified oracle and
   zero-decode source inventory; real PCM and all protected roles remain closed.
 
-## Material transition: C1 closes the synthetic identifiability prerequisite
-
+## Material transition: C1+C2 open only the C3 source freeze
 - **Evidence:** [C1 exact result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md),
   two byte-identical runs, `7/7` poles, zero false positives and calibrated
-  acquisition/query/OOD controls.
+  acquisition/query/OOD controls; C2 adds a zero-decode paired-source witness.
 - **Decision:** keep the coverage/object/query split and current common-pole
-  estimator. Open C2 only; C3 remains blocked until a zero-decode source passes.
+  estimator. Open C3 source/role freeze only; real PCM remains closed.
 
 ## Durable negative knowledge
 
@@ -224,7 +224,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V12](../../plans/physical-sound-synthesis-roadmap-v12.md),
+3. [Roadmap V12](../../plans/physical-sound-synthesis-roadmap-v12.md), [C2 source result](../physical-sound-r3a-v12-c2-internet-source-zero-decode-inventory-2026-08-31.md),
    [C1 exact result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md) and [B1R3 exact result](../physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md),
    then [Roadmap V11](../../plans/physical-sound-synthesis-roadmap-v11.md) and
    [B1R2 exact result](../physical-sound-r3a-v11-b1r2-noise-aware-gtls-result-2026-08-31.md)
@@ -246,5 +246,5 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** C2 official-source report and axis matrix with zero
-  waveform decode. Authored clips remain the product path.
+- **Next commit boundary:** C3 fresh source/role manifest, read budgets and
+  zero-read preflight. Authored clips remain the product path.

@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / C1_REPEAT_PASS / C2_ZERO_DECODE_NEXT / REAL_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_ROLE_FREEZE_NEXT / REAL_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V11](physical-sound-synthesis-roadmap-v11.md), закрыт после B1R3 |
 | Exact основание | [C1 repeat-exact result](../development/physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -57,8 +57,8 @@ C1 прошёл дважды побитово на новой known-truth revisi
 - network, real payload и parent holdout reads равны нулю.
 
 Это закрывает synthetic identifiability prerequisite, но не является
-доказательством качества реального стекла. Следующий блокер — C2: найти и
-описать пригодный интернет-источник до чтения PCM.
+доказательством качества реального стекла. C2 затем подтвердил пригодный
+интернет-источник; следующий шаг — C3 source/role freeze до чтения PCM.
 
 ## Три разных домена, которые нельзя снова смешивать
 
@@ -88,8 +88,8 @@ flowchart LR
 | --- | --- | --- | --- |
 | C0 | B1R3 exact result и V12 rebaseline | `COMPLETE / REPRODUCIBLE` | Два запуска и все артефакты byte-identical; reject и нулевой holdout зафиксированы. |
 | C1 | Coverage-certified known-truth oracle | `COMPLETE / REPEAT_EXACT_PASS` | Все acquisition-supported truth modes восстановлены, unsupported controls не изобретены, held responses и OOD gates проходят дважды побитово. |
-| C2 | Internet-source zero-decode inventory | `NEXT` | Найден хотя бы один stable paired force+mic source с доказуемыми axes/lineage; PCM не читается. |
-| C3 | Source role freeze и bounded importer | `BLOCKED_BY_C2` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
+| C2 | Internet-source zero-decode inventory | `COMPLETE / NARROWED_SOURCE_PASS` | Найден хотя бы один stable paired force+mic source с доказуемыми axes/lineage; PCM не читается. |
+| C3 | Source role freeze и bounded importer | `NEXT / PCM_STILL_CLOSED` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
 | C4 | Real transfer-response model | `BLOCKED_BY_C3` | Fit и development проходят против raw-H1, impulse, peak-picking и nearest controls; one-shot holdout подтверждает перенос. |
 | C5 | Physical Sound Record V1 | `BLOCKED_BY_C4` | Версионированная external record-база хранит poles, damping, contact residues, coverage/OOD и provenance без waveform в Git. |
 | C6 | Exact-object contact ML | `BLOCKED_BY_C5` | Geometry/contact model выигрывает у nearest, RBF/barycentric и linear-basis controls на unseen parent groups. |
@@ -137,7 +137,8 @@ flowchart LR
 
 ### Жёсткий stop rule
 
-- Полученный `PASS_KNOWN_TRUTH_FRF` откроет C3, если C2 также найдёт источник.
+- Полученный `PASS_KNOWN_TRUTH_FRF` вместе с C2 source pass разрешает только C3
+  source/role freeze; он сам по себе не разрешает decode.
 - Valid failure на восстановлении **сертифицированной** моды закрывает текущую
   Gabor/common-pole ветку. Следующий выбор делается только после отдельного
   bounded comparison с local-rational/vector-fitting control; B1R3 fixture и
@@ -157,6 +158,14 @@ Zero-decode inventory проверяет до чтения waveform:
 - geometry/scale, support condition и listener/microphone pose;
 - sample rate, units, calibration и saturation metadata;
 - parent grouping, stable download, provenance и redistribution boundary.
+
+[C2 exact inventory](../development/physical-sound-r3a-v12-c2-internet-source-zero-decode-inventory-2026-08-31.md)
+принимает ObjectFolder-Real как stable paired source с узким claim. Raw
+`mic.wav + Force.wav` и coordinate/geometry lineage доказаны без нового decode;
+live endpoint сохранил length/ETag. Numeric listener pose, per-object support и
+SI calibration не опубликованы, поэтому первая модель ограничена canonical
+setup и normalized instrument counts. Старые object-51 contacts являются
+structural witness, но не fresh C3/C4 target.
 
 Кандидат без paired force+mic может быть validator/control source, но не учит
 абсолютный force→response transfer. Кандидат без geometry/contact axes не
@@ -229,9 +238,10 @@ Accepted ADR. До этого SPEC-45 остаётся `Proposed` и authored cl
 1. `C0–C1c`: `COMPLETE`; B1R3 result/rebaseline, frozen C1 protocol, runner,
    paired preflights and byte-identical run A/B evidence are in Git or external
    evidence roots as appropriate.
-2. `C2a` — next: web source report with official URLs, versions and axis matrix; zero
-   waveform decode.
-3. `C3`: source/role manifest and read budgets only after C1+C2 pass.
+2. `C2a`: `COMPLETE`; official URLs, versions, axis matrix and zero-decode
+   structural witness are recorded.
+3. `C3` — next: fresh source/role manifest and read budgets; PCM remains closed
+   until its committed preflight passes.
 4. `C4`: real fit → development → one-shot holdout as separate gates/commits.
 5. `C5–C9`: record schema, controls-first ML, validator, atlas and admission as
    independently reviewable artifacts.
