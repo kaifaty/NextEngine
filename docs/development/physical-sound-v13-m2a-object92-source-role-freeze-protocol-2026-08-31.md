@@ -55,7 +55,7 @@ regular files and fail closed on any byte or hash mismatch:
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
-| M1c `shortlist.json` | exact file size from input | `0bd87fc3…f6d7` |
+| M1c `shortlist.json` | `3,375` | `0bd87fc3…f6d7` |
 | `DATA_real/audio.tar.gz` | `463,486,373` | `14a15b96…a2c9` |
 | `DATA_real/contacts.tar.gz` | `121,961` | `310c45e1…eeee` |
 | `DATA_real/global_gt_points.tar.gz` | `2,359,020` | `29ebf37b…7e51` |
