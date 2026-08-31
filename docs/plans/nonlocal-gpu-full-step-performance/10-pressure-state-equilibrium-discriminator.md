@@ -1,6 +1,6 @@
 # NCGP12 — correctness-first Nonlocal pressure-state discriminator
 
-Status: `FROZEN / CPU_ONLY / IMPLEMENTATION_NEXT`
+Status: `FROZEN_REVISION_2 / CPU_ONLY / IMPLEMENTATION_NEXT`
 
 Date: `2026-08-31`
 
@@ -102,15 +102,20 @@ All norms use deterministic ascending-index accumulation.
 
 1. Kernel/density/Jacobian admission:
    - finite values and no duplicate IDs;
-   - maximum relative directional `Jv` error against a centred finite
-     difference with `epsilon=2^-20 * spacing`: `<= 2e-7`;
+   - use the stable-ID direction
+     `v_i=((id mod 17)-8,(id mod 13)-6,(id mod 11)-5)` and normalize the
+     complete vector to unit L2 norm;
+   - relative L2 `Jv` error against a centred finite difference with
+     `epsilon=2^-20 * spacing`, normalized by the larger analytic/finite-
+     difference norm: `<= 2e-7`;
    - relative symmetry error of `A`: `<= 2e-12`.
 2. Pressure solve:
    - every multiplier is finite and `>=0`;
    - normalized primal violation
      `||max(b-A lambda,0)||_2 / max(||max(b,0)||_2,1e-30) <= 1e-8`;
-   - normalized projected KKT residual
-     `||min(lambda,A lambda-b)||_2 / max(||b||_2,1e-30) <= 1e-8`;
+   - define the dimensionless projected KKT row
+     `r_i=min(A_ii*lambda_i,(A lambda-b)_i)` and require
+     `||r||_2 / max(||b||_2,1e-30) <= 1e-8`;
    - complementarity
      `max_i |lambda_i (A lambda-b)_i| <= 1e-10 J`;
    - at least one positive multiplier and bottom-layer median pressure larger
@@ -120,7 +125,9 @@ All norms use deterministic ascending-index accumulation.
      L2 `<=2e-12`;
    - exact nonlinear density after `x_trial` has maximum positive strain
      `<=1e-3` and RMS positive strain `<=2.5e-4`;
-   - normalized stationarity residual of inertia plus `J^T lambda` `<=1e-8`;
+   - normalized stationarity residual
+     `||(mass/dt^2)(s-dt^2*g)+J^T lambda||_2 /
+      max(||mass*g||_2,1e-30) <=1e-8`;
    - no particle crosses the analytic inset and no particle/ID/mass is lost.
 
 Mandatory controls:
@@ -165,3 +172,14 @@ The experiment is motivated by, but does not inherit correctness from:
 The external papers support the distinction between penalty pressure and an
 implicit incompressibility solve. They do not prove this fixture, operator,
 boundary treatment or implementation.
+
+## Revision 2 correction
+
+Revision 1 was frozen before implementation and then rejected by the required
+independent dimensional audit. Its expression
+`min(lambda,A lambda-b)` mixed an energy-valued multiplier with a
+dimensionless dual gradient, and its stationarity normalization was
+underspecified. Revision 2 replaces that KKT map with the dimensionless
+`min(A_ii*lambda_i,(A lambda-b)_i)`, defines force normalization, and fixes the
+single finite-difference direction. No executable result existed and no
+observed number informed this correction.
