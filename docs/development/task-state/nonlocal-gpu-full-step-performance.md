@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP5_SUPPORTED_H5E / PRODUCT_GATE_DECISION_REQUIRED` |
+| Status | `ACTIVE / NCGP6_CONTRACT_FROZEN / IMPLEMENTATION_NEXT` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,11 +19,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP5 reproduced the step-92 outlier and found no local
-  formula/operator/solver mismatch. The GPU reaches the lower wall one step
-  after the CPU; synchronized same-state one-step max error is only
-  `0.336541 um`. NCGP5 selects no code repair. A separately authorized
-  product-level trajectory gate is required before timing.
+- **Current action:** the user explicitly authorized NCGP6. Long independently
+  evolved trajectories now gate `RMSE <= 2.5 mm` and nearest-rank
+  `p99 <= 2.5 mm`; maximum per-particle error remains sealed diagnostic.
+  Strict same-state/operator and every physical invariant remain unchanged.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -32,6 +31,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/00-ncgp4-solver-diagnosis-contract.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/01-unpreconditioned-selection.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/02-step92-outlier-diagnosis.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/03-product-trajectory-gate.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/task-state/nonlocal-gpu-compensated-scale.md`
 - `docs/development/nonlocal-gpu-compensated-scale-evidence-2026-08-30.md`
@@ -125,6 +125,23 @@
   long-trajectory metric while retaining same-state operator and invariant
   controls.
 
+### D-005 — Freeze the authorized product trajectory gate
+
+- **Observation:** individual water-sample identity is not a visible product
+  property after nonlinear contact, while same-state formula correctness and
+  mass/density/momentum/energy/containment remain load-bearing.
+- **Decision:** the user explicitly authorized NCGP6. At every 4k trajectory
+  step require `RMSE <= 2.5 mm` and nearest-rank `p99 <= 2.5 mm`; report and
+  seal maximum error without using it as the long-horizon rejection gate.
+- **Guardrail:** retain `<= 5 um` same-state/first-step maxima, exact active
+  signatures on identical state, exact GPU permutation and all physical,
+  failure, work and identity controls. NCGP4 remains failed under its old gate.
+- **Consequence:** implement the frozen gate, then restart the complete order;
+  performance is still `NOT_RUN` until 4k, 16k/50k and sealed-basin
+  correctness pass.
+- **Reconsider when:** only a new measured physical or implementation failure,
+  not the old step-92 per-particle maximum.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -149,10 +166,8 @@
 
 ## Next action
 
-1. Obtain an explicit product decision on a successor long-trajectory gate;
-   do not silently rewrite the failed NCGP4 `5 mm` result.
-2. If authorized, freeze NCGP6 before code: retain tiny/same-state/operator,
-   permutation, density, momentum, energy, mass, containment and failure gates;
-   define the long-horizon position distribution and contact-event rule.
-3. Restart the complete correctness order under that successor.
-4. Run 16k/50k capacity and two-process full-step timing only after it passes.
+1. Implement the NCGP6 gate self-test and root-closed 4k RMSE/p99 route without
+   changing physics or the old NCGP4 route.
+2. Run retained controls, then hydro/dam/orifice for 240 steps at budget 128.
+3. If all pass, run 16k/50k capacity and 240-step 50k sealed-basin correctness.
+4. Only then execute the two-process complete-step timing protocol.
