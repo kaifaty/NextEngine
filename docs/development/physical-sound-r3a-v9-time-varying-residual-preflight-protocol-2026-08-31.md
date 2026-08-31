@@ -39,10 +39,13 @@ The explicit path uses `16` global frequencies and damping values with
 contact-dependent sine/cosine gains. Noise-band phase is never asked to carry
 stable modal identity.
 
-The synthetic object uses a deterministic `7 × 7` surface grid. Context points
-are selected by the existing deterministic farthest-point rule; all remaining
-points are query. Neither query latent nor query audio contributes to feature
-normalization, optimizer state, stopping, capacity or thresholds.
+The synthetic object uses a deterministic `7 × 7` surface grid. Exactly `24`
+context points are selected by the existing deterministic farthest-point rule;
+the remaining `25` points are query. Neither query latent nor query audio
+contributes to feature normalization, optimizer state, stopping, capacity or
+thresholds. Query evaluation holds the exact modal gains fixed and varies only
+the residual latent, isolating the new V9 hypothesis from the already-passed
+V8 modal-field substrate.
 
 ## Frozen model and budgets
 
@@ -103,4 +106,3 @@ while still requiring every query to pass envelope structure.
 
 No post-result threshold change, third capacity or object-91 repair is allowed.
 Any successor must receive a new revision and new source-disjoint roles.
-
