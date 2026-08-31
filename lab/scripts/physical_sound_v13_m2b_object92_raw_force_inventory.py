@@ -253,6 +253,16 @@ def prepare_output(output: Path) -> tuple[Path, Path]:
     return resolved, staging
 
 
+def inventory_decision(complete: bool, reached_next_object: bool, checkpoint_gib: int) -> str:
+    if complete:
+        return "READY_FOR_M2C_REALIMPACT_CONTROL_FREEZE"
+    if reached_next_object:
+        return "SOURCE_INCOMPLETE_OBJECT92"
+    if checkpoint_gib < max(CHECKPOINTS_GIB):
+        return "DATA_INSUFFICIENT_CHECKPOINT_EXTEND_WITHIN_PROTOCOL"
+    return "DATA_INSUFFICIENT_ACQUISITION"
+
+
 def run(
     parent_manifest_argument: Path,
     parent_report_argument: Path,
@@ -314,12 +324,7 @@ def run(
             }
         )
 
-    if complete:
-        decision = "READY_FOR_M2C_REALIMPACT_CONTROL_FREEZE"
-    elif checkpoint_gib < max(CHECKPOINTS_GIB):
-        decision = "DATA_INSUFFICIENT_CHECKPOINT_EXTEND_WITHIN_PROTOCOL"
-    else:
-        decision = "DATA_INSUFFICIENT_ACQUISITION"
+    decision = inventory_decision(complete, reached_next_object, checkpoint_gib)
     read_accounting = {
         "network_requests": 0,
         "prefix_bytes_hash_verified": prefix_path.stat().st_size,
@@ -338,7 +343,13 @@ def run(
     }
     manifest = {
         "schema": MANIFEST_SCHEMA,
-        "status": "CompleteZeroSampleInventory" if complete else "IncompleteCheckpoint",
+        "status": (
+            "CompleteZeroSampleInventory"
+            if complete
+            else "RejectedIncompleteSource"
+            if reached_next_object
+            else "IncompleteCheckpoint"
+        ),
         "decision": decision,
         "object_id": OBJECT_ID,
         "claim_ceiling": "canonical_impact_field",
@@ -368,7 +379,13 @@ def run(
     missing = sorted(expected - set(found))
     report = {
         "schema": REPORT_SCHEMA,
-        "status": "Validated" if complete else "DataInsufficient",
+        "status": (
+            "Validated"
+            if complete
+            else "Rejected"
+            if reached_next_object
+            else "DataInsufficient"
+        ),
         "decision": decision,
         "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
         "checkpoint_gib": checkpoint_gib,

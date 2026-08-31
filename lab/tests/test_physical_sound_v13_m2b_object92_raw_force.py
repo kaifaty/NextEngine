@@ -137,6 +137,20 @@ class RawForceM2bTests(unittest.TestCase):
         self.assertEqual(contacts, {0})
         self.assertTrue(reached_next)
 
+    def test_next_object_proves_terminal_source_incompleteness(self) -> None:
+        self.assertEqual(
+            inventory.inventory_decision(False, True, 8),
+            "SOURCE_INCOMPLETE_OBJECT92",
+        )
+        self.assertEqual(
+            inventory.inventory_decision(False, False, 8),
+            "DATA_INSUFFICIENT_CHECKPOINT_EXTEND_WITHIN_PROTOCOL",
+        )
+        self.assertEqual(
+            inventory.inventory_decision(False, False, 12),
+            "DATA_INSUFFICIENT_ACQUISITION",
+        )
+
     def test_repository_outputs_are_rejected(self) -> None:
         with self.assertRaisesRegex(inventory.InventoryError, "outside the repository"):
             inventory.prepare_output(inventory.repository_root() / "forbidden-m2b")
