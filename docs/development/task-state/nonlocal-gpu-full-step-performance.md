@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP6_CONTRACT_FROZEN / IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE / NCGP6_REFUTED_BOUNDED / EULERIAN_DECISION_REQUIRED` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,10 +19,11 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** the user explicitly authorized NCGP6. Long independently
-  evolved trajectories now gate `RMSE <= 2.5 mm` and nearest-rank
-  `p99 <= 2.5 mm`; maximum per-particle error remains sealed diagnostic.
-  Strict same-state/operator and every physical invariant remain unchanged.
+- **Current action:** NCGP6 reproduces exactly but hydrostatic hold fails at
+  step 112: position p99 is `2.576883 mm > 2.5 mm`. Same-state first-step
+  maximum is `0.113995 um` and the physical invariants pass. The next bounded
+  discriminator is a fixed-grid Eulerian comparison, subject to an explicit
+  product decision before it can replace any gate.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -33,6 +34,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/02-step92-outlier-diagnosis.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/03-product-trajectory-gate.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
+- `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/task-state/nonlocal-gpu-compensated-scale.md`
 - `docs/development/nonlocal-gpu-compensated-scale-evidence-2026-08-30.md`
 - `docs/plans/nonlocal-gpu-compensated-scale/00-compensated-scale-contract.md`
@@ -142,6 +144,32 @@
 - **Reconsider when:** only a new measured physical or implementation failure,
   not the old step-92 per-particle maximum.
 
+### D-006 — Close NCGP6 at the frozen p99 gate
+
+- **Observation:** two clean byte-identical Release builds and two independent
+  hydrostatic runs stop at step 112 with position p99
+  `2.576882866 mm > 2.5 mm`; RMSE is `0.780996279 mm` and the diagnostic
+  maximum is `20.810782528 mm`.
+- **Evidence:** binary SHA-256
+  `9e3e1f072b3a9ced7f5e2e42a8e35a457a8ee59c5d1ad158c879a7a53af3c2c0`,
+  raw stdout SHA-256
+  `5ff5d205078534ff62e3e98cb46bfe5dd79a1b9c05c8d02cc24e701e10dbc31a`,
+  result root
+  `4e72a97b1add42e7c58f839fc66dd918879b4325c23f75e5e5f1cf696ea57009`.
+- **Conclusion:** NCGP6 is a real bounded failure, but its stable-ID p99 does
+  not by itself decide whether the visible/macroscopic water state is wrong.
+  Same-state first-step maximum is `0.113995 um`; density, compression,
+  momentum, energy, containment and exact GPU permutation pass.
+- **Decision:** stop the frozen sequence. Dam/orifice, 16k/50k, sealed-basin
+  50k and performance remain `NOT_RUN`. Do not loosen p99 after observing it.
+  Prepare a separately frozen Eulerian field diagnostic before asking for a
+  product gate decision.
+- **Rejected:** timing the passing 112-step prefix, calling the maximum or p99
+  harmless without a field comparison, or treating physical invariants alone
+  as proof of acceptable water behavior.
+- **Reconsider when:** the exact step-112 CPU/GPU states have root-closed
+  fixed-grid mass/density/free-surface evidence at predeclared resolutions.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -154,6 +182,9 @@
 | H5B | boundary/contact semantics diverge | contact timing differs after accumulated divergence, but same-state one-step passes | no repair selected |
 | H5C/H5D | compensated operator or solver/publication mismatch | falsified on exact witness by same-state gradient/HVP and sub-micrometre complete step | closed for this witness |
 | H5E | admitted nonlinear trajectories separate near contact | supported bounded: smooth max tail, adjacent-step lower-wall event, small RMSE/p99 | product-level gate decision |
+| H7A | stable particle identities separate while Eulerian water fields remain close | plausible: same-state and invariants pass while stable-ID p99 fails | fixed-grid occupancy/density/free-surface comparison at exact step 112 |
+| H7B | the NCGP6 tail reflects a real macroscopic water-state divergence | unresolved | same fixed-grid discriminator must fail if true |
+| H7C | the field verdict is dominated by arbitrary voxel resolution | unresolved | pre-freeze at least two canonical resolutions and require consistent classification |
 
 ## Do not retry
 
@@ -166,8 +197,11 @@
 
 ## Next action
 
-1. Implement the NCGP6 gate self-test and root-closed 4k RMSE/p99 route without
-   changing physics or the old NCGP4 route.
-2. Run retained controls, then hydro/dam/orifice for 240 steps at budget 128.
-3. If all pass, run 16k/50k capacity and 240-step 50k sealed-basin correctness.
-4. Only then execute the two-process complete-step timing protocol.
+1. Freeze a report-only NCGP7 discriminator for the exact step-112 witness:
+   canonical fixed-grid mass/density fields, free-surface height and retained
+   integral/containment observables at predeclared resolutions.
+2. Use it to distinguish H7A, H7B and H7C without changing the failed NCGP6
+   result or admitting timing.
+3. Ask for an explicit product decision on the quantity-of-interest gate.
+4. Only an accepted and passing successor may restart dam/orifice, 16k/50k,
+   sealed-basin correctness and complete-step timing.
