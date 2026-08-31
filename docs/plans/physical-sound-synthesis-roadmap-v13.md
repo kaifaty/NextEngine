@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / M2A_REPEAT_EXACT_PASS / M2B_RAW_FORCE_PROTOCOL_NEXT / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / M2B_REPEAT_EXACT_SOURCE_INCOMPLETE / M2C_REALIMPACT_CONTROL_NEXT / CANONICAL_SOURCE_RECOVERY_REQUIRED / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V12](physical-sound-synthesis-roadmap-v12.md), закрыт на real force coverage |
 | Exact основание | [V12-C4a result](../development/physical-sound-r3a-v12-c4a-object41-real-frf-fit-result-2026-08-31.md) |
 | Research basis | [V13 canonical modal-field research](../development/physical-sound-v13-canonical-modal-field-research-2026-08-31.md) |
@@ -94,7 +94,7 @@ preregistered family revision.
 | --- | --- | --- | --- |
 | M0 | V12 closure | `COMPLETE / REPEAT_EXACT_DATA_INSUFFICIENT` | C4a A/B совпадают; microphone/protected decode `0`; stop rule соблюдён. |
 | M1 | Research Record V0 + exposure ledger | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Experimental schema, lifecycle, prior-exposure census and source shortlist validate without new signal decode. |
-| M2 | Canonical source adapters and role freeze | `IN_PROGRESS / M2A_REPEAT_EXACT_PASS / M2B_NEXT` | Один fresh ObjectFolder exact object и один RealImpact derived-response control получают immutable contact/object roles and budgets. |
+| M2 | Canonical source adapters and role freeze | `IN_PROGRESS / M2B_SOURCE_INCOMPLETE / M2C_NEXT` | Один viable fresh exact object и один RealImpact derived-response control получают immutable contact/object roles and budgets; object 92 закрыт на missing raw metadata. |
 | M3 | Known-truth modal-field oracle | `BLOCKED_BY_M2` | Global poles/damping и spatial gains восстанавливаются на synthetic held contacts; collapse/OOD mutations отвергаются. |
 | M4 | Fresh exact-object formula fit | `BLOCKED_BY_M3` | Fit-only global modes reconstruct every opened contact within absolute gates; no residual/waveform shortcut. |
 | M5 | Held-contact model tournament | `BLOCKED_BY_M4` | Neural modal-gain field wins over KNN, geodesic RBF, barycentric/linear and geometry-agnostic controls, либо объект получает `FallbackOnly`. |
@@ -142,6 +142,14 @@ freeze](../development/physical-sound-v13-m2a-object92-source-role-freeze-result
 representation holdout, validator calibration, validator method holdout и
 admission shadow. M2b должен отдельно заморозить и выполнить bounded raw-force
 prefix inventory; никакой real PCM decode пока не разрешён.
+
+[M2b raw inventory](../development/physical-sound-v13-m2b-object92-raw-force-inventory-result-2026-08-31.md)
+закрыл object `92` как `SOURCE_INCOMPLETE_OBJECT92`: все `36` microphone/force
+пары и их compact identities присутствуют, но
+`92/audio/35/metadata.yaml` отсутствует, а следующий object header уже
+достигнут. Ни contact 35, ни frozen role partition не сокращаются после этого
+наблюдения. M2c теперь фиксирует RealImpact control; отдельный M2d должен
+выбрать новую viable canonical source revision до real fitting.
 
 ### RealImpact derived-response lane
 
@@ -237,11 +245,15 @@ ProductChecks. SPEC-45 до этого остаётся `Proposed`.
 5. `M2a` — `COMPLETE / REPEAT_EXACT_ZERO_SAMPLE`: object `92` selected by
    signal-blind metadata; [source/role result](../development/physical-sound-v13-m2a-object92-source-role-freeze-result-2026-08-31.md)
    freezes all `36` contacts and reports zero PCM/force samples decoded.
-6. `M2b` — next: preregister bounded raw object-92 force inventory and freeze
-   the independent RealImpact derived-response control without signal decode.
-7. `M3a–M5a`: known-truth oracle, fit-only formula, then held tournament as
+6. `M2b` — `CLOSED / REPEAT_EXACT_SOURCE_INCOMPLETE`: [8-GiB inventory](../development/physical-sound-v13-m2b-object92-raw-force-inventory-result-2026-08-31.md)
+   proves one missing object-92 metadata member with zero sample decode.
+7. `M2c` — next: freeze one RealImpact derived-response control, five impact
+   parents, canonical listener row and leave-one-impact-out budgets.
+8. `M2d` — select a new viable fresh canonical source revision from
+   `59/82/93` or a new internet source; no object-92 role reduction.
+9. `M3a–M5a`: known-truth oracle, fit-only formula, then held tournament as
    separate commits with hard stop rules.
-8. `M6–M9`: batch, validator, cooker and shadow admission independently.
+10. `M6–M9`: batch, validator, cooker and shadow admission independently.
 
 ## Definition of done
 
