@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V12 / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_ROLE_FREEZE_NEXT / REAL_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V12 / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_PROTOCOL_FROZEN / C3_RUNNER_NEXT / REAL_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -29,9 +29,9 @@
   `69145ba7…912b`; `6/7` modes, zero false positives and zero holdout.
 - **C1 evidence:** [repeat-exact result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md);
   manifest/model/report `67b2c472…a7b2`/`11f75af9…ca6c`/`33371827…e85f`.
-- **Next action:** C3 chooses a fresh exact object, freezes six disjoint roles,
-  source/geometry hashes and read budgets, then commits zero-read preflight
-  evidence before any raw-channel decode.
+- **Next action:** implement the preregistered object-41 bounded importer, then
+  freeze its manifest and reproduce paired zero-read preflights before any
+  signal-sample decode.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -246,5 +246,5 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** C3 fresh source/role manifest, read budgets and
-  zero-read preflight. Authored clips remain the product path.
+- **Next commit boundary:** C3 bounded importer plus focused tests, followed by
+  separate freeze/preflight/inventory evidence. Authored clips remain the path.

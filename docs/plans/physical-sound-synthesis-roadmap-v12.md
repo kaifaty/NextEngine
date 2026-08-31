@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_ROLE_FREEZE_NEXT / REAL_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_PROTOCOL_FROZEN / C3_RUNNER_NEXT / REAL_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V11](physical-sound-synthesis-roadmap-v11.md), закрыт после B1R3 |
 | Exact основание | [C1 repeat-exact result](../development/physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -89,7 +89,7 @@ flowchart LR
 | C0 | B1R3 exact result и V12 rebaseline | `COMPLETE / REPRODUCIBLE` | Два запуска и все артефакты byte-identical; reject и нулевой holdout зафиксированы. |
 | C1 | Coverage-certified known-truth oracle | `COMPLETE / REPEAT_EXACT_PASS` | Все acquisition-supported truth modes восстановлены, unsupported controls не изобретены, held responses и OOD gates проходят дважды побитово. |
 | C2 | Internet-source zero-decode inventory | `COMPLETE / NARROWED_SOURCE_PASS` | Найден хотя бы один stable paired force+mic source с доказуемыми axes/lineage; PCM не читается. |
-| C3 | Source role freeze и bounded importer | `NEXT / PCM_STILL_CLOSED` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
+| C3 | Source role freeze и bounded importer | `PROTOCOL_FROZEN / RUNNER_NEXT / PCM_STILL_CLOSED` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
 | C4 | Real transfer-response model | `BLOCKED_BY_C3` | Fit и development проходят против raw-H1, impulse, peak-picking и nearest controls; one-shot holdout подтверждает перенос. |
 | C5 | Physical Sound Record V1 | `BLOCKED_BY_C4` | Версионированная external record-база хранит poles, damping, contact residues, coverage/OOD и provenance без waveform в Git. |
 | C6 | Exact-object contact ML | `BLOCKED_BY_C5` | Geometry/contact model выигрывает у nearest, RBF/barycentric и linear-basis controls на unseen parent groups. |
@@ -177,6 +177,11 @@ estimator fit, generator development, representation holdout, validator
 calibration, validator method holdout и admission shadow. Decode начинается
 только после hash-closed manifest и exact budgets.
 
+[C3 protocol](../development/physical-sound-r3a-v12-c3-object41-source-role-freeze-protocol-2026-08-31.md)
+выбирает fresh `41 / Wrench_Large / Steel`, 35 contacts и signal-blind
+SHA-256 partition `16/5/4/4/3/3`. Raw scan ограничен первыми `4 GiB`; неполный
+объект закрывает revision как `DATA_INSUFFICIENT_RAW_PREFIX` без расширения.
+
 ## C4–C6 — от реального отклика к формулам и ML
 
 Одна запись превращается не в «эталонный WAV», а в проверяемый record:
@@ -240,10 +245,12 @@ Accepted ADR. До этого SPEC-45 остаётся `Proposed` и authored cl
    evidence roots as appropriate.
 2. `C2a`: `COMPLETE`; official URLs, versions, axis matrix and zero-decode
    structural witness are recorded.
-3. `C3` — next: fresh source/role manifest and read budgets; PCM remains closed
-   until its committed preflight passes.
-4. `C4`: real fit → development → one-shot holdout as separate gates/commits.
-5. `C5–C9`: record schema, controls-first ML, validator, atlas and admission as
+3. `C3a`: `COMPLETE`; fresh target, six roles and `4 GiB` stop rule are
+   preregistered before runner.
+4. `C3b` — next: bounded importer, freeze and paired zero-read preflights;
+   PCM remains closed until repeat-exact inventory passes.
+5. `C4`: real fit → development → one-shot holdout as separate gates/commits.
+6. `C5–C9`: record schema, controls-first ML, validator, atlas and admission as
    independently reviewable artifacts.
 
 ## Definition of done
