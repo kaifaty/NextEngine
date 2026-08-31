@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP6_REFUTED_BOUNDED / EULERIAN_DECISION_REQUIRED` |
+| Status | `ACTIVE / NCGP7_CONTRACT_FROZEN / IMPLEMENTATION_NEXT` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,11 +19,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP6 reproduces exactly but hydrostatic hold fails at
-  step 112: position p99 is `2.576883 mm > 2.5 mm`. Same-state first-step
-  maximum is `0.113995 um` and the physical invariants pass. The next bounded
-  discriminator is a fixed-grid Eulerian comparison, subject to an explicit
-  product decision before it can replace any gate.
+- **Current action:** the user explicitly authorized the report-only NCGP7
+  discriminator. Replay exact hydrostatic step 112 and compare canonical
+  50 mm/25 mm mass, density, velocity and free-surface fields. This cannot
+  replace NCGP6 or admit timing without a later product decision.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -33,6 +32,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/01-unpreconditioned-selection.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/02-step92-outlier-diagnosis.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/03-product-trajectory-gate.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/04-eulerian-step112-diagnostic.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/task-state/nonlocal-gpu-compensated-scale.md`
