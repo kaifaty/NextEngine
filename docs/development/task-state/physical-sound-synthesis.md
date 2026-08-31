@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V13 / M2B_REPEAT_EXACT_SOURCE_INCOMPLETE / M2C_REALIMPACT_CONTROL_NEXT / CANONICAL_SOURCE_RECOVERY_REQUIRED / MEASURED_TRANSFER_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V13 / M2C_REPEAT_EXACT_CONTROL_PASS / M2D_CANONICAL_SOURCE_RECOVERY_NEXT / MEASURED_TRANSFER_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External exact-object modal-field research, deterministic clip cooker and independent automatic validation |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** V13-M2b closes ObjectFolder object `92 / Glass_Red`
-  as `SOURCE_INCOMPLETE_OBJECT92`: all `36` raw microphone/force pairs exist,
-  but contact `35` lacks `metadata.yaml` before the object-93 boundary.
-- **Exact evidence:** [M2b result](../physical-sound-v13-m2b-object92-raw-force-inventory-result-2026-08-31.md),
-  prefix `ec9bdbc2…cdab`, repeated manifest `7762182d…3464`, report
-  `874bfb70…142a`; every sample/numeric-force counter remains zero.
+- **Current conclusion:** V13-M2c repeat-exact binds RealImpact
+  `93_GreenGoblet` as metadata-only derived-response control with five impact
+  parents/folds; audio bytes and samples read are zero.
+- **Exact evidence:** [M2c result](../physical-sound-v13-m2c-realimpact-five-impact-control-result-2026-08-31.md),
+  manifest `c003ace2…b3a8`, report `afb9ae5c…e8af`; object 92 remains closed by
+  [M2b](../physical-sound-v13-m2b-object92-raw-force-inventory-result-2026-08-31.md).
 - **Rebaseline:** [Roadmap V13](../../plans/physical-sound-synthesis-roadmap-v13.md)
   separates `CanonicalImpactField` from the stronger, currently blocked
   `MeasuredTransferField` claim.
@@ -28,9 +28,8 @@
   byte-identical builds with zero build-time source/signal access.
 - **M1c result:** [historical census](../physical-sound-v13-m1c-historical-census-and-shortlist-result-2026-08-31.md)
   closes M1 and leaves fresh glass candidates `59/82/92/93`.
-- **Next action:** freeze one RealImpact derived-response control with five
-  impact parents and one canonical listener row, then research a new viable
-  canonical source revision; sample decode remains forbidden.
+- **Next action:** bounded M2d source-feasibility research and preregistered
+  choice of a viable fresh canonical source; sample decode remains forbidden.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -54,7 +53,7 @@
 | V12 C2–C3 | `COMPLETE / REPEAT_EXACT_PASS` | ObjectFolder object `41` and six signal-blind roles are hash-frozen. |
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
-| V13 M2–M5 | `M2B_SOURCE_INCOMPLETE / M2C_NEXT / M3_M5_BLOCKED` | Object 92 is closed structurally; RealImpact control and canonical-source recovery remain before real work. |
+| V13 M2–M5 | `M2C_CONTROL_PASS / M2D_NEXT / M3_M5_BLOCKED` | RealImpact control is exact; canonical-source recovery remains before real work. |
 | V13 M6–M9 | `BLOCKED` | Multi-object batch, validator, cooker and shadow admission need a held winner. |
 | V13 M10–M11 | `BLOCKED / ADR_REQUIRED` | Material expansion and a production prop are not authorized. |
 
@@ -129,6 +128,15 @@
 - **Decision:** close object 92 without role reduction. Continue independent
   M2c control freeze, then choose a different preregistered canonical source.
 
+## Material transition: M2c closes the derived-response control
+
+- **Observation:** Green Goblet metadata exposes five distinct impact parents
+  over one repeated 600-listener grid.
+- **Evidence:** two metadata-only runs are byte-identical; eight exact ranges
+  read `563,002` compressed bytes and zero audio bytes each.
+- **Conclusion:** five leave-one-impact-out control folds are now exact.
+- **Decision:** M2c is complete; M2d must recover a fresh canonical source.
+
 ## Durable negative knowledge
 
 - R2 direct/phase, separable and low-rank listener fields collapse or lose
@@ -197,6 +205,8 @@ Read in precedence order:
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 3. [Roadmap V13](../../plans/physical-sound-synthesis-roadmap-v13.md),
+   [M2c protocol](../physical-sound-v13-m2c-realimpact-five-impact-control-protocol-2026-08-31.md),
+   [M2c result](../physical-sound-v13-m2c-realimpact-five-impact-control-result-2026-08-31.md),
    [M2b protocol](../physical-sound-v13-m2b-object92-raw-force-inventory-protocol-2026-08-31.md),
    [M2b result](../physical-sound-v13-m2b-object92-raw-force-inventory-result-2026-08-31.md),
    [M2a protocol](../physical-sound-v13-m2a-object92-source-role-freeze-protocol-2026-08-31.md),
@@ -223,5 +233,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V13 M2c RealImpact five-impact control freeze; no
-  new signal decode, followed by a separately frozen canonical-source choice.
+- **Next commit boundary:** V13 M2d source-feasibility report and immutable
+  canonical-source choice; no new signal decode.

@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / M2B_REPEAT_EXACT_SOURCE_INCOMPLETE / M2C_REALIMPACT_CONTROL_NEXT / CANONICAL_SOURCE_RECOVERY_REQUIRED / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / M2C_REPEAT_EXACT_CONTROL_PASS / M2D_CANONICAL_SOURCE_RECOVERY_NEXT / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V12](physical-sound-synthesis-roadmap-v12.md), закрыт на real force coverage |
 | Exact основание | [V12-C4a result](../development/physical-sound-r3a-v12-c4a-object41-real-frf-fit-result-2026-08-31.md) |
 | Research basis | [V13 canonical modal-field research](../development/physical-sound-v13-canonical-modal-field-research-2026-08-31.md) |
@@ -94,7 +94,7 @@ preregistered family revision.
 | --- | --- | --- | --- |
 | M0 | V12 closure | `COMPLETE / REPEAT_EXACT_DATA_INSUFFICIENT` | C4a A/B совпадают; microphone/protected decode `0`; stop rule соблюдён. |
 | M1 | Research Record V0 + exposure ledger | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Experimental schema, lifecycle, prior-exposure census and source shortlist validate without new signal decode. |
-| M2 | Canonical source adapters and role freeze | `IN_PROGRESS / M2B_SOURCE_INCOMPLETE / M2C_NEXT` | Один viable fresh exact object и один RealImpact derived-response control получают immutable contact/object roles and budgets; object 92 закрыт на missing raw metadata. |
+| M2 | Canonical source adapters and role freeze | `IN_PROGRESS / REALIMPACT_CONTROL_PASS / CANONICAL_SOURCE_RECOVERY_NEXT` | RealImpact control exact; один viable fresh canonical exact object ещё должен получить immutable source/contact roles after object-92 rejection. |
 | M3 | Known-truth modal-field oracle | `BLOCKED_BY_M2` | Global poles/damping и spatial gains восстанавливаются на synthetic held contacts; collapse/OOD mutations отвергаются. |
 | M4 | Fresh exact-object formula fit | `BLOCKED_BY_M3` | Fit-only global modes reconstruct every opened contact within absolute gates; no residual/waveform shortcut. |
 | M5 | Held-contact model tournament | `BLOCKED_BY_M4` | Neural modal-gain field wins over KNN, geodesic RBF, barycentric/linear and geometry-agnostic controls, либо объект получает `FallbackOnly`. |
@@ -157,6 +157,13 @@ prefix inventory; никакой real PCM decode пока не разрешён.
 geometry and coordinates как relative derived transfer/control. Он не получает
 raw-force provenance. Leave-one-impact-out проверяет только canonical/derived
 modal field; listener blocks могут стать radiation evidence позже.
+
+[M2c result](../development/physical-sound-v13-m2c-realimpact-five-impact-control-result-2026-08-31.md)
+repeat-exact фиксирует `93_GreenGoblet`: пять distinct impact parents, пять
+leave-one-impact-out folds и canonical listener rows
+`7/607/1207/1807/2407`. Два запуска читают только `563,002` compressed metadata
+bytes каждый; audio compressed/sample bytes равны нулю. Control lane закрыт,
+но он не заменяет fresh canonical object.
 
 ## M3–M5 — формула и ML tournament
 
@@ -247,9 +254,9 @@ ProductChecks. SPEC-45 до этого остаётся `Proposed`.
    freezes all `36` contacts and reports zero PCM/force samples decoded.
 6. `M2b` — `CLOSED / REPEAT_EXACT_SOURCE_INCOMPLETE`: [8-GiB inventory](../development/physical-sound-v13-m2b-object92-raw-force-inventory-result-2026-08-31.md)
    proves one missing object-92 metadata member with zero sample decode.
-7. `M2c` — next: freeze one RealImpact derived-response control, five impact
-   parents, canonical listener row and leave-one-impact-out budgets.
-8. `M2d` — select a new viable fresh canonical source revision from
+7. `M2c` — `COMPLETE / REPEAT_EXACT_METADATA_ONLY`: [RealImpact result](../development/physical-sound-v13-m2c-realimpact-five-impact-control-result-2026-08-31.md)
+   freezes five impact parents/folds with zero audio bytes.
+8. `M2d` — next: select a new viable fresh canonical source revision from
    `59/82/93` or a new internet source; no object-92 role reduction.
 9. `M3a–M5a`: known-truth oracle, fit-only formula, then held tournament as
    separate commits with hard stop rules.
