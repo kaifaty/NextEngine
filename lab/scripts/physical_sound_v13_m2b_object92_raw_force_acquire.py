@@ -212,13 +212,26 @@ def acquire(
     seed = require_seed(seed_argument)
     root = prepare_root(root_argument)
     chunks: list[Path] = []
-    requests: list[dict[str, Any]] = []
+    prior_requests: list[dict[str, Any]] = []
+    prior_checkpoints = [value for value in CHECKPOINTS_GIB if value < checkpoint_gib]
+    if prior_checkpoints:
+        prior_checkpoint = max(prior_checkpoints)
+        prior_report_path = root / f"acquisition-report-{prior_checkpoint}g.json"
+        if prior_report_path.exists():
+            prior = json.loads(prior_report_path.read_bytes())
+            if prior.get("schema") != REPORT_SCHEMA or prior.get("checkpoint_gib") != prior_checkpoint:
+                raise AcquisitionError("prior acquisition report changed")
+            prior_requests = list(prior.get("requests", []))
+    invocation_requests: list[dict[str, Any]] = []
     for index in range(checkpoint_gib):
         chunk, new_requests = build_chunk(root / "chunks", index, seed)
         chunks.append(chunk)
-        requests.extend(new_requests)
+        invocation_requests.extend(new_requests)
         print(f"chunk {index + 1}/{checkpoint_gib} ready", flush=True)
     prefix, prefix_sha256 = assemble_prefix(root, chunks, checkpoint_gib)
+    requests = prior_requests + invocation_requests
+    if len(requests) > 12:
+        raise AcquisitionError("cumulative contributing range response budget exceeded")
     report = {
         "schema": REPORT_SCHEMA,
         "status": "Acquired",
@@ -238,8 +251,12 @@ def acquire(
         "parent_manifest_sha256": PARENT_MANIFEST_SHA256,
         "parent_report_sha256": PARENT_REPORT_SHA256,
         "exact_seed_used": seed is not None,
-        "network_requests_this_invocation": len(requests),
-        "network_payload_bytes_this_invocation": sum(item["bytes"] for item in requests),
+        "network_requests_total": len(requests),
+        "network_payload_bytes_total": sum(item["bytes"] for item in requests),
+        "network_requests_this_invocation": len(invocation_requests),
+        "network_payload_bytes_this_invocation": sum(
+            item["bytes"] for item in invocation_requests
+        ),
         "requests": requests,
         "microphone_sample_values_decoded": 0,
         "force_sample_values_decoded": 0,
