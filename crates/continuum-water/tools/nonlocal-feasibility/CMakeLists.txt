@@ -185,6 +185,12 @@ add_executable(
     src/corrected_cuda_assembly_reference.cpp
     src/sha256.cpp
 )
+add_executable(
+    nonlocal-corrected-cpu-pressure-contact
+    src/corrected_cpu_pressure_contact_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/sha256.cpp
+)
 set(NCGP1_SOURCE_FILES
     CMakeLists.txt
     src/corrected_cuda_full_step.hpp
@@ -897,6 +903,52 @@ target_compile_options(
 )
 target_link_options(
     nonlocal-corrected-cpu-pressure-state
+    PRIVATE
+        $<$<CONFIG:Release>:-s>
+)
+
+set(NCGP13_SOURCE_FILES
+    CMakeLists.txt
+    src/corrected_cpu_pressure_contact_main.cpp
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP13_SOURCE_MATERIAL "")
+foreach(NCGP13_SOURCE_FILE IN LISTS NCGP13_SOURCE_FILES)
+    file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP13_SOURCE_FILE}"
+        NCGP13_SOURCE_FILE_HASH)
+    string(APPEND NCGP13_SOURCE_MATERIAL
+        "${NCGP13_SOURCE_FILE}:${NCGP13_SOURCE_FILE_HASH}\n")
+endforeach()
+string(SHA256 NCGP13_SOURCE_ROOT "${NCGP13_SOURCE_MATERIAL}")
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/11-pressure-contact-tiny-trajectory.md"
+    NCGP13_CONTRACT_11_ROOT)
+string(SHA256 NCGP13_CONTRACT_ROOT
+    "${NCGP12_CONTRACT_ROOT}:${NCGP13_CONTRACT_11_ROOT}")
+target_compile_definitions(
+    nonlocal-corrected-cpu-pressure-contact
+    PRIVATE
+        NCGP13_CONTRACT_ROOT="${NCGP13_CONTRACT_ROOT}"
+        NCGP13_SOURCE_ROOT="${NCGP13_SOURCE_ROOT}"
+        NCGP13_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP13_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP13_COMPILER_FLAGS="CXX:-O3,-Wall,-Wextra,-Wpedantic,-Werror,-ffp-contract=off,-fno-fast-math"
+)
+target_compile_features(
+    nonlocal-corrected-cpu-pressure-contact PRIVATE cxx_std_17)
+set_target_properties(
+    nonlocal-corrected-cpu-pressure-contact
+    PROPERTIES CXX_EXTENSIONS OFF)
+target_compile_options(
+    nonlocal-corrected-cpu-pressure-contact
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+)
+target_link_options(
+    nonlocal-corrected-cpu-pressure-contact
     PRIVATE
         $<$<CONFIG:Release>:-s>
 )
