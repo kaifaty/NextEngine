@@ -137,6 +137,17 @@ add_executable(
     src/corrected_cuda_assembly_reference.cpp
     src/sha256.cpp
 )
+add_executable(
+    nonlocal-corrected-cuda-eulerian-diagnostic
+    src/corrected_cuda_full_step.cu
+    src/corrected_cuda_compensated_scale_main.cpp
+    src/corrected_cuda_compensated_scale_physics.cpp
+    src/corrected_cuda_eulerian_diagnostic.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/corrected_cuda_full_step_cpu_solver.cpp
+    src/corrected_cuda_assembly_reference.cpp
+    src/sha256.cpp
+)
 set(NCGP1_SOURCE_FILES
     CMakeLists.txt
     src/corrected_cuda_full_step.hpp
@@ -528,6 +539,79 @@ target_compile_options(
 )
 target_link_options(
     nonlocal-corrected-cuda-product-gate
+    PRIVATE
+        $<$<CONFIG:Release>:-s>
+)
+
+set(NCGP7_SOURCE_FILES
+    ${NCGP6_SOURCE_FILES}
+    src/corrected_cuda_eulerian_diagnostic.cpp
+    src/corrected_cuda_eulerian_diagnostic.hpp
+)
+set(NCGP7_SOURCE_MATERIAL "")
+foreach(NCGP7_SOURCE_FILE IN LISTS NCGP7_SOURCE_FILES)
+    file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP7_SOURCE_FILE}"
+        NCGP7_SOURCE_FILE_HASH)
+    string(APPEND NCGP7_SOURCE_MATERIAL
+        "${NCGP7_SOURCE_FILE}:${NCGP7_SOURCE_FILE_HASH}\n")
+endforeach()
+string(SHA256 NCGP7_SOURCE_ROOT "${NCGP7_SOURCE_MATERIAL}")
+file(SHA256
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/04-eulerian-step112-diagnostic.md"
+    NCGP7_CONTRACT_4_ROOT)
+string(SHA256 NCGP7_CONTRACT_ROOT
+    "${NCGP6_CONTRACT_ROOT}:${NCGP7_CONTRACT_4_ROOT}")
+target_compile_definitions(
+    nonlocal-corrected-cuda-eulerian-diagnostic
+    PRIVATE
+        NCGP3_CONTRACT_ROOT="${NCGP3_CONTRACT_ROOT}"
+        NCGP3_SOURCE_ROOT="${NCGP3_SOURCE_ROOT}"
+        NCGP3_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP3_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP3_COMPILER_FLAGS="${NCGP3_COMPILER_FLAGS}"
+        NCGP4_CONTRACT_ROOT="${NCGP4_CONTRACT_ROOT}"
+        NCGP4_SOURCE_ROOT="${NCGP4_SOURCE_ROOT}"
+        NCGP4_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP4_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP4_COMPILER_FLAGS="${NCGP4_COMPILER_FLAGS}"
+        NCGP5_CONTRACT_ROOT="${NCGP5_CONTRACT_ROOT}"
+        NCGP5_SOURCE_ROOT="${NCGP5_SOURCE_ROOT}"
+        NCGP5_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP5_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP5_COMPILER_FLAGS="${NCGP4_COMPILER_FLAGS}"
+        NCGP6_CONTRACT_ROOT="${NCGP6_CONTRACT_ROOT}"
+        NCGP6_SOURCE_ROOT="${NCGP6_SOURCE_ROOT}"
+        NCGP6_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP6_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP6_COMPILER_FLAGS="${NCGP4_COMPILER_FLAGS}"
+        NCGP7_CONTRACT_ROOT="${NCGP7_CONTRACT_ROOT}"
+        NCGP7_SOURCE_ROOT="${NCGP7_SOURCE_ROOT}"
+        NCGP7_SOURCE_COMMIT="${NCGP1_SOURCE_COMMIT}"
+        NCGP7_SOURCE_TREE="${NCGP1_SOURCE_TREE}"
+        NCGP7_COMPILER_FLAGS="${NCGP4_COMPILER_FLAGS}"
+        NCGP2_EXPERIMENTAL=1
+        NCGP3_EXPERIMENTAL=1
+        NCGP4_EXPERIMENTAL=1
+        NCGP5_EXPERIMENTAL=1
+        NCGP6_EXPERIMENTAL=1
+        NCGP7_EXPERIMENTAL=1
+)
+target_compile_features(
+    nonlocal-corrected-cuda-eulerian-diagnostic PRIVATE cxx_std_17 cuda_std_17)
+set_target_properties(
+    nonlocal-corrected-cuda-eulerian-diagnostic
+    PROPERTIES
+        CUDA_ARCHITECTURES 86
+        CUDA_SEPARABLE_COMPILATION OFF
+)
+target_compile_options(
+    nonlocal-corrected-cuda-eulerian-diagnostic
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+        $<$<COMPILE_LANGUAGE:CUDA>:-O3;--fmad=false;--prec-div=true;--prec-sqrt=true;--ftz=false>
+)
+target_link_options(
+    nonlocal-corrected-cuda-eulerian-diagnostic
     PRIVATE
         $<$<CONFIG:Release>:-s>
 )

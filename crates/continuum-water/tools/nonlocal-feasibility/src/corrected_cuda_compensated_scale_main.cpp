@@ -1,5 +1,6 @@
 #include "corrected_cuda_full_step.hpp"
 #include "corrected_cuda_compensated_scale_physics.hpp"
+#include "corrected_cuda_eulerian_diagnostic.hpp"
 #include "sha256.hpp"
 
 #include <algorithm>
@@ -893,7 +894,6 @@ int run_ncgp6_product_gate_self_test() {
     return passed ? 0 : 54;
 }
 #endif
-
 int run_correspondence_4k(const std::string& scenario,
     std::uint32_t steps,
     std::uint32_t budget,
@@ -2757,12 +2757,23 @@ int main(int argc, char** argv) {
             "f32-primary", NonlocalGpuSolverProfile::Unpreconditioned, true);
     }
 #endif
+#if defined(NCGP7_EXPERIMENTAL)
+    if (argc == 2 && std::string(argv[1]) == "--eulerian-field-self-test") {
+        return run_ncgp7_eulerian_self_test();
+    }
+    if (argc == 2
+        && std::string(argv[1]) == "--diagnose-hydro-step112-eulerian") {
+        return run_ncgp7_step112_eulerian_diagnostic();
+    }
+#endif
     std::cerr << "usage: nonlocal-corrected-cuda-compensated-scale "
                  "--profile-self-test|--graph-self-test|--boundary-self-test|"
                  "--transaction-self-test|--physics-self-test|"
                  "--diagnose-hydro-step39|"
                  "--diagnose-hydro-step92-outlier|"
                  "--product-gate-self-test|"
+                 "--eulerian-field-self-test|"
+                 "--diagnose-hydro-step112-eulerian|"
                  "--correspondence-4k SCENARIO STEPS BUDGET|"
                  "--correspondence-4k-unpreconditioned SCENARIO STEPS BUDGET|"
                  "--correspondence-4k-product SCENARIO 240 128|"
