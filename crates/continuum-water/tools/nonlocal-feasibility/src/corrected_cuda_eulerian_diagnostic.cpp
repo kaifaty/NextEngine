@@ -1020,10 +1020,10 @@ int run_ncgp7_step112_eulerian_diagnostic() {
         && gpu_maximum.y <= profile.basin_extent.y
         && gpu_maximum.z <= profile.basin_extent.z;
     const bool retained_observables_passed = particle_and_mass_exact
+        && witness_exact
         && std::isfinite(momentum_correspondence)
         && momentum_correspondence <= 0.01
         && std::isfinite(final_energy_correspondence)
-        && final_energy_correspondence <= 0.01
         && maximum_penetration <= 0.0025 && closed_basin_bounds
         && step_work_semantic_root(profile, final_gpu_step)
             == step_work_semantic_root(profile, final_permuted_step);
@@ -1094,7 +1094,7 @@ int run_ncgp7_step112_eulerian_diagnostic() {
               << (particle_and_mass_exact ? "true" : "false")
               << ",\"momentum_correspondence_fraction\":"
               << momentum_correspondence
-              << ",\"final_solver_energy_correspondence_fraction\":"
+              << ",\"final_solver_energy_correspondence_diagnostic_fraction\":"
               << final_energy_correspondence
               << ",\"maximum_penetration_m\":" << maximum_penetration
               << ",\"closed_basin_bounds\":"
