@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V15 / S0B_COMPLETE / S0C_ROLE_FREEZE_NEXT / METAL_FIRST / WOOD_PENDING / GLASS_FALLBACK_ONLY_SOURCE_GROWTH / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V15 / S0C_SOURCE_INSUFFICIENT / S0D_SOURCE_GROWTH_NEXT / METAL_FIRST / WOOD_PENDING / GLASS_FALLBACK_ONLY_SOURCE_GROWTH / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object neural canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,26 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [S0b](../physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md)
-  is repeat-exact and binds Metal/Wood/Glass YCB vertical parents `9/3/0`;
-  non-ambiguous route-plus-parent counts are `9/2/0`, with zero role credit.
-- **Exact evidence:** OSF snapshot `0efe649d…1645`, capability
-  `7f1b316e…58cf`, cost `03a60ecd…1055`, report `9febc509…6d44`; all
-  audio/video/mesh/archive/force body and decoded-signal counters are zero.
+- **Current conclusion:** [S0c](../physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md)
+  is repeat-exact: Metal has 12 fresh ObjectFolder routes (`4` compact/`8`
+  preflight), 9 YCB parents and zero role-eligible groups under unchanged axes.
+- **Exact evidence:** sufficiency `eecbe019…923d`, decision `f12e769f…e718`,
+  report `2c9fd6b8…4cf3`; all payload/header/signal counters are zero.
 - **Rebaseline:** [Roadmap V15](../../plans/physical-sound-synthesis-roadmap-v15.md)
   keeps the complete `4/1/1/1/1` shape per admitted material and makes AV-MSF's
   modal-field factorization a hypothesis, not an unpublished dependency.
-- **M1a result:** [Research Record V0](../physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md)
-  passes 12 focused guards, repeat-exact synthetic builds and exact
-  current-version roundtrip with all access counters zero.
-- **M1b result:** [Exposure Ledger V0](../physical-sound-v13-m1b-exposure-ledger-v0-result-2026-08-31.md)
-  passes 13 focused guards, including contact/mutation leakage, and two
-  byte-identical builds with zero build-time source/signal access.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** S0c merges exact YCB parents with S0a exposure and either
-  freezes the unchanged Metal `4/1/1/1/1` roles or closes source sufficiency;
-  all real waveform and mesh-body access remains forbidden.
+- **Next action:** S0d resolves generator-only exposure and publisher-side
+  per-object axis/member evidence or finds a new published T2/T3 source; all
+  real waveform, force, mesh-body and protected-signal access remains sealed.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -55,8 +48,8 @@
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
-| V15 S0–S4 | `S0B_COMPLETE / S0C_NEXT / METAL_FIRST / MODEL_BLOCKED` | YCB binds exact Metal/Wood/Glass vertical parents `9/3/0`, but every row remains ineligible until S0c proves axes, exposure and roles. |
-| V15 V0–D0 | `VALIDATOR_DATA_AFTER_S0 / ADMISSION_BLOCKED` | Validator can develop independently after S0; shadow, cooker and demo require a held cross-object winner. |
+| V15 S0–S4 | `S0C_SOURCE_INSUFFICIENT / S0D_NEXT / METAL_FIRST / MODEL_BLOCKED` | No current source fills five generator plus three fresh protected groups; S0d grows published evidence without opening signal. |
+| V15 V0–D0 | `BLOCKED_BY_S0D_ROLE_FREEZE / ADMISSION_BLOCKED` | Validator data, shadow, cooker and demo require a complete source split and held cross-object winner. |
 | V15 G0–P0 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence and a separate Accepted ADR. |
 
 ## Material transition: V12 closes on force coverage
@@ -130,15 +123,16 @@
 - **Decision:** S0a opens only the YCB metadata adapter. Roles and waveform
   access remain blocked until S0b and S0c.
 
-## Material transition: S0b separates YCB parents from aggregates
+## Material transition: S0c closes current-source sufficiency
 
-- **Observation:** the robot vertical tree has exact object parents, while
-  horizontal and manual trees expose only material/aggregate parents.
-- **Evidence:** [S0b result](../physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md)
-  repeats byte-exact over 926 OSF entries with target parent counts `9/3/0`.
-- **Conclusion:** Metal retains a structural pool; Wood is too small/already
-  referenced and Glass has no exact YCB object parent.
-- **Decision:** open only S0c source-sufficiency/role freeze; signal stays sealed.
+- **Observation:** structural candidate counts do not prove the N1a axes,
+  recording-parent identity or protected freshness required for role credit.
+- **Evidence:** [S0c result](../physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md)
+  joins 130 groups, 14 fresh routes and 18 target YCB rows twice byte-exactly.
+- **Conclusion:** Metal/Wood/Glass each have zero `training_usable` and zero
+  `evaluation_complete` groups; all ten Metal RealImpact aliases are exposed.
+- **Decision:** no role freeze and no S1. Open only S0d published-source growth;
+  do not lower `4/1/1/1/1` or speculate with a 393-GB batch preflight.
 
 ## Durable negative knowledge
 
@@ -213,6 +207,7 @@ Read in precedence order:
    [V15 rebaseline](../physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md),
    [S0a result](../physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md),
    [S0b result](../physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md),
+   [S0c result](../physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md),
    [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md),
    [V14 research](../physical-sound-v14-data-first-neural-rebaseline-2026-08-31.md),
    [N1a protocol](../physical-sound-v14-n1a-dataset-contract-v1-protocol-2026-09-01.md),
@@ -246,5 +241,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V15 S0c source-sufficiency and immutable Metal role
-  decision; roles remain unfrozen and real signal remains sealed.
+- **Next commit boundary:** V15 S0d published-source growth protocol and bounded
+  metadata/member preflight; roles remain unfrozen and real signal stays sealed.

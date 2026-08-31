@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ACTIVE_R&D / S0B_COMPLETE / S0C_ROLE_FREEZE_NEXT / METAL_FIRST / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ACTIVE_R&D / S0C_SOURCE_INSUFFICIENT / S0D_SOURCE_GROWTH_NEXT / METAL_FIRST / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V14](physical-sound-synthesis-roadmap-v14.md) as the active execution plan |
 | Evidence basis | [V15 progressive-admission rebaseline](../development/physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -80,9 +80,9 @@ Synthetic teachers can enlarge training but cannot provide protected credit.
 
 | Material | Current evidence | V15 state | Entry condition |
 | --- | --- | --- | --- |
-| Metal | S0a proves `12` unexposed current-source groups; [S0b](../development/physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md) adds `9` exact YCB vertical parent candidates, six with freshness still unassessed | `FIRST_DOMAIN_CANDIDATE` | S0c deduplicates lineages and proves at least eight structurally eligible groups with every required axis. |
-| Wood | S0b binds `3` YCB vertical parents, all repository-adapter referenced, with only `2` non-ambiguous mesh routes | `PENDING_SOURCE_CERTIFICATE` | A source yields eight fresh evaluation-complete groups without changing gates. |
-| Glass | S0b finds `0` exact YCB object parents; horizontal recordings are material aggregates | `FALLBACK_ONLY / SOURCE_GROWTH` | A new published source yields the unchanged eight-group shape. |
+| Metal | [S0c](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) finds `12` fresh ObjectFolder routes (`4` compact, `8` preflight), `9` YCB exact parents and no role-eligible row under the unchanged axes | `SOURCE_INSUFFICIENT / FIRST_GROWTH_DOMAIN` | S0d proves five generator-ready plus three fresh evaluation-complete groups from published sources, then reruns role freeze. |
+| Wood | S0c retains `0` fresh ObjectFolder routes and `3` adapter-referenced YCB parents, only `2` with non-ambiguous geometry route | `PENDING_SOURCE_GROWTH` | A source yields the unchanged five generator plus three protected groups. |
+| Glass | S0c retains `2` preflight-only ObjectFolder/RealImpact groups and `0` exact YCB object parents | `FALLBACK_ONLY / SOURCE_GROWTH` | A new published source yields the unchanged five generator plus three protected groups. |
 
 An admitted material uses one immutable role freeze through representation,
 validator and shadow. Later materials run the same versioned pipeline; their
@@ -109,20 +109,20 @@ admission.
 ## Execution graph
 
 ```text
-S0 source identity/scope
+S0 source identity/scope -> S0d published-source growth -> S0c role rerun
   -> S1 known-truth oracle
   -> S2 real modal representation
   -> S3 exact-object contact field
   -> S4 cross-object authoring prior
                        \
-S0 -> V0 validator data -> V1 frozen validator -> A0 shadow admission
+S0d/S0c -> V0 validator data -> V1 frozen validator -> A0 shadow admission
                                                    -> C0 cooker
                                                    -> D0 demo vertical
                                                    -> G0 Wood/Glass growth
 ```
 
-The validator lane can be built after S0 but cannot admit anything until S4
-freezes a generator release.
+The validator lane starts only after S0d supplies a complete role freeze and
+cannot admit anything until S4 freezes a generator release.
 
 ## Milestones
 
@@ -130,12 +130,13 @@ freezes a generator release.
 | --- | --- | --- | --- |
 | S0a | Revision-aware identity and exposure | `COMPLETE / REPEAT_EXACT / ZERO_SIGNAL` | [S0a](../development/physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md) resolves 130 groups and 30 drift conflicts; exact-name exposure corrects the fresh counts to Glass/Wood/Metal `2/0/12`. |
 | S0b | YCB capability adapter | `COMPLETE / REPEAT_EXACT / ZERO_SIGNAL` | [S0b](../development/physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md) inventories 77 objects and 926 OSF entries; exact target parents are Metal/Wood/Glass `9/3/0`, while usable/evaluation credit remains zero. |
-| S0c | First-domain role freeze | `NEXT / SOURCE_SUFFICIENCY` | Metal either fills the unchanged `4/1/1/1/1` shape with exact hashes or V15 closes as `SOURCE_INSUFFICIENT`; Wood/Glass receive explicit pending/fallback certificates. |
-| S1 | Known-truth neural oracle | `BLOCKED_BY_S0C` | On engine-owned truth scenes, a small model recovers stable poles and held surface gains and rejects instability, contact shuffle, wrong scale/material and coverage-collapse mutations. |
+| S0c | First-domain role freeze | `COMPLETE / REPEAT_EXACT / SOURCE_INSUFFICIENT` | [S0c](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) joins 130 groups and 18 target YCB rows with zero signal access; Metal/Wood/Glass all have zero eligible assignments under the unchanged policy. |
+| S0d | Published-source growth | `NEXT / BLOCKS_S1` | Resolve exposure class and publisher-side per-object member/axis certificates or add a published T2/T3 source until Metal has five generator-ready plus three fresh evaluation-complete groups; otherwise close each investigated source family without signal access. |
+| S1 | Known-truth neural oracle | `BLOCKED_BY_S0D_AND_ROLE_FREEZE` | On engine-owned truth scenes, a small model recovers stable poles and held surface gains and rejects instability, contact shuffle, wrong scale/material and coverage-collapse mutations. |
 | S2 | Real modal representation | `BLOCKED_BY_S1` | On opened Metal train/development data, structured analysis/synthesis beats classical Q30/DCT and identity-budget controls on frozen spectrum, onset, envelope, decay and mode metrics. |
 | S3 | Exact-object few-shot field | `BLOCKED_BY_S2` | One shared revision, using about 20% signal-blind contacts, beats nearest-contact, Euclidean/geodesic RBF, local-linear and geometry-agnostic controls on untouched contacts; otherwise representation closes. |
 | S4 | Cross-object prior | `BLOCKED_BY_S3` | Object-disjoint mesh/material prior beats material-mean and nearest-object controls, is contact-continuous and returns calibrated OOD for unsupported geometry/support. |
-| V0 | Validator corpus and mutations | `CAN_START_AFTER_S0C` | Independent real groups, wrong-material swaps, onset/spectral/decay artifacts and physics violations are hash-frozen without generator-protected leakage. |
+| V0 | Validator corpus and mutations | `BLOCKED_BY_S0D_ROLE_FREEZE` | Independent real groups, wrong-material swaps, onset/spectral/decay artifacts and physics violations are hash-frozen without generator-protected leakage. |
 | V1 | Independent Validator V2 | `BLOCKED_BY_V0_S4` | Frozen hard, physics, acoustic, semantic and selective-risk specialists publish parent-grouped false-pass upper bounds together with retained coverage. |
 | A0 | Metal admission shadow | `BLOCKED_BY_S4_V1` | One untouched Metal object is opened exactly once and receives immutable `Pass`, `Reject` or `FallbackOutOfDomain`; no threshold/model revision follows. |
 | C0 | Deterministic atlas cooker | `BLOCKED_BY_A0_PASS` | Canonical surface regions and energy bins cook twice to byte-identical 48 kHz clips, hashes, bounded metadata and a complete fallback map. |
@@ -202,15 +203,18 @@ scientific result; it stops the family before more material data is consumed.
    Metal metadata groups.
 2. `S0b` — `COMPLETE`: [repeat-exact YCB capability/cost inventory](../development/physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md)
    binds exact vertical parents with zero audio body and zero signal access.
-3. `S0c` — publish immutable Metal role descriptor or close source sufficiency;
-   publish Wood/Glass pending/fallback certificates in the same result.
-4. `S1a` — preregister truth-scene distribution, structured model, controls,
+3. `S0c` — `COMPLETE`: [repeat-exact source certificate](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md)
+   closes the current sources with zero assignments and zero signal access.
+4. `S0d` — resolve generator-only historical exposure and publisher-side
+   per-object axis/member evidence, then search one additional published T2/T3
+   source; rerun role freeze only after the unchanged Metal shape is reachable.
+5. `S1a` — preregister truth-scene distribution, structured model, controls,
    mutations, metrics, compute ceiling and stop rule.
-5. `S1b` — execute the known-truth oracle twice and authorize or reject S2.
-6. `V0a` — freeze independent validator corpus/mutations after S0c while S1/S2
+6. `S1b` — execute the known-truth oracle twice and authorize or reject S2.
+7. `V0a` — freeze independent validator corpus/mutations after role freeze while S1/S2
    proceed, without exposing generator-protected roles.
-7. `S2a/S2b` — preregister and run the real modal-representation tournament.
-8. `S3a/S3b` — preregister and run exact-object few-shot contact prediction.
-9. `S4a/S4b` — preregister and run object-disjoint authoring plus OOD.
-10. `V1/A0/C0/D0` — freeze validator, open shadow once, cook on pass and wire
+8. `S2a/S2b` — preregister and run the real modal-representation tournament.
+9. `S3a/S3b` — preregister and run exact-object few-shot contact prediction.
+10. `S4a/S4b` — preregister and run object-disjoint authoring plus OOD.
+11. `V1/A0/C0/D0` — freeze validator, open shadow once, cook on pass and wire
     only the bounded demo vertical.
