@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP8_CONTRACT_FROZEN / CORRECTED_AXIS_OBSERVER_NEXT` |
+| Status | `ACTIVE / NCGP8_H8A_CANDIDATE / INDEPENDENT_REVIEW_PENDING` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,10 +19,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP7 reproduces close bulk fields, but its surface
-  observer used `y` as height even though the frozen profile gravity is along
-  `-z`. NCGP8 revision 1 is frozen before implementation with the correct
-  `x-y` image plane and a deterministic top-view sphere-depth observer.
+- **Current action:** NCGP8 reproduces the exact step-112 witness twice and
+  passes its corrected-axis visible-sphere bands. Retained controls and three
+  CUDA sanitizers pass; independent read-only review is in progress before
+  any successor corpus is authorized.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -38,6 +38,7 @@
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
+- `docs/development/nonlocal-gpu-visible-surface-evidence-2026-08-31.md`
 - `docs/development/task-state/nonlocal-gpu-compensated-scale.md`
 - `docs/development/nonlocal-gpu-compensated-scale-evidence-2026-08-30.md`
 - `docs/plans/nonlocal-gpu-compensated-scale/00-compensated-scale-contract.md`
@@ -209,6 +210,22 @@
 - **Reconsider when:** the exact NCGP8 step-112 result and controls are
   independently reproducible.
 
+### D-009 — Accept H8A as an author candidate, not yet corpus authority
+
+- **Observation:** two clean processes are byte-identical and pass all frozen
+  visible-surface bands: silhouette `0.1927%`, depth RMSE `4.441 mm`, p95
+  `0.523 mm`, p99 `1.768 mm`, one material component and zero satellite area.
+- **Evidence:** binary SHA-256 `431bfac8931150e6cc4949d8f6307ec1cb215edffd6b07be8abb03552b7cf878`,
+  stdout `9681e4c17639bf3fc0fd50a4e46edc2fa02170b08b071b19c37e6a8557e98cae`,
+  result root `1c953b54eefa402dbe9b66c554e3a21fcd60b2c28224398cd4fa6fcd9e998bd0`.
+- **Conclusion:** the stable-ID tail does not become a persistent visible
+  surface discrepancy on this one hydrostatic witness. The `507 mm` maximum
+  depth pixel remains an explicit warning and requires later flow coverage.
+- **Decision:** wait for the mandatory independent review. Do not run the
+  remaining 4k corpus or timing from author evidence alone.
+- **Reconsider when:** independent review returns GO on the exact candidate,
+  or identifies one load-bearing apparatus defect.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -224,9 +241,9 @@
 | H7A | stable particle identities separate while Eulerian water fields remain close | not selected: bulk passes, but both surface gates do not pass on both grids | new visible-surface QoI only |
 | H7B | the NCGP6 tail reflects a real macroscopic water-state divergence | not selected: no coarse metric reaches the clear-divergence band | reconsider only on new physical evidence |
 | H7C | the field verdict is dominated by arbitrary voxel resolution | superseded as a product explanation: NCGP7 surface used the wrong vertical axis; bulk evidence remains close | do not reuse NCGP7 surface metrics |
-| H8A | corrected-axis visible sphere geometry remains close | not run; contract frozen before implementation | exact top-view sphere-depth witness |
-| H8B | the stable-ID tail is visible as macroscopic surface divergence | not run | same witness and clear-error bands |
-| H8C | corrected-axis observer still cannot select a product gate | not run | stop without threshold/resolution tuning |
+| H8A | corrected-axis visible sphere geometry remains close | author candidate supported: all frozen bands pass twice byte-identically; review pending | independent read-only review |
+| H8B | the stable-ID tail is visible as macroscopic surface divergence | falsified on this witness by silhouette/depth/topology bands | reconsider on later dam/orifice evidence |
+| H8C | corrected-axis observer still cannot select a product gate | not selected by author result | review may reopen only for apparatus defect |
 
 ## Do not retry
 
@@ -239,8 +256,10 @@
 
 ## Next action
 
-1. Implement the frozen NCGP8 top-view sphere-depth observer and its mandatory
-   wrong-axis, translation, topology, identity and work controls.
-2. Replay only the exact step-112 witness under that report-only contract.
-3. Only an accepted, reviewed and passing NCGP8 result may restart dam/orifice,
-   16k/50k, sealed-basin correctness and complete-step timing.
+1. Complete the single independent NCGP8 review without modifying candidate
+   source.
+2. On GO, freeze a successor complete 4k product-correctness corpus using the
+   reviewed visible-surface observer plus every strict same-state/invariant
+   gate; on NO-GO, apply at most the one allowed batched apparatus repair.
+3. Keep 16k/50k, sealed-basin correctness and complete-step timing blocked
+   until that successor corpus passes.
