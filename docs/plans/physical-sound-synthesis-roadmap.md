@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-31 |
-| Статус | `ACTIVE_R&D / V9_SYNTHETIC_PASS / NEW_REAL_SOURCE_GATE_NEXT / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_BEER_GLASS_FIT_NEXT / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Текущее состояние | [Physical sound task state](../development/task-state/physical-sound-synthesis.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -39,7 +39,7 @@ canonical-listener condition и опубликованной геометрие�
 | V5 waveform neural codec | `REJECTED / RECORDED` | Компактный codec сохранял общий envelope, но терял спектр и модальные частоты. |
 | V8 explicit modes + sparse residual | `REJECTED_ON_REAL_FIT` | Явные резонансы полезны, но стационарного sparse residual недостаточно для настоящего удара. |
 | V9 explicit modes + time-varying residual | `SYNTHETIC_PASS / REPRODUCIBLE` | На известной synthetic truth модель компактна и предсказывает неизвестный контакт лучше nearest control. |
-| V9 на новом реальном объекте | `NOT_RUN` | Реальное качество ещё не доказано; нужен новый source-disjoint protocol. |
+| V9 на новом реальном объекте | `A0_SOURCE_PASS / FIT_NOT_RUN` | Beer Glass/Rinsing Cup audio-coordinate roles заморожены без waveform decode; реальное качество ещё не доказано. |
 | Автоматический validator release | `NOT_AUTHORIZED` | Компоненты метрик есть, но independent release ещё не калиброван. |
 | База моделей и интеграция с движком | `BLOCKED` | Сначала должны пройти real representation, exact-object и validator gates. |
 
@@ -96,8 +96,8 @@ code, configuration, model, validator и output hashes. Изменение лю�
 
 | ID | Этап | Статус | Размер | Выход |
 | --- | --- | --- | ---: | --- |
-| A0 | Новый real source и coordinate proof | `IN_PROGRESS` | S–M | Hash-closed source, точные contact coordinates и заранее замороженные роли без waveform decode. |
-| A1 | V9 real representation gate | `BLOCKED_BY_A0` | M | Explicit modes + time-varying residual проходят fit, development и один source-disjoint holdout. |
+| A0 | Новый real source и coordinate proof | `COMPLETE / REPRODUCIBLE` | S–M | Beer Glass target и Rinsing Cup archive/object holdout имеют exact audio-coordinate-point-cloud binding и frozen roles с нулевым waveform decode. |
+| A1 | V9 real representation gate | `FIT_NEXT` | M | Explicit modes + time-varying residual проходят fit, development и один archive/object-disjoint holdout. |
 | A2 | Exact-object contact field | `BLOCKED_BY_A1` | M–L | Модель предсказывает звук в новых точках объекта и печёт bounded clip atlas. |
 | A3 | Independent Validator V1 | `BLOCKED_BY_A1` | M | Frozen ensemble показывает bounded false-pass risk и useful selective coverage. |
 | A4 | One-shot admission | `BLOCKED_BY_A2_A3` | S | Frozen generator и validator один раз открывают shadow и публикуют tri-state decision. |
@@ -119,12 +119,12 @@ object revision + contact id
   -> exact geometry revision
 ```
 
-Приоритетный кандидат исследования — новый стеклянный объект ObjectFolder
-Real. Он становится выбранным source только после доказательства, что tactile/
-pose metadata и audio contact IDs описывают одну точку в одной системе
-координат. Если это невозможно доказать из primary source code/data, кандидат
-возвращает `DATA_INSUFFICIENT`; fallback исследования — новый unopened source
-с явными impact vertices, но claim сужается до опубликованной signal semantics.
+Этот gate закрыт официальным contact-localization bundle: ObjectFolder Real
+`60 / Beer_Glass / Glass` выбран target, а `22 / Rinsing_Cup / Glass` из
+другого raw archive — representation holdout. Official code использует один
+`(object, contact)` ключ для audio, coordinate и point cloud; известный
+processed/raw WAV identity control совпадает byte-for-byte. Точная ревизия и
+ограничения зафиксированы в [A0 evidence](../development/physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md).
 
 ### Порядок
 
@@ -147,6 +147,12 @@ pose metadata и audio contact IDs описывают одну точку в о�
 - Ни один protected waveform не прочитан и не участвует в normalization.
 - Duplicate и mutation-parent leakage отсутствуют.
 - Результат ровно один из `READY_FOR_V9_REAL_FIT` или `DATA_INSUFFICIENT`.
+
+Result: `READY_FOR_V9_REAL_FIT`. Два запуска повторили manifest
+`8a30cef0…8728` и report `3522c677…00d3`; все waveform decode counters равны
+нулю. Selected bundle не содержит force, normal и numeric listener geometry,
+поэтому A1 claim сужен до recorded-impact reconstruction при одной
+неопубликованной fixed-microphone condition.
 
 ## A1 — V9 на реальном звуке
 
@@ -320,11 +326,11 @@ average.
 
 Работа продолжается строго в таком порядке:
 
-1. **Source/coordinate feasibility:** primary-source доказательство связи
-   contact pose, mesh и audio ID для нового glass candidate; без audio decode.
-2. **A0 zero-decode freeze:** deterministic inventory tool, exact hashes,
-   roles, gates и evidence report.
-3. **A1 fit-only runner:** V9 decomposition только на fit contacts; protected
+1. **Source/coordinate feasibility — COMPLETE:** official code/data and raw
+   identity control prove audio-coordinate-object binding.
+2. **A0 zero-decode freeze — COMPLETE:** repeated manifest `8a30cef0…8728`,
+   roles, gates and evidence with zero decoded waveform samples.
+3. **A1 fit-only runner — NEXT:** V9 decomposition только на fit contacts; protected
    read counters равны нулю.
 4. **A1 development/holdout:** каждый следующий gate открывается отдельным
    commit только после pass предыдущего.

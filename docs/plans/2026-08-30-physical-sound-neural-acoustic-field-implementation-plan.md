@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `ROADMAP_V10 / IN_PROGRESS / V9_SYNTHETIC_PASS / A0_NEW_REAL_SOURCE_GATE_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
+| Status | `ROADMAP_V10 / IN_PROGRESS / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / BEER_GLASS_FIT_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -533,7 +533,13 @@ V9-SYNTH now passes and repeats exactly. Neural held-query latent/waveform RMSE
 is `0.521x/0.472x` nearest, maximum record reconstruction NRMSE is `0.0001944`,
 and shared/contact cost is `25,888/104` bytes. Preserve the
 [exact result](../development/physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md).
-It authorizes only source research and a new zero-decode real protocol.
+It authorized only source research and a new zero-decode real protocol. That
+A0 boundary now passes: official ObjectFolder contact-localization code/data
+bind Beer Glass `60` audio, coordinates and point cloud under one contact key;
+Rinsing Cup `22` supplies a separate raw-archive/object holdout. Two inventory
+runs repeat manifest `8a30cef0…8728` and report `3522c677…00d3` with every
+waveform decode counter zero. See the [A0 source freeze](../development/physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md)
+and [frozen Beer Glass fit protocol](../development/physical-sound-r3a-v10-beer-glass-real-fit-protocol-2026-08-31.md).
 
 ### N0.4B — Object-specific contact-position few-shot field
 
@@ -751,10 +757,11 @@ successful Git commit or a report-only model result.
     development `20` or sealed `27`.
 12. Preserve V9-SYNTH as `COMPLETE / PASS / REPRODUCIBLE`; its wide synthetic
     margins are no claim about real glass.
-13. Find internet-published data disjoint from object `91` and every V5 object.
-    Require exact contact coordinates and freeze hashes/roles/baselines/gates
-    before waveform decode.
-14. Keep N0.4B closed. Only a later V9 fresh-real development and
+13. Preserve A0 as `COMPLETE / REPRODUCIBLE`: object `60` fit/development/
+    query and object `22` holdout roles are frozen with zero waveform decode.
+14. Implement and run only the preregistered object-60 V9 fit representation;
+    development, query and object-22 holdout stay numerically closed.
+15. Keep N0.4B closed. Only a later V9 fresh-real development and
     source-disjoint representation-holdout pass may open it; the product
     continues to use authored clips.
 

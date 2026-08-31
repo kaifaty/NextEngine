@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V10 / V9_SYNTHETIC_PASS / A0_NEW_REAL_SOURCE_GATE_IN_PROGRESS / REAL_QUALITY_NOT_PROVEN / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V10 / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_BEER_GLASS_FIT_NEXT / REAL_QUALITY_NOT_PROVEN / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -16,8 +16,10 @@
   shared boundary/contact record cost `25,888/104` bytes.
 - **Exact evidence:** [V9 synthetic result](../physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md),
   manifest `15616a58…36c9`, report `6df03217…779a`.
-- **Next action:** find and freeze new internet-published, source-disjoint real
-  data with exact contact coordinates; object `91` cannot select V9.
+- **A0 evidence:** [Beer Glass/Rinsing Cup source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md),
+  repeated manifest `8a30cef0…8728`, report `3522c677…00d3`.
+- **Next action:** implement and run the frozen Beer Glass V9 fit-only
+  protocol; only 22 object-60 fit WAVs may be decoded.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -41,7 +43,7 @@
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
 | R3A V5 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | All capacities fit the byte budget but fail real spectrum/modal transfer; no capacity or holdout is selected. |
 | R3A V8 | `REAL_FIT_REJECTED / REPRODUCIBLE` | Fit contacts `18/12/4` repeat exactly; both bounded capacities fail spectrum/modal identity, while development `20` and sealed `27` remain unread. |
-| R3A V9 | `SYNTHETIC_PASS / REPRODUCIBLE / REAL_PROTOCOL_NEXT` | Known-truth renderer, compact records and held-contact neural latent field repeat and pass; only a new source-disjoint real protocol is authorized. |
+| R3A V9 | `SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / FIT_NEXT` | Beer Glass fit, development and query plus Rinsing Cup archive/object holdout roles repeat with zero waveform decode; only fit is authorized. |
 | R3B+ | `NOT_AUTHORIZED` | No real contact-to-modal field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Material transition: V5-C development rejects the neural representation
@@ -59,54 +61,6 @@
   selecting 24 kbps from internal loss, or continuing any rejected checkpoint.
 - **Reconsideration condition:** A materially different preregistered modal/
   decay-preserving representation and new source-disjoint development data.
-
-## Material transition: V8 explicit-modal neural rebaseline
-
-- **Observation:** Primary prior art converges on explicit damped resonances,
-  contact-dependent modal gains and a bounded residual. NISR publishes exact
-  FEM frequencies and boundary mode shapes in small individually hashable
-  files; ObjectFolder Real can later supply fresh real impact development.
-- **Evidence:** [V8 research decision](../physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md),
-  including exact source revisions, competing hypotheses, dataset roles and
-  frozen synthetic gates.
-- **Conclusion:** V5 failure justifies no ML-wide rejection. It does justify
-  ending opaque waveform compression and testing modal identity as an explicit
-  inductive bias before another real run.
-- **Decision:** Roadmap V8 starts with deterministic modal recovery plus a
-  neural coordinate-to-3D-mode-shape field on two opened NISR Glass objects.
-  A pass authorizes only a fresh real protocol; R3B remains closed.
-- **Rejected alternatives:** Longer V5, another bitrate, tuning against the
-  four opened objects, treating synthetic audio as realism evidence, or loading
-  a neural model in runtime.
-- **Reconsideration condition:** If V8-SYNTH passes and repeats, freeze a new
-  ObjectFolder Real fit/development revision before reading its waveforms. If
-  it fails, diagnose the renderer/field rather than opening real data.
-
-## Material transition: V8-SYNTH passes
-
-- **Observation:** Two independent runs emit identical manifest/report bytes;
-  modal recovery passes by wide margins and both held-surface fields beat KNN
-  under the frozen `<= 0.50x` gate.
-- **Evidence:** [Exact result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md),
-  report `391854fe…3b78`; real, sealed, method and shadow reads are zero.
-- **Conclusion:** The explicit-modal neural substrate is viable on exact FEM
-  truth. This does not establish real-audio initialization, residual adequacy
-  or perceptual identity.
-- **Decision:** Authorize only a hash-closed ObjectFolder Real protocol freeze.
-  Keep R3B, holdout, atlas, validator and runtime work closed.
-- **Smallest next action:** inventory a bounded official real slice without
-  decoding audio, then preregister fit-only and development gates.
-
-## Material transition: fresh real source roles frozen
-
-- **Observation:** The official 38.9 GB archive supports byte ranges. Its exact
-  512 MiB prefix contains five complete records for new Glass object `91`.
-- **Evidence:** [ObjectFolder Real source and gate freeze](../physical-sound-r3a-v8-objectfolder-real-source-and-gate-freeze-2026-08-31.md),
-  prefix `5ef9789a…7313`; roles are `18/12/4 fit`, `20 development`, `27 sealed`.
-- **Decision:** Hash and validate only selected member bytes/headers first. The
-  prefix exposes no coordinate artifact, so object `91` cannot authorize R3B.
-- **Smallest next action:** implement a zero-payload inventory report with
-  exact repeat and all decoded-sample counters at zero.
 
 ## Material transition: V8 real fit rejects the residual representation
 
@@ -132,6 +86,20 @@
   report `6df03217…779a`; every protected/real counter is zero.
 - **Decision:** authorize only source research and a new hash-closed real
   protocol with exact contact coordinates. No real quality or R3B credit.
+
+## Material transition: A0 real source and roles pass
+
+- **Observation:** official benchmark code and data bind the same
+  `(object, contact)` key to raw PCM, published coordinates and point cloud.
+  Beer Glass `60` and Rinsing Cup `22` each expose IDs `0…29`; a known object-91
+  processed WAV exactly matches its raw microphone hash.
+- **Evidence:** [A0 source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md),
+  manifest `8a30cef0…8728`, report `3522c677…00d3`; two runs are byte-identical
+  and every waveform decode counter is zero.
+- **Decision:** close A0 and authorize only the 22 object-60 fit WAVs under the
+  [frozen fit protocol](../physical-sound-r3a-v10-beer-glass-real-fit-protocol-2026-08-31.md).
+  Development/query/object-22 holdout stay closed; missing force/normal/
+  listener axes narrow the claim.
 
 ## Durable negative knowledge
 
@@ -172,8 +140,8 @@ kept bounded as the current resume surface.
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Explicit modes plus a neural time-varying residual carry held impact sound | V8-SYNTH validates modal/field substrate; dense phase residual diagnoses missing information | V8 sparse residual fails all real fit contacts; stationary noise also fails | V9 synthetic control, then new source-disjoint real fit |
-| H2: Geometry-aware exact-object contact learning is possible | REALIMPACT/ObjectFolder geometry and AV-MSF few-shot evidence | No representation has passed fresh real development/holdout | Blocked until V8 independently passes R3A |
+| H1: Explicit modes plus a neural time-varying residual carry held impact sound | V9 synthetic renderer/field passes; dense phase residual diagnoses missing information | V8 sparse residual fails all real fit contacts; stationary noise also fails | Frozen Beer Glass V9 fit-only run |
+| H2: Geometry-aware exact-object contact learning is possible | Exact Beer Glass coordinates/audio/point-cloud roles now exist | No representation has passed fresh real development/holdout | Blocked until V9 fit, development and object-22 holdout pass |
 | H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 after a generator claim exists |
 | H4: Cooked coefficients fit product cost | Q30 reference is compact and exact | Whole-mixer/callback/varied-voice cost is unmeasured | Visible consumer plus p95/p99 before promotion |
 
@@ -229,18 +197,20 @@ Read in precedence order:
    [object-91 fit protocol](../physical-sound-r3a-v8-object91-fit-protocol-2026-08-31.md),
    [V8 fit rejection/V9 research](../physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md)
    [V9 synthetic protocol](../physical-sound-r3a-v9-time-varying-residual-preflight-protocol-2026-08-31.md)
-   and [V9 synthetic result](../physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md).
+   [V9 synthetic result](../physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md),
+   [V10 A0 source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md)
+   and [Beer Glass fit protocol](../physical-sound-r3a-v10-beer-glass-real-fit-protocol-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
 
-- **Workspace:** V8 negative and V9 synthetic runner/tests/results are in Git;
-  all run outputs, datasets, predictions, arrays and WAVs are external.
+- **Workspace:** V8 negative, V9 synthetic and V10 A0 inventory code/evidence
+  are in Git; all run outputs, datasets, arrays and WAVs are external.
 - **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
   contacts are opened. Every row `2407`, method holdout and admission shadow
   remains sealed.
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** internet-source feasibility and a zero-decode V9
-  source/role freeze. Authored clips remain the product path.
+- **Next commit boundary:** implement and run the frozen Beer Glass V9 fit-only
+  representation. Authored clips remain the product path.
