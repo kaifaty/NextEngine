@@ -113,7 +113,7 @@ preregistered family revision.
 - отличать `header/hash/metadata read` от `signal decoded`;
 - фиксировать project/object/contact/listener/mutation parent groups;
 - валидировать, что одна sample identity не попала в fit и validator;
-- реализовать experimental JSON schema и миграционный roundtrip;
+- реализовать experimental JSON schema и current-version canonical roundtrip;
 - сохранить четыре состояния объекта и обязательный fallback;
 - запрещать promotion при неизвестной claim-kind или отсутствующем axis.
 
@@ -223,7 +223,7 @@ ProductChecks. SPEC-45 до этого остаётся `Proposed`.
 ## Ближайшие commit boundaries
 
 1. `M0a`: `COMPLETE`; V12-C4a repeated negative result and V13 research.
-2. `M1a` — next: Research Record V0 schema/lifecycle and synthetic fixtures.
+2. `M1a` — next: [Research Record V0 protocol](../development/physical-sound-v13-m1a-research-record-v0-protocol-2026-08-31.md), schema/lifecycle and synthetic fixtures.
 3. `M1b`: deterministic exposure-ledger builder over existing manifests.
 4. `M1c`: repeated zero-signal ledger/record evidence and fresh-source shortlist.
 5. `M2a`: source/role protocol and exact budgets before any new decode.
