@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `IN_PROGRESS / N0.4A_V8_SYNTHETIC_PASS / FRESH_REAL_PROTOCOL_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.4A_V8_OBJECT91_SOURCE_GATE_FROZEN / ZERO_DECODE_INVENTORY_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -735,3 +735,8 @@ successful Git commit or a report-only model result.
 12. Keep N0.4B closed. Only a later V8 fresh-real development and
     source-disjoint representation-holdout pass may open it; the product
     continues to use authored clips.
+
+The [object-91 source/gate revision](../development/physical-sound-r3a-v8-objectfolder-real-source-and-gate-freeze-2026-08-31.md)
+now freezes the official archive identity, exact 512 MiB prefix, member
+commitments and `18/12/4 fit`, `20 development`, `27 sealed` roles. Implement
+the zero-decode inventory before any fit extraction.

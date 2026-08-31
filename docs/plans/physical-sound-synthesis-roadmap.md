@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-31 |
-| Статус | `ACTIVE_R&D / R3A_V8_SYNTHETIC_PASS / FRESH_REAL_PROTOCOL_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R3A_V8_SYNTHETIC_PASS / OBJECT91_SOURCE_GATE_FROZEN / ZERO_DECODE_INVENTORY_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [V8 explicit-modal neural rebaseline](../development/physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -199,7 +199,7 @@ models и не маскирует провал обещанием универс
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
 | R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
 | R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `IN_PROGRESS / V1_REJECTED / V2_INCONCLUSIVE / V3B_REJECTED / V4_FIT_REJECTED / V5_DEV_REJECTED / V8_SYNTH_PASS / REAL_PROTOCOL_NEXT` | L | V8 modal recovery and two held FEM mode-shape fields repeat/pass; only a fresh ObjectFolder Real protocol is authorized, not quality or representation holdout. |
+| R3A | `IN_PROGRESS / V1–V5_NEGATIVE_OR_INCONCLUSIVE / V8_SYNTH_PASS / OBJECT91_SOURCE_FROZEN / INVENTORY_NEXT` | L | V8 synthetic passes; exact ObjectFolder Real object-91 members/roles are frozen, but all numerical PCM reads and real quality remain zero. |
 | R3B | `NOT_AUTHORIZED_BY_R3A` | L | A real exact-object contact field cannot start without V8 fresh-real representation development and holdout passes. |
 | R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
 | R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
@@ -766,10 +766,9 @@ ledger, persistence и `AcousticFactV1` roots.
     NISR held-position mode-shape fields pass with byte-identical reports. Only
     a fresh real protocol is authorized; no quality, holdout, R3B or runtime
     authority exists.
-19. `R3A V8 fresh-real source and gate freeze` — `NEXT`; inventory a bounded
-    official ObjectFolder Real slice with zero waveform decode, then freeze
-    exact fit/development roles, initializer, residual/damping ablations and
-    stop/go gates before opening audio.
+19. `R3A V8 fresh-real source and gate freeze` — `PREREGISTERED`; exact 512 MiB
+    official archive prefix and five object-91 roles are frozen. Zero-decode
+    member/header inventory is next; fit PCM remains closed.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.

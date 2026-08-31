@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V8 / R3A_V8_SYNTHETIC_PASS / FRESH_REAL_PROTOCOL_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V8 / R3A_V8_SYNTHETIC_PASS / OBJECT91_SOURCE_GATE_FROZEN / ZERO_DECODE_INVENTORY_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -16,8 +16,8 @@
   nearest-position RMSE by `0.262x` and `0.097x` on two opened FEM objects.
 - **Exact evidence:** [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md),
   manifest `b2bb931d…6934`, report `391854fe…3b78`, implementation `9187e26e`.
-- **Next action:** Freeze a fresh ObjectFolder Real source/fit/development
-  protocol before reading its audio. Synthetic pass is not real quality.
+- **Next action:** Run the frozen zero-decode inventory for ObjectFolder Real
+  Glass object `91`; do not extract or numerically decode fit PCM yet.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -40,7 +40,7 @@
 | R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
 | R3A V5 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | All capacities fit the byte budget but fail real spectrum/modal transfer; no capacity or holdout is selected. |
-| R3A V8 | `SYNTHETIC_PASS / REAL_PROTOCOL_NEXT` | Renderer and held FEM mode-shape field repeat/pass; only a fresh real protocol is authorized, not quality or R3B. |
+| R3A V8 | `SYNTHETIC_PASS / OBJECT91_SOURCE_FROZEN / INVENTORY_NEXT` | Renderer/FEM field pass; object `91` roles and source commitments are frozen, but no real PCM sample is decoded. |
 | R3B+ | `NOT_AUTHORIZED` | No real contact-to-modal field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Compressed V4–V5 transition history
@@ -122,6 +122,17 @@
   Keep R3B, holdout, atlas, validator and runtime work closed.
 - **Smallest next action:** inventory a bounded official real slice without
   decoding audio, then preregister fit-only and development gates.
+
+## Material transition: fresh real source roles frozen
+
+- **Observation:** The official 38.9 GB archive supports byte ranges. Its exact
+  512 MiB prefix contains five complete records for new Glass object `91`.
+- **Evidence:** [ObjectFolder Real source and gate freeze](../physical-sound-r3a-v8-objectfolder-real-source-and-gate-freeze-2026-08-31.md),
+  prefix `5ef9789a…7313`; roles are `18/12/4 fit`, `20 development`, `27 sealed`.
+- **Decision:** Hash and validate only selected member bytes/headers first. The
+  prefix exposes no coordinate artifact, so object `91` cannot authorize R3B.
+- **Smallest next action:** implement a zero-payload inventory report with
+  exact repeat and all decoded-sample counters at zero.
 
 ## Durable negative knowledge
 
@@ -210,7 +221,8 @@ Read in precedence order:
    [V5-B/V5-C bounded research](../physical-sound-r3a-v5b-collapse-and-v5c-bootstrap-2026-08-31.md)
    [V5-C development result](../physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md)
    [V8 rebaseline](../physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md)
-   and [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md).
+   [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md)
+   and [ObjectFolder Real source freeze](../physical-sound-r3a-v8-objectfolder-real-source-and-gate-freeze-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
@@ -224,6 +236,5 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** Fresh ObjectFolder Real metadata inventory and
-  preregistered fit/development protocol with zero waveform decode; authored
-  clips remain the product path.
+- **Next commit boundary:** Object `91` zero-decode inventory runner, focused
+  tests and repeated external report; authored clips remain the product path.
