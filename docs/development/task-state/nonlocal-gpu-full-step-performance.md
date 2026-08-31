@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP7_H7C_INCONCLUSIVE / SURFACE_QOI_DECISION_REQUIRED` |
+| Status | `ACTIVE / NCGP8_CONTRACT_FROZEN / CORRECTED_AXIS_OBSERVER_NEXT` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,10 +19,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP7 reproduces the exact step-112 witness and finds
-  close bulk fields, but free-surface classification changes between the
-  frozen 50 mm and 25 mm grids. NCGP7 is closed `H7C_INCONCLUSIVE`; a new
-  product-facing surface-QoI decision is required before correctness/timing.
+- **Current action:** NCGP7 reproduces close bulk fields, but its surface
+  observer used `y` as height even though the frozen profile gravity is along
+  `-z`. NCGP8 revision 1 is frozen before implementation with the correct
+  `x-y` image plane and a deterministic top-view sphere-depth observer.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -33,6 +33,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/02-step92-outlier-diagnosis.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/03-product-trajectory-gate.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/04-eulerian-step112-diagnostic.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/05-visible-surface-observer.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -189,6 +190,24 @@
 - **Reconsider when:** a robust visible-surface QoI is defined before results
   and distinguishes sparse edge support from persistent macroscopic error.
 
+### D-008 — Correct the surface axis before defining the product observer
+
+- **Observation:** `nonlocal_water_corrected_profile()` retains gravity
+  `(0,0,-9.81)`, while NCGP7 deposits columns in `x-z` and uses `y` as surface
+  height. The hydrostatic lattice likewise places its vertical layers in `z`.
+- **Conclusion:** NCGP7's 3-D bulk observables remain meaningful, but its
+  wet-column and height metrics do not describe the physical free surface.
+  The H7C surface result cannot select or reject a product gate.
+- **Decision:** freeze NCGP8 revision 1 before code. It observes the mandatory
+  debug-sphere presentation from above along `-z`, at a pitch fixed from the
+  particle spacing, and compares silhouette, robust depth distribution and
+  connected wet-region topology.
+- **Rejected:** adding a third NCGP7 voxel resolution, relabelling `y` as
+  vertical, changing gravity, or tuning a threshold after the corrected-axis
+  witness is known.
+- **Reconsider when:** the exact NCGP8 step-112 result and controls are
+  independently reproducible.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -203,7 +222,10 @@
 | H5E | admitted nonlinear trajectories separate near contact | supported bounded: smooth max tail, adjacent-step lower-wall event, small RMSE/p99 | product-level gate decision |
 | H7A | stable particle identities separate while Eulerian water fields remain close | not selected: bulk passes, but both surface gates do not pass on both grids | new visible-surface QoI only |
 | H7B | the NCGP6 tail reflects a real macroscopic water-state divergence | not selected: no coarse metric reaches the clear-divergence band | reconsider only on new physical evidence |
-| H7C | the field verdict is dominated by arbitrary voxel resolution | selected bounded: complementary surface metrics fail at 50/25 mm | freeze a product-facing geometry/topology comparator |
+| H7C | the field verdict is dominated by arbitrary voxel resolution | superseded as a product explanation: NCGP7 surface used the wrong vertical axis; bulk evidence remains close | do not reuse NCGP7 surface metrics |
+| H8A | corrected-axis visible sphere geometry remains close | not run; contract frozen before implementation | exact top-view sphere-depth witness |
+| H8B | the stable-ID tail is visible as macroscopic surface divergence | not run | same witness and clear-error bands |
+| H8C | corrected-axis observer still cannot select a product gate | not run | stop without threshold/resolution tuning |
 
 ## Do not retry
 
@@ -216,9 +238,8 @@
 
 ## Next action
 
-1. Ask for an explicit product decision to freeze a visible free-surface QoI
-   (robust height/area distribution plus connected wet-region topology), not
-   another voxel-size or post-result tolerance adjustment.
-2. Replay only the exact step-112 witness under that new report-only contract.
-3. Only an accepted, reviewed and passing successor may restart dam/orifice,
+1. Implement the frozen NCGP8 top-view sphere-depth observer and its mandatory
+   wrong-axis, translation, topology, identity and work controls.
+2. Replay only the exact step-112 witness under that report-only contract.
+3. Only an accepted, reviewed and passing NCGP8 result may restart dam/orifice,
    16k/50k, sealed-basin correctness and complete-step timing.
