@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP8_REVIEW_GO / NCGP9_CONTRACT_NEXT` |
+| Status | `ACTIVE / NCGP9_CONTRACT_FROZEN / IMPLEMENTATION_NEXT` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,10 +19,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** NCGP8 repair `8f7d9850` passed its one permitted
-  independent re-review. Freeze NCGP9 before code: the complete 4k
-  hydrostatic/dam-break/orifice correctness corpus using the reviewed visible
-  observer plus all strict same-state and physical-invariant gates.
+- **Current action:** NCGP9 revision 1 is frozen before implementation. Build
+  the complete ordered 4k hydrostatic/dam-break/orifice corpus using the
+  reviewed visible observer, quarterly retained bulk fields and all strict
+  same-state/physical gates; performance remains blocked.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -35,6 +35,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/04-eulerian-step112-diagnostic.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/05-visible-surface-observer.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/06-visible-surface-control-corrigendum.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/07-complete-4k-corpus.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -273,6 +274,23 @@
   before JSON; this is fail-stop/no false green and later apparatus hardening.
 - **Reconsider when:** NCGP9 reaches its first predeclared physical,
   work/capacity or visible-surface result.
+
+### D-012 — Freeze NCGP9 before the complete corpus
+
+- **Observation:** NCGP8 closes only one hydrostatic step-112 visible witness;
+  it does not cover a full second, dam break or orifice flow. Reusing the old
+  stable-ID p99 would repeat the already rejected product proxy, while omitting
+  temporal/bulk controls would overgeneralize one image.
+- **Decision:** freeze NCGP9 revision 1 before code. Gate the reviewed visible
+  surface on all 720 accepted steps, retained 3-D bulk fields at steps
+  `60/120/180/240`, and same-state/physical/permutation invariants throughout.
+  Dynamic-flow topology compares CPU/GPU components and satellite fractions;
+  only hydrostatic hold retains the absolute single-region satellite ceiling.
+- **Rejected:** timing NCGP8 directly, checking only final frames, requiring
+  one connected component for physical spray, changing HVP/physics/tolerances,
+  or running scenarios in whichever order finishes first.
+- **Reconsider when:** the ordered NCGP9 corpus reaches its first exact result;
+  later thresholds or scenario order are not tunable from that result.
 
 ## Hypothesis ledger
 
