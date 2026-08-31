@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V12 / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_REPEAT_PASS / C4A_PROTOCOL_FROZEN / C4A_RUNNER_NEXT / FIT_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V12 / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_REPEAT_PASS / C4A_PREFLIGHT_REPEAT_PASS / FIT_RUN_NEXT / FIT_ROLE_ONLY_AUTHORIZED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -12,19 +12,19 @@
 ## Resume in 60 seconds
 
 - **Current conclusion:** C1 recovers `7/7` poles; C2+C3 bind a fresh 35-contact
-  Steel object to paired force/mic, coordinates, geometry and six roles without
-  PCM decode. C4a protocol is frozen; runner is next and every signal role is closed.
+  Steel object. C4a runner/tests and repeated zero-read preflight pass; only the
+  exact 16-contact fit budget is now authorized and every protected role is closed.
 - **C2 evidence:** [zero-decode source result](../physical-sound-r3a-v12-c2-internet-source-zero-decode-inventory-2026-08-31.md),
   prior repeated manifest/report `3041c19d…ed5`/`b421743e…cb9`.
-- **A1R evidence:** [repeat-exact fit result and V11 research](../physical-sound-r3a-v10-a1r-force-onset-fit-result-and-v11-research-2026-08-31.md),
-  report `5c9e87e…c2ca`; force onset passes, every real V9 fit contact fails.
+- **C4a evidence:** [runner/preflight result](../physical-sound-r3a-v12-c4a-real-frf-runner-preflight-result-2026-08-31.md),
+  manifest/report `7b00cf1f…e8e`/`a236ffba…400`; two reports are byte-identical.
 - **C3 evidence:** [repeat-exact source/role result](../physical-sound-r3a-v12-c3-object41-source-role-freeze-result-2026-08-31.md),
   manifest/preflight/report `a6dd159e…66b3`/`26f99419…d89`/`a300199f…20d7`;
   `35/35` paired identities and PCM decode `0/0`.
 - **C1 evidence:** [repeat-exact result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md);
   manifest/model/report `67b2c472…a7b2`/`11f75af9…ca6c`/`33371827…e85f`.
-- **Next action:** implement the frozen C4a runner and synthetic/no-access
-  tests, then repeat zero-read preflight before the exact 16-contact fit budget.
+- **Next action:** run C4a fit A/B on the exact 16-contact budget, compare every
+  artifact byte-for-byte and classify pass, valid reject, OOD or invalid run.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -123,12 +123,12 @@
 - **Decision:** open C4 protocol only. Fit/development/holdout/validator/shadow
   PCM remain closed until their staged gates authorize exact budgets.
 
-## Material transition: C4a protocol freezes one-shot real FRF fit
-- **Evidence:** [C4 research](../physical-sound-r3a-v12-c4-real-frf-fit-research-2026-08-31.md)
+## Material transition: C4a runner passes repeated zero-read preflight
+- **Evidence:** [C4a exact preflight](../physical-sound-r3a-v12-c4a-real-frf-runner-preflight-result-2026-08-31.md)
   and [fit protocol](../physical-sound-r3a-v12-c4-object41-real-frf-fit-protocol-2026-08-31.md).
-- **Decision:** single-record coherence has no authority; force-only coverage,
-  leave-quarter-out pole stability and force permutation gate the fit. PCM is
-  still closed until runner tests and repeated zero-read preflight pass.
+- **Decision:** open exactly sixteen fit force/mic pairs. Single-record
+  coherence has no authority; every development/holdout/validator/shadow
+  contact remains sealed until the frozen fit decision permits a successor.
 
 ## Durable negative knowledge
 
@@ -237,7 +237,7 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** V9/V10, V11 and V12 C1–C3 code/evidence are in Git; all run
+- **Workspace:** V9/V10, V11 and V12 C1–C4a preflight code/evidence are in Git; all run
   outputs, datasets, arrays and WAVs are external.
 - **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
   contacts are opened. Every row `2407`, method holdout and admission shadow
@@ -245,5 +245,5 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** C4a runner/tests and repeated zero-read preflight;
-  fit PCM remains closed. Authored clips remain the product path.
+- **Next commit boundary:** repeated C4a fit A/B and exact result; only fit PCM
+  is authorized. Authored clips remain the product path.

@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_REPEAT_PASS / C4A_PROTOCOL_FROZEN / C4A_RUNNER_NEXT / FIT_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_REPEAT_PASS / C4A_PREFLIGHT_REPEAT_PASS / FIT_RUN_NEXT / FIT_ROLE_ONLY_AUTHORIZED / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V11](physical-sound-synthesis-roadmap-v11.md), закрыт после B1R3 |
 | Exact основание | [C1 repeat-exact result](../development/physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -90,7 +90,7 @@ flowchart LR
 | C1 | Coverage-certified known-truth oracle | `COMPLETE / REPEAT_EXACT_PASS` | Все acquisition-supported truth modes восстановлены, unsupported controls не изобретены, held responses и OOD gates проходят дважды побитово. |
 | C2 | Internet-source zero-decode inventory | `COMPLETE / NARROWED_SOURCE_PASS` | Найден хотя бы один stable paired force+mic source с доказуемыми axes/lineage; PCM не читается. |
 | C3 | Source role freeze и bounded importer | `COMPLETE / REPEAT_EXACT_PASS` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
-| C4 | Real transfer-response model | `C4A_PROTOCOL_FROZEN / C4A_RUNNER_NEXT / FIT_PCM_CLOSED` | Fit и development проходят против raw-H1, impulse, input-ignorant и causal controls; one-shot holdout подтверждает перенос. |
+| C4 | Real transfer-response model | `C4A_PREFLIGHT_REPEAT_PASS / FIT_RUN_NEXT / FIT_ROLE_ONLY_AUTHORIZED` | Fit и development проходят против raw-H1, impulse, input-ignorant и causal controls; one-shot holdout подтверждает перенос. |
 | C5 | Physical Sound Record V1 | `BLOCKED_BY_C4` | Версионированная external record-база хранит poles, damping, contact residues, coverage/OOD и provenance без waveform в Git. |
 | C6 | Exact-object contact ML | `BLOCKED_BY_C5` | Geometry/contact model выигрывает у nearest, RBF/barycentric и linear-basis controls на unseen parent groups. |
 | C7 | Independent Validator V1 | `BLOCKED_BY_C4` | Frozen validator имеет bounded false-pass risk, useful coverage и tri-state решение на method holdout. |
@@ -258,9 +258,9 @@ Accepted ADR. До этого SPEC-45 остаётся `Proposed` и authored cl
    pass byte-for-byte.
 6. `C4a`: `COMPLETE`; fit-only force/FRF protocol and one-shot limitations are
    frozen before PCM decode.
-7. `C4b` — next: implement runner and synthetic/no-access tests, then repeat
-   zero-read preflight before the exact fit budget is opened.
-8. `C4c–C4e`: fit → development → one-shot holdout as separate gates/commits.
+7. `C4b`: `COMPLETE`; runner, synthetic/no-access tests and repeated zero-read
+   preflight pass; only the exact sixteen-contact fit budget is open.
+8. `C4c` — next; run fit A/B. `C4d–C4e` remain gated development and holdout.
 9. `C5–C9`: record schema, controls-first ML, validator, atlas and admission as
    independently reviewable artifacts.
 
