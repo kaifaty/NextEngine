@@ -1,6 +1,6 @@
 # NCGP12 — correctness-first Nonlocal pressure-state discriminator
 
-Status: `FROZEN_REVISION_2 / CPU_ONLY / IMPLEMENTATION_NEXT`
+Status: `FROZEN_REVISION_3 / CPU_ONLY / IMPLEMENTATION_NEXT`
 
 Date: `2026-08-31`
 
@@ -27,13 +27,15 @@ an explicit unilateral pressure multiplier.
 
 | ID | Hypothesis | Distinguishing prediction |
 | --- | --- | --- |
-| H12A | The penalty constitutive law is the first cause | A nonnegative multiplier solve closes the linearized density/KKT gates while zero pressure does not |
+| H12A | Missing explicit pressure state is a viable repair ingredient | A nonnegative multiplier solve closes the linearized density/KKT gates while zero pressure does not; this does not yet assign sole causality to penalty pressure |
 | H12B | Surface tension is the first cause | The pressure-only isolated solve closes, but a later surface-enabled trajectory reintroduces the failure |
 | H12C | The corrected density/boundary discretization cannot represent hydrostatic support | Even the converged pressure solve leaves a material KKT, density or force residual |
 | H12D | One linearized projection is insufficient but the pressure state is viable | Linearized KKT closes while the exact nonlinear post-update density gate fails, authorizing a bounded nonlinear projection successor |
 
 H12A is not selected merely because the solve returns finite values. The
-positive and negative controls and all frozen residual gates must pass.
+positive and negative controls and all frozen residual gates must pass. This
+pressure-only stage cannot distinguish H12A from H12B as the first cause of
+the old trajectory failure; the surface-enabled successor owns that decision.
 
 ## Frozen fixture
 
@@ -50,6 +52,10 @@ positive and negative controls and all frozen residual gates must pass.
   order and dynamic degrees of freedom in that same order;
 - all diagnostic arithmetic is `long double`; no CUDA, timing, surface,
   viscosity, warm start or previous pressure state participates.
+
+Here `profile.lambda` is the disabled normal-viscosity coefficient. The
+pressure multiplier below is a different quantity, written `lambda_i` only to
+match standard constrained-optimization notation.
 
 ## Frozen constrained step
 
@@ -119,16 +125,21 @@ All norms use deterministic ascending-index accumulation.
    - complementarity
      `max_i |lambda_i (A lambda-b)_i| <= 1e-10 J`;
    - at least one positive multiplier and bottom-layer median pressure larger
-     than the top-layer median pressure.
+     than the top-layer median pressure. Physical pressure is reported as
+     `p_i=(rho0/mass)*lambda_i` in pascals; bottom/top are logical lattice
+     layers `iz=0` and `iz=7` after stable-ID canonicalization.
 3. Candidate update:
    - linearized post-update constraint agrees with `b-A lambda` to relative
-     L2 `<=2e-12`;
+     L2 `<=2e-12`, divided by
+     `max(||b-A lambda||_2,1e-30)`;
    - exact nonlinear density after `x_trial` has maximum positive strain
      `<=1e-3` and RMS positive strain `<=2.5e-4`;
    - normalized stationarity residual
      `||(mass/dt^2)(s-dt^2*g)+J^T lambda||_2 /
       max(||mass*g||_2,1e-30) <=1e-8`;
-   - no particle crosses the analytic inset and no particle/ID/mass is lost.
+   - no particle crosses the exact long-double analytic inset
+     `[spacing/2, basin_extent-spacing/2]` on any axis and no particle/ID/mass
+     is lost. This stage deliberately permits no geometric epsilon.
 
 Mandatory controls:
 
@@ -145,7 +156,8 @@ Mandatory controls:
 
 - `PRESSURE_STATE_LINEARIZED_SUPPORTED` — every gate and control passes;
   freeze a successor with repeated nonlinear projection and a 240-step tiny
-  hydrostatic trajectory before 4k.
+  hydrostatic trajectory before 4k. This route proves pressure-state
+  representability only, not that penalty pressure was the sole cause.
 - `NONLINEAR_PROJECTION_REQUIRED` — derivative, convex solve, KKT,
   stationarity and controls pass, but only the exact post-update density gate
   fails. Freeze a bounded repeated-projection successor.
@@ -173,6 +185,17 @@ The external papers support the distinction between penalty pressure and an
 implicit incompressibility solve. They do not prove this fixture, operator,
 boundary treatment or implementation.
 
+## Root serialization
+
+Canonical multiplier and trial roots serialize values in stable-ID order by
+explicitly narrowing each finite `long double` to IEEE binary64 and hashing
+the little-endian bits under a versioned domain. Raw `long double` object bytes
+and ABI padding are forbidden. The multiplier-mutation control applies
+`std::nextafter` to the published binary64 value toward positive infinity and
+must change the canonical root. The final result root binds contract/source/
+binary/input identities, candidate/permuted/ghost-omission metric and work
+roots, classification and all five control outcomes.
+
 ## Revision 2 correction
 
 Revision 1 was frozen before implementation and then rejected by the required
@@ -183,3 +206,14 @@ underspecified. Revision 2 replaces that KKT map with the dimensionless
 `min(A_ii*lambda_i,(A lambda-b)_i)`, defines force normalization, and fixes the
 single finite-difference direction. No executable result existed and no
 observed number informed this correction.
+
+## Revision 3 correction
+
+The post-revision-2 read-only audit found four remaining specification gaps
+before the first build/run: physical pressure mapping and layer ownership,
+the linearized-error denominator, inset semantics and portable root
+serialization. It also noted that a pressure-only solve cannot causally
+separate H12A from H12B. Revision 3 closes those gaps and narrows the route
+wording to pressure-state representability. Candidate source existed but had
+not been compiled or executed; no observed numerical result informed this
+revision.
