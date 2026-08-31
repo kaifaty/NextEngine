@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V14 / N0_REBASELINE_COMPLETE / N1_DATASET_CONTRACT_NEXT / MEASURED_TRANSFER_OPTIONAL_SOURCE_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
-| Updated | `2026-08-31` |
+| Status | `ROADMAP_V14 / N1A_REPEAT_EXACT_PASS / N1B_METADATA_INVENTORY_NEXT / MEASURED_TRANSFER_OPTIONAL_SOURCE_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object neural canonical-impact research, deterministic clip cooker and independent automatic validation |
 | Definition of done | One frozen generator/cooker and independent validator process untouched Glass/Wood/Metal shadows exactly once; every decision bakes byte-identical clips or selects complete fallback |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** V14 removes recovery of one perfect exact source from
-  the critical path. The next useful target is a multi-object, offline neural
-  canonical-impact prior followed by deterministic clip cooking.
-- **Exact evidence:** [M2c result](../physical-sound-v13-m2c-realimpact-five-impact-control-result-2026-08-31.md),
-  manifest `c003ace2…b3a8`, report `afb9ae5c…e8af`; object 92 remains closed by
-  [M2b](../physical-sound-v13-m2b-object92-raw-force-inventory-result-2026-08-31.md).
+- **Current conclusion:** N1a repeat-exact freezes Dataset Contract V1 with
+  object/recording disjointness, prior-exposure guards and exact Glass/Wood/Metal
+  role minima before real source inspection.
+- **Exact evidence:** [N1a result](../physical-sound-v14-n1a-dataset-contract-v1-result-2026-09-01.md),
+  contract `3093411b…4278`, descriptor `493f8bcd…073`, report `c4faa63a…88ea`;
+  all source/signal counters are zero.
 - **Rebaseline:** [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md)
   preserves the canonical/measured claim split and makes measured transfer an
   optional upgrade rather than a prerequisite for neural authoring.
@@ -28,8 +28,8 @@
   byte-identical builds with zero build-time source/signal access.
 - **M1c result:** [historical census](../physical-sound-v13-m1c-historical-census-and-shortlist-result-2026-08-31.md)
   closes M1 and leaves fresh glass candidates `59/82/92/93`.
-- **Next action:** N1a Dataset Contract V1 schema and signal-blind source-quality,
-  exposure and object-disjoint split invariants; sample decode remains forbidden.
+- **Next action:** N1b metadata-only ObjectFolder/RealImpact/ObjectFolder-2.0
+  source/member/acquisition-cost inventory; sample decode remains forbidden.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -54,7 +54,7 @@
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
-| V14 N1–N5 | `N1_NEXT / N2_N5_BLOCKED` | Freeze the multi-object dataset contract, then prove known-truth, real representation, few-shot contact field and cross-object prior in order. |
+| V14 N1–N5 | `N1A_PASS / N1B_NEXT / N2_N5_BLOCKED` | Contract invariants are executable; inventory and role freeze still precede known-truth, real representation, few-shot and cross-object work. |
 | V14 N6–N8 | `VALIDATOR_CAN_DEVELOP / ADMISSION_BLOCKED` | Validator structure may advance after N1; admission and cooker require a held generator winner. |
 | V14 N9–N12 | `BLOCKED / ADR_REQUIRED / TRANSFER_OPTIONAL` | Domain growth and production wait for shadow evidence; measured transfer is a separate source-gated upgrade. |
 
@@ -80,44 +80,6 @@
   records RealImpact, AV-MSF, DiffSound and NeuralSound evidence and the limits
   on what each can support.
 
-## Material transition: M1a freezes the research lifecycle
-
-- **Observation:** prior work had exact experiment evidence but no single
-  machine-enforced object lifecycle or claim/axis boundary.
-- **Evidence:** [M1a result](../physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md)
-  records two byte-identical five-state fixture branches, exact successor
-  roundtrip and zero network/source/signal counters.
-- **Conclusion:** current-V0 records can preserve source, claim, axes, parent
-  hashes, independent admission evidence and authored fallback without gaining
-  product authority.
-- **Decision:** M1a is complete. Unknown schema/axis, lifecycle skips, claim
-  widening and terminal reopening fail closed; no synthetic migration is
-  promised. M1b now supplies the real prior-exposure ledger hashes.
-
-## Material transition: M1b makes exposure machine-checkable
-
-- **Observation:** 271 external experiment directories contain 1,356 JSON
-  files across incompatible schemas; key-name inference cannot safely recover
-  sample semantics.
-- **Evidence:** [M1b result](../physical-sound-v13-m1b-exposure-ledger-v0-result-2026-08-31.md)
-  records exact artifact/pointer binding, 13 guards and repeated zero-source-
-  signal builds.
-- **Conclusion:** a declarative hash-closed catalog can normalize historical
-  identities and detect contact/mutation leakage without opening waveforms.
-- **Decision:** M1b is complete. M1c must populate the exhaustive
-  `historical_union`; no source is clean merely because an adapter is absent.
-
-## Material transition: M2a freezes the fresh exact object
-
-- **Observation:** of fresh glass candidates `59/82/92/93`, only object `92`
-  has the complete selected compact audio/contact/point-cloud/scale/split chain.
-- **Evidence:** two real-source executions emit byte-identical manifest/report,
-  bind `36` WAV headers and coordinates, and retain zero PCM/force decode.
-- **Conclusion:** object `92` can support the canonical exact-contact lane
-  without selecting on sound; its six roles are now immutable.
-- **Decision:** M2a is complete. M2b may only inventory raw force under the
-  frozen `1 GiB` increment and `12 GiB` ceiling, then bind RealImpact control.
-
 ## Material transition: M2b rejects incomplete raw lineage
 
 - **Observation:** the 8-GiB prefix reaches object 93 with 143/144 selected
@@ -141,6 +103,18 @@
   not for a learned canonical-impact authoring prior.
 - **Decision:** close V13-M2d as a sequential prerequisite. N1 freezes a
   multi-object Dataset Contract before N2 known-truth neural work.
+
+## Material transition: N1a makes the dataset split executable
+
+- **Observation:** V14 specified quality classes and role minima but lacked a
+  machine-enforced boundary between training usability and evaluation credit.
+- **Evidence:** [N1a result](../physical-sound-v14-n1a-dataset-contract-v1-result-2026-09-01.md)
+  records 12 passing test methods, 30 fail-closed mutations and two identical
+  24-object builds with zero source/PCM/force/protected access.
+- **Conclusion:** object/recording lineage, structural quality and prior
+  exposure can be frozen before real source-member inspection.
+- **Decision:** N1a is complete. N1b may read only publisher/member metadata
+  and acquisition headers/costs; final roles and real signal remain sealed.
 
 ## Durable negative knowledge
 
@@ -212,6 +186,8 @@ Read in precedence order:
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 3. [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md),
    [V14 research](../physical-sound-v14-data-first-neural-rebaseline-2026-08-31.md),
+   [N1a protocol](../physical-sound-v14-n1a-dataset-contract-v1-protocol-2026-09-01.md),
+   [N1a result](../physical-sound-v14-n1a-dataset-contract-v1-result-2026-09-01.md),
    [Roadmap V13](../../plans/physical-sound-synthesis-roadmap-v13.md),
    [M2c protocol](../physical-sound-v13-m2c-realimpact-five-impact-control-protocol-2026-08-31.md),
    [M2c result](../physical-sound-v13-m2c-realimpact-five-impact-control-result-2026-08-31.md),
@@ -241,5 +217,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V14 N1a Dataset Contract V1 and zero-signal
-  source-quality/split invariants.
+- **Next commit boundary:** V14 N1b real-source metadata/member inventory and
+  bounded acquisition-cost report with zero signal decode.
