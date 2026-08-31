@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-08-31 |
-| Status | `IN_PROGRESS / N0.4A_V8_OBJECT91_SOURCE_GATE_FROZEN / ZERO_DECODE_INVENTORY_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
+| Status | `IN_PROGRESS / N0.4A_V8_OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_NEXT / N0.4B_NOT_AUTHORIZED / RESEARCH_ONLY` |
 | Strategy | [Neural acoustic field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
 | Roadmap | [Physical sound synthesis roadmap](physical-sound-synthesis-roadmap.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -740,3 +740,8 @@ The [object-91 source/gate revision](../development/physical-sound-r3a-v8-object
 now freezes the official archive identity, exact 512 MiB prefix, member
 commitments and `18/12/4 fit`, `20 development`, `27 sealed` roles. Implement
 the zero-decode inventory before any fit extraction.
+
+The inventory now returns `READY_FOR_V8_REAL_FIT_EXTRACTION` twice with exact
+manifest `e1651b64…147b` and report `d9888302…dace`; see the
+[exact result](../development/physical-sound-r3a-v8-objectfolder-real-inventory-result-2026-08-31.md).
+Freeze the complete fit-only runner before decoding contacts `18/12/4`.

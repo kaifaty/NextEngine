@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V8 / R3A_V8_SYNTHETIC_PASS / OBJECT91_SOURCE_GATE_FROZEN / ZERO_DECODE_INVENTORY_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
+| Status | `ROADMAP_V8 / R3A_V8_SYNTHETIC_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_NEXT / R3B_NOT_AUTHORIZED / FALLBACK_REQUIRED / PASS_DISABLED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -16,8 +16,8 @@
   nearest-position RMSE by `0.262x` and `0.097x` on two opened FEM objects.
 - **Exact evidence:** [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md),
   manifest `b2bb931d…6934`, report `391854fe…3b78`, implementation `9187e26e`.
-- **Next action:** Run the frozen zero-decode inventory for ObjectFolder Real
-  Glass object `91`; do not extract or numerically decode fit PCM yet.
+- **Next action:** Freeze the complete object-91 fit-only representation runner,
+  gates and capacities before extracting fit PCM.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -40,7 +40,7 @@
 | R3A V3B | `REJECTED / REPRODUCIBLE` | Native identity passes; NDAC preserves coarse decay/envelope but loses spectrum/modes. |
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
 | R3A V5 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | All capacities fit the byte budget but fail real spectrum/modal transfer; no capacity or holdout is selected. |
-| R3A V8 | `SYNTHETIC_PASS / OBJECT91_SOURCE_FROZEN / INVENTORY_NEXT` | Renderer/FEM field pass; object `91` roles and source commitments are frozen, but no real PCM sample is decoded. |
+| R3A V8 | `SYNTHETIC_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_NEXT` | Five roles and 20 members repeat exactly with zero decoded samples; only fit-runner freeze/extraction is authorized. |
 | R3B+ | `NOT_AUTHORIZED` | No real contact-to-modal field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Compressed V4–V5 transition history
@@ -53,22 +53,6 @@
 - V5-C then passes anti-collapse/cost gates but fails fresh real development.
   Exact implementation, metrics and rejected alternatives remain in the linked
   V4/V5 evidence reports; none may be retuned on opened objects.
-
-## Material transition: V5-B collapse isolated and V5-C bootstrap selected
-
-- **Observation:** The automated step-2000 gate rejects factorized V5-B on
-  amplitude, spectrum, code use and output diversity. Removing RVQ produces
-  the same near-silent constant output, while normalized continuous bootstrap
-  learns distinct validation waveforms.
-- **Evidence:** Implementation `ed5e65ca`; [bounded research report](../physical-sound-r3a-v5b-collapse-and-v5c-bootstrap-2026-08-31.md).
-- **Conclusion:** The primary defect is optimizing the full clamped perceptual
-  loss from near silence, not encoder explosion or RVQ capacity alone.
-- **Decision:** Supersede end-to-end-from-step-zero V5-B with staged V5-C.
-  Keep the full perceptual loss evaluation-only, disable implicit 50k runs and
-  compare bounded capacities. Development and holdout remain forbidden.
-- **Reconsideration condition:** A fully quantized V5-C checkpoint must retain
-  bootstrap signal and pass every frozen anti-collapse check; otherwise stop
-  this codec family before development.
 
 ## Material transition: V5-C development rejects the neural representation
 
@@ -133,6 +117,17 @@
   prefix exposes no coordinate artifact, so object `91` cannot authorize R3B.
 - **Smallest next action:** implement a zero-payload inventory report with
   exact repeat and all decoded-sample counters at zero.
+
+## Material transition: object-91 inventory passes
+
+- **Observation:** Two inventories repeat manifest `e1651b64…147b` and report
+  `d9888302…dace`; all 20 members and ten native-48 kHz headers pass.
+- **Evidence:** [Exact inventory result](../physical-sound-r3a-v8-objectfolder-real-inventory-result-2026-08-31.md).
+- **Decision:** Authorize only a fully preregistered fit-only runner and later
+  extraction of contacts `18/12/4`. Development `20` and sealed `27` stay
+  numerically unread.
+- **Smallest next action:** freeze modal initializer, measured-force excitation,
+  residual/damping capacities, cost and unchanged five acoustic endpoints.
 
 ## Durable negative knowledge
 
@@ -222,7 +217,8 @@ Read in precedence order:
    [V5-C development result](../physical-sound-r3a-v5c-capacity-frontier-and-development-result-2026-08-31.md)
    [V8 rebaseline](../physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md)
    [V8 synthetic result](../physical-sound-r3a-v8-synthetic-preflight-result-2026-08-31.md)
-   and [ObjectFolder Real source freeze](../physical-sound-r3a-v8-objectfolder-real-source-and-gate-freeze-2026-08-31.md).
+   [ObjectFolder Real source freeze](../physical-sound-r3a-v8-objectfolder-real-source-and-gate-freeze-2026-08-31.md)
+   and [inventory result](../physical-sound-r3a-v8-objectfolder-real-inventory-result-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
@@ -236,5 +232,5 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** Object `91` zero-decode inventory runner, focused
-  tests and repeated external report; authored clips remain the product path.
+- **Next commit boundary:** Object `91` fit-only protocol and runner before any
+  fit sample decode; authored clips remain the product path.

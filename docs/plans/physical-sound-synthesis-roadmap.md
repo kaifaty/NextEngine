@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-31 |
-| Статус | `ACTIVE_R&D / R3A_V8_SYNTHETIC_PASS / OBJECT91_SOURCE_GATE_FROZEN / ZERO_DECODE_INVENTORY_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
+| Статус | `ACTIVE_R&D / R3A_V8_SYNTHETIC_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_NEXT / R3B_NOT_AUTHORIZED / PASS_DISABLED / P1_BLOCKED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Стратегия | [V8 explicit-modal neural rebaseline](../development/physical-sound-v8-explicit-modal-neural-rebaseline-2026-08-31.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -199,7 +199,7 @@ models и не маскирует провал обещанием универс
 | R2C | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Dense separable complex field и Helmholtz ablation завершены без выбранного candidate; silence-collapse локализован до generalization. |
 | R2D | `COMPLETE / V2_PASS / REPRODUCIBLE` | S–M | Half-cosine V2 проходит все неизменные context-only objective/cooker gates и повторяется без query reads. |
 | R2E | `COMPLETE / REJECTED / REPRODUCIBLE` | M | Perfect context fit loses every held-listener endpoint; repeated query oracle proves both representation and interpolation limitations. |
-| R3A | `IN_PROGRESS / V1–V5_NEGATIVE_OR_INCONCLUSIVE / V8_SYNTH_PASS / OBJECT91_SOURCE_FROZEN / INVENTORY_NEXT` | L | V8 synthetic passes; exact ObjectFolder Real object-91 members/roles are frozen, but all numerical PCM reads and real quality remain zero. |
+| R3A | `IN_PROGRESS / V1–V5_NEGATIVE_OR_INCONCLUSIVE / V8_SYNTH_PASS / OBJECT91_INVENTORY_PASS / FIT_PROTOCOL_NEXT` | L | Object-91 prefix/members/headers repeat with zero sample decode. Freeze the fit representation before extracting contacts `18/12/4`. |
 | R3B | `NOT_AUTHORIZED_BY_R3A` | L | A real exact-object contact field cannot start without V8 fresh-real representation development and holdout passes. |
 | R4 | `CONDITIONAL_ON_R3B` | L–XL | Cross-object pretraining/few-shot adaptation passes object/family-disjoint holdout or broad transfer is explicitly rejected. |
 | R5 | `BLOCKED_BY_R3B` | M | Frozen automatic validator shows bounded grouped risk and useful selective coverage without a live human gate. |
@@ -768,7 +768,12 @@ ledger, persistence и `AcousticFactV1` roots.
     authority exists.
 19. `R3A V8 fresh-real source and gate freeze` — `PREREGISTERED`; exact 512 MiB
     official archive prefix and five object-91 roles are frozen. Zero-decode
-    member/header inventory is next; fit PCM remains closed.
+    member/header inventory now repeats and passes; fit PCM remains closed
+    until the complete fit runner is committed.
+20. `R3A V8 object-91 fit-only representation` — `NEXT`; freeze measured-force
+    excitation, modal initializer, bounded residual/damping capacities and all
+    unchanged endpoints, then decode only `18/12/4` and stop before development
+    on any fit failure.
 
 После каждого boundary обновляются exact evidence, task state и этот roadmap.
 Успешный commit без измеренного exit criterion не меняет milestone status.
