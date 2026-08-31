@@ -118,3 +118,15 @@ Any successor must be a fresh revision and must:
 
 B2 remains blocked until a repeat-exact known-truth pass under that revised
 local-support policy.
+
+## Verification
+
+- focused B1/B1R2 Python suites: `16/16 PASS`;
+- `cargo test --locked -p xtask physical_sound --no-fail-fast`:
+  `191/191 PASS` (`45` unrelated filtered);
+- `git diff --check`: `PASS`;
+- `cargo run --locked -q -p xtask -- boundary-scan`: `FAIL` on the pre-existing
+  `SOURCE_LAYOUT_ESCAPE_HATCH` for
+  `tools/xtask/src/physical_sound_registry_command/realimpact_transfer_fixture.rs`.
+  This B1R2 change does not modify that file; its latest commit remains
+  `a26f070f`. No broad boundary-scan pass is claimed.
