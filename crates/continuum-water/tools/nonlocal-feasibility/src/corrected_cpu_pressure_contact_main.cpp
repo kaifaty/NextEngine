@@ -194,6 +194,56 @@ std::string local_input_root(const NonlocalGpuProfile& profile,
     return digest(std::move(bytes));
 }
 
+std::string ncgp13_profile_root(const NonlocalGpuProfile& profile) {
+    std::string bytes;
+    append_string(bytes, "nextengine.nonlocal.ncgp13.profile.v1");
+    append_string(bytes, profile.id);
+    for (const double value : std::array<double, 19>{profile.dt,
+             profile.spacing, profile.horizon, profile.mass,
+             profile.rest_density, profile.kernel_scale, profile.kappa,
+             profile.lambda, profile.mu, profile.gamma, profile.gravity.x,
+             profile.gravity.y, profile.gravity.z, profile.basin_extent.x,
+             profile.basin_extent.y, profile.basin_extent.z,
+             static_cast<double>(profile.ghost_layers),
+             static_cast<double>(profile.maximum_dynamic_samples),
+             static_cast<double>(profile.maximum_neighbors)}) {
+        append_f64(bytes, value);
+    }
+    return digest(std::move(bytes));
+}
+
+std::string ncgp13_control_input_root(std::string_view profile_root,
+    std::vector<NonlocalGpuSample> samples,
+    std::vector<NonlocalGpuGhost> ghosts) {
+    std::sort(samples.begin(), samples.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.sample_id < rhs.sample_id;
+    });
+    std::sort(ghosts.begin(), ghosts.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.sample_id < rhs.sample_id;
+    });
+    std::string bytes;
+    append_string(bytes, "nextengine.nonlocal.ncgp13.control-input.v1");
+    append_string(bytes, profile_root);
+    append_u64(bytes, samples.size());
+    for (const NonlocalGpuSample& sample : samples) {
+        append_u32(bytes, sample.sample_id);
+        for (const double value : std::array<double, 9>{sample.reference.x,
+                 sample.reference.y, sample.reference.z, sample.current.x,
+                 sample.current.y, sample.current.z, sample.velocity.x,
+                 sample.velocity.y, sample.velocity.z}) {
+            append_f32(bytes, static_cast<float>(value));
+        }
+    }
+    append_u64(bytes, ghosts.size());
+    for (const NonlocalGpuGhost& ghost : ghosts) {
+        append_u32(bytes, ghost.sample_id);
+        append_f32(bytes, static_cast<float>(ghost.position.x));
+        append_f32(bytes, static_cast<float>(ghost.position.y));
+        append_f32(bytes, static_cast<float>(ghost.position.z));
+    }
+    return digest(std::move(bytes));
+}
+
 enum class Admission { Ok, InvalidProfile, Capacity, DuplicateId, Nonfinite,
     NonBinary32 };
 
@@ -407,9 +457,29 @@ struct Work {
     std::uint64_t plane_hits = 0U;
     std::uint64_t contact_projections = 0U;
     std::uint64_t projection_rounds = 0U;
+    std::uint64_t analytic_jv_multiply_adds = 0U;
+    std::uint64_t topology_distance_tests = 0U;
+    std::uint64_t topology_discoveries = 0U;
     std::uint64_t hash_derivations = 0U;
     std::uint64_t penalty_work = 0U;
 };
+
+std::array<std::uint64_t, 20> work_values(const Work& work) {
+    return {work.graph_builds, work.graph_candidates, work.accepted_pairs,
+        work.density_pairs, work.derivative_pairs, work.matrix_products,
+        work.qp_sweeps, work.qp_updates, work.gradient_recomputations,
+        work.finite_difference_candidates,
+        work.independent_density_candidates, work.plane_tests,
+        work.plane_hits, work.contact_projections, work.projection_rounds,
+        work.analytic_jv_multiply_adds, work.topology_distance_tests,
+        work.topology_discoveries, work.hash_derivations,
+        work.penalty_work};
+}
+
+bool same_work(const Work& lhs, const Work& rhs) {
+    return work_values(lhs) == work_values(rhs);
+}
+
 void add_work(Work& target, const Work& value) {
     target.graph_builds += value.graph_builds;
     target.graph_candidates += value.graph_candidates;
@@ -426,21 +496,18 @@ void add_work(Work& target, const Work& value) {
     target.plane_hits += value.plane_hits;
     target.contact_projections += value.contact_projections;
     target.projection_rounds += value.projection_rounds;
+    target.analytic_jv_multiply_adds += value.analytic_jv_multiply_adds;
+    target.topology_distance_tests += value.topology_distance_tests;
+    target.topology_discoveries += value.topology_discoveries;
     target.hash_derivations += value.hash_derivations;
     target.penalty_work += value.penalty_work;
 }
 std::string work_root(const Work& work) {
     std::string bytes;
     append_string(bytes, "nextengine.nonlocal.ncgp13.work.v1");
-    for (const std::uint64_t value : std::array<std::uint64_t, 17>{
-             work.graph_builds, work.graph_candidates, work.accepted_pairs,
-             work.density_pairs, work.derivative_pairs, work.matrix_products,
-             work.qp_sweeps, work.qp_updates, work.gradient_recomputations,
-             work.finite_difference_candidates,
-             work.independent_density_candidates, work.plane_tests,
-             work.plane_hits, work.contact_projections,
-             work.projection_rounds, work.hash_derivations,
-             work.penalty_work}) append_u64(bytes, value);
+    for (const std::uint64_t value : work_values(work)) {
+        append_u64(bytes, value);
+    }
     return digest(std::move(bytes));
 }
 
@@ -719,6 +786,9 @@ Assembly assemble(const NonlocalGpuProfile& profile,
         result.matrix_root = digest(std::move(bytes));
     }
     result.work.hash_derivations += 4U;
+    if (result.work.hash_derivations != 5U) {
+        throw std::logic_error("assembly hash accounting mismatch");
+    }
     return result;
 }
 
@@ -729,13 +799,20 @@ long double vector_norm(const std::vector<long double>& values) {
 }
 
 std::vector<long double> j_times(const Assembly& assembly,
-    const std::vector<long double>& values) {
+    const std::vector<long double>& values, Work& work) {
+    const std::uint64_t before = work.analytic_jv_multiply_adds;
     std::vector<long double> result(assembly.count, 0.0L);
     for (std::size_t row = 0U; row < assembly.count; ++row) {
         for (std::size_t column = 0U; column < assembly.dofs; ++column) {
             result[row] += assembly.jacobian[row * assembly.dofs + column]
                 * values[column];
+            ++work.analytic_jv_multiply_adds;
         }
+    }
+    const std::uint64_t expected = static_cast<std::uint64_t>(assembly.count)
+        * static_cast<std::uint64_t>(assembly.dofs);
+    if (work.analytic_jv_multiply_adds - before != expected) {
+        throw std::logic_error("analytic Jv work accounting mismatch");
     }
     return result;
 }
@@ -859,7 +936,7 @@ long double jacobian_check(const NonlocalGpuProfile& profile,
     }
     const long double magnitude = vector_norm(direction);
     for (long double& value : direction) value /= magnitude;
-    const auto analytic = j_times(assembly, direction);
+    const auto analytic = j_times(assembly, direction, work);
     const long double epsilon = std::ldexp(
         static_cast<long double>(profile.spacing), -20);
     std::vector<Vec3l> plus = positions;
@@ -911,7 +988,7 @@ struct Contact {
     std::uint32_t mask = 0U;
     std::uint32_t first_mask = 0U;
     long double t_first = std::numeric_limits<long double>::infinity();
-    std::uint64_t tests = 6U;
+    std::uint64_t tests = 0U;
     std::uint64_t hits = 0U;
 };
 
@@ -928,41 +1005,41 @@ Contact swept_contact(const NonlocalGpuProfile& profile, Vec3l start,
     Vec3l proposed) {
     Contact result;
     result.endpoint = proposed;
-    if (!finite(start) || !finite(proposed)) {
-        result.valid = false;
-        return result;
-    }
     const long double low = 0.5L * profile.spacing;
     const Vec3l high{profile.basin_extent.x - low,
         profile.basin_extent.y - low, profile.basin_extent.z - low};
-    for (std::size_t axis = 0U; axis < 3U; ++axis) {
+    const bool finite_segment = finite(start) && finite(proposed);
+    bool start_inside = finite_segment;
+    if (finite_segment) {
+        for (std::size_t axis = 0U; axis < 3U; ++axis) {
+            const long double a = component(start, axis);
+            start_inside = start_inside && a >= low
+                && a <= component(high, axis);
+        }
+    }
+    result.valid = finite_segment && start_inside;
+    for (std::size_t face = 0U; face < 6U; ++face) {
+        ++result.tests;
+        const std::size_t axis = face / 2U;
+        const bool high_face = (face & 1U) != 0U;
         const long double a = component(start, axis);
         const long double b = component(proposed, axis);
         const long double hi = component(high, axis);
-        if (a < low || a > hi) {
-            result.valid = false;
-            return result;
-        }
-        const bool low_hit = b < low;
-        const bool high_hit = b > hi;
-        if (low_hit && high_hit) {
-            result.valid = false;
-            return result;
-        }
-        if (!low_hit && !high_hit) continue;
-        const long double plane = low_hit ? low : hi;
+        const bool crosses_plane = high_face ? b > hi : b < low;
+        const bool hit = result.valid && crosses_plane;
+        if (!hit) continue;
+        const long double plane = high_face ? hi : low;
         const long double denominator = b - a;
         if (denominator == 0.0L) {
             result.valid = false;
-            return result;
+            continue;
         }
         const long double time = (plane - a) / denominator;
         if (!std::isfinite(time) || time < 0.0L || time > 1.0L) {
             result.valid = false;
-            return result;
+            continue;
         }
-        const std::uint32_t bit = static_cast<std::uint32_t>(
-            2U * axis + (high_hit ? 1U : 0U));
+        const std::uint32_t bit = static_cast<std::uint32_t>(face);
         result.mask |= 1U << bit;
         ++result.hits;
         set_component(result.endpoint, axis, plane);
@@ -1043,6 +1120,9 @@ ContactBatch contact_batch(const NonlocalGpuProfile& profile,
     }
     result.root = digest(std::move(bytes));
     ++result.work.hash_derivations;
+    if (result.work.hash_derivations != 1U) {
+        throw std::logic_error("contact hash accounting mismatch");
+    }
     return result;
 }
 
@@ -1065,6 +1145,117 @@ bool inset_oracle(const NonlocalGpuProfile& profile,
     return penetration == 0.0L;
 }
 
+Contact componentwise_contact_oracle(const NonlocalGpuProfile& profile,
+    Vec3l start, Vec3l proposed) {
+    Contact result;
+    result.endpoint = proposed;
+    const long double low = 0.5L * profile.spacing;
+    const Vec3l high{profile.basin_extent.x - low,
+        profile.basin_extent.y - low, profile.basin_extent.z - low};
+    result.valid = finite(start) && finite(proposed);
+    if (result.valid) {
+        for (std::size_t axis = 0U; axis < 3U; ++axis) {
+            const long double a = component(start, axis);
+            result.valid = result.valid && a >= low
+                && a <= component(high, axis);
+        }
+    }
+    for (std::size_t axis = 0U; axis < 3U; ++axis) {
+        const long double a = component(start, axis);
+        const long double b = component(proposed, axis);
+        const long double hi = component(high, axis);
+        ++result.tests;
+        const bool below_low = b < low;
+        const bool low_hit = result.valid && below_low;
+        ++result.tests;
+        const bool above_high = b > hi;
+        const bool high_hit = result.valid && above_high;
+        if (!low_hit && !high_hit) continue;
+        if (low_hit && high_hit) {
+            result.valid = false;
+            continue;
+        }
+        const long double plane = low_hit ? low : hi;
+        const long double denominator = b - a;
+        const long double time = denominator == 0.0L
+            ? std::numeric_limits<long double>::infinity()
+            : (plane - a) / denominator;
+        if (!std::isfinite(time) || time < 0.0L || time > 1.0L) {
+            result.valid = false;
+            continue;
+        }
+        const std::uint32_t bit = static_cast<std::uint32_t>(
+            2U * axis + (high_hit ? 1U : 0U));
+        result.mask |= 1U << bit;
+        ++result.hits;
+        set_component(result.endpoint, axis, plane);
+        if (time < result.t_first) {
+            result.t_first = time;
+            result.first_mask = 1U << bit;
+        } else if (time == result.t_first) {
+            result.first_mask |= 1U << bit;
+        }
+    }
+    result.correction = result.endpoint - proposed;
+    result.impulse = result.correction
+        * (static_cast<long double>(profile.mass) / profile.dt);
+    return result;
+}
+
+bool same_scalar(long double lhs, long double rhs) {
+    if (std::isnan(lhs) || std::isnan(rhs)) {
+        return std::isnan(lhs) && std::isnan(rhs);
+    }
+    return lhs == rhs;
+}
+
+bool same_vec(Vec3l lhs, Vec3l rhs) {
+    return same_scalar(lhs.x, rhs.x) && same_scalar(lhs.y, rhs.y)
+        && same_scalar(lhs.z, rhs.z);
+}
+
+bool same_contact(const Contact& candidate, const Contact& expected) {
+    return candidate.valid == expected.valid
+        && candidate.mask == expected.mask
+        && candidate.first_mask == expected.first_mask
+        && candidate.tests == expected.tests && candidate.hits == expected.hits
+        && same_scalar(candidate.t_first, expected.t_first)
+        && same_vec(candidate.endpoint, expected.endpoint)
+        && same_vec(candidate.correction, expected.correction)
+        && same_vec(candidate.impulse, expected.impulse);
+}
+
+void append_classified_wide(std::string& bytes, long double value) {
+    if (std::isfinite(value)) {
+        append_u32(bytes, 0U);
+        append_wide(bytes, value);
+    } else if (std::isnan(value)) {
+        append_u32(bytes, 1U);
+        append_wide(bytes, 0.0L);
+    } else if (value > 0.0L) {
+        append_u32(bytes, 2U);
+        append_wide(bytes, 0.0L);
+    } else {
+        append_u32(bytes, 3U);
+        append_wide(bytes, 0.0L);
+    }
+}
+
+void append_contact_record(std::string& bytes, const Contact& contact) {
+    append_u64(bytes, contact.valid ? 1U : 0U);
+    append_u32(bytes, contact.mask);
+    append_u32(bytes, contact.first_mask);
+    append_u64(bytes, contact.tests);
+    append_u64(bytes, contact.hits);
+    append_classified_wide(bytes, contact.t_first);
+    for (const Vec3l value : std::array<Vec3l, 3>{contact.endpoint,
+             contact.correction, contact.impulse}) {
+        append_classified_wide(bytes, value.x);
+        append_classified_wide(bytes, value.y);
+        append_classified_wide(bytes, value.z);
+    }
+}
+
 bool contact_oracle_control(const NonlocalGpuProfile& profile,
     std::string& root, Work& work) {
     const long double low = 0.5L * profile.spacing;
@@ -1073,101 +1264,86 @@ bool contact_oracle_control(const NonlocalGpuProfile& profile,
     const Vec3l center{0.5L * (low + high.x), 0.5L * (low + high.y),
         0.5L * (low + high.z)};
     bool pass = true;
-    std::vector<Contact> contacts;
-    auto test = [&](Vec3l a, Vec3l b, std::uint32_t mask,
-                    std::uint32_t first_mask) {
-        const Contact contact = swept_contact(profile, a, b);
-        contacts.push_back(contact);
-        work.plane_tests += contact.tests;
-        work.plane_hits += contact.hits;
-        if (contact.mask != 0U) ++work.contact_projections;
-        long double penetration = 0.0L;
-        pass = pass && contact.valid && contact.mask == mask
-            && contact.first_mask == first_mask
-            && inset_oracle(profile, {contact.endpoint}, penetration)
-            && penetration == 0.0L;
-        return contact;
+    struct CaseResult {
+        std::string name;
+        Vec3l start;
+        Vec3l proposed;
+        Contact candidate;
+        Contact expected;
     };
-    const Contact interior = test(center, center + Vec3l{0.01L, -0.01L, 0.01L},
-        0U, 0U);
-    pass = pass && interior.endpoint.x == center.x + 0.01L
-        && interior.endpoint.y == center.y - 0.01L
-        && interior.endpoint.z == center.z + 0.01L;
-    for (std::size_t axis = 0U; axis < 3U; ++axis) {
-        Vec3l low_end = center;
-        set_component(low_end, axis, low - 0.01L);
-        const Contact low_contact = test(center, low_end,
-            1U << (2U * axis), 1U << (2U * axis));
-        Vec3l high_end = center;
-        set_component(high_end, axis, component(high, axis) + 0.01L);
-        const Contact high_contact = test(center, high_end,
-            1U << (2U * axis + 1U), 1U << (2U * axis + 1U));
-        pass = pass && component(low_contact.impulse, axis) > 0.0L
-            && component(high_contact.impulse, axis) < 0.0L;
-        Vec3l on_low = center;
-        set_component(on_low, axis, low);
-        Vec3l outward = on_low;
-        set_component(outward, axis, low - 0.01L);
-        const Contact zero_time = test(on_low, outward,
-            1U << (2U * axis), 1U << (2U * axis));
-        pass = pass && zero_time.t_first == 0.0L;
-        Vec3l inward = on_low;
-        set_component(inward, axis, low + 0.01L);
-        test(on_low, inward, 0U, 0U);
+    std::vector<CaseResult> cases;
+    auto test = [&](std::string name, Vec3l start, Vec3l proposed) {
+        CaseResult item{std::move(name), start, proposed,
+            swept_contact(profile, start, proposed),
+            componentwise_contact_oracle(profile, start, proposed)};
+        work.plane_tests += item.candidate.tests;
+        work.plane_hits += item.candidate.hits;
+        if (item.candidate.mask != 0U) ++work.contact_projections;
+        pass = pass && item.candidate.tests == 6U
+            && same_contact(item.candidate, item.expected);
+        cases.push_back(item);
+        return item.candidate;
+    };
+    test("interior", center, center + Vec3l{0.01L, -0.01L, 0.01L});
+    for (std::size_t face = 0U; face < 6U; ++face) {
+        const std::size_t axis = face / 2U;
+        const bool high_face = (face & 1U) != 0U;
+        const long double plane = high_face ? component(high, axis) : low;
+        const long double sign = high_face ? 1.0L : -1.0L;
+        Vec3l single = center;
+        set_component(single, axis, plane + sign * 0.01L);
+        test("single-face-" + std::to_string(face), center, single);
+        Vec3l on_plane = center;
+        set_component(on_plane, axis, plane);
+        Vec3l outward = on_plane;
+        set_component(outward, axis, plane + sign * 0.01L);
+        const Contact outward_result = test(
+            "on-plane-outward-" + std::to_string(face), on_plane, outward);
+        pass = pass && outward_result.t_first == 0.0L
+            && sign * component(outward_result.impulse, axis) < 0.0L;
+        Vec3l inward = on_plane;
+        set_component(inward, axis, plane - sign * 0.01L);
+        test("on-plane-inward-" + std::to_string(face), on_plane, inward);
     }
-    const Vec3l low_corner{low, low, low};
-    const Vec3l below{low - 0.01L, low - 0.01L, low - 0.01L};
-    const Contact low_tie = test(low_corner, below, 0x15U, 0x15U);
-    pass = pass && low_tie.t_first == 0.0L;
-    const Vec3l high_corner{high.x, high.y, high.z};
-    const Vec3l above{high.x + 0.01L, high.y + 0.01L, high.z + 0.01L};
-    const Contact high_tie = test(high_corner, above, 0x2aU, 0x2aU);
-    pass = pass && high_tie.t_first == 0.0L;
+    test("low-corner-tie", {low, low, low},
+        {low - 0.01L, low - 0.01L, low - 0.01L});
+    test("high-corner-tie", {high.x, high.y, high.z},
+        {high.x + 0.01L, high.y + 0.01L, high.z + 0.01L});
     Vec3l tangent_end = center + Vec3l{0.02L, 0.03L, 0.0L};
     tangent_end.z = low - 0.01L;
-    const Contact tangent = test(center, tangent_end, 1U << 4U, 1U << 4U);
+    const Contact tangent = test("tangential-retained", center, tangent_end);
     pass = pass && tangent.endpoint.x == tangent_end.x
         && tangent.endpoint.y == tangent_end.y;
-    const Contact a = swept_contact(profile, center,
+    const Contact a = test("nonexpansive-a", center,
         center + Vec3l{0.0L, 0.0L, -10.0L});
-    const Contact b = swept_contact(profile, center,
+    const Contact b = test("nonexpansive-b", center,
         center + Vec3l{0.01L, 0.0L, -20.0L});
-    contacts.push_back(a);
-    contacts.push_back(b);
-    work.plane_tests += a.tests + b.tests;
-    work.plane_hits += a.hits + b.hits;
-    if (a.mask != 0U) ++work.contact_projections;
-    if (b.mask != 0U) ++work.contact_projections;
     pass = pass && norm(a.endpoint - b.endpoint)
         <= norm((center + Vec3l{0.0L, 0.0L, -10.0L})
             - (center + Vec3l{0.01L, 0.0L, -20.0L}));
     Vec3l outside = center;
     outside.x = low - 0.01L;
-    const Contact rejected = swept_contact(profile, outside, center);
-    contacts.push_back(rejected);
-    work.plane_tests += rejected.tests;
-    work.plane_hits += rejected.hits;
-    if (rejected.mask != 0U) ++work.contact_projections;
-    pass = pass && !rejected.valid;
+    pass = pass && !test("starting-outside", outside, center).valid;
+    Vec3l nonfinite_start = center;
+    nonfinite_start.x = std::numeric_limits<long double>::quiet_NaN();
+    pass = pass && !test("nonfinite-start", nonfinite_start, center).valid;
+    Vec3l nonfinite_end = center;
+    nonfinite_end.z = std::numeric_limits<long double>::infinity();
+    pass = pass && !test("nonfinite-end", center, nonfinite_end).valid;
     std::string bytes;
     append_string(bytes, "nextengine.nonlocal.ncgp13.contact-control.v1");
     append_u64(bytes, pass ? 1U : 0U);
-    append_u64(bytes, contacts.size());
-    for (const Contact& contact : contacts) {
-        append_u64(bytes, contact.valid ? 1U : 0U);
-        append_u32(bytes, contact.mask);
-        append_u32(bytes, contact.first_mask);
-        append_wide(bytes, std::isfinite(contact.t_first)
-                ? contact.t_first : -1.0L);
-        append_wide(bytes, contact.endpoint.x);
-        append_wide(bytes, contact.endpoint.y);
-        append_wide(bytes, contact.endpoint.z);
-        append_wide(bytes, contact.correction.x);
-        append_wide(bytes, contact.correction.y);
-        append_wide(bytes, contact.correction.z);
-        append_wide(bytes, contact.impulse.x);
-        append_wide(bytes, contact.impulse.y);
-        append_wide(bytes, contact.impulse.z);
+    append_u64(bytes, cases.size());
+    for (const CaseResult& item : cases) {
+        append_string(bytes, item.name);
+        for (const Vec3l value : std::array<Vec3l, 2>{item.start,
+                 item.proposed}) {
+            append_classified_wide(bytes, value.x);
+            append_classified_wide(bytes, value.y);
+            append_classified_wide(bytes, value.z);
+        }
+        append_contact_record(bytes, item.candidate);
+        append_contact_record(bytes, item.expected);
     }
     root = digest(std::move(bytes));
     ++work.hash_derivations;
@@ -1175,8 +1351,15 @@ bool contact_oracle_control(const NonlocalGpuProfile& profile,
 }
 
 std::size_t components(const NonlocalGpuProfile& profile,
-    const std::vector<Vec3l>& positions) {
+    const std::vector<Vec3l>& positions, Work& work) {
     if (positions.empty()) return 0U;
+    const std::uint64_t graph_builds_before = work.graph_builds;
+    const std::uint64_t graph_candidates_before = work.graph_candidates;
+    const std::uint64_t accepted_pairs_before = work.accepted_pairs;
+    const std::uint64_t topology_tests_before = work.topology_distance_tests;
+    const std::uint64_t topology_discoveries_before =
+        work.topology_discoveries;
+    ++work.graph_builds;
     std::vector<bool> visited(positions.size(), false);
     std::size_t count = 0U;
     for (std::size_t start = 0U; start < positions.size(); ++start) {
@@ -1185,19 +1368,33 @@ std::size_t components(const NonlocalGpuProfile& profile,
         std::queue<std::size_t> pending;
         pending.push(start);
         visited[start] = true;
+        ++work.topology_discoveries;
         while (!pending.empty()) {
             const std::size_t owner = pending.front();
             pending.pop();
             for (std::size_t neighbor = 0U; neighbor < positions.size();
                  ++neighbor) {
-                if (!visited[neighbor]
-                    && norm(positions[owner] - positions[neighbor])
-                        <= profile.horizon) {
+                if (visited[neighbor]) continue;
+                ++work.graph_candidates;
+                ++work.topology_distance_tests;
+                if (norm(positions[owner] - positions[neighbor])
+                    <= profile.horizon) {
                     visited[neighbor] = true;
+                    ++work.accepted_pairs;
+                    ++work.topology_discoveries;
                     pending.push(neighbor);
                 }
             }
         }
+    }
+    const std::uint64_t topology_discoveries =
+        work.topology_discoveries - topology_discoveries_before;
+    if (work.graph_builds - graph_builds_before != 1U
+        || work.graph_candidates - graph_candidates_before
+            != work.topology_distance_tests - topology_tests_before
+        || work.accepted_pairs - accepted_pairs_before + count
+            != topology_discoveries) {
+        throw std::logic_error("topology graph work accounting mismatch");
     }
     return count;
 }
@@ -1299,7 +1496,7 @@ LegacyWitness legacy_witness(const NonlocalGpuProfile& profile,
         displacement[3U * index + 2U] = step.z;
         trial.push_back(state.position[index] + step);
     }
-    const auto linear = j_times(assembly, displacement);
+    const auto linear = j_times(assembly, displacement, result.work);
     std::vector<long double> dual(assembly.count, 0.0L);
     std::vector<long double> linear_error(assembly.count, 0.0L);
     for (std::size_t row = 0U; row < assembly.count; ++row) {
@@ -1338,6 +1535,7 @@ LegacyWitness legacy_witness(const NonlocalGpuProfile& profile,
         "nextengine.nonlocal.ncgp12.multiplier.v1", solve.lambda);
     result.trial_root = legacy_position_root(
         "nextengine.nonlocal.ncgp12.trial.v1", trial);
+    result.work.hash_derivations += 2U;
     result.pass = input_root == kPhaseAInput && assembly.valid && solve.valid
         && solve.converged && result.multiplier_root == kLegacyMultiplier
         && result.trial_root == kLegacyTrial && result.sweeps == 726U
@@ -1356,6 +1554,16 @@ LegacyWitness legacy_witness(const NonlocalGpuProfile& profile,
     std::string bytes;
     append_string(bytes, "nextengine.nonlocal.ncgp13.legacy-witness.v1");
     append_u64(bytes, result.pass ? 1U : 0U);
+    append_u64(bytes, result.sweeps);
+    append_u64(bytes, result.updates);
+    append_u64(bytes, result.positive);
+    for (const long double value : std::array<long double, 10>{
+             result.jacobian, result.symmetry, result.primal, result.kkt,
+             result.complementarity, result.linearized,
+             result.maximum_strain, result.rms_strain,
+             result.stationarity, result.penetration}) {
+        append_wide(bytes, value);
+    }
     append_string(bytes, result.multiplier_root);
     append_string(bytes, result.trial_root);
     append_string(bytes, work_root(result.work));
@@ -1371,7 +1579,7 @@ long double directional_check(const NonlocalGpuProfile& profile,
     for (std::size_t index = 0U; index < positions.size(); ++index) {
         direction[3U * index + 2U] = -1.0L;
     }
-    const auto analytic = j_times(assembly, direction);
+    const auto analytic = j_times(assembly, direction, work);
     const long double epsilon = std::ldexp(
         static_cast<long double>(profile.spacing), -20);
     std::vector<Vec3l> plus = positions;
@@ -1439,6 +1647,8 @@ struct RoundSummary {
     std::string contact_root;
     std::string state_root;
     std::string result_root;
+    std::uint64_t expected_hash_derivations = 0U;
+    bool hash_accounting_exact = false;
     Work work;
 };
 
@@ -1467,11 +1677,15 @@ struct StepResult {
     std::size_t component_count = 0U;
     std::string multiplier_root;
     std::string predictor_contact_root;
+    std::string injected_private_multiplier_root;
+    std::string injected_private_contact_root;
     std::string contact_mask_root;
     std::string contact_impulse_root;
     std::string state_root;
     std::string velocity_root;
     std::string result_root;
+    std::uint64_t expected_hash_derivations = 0U;
+    bool hash_accounting_exact = false;
     Work work;
 };
 
@@ -1488,6 +1702,8 @@ std::string round_root(const RoundSummary& round) {
     append_u64(bytes, round.solve_valid ? 1U : 0U);
     append_u64(bytes, round.converged ? 1U : 0U);
     append_u64(bytes, round.stale ? 1U : 0U);
+    append_u64(bytes, round.expected_hash_derivations);
+    append_u64(bytes, round.hash_accounting_exact ? 1U : 0U);
     append_u64(bytes, round.sweeps);
     append_u64(bytes, round.updates);
     append_u64(bytes, round.positive);
@@ -1519,6 +1735,8 @@ std::string step_root(const StepResult& step) {
     append_u64(bytes, step.physical_pass ? 1U : 0U);
     append_u64(bytes, step.accepted ? 1U : 0U);
     append_u64(bytes, step.identity_mass_exact ? 1U : 0U);
+    append_u64(bytes, step.expected_hash_derivations);
+    append_u64(bytes, step.hash_accounting_exact ? 1U : 0U);
     append_string(bytes, step.failure);
     append_u64(bytes, step.rounds.size());
     append_u64(bytes, step.positive_multipliers);
@@ -1535,12 +1753,51 @@ std::string step_root(const StepResult& step) {
     }
     append_string(bytes, step.multiplier_root);
     append_string(bytes, step.predictor_contact_root);
+    append_string(bytes, step.injected_private_multiplier_root);
+    append_string(bytes, step.injected_private_contact_root);
     append_string(bytes, step.contact_mask_root);
     append_string(bytes, step.contact_impulse_root);
     append_string(bytes, step.state_root);
     append_string(bytes, step.velocity_root);
     append_string(bytes, work_root(step.work));
     return digest(std::move(bytes));
+}
+
+void seal_round(RoundSummary& round,
+    std::uint64_t expected_hash_derivations) {
+    round.expected_hash_derivations = expected_hash_derivations;
+    round.hash_accounting_exact =
+        round.work.hash_derivations == expected_hash_derivations;
+    if (!round.hash_accounting_exact) {
+        throw std::logic_error("round hash accounting mismatch");
+    }
+    round.result_root = round_root(round);
+}
+
+void seal_step(StepResult& result, const std::vector<std::uint32_t>& ids,
+    std::uint64_t expected_before_standard_roots) {
+    result.multiplier_root = id_scalar_root(
+        "nextengine.nonlocal.ncgp13.step-multiplier.v1", ids,
+        result.lambda_sum);
+    result.contact_mask_root = id_mask_root(
+        "nextengine.nonlocal.ncgp13.step-contact-mask.v1", ids,
+        result.contact_mask);
+    result.contact_impulse_root = id_vec_root(
+        "nextengine.nonlocal.ncgp13.step-contact-impulse.v1", ids,
+        result.contact_impulse_sum);
+    result.state_root = state_root(
+        "nextengine.nonlocal.ncgp13.accepted-state.v1", result.state);
+    result.velocity_root = id_vec_root(
+        "nextengine.nonlocal.ncgp13.velocity.v1", ids,
+        result.state.velocity);
+    result.work.hash_derivations += 5U;
+    result.expected_hash_derivations = expected_before_standard_roots + 5U;
+    result.hash_accounting_exact = result.work.hash_derivations
+        == result.expected_hash_derivations;
+    if (!result.hash_accounting_exact) {
+        throw std::logic_error("step hash accounting mismatch");
+    }
+    result.result_root = step_root(result);
 }
 
 StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
@@ -1566,11 +1823,12 @@ StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
     ContactBatch predictor = contact_batch(
         profile, input.id, input.position, proposed);
     add_work(result.work, predictor.work);
+    std::uint64_t expected_step_hashes = 1U;
     result.predictor_contact_root = predictor.root;
     if (!predictor.valid) {
         result.apparatus_valid = false;
         result.failure = "PREDICTOR_CONTACT_INVALID";
-        result.result_root = step_root(result);
+        seal_step(result, input.id, expected_step_hashes);
         return result;
     }
     std::vector<Vec3l> y = predictor.endpoint;
@@ -1598,18 +1856,33 @@ StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
         const ContactBatch private_contact = contact_batch(
             profile, input.id, y, private_proposed);
         add_work(result.work, private_contact.work);
+        result.injected_private_multiplier_root = id_scalar_root(
+            "nextengine.nonlocal.ncgp13.injected-multiplier.v1", input.id,
+            private_solve.lambda);
+        ++result.work.hash_derivations;
+        expected_step_hashes += 7U;
+        result.injected_private_contact_root = private_contact.root;
         result.apparatus_valid = private_assembly.valid && private_solve.valid
             && private_solve.converged && private_contact.valid;
+        result.identity_mass_exact = true;
         result.failure = "INJECTED_AFTER_PRIVATE_ROUND";
-        result.result_root = step_root(result);
+        seal_step(result, input.id, expected_step_hashes);
         return result;
     }
 
     std::vector<long double> last_density;
+    auto record_round = [&](RoundSummary& round,
+                            std::uint64_t expected_hash_derivations) {
+        seal_round(round, expected_hash_derivations);
+        expected_step_hashes += expected_hash_derivations;
+        result.rounds.push_back(round);
+        add_work(result.work, round.work);
+    };
     for (std::size_t round_index = 0U; round_index < kMaximumRounds;
          ++round_index) {
         RoundSummary round;
         ++round.work.projection_rounds;
+        ++round.work.hash_derivations;
         const std::string expected_input = position_state_root(input.id, y);
         const Assembly assembly = assemble(profile, input.id, y, ghosts, grid,
             true, nullptr);
@@ -1632,9 +1905,7 @@ StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
             result.apparatus_valid = false;
             result.failure = round.stale ? "STALE_ASSEMBLY_REJECTED"
                 : "ASSEMBLY_OR_DERIVATIVE_INVALID";
-            round.result_root = round_root(round);
-            result.rounds.push_back(round);
-            add_work(result.work, round.work);
+            record_round(round, 6U);
             break;
         }
         Solve solve = solve_qp(assembly, round.work);
@@ -1655,18 +1926,14 @@ StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
         if (!solve.valid) {
             result.apparatus_valid = false;
             result.failure = "QP_INVALID";
-            round.result_root = round_root(round);
-            result.rounds.push_back(round);
-            add_work(result.work, round.work);
+            record_round(round, 7U);
             break;
         }
         if (!solve.converged || solve.primal > kPrimalLimit
             || solve.projected_kkt > kKktLimit
             || solve.complementarity > kComplementarityLimit) {
             result.failure = "QP_BUDGET_OR_GATE_EXHAUSTED";
-            round.result_root = round_root(round);
-            result.rounds.push_back(round);
-            add_work(result.work, round.work);
+            record_round(round, 7U);
             break;
         }
         const auto jt = jt_times(assembly, solve.lambda);
@@ -1698,9 +1965,7 @@ StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
         if (!contact.valid) {
             result.apparatus_valid = false;
             result.failure = "ROUND_CONTACT_INVALID";
-            round.result_root = round_root(round);
-            result.rounds.push_back(round);
-            add_work(result.work, round.work);
+            record_round(round, 8U);
             break;
         }
         y = contact.endpoint;
@@ -1722,7 +1987,7 @@ StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
         round.independent_density_root = id_scalar_root(
             "nextengine.nonlocal.ncgp13.independent-density.v1", input.id,
             independent.value);
-        round.work.hash_derivations += 3U;
+        round.work.hash_derivations += 2U;
         last_density = independent.value;
         std::vector<long double> density_difference(count, 0.0L);
         for (std::size_t index = 0U; index < count; ++index) {
@@ -1738,9 +2003,7 @@ StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
         round.state_root = id_vec_root(
             "nextengine.nonlocal.ncgp13.round-state.v1", input.id, y);
         ++round.work.hash_derivations;
-        round.result_root = round_root(round);
-        result.rounds.push_back(round);
-        add_work(result.work, round.work);
+        record_round(round, 12U);
         result.positive_multipliers += round.positive;
         const std::size_t minimum_rounds = phase_a ? 2U : 1U;
         if (candidate_density.valid && independent.valid
@@ -1766,6 +2029,7 @@ StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
         }
         const DensityResult candidate_density = candidate_graph_density(
             profile, input.id, y, ghosts, grid, result.work);
+        ++expected_step_hashes;
         const DensityResult independent = independent_density(
             profile, y, ghosts, grid, true);
         result.work.independent_density_candidates += independent.candidates;
@@ -1820,7 +2084,7 @@ StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
         result.top_pressure_proxy = static_cast<long double>(
                 profile.rest_density) / profile.mass
             * top_sum / top_count;
-        result.component_count = components(profile, y);
+        result.component_count = components(profile, y, result.work);
         result.identity_mass_exact = result.state.id.size() == input.id.size()
             && result.state.id == input.id
             && result.state.reference.size() == input.reference.size()
@@ -1844,22 +2108,7 @@ StepResult run_step(const NonlocalGpuProfile& profile, const State& input,
             && result.component_count == 1U;
         if (!result.physical_pass) result.failure = "FINAL_STEP_GATE_FAILED";
     }
-    result.multiplier_root = id_scalar_root(
-        "nextengine.nonlocal.ncgp13.step-multiplier.v1", input.id,
-        result.lambda_sum);
-    result.contact_mask_root = id_mask_root(
-        "nextengine.nonlocal.ncgp13.step-contact-mask.v1", input.id,
-        result.contact_mask);
-    result.contact_impulse_root = id_vec_root(
-        "nextengine.nonlocal.ncgp13.step-contact-impulse.v1", input.id,
-        result.contact_impulse_sum);
-    result.state_root = state_root(
-        "nextengine.nonlocal.ncgp13.accepted-state.v1", result.state);
-    result.velocity_root = id_vec_root(
-        "nextengine.nonlocal.ncgp13.velocity.v1", input.id,
-        result.state.velocity);
-    result.work.hash_derivations += 5U;
-    result.result_root = step_root(result);
+    seal_step(result, input.id, expected_step_hashes);
     return result;
 }
 
@@ -1883,8 +2132,105 @@ struct Controls {
     std::string transactional_root;
     std::string conditional_root;
     std::string result_root;
+    struct Receipt {
+        std::string number;
+        std::string name;
+        std::string status;
+        bool pass = false;
+        std::uint64_t expected_hash_derivations = 0U;
+        bool hash_accounting_exact = false;
+        std::string before_state_root;
+        std::string after_state_root;
+        std::string typed_outcome;
+        std::vector<std::string> evidence_roots;
+        std::vector<long double> scalar_evidence;
+        std::vector<std::uint64_t> integer_evidence;
+        Work work;
+        std::string work_root;
+        std::string result_root;
+    };
+    std::vector<Receipt> receipts;
+    std::vector<Receipt> subreceipts;
     Work work;
 };
+
+// `hash_derivations` counts logical content roots owned by a work receipt.
+// It deliberately excludes that receipt's own work_root/result_root and all
+// enclosing aggregate/final roots, avoiding recursive accounting. Recomputed
+// verification roots and mutation evidence roots are charged to the control
+// that requested them; a control never charges the immutable baseline.
+Controls::Receipt seal_control_receipt(std::string number, std::string name,
+    std::string status, Work work, std::uint64_t expected_hash_derivations,
+    std::vector<std::string> evidence_roots,
+    std::string before_state_root = {}, std::string after_state_root = {},
+    std::string typed_outcome = {},
+    std::vector<long double> scalar_evidence = {},
+    std::vector<std::uint64_t> integer_evidence = {}) {
+    Controls::Receipt receipt;
+    receipt.number = std::move(number);
+    receipt.name = std::move(name);
+    receipt.status = std::move(status);
+    receipt.pass = receipt.status == "PASS";
+    receipt.expected_hash_derivations = expected_hash_derivations;
+    receipt.hash_accounting_exact =
+        work.hash_derivations == expected_hash_derivations;
+    if (!receipt.hash_accounting_exact) {
+        throw std::logic_error("control hash accounting mismatch");
+    }
+    receipt.before_state_root = std::move(before_state_root);
+    receipt.after_state_root = std::move(after_state_root);
+    receipt.typed_outcome = std::move(typed_outcome);
+    receipt.evidence_roots = std::move(evidence_roots);
+    receipt.scalar_evidence = std::move(scalar_evidence);
+    receipt.integer_evidence = std::move(integer_evidence);
+    receipt.work = work;
+    receipt.work_root = work_root(receipt.work);
+    std::string bytes;
+    append_string(bytes, "nextengine.nonlocal.ncgp13.control-receipt.v1");
+    append_string(bytes, receipt.number);
+    append_string(bytes, receipt.name);
+    append_string(bytes, receipt.status);
+    append_u64(bytes, receipt.pass ? 1U : 0U);
+    append_u64(bytes, receipt.expected_hash_derivations);
+    append_u64(bytes, receipt.hash_accounting_exact ? 1U : 0U);
+    append_string(bytes, receipt.before_state_root);
+    append_string(bytes, receipt.after_state_root);
+    append_string(bytes, receipt.typed_outcome);
+    append_u64(bytes, receipt.evidence_roots.size());
+    for (const std::string& root : receipt.evidence_roots) {
+        append_string(bytes, root);
+    }
+    append_u64(bytes, receipt.scalar_evidence.size());
+    for (const long double value : receipt.scalar_evidence) {
+        append_wide(bytes, value);
+    }
+    append_u64(bytes, receipt.integer_evidence.size());
+    for (const std::uint64_t value : receipt.integer_evidence) {
+        append_u64(bytes, value);
+    }
+    append_string(bytes, receipt.work_root);
+    receipt.result_root = digest(std::move(bytes));
+    return receipt;
+}
+
+Controls::Receipt skipped_control(std::string number, std::string name) {
+    return seal_control_receipt(std::move(number), std::move(name),
+        "NOT_RUN_BY_PRECEDENCE", {}, 0U, {});
+}
+
+void add_control(Controls& controls, Controls::Receipt receipt) {
+    add_work(controls.work, receipt.work);
+    controls.receipts.push_back(std::move(receipt));
+}
+
+bool receipts_exact(const Controls& controls) {
+    const auto exact = [](const Controls::Receipt& receipt) {
+        return receipt.hash_accounting_exact;
+    };
+    return std::all_of(controls.receipts.begin(), controls.receipts.end(), exact)
+        && std::all_of(controls.subreceipts.begin(),
+            controls.subreceipts.end(), exact);
+}
 
 std::string input_order_root(const std::vector<NonlocalGpuSample>& samples) {
     std::string bytes;
@@ -1900,7 +2246,8 @@ std::string input_order_root(const std::vector<NonlocalGpuSample>& samples) {
 }
 
 bool exact_radius_control(NonlocalGpuProfile profile,
-    std::string& root, Work& work) {
+    std::vector<std::string>& evidence_roots,
+    std::vector<std::uint64_t>& integer_evidence, Work& work) {
     profile.horizon = 0.125;
     const std::vector<std::uint32_t> ids{9000001U, 9000018U};
     const std::vector<Vec3l> positions{{0.0L, 0.0L, 0.0L},
@@ -1918,7 +2265,10 @@ bool exact_radius_control(NonlocalGpuProfile profile,
     std::vector<NonlocalGpuSample> samples{
         {ids[0], {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {}},
         {ids[1], {0.125, 0.0, 0.0}, {0.125, 0.0, 0.0}, {}}};
-    const std::string input = local_input_root(profile, samples, ghosts);
+    const std::string profile_root = ncgp13_profile_root(profile);
+    const std::string input = ncgp13_control_input_root(
+        profile_root, samples, ghosts);
+    work.hash_derivations += 2U;
     const std::uint64_t inclusive_pairs = std::accumulate(
         inclusive.row.begin(), inclusive.row.end(), std::uint64_t{0U},
         [](std::uint64_t sum, const auto& row) { return sum + row.size(); });
@@ -1928,23 +2278,15 @@ bool exact_radius_control(NonlocalGpuProfile profile,
     const bool pass = inclusive.valid && strict.valid
         && inclusive_pairs == strict_pairs + 2U
         && inclusive.root != strict.root;
-    std::string bytes;
-    append_string(bytes, "nextengine.nonlocal.ncgp13.radius-control.v1");
-    append_string(bytes, local_profile_root(profile));
-    append_string(bytes, input);
-    append_string(bytes, inclusive.root);
-    append_string(bytes, strict.root);
-    append_u64(bytes, inclusive_pairs);
-    append_u64(bytes, strict_pairs);
-    append_u64(bytes, pass ? 1U : 0U);
-    root = digest(std::move(bytes));
-    ++work.hash_derivations;
+    evidence_roots = {profile_root, input, inclusive.root, strict.root};
+    integer_evidence = {inclusive_pairs, strict_pairs};
     return pass;
 }
 
 bool ghost_derivative_control(const NonlocalGpuProfile& profile,
     const State& state, const std::vector<NonlocalGpuGhost>& ghosts,
-    const GhostGrid& grid, std::string& root, Work& work) {
+    const GhostGrid& grid, std::vector<std::string>& evidence_roots,
+    std::vector<long double>& scalar_evidence, Work& work) {
     const Assembly included = assemble(profile, state.id, state.position,
         ghosts, grid, true, nullptr);
     const Assembly omitted = assemble(profile, state.id, state.position,
@@ -1958,15 +2300,11 @@ bool ghost_derivative_control(const NonlocalGpuProfile& profile,
     const bool pass = included.valid && omitted.valid
         && included_error <= kJacobianLimit
         && omitted_error > kJacobianLimit;
-    std::string bytes;
-    append_string(bytes, "nextengine.nonlocal.ncgp13.ghost-control.v1");
-    append_wide(bytes, included_error);
-    append_wide(bytes, omitted_error);
-    append_string(bytes, included.jacobian_root);
-    append_string(bytes, omitted.jacobian_root);
-    append_u64(bytes, pass ? 1U : 0U);
-    root = digest(std::move(bytes));
-    ++work.hash_derivations;
+    evidence_roots = {included.input_root, included.graph_root,
+        included.density_root, included.jacobian_root, included.matrix_root,
+        omitted.input_root, omitted.graph_root, omitted.density_root,
+        omitted.jacobian_root, omitted.matrix_root};
+    scalar_evidence = {included_error, omitted_error};
     return pass;
 }
 
@@ -1976,83 +2314,153 @@ Controls unconditional_controls(const NonlocalGpuProfile& profile,
     const GhostGrid& grid, const LegacyWitness& legacy) {
     Controls controls;
     controls.legacy = legacy.pass;
+    add_control(controls, seal_control_receipt("1", "retained-pressure-witness",
+        legacy.pass ? "PASS" : "FAIL", legacy.work, 7U,
+        {legacy.multiplier_root, legacy.trial_root, legacy.result_root}));
+
+    Work contact_work;
     controls.contact_oracle = contact_oracle_control(profile,
-        controls.contact_oracle_root, controls.work);
-    controls.exact_radius = exact_radius_control(profile,
-        controls.exact_radius_root, controls.work);
+        controls.contact_oracle_root, contact_work);
+    add_control(controls, seal_control_receipt("2", "contact-oracle",
+        controls.contact_oracle ? "PASS" : "FAIL", contact_work, 1U,
+        {controls.contact_oracle_root}));
+
+    Work radius_work;
+    std::vector<std::string> radius_evidence;
+    std::vector<std::uint64_t> radius_integers;
+    controls.exact_radius = exact_radius_control(
+        profile, radius_evidence, radius_integers, radius_work);
+    Controls::Receipt radius_receipt = seal_control_receipt(
+        "3", "exact-radius-graph",
+        controls.exact_radius ? "PASS" : "FAIL", radius_work, 4U,
+        std::move(radius_evidence), {}, {}, "INCLUSIVE_HAS_TWO_CROSS_PAIRS",
+        {}, std::move(radius_integers));
+    controls.exact_radius_root = radius_receipt.result_root;
+    add_control(controls, std::move(radius_receipt));
+
+    Work ghost_work;
+    std::vector<std::string> ghost_evidence;
+    std::vector<long double> ghost_scalars;
     controls.ghost_derivative = ghost_derivative_control(profile, state,
-        ghosts, grid, controls.ghost_derivative_root, controls.work);
-    const std::string before = state_root(
-        "nextengine.nonlocal.ncgp13.admission-state.v1", state);
+        ghosts, grid, ghost_evidence, ghost_scalars, ghost_work);
+    Controls::Receipt ghost_receipt = seal_control_receipt(
+        "4", "ghost-derivative",
+        controls.ghost_derivative ? "PASS" : "FAIL", ghost_work, 10U,
+        std::move(ghost_evidence), {}, {}, "GHOST_DERIVATIVE_DISCRIMINATED",
+        std::move(ghost_scalars));
+    controls.ghost_derivative_root = ghost_receipt.result_root;
+    add_control(controls, std::move(ghost_receipt));
+
     auto nonfinite = raw;
     nonfinite.front().current.x = std::numeric_limits<double>::quiet_NaN();
     auto duplicate = raw;
     duplicate.back().sample_id = duplicate.front().sample_id;
-    controls.nonfinite = admit(profile, nonfinite, ghosts) == Admission::Nonfinite
-        && state_root("nextengine.nonlocal.ncgp13.admission-state.v1", state)
-            == before;
-    controls.duplicate = admit(profile, duplicate, ghosts)
-            == Admission::DuplicateId
-        && state_root("nextengine.nonlocal.ncgp13.admission-state.v1", state)
-            == before;
-    std::string admission_bytes;
-    append_string(admission_bytes,
-        "nextengine.nonlocal.ncgp13.admission-control.v1");
-    append_u64(admission_bytes, controls.nonfinite ? 1U : 0U);
-    append_u64(admission_bytes, controls.duplicate ? 1U : 0U);
-    append_string(admission_bytes, before);
-    controls.admission_root = digest(std::move(admission_bytes));
-    ++controls.work.hash_derivations;
+
+    Work admission_work;
+    const std::string admission_prior = state_root(
+        "nextengine.nonlocal.ncgp13.admission-state.v1", state);
+    ++admission_work.hash_derivations;
+
+    Work nonfinite_work;
+    const Admission nonfinite_failure = admit(profile, nonfinite, ghosts);
+    const std::string nonfinite_after = state_root(
+        "nextengine.nonlocal.ncgp13.admission-state.v1", state);
+    ++nonfinite_work.hash_derivations;
+    controls.nonfinite = nonfinite_failure == Admission::Nonfinite
+        && admission_prior == nonfinite_after;
+    Controls::Receipt nonfinite_receipt = seal_control_receipt(
+        "5a", "nonfinite-admission",
+        controls.nonfinite ? "PASS" : "FAIL", nonfinite_work, 1U,
+        {admission_prior, nonfinite_after}, admission_prior, nonfinite_after,
+        "NONFINITE_REJECTED", {},
+        {static_cast<std::uint64_t>(nonfinite_failure)});
+    controls.subreceipts.push_back(nonfinite_receipt);
+
+    Work duplicate_work;
+    const Admission duplicate_failure = admit(profile, duplicate, ghosts);
+    const std::string duplicate_after = state_root(
+        "nextengine.nonlocal.ncgp13.admission-state.v1", state);
+    ++duplicate_work.hash_derivations;
+    controls.duplicate = duplicate_failure == Admission::DuplicateId
+        && admission_prior == duplicate_after;
+    Controls::Receipt duplicate_receipt = seal_control_receipt(
+        "5b", "duplicate-id-admission",
+        controls.duplicate ? "PASS" : "FAIL", duplicate_work, 1U,
+        {admission_prior, duplicate_after}, admission_prior, duplicate_after,
+        "DUPLICATE_ID_REJECTED", {},
+        {static_cast<std::uint64_t>(duplicate_failure)});
+    controls.subreceipts.push_back(duplicate_receipt);
+
+    add_work(admission_work, nonfinite_receipt.work);
+    add_work(admission_work, duplicate_receipt.work);
+    Controls::Receipt admission_receipt = seal_control_receipt(
+        "5", "admission-failures",
+        controls.nonfinite && controls.duplicate ? "PASS" : "FAIL",
+        admission_work, 3U,
+        {nonfinite_receipt.work_root, nonfinite_receipt.result_root,
+            duplicate_receipt.work_root, duplicate_receipt.result_root,
+            admission_prior, nonfinite_after, duplicate_after},
+        admission_prior, duplicate_after, "BOTH_INPUTS_REJECTED");
+    controls.admission_root = admission_receipt.result_root;
+    add_control(controls, std::move(admission_receipt));
+
+    Work transaction_work;
+    const std::string transaction_before = state_root(
+        "nextengine.nonlocal.ncgp13.transaction-state.v1", state);
+    ++transaction_work.hash_derivations;
     const StepResult injected = run_step(profile, state, ghosts, grid, true, true);
-    add_work(controls.work, injected.work);
+    add_work(transaction_work, injected.work);
+    // The injected child step envelope is evidence owned by control 6.
+    ++transaction_work.hash_derivations;
+    const std::string transaction_after = state_root(
+        "nextengine.nonlocal.ncgp13.transaction-state.v1", injected.state);
+    ++transaction_work.hash_derivations;
     controls.transactional = injected.apparatus_valid
         && injected.failure == "INJECTED_AFTER_PRIVATE_ROUND"
-        && state_root("nextengine.nonlocal.ncgp13.transaction-state.v1",
-               injected.state)
-            == state_root("nextengine.nonlocal.ncgp13.transaction-state.v1",
-                state);
-    std::string transaction_bytes;
-    append_string(transaction_bytes,
-        "nextengine.nonlocal.ncgp13.transaction-control.v1");
-    append_u64(transaction_bytes, controls.transactional ? 1U : 0U);
-    append_string(transaction_bytes, injected.result_root);
-    controls.transactional_root = digest(std::move(transaction_bytes));
-    ++controls.work.hash_derivations;
+        && injected.hash_accounting_exact
+        && transaction_before == transaction_after
+        && !injected.state_root.empty() && !injected.velocity_root.empty()
+        && !injected.injected_private_multiplier_root.empty()
+        && !injected.injected_private_contact_root.empty();
+    Controls::Receipt transaction_receipt = seal_control_receipt(
+        "6", "transactional-injection",
+        controls.transactional ? "PASS" : "FAIL", transaction_work, 16U,
+        {injected.result_root, injected.state_root, injected.velocity_root,
+            injected.injected_private_multiplier_root,
+            injected.injected_private_contact_root},
+        transaction_before, transaction_after,
+        "INJECTED_AFTER_PRIVATE_ROUND");
+    controls.transactional_root = transaction_receipt.result_root;
+    add_control(controls, std::move(transaction_receipt));
     return controls;
 }
 
 bool unconditional_pass(const Controls& controls) {
     return controls.legacy && controls.contact_oracle && controls.exact_radius
         && controls.ghost_derivative && controls.nonfinite
-        && controls.duplicate && controls.transactional;
+        && controls.duplicate && controls.transactional
+        && receipts_exact(controls);
 }
 
 struct StaleAttempt {
     bool rejected = false;
     std::string status;
-    std::string root;
+    std::string current_input_root;
     Work attempted_work;
 };
 
-StaleAttempt attempt_assembly_reuse(const Assembly& frozen,
+StaleAttempt attempt_assembly_reuse(std::string_view frozen_input_root,
     const std::vector<std::uint32_t>& ids,
     const std::vector<Vec3l>& current) {
     StaleAttempt result;
-    const std::string current_root = position_state_root(ids, current);
-    if (frozen.input_root != current_root) {
+    ++result.attempted_work.hash_derivations;
+    result.current_input_root = position_state_root(ids, current);
+    if (frozen_input_root != result.current_input_root) {
         result.rejected = true;
         result.status = "STALE_ASSEMBLY_REJECTED";
     } else {
         result.status = "ASSEMBLY_INPUT_MATCHED";
     }
-    result.attempted_work.hash_derivations = 1U;
-    std::string bytes;
-    append_string(bytes, "nextengine.nonlocal.ncgp13.stale-attempt.v1");
-    append_string(bytes, frozen.input_root);
-    append_string(bytes, current_root);
-    append_string(bytes, result.status);
-    append_string(bytes, work_root(result.attempted_work));
-    result.root = digest(std::move(bytes));
     return result;
 }
 
@@ -2061,10 +2469,13 @@ void conditional_controls(const NonlocalGpuProfile& profile,
     const std::vector<NonlocalGpuSample>& permuted_raw,
     const std::vector<NonlocalGpuGhost>& ghosts, const GhostGrid& grid,
     const State& state, const StepResult& baseline,
-    const StepResult& permuted, Controls& controls) {
+    const StepResult& permuted, std::string_view canonical_input_root,
+    std::string_view canonical_permuted_input_root, Controls& controls) {
     const long double dt = profile.dt;
     const long double dt2 = dt * dt;
     const Vec3l gravity = widen(profile.gravity);
+
+    Work no_pressure_work;
     std::vector<Vec3l> predictor(state.id.size());
     for (std::size_t index = 0U; index < state.id.size(); ++index) {
         predictor[index] = state.position[index] + state.velocity[index] * dt
@@ -2072,20 +2483,40 @@ void conditional_controls(const NonlocalGpuProfile& profile,
     }
     const ContactBatch contact = contact_batch(
         profile, state.id, state.position, predictor);
-    add_work(controls.work, contact.work);
+    add_work(no_pressure_work, contact.work);
     const DensityResult no_pressure_density = independent_density(
         profile, contact.endpoint, ghosts, grid, true);
-    controls.work.independent_density_candidates += no_pressure_density.candidates;
+    no_pressure_work.independent_density_candidates +=
+        no_pressure_density.candidates;
     const auto no_pressure_strain = strain_metrics(no_pressure_density.value,
         profile.rest_density);
-    controls.no_pressure = no_pressure_strain.first > kDensityMaximumLimit
-        || no_pressure_strain.second > kDensityRmsLimit;
+    controls.no_pressure = contact.valid && no_pressure_density.valid
+        && (no_pressure_strain.first > kDensityMaximumLimit
+            || no_pressure_strain.second > kDensityRmsLimit);
+    const std::string no_pressure_density_root = id_scalar_root(
+        "nextengine.nonlocal.ncgp13.no-pressure-density.v1", state.id,
+        no_pressure_density.value);
+    ++no_pressure_work.hash_derivations;
+    add_control(controls, seal_control_receipt("7", "no-pressure",
+        controls.no_pressure ? "PASS" : "FAIL", no_pressure_work, 2U,
+        {contact.root, no_pressure_density_root}, {}, {},
+        "CONTACT_ONLY_DENSITY_GATE", {no_pressure_strain.first,
+            no_pressure_strain.second}));
 
-    const Assembly assembly = assemble(profile, state.id, contact.endpoint,
+    Work negated_work;
+    const ContactBatch negated_predictor = contact_batch(
+        profile, state.id, state.position, predictor);
+    add_work(negated_work, negated_predictor.work);
+    const Assembly assembly = assemble(profile, state.id,
+        negated_predictor.endpoint,
         ghosts, grid, true, nullptr);
-    add_work(controls.work, assembly.work);
-    Solve solve = solve_qp(assembly, controls.work);
-    std::vector<Vec3l> wrong = contact.endpoint;
+    add_work(negated_work, assembly.work);
+    Solve solve = solve_qp(assembly, negated_work);
+    const std::string negated_multiplier_root = id_scalar_root(
+        "nextengine.nonlocal.ncgp13.negated-multiplier.v1", state.id,
+        solve.lambda);
+    ++negated_work.hash_derivations;
+    std::vector<Vec3l> wrong = negated_predictor.endpoint;
     if (solve.valid && solve.converged) {
         const auto jt = jt_times(assembly, solve.lambda);
         for (std::size_t index = 0U; index < state.id.size(); ++index) {
@@ -2094,36 +2525,75 @@ void conditional_controls(const NonlocalGpuProfile& profile,
         }
     }
     const ContactBatch wrong_contact = contact_batch(
-        profile, state.id, contact.endpoint, wrong);
-    add_work(controls.work, wrong_contact.work);
+        profile, state.id, negated_predictor.endpoint, wrong);
+    add_work(negated_work, wrong_contact.work);
     const DensityResult wrong_density = independent_density(
         profile, wrong_contact.endpoint, ghosts, grid, true);
-    controls.work.independent_density_candidates += wrong_density.candidates;
+    negated_work.independent_density_candidates += wrong_density.candidates;
     const auto wrong_strain = strain_metrics(wrong_density.value,
         profile.rest_density);
+    const std::string wrong_density_root = id_scalar_root(
+        "nextengine.nonlocal.ncgp13.negated-density.v1", state.id,
+        wrong_density.value);
+    ++negated_work.hash_derivations;
     long double wrong_penetration = 0.0L;
     static_cast<void>(inset_oracle(profile, wrong_contact.endpoint,
         wrong_penetration));
-    controls.negated_pressure = !solve.valid || !solve.converged
-        || wrong_strain.first > kDensityMaximumLimit
-        || wrong_strain.second > kDensityRmsLimit || wrong_penetration > 0.0L;
-    const StaleAttempt stale = attempt_assembly_reuse(
-        assembly, state.id, baseline.state.position);
-    add_work(controls.work, stale.attempted_work);
-    controls.stale = stale.rejected
-        && stale.status == "STALE_ASSEMBLY_REJECTED"
-        && stale.attempted_work.matrix_products == 0U
-        && stale.attempted_work.qp_sweeps == 0U
-        && stale.attempted_work.qp_updates == 0U
-        && stale.attempted_work.gradient_recomputations == 0U;
-    const std::string canonical = local_input_root(profile, raw, ghosts);
-    const std::string canonical_permuted = local_input_root(
-        profile, permuted_raw, ghosts);
+    controls.negated_pressure = assembly.valid && solve.valid
+        && solve.converged && wrong_contact.valid && wrong_density.valid
+        && (wrong_strain.first > kDensityMaximumLimit
+            || wrong_strain.second > kDensityRmsLimit
+            || wrong_penetration > 0.0L);
+    add_control(controls, seal_control_receipt("8", "negated-pressure",
+        controls.negated_pressure ? "PASS" : "FAIL", negated_work, 9U,
+        {negated_predictor.root, assembly.input_root,
+            assembly.graph_root, assembly.density_root, assembly.jacobian_root,
+            assembly.matrix_root, negated_multiplier_root,
+            wrong_contact.root, wrong_density_root}, {}, {},
+        "NEGATED_PRESSURE_GATE", {wrong_strain.first, wrong_strain.second,
+            wrong_penetration}));
+
+    if (baseline.rounds.empty()) {
+        Work stale_missing_work;
+        const std::string current_input_root = position_state_root(
+            state.id, baseline.state.position);
+        ++stale_missing_work.hash_derivations;
+        add_control(controls, seal_control_receipt("9", "stale-relinearization",
+            "FAIL", stale_missing_work, 1U, {current_input_root}, {}, {},
+            "NO_BASELINE_ASSEMBLY"));
+        controls.stale = false;
+    } else {
+        const StaleAttempt stale = attempt_assembly_reuse(
+            baseline.rounds.front().assembly_input_root, state.id,
+            baseline.state.position);
+        controls.stale = stale.rejected
+            && stale.status == "STALE_ASSEMBLY_REJECTED"
+            && stale.attempted_work.matrix_products == 0U
+            && stale.attempted_work.qp_sweeps == 0U
+            && stale.attempted_work.qp_updates == 0U
+            && stale.attempted_work.gradient_recomputations == 0U;
+        add_control(controls, seal_control_receipt("9",
+            "stale-relinearization", controls.stale ? "PASS" : "FAIL",
+            stale.attempted_work, 1U,
+            {baseline.rounds.front().assembly_input_root,
+                stale.current_input_root}, {}, {}, stale.status));
+    }
+
+    Work permutation_work;
     const std::string raw_order = input_order_root(raw);
     const std::string permuted_order = input_order_root(permuted_raw);
-    controls.input_order_loss = canonical == canonical_permuted
+    permutation_work.hash_derivations += 2U;
+    controls.input_order_loss = canonical_input_root
+            == canonical_permuted_input_root
         && raw_order != permuted_order && baseline.result_root == permuted.result_root;
+    add_control(controls, seal_control_receipt("10", "permutation-identity",
+        controls.input_order_loss ? "PASS" : "FAIL", permutation_work, 2U,
+        {std::string(canonical_input_root),
+            std::string(canonical_permuted_input_root), raw_order,
+            permuted_order, baseline.result_root, permuted.result_root},
+        {}, {}, "CANONICAL_EQUAL_RAW_ORDER_DISTINCT"));
 
+    Work mutation_work;
     StepResult pressure_changed = baseline;
     const auto positive = std::find_if(pressure_changed.lambda_sum.begin(),
         pressure_changed.lambda_sum.end(),
@@ -2135,7 +2605,9 @@ void conditional_controls(const NonlocalGpuProfile& profile,
         pressure_changed.multiplier_root = id_scalar_root(
             "nextengine.nonlocal.ncgp13.step-multiplier.v1", state.id,
             pressure_changed.lambda_sum);
+        ++mutation_work.hash_derivations;
         pressure_changed.result_root = step_root(pressure_changed);
+        ++mutation_work.hash_derivations;
         pressure_mutation = pressure_changed.multiplier_root
                 != baseline.multiplier_root
             && pressure_changed.result_root != baseline.result_root;
@@ -2146,7 +2618,9 @@ void conditional_controls(const NonlocalGpuProfile& profile,
         std::numeric_limits<double>::infinity());
     position_changed.state_root = state_root(
         "nextengine.nonlocal.ncgp13.accepted-state.v1", position_changed.state);
+    ++mutation_work.hash_derivations;
     position_changed.result_root = step_root(position_changed);
+    ++mutation_work.hash_derivations;
     const bool position_mutation = position_changed.state_root
             != baseline.state_root
         && position_changed.result_root != baseline.result_root;
@@ -2155,54 +2629,79 @@ void conditional_controls(const NonlocalGpuProfile& profile,
     mask_changed.contact_mask_root = id_mask_root(
         "nextengine.nonlocal.ncgp13.step-contact-mask.v1", state.id,
         mask_changed.contact_mask);
+    ++mutation_work.hash_derivations;
     mask_changed.result_root = step_root(mask_changed);
+    ++mutation_work.hash_derivations;
     const bool mask_mutation = mask_changed.contact_mask_root
             != baseline.contact_mask_root
         && mask_changed.result_root != baseline.result_root;
-    StepResult work_changed = baseline;
-    ++work_changed.work.projection_rounds;
-    work_changed.result_root = step_root(work_changed);
-    const bool work_mutation = work_root(work_changed.work)
-            != work_root(baseline.work)
-        && work_changed.result_root != baseline.result_root;
+    const std::string baseline_work_root = work_root(baseline.work);
+    std::vector<std::string> work_mutation_roots;
+    bool work_mutation = true;
+    auto mutate_work = [&](auto member) {
+        StepResult changed = baseline;
+        Work expected_changed_work = baseline.work;
+        ++(changed.work.*member);
+        ++(expected_changed_work.*member);
+        const std::string changed_work_root = work_root(changed.work);
+        ++mutation_work.hash_derivations;
+        changed.result_root = step_root(changed);
+        ++mutation_work.hash_derivations;
+        work_mutation = work_mutation
+            && same_work(changed.work, expected_changed_work)
+            && changed_work_root != baseline_work_root
+            && changed.result_root != baseline.result_root;
+        work_mutation_roots.push_back(changed_work_root);
+        work_mutation_roots.push_back(changed.result_root);
+    };
+    mutate_work(&Work::projection_rounds);
+    mutate_work(&Work::analytic_jv_multiply_adds);
+    mutate_work(&Work::topology_distance_tests);
+    mutate_work(&Work::topology_discoveries);
+    mutate_work(&Work::hash_derivations);
     controls.mutations = pressure_mutation && position_mutation
         && mask_mutation && work_mutation;
-    std::string bytes;
-    append_string(bytes, "nextengine.nonlocal.ncgp13.conditional-controls.v1");
-    for (const bool pass : std::array<bool, 5>{controls.no_pressure,
-             controls.negated_pressure, controls.stale,
-             controls.input_order_loss, controls.mutations}) {
-        append_u64(bytes, pass ? 1U : 0U);
-    }
-    append_wide(bytes, no_pressure_strain.first);
-    append_wide(bytes, no_pressure_strain.second);
-    append_wide(bytes, wrong_strain.first);
-    append_wide(bytes, wrong_strain.second);
-    append_string(bytes, raw_order);
-    append_string(bytes, permuted_order);
-    append_string(bytes, stale.root);
-    append_string(bytes, pressure_changed.result_root);
-    append_string(bytes, position_changed.result_root);
-    append_string(bytes, mask_changed.result_root);
-    append_string(bytes, work_changed.result_root);
-    controls.conditional_root = digest(std::move(bytes));
-    ++controls.work.hash_derivations;
+    std::vector<std::string> mutation_roots{pressure_changed.multiplier_root,
+        pressure_changed.result_root, position_changed.state_root,
+        position_changed.result_root, mask_changed.contact_mask_root,
+        mask_changed.result_root};
+    mutation_roots.insert(mutation_roots.end(), work_mutation_roots.begin(),
+        work_mutation_roots.end());
+    add_control(controls, seal_control_receipt("11", "typed-root-mutations",
+        controls.mutations ? "PASS" : "FAIL", mutation_work, 16U,
+        std::move(mutation_roots), {}, {}, "ALL_TYPED_MUTATIONS_CHANGED"));
 }
 
 bool conditional_pass(const Controls& controls) {
     return controls.no_pressure && controls.negated_pressure && controls.stale
-        && controls.input_order_loss && controls.mutations;
+        && controls.input_order_loss && controls.mutations
+        && receipts_exact(controls);
+}
+
+void add_skipped_conditional_controls(Controls& controls) {
+    add_control(controls, skipped_control("7", "no-pressure"));
+    add_control(controls, skipped_control("8", "negated-pressure"));
+    add_control(controls, skipped_control("9", "stale-relinearization"));
+    add_control(controls, skipped_control("10", "permutation-identity"));
+    add_control(controls, skipped_control("11", "typed-root-mutations"));
 }
 
 struct TrajectoryResult {
     bool apparatus_valid = true;
     bool physical_pass = false;
+    bool failing_trial_published = false;
+    bool failing_trial_observables_published = false;
+    bool failing_trial_gate_evaluated = false;
+    bool failing_trial_gate_pass = false;
     std::size_t accepted_steps = 0U;
     std::size_t failure_step = 0U;
+    std::size_t failing_trial_step = 0U;
     std::string failure;
+    std::string failing_trial_outcome;
     State final_state;
     std::vector<std::string> step_roots;
     std::vector<StepResult> steps;
+    std::vector<bool> trial_committed;
     long double maximum_position_rms = 0.0L;
     long double maximum_position = 0.0L;
     long double maximum_velocity_rms = 0.0L;
@@ -2210,10 +2709,22 @@ struct TrajectoryResult {
     long double energy_excess = 0.0L;
     long double momentum_residual = 0.0L;
     std::size_t maximum_components = 0U;
+    long double failing_trial_position_rms = 0.0L;
+    long double failing_trial_position_maximum = 0.0L;
+    long double failing_trial_velocity_rms = 0.0L;
+    long double failing_trial_maximum_speed = 0.0L;
+    long double failing_trial_energy_excess = 0.0L;
+    long double failing_trial_momentum_residual = 0.0L;
+    std::size_t failing_trial_components = 0U;
     std::size_t pressure_occurrences = 0U;
     std::size_t lower_contact_occurrences = 0U;
     std::string state_root;
+    std::string failing_trial_state_root;
+    std::string failing_trial_work_root;
+    std::string failing_trial_result_root;
     std::string trajectory_root;
+    std::uint64_t expected_hash_derivations = 0U;
+    bool hash_accounting_exact = false;
     Work work;
 };
 
@@ -2239,9 +2750,16 @@ std::string trajectory_root(const TrajectoryResult& trajectory) {
     append_string(bytes, "nextengine.nonlocal.ncgp13.trajectory.v1");
     append_u64(bytes, trajectory.apparatus_valid ? 1U : 0U);
     append_u64(bytes, trajectory.physical_pass ? 1U : 0U);
+    append_u64(bytes, trajectory.failing_trial_published ? 1U : 0U);
+    append_u64(bytes,
+        trajectory.failing_trial_observables_published ? 1U : 0U);
+    append_u64(bytes, trajectory.failing_trial_gate_evaluated ? 1U : 0U);
+    append_u64(bytes, trajectory.failing_trial_gate_pass ? 1U : 0U);
     append_u64(bytes, trajectory.accepted_steps);
     append_u64(bytes, trajectory.failure_step);
+    append_u64(bytes, trajectory.failing_trial_step);
     append_string(bytes, trajectory.failure);
+    append_string(bytes, trajectory.failing_trial_outcome);
     append_u64(bytes, trajectory.maximum_components);
     append_u64(bytes, trajectory.pressure_occurrences);
     append_u64(bytes, trajectory.lower_contact_occurrences);
@@ -2251,11 +2769,27 @@ std::string trajectory_root(const TrajectoryResult& trajectory) {
              trajectory.energy_excess, trajectory.momentum_residual}) {
         append_wide(bytes, value);
     }
+    for (const long double value : std::array<long double, 6>{
+             trajectory.failing_trial_position_rms,
+             trajectory.failing_trial_position_maximum,
+             trajectory.failing_trial_velocity_rms,
+             trajectory.failing_trial_maximum_speed,
+             trajectory.failing_trial_energy_excess,
+             trajectory.failing_trial_momentum_residual}) {
+        append_wide(bytes, value);
+    }
+    append_u64(bytes, trajectory.failing_trial_components);
     append_u64(bytes, trajectory.step_roots.size());
-    for (const std::string& root : trajectory.step_roots) {
-        append_string(bytes, root);
+    for (std::size_t index = 0U; index < trajectory.step_roots.size(); ++index) {
+        append_string(bytes, trajectory.step_roots[index]);
+        append_u64(bytes, trajectory.trial_committed[index] ? 1U : 0U);
     }
     append_string(bytes, trajectory.state_root);
+    append_string(bytes, trajectory.failing_trial_state_root);
+    append_string(bytes, trajectory.failing_trial_work_root);
+    append_string(bytes, trajectory.failing_trial_result_root);
+    append_u64(bytes, trajectory.expected_hash_derivations);
+    append_u64(bytes, trajectory.hash_accounting_exact ? 1U : 0U);
     append_string(bytes, work_root(trajectory.work));
     return digest(std::move(bytes));
 }
@@ -2273,92 +2807,146 @@ TrajectoryResult run_trajectory(const NonlocalGpuProfile& profile,
     Vec3l gravity_impulse;
     Vec3l pressure_impulse;
     Vec3l contact_impulse;
+    std::uint64_t expected_hash_derivations = 0U;
+    auto publish_failing_trial = [&](const StepResult& trial) {
+        result.failing_trial_published = true;
+        result.failing_trial_step = result.steps.size();
+        result.failing_trial_outcome = result.failure;
+        result.failing_trial_state_root = trial.state_root;
+        result.failing_trial_work_root = work_root(trial.work);
+        result.failing_trial_result_root = trial.result_root;
+    };
     for (std::size_t step_index = 0U; step_index < kPhaseBSteps;
          ++step_index) {
-        StepResult step = run_step(profile, state, ghosts, grid, false);
-        add_work(result.work, step.work);
-        result.step_roots.push_back(step.result_root);
-        result.steps.push_back(step);
-        if (!step.apparatus_valid) {
+        StepResult trial = run_step(profile, state, ghosts, grid, false);
+        add_work(result.work, trial.work);
+        expected_hash_derivations += trial.expected_hash_derivations;
+        result.step_roots.push_back(trial.result_root);
+        result.steps.push_back(trial);
+        result.trial_committed.push_back(false);
+        if (!trial.hash_accounting_exact || !trial.apparatus_valid) {
             result.apparatus_valid = false;
-            result.failure = step.failure;
+            result.failure = trial.hash_accounting_exact
+                ? trial.failure : "STEP_HASH_ACCOUNTING_INVALID";
             result.failure_step = step_index + 1U;
+            publish_failing_trial(trial);
             break;
         }
-        if (!step.accepted || !step.physical_pass) {
-            result.failure = step.failure;
+        if (!trial.accepted || !trial.physical_pass) {
+            result.failure = trial.failure;
             result.failure_step = step_index + 1U;
+            publish_failing_trial(trial);
             break;
         }
-        state = step.state;
-        ++result.accepted_steps;
-        if (step.positive_multipliers > 0U) ++result.pressure_occurrences;
-        if (step.lower_contacts > 0U) ++result.lower_contact_occurrences;
         long double position_sum = 0.0L;
         long double velocity_sum = 0.0L;
         long double position_maximum = 0.0L;
         long double speed_maximum = 0.0L;
-        for (std::size_t index = 0U; index < state.id.size(); ++index) {
+        for (std::size_t index = 0U; index < trial.state.id.size(); ++index) {
             const long double displacement = norm(
-                state.position[index] - initial.position[index]);
-            const long double speed = norm(state.velocity[index]);
+                trial.state.position[index] - initial.position[index]);
+            const long double speed = norm(trial.state.velocity[index]);
             position_sum += displacement * displacement;
             velocity_sum += speed * speed;
             position_maximum = std::max(position_maximum, displacement);
             speed_maximum = std::max(speed_maximum, speed);
-            if (state.id[index] != initial.id[index]
-                || state.reference[index].x != initial.reference[index].x
-                || state.reference[index].y != initial.reference[index].y
-                || state.reference[index].z != initial.reference[index].z) {
+            if (trial.state.id[index] != initial.id[index]
+                || trial.state.reference[index].x
+                    != initial.reference[index].x
+                || trial.state.reference[index].y
+                    != initial.reference[index].y
+                || trial.state.reference[index].z
+                    != initial.reference[index].z) {
                 result.apparatus_valid = false;
                 result.failure = "IDENTITY_OR_REFERENCE_CHANGED";
                 result.failure_step = step_index + 1U;
                 break;
             }
         }
-        if (!result.apparatus_valid) break;
-        result.maximum_position_rms = std::max(result.maximum_position_rms,
-            std::sqrt(position_sum / state.id.size()));
-        result.maximum_position = std::max(result.maximum_position,
-            position_maximum);
-        result.maximum_velocity_rms = std::max(result.maximum_velocity_rms,
-            std::sqrt(velocity_sum / state.id.size()));
-        result.maximum_speed = std::max(result.maximum_speed, speed_maximum);
-        const long double current_energy = energy(state, profile);
+        if (!result.apparatus_valid) {
+            publish_failing_trial(trial);
+            break;
+        }
+        const long double trial_position_rms = std::sqrt(
+            position_sum / trial.state.id.size());
+        const long double trial_velocity_rms = std::sqrt(
+            velocity_sum / trial.state.id.size());
+        const long double maximum_position_rms = std::max(
+            result.maximum_position_rms, trial_position_rms);
+        const long double maximum_position = std::max(
+            result.maximum_position, position_maximum);
+        const long double maximum_velocity_rms = std::max(
+            result.maximum_velocity_rms, trial_velocity_rms);
+        const long double maximum_speed = std::max(
+            result.maximum_speed, speed_maximum);
+        const long double current_energy = energy(trial.state, profile);
         const long double denominator = std::max({std::abs(initial_energy),
             total_mass * norm(gravity) * profile.spacing, 1.0e-30L});
-        result.energy_excess = std::max(result.energy_excess,
+        const long double energy_excess = std::max(result.energy_excess,
             std::max(current_energy - initial_energy, 0.0L) / denominator);
-        gravity_impulse += gravity * (total_mass * profile.dt);
+        const Vec3l trial_gravity_impulse = gravity_impulse
+            + gravity * (total_mass * profile.dt);
         Vec3l step_pressure;
         Vec3l step_contact;
-        for (std::size_t index = 0U; index < state.id.size(); ++index) {
-            step_pressure += step.pressure_jt_sum[index] * (-profile.dt);
-            step_contact += step.contact_impulse_sum[index];
+        for (std::size_t index = 0U; index < trial.state.id.size(); ++index) {
+            step_pressure += trial.pressure_jt_sum[index] * (-profile.dt);
+            step_contact += trial.contact_impulse_sum[index];
         }
-        pressure_impulse += step_pressure;
-        contact_impulse += step_contact;
-        const Vec3l momentum_change = momentum(state, profile.mass)
+        const Vec3l trial_pressure_impulse = pressure_impulse + step_pressure;
+        const Vec3l trial_contact_impulse = contact_impulse + step_contact;
+        const Vec3l momentum_change = momentum(trial.state, profile.mass)
             - initial_momentum;
-        const Vec3l momentum_error = momentum_change - gravity_impulse
-            - pressure_impulse - contact_impulse;
-        result.momentum_residual = norm(momentum_error)
-            / std::max({norm(momentum_change), norm(gravity_impulse),
-                norm(pressure_impulse), norm(contact_impulse), 1.0e-30L});
-        result.maximum_components = std::max(result.maximum_components,
-            step.component_count);
+        const Vec3l momentum_error = momentum_change - trial_gravity_impulse
+            - trial_pressure_impulse - trial_contact_impulse;
+        const long double momentum_residual = norm(momentum_error)
+            / std::max({norm(momentum_change), norm(trial_gravity_impulse),
+                norm(trial_pressure_impulse), norm(trial_contact_impulse),
+                1.0e-30L});
+        const std::size_t maximum_components = std::max(
+            result.maximum_components, trial.component_count);
+
         const bool trajectory_gates =
-            result.maximum_position_rms <= kPositionRmsLimit
-            && result.maximum_position <= kPositionMaximumLimit
-            && result.maximum_velocity_rms <= kVelocityRmsLimit
-            && result.maximum_speed <= kVelocityMaximumLimit
-            && result.energy_excess <= kEnergyLimit
-            && result.momentum_residual <= kMomentumLimit
-            && result.maximum_components == 1U;
+            maximum_position_rms <= kPositionRmsLimit
+            && maximum_position <= kPositionMaximumLimit
+            && maximum_velocity_rms <= kVelocityRmsLimit
+            && maximum_speed <= kVelocityMaximumLimit
+            && energy_excess <= kEnergyLimit
+            && momentum_residual <= kMomentumLimit
+            && maximum_components == 1U;
         if (!trajectory_gates) {
             result.failure = "TRAJECTORY_GATE_FAILED";
             result.failure_step = step_index + 1U;
+            publish_failing_trial(trial);
+            result.failing_trial_observables_published = true;
+            result.failing_trial_gate_evaluated = true;
+            result.failing_trial_gate_pass = false;
+            result.failing_trial_position_rms = trial_position_rms;
+            result.failing_trial_position_maximum = position_maximum;
+            result.failing_trial_velocity_rms = trial_velocity_rms;
+            result.failing_trial_maximum_speed = speed_maximum;
+            result.failing_trial_energy_excess = energy_excess;
+            result.failing_trial_momentum_residual = momentum_residual;
+            result.failing_trial_components = trial.component_count;
             break;
+        }
+        result.maximum_position_rms = maximum_position_rms;
+        result.maximum_position = maximum_position;
+        result.maximum_velocity_rms = maximum_velocity_rms;
+        result.maximum_speed = maximum_speed;
+        result.energy_excess = energy_excess;
+        result.momentum_residual = momentum_residual;
+        result.maximum_components = maximum_components;
+        state = trial.state;
+        gravity_impulse = trial_gravity_impulse;
+        pressure_impulse = trial_pressure_impulse;
+        contact_impulse = trial_contact_impulse;
+        ++result.accepted_steps;
+        result.trial_committed.back() = true;
+        if (trial.positive_multipliers > 0U) {
+            ++result.pressure_occurrences;
+        }
+        if (trial.lower_contacts > 0U) {
+            ++result.lower_contact_occurrences;
         }
     }
     result.final_state = state;
@@ -2374,11 +2962,78 @@ TrajectoryResult run_trajectory(const NonlocalGpuProfile& profile,
     result.state_root = state_root(
         "nextengine.nonlocal.ncgp13.trajectory-state.v1", result.final_state);
     ++result.work.hash_derivations;
+    result.expected_hash_derivations = expected_hash_derivations + 1U;
+    result.hash_accounting_exact = result.work.hash_derivations
+        == result.expected_hash_derivations;
+    if (!result.hash_accounting_exact) {
+        throw std::logic_error("trajectory hash accounting mismatch");
+    }
     result.trajectory_root = trajectory_root(result);
     return result;
 }
 
 void seal_controls(Controls& controls) {
+    constexpr std::array<std::string_view, 11> numbers{
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"};
+    constexpr std::array<std::uint64_t, 11> executed_hashes{
+        7U, 1U, 4U, 10U, 3U, 16U, 2U, 9U, 1U, 2U, 16U};
+    if (controls.receipts.size() != numbers.size()) {
+        throw std::logic_error("control receipt count mismatch");
+    }
+    Work summed;
+    for (std::size_t index = 0U; index < controls.receipts.size(); ++index) {
+        const Controls::Receipt& receipt = controls.receipts[index];
+        if (receipt.number != numbers[index]) {
+            throw std::logic_error("control receipt order mismatch");
+        }
+        const std::uint64_t expected =
+            receipt.status == "NOT_RUN_BY_PRECEDENCE"
+            ? 0U : executed_hashes[index];
+        if (receipt.expected_hash_derivations != expected
+            || !receipt.hash_accounting_exact) {
+            throw std::logic_error("control receipt expectation mismatch");
+        }
+        add_work(summed, receipt.work);
+    }
+    if (!same_work(summed, controls.work)) {
+        throw std::logic_error("control aggregate work is not componentwise exact");
+    }
+    const bool conditional_skipped = std::all_of(
+        controls.receipts.begin() + 6, controls.receipts.end(),
+        [](const Controls::Receipt& receipt) {
+            return receipt.status == "NOT_RUN_BY_PRECEDENCE";
+        });
+    const bool conditional_executed = std::none_of(
+        controls.receipts.begin() + 6, controls.receipts.end(),
+        [](const Controls::Receipt& receipt) {
+            return receipt.status == "NOT_RUN_BY_PRECEDENCE";
+        });
+    if (!conditional_skipped && !conditional_executed) {
+        throw std::logic_error("mixed conditional-control precedence");
+    }
+    if (controls.work.hash_derivations
+        != (conditional_skipped ? 41U : 71U)) {
+        throw std::logic_error("control aggregate hash total mismatch");
+    }
+    if (controls.subreceipts.size() != 2U
+        || controls.subreceipts[0].number != "5a"
+        || controls.subreceipts[1].number != "5b"
+        || controls.subreceipts[0].expected_hash_derivations != 1U
+        || controls.subreceipts[1].expected_hash_derivations != 1U
+        || controls.subreceipts[0].work.hash_derivations != 1U
+        || controls.subreceipts[1].work.hash_derivations != 1U
+        || controls.subreceipts[0].status == "NOT_RUN_BY_PRECEDENCE"
+        || controls.subreceipts[1].status == "NOT_RUN_BY_PRECEDENCE"
+        || !receipts_exact(controls)) {
+        throw std::logic_error("control subreceipt closure mismatch");
+    }
+    std::string conditional_bytes;
+    append_string(conditional_bytes,
+        "nextengine.nonlocal.ncgp13.conditional-controls.v1");
+    for (std::size_t index = 6U; index < controls.receipts.size(); ++index) {
+        append_string(conditional_bytes, controls.receipts[index].result_root);
+    }
+    controls.conditional_root = digest(std::move(conditional_bytes));
     std::string bytes;
     append_string(bytes, "nextengine.nonlocal.ncgp13.controls.v1");
     for (const bool pass : std::array<bool, 12>{controls.legacy,
@@ -2394,12 +3049,27 @@ void seal_controls(Controls& controls) {
     append_string(bytes, controls.admission_root);
     append_string(bytes, controls.transactional_root);
     append_string(bytes, controls.conditional_root);
+    append_u64(bytes, controls.receipts.size());
+    for (const Controls::Receipt& receipt : controls.receipts) {
+        append_string(bytes, receipt.number);
+        append_string(bytes, receipt.status);
+        append_string(bytes, receipt.work_root);
+        append_string(bytes, receipt.result_root);
+    }
+    append_u64(bytes, controls.subreceipts.size());
+    for (const Controls::Receipt& receipt : controls.subreceipts) {
+        append_string(bytes, receipt.number);
+        append_string(bytes, receipt.status);
+        append_string(bytes, receipt.work_root);
+        append_string(bytes, receipt.result_root);
+    }
     append_string(bytes, work_root(controls.work));
     controls.result_root = digest(std::move(bytes));
 }
 
 std::string final_result_root(std::string_view status,
-    std::string_view binary, std::string_view phase_a_input,
+    std::string_view binary, std::string_view profile_root,
+    std::string_view phase_a_input,
     std::string_view phase_b_input, const LegacyWitness& legacy,
     const Controls& controls, const StepResult* phase_a,
     const StepResult* phase_a_permuted,
@@ -2413,6 +3083,7 @@ std::string final_result_root(std::string_view status,
     append_string(bytes, NCGP13_SOURCE_TREE);
     append_string(bytes, NCGP13_COMPILER_FLAGS);
     append_string(bytes, binary);
+    append_string(bytes, profile_root);
     append_string(bytes, phase_a_input);
     append_string(bytes, phase_b_input);
     append_string(bytes, status);
@@ -2448,12 +3119,61 @@ void emit_work(std::ostream& output, const Work& work) {
            << ",\"plane_hits\":" << work.plane_hits
            << ",\"contact_projections\":" << work.contact_projections
            << ",\"projection_rounds\":" << work.projection_rounds
+           << ",\"analytic_jv_multiply_adds\":"
+           << work.analytic_jv_multiply_adds
+           << ",\"topology_distance_tests\":"
+           << work.topology_distance_tests
+           << ",\"topology_discoveries\":"
+           << work.topology_discoveries
            << ",\"hash_derivations\":" << work.hash_derivations
            << ",\"penalty_work\":" << work.penalty_work << "}";
 }
 
+void emit_control_receipt(std::ostream& output,
+    const Controls::Receipt& receipt) {
+    output << "{\"number\":\"" << receipt.number
+           << "\",\"name\":\"" << receipt.name
+           << "\",\"status\":\"" << receipt.status
+           << "\",\"pass\":" << (receipt.pass ? "true" : "false")
+           << ",\"typed_outcome\":\"" << receipt.typed_outcome
+           << "\",\"expected_hash_derivations\":"
+           << receipt.expected_hash_derivations
+           << ",\"actual_hash_derivations\":"
+           << receipt.work.hash_derivations
+           << ",\"hash_accounting_exact\":"
+           << (receipt.hash_accounting_exact ? "true" : "false")
+           << ",\"before_state_root\":\"" << receipt.before_state_root
+           << "\",\"after_state_root\":\"" << receipt.after_state_root
+           << "\",\"evidence_roots\":[";
+    for (std::size_t index = 0U; index < receipt.evidence_roots.size();
+         ++index) {
+        if (index != 0U) output << ',';
+        output << '\"' << receipt.evidence_roots[index] << '\"';
+    }
+    output << "],\"scalar_evidence\":[";
+    for (std::size_t index = 0U; index < receipt.scalar_evidence.size();
+         ++index) {
+        if (index != 0U) output << ',';
+        output << static_cast<double>(receipt.scalar_evidence[index]);
+    }
+    output << "],\"integer_evidence\":[";
+    for (std::size_t index = 0U; index < receipt.integer_evidence.size();
+         ++index) {
+        if (index != 0U) output << ',';
+        output << receipt.integer_evidence[index];
+    }
+    output << "],\"work_root\":\"" << receipt.work_root
+           << "\",\"result_root\":\"" << receipt.result_root
+           << "\",\"work\":";
+    emit_work(output, receipt.work);
+    output << "}";
+}
+
 void emit_legacy(std::ostream& output, const LegacyWitness& legacy) {
     output << "{\"pass\":" << (legacy.pass ? "true" : "false")
+           << ",\"expected_hash_derivations\":7"
+           << ",\"hash_accounting_exact\":"
+           << (legacy.work.hash_derivations == 7U ? "true" : "false")
            << ",\"sweeps\":" << legacy.sweeps
            << ",\"updates\":" << legacy.updates
            << ",\"positive_multipliers\":" << legacy.positive
@@ -2492,6 +3212,10 @@ void emit_step(std::ostream& output, const StepResult& step) {
            << ",\"accepted\":" << (step.accepted ? "true" : "false")
            << ",\"identity_mass_exact\":"
            << (step.identity_mass_exact ? "true" : "false")
+           << ",\"expected_hash_derivations\":"
+           << step.expected_hash_derivations
+           << ",\"hash_accounting_exact\":"
+           << (step.hash_accounting_exact ? "true" : "false")
            << ",\"failure\":\"" << step.failure
            << "\",\"round_count\":" << step.rounds.size()
            << ",\"positive_multipliers\":" << step.positive_multipliers
@@ -2512,6 +3236,10 @@ void emit_step(std::ostream& output, const StepResult& step) {
            << ",\"multiplier_root\":\"" << step.multiplier_root
            << "\",\"predictor_contact_root\":\""
            << step.predictor_contact_root
+           << "\",\"injected_private_multiplier_root\":\""
+           << step.injected_private_multiplier_root
+           << "\",\"injected_private_contact_root\":\""
+           << step.injected_private_contact_root
            << "\",\"contact_mask_root\":\"" << step.contact_mask_root
            << "\",\"contact_impulse_root\":\""
            << step.contact_impulse_root
@@ -2524,7 +3252,16 @@ void emit_step(std::ostream& output, const StepResult& step) {
         if (index != 0U) output << ',';
         const RoundSummary& round = step.rounds[index];
         output << "{\"index\":" << index
+               << ",\"assembly_valid\":"
+               << (round.assembly_valid ? "true" : "false")
+               << ",\"solve_valid\":"
+               << (round.solve_valid ? "true" : "false")
                << ",\"converged\":" << (round.converged ? "true" : "false")
+               << ",\"stale\":" << (round.stale ? "true" : "false")
+               << ",\"expected_hash_derivations\":"
+               << round.expected_hash_derivations
+               << ",\"hash_accounting_exact\":"
+               << (round.hash_accounting_exact ? "true" : "false")
                << ",\"sweeps\":" << round.sweeps
                << ",\"updates\":" << round.updates
                << ",\"positive\":" << round.positive
@@ -2560,7 +3297,10 @@ void emit_step(std::ostream& output, const StepResult& step) {
                << "\",\"contact_root\":\"" << round.contact_root
                << "\",\"state_root\":\"" << round.state_root
                << "\",\"work_root\":\"" << work_root(round.work)
-               << "\",\"result_root\":\"" << round.result_root << "\"}";
+               << "\",\"result_root\":\"" << round.result_root
+               << "\",\"work\":";
+        emit_work(output, round.work);
+        output << "}";
     }
     output << "],\"work\":";
     emit_work(output, step.work);
@@ -2573,12 +3313,26 @@ void emit_trajectory(std::ostream& output,
            << (trajectory.apparatus_valid ? "true" : "false")
            << ",\"physical_pass\":"
            << (trajectory.physical_pass ? "true" : "false")
+           << ",\"failing_trial_published\":"
+           << (trajectory.failing_trial_published ? "true" : "false")
+           << ",\"failing_trial_observables_published\":"
+           << (trajectory.failing_trial_observables_published
+                   ? "true" : "false")
+           << ",\"failing_trial_gate_evaluated\":"
+           << (trajectory.failing_trial_gate_evaluated ? "true" : "false")
+           << ",\"failing_trial_gate_pass\":"
+           << (trajectory.failing_trial_gate_pass ? "true" : "false")
            << ",\"accepted_steps\":" << trajectory.accepted_steps
            << ",\"failure_step\":" << trajectory.failure_step
-           << ",\"failure_state_published\":"
-           << (trajectory.failure_step != 0U
-                   && trajectory.accepted_steps == trajectory.failure_step
-               ? "true" : "false")
+           << ",\"failing_trial_step\":" << trajectory.failing_trial_step
+           << ",\"failure_state_published\":false"
+           << ",\"failing_trial_committed\":false"
+           << ",\"failing_trial_outcome\":\""
+           << trajectory.failing_trial_outcome << "\""
+           << ",\"expected_hash_derivations\":"
+           << trajectory.expected_hash_derivations
+           << ",\"hash_accounting_exact\":"
+           << (trajectory.hash_accounting_exact ? "true" : "false")
            << ",\"failure\":\"" << trajectory.failure
            << "\",\"maximum_position_rmse_m\":"
            << static_cast<double>(trajectory.maximum_position_rms)
@@ -2593,17 +3347,45 @@ void emit_trajectory(std::ostream& output,
            << ",\"momentum_residual\":"
            << static_cast<double>(trajectory.momentum_residual)
            << ",\"maximum_components\":" << trajectory.maximum_components
+           << ",\"failing_trial_position_rmse_m\":"
+           << static_cast<double>(trajectory.failing_trial_position_rms)
+           << ",\"failing_trial_position_maximum_m\":"
+           << static_cast<double>(
+                  trajectory.failing_trial_position_maximum)
+           << ",\"failing_trial_velocity_rms_mps\":"
+           << static_cast<double>(trajectory.failing_trial_velocity_rms)
+           << ",\"failing_trial_maximum_speed_mps\":"
+           << static_cast<double>(trajectory.failing_trial_maximum_speed)
+           << ",\"failing_trial_energy_positive_excess\":"
+           << static_cast<double>(trajectory.failing_trial_energy_excess)
+           << ",\"failing_trial_momentum_residual\":"
+           << static_cast<double>(
+                  trajectory.failing_trial_momentum_residual)
+           << ",\"failing_trial_components\":"
+           << trajectory.failing_trial_components
            << ",\"pressure_occurrences\":"
            << trajectory.pressure_occurrences
            << ",\"lower_contact_occurrences\":"
            << trajectory.lower_contact_occurrences
            << ",\"state_root\":\"" << trajectory.state_root
+           << "\",\"failing_trial_state_root\":\""
+           << trajectory.failing_trial_state_root
+           << "\",\"failing_trial_work_root\":\""
+           << trajectory.failing_trial_work_root
+           << "\",\"failing_trial_result_root\":\""
+           << trajectory.failing_trial_result_root
            << "\",\"work_root\":\"" << work_root(trajectory.work)
            << "\",\"trajectory_root\":\"" << trajectory.trajectory_root
            << "\",\"step_roots\":[";
     for (std::size_t index = 0U; index < trajectory.step_roots.size(); ++index) {
         if (index != 0U) output << ',';
         output << '\"' << trajectory.step_roots[index] << '\"';
+    }
+    output << "],\"trial_committed\":[";
+    for (std::size_t index = 0U; index < trajectory.trial_committed.size();
+         ++index) {
+        if (index != 0U) output << ',';
+        output << (trajectory.trial_committed[index] ? "true" : "false");
     }
     output << "],\"steps\":[";
     for (std::size_t index = 0U; index < trajectory.steps.size(); ++index) {
@@ -2620,6 +3402,7 @@ int run() {
     profile.lambda = 0.0;
     profile.mu = 0.0;
     profile.gamma = 0.0;
+    const std::string profile_root = ncgp13_profile_root(profile);
     const auto phase_a_raw = make_lattice_state(profile, 8U, 8U, 8U,
         false, false);
     const auto phase_a_permuted_raw = make_lattice_state(profile, 8U, 8U,
@@ -2667,7 +3450,7 @@ int run() {
     bool trajectory_ran = false;
     if (!identity || !unconditional_pass(controls)) {
         status = "APPARATUS_INCONCLUSIVE";
-        controls.conditional_root = "NOT_RUN_BY_PRECEDENCE";
+        add_skipped_conditional_controls(controls);
     } else {
         phase_a = run_step(profile, phase_a_state, ghosts, grid, true);
         phase_a_permuted = run_step(profile, phase_a_permuted_state, ghosts,
@@ -2682,18 +3465,20 @@ int run() {
                 == phase_a_permuted.contact_mask_root
             && phase_a.contact_impulse_root
                 == phase_a_permuted.contact_impulse_root
+            && phase_a.hash_accounting_exact
+            && phase_a_permuted.hash_accounting_exact
             && work_root(phase_a.work) == work_root(phase_a_permuted.work);
         if (!phase_a.apparatus_valid || !phase_a_permuted.apparatus_valid
             || !phase_a_identity) {
             status = "APPARATUS_INCONCLUSIVE";
-            controls.conditional_root = "NOT_RUN_BY_PRECEDENCE";
+            add_skipped_conditional_controls(controls);
         } else if (!phase_a.physical_pass || !phase_a_permuted.physical_pass) {
             status = "PRESSURE_CONTACT_STEP_REFUTED";
-            controls.conditional_root = "NOT_RUN_BY_PRECEDENCE";
+            add_skipped_conditional_controls(controls);
         } else {
             conditional_controls(profile, phase_a_raw, phase_a_permuted_raw,
                 ghosts, grid, phase_a_state, phase_a, phase_a_permuted,
-                controls);
+                phase_a_input, phase_a_permuted_input, controls);
             if (!conditional_pass(controls)) {
                 status = "APPARATUS_INCONCLUSIVE";
             } else {
@@ -2706,6 +3491,10 @@ int run() {
                         == trajectory_permuted.trajectory_root
                     && trajectory.state_root == trajectory_permuted.state_root
                     && trajectory.step_roots == trajectory_permuted.step_roots
+                    && trajectory.trial_committed
+                        == trajectory_permuted.trial_committed
+                    && trajectory.hash_accounting_exact
+                    && trajectory_permuted.hash_accounting_exact
                     && work_root(trajectory.work)
                         == work_root(trajectory_permuted.work);
                 if (!trajectory.apparatus_valid
@@ -2725,7 +3514,7 @@ int run() {
     const std::string binary = file_root("/proc/self/exe");
     if (binary.empty()) throw std::runtime_error("binary identity failed");
     const std::string result_root = final_result_root(status, binary,
-        phase_a_input, phase_b_input, legacy, controls,
+        profile_root, phase_a_input, phase_b_input, legacy, controls,
         phase_a_ran ? &phase_a : nullptr,
         phase_a_ran ? &phase_a_permuted : nullptr,
         trajectory_ran ? &trajectory : nullptr,
@@ -2739,7 +3528,8 @@ int run() {
               << ",\"source_tree\":\"" << NCGP13_SOURCE_TREE << "\""
               << ",\"compiler_flags\":\"" << NCGP13_COMPILER_FLAGS << "\""
               << ",\"binary_root\":\"" << binary << "\""
-              << ",\"profile\":{" 
+              << ",\"profile_root\":\"" << profile_root << "\""
+              << ",\"profile\":{"
               << "\"id\":\"" << profile.id << "\",\"dt\":" << profile.dt
               << ",\"spacing\":" << profile.spacing
               << ",\"horizon\":" << profile.horizon
@@ -2749,9 +3539,23 @@ int run() {
               << ",\"kappa_retained\":" << profile.kappa
               << ",\"lambda\":" << profile.lambda
               << ",\"mu\":" << profile.mu
-              << ",\"gamma\":" << profile.gamma << "}"
+              << ",\"gamma\":" << profile.gamma
+              << ",\"gravity\":[" << profile.gravity.x << ','
+              << profile.gravity.y << ',' << profile.gravity.z << ']'
+              << ",\"basin_extent\":[" << profile.basin_extent.x << ','
+              << profile.basin_extent.y << ',' << profile.basin_extent.z
+              << ']'
+              << ",\"ghost_layers\":" << profile.ghost_layers
+              << ",\"maximum_dynamic_samples\":"
+              << profile.maximum_dynamic_samples
+              << ",\"maximum_neighbors\":" << profile.maximum_neighbors
+              << "}"
               << ",\"phase_a_input_root\":\"" << phase_a_input << "\""
+              << ",\"phase_a_permuted_input_root\":\""
+              << phase_a_permuted_input << "\""
               << ",\"phase_b_input_root\":\"" << phase_b_input << "\""
+              << ",\"phase_b_permuted_input_root\":\""
+              << phase_b_permuted_input << "\""
               << ",\"dynamic_phase_a\":" << phase_a_state.id.size()
               << ",\"dynamic_phase_b\":" << phase_b_state.id.size()
               << ",\"ghost_samples\":" << ghosts.size()
@@ -2781,9 +3585,30 @@ int run() {
               << (controls.input_order_loss ? "true" : "false")
               << ",\"typed_mutations\":"
               << (controls.mutations ? "true" : "false")
-              << ",\"work_root\":\"" << work_root(controls.work)
+              << ",\"contact_oracle_root\":\""
+              << controls.contact_oracle_root
+              << "\",\"exact_radius_root\":\""
+              << controls.exact_radius_root
+              << "\",\"ghost_derivative_root\":\""
+              << controls.ghost_derivative_root
+              << "\",\"admission_root\":\"" << controls.admission_root
+              << "\",\"transactional_root\":\""
+              << controls.transactional_root
+              << "\",\"conditional_root\":\""
+              << controls.conditional_root
+              << "\",\"work_root\":\"" << work_root(controls.work)
               << "\",\"result_root\":\"" << controls.result_root
-              << "\",\"work\":";
+              << "\",\"receipts\":[";
+    for (std::size_t index = 0U; index < controls.receipts.size(); ++index) {
+        if (index != 0U) std::cout << ',';
+        emit_control_receipt(std::cout, controls.receipts[index]);
+    }
+    std::cout << "],\"subreceipts\":[";
+    for (std::size_t index = 0U; index < controls.subreceipts.size(); ++index) {
+        if (index != 0U) std::cout << ',';
+        emit_control_receipt(std::cout, controls.subreceipts[index]);
+    }
+    std::cout << "],\"work\":";
     emit_work(std::cout, controls.work);
     std::cout << "},\"phase_a\":";
     if (phase_a_ran) emit_step(std::cout, phase_a);
