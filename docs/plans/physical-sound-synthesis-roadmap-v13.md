@@ -225,7 +225,7 @@ ProductChecks. SPEC-45 до этого остаётся `Proposed`.
 1. `M0a`: `COMPLETE`; V12-C4a repeated negative result and V13 research.
 2. `M1a` — `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL`: [protocol](../development/physical-sound-v13-m1a-research-record-v0-protocol-2026-08-31.md), [result](../development/physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md).
 3. `M1b` — `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL`: [protocol](../development/physical-sound-v13-m1b-exposure-ledger-v0-protocol-2026-08-31.md), [result](../development/physical-sound-v13-m1b-exposure-ledger-v0-result-2026-08-31.md).
-4. `M1c` — next: repeated zero-signal real historical ledger/record evidence and conservative fresh-source shortlist.
+4. `M1c` — next: [historical census and shortlist protocol](../development/physical-sound-v13-m1c-historical-census-and-shortlist-protocol-2026-08-31.md), repeated zero-signal real ledger and conservative ObjectFolder glass shortlist.
 5. `M2a`: source/role protocol and exact budgets before any new decode.
 6. `M3a–M5a`: known-truth oracle, fit-only formula, then held tournament as
    separate commits with hard stop rules.
