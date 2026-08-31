@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-08-31` |
-| Status | `ACTIVE_R&D / N1A_REPEAT_EXACT_PASS / N1B_METADATA_INVENTORY_NEXT / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ACTIVE_R&D / N1B_REPEAT_EXACT_COVERAGE_INSUFFICIENT / N1C_SCOPE_SOURCE_DECISION_NEXT / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V13](physical-sound-synthesis-roadmap-v13.md) as the active execution plan |
 | Evidence basis | [V14 data-first neural rebaseline](../development/physical-sound-v14-data-first-neural-rebaseline-2026-08-31.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -99,8 +99,8 @@ cannot bypass the structured candidate, validator or cooker.
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | N0 | Evidence rebaseline | `COMPLETE` | V12/V13 negatives preserved; source recovery removed from the critical path; V14 claim and fallback are explicit. |
-| N1 | Dataset Contract V1 | `IN_PROGRESS / N1A_COMPLETE / N1B_NEXT` | Metadata-only inventory freezes object/source roles, quality masks and at least `8` eligible object groups for each of Glass/Wood/Metal across train, development, validator calibration, method holdout and admission shadow; protected signal counters stay zero. |
-| N2 | Known-truth neural oracle | `BLOCKED_BY_N1_SCHEMA` | A small network recovers stable poles/gains and held surface responses on synthetic objects; instability, contact shuffle, wrong material/scale and coverage-collapse mutations reject. |
+| N1 | Dataset Contract V1 | `IN_PROGRESS / N1B_COMPLETE_COVERAGE_INSUFFICIENT / N1C_SCOPE_DECISION_NEXT` | N1c either proves at least `8` eligible real object groups per admitted material and freezes roles, or narrows the first protected domain before signal decode; protected signal counters stay zero. |
+| N2 | Known-truth neural oracle | `BLOCKED_BY_N1_ROLE_SCOPE_FREEZE` | A small network recovers stable poles/gains and held surface responses on synthetic objects; instability, contact shuffle, wrong material/scale and coverage-collapse mutations reject. |
 | N3 | Real analysis/synthesis representation | `BLOCKED_BY_N2` | On opened train/development audio, learned modal tokens reconstruct spectrum, onset, envelope and decay within frozen absolute gates for all three material families; identity and classical Q30/DCT controls are reported. |
 | N4 | Exact-object few-shot contact field | `BLOCKED_BY_N3` | With about 20% signal-blind contacts, one shared model beats nearest-contact, Euclidean/geodesic RBF, local-linear and geometry-agnostic controls on untouched contacts for at least two objects per material, or closes as `REPRESENTATION_REJECTED`. |
 | N5 | Cross-object authoring prior | `BLOCKED_BY_N4` | An object-disjoint mesh/material model produces contact-continuous candidates for unseen objects, beats material-mean/nearest-object controls and emits calibrated OOD instead of silent collapse. |
@@ -133,6 +133,14 @@ The target of eight eligible groups per material is a go/no-go inventory gate,
 not permission to keep downloading indefinitely. If it cannot be met from
 published sources under bounded acquisition, N1 publishes exact coverage and
 V14 narrows the first domain before any waveform decode.
+
+[N1b](../development/physical-sound-v14-n1b-real-source-metadata-inventory-result-2026-09-01.md)
+now supplies that exact negative inventory: only `1` unexposed Glass, `7` Wood
+and `18` Metal real metadata candidates are proven under the current source
+and revision rules. ObjectFolder 2.0 supplies `26/622/151` synthetic teachers,
+but T1 cannot replace protected T2/T3 evidence. N1c is therefore a bounded
+source/identity and scope decision; it is not permission to assign incomplete
+roles or open waveforms.
 
 The minimum signal-blind role shape per material is `4 train + 1 generator
 development + 1 validator calibration + 1 method holdout + 1 admission shadow`.
@@ -238,10 +246,13 @@ product answer.
    and [result](../development/physical-sound-v14-n1a-dataset-contract-v1-result-2026-09-01.md)
    freeze quality, exposure, object/recording grouping and exact `4/1/1/1/1`
    per-material role invariants.
-3. `N1b` — metadata-only ObjectFolder/RealImpact/ObjectFolder-2.0 inventory and
-   bounded acquisition-cost report.
-4. `N1c` — freeze object/source roles and publish the exact go/no-go coverage
-   certificate for Glass/Wood/Metal.
+3. `N1b` — `COMPLETE / REPEAT_EXACT / COVERAGE_INSUFFICIENT`:
+   [protocol](../development/physical-sound-v14-n1b-real-source-metadata-inventory-protocol-2026-09-01.md)
+   and [result](../development/physical-sound-v14-n1b-real-source-metadata-inventory-result-2026-09-01.md)
+   bind `1,150` object rows and `70` archive identities with zero signal read.
+4. `N1c` — resolve the bounded `71…100` revision lineage and additional
+   published T2/T3 source option, then freeze roles only for a domain that
+   meets the unchanged go/no-go coverage certificate; otherwise narrow N1.
 5. `N2a` — freeze the synthetic scene distribution, controls, losses, metrics,
    compute ceiling and stop rule before training.
 6. `N2b` — execute repeat-exact known-truth oracle and either authorize N3 or
