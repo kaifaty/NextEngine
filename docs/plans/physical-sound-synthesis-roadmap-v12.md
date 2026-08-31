@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-08-31` |
-| Статус | `ACTIVE_R&D / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_PROTOCOL_FROZEN / C3_RUNNER_NEXT / REAL_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_RUNNER_IMPLEMENTED / C3_EVIDENCE_NEXT / REAL_PCM_CLOSED / RUNTIME_NOT_AUTHORIZED` |
 | Предыдущий roadmap | [V11](physical-sound-synthesis-roadmap-v11.md), закрыт после B1R3 |
 | Exact основание | [C1 repeat-exact result](../development/physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -89,7 +89,7 @@ flowchart LR
 | C0 | B1R3 exact result и V12 rebaseline | `COMPLETE / REPRODUCIBLE` | Два запуска и все артефакты byte-identical; reject и нулевой holdout зафиксированы. |
 | C1 | Coverage-certified known-truth oracle | `COMPLETE / REPEAT_EXACT_PASS` | Все acquisition-supported truth modes восстановлены, unsupported controls не изобретены, held responses и OOD gates проходят дважды побитово. |
 | C2 | Internet-source zero-decode inventory | `COMPLETE / NARROWED_SOURCE_PASS` | Найден хотя бы один stable paired force+mic source с доказуемыми axes/lineage; PCM не читается. |
-| C3 | Source role freeze и bounded importer | `PROTOCOL_FROZEN / RUNNER_NEXT / PCM_STILL_CLOSED` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
+| C3 | Source role freeze и bounded importer | `RUNNER_IMPLEMENTED / EVIDENCE_NEXT / PCM_STILL_CLOSED` | Parent-disjoint fit/development/holdout/validator/shadow roles и exact read counters заморожены до decode. |
 | C4 | Real transfer-response model | `BLOCKED_BY_C3` | Fit и development проходят против raw-H1, impulse, peak-picking и nearest controls; one-shot holdout подтверждает перенос. |
 | C5 | Physical Sound Record V1 | `BLOCKED_BY_C4` | Версионированная external record-база хранит poles, damping, contact residues, coverage/OOD и provenance без waveform в Git. |
 | C6 | Exact-object contact ML | `BLOCKED_BY_C5` | Geometry/contact model выигрывает у nearest, RBF/barycentric и linear-basis controls на unseen parent groups. |
@@ -247,10 +247,12 @@ Accepted ADR. До этого SPEC-45 остаётся `Proposed` и authored cl
    structural witness are recorded.
 3. `C3a`: `COMPLETE`; fresh target, six roles and `4 GiB` stop rule are
    preregistered before runner.
-4. `C3b` — next: bounded importer, freeze and paired zero-read preflights;
-   PCM remains closed until repeat-exact inventory passes.
-5. `C4`: real fit → development → one-shot holdout as separate gates/commits.
-6. `C5–C9`: record schema, controls-first ML, validator, atlas and admission as
+4. `C3b`: `COMPLETE`; bounded importer and focused synthetic tests are
+   implemented before real inventory.
+5. `C3c` — next: freeze, paired zero-read preflights and repeat-exact inventory;
+   PCM remains closed until it passes.
+6. `C4`: real fit → development → one-shot holdout as separate gates/commits.
+7. `C5–C9`: record schema, controls-first ML, validator, atlas and admission as
    independently reviewable artifacts.
 
 ## Definition of done
