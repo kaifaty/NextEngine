@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V10 / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_BEER_GLASS_FIT_NEXT / REAL_QUALITY_NOT_PROVEN / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V10 / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_REJECTED_AT_ONSET / A1R_SOURCE_SEMANTICS_NEXT / REAL_QUALITY_NOT_PROVEN / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -18,8 +18,10 @@
   manifest `15616a58…36c9`, report `6df03217…779a`.
 - **A0 evidence:** [Beer Glass/Rinsing Cup source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md),
   repeated manifest `8a30cef0…8728`, report `3522c677…00d3`.
-- **Next action:** implement and run the frozen Beer Glass V9 fit-only
-  protocol; only 22 object-60 fit WAVs may be decoded.
+- **A1 evidence:** [repeat-exact Beer Glass rejection](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md),
+  report `7d7bb630…9db9b`; contacts `18/29` fail the frozen onset gate before fit.
+- **Next action:** A1R must find a source-disjoint published timestamp/force
+  onset, freeze its transform and roles, then run one new fit.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -43,7 +45,7 @@
 | R3A V4 | `REJECTED_BEFORE_DEVELOPMENT / REPRODUCIBLE` | Three bounded modal/residual capacities fail spectrum on every fit contact; development and sealed rows stay unread. |
 | R3A V5 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | All capacities fit the byte budget but fail real spectrum/modal transfer; no capacity or holdout is selected. |
 | R3A V8 | `REAL_FIT_REJECTED / REPRODUCIBLE` | Fit contacts `18/12/4` repeat exactly; both bounded capacities fail spectrum/modal identity, while development `20` and sealed `27` remain unread. |
-| R3A V9 | `SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / FIT_NEXT` | Beer Glass fit, development and query plus Rinsing Cup archive/object holdout roles repeat with zero waveform decode; only fit is authorized. |
+| R3A V9 | `SYNTHETIC_PASS / A0_PASS / A1_REJECTED_BEFORE_FIT` | Two Beer Glass runs repeat; frozen onset is unreachable on `18/29`, no candidate/metrics exist, and every protected role stays closed. |
 | R3B+ | `NOT_AUTHORIZED` | No real contact-to-modal field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Material transition: V5-C development rejects the neural representation
@@ -101,6 +103,17 @@
   Development/query/object-22 holdout stay closed; missing force/normal/
   listener axes narrow the claim.
 
+## Material transition: A1 rejects at source synchronization
+
+- **Observation:** contacts `18/29` have baseline-noise thresholds greater than
+  their full-waveform peaks, although both maxima occur near sample `48,000`.
+- **Evidence:** [A1 exact result](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md),
+  repeated report `7d7bb630…9db9b`; fit decoded `6,336,000`, protected decoded `0`.
+- **Conclusion:** the generic onset rule is incompatible with this compact
+  source. V9 quality remains unknown because representation fitting never ran.
+- **Decision:** do not repair the opened threshold/subset. A1R requires a new
+  source revision with published event time or force-derived onset.
+
 ## Durable negative knowledge
 
 - R2 direct/phase and separable listener fields collapse or lose every held
@@ -140,7 +153,7 @@ kept bounded as the current resume surface.
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Explicit modes plus a neural time-varying residual carry held impact sound | V9 synthetic renderer/field passes; dense phase residual diagnoses missing information | V8 sparse residual fails all real fit contacts; stationary noise also fails | Frozen Beer Glass V9 fit-only run |
+| H1: Explicit modes plus a neural time-varying residual carry held impact sound | V9 synthetic renderer/field passes; dense phase residual diagnoses missing information | V8 sparse residual fails all real fit contacts; V10 fit never reached the representation | A1R source-semantic fit on a new revision |
 | H2: Geometry-aware exact-object contact learning is possible | Exact Beer Glass coordinates/audio/point-cloud roles now exist | No representation has passed fresh real development/holdout | Blocked until V9 fit, development and object-22 holdout pass |
 | H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | R5 after a generator claim exists |
 | H4: Cooked coefficients fit product cost | Q30 reference is compact and exact | Whole-mixer/callback/varied-voice cost is unmeasured | Visible consumer plus p95/p99 before promotion |
@@ -166,6 +179,8 @@ kept bounded as the current resume surface.
   tuning after the four V5 development contacts were opened.
 - More V8 residual bins, another damping capacity, threshold repair or
   stationary random-phase magnitude noise on object `91`.
+- Lowering/replacing the V10 Beer Glass onset threshold, selecting only the
+  twenty passing contacts or exploiting the observed one-second maxima.
 - Universal `material -> sound` coefficients before exact-object evidence.
 - Prompt-to-waveform as the engine path; it may remain authored/report-only.
 - Local microphone/hammer capture, raw PhysX-callback mixing or runtime neural
@@ -198,13 +213,14 @@ Read in precedence order:
    [V8 fit rejection/V9 research](../physical-sound-r3a-v8-object91-fit-result-and-v9-residual-research-2026-08-31.md)
    [V9 synthetic protocol](../physical-sound-r3a-v9-time-varying-residual-preflight-protocol-2026-08-31.md)
    [V9 synthetic result](../physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md),
-   [V10 A0 source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md)
-   and [Beer Glass fit protocol](../physical-sound-r3a-v10-beer-glass-real-fit-protocol-2026-08-31.md).
+   [V10 A0 source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md),
+   [Beer Glass fit protocol](../physical-sound-r3a-v10-beer-glass-real-fit-protocol-2026-08-31.md)
+   and [Beer Glass fit result](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md).
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
 
-- **Workspace:** V8 negative, V9 synthetic and V10 A0 inventory code/evidence
+- **Workspace:** V8 negative, V9 synthetic, V10 A0 and A1 rejection code/evidence
   are in Git; all run outputs, datasets, arrays and WAVs are external.
 - **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
   contacts are opened. Every row `2407`, method holdout and admission shadow
@@ -212,5 +228,5 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** implement and run the frozen Beer Glass V9 fit-only
-  representation. Authored clips remain the product path.
+- **Next commit boundary:** A1R source-semantic timestamp/force feasibility and
+  zero-decode role freeze. Authored clips remain the product path.

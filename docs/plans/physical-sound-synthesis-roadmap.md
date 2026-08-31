@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | 2026-08-31 |
-| Статус | `ACTIVE_R&D / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_BEER_GLASS_FIT_NEXT / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
+| Статус | `ACTIVE_R&D / V9_SYNTHETIC_PASS / A0_REAL_SOURCE_PASS / A1_REJECTED_AT_ONSET / A1R_SOURCE_SEMANTICS_NEXT / REAL_QUALITY_NOT_PROVEN / RUNTIME_NOT_AUTHORIZED` |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Текущее состояние | [Physical sound task state](../development/task-state/physical-sound-synthesis.md) |
 | Исполнение | [Neural acoustic field implementation plan](2026-08-30-physical-sound-neural-acoustic-field-implementation-plan.md) |
@@ -39,7 +39,7 @@ canonical-listener condition и опубликованной геометрие�
 | V5 waveform neural codec | `REJECTED / RECORDED` | Компактный codec сохранял общий envelope, но терял спектр и модальные частоты. |
 | V8 explicit modes + sparse residual | `REJECTED_ON_REAL_FIT` | Явные резонансы полезны, но стационарного sparse residual недостаточно для настоящего удара. |
 | V9 explicit modes + time-varying residual | `SYNTHETIC_PASS / REPRODUCIBLE` | На известной synthetic truth модель компактна и предсказывает неизвестный контакт лучше nearest control. |
-| V9 на новом реальном объекте | `A0_SOURCE_PASS / FIT_NOT_RUN` | Beer Glass/Rinsing Cup audio-coordinate roles заморожены без waveform decode; реальное качество ещё не доказано. |
+| V9 на новом реальном объекте | `A0_SOURCE_PASS / A1_REJECTED_BEFORE_FIT` | Beer Glass roles заморожены, но generic onset gate математически недостижим на двух fit contacts; V9 representation не была проверена. |
 | Автоматический validator release | `NOT_AUTHORIZED` | Компоненты метрик есть, но independent release ещё не калиброван. |
 | База моделей и интеграция с движком | `BLOCKED` | Сначала должны пройти real representation, exact-object и validator gates. |
 
@@ -97,9 +97,10 @@ code, configuration, model, validator и output hashes. Изменение лю�
 | ID | Этап | Статус | Размер | Выход |
 | --- | --- | --- | ---: | --- |
 | A0 | Новый real source и coordinate proof | `COMPLETE / REPRODUCIBLE` | S–M | Beer Glass target и Rinsing Cup archive/object holdout имеют exact audio-coordinate-point-cloud binding и frozen roles с нулевым waveform decode. |
-| A1 | V9 real representation gate | `FIT_NEXT` | M | Explicit modes + time-varying residual проходят fit, development и один archive/object-disjoint holdout. |
-| A2 | Exact-object contact field | `BLOCKED_BY_A1` | M–L | Модель предсказывает звук в новых точках объекта и печёт bounded clip atlas. |
-| A3 | Independent Validator V1 | `BLOCKED_BY_A1` | M | Frozen ensemble показывает bounded false-pass risk и useful selective coverage. |
+| A1 | V9 real representation gate | `REJECTED_AT_PREPROCESSING / REPRODUCIBLE` | M | Два fit-run повторяются точно; frozen onset не существует для `18/29`, representation fitting не начинался, protected reads равны нулю. |
+| A1R | Source-semantic synchronization revision | `NEXT` | S–M | Новый source-disjoint protocol получает published timestamp/force onset до decode и повторяет один V9 fit без post-hoc threshold tuning. |
+| A2 | Exact-object contact field | `BLOCKED_BY_A1R` | M–L | Модель предсказывает звук в новых точках объекта и печёт bounded clip atlas. |
+| A3 | Independent Validator V1 | `BLOCKED_BY_A1R` | M | Frozen ensemble показывает bounded false-pass risk и useful selective coverage. |
 | A4 | One-shot admission | `BLOCKED_BY_A2_A3` | S | Frozen generator и validator один раз открывают shadow и публикуют tri-state decision. |
 | A5 | Physical Sound Base V1 | `BLOCKED_BY_A4` | L–XL | Glass, wood и metal имеют admitted exact domains либо честный fallback-only status. |
 | A6 | Один production impact prop | `POST_V1 / BLOCKED_BY_CONSUMER_ADR` | L | Visible object использует committed contact projection, baked clips и обязательный fallback. |
@@ -194,6 +195,20 @@ finiteness, exact repeat и storage cost. Пороговые значения б
 При reject разрешена только новая falsifiable representation hypothesis и
 новая source-disjoint revision. Ещё один bank size, epoch, threshold или
 postfilter на открытых contacts запрещён.
+
+### Result и rebaseline
+
+A1 завершён как `REJECT_V9_REAL_REPRESENTATION` для этой полной revision до
+representation fitting. Контакты `18/29` не могут пересечь frozen onset:
+noise thresholds `0.0061645508/0.0032958984` выше полных peaks
+`0.0054626465/0.0025939941`. Два запуска повторяют report
+`7d7bb630…9db9b`; все protected counters равны нулю. Это отвергает protocol,
+но не доказывает плохое качество V9, потому что candidate не создавался.
+
+A1R не меняет порог на открытых контактах. Он ищет published event timestamp,
+raw force channel либо новый source-disjoint corpus с явной синхронизацией,
+замораживает transform до decode и только затем повторяет один fit. Exact
+evidence: [A1 result](../development/physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md).
 
 ## A2 — Exact-object contact field и clip atlas
 
@@ -330,16 +345,18 @@ average.
    identity control prove audio-coordinate-object binding.
 2. **A0 zero-decode freeze — COMPLETE:** repeated manifest `8a30cef0…8728`,
    roles, gates and evidence with zero decoded waveform samples.
-3. **A1 fit-only runner — NEXT:** V9 decomposition только на fit contacts; protected
-   read counters равны нулю.
-4. **A1 development/holdout:** каждый следующий gate открывается отдельным
+3. **A1 fit-only runner — REJECTED:** repeat-exact onset failure on contacts
+   `18/29`; no candidate, metrics or protected reads.
+4. **A1R source semantics — NEXT:** source-disjoint timestamp/force proof and
+   one newly preregistered fit; no current-contact threshold repair.
+5. **A1R development/holdout:** каждый следующий gate открывается отдельным
    commit только после pass предыдущего.
-5. **A2 contact field:** held-position training/evaluation и внешний baked
+6. **A2 contact field:** held-position training/evaluation и внешний baked
    contact atlas.
-6. **A3 validator release:** independent calibration, method holdout, OOD и
+7. **A3 validator release:** independent calibration, method holdout, OOD и
    grouped risk evidence.
-7. **A4 admission:** один frozen shadow run и immutable decision.
-8. **A5 expansion:** тот же закрытый цикл сначала для wood, затем для metal.
+8. **A4 admission:** один frozen shadow run и immutable decision.
+9. **A5 expansion:** тот же закрытый цикл сначала для wood, затем для metal.
 
 Отрицательный результат является полноценным выходом commit boundary. Он
 обновляет hypothesis и stop policy, но не понижает требования.

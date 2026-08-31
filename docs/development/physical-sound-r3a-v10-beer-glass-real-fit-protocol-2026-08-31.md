@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-08-31` |
-| Status | `PREREGISTERED / FIT_DECODE_AUTHORIZED / ALL_OTHER_PCM_CLOSED` |
+| Status | `EXECUTED / REPRODUCIBLE_REJECT_AT_ONSET / ALL_PROTECTED_PCM_CLOSED` |
 | Source manifest | `8a30cef02684ddbc338d03a36e7cfab3dca2d5273e6d1d1fa885410e56048728` |
 | Fit object | ObjectFolder Real `60 / Beer_Glass / Glass` |
 | Fit contacts | `0,1,2,3,5,6,7,8,10,12,14,15,17,18,19,21,22,24,26,27,28,29` |
@@ -75,13 +75,21 @@ direct onset excitation and may claim only recorded-impact reconstruction.
 The modal residual uses one capacity only:
 
 1. Split `120–18,000 Hz` into `96` logarithmically spaced triangular rFFT
-   bands with adjacent half-overlap.
-2. Measure each residual band's short-time RMS envelope at hop `128`.
+   bands. Every interior triangle is one at its center and zero at the adjacent
+   centers, so adjacent responses cross at half amplitude in log frequency.
+2. Measure each residual band's short-time RMS envelope with a `2,048`-sample
+   Hann STFT, hop `128`, `boundary=None` and `padded=False`. The band value is
+   the square root of weighted bin energy divided by total squared triangular
+   weight.
 3. Encode the log envelope with the first `8` orthonormal DCT-II coefficients;
-   store coefficients as float16 with one float32 scale per contact.
+   use a fixed linear-amplitude floor of `1e-12` before the logarithm and store
+   coefficients as float16 with one float32 scale per contact.
 4. Regenerate one deterministic loopable carrier per band from seed
    `20,260,831`, loop length `16,384`, and the frozen triangular frequency
-   response. Carrier samples or weights are never stored in the contact record.
+   response. Normalize every carrier to unit RMS, then calibrate its amplitude
+   by the median matching-band RMS measured with the same STFT. Carrier samples,
+   calibration values and weights are analytically regenerated and are never
+   stored in the contact record; their exact hashes are recorded.
 5. Decode the DCT envelopes, clamp them nonnegative in linear amplitude, apply
    them to tiled carriers and sum all bands in fixed ascending order.
 6. Store the remaining correction over the first `2,048` samples as symmetric
@@ -152,6 +160,14 @@ After a valid rejection, another bank count, DCT rank, mode count, threshold,
 postfilter, contact subset or random seed on these opened fit recordings is
 forbidden. Reconsideration requires a materially different preregistered
 representation and a new source revision.
+
+## Execution result
+
+Two exact runs reject this revision before representation fitting because the
+frozen baseline-noise threshold exceeds the whole-recording peak for contacts
+`18` and `29`. All `6,336,000` authorized fit samples were decoded; every
+protected counter remains zero. No modes, residual, candidate metrics or real
+quality credit were produced. See the [exact result and bounded research](physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md).
 
 ## Non-claims
 
