@@ -2,8 +2,8 @@
 
 ## Current verdict
 
-`H8A_VISIBLE_SURFACE_SUPPORTED_BOUNDED / REPAIRED_CANDIDATE /
-INDEPENDENT_RE_REVIEW_PENDING / PERFORMANCE_NOT_RUN`.
+`H8A_VISIBLE_SURFACE_SUPPORTED_BOUNDED / INDEPENDENT_REVIEW_GO /
+PERFORMANCE_NOT_RUN`.
 
 The exact NCGP6 hydrostatic step-112 CPU/GPU witness reproduces, and its
 corrected-axis top-view sphere presentation is close under every pre-frozen
@@ -11,9 +11,10 @@ NCGP8 observable. Two clean Release builds and two complete fresh processes
 are byte-identical. Retained controls and all three Compute Sanitizer tools
 pass. The initial independent review reproduced the numerical H8A result but
 found incomplete retained-bulk, validation-work, top-sheet-control and JSON
-root closure. Commit `8f7d9850` is the single allowed repair batch; its one
-permitted re-review is in progress. This remains an author candidate rather
-than authority to resume the complete corpus.
+root closure. Commit `8f7d9850` is the single allowed repair batch. The one
+permitted re-review returned GO with no remaining load-bearing defect. NCGP8
+therefore authorizes only a separately frozen complete 4k correctness corpus;
+it is not authority for 16k/50k or timing.
 
 NCGP7's three-dimensional bulk evidence remains useful. Its surface layer is
 invalid as a product quantity of interest because it used `y` as height and
@@ -163,14 +164,23 @@ for stderr.
 
 ## Decision boundary
 
-Pending the one permitted independent re-review, the repaired author result
-supports H8A only for the exact
-hydrostatic step-112 presentation. Performance remains `NOT_RUN`; the prior
-`~1.0--1.18 ms p95` result is still neighbor-only.
+The one permitted independent re-review returned GO on exact repair commit
+`8f7d9850`, tree `bbaf24af`. It independently rebuilt twice, reproduced the
+full witness and recalculated every surface, comparison, retained-bulk and
+result root from the published evidence. Its path-dependent binary differed
+from the author binary, but replacing only `binary_root` and the derived
+`result_root` made the output byte-identical. No physical or threshold value
+was normalized.
 
-If review returns GO, the smallest successor is a separately frozen complete
-4k product-correctness corpus: hydrostatic hold, dam-break and orifice for 240
-steps, retaining strict same-state/operator/invariant gates while applying the
-reviewed visible-surface observer to independently evolved trajectories. Only
-after that corpus, 16k/50k capacity and 240-step 50k correctness pass may the
-full GPU-step timing run.
+The reviewed result supports H8A only for the exact hydrostatic step-112
+presentation. Performance remains `NOT_RUN`; the prior `~1.0--1.18 ms p95`
+result is still neighbor-only. The bounded operational note is that a missing
+CUDA runtime can throw before the versioned failure JSON; it is fail-stop and
+cannot produce a false PASS, but remains later apparatus hardening.
+
+The smallest successor is a separately frozen complete 4k product-correctness
+corpus: hydrostatic hold, dam-break and orifice for 240 steps, retaining strict
+same-state/operator/invariant gates while applying the reviewed visible-surface
+observer to independently evolved trajectories. Only after that corpus,
+16k/50k capacity and 240-step 50k correctness pass may the full GPU-step
+timing run.

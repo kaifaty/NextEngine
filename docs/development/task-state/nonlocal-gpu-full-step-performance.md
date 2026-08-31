@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP8_REPAIRED_H8A_CANDIDATE / RE_REVIEW_PENDING` |
+| Status | `ACTIVE / NCGP8_REVIEW_GO / NCGP9_CONTRACT_NEXT` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,11 +19,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** the initial NCGP8 review reproduced H8A but rejected its
-  evidence closure. The one allowed repair batch at `8f7d9850` now recomputes
-  retained bulk fields, seals exact validation work, uses the frozen top-sheet
-  fixture and publishes complete observer roots. Two clean runs and three CUDA
-  sanitizers pass; the one permitted re-review is in progress.
+- **Current action:** NCGP8 repair `8f7d9850` passed its one permitted
+  independent re-review. Freeze NCGP9 before code: the complete 4k
+  hydrostatic/dam-break/orifice correctness corpus using the reviewed visible
+  observer plus all strict same-state and physical-invariant gates.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -254,6 +253,27 @@
 - **Reconsider when:** the exact repair re-review returns GO or finds a
   remaining load-bearing defect; there is no second repair allowance.
 
+### D-011 — Close NCGP8 GO and authorize only the 4k successor
+
+- **Observation:** the re-review independently rebuilt twice, reproduced the
+  112-step witness and recomputed all image/comparison/bulk/result roots from
+  evidence. F1--F4 and N1--N3 are closed; no load-bearing defect remains.
+- **Evidence:** exact reviewed commit `8f7d9850`, source root `ad0a835e...`,
+  author witness `f22c68b1...`, result `ad982ab8...`, retained closure
+  `0ed93929...`; reviewer numerical values are exact after replacing only the
+  detached-path-dependent binary root and its derived result root.
+- **Conclusion:** H8A is supported only for the exact hydrostatic step-112
+  visible-sphere presentation. The prior stable-ID NCGP4/NCGP6 failures remain
+  historical facts; H8A does not establish dam-break, orifice, 16k/50k or
+  frame-time performance.
+- **Decision:** close NCGP8 with review GO. Authorize a separately frozen NCGP9
+  complete 4k correctness corpus and nothing later. Review allowance is
+  exhausted.
+- **Residual:** a missing CUDA runtime may abort during workspace construction
+  before JSON; this is fail-stop/no false green and later apparatus hardening.
+- **Reconsider when:** NCGP9 reaches its first predeclared physical,
+  work/capacity or visible-surface result.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -269,7 +289,7 @@
 | H7A | stable particle identities separate while Eulerian water fields remain close | not selected: bulk passes, but both surface gates do not pass on both grids | new visible-surface QoI only |
 | H7B | the NCGP6 tail reflects a real macroscopic water-state divergence | not selected: no coarse metric reaches the clear-divergence band | reconsider only on new physical evidence |
 | H7C | the field verdict is dominated by arbitrary voxel resolution | superseded as a product explanation: NCGP7 surface used the wrong vertical axis; bulk evidence remains close | do not reuse NCGP7 surface metrics |
-| H8A | corrected-axis visible sphere geometry remains close | repaired candidate supported: all frozen bands and retained bulk roots pass twice byte-identically | one permitted independent re-review |
+| H8A | corrected-axis visible sphere geometry remains close | selected bounded with independent GO on exact step-112 witness | freeze complete 4k successor corpus |
 | H8B | the stable-ID tail is visible as macroscopic surface divergence | falsified on this witness by silhouette/depth/topology bands | reconsider on later dam/orifice evidence |
 | H8C | corrected-axis observer still cannot select a product gate | not selected by author result | review may reopen only for apparatus defect |
 
@@ -284,10 +304,10 @@
 
 ## Next action
 
-1. Complete the one permitted NCGP8 re-review of exact repair commit
-   `8f7d9850` without modifying candidate source.
-2. On GO, freeze a successor complete 4k product-correctness corpus using the
-   reviewed visible-surface observer plus every strict same-state/invariant
-   gate. On NO-GO, close NCGP8 inconclusive; the repair allowance is exhausted.
+1. Freeze NCGP9 before implementation: exact hydrostatic, dam-break and orifice
+   4k inputs, 240-step order, visible-surface aggregation, physical gates,
+   work/identity closure and stop precedence.
+2. Implement and run the smallest complete 4k corpus without changing physics,
+   solver, 128-HVP ceiling or reviewed surface thresholds.
 3. Keep 16k/50k, sealed-basin correctness and complete-step timing blocked
    until that successor corpus passes.
