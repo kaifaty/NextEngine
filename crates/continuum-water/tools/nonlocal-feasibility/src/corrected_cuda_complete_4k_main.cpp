@@ -41,6 +41,13 @@ struct OperatorGate {
     double relative_l2 = 0.0;
     double cosine_loss = 0.0;
     bool active_signature_exact = false;
+    std::uint32_t gpu_active_count = 0U;
+    std::uint32_t cpu_active_count = 0U;
+    std::uint32_t first_active_mismatch_id = 0U;
+    double first_gpu_mismatch_density = 0.0;
+    double first_cpu_mismatch_density = 0.0;
+    double density_relative_rmse = 0.0;
+    double density_relative_maximum = 0.0;
     std::string gpu_work_root;
     std::string cpu_work_root;
     std::string root;
@@ -77,14 +84,80 @@ struct ScenarioResult {
     std::uint64_t hot_host_to_device_bytes = 0U;
     std::uint64_t hot_device_to_host_bytes = 0U;
     std::uint64_t snapshot_device_to_host_bytes = 0U;
+    double operator_relative_l2 = 0.0;
+    double operator_cosine_loss = 0.0;
+    bool operator_active_signature_exact = false;
+    std::uint32_t operator_gpu_active_count = 0U;
+    std::uint32_t operator_cpu_active_count = 0U;
+    std::uint32_t operator_first_active_mismatch_id = 0U;
+    double operator_first_gpu_mismatch_density = 0.0;
+    double operator_first_cpu_mismatch_density = 0.0;
+    double operator_density_relative_rmse = 0.0;
+    double operator_density_relative_maximum = 0.0;
     std::string input_root;
     std::string operator_root;
+    std::string operator_gpu_work_root;
+    std::string operator_cpu_work_root;
     std::string receipt_root;
     std::string final_gpu_state_root;
     std::string final_cpu_state_root;
     std::string final_permuted_state_root;
     std::string result_root;
 };
+
+void seal_scenario_4k(
+    ScenarioResult& result, const std::string& receipt_material) {
+    std::ostringstream failure_receipt;
+    failure_receipt << "nextengine.nonlocal.ncgp9.failure-receipt.v1\n"
+                    << result.name << ':' << result.first_gate << ':'
+                    << result.first_gate_step << ':' << result.input_root << ':'
+                    << result.operator_root << '\n';
+    result.receipt_root = nextengine::nonlocal::sha256_hex(
+        receipt_material.empty() ? failure_receipt.str() : receipt_material);
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << "nextengine.nonlocal.ncgp9.scenario-result.v1\n"
+             << result.name << ':' << result.status << ':'
+             << result.first_gate << ':' << result.first_gate_step << ':'
+             << result.completed_steps << ':' << result.visible_steps << ':'
+             << result.bulk_checkpoints << '\n'
+             << result.first_step_position_max << ':'
+             << result.maximum_position_rmse << ':'
+             << result.maximum_position_p99 << ':'
+             << result.maximum_position_max << ':'
+             << result.maximum_density_rmse << ':'
+             << result.maximum_density_max << ':'
+             << result.maximum_momentum_residual << ':'
+             << result.maximum_positive_energy_excess << ':'
+             << result.maximum_penetration << '\n'
+             << result.maximum_silhouette << ':' << result.maximum_depth_rmse
+             << ':' << result.maximum_depth_p95 << ':'
+             << result.maximum_depth_p99 << ':' << result.maximum_depth_max
+             << ':' << result.maximum_component_fraction_difference << ':'
+             << result.maximum_satellite_fraction_difference << '\n'
+             << result.operator_relative_l2 << ':'
+             << result.operator_cosine_loss << ':'
+             << result.operator_active_signature_exact << ':'
+             << result.operator_gpu_active_count << ':'
+             << result.operator_cpu_active_count << ':'
+             << result.operator_first_active_mismatch_id << ':'
+             << result.operator_first_gpu_mismatch_density << ':'
+             << result.operator_first_cpu_mismatch_density << ':'
+             << result.operator_density_relative_rmse << ':'
+             << result.operator_density_relative_maximum << ':'
+             << result.maximum_gpu_hvp << ':' << result.maximum_cpu_hvp << ':'
+             << result.maximum_degree << ':' << result.maximum_directed_pairs
+             << ':' << result.hot_host_to_device_bytes << ':'
+             << result.hot_device_to_host_bytes << ':'
+             << result.snapshot_device_to_host_bytes << '\n'
+             << result.input_root << ':' << result.operator_root << ':'
+             << result.operator_gpu_work_root << ':'
+             << result.operator_cpu_work_root << ':' << result.receipt_root
+             << ':' << result.final_gpu_state_root << ':'
+             << result.final_cpu_state_root << ':'
+             << result.final_permuted_state_root << '\n';
+    result.result_root = nextengine::nonlocal::sha256_hex(material.str());
+}
 
 std::uint32_t float_bits_4k(float value) {
     std::uint32_t result = 0U;
@@ -280,13 +353,18 @@ std::vector<Vec3d> operator_direction_4k(
 
 OperatorGate operator_gate_4k(const NonlocalGpuProfile& profile,
     NonlocalGpuWorkspace& gpu, const std::vector<NonlocalGpuSample>& state,
-    const std::vector<NonlocalGpuGhost>& ghosts) {
+    const std::vector<NonlocalGpuGhost>& ghosts, NonlocalGpuVariant variant) {
     OperatorGate result;
-    const auto direction = operator_direction_4k(state);
-    const auto gpu_result = gpu.evaluate(&direction,
-        NonlocalGpuVariant::CompensatedScaleF32, true, false);
+    auto canonical_state = state;
+    std::sort(canonical_state.begin(), canonical_state.end(),
+        [](const NonlocalGpuSample& lhs, const NonlocalGpuSample& rhs) {
+            return lhs.sample_id < rhs.sample_id;
+        });
+    const auto direction = operator_direction_4k(canonical_state);
+    const auto gpu_result = gpu.evaluate(&direction, variant, true, false);
     const auto cpu_result = evaluate_reference(
-        profile, state, ghosts, &direction, NonlocalGpuVariant::Corrected);
+        profile, canonical_state, ghosts, &direction,
+        NonlocalGpuVariant::Corrected);
     if (gpu_result.failure != NonlocalGpuFailure::None
         || cpu_result.failure != NonlocalGpuFailure::None
         || gpu_result.hvp.size() != cpu_result.hvp.size()
@@ -329,6 +407,56 @@ OperatorGate operator_gate_4k(const NonlocalGpuProfile& profile,
         - product / std::sqrt(std::max(gpu_squared * cpu_squared, 1.0e-300L)));
     result.active_signature_exact = gpu_result.active_pressure_ids
         == cpu_result.active_pressure_ids;
+    result.gpu_active_count = static_cast<std::uint32_t>(
+        gpu_result.active_pressure_ids.size());
+    result.cpu_active_count = static_cast<std::uint32_t>(
+        cpu_result.active_pressure_ids.size());
+    if (gpu_result.density.size() == cpu_result.density.size()
+        && gpu_result.density.size() == canonical_state.size()) {
+        long double density_squared = 0.0L;
+        for (std::size_t index = 0U; index < gpu_result.density.size(); ++index) {
+            const double relative = std::abs(
+                gpu_result.density[index] - cpu_result.density[index])
+                / profile.rest_density;
+            density_squared += static_cast<long double>(relative) * relative;
+            result.density_relative_maximum = std::max(
+                result.density_relative_maximum, relative);
+        }
+        result.density_relative_rmse = static_cast<double>(std::sqrt(
+            density_squared / static_cast<long double>(canonical_state.size())));
+    }
+    std::size_t gpu_active = 0U;
+    std::size_t cpu_active = 0U;
+    while (gpu_active < gpu_result.active_pressure_ids.size()
+        || cpu_active < cpu_result.active_pressure_ids.size()) {
+        const std::uint32_t gpu_id = gpu_active
+                < gpu_result.active_pressure_ids.size()
+            ? gpu_result.active_pressure_ids[gpu_active]
+            : std::numeric_limits<std::uint32_t>::max();
+        const std::uint32_t cpu_id = cpu_active
+                < cpu_result.active_pressure_ids.size()
+            ? cpu_result.active_pressure_ids[cpu_active]
+            : std::numeric_limits<std::uint32_t>::max();
+        if (gpu_id == cpu_id) {
+            ++gpu_active;
+            ++cpu_active;
+            continue;
+        }
+        result.first_active_mismatch_id = std::min(gpu_id, cpu_id);
+        const auto sample = std::lower_bound(canonical_state.begin(),
+            canonical_state.end(), result.first_active_mismatch_id,
+            [](const NonlocalGpuSample& value, std::uint32_t id) {
+                return value.sample_id < id;
+            });
+        if (sample != canonical_state.end()
+            && sample->sample_id == result.first_active_mismatch_id) {
+            const std::size_t index = static_cast<std::size_t>(
+                sample - canonical_state.begin());
+            result.first_gpu_mismatch_density = gpu_result.density[index];
+            result.first_cpu_mismatch_density = cpu_result.density[index];
+        }
+        break;
+    }
     result.gpu_work_root = work_semantic_root(gpu_result.work);
     result.cpu_work_root = work_semantic_root(cpu_result.work);
     result.valid = result.relative_l2 <= 1.0e-3
@@ -337,7 +465,13 @@ OperatorGate operator_gate_4k(const NonlocalGpuProfile& profile,
     material << std::hex << "nextengine.nonlocal.ncgp9.operator.v1\n"
              << result.valid << ':' << bits(result.relative_l2) << ':'
              << bits(result.cosine_loss) << ':'
-             << result.active_signature_exact << '\n'
+             << result.active_signature_exact << ':'
+             << result.gpu_active_count << ':' << result.cpu_active_count << ':'
+             << result.first_active_mismatch_id << ':'
+             << bits(result.first_gpu_mismatch_density) << ':'
+             << bits(result.first_cpu_mismatch_density) << ':'
+             << bits(result.density_relative_rmse) << ':'
+             << bits(result.density_relative_maximum) << '\n'
              << result.gpu_work_root << ':' << result.cpu_work_root << '\n';
     result.root = nextengine::nonlocal::sha256_hex(material.str());
     return result;
@@ -367,6 +501,7 @@ ScenarioResult run_scenario(const NonlocalGpuProfile& profile,
         || result.input_root
             != input_semantic_root(profile, permuted_input, ghosts)) {
         result.first_gate = "input_identity";
+        seal_scenario_4k(result, {});
         return result;
     }
     NonlocalGpuWorkspace gpu(profile);
@@ -376,14 +511,35 @@ ScenarioResult run_scenario(const NonlocalGpuProfile& profile,
     if (gpu_upload != NonlocalGpuFailure::None
         || permuted_upload != NonlocalGpuFailure::None) {
         result.first_gate = "upload";
+        seal_scenario_4k(result, {});
         return result;
     }
     const OperatorGate operator_gate =
-        operator_gate_4k(profile, gpu, cpu_state, ghosts);
+        operator_gate_4k(profile, gpu, cpu_state, ghosts,
+            NonlocalGpuVariant::CompensatedScaleF32);
     result.operator_root = operator_gate.root;
+    result.operator_relative_l2 = operator_gate.relative_l2;
+    result.operator_cosine_loss = operator_gate.cosine_loss;
+    result.operator_active_signature_exact =
+        operator_gate.active_signature_exact;
+    result.operator_gpu_active_count = operator_gate.gpu_active_count;
+    result.operator_cpu_active_count = operator_gate.cpu_active_count;
+    result.operator_first_active_mismatch_id =
+        operator_gate.first_active_mismatch_id;
+    result.operator_first_gpu_mismatch_density =
+        operator_gate.first_gpu_mismatch_density;
+    result.operator_first_cpu_mismatch_density =
+        operator_gate.first_cpu_mismatch_density;
+    result.operator_density_relative_rmse =
+        operator_gate.density_relative_rmse;
+    result.operator_density_relative_maximum =
+        operator_gate.density_relative_maximum;
+    result.operator_gpu_work_root = operator_gate.gpu_work_root;
+    result.operator_cpu_work_root = operator_gate.cpu_work_root;
     if (!operator_gate.valid) {
         result.first_gate = "same_state_operator";
         result.status = "PHYSICS_REFUTED_BOUNDED";
+        seal_scenario_4k(result, {});
         return result;
     }
     const auto initial_evaluation = evaluate_reference(
@@ -394,6 +550,7 @@ ScenarioResult run_scenario(const NonlocalGpuProfile& profile,
     if (initial_evaluation.failure != NonlocalGpuFailure::None
         || !initial_physics.valid) {
         result.first_gate = "cpu_initial_oracle";
+        seal_scenario_4k(result, {});
         return result;
     }
     std::ostringstream receipts;
@@ -688,38 +845,7 @@ ScenarioResult run_scenario(const NonlocalGpuProfile& profile,
         && result.bulk_checkpoints == 4U && result.first_gate.empty()) {
         result.status = "PASS";
     }
-    result.receipt_root = nextengine::nonlocal::sha256_hex(receipts.str());
-    std::ostringstream material;
-    material << std::setprecision(17)
-             << "nextengine.nonlocal.ncgp9.scenario-result.v1\n"
-             << result.name << ':' << result.status << ':'
-             << result.first_gate << ':' << result.first_gate_step << ':'
-             << result.completed_steps << ':' << result.visible_steps << ':'
-             << result.bulk_checkpoints << '\n'
-             << result.first_step_position_max << ':'
-             << result.maximum_position_rmse << ':'
-             << result.maximum_position_p99 << ':'
-             << result.maximum_position_max << ':'
-             << result.maximum_density_rmse << ':'
-             << result.maximum_density_max << ':'
-             << result.maximum_momentum_residual << ':'
-             << result.maximum_positive_energy_excess << ':'
-             << result.maximum_penetration << '\n'
-             << result.maximum_silhouette << ':' << result.maximum_depth_rmse
-             << ':' << result.maximum_depth_p95 << ':'
-             << result.maximum_depth_p99 << ':' << result.maximum_depth_max
-             << ':' << result.maximum_component_fraction_difference << ':'
-             << result.maximum_satellite_fraction_difference << '\n'
-             << result.maximum_gpu_hvp << ':' << result.maximum_cpu_hvp << ':'
-             << result.maximum_degree << ':' << result.maximum_directed_pairs
-             << ':' << result.hot_host_to_device_bytes << ':'
-             << result.hot_device_to_host_bytes << ':'
-             << result.snapshot_device_to_host_bytes << '\n'
-             << result.input_root << ':' << result.operator_root << ':'
-             << result.receipt_root << ':' << result.final_gpu_state_root << ':'
-             << result.final_cpu_state_root << ':'
-             << result.final_permuted_state_root << '\n';
-    result.result_root = nextengine::nonlocal::sha256_hex(material.str());
+    seal_scenario_4k(result, receipts.str());
     return result;
 }
 
@@ -767,8 +893,32 @@ void emit_scenario(const ScenarioResult& value) {
               << value.hot_device_to_host_bytes
               << ",\"snapshot_device_to_host_bytes\":"
               << value.snapshot_device_to_host_bytes
+              << ",\"operator_relative_l2\":"
+              << value.operator_relative_l2
+              << ",\"operator_cosine_loss\":"
+              << value.operator_cosine_loss
+              << ",\"operator_active_signature_exact\":"
+              << (value.operator_active_signature_exact ? "true" : "false")
+              << ",\"operator_gpu_active_count\":"
+              << value.operator_gpu_active_count
+              << ",\"operator_cpu_active_count\":"
+              << value.operator_cpu_active_count
+              << ",\"operator_first_active_mismatch_id\":"
+              << value.operator_first_active_mismatch_id
+              << ",\"operator_first_gpu_mismatch_density\":"
+              << value.operator_first_gpu_mismatch_density
+              << ",\"operator_first_cpu_mismatch_density\":"
+              << value.operator_first_cpu_mismatch_density
+              << ",\"operator_density_relative_rmse\":"
+              << value.operator_density_relative_rmse
+              << ",\"operator_density_relative_maximum\":"
+              << value.operator_density_relative_maximum
               << ",\"input_root\":\"" << value.input_root
               << "\",\"operator_root\":\"" << value.operator_root
+              << "\",\"operator_gpu_work_root\":\""
+              << value.operator_gpu_work_root
+              << "\",\"operator_cpu_work_root\":\""
+              << value.operator_cpu_work_root
               << "\",\"receipt_root\":\"" << value.receipt_root
               << "\",\"final_gpu_state_root\":\""
               << value.final_gpu_state_root
@@ -843,6 +993,66 @@ int run_complete_corpus() {
         : (status == "PHYSICS_REFUTED_BOUNDED" ? 37 : 4);
 }
 
+int emit_constructor_failure(const char* message);
+
+void emit_operator_diagnostic_4k(
+    const char* name, const OperatorGate& value) {
+    std::cout << std::setprecision(17) << "\"" << name << "\":{";
+    std::cout << "\"valid\":" << (value.valid ? "true" : "false")
+              << ",\"relative_l2\":" << value.relative_l2
+              << ",\"cosine_loss\":" << value.cosine_loss
+              << ",\"active_signature_exact\":"
+              << (value.active_signature_exact ? "true" : "false")
+              << ",\"gpu_active_count\":" << value.gpu_active_count
+              << ",\"cpu_active_count\":" << value.cpu_active_count
+              << ",\"first_active_mismatch_id\":"
+              << value.first_active_mismatch_id
+              << ",\"first_gpu_mismatch_density\":"
+              << value.first_gpu_mismatch_density
+              << ",\"first_cpu_mismatch_density\":"
+              << value.first_cpu_mismatch_density
+              << ",\"density_relative_rmse\":"
+              << value.density_relative_rmse
+              << ",\"density_relative_maximum\":"
+              << value.density_relative_maximum
+              << ",\"gpu_work_root\":\"" << value.gpu_work_root
+              << "\",\"cpu_work_root\":\"" << value.cpu_work_root
+              << "\",\"root\":\"" << value.root << "\"}";
+}
+
+int run_operator_discriminator_4k() {
+    const NonlocalGpuProfile profile = nonlocal_water_corrected_profile();
+    const auto ghosts = canonicalize_ghosts_binary32(make_basin_ghosts(profile));
+    const auto state = corpus_initial(profile, "hydrostatic-hold", false);
+    NonlocalGpuWorkspace primary_workspace(profile);
+    NonlocalGpuWorkspace pressure_workspace(profile);
+    if (primary_workspace.upload(state, ghosts, true)
+            != NonlocalGpuFailure::None
+        || pressure_workspace.upload(state, ghosts, true)
+            != NonlocalGpuFailure::None) {
+        return emit_constructor_failure("operator-discriminator-upload");
+    }
+    const OperatorGate primary = operator_gate_4k(profile, primary_workspace,
+        state, ghosts, NonlocalGpuVariant::CompensatedScaleF32);
+    const OperatorGate pressure = operator_gate_4k(profile, pressure_workspace,
+        state, ghosts, NonlocalGpuVariant::CompensatedScalePressureF64);
+    std::ostringstream material;
+    material << "nextengine.nonlocal.ncgp9.operator-discriminator.v1\n"
+             << primary.root << ':' << pressure.root << ':'
+             << NCGP9_CONTRACT_ROOT << ':' << NCGP9_SOURCE_ROOT << ':'
+             << binary_root() << '\n';
+    std::cout << "{\"schema\":\"nextengine.nonlocal.ncgp9.operator-discriminator.v1\",";
+    emit_operator_diagnostic_4k("primary_f32", primary);
+    std::cout << ',';
+    emit_operator_diagnostic_4k("pressure_f64", pressure);
+    std::cout << ",\"result_root\":\""
+              << nextengine::nonlocal::sha256_hex(material.str())
+              << "\",\"contract_root\":\"" << NCGP9_CONTRACT_ROOT
+              << "\",\"source_root\":\"" << NCGP9_SOURCE_ROOT
+              << "\",\"binary_root\":\"" << binary_root() << "\"}\n";
+    return pressure.valid ? 0 : 37;
+}
+
 int emit_constructor_failure(const char* message) {
     const std::string executable_root = binary_root();
     std::ostringstream material;
@@ -867,9 +1077,20 @@ int emit_constructor_failure(const char* message) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 2
+        && std::string(argv[1]) == "--diagnose-4k-operator-pressure") {
+        try {
+            return run_operator_discriminator_4k();
+        } catch (const std::exception& exception) {
+            return emit_constructor_failure(exception.what());
+        } catch (...) {
+            return emit_constructor_failure("unknown");
+        }
+    }
     if (argc != 2 || std::string(argv[1]) != "--complete-4k-corpus") {
         std::cerr << "usage: nonlocal-corrected-cuda-complete-4k "
-                     "--complete-4k-corpus\n";
+                     "--complete-4k-corpus|"
+                     "--diagnose-4k-operator-pressure\n";
         return 2;
     }
     try {
