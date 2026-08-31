@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V12 / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_REPEAT_PASS / C4_PROTOCOL_NEXT / FIT_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V12 / C1_REPEAT_PASS / C2_SOURCE_PASS / C3_REPEAT_PASS / C4A_PROTOCOL_FROZEN / C4A_RUNNER_NEXT / FIT_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -13,25 +13,18 @@
 
 - **Current conclusion:** C1 recovers `7/7` poles; C2+C3 bind a fresh 35-contact
   Steel object to paired force/mic, coordinates, geometry and six roles without
-  PCM decode. C4 fit protocol is next; every real signal role remains closed.
+  PCM decode. C4a protocol is frozen; runner is next and every signal role is closed.
 - **C2 evidence:** [zero-decode source result](../physical-sound-r3a-v12-c2-internet-source-zero-decode-inventory-2026-08-31.md),
   prior repeated manifest/report `3041c19d…ed5`/`b421743e…cb9`.
-- **A1 evidence:** [repeat-exact Beer Glass rejection](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md),
-  report `7d7bb630…9db9b`; contacts `18/29` fail the frozen onset gate before fit.
 - **A1R evidence:** [repeat-exact fit result and V11 research](../physical-sound-r3a-v10-a1r-force-onset-fit-result-and-v11-research-2026-08-31.md),
   report `5c9e87e…c2ca`; force onset passes, every real V9 fit contact fails.
-- **B1R2 evidence:** [exact result](../physical-sound-r3a-v11-b1r2-noise-aware-gtls-result-2026-08-31.md),
-  repeated manifest/model/report `eb56de37…fe14`/`f0bc2707…df4d`/
-  `717caabe…f0ac`; GTLS reaches `0.030031` mean held NRMSE and `5/7`
-  accurate admitted poles, but development rejects and holdout stays zero.
 - **C3 evidence:** [repeat-exact source/role result](../physical-sound-r3a-v12-c3-object41-source-role-freeze-result-2026-08-31.md),
   manifest/preflight/report `a6dd159e…66b3`/`26f99419…d89`/`a300199f…20d7`;
   `35/35` paired identities and PCM decode `0/0`.
 - **C1 evidence:** [repeat-exact result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md);
   manifest/model/report `67b2c472…a7b2`/`11f75af9…ca6c`/`33371827…e85f`.
-- **Next action:** preregister C4 fit-only force/FRF experiment: preprocessing,
-  acquisition certificate, estimator, controls, gates and exact 16-contact
-  sample budget must be committed before signal decode.
+- **Next action:** implement the frozen C4a runner and synthetic/no-access
+  tests, then repeat zero-read preflight before the exact 16-contact fit budget.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -130,6 +123,13 @@
 - **Decision:** open C4 protocol only. Fit/development/holdout/validator/shadow
   PCM remain closed until their staged gates authorize exact budgets.
 
+## Material transition: C4a protocol freezes one-shot real FRF fit
+- **Evidence:** [C4 research](../physical-sound-r3a-v12-c4-real-frf-fit-research-2026-08-31.md)
+  and [fit protocol](../physical-sound-r3a-v12-c4-object41-real-frf-fit-protocol-2026-08-31.md).
+- **Decision:** single-record coherence has no authority; force-only coverage,
+  leave-quarter-out pole stability and force permutation gate the fit. PCM is
+  still closed until runner tests and repeated zero-read preflight pass.
+
 ## Durable negative knowledge
 
 - R2 direct/phase and separable listener fields collapse or lose every held
@@ -223,7 +223,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V12](../../plans/physical-sound-synthesis-roadmap-v12.md), [C3 result](../physical-sound-r3a-v12-c3-object41-source-role-freeze-result-2026-08-31.md), [C2 result](../physical-sound-r3a-v12-c2-internet-source-zero-decode-inventory-2026-08-31.md),
+3. [Roadmap V12](../../plans/physical-sound-synthesis-roadmap-v12.md), [C4 protocol](../physical-sound-r3a-v12-c4-object41-real-frf-fit-protocol-2026-08-31.md), [C3 result](../physical-sound-r3a-v12-c3-object41-source-role-freeze-result-2026-08-31.md), [C2 result](../physical-sound-r3a-v12-c2-internet-source-zero-decode-inventory-2026-08-31.md),
    [C1 exact result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md) and [B1R3 exact result](../physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md),
    then [Roadmap V11](../../plans/physical-sound-synthesis-roadmap-v11.md) and
    [B1R2 exact result](../physical-sound-r3a-v11-b1r2-noise-aware-gtls-result-2026-08-31.md)
@@ -245,5 +245,5 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** C4 fit protocol before any PCM decode. Authored
-  clips remain the product path.
+- **Next commit boundary:** C4a runner/tests and repeated zero-read preflight;
+  fit PCM remains closed. Authored clips remain the product path.
