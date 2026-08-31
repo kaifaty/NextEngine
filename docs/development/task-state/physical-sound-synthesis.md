@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V11 / B1R2_REPEAT_REJECTED / LOCAL_MODAL_SUPPORT_NEXT / REAL_DATA_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V12 / B1R3_REPEAT_REJECTED / COVERAGE_CERTIFICATE_NEXT / ZERO_DECODE_SOURCE_SEARCH_OPEN / REAL_PCM_CLOSED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-08-31` |
 | Task key | `physical-sound-synthesis` |
 | Scope | Proposed external neural contact-field research, deterministic cooker boundary and independent automatic validation |
@@ -11,12 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** B1 V1 proves useful force-normalized reconstruction
-  but rejects its combined confidence mask. H1 reaches `0.025706` mean unseen-
-  force NRMSE and accurate `6/7` poles; minimum coverage is only `0.566656`.
-- **Exact evidence:** [B1 result](../physical-sound-r3a-v11-b1-force-response-oracle-result-2026-08-31.md),
-  manifest/model/report `4de87ee4…b3db`/`1e699d34…909a`/`700ada20…376`;
-  two runs are byte-identical and holdout trial count is zero.
+- **Current conclusion:** B1R3 makes local support and unmeasured-interference
+  OOD work, and reconstructs six observable modes at `0.007180` mean NRMSE.
+  It rejects because its own force bank has an incidental `6,643 Hz` hole.
 - **A0 evidence:** [Beer Glass/Rinsing Cup source freeze](../physical-sound-r3a-v10-objectfolder-real-source-and-role-freeze-2026-08-31.md),
   repeated manifest `8a30cef0…8728`, report `3522c677…00d3`.
 - **A1 evidence:** [repeat-exact Beer Glass rejection](../physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md),
@@ -27,8 +24,12 @@
   repeated manifest/model/report `eb56de37…fe14`/`f0bc2707…df4d`/
   `717caabe…f0ac`; GTLS reaches `0.030031` mean held NRMSE and `5/7`
   accurate admitted poles, but development rejects and holdout stays zero.
-- **Next action:** freeze a fresh local-modal-support policy. Calibration may
-  contain only stationary sensor noise; unmeasured interference stays OOD.
+- **B1R3 evidence:** [exact result](../physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md),
+  repeated manifest/model/report `00961dab…e638`/`f841be2e…60e5`/
+  `69145ba7…912b`; `6/7` modes, zero false positives and zero holdout.
+- **Next action:** preregister one fresh coverage-certified oracle that
+  separates acquisition identifiability, object model and query relevance.
+  Run zero-decode internet-source inventory independently in parallel.
 - **Spend rule:** Every row `2407`, method holdout and admission shadow remain
   sealed. V5 did not authorize a new representation holdout.
 - **Deployment rule:** The first neural success may bake an ordinary bounded
@@ -56,6 +57,7 @@
 | V11 B1 V1 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | H1 beats all compatible controls and recovers `6/7` poles, but combined mask coverage fails; holdout and all fresh real sources remain unopened. |
 | V11 B1R | `INVALID_PROTOCOL_PRECHECK` | Force observability is normalized by noise itself in a weak band; no runner, manifest, evidence run or holdout exists. |
 | V11 B1R2 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | Independent noise floor fixes weak-force OOD; broad SNR policy retains only `5/7`, and calibrated interference defeats low-coherence OOD. |
+| V11 B1R3 | `REJECTED_ON_DEVELOPMENT / REPRODUCIBLE` | Local support retains accurate `6/7`; weak/low-coherence OOD pass, but an incidental `6,643 Hz` force hole also invalidates the one-notch positive control. |
 | R3B+ | `NOT_AUTHORIZED` | No real contact-to-modal field, validator release, baked contact atlas, admitted domain or runtime promotion exists. |
 
 ## Material transition: A1R isolates representation failure
@@ -107,6 +109,19 @@
 - **Decision:** reject B1R2 without threshold repair. A fresh successor must
   admit or mark OOD per modal band before any B2 source work.
 
+## Material transition: B1R3 separates estimator accuracy from excitation coverage
+
+- **Observation:** six locally supported poles predict unseen responses at
+  `0.007180` mean NRMSE; weak and unmeasured-interference controls pass. The
+  `6,643 Hz` truth band has local SNR `1.207…1.341` and no supporting contact.
+- **Evidence:** [B1R3 exact result](../physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md),
+  report `69145ba7…912b`; both runs are byte-identical and holdout is zero.
+- **Conclusion:** acquisition coverage, object identifiability and query-force
+  relevance need distinct certificates; a smooth impact is not broadband by
+  assumption.
+- **Decision:** close V11. V12 permits one fresh coverage-certified oracle and
+  zero-decode source inventory; real PCM and all protected roles remain closed.
+
 ## Durable negative knowledge
 
 - R2 direct/phase and separable listener fields collapse or lose every held
@@ -145,15 +160,16 @@ kept bounded as the current resume surface.
 | D-017 | Source-force observability and response/modal observability are separate confidence axes; a quiet contact response bin is not automatically weak excitation. | Fresh known-truth evidence shows one combined mask is both safe and complete. |
 | D-018 | Force observability is measured against an independent input-noise estimate, never a noise-relative in-band maximum. | A noise-aware estimator proves the simpler normalization is unbiased and OOD-safe. |
 | D-019 | FRF source support is local to a modal neighborhood; incomplete broad-band support becomes per-band OOD, not an invented pole or blanket pass. | Fresh known truth proves a broad-band gate is necessary and better calibrated. |
+| D-020 | Acquisition coverage, identifiable object modes and query-force relevance are separate evidence domains. | Fresh known truth shows one support decision is both complete and OOD-safe. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: Local-support noise-aware modal identification recovers stable poles | B1R2 GTLS equals corrected H1/H2 and identifies admitted poles accurately | Broad SNR gate drops upper modes; unmeasured interference was calibrated away | Fresh local-neighborhood oracle |
-| H2: Geometry-aware ML predicts contact modal residues | Coordinates/geometry and physically constrained outputs exist | No fresh real representation/development pass exists | V11-B4 after B3 |
-| H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | V11-B6 after a generator claim |
-| H4: Baked atlas meets product cost | Offline clips preserve exact output and fallback | Whole-mixer/voice cost is unmeasured | V11-B5 then visible consumer |
+| H1: Coverage-certified local modal identification recovers stable poles | B1R3 recovers every admitted pole accurately and fixes unmeasured-interference OOD | Frozen force bank leaves `6,643 Hz` unidentifiable; one-notch control loses two modes | One fresh acquisition-coverage oracle |
+| H2: Geometry-aware ML predicts contact modal residues | Coordinates/geometry and physically constrained outputs exist | No fresh real representation/development pass exists | V12-C6 after C5 |
+| H3: Automatic validator reaches useful bounded risk | Hard/acoustic/corpus components and grouped roles exist | No frozen independent release or shadow result exists | V12-C7 after a real generator claim |
+| H4: Baked atlas meets product cost | Offline clips preserve exact output and fallback | Whole-mixer/voice cost is unmeasured | V12-C8 then visible consumer |
 
 ## Do not retry
 
@@ -186,6 +202,8 @@ kept bounded as the current resume surface.
   estimator result from its uncommitted implementation precheck.
 - Lowering B1R2's opened SNR/coverage gates, reclassifying its calibrated
   interference post hoc or opening its holdout after development rejection.
+- Retuning B1R3 thresholds, moving its `6,643 Hz` truth mode, adding a targeted
+  pulse to its opened fixture or opening its holdout after development reject.
 - Universal `material -> sound` coefficients before exact-object evidence.
 - Prompt-to-waveform as the engine path; it may remain authored/report-only.
 - Local microphone/hammer capture, raw PhysX-callback mixing or runtime neural
@@ -198,7 +216,9 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V11](../../plans/physical-sound-synthesis-roadmap-v11.md) and
+3. [Roadmap V12](../../plans/physical-sound-synthesis-roadmap-v12.md) and
+   [B1R3 exact result](../physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md),
+   then [Roadmap V11](../../plans/physical-sound-synthesis-roadmap-v11.md) and
    [B1R2 exact result](../physical-sound-r3a-v11-b1r2-noise-aware-gtls-result-2026-08-31.md)
    plus [B1R noise research](../physical-sound-r3a-v11-b1r-precheck-rejection-and-frf-noise-research-2026-08-31.md).
 4. [V9 synthetic result](../physical-sound-r3a-v9-time-varying-residual-synthetic-result-2026-08-31.md),
@@ -210,7 +230,7 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** V9/V10 and V11 B1/B1R/B1R2 code/evidence are in Git; all run
+- **Workspace:** V9/V10 and V11 B1/B1R/B1R2/B1R3 code/evidence are in Git; all run
   outputs, datasets, arrays and WAVs are external.
 - **Isolation:** Blue Bowl, Large Swan, Plastic Bin and Purple Scoop development
   contacts are opened. Every row `2407`, method holdout and admission shadow
@@ -218,5 +238,6 @@ Read in precedence order:
 - **Quality:** No neural representation, field, validator release, baked atlas,
   admitted formula record or runtime integration exists. Clip fallback is
   authoritative.
-- **Next commit boundary:** fresh local-modal-support protocol, then its runner
-  and staged development/holdout evidence. Authored clips remain the product path.
+- **Next commit boundary:** V12-C1 coverage-certificate protocol before its
+  runner; C2 zero-decode source inventory may proceed independently. Authored
+  clips remain the product path.
