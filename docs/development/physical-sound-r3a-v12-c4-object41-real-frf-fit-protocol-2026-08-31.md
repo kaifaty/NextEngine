@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-08-31` |
-| Status | `PREREGISTERED_BEFORE_RUNNER / FIT_PCM_CLOSED` |
+| Status | `AMENDED_BEFORE_RUNNER_PREFLIGHT / FIT_PCM_CLOSED` |
 | Target | ObjectFolder-Real `41 / Wrench_Large / Steel` |
 | Role | `estimator_fit`: contacts `30,13,24,14,19,9,6,15,5,33,2,29,4,16,31,34` |
 | Prerequisite | [C3 exact result](physical-sound-r3a-v12-c3-object41-source-role-freeze-result-2026-08-31.md) |
@@ -133,6 +133,26 @@ Frozen controls are:
 - a fixed cyclic force permutation by one position in C3 hash order, with
   microphone/contact residues unchanged;
 - baseline-only zero-force acquisition, which must return coverage OOD.
+
+The one-shot source has no repeated force profiles, so the exact control
+construction is frozen before PCM access as follows. The only aligned
+microphone response for a contact is treated as its unit-impulse transfer,
+target-band tapered without borrowing the acquisition certificate, and then
+convolved with that contact's measured force. The input-ignorant modal control
+fits poles/residues directly to the aligned microphone response, treats that
+reconstruction as a transfer, and likewise convolves it with measured force;
+scoring the reconstruction against itself is forbidden. The zero-force
+control places the original centered `12,000`-sample force baseline at the
+start of a zero-filled `192,000`-sample record and reruns the unchanged
+force-only certificate. It admits zero poles only by returning
+`DATA_INSUFFICIENT_FORCE_COVERAGE`.
+
+Source accounting separately reports the full `4 GiB` identity-hash pass and
+the compressed archive scan. Force PCM is decoded first. Microphone bytes may
+be structurally selected while streaming the interleaved archive, but no
+microphone sample is decoded and no response-derived value enters the force
+certificate. On a certificate failure the microphone decoded-sample count
+remains zero; on a pass it must equal the frozen `4,608,000`-sample budget.
 
 Ordinary coherence is recorded as `NOT_APPLICABLE_SINGLE_RECORD` and cannot
 support a pole or pass a gate.
