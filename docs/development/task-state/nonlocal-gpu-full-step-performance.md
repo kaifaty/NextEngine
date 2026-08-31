@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP7_CONTRACT_FROZEN / IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE / NCGP7_H7C_INCONCLUSIVE / SURFACE_QOI_DECISION_REQUIRED` |
 | Updated | `2026-08-31` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -19,10 +19,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** the user explicitly authorized the report-only NCGP7
-  discriminator. Replay exact hydrostatic step 112 and compare canonical
-  50 mm/25 mm mass, density, velocity and free-surface fields. This cannot
-  replace NCGP6 or admit timing without a later product decision.
+- **Current action:** NCGP7 reproduces the exact step-112 witness and finds
+  close bulk fields, but free-surface classification changes between the
+  frozen 50 mm and 25 mm grids. NCGP7 is closed `H7C_INCONCLUSIVE`; a new
+  product-facing surface-QoI decision is required before correctness/timing.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -35,6 +35,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/04-eulerian-step112-diagnostic.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
+- `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
 - `docs/development/task-state/nonlocal-gpu-compensated-scale.md`
 - `docs/development/nonlocal-gpu-compensated-scale-evidence-2026-08-30.md`
 - `docs/plans/nonlocal-gpu-compensated-scale/00-compensated-scale-contract.md`
@@ -170,6 +171,24 @@
 - **Reconsider when:** the exact step-112 CPU/GPU states have root-closed
   fixed-grid mass/density/free-surface evidence at predeclared resolutions.
 
+### D-007 — Close NCGP7 as resolution-sensitive
+
+- **Observation:** both clean runs reproduce NCGP6 exactly. Bulk Eulerian
+  errors are below 1% on both grids, but coarse surface RMSE is `17.769 mm`
+  while fine wet-column symmetric difference is `1.743%`; the complementary
+  surface metrics pass and no coarse metric reaches H7B.
+- **Evidence:** byte-identical binary SHA-256 `41d5d28a78f03c0ca150b32a531d3f5d48637f1daec528319281a7fe81e40253`,
+  stdout `1b6d31323018bf02b231a241a0af25f112a7adbc987fef69b52446d775f60abb`,
+  result root `d11a79d7360b9ea4b1fc3cc85c974d4e97592bc29cdc09483a6dde7f6fe70abc`.
+- **Conclusion:** the bulk water state is close on this witness, but the
+  current column/quantile surface QoI cannot decide whether its rare edge
+  tails are visibly acceptable. This is H7C, not evidence for H7A or H7B.
+- **Decision:** keep performance and the remaining corpus `NOT_RUN`. Do not
+  add a third grid or change thresholds. Require a separately frozen,
+  product-facing surface geometry/topology diagnostic and explicit decision.
+- **Reconsider when:** a robust visible-surface QoI is defined before results
+  and distinguishes sparse edge support from persistent macroscopic error.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -182,9 +201,9 @@
 | H5B | boundary/contact semantics diverge | contact timing differs after accumulated divergence, but same-state one-step passes | no repair selected |
 | H5C/H5D | compensated operator or solver/publication mismatch | falsified on exact witness by same-state gradient/HVP and sub-micrometre complete step | closed for this witness |
 | H5E | admitted nonlinear trajectories separate near contact | supported bounded: smooth max tail, adjacent-step lower-wall event, small RMSE/p99 | product-level gate decision |
-| H7A | stable particle identities separate while Eulerian water fields remain close | plausible: same-state and invariants pass while stable-ID p99 fails | fixed-grid occupancy/density/free-surface comparison at exact step 112 |
-| H7B | the NCGP6 tail reflects a real macroscopic water-state divergence | unresolved | same fixed-grid discriminator must fail if true |
-| H7C | the field verdict is dominated by arbitrary voxel resolution | unresolved | pre-freeze at least two canonical resolutions and require consistent classification |
+| H7A | stable particle identities separate while Eulerian water fields remain close | not selected: bulk passes, but both surface gates do not pass on both grids | new visible-surface QoI only |
+| H7B | the NCGP6 tail reflects a real macroscopic water-state divergence | not selected: no coarse metric reaches the clear-divergence band | reconsider only on new physical evidence |
+| H7C | the field verdict is dominated by arbitrary voxel resolution | selected bounded: complementary surface metrics fail at 50/25 mm | freeze a product-facing geometry/topology comparator |
 
 ## Do not retry
 
@@ -197,11 +216,9 @@
 
 ## Next action
 
-1. Freeze a report-only NCGP7 discriminator for the exact step-112 witness:
-   canonical fixed-grid mass/density fields, free-surface height and retained
-   integral/containment observables at predeclared resolutions.
-2. Use it to distinguish H7A, H7B and H7C without changing the failed NCGP6
-   result or admitting timing.
-3. Ask for an explicit product decision on the quantity-of-interest gate.
-4. Only an accepted and passing successor may restart dam/orifice, 16k/50k,
-   sealed-basin correctness and complete-step timing.
+1. Ask for an explicit product decision to freeze a visible free-surface QoI
+   (robust height/area distribution plus connected wet-region topology), not
+   another voxel-size or post-result tolerance adjustment.
+2. Replay only the exact step-112 witness under that new report-only contract.
+3. Only an accepted, reviewed and passing successor may restart dam/orifice,
+   16k/50k, sealed-basin correctness and complete-step timing.
