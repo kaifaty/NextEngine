@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP15_PHASE_A_PASS / PHR_WORK_CEILING / NCGP16_IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE / NCGP16_FREE_SURFACE_MODE / ORIGINAL_GPU_50K_BASELINE_REPRODUCED` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -25,6 +25,11 @@
   mutation control, but its unchanged physical `P` mask reaches the 64-update
   PHR ceiling with primal/state gates already small and dual fixed-point still
   open. Do not raise the cap or weaken gates.
+- **Performance baseline:** the exact historical fixed-work GPU source at
+  `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
+  and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
+  root-exact and inside `4/6 ms`; this is a reusable speed baseline, not
+  corrected-water evidence.
 - **Latest exact result:** NCGP14 independently supports the two-step
   TIGHT-128 pressure/contact lane at the unchanged physical tolerances with a
   `16384`-sweep QP ceiling. OPEN-128/512 remain valid negative controls and
@@ -752,6 +757,49 @@
   density closure from an explicit free-surface pressure formulation without
   tuning a lane to PASS.
 
+### D-030 — Reproduce the original sub-4-ms GPU baseline without promoting it
+
+- **Observation:** a clean detached rebuild of historical commit
+  `e2b533b49102bdff6684a7b68aa917ca635cc9e6` preserves the original
+  `fused-owner-terms-p1 + compact-csr-u16-p2` implementation. The rebuilt
+  binary SHA-256 is
+  `35b3d8a9641ea20b51151aae4f28dfa4cd3b096732ae16ce61c92e2c0fea931b`;
+  CUDA compiler/runtime are `13.3.73`, device is the RTX 3080 `sm_86`.
+- **Correctness evidence:** the historical tiny corpus passes `11/11`.
+  Coherent and advected P2 checks both PASS with exact old output and CSR roots.
+  Each of four decision runs has `trace_exact`, `trace_memory_exact` and
+  `measurement_valid`; coherent output/CSR roots are
+  `6b377e876439cbc72f9b5e81cfabaed854188144c576b498a06e2769ceb4aae1` /
+  `8e915c74c617f2f172f0da419b17fc5185078840459344c09b6d9818113c6fe7`,
+  and advected roots are
+  `bd1c5ad3a38b85ca1b7adca2333331d39c033d8b9f326b8d416213a557259e7a` /
+  `1b176356938914f036682127fbfb322595fb2b6112043bb3f44247c843990392`.
+- **Timing evidence:** coherent A/B p95 are `3.791424 / 3.815744 ms` and p99
+  `3.998464 / 4.029344 ms`; advected A/B p95 are
+  `3.593728 / 3.673024 ms` and p99 `3.739232 / 3.774688 ms`. Raw report
+  SHA-256 values are
+  `599a2794f9b449163c74845d1abf4216bfa7a143fc58d450b987b47694eae492`,
+  `5f857564a3fb3bd9d8218e5124051dda7220e0d062e143cd5e1ebf332c2b5a7e`,
+  `9dac977f2218e77b34ae813e9c20948efb2116c2582ebd7d8bed4ee15a32fde3`
+  and `0eb6a73a2a12752187354639ef8e1c247e6db131498e20b7282b25e1eebf8eea`.
+  The desktop compositor showed about `39--41%` GPU activity
+  before the runs, so these values are conservative diagnostic reproduction,
+  not a fresh uncontended performance campaign.
+- **Conclusion:** the original sub-4-ms result was real and remains
+  reproducible. Its compact CSR, fused owner traversal and preallocated
+  decision runner are credible implementation baselines. The result does not
+  cover the corrected pressure-QP/free-surface/contact semantics and cannot be
+  used as evidence that corrected water fits the budget.
+- **Decision:** preserve this exact historical target as the GPU performance
+  denominator and reuse candidate. After selecting the CPU physical repair,
+  port that repair onto this dataflow one semantic block at a time, requiring
+  CPU/GPU correspondence before new timing.
+- **Rejected:** calling the old PASS corrected-water performance, comparing it
+  directly with the current CPU diagnostic, or discarding the original GPU
+  architecture because later correctness apparatus was slow.
+- **Reconsider when:** the corrected CPU trajectory passes and its exact
+  pressure/free-surface/contact work has a GPU correspondence lane.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -798,6 +846,8 @@
 | H16D | reviewed pressure QP is the missing nonlinear block | selected for the next discriminator; NCGP14 closes the same confined fixture | NCGP16 one-step P then PV/PS/PVS |
 | H16E | corrected surface is too weak and causes the trial-4 rejection | strongly disfavored: PV and PVS trial-4 maxima differ by only 0.24%, with PVS slightly worse | do not tune surface on this corpus |
 | H16F | unilateral pressure/free-surface closure admits a persistent vertical mode | supported: top layer falls with zero positive multipliers while layer 6 rises and density gates stay closed | fixed-cap closure-vs-formulation discriminator |
+| H17A | the original sub-4-ms GPU result was a stale or irreproducible artifact | falsified: exact historical source and roots reproduce in four complete 50k processes | retain as denominator only |
+| H17B | the original GPU dataflow remains a useful host for corrected work | plausible: compact CSR/fused traversal retain 50k headroom, but corrected pressure/contact work is absent | port only after CPU physical selection |
 
 ## Do not retry
 
