@@ -7280,4 +7280,596 @@ CommandReport run_cuda_p2_decision(
     return {correctness, output.str()};
 }
 
+namespace {
+
+constexpr double GAME_SPACING = 0.05;
+constexpr double GAME_RADIUS = 0.025;
+constexpr double GAME_MASS = 0.125;
+constexpr double GAME_TIME_STEP = 1.0 / 240.0;
+
+struct GameQualityBox {
+    Vec3 minimum;
+    Vec3 maximum;
+    std::array<int, 3> cells;
+};
+
+struct GameContactResult {
+    Vec3 position;
+    Vec3 velocity;
+    std::vector<int> features;
+    double penetration = 0.0;
+};
+
+struct GameScenarioResult {
+    std::string id;
+    bool apparatus_passed = true;
+    bool quality_passed = false;
+    int steps = 0;
+    std::size_t dynamic_samples = 0;
+    std::size_t boundary_samples = 0;
+    std::size_t components = 0;
+    std::size_t satellites = 0;
+    double maximum_penetration = 0.0;
+    double maximum_fixed_displacement = 0.0;
+    double maximum_speed = 0.0;
+    double maximum_positive_compression = 0.0;
+    double horizontal_com_drift = 0.0;
+    double vertical_com_drift = 0.0;
+    double forward_com_travel = 0.0;
+    double solver_total_ms = 0.0;
+    double solver_maximum_ms = 0.0;
+    Vec3 final_com{};
+    std::string trace_sha256;
+    std::string first_failure;
+};
+
+double game_axis(Vec3 value, int component) {
+    if (component == 0) {
+        return value.x;
+    }
+    if (component == 1) {
+        return value.y;
+    }
+    return value.z;
+}
+
+void set_game_axis(Vec3& value, int component, double scalar) {
+    if (component == 0) {
+        value.x = scalar;
+    } else if (component == 1) {
+        value.y = scalar;
+    } else {
+        value.z = scalar;
+    }
+}
+
+GameContactResult game_sweep_box(
+    Vec3 start,
+    Vec3 tentative,
+    const GameQualityBox& box) {
+    GameContactResult result;
+    result.position = tentative;
+    const std::array<double, 3> lower = {
+        box.minimum.x + GAME_RADIUS,
+        box.minimum.y + GAME_RADIUS,
+        box.minimum.z + GAME_RADIUS,
+    };
+    const std::array<double, 3> upper = {
+        box.maximum.x - GAME_RADIUS,
+        box.maximum.y - GAME_RADIUS,
+        box.maximum.z - GAME_RADIUS,
+    };
+    const std::array<int, 3> lower_feature = {0, 2, 4};
+    const std::array<int, 3> upper_feature = {1, 3, 5};
+    for (int component = 0; component < 3; ++component) {
+        const double start_value = game_axis(start, component);
+        const double tentative_value = game_axis(tentative, component);
+        const double displacement = tentative_value - start_value;
+        if (tentative_value < lower[component] && displacement < 0.0) {
+            set_game_axis(result.position, component, lower[component]);
+            result.features.push_back(lower_feature[component]);
+        } else if (tentative_value > upper[component] && displacement > 0.0) {
+            set_game_axis(result.position, component, upper[component]);
+            result.features.push_back(upper_feature[component]);
+        }
+    }
+    std::sort(result.features.begin(), result.features.end());
+    result.velocity = (result.position - start) / GAME_TIME_STEP;
+    for (int component = 0; component < 3; ++component) {
+        result.penetration = std::max(result.penetration,
+            std::max(lower[component] - game_axis(result.position, component),
+                game_axis(result.position, component) - upper[component]));
+    }
+    result.penetration = std::max(result.penetration, 0.0);
+    return result;
+}
+
+std::size_t append_game_boundary(
+    Fixture& fixture,
+    const GameQualityBox& box,
+    int layers) {
+    const std::size_t before = fixture.particles.size();
+    for (int x = -layers; x < box.cells[0] + layers; ++x) {
+        for (int y = -layers; y < box.cells[1] + layers; ++y) {
+            for (int z = -layers; z < box.cells[2] + layers; ++z) {
+                if (x >= 0 && x < box.cells[0] && y >= 0 && y < box.cells[1]
+                    && z >= 0 && z < box.cells[2]) {
+                    continue;
+                }
+                fixture.particles.push_back({
+                    {
+                        box.minimum.x + GAME_RADIUS + x * GAME_SPACING,
+                        box.minimum.y + GAME_RADIUS + y * GAME_SPACING,
+                        box.minimum.z + GAME_RADIUS + z * GAME_SPACING,
+                    },
+                    {},
+                    true,
+                });
+            }
+        }
+    }
+    return fixture.particles.size() - before;
+}
+
+Fixture game_fixture(
+    const Profile& profile,
+    const std::string& name,
+    const std::vector<Particle>& fluid,
+    const GameQualityBox& box,
+    int iterations) {
+    Fixture fixture;
+    fixture.name = name;
+    fixture.rest_density = profile.rest_density;
+    fixture.spacing = GAME_SPACING;
+    fixture.mass = GAME_MASS;
+    fixture.horizon = profile.horizon;
+    fixture.time_step = GAME_TIME_STEP;
+    fixture.gravity = profile.gravity;
+    fixture.kappa = profile.kappa;
+    fixture.lambda = profile.lambda;
+    fixture.mu = profile.mu;
+    fixture.gamma = profile.gamma;
+    fixture.terms = profile.terms;
+    fixture.iterations = iterations;
+    fixture.particles = fluid;
+    const std::size_t boundary = append_game_boundary(fixture, box, 3);
+    fixture.pair_capacity = (fluid.size() + boundary) * 123U;
+    return fixture;
+}
+
+Vec3 game_center_of_mass(const std::vector<Particle>& fluid) {
+    Vec3 result{};
+    for (const Particle& particle : fluid) {
+        result += particle.position;
+    }
+    return result / static_cast<double>(fluid.size());
+}
+
+std::pair<std::size_t, std::size_t> game_topology(
+    const std::vector<Particle>& fluid) {
+    const std::size_t count = fluid.size();
+    std::vector<std::uint8_t> visited(count, 0U);
+    std::vector<std::size_t> stack;
+    std::size_t components = 0;
+    std::size_t largest = 0;
+    const double link_distance = 1.75 * GAME_SPACING;
+    for (std::size_t seed = 0; seed < count; ++seed) {
+        if (visited[seed] != 0U) {
+            continue;
+        }
+        ++components;
+        std::size_t component_size = 0;
+        visited[seed] = 1U;
+        stack.clear();
+        stack.push_back(seed);
+        while (!stack.empty()) {
+            const std::size_t owner = stack.back();
+            stack.pop_back();
+            ++component_size;
+            for (std::size_t neighbor = 0; neighbor < count; ++neighbor) {
+                if (visited[neighbor] == 0U
+                    && norm(fluid[owner].position - fluid[neighbor].position)
+                        <= link_distance) {
+                    visited[neighbor] = 1U;
+                    stack.push_back(neighbor);
+                }
+            }
+        }
+        largest = std::max(largest, component_size);
+    }
+    return {components, count - largest};
+}
+
+bool game_finite(const CapturedRun& run, std::size_t fluid_count) {
+    if (run.local_solve_failed || !run.neighbor_build_valid
+        || run.state.next_position.size() < fluid_count
+        || run.state.final_velocity.size() < fluid_count
+        || run.state.density.size() < fluid_count) {
+        return false;
+    }
+    for (std::size_t index = 0; index < fluid_count; ++index) {
+        if (!finite(run.state.next_position[index])
+            || !finite(run.state.final_velocity[index])
+            || !std::isfinite(run.state.density[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+Vec3 game_uploaded_position(const Particle& particle) {
+    return {
+        static_cast<double>(static_cast<float>(particle.position.x)),
+        static_cast<double>(static_cast<float>(particle.position.y)),
+        static_cast<double>(static_cast<float>(particle.position.z)),
+    };
+}
+
+void game_accumulate_step(
+    GameScenarioResult& result,
+    const Fixture& fixture,
+    const CapturedRun& run,
+    std::vector<Particle>& fluid,
+    const GameQualityBox& box,
+    std::ostringstream& trace) {
+    const bool step_valid = game_finite(run, fluid.size())
+        && run.state.next_position.size() == fixture.particles.size();
+    result.apparatus_passed = result.apparatus_passed && step_valid;
+    result.solver_total_ms += run.timing.total;
+    result.solver_maximum_ms = std::max(result.solver_maximum_ms, run.timing.total);
+    if (!step_valid) {
+        trace << "INVALID_STEP|";
+        return;
+    }
+    for (std::size_t index = fluid.size(); index < fixture.particles.size(); ++index) {
+        result.maximum_fixed_displacement = std::max(
+            result.maximum_fixed_displacement,
+            norm(run.state.next_position[index]
+                - game_uploaded_position(fixture.particles[index])));
+    }
+    for (std::size_t index = 0; index < fluid.size(); ++index) {
+        const GameContactResult contact = game_sweep_box(
+            fluid[index].position, run.state.next_position[index], box);
+        result.maximum_penetration = std::max(
+            result.maximum_penetration, contact.penetration);
+        result.maximum_speed = std::max(result.maximum_speed, norm(contact.velocity));
+        const double positive_compression = std::max(
+            run.state.density[index] / fixture.rest_density - 1.0, 0.0);
+        result.maximum_positive_compression = std::max(
+            result.maximum_positive_compression, positive_compression);
+        fluid[index].position = contact.position;
+        fluid[index].velocity = contact.velocity;
+    }
+    trace << ordered_output_digest(run.state) << '|';
+    for (const Particle& particle : fluid) {
+        trace << std::setprecision(17)
+              << particle.position.x << ',' << particle.position.y << ','
+              << particle.position.z << ';' << particle.velocity.x << ','
+              << particle.velocity.y << ',' << particle.velocity.z << '|';
+    }
+}
+
+GameScenarioResult run_game_hold(const Profile& profile, int iterations) {
+    const GameQualityBox box{{0.0, 0.0, 0.0}, {0.1, 0.2, 0.1}, {2, 4, 2}};
+    std::vector<Particle> fluid;
+    for (int x = 0; x < 2; ++x) {
+        for (int y = 0; y < 2; ++y) {
+            for (int z = 0; z < 2; ++z) {
+                fluid.push_back({
+                    {GAME_RADIUS + x * GAME_SPACING,
+                        GAME_RADIUS + y * GAME_SPACING,
+                        GAME_RADIUS + z * GAME_SPACING},
+                    {},
+                    false,
+                });
+            }
+        }
+    }
+    const Vec3 initial_com = game_center_of_mass(fluid);
+    GameScenarioResult result;
+    result.id = "confined_hold";
+    result.steps = 24;
+    result.dynamic_samples = fluid.size();
+    std::ostringstream trace;
+    for (int step = 0; step < result.steps && result.apparatus_passed; ++step) {
+        const Fixture fixture = game_fixture(
+            profile, "game-confined-hold", fluid, box, iterations);
+        result.boundary_samples = fixture.particles.size() - fluid.size();
+        CudaBaseline gpu(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1,
+            NeighborEncodingMode::CompactU16P2);
+        const CapturedRun run = gpu.execute(true);
+        game_accumulate_step(result, fixture, run, fluid, box, trace);
+    }
+    result.final_com = game_center_of_mass(fluid);
+    result.horizontal_com_drift = std::hypot(
+        result.final_com.x - initial_com.x, result.final_com.z - initial_com.z);
+    result.vertical_com_drift = std::abs(result.final_com.y - initial_com.y);
+    std::tie(result.components, result.satellites) = game_topology(fluid);
+    result.trace_sha256 = sha256_hex(trace.str());
+    result.quality_passed = result.apparatus_passed
+        && result.maximum_penetration <= 1.0e-12
+        && result.maximum_fixed_displacement <= 1.0e-12
+        && result.horizontal_com_drift <= 0.005
+        && result.vertical_com_drift <= GAME_RADIUS
+        && result.maximum_speed <= 1.0
+        && result.components == 1U && result.satellites == 0U;
+    if (!result.apparatus_passed) {
+        result.first_failure = "apparatus";
+    } else if (result.maximum_penetration > 1.0e-12) {
+        result.first_failure = "containment";
+    } else if (result.maximum_fixed_displacement > 1.0e-12) {
+        result.first_failure = "fixed_boundary_moved";
+    } else if (result.horizontal_com_drift > 0.005) {
+        result.first_failure = "horizontal_drift";
+    } else if (result.vertical_com_drift > GAME_RADIUS) {
+        result.first_failure = "vertical_drift";
+    } else if (result.maximum_speed > 1.0) {
+        result.first_failure = "speed";
+    } else if (result.components != 1U || result.satellites != 0U) {
+        result.first_failure = "topology";
+    }
+    return result;
+}
+
+GameScenarioResult run_game_release(const Profile& profile, int iterations) {
+    const GameQualityBox box{{0.0, 0.0, 0.0}, {0.4, 0.3, 0.3}, {8, 6, 6}};
+    std::vector<Particle> fluid;
+    for (int x = 0; x < 4; ++x) {
+        for (int y = 0; y < 4; ++y) {
+            for (int z = 0; z < 4; ++z) {
+                fluid.push_back({
+                    {GAME_RADIUS + x * GAME_SPACING,
+                        GAME_RADIUS + y * GAME_SPACING,
+                        GAME_RADIUS + GAME_SPACING + z * GAME_SPACING},
+                    {0.75, 0.0, 0.0},
+                    false,
+                });
+            }
+        }
+    }
+    const Vec3 initial_com = game_center_of_mass(fluid);
+    GameScenarioResult result;
+    result.id = "release_contact";
+    result.steps = 48;
+    result.dynamic_samples = fluid.size();
+    std::ostringstream trace;
+    for (int step = 0; step < result.steps && result.apparatus_passed; ++step) {
+        const Fixture fixture = game_fixture(
+            profile, "game-release-contact", fluid, box, iterations);
+        result.boundary_samples = fixture.particles.size() - fluid.size();
+        CudaBaseline gpu(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1,
+            NeighborEncodingMode::CompactU16P2);
+        const CapturedRun run = gpu.execute(true);
+        game_accumulate_step(result, fixture, run, fluid, box, trace);
+    }
+    result.final_com = game_center_of_mass(fluid);
+    result.forward_com_travel = result.final_com.x - initial_com.x;
+    std::tie(result.components, result.satellites) = game_topology(fluid);
+    result.trace_sha256 = sha256_hex(trace.str());
+    result.quality_passed = result.apparatus_passed
+        && result.maximum_penetration <= 1.0e-12
+        && result.maximum_fixed_displacement <= 1.0e-12
+        && result.forward_com_travel >= 0.05
+        && result.maximum_speed <= 3.0
+        && result.components <= 2U && result.satellites <= 4U;
+    if (!result.apparatus_passed) {
+        result.first_failure = "apparatus";
+    } else if (result.maximum_penetration > 1.0e-12) {
+        result.first_failure = "containment";
+    } else if (result.maximum_fixed_displacement > 1.0e-12) {
+        result.first_failure = "fixed_boundary_moved";
+    } else if (result.forward_com_travel < 0.05) {
+        result.first_failure = "release_motion";
+    } else if (result.maximum_speed > 3.0) {
+        result.first_failure = "speed";
+    } else if (result.components > 2U || result.satellites > 4U) {
+        result.first_failure = "topology";
+    }
+    return result;
+}
+
+GameScenarioResult run_game_contact(const Profile& profile, int iterations) {
+    const GameQualityBox box{{0.0, 0.0, 0.0}, {0.1, 0.1, 0.1}, {2, 2, 2}};
+    const std::array<Vec3, 2> starts = {
+        Vec3{GAME_RADIUS, 0.075, GAME_RADIUS},
+        Vec3{0.075, 0.075, 0.075},
+    };
+    const std::array<Vec3, 2> velocities = {
+        Vec3{0.0, -120.0, 0.0},
+        Vec3{-120.0, -120.0, -120.0},
+    };
+    const std::array<std::vector<int>, 2> expected = {
+        std::vector<int>{2},
+        std::vector<int>{0, 2, 4},
+    };
+    GameScenarioResult result;
+    result.id = "face_corner_contact";
+    result.steps = 2;
+    result.dynamic_samples = 1;
+    result.components = 1;
+    std::ostringstream trace;
+    bool exact_features = true;
+    for (std::size_t index = 0; index < starts.size(); ++index) {
+        std::vector<Particle> fluid = {{starts[index], velocities[index], false}};
+        const Fixture fixture = game_fixture(
+            profile, "game-face-corner-contact", fluid, box, iterations);
+        result.boundary_samples = fixture.particles.size() - fluid.size();
+        CudaBaseline gpu(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1,
+            NeighborEncodingMode::CompactU16P2);
+        const CapturedRun run = gpu.execute(true);
+        const bool step_valid = game_finite(run, 1U)
+            && run.state.next_position.size() == fixture.particles.size();
+        result.apparatus_passed = result.apparatus_passed && step_valid;
+        if (!step_valid) {
+            trace << "INVALID_STEP|";
+            continue;
+        }
+        const GameContactResult contact = game_sweep_box(
+            starts[index], run.state.next_position.front(), box);
+        exact_features = exact_features && contact.features == expected[index];
+        result.maximum_penetration = std::max(
+            result.maximum_penetration, contact.penetration);
+        result.maximum_speed = std::max(result.maximum_speed, norm(contact.velocity));
+        result.solver_total_ms += run.timing.total;
+        result.solver_maximum_ms = std::max(result.solver_maximum_ms, run.timing.total);
+        for (std::size_t fixed = 1; fixed < fixture.particles.size(); ++fixed) {
+            result.maximum_fixed_displacement = std::max(
+                result.maximum_fixed_displacement,
+                norm(run.state.next_position[fixed]
+                    - game_uploaded_position(fixture.particles[fixed])));
+        }
+        trace << ordered_output_digest(run.state) << '|';
+        for (int feature : contact.features) {
+            trace << feature << ',';
+        }
+        trace << '|';
+    }
+    result.trace_sha256 = sha256_hex(trace.str());
+    result.quality_passed = result.apparatus_passed && exact_features
+        && result.maximum_penetration <= 1.0e-12
+        && result.maximum_fixed_displacement <= 1.0e-12;
+    if (!result.apparatus_passed) {
+        result.first_failure = "apparatus";
+    } else if (!exact_features) {
+        result.first_failure = "contact_features";
+    } else if (result.maximum_penetration > 1.0e-12) {
+        result.first_failure = "containment";
+    } else if (result.maximum_fixed_displacement > 1.0e-12) {
+        result.first_failure = "fixed_boundary_moved";
+    }
+    return result;
+}
+
+void append_game_scenario(
+    std::ostringstream& output,
+    const GameScenarioResult& result) {
+    output << std::setprecision(17)
+           << "{\"id\":\"" << result.id << "\",\"apparatus_passed\":"
+           << (result.apparatus_passed ? "true" : "false")
+           << ",\"quality_passed\":"
+           << (result.quality_passed ? "true" : "false")
+           << ",\"first_failure\":\"" << result.first_failure << "\""
+           << ",\"steps\":" << result.steps
+           << ",\"dynamic_samples\":" << result.dynamic_samples
+           << ",\"boundary_samples\":" << result.boundary_samples
+           << ",\"components\":" << result.components
+           << ",\"satellites\":" << result.satellites
+           << ",\"maximum_penetration_m\":" << result.maximum_penetration
+           << ",\"maximum_fixed_displacement_m\":"
+           << result.maximum_fixed_displacement
+           << ",\"maximum_speed_m_s\":" << result.maximum_speed
+           << ",\"maximum_positive_compression\":"
+           << result.maximum_positive_compression
+           << ",\"horizontal_com_drift_m\":" << result.horizontal_com_drift
+           << ",\"vertical_com_drift_m\":" << result.vertical_com_drift
+           << ",\"forward_com_travel_m\":" << result.forward_com_travel
+           << ",\"final_com_m\":[" << result.final_com.x << ','
+           << result.final_com.y << ',' << result.final_com.z << ']'
+           << ",\"solver_total_ms\":" << result.solver_total_ms
+           << ",\"solver_mean_ms\":"
+           << result.solver_total_ms / static_cast<double>(result.steps)
+           << ",\"solver_maximum_ms\":" << result.solver_maximum_ms
+           << ",\"trace_sha256\":\"" << result.trace_sha256 << "\"}";
+}
+
+} // namespace
+
+CommandReport run_cuda_game_quality_smoke() {
+    const Profile& profile = find_profile("nuv-basin-48k-static-support-h3-physical.v4");
+    constexpr std::array<int, 2> ITERATION_LANES = {5, 16};
+    struct Lane {
+        int iterations = 0;
+        GameScenarioResult hold;
+        GameScenarioResult release;
+        GameScenarioResult contact;
+        bool apparatus_passed = false;
+        bool quality_passed = false;
+    };
+    std::array<Lane, ITERATION_LANES.size()> lanes;
+    bool apparatus_passed = true;
+    int selected_iterations = 0;
+    std::ostringstream root;
+    for (std::size_t index = 0; index < lanes.size(); ++index) {
+        Lane& lane = lanes[index];
+        lane.iterations = ITERATION_LANES[index];
+        lane.hold = run_game_hold(profile, lane.iterations);
+        lane.release = run_game_release(profile, lane.iterations);
+        lane.contact = run_game_contact(profile, lane.iterations);
+        lane.apparatus_passed = lane.hold.apparatus_passed
+            && lane.release.apparatus_passed && lane.contact.apparatus_passed;
+        lane.quality_passed = lane.hold.quality_passed
+            && lane.release.quality_passed && lane.contact.quality_passed;
+        apparatus_passed = apparatus_passed && lane.apparatus_passed;
+        if (selected_iterations == 0 && lane.quality_passed) {
+            selected_iterations = lane.iterations;
+        }
+        root << lane.iterations << '|' << lane.apparatus_passed << '|'
+             << lane.quality_passed << '|' << lane.hold.trace_sha256 << '|'
+             << lane.release.trace_sha256 << '|' << lane.contact.trace_sha256 << '|';
+    }
+    root << selected_iterations;
+    const bool quality_passed = apparatus_passed && selected_iterations != 0;
+    const char* semantic_status = !apparatus_passed ? "APPARATUS_INCONCLUSIVE"
+        : (selected_iterations == 5 ? "ORIGINAL_WORK_GAME_QUALITY_CANDIDATE"
+            : (selected_iterations == 16 ? "MORE_ITERATIONS_REQUIRED"
+                                         : "GAME_QUALITY_REFUTED"));
+
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.cuda_game_quality_smoke.v1\""
+           << ",\"status\":\"" << (quality_passed ? "PASS" : "FAIL") << "\""
+           << ",\"apparatus_passed\":"
+           << (apparatus_passed ? "true" : "false")
+           << ",\"quality_passed\":" << (quality_passed ? "true" : "false")
+           << ",\"semantic_status\":\"" << semantic_status
+           << "\",\"backend_identity\":"
+              "\"fused-owner-terms-p1+compact-csr-u16-p2\""
+           << ",\"profile_id\":\"" << profile.id << "\""
+           << ",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(profile)) << "\""
+           << ",\"binary_sha256\":\"" << executable_hash() << "\""
+           << ",\"observer_timing_in_primary_gpu_step\":false"
+           << ",\"contact_timing_in_primary_gpu_step\":false"
+           << ",\"gates\":{\"hold_horizontal_com_drift_m\":0.005"
+           << ",\"hold_vertical_com_drift_m\":0.025"
+           << ",\"hold_maximum_speed_m_s\":1"
+           << ",\"release_forward_com_travel_m\":0.05"
+           << ",\"release_maximum_speed_m_s\":3"
+           << ",\"maximum_penetration_m\":1e-12"
+           << ",\"maximum_fixed_displacement_m\":1e-12}"
+           << ",\"lanes\":[";
+    for (std::size_t index = 0; index < lanes.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        const Lane& lane = lanes[index];
+        output << "{\"iterations\":" << lane.iterations
+               << ",\"apparatus_passed\":"
+               << (lane.apparatus_passed ? "true" : "false")
+               << ",\"quality_passed\":"
+               << (lane.quality_passed ? "true" : "false")
+               << ",\"scenarios\":[";
+        append_game_scenario(output, lane.hold);
+        output << ',';
+        append_game_scenario(output, lane.release);
+        output << ',';
+        append_game_scenario(output, lane.contact);
+        output << "]}";
+    }
+    output << "],\"selection\":{\"selected_iterations\":"
+           << selected_iterations
+           << ",\"quality_passed\":"
+           << (selected_iterations != 0 ? "true" : "false")
+           << ",\"performance_campaign_authorized\":false}"
+           << ",\"result_sha256\":\"" << sha256_hex(root.str()) << "\""
+           << ",\"device\":" << device_json() << '}';
+    return {quality_passed, output.str()};
+}
+
 } // namespace nextengine::nonlocal

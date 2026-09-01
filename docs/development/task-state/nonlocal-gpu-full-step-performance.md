@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ORIGINAL_GPU_50K_BASELINE_REPRODUCED / GAME_QUALITY_ACCEPTANCE_NEXT` |
+| Status | `ACTIVE / ORIGINAL_GPU_GAME_QUALITY_SMOKE_PASS / FULL_SIZE_TIMING_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,11 +20,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** implement the frozen NCGP16 pressure-QP-preconditioned
-  semi-implicit/SQP discriminator. NCGP15 Revision 5 admits every formula and
-  mutation control, but its unchanged physical `P` mask reaches the 64-update
-  PHR ceiling with primal/state gates already small and dual fixed-point still
-  open. Do not raise the cap or weaken gates.
+- **Current action:** measure the selected original five-iteration GPU core on
+  the full-size profiles, then add/timestamp the minimal analytic contact stage
+  before making a complete-step budget claim. The game-quality smoke passes;
+  its observer and host-side contact work are deliberately outside GPU timing.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -828,6 +827,43 @@
 - **Reconsider when:** the game-quality corpus exposes a visible instability,
   leak, fragmentation, energy growth or contact failure.
 
+### D-032 — Select the original five-iteration GPU route for game-quality timing
+
+- **Observation:** the original fused-owner/compact-CSR CUDA path was run over
+  three new multi-step product-facing scenarios using the H3 coefficients: a
+  confined hold, a released 4x4x4 block with bottom support and free lateral/
+  top clearance, and manufactured face/corner contact. Both five- and
+  sixteen-iteration lanes remain finite, contained and connected, with exact
+  fixed boundary publication and zero satellite samples.
+- **Fixture correction:** the first release draft filled the complete lateral
+  and vertical channel, so fixed ghost bulk viscosity measured piston drag,
+  not a free release. It travelled `39.646 mm` at five iterations. The hard
+  `50 mm` travel threshold was not changed; only lateral/top clearance was
+  added before the admitted run.
+- **Evidence:** two admitted processes have identical normalized JSON SHA-256
+  `9c5314e653ee2237a1852ab869cdcb17689e078fe64f52e53371ca4f53d1e876`
+  and result root
+  `d0d0330ea63c55986746eba3a3ff61106c78d9748f86ff2172b96413de681d5b`.
+  At five iterations, confined vertical drift is `2.934 mm`, released COM
+  travel is `62.980 mm`, maximum release speed is `0.771 m/s`, every topology
+  is one component with zero satellites, and face/corner masks pass. The
+  sixteen-iteration release travels only `23.842 mm` and fails the unchanged
+  motion gate. CUDA self-test, P2 correspondence and the CPU H3 corpus still
+  pass after adding the observer route.
+- **Conclusion:** the new stand is not inherently too strict for the old GPU.
+  It selects the original five-iteration work as the better game candidate;
+  the sixteen-iteration lane is slower and over-damps this motion witness.
+- **Decision:** advance the five-iteration route to full-size performance
+  measurement. Keep observers outside the primary timing distribution. Do not
+  claim a complete game-water step until analytic contact is executed and
+  timed on the GPU path; until then the existing sub-4-ms result remains the
+  solver-core denominator.
+- **Rejected:** lowering the travel threshold after observing the result,
+  requiring corrected-QP internals from a different model, or choosing sixteen
+  iterations merely because it performs more solver work.
+- **Reconsider when:** a full-size run exceeds the budget, timed contact changes
+  the route materially, or a larger visual corpus exposes instability/leakage.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -876,6 +912,7 @@
 | H16F | unilateral pressure/free-surface closure admits a persistent vertical mode | supported: top layer falls with zero positive multipliers while layer 6 rises and density gates stay closed | fixed-cap closure-vs-formulation discriminator |
 | H17A | the original sub-4-ms GPU result was a stale or irreproducible artifact | falsified: exact historical source and roots reproduce in four complete 50k processes | retain as denominator only |
 | H17B | the original GPU dataflow remains a useful host for corrected work | plausible: compact CSR/fused traversal retain 50k headroom, but corrected pressure/contact work is absent | port only after CPU physical selection |
+| H17C | the original five-iteration GPU model is adequate for game-quality water | selected on the bounded smoke: hold/release/contact pass while sixteen iterations over-damp release | full-size timing plus timed GPU contact |
 
 ## Do not retry
 
@@ -888,15 +925,15 @@
 
 ## Next action
 
-1. Run the original sub-4-ms GPU path through the smallest product-facing water
-   corpus: confined hold, one release/dam motion and one visible
-   surface/contact case, retaining finite/containment/topology and same-state
-   correspondence guards.
-2. If it passes at acceptable visual and invariant bands, keep the original
-   model and proceed to an uncontended 4k/16k/50k campaign. If it fails, use the
-   failure to select exactly one corrected semantic block; do not port the
-   whole research solver automatically.
-3. Keep the NCGP16 CPU free-surface result as a diagnostic reference and
+1. Benchmark the selected original five-iteration GPU core at 4k/16k/50k in
+   two fresh processes and retain exact trace/capacity checks.
+2. Add the minimal analytic box-contact stage to the GPU dataflow and measure
+   it inside the same CUDA-event window. Do not count host observers in the
+   primary distribution.
+3. If the timed complete step exceeds the budget or a larger visual corpus
+   fails, transplant only the smallest responsible semantic block; do not port
+   the whole research solver automatically.
+4. Keep the NCGP16 CPU free-surface result as a diagnostic reference and
    counterexample corpus, not a prerequisite for accepting a simpler game
    model.
-4. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
+5. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.

@@ -77,6 +77,7 @@ void print_usage() {
                  "--runs 96\n"
               << "       nonlocal-feasibility --p2-decision <profile-id> --warmup 64 "
                  "--runs 512\n"
+              << "       nonlocal-feasibility --game-quality-smoke\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
@@ -149,6 +150,11 @@ int main(int argc, char** argv) {
         }
         if (argc == 2 && std::string(argv[1]) == "--self-test") {
             const auto report = nextengine::nonlocal::run_cuda_self_test();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--game-quality-smoke") {
+            const auto report = nextengine::nonlocal::run_cuda_game_quality_smoke();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
