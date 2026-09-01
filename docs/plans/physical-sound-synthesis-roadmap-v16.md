@@ -3,8 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ACTIVE_R&D / L0B_REPEAT_EXACT_REJECT / PRIMARY_MODEL_FAMILY_CLOSED / L2_RESEARCH_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `CLOSED_REBASELINED_BY_V17 / L0B_REPEAT_EXACT_REJECT / PRIMARY_MODEL_FAMILY_CLOSED / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V15](physical-sound-synthesis-roadmap-v15.md) as the active execution plan |
+| Replaced by | [Roadmap V17](physical-sound-synthesis-roadmap-v17.md) after the bounded successor-family research cycle |
 | Evidence basis | [V16 L0b rejection](../development/physical-sound-v16-l0b-known-truth-neural-oracle-result-2026-09-01.md), [V16 decoupled-learning rebaseline](../development/physical-sound-v16-decoupled-learning-admission-rebaseline-2026-09-01.md) and [V15 S0c](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, unsupported material, missing source or tooling failure |
@@ -126,7 +127,7 @@ all three lanes and cannot be simulated by development data.
 | R0 | V16 rebaseline | `COMPLETE` | Capability, candidate-quality and admission claims are separated without changing V15 data minima or SPEC-45. |
 | L0 | Known-truth protocol | `COMPLETE / FROZEN_BEFORE_IMPLEMENTATION` | [L0a](../development/physical-sound-v16-l0a-known-truth-neural-oracle-protocol-2026-09-01.md) freezes 18 synthetic object groups, train/development/test topology splits, structured and equal-budget ablation models, classical controls, mutations, metrics, compute ceiling, seeds and stop rule with zero real access. |
 | L1 | Known-truth tournament | `COMPLETE / REPEAT_EXACT_REJECT / FAMILY_CLOSED` | [L0b](../development/physical-sound-v16-l0b-known-truth-neural-oracle-result-2026-09-01.md) is byte-exact across two runs: gains beat controls/ablation, but poles, damping, continuity, waveform and coverage OOD fail; no test-driven tuning is allowed. |
-| L2 | Successor-family research | `NEXT / BOUNDED_RESEARCH_REQUIRED` | Discriminate analytic global factorization, topology-aware contact inference and geodesic coverage OOD with primary sources and successful controls; freeze a new unopened truth distribution before any successor implementation. |
+| L2 | Successor-family research | `COMPLETE / REBASELINED_TO_V17` | [V17 research](../development/physical-sound-v17-factorized-operator-research-2026-09-01.md) separates scale-normalized global modes, intrinsic masked contact propagation and topology-valid coverage; [Roadmap V17](physical-sound-synthesis-roadmap-v17.md) owns successor execution. |
 | S0 | Exposure-role recovery | `COMPLETE / ZERO_SIGNAL / SOURCE_INSUFFICIENT` | S0a–S0c emit exact revision identity, exposure and sufficiency evidence without source-body/signal access; no complete Metal role assignment exists. |
 | S1 | Published-source adapters | `PARALLEL / SOURCE_GROWTH_REQUIRED` | Prove per-object identity, exact member, geometry/scale, contact, excitation, listener, response, support and freshness for bounded ObjectFolder/RealImpact/YCB/other candidates, or close each source with a machine-readable reason. |
 | S2 | Metal role freeze | `BLOCKED_BY_S1` | Freeze five generator-ready and three fresh evaluation-complete Metal groups with immutable hashes and no protected signal decode. |
@@ -197,8 +198,8 @@ A pleasing development WAV alone is never a completion criterion.
 3. `L0b` — `COMPLETE / REPEAT_EXACT_REJECT`: the primary structured MLP
    learns gain structure but fails the complete tournament; R1 is closed for
    this family.
-4. `L2a` — `NEXT`: run the bounded successor-family research cycle and freeze
-   a new unopened truth protocol; do not tune against the opened L0b test.
+4. `L2a` — `COMPLETE`: bounded primary-source research selects three isolated
+   successor hypotheses; V17 owns the new unopened protocol and execution.
 5. `S1a` — `PARALLEL`: implement bounded per-object member/axis adapters and source-family
    closure reports; freeze S2 only if the unchanged Metal shape becomes real.
 6. `V0a` — build validator contracts and mutation fixtures without frozen

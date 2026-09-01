@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V16 / L0B_REPEAT_EXACT_REJECT / PRIMARY_MODEL_FAMILY_CLOSED / L2_RESEARCH_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V17 / R0_RESEARCH_COMPLETE / P0A_PROTOCOL_NEXT / V16_PRIMARY_CLOSED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object neural canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [L0b](../physical-sound-v16-l0b-known-truth-neural-oracle-result-2026-09-01.md)
-  reproducibly rejects the V16 primary model before real training. Geometry is
-  learnable for gains, but the combined global/contact/OOD architecture fails.
+- **Current conclusion:** [Roadmap V17](../../plans/physical-sound-synthesis-roadmap-v17.md)
+  replaces the rejected V16 primary with separate scale-normalized global,
+  intrinsic coverage and masked surface-operator certificates.
 - **Exact evidence:** both external L0b directories have `26` byte-identical
   files and tree digest `95ac0bf8…01b3`; report `0993c0d5…93b2f7b`; all
   real/source/protected/network counters are zero.
-- **Rebaseline:** V16 keeps the complete `4/1/1/1/1` shape per admitted material
-  but starts the engine-owned structured modal-field truth oracle immediately.
+- **Rebaseline:** V17 keeps the complete `4/1/1/1/1` real role shape but
+  separates synthetic global, coverage, field and integration certificates.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** run bounded primary-source research on analytic global
-  factorization, topology-aware contact inference and geodesic coverage OOD,
-  then freeze a new unopened truth protocol. Do not tune on L0b test evidence.
+- **Next action:** freeze P0a with new disjoint G/O/F/I truth corpora,
+  successful controls, sample/coverage rationale, exact compute and stop rules.
+  Do not tune on L0b test evidence.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -49,10 +49,10 @@
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
 | V16 L0–L1 | `L0B_REPEAT_EXACT_REJECT / FAMILY_CLOSED` | Gain structure is learnable, but poles/damping, continuity, waveform and coverage OOD fail; no test-driven retry or real training. |
-| V16 L2 | `BOUNDED_RESEARCH_NEXT / NEW_TRUTH_REQUIRED` | A successor must separate analytic global physics, topology-aware contact inference and coverage OOD on a new unopened corpus. |
-| V16 S0–R1 | `SOURCE_GROWTH_PARALLEL / PRIMARY_R1_CLOSED` | Source adapters may continue, but real training needs both a successor L1 pass and five exact generator groups. |
-| V16 V0–D0 | `SCAFFOLD_AFTER_L0 / ADMISSION_BLOCKED` | Mutation machinery may start early; real thresholds, shadow, cooker and demo require R1 plus a frozen protected split. |
-| V16 G0–P0 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence, larger risk evidence and a separate Accepted ADR. |
+| V17 R0/P0 | `RESEARCH_COMPLETE / PROTOCOL_NEXT` | Primary sources support three isolated hypotheses; freeze new disjoint corpora and successful controls before code. |
+| V17 S1–R1 | `SOURCE_GROWTH_PARALLEL / PRIMARY_R1_CLOSED` | Source adapters may continue, but real training needs both I0 pass and five exact generator groups. |
+| V17 V0–D0 | `SCAFFOLD_AFTER_I0 / ADMISSION_BLOCKED` | Real thresholds, shadow, cooker and demo require successor R1 plus a frozen protected split. |
+| V17 G1–P1 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence, larger risk evidence and a separate Accepted ADR. |
 
 ## Material transition: V16 primary fails known truth
 
@@ -179,6 +179,7 @@ decisions remain in their linked reports rather than this resume surface.
 | D-016 | Materials enter progressively with the unchanged `4/1/1/1/1` real role shape; Metal is first, while Wood and Glass remain pending/fallback until separately eligible. | A hash-closed published source makes another material eligible before the next role freeze. |
 | D-017 | Capability, disclosed-data candidate quality and protected admission are separate certificates; only admission can authorize a cooked research vertical. | Evidence proves that this separation invalidates the representation experiment or a superseding Accepted ADR changes the boundary. |
 | D-018 | The V16 generic object MLP plus pooled context decoder is closed after repeat-exact known-truth rejection; its opened test cannot select a retry. | A new preregistered family passes isolated global/contact/OOD controls and a disjoint unopened truth tournament twice exactly. |
+| D-019 | V17 tests scale-separated global modes, deterministic intrinsic coverage and a masked intrinsic field independently before integration. | One isolated certificate falsifies its hypothesis or a new research record justifies another decomposition. |
 
 ## Open hypotheses
 
@@ -215,7 +216,9 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V16](../../plans/physical-sound-synthesis-roadmap-v16.md),
+3. [Roadmap V17](../../plans/physical-sound-synthesis-roadmap-v17.md),
+   [V17 research](../physical-sound-v17-factorized-operator-research-2026-09-01.md),
+   [Roadmap V16](../../plans/physical-sound-synthesis-roadmap-v16.md),
    [V16 rebaseline](../physical-sound-v16-decoupled-learning-admission-rebaseline-2026-09-01.md),
    [L0a protocol](../physical-sound-v16-l0a-known-truth-neural-oracle-protocol-2026-09-01.md),
    [L0b result](../physical-sound-v16-l0b-known-truth-neural-oracle-result-2026-09-01.md),
@@ -239,6 +242,5 @@ Read in precedence order:
 - **Quality:** the V16 primary is rejected before real training; no real
   formula, validator release, baked atlas, admitted domain or runtime
   integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** bounded L2 primary-source research and successor
-  roadmap/protocol; all published real signal and every protected role remain
-  sealed.
+- **Next commit boundary:** V17 P0a disjoint truth protocol; all published real
+  signal and every protected role remain sealed.
