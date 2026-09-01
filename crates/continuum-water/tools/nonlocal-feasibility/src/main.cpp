@@ -84,7 +84,8 @@ void print_usage() {
               << "       nonlocal-feasibility --game-surface-prototype\n"
               << "       nonlocal-feasibility --game-surface-prototype --frames <prefix>\n"
               << "       nonlocal-feasibility --game-surface-stream --lane <4k|16k> "
-                 "[--steps 960] [--every 4] [--cycles 1] [--workers 3]\n"
+                 "[--steps 960] [--every 4] [--cycles 1] [--workers 3] "
+                 "[--extractor cpu|gpu|verify]\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
@@ -183,6 +184,7 @@ int main(int argc, char** argv) {
             int every = 4;
             int cycles = 1;
             int workers = 3;
+            std::string extractor = "cpu";
             for (int index = 2; index + 1 < argc; index += 2) {
                 const std::string key = argv[index];
                 const std::string value = argv[index + 1];
@@ -196,6 +198,8 @@ int main(int argc, char** argv) {
                     cycles = std::stoi(value);
                 } else if (key == "--workers") {
                     workers = std::stoi(value);
+                } else if (key == "--extractor") {
+                    extractor = value;
                 } else {
                     print_usage();
                     return 2;
@@ -209,7 +213,7 @@ int main(int argc, char** argv) {
             // a bounded `stream_closed` frame failure instead of dying.
             std::signal(SIGPIPE, SIG_IGN);
             const auto report = nextengine::nonlocal::run_cuda_game_surface_stream(
-                lane, steps, every, cycles, workers, std::cout);
+                lane, steps, every, cycles, workers, extractor, std::cout);
             std::cerr << report.json << '\n';
             return report.passed ? 0 : 1;
         }
