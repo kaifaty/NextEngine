@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP15_REVISION_4_INCONCLUSIVE / REVISION_5_IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE / NCGP15_PHASE_A_PASS / PHR_WORK_CEILING / NCGP16_FREEZE_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,12 +20,11 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** implement the evidence-backed NCGP15 Revision 5 mutation
-  fixture. The interior binary32 `3x3x3`, `0.045 m` analytical-box cube gives
-  corrected CSR/oracle PASS and typed rejection for both pressure mutations
-  without weakening the manufactured empty-pressure gate.
-  Do not return to CUDA or timing until the revised apparatus reaches the
-  physical masks.
+- **Current action:** freeze the NCGP16 pressure-QP-preconditioned
+  semi-implicit/SQP discriminator. NCGP15 Revision 5 admits every formula and
+  mutation control, but its unchanged physical `P` mask reaches the 64-update
+  PHR ceiling with primal/state gates already small and dual fixed-point still
+  open. Do not raise the cap or weaken gates.
 - **Latest exact result:** NCGP14 independently supports the two-step
   TIGHT-128 pressure/contact lane at the unchanged physical tolerances with a
   `16384`-sweep QP ceiling. OPEN-128/512 remain valid negative controls and
@@ -57,6 +56,7 @@
 - `docs/development/nonlocal-gpu-confined-pressure-contact-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-unified-constrained-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-unified-mutation-fixture-research-2026-09-01.md`
+- `docs/development/nonlocal-gpu-unified-solver-diagnosis-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -690,6 +690,33 @@
 - **Reconsider when:** Revision 5 reaches its first root-closed Phase-A/B/C
   classification.
 
+### D-028 — Replace PHR with a pressure-QP-preconditioned discriminator
+
+- **Observation:** Revision 5 admits Phase A and all nine mutation controls.
+  The first unchanged physical mask `P` stops only on the 64-outer-update
+  ceiling after 1548 accepted inner iterations. Maximum/RMS positive density
+  strain is `3.8861e-7 / 9.8278e-8` and projected KKT maximum is
+  `1.8274e-10 m`; complementarity `2.6228e-7` and multiplier fixed point
+  `4.0826e-4` remain above their `1e-8` gates.
+- **Primary-source evidence:** the SIGGRAPH method and official PeriDyno code
+  use SISSM coefficient splitting with a local position solve, not the nested
+  PHR algorithm selected by NCGP15. A bounded exact-fixture probe shows the
+  upstream default finite-penalty SISSM leaves too much density error, while
+  the NCGP15 stiffness makes direct substitution converge poorly. Detailed
+  hashes, formulas and observations are linked in the solver diagnosis.
+- **Conclusion:** the NCGP15 result is an honest solver-work ceiling, not an
+  apparatus failure and not permission to tune work. Copying upstream SISSM
+  unchanged also does not meet the frozen density requirement.
+- **Decision:** freeze NCGP16 around the independently reviewed NCGP14
+  nonnegative-pressure QP as the pressure block inside a semi-implicit/SQP
+  outer iteration. First require exact pressure-only correspondence, then run
+  unchanged `PV/PS/PVS` and the confined short trajectory.
+- **Rejected:** increasing outer updates after the result, dropping the dual
+  gates, accepting the near-feasible PHR state, or copying upstream
+  `kappa=1`/fixed-iteration SISSM as correct water.
+- **Reconsider when:** the one-step pressure block and coupled masks produce
+  root-closed candidate/oracle evidence under a separately frozen contract.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -726,10 +753,14 @@
 | H14A-result | missing lateral support is the first cause of the NCGP13 witness | selected bounded: open 128/512 reject while confined 128 passes unchanged physical gates | closed for the two-step fixture |
 | H14B-result | pressure/contact fails even with valid wall support | falsified for the frozen two-step confined fixture; longer coupled dynamics remain untested | surface/viscosity successor |
 | H14C-result | the 4096-sweep tight failure is a work ceiling rather than physics | selected exactly: 4096 exhausts, predeclared 16384 closes with maximum 8111 sweeps | retain 16384 cap without tuning |
-| H15A | corrected viscosity/surface plus constrained pressure admit one unified short solve | unresolved: corrected term controls pass, but Revision-3 TIGHT mutation baselines cap before Phase B/C | run the evidence-backed small active mutation control, then unchanged masks |
+| H15A | corrected viscosity/surface plus constrained pressure admit one unified short solve | unresolved: Revision 5 Phase A passes, but the first physical P mask reaches the PHR outer-work ceiling | NCGP16 pressure-block SQP masks |
 | H15B | corrected surface is the first failing coupled term | PV passes while PS/PVS share the first surface or energy failure; gamma-zero removes it | ordered Phase-B masks |
 | H15C | normal viscosity/reference-graph semantics are first failing | PS passes while PV/PVS share the first dissipation failure; lambda-zero removes it | analytic pair plus ordered masks |
-| H15D | formulation is viable but the deterministic PHR budget is insufficient | unresolved: TIGHT mutation baselines cap, while a smaller active corrected solve passes unchanged caps | typed primary work-ceiling route only; no cap tuning |
+| H15D | formulation is viable but the deterministic PHR budget is insufficient | selected as the bounded Revision-5 route: candidate/oracle/state/work agree and only the outer PHR ceiling prevents admission | replace optimizer under a new frozen contract; no cap tuning |
+| H16A | more PHR outer updates are the smallest repair | not selected: plausible asymptotically but post-hoc and mismatched to the published solver | do not run |
+| H16B | upstream SISSM can be copied unchanged | falsified bounded: default stiffness misses density gates; NCGP15 stiffness is slow/oscillatory | closed for direct copy |
+| H16C | dual gates can be dropped because the primal state is close | rejected by frozen complementarity/fixed-point contract | closed |
+| H16D | reviewed pressure QP is the missing nonlinear block | selected for the next discriminator; NCGP14 closes the same confined fixture | NCGP16 one-step P then PV/PS/PVS |
 
 ## Do not retry
 
@@ -742,12 +773,12 @@
 
 ## Next action
 
-1. Implement NCGP15 Revision 5, changing only the two pressure mutation
-   fixture coordinates/boundary and mutation-local typed-noncommit admission;
-   retain all physical bytes, equations, tolerances and caps.
-2. Run its Phase A controls, ordered `P/PV/PS/PVS` masks and exactly 16
-   full-term confined steps, then close two clean builds, sanitizers and one
-   independent review.
+1. Freeze NCGP16 with the reviewed NCGP14 pressure QP as the pressure block
+   and a semi-implicit/SQP outer iteration; retain the NCGP15 physical profile,
+   fixtures, term equations, mask order and gates.
+2. Require pressure-only correspondence first, then run `PV/PS/PVS` and the
+   confined short trajectory with typed work ceilings and transactional
+   rollback. Independently review the exact CPU result.
 3. Only after independent GO, port the identical frozen corpus to CUDA and establish
    CPU/GPU correspondence before 4k, 16k and 50k performance measurements.
 4. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
