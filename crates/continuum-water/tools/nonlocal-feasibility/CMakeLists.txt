@@ -191,6 +191,12 @@ add_executable(
     src/corrected_cuda_full_step_reference.cpp
     src/sha256.cpp
 )
+add_executable(
+    nonlocal-corrected-cpu-confined-pressure-contact
+    src/corrected_cpu_confined_pressure_contact_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/sha256.cpp
+)
 set(NCGP1_SOURCE_FILES
     CMakeLists.txt
     src/corrected_cuda_full_step.hpp
@@ -952,6 +958,439 @@ target_link_options(
     PRIVATE
         $<$<CONFIG:Release>:-s>
 )
+
+execute_process(
+    COMMAND git rev-parse --show-toplevel
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE NCGP14_REPO_ROOT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY
+)
+execute_process(
+    COMMAND git rev-parse --verify HEAD
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE NCGP14_SOURCE_COMMIT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY
+)
+execute_process(
+    COMMAND git rev-parse --verify "HEAD^{tree}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE NCGP14_SOURCE_TREE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY
+)
+execute_process(
+    COMMAND git rev-parse --path-format=absolute --git-path HEAD
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE NCGP14_GIT_HEAD_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY
+)
+execute_process(
+    COMMAND git rev-parse --path-format=absolute --git-path index
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE NCGP14_GIT_INDEX_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY
+)
+foreach(NCGP14_REQUIRED_GIT_FILE IN ITEMS
+        "${NCGP14_GIT_HEAD_PATH}" "${NCGP14_GIT_INDEX_PATH}")
+    if(NOT EXISTS "${NCGP14_REQUIRED_GIT_FILE}"
+            OR IS_DIRECTORY "${NCGP14_REQUIRED_GIT_FILE}")
+        message(FATAL_ERROR
+            "NCGP14 requires a regular Git identity file: ${NCGP14_REQUIRED_GIT_FILE}")
+    endif()
+endforeach()
+set(NCGP14_GIT_DEPENDENCIES
+    "${NCGP14_GIT_HEAD_PATH}" "${NCGP14_GIT_INDEX_PATH}")
+execute_process(
+    COMMAND git symbolic-ref -q HEAD
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE NCGP14_GIT_SYMBOLIC_REF
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE NCGP14_GIT_SYMBOLIC_REF_RESULT
+)
+if(NCGP14_GIT_SYMBOLIC_REF_RESULT EQUAL 0)
+    execute_process(
+        COMMAND git rev-parse --path-format=absolute --git-path
+            "${NCGP14_GIT_SYMBOLIC_REF}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE NCGP14_GIT_REF_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+    execute_process(
+        COMMAND git rev-parse --path-format=absolute --git-path packed-refs
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE NCGP14_GIT_PACKED_REFS_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+    execute_process(
+        COMMAND git rev-parse --path-format=absolute --git-path
+            "logs/${NCGP14_GIT_SYMBOLIC_REF}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE NCGP14_GIT_REF_LOG_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+    set(NCGP14_GIT_REF_STORAGE_FOUND FALSE)
+    foreach(NCGP14_OPTIONAL_GIT_FILE IN ITEMS
+            "${NCGP14_GIT_REF_PATH}"
+            "${NCGP14_GIT_PACKED_REFS_PATH}"
+            "${NCGP14_GIT_REF_LOG_PATH}")
+        if(EXISTS "${NCGP14_OPTIONAL_GIT_FILE}"
+                AND NOT IS_DIRECTORY "${NCGP14_OPTIONAL_GIT_FILE}")
+            list(APPEND NCGP14_GIT_DEPENDENCIES
+                "${NCGP14_OPTIONAL_GIT_FILE}")
+            set(NCGP14_GIT_REF_STORAGE_FOUND TRUE)
+        endif()
+    endforeach()
+    if(NOT NCGP14_GIT_REF_STORAGE_FOUND)
+        message(FATAL_ERROR
+            "NCGP14 cannot observe storage for the current symbolic Git ref")
+    endif()
+elseif(NOT NCGP14_GIT_SYMBOLIC_REF_RESULT EQUAL 1)
+    message(FATAL_ERROR "NCGP14 failed to classify Git HEAD")
+endif()
+
+function(ncgp14_require_head_blob NCGP14_ABSOLUTE_PATH)
+    if(NOT EXISTS "${NCGP14_ABSOLUTE_PATH}"
+            OR IS_DIRECTORY "${NCGP14_ABSOLUTE_PATH}"
+            OR IS_SYMLINK "${NCGP14_ABSOLUTE_PATH}")
+        message(FATAL_ERROR
+            "NCGP14 identity leaf is not a regular file: ${NCGP14_ABSOLUTE_PATH}")
+    endif()
+    file(RELATIVE_PATH NCGP14_REPO_RELATIVE_PATH
+        "${NCGP14_REPO_ROOT}" "${NCGP14_ABSOLUTE_PATH}")
+    if(NCGP14_REPO_RELATIVE_PATH MATCHES "^\\.\\.(\\/|$)")
+        message(FATAL_ERROR
+            "NCGP14 identity leaf escapes the repository: ${NCGP14_ABSOLUTE_PATH}")
+    endif()
+    execute_process(
+        COMMAND git rev-parse --verify
+            "${NCGP14_SOURCE_COMMIT}:${NCGP14_REPO_RELATIVE_PATH}"
+        WORKING_DIRECTORY "${NCGP14_REPO_ROOT}"
+        OUTPUT_VARIABLE NCGP14_COMMITTED_BLOB
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE NCGP14_COMMITTED_BLOB_RESULT
+    )
+    if(NOT NCGP14_COMMITTED_BLOB_RESULT EQUAL 0)
+        message(FATAL_ERROR
+            "NCGP14 identity leaf is not owned by the reported commit: ${NCGP14_REPO_RELATIVE_PATH}")
+    endif()
+    execute_process(
+        COMMAND git rev-parse --verify ":${NCGP14_REPO_RELATIVE_PATH}"
+        WORKING_DIRECTORY "${NCGP14_REPO_ROOT}"
+        OUTPUT_VARIABLE NCGP14_INDEX_BLOB
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE NCGP14_INDEX_BLOB_RESULT
+    )
+    if(NOT NCGP14_INDEX_BLOB_RESULT EQUAL 0)
+        message(FATAL_ERROR
+            "NCGP14 identity leaf is not present at index stage zero: ${NCGP14_REPO_RELATIVE_PATH}")
+    endif()
+    if(NOT NCGP14_INDEX_BLOB STREQUAL NCGP14_COMMITTED_BLOB)
+        message(FATAL_ERROR
+            "NCGP14 identity leaf differs between index and reported commit: ${NCGP14_REPO_RELATIVE_PATH}")
+    endif()
+    execute_process(
+        COMMAND git diff --cached --quiet --no-ext-diff
+            "${NCGP14_SOURCE_COMMIT}" -- "${NCGP14_REPO_RELATIVE_PATH}"
+        WORKING_DIRECTORY "${NCGP14_REPO_ROOT}"
+        RESULT_VARIABLE NCGP14_CLEAN_INDEX_RESULT
+    )
+    if(NOT NCGP14_CLEAN_INDEX_RESULT EQUAL 0)
+        message(FATAL_ERROR
+            "NCGP14 identity leaf index metadata differs from the reported commit: ${NCGP14_REPO_RELATIVE_PATH}")
+    endif()
+    execute_process(
+        COMMAND git hash-object --no-filters -- "${NCGP14_ABSOLUTE_PATH}"
+        WORKING_DIRECTORY "${NCGP14_REPO_ROOT}"
+        OUTPUT_VARIABLE NCGP14_WORKTREE_BLOB
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+    if(NOT NCGP14_WORKTREE_BLOB STREQUAL NCGP14_COMMITTED_BLOB)
+        message(FATAL_ERROR
+            "NCGP14 identity leaf differs from the reported commit: ${NCGP14_REPO_RELATIVE_PATH}")
+    endif()
+    execute_process(
+        COMMAND git diff-files --quiet --no-ext-diff --
+            "${NCGP14_REPO_RELATIVE_PATH}"
+        WORKING_DIRECTORY "${NCGP14_REPO_ROOT}"
+        RESULT_VARIABLE NCGP14_CLEAN_WORKTREE_RESULT
+    )
+    if(NOT NCGP14_CLEAN_WORKTREE_RESULT EQUAL 0)
+        message(FATAL_ERROR
+            "NCGP14 identity leaf worktree metadata differs from the index: ${NCGP14_REPO_RELATIVE_PATH}")
+    endif()
+endfunction()
+
+set(NCGP14_PARENT_SOURCE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/corrected_cpu_pressure_contact_main.cpp")
+file(SHA256 "${NCGP14_PARENT_SOURCE}" NCGP14_PARENT_SOURCE_ROOT)
+set(NCGP14_FROZEN_PARENT_SOURCE_ROOT
+    "ca62174997aaeee928efef9622c9869f7e4f3cf0909fd6f562005684d17e3873")
+if(NOT NCGP14_PARENT_SOURCE_ROOT STREQUAL NCGP14_FROZEN_PARENT_SOURCE_ROOT)
+    message(FATAL_ERROR
+        "NCGP14 requires the byte-exact reviewed NCGP13 parent source")
+endif()
+set(NCGP14_SOURCE_FILES
+    CMakeLists.txt
+    src/corrected_cpu_confined_pressure_contact_main.cpp
+    src/corrected_cpu_pressure_contact_main.cpp
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP14_SOURCE_MATERIAL "")
+set(NCGP14_SOURCE_DEPENDENCIES "")
+foreach(NCGP14_SOURCE_FILE IN LISTS NCGP14_SOURCE_FILES)
+    set(NCGP14_SOURCE_PATH
+        "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP14_SOURCE_FILE}")
+    list(APPEND NCGP14_SOURCE_DEPENDENCIES "${NCGP14_SOURCE_PATH}")
+    ncgp14_require_head_blob("${NCGP14_SOURCE_PATH}")
+    file(SHA256 "${NCGP14_SOURCE_PATH}"
+        NCGP14_SOURCE_FILE_ROOT)
+    string(APPEND NCGP14_SOURCE_MATERIAL
+        "${NCGP14_SOURCE_FILE}:${NCGP14_SOURCE_FILE_ROOT}\n")
+endforeach()
+string(SHA256 NCGP14_SOURCE_ROOT "${NCGP14_SOURCE_MATERIAL}")
+set(NCGP14_CONTRACT_12_PATH
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/12-confined-pressure-contact-discriminator.md")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    ${NCGP14_SOURCE_DEPENDENCIES}
+    ${NCGP14_GIT_DEPENDENCIES}
+    "${NCGP14_CONTRACT_12_PATH}")
+ncgp14_require_head_blob("${NCGP14_CONTRACT_12_PATH}")
+file(SHA256 "${NCGP14_CONTRACT_12_PATH}" NCGP14_CONTRACT_12_ROOT)
+set(NCGP14_FROZEN_CONTRACT_12_ROOT
+    "4573690e22e79c999b2cdcd609747d0cb061ee59df475dd9040450c6678fd880")
+if(NOT NCGP14_CONTRACT_12_ROOT STREQUAL NCGP14_FROZEN_CONTRACT_12_ROOT)
+    message(FATAL_ERROR "NCGP14 frozen contract file identity mismatch")
+endif()
+set(NCGP14_FROZEN_PARENT_CONTRACT_ROOT
+    "3c26ed0b806308113384e54198935828bf61fb4a5447cc7311b78285e6b3c904")
+string(SHA256 NCGP14_CONTRACT_ROOT
+    "${NCGP14_FROZEN_PARENT_CONTRACT_ROOT}:${NCGP14_CONTRACT_12_ROOT}")
+set(NCGP14_FROZEN_CONTRACT_ROOT
+    "e6d9cdce3a67818024c68ad2da7f4d2405613b7b27953678530b4a415609779f")
+if(NOT NCGP14_CONTRACT_ROOT STREQUAL NCGP14_FROZEN_CONTRACT_ROOT)
+    message(FATAL_ERROR "NCGP14 nested contract identity mismatch")
+endif()
+if(CMAKE_CONFIGURATION_TYPES)
+    message(FATAL_ERROR "NCGP14 requires a single-config Release generator")
+endif()
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(FATAL_ERROR "NCGP14 evidence target requires CMAKE_BUILD_TYPE=Release")
+endif()
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+        AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    message(FATAL_ERROR "NCGP14 requires the frozen GNU/Clang compiler family")
+endif()
+string(STRIP "${CMAKE_CXX_FLAGS}" NCGP14_GLOBAL_CXX_FLAGS)
+string(STRIP "${CMAKE_CXX_FLAGS_RELEASE}" NCGP14_RELEASE_CXX_FLAGS)
+string(STRIP "${CMAKE_EXE_LINKER_FLAGS}" NCGP14_GLOBAL_LINK_FLAGS)
+string(STRIP "${CMAKE_EXE_LINKER_FLAGS_RELEASE}"
+    NCGP14_RELEASE_LINK_FLAGS)
+if(NOT NCGP14_GLOBAL_CXX_FLAGS STREQUAL "")
+    message(FATAL_ERROR "NCGP14 rejects ambient CMAKE_CXX_FLAGS")
+endif()
+if(NOT NCGP14_RELEASE_CXX_FLAGS STREQUAL "-O3 -DNDEBUG")
+    message(FATAL_ERROR "NCGP14 requires exact Release CXX defaults")
+endif()
+if(NOT NCGP14_GLOBAL_LINK_FLAGS STREQUAL ""
+        OR NOT NCGP14_RELEASE_LINK_FLAGS STREQUAL "")
+    message(FATAL_ERROR "NCGP14 rejects ambient executable linker flags")
+endif()
+if(CMAKE_CXX_COMPILER_ARG1)
+    message(FATAL_ERROR "NCGP14 rejects CMAKE_CXX_COMPILER_ARG1")
+endif()
+if(CMAKE_CXX_COMPILER_LAUNCHER)
+    message(FATAL_ERROR "NCGP14 rejects compiler launchers")
+endif()
+if(CMAKE_INTERPROCEDURAL_OPTIMIZATION
+        OR CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE)
+    message(FATAL_ERROR "NCGP14 rejects implicit interprocedural optimization")
+endif()
+if(DEFINED CMAKE_CXX_STANDARD
+        AND NOT CMAKE_CXX_STANDARD STREQUAL ""
+        AND NOT CMAKE_CXX_STANDARD STREQUAL "17")
+    message(FATAL_ERROR "NCGP14 rejects every ambient C++ standard except exact decimal 17")
+endif()
+set(NCGP14_TARGET_CXX_OPTIONS
+    -O3
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Werror
+    -ffp-contract=off
+    -fno-fast-math
+)
+string(JOIN "," NCGP14_TARGET_CXX_FLAGS_CSV
+    ${NCGP14_TARGET_CXX_OPTIONS})
+set(NCGP14_EFFECTIVE_COMPILER_FLAGS
+    "CXX_STANDARD:-std=c++17|CXX_RELEASE:-O3,-DNDEBUG|CXX_TARGET:${NCGP14_TARGET_CXX_FLAGS_CSV}|LINK_RELEASE:-s")
+target_compile_definitions(
+    nonlocal-corrected-cpu-confined-pressure-contact
+    PRIVATE
+        NCGP13_CONTRACT_ROOT="${NCGP14_FROZEN_PARENT_CONTRACT_ROOT}"
+        NCGP13_SOURCE_ROOT="fe71ebecca1bbac5232927931a65186d145d6f2b093ee48d28f24c505ae28af7"
+        NCGP13_SOURCE_COMMIT="b1fdcd59fa105e48039bd4c1b5dda72bf7401a64"
+        NCGP13_SOURCE_TREE="c541413c73fee10186c1f9652264b7b64dd473cf"
+        NCGP13_COMPILER_FLAGS="CXX:-O3,-Wall,-Wextra,-Wpedantic,-Werror,-ffp-contract=off,-fno-fast-math"
+        NCGP14_CONTRACT_ROOT="${NCGP14_CONTRACT_ROOT}"
+        NCGP14_SOURCE_ROOT="${NCGP14_SOURCE_ROOT}"
+        NCGP14_SOURCE_COMMIT="${NCGP14_SOURCE_COMMIT}"
+        NCGP14_SOURCE_TREE="${NCGP14_SOURCE_TREE}"
+        NCGP14_COMPILER_FAMILY="${CMAKE_CXX_COMPILER_ID}"
+        NCGP14_COMPILER_VERSION="${CMAKE_CXX_COMPILER_VERSION}"
+        NCGP14_COMPILER_FLAGS="${NCGP14_EFFECTIVE_COMPILER_FLAGS}"
+)
+set_target_properties(
+    nonlocal-corrected-cpu-confined-pressure-contact
+    PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS NO
+        EXPORT_COMPILE_COMMANDS ON
+        UNITY_BUILD OFF)
+target_compile_options(
+    nonlocal-corrected-cpu-confined-pressure-contact
+    PRIVATE
+        ${NCGP14_TARGET_CXX_OPTIONS}
+)
+target_link_options(
+    nonlocal-corrected-cpu-confined-pressure-contact
+    PRIVATE
+        -s
+)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(NCGP14_COMPILE_PROFILE_CHECK_SCRIPT
+    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ncgp14_verify_compile_profile.cmake")
+file(WRITE "${NCGP14_COMPILE_PROFILE_CHECK_SCRIPT}" [=[
+if(NOT DEFINED NCGP14_COMPILE_COMMANDS
+        OR NCGP14_COMPILE_COMMANDS STREQUAL "")
+    message(FATAL_ERROR "NCGP14 compile-command path is unavailable")
+endif()
+if(NOT EXISTS "${NCGP14_COMPILE_COMMANDS}"
+        OR IS_DIRECTORY "${NCGP14_COMPILE_COMMANDS}")
+    message(FATAL_ERROR
+        "NCGP14 generated compile commands are unavailable: ${NCGP14_COMPILE_COMMANDS}")
+endif()
+if(NOT DEFINED NCGP14_TARGET_MARKER OR NCGP14_TARGET_MARKER STREQUAL "")
+    message(FATAL_ERROR "NCGP14 target marker is unavailable")
+endif()
+if(NOT DEFINED NCGP14_EXPECTED_STANDARD
+        OR NCGP14_EXPECTED_STANDARD STREQUAL "")
+    message(FATAL_ERROR "NCGP14 strict C++17 selector is unavailable")
+endif()
+
+file(READ "${NCGP14_COMPILE_COMMANDS}" NCGP14_COMPILE_DATABASE)
+string(JSON NCGP14_COMPILE_COMMAND_COUNT ERROR_VARIABLE NCGP14_JSON_ERROR
+    LENGTH "${NCGP14_COMPILE_DATABASE}")
+if(NCGP14_JSON_ERROR)
+    message(FATAL_ERROR
+        "NCGP14 generated compile commands are not valid JSON: ${NCGP14_JSON_ERROR}")
+endif()
+if(NCGP14_COMPILE_COMMAND_COUNT LESS 1)
+    message(FATAL_ERROR "NCGP14 generated compile-command database is empty")
+endif()
+
+set(NCGP14_EXPECTED_SOURCE_NAMES
+    corrected_cpu_confined_pressure_contact_main.cpp
+    corrected_cuda_full_step_reference.cpp
+    sha256.cpp)
+set(NCGP14_TARGET_COMMAND_COUNT 0)
+math(EXPR NCGP14_LAST_COMPILE_COMMAND "${NCGP14_COMPILE_COMMAND_COUNT} - 1")
+foreach(NCGP14_COMPILE_COMMAND_INDEX RANGE 0 ${NCGP14_LAST_COMPILE_COMMAND})
+    string(JSON NCGP14_COMPILE_COMMAND ERROR_VARIABLE NCGP14_COMMAND_ERROR
+        GET "${NCGP14_COMPILE_DATABASE}"
+        ${NCGP14_COMPILE_COMMAND_INDEX} command)
+    if(NCGP14_COMMAND_ERROR)
+        message(FATAL_ERROR
+            "NCGP14 compile-command entry has no command string: ${NCGP14_COMMAND_ERROR}")
+    endif()
+    string(FIND "${NCGP14_COMPILE_COMMAND}" "${NCGP14_TARGET_MARKER}"
+        NCGP14_TARGET_MARKER_OFFSET)
+    if(NCGP14_TARGET_MARKER_OFFSET EQUAL -1)
+        continue()
+    endif()
+
+    string(JSON NCGP14_COMPILE_SOURCE ERROR_VARIABLE NCGP14_SOURCE_ERROR
+        GET "${NCGP14_COMPILE_DATABASE}"
+        ${NCGP14_COMPILE_COMMAND_INDEX} file)
+    if(NCGP14_SOURCE_ERROR)
+        message(FATAL_ERROR
+            "NCGP14 compile-command entry has no source path: ${NCGP14_SOURCE_ERROR}")
+    endif()
+    get_filename_component(NCGP14_COMPILE_SOURCE_NAME
+        "${NCGP14_COMPILE_SOURCE}" NAME)
+    list(FIND NCGP14_EXPECTED_SOURCE_NAMES "${NCGP14_COMPILE_SOURCE_NAME}"
+        NCGP14_EXPECTED_SOURCE_INDEX)
+    if(NCGP14_EXPECTED_SOURCE_INDEX EQUAL -1)
+        message(FATAL_ERROR
+            "NCGP14 generated target has an unexpected source command: ${NCGP14_COMPILE_SOURCE}")
+    endif()
+    string(MAKE_C_IDENTIFIER "${NCGP14_COMPILE_SOURCE_NAME}"
+        NCGP14_COMPILE_SOURCE_KEY)
+    if(DEFINED NCGP14_SEEN_${NCGP14_COMPILE_SOURCE_KEY})
+        message(FATAL_ERROR
+            "NCGP14 generated target has a duplicate source command: ${NCGP14_COMPILE_SOURCE_NAME}")
+    endif()
+    set(NCGP14_SEEN_${NCGP14_COMPILE_SOURCE_KEY} TRUE)
+
+    separate_arguments(NCGP14_COMPILE_ARGUMENTS NATIVE_COMMAND
+        "${NCGP14_COMPILE_COMMAND}")
+    set(NCGP14_STANDARD_SELECTOR_COUNT 0)
+    foreach(NCGP14_COMPILE_ARGUMENT IN LISTS NCGP14_COMPILE_ARGUMENTS)
+        if(NCGP14_COMPILE_ARGUMENT MATCHES "^(-std=|/std:)")
+            math(EXPR NCGP14_STANDARD_SELECTOR_COUNT
+                "${NCGP14_STANDARD_SELECTOR_COUNT} + 1")
+            if(NOT NCGP14_COMPILE_ARGUMENT STREQUAL NCGP14_EXPECTED_STANDARD)
+                message(FATAL_ERROR
+                    "NCGP14 generated command contains a conflicting language selector: ${NCGP14_COMPILE_ARGUMENT}")
+            endif()
+        endif()
+    endforeach()
+    if(NOT NCGP14_STANDARD_SELECTOR_COUNT EQUAL 1)
+        message(FATAL_ERROR
+            "NCGP14 generated command must contain exactly one strict C++17 selector: ${NCGP14_COMPILE_SOURCE_NAME}")
+    endif()
+    math(EXPR NCGP14_TARGET_COMMAND_COUNT
+        "${NCGP14_TARGET_COMMAND_COUNT} + 1")
+endforeach()
+
+list(LENGTH NCGP14_EXPECTED_SOURCE_NAMES NCGP14_EXPECTED_COMMAND_COUNT)
+if(NOT NCGP14_TARGET_COMMAND_COUNT EQUAL NCGP14_EXPECTED_COMMAND_COUNT)
+    message(FATAL_ERROR
+        "NCGP14 generated target does not contain the exact frozen source command set")
+endif()
+foreach(NCGP14_EXPECTED_SOURCE_NAME IN LISTS NCGP14_EXPECTED_SOURCE_NAMES)
+    string(MAKE_C_IDENTIFIER "${NCGP14_EXPECTED_SOURCE_NAME}"
+        NCGP14_EXPECTED_SOURCE_KEY)
+    if(NOT DEFINED NCGP14_SEEN_${NCGP14_EXPECTED_SOURCE_KEY})
+        message(FATAL_ERROR
+            "NCGP14 generated target is missing a frozen source command: ${NCGP14_EXPECTED_SOURCE_NAME}")
+    endif()
+endforeach()
+]=])
+add_custom_target(
+    ncgp14-verify-compile-profile
+    COMMAND "${CMAKE_COMMAND}"
+        "-DNCGP14_COMPILE_COMMANDS=${CMAKE_BINARY_DIR}/compile_commands.json"
+        "-DNCGP14_TARGET_MARKER=CMakeFiles/nonlocal-corrected-cpu-confined-pressure-contact.dir/"
+        "-DNCGP14_EXPECTED_STANDARD=-std=c++17"
+        -P "${NCGP14_COMPILE_PROFILE_CHECK_SCRIPT}"
+    COMMENT "Verifying the generated NCGP14 strict C++17 compile profile"
+    VERBATIM
+)
+add_dependencies(
+    nonlocal-corrected-cpu-confined-pressure-contact
+    ncgp14-verify-compile-profile)
 target_compile_features(
     nonlocal-corrected-cuda-static-solve PRIVATE cxx_std_17 cuda_std_17)
 set_target_properties(
