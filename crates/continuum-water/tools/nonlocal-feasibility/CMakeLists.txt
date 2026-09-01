@@ -197,6 +197,15 @@ add_executable(
     src/corrected_cuda_full_step_reference.cpp
     src/sha256.cpp
 )
+add_executable(
+    nonlocal-corrected-cpu-unified-constrained
+    src/corrected_cpu_unified_constrained.hpp
+    src/corrected_cpu_unified_constrained_candidate.cpp
+    src/corrected_cpu_unified_constrained_oracle.cpp
+    src/corrected_cpu_unified_constrained_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/sha256.cpp
+)
 set(NCGP1_SOURCE_FILES
     CMakeLists.txt
     src/corrected_cuda_full_step.hpp
@@ -1258,6 +1267,10 @@ set_target_properties(
         CXX_EXTENSIONS NO
         EXPORT_COMPILE_COMMANDS ON
         UNITY_BUILD OFF)
+target_include_directories(
+    nonlocal-corrected-cpu-unified-constrained
+    PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles")
 target_compile_options(
     nonlocal-corrected-cpu-confined-pressure-contact
     PRIVATE
@@ -1391,6 +1404,419 @@ add_custom_target(
 add_dependencies(
     nonlocal-corrected-cpu-confined-pressure-contact
     ncgp14-verify-compile-profile)
+
+set(NCGP15_SOURCE_COMMIT "${NCGP14_SOURCE_COMMIT}")
+set(NCGP15_SOURCE_TREE "${NCGP14_SOURCE_TREE}")
+set(NCGP15_REPO_ROOT "${NCGP14_REPO_ROOT}")
+
+function(ncgp15_require_head_blob NCGP15_ABSOLUTE_PATH)
+    ncgp14_require_head_blob("${NCGP15_ABSOLUTE_PATH}")
+endfunction()
+
+set(NCGP15_FROZEN_PARENT_SOURCE_FILES
+    src/corrected_cpu_confined_pressure_contact_main.cpp
+    src/corrected_cpu_pressure_contact_main.cpp
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP15_FROZEN_PARENT_SOURCE_ROOTS
+    c1c1b454a383b0d5c53eda5b4567da809597dbefc9664e2dd260ce7b56ad786e
+    ca62174997aaeee928efef9622c9869f7e4f3cf0909fd6f562005684d17e3873
+    edef5f3f6983f79d4fda9658ae78f0badb761b8a48b43666fb1ba850292e836a
+    1de41781e2fe140a3ae76e37341bf904add26efc615a27b5e9684b5255d30a0b
+    a2c7ef6d047e4c00aaf0a83ea364bdf293a521245b382b86782d205ece3fe13b
+    2551f6fb6bfcd6ce30f801f46979f72a5e1bda92a69e1530ee03eb509ba0c76e
+)
+list(LENGTH NCGP15_FROZEN_PARENT_SOURCE_FILES
+    NCGP15_FROZEN_PARENT_SOURCE_FILE_COUNT)
+list(LENGTH NCGP15_FROZEN_PARENT_SOURCE_ROOTS
+    NCGP15_FROZEN_PARENT_SOURCE_ROOT_COUNT)
+if(NOT NCGP15_FROZEN_PARENT_SOURCE_FILE_COUNT EQUAL
+        NCGP15_FROZEN_PARENT_SOURCE_ROOT_COUNT)
+    message(FATAL_ERROR "NCGP15 frozen parent leaf table is malformed")
+endif()
+math(EXPR NCGP15_FROZEN_PARENT_LAST_INDEX
+    "${NCGP15_FROZEN_PARENT_SOURCE_FILE_COUNT} - 1")
+foreach(NCGP15_FROZEN_PARENT_INDEX RANGE
+        0 ${NCGP15_FROZEN_PARENT_LAST_INDEX})
+    list(GET NCGP15_FROZEN_PARENT_SOURCE_FILES
+        ${NCGP15_FROZEN_PARENT_INDEX} NCGP15_FROZEN_PARENT_SOURCE_FILE)
+    list(GET NCGP15_FROZEN_PARENT_SOURCE_ROOTS
+        ${NCGP15_FROZEN_PARENT_INDEX} NCGP15_FROZEN_PARENT_EXPECTED_ROOT)
+    set(NCGP15_FROZEN_PARENT_SOURCE_PATH
+        "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP15_FROZEN_PARENT_SOURCE_FILE}")
+    ncgp15_require_head_blob("${NCGP15_FROZEN_PARENT_SOURCE_PATH}")
+    file(SHA256 "${NCGP15_FROZEN_PARENT_SOURCE_PATH}"
+        NCGP15_FROZEN_PARENT_OBSERVED_ROOT)
+    if(NOT NCGP15_FROZEN_PARENT_OBSERVED_ROOT STREQUAL
+            NCGP15_FROZEN_PARENT_EXPECTED_ROOT)
+        message(FATAL_ERROR
+            "NCGP15 frozen parent leaf identity mismatch: ${NCGP15_FROZEN_PARENT_SOURCE_FILE}")
+    endif()
+endforeach()
+
+set(NCGP15_SOURCE_FILES
+    CMakeLists.txt
+    src/corrected_cpu_unified_constrained.hpp
+    src/corrected_cpu_unified_constrained_candidate.cpp
+    src/corrected_cpu_unified_constrained_oracle.cpp
+    src/corrected_cpu_unified_constrained_main.cpp
+    src/corrected_cpu_confined_pressure_contact_main.cpp
+    src/corrected_cpu_pressure_contact_main.cpp
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP15_SOURCE_MATERIAL "")
+set(NCGP15_SOURCE_DEPENDENCIES "")
+foreach(NCGP15_SOURCE_FILE IN LISTS NCGP15_SOURCE_FILES)
+    set(NCGP15_SOURCE_PATH
+        "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP15_SOURCE_FILE}")
+    list(APPEND NCGP15_SOURCE_DEPENDENCIES "${NCGP15_SOURCE_PATH}")
+    ncgp15_require_head_blob("${NCGP15_SOURCE_PATH}")
+    file(SHA256 "${NCGP15_SOURCE_PATH}" NCGP15_SOURCE_FILE_ROOT)
+    string(APPEND NCGP15_SOURCE_MATERIAL
+        "${NCGP15_SOURCE_FILE}:${NCGP15_SOURCE_FILE_ROOT}\n")
+endforeach()
+string(SHA256 NCGP15_SOURCE_ROOT "${NCGP15_SOURCE_MATERIAL}")
+
+set(NCGP15_CONTRACT_13_PATH
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/13-unified-constrained-surface-viscosity-step.md")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    ${NCGP15_SOURCE_DEPENDENCIES}
+    ${NCGP14_GIT_DEPENDENCIES}
+    "${NCGP15_CONTRACT_13_PATH}")
+ncgp15_require_head_blob("${NCGP15_CONTRACT_13_PATH}")
+file(SHA256 "${NCGP15_CONTRACT_13_PATH}" NCGP15_CONTRACT_13_ROOT)
+set(NCGP15_FROZEN_CONTRACT_13_ROOT
+    "edce0d46d8ea1772e7c5ee6d5af21a46b27d5ebc623471cbfaf530032c5b6cf6")
+if(NOT NCGP15_CONTRACT_13_ROOT STREQUAL
+        NCGP15_FROZEN_CONTRACT_13_ROOT)
+    message(FATAL_ERROR "NCGP15 frozen Revision-2 contract identity mismatch")
+endif()
+set(NCGP15_CONTRACT_ROOT "${NCGP15_CONTRACT_13_ROOT}")
+
+if(CMAKE_CONFIGURATION_TYPES)
+    message(FATAL_ERROR "NCGP15 requires a single-config Release generator")
+endif()
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(FATAL_ERROR "NCGP15 evidence target requires CMAKE_BUILD_TYPE=Release")
+endif()
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+        AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    message(FATAL_ERROR "NCGP15 requires the frozen GNU/Clang compiler family")
+endif()
+string(STRIP "${CMAKE_CXX_FLAGS}" NCGP15_GLOBAL_CXX_FLAGS)
+string(STRIP "${CMAKE_CXX_FLAGS_RELEASE}" NCGP15_RELEASE_CXX_FLAGS)
+string(STRIP "${CMAKE_EXE_LINKER_FLAGS}" NCGP15_GLOBAL_LINK_FLAGS)
+string(STRIP "${CMAKE_EXE_LINKER_FLAGS_RELEASE}"
+    NCGP15_RELEASE_LINK_FLAGS)
+if(NOT NCGP15_GLOBAL_CXX_FLAGS STREQUAL "")
+    message(FATAL_ERROR "NCGP15 rejects ambient CMAKE_CXX_FLAGS")
+endif()
+if(NOT NCGP15_RELEASE_CXX_FLAGS STREQUAL "-O3 -DNDEBUG")
+    message(FATAL_ERROR "NCGP15 requires exact Release CXX defaults")
+endif()
+if(NOT NCGP15_GLOBAL_LINK_FLAGS STREQUAL ""
+        OR NOT NCGP15_RELEASE_LINK_FLAGS STREQUAL "")
+    message(FATAL_ERROR "NCGP15 rejects ambient executable linker flags")
+endif()
+if(CMAKE_CXX_COMPILER_ARG1)
+    message(FATAL_ERROR "NCGP15 rejects CMAKE_CXX_COMPILER_ARG1")
+endif()
+if(CMAKE_CXX_COMPILER_LAUNCHER)
+    message(FATAL_ERROR "NCGP15 rejects compiler launchers")
+endif()
+if(CMAKE_INTERPROCEDURAL_OPTIMIZATION
+        OR CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE)
+    message(FATAL_ERROR "NCGP15 rejects implicit interprocedural optimization")
+endif()
+if(DEFINED CMAKE_CXX_STANDARD
+        AND NOT CMAKE_CXX_STANDARD STREQUAL ""
+        AND NOT CMAKE_CXX_STANDARD STREQUAL "17")
+    message(FATAL_ERROR
+        "NCGP15 rejects every ambient C++ standard except exact decimal 17")
+endif()
+
+set(NCGP15_TARGET_CXX_OPTIONS
+    -O3
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Werror
+    -ffp-contract=off
+    -fno-fast-math
+)
+string(JOIN "," NCGP15_TARGET_CXX_FLAGS_CSV
+    ${NCGP15_TARGET_CXX_OPTIONS})
+set(NCGP15_EFFECTIVE_COMPILER_FLAGS
+    "CXX_STANDARD:-std=c++17|CXX_RELEASE:-O3,-DNDEBUG|CXX_TARGET:${NCGP15_TARGET_CXX_FLAGS_CSV}|LINK_RELEASE:-s")
+target_compile_definitions(
+    nonlocal-corrected-cpu-unified-constrained
+    PRIVATE
+        NCGP13_CONTRACT_ROOT="3c26ed0b806308113384e54198935828bf61fb4a5447cc7311b78285e6b3c904"
+        NCGP13_SOURCE_ROOT="fe71ebecca1bbac5232927931a65186d145d6f2b093ee48d28f24c505ae28af7"
+        NCGP13_SOURCE_COMMIT="b1fdcd59fa105e48039bd4c1b5dda72bf7401a64"
+        NCGP13_SOURCE_TREE="c541413c73fee10186c1f9652264b7b64dd473cf"
+        NCGP13_COMPILER_FLAGS="CXX:-O3,-Wall,-Wextra,-Wpedantic,-Werror,-ffp-contract=off,-fno-fast-math"
+        NCGP14_CONTRACT_ROOT="e6d9cdce3a67818024c68ad2da7f4d2405613b7b27953678530b4a415609779f"
+        NCGP14_SOURCE_ROOT="a3f980e56dff5ce0e599f74b2048092ebac4d4b2d875f8d1c2a4d918a40ccd16"
+        NCGP14_SOURCE_COMMIT="d1cfe76c4d2a342e99dc0954ba7e322709af1784"
+        NCGP14_SOURCE_TREE="bbdf9f83918bd21698396e069907b6c3aa198255"
+        NCGP14_COMPILER_FAMILY="${CMAKE_CXX_COMPILER_ID}"
+        NCGP14_COMPILER_VERSION="${CMAKE_CXX_COMPILER_VERSION}"
+        NCGP14_COMPILER_FLAGS="${NCGP15_EFFECTIVE_COMPILER_FLAGS}"
+        NCGP15_CONTRACT_ROOT="${NCGP15_CONTRACT_ROOT}"
+        NCGP15_CONTRACT_SHA="${NCGP15_CONTRACT_13_ROOT}"
+        NCGP15_SOURCE_ROOT="${NCGP15_SOURCE_ROOT}"
+        NCGP15_SOURCE_COMMIT="${NCGP15_SOURCE_COMMIT}"
+        NCGP15_SOURCE_TREE="${NCGP15_SOURCE_TREE}"
+        NCGP15_COMPILER_FAMILY="${CMAKE_CXX_COMPILER_ID}"
+        NCGP15_COMPILER_VERSION="${CMAKE_CXX_COMPILER_VERSION}"
+        NCGP15_COMPILER_FLAGS="${NCGP15_EFFECTIVE_COMPILER_FLAGS}"
+        NCGP15_PARENT_CONTRACT_FILE_SHA="4573690e22e79c999b2cdcd609747d0cb061ee59df475dd9040450c6678fd880"
+        NCGP15_PARENT_CONTRACT_ROOT="e6d9cdce3a67818024c68ad2da7f4d2405613b7b27953678530b4a415609779f"
+        NCGP15_PARENT_SOURCE_ROOT="a3f980e56dff5ce0e599f74b2048092ebac4d4b2d875f8d1c2a4d918a40ccd16"
+        NCGP15_PARENT_SOURCE_COMMIT="d1cfe76c4d2a342e99dc0954ba7e322709af1784"
+        NCGP15_PARENT_SOURCE_TREE="bbdf9f83918bd21698396e069907b6c3aa198255"
+        NCGP15_PARENT_BINARY_ROOT="f924209d34ce75ed679bda043156d0d4f79ec13f266ea7ce4bdd6cb5141cab14"
+        NCGP15_PARENT_STDOUT_ROOT="15a92dff1e927f4137c43a607a9b31e30200a76e1ebd49a99127543d7a98bd37"
+        NCGP15_PARENT_RESULT_ROOT="54c89f7a0bd4fd13920db325a2b401591cd8cfca3690fc694440d28b42f54221"
+        NCGP15_PARENT_TIGHT_FIXTURE_ROOT="6dbaddf563b825e28e37aee58606f25cf50b17479cc3260e919103be79f7c2b2"
+        NCGP15_PARENT_TIGHT_LANE_ROOT="8d13d0eefb7e27acafb0588c052ed252a1246ec8e3c5cd5ebe4c748b59796ba6"
+)
+set_target_properties(
+    nonlocal-corrected-cpu-unified-constrained
+    PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS NO
+        EXPORT_COMPILE_COMMANDS ON
+        UNITY_BUILD OFF)
+target_include_directories(
+    nonlocal-corrected-cpu-unified-constrained
+    PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles")
+target_compile_options(
+    nonlocal-corrected-cpu-unified-constrained
+    PRIVATE
+        ${NCGP15_TARGET_CXX_OPTIONS}
+)
+target_link_options(
+    nonlocal-corrected-cpu-unified-constrained
+    PRIVATE
+        -s
+)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(NCGP15_COMPILE_PROFILE_CHECK_SCRIPT
+    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ncgp15_verify_compile_profile.cmake")
+file(WRITE "${NCGP15_COMPILE_PROFILE_CHECK_SCRIPT}" [=[
+if(NOT DEFINED NCGP15_COMPILE_COMMANDS
+        OR NCGP15_COMPILE_COMMANDS STREQUAL "")
+    message(FATAL_ERROR "NCGP15 compile-command path is unavailable")
+endif()
+if(NOT EXISTS "${NCGP15_COMPILE_COMMANDS}"
+        OR IS_DIRECTORY "${NCGP15_COMPILE_COMMANDS}")
+    message(FATAL_ERROR
+        "NCGP15 generated compile commands are unavailable: ${NCGP15_COMPILE_COMMANDS}")
+endif()
+get_filename_component(NCGP15_COMPILE_DATABASE_ROOT
+    "${NCGP15_COMPILE_COMMANDS}" DIRECTORY)
+if(NCGP15_COMPILE_DATABASE_ROOT STREQUAL ""
+        OR NCGP15_COMPILE_DATABASE_ROOT STREQUAL "/")
+    message(FATAL_ERROR
+        "NCGP15 compile-command build root is not a bounded directory")
+endif()
+if(NOT IS_ABSOLUTE "${NCGP15_COMPILE_DATABASE_ROOT}")
+    get_filename_component(NCGP15_COMPILE_DATABASE_ROOT
+        "${NCGP15_COMPILE_DATABASE_ROOT}" ABSOLUTE)
+endif()
+file(TO_CMAKE_PATH "${NCGP15_COMPILE_DATABASE_ROOT}"
+    NCGP15_COMPILE_DATABASE_ROOT)
+if(NOT DEFINED NCGP15_TARGET_MARKER OR NCGP15_TARGET_MARKER STREQUAL "")
+    message(FATAL_ERROR "NCGP15 target marker is unavailable")
+endif()
+if(NOT DEFINED NCGP15_EXPECTED_STANDARD
+        OR NCGP15_EXPECTED_STANDARD STREQUAL "")
+    message(FATAL_ERROR "NCGP15 strict C++17 selector is unavailable")
+endif()
+if(NOT DEFINED NCGP15_PROFILE_HEADER OR NCGP15_PROFILE_HEADER STREQUAL "")
+    message(FATAL_ERROR "NCGP15 generated compile-profile header is unavailable")
+endif()
+
+file(READ "${NCGP15_COMPILE_COMMANDS}" NCGP15_COMPILE_DATABASE)
+string(JSON NCGP15_COMPILE_COMMAND_COUNT ERROR_VARIABLE NCGP15_JSON_ERROR
+    LENGTH "${NCGP15_COMPILE_DATABASE}")
+if(NCGP15_JSON_ERROR)
+    message(FATAL_ERROR
+        "NCGP15 generated compile commands are not valid JSON: ${NCGP15_JSON_ERROR}")
+endif()
+if(NCGP15_COMPILE_COMMAND_COUNT LESS 1)
+    message(FATAL_ERROR "NCGP15 generated compile-command database is empty")
+endif()
+
+set(NCGP15_EXPECTED_SOURCE_NAMES
+    corrected_cpu_unified_constrained_candidate.cpp
+    corrected_cpu_unified_constrained_oracle.cpp
+    corrected_cpu_unified_constrained_main.cpp
+    corrected_cuda_full_step_reference.cpp
+    sha256.cpp)
+set(NCGP15_TARGET_COMMAND_COUNT 0)
+set(NCGP15_COMMAND_MATERIAL "")
+math(EXPR NCGP15_LAST_COMPILE_COMMAND
+    "${NCGP15_COMPILE_COMMAND_COUNT} - 1")
+foreach(NCGP15_COMPILE_COMMAND_INDEX RANGE 0 ${NCGP15_LAST_COMPILE_COMMAND})
+    string(JSON NCGP15_COMPILE_COMMAND ERROR_VARIABLE NCGP15_COMMAND_ERROR
+        GET "${NCGP15_COMPILE_DATABASE}"
+        ${NCGP15_COMPILE_COMMAND_INDEX} command)
+    if(NCGP15_COMMAND_ERROR)
+        message(FATAL_ERROR
+            "NCGP15 compile-command entry has no command string: ${NCGP15_COMMAND_ERROR}")
+    endif()
+    string(FIND "${NCGP15_COMPILE_COMMAND}" "${NCGP15_TARGET_MARKER}"
+        NCGP15_TARGET_MARKER_OFFSET)
+    if(NCGP15_TARGET_MARKER_OFFSET EQUAL -1)
+        continue()
+    endif()
+
+    string(JSON NCGP15_COMPILE_SOURCE ERROR_VARIABLE NCGP15_SOURCE_ERROR
+        GET "${NCGP15_COMPILE_DATABASE}"
+        ${NCGP15_COMPILE_COMMAND_INDEX} file)
+    if(NCGP15_SOURCE_ERROR)
+        message(FATAL_ERROR
+            "NCGP15 compile-command entry has no source path: ${NCGP15_SOURCE_ERROR}")
+    endif()
+    get_filename_component(NCGP15_COMPILE_SOURCE_NAME
+        "${NCGP15_COMPILE_SOURCE}" NAME)
+    list(FIND NCGP15_EXPECTED_SOURCE_NAMES "${NCGP15_COMPILE_SOURCE_NAME}"
+        NCGP15_EXPECTED_SOURCE_INDEX)
+    if(NCGP15_EXPECTED_SOURCE_INDEX EQUAL -1)
+        message(FATAL_ERROR
+            "NCGP15 generated target has an unexpected source command: ${NCGP15_COMPILE_SOURCE}")
+    endif()
+    string(MAKE_C_IDENTIFIER "${NCGP15_COMPILE_SOURCE_NAME}"
+        NCGP15_COMPILE_SOURCE_KEY)
+    if(DEFINED NCGP15_SEEN_${NCGP15_COMPILE_SOURCE_KEY})
+        message(FATAL_ERROR
+            "NCGP15 generated target has a duplicate source command: ${NCGP15_COMPILE_SOURCE_NAME}")
+    endif()
+    set(NCGP15_SEEN_${NCGP15_COMPILE_SOURCE_KEY} TRUE)
+
+    separate_arguments(NCGP15_COMPILE_ARGUMENTS NATIVE_COMMAND
+        "${NCGP15_COMPILE_COMMAND}")
+    set(NCGP15_STANDARD_SELECTOR_COUNT 0)
+    set(NCGP15_O3_COUNT 0)
+    set(NCGP15_DNDEBUG_COUNT 0)
+    set(NCGP15_WALL_COUNT 0)
+    set(NCGP15_WEXTRA_COUNT 0)
+    set(NCGP15_WPEDANTIC_COUNT 0)
+    set(NCGP15_WERROR_COUNT 0)
+    set(NCGP15_FFP_CONTRACT_COUNT 0)
+    set(NCGP15_NO_FAST_MATH_COUNT 0)
+    foreach(NCGP15_COMPILE_ARGUMENT IN LISTS NCGP15_COMPILE_ARGUMENTS)
+        if(NCGP15_COMPILE_ARGUMENT MATCHES "^(-std=|/std:)")
+            math(EXPR NCGP15_STANDARD_SELECTOR_COUNT
+                "${NCGP15_STANDARD_SELECTOR_COUNT} + 1")
+            if(NOT NCGP15_COMPILE_ARGUMENT STREQUAL
+                    NCGP15_EXPECTED_STANDARD)
+                message(FATAL_ERROR
+                    "NCGP15 generated command contains a conflicting language selector: ${NCGP15_COMPILE_ARGUMENT}")
+            endif()
+        elseif(NCGP15_COMPILE_ARGUMENT STREQUAL "-O3")
+            math(EXPR NCGP15_O3_COUNT "${NCGP15_O3_COUNT} + 1")
+        elseif(NCGP15_COMPILE_ARGUMENT MATCHES "^-O")
+            message(FATAL_ERROR
+                "NCGP15 generated command contains a conflicting optimization selector: ${NCGP15_COMPILE_ARGUMENT}")
+        elseif(NCGP15_COMPILE_ARGUMENT STREQUAL "-DNDEBUG")
+            math(EXPR NCGP15_DNDEBUG_COUNT "${NCGP15_DNDEBUG_COUNT} + 1")
+        elseif(NCGP15_COMPILE_ARGUMENT STREQUAL "-Wall")
+            math(EXPR NCGP15_WALL_COUNT "${NCGP15_WALL_COUNT} + 1")
+        elseif(NCGP15_COMPILE_ARGUMENT STREQUAL "-Wextra")
+            math(EXPR NCGP15_WEXTRA_COUNT "${NCGP15_WEXTRA_COUNT} + 1")
+        elseif(NCGP15_COMPILE_ARGUMENT STREQUAL "-Wpedantic")
+            math(EXPR NCGP15_WPEDANTIC_COUNT "${NCGP15_WPEDANTIC_COUNT} + 1")
+        elseif(NCGP15_COMPILE_ARGUMENT STREQUAL "-Werror")
+            math(EXPR NCGP15_WERROR_COUNT "${NCGP15_WERROR_COUNT} + 1")
+        elseif(NCGP15_COMPILE_ARGUMENT STREQUAL "-ffp-contract=off")
+            math(EXPR NCGP15_FFP_CONTRACT_COUNT
+                "${NCGP15_FFP_CONTRACT_COUNT} + 1")
+        elseif(NCGP15_COMPILE_ARGUMENT STREQUAL "-fno-fast-math")
+            math(EXPR NCGP15_NO_FAST_MATH_COUNT
+                "${NCGP15_NO_FAST_MATH_COUNT} + 1")
+        elseif(NCGP15_COMPILE_ARGUMENT STREQUAL "-ffast-math"
+                OR NCGP15_COMPILE_ARGUMENT MATCHES "^-ffp-contract="
+                OR NCGP15_COMPILE_ARGUMENT MATCHES "^-m"
+                OR NCGP15_COMPILE_ARGUMENT MATCHES "^--?target(=|$)"
+                OR NCGP15_COMPILE_ARGUMENT MATCHES "^-Xarch_"
+                OR NCGP15_COMPILE_ARGUMENT MATCHES "^-f(no-)?(approx-func|associative-math|cx-fortran-rules|cx-limited-range|finite-math-only|float-store|honor-infinities|honor-nans|math-errno|protect-parens|reciprocal-math|rounding-math|signaling-nans|signed-zeros|trapping-math|unsafe-math-optimizations)$"
+                OR NCGP15_COMPILE_ARGUMENT MATCHES "^-f(excess-precision|fp-exception-behavior|fp-eval-method|fp-model|denormal-fp-math|denormal-fp-math-f32|veclib)="
+                OR NCGP15_COMPILE_ARGUMENT MATCHES "^-g($|[0-9])")
+            message(FATAL_ERROR
+                "NCGP15 generated command contains a forbidden profile flag: ${NCGP15_COMPILE_ARGUMENT}")
+        endif()
+    endforeach()
+    if(NOT NCGP15_STANDARD_SELECTOR_COUNT EQUAL 1)
+        message(FATAL_ERROR
+            "NCGP15 generated command must contain exactly one strict C++17 selector: ${NCGP15_COMPILE_SOURCE_NAME}")
+    endif()
+    if(NOT NCGP15_O3_COUNT EQUAL 2
+            OR NOT NCGP15_DNDEBUG_COUNT EQUAL 1
+            OR NOT NCGP15_WALL_COUNT EQUAL 1
+            OR NOT NCGP15_WEXTRA_COUNT EQUAL 1
+            OR NOT NCGP15_WPEDANTIC_COUNT EQUAL 1
+            OR NOT NCGP15_WERROR_COUNT EQUAL 1
+            OR NOT NCGP15_FFP_CONTRACT_COUNT EQUAL 1
+            OR NOT NCGP15_NO_FAST_MATH_COUNT EQUAL 1)
+        message(FATAL_ERROR
+            "NCGP15 generated command does not contain the exact frozen Release/profile flag multiset: ${NCGP15_COMPILE_SOURCE_NAME}")
+    endif()
+    set(NCGP15_NORMALIZED_COMPILE_COMMAND "${NCGP15_COMPILE_COMMAND}")
+    string(REPLACE "${NCGP15_COMPILE_DATABASE_ROOT}" "<BUILD_ROOT>"
+        NCGP15_NORMALIZED_COMPILE_COMMAND
+        "${NCGP15_NORMALIZED_COMPILE_COMMAND}")
+    string(APPEND NCGP15_COMMAND_MATERIAL
+        "${NCGP15_COMPILE_SOURCE_NAME}:${NCGP15_NORMALIZED_COMPILE_COMMAND}\n")
+    math(EXPR NCGP15_TARGET_COMMAND_COUNT
+        "${NCGP15_TARGET_COMMAND_COUNT} + 1")
+endforeach()
+
+list(LENGTH NCGP15_EXPECTED_SOURCE_NAMES NCGP15_EXPECTED_COMMAND_COUNT)
+if(NOT NCGP15_TARGET_COMMAND_COUNT EQUAL NCGP15_EXPECTED_COMMAND_COUNT)
+    message(FATAL_ERROR
+        "NCGP15 generated target does not contain the exact frozen source command set")
+endif()
+foreach(NCGP15_EXPECTED_SOURCE_NAME IN LISTS NCGP15_EXPECTED_SOURCE_NAMES)
+    string(MAKE_C_IDENTIFIER "${NCGP15_EXPECTED_SOURCE_NAME}"
+        NCGP15_EXPECTED_SOURCE_KEY)
+    if(NOT DEFINED NCGP15_SEEN_${NCGP15_EXPECTED_SOURCE_KEY})
+        message(FATAL_ERROR
+            "NCGP15 generated target is missing a frozen source command: ${NCGP15_EXPECTED_SOURCE_NAME}")
+    endif()
+endforeach()
+string(SHA256 NCGP15_GENERATED_COMPILE_COMMAND_ROOT
+    "${NCGP15_COMMAND_MATERIAL}")
+string(HEX "${NCGP15_COMMAND_MATERIAL}"
+    NCGP15_GENERATED_COMPILE_COMMAND_MATERIAL_HEX)
+file(WRITE "${NCGP15_PROFILE_HEADER}"
+    "#pragma once\n#define NCGP15_GENERATED_COMPILE_COMMAND_ROOT \"${NCGP15_GENERATED_COMPILE_COMMAND_ROOT}\"\n#define NCGP15_GENERATED_COMPILE_COMMAND_MATERIAL_HEX \"${NCGP15_GENERATED_COMPILE_COMMAND_MATERIAL_HEX}\"\n")
+]=])
+add_custom_target(
+    ncgp15-verify-compile-profile
+    COMMAND "${CMAKE_COMMAND}"
+        "-DNCGP15_COMPILE_COMMANDS=${CMAKE_BINARY_DIR}/compile_commands.json"
+        "-DNCGP15_TARGET_MARKER=CMakeFiles/nonlocal-corrected-cpu-unified-constrained.dir/"
+        "-DNCGP15_EXPECTED_STANDARD=-std=c++17"
+        "-DNCGP15_PROFILE_HEADER=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ncgp15_generated_compile_profile.hpp"
+        -P "${NCGP15_COMPILE_PROFILE_CHECK_SCRIPT}"
+    COMMENT "Verifying the generated NCGP15 strict C++17 compile profile"
+    VERBATIM
+)
+add_dependencies(
+    nonlocal-corrected-cpu-unified-constrained
+    ncgp15-verify-compile-profile)
 target_compile_features(
     nonlocal-corrected-cuda-static-solve PRIVATE cxx_std_17 cuda_std_17)
 set_target_properties(
