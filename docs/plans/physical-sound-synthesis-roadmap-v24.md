@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / V23_IMPLEMENTATION_REJECT / QUALITY_UNOBSERVED / D0_PROTOCOL_FROZEN / D0_IMPLEMENTATION_NEXT / DATA_FIRST_ML / INTERNET_ONLY_EVIDENCE / AUTOMATED_VALIDATOR_REQUIRED / CLIP_FALLBACK / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / V23_IMPLEMENTATION_REJECT / QUALITY_UNOBSERVED / D0_REPEAT_EXACT_PASS / T0_X0_PROTOCOLS_NEXT / DATA_FIRST_ML / INTERNET_ONLY_EVIDENCE / AUTOMATED_VALIDATOR_REQUIRED / CLIP_FALLBACK / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V23](physical-sound-synthesis-roadmap-v23.md) as planning authority; its frozen P2a protocol remains binding for the one bounded V23 closeout |
-| Evidence basis | [V23 F2a result](../development/physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md), [V23 P2a](../development/physical-sound-v23-p2a-fixed-feature-ridge-protocol-2026-09-01.md), [V23 research](../development/physical-sound-v23-closed-form-field-research-2026-09-01.md), [V22 result](../development/physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md), [M0b automatic-metric result](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [neural acoustic-field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) and the existing internet-source registry evidence referenced by SPEC-45 |
+| Evidence basis | [D0 result](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [V23 F2a result](../development/physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md), [V23 P2a](../development/physical-sound-v23-p2a-fixed-feature-ridge-protocol-2026-09-01.md), [V23 research](../development/physical-sound-v23-closed-form-field-research-2026-09-01.md), [V22 result](../development/physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md), [M0b automatic-metric result](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [neural acoustic-field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) and the existing internet-source registry evidence referenced by SPEC-45 |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no current public/runtime contract |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, missing source, unsupported material or tooling failure |
 
@@ -155,11 +155,11 @@ individual asset or changes a threshold.
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | C0 | V23 bounded closeout | `COMPLETE / IMPLEMENTATION_CONFORMANCE_REJECT / NO_ARTIFACT` | [F2a result](../development/physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md) records the missing inherited `analytic_surface` callback, spent `2601…2712`, absent artifact, unstarted B and retired unopened later roles. No quality inference or V23 repair is allowed. |
-| D0 | External dataset contract | `PROTOCOL_FROZEN / IMPLEMENTATION_NEXT / VALUES_UNOPENED` | [D0 protocol](../development/physical-sound-v24-d0-neural-evidence-plane-protocol-2026-09-01.md) extends the existing neural data plane compatibly with three evidence lanes and synthetic teacher targets; full `run_cli` A/B must pass before T0/X0 protocols. |
-| T0 | Synthetic teacher corpus | `BLOCKED_BY_D0` | Twice-exact multi-object corpus spans declared geometry, thickness, support, material and contact axes; analytic controls recover known modes and remesh twins preserve the same physical truth. |
-| X0 | Exact real-object pilot | `BLOCKED_BY_D0` | One admissible internet object produces a finite contact/transfer record with no fabricated force, support, composition or listener facts; otherwise it terminates `FallbackOutOfDomain`. |
+| D0 | External dataset contract | `COMPLETE / REPEAT_EXACT_PASS / CONTRACT_ONLY` | [D0 result](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md) records two clean `10/10` focused executions, twice-exact full `run_cli` output, V2 compatibility, three claim-safe lanes, protected-role privacy and disabled training authority. |
+| T0 | Synthetic teacher corpus | `PROTOCOL_NEXT / VALUES_UNOPENED` | Twice-exact multi-object corpus spans declared geometry, thickness, support, material and contact axes; analytic controls recover known modes and remesh twins preserve the same physical truth. |
+| X0 | Exact real-object pilot | `PROTOCOL_NEXT / VALUES_UNOPENED` | One admissible internet object produces a finite contact/transfer record with no fabricated force, support, composition or listener facts; otherwise it terminates `FallbackOutOfDomain`. |
 | M0 | Exact-object neural student | `BLOCKED_BY_T0_AND_X0` | Frozen compact student beats the frozen classical controls on unopened synthetic contact/remesh gates and improves disclosed real development metrics without weakening physical gates. |
-| V0 | Independent validator v1 | `START_AFTER_D0 / SEALED_BEFORE_M1` | Frozen real-only calibration, held positives, adversarial negatives and OOD groups establish declared coverage plus false-pass confidence; all hard/mutation cells pass twice exactly. |
+| V0 | Independent validator v1 | `PROTOCOL_MAY_START / SEALED_BEFORE_M1` | Frozen real-only calibration, held positives, adversarial negatives and OOD groups establish declared coverage plus false-pass confidence; all hard/mutation cells pass twice exactly. |
 | M1 | Cross-object Metal candidate | `BLOCKED_BY_M0_AND_V0` | A preregistered geometry-conditioned successor passes object-disjoint development and one-shot holdout; no role-specific tuning or per-object threshold exists. |
 | A0 | Protected Metal admission | `BLOCKED_BY_M1` | Independent validator processes one untouched Metal shadow exactly once and returns `Pass`; reject/OOD leaves the material fallback-only. |
 | K0 | Deterministic cooker | `BLOCKED_BY_A0_PASS` | Same accepted record cooks byte-identical clips and provenance twice; invalid/unknown records select the authored fallback and publish no partial asset. |
@@ -173,9 +173,9 @@ individual asset or changes a threshold.
 1. Treat the [V23 F2a implementation reject](../development/physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md)
    as final: no repair, B or quality claim; keep `2801…2912` unopened and
    retired.
-2. Freeze the external dataset record and build one corpus index spanning the
-   three evidence lanes. Source acquisition may proceed in parallel with step
-   3 after the D0 implementation commit.
+2. Keep the completed external V3 dataset record as the sole corpus authority.
+   Source acquisition may proceed in parallel with step 3 against its frozen
+   three-lane contract.
 3. Produce the deterministic teacher corpus and one exact-real-object pilot.
    Do not train when either record is structurally invalid.
 4. Freeze the compact neural student, controls, losses, resource ceiling and
