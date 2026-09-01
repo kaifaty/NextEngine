@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ACTIVE_R&D / P0B_PROTOCOL_FROZEN / B0_IMPLEMENTATION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ACTIVE_R&D / B0_REPEAT_EXACT_PASS / O0_IMPLEMENTATION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V17](physical-sound-synthesis-roadmap-v17.md) after its frozen G0 rejection |
-| Evidence basis | [V18 P0b protocol](../development/physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [V17 G0 result](../development/physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md), [V17 research](../development/physical-sound-v17-factorized-operator-research-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
+| Evidence basis | [V18 B0 result](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md), [V18 P0b protocol](../development/physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [V17 G0 result](../development/physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, unsupported material, missing source or tooling failure |
 
@@ -98,8 +98,8 @@ is frozen before implementation. It defines:
 
 The O/F/I reuse is admissible because those roles were never implemented,
 evaluated or opened. I0 substitutes only the passing B0 ridge for the rejected
-V17 neural global head. B0 is now the next implementation boundary; its fresh
-quality values remain unopened until the tested implementation is committed.
+V17 neural global head. B0 was implemented and committed before opening its
+fresh rows; it then passed all gates twice byte-exactly. O0 is now next.
 
 ## Milestones
 
@@ -107,10 +107,10 @@ quality values remain unopened until the tested implementation is committed.
 | --- | --- | --- | --- |
 | R0 | V18 rebaseline | `COMPLETE` | G0 evidence yields the deterministic-global/neural-surface split and explicit non-claims. |
 | P0b | Hybrid protocol | `COMPLETE / FROZEN_BEFORE_IMPLEMENTATION` | Fresh B roles, exact ridge, inherited unopened O/F/I identities, gates, successful controls, access ledger and compute are frozen before code. |
-| B0 | Deterministic global baseline | `NEXT` | Two exact runs of the unchanged ridge pass fresh absolute mode/damping, mutation, OOD, serialization and isolation gates. |
-| O0 | Intrinsic coverage certificate | `BLOCKED_BY_B0` | Two exact runs preserve valid contacts and reject the frozen mutation rate in every topology. |
-| F0 | Masked intrinsic field operator | `BLOCKED_BY_B0_O0` | Two exact runs beat every compatible interpolation/pooled/attention control on held gains, continuity and remeshed twins. |
-| I0 | Hybrid truth tournament | `BLOCKED_BY_B0_O0_F0` | Frozen B/O/F pass complete modal, waveform, spectrum, envelope, mutation and OOD gates on fresh integration objects twice exactly. |
+| B0 | Deterministic global baseline | `COMPLETE / REPEAT_EXACT_PASS` | All 19 single-run gates and the full repeat gate pass: `4.434/15.891 cents`, `0.001226/0.004701` damping, `0/48` valid OOD and `72/72` mutations rejected. |
+| O0 | Intrinsic coverage certificate | `NEXT` | Two exact runs preserve valid contacts and reject the frozen mutation rate in every topology. |
+| F0 | Masked intrinsic field operator | `BLOCKED_BY_O0` | Two exact runs beat every compatible interpolation/pooled/attention control on held gains, continuity and remeshed twins. |
+| I0 | Hybrid truth tournament | `BLOCKED_BY_O0_F0` | Frozen B/O/F pass complete modal, waveform, spectrum, envelope, mutation and OOD gates on fresh integration objects twice exactly. |
 | S1 | Published-source growth | `PARALLEL / SOURCE_INSUFFICIENT` | Each bounded source gains exact identity/member/axis/freshness evidence or a machine-readable closure reason. |
 | S2 | Metal role freeze | `BLOCKED_BY_S1` | Five generator-ready and three fresh evaluation-complete groups satisfy unchanged `4/1/1/1/1`. |
 | R1 | Disclosed-real tournament | `BLOCKED_BY_I0_AND_S2_GENERATOR_PREREQUISITE` | Frozen hybrid candidate beats real compatible controls without protected access. |

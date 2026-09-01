@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V18 / P0B_PROTOCOL_FROZEN / B0_IMPLEMENTATION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V18 / B0_REPEAT_EXACT_PASS / O0_IMPLEMENTATION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -17,12 +17,12 @@
 - **Exact evidence:** both external G0 directories have `11` byte-identical
   files and tree digest `217cd08b…4c23`; report `ebbbb9f4…fc532`; all
   real/source/protected/network/V16-artifact counters are zero.
-- **Rebaseline:** V18 verifies the unchanged deterministic modal scaffold on
-  fresh rows and reserves ML for intrinsic contact-field structure.
+- **B0 result:** the frozen ridge passes twice byte-exactly on 72 fresh rows;
+  all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** implement the exact serialized B0 ridge and evaluator tests;
-  do not open fresh B quality values before that implementation is committed.
+- **Next action:** implement O0 exact graph-geodesic coverage on the still-
+  unopened P0a meshes; do not implement or open F0/I0 first.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -49,30 +49,27 @@
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
 | V16 L0–L1 | `L0B_REPEAT_EXACT_REJECT / FAMILY_CLOSED` | Gain structure is learnable, but poles/damping, continuity, waveform and coverage OOD fail; no test-driven retry or real training. |
 | V17 G0 | `COMPLETE / REPEAT_EXACT_REJECT` | Absolute/transfer/mutation gates pass, but neural/ridge ratios `0.9497x/0.9239x` miss the required `<=0.90x`; V17 O/F/I were not run. |
-| V18 R0/P0b | `REBASELINED / PROTOCOL_FROZEN` | [P0b](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md) freezes 72 fresh B rows, exact ridge/serialization/gates and unchanged unopened O/F/I roles. |
+| V18 P0b/B0 | `PROTOCOL_FROZEN / REPEAT_EXACT_PASS` | [B0](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) passes `19/19` gates and freezes its exact ridge hash; O0 is next. |
 | V18 S1–R1 | `SOURCE_GROWTH_PARALLEL / PRIMARY_R1_CLOSED` | Source adapters may continue, but real training needs both I0 pass and five exact generator groups. |
 | V18 V0–D0 | `SCAFFOLD_AFTER_I0 / ADMISSION_BLOCKED` | Real thresholds, shadow, cooker and demo require successor R1 plus a frozen protected split. |
 | V18 G1–P1 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence, larger risk evidence and a separate Accepted ADR. |
 
-## Material transition: V17 global neural head lacks complexity margin
+## Material transition: B0 freezes the deterministic global scaffold
 
-- **Observation:** scale-separated neural frequency median/p95 is
-  `4.238/19.891 cents`, damping is `0.001370/0.004173`, scale-transfer wins are
-  `22/24` and all `72` mutations reject, but neural/ridge endpoint ratios are
-  `0.9497x/0.9239x` rather than the required `<=0.90x`.
-- **Evidence:** two complete runs produce `11` byte-identical files under tree
-  digest `217cd08b…4c23`; `10/12` gates pass and all access counters are zero.
-- **Conclusion:** dimensionless physics removes the raw MLP's scale failure,
-  while the smooth remaining law does not justify a neural global head.
-- **Decision:** close V17 G0. P0b freezes the unchanged ridge on 72 fresh B
-  rows and reuses the still-unopened P0a O/F/I roles without changing their
-  truth, controls or gates; ML is reserved for the relational surface field.
-- **Remaining uncertainty:** whether the scaffold survives new rows and whether
-  intrinsic propagation beats classical contact interpolation.
-- **Reconsideration condition:** only a new clustered real residual and fresh
-  preregistration may reopen neural global modeling.
-- **Smallest next action:** implement and test B0 before its official fresh
-  exam; no opened G0 artifact or real/protected signal access.
+- **Observation:** on fresh B rows, ridge frequency median/p95 is
+  `4.434/15.891 cents` and damping is `0.001226/0.004701`; both scale strata,
+  `0/48` valid OOD and `72/72` mutations pass.
+- **Evidence:** two seven-file roots are byte-identical under tree digest
+  `bffd8bf5…1111`; all 19 single-run gates and access isolation pass.
+- **Conclusion:** the low-order dimensionless law generalizes; global neural
+  capacity remains unjustified for this bounded synthetic truth.
+- **Decision:** freeze the serialized B0 ridge. Preserve unopened P0a O/F/I
+  unchanged and proceed only to deterministic graph-geodesic O0.
+- **Remaining uncertainty:** whether intrinsic coverage preserves valid surface
+  queries while rejecting caps, disconnections, thinning and ambient shortcuts.
+- **Reconsideration condition:** B0 reopens only for a fresh real residual under
+  a new protocol; O0 failure closes the current downstream chain.
+- **Smallest next action:** implement/test O0 without F0/I0 or real access.
 
 ## Material transition: V12 closes on force coverage
 
@@ -183,7 +180,7 @@ decisions remain in their linked reports rather than this resume surface.
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: deterministic scale-separated ridge generalizes poles/damping | G0 reaches `5.598 cents`/`0.001674` mean error and neural adds insufficient margin | Result was selected on opened G0 test, not fresh V18 verification | B0 on frozen fresh rows |
+| H1: deterministic scale-separated ridge generalizes poles/damping | B0 passes twice exactly at `4.434/15.891 cents` and `0.001226/0.004701` damping | Synthetic truth is not a real-material claim | `CLOSED_SYNTHETIC_PASS`; freeze B0 hash |
 | H2: topology-aware query/context transport recovers continuous gains | Geometry-aware gain error beat ablation and controls | Mean/max pooling failed gain and continuity gates | V18 F0 with held surface regions |
 | H3: geodesic/topological coverage detects missing contact support | Valid-test OOD and hard mutations pass | Collapsed coverage rejection is only `52.08%` | V18 O0 independent of model disagreement |
 | H4: automatic validator reaches useful bounded risk | Hard/acoustic/physics/corpus components are defined | No independent release or shadow result | V16 V0–A0 after successor L1/R1 |
@@ -217,7 +214,7 @@ Read in precedence order:
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 3. [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
-   [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md),
+   [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md) and [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md),
    [G0 result](../physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md),
    [Roadmap V17](../../plans/physical-sound-synthesis-roadmap-v17.md),
    [V17 research](../physical-sound-v17-factorized-operator-research-2026-09-01.md),
@@ -243,8 +240,8 @@ Read in precedence order:
   PCM, arrays, weights, reports and generated audio remain external.
 - **Isolation:** object-92 PCM/force/YAML numeric values remain sealed; object
   41 microphone and every protected role also remain sealed.
-- **Quality:** V17 G0 is rejected before surface/integration or real training; no real
-  formula, validator release, baked atlas, admitted domain or runtime
-  integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V18 B0 implementation/tests, then a separately
-  frozen official run; all published real signal and protected roles stay sealed.
+- **Quality:** B0 passes synthetic global capability; O/F/I and real training
+  remain unopened, with no real formula, validator, atlas or runtime integration.
+  Clip fallback is authoritative.
+- **Next commit boundary:** V18 O0 implementation/tests, then paired official
+  runs; all published real signal and protected roles stay sealed.
