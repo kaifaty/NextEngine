@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / R0_COMPLETE / M0_PENDING / P0C_BLOCKED_BY_M0 / I1_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / R0_COMPLETE / M0_PROTOCOL_FROZEN / M0_IMPLEMENTATION_PENDING / P0C_BLOCKED_BY_M0 / I1_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V19](physical-sound-synthesis-roadmap-v19.md), closed before I0 by its development-control rejection |
 | Evidence basis | [V19 I0 development control](../development/physical-sound-v19-i0-development-control-result-2026-09-01.md), [V19 F0](../development/physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [V19 C0](../development/physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [V18 B0](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -139,7 +139,7 @@ threshold: [DDSP](https://arxiv.org/abs/2001.04643),
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | R0 | V19 failure research and V20 rebaseline | `COMPLETE` | Causal B0-only/F0-only/combined evidence and primary-source limits are recorded; V19 I0 is fail-closed without opening integration values. |
-| M0 | Phase-consistent metric calibration | `PENDING / DEVELOPMENT_ONLY` | Exact perturbation corpus, metric implementation and attribution report pass identity, finiteness, monotonicity/separability, mutation and repeat-exact gates on `1401…1412` only. |
+| M0 | Phase-consistent metric calibration | `PROTOCOL_FROZEN / IMPLEMENTATION_PENDING / DEVELOPMENT_ONLY` | [Exact perturbations, metric formulas, attribution/separability gates, access boundary and resource ceilings](../development/physical-sound-v20-m0-phase-consistent-metric-protocol-2026-09-01.md) are frozen; implementation must pass twice on `1401…1412` only. |
 | P0c | V20 integration protocol | `BLOCKED_BY_M0` | Exact I1 rows/root, metric formulas, thresholds, aggregations, successful controls, access ledger and resource ceilings are frozen before I1 code may generate values. |
 | I1 | Frozen B0+C0+F0 integration | `SEALED` | Exact dependencies pass all hard, physical and phase-consistent gates twice byte-exactly on `1701…1712` plus twins. |
 | G1/F1 | Evidence-triggered component revision | `DORMANT` | Only a causally attributed I1 reject may open one new global or field family on fresh `1801…2101` bands; a metric-contract defect returns to M/P, not model tuning. |

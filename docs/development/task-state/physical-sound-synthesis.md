@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V20_ADOPTED / V19_I0_DEVELOPMENT_REJECT / INTEGRATION_NOT_RUN / M0_PENDING / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V20_ADOPTED / V19_I0_DEVELOPMENT_REJECT / M0_PROTOCOL_FROZEN / M0_IMPLEMENTATION_PENDING / I1_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -21,7 +21,7 @@
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** implement V20 M0 deterministic perturbation/metric calibration
+- **Next action:** implement the frozen [V20 M0 protocol](../physical-sound-v20-m0-phase-consistent-metric-protocol-2026-09-01.md)
   on opened `1401…1412` development only; I1 and real/protected roles stay sealed.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
@@ -53,7 +53,7 @@
 | V18 O0–I0 | `O0_REPEAT_EXACT_REJECT / F0_I0_NOT_RUN` | [O0](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md) misses thinning gates; V18 closes and integration stays sealed. |
 | V19 R0/P0a | `R0_COMPLETE / P0A_FROZEN` | Composite integrity/fill/reachability and disjoint bands, thresholds, reason codes and ablations are frozen before C0 implementation. |
 | V19 C0–I0 | `C0_REPEAT_EXACT_PASS / F0_REPEAT_EXACT_PASS / I0_DEVELOPMENT_CONTROL_REJECT / VALUES_UNOPENED` | Coverage and signed field pass; phase-sensitive integration gates conflict with accepted component tolerances, so V19 closes before I0. |
-| V20 M0–I1 | `M0_PENDING / P0C_BLOCKED / I1_SEALED` | Calibrate separable modal, multiresolution spectral and decay-energy metrics before fresh `1701…1712` integration. |
+| V20 M0–I1 | `M0_PROTOCOL_FROZEN / IMPLEMENTATION_PENDING / P0C_BLOCKED / I1_SEALED` | Calibrate exact modal, MR-STFT, decay/transient-energy controls before fresh `1701…1712` integration. |
 | V20 S1–P1 | `SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / ADR_REQUIRED` | Real roles, validator, shadow, cooker and promotion retain unchanged prerequisites and clip fallback. |
 
 ## Material transition: V19 closes on an invalid integration instrument
@@ -208,7 +208,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
+3. [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [V20 M0 protocol](../physical-sound-v20-m0-phase-consistent-metric-protocol-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
    [F0 result](../physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [C0 result](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
    [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
    [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [O0 result](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md),
@@ -239,5 +239,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** B0/C0/F0 pass; V19 I0 is fail-closed and did not run. No real
   formula, validator, atlas or runtime integration exists; fallback is authoritative.
-- **Next commit boundary:** V20 M0 development-only metric laboratory; I1 and
+- **Next commit boundary:** frozen V20 M0 development-only metric laboratory; I1 and
   all real/protected roles remain sealed.
