@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP16_FREE_SURFACE_MODE / ORIGINAL_GPU_50K_BASELINE_REPRODUCED` |
+| Status | `ACTIVE / ORIGINAL_GPU_50K_BASELINE_REPRODUCED / GAME_QUALITY_ACCEPTANCE_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -800,6 +800,34 @@
 - **Reconsider when:** the corrected CPU trajectory passes and its exact
   pressure/free-surface/contact work has a GPU correspondence lane.
 
+### D-031 — Use game-quality acceptance instead of requiring physical exactness
+
+- **Observation:** the original fast GPU candidate passes its complete frozen
+  numerical/oracle/trace/capacity corpus and the 50k `4/6 ms` budget. Those
+  checks prove faithful execution of that model, but they do not include a
+  long confined hold, visible free-surface quality, wall leakage or a
+  representative gameplay splash/contact trajectory. Later formula work found
+  model differences, but a game does not require laboratory-accurate water.
+- **User constraint:** prefer stable, plausible and budget-compliant gameplay
+  water over a 100% real-world simulation. A formula difference is not itself
+  a blocker unless it causes an observable gameplay failure or breaks a hard
+  invariant.
+- **Decision:** promote the original sub-4-ms GPU path to the next game-quality
+  candidate. Retain deterministic same-state CPU/GPU checks to detect port
+  bugs, but judge the model through a small product-facing corpus: confined
+  hold/coherence, dam or release motion, visible surface/topology, containment,
+  finite state and bounded momentum/energy behavior. Exact long-horizon sample
+  identity and agreement with the newer research model are diagnostics, not
+  automatic rejection gates.
+- **Repair rule:** if the fast path fails a game-quality observable, transplant
+  only the smallest responsible semantic block and remeasure. Do not port the
+  complete corrected research apparatus by default.
+- **Rejected:** equating CPU/GPU agreement with model validity, but also
+  rejecting a visually and functionally adequate game solver solely because it
+  differs from the corrected research formula.
+- **Reconsider when:** the game-quality corpus exposes a visible instability,
+  leak, fragmentation, energy growth or contact failure.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -860,13 +888,15 @@
 
 ## Next action
 
-1. Run the smallest fixed-cap CPU discriminator on the exact trial-4 fixture:
-   compare predeclared tighter density-closure lanes against an explicit
-   free-surface pressure/support lane; do not change surface, QP tolerances or
-   work caps after observing results.
-2. Select or reject the physical repair from the top-layer/layer-6 velocity,
-   multiplier and density evidence. Only then finish the mandatory NCGP16
-   controls and obtain independent CPU GO on the corrected trajectory.
-3. After CPU GO, port the identical frozen corpus to CUDA, establish CPU/GPU
-   correspondence, and only then measure 4k, 16k and 50k performance.
+1. Run the original sub-4-ms GPU path through the smallest product-facing water
+   corpus: confined hold, one release/dam motion and one visible
+   surface/contact case, retaining finite/containment/topology and same-state
+   correspondence guards.
+2. If it passes at acceptable visual and invariant bands, keep the original
+   model and proceed to an uncontended 4k/16k/50k campaign. If it fails, use the
+   failure to select exactly one corrected semantic block; do not port the
+   whole research solver automatically.
+3. Keep the NCGP16 CPU free-surface result as a diagnostic reference and
+   counterexample corpus, not a prerequisite for accepting a simpler game
+   model.
 4. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
