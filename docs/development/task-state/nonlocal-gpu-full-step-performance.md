@@ -718,6 +718,40 @@
 - **Reconsider when:** the one-step pressure block and coupled masks produce
   root-closed candidate/oracle evidence under a separately frozen contract.
 
+### D-029 — Stop apparatus expansion and isolate the free-surface mode
+
+- **Observation:** the NCGP16 pressure-QP candidate closes all four frozen
+  one-step masks and the first three confined PVS trajectory steps. Private
+  trial 4 is rejected only by maximum velocity (`0.1194025561 m/s > 0.1`),
+  while RMS velocity, density strain, force closure, topology and support
+  remain inside their gates. Continuing the same private state to eight steps
+  makes the maximum velocity grow monotonically to `0.23479 m/s` while maximum
+  positive density strain remains near `7.5e-4`.
+- **Exact evidence:** `/tmp/ncgp16-transient-layer-pilot.jsonl`, SHA-256
+  `c1860255e204088d1fe619d17950750779b253e0b38fc20fd1f73d6f57a3a925`,
+  localizes trial-4 motion to the free surface: layer 7 mean vertical velocity
+  is `-0.1124822139 m/s`, layer 6 rises at `+0.0336762740 m/s`, and both have
+  zero positive pressure multipliers. The matched PV run
+  `/tmp/ncgp16-pv-layer-pilot.jsonl`, SHA-256
+  `58a19e8f5eac25e83cc6ffc5d8fff519c1203101727677b64c9239e00a2da742`,
+  gives trial-4 maximum `0.1191159265 m/s`; enabling surface changes it by only
+  `+0.0002866296 m/s` (about `0.24%`, in the wrong direction).
+- **Conclusion:** this is not a transient solver spike or whole-column loss of
+  wall support. The current corrected surface term is not the missing repair.
+  The leading cause is the free-surface pressure/support semantics: an
+  underdense top layer has no active unilateral pressure while the relatively
+  loose density closure can still declare the nonlinear round closed.
+- **Decision:** stop expanding secondary receipt/control machinery until the
+  physical discriminator selects between unilateral free-surface support and
+  density-closure compliance. Keep the existing NCGP16 apparatus as a
+  diagnostic checkpoint, not formal GO evidence.
+- **Rejected:** treating the step-4 peak as harmless transient behavior,
+  reintroducing or strengthening surface tension without a discriminator, and
+  continuing toward CUDA performance while this mode is unresolved.
+- **Reconsider when:** a fixed-cap two-lane experiment separates tighter
+  density closure from an explicit free-surface pressure formulation without
+  tuning a lane to PASS.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -762,6 +796,8 @@
 | H16B | upstream SISSM can be copied unchanged | falsified bounded: default stiffness misses density gates; NCGP15 stiffness is slow/oscillatory | closed for direct copy |
 | H16C | dual gates can be dropped because the primal state is close | rejected by frozen complementarity/fixed-point contract | closed |
 | H16D | reviewed pressure QP is the missing nonlinear block | selected for the next discriminator; NCGP14 closes the same confined fixture | NCGP16 one-step P then PV/PS/PVS |
+| H16E | corrected surface is too weak and causes the trial-4 rejection | strongly disfavored: PV and PVS trial-4 maxima differ by only 0.24%, with PVS slightly worse | do not tune surface on this corpus |
+| H16F | unilateral pressure/free-surface closure admits a persistent vertical mode | supported: top layer falls with zero positive multipliers while layer 6 rises and density gates stay closed | fixed-cap closure-vs-formulation discriminator |
 
 ## Do not retry
 
@@ -774,13 +810,13 @@
 
 ## Next action
 
-1. Implement the frozen NCGP16 discriminator with the reviewed NCGP14
-   pressure QP as the pressure block inside a semi-implicit/SQP outer
-   iteration; retain the NCGP15 physical profile, fixtures, term equations,
-   mask order and gates.
-2. Require pressure-only correspondence first, then run `PV/PS/PVS` and the
-   confined short trajectory with typed work ceilings and transactional
-   rollback. Independently review the exact CPU result.
-3. Only after independent GO, port the identical frozen corpus to CUDA and establish
-   CPU/GPU correspondence before 4k, 16k and 50k performance measurements.
+1. Run the smallest fixed-cap CPU discriminator on the exact trial-4 fixture:
+   compare predeclared tighter density-closure lanes against an explicit
+   free-surface pressure/support lane; do not change surface, QP tolerances or
+   work caps after observing results.
+2. Select or reject the physical repair from the top-layer/layer-6 velocity,
+   multiplier and density evidence. Only then finish the mandatory NCGP16
+   controls and obtain independent CPU GO on the corrected trajectory.
+3. After CPU GO, port the identical frozen corpus to CUDA, establish CPU/GPU
+   correspondence, and only then measure 4k, 16k and 50k performance.
 4. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
