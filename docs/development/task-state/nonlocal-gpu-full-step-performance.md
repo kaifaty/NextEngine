@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP14_REV5_FROZEN / CPP_REPAIR_NEXT` |
+| Status | `ACTIVE / NCGP14_INDEPENDENT_GO / SURFACE_VISCOSITY_TRAJECTORY_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,13 +20,14 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** implement the one authorized apparatus-only C++/CMake
-  repair against frozen NCGP14 Revision 5, then run two clean Release
-  reproductions and the required regression/sanitizer checks. Do not change
-  physics, fixtures, tolerances or caps.
-- **Latest exact result:** reviewed NCGP13 Phase A passes. Phase B commits one
-  step and transactionally rejects trial 2 at velocity RMS
-  `0.076470122842192428 > 0.05 m/s`; independent re-review is `GO`.
+- **Current action:** freeze the smallest CPU long-double successor that adds
+  corrected surface and viscosity to the independently reviewed confined
+  pressure/contact baseline. Do not return to CUDA or timing until that
+  trajectory closes its physical and apparatus gates.
+- **Latest exact result:** NCGP14 independently supports the two-step
+  TIGHT-128 pressure/contact lane at the unchanged physical tolerances with a
+  `16384`-sweep QP ceiling. OPEN-128/512 remain valid negative controls and
+  TIGHT4096 stops only on work. Final re-review is `GO`.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -50,6 +51,7 @@
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-state-discriminator-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-contact-trajectory-evidence-2026-09-01.md`
+- `docs/development/nonlocal-gpu-confined-pressure-contact-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -521,6 +523,36 @@
   reproduce the finite two-step route, run retained regressions and sanitizers,
   then request independent review.
 
+### D-022 — Confined pressure/contact baseline is independently supported
+
+- **Observation:** the repaired NCGP14 apparatus reproduces the retained open
+  128-particle rejection and the open 512-particle size control. The tight
+  128-particle lane reaches the frozen 4096-sweep QP ceiling, while the
+  otherwise identical 16384-sweep lane converges and commits both trials with
+  velocity, density, containment, momentum, energy and topology inside every
+  unchanged gate.
+- **Evidence:** reviewed commit `d1cfe76c`, tree `bbdf9f83`, byte-identical
+  Release binary `f924209d...`, stdout `15a92dff...`, result root
+  `54c89f7a...`. The independent re-review rebuilt the repaired commit,
+  recomputed all 85 expected/actual work pairs, 37 receipt work roots, the
+  20-child aggregate, finalization and `result.v3`, and returned `GO`. Full
+  evidence is linked above.
+- **Conclusion:** the NCGP13 trajectory failure was primarily a fixture error:
+  its open column lacked lateral support and was nearly ballistic. The
+  corrected density-pressure operator plus frictionless analytic contact is a
+  viable bounded support baseline in the frozen confined fixture.
+- **Decision:** close NCGP14 as `INDEPENDENT_GO` for its two-step CPU
+  long-double claim. Freeze the next CPU successor by adding corrected
+  viscosity and surface to this exact pressure/contact baseline, first over a
+  bounded short horizon and then over a longer correctness trajectory. Move
+  the same corpus to CUDA only after that stage passes independent review.
+- **Rejected:** calling this correct water, weakening the open-lane velocity
+  gate, increasing work after the result, returning directly to 50k timing, or
+  treating the diagnostic surface census as a surface-enabled trajectory.
+- **Reconsider when:** the surface/viscosity successor reaches its first exact,
+  independently reviewed route; NCGP14 itself is closed and its review
+  allowance is exhausted.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -554,6 +586,9 @@
 | H14A | NCGP13 failure is caused by missing lateral support in the fixture | predicts tight-tank 128 passes while open 128/512 remain ballistic | NCGP14 geometry discriminator |
 | H14B | the pressure/contact operator still fails with valid wall support | predicts converged tight-tank QPs still violate two-step physical gates | static-equilibrium/support redesign |
 | H14C | the apparent tight-tank failure is only the 4096-sweep work ceiling | predicts a frozen larger-cap lane closes the same equations without tolerance changes | dual-cap NCGP14 lane |
+| H14A-result | missing lateral support is the first cause of the NCGP13 witness | selected bounded: open 128/512 reject while confined 128 passes unchanged physical gates | closed for the two-step fixture |
+| H14B-result | pressure/contact fails even with valid wall support | falsified for the frozen two-step confined fixture; longer coupled dynamics remain untested | surface/viscosity successor |
+| H14C-result | the 4096-sweep tight failure is a work ceiling rather than physics | selected exactly: 4096 exhausts, predeclared 16384 closes with maximum 8111 sweeps | retain 16384 cap without tuning |
 
 ## Do not retry
 
@@ -566,9 +601,11 @@
 
 ## Next action
 
-1. Implement the frozen NCGP14 Revision-5 apparatus-only C++/CMake repair.
-2. Run two clean Release reproductions, retained regressions and sanitizers;
-   request independent review before any surface/free-surface repair.
-3. Only after a confined pressure/contact baseline passes review, freeze surface and
-   viscosity reintroduction; only then return to 4k/CUDA/performance.
+1. Freeze an NCGP15 CPU long-double composition of corrected surface and
+   viscosity with the exact NCGP14 confined pressure/contact lane retained.
+2. Run a bounded short-horizon discriminator, then a longer correctness
+   trajectory without changing tolerances, physical coefficients or work caps
+   after observing the result.
+3. After independent GO, port the identical frozen corpus to CUDA and establish
+   CPU/GPU correspondence before 4k, 16k and 50k performance measurements.
 4. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
