@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V19_ADOPTED / R0_COMPLETE / P0A_PENDING / C0_NOT_RUN / F0_I0_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V19_ADOPTED / R0_COMPLETE / P0A_FROZEN / C0_NOT_RUN / F0_I0_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -13,15 +13,16 @@
 
 - **Current conclusion:** [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md)
   selects structural closure + set-level intrinsic fill + local reachability;
-  exact P0a identities/gates are not yet frozen.
+  [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md)
+  now freezes exact identities, thresholds, reasons and gates.
 - **Exact evidence:** both eight-file O0 roots are byte-identical under tree
   digest `955f875b…08fe`; `8/10` gates pass and every access counter is zero.
 - **B0 result:** the frozen ridge passes twice byte-exactly on 72 fresh rows;
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** freeze P0a on fresh C0 bands `1101…1112/1201…1212`, then
-  commit implementation before the one-shot test role is generated.
+- **Next action:** implement C0 using development only, commit it, then open
+  the one-shot test band `1201…1212` exactly once per independent run.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -50,7 +51,7 @@
 | V17 G0 | `COMPLETE / REPEAT_EXACT_REJECT` | Absolute/transfer/mutation gates pass, but neural/ridge ratios `0.9497x/0.9239x` miss the required `<=0.90x`; V17 O/F/I were not run. |
 | V18 P0b/B0 | `PROTOCOL_FROZEN / REPEAT_EXACT_PASS` | [B0](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) passes `19/19` gates and freezes its exact ridge hash. |
 | V18 O0–I0 | `O0_REPEAT_EXACT_REJECT / F0_I0_NOT_RUN` | [O0](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md) misses thinning gates; V18 closes and integration stays sealed. |
-| V19 R0/P0a | `R0_COMPLETE / P0A_PENDING` | Composite integrity/fill/reachability direction and disjoint bands are adopted; exact protocol is the next boundary. |
+| V19 R0/P0a | `R0_COMPLETE / P0A_FROZEN` | Composite integrity/fill/reachability and disjoint bands, thresholds, reason codes and ablations are frozen before C0 implementation. |
 | V19 C0–I0 | `C0_NOT_RUN / F0_I0_SEALED` | Learned field and integration stay sealed until composite coverage passes twice exactly. |
 | V19 S1–P1 | `SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / ADR_REQUIRED` | Real roles, validator, shadow, cooker and promotion retain unchanged prerequisites and clip fallback. |
 
@@ -212,7 +213,7 @@ Read in precedence order:
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 3. [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
-   [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
+   [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
    [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
    [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [O0 result](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md),
    [G0 result](../physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md),
@@ -240,7 +241,7 @@ Read in precedence order:
   PCM, arrays, weights, reports and generated audio remain external.
 - **Isolation:** object-92 PCM/force/YAML numeric values remain sealed; object
   41 microphone and every protected role also remain sealed.
-- **Quality:** B0 passes; V19 C0 has not run and F0/I0 remain sealed. No real
+- **Quality:** B0 passes; P0a is frozen, C0 has not run and F0/I0 remain sealed. No real
   formula, validator, atlas or runtime integration exists; fallback is authoritative.
-- **Next commit boundary:** P0a exact coverage protocol; all test-role values,
-  published real signal, learned F0 and protected roles stay sealed.
+- **Next commit boundary:** C0 implementation and development-only tests; all
+  test values, published real signal, learned F0 and protected roles stay sealed.

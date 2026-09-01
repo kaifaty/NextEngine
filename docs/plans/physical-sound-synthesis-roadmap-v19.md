@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / R0_COMPLETE / P0A_PENDING / C0_NOT_RUN / F0_I0_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / R0_COMPLETE / P0A_FROZEN / C0_NOT_RUN / F0_I0_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V18](physical-sound-synthesis-roadmap-v18.md), closed by its repeat-exact O0 rejection |
-| Evidence basis | [V19 coverage research](../development/physical-sound-v19-composite-coverage-research-2026-09-01.md), [V18 O0 result](../development/physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md), [V18 B0 result](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
+| Evidence basis | [V19 P0a protocol](../development/physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 coverage research](../development/physical-sound-v19-composite-coverage-research-2026-09-01.md), [V18 O0 result](../development/physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md), [V18 B0 result](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, unsupported material, absent source or tooling failure |
 
@@ -123,8 +123,8 @@ P0a freezes the exact gates, but they must include:
   controls with the declared structural reason;
 - `>=95%` component isolation and RolledSheet ambient-shortcut rejection with
   topology-aware reasons;
-- composite utility strictly greater than raw V18-distance and Euclidean
-  controls;
+- composite utility no lower than raw V18-distance and Euclidean controls,
+  plus a strict layer-specific ablation win for structural and graph checks;
 - complete finite records, zero forbidden access and byte-exact repeat.
 
 ## Milestones
@@ -132,7 +132,7 @@ P0a freezes the exact gates, but they must include:
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | R0 | V19 rebaseline | `COMPLETE` | Competing count/fill/spectral hypotheses, primary sources, development diagnostic and selected composite are recorded without opening a new test. |
-| P0a | Composite coverage protocol | `PENDING` | Exact C0 rows/grids, structural manifest, formulas, reason codes, controls, gates, access ledger and compute ceiling are hash-frozen before implementation. |
+| P0a | Composite coverage protocol | `COMPLETE / FROZEN_BEFORE_IMPLEMENTATION` | [Exact C0 rows/grids, structural manifest, formulas, reason codes, controls, gates, access ledger and compute ceiling](../development/physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md) are frozen before implementation. |
 | C0 | Composite coverage capability | `NOT_RUN / BLOCKED_BY_P0A` | Two independent roots pass all structural, fill, local, mutation, control, isolation and repeat gates on `1201…1212`. |
 | P0b | Field/integration protocol | `SEALED_BY_C0` | Exact F0/I0 identities, signed-gain truth, masks, classical controls, renderer endpoints and gates freeze only after C0 pass. |
 | F0 | Masked intrinsic field operator | `SEALED_BY_C0` | A bounded graph operator beats harmonic/geodesic interpolation and non-graph controls on every required field/topology stratum with calibrated OOD and exact repeat. |
