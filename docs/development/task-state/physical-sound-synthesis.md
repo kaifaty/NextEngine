@@ -58,8 +58,11 @@
 - **Conclusion:** the declared coverage-collapse mutation could not reliably
   cross its own gate, independently of model quality.
 - **Decision:** before implementation, training or test inspection, calibrate
-  every OOD component by its valid-development maximum and retain the single
-  frozen `max(1.0, 1.25 * development maximum)` rule. L0b remains unopened.
+  disagreement and coverage by their valid-development maxima, calibrate
+  static extrapolation by a fixed `0.25` train-range allowance, aggregate
+  waveform/envelope error at object scale and exclude analytic zero-truth
+  nodes only from gain-invariant spectra. Retain the single frozen
+  `max(1.0, 1.25 * development maximum)` rule. L0b remains unopened.
 - **Smallest next action:** implement the corrected protocol without changing
   its objects, model, seeds, budgets, quality gates or stop rule.
 

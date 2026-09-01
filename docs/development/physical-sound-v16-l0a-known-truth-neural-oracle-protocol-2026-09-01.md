@@ -196,18 +196,22 @@ endpoint.
 All aggregations group first by object and then take an unweighted aggregate
 across the six test objects.
 
-Waveform NRMSE is sample RMSE divided by truth sample RMS, without peak
-normalization. Envelope NRMSE applies the analytic-signal Hilbert envelope to
-those same unnormalized waveforms and divides envelope RMSE by truth-envelope
-RMS. Gain NRMSE uses the same RMSE/truth-RMS definition over all query vertices
-and modes of one object. The gain-invariant multiresolution spectrum metric
-independently peak-normalizes truth and prediction, applies periodic Hann
-windows to their first `512`, `1024`, `2048` and `4096` samples, computes an
-`rfft`, converts magnitude relative to each spectrum peak to dB with a
-`-80 dB` floor, and averages the four per-query dB RMSE values. A zero-peak
-waveform is a hard numerical failure. The edge-continuity statistic is the
-p99 over undirected mesh edges of the eight-mode predicted-minus-truth gain-
-difference RMS, divided by the object's truth gain RMS. Cents error is
+Waveform NRMSE is the joint sample RMSE over every query waveform of one object
+divided by that object's joint truth sample RMS, without peak normalization.
+Envelope error applies the analytic-signal Hilbert envelope to those same
+unnormalized waveforms; each query numerator is divided by the joint object
+truth-envelope RMS before the object p95 is taken. Gain NRMSE uses the same
+joint RMSE/truth-RMS definition over all query vertices and modes of one
+object. The gain-invariant multiresolution spectrum metric independently peak-
+normalizes truth and prediction, applies periodic Hann windows to their first
+`512`, `1024`, `2048` and `4096` samples, computes an `rfft`, converts magnitude
+relative to each spectrum peak to dB with a `-80 dB` floor, and averages the
+four per-query dB RMSE values. Analytic nodal queries whose truth peak is at
+most `1e-12` are excluded from this gain-invariant metric only and their count
+is reported; a zero prediction peak for any non-nodal truth query is a hard
+numerical failure. The edge-continuity statistic is the p99 over undirected
+mesh edges of the eight-mode predicted-minus-truth gain-difference RMS, divided
+by the object's truth gain RMS. Cents error is
 `abs(1200*log2(predicted/truth))`; damping error is absolute relative error.
 
 For the classical comparison, every compatible pair of the two declared
@@ -247,19 +251,22 @@ OOD uses three raw components: ensemble standard deviation divided by the
 train gain RMS for the corresponding mode, the L-infinity static-feature
 distance outside the train min/max envelope divided feature-wise by the
 nonzero train range, and nearest-context Euclidean distance divided by mesh
-geodesic diameter. Each raw component is divided by its maximum over valid
-development queries, with a denominator floor of `1e-12`; a component whose
-valid-development maximum is exactly zero remains zero for an in-envelope
-query and is `+infinity` for a positive out-of-envelope query. The OOD score is
-the maximum of these three development-calibrated components. Its single
-threshold is the larger of the frozen constant `1.0` and `1.25 *` the maximum
-valid development score after calibration. Test truth cannot select it.
+geodesic diameter. Disagreement and coverage are divided by their respective
+maximum over valid development queries, with a denominator floor of `1e-12`.
+The already train-range-normalized static component is divided by the frozen
+extrapolation allowance `0.25`; it does not use a potentially zero development
+denominator. The OOD score is the maximum of these three calibrated components.
+Its single threshold is the larger of the frozen constant `1.0` and `1.25 *`
+the maximum valid development score after calibration. Test truth cannot
+select it.
 
-This development calibration is part of the frozen protocol, not a learned
-test threshold. It corrects the dimensional contradiction in the initial
-freeze: the raw nearest-context-distance/diameter ratio is bounded by `1`, so
-it could not have crossed a threshold of at least `1` reliably. This correction
-was made before implementation, training or inspection of any test result.
+This calibration is part of the frozen protocol, not a learned test threshold.
+It corrects two dimensional contradictions in the initial freeze: the raw
+nearest-context-distance/diameter ratio is bounded by `1`, so it could not have
+crossed a threshold of at least `1` reliably; and a zero development maximum
+for static extrapolation made every positive extrapolation infinite. These
+corrections were made before training or inspection of any test prediction or
+metric.
 
 Required mutation results are:
 
