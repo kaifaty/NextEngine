@@ -208,8 +208,10 @@ normalizes truth and prediction, applies periodic Hann windows to their first
 relative to each spectrum peak to dB with a `-80 dB` floor, and averages the
 four per-query dB RMSE values. Analytic nodal queries whose truth peak is at
 most `1e-12` are excluded from this gain-invariant metric only and their count
-is reported; a zero prediction peak for any non-nodal truth query is a hard
-numerical failure. The edge-continuity statistic is the p99 over undirected
+is reported. A zero prediction peak for a non-nodal truth query receives the
+fixed worst-scale score `80 dB`; any such candidate query also fails the
+finite/stable gate, while a failed control remains reported and cannot abort or
+invalidate the candidate evaluation. The edge-continuity statistic is the p99 over undirected
 mesh edges of the eight-mode predicted-minus-truth gain-difference RMS, divided
 by the object's truth gain RMS. Cents error is
 `abs(1200*log2(predicted/truth))`; damping error is absolute relative error.

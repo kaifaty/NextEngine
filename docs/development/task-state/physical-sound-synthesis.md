@@ -65,6 +65,11 @@
   `max(1.0, 1.25 * development maximum)` rule. L0b remains unopened.
 - **Smallest next action:** implement the corrected protocol without changing
   its objects, model, seeds, budgets, quality gates or stop rule.
+- **Execution defect closed:** the first full attempt published no output and
+  exposed only that a compatible constant control can predict exact zero at a
+  non-nodal query. Such a row now receives the fixed worst-scale `80 dB`; it
+  cannot abort evaluation, and it fails finite/stable when produced by the
+  candidate. No model prediction or aggregate test metric selected this fix.
 
 ## Material transition: V12 closes on force coverage
 

@@ -140,6 +140,13 @@ class PhysicalSoundV16L0OracleTests(unittest.TestCase):
         self.assertEqual(metrics["waveform_nrmse_mean"], 0.0)
         self.assertEqual(metrics["spectrum_rmse_db_mean"], 0.0)
 
+    def test_zero_prediction_gets_fixed_worst_spectrum_score(self) -> None:
+        time = np.arange(common.SAMPLE_COUNT, dtype=np.float64) / common.SAMPLE_RATE_HZ
+        truth = np.sin(2.0 * np.pi * 440.0 * time)[None, :]
+        prediction = np.zeros_like(truth)
+        score = common.multiresolution_spectrum_rmse(prediction, truth)
+        np.testing.assert_array_equal(score, np.asarray([80.0]))
+
     def test_corrupt_modes_fail_closed(self) -> None:
         item = self.corpus[0]
         self.assertTrue(common.hard_validate_modes(item.frequencies, item.damping))

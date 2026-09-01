@@ -462,6 +462,9 @@ def build(output: Path) -> Path:
             finite_stable = finite_stable and common.hard_validate_modes(
                 candidate["frequencies"], candidate["damping"]
             )
+            finite_stable = finite_stable and (
+                candidate_metrics["zero_prediction_for_active_truth_count"] == 0
+            )
             finite_stable = finite_stable and common.hard_validate_modes(
                 ablation["frequencies"], ablation["damping"]
             )

@@ -590,9 +590,15 @@ def multiresolution_spectrum_rmse(
     truth = np.atleast_2d(np.asarray(truth, dtype=np.float64))
     prediction_peak = np.max(np.abs(prediction), axis=1, keepdims=True)
     truth_peak = np.max(np.abs(truth), axis=1, keepdims=True)
-    if np.any(prediction_peak <= 1.0e-12) or np.any(truth_peak <= 1.0e-12):
-        raise L0Error("spectrum metric received a zero-peak waveform")
-    prediction = prediction / prediction_peak
+    if np.any(truth_peak <= 1.0e-12):
+        raise L0Error("spectrum metric received a zero-peak truth waveform")
+    active_prediction = prediction_peak[:, 0] > 1.0e-12
+    result = np.full(prediction.shape[0], 80.0, dtype=np.float64)
+    if not np.any(active_prediction):
+        return result
+    prediction = prediction[active_prediction] / prediction_peak[active_prediction]
+    truth = truth[active_prediction]
+    truth_peak = truth_peak[active_prediction]
     truth = truth / truth_peak
     results: list[np.ndarray] = []
     for length in (512, 1_024, 2_048, 4_096):
@@ -605,7 +611,8 @@ def multiresolution_spectrum_rmse(
         pred_db = 20.0 * np.log10(np.maximum(pred_spectrum, 1.0e-4))
         truth_db = 20.0 * np.log10(np.maximum(truth_spectrum, 1.0e-4))
         results.append(np.sqrt(np.mean((pred_db - truth_db) ** 2, axis=1)))
-    return np.mean(np.stack(results, axis=1), axis=1)
+    result[active_prediction] = np.mean(np.stack(results, axis=1), axis=1)
+    return result
 
 
 def object_metrics(
@@ -635,6 +642,9 @@ def object_metrics(
     spectrum_per_query = multiresolution_spectrum_rmse(
         prediction_pcm[active], truth_pcm[active]
     )
+    zero_prediction_count = int(
+        np.sum(np.max(np.abs(prediction_pcm[active]), axis=1) <= 1.0e-12)
+    )
     return {
         "damping_relative": damping_relative,
         "frequency_cents": frequency_cents,
@@ -643,6 +653,7 @@ def object_metrics(
         "nodal_query_count": int(np.sum(~active)),
         "spectrum_rmse_db_mean": float(np.mean(spectrum_per_query)),
         "waveform_nrmse_mean": float(nrmse(prediction_pcm, truth_pcm)),
+        "zero_prediction_for_active_truth_count": zero_prediction_count,
     }
 
 
