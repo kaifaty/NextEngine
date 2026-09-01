@@ -5207,7 +5207,6 @@ PhaseA15 run_phase_a15(const Profile15& profile, const State15& tight,
     result.energy.push_back(surface_energy_control15(profile));
     result.energy.push_back(reversible_energy_control15(profile));
 
-    const TermMask15 all_terms{true, true, false, true};
     const TermMask15 pressure_terms{true, false, false, false};
     const TermMask15 normal_terms{true, true, false, false};
     const TermMask15 surface_terms{true, false, false, true};

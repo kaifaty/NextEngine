@@ -1495,7 +1495,7 @@ set(NCGP15_FROZEN_CONTRACT_13_ROOT
     "a5ebdd492e5d784cbd309c42a5a870f1462e21b850882c3b9f7ecd6d05e9a5d1")
 if(NOT NCGP15_CONTRACT_13_ROOT STREQUAL
         NCGP15_FROZEN_CONTRACT_13_ROOT)
-    message(FATAL_ERROR "NCGP15 frozen Revision-2 contract identity mismatch")
+    message(FATAL_ERROR "NCGP15 frozen Revision-3 contract identity mismatch")
 endif()
 set(NCGP15_CONTRACT_ROOT "${NCGP15_CONTRACT_13_ROOT}")
 
