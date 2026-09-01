@@ -152,6 +152,23 @@ G gates, grouped first by object/categorical cell, are:
   unchanged) reject all `72` mutation cases by quality or static OOD;
 - two complete runs match manifests, reports, arrays and parameter hashes.
 
+For these comparisons, one object's frequency error is its median eight-mode
+cents error and its damping error is its median eight-mode relative error. A
+stratum/control endpoint is the unweighted mean of those object errors. The
+best non-neural control is selected once per endpoint over the complete
+48-object test, never per object. A paired scale-transfer cell is a candidate
+win only when both its frequency and damping object errors are no greater than
+G-raw-MLP for that cell.
+
+Static OOD uses only continuous candidate coordinates
+`[log(aspect),log(slenderness)]`: L-infinity distance outside the train min/max
+box divided coordinate-wise by the nonzero train range. Its threshold is
+`max(0.25,1.25*maximum_valid_development_distance)`. Known categorical one-hot
+values and dimensional `L` are not OOD features; this prevents the valid
+scale-transfer stratum from rejecting the very extrapolation it measures.
+Mutation quality reject uses the same per-object frequency/damping gates; a
+static score above threshold is an alternative rejection.
+
 The `20/24` paired-cell rule has one-sided sign-test probability
 `0.00077194` under equal win probability. It is a synthetic discriminator, not
 a real-population confidence claim.
