@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V21_ADOPTED / F0_PROTOCOL_CONFORMANCE_REJECT / V20_I1_REPEAT_EXACT_REJECT / P0D_FROZEN / P1A_FROZEN / F1A_IMPLEMENTATION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P2_BLOCKED` |
+| Status | `ROADMAP_V22_ADOPTED / V21_F1A_RESOURCE_REJECT / QUALITY_UNOBSERVED / P1R_PROTOCOL_NEXT / FRESH_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P2_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [F0 audit](../physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md)
-  supersedes its pass label: runner used `0.55` instead of frozen topology
-  gradient `0.50`. I1 remains reject; its acoustic passes are diagnostic.
-- **Exact evidence:** actual p95 MRSC/MCLM/DSR/TE is
-  `0.3923/0.4329/0.1148/0.0211`; Wood/Bowl drift is `0.1344 > 0.10`. Both I1
-  trees are `a46fe6ea…a732c`; every real/protected/network counter is zero.
+- **Current conclusion:** [V21 F1a](../physical-sound-v21-f1a-continuous-field-result-2026-09-01.md)
+  exceeded `1,800 s` before atomic publication. No artifact or quality metric
+  exists; `1801…1912` are spent and test/integration stayed unopened.
+- **Exact evidence:** implementation commit `95886ce0…2313`, official run-A
+  target absent, run B not started, observed worker about `1.0 GiB RSS` and
+  CPU-active; elapsed time was the blocking gate.
 - **B0 result:** the frozen ridge passes twice byte-exactly on 72 fresh rows;
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** implement frozen [P1a](../physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md)
-  and metadata-only tests, commit before opening paired `1801…1912`
-  train/development; test and reintegration remain sealed.
+- **Next action:** freeze V22 P1r on fresh `2201…2512` metadata, unchanged P1a
+  science and a metadata-only reference/batched equivalence fixture; commit the
+  protocol before any new mesh or truth value.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -55,74 +55,22 @@
 | V19 R0/P0a | `R0_COMPLETE / P0A_FROZEN` | Composite integrity/fill/reachability and disjoint bands, thresholds, reason codes and ablations are frozen before C0 implementation. |
 | V19 C0–I0 | `C0_PASS / F0_IMPLEMENTATION_CONFORMANCE_REJECT / I0_NOT_RUN` | F0 bytes reproduce, but Cylinder/Bowl exceed frozen topology-gradient `0.50`; the artifact is control-only. |
 | V20 M0–I1 | `M0B_PASS / I1_REPEAT_EXACT_REJECT / CLOSED` | Acoustic diagnostics pass; F0 lineage, one remesh gate and one P0c owner defect forbid capability credit. |
-| V21 P0d–I2 | `P0D_FROZEN / P1A_FROZEN / F1A_IMPLEMENTATION_NEXT` | Prove strict-`0.50` mesh-consistent field on fresh `1801…2001`, then reintegrate once on `2101…2112`. |
-| V21 S1–P2 | `SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / ADR_REQUIRED` | Real roles, validator, shadow, cooker and promotion retain unchanged prerequisites and clip fallback. |
+| V21 P0d–I2 | `F1A_SINGLE_RUN_RESOURCE_REJECT / NO_ARTIFACT / CLOSED` | P1a/implementation are exact, but run A exceeded `1,800 s`; no quality inference and no V21 retry. |
+| V22 P1r–I2 | `P1R_PROTOCOL_NEXT / FRESH_VALUES_SEALED` | Prove execution-equivalent batching first, then strict-`0.50` field quality on fresh `2201…2412` and reintegration on `2501…2512`. |
+| V22 S1–P2 | `SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / ADR_REQUIRED` | Real roles, validator, shadow, cooker and promotion retain unchanged prerequisites and clip fallback. |
 
-## Material transition: conformance audit and P1a replace F0
+## Material transition: V21 closes on execution resources
 
-- **Observation:** F0 runner's topology threshold is `0.55`, while frozen P0b
-  says `0.50`; official Cylinder/Bowl are `0.5304/0.5018`.
-- **Conclusion:** F0 is an exact control, not a pass. I1 stays rejected; its
-  acoustic values cannot repair predecessor conformance.
-- **Decision:** P0d freezes correct owners; P1a freezes six continuous variants,
-  strict `0.50`, paired `1801…2112` roles and remesh-first selection.
-- **Smallest next action:** commit F1a code/tests before any fresh value.
-
-## Material transition: V12 closes on force coverage
-
-- **Observation:** all sixteen fit impacts start at samples `48,000…48,004`
-  and have strong input SNR, yet twelve contacts contribute no target bins at
-  the frozen relative-power gate. Of `4,631` singly supported bins, only three
-  have two supporters and none have three or four.
-- **Evidence:** two full force-only executions emit byte-identical certificate
-  and report hashes; force PCM count is `4,608,000`, while microphone,
-  protected and network counts are all zero.
-- **Conclusion:** the source is spectrally narrow/non-overlapping for a shared
-  arbitrary-force FRF claim. Threshold tuning cannot create the missing
-  excitation information.
-- **Decision:** close V12 before response fitting. Preserve object `41` as an
-  OOD regression fixture and leave `MeasuredTransferField` blocked until a
-  different broadband paired source passes a fresh certificate.
-- **New direction:** V13 tests a narrower exact-object mapping—canonical
-  normalized impact plus surface contact to global frequencies/damping and
-  contact-dependent complex modal gains—then bakes deterministic clips.
-- **External basis:** [V13 research](../physical-sound-v13-canonical-modal-field-research-2026-08-31.md)
-  records RealImpact, AV-MSF, DiffSound and NeuralSound evidence and the limits
-  on what each can support.
-
-## Material transition: S0a proves revision-aware Metal potential
-
-- **Observation:** numeric-only lineage missed exact RealImpact names and could
-  falsely classify an opened historical object as fresh after ID drift.
-- **Evidence:** [S0a result](../physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md)
-  resolves 130 groups and repeats exact over 1,340 historical JSON files with
-  zero source/PCM/force/protected access.
-- **Conclusion:** corrected fresh counts are Glass/Wood/Metal `2/0/12`; Metal
-  alone retains the unchanged eight-group entry potential.
-- **Decision:** S0a opens only the YCB metadata adapter. Roles and waveform
-  access remain blocked until S0b and S0c.
-
-## Material transition: S0c closes current-source sufficiency
-
-- **Observation:** structural candidate counts do not prove the N1a axes,
-  recording-parent identity or protected freshness required for role credit.
-- **Evidence:** [S0c result](../physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md)
-  joins 130 groups, 14 fresh routes and 18 target YCB rows twice byte-exactly.
-- **Conclusion:** Metal/Wood/Glass each have zero `training_usable` and zero
-  `evaluation_complete` groups; all ten Metal RealImpact aliases are exposed.
-- **V15 decision:** no role freeze and only S0d source growth; V16 supersedes
-  that execution order without lowering `4/1/1/1/1` or opening real signal.
-
-## Material transition: V16 separates learning from admission
-
-- **Observation:** S0c disproves current protected-source sufficiency, not the
-  structured neural representation; V15 incorrectly made the synthetic oracle
-  depend on the real role freeze.
-- **Decision:** start L0 known-truth work now, allow only proven exposed groups
-  into later generator development, and retain fresh T2/T3 groups exclusively
-  for validator calibration, method holdout and one-shot shadow.
-- **Consequence:** model research can finish as a report while admission remains
-  blocked; no pleasing development result can authorize cooker or runtime use.
+- **Observation:** committed F1a run A remained CPU-active but crossed the
+  frozen 30-minute ceiling before atomic publication; RSS was about `1.0 GiB`.
+- **Evidence:** exact diagnostic `F1 runtime ceiling exceeded`; both official
+  output paths are absent, so no model, metric, selection or tree was exposed.
+- **Conclusion:** V21 quality is unobserved. The only falsified claim is that the
+  many-small-call implementation fits its resource envelope.
+- **Decision:** spend `1801…1912`; do not run B. V22 may preregister only
+  algebraically equivalent batching/precomputation on fresh `2201…2512`.
+- **Smallest next action:** freeze P1r row roots and equivalence contract before
+  a V22 mesh/value exists.
 
 ## Durable negative knowledge
 
@@ -173,19 +121,22 @@
 | D-027 | M0b passes twice exactly; raw MRLM/DE stay diagnostic while mean-centered log magnitude and normalized backward-EDC slope become immutable I1 metrics with physical gain gates intact. | Fresh I1 causally rejects the frozen operator. |
 | D-028 | V20 I1 remains a repeat-exact reject: its values may attribute failure but cannot select an F1 candidate, threshold or retry. | Never; a future result may supersede the field family but cannot retroactively reopen I1. |
 | D-029 | V21 first tests a bounded continuous topology-native residual with paired remesh evidence; large neural operators are escalation-only. | Both small preregistered F1 candidates fail fresh development while controls prove the corpus/evaluator valid. |
+| D-030 | V21 F1a is a resource reject with no quality observation; only a fresh-band execution-equivalent V22 successor may answer the same scientific question. | V22 F1r passes resource and repeat-exact gates or closes the execution family. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: deterministic scale-separated ridge generalizes poles/damping | B0 passes twice exactly at `4.434/15.891 cents` and `0.001226/0.004701` damping | Synthetic truth is not a real-material claim | `CLOSED_SYNTHETIC_PASS`; freeze B0 hash |
-| H2: a continuous residual field is stable across valid remeshes | F0 is close and I1 acoustics are useful diagnostics | F0 fails strict topology gradient and I1 has one remesh reject | V21 F1a on fresh paired `1801…1912` |
+| H2: a continuous residual field is stable across valid remeshes | F0 is close and I1 acoustics are useful diagnostics | F0 fails strict topology gradient; V21 F1a exposed no quality because of resource reject | V22 F1r on fresh paired `2201…2312` |
 | H3: composite integrity/fill/reachability detects missing contact support | C0 passes twice: zero valid false OOD, every mutation cell `1.0` | Synthetic scope only | `CLOSED_SYNTHETIC_PASS`; freeze exact C0 hashes |
 | H4: automatic validator reaches useful bounded risk | M0b calibrates synthetic metrics and I1 actual acoustics pass | No independent real validator or shadow result | I2 then V0–A0 |
-| H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V21 K0/D0 after A0 pass |
+| H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V22 K0/D0 after A0 pass |
 
 ## Do not retry
 
+- V21 `1801…2112`, abandoned staging or the many-small-call F1a runner. Do not
+  reconstruct missing metrics or use the resource reject as a quality signal.
 - The V16 generic object MLP, pooled-context decoder, opened 18-object corpus or
   any capacity/seed/update/threshold/contact variant selected from L0b results.
 - The V17 global neural head, opened G0 rows or nearby variants; preserve its
@@ -212,7 +163,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V21](../../plans/physical-sound-synthesis-roadmap-v21.md), [P1a](../physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [P0d](../physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [F0 audit](../physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V21 remesh research](../physical-sound-v21-remesh-consistency-research-2026-09-01.md), [I1 result](../physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [P0c](../physical-sound-v20-p0c-i1-integration-protocol-2026-09-01.md), [M0b result](../physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [M0b protocol](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md), [M0b research](../physical-sound-v20-m0b-confound-resistant-metric-research-2026-09-01.md), [M0a result](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
+3. [Roadmap V22](../../plans/physical-sound-synthesis-roadmap-v22.md), [V21 F1a result](../physical-sound-v21-f1a-continuous-field-result-2026-09-01.md), [Roadmap V21](../../plans/physical-sound-synthesis-roadmap-v21.md), [P1a](../physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [P0d](../physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [F0 audit](../physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V21 remesh research](../physical-sound-v21-remesh-consistency-research-2026-09-01.md), [I1 result](../physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [P0c](../physical-sound-v20-p0c-i1-integration-protocol-2026-09-01.md), [M0b result](../physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [M0b protocol](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md), [M0b research](../physical-sound-v20-m0b-confound-resistant-metric-research-2026-09-01.md), [M0a result](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
    [F0 result](../physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [C0 result](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
    [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
    [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [O0 result](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md),
@@ -243,5 +194,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** B0/C0/M0b pass; F0 conformance and V20 I1 reject. No real
   formula, validator, atlas or runtime integration exists; fallback is authority.
-- **Next commit boundary:** F1a implementation and metadata-only tests before
-  fresh train/development; test, integration, real and protected stay sealed.
+- **Next commit boundary:** V22 P1r protocol/row roots/equivalence contract
+  before fresh train/development; test, integration, real and protected stay sealed.

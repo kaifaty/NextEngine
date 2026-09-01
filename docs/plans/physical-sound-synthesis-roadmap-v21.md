@@ -3,9 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / F0_PROTOCOL_CONFORMANCE_REJECT / V20_I1_REPEAT_EXACT_REJECT / ACTUAL_ACOUSTIC_DIAGNOSTIC_PASS / P0D_FROZEN / P1A_FROZEN / F1A_IMPLEMENTATION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `SUPERSEDED_BY_V22 / F1A_SINGLE_RUN_RESOURCE_REJECT / NO_ARTIFACT / QUALITY_UNOBSERVED / TEST_INTEGRATION_NOT_RUN / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V20](physical-sound-synthesis-roadmap-v20.md), closed by its repeat-exact I1 reject |
-| Evidence basis | [F0 conformance audit](../development/physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V20 I1 result](../development/physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [V21 remesh research](../development/physical-sound-v21-remesh-consistency-research-2026-09-01.md), [P0d](../development/physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [P1a](../development/physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [M0b metric pass](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md) and [source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
+| Evidence basis | [F1a resource reject](../development/physical-sound-v21-f1a-continuous-field-result-2026-09-01.md), [F0 conformance audit](../development/physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V20 I1 result](../development/physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [V21 remesh research](../development/physical-sound-v21-remesh-consistency-research-2026-09-01.md), [P0d](../development/physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [P1a](../development/physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [M0b metric pass](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md) and [source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
+| Successor | [Roadmap V22](physical-sound-synthesis-roadmap-v22.md), fresh execution-equivalent resource recovery with no V21 quality inheritance |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, absent source, unsupported material or tooling failure |
 
@@ -133,8 +134,8 @@ separate certificates.
 | P0d | Counterfactual owner correction | `COMPLETE / FROZEN` | [Successor rule](../development/physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md) preserves every M0b threshold and makes signed-gain rejection sufficient for alternating signs. |
 | R1 | Remesh successor research | `COMPLETE / DIRECTION_SELECTED` | [Research decision](../development/physical-sound-v21-remesh-consistency-research-2026-09-01.md) selects a small continuous residual tournament and bounds neural-operator escalation. |
 | P1a | F1 protocol and metadata freeze | `COMPLETE / FROZEN_BEFORE_VALUES` | [Exact protocol](../development/physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md) freezes paired rows, six candidates, losses, controls, strict gates, ranking, access and nine-file output. |
-| F1a | Train/development tournament | `IMPLEMENTATION_NEXT / VALUES_SEALED` | On `1801…1824`/`1901…1912`, one predeclared candidate passes hard/coverage/remesh gates and improves the exact F0 control by the frozen ranking; otherwise F1 closes before test. |
-| P1b | One-shot F1 test freeze | `BLOCKED_BY_F1A` | Winner identity, artifact hashes and unchanged test gates freeze while `2001…2012` values remain unopened. |
+| F1a | Train/development tournament | `SINGLE_RUN_RESOURCE_REJECT / NO_ARTIFACT / QUALITY_UNOBSERVED` | [Run A](../development/physical-sound-v21-f1a-continuous-field-result-2026-09-01.md) exceeded `1,800 s` before atomic publication; run B was not started and `1801…1912` are spent. |
+| P1b | One-shot F1 test freeze | `NOT_AUTHORIZED / V21_CLOSED` | No winner/tree exists; `2001…2012` remained unopened and is not inherited by the successor. |
 | F1b | One-shot F1 capability | `BLOCKED_BY_P1B` | Fresh paired test passes all absolute, gradient, remesh, control, mutation, serialization, access and repeat-exact gates twice. Reject closes F1. |
 | P1c | Fresh integration protocol | `BLOCKED_BY_F1B_AND_P0D` | Exact B0+C0+F1 identities, `2101…2112` rows, M0b thresholds, corrected owners and fallback freeze before values. |
 | I2 | Phase-consistent reintegration | `BLOCKED_BY_P1C` | Two byte-exact runs pass every hard, physical, remesh, acoustic, counterfactual, access and resource gate. |
@@ -153,12 +154,12 @@ separate certificates.
 
 1. Preserve I1, the F0 conformance reject, P0d, P1a and this roadmap as the
    immutable successor baseline.
-2. Implement F1a plus metadata-only tests and commit them before opening a
-   train/development mesh or value.
-3. Run F1a on train/development only. If no candidate passes the predeclared
-   ranking, close F1 and research a genuinely new F2 family with new bands.
-4. Freeze the selected artifact and P1b, commit implementation/tests, then run
-   F1b twice on unopened `2001…2012`.
+2. Preserve the committed F1a implementation and [resource reject](../development/physical-sound-v21-f1a-continuous-field-result-2026-09-01.md);
+   do not reuse its spent train/development roles or infer quality.
+3. Continue through [V22](physical-sound-synthesis-roadmap-v22.md), which may
+   preregister only execution-equivalent batching/precomputation on fresh bands.
+4. Freeze a selected artifact and one-shot test only after V22 F1r passes
+   resource, quality and byte-exact A/B gates.
 5. Only after F1b pass, freeze P1c and run I2 twice on `2101…2112`.
 6. Continue S1 independently. Real candidate work requires both I2 and the
    corresponding immutable generator-role certificate.
