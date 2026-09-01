@@ -8991,6 +8991,15 @@ PresentationSurfaceLane make_presentation_surface_lane(
                 frame_prefix + "-" + lane.id + "-surface.ppm", lane.frames, box);
             lane.mesh_written = write_presentation_surface_obj(
                 frame_prefix + "-" + lane.id + "-surface.obj", lane.frames.back(), box);
+            // Every accepted keyframe is also exported so the engine-side
+            // presentation bridge can replay a bounded dynamic sequence.
+            for (const PresentationSurfaceFrame& frame : lane.frames) {
+                lane.mesh_written = lane.mesh_written
+                    && write_presentation_surface_obj(
+                        frame_prefix + "-" + lane.id + "-step"
+                            + std::to_string(frame.step) + "-surface.obj",
+                        frame, box);
+            }
             if (!lane.montage_written || !lane.mesh_written) {
                 lane.passed = false;
                 lane.first_failure = "FILE_OUTPUT";
