@@ -1,6 +1,6 @@
 # NCGP14 — Confined pressure/contact geometry and work discriminator
 
-Status: `FROZEN_REVISION_2 / CPU_ONLY / APPARATUS_REPAIR_AUTHORIZED`
+Status: `FROZEN_REVISION_3 / CPU_ONLY / APPARATUS_REPAIR_AUTHORIZED`
 
 Date: `2026-09-01`
 
@@ -14,6 +14,23 @@ were incomplete, and its 42-field work receipt did not count actual
 comparisons. Revision 2 changes no equation, fixture byte, profile, tolerance,
 lane cap, physical gate or precomputed profile/fixture/lane root. It versions
 only the affected roots/report and freezes one apparatus-only repair batch.
+
+Revision 3 supersedes only two omitted root schemas, one control-lineage
+identifier and one already-required permutation-comparison ownership/order in
+frozen revision 2 (file SHA-256
+`eec43f25e592791fed5c551a3200530c9f16f51e88814eabe556809e2f3a7b41`).
+Revision 2 required a Control-2 analytic-velocity root and exact preserved-
+state root equality in Controls 5 and 7, while simultaneously declaring its
+root bullets the sole authority, but did not define those two payloads. It
+also did not name the base lane root used by Control-2 computational data
+roots or state how a final canonical/permuted lane-root comparison could stop
+the suffix without resealing either lane. Revision 3 defines only those bytes,
+that lineage and the existing Control-4 comparison owner/order. It changes no
+equation, fixture byte, profile, tolerance, lane cap, physical gate,
+precomputed profile/fixture/lane root, numerical lane schedule, work field,
+fixed hash count or claim ceiling. Only the explicitly named apparatus
+comparison/seal interleaving changes; no numerical lane computation is moved
+or reordered.
 
 ## Decision under test
 
@@ -614,7 +631,19 @@ work closure. NCGP14 adds separately sealed controls:
    `sqrt((16*v_bottom,1^2+112*(9.81*dt)^2)/128)` and trial-2 RMS must match
    `sqrt(112/128)*2*9.81*dt`, each within `2e-12` relative. Trial 2 fails the
    velocity gate. This is a diagnostic control and cannot reuse OPEN-128
-   output.
+   output. Every NCGP14 round-extra and trial-observable data root produced by
+   this control uses the frozen TIGHT-128-CAP16384 base lane root
+   `8d13d0eefb7e27acafb0588c052ed252a1246ec8e3c5cd5ebe4c748b59796ba6`.
+   The modified side-removal fixture root remains separate and is the first
+   Control-2 evidence root; the analytic-velocity root below also binds it.
+   Inherited NCGP13 child roots retain their own frozen domains.
+   On the PASS path, the Control-2 `control.v1` evidence-root array is exactly
+   `[side_removal_fixture, analytic_velocity, attempted_step_1,
+   attempted_step_2, trial_observables_1, trial_observables_2]` in that order.
+   Each trial-observables root transitively binds its ordered round-extra
+   roots; direct duplicate round-extra entries are forbidden. This array makes
+   every printed Control-2 child root transitively part of `result.v2` without
+   adding a content-root derivation.
 3. **Independent geometry census:** a separately written all-pairs scan
    reproduces the initial `6988/6480/1809/1865/1809/1865/885` total,
    side-unique, per-side-membership and bottom-unique counts and returns
@@ -629,7 +658,76 @@ work closure. NCGP14 adds separately sealed controls:
 4. **Permutation:** before canonicalization, the canonical and permuted raw
    storage-order roots differ for each fixture. Every lane then reproduces
    stable-ID semantic, physical, work and result roots from those physically
-   permuted bytes.
+   permuted bytes. Control 4 is one ordered, prefix-aware top-level receipt.
+   Its work accumulator begins before the six raw-order roots are serialized
+   and derived, although its receipt is sealed only after its final reached
+   prefix is complete. After those six roots exist, it evaluates exactly three
+   non-short raw-root inequality predicates in `OPEN128`, `OPEN512`, `TIGHT128`
+   order immediately before the first lane-result equality. As soon as each
+   canonical/permuted lane pair has been sealed exactly once, Control 4
+   evaluates and counts one final result-root equality predicate; neither lane
+   may then be modified or resealed. A true intermediate predicate only
+   authorizes the next frozen execution prefix and cannot set final status
+   before Control 4 itself is sealed.
+
+   The TIGHT-CAP16384-R8 result-root equality must pass before Control 4
+   evaluates and counts exactly one non-short `r16_triggered` predicate. That
+   predicate is true exactly when the matched R8 category is
+   `PROJECTION_ROUND_CAP_EXHAUSTED`; its boolean is the next ordered Control-4
+   scalar after the R8 equality. A true value authorizes the frozen R16 pair;
+   a false value authorizes its two exact typed lane skips. R16's executed
+   roots or its two sealed skip roots are then compared by the fifth lane-root
+   equality before Control 4 closes. `select_decisive` is forbidden until the
+   final Control-4 receipt has been sealed.
+
+   On the PASS path, the `control.v1` evidence-root array is exactly the six
+   raw-order roots in fixture/canonical-permuted order
+   `[OPEN128_c, OPEN128_p, OPEN512_c, OPEN512_p, TIGHT128_c, TIGHT128_p]`,
+   followed by five canonical/permuted lane-result pairs in this order:
+   `OPEN128`, `OPEN512`, `TIGHT_CAP4096`, `TIGHT_CAP16384_R8`,
+   `TIGHT_CAP16384_R16`. The last pair contains the two exact skip roots when
+   R16 is not run. The exact Control-4 scalar order is
+   `open128_raw_different, open512_raw_different, tight128_raw_different,
+   open128_result_exact, open512_result_exact, tight4096_result_exact,
+   tight_r8_result_exact, r16_triggered, tight_r16_result_exact`. A full PASS
+   therefore owns exactly nine non-short comparisons: three raw-root
+   inequalities, five final lane-result equalities and the one R16-trigger
+   predicate. All nine scalar records have `type=bool`; on a prefix route the
+   scalar array contains exactly the reached prefix in this declared order.
+   PASS requires all three `*_raw_different` and all five `*_result_exact`
+   validation booleans to be true, but does not require
+   `r16_triggered=true`. Both trigger values are valid: true executes R16 and
+   false creates its two typed skips before the final equality. Control 4's
+   fixed six content-root derivations remain only the six raw-order roots; all
+   lane/skip roots are existing evidence, not rederived by the control.
+
+   Control 4 has this exact prefix state machine:
+
+   - if no Control-4 serializer, derivation or predicate has started, an
+     earlier apparatus failure produces the existing zero-work
+     `NOT_RUN_BY_PRECEDENCE` receipt;
+   - if any of the three `*_raw_different` validation predicates or any of the
+     five `*_result_exact` validation predicates is false, all remaining lane
+     slots first receive their canonical typed zero-work skip receipts, then
+     Control 4 seals `CONTROL_INVALID`; Control 4 is the first failure. The
+     `r16_triggered` selector is excluded from this failure rule;
+   - if an unrelated embedded, control or lane apparatus failure occurs after
+     any Control-4 work, no further Control-4 predicate runs. All remaining
+     lane slots first receive their canonical typed zero-work skip receipts,
+     then Control 4 seals `PREFIX_CLOSED_BY_PRECEDENCE` with the nonzero
+     independently expected and actual prefix work. The earlier failure stage
+     and cause remain the first failure;
+   - only a route reaching all nine predicates seals Control 4 `PASS`.
+
+   Every started Control-4 route binds one full sixteen-slot evidence array:
+   the six raw roots followed by the ten lane-result or lane-skip roots in the
+   PASS order above. A partially executed pair uses every already sealed actual
+   lane root followed by the counterpart skip if that counterpart did not
+   start; every future pair uses two skips. All referenced skip receipts are
+   sealed before the Control-4 result root. They remain zero-work top-level
+   lane owners; Control 4 only references their existing roots. Prefix expected
+   work is derived from the frozen reached-stage schedule, never copied from
+   actual work.
 5. **Transactional failure:** a manufactured TIGHT first-round solve with
    `QP_cap=1` must return typed `QP_SWEEP_CAP_EXHAUSTED` independently of the
    observed CAP4096 result. A second injection
@@ -665,6 +763,17 @@ work closure. NCGP14 adds separately sealed controls:
    zero-work skip roots remain in both distinct ordered slots. These fields
    bind each child to its policy without a transaction-policy content root, so
    the fixed derivation vector remains unchanged.
+
+   The shared prior, QP-rejected and forced-rejected state roots all use the
+   single `state.v1` schema below with the same TIGHT-128-CAP16384 base lane
+   root. Exact state preservation therefore requires all three root strings to
+   be equal in addition to the field-by-field comparisons. Exactly two
+   non-short-circuit `lane_scalar_comparisons` evaluate
+   `qp_rejected_state_root == prior_state_root` and
+   `forced_rejected_state_root == prior_state_root`. Each rejected root is
+   serialized from that subroute's actual authoritative post-rejection
+   accepted-state object after rollback, never by rehashing the saved prior
+   object as a substitute.
 6. **Work-cap identity:** changing `4096 -> 16384` changes only the declared
    policy input, lane name/root and QP sweep ceiling. Profile, fixture,
    equations, tolerances, ordering and projection cap remain byte-exact. Any
@@ -711,6 +820,16 @@ work closure. NCGP14 adds separately sealed controls:
    QP or contact. When mutations overlap, precedence is fixed and independent
    of storage order: `INVALID_PROFILE`, `CAPACITY_EXCEEDED`, `DUPLICATE_ID`,
    `NONFINITE`, `NON_BINARY32`, then `ROW_NEIGHBOR_CAPACITY_EXCEEDED`.
+   The shared prior and all nine rejected-state roots use the same `state.v1`
+   schema and TIGHT-128-CAP16384 base lane root; every rejected-state root must
+   equal the shared prior root. Mutation identity remains in the typed
+   admission child outcome/input evidence and is not encoded by changing the
+   preserved-state root domain. Exactly nine non-short-circuit
+   `lane_scalar_comparisons` evaluate one
+   `rejected_state_root[i] == shared_prior_state_root` predicate per mutation.
+   Every rejected root is serialized from the actual authoritative
+   post-rejection accepted-state object returned by that production admission
+   control, never by rehashing the shared prior object as a substitute.
 8. **Surface census:** corrected candidate/oracle roots agree, zero-gamma is
    exactly zero, the wrong upper branch `q*q-1` for all `q<3`, wrong force sign
    and omitted factor two are rejected, and no census value affects integrated
@@ -800,6 +919,13 @@ The first 20 increment exactly as in NCGP13. The additional rules are:
   revalidates no semantic predicate and cannot change the first failure.
   A baseline or mutated work root deliberately derived as evidence by control
   6 is not the owning receipt's self-seal: it is charged to that control;
+- the new revision-3 data-root serializers have exact portable-field counts.
+  At `N=128`, each `state.v1` root owns `3 + 10*N = 1283` fields, so the three
+  Control-5 state roots own `3849` and the ten Control-7 state roots own
+  `12830`. The two-step `side-removal-velocity.v1` root owns
+  `3 + 2*(1 + 4*128 + 2) = 1033` fields. These schema fields change expected
+  portable work only; Control-2/5/7 fixed content-root derivation counts remain
+  `2/4/10`;
 - an apparatus-valid complete run performs exactly two physical reads of
   `/proc/self/exe`: one for outer NCGP14 identity and one in the byte-exact
   embedded NCGP13 replay. Therefore that route has `binary_file_reads=2` and
@@ -931,11 +1057,12 @@ finalization—end with the same verifier triplet in exact order: one-byte
 `work_exact`, expected work root and actual work root. The 42 comparisons
 producing `work_exact` are the unmetered verifier operation defined above.
 `round-extra.v1` and `trial-observables.v1` are counted semantic/data roots,
-not owning receipts, and have no verifier triplet. Raw-order, surface-force and
-scratch contain only the fields in their exact bullets and no work root;
-geometry-census and geometry-mutation contain the work root explicitly listed
-in their bullets. The owning top-level envelope binds aggregate expected and
-actual work for all of these data-root computations.
+not owning receipts, and have no verifier triplet. Raw-order, surface-force,
+scratch, state and side-removal-velocity contain only the fields in their exact
+bullets and no work root; geometry-census and geometry-mutation contain the
+work root explicitly listed in their bullets. The owning top-level envelope
+binds aggregate expected and actual work for all of these data-root
+computations.
 
 - `nextengine.nonlocal.ncgp14.raw-order.v1`: length-prefixed fixture name and
   profile root; `u64 dynamic_count` followed by the exact dynamic fixture
@@ -966,6 +1093,22 @@ actual work for all of these data-root computations.
   u8 clamp_mask, correction.x/y/z binary64, accumulated_impulse.x/y/z
   binary64)`. No padding byte is serialized. The canonical empty-scratch root
   contains the lane root followed by four zero counts and no records;
+- `nextengine.nonlocal.ncgp14.state.v1`: the frozen TIGHT-128-CAP16384 base
+  lane root, `u64 dynamic_count`, then records in ascending stable-ID order:
+  `(u32 ID, reference.x/y/z binary64, position.x/y/z binary64,
+  velocity.x/y/z binary64)`. This schema is used only for the preserved-state
+  evidence in Controls 5 and 7. Equal state values under the same base lane
+  root must produce byte-identical roots; subroute or mutation names are not
+  serialized into this state root;
+- `nextengine.nonlocal.ncgp14.side-removal-velocity.v1`: the frozen
+  TIGHT-128-CAP16384 base lane root, the Control-2 side-removal fixture root,
+  then exactly two attempted-step slots in one-based order. Each slot is
+  `u64 velocity_count=128`, followed by records
+  `(u32 stable_ID, velocity.x/y/z binary64)` in ascending stable-ID order,
+  then binary64 actual velocity RMS and binary64 analytic expected velocity
+  RMS. It is a pure data root with no implicit work root; the Control-2
+  envelope binds its derivation/serialization work and all per-particle
+  analytic equality predicates;
 - `nextengine.nonlocal.ncgp14.geometry-mutation.v1`: original fixture root,
   `u64 mutated_record_count`, then records in ascending stable ID
   `(u32 ID, i32 x_index, i32 y_index, i32 z_index, old_position.x/y/z
@@ -1204,17 +1347,20 @@ The NCGP14 process then executes and aggregates receipts in this order:
 
 1. NCGP14 executable/contract/source identity, all profile/fixture/lane roots
    and raw admission;
-2. embedded NCGP13 controls and retained OPEN-128 canonical/permuted route;
+2. embedded NCGP13 controls and retained OPEN-128 canonical/permuted route,
+   followed immediately by its Control-4 lane-result comparison;
 3. independent geometry census, admission/overflow and manufactured
    transaction/work-mutation controls;
-4. OPEN-512 canonical, then OPEN-512 permuted;
-5. TIGHT-128-CAP4096 canonical, then permuted;
-6. TIGHT-128-CAP16384 R8 canonical, then permuted;
-7. conditional R16 canonical/permuted, or its exact typed skip receipts;
+4. OPEN-512 canonical, then OPEN-512 permuted and its Control-4 comparison;
+5. TIGHT-128-CAP4096 canonical, then permuted and its Control-4 comparison;
+6. TIGHT-128-CAP16384 R8 canonical, then permuted and its Control-4 comparison;
+7. only after that comparison passes, conditional R16 canonical/permuted or
+   its exact typed skip receipts, followed by the final Control-4 comparison
+   and Control-4 seal;
 8. side-support-removal control;
 9. OPEN-128, OPEN-512 and TIGHT-128 surface censuses and their formula
    mutations;
-10. permutation/selector comparisons and final aggregation.
+10. remaining selector comparisons and final aggregation.
 
 A valid physical or solver-work rejection in one independent lane does not
 stop later independent lanes. Within a lane, the first rejected trial stops
