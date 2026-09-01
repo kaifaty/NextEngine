@@ -206,11 +206,23 @@ The same frozen evaluator processes:
 5. context coverage collapsed to `u <= 0`, followed by queries at `u >= 0.5`
    — coverage OOD rejection.
 
-OOD score is the maximum of ensemble normalized disagreement, normalized
-static-feature distance outside the train min/max envelope and nearest context
-distance divided by mesh diameter. Its one threshold is the larger of the
-frozen constant `1.0` and `1.25 *` the maximum valid development score. Test
-truth cannot select it.
+OOD uses three raw components: ensemble standard deviation divided by the
+train gain RMS for the corresponding mode, the L-infinity static-feature
+distance outside the train min/max envelope divided feature-wise by the
+nonzero train range, and nearest-context Euclidean distance divided by mesh
+geodesic diameter. Each raw component is divided by its maximum over valid
+development queries, with a denominator floor of `1e-12`; a component whose
+valid-development maximum is exactly zero remains zero for an in-envelope
+query and is `+infinity` for a positive out-of-envelope query. The OOD score is
+the maximum of these three development-calibrated components. Its single
+threshold is the larger of the frozen constant `1.0` and `1.25 *` the maximum
+valid development score after calibration. Test truth cannot select it.
+
+This development calibration is part of the frozen protocol, not a learned
+test threshold. It corrects the dimensional contradiction in the initial
+freeze: the raw nearest-context-distance/diameter ratio is bounded by `1`, so
+it could not have crossed a threshold of at least `1` reliably. This correction
+was made before implementation, training or inspection of any test result.
 
 Required mutation results are:
 

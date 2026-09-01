@@ -51,6 +51,18 @@
 | V16 V0–D0 | `SCAFFOLD_AFTER_L0 / ADMISSION_BLOCKED` | Mutation machinery may start early; real thresholds, shadow, cooker and demo require R1 plus a frozen protected split. |
 | V16 G0–P0 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence, larger risk evidence and a separate Accepted ADR. |
 
+## Pre-execution L0a correction
+
+- **Observation:** raw nearest-context distance divided by mesh diameter is
+  bounded by `1`, while the initially frozen OOD threshold was at least `1`.
+- **Conclusion:** the declared coverage-collapse mutation could not reliably
+  cross its own gate, independently of model quality.
+- **Decision:** before implementation, training or test inspection, calibrate
+  every OOD component by its valid-development maximum and retain the single
+  frozen `max(1.0, 1.25 * development maximum)` rule. L0b remains unopened.
+- **Smallest next action:** implement the corrected protocol without changing
+  its objects, model, seeds, budgets, quality gates or stop rule.
+
 ## Material transition: V12 closes on force coverage
 
 - **Observation:** all sixteen fit impacts start at samples `48,000…48,004`
