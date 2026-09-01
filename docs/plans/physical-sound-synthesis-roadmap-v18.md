@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ACTIVE_R&D / B0_REPEAT_EXACT_PASS / O0_IMPLEMENTATION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `CLOSED_AT_O0 / B0_REPEAT_EXACT_PASS / O0_REPEAT_EXACT_REJECT / F0_I0_NOT_RUN / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V17](physical-sound-synthesis-roadmap-v17.md) after its frozen G0 rejection |
-| Evidence basis | [V18 B0 result](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md), [V18 P0b protocol](../development/physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [V17 G0 result](../development/physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
+| Evidence basis | [V18 O0 result](../development/physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md), [V18 B0 result](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md), [V18 P0b protocol](../development/physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, unsupported material, missing source or tooling failure |
 
@@ -96,10 +96,10 @@ is frozen before implementation. It defines:
 - predictor/scorer separation and zero access to every opened V17 G artifact;
 - unchanged reuse of the V17 P0a O/F/I corpus, models, controls and gates.
 
-The O/F/I reuse is admissible because those roles were never implemented,
-evaluated or opened. I0 substitutes only the passing B0 ridge for the rejected
-V17 neural global head. B0 was implemented and committed before opening its
-fresh rows; it then passed all gates twice byte-exactly. O0 is now next.
+The O/F/I reuse was admissible because those roles had never been implemented,
+evaluated or opened. B0 was committed before opening fresh rows and passed
+twice byte-exactly. O0 was then committed before its test-role evaluation but
+rejected twice exactly; F0 and I0 therefore remain unopened and V18 closes.
 
 ## Milestones
 
@@ -108,9 +108,9 @@ fresh rows; it then passed all gates twice byte-exactly. O0 is now next.
 | R0 | V18 rebaseline | `COMPLETE` | G0 evidence yields the deterministic-global/neural-surface split and explicit non-claims. |
 | P0b | Hybrid protocol | `COMPLETE / FROZEN_BEFORE_IMPLEMENTATION` | Fresh B roles, exact ridge, inherited unopened O/F/I identities, gates, successful controls, access ledger and compute are frozen before code. |
 | B0 | Deterministic global baseline | `COMPLETE / REPEAT_EXACT_PASS` | All 19 single-run gates and the full repeat gate pass: `4.434/15.891 cents`, `0.001226/0.004701` damping, `0/48` valid OOD and `72/72` mutations rejected. |
-| O0 | Intrinsic coverage certificate | `NEXT` | Two exact runs preserve valid contacts and reject the frozen mutation rate in every topology. |
-| F0 | Masked intrinsic field operator | `BLOCKED_BY_O0` | Two exact runs beat every compatible interpolation/pooled/attention control on held gains, continuity and remeshed twins. |
-| I0 | Hybrid truth tournament | `BLOCKED_BY_O0_F0` | Frozen B/O/F pass complete modal, waveform, spectrum, envelope, mutation and OOD gates on fresh integration objects twice exactly. |
+| O0 | Intrinsic coverage certificate | `COMPLETE / REPEAT_EXACT_REJECT` | Valid OOD, disconnection, ambient shortcut and utility pass, but thinning reaches only `65.02%` Plate and `53.73%` RolledSheet versus `>=95%`; `8/10` gates pass. |
+| F0 | Masked intrinsic field operator | `NOT_RUN / CLOSED_BY_O0` | O0 prerequisite rejected; no model, seed, test prediction or parameter artifact exists. |
+| I0 | Hybrid truth tournament | `NOT_RUN / CLOSED_BY_O0` | Integration identities remain sealed because the O0 prerequisite rejected. |
 | S1 | Published-source growth | `PARALLEL / SOURCE_INSUFFICIENT` | Each bounded source gains exact identity/member/axis/freshness evidence or a machine-readable closure reason. |
 | S2 | Metal role freeze | `BLOCKED_BY_S1` | Five generator-ready and three fresh evaluation-complete groups satisfy unchanged `4/1/1/1/1`. |
 | R1 | Disclosed-real tournament | `BLOCKED_BY_I0_AND_S2_GENERATOR_PREREQUISITE` | Frozen hybrid candidate beats real compatible controls without protected access. |
@@ -120,6 +120,20 @@ fresh rows; it then passed all gates twice byte-exactly. O0 is now next.
 | G1 | Wood then Glass | `AFTER_METAL_A0` | Each material repeats unchanged source, validator and admission policy; missing domains stay fallback. |
 | N1 | Optional neural global residual | `DEFERRED / EVIDENCE_TRIGGERED` | A new preregistered family addresses a clustered disclosed-real residual on fresh data and beats B0 by a declared margin. |
 | P1 | Production promotion | `POST_RESEARCH / ADR_REQUIRED` | A concrete consumer, protected evidence and separate Accepted ADR justify contracts and ProductChecks. |
+
+## Closure at O0
+
+O0 demonstrates that graph geodesics are the correct topology boundary:
+valid-test false OOD is zero, every disconnected query rejects, RolledSheet
+ambient shortcuts reject at `100%`, and intrinsic utility is `0.95061` versus
+Euclidean `0.72063`. It also falsifies nearest-context distance as a complete
+coverage certificate: thinning can reduce the context set fourfold while many
+Plate/RolledSheet queries remain inside the ordinary valid fill radius.
+
+No O0 threshold or mutation is repaired on opened rows. A successor requires a
+new preregistered context-density/fill family and fresh test identities. Source
+growth may continue independently, but no learned F0 or integrated I0 work is
+authorized by V18.
 
 ## Stop rules
 
