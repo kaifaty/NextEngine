@@ -3,7 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / R0_COMPLETE / M0A_REPEAT_EXACT_REJECT / M0B_REPEAT_EXACT_PASS / P0C_FROZEN / I1_IMPLEMENTATION_PENDING / VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `CLOSED / I1_REPEAT_EXACT_REJECT / ACTUAL_ACOUSTIC_PASS / REPLACED_BY_V21` |
+| Replaced by | [Roadmap V21](physical-sound-synthesis-roadmap-v21.md) |
 | Replaces | [Roadmap V19](physical-sound-synthesis-roadmap-v19.md), closed before I0 by its development-control rejection |
 | Evidence basis | [V19 I0 development control](../development/physical-sound-v19-i0-development-control-result-2026-09-01.md), [V19 F0](../development/physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [V19 C0](../development/physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [V18 B0](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -146,8 +147,8 @@ threshold: [DDSP](https://arxiv.org/abs/2001.04643),
 | M0a | Phase-consistent metric calibration | `COMPLETE / REPEAT_EXACT_REJECT / FAMILY_CLOSED` | [Exact result](../development/physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md) proves deterministic controls and physical owners but rejects raw MRLM/absolute DE separation. |
 | M0b | Confound-resistant metric calibration | `COMPLETE / REPEAT_EXACT_PASS` | [Exact result](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md) passes every separation, physical, monotonic, access and repeat gate. |
 | P0c | V20 integration protocol | `COMPLETE / FROZEN_BEFORE_VALUES` | [Exact I1 rows, midpoint thresholds, counterfactuals and access boundary](../development/physical-sound-v20-p0c-i1-integration-protocol-2026-09-01.md) are frozen before I1 code. |
-| I1 | Frozen B0+C0+F0 integration | `IMPLEMENTATION_PENDING / VALUES_SEALED` | Exact dependencies pass all hard, physical and phase-consistent gates twice byte-exactly on `1701…1712` plus twins. |
-| G1/F1 | Evidence-triggered component revision | `DORMANT` | Only a causally attributed I1 reject may open one new global or field family on fresh `1801…2101` bands; a metric-contract defect returns to M/P, not model tuning. |
+| I1 | Frozen B0+C0+F0 integration | `COMPLETE / REPEAT_EXACT_REJECT / ACTUAL_ACOUSTIC_PASS` | [Exact result](../development/physical-sound-v20-i1-frozen-integration-result-2026-09-01.md) isolates one F0 remesh reject and one P0c counterfactual-owner defect. |
+| G1/F1 | Evidence-triggered component revision | `OPENED_AS_V21_F1` | [V21](physical-sound-synthesis-roadmap-v21.md) reserves fresh paired `1801…2101` bands for a mesh-consistent field family; global B0 remains frozen. |
 | S1 | Published-source growth | `PARALLEL / SOURCE_INSUFFICIENT` | Each candidate source gets exact revision/member/axis/provenance evidence or a machine-readable closure reason. |
 | M1 | Metal immutable role freeze | `BLOCKED_BY_S1` | Five generator-ready and three evaluation-complete groups satisfy unchanged `4/1/1/1/1`; exposed aliases receive no protected credit. |
 | R1 | Disclosed-real Metal tournament | `BLOCKED_BY_I1_AND_M1_GENERATOR_PREREQUISITE` | One preregistered modal candidate beats deterministic and authored controls on generator-visible roles without validator access. |
