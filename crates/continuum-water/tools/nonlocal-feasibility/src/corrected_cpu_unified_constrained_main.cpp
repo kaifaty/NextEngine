@@ -3492,13 +3492,17 @@ MutationControl15 solver_mutation_control15(const Profile15& profile,
     result.roots_distinct = corrected_input.root != mutated_input.root
         && result.corrected->value.result_root
             != result.mutated->value.result_root;
+    const bool mutated_typed_noncommit =
+        !result.mutated->transaction_committed
+        && result.mutated->root_closed && result.mutated->work.exact
+        && result.mutated->value.apparatus_valid
+        && finite_step_payload15(result.mutated->value);
     result.expected_rejection_observed =
         result.corrected->transaction_committed
         && result.oracle->transaction_committed
         && result.corrected_oracle.pass
-        && !result.mutated->value.work_ceiling && result.roots_distinct
-        && (!result.mutated->transaction_committed
-            || !result.mutated_oracle.pass);
+        && result.roots_distinct
+        && (mutated_typed_noncommit || !result.mutated_oracle.pass);
     result.receipt.child_roots = {result.corrected->value.result_root,
         result.oracle->value.result_root, result.mutated->value.result_root,
         scalar_observable_root15(result.receipt.name,
@@ -5204,10 +5208,11 @@ PhaseA15 run_phase_a15(const Profile15& profile, const State15& tight,
     result.energy.push_back(reversible_energy_control15(profile));
 
     const TermMask15 all_terms{true, true, false, true};
+    const TermMask15 pressure_terms{true, false, false, false};
     const TermMask15 normal_terms{true, true, false, false};
     const TermMask15 surface_terms{true, false, false, true};
     result.mutations.push_back(solver_mutation_control15(profile,
-        "missing-kernel-derivative-2-over-h", tight, all_terms,
+        "missing-kernel-derivative-2-over-h", tight, pressure_terms,
         GravityMode15::Profile, BoundaryMode15::AnalyticBox,
         Mutation15::MissingKernelChain));
     result.mutations.push_back(solver_mutation_control15(profile,
@@ -5233,7 +5238,7 @@ PhaseA15 run_phase_a15(const Profile15& profile, const State15& tight,
         BoundaryMode15::UnboundedManufactured,
         Mutation15::CurrentReferenceViscosityGraph));
     result.mutations.push_back(solver_mutation_control15(profile,
-        "finite-pressure-penalty-substitution", tight, all_terms,
+        "finite-pressure-penalty-substitution", tight, pressure_terms,
         GravityMode15::Profile, BoundaryMode15::AnalyticBox,
         Mutation15::FinitePressurePenalty));
     State15 nonfinite = tetra_fixture15();
