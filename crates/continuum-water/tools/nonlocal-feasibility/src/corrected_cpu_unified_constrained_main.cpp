@@ -1636,6 +1636,25 @@ State15 tight_fixture15(const Profile15& profile) {
     return state;
 }
 
+State15 active_pressure_mutation_fixture15() {
+    State15 state;
+    state.dynamic.reserve(27U);
+    for (std::uint32_t iz = 0U; iz < 3U; ++iz) {
+        for (std::uint32_t iy = 0U; iy < 3U; ++iy) {
+            for (std::uint32_t ix = 0U; ix < 3U; ++ix) {
+                const std::uint32_t logical = ix + 3U * (iy + 3U * iz);
+                const Vec3l position = canonical_vec({
+                    0.5L + 0.04L * static_cast<long double>(ix),
+                    0.5L + 0.04L * static_cast<long double>(iy),
+                    0.5L + 0.04L * static_cast<long double>(iz)});
+                state.dynamic.push_back(
+                    {100U + logical, position, position, {}});
+            }
+        }
+    }
+    return state;
+}
+
 State15 pair_fixture15(Vec3l lhs_position, Vec3l lhs_velocity,
     Vec3l rhs_position, Vec3l rhs_velocity) {
     State15 state;
@@ -3492,17 +3511,25 @@ MutationControl15 solver_mutation_control15(const Profile15& profile,
     result.roots_distinct = corrected_input.root != mutated_input.root
         && result.corrected->value.result_root
             != result.mutated->value.result_root;
+    const bool declared_mutated_noncommit =
+        result.mutated->value.outcome == "LINE_SEARCH_EXHAUSTED"
+        || result.mutated->value.outcome
+            == "SOLVER_WORK_CEILING_INCONCLUSIVE";
     const bool mutated_typed_noncommit =
         !result.mutated->transaction_committed
         && result.mutated->root_closed && result.mutated->work.exact
-        && result.mutated->value.apparatus_valid
+        && declared_mutated_noncommit
+        && finite_step_payload15(result.mutated->value);
+    const bool mutated_completed = result.mutated->transaction_committed
+        && main_step_apparatus15(*result.mutated)
         && finite_step_payload15(result.mutated->value);
     result.expected_rejection_observed =
         result.corrected->transaction_committed
         && result.oracle->transaction_committed
         && result.corrected_oracle.pass
         && result.roots_distinct
-        && (mutated_typed_noncommit || !result.mutated_oracle.pass);
+        && (mutated_typed_noncommit
+            || (mutated_completed && !result.mutated_oracle.pass));
     result.receipt.child_roots = {result.corrected->value.result_root,
         result.oracle->value.result_root, result.mutated->value.result_root,
         scalar_observable_root15(result.receipt.name,
@@ -3532,10 +3559,17 @@ MutationControl15 solver_mutation_control15(const Profile15& profile,
         && main_step_apparatus15(*result.corrected)
         && main_step_apparatus15(*result.oracle)
         && result.corrected_oracle.pass
-        && result.mutated->value.apparatus_valid;
+        && result.roots_distinct
+        && (mutated_typed_noncommit || mutated_completed);
     result.receipt.pass = result.expected_rejection_observed;
-    result.receipt.typed_outcome = result.expected_rejection_observed
-        ? "EXPECTED_REJECTION" : "MUTATION_SURVIVED";
+    if (result.expected_rejection_observed) {
+        result.receipt.typed_outcome = "EXPECTED_REJECTION";
+    } else if (result.receipt.apparatus_valid && mutated_completed
+            && result.mutated_oracle.pass) {
+        result.receipt.typed_outcome = "MUTATION_SURVIVED";
+    } else {
+        result.receipt.typed_outcome = "APPARATUS_INVALID";
+    }
     close_receipt15(result.receipt, actual, expected);
     return result;
 }
@@ -5210,9 +5244,10 @@ PhaseA15 run_phase_a15(const Profile15& profile, const State15& tight,
     const TermMask15 pressure_terms{true, false, false, false};
     const TermMask15 normal_terms{true, true, false, false};
     const TermMask15 surface_terms{true, false, false, true};
+    const State15 active_pressure = active_pressure_mutation_fixture15();
     result.mutations.push_back(solver_mutation_control15(profile,
-        "missing-kernel-derivative-2-over-h", tight, pressure_terms,
-        GravityMode15::Profile, BoundaryMode15::AnalyticBox,
+        "missing-kernel-derivative-2-over-h", active_pressure, pressure_terms,
+        GravityMode15::Zero, BoundaryMode15::UnboundedManufactured,
         Mutation15::MissingKernelChain));
     result.mutations.push_back(solver_mutation_control15(profile,
         "half-normal-viscosity", pair_fixture15({0.10L, 0.10L, 0.10L},
@@ -5237,8 +5272,9 @@ PhaseA15 run_phase_a15(const Profile15& profile, const State15& tight,
         BoundaryMode15::UnboundedManufactured,
         Mutation15::CurrentReferenceViscosityGraph));
     result.mutations.push_back(solver_mutation_control15(profile,
-        "finite-pressure-penalty-substitution", tight, pressure_terms,
-        GravityMode15::Profile, BoundaryMode15::AnalyticBox,
+        "finite-pressure-penalty-substitution", active_pressure,
+        pressure_terms, GravityMode15::Zero,
+        BoundaryMode15::UnboundedManufactured,
         Mutation15::FinitePressurePenalty));
     State15 nonfinite = tetra_fixture15();
     nonfinite.dynamic[0].position.x =
