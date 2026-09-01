@@ -867,7 +867,7 @@ bool trace_grammar15(const Step15& step, const SolverOptions15& options,
                                         std::string_view next) {
         if (previous == "PROJECTION") {
             return next == "PROJECTION_BOX" || next == "PROJECTION"
-                || next == "INNER_GATE";
+                || next == "INNER_GATE" || next == "FINAL_GATE";
         }
         if (previous == "PROJECTION_BOX") {
             return next == "PROJECTION" || next == "INNER_GATE"
