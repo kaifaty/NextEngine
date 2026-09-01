@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / QUALITY+48K BUDGET PASS / PRESENTATION SURFACE NEXT` |
+| Status | `ACTIVE / EDGE-AWARE SURFACE MESH PASS / GPU RENDERER PORT NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -14,17 +14,16 @@
 - **Goal:** qualify a plausible game-water Nonlocal GPU step near 50,000
   particles against `p95 <= 4 ms`, `p99 <= 6 ms` on RTX 3080; laboratory
   fidelity to the later research solver is not required.
-- **Current boundary:** one explicit five-iteration/no-ghost/analytic-contact
-  capacity-160 profile passes the frozen 96-step 4k/16k visual corpus and two
-  independent 48k performance processes. Visual semantic roots are unchanged
-  from NGQ2 after the profile identity consolidation.
-- **First current risk:** the 4k final raster has a small `0.846%` satellite
-  area, acceptable in the frozen game band but worth watching in renderer
-  smoothing and longer motion. Surface extraction cost is not included in the
-  `3.23 ms` solver result and needs its own budget.
-- **Current action:** prototype presentation-only smoothing/extraction over
-  the exact accepted frames. Keep it outside simulation authority and measure
-  its incremental GPU/renderer cost separately.
+- **Current boundary:** the capacity-160 simulation passes visual quality and
+  48k timing, and a presentation-only edge-aware extractor turns all ten
+  accepted keyframes into one connected height-field mesh. Parent simulation
+  roots remain exact and no presentation value feeds back into physics.
+- **First current risk:** the CPU reference costs about `3.6 ms/frame` at 4k
+  and `13.9 ms/frame` at 16k, and debug normal lighting still exposes residual
+  particle-lattice texture. This is not yet a production renderer surface.
+- **Current action:** port the fixed close/bilateral/mesh-or-indirect-draw work
+  to GPU/renderer compute, reconstruct smoother presentation normals and
+  measure its incremental cost separately from the `3.23 ms` physics step.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -58,6 +57,9 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/15-original-gpu-dynamic-visual-corpus.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/16-original-gpu-dynamic-visual-capacity-corrigendum.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/17-analytic-contact-cap160-performance.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/18-presentation-surface-prototype.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/19-presentation-surface-area-corrigendum.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/20-edge-aware-presentation-surface.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
@@ -70,6 +72,7 @@
 - `docs/development/nonlocal-gpu-game-quality-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-dynamic-visual-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-cap160-performance-evidence-2026-09-01.md`
+- `docs/development/nonlocal-gpu-presentation-surface-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -956,6 +959,47 @@
   longer visual corpus exceeds topology bands, or runtime integration changes
   the measured work.
 
+### D-036 — Reject isotropic presentation smoothing at moving fronts
+
+- **Observation:** NGQ4 revision 1 rejects the desired conversion from sphere
+  circles to a continuous cell footprint because its area ratio is `1.333`.
+  Revision 2 corrects only that observable, then the unchanged isotropic 3x3
+  height pass crosses the developed step-48 front: 4k depth RMSE/p95 become
+  `57.3/148.9 mm` despite exact physics and one connected mask.
+- **Conclusion:** the first failure is not Nonlocal physics or mask topology.
+  Ordinary height blur destroys a meaningful depth edge; widening the depth
+  gate or adding more isotropic passes would hide the defect.
+- **Decision:** preserve both NGQ4 failures and replace the algorithm class,
+  not the gate, under NGQ5. Keep the same spatial stencil and run one frozen
+  edge-aware range weighting discriminator.
+- **Rejected:** accepting 149 mm p95 as cosmetic, lowering surface resolution,
+  or feeding filtered height back into particles.
+- **Reconsider when:** only if the root-bound edge-aware control cannot
+  separate cross-edge blur from closed-pixel assignment.
+
+### D-037 — Admit an edge-aware connected surface prototype
+
+- **Observation:** a single 3x3 bilateral pass with range sigma equal to the
+  `25 mm` particle radius passes all five 4k and five 16k frames. The embedded
+  isotropic control repeats `~142--149 mm` moving-front p95, while bilateral
+  p95 remains at most `8.257/7.681 mm`; every mesh has one component and zero
+  bounding-box expansion.
+- **Evidence:** parent corpus `c2f1f6e7...`, controls `8fefb524...`, surface
+  results `c58e7c51...` / `7b089aad...`, corpus `a98f189b...`; two processes
+  match semantic subset `44712cc5...`. Final meshes contain `10,071/19,708`
+  and `33,634/66,510` vertices/triangles.
+- **Conclusion:** HG5A is supported bounded: isotropic cross-edge averaging was
+  the first presentation failure. A connected surface representation is
+  viable without changing the selected GPU water state.
+- **Decision:** retain this as a renderer-facing reference, not a production
+  implementation. Stop CPU filter refinement; next work is GPU compute/smooth
+  normals plus separate timing and visual review.
+- **Remaining risk:** CPU extraction is `~3.6/13.9 ms` per keyframe and debug
+  lighting still shows particle-scale texture. Blender beauty rendering was
+  not available on this host.
+- **Reconsider when:** GPU port exceeds its presentation budget, smooth normals
+  reveal topology defects, or longer motion violates the frozen surface bands.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1007,6 +1051,9 @@
 | H17C | the original five-iteration GPU model is adequate for game-quality water | selected on the bounded smoke: hold/release/contact pass while sixteen iterations over-damp release | full-size timing plus timed GPU contact |
 | H17D | the fast route remains coherent on a moving 4k/16k visible surface | supported bounded after the one-time 123->160 capacity correction; both lanes pass, final satellite area 0.846%/0% | presentation smoothing |
 | H17E | the visually required N*160 allocation still fits the 48k game budget | selected bounded: p95 3.226/3.232 ms and p99 3.269/3.335 ms with exact semantics | presentation extraction cost |
+| HG5A | isotropic presentation blur crosses real moving-front depth edges | selected bounded: bilateral p95 <=8.257 mm while isotropic control repeats >=141.897 mm | GPU/renderer port |
+| HG5B | closed-pixel interpolation is the first depth-error source | falsified on the frozen frames by the edge-aware result | closed for this witness |
+| HG5C | one top-down height field cannot form a connected developed-front mesh | falsified bounded: every 4k/16k extracted mesh is one component | reconsider on overhang/splash corpus |
 
 ## Do not retry
 
@@ -1019,9 +1066,10 @@
 
 ## Next action
 
-1. Add presentation-only smoothing/extraction over the exact accepted 4k/16k
-   frames, with observer work outside physics timing and no simulation feedback.
-2. Measure its incremental cost separately from the `3.23 ms` physics step.
+1. Port the frozen close/bilateral surface reference to GPU/renderer compute;
+   retain immutable inputs and no simulation feedback.
+2. Reconstruct smooth presentation normals, render the accepted 4k/16k frames
+   in the actual renderer and measure incremental cost separately from physics.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.

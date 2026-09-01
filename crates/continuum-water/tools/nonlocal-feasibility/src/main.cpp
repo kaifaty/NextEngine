@@ -80,6 +80,8 @@ void print_usage() {
               << "       nonlocal-feasibility --game-quality-smoke\n"
               << "       nonlocal-feasibility --game-visual-corpus\n"
               << "       nonlocal-feasibility --game-visual-corpus --frames <prefix>\n"
+              << "       nonlocal-feasibility --game-surface-prototype\n"
+              << "       nonlocal-feasibility --game-surface-prototype --frames <prefix>\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
@@ -169,6 +171,19 @@ int main(int argc, char** argv) {
             && std::string(argv[2]) == "--frames") {
             const auto report =
                 nextengine::nonlocal::run_cuda_game_visual_corpus(argv[3]);
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--game-surface-prototype") {
+            const auto report =
+                nextengine::nonlocal::run_cuda_game_surface_prototype();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 4 && std::string(argv[1]) == "--game-surface-prototype"
+            && std::string(argv[2]) == "--frames") {
+            const auto report =
+                nextengine::nonlocal::run_cuda_game_surface_prototype(argv[3]);
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

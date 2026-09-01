@@ -8028,6 +8028,59 @@ struct GameVisualObserverControls {
     std::string root;
 };
 
+struct PresentationSurfaceFrame {
+    bool valid = false;
+    bool passed = false;
+    int step = 0;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::vector<std::uint8_t> wet;
+    std::vector<double> depth;
+    std::uint64_t raw_wet_pixels = 0;
+    std::uint64_t wet_pixels = 0;
+    std::uint64_t common_pixels = 0;
+    std::uint64_t filled_pixels = 0;
+    std::uint64_t culled_pixels = 0;
+    std::uint32_t components = 0;
+    bool local_fill_only = false;
+    std::array<std::uint32_t, 4> bounding_box_expansion_pixels{};
+    double area_ratio = 0.0;
+    double common_coverage = 0.0;
+    double depth_rmse = 0.0;
+    double depth_p95_change = 0.0;
+    double maximum_depth_change = 0.0;
+    double isotropic_depth_rmse = 0.0;
+    double isotropic_depth_p95_change = 0.0;
+    double isotropic_maximum_depth_change = 0.0;
+    std::uint64_t mesh_vertices = 0;
+    std::uint64_t mesh_triangles = 0;
+    double extraction_ms = 0.0;
+    std::string input_root;
+    std::string root;
+};
+
+struct PresentationSurfaceLane {
+    std::string id;
+    bool executed = false;
+    bool passed = false;
+    bool montage_written = false;
+    bool mesh_written = false;
+    double total_extraction_ms = 0.0;
+    std::vector<PresentationSurfaceFrame> frames;
+    std::string raw_trace_root;
+    std::string raw_result_root;
+    std::string result_root;
+    std::string first_failure;
+};
+
+struct PresentationSurfaceControls {
+    bool empty_rejected = false;
+    bool nonfinite_rejected = false;
+    bool mask_mutation_changed_root = false;
+    bool depth_mutation_changed_root = false;
+    std::string root;
+};
+
 double game_percentile(std::vector<double> values, double probability) {
     if (values.empty()) {
         return std::numeric_limits<double>::quiet_NaN();
@@ -8344,6 +8397,615 @@ bool write_game_surface_montage(
         }
     }
     return static_cast<bool>(stream);
+}
+
+struct SurfaceMaskComponents {
+    std::vector<std::uint32_t> labels;
+    std::vector<std::uint32_t> sizes;
+};
+
+SurfaceMaskComponents label_surface_mask(
+    const std::vector<std::uint8_t>& wet,
+    std::uint32_t width,
+    std::uint32_t height) {
+    SurfaceMaskComponents result;
+    const std::size_t pixels = static_cast<std::size_t>(width) * height;
+    if (width == 0U || height == 0U || wet.size() != pixels) {
+        return result;
+    }
+    const std::uint32_t absent = std::numeric_limits<std::uint32_t>::max();
+    result.labels.assign(pixels, absent);
+    std::vector<std::uint32_t> stack;
+    for (std::uint32_t seed = 0; seed < pixels; ++seed) {
+        if (wet[seed] == 0U || result.labels[seed] != absent) {
+            continue;
+        }
+        const std::uint32_t label = static_cast<std::uint32_t>(result.sizes.size());
+        result.sizes.push_back(0U);
+        result.labels[seed] = label;
+        stack.push_back(seed);
+        while (!stack.empty()) {
+            const std::uint32_t pixel = stack.back();
+            stack.pop_back();
+            ++result.sizes[label];
+            const std::int32_t x = static_cast<std::int32_t>(pixel % width);
+            const std::int32_t z = static_cast<std::int32_t>(pixel / width);
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    if (dx == 0 && dz == 0) {
+                        continue;
+                    }
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx < 0 || nz < 0 || nx >= static_cast<std::int32_t>(width)
+                        || nz >= static_cast<std::int32_t>(height)) {
+                        continue;
+                    }
+                    const std::uint32_t neighbor =
+                        static_cast<std::uint32_t>(nz) * width
+                        + static_cast<std::uint32_t>(nx);
+                    if (wet[neighbor] != 0U && result.labels[neighbor] == absent) {
+                        result.labels[neighbor] = label;
+                        stack.push_back(neighbor);
+                    }
+                }
+            }
+        }
+    }
+    return result;
+}
+
+std::string presentation_surface_root(const PresentationSurfaceFrame& frame) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.presentation-surface-frame.v3\n"
+             << frame.valid << ':' << frame.passed << ':' << frame.step << ':'
+             << frame.width << ':' << frame.height << ':' << frame.raw_wet_pixels
+             << ':' << frame.wet_pixels << ':' << frame.common_pixels << ':'
+             << frame.filled_pixels << ':' << frame.culled_pixels << ':'
+             << frame.components << ':' << frame.local_fill_only << ':'
+             << frame.bounding_box_expansion_pixels[0] << ':'
+             << frame.bounding_box_expansion_pixels[1] << ':'
+             << frame.bounding_box_expansion_pixels[2] << ':'
+             << frame.bounding_box_expansion_pixels[3] << ':' << std::hexfloat
+             << frame.area_ratio << ':'
+             << frame.common_coverage << ':' << frame.depth_rmse << ':'
+             << frame.depth_p95_change << ':' << frame.maximum_depth_change << ':'
+             << frame.isotropic_depth_rmse << ':'
+             << frame.isotropic_depth_p95_change << ':'
+             << frame.isotropic_maximum_depth_change << ':'
+             << frame.mesh_vertices << ':' << frame.mesh_triangles << '\n'
+             << frame.input_root << '\n';
+    for (std::size_t pixel = 0; pixel < frame.wet.size(); ++pixel) {
+        material << static_cast<unsigned>(frame.wet[pixel]);
+        if (frame.wet[pixel] != 0U) {
+            material << ':' << frame.depth[pixel];
+        }
+        material << ';';
+    }
+    return sha256_hex(material.str());
+}
+
+PresentationSurfaceFrame extract_presentation_surface(
+    const GameSurfaceFrame& raw,
+    const GameQualityBox& box) {
+    const auto begin = std::chrono::steady_clock::now();
+    PresentationSurfaceFrame frame;
+    frame.step = raw.step;
+    frame.width = raw.width;
+    frame.height = raw.height;
+    frame.raw_wet_pixels = raw.wet_pixels;
+    frame.input_root = raw.root;
+    const std::size_t pixels = static_cast<std::size_t>(raw.width) * raw.height;
+    const bool dimensions_valid = raw.width != 0U && raw.height != 0U
+        && raw.wet.size() == pixels && raw.depth.size() == pixels;
+    bool input_valid = raw.valid && dimensions_valid && raw.wet_pixels != 0U
+        && game_surface_root(raw) == raw.root;
+    if (input_valid) {
+        for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
+            input_valid = input_valid && (raw.wet[pixel] == 0U
+                || (std::isfinite(raw.depth[pixel])
+                    && raw.depth[pixel] >= box.minimum.y
+                    && raw.depth[pixel] <= box.maximum.y + 1.0e-12));
+        }
+    }
+    if (!input_valid) {
+        frame.extraction_ms = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - begin).count();
+        frame.root = presentation_surface_root(frame);
+        return frame;
+    }
+
+    const SurfaceMaskComponents raw_components =
+        label_surface_mask(raw.wet, raw.width, raw.height);
+    if (raw_components.sizes.empty()) {
+        frame.extraction_ms = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - begin).count();
+        frame.root = presentation_surface_root(frame);
+        return frame;
+    }
+    const std::uint32_t largest_label = static_cast<std::uint32_t>(std::distance(
+        raw_components.sizes.begin(), std::max_element(
+            raw_components.sizes.begin(), raw_components.sizes.end())));
+    std::vector<std::uint8_t> retained(pixels, 0U);
+    for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
+        retained[pixel] = static_cast<std::uint8_t>(
+            raw_components.labels[pixel] == largest_label);
+    }
+    std::uint32_t raw_min_x = raw.width;
+    std::uint32_t raw_max_x = 0U;
+    std::uint32_t raw_min_z = raw.height;
+    std::uint32_t raw_max_z = 0U;
+    for (std::uint32_t z = 0; z < raw.height; ++z) {
+        for (std::uint32_t x = 0; x < raw.width; ++x) {
+            const std::size_t pixel = static_cast<std::size_t>(z) * raw.width + x;
+            if (retained[pixel] != 0U) {
+                raw_min_x = std::min(raw_min_x, x);
+                raw_max_x = std::max(raw_max_x, x);
+                raw_min_z = std::min(raw_min_z, z);
+                raw_max_z = std::max(raw_max_z, z);
+            }
+        }
+    }
+
+    std::vector<std::uint8_t> dilated(pixels, 0U);
+    for (std::int32_t z = 0; z < static_cast<std::int32_t>(raw.height); ++z) {
+        for (std::int32_t x = 0; x < static_cast<std::int32_t>(raw.width); ++x) {
+            bool any = false;
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx >= 0 && nz >= 0
+                        && nx < static_cast<std::int32_t>(raw.width)
+                        && nz < static_cast<std::int32_t>(raw.height)) {
+                        const std::size_t neighbor = static_cast<std::size_t>(nz)
+                            * raw.width + static_cast<std::size_t>(nx);
+                        any = any || retained[neighbor] != 0U;
+                    }
+                }
+            }
+            dilated[static_cast<std::size_t>(z) * raw.width
+                + static_cast<std::size_t>(x)] = static_cast<std::uint8_t>(any);
+        }
+    }
+    frame.wet.assign(pixels, 0U);
+    for (std::int32_t z = 0; z < static_cast<std::int32_t>(raw.height); ++z) {
+        for (std::int32_t x = 0; x < static_cast<std::int32_t>(raw.width); ++x) {
+            bool all = true;
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx < 0 || nz < 0 || nx >= static_cast<std::int32_t>(raw.width)
+                        || nz >= static_cast<std::int32_t>(raw.height)) {
+                        continue;
+                    }
+                    const std::size_t neighbor = static_cast<std::size_t>(nz)
+                        * raw.width + static_cast<std::size_t>(nx);
+                    all = all && dilated[neighbor] != 0U;
+                }
+            }
+            frame.wet[static_cast<std::size_t>(z) * raw.width
+                + static_cast<std::size_t>(x)] = static_cast<std::uint8_t>(all);
+        }
+    }
+
+    std::vector<double> base_depth(pixels, 0.0);
+    for (std::int32_t z = 0; z < static_cast<std::int32_t>(raw.height); ++z) {
+        for (std::int32_t x = 0; x < static_cast<std::int32_t>(raw.width); ++x) {
+            const std::size_t pixel = static_cast<std::size_t>(z) * raw.width
+                + static_cast<std::size_t>(x);
+            if (frame.wet[pixel] == 0U) {
+                continue;
+            }
+            if (retained[pixel] != 0U) {
+                base_depth[pixel] = raw.depth[pixel];
+                continue;
+            }
+            double sum = 0.0;
+            std::uint32_t count = 0U;
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx < 0 || nz < 0 || nx >= static_cast<std::int32_t>(raw.width)
+                        || nz >= static_cast<std::int32_t>(raw.height)) {
+                        continue;
+                    }
+                    const std::size_t neighbor = static_cast<std::size_t>(nz)
+                        * raw.width + static_cast<std::size_t>(nx);
+                    if (retained[neighbor] != 0U) {
+                        sum += raw.depth[neighbor];
+                        ++count;
+                    }
+                }
+            }
+            if (count == 0U) {
+                frame.extraction_ms = std::chrono::duration<double, std::milli>(
+                    std::chrono::steady_clock::now() - begin).count();
+                frame.root = presentation_surface_root(frame);
+                return frame;
+            }
+            base_depth[pixel] = sum / static_cast<double>(count);
+        }
+    }
+
+    frame.depth.assign(pixels, 0.0);
+    std::vector<double> isotropic_depth(pixels, 0.0);
+    for (std::int32_t z = 0; z < static_cast<std::int32_t>(raw.height); ++z) {
+        for (std::int32_t x = 0; x < static_cast<std::int32_t>(raw.width); ++x) {
+            const std::size_t pixel = static_cast<std::size_t>(z) * raw.width
+                + static_cast<std::size_t>(x);
+            if (frame.wet[pixel] == 0U) {
+                continue;
+            }
+            double weighted_sum = 0.0;
+            double weight_sum = 0.0;
+            double bilateral_sum = 0.0;
+            double bilateral_weight_sum = 0.0;
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx < 0 || nz < 0 || nx >= static_cast<std::int32_t>(raw.width)
+                        || nz >= static_cast<std::int32_t>(raw.height)) {
+                        continue;
+                    }
+                    const std::size_t neighbor = static_cast<std::size_t>(nz)
+                        * raw.width + static_cast<std::size_t>(nx);
+                    if (frame.wet[neighbor] == 0U) {
+                        continue;
+                    }
+                    const double weight = static_cast<double>(dx == 0 ? 2 : 1)
+                        * static_cast<double>(dz == 0 ? 2 : 1);
+                    weighted_sum += weight * base_depth[neighbor];
+                    weight_sum += weight;
+                    const double range = base_depth[neighbor] - base_depth[pixel];
+                    const double range_weight = std::exp(
+                        -0.5 * range * range / (GAME_RADIUS * GAME_RADIUS));
+                    bilateral_sum += weight * range_weight * base_depth[neighbor];
+                    bilateral_weight_sum += weight * range_weight;
+                }
+            }
+            isotropic_depth[pixel] = std::clamp(
+                weighted_sum / weight_sum, box.minimum.y, box.maximum.y);
+            frame.depth[pixel] = std::clamp(bilateral_sum / bilateral_weight_sum,
+                box.minimum.y, box.maximum.y);
+        }
+    }
+
+    std::vector<double> depth_changes;
+    std::vector<double> isotropic_depth_changes;
+    frame.local_fill_only = true;
+    std::uint32_t surface_min_x = frame.width;
+    std::uint32_t surface_max_x = 0U;
+    std::uint32_t surface_min_z = frame.height;
+    std::uint32_t surface_max_z = 0U;
+    for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
+        const bool raw_wet = raw.wet[pixel] != 0U;
+        const bool surface_wet = frame.wet[pixel] != 0U;
+        frame.wet_pixels += static_cast<std::uint64_t>(surface_wet);
+        frame.common_pixels += static_cast<std::uint64_t>(raw_wet && surface_wet);
+        frame.filled_pixels += static_cast<std::uint64_t>(!raw_wet && surface_wet);
+        frame.culled_pixels += static_cast<std::uint64_t>(raw_wet && !surface_wet);
+        if (surface_wet) {
+            const std::uint32_t x = static_cast<std::uint32_t>(pixel % frame.width);
+            const std::uint32_t z = static_cast<std::uint32_t>(pixel / frame.width);
+            surface_min_x = std::min(surface_min_x, x);
+            surface_max_x = std::max(surface_max_x, x);
+            surface_min_z = std::min(surface_min_z, z);
+            surface_max_z = std::max(surface_max_z, z);
+            if (retained[pixel] == 0U) {
+                bool retained_neighbor = false;
+                for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                    for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                        const std::int32_t nx = static_cast<std::int32_t>(x) + dx;
+                        const std::int32_t nz = static_cast<std::int32_t>(z) + dz;
+                        if (nx >= 0 && nz >= 0
+                            && nx < static_cast<std::int32_t>(frame.width)
+                            && nz < static_cast<std::int32_t>(frame.height)) {
+                            const std::size_t neighbor = static_cast<std::size_t>(nz)
+                                * frame.width + static_cast<std::size_t>(nx);
+                            retained_neighbor = retained_neighbor
+                                || retained[neighbor] != 0U;
+                        }
+                    }
+                }
+                frame.local_fill_only = frame.local_fill_only && retained_neighbor;
+            }
+        }
+        if (raw_wet && surface_wet) {
+            const double change = std::abs(frame.depth[pixel] - raw.depth[pixel]);
+            const double isotropic_change =
+                std::abs(isotropic_depth[pixel] - raw.depth[pixel]);
+            depth_changes.push_back(change);
+            isotropic_depth_changes.push_back(isotropic_change);
+            frame.depth_rmse += change * change;
+            frame.maximum_depth_change = std::max(frame.maximum_depth_change, change);
+            frame.isotropic_depth_rmse += isotropic_change * isotropic_change;
+            frame.isotropic_maximum_depth_change = std::max(
+                frame.isotropic_maximum_depth_change, isotropic_change);
+        }
+    }
+    if (frame.raw_wet_pixels != 0U) {
+        frame.area_ratio = static_cast<double>(frame.wet_pixels)
+            / static_cast<double>(frame.raw_wet_pixels);
+        frame.common_coverage = static_cast<double>(frame.common_pixels)
+            / static_cast<double>(frame.raw_wet_pixels);
+    }
+    if (!depth_changes.empty()) {
+        frame.depth_rmse = std::sqrt(
+            frame.depth_rmse / static_cast<double>(depth_changes.size()));
+        frame.depth_p95_change = game_percentile(depth_changes, 0.95);
+        frame.isotropic_depth_rmse = std::sqrt(frame.isotropic_depth_rmse
+            / static_cast<double>(isotropic_depth_changes.size()));
+        frame.isotropic_depth_p95_change =
+            game_percentile(isotropic_depth_changes, 0.95);
+    }
+    if (frame.wet_pixels != 0U) {
+        frame.bounding_box_expansion_pixels = {
+            raw_min_x > surface_min_x ? raw_min_x - surface_min_x : 0U,
+            surface_max_x > raw_max_x ? surface_max_x - raw_max_x : 0U,
+            raw_min_z > surface_min_z ? raw_min_z - surface_min_z : 0U,
+            surface_max_z > raw_max_z ? surface_max_z - raw_max_z : 0U,
+        };
+    }
+    frame.components = static_cast<std::uint32_t>(
+        label_surface_mask(frame.wet, frame.width, frame.height).sizes.size());
+    frame.mesh_vertices = frame.wet_pixels;
+    if (frame.width > 1U && frame.height > 1U) {
+        for (std::uint32_t z = 0; z + 1U < frame.height; ++z) {
+            for (std::uint32_t x = 0; x + 1U < frame.width; ++x) {
+                const std::size_t a = static_cast<std::size_t>(z) * frame.width + x;
+                const std::size_t b = a + 1U;
+                const std::size_t d = static_cast<std::size_t>(z + 1U)
+                    * frame.width + x;
+                const std::size_t c = d + 1U;
+                if (frame.wet[a] != 0U && frame.wet[b] != 0U
+                    && frame.wet[c] != 0U && frame.wet[d] != 0U) {
+                    frame.mesh_triangles += 2U;
+                }
+            }
+        }
+    }
+    frame.valid = frame.wet_pixels != 0U && frame.common_pixels != 0U
+        && std::all_of(frame.depth.begin(), frame.depth.end(), [](double value) {
+            return std::isfinite(value);
+        });
+    frame.passed = frame.valid && frame.components == 1U
+        && frame.local_fill_only
+        && *std::max_element(frame.bounding_box_expansion_pixels.begin(),
+               frame.bounding_box_expansion_pixels.end()) <= 1U
+        && frame.area_ratio >= 0.95 && frame.area_ratio <= 1.40
+        && frame.common_coverage >= 0.95 && frame.depth_rmse <= 0.025
+        && frame.depth_p95_change <= 0.050 && frame.mesh_vertices != 0U
+        && frame.mesh_triangles != 0U;
+    frame.extraction_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - begin).count();
+    frame.root = presentation_surface_root(frame);
+    return frame;
+}
+
+PresentationSurfaceControls presentation_surface_controls(
+    const GameSurfaceFrame& raw,
+    const GameQualityBox& box) {
+    PresentationSurfaceControls controls;
+    controls.empty_rejected = !extract_presentation_surface({}, box).valid;
+    GameSurfaceFrame nonfinite = raw;
+    const auto wet = std::find(nonfinite.wet.begin(), nonfinite.wet.end(), 1U);
+    if (wet != nonfinite.wet.end()) {
+        const std::size_t pixel = static_cast<std::size_t>(
+            std::distance(nonfinite.wet.begin(), wet));
+        nonfinite.depth[pixel] = std::numeric_limits<double>::infinity();
+        nonfinite.root = game_surface_root(nonfinite);
+        controls.nonfinite_rejected =
+            !extract_presentation_surface(nonfinite, box).valid;
+    }
+    const PresentationSurfaceFrame base = extract_presentation_surface(raw, box);
+    if (base.valid) {
+        PresentationSurfaceFrame mask_mutation = base;
+        const auto surface_wet =
+            std::find(mask_mutation.wet.begin(), mask_mutation.wet.end(), 1U);
+        if (surface_wet != mask_mutation.wet.end()) {
+            *surface_wet = 0U;
+            controls.mask_mutation_changed_root =
+                presentation_surface_root(mask_mutation) != base.root;
+        }
+        PresentationSurfaceFrame depth_mutation = base;
+        const auto depth_wet =
+            std::find(depth_mutation.wet.begin(), depth_mutation.wet.end(), 1U);
+        if (depth_wet != depth_mutation.wet.end()) {
+            const std::size_t pixel = static_cast<std::size_t>(
+                std::distance(depth_mutation.wet.begin(), depth_wet));
+            depth_mutation.depth[pixel] = std::nextafter(
+                depth_mutation.depth[pixel], std::numeric_limits<double>::infinity());
+            controls.depth_mutation_changed_root =
+                presentation_surface_root(depth_mutation) != base.root;
+        }
+    }
+    std::ostringstream material;
+    material << "nextengine.nonlocal.presentation-surface-controls.v3\n"
+             << controls.empty_rejected << ':' << controls.nonfinite_rejected << ':'
+             << controls.mask_mutation_changed_root << ':'
+             << controls.depth_mutation_changed_root << '\n';
+    controls.root = sha256_hex(material.str());
+    return controls;
+}
+
+bool write_presentation_surface_montage(
+    const std::string& path,
+    const std::vector<PresentationSurfaceFrame>& frames,
+    const GameQualityBox& box) {
+    if (frames.empty() || !frames.front().valid) {
+        return false;
+    }
+    const std::uint32_t frame_width = frames.front().width;
+    const std::uint32_t frame_height = frames.front().height;
+    if (!std::all_of(frames.begin(), frames.end(), [&](const auto& frame) {
+            return frame.valid && frame.width == frame_width
+                && frame.height == frame_height;
+        })) {
+        return false;
+    }
+    std::ofstream stream(path, std::ios::binary);
+    if (!stream) {
+        return false;
+    }
+    stream << "P6\n" << frame_width * frames.size() << ' ' << frame_height
+           << "\n255\n";
+    constexpr double light_x = -0.30151134457776363;
+    constexpr double light_y = 0.90453403373329089;
+    constexpr double light_z = -0.30151134457776363;
+    for (std::uint32_t z = 0; z < frame_height; ++z) {
+        for (const PresentationSurfaceFrame& frame : frames) {
+            for (std::uint32_t x = 0; x < frame_width; ++x) {
+                const std::size_t pixel = static_cast<std::size_t>(z) * frame_width + x;
+                unsigned char red = 9U;
+                unsigned char green = 16U;
+                unsigned char blue = 27U;
+                if (frame.wet[pixel] != 0U) {
+                    const auto sample = [&](std::int32_t sx, std::int32_t sz) {
+                        const std::int32_t cx = std::clamp<std::int32_t>(
+                            sx, 0, static_cast<std::int32_t>(frame_width) - 1);
+                        const std::int32_t cz = std::clamp<std::int32_t>(
+                            sz, 0, static_cast<std::int32_t>(frame_height) - 1);
+                        const std::size_t index = static_cast<std::size_t>(cz)
+                            * frame_width + static_cast<std::size_t>(cx);
+                        return frame.wet[index] != 0U
+                            ? frame.depth[index] : frame.depth[pixel];
+                    };
+                    const double slope_x = (sample(static_cast<std::int32_t>(x) + 1,
+                        static_cast<std::int32_t>(z))
+                        - sample(static_cast<std::int32_t>(x) - 1,
+                            static_cast<std::int32_t>(z)))
+                        / (2.0 * GAME_VISUAL_PIXEL_PITCH);
+                    const double slope_z = (sample(static_cast<std::int32_t>(x),
+                        static_cast<std::int32_t>(z) + 1)
+                        - sample(static_cast<std::int32_t>(x),
+                            static_cast<std::int32_t>(z) - 1))
+                        / (2.0 * GAME_VISUAL_PIXEL_PITCH);
+                    const double normal_length =
+                        std::sqrt(slope_x * slope_x + 1.0 + slope_z * slope_z);
+                    const double diffuse = std::clamp(
+                        (-slope_x * light_x + light_y - slope_z * light_z)
+                            / normal_length,
+                        0.22, 1.0);
+                    const double height = std::clamp(
+                        (frame.depth[pixel] - box.minimum.y)
+                            / (box.maximum.y - box.minimum.y),
+                        0.0, 1.0);
+                    red = static_cast<unsigned char>(std::clamp(
+                        (20.0 + 38.0 * height) * diffuse, 0.0, 255.0));
+                    green = static_cast<unsigned char>(std::clamp(
+                        (105.0 + 105.0 * height) * diffuse, 0.0, 255.0));
+                    blue = static_cast<unsigned char>(std::clamp(
+                        (185.0 + 65.0 * height) * diffuse, 0.0, 255.0));
+                }
+                stream.put(static_cast<char>(red));
+                stream.put(static_cast<char>(green));
+                stream.put(static_cast<char>(blue));
+            }
+        }
+    }
+    return static_cast<bool>(stream);
+}
+
+bool write_presentation_surface_obj(
+    const std::string& path,
+    const PresentationSurfaceFrame& frame,
+    const GameQualityBox& box) {
+    if (!frame.valid || frame.mesh_vertices == 0U || frame.mesh_triangles == 0U) {
+        return false;
+    }
+    std::ofstream stream(path);
+    if (!stream) {
+        return false;
+    }
+    stream << std::setprecision(17) << "# NextEngine presentation-only water surface\n";
+    std::vector<std::uint64_t> indices(frame.wet.size(), 0U);
+    std::uint64_t vertex = 0U;
+    for (std::uint32_t z = 0; z < frame.height; ++z) {
+        for (std::uint32_t x = 0; x < frame.width; ++x) {
+            const std::size_t pixel = static_cast<std::size_t>(z) * frame.width + x;
+            if (frame.wet[pixel] == 0U) {
+                continue;
+            }
+            indices[pixel] = ++vertex;
+            const double world_x = box.minimum.x
+                + (static_cast<double>(x) + 0.5) * GAME_VISUAL_PIXEL_PITCH;
+            const double world_z = box.minimum.z
+                + (static_cast<double>(z) + 0.5) * GAME_VISUAL_PIXEL_PITCH;
+            stream << "v " << world_x << ' ' << frame.depth[pixel] << ' '
+                   << world_z << '\n';
+        }
+    }
+    std::uint64_t triangles = 0U;
+    for (std::uint32_t z = 0; z + 1U < frame.height; ++z) {
+        for (std::uint32_t x = 0; x + 1U < frame.width; ++x) {
+            const std::size_t a = static_cast<std::size_t>(z) * frame.width + x;
+            const std::size_t b = a + 1U;
+            const std::size_t d = static_cast<std::size_t>(z + 1U) * frame.width + x;
+            const std::size_t c = d + 1U;
+            if (indices[a] != 0U && indices[b] != 0U && indices[c] != 0U
+                && indices[d] != 0U) {
+                stream << "f " << indices[a] << ' ' << indices[d] << ' '
+                       << indices[c] << '\n';
+                stream << "f " << indices[a] << ' ' << indices[c] << ' '
+                       << indices[b] << '\n';
+                triangles += 2U;
+            }
+        }
+    }
+    return static_cast<bool>(stream) && vertex == frame.mesh_vertices
+        && triangles == frame.mesh_triangles;
+}
+
+PresentationSurfaceLane make_presentation_surface_lane(
+    const GameVisualLaneResult& raw,
+    const GameQualityBox& box,
+    const std::string& frame_prefix) {
+    PresentationSurfaceLane lane;
+    lane.id = raw.id;
+    lane.executed = raw.executed;
+    lane.raw_trace_root = raw.trace_root;
+    lane.raw_result_root = raw.result_root;
+    if (!raw.executed || !raw.apparatus_passed || !raw.quality_passed) {
+        lane.first_failure = "PARENT_LANE_NOT_ACCEPTED";
+    } else {
+        for (const GameSurfaceFrame& raw_frame : raw.frames) {
+            PresentationSurfaceFrame frame =
+                extract_presentation_surface(raw_frame, box);
+            lane.total_extraction_ms += frame.extraction_ms;
+            lane.frames.push_back(std::move(frame));
+            if (!lane.frames.back().passed) {
+                lane.first_failure = "FRAME_" + std::to_string(raw_frame.step);
+                break;
+            }
+        }
+        lane.passed = lane.frames.size() == GAME_VISUAL_FRAME_STEPS.size()
+            && std::all_of(lane.frames.begin(), lane.frames.end(), [](const auto& frame) {
+                return frame.passed;
+            });
+        if (lane.passed && !frame_prefix.empty()) {
+            lane.montage_written = write_presentation_surface_montage(
+                frame_prefix + "-" + lane.id + "-surface.ppm", lane.frames, box);
+            lane.mesh_written = write_presentation_surface_obj(
+                frame_prefix + "-" + lane.id + "-surface.obj", lane.frames.back(), box);
+            if (!lane.montage_written || !lane.mesh_written) {
+                lane.passed = false;
+                lane.first_failure = "FILE_OUTPUT";
+            }
+        }
+    }
+    std::ostringstream material;
+    material << "nextengine.nonlocal.presentation-surface-lane.v3\n"
+             << lane.id << ':' << lane.executed << ':' << lane.passed << '\n'
+             << lane.raw_trace_root << '\n' << lane.raw_result_root << '\n';
+    for (const PresentationSurfaceFrame& frame : lane.frames) {
+        material << frame.root << '\n';
+    }
+    lane.result_root = sha256_hex(material.str());
+    return lane;
 }
 
 std::vector<Particle> game_visual_particles(int lattice_x, int lattice_z) {
@@ -8680,6 +9342,69 @@ void append_game_visual_lane(
     output << "]}";
 }
 
+void append_presentation_surface_frame(
+    std::ostringstream& output,
+    const PresentationSurfaceFrame& frame) {
+    output << std::setprecision(17)
+           << "{\"valid\":" << (frame.valid ? "true" : "false")
+           << ",\"passed\":" << (frame.passed ? "true" : "false")
+           << ",\"step\":" << frame.step << ",\"width\":" << frame.width
+           << ",\"height\":" << frame.height
+           << ",\"raw_wet_pixels\":" << frame.raw_wet_pixels
+           << ",\"presentation_wet_pixels\":" << frame.wet_pixels
+           << ",\"common_pixels\":" << frame.common_pixels
+           << ",\"filled_pixels\":" << frame.filled_pixels
+           << ",\"culled_pixels\":" << frame.culled_pixels
+           << ",\"components\":" << frame.components
+           << ",\"local_fill_only\":"
+           << (frame.local_fill_only ? "true" : "false")
+           << ",\"bounding_box_expansion_pixels\":["
+           << frame.bounding_box_expansion_pixels[0] << ','
+           << frame.bounding_box_expansion_pixels[1] << ','
+           << frame.bounding_box_expansion_pixels[2] << ','
+           << frame.bounding_box_expansion_pixels[3] << ']'
+           << ",\"area_ratio\":" << frame.area_ratio
+           << ",\"common_coverage\":" << frame.common_coverage
+           << ",\"depth_rmse_m\":" << frame.depth_rmse
+           << ",\"depth_p95_change_m\":" << frame.depth_p95_change
+           << ",\"maximum_depth_change_m\":" << frame.maximum_depth_change
+           << ",\"isotropic_control\":{\"depth_rmse_m\":"
+           << frame.isotropic_depth_rmse
+           << ",\"depth_p95_change_m\":" << frame.isotropic_depth_p95_change
+           << ",\"maximum_depth_change_m\":"
+           << frame.isotropic_maximum_depth_change << '}'
+           << ",\"mesh_vertices\":" << frame.mesh_vertices
+           << ",\"mesh_triangles\":" << frame.mesh_triangles
+           << ",\"extraction_ms\":" << frame.extraction_ms
+           << ",\"input_root\":\"" << frame.input_root << "\""
+           << ",\"surface_root\":\"" << frame.root << "\"}";
+}
+
+void append_presentation_surface_lane(
+    std::ostringstream& output,
+    const PresentationSurfaceLane& lane) {
+    output << std::setprecision(17)
+           << "{\"id\":\"" << lane.id << "\",\"executed\":"
+           << (lane.executed ? "true" : "false")
+           << ",\"passed\":" << (lane.passed ? "true" : "false")
+           << ",\"first_failure\":\"" << lane.first_failure << "\""
+           << ",\"raw_trace_root\":\"" << lane.raw_trace_root << "\""
+           << ",\"raw_result_root\":\"" << lane.raw_result_root << "\""
+           << ",\"surface_result_root\":\"" << lane.result_root << "\""
+           << ",\"total_extraction_ms\":" << lane.total_extraction_ms
+           << ",\"montage_written\":"
+           << (lane.montage_written ? "true" : "false")
+           << ",\"mesh_written\":" << (lane.mesh_written ? "true" : "false")
+           << ",\"frames\":[";
+    for (std::size_t index = 0; index < lane.frames.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        append_presentation_surface_frame(output, lane.frames[index]);
+    }
+    output << "]}";
+}
+
 } // namespace
 
 CommandReport run_cuda_game_visual_corpus(const std::string& frame_prefix) {
@@ -8770,6 +9495,131 @@ CommandReport run_cuda_game_visual_corpus(const std::string& frame_prefix) {
            << ",\"result_root\":\"" << result_root << "\""
            << ",\"device\":" << device_json() << '}';
     return {quality_passed, output.str()};
+}
+
+CommandReport run_cuda_game_surface_prototype(const std::string& frame_prefix) {
+    if (!game_frame_prefix_valid(frame_prefix)) {
+        throw std::invalid_argument("frame prefix contains unsupported characters");
+    }
+    const Profile& profile =
+        find_profile("nuv-basin-48k-analytic-contact-game-cap160.v6");
+    const GameQualityBox box4k{
+        {0.0, 0.0, 0.0}, {2.0, 0.75, 1.0}, {40, 15, 20}};
+    const GameQualityBox box16k{
+        {0.0, 0.0, 0.0}, {4.0, 0.75, 2.0}, {80, 15, 40}};
+    const std::vector<Particle> control_particles = game_visual_particles(20, 20);
+    const GameVisualObserverControls raw_controls =
+        game_visual_observer_controls(control_particles, box4k);
+    const bool raw_controls_passed = raw_controls.empty_rejected
+        && raw_controls.nonfinite_rejected && raw_controls.mask_mutation_changed_root
+        && raw_controls.depth_mutation_changed_root;
+    GameVisualLaneResult raw4k = run_game_visual_lane(
+        profile, "falling-dam-4k", 20, 20, box4k, {});
+    GameVisualLaneResult raw16k;
+    raw16k.id = "falling-dam-16k";
+    raw16k.first_failure = "NOT_RUN_4K_REJECTED";
+    if (raw_controls_passed && raw4k.apparatus_passed && raw4k.quality_passed) {
+        raw16k = run_game_visual_lane(
+            profile, "falling-dam-16k", 40, 40, box16k, {});
+    }
+    const bool parent_passed = raw_controls_passed && raw4k.apparatus_passed
+        && raw4k.quality_passed && raw16k.apparatus_passed && raw16k.quality_passed;
+    std::ostringstream parent_material;
+    parent_material << "nextengine.nonlocal.game-visual-corpus.v1\n"
+                    << raw_controls.root << '\n' << raw4k.result_root << '\n'
+                    << raw16k.result_root << '\n'
+                    << "ORIGINAL_GPU_DYNAMIC_VISUAL_SUPPORTED_BOUNDED\n";
+    const std::string parent_result_root = sha256_hex(parent_material.str());
+    const bool parent_exact = parent_passed
+        && raw4k.trace_root
+            == "369ac07d797d755abbee8b965e8d6fe635693534938c00cfbc684f75e5a71bbb"
+        && raw4k.result_root
+            == "18f48386fb1c178e8bf22cf1fa74315abf0be4f8decb31ffa15cda97a35278aa"
+        && raw16k.trace_root
+            == "61c45089cf57d41045d7ca1be59657b93845cc4a266173dd121ada2f84578a05"
+        && raw16k.result_root
+            == "8e3e9f9584f91622b274f6635452abe65230cf24b2bf24d1636e735d3fd74f85"
+        && parent_result_root
+            == "c2f1f6e75f1238409298cb6db6f16c2aeb0baca3ad4ebbeff216ba3c39f98274";
+
+    PresentationSurfaceControls controls;
+    if (!raw4k.frames.empty()) {
+        controls = presentation_surface_controls(raw4k.frames.front(), box4k);
+    }
+    const bool controls_passed = controls.empty_rejected
+        && controls.nonfinite_rejected && controls.mask_mutation_changed_root
+        && controls.depth_mutation_changed_root;
+    PresentationSurfaceLane surface4k =
+        make_presentation_surface_lane(raw4k, box4k, frame_prefix);
+    PresentationSurfaceLane surface16k;
+    surface16k.id = "falling-dam-16k";
+    surface16k.first_failure = "NOT_RUN_4K_SURFACE_REJECTED";
+    if (parent_exact && controls_passed && surface4k.passed) {
+        surface16k = make_presentation_surface_lane(raw16k, box16k, frame_prefix);
+    }
+    const bool passed = parent_exact && controls_passed
+        && surface4k.passed && surface16k.passed;
+    const char* semantic_status = !parent_passed || !parent_exact || !controls_passed
+        ? "APPARATUS_INCONCLUSIVE"
+        : (!surface4k.passed || !surface16k.passed
+                ? "PRESENTATION_SURFACE_REFUTED_BOUNDED"
+                : "PRESENTATION_SURFACE_SUPPORTED_BOUNDED");
+    std::ostringstream root_material;
+    root_material << "nextengine.nonlocal.presentation-surface-corpus.v3\n"
+                  << sha256_hex(canonical_profile_json(profile)) << '\n'
+                  << parent_result_root << '\n' << controls.root << '\n'
+                  << surface4k.result_root << '\n' << surface16k.result_root << '\n'
+                  << semantic_status << '\n';
+    const std::string result_root = sha256_hex(root_material.str());
+
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.presentation_surface_corpus.v3\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
+           << ",\"semantic_status\":\"" << semantic_status << "\""
+           << ",\"claim_ceiling\":\"presentation_only_finite_frames\""
+           << ",\"profile_id\":\"" << profile.id << "\""
+           << ",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(profile)) << "\""
+           << ",\"binary_sha256\":\"" << executable_hash() << "\""
+           << ",\"simulation_feedback\":false"
+           << ",\"extraction_in_primary_gpu_timing\":false"
+           << ",\"filter\":{\"component_policy\":\"largest_8_connected\""
+           << ",\"binary_close\":\"3x3_one_iteration\""
+           << ",\"height_filter\":\"masked_bilateral_3x3_one_pass\""
+           << ",\"range_sigma_m\":" << GAME_RADIUS
+           << ",\"pixel_pitch_m\":" << GAME_VISUAL_PIXEL_PITCH << "}"
+           << ",\"gates\":{\"area_ratio_minimum\":0.95"
+           << ",\"area_ratio_maximum\":1.40"
+           << ",\"maximum_bounding_box_expansion_pixels\":1"
+           << ",\"local_fill_only_required\":true"
+           << ",\"common_coverage_minimum\":0.95"
+           << ",\"depth_rmse_maximum_m\":0.025"
+           << ",\"depth_p95_change_maximum_m\":0.05"
+           << ",\"components\":1}"
+           << ",\"parent\":{\"passed\":"
+           << (parent_passed ? "true" : "false")
+           << ",\"exact\":" << (parent_exact ? "true" : "false")
+           << ",\"result_root\":\"" << parent_result_root << "\"}"
+           << ",\"controls\":{\"passed\":"
+           << (controls_passed ? "true" : "false")
+           << ",\"empty_rejected\":"
+           << (controls.empty_rejected ? "true" : "false")
+           << ",\"nonfinite_rejected\":"
+           << (controls.nonfinite_rejected ? "true" : "false")
+           << ",\"mask_mutation_changed_root\":"
+           << (controls.mask_mutation_changed_root ? "true" : "false")
+           << ",\"depth_mutation_changed_root\":"
+           << (controls.depth_mutation_changed_root ? "true" : "false")
+           << ",\"root\":\"" << controls.root << "\"}"
+           << ",\"lanes\":[";
+    append_presentation_surface_lane(output, surface4k);
+    output << ',';
+    append_presentation_surface_lane(output, surface16k);
+    output << "]"
+           << ",\"result_root\":\"" << result_root << "\""
+           << ",\"device\":" << device_json() << '}';
+    return {passed, output.str()};
 }
 
 } // namespace nextengine::nonlocal

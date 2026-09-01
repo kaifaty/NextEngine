@@ -109,6 +109,8 @@ CommandReport run_cuda_p2_decision(
 CommandReport run_cuda_game_quality_smoke();
 CommandReport run_cuda_game_visual_corpus(
     const std::string& frame_prefix = {});
+CommandReport run_cuda_game_surface_prototype(
+    const std::string& frame_prefix = {});
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
     int warmup,
