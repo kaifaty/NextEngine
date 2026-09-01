@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP13_TRAJECTORY_REFUTED / NCGP14_FREEZE_NEXT` |
+| Status | `ACTIVE / NCGP14_REV5_FROZEN / CPP_REPAIR_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,10 +20,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** freeze NCGP14 as a geometry/work discriminator: retain
-  the open 128-particle NCGP13 state, add an open 512-particle size control and
-  test the same 128 particles in a tight side/bottom-supported tank before any
-  surface repair, CUDA work or timing.
+- **Current action:** implement the one authorized apparatus-only C++/CMake
+  repair against frozen NCGP14 Revision 5, then run two clean Release
+  reproductions and the required regression/sanitizer checks. Do not change
+  physics, fixtures, tolerances or caps.
 - **Latest exact result:** reviewed NCGP13 Phase A passes. Phase B commits one
   step and transactionally rejects trial 2 at velocity RMS
   `0.076470122842192428 > 0.05 m/s`; independent re-review is `GO`.
@@ -44,6 +44,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/09-invalid-physics-cost-only.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/10-pressure-state-equilibrium-discriminator.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/11-pressure-contact-tiny-trajectory.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/12-confined-pressure-contact-discriminator.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
@@ -498,6 +499,28 @@
 - **Reconsider when:** the tight-tank lane reaches its first independently
   reviewed two-step route with converged QPs.
 
+### D-021 — Freeze NCGP14 Revision 5 and authorize one apparatus repair
+
+- **Observation:** independent long-double oracle work predicts OPEN-128 and
+  OPEN-512 reject trial 2, TIGHT4096 reaches its QP ceiling, and unchanged
+  TIGHT16384-R8 supports both trials. Static review of the first implementation
+  found only receipt, transaction, early-failure, parser and operation-work
+  closure defects; two independent final audits found no remaining defect in
+  the repaired contract.
+- **Evidence:** audited draft SHA-256
+  `e436148f31987c6f1c1632cc4fe91d186ed8db8af77ec95a5a876387241cef6a`;
+  frozen status-only file SHA-256
+  `4573690e22e79c999b2cdcd609747d0cb061ee59df475dd9040450c6678fd880`;
+  nested contract root
+  `e6d9cdce3a67818024c68ad2da7f4d2405613b7b27953678530b4a415609779f`.
+- **Decision:** authorize exactly one C++/CMake apparatus repair against frozen
+  Revision 5. Equations, profile, fixtures, tolerances, QP/projection caps and
+  numerical lane schedule remain unchanged. No solver run or physical claim is
+  admitted until clean reproduction and independent candidate review.
+- **Next:** implement the frozen receipt/work/failure semantics, build twice,
+  reproduce the finite two-step route, run retained regressions and sanitizers,
+  then request independent review.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -543,10 +566,9 @@
 
 ## Next action
 
-1. Freeze NCGP14 before code with open-128, open-512 and tight-tank-128 lanes,
-   exact input/geometry roots and predeclared QP work-cap interpretation.
-2. Run the two-step CPU long-double discriminator and request independent
-   review before any surface/free-surface repair.
-3. Only after a confined pressure/contact baseline passes, freeze surface and
+1. Implement the frozen NCGP14 Revision-5 apparatus-only C++/CMake repair.
+2. Run two clean Release reproductions, retained regressions and sanitizers;
+   request independent review before any surface/free-surface repair.
+3. Only after a confined pressure/contact baseline passes review, freeze surface and
    viscosity reintroduction; only then return to 4k/CUDA/performance.
 4. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
