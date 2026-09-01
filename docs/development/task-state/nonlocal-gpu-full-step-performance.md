@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP15_PHASE_A_PASS / PHR_WORK_CEILING / NCGP16_FREEZE_NEXT` |
+| Status | `ACTIVE / NCGP15_PHASE_A_PASS / PHR_WORK_CEILING / NCGP16_IMPLEMENTATION_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,7 +20,7 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** freeze the NCGP16 pressure-QP-preconditioned
+- **Current action:** implement the frozen NCGP16 pressure-QP-preconditioned
   semi-implicit/SQP discriminator. NCGP15 Revision 5 admits every formula and
   mutation control, but its unchanged physical `P` mask reaches the 64-update
   PHR ceiling with primal/state gates already small and dual fixed-point still
@@ -48,6 +48,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/11-pressure-contact-tiny-trajectory.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/12-confined-pressure-contact-discriminator.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/13-unified-constrained-surface-viscosity-step.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/14-pressure-qp-preconditioned-unified-step.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
@@ -773,9 +774,10 @@
 
 ## Next action
 
-1. Freeze NCGP16 with the reviewed NCGP14 pressure QP as the pressure block
-   and a semi-implicit/SQP outer iteration; retain the NCGP15 physical profile,
-   fixtures, term equations, mask order and gates.
+1. Implement the frozen NCGP16 discriminator with the reviewed NCGP14
+   pressure QP as the pressure block inside a semi-implicit/SQP outer
+   iteration; retain the NCGP15 physical profile, fixtures, term equations,
+   mask order and gates.
 2. Require pressure-only correspondence first, then run `PV/PS/PVS` and the
    confined short trajectory with typed work ceilings and transactional
    rollback. Independently review the exact CPU result.

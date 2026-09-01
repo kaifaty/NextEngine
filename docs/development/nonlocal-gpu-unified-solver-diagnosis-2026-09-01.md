@@ -101,3 +101,37 @@ semi-implicit/SQP solve. Reuse the exact NCGP15 profile, TIGHT fixture, term
 oracles, ordered masks and physical gates; add only the solver-specific work,
 pressure-block correspondence and transactional receipts. CUDA, 4k, 16k,
 50k and timing remain `NOT_RUN`.
+
+## Pressure-QP/SQP feasibility probe
+
+A second temporary long-double probe tested the selected construction before
+contract freeze. For each outer iterate it evaluated the unchanged NCGP15
+non-pressure gradient, formed
+
+```text
+z = P_box(y - dt^2/m * gradient_nonpressure(y))
+```
+
+and then applied the unchanged NCGP14 CAP16384 pressure/contact projection to
+`z`. The next outer iterate was the projected state. Fixed-point gates were
+the existing NCGP15 relative RMS/maximum inner gates. The probe source/binary
+SHA-256 were
+`7c427015043ddcf89ee3a0f594bcbe1e8d50998b0f9c2cc96d78722687d62b3f` /
+`e6b94812ed4b2f65a1a468ac6b23a66f546946296f5ee4aa8baf152c0fbf1250`;
+both temporary files were deleted after the run.
+
+| Mask | Outer map evaluations | Pressure rounds per evaluation | Total QP sweeps | Final max/RMS positive strain |
+| --- | ---: | ---: | ---: | ---: |
+| `P` | 2 | `5, 5` | `67,744` | `6.973935643299492e-4 / 2.200404888408005e-4` |
+| `PV` | 3 | `5, 5, 5` | `101,616` | `6.973933315244889e-4 / 2.200404369278360e-4` |
+| `PS` | 3 | `5, 5, 5` | `101,550` | `6.973163729218396e-4 / 2.199743883787805e-4` |
+| `PVS` | 3 | `5, 5, 5` | `101,550` | `6.973161412652373e-4 / 2.199743368597816e-4` |
+
+The first pressure projection uses the exact retained trial-1 sweep total
+`33,872`; the `P` map is byte-stationary on its second evaluation. The
+`PV/PS/PVS` second-to-third RMS changes fall to
+`3.10e-16 / 1.57e-15 / 2.68e-15 m`. This is not admitted correctness evidence:
+the probe has no independent oracle, roots, work receipt or transaction
+apparatus. It is a successful pre-freeze discriminator showing that the
+selected pressure-block map closes all four one-step masks with margin and
+without changing physical coefficients or gates.
