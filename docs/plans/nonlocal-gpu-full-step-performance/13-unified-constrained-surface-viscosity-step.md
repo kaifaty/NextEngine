@@ -1,10 +1,69 @@
 # NCGP15 — Unified constrained surface/viscosity step discriminator
 
-Status: `FROZEN_REVISION_3 / CPU_LONG_DOUBLE / IMPLEMENTATION_AUTHORIZED`
+Status: `FROZEN_REVISION_4 / CPU_LONG_DOUBLE / IMPLEMENTATION_AUTHORIZED`
 
 Date: `2026-09-01`
 
-## Revision-3 apparatus correction
+## Revision-4 bounded mutation-fixture correction
+
+Revision 3 remains an exact `APPARATUS_INCONCLUSIVE` result. It correctly
+admits the current/reference graph-swap mutation, but its two pressure
+mutation baselines are not solved under the frozen unified-optimizer ceiling:
+the corrected CSR and corrected all-pairs TIGHT-128 `P` routes both reach the
+64th outer update with 96 active multipliers and multiplier fixed-point
+residual `4.0826452996374767e-4`. A corrected-route cap cannot attribute a
+mutation. Revision 4 changes only the fixture for the omitted kernel-chain and
+finite-pressure-penalty controls. It does not change an equation, coefficient,
+tolerance, optimizer rule, work cap, Phase-B mask, Phase-C byte or any other
+control.
+
+The two pressure mutations use one shared manufactured active-density fixture:
+
+```text
+dynamic count: 27
+ghost count: 0
+stable IDs: 100 + ix + 3*(iy + 3*iz)
+ix,iy,iz: each 0..2, serialized in z/y/x loop order with x fastest
+position/reference:
+  widen_f32(0.5 + 0.04*ix),
+  widen_f32(0.5 + 0.04*iy),
+  widen_f32(0.5 + 0.04*iz) metres
+velocity: exactly (0,0,0)
+gravity: ZERO
+boundary: UNBOUNDED_MANUFACTURED
+term mask: P = density constraint only
+```
+
+`widen_f32` means the decimal expression is evaluated in `long double`,
+narrowed once to IEEE-754 binary32 and widened exactly to `long double`.
+There is no hidden translation, ghost support, contact, viscosity or surface
+term. Candidate CSR and separately written all-pairs corrected routes must
+both commit, pass correspondence and pass every applicable physical gate
+under the unchanged `64 / 8192 / 40` optimizer caps before either mutation is
+interpreted. Their exact iteration counts and active-ID signature are emitted
+and root-bound diagnostics, not new thresholds.
+
+For a deliberately mutated child only, `LINE_SEARCH_EXHAUSTED` or
+`SOLVER_WORK_CEILING_INCONCLUSIVE` is expected rejection evidence when the
+child is finite at its declared reached stage, root-closed, work-exact,
+transactionally uncommitted and has a distinct input/result root. Such a child
+does not need the production-route `apparatus_valid` bit: line-search
+exhaustion is correctly apparatus-invalid for an unmutated physical route but
+is the named observable of this mutation control. The enclosing mutation
+receipt remains apparatus-valid only when corrected CSR/all-pairs admission,
+all child identity/work/root checks and the exact typed-outcome rule pass.
+Any other mutated apparatus failure is `APPARATUS_INCONCLUSIVE`, not expected
+rejection. A mutated commit that passes corrected-oracle correspondence is
+`MUTATION_SURVIVED`.
+
+The `3x3x3` fixture was selected by the bounded two-cycle research escalation
+recorded in
+`docs/development/nonlocal-gpu-unified-mutation-fixture-research-2026-09-01.md`.
+The observed corrected/mutated routes are prior evidence for the apparatus
+repair, not permission to alter the unchanged numerical gates after the
+Revision-4 execution.
+
+## Revision-3 historical apparatus correction
 
 Revision 2 remains an exact `APPARATUS_INCONCLUSIVE` result. Its one allowed
 repair corrected only the missing unbounded
@@ -15,16 +74,16 @@ only those controls and retains that trace transition as a regression. It does
 not change an equation, coefficient, tolerance, optimizer rule, work cap,
 Phase-B mask, Phase-C byte or classification threshold.
 
-The omitted kernel-derivative `2/h` mutation and the finite-pressure-penalty
-substitution both use the exact NCGP14 TIGHT-128 bytes with the `P`
-pressure/contact-only mask (`lambda_v=mu_v=gamma=0`). Their corrected CSR and
-corrected all-pairs routes must both commit, pass correspondence and pass every
-applicable physical gate before the mutated route is interpreted. The
+In Revision 3, the omitted kernel-derivative `2/h` mutation and the
+finite-pressure-penalty substitution both used the exact NCGP14 TIGHT-128
+bytes with the `P` pressure/contact-only mask
+(`lambda_v=mu_v=gamma=0`). Revision 4 supersedes only those two fixture
+assignments with the manufactured active-density cube above. The
 current/reference viscosity-graph swap retains its existing manufactured
 fixture and corrected normal-viscosity mask; its corrected CSR and all-pairs
-routes have the same prerequisites.
+routes retain the same prerequisites.
 
-For these three controls, a mutation is rejected when its distinct rooted
+Revision 3 required these three controls to reject a mutation when its distinct rooted
 input reaches any finite, root-closed, work-exact typed non-commit route,
 including `SOLVER_WORK_CEILING_INCONCLUSIVE` or `LINE_SEARCH_EXHAUSTED`, or
 when its completed step fails corrected-oracle correspondence. A cap in the

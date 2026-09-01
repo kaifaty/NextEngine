@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP15_REVISION_3_FROZEN / MUTATION_IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE / NCGP15_REVISION_3_INCONCLUSIVE / REVISION_4_FIXTURE_FREEZE_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,9 +20,9 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** implement frozen NCGP15 Revision 3: pressure-only
-  corrected baselines for omitted-`2/h` and finite-penalty mutations, typed
-  cap/non-commit rejection for graph swap, and the retained trace regression.
+- **Current action:** freeze the evidence-backed NCGP15 Revision 4 mutation
+  fixture. The binary32 `3x3x3`, `0.04 m` pressure-only cube gives corrected
+  CSR/oracle PASS and typed rejection for both surviving pressure mutations.
   Do not return to CUDA or timing until the revised apparatus reaches the
   physical masks.
 - **Latest exact result:** NCGP14 independently supports the two-step
@@ -55,6 +55,7 @@
 - `docs/development/nonlocal-gpu-pressure-contact-trajectory-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-confined-pressure-contact-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-unified-constrained-evidence-2026-09-01.md`
+- `docs/development/nonlocal-gpu-unified-mutation-fixture-research-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -639,6 +640,34 @@
 - **Reconsider when:** the exact Revision-3 implementation returns its first
   root-closed route; no result permits post-hoc fixture or cap changes.
 
+### D-026 — Replace the unsolved mutation fixture after bounded research
+
+- **Observation:** Revision 3 fixes graph-swap admission, but both corrected
+  TIGHT-128 pressure-only baselines stop at the 64-outer-update ceiling with
+  96 active multipliers and multiplier fixed-point residual `4.08e-4`. The
+  missing-chain and finite-penalty hooks are active and produce distinct
+  failures/states; the corrected admission fixture is the blocker.
+- **Counterfactual evidence:** an unchanged-solver binary32 `3x3x3` cube at
+  `0.04 m` spacing, zero gravity and unbounded contact gives exact corrected
+  CSR/all-pairs PASS in `7 / 1540` outer/inner iterations with one active
+  multiplier. Missing `2/h` exhausts line search after one accepted inner
+  iteration; finite penalty reaches the typed outer ceiling with density max
+  `2.25e-2`. Full bounded evidence is linked above.
+- **Conclusion:** the two-cycle failure was fixture conditioning, not a dead
+  mutation, inactive pressure or permission to increase work. TIGHT-128
+  remains the immutable physical Phase-B/C state but is not a valid unified
+  mutation-admission control under the frozen ceiling.
+- **Decision:** freeze exactly one Revision-4 apparatus correction using the
+  small active cube for the two pressure mutations. Retain equations,
+  coefficients, tolerances, optimizer schedule/caps and every physical
+  Phase-B/C byte. Mutation-local typed noncommit is admissible only after
+  corrected CSR/oracle PASS with finite closed exact-work evidence.
+- **Rejected:** a third guessed TIGHT variant, larger caps, weaker fixed-point
+  gate, deleting mutations, treating a corrected cap as mutation evidence, or
+  returning to CUDA before Phase A admits the physical corpus.
+- **Reconsider when:** Revision 4 reaches its first root-closed Phase-A/B/C
+  classification.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -675,10 +704,10 @@
 | H14A-result | missing lateral support is the first cause of the NCGP13 witness | selected bounded: open 128/512 reject while confined 128 passes unchanged physical gates | closed for the two-step fixture |
 | H14B-result | pressure/contact fails even with valid wall support | falsified for the frozen two-step confined fixture; longer coupled dynamics remain untested | surface/viscosity successor |
 | H14C-result | the 4096-sweep tight failure is a work ceiling rather than physics | selected exactly: 4096 exhausts, predeclared 16384 closes with maximum 8111 sweeps | retain 16384 cap without tuning |
-| H15A | corrected viscosity/surface plus constrained pressure admit one unified short solve | unresolved: corrected term controls pass, but mutation apparatus blocks Phase B/C | repair mutation corpus without physics changes |
+| H15A | corrected viscosity/surface plus constrained pressure admit one unified short solve | unresolved: corrected term controls pass, but Revision-3 TIGHT mutation baselines cap before Phase B/C | run the evidence-backed small active mutation control, then unchanged masks |
 | H15B | corrected surface is the first failing coupled term | PV passes while PS/PVS share the first surface or energy failure; gamma-zero removes it | ordered Phase-B masks |
 | H15C | normal viscosity/reference-graph semantics are first failing | PS passes while PV/PVS share the first dissipation failure; lambda-zero removes it | analytic pair plus ordered masks |
-| H15D | formulation is viable but the deterministic PHR budget is insufficient | unresolved: observed caps belong to invalid mutation controls, not an admitted primary mask | typed primary work-ceiling route only; no cap tuning |
+| H15D | formulation is viable but the deterministic PHR budget is insufficient | unresolved: TIGHT mutation baselines cap, while a smaller active corrected solve passes unchanged caps | typed primary work-ceiling route only; no cap tuning |
 
 ## Do not retry
 
@@ -691,9 +720,9 @@
 
 ## Next action
 
-1. Implement frozen NCGP15 Revision 3, changing only the three mutation
-   discriminators and trace regression; retain all physical bytes, equations,
-   tolerances and caps.
+1. Freeze and implement NCGP15 Revision 4, changing only the two pressure
+   mutation fixtures and mutation-local typed-noncommit admission; retain all
+   physical bytes, equations, tolerances and caps.
 2. Run its Phase A controls, ordered `P/PV/PS/PVS` masks and exactly 16
    full-term confined steps, then close two clean builds, sanitizers and one
    independent review.
