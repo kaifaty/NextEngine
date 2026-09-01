@@ -3,6 +3,7 @@
 #include "oracle.hpp"
 #include "profiles.hpp"
 
+#include <ostream>
 #include <string>
 
 namespace nextengine::nonlocal {
@@ -111,6 +112,12 @@ CommandReport run_cuda_game_visual_corpus(
     const std::string& frame_prefix = {});
 CommandReport run_cuda_game_surface_prototype(
     const std::string& frame_prefix = {});
+CommandReport run_cuda_game_surface_stream(
+    const std::string& lane,
+    int steps,
+    int every,
+    int cycles,
+    std::ostream& frames);
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
     int warmup,

@@ -9,6 +9,10 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
+#include <mutex>
+#include <optional>
+#include <thread>
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
@@ -2204,6 +2208,18 @@ public:
         cudaFree(neighbor_error_flag_);
         cudaFree(neighbor_anchor_);
         cudaFree(max_displacement_bits_);
+    }
+
+    /// Copies the current published sample positions (the advected reference
+    /// after `execute(_, true)`) without the diagnostic capture path.
+    void download_positions(std::vector<float3>& positions) const {
+        positions.resize(static_cast<std::size_t>(count_));
+        const float3* source = uses_cell_local_storage() ? sorted_reference_ : reference_;
+        check_cuda(cudaMemcpy(
+                       positions.data(), source,
+                       static_cast<std::size_t>(count_) * sizeof(float3),
+                       cudaMemcpyDeviceToHost),
+            "download published positions");
     }
 
     void reset_seed() {
@@ -9504,6 +9520,418 @@ CommandReport run_cuda_game_visual_corpus(const std::string& frame_prefix) {
            << ",\"result_root\":\"" << result_root << "\""
            << ",\"device\":" << device_json() << '}';
     return {quality_passed, output.str()};
+}
+
+namespace {
+
+constexpr char GAME_SURFACE_STREAM_MAGIC[4] = {'N', 'E', 'W', 'S'};
+constexpr std::uint32_t GAME_SURFACE_STREAM_VERSION = 1U;
+constexpr std::uint64_t GAME_SURFACE_STREAM_AUDIT_FRAMES = 60U;
+
+template <typename T>
+void write_stream_pod(std::ostream& out, T value) {
+    out.write(reinterpret_cast<const char*>(&value), sizeof(T));
+}
+
+// Binary little-endian presentation surface frame consumed by the engine
+// developer bridge. Vertex and triangle order match the OBJ writer exactly;
+// indices are zero-based. Host byte order is little-endian on every supported
+// x86_64 host; the reader validates the magic and version.
+bool write_presentation_surface_stream_frame(
+    std::ostream& out,
+    const PresentationSurfaceFrame& frame,
+    const GameQualityBox& box,
+    int cycle,
+    double simulation_seconds,
+    double physics_ms) {
+    if (!frame.valid || frame.mesh_vertices == 0U || frame.mesh_triangles == 0U) {
+        return false;
+    }
+    out.write(GAME_SURFACE_STREAM_MAGIC, sizeof(GAME_SURFACE_STREAM_MAGIC));
+    write_stream_pod<std::uint32_t>(out, GAME_SURFACE_STREAM_VERSION);
+    write_stream_pod<std::int32_t>(out, frame.step);
+    write_stream_pod<std::int32_t>(out, cycle);
+    for (double value : {box.minimum.x, box.minimum.y, box.minimum.z,
+             box.maximum.x, box.maximum.y, box.maximum.z}) {
+        write_stream_pod<double>(out, value);
+    }
+    write_stream_pod<std::uint64_t>(out, frame.mesh_vertices);
+    write_stream_pod<std::uint64_t>(out, frame.mesh_triangles);
+    write_stream_pod<double>(out, simulation_seconds);
+    write_stream_pod<double>(out, frame.extraction_ms);
+    write_stream_pod<double>(out, physics_ms);
+    std::vector<std::uint32_t> indices(frame.wet.size(), 0U);
+    std::uint64_t vertex = 0U;
+    for (std::uint32_t z = 0; z < frame.height; ++z) {
+        for (std::uint32_t x = 0; x < frame.width; ++x) {
+            const std::size_t pixel = static_cast<std::size_t>(z) * frame.width + x;
+            if (frame.wet[pixel] == 0U) {
+                continue;
+            }
+            indices[pixel] = static_cast<std::uint32_t>(++vertex);
+            const double world_x = box.minimum.x
+                + (static_cast<double>(x) + 0.5) * GAME_VISUAL_PIXEL_PITCH;
+            const double world_z = box.minimum.z
+                + (static_cast<double>(z) + 0.5) * GAME_VISUAL_PIXEL_PITCH;
+            write_stream_pod<double>(out, world_x);
+            write_stream_pod<double>(out, frame.depth[pixel]);
+            write_stream_pod<double>(out, world_z);
+        }
+    }
+    std::uint64_t triangles = 0U;
+    for (std::uint32_t z = 0; z + 1U < frame.height; ++z) {
+        for (std::uint32_t x = 0; x + 1U < frame.width; ++x) {
+            const std::size_t a = static_cast<std::size_t>(z) * frame.width + x;
+            const std::size_t b = a + 1U;
+            const std::size_t d = static_cast<std::size_t>(z + 1U) * frame.width + x;
+            const std::size_t c = d + 1U;
+            if (indices[a] != 0U && indices[b] != 0U && indices[c] != 0U
+                && indices[d] != 0U) {
+                for (std::uint32_t index : {indices[a], indices[d], indices[c],
+                         indices[a], indices[c], indices[b]}) {
+                    write_stream_pod<std::uint32_t>(out, index - 1U);
+                }
+                triangles += 2U;
+            }
+        }
+    }
+    out.flush();
+    return static_cast<bool>(out) && vertex == frame.mesh_vertices
+        && triangles == frame.mesh_triangles;
+}
+
+struct StreamExtractionJob {
+    std::vector<Particle> fluid;
+    int step = 0;
+    int cycle = 0;
+    double physics_ms = 0.0;
+};
+
+/// Runs observer, edge-aware extraction and frame serialization on one
+/// worker thread so the solver keeps stepping. The single-slot mailbox
+/// applies back-pressure: a new frame waits until the previous one has been
+/// written, so frames are never reordered or dropped by this process.
+class StreamExtractor {
+public:
+    StreamExtractor(std::ostream& out, const GameQualityBox& box)
+        : out_(out), box_(box), worker_([this] { run(); }) {}
+
+    StreamExtractor(const StreamExtractor&) = delete;
+    StreamExtractor& operator=(const StreamExtractor&) = delete;
+
+    ~StreamExtractor() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            stop_ = true;
+        }
+        condition_.notify_all();
+        if (worker_.joinable()) {
+            worker_.join();
+        }
+    }
+
+    bool submit(StreamExtractionJob job) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        condition_.wait(lock, [this] { return !job_.has_value() || !failure_.empty(); });
+        if (!failure_.empty()) {
+            return false;
+        }
+        job_ = std::move(job);
+        lock.unlock();
+        condition_.notify_all();
+        return true;
+    }
+
+    /// Waits until the mailbox is empty and the worker is idle.
+    bool drain() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        condition_.wait(lock, [this] { return (!job_.has_value() && !busy_) || !failure_.empty(); });
+        return failure_.empty();
+    }
+
+    std::string failure() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return failure_;
+    }
+
+    std::uint64_t frames_written() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return frames_written_;
+    }
+
+    double observer_total_ms() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return observer_total_ms_;
+    }
+
+    double extraction_total_ms() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return extraction_total_ms_;
+    }
+
+    double frame_wall_max_ms() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return frame_wall_max_ms_;
+    }
+
+private:
+    void run() {
+        while (true) {
+            StreamExtractionJob job;
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                condition_.wait(lock, [this] { return job_.has_value() || stop_; });
+                if (!job_.has_value()) {
+                    return;
+                }
+                job = std::move(*job_);
+                job_.reset();
+                busy_ = true;
+            }
+            condition_.notify_all();
+            const auto frame_begin = std::chrono::steady_clock::now();
+            const GameSurfaceFrame raw = game_surface_frame(job.fluid, box_, job.step);
+            const double observer_ms = std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - frame_begin).count();
+            std::string failure;
+            double extraction_ms = 0.0;
+            if (!raw.valid) {
+                failure = "surface_observer";
+            } else {
+                const PresentationSurfaceFrame frame =
+                    extract_presentation_surface(raw, box_);
+                extraction_ms = frame.extraction_ms;
+                if (!frame.valid) {
+                    failure = "surface_extraction";
+                } else if (!write_presentation_surface_stream_frame(
+                               out_, frame, box_, job.cycle,
+                               static_cast<double>(job.step) * GAME_TIME_STEP,
+                               job.physics_ms)) {
+                    failure = "stream_closed";
+                }
+            }
+            const double frame_wall_ms = std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - frame_begin).count();
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                busy_ = false;
+                observer_total_ms_ += observer_ms;
+                extraction_total_ms_ += extraction_ms;
+                frame_wall_max_ms_ = std::max(frame_wall_max_ms_, frame_wall_ms);
+                if (failure.empty()) {
+                    ++frames_written_;
+                } else if (failure_.empty()) {
+                    failure_ = failure;
+                }
+            }
+            condition_.notify_all();
+        }
+    }
+
+    std::ostream& out_;
+    GameQualityBox box_;
+    mutable std::mutex mutex_;
+    std::condition_variable condition_;
+    std::optional<StreamExtractionJob> job_;
+    bool busy_ = false;
+    bool stop_ = false;
+    std::string failure_;
+    std::uint64_t frames_written_ = 0U;
+    double observer_total_ms_ = 0.0;
+    double extraction_total_ms_ = 0.0;
+    double frame_wall_max_ms_ = 0.0;
+    std::thread worker_;
+};
+
+} // namespace
+
+CommandReport run_cuda_game_surface_stream(
+    const std::string& lane,
+    int steps,
+    int every,
+    int cycles,
+    std::ostream& frames) {
+    if (steps < 1 || steps > 100000 || every < 1 || every > steps || cycles < 0
+        || cycles > 1000000) {
+        throw std::invalid_argument("stream steps/every/cycles are outside the bounded range");
+    }
+    const Profile& profile =
+        find_profile("nuv-basin-48k-analytic-contact-game-cap160.v6");
+    GameQualityBox box;
+    int lattice_x = 0;
+    int lattice_z = 0;
+    if (lane == "4k") {
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {2.0, 0.75, 1.0}, {40, 15, 20}};
+        lattice_x = 20;
+        lattice_z = 20;
+    } else if (lane == "16k") {
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {4.0, 0.75, 2.0}, {80, 15, 40}};
+        lattice_x = 40;
+        lattice_z = 40;
+    } else {
+        throw std::invalid_argument("stream lane must be 4k or 16k");
+    }
+    std::uint64_t completed_steps = 0U;
+    std::uint64_t audits = 0U;
+    int completed_cycles = 0;
+    double total_physics_ms = 0.0;
+    double total_execute_wall_ms = 0.0;
+    double total_wall_ms = 0.0;
+    double maximum_step_wall_ms = 0.0;
+    std::size_t maximum_degree = 0U;
+    std::size_t dynamic_samples = 0U;
+    std::string first_failure;
+    const auto stream_begin = std::chrono::steady_clock::now();
+    StreamExtractor extractor(frames, box);
+    for (int cycle = 0; (cycles == 0 || cycle < cycles) && first_failure.empty();
+         ++cycle) {
+        std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z);
+        dynamic_samples = fluid.size();
+        double physics_since_frame_ms = 0.0;
+        const auto emit = [&](int step) {
+            StreamExtractionJob job;
+            job.fluid = fluid;
+            job.step = step;
+            job.cycle = cycle;
+            job.physics_ms = physics_since_frame_ms;
+            physics_since_frame_ms = 0.0;
+            if (!extractor.submit(std::move(job))) {
+                first_failure = extractor.failure();
+                return false;
+            }
+            return true;
+        };
+        if (!emit(0)) {
+            break;
+        }
+        // One persistent solver per cycle: the advected fixture keeps the
+        // particle state on the device and `execute(capture, advance)` hands
+        // the published positions/velocities to the next step without a
+        // host round trip. Host state is refreshed only on emitted frames.
+        Fixture fixture = game_fixture(
+            profile, "game-stream-" + lane, fluid, box, profile.fixed_iterations,
+            profile.max_neighbors);
+        fixture.advected = true;
+        // The persistent grid is sized once from the initial column; give it
+        // the whole basin so particles never leave the neighbor grid.
+        fixture.grid_margin = std::max(
+            {box.maximum.x - box.minimum.x, box.maximum.y - box.minimum.y,
+                box.maximum.z - box.minimum.z});
+        CudaBaseline gpu(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1,
+            NeighborEncodingMode::CompactU16P2);
+        std::vector<float3> published;
+        std::uint64_t emitted_in_cycle = 0U;
+        for (int step = 1; step <= steps; ++step) {
+            const auto step_begin = std::chrono::steady_clock::now();
+            const bool frame_step = step % every == 0;
+            // The full diagnostic capture (neighbors, energies, topology)
+            // costs far more than the step; audit it once per
+            // GAME_SURFACE_STREAM_AUDIT_FRAMES emitted frames and otherwise
+            // download only the published positions.
+            const bool audit = frame_step
+                && emitted_in_cycle % GAME_SURFACE_STREAM_AUDIT_FRAMES == 0U;
+            const CapturedRun run = gpu.execute(audit, true);
+            total_execute_wall_ms += std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - step_begin).count();
+            bool step_valid = !run.local_solve_failed && run.neighbor_build_valid
+                && run.neighbor_id_bytes == sizeof(std::uint16_t);
+            if (audit) {
+                maximum_degree = std::max(maximum_degree, run.state.maximum_degree);
+                step_valid = step_valid && game_finite(run, fluid.size())
+                    && run.state.next_position.size() == fluid.size()
+                    && run.state.directed_pairs <= fixture.pair_capacity
+                    && run.state.maximum_degree <= profile.max_neighbors;
+                ++audits;
+            }
+            if (!step_valid) {
+                first_failure = run.local_solve_failed ? "local_solve"
+                    : (!run.neighbor_build_valid ? "neighbor_build" : "step_apparatus");
+                break;
+            }
+            total_physics_ms += run.timing.total;
+            physics_since_frame_ms += run.timing.total;
+            ++completed_steps;
+            if (frame_step) {
+                if (audit) {
+                    for (std::size_t index = 0; index < fluid.size(); ++index) {
+                        fluid[index].position = run.state.next_position[index];
+                        fluid[index].velocity = run.state.final_velocity[index];
+                    }
+                } else {
+                    gpu.download_positions(published);
+                    if (published.size() != fluid.size()) {
+                        first_failure = "output_size";
+                        break;
+                    }
+                    bool finite = true;
+                    for (std::size_t index = 0; index < fluid.size(); ++index) {
+                        const float3 value = published[index];
+                        finite = finite && std::isfinite(value.x) && std::isfinite(value.y)
+                            && std::isfinite(value.z);
+                        fluid[index].position = Vec3{value.x, value.y, value.z};
+                    }
+                    if (!finite) {
+                        first_failure = "nonfinite_state";
+                        break;
+                    }
+                }
+                ++emitted_in_cycle;
+                if (!emit(step)) {
+                    break;
+                }
+            }
+            const double step_wall_ms = std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - step_begin).count();
+            total_wall_ms += step_wall_ms;
+            maximum_step_wall_ms = std::max(maximum_step_wall_ms, step_wall_ms);
+        }
+        if (first_failure.empty()) {
+            ++completed_cycles;
+        }
+    }
+    if (first_failure.empty() && !extractor.drain()) {
+        first_failure = extractor.failure();
+    }
+    const std::uint64_t frames_written = extractor.frames_written();
+    const double total_extraction_ms = extractor.extraction_total_ms();
+    const double total_observer_ms = extractor.observer_total_ms();
+    const double frame_wall_max_ms = extractor.frame_wall_max_ms();
+    const double stream_wall_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - stream_begin).count();
+    const bool passed = first_failure.empty() || first_failure == "stream_closed";
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.game_surface_stream.v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
+           << ",\"authority\":\"PRESENTATION_ONLY_TOOL\""
+           << ",\"lane\":\"" << lane << "\""
+           << ",\"profile_id\":\"" << profile.id << "\""
+           << ",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile)) << "\""
+           << ",\"binary_sha256\":\"" << executable_hash() << "\""
+           << ",\"dynamic_samples\":" << dynamic_samples
+           << ",\"requested_steps\":" << steps
+           << ",\"frame_every_steps\":" << every
+           << ",\"requested_cycles\":" << cycles
+           << ",\"completed_cycles\":" << completed_cycles
+           << ",\"completed_steps\":" << completed_steps
+           << ",\"frames_written\":" << frames_written
+           << ",\"audits\":" << audits
+           << ",\"audit_every_frames\":" << GAME_SURFACE_STREAM_AUDIT_FRAMES
+           << ",\"maximum_degree\":" << maximum_degree
+           << ",\"physics_total_ms\":" << total_physics_ms
+           << ",\"execute_wall_total_ms\":" << total_execute_wall_ms
+           << ",\"observer_total_ms\":" << total_observer_ms
+           << ",\"extraction_total_ms\":" << total_extraction_ms
+           << ",\"frame_wall_max_ms\":" << frame_wall_max_ms
+           << ",\"step_wall_total_ms\":" << total_wall_ms
+           << ",\"step_wall_max_ms\":" << maximum_step_wall_ms
+           << ",\"stream_wall_ms\":" << stream_wall_ms
+           << ",\"first_failure\":\"" << first_failure << "\""
+           << ",\"simulation_feedback\":false"
+           << ",\"device\":" << device_json() << '}';
+    return {passed, output.str()};
 }
 
 CommandReport run_cuda_game_surface_prototype(const std::string& frame_prefix) {

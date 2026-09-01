@@ -5,6 +5,7 @@
 #include "tiny_corpus.hpp"
 
 #include <exception>
+#include <csignal>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -82,6 +83,8 @@ void print_usage() {
               << "       nonlocal-feasibility --game-visual-corpus --frames <prefix>\n"
               << "       nonlocal-feasibility --game-surface-prototype\n"
               << "       nonlocal-feasibility --game-surface-prototype --frames <prefix>\n"
+              << "       nonlocal-feasibility --game-surface-stream --lane <4k|16k> "
+                 "[--steps 960] [--every 4] [--cycles 1]\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
@@ -172,6 +175,39 @@ int main(int argc, char** argv) {
             const auto report =
                 nextengine::nonlocal::run_cuda_game_visual_corpus(argv[3]);
             std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc >= 4 && std::string(argv[1]) == "--game-surface-stream") {
+            std::string lane;
+            int steps = 960;
+            int every = 4;
+            int cycles = 1;
+            for (int index = 2; index + 1 < argc; index += 2) {
+                const std::string key = argv[index];
+                const std::string value = argv[index + 1];
+                if (key == "--lane") {
+                    lane = value;
+                } else if (key == "--steps") {
+                    steps = std::stoi(value);
+                } else if (key == "--every") {
+                    every = std::stoi(value);
+                } else if (key == "--cycles") {
+                    cycles = std::stoi(value);
+                } else {
+                    print_usage();
+                    return 2;
+                }
+            }
+            if (argc % 2 != 0 || lane.empty()) {
+                print_usage();
+                return 2;
+            }
+            // A consumer that stops reading closes the pipe; report that as
+            // a bounded `stream_closed` frame failure instead of dying.
+            std::signal(SIGPIPE, SIG_IGN);
+            const auto report = nextengine::nonlocal::run_cuda_game_surface_stream(
+                lane, steps, every, cycles, std::cout);
+            std::cerr << report.json << '\n';
             return report.passed ? 0 : 1;
         }
         if (argc == 2 && std::string(argv[1]) == "--game-surface-prototype") {
