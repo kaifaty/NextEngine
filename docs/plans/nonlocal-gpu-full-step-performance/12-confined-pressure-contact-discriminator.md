@@ -1,6 +1,6 @@
 # NCGP14 — Confined pressure/contact geometry and work discriminator
 
-Status: `FROZEN_REVISION_3 / CPU_ONLY / APPARATUS_REPAIR_AUTHORIZED`
+Status: `FROZEN_REVISION_4 / CPU_ONLY / APPARATUS_REPAIR_AUTHORIZED`
 
 Date: `2026-09-01`
 
@@ -31,6 +31,18 @@ precomputed profile/fixture/lane root, numerical lane schedule, work field,
 fixed hash count or claim ceiling. Only the explicitly named apparatus
 comparison/seal interleaving changes; no numerical lane computation is moved
 or reordered.
+
+Revision 4 supersedes only one contradictory helper-scheduling sentence in
+frozen revision 3 (file SHA-256
+`41c622fbd92600a622617463c94215f2fa58b64b7bd71e0377bfa733cc3898a7`).
+Revision 3 required Control 6 to execute the production route helper on seven
+synthetic truth-table rows in execution step 3, but also prohibited that
+helper name without qualification until the later Control-4 seal. Revision 4
+distinguishes those already-required side-effect-free synthetic calls from the
+single real-orchestration dispatch on actual lane categories. It changes no
+equation, fixture byte, profile, tolerance, lane cap, physical gate,
+precomputed profile/fixture/lane root, numerical lane schedule, work field,
+root schema, fixed hash count or claim ceiling.
 
 ## Decision under test
 
@@ -677,8 +689,11 @@ work closure. NCGP14 adds separately sealed controls:
    scalar after the R8 equality. A true value authorizes the frozen R16 pair;
    a false value authorizes its two exact typed lane skips. R16's executed
    roots or its two sealed skip roots are then compared by the fifth lane-root
-   equality before Control 4 closes. `select_decisive` is forbidden until the
-   final Control-4 receipt has been sealed.
+   equality before Control 4 closes. Only the real-orchestration invocation of
+   `select_decisive` on the actual R8/R16 lane categories, owned by
+   finalization, is forbidden until the final Control-4 receipt has been
+   sealed. The synthetic Control-6 truth-table invocations below are the sole
+   exception and cannot observe or affect actual lane or Control-4 state.
 
    On the PASS path, the `control.v1` evidence-root array is exactly the six
    raw-order roots in fixture/canonical-permuted order
@@ -795,11 +810,16 @@ work closure. NCGP14 adds separately sealed controls:
    after apparatus closure: `SUPPORTED` means `both_steps_supported`,
    `PHYSICAL_GATE_REJECTED` means any typed physical trial/sequence cause and
    QP/projection categories mean their respective exclusive flags.
-   Canonical/permuted mismatch is apparatus failure before helper invocation.
+   For the real-orchestration invocation, any canonical/permuted mismatch is
+   apparatus failure before that invocation.
    The control publishes exactly seven row-pass booleans. Each row charges one
    production dispatch predicate and one independent expected-equality
    predicate, exactly 14 `lane_scalar_comparisons`; real orchestration charges
-   one production dispatch predicate.
+   one production dispatch predicate. All seven production-helper calls in
+   this truth table execute and Control 6 seals in frozen execution step 3.
+   They consume only the independently enumerated synthetic categories and
+   cannot inspect any actual lane category, mutate Control-4 state or select
+   the actual R8/R16 execution path.
 
    The same production lane-acceptance helper is exercised by a pure witness
    truth table with all numerical gates and `committed_trial_count=2` fixed
@@ -1350,7 +1370,9 @@ The NCGP14 process then executes and aggregates receipts in this order:
 2. embedded NCGP13 controls and retained OPEN-128 canonical/permuted route,
    followed immediately by its Control-4 lane-result comparison;
 3. independent geometry census, admission/overflow and manufactured
-   transaction/work-mutation controls;
+   transaction/work-mutation controls, including the complete Control-6
+   route-selection and lane-acceptance synthetic truth tables and Control-6
+   seal;
 4. OPEN-512 canonical, then OPEN-512 permuted and its Control-4 comparison;
 5. TIGHT-128-CAP4096 canonical, then permuted and its Control-4 comparison;
 6. TIGHT-128-CAP16384 R8 canonical, then permuted and its Control-4 comparison;
@@ -1360,7 +1382,8 @@ The NCGP14 process then executes and aggregates receipts in this order:
 8. side-support-removal control;
 9. OPEN-128, OPEN-512 and TIGHT-128 surface censuses and their formula
    mutations;
-10. remaining selector comparisons and final aggregation.
+10. only the real finalization/selector predicates on actual sealed lane
+    categories, followed by final aggregation.
 
 A valid physical or solver-work rejection in one independent lane does not
 stop later independent lanes. Within a lane, the first rejected trial stops
