@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V21_ADOPTED / V20_I1_REPEAT_EXACT_REJECT / ACTUAL_ACOUSTIC_PASS / P0D_OPEN / F1_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P2_BLOCKED` |
+| Status | `ROADMAP_V21_ADOPTED / F0_PROTOCOL_CONFORMANCE_REJECT / V20_I1_REPEAT_EXACT_REJECT / P0D_FROZEN / P1A_FROZEN / F1A_IMPLEMENTATION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P2_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [V20 I1](../physical-sound-v20-i1-frozen-integration-result-2026-09-01.md) rejects twice exactly despite all actual acoustic gates passing. One
-  Wood/Bowl pair misses F0 remesh metric drift; P0c also assigned alternating
-  signs an uncalibrated extra spectral owner.
+- **Current conclusion:** [F0 audit](../physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md)
+  supersedes its pass label: runner used `0.55` instead of frozen topology
+  gradient `0.50`. I1 remains reject; its acoustic passes are diagnostic.
 - **Exact evidence:** actual p95 MRSC/MCLM/DSR/TE is
   `0.3923/0.4329/0.1148/0.0211`; Wood/Bowl drift is `0.1344 > 0.10`. Both I1
   trees are `a46fe6ea…a732c`; every real/protected/network counter is zero.
@@ -21,9 +21,9 @@
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** freeze V21 P0d owner correction, then P1a metadata and the
-  bounded continuous-residual F1 tournament before opening fresh paired
-  `1801…1912` train/development values; test and reintegration stay sealed.
+- **Next action:** implement frozen [P1a](../physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md)
+  and metadata-only tests, commit before opening paired `1801…1912`
+  train/development; test and reintegration remain sealed.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -53,22 +53,20 @@
 | V18 P0b/B0 | `PROTOCOL_FROZEN / REPEAT_EXACT_PASS` | [B0](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) passes `19/19` gates and freezes its exact ridge hash. |
 | V18 O0–I0 | `O0_REPEAT_EXACT_REJECT / F0_I0_NOT_RUN` | [O0](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md) misses thinning gates; V18 closes and integration stays sealed. |
 | V19 R0/P0a | `R0_COMPLETE / P0A_FROZEN` | Composite integrity/fill/reachability and disjoint bands, thresholds, reason codes and ablations are frozen before C0 implementation. |
-| V19 C0–I0 | `C0_REPEAT_EXACT_PASS / F0_REPEAT_EXACT_PASS / I0_DEVELOPMENT_CONTROL_REJECT / VALUES_UNOPENED` | Coverage and signed field pass; phase-sensitive integration gates conflict with accepted component tolerances, so V19 closes before I0. |
-| V20 M0–I1 | `M0B_REPEAT_EXACT_PASS / I1_REPEAT_EXACT_REJECT / CLOSED` | Actual acoustics pass; one F0 remesh gate and one P0c owner defect close V20 without opening real roles. |
-| V21 P0d–I2 | `P0D_OPEN / F1_VALUES_SEALED / I2_BLOCKED` | Correct owner semantics, prove a mesh-consistent field on fresh `1801…2001`, then reintegrate once on `2101…2112`. |
+| V19 C0–I0 | `C0_PASS / F0_IMPLEMENTATION_CONFORMANCE_REJECT / I0_NOT_RUN` | F0 bytes reproduce, but Cylinder/Bowl exceed frozen topology-gradient `0.50`; the artifact is control-only. |
+| V20 M0–I1 | `M0B_PASS / I1_REPEAT_EXACT_REJECT / CLOSED` | Acoustic diagnostics pass; F0 lineage, one remesh gate and one P0c owner defect forbid capability credit. |
+| V21 P0d–I2 | `P0D_FROZEN / P1A_FROZEN / F1A_IMPLEMENTATION_NEXT` | Prove strict-`0.50` mesh-consistent field on fresh `1801…2001`, then reintegrate once on `2101…2112`. |
 | V21 S1–P2 | `SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / ADR_REQUIRED` | Real roles, validator, shadow, cooker and promotion retain unchanged prerequisites and clip fallback. |
 
-## Material transition: I1 opens a mesh-consistent F1 only
+## Material transition: conformance audit and P1a replace F0
 
-- **Observation:** the combined endpoint passes all calibrated acoustic gates,
-  but one relative remesh gate rejects and P0c over-constrains sign corruption.
-- **Evidence:** I1 repeats byte-exactly; only Wood/Bowl drift is `0.1344`, while
-  absolute field quality, direct probe disagreement and actual acoustics pass.
-- **Conclusion:** keep B0/C0/M0b frozen, correct counterfactual ownership in a
-  successor protocol and revise only the contact-field representation.
-- **Decision:** adopt V21 and reserve fresh paired `1801…2101`; I1 is never a
-  candidate-selection surface and all real/protected roles remain sealed.
-- **Smallest next action:** freeze P0d and P1a before generating F1 values.
+- **Observation:** F0 runner's topology threshold is `0.55`, while frozen P0b
+  says `0.50`; official Cylinder/Bowl are `0.5304/0.5018`.
+- **Conclusion:** F0 is an exact control, not a pass. I1 stays rejected; its
+  acoustic values cannot repair predecessor conformance.
+- **Decision:** P0d freezes correct owners; P1a freezes six continuous variants,
+  strict `0.50`, paired `1801…2112` roles and remesh-first selection.
+- **Smallest next action:** commit F1a code/tests before any fresh value.
 
 ## Material transition: V12 closes on force coverage
 
@@ -170,7 +168,7 @@
 | D-022 | V19 coverage is an ordered deterministic composite: structural context closure, set-level intrinsic fill, then local intrinsic reachability; learned confidence cannot replace these checks. | Fresh C0 rejects the composite or evidence proves a layer is redundant without weakening a frozen gate. |
 | D-023 | C0 passes twice exactly and becomes an immutable prerequisite/hash input to F0/I0; later learning cannot replace or refit it. | A new preregistered coverage revision is required by a demonstrated fresh-domain failure. |
 | D-024 | F0 is a learned topology-conditioned prior plus deterministic intrinsic harmonic extension of only the observed residual; C0 rejects bypass inference and select fallback. | Fresh F0 rejects the hybrid or disclosed-real evidence motivates a new preregistered family. |
-| D-025 | F0 passes twice exactly; its model/normalization are immutable inputs to successor integration and cannot be refit there. | A fresh preregistered field family is required after causally attributed integration failure. |
+| D-025 | F0 bytes repeat exactly but fail frozen P0b because runner used topology gradient `0.55` instead of `0.50`; its artifact is control-only. | Never retroactively; a fresh preregistered field family must pass the original strict gate. |
 | D-026 | Automatic integration validation separates hard structure, modal parameters, phase-tolerant acoustics and diagnostics; raw waveform cannot block when accepted frequency error permits phase drift. | A preregistered alignment/phase contract proves raw samples measure an independent required product property. |
 | D-027 | M0b passes twice exactly; raw MRLM/DE stay diagnostic while mean-centered log magnitude and normalized backward-EDC slope become immutable I1 metrics with physical gain gates intact. | Fresh I1 causally rejects the frozen operator. |
 | D-028 | V20 I1 remains a repeat-exact reject: its values may attribute failure but cannot select an F1 candidate, threshold or retry. | Never; a future result may supersede the field family but cannot retroactively reopen I1. |
@@ -181,7 +179,7 @@
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: deterministic scale-separated ridge generalizes poles/damping | B0 passes twice exactly at `4.434/15.891 cents` and `0.001226/0.004701` damping | Synthetic truth is not a real-material claim | `CLOSED_SYNTHETIC_PASS`; freeze B0 hash |
-| H2: a continuous residual field is stable across valid remeshes | F0 absolute quality and I1 acoustics pass; only one graph-based pair drifts | No F1 train/development evidence yet | V21 F1a on fresh paired `1801…1912` |
+| H2: a continuous residual field is stable across valid remeshes | F0 is close and I1 acoustics are useful diagnostics | F0 fails strict topology gradient and I1 has one remesh reject | V21 F1a on fresh paired `1801…1912` |
 | H3: composite integrity/fill/reachability detects missing contact support | C0 passes twice: zero valid false OOD, every mutation cell `1.0` | Synthetic scope only | `CLOSED_SYNTHETIC_PASS`; freeze exact C0 hashes |
 | H4: automatic validator reaches useful bounded risk | M0b calibrates synthetic metrics and I1 actual acoustics pass | No independent real validator or shadow result | I2 then V0–A0 |
 | H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V21 K0/D0 after A0 pass |
@@ -214,7 +212,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V21](../../plans/physical-sound-synthesis-roadmap-v21.md), [V21 remesh research](../physical-sound-v21-remesh-consistency-research-2026-09-01.md), [I1 result](../physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [P0c](../physical-sound-v20-p0c-i1-integration-protocol-2026-09-01.md), [M0b result](../physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [M0b protocol](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md), [M0b research](../physical-sound-v20-m0b-confound-resistant-metric-research-2026-09-01.md), [M0a result](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
+3. [Roadmap V21](../../plans/physical-sound-synthesis-roadmap-v21.md), [P1a](../physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [P0d](../physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [F0 audit](../physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V21 remesh research](../physical-sound-v21-remesh-consistency-research-2026-09-01.md), [I1 result](../physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [P0c](../physical-sound-v20-p0c-i1-integration-protocol-2026-09-01.md), [M0b result](../physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [M0b protocol](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md), [M0b research](../physical-sound-v20-m0b-confound-resistant-metric-research-2026-09-01.md), [M0a result](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
    [F0 result](../physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [C0 result](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
    [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
    [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [O0 result](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md),
@@ -243,8 +241,7 @@ Read in precedence order:
   datasets, PCM, weights and generated audio remain external.
 - **Isolation:** object-92 PCM/force/YAML numeric values remain sealed; object
   41 microphone and every protected role also remain sealed.
-- **Quality:** B0/C0/F0 and M0b pass; V20 I1 rejects despite actual acoustic
-  pass. No real formula, validator, atlas or runtime integration exists;
-  fallback is authoritative.
-- **Next commit boundary:** P0d and P1a freeze before any fresh F1 mesh/value;
-  all test, reintegration, real and protected roles remain sealed.
+- **Quality:** B0/C0/M0b pass; F0 conformance and V20 I1 reject. No real
+  formula, validator, atlas or runtime integration exists; fallback is authority.
+- **Next commit boundary:** F1a implementation and metadata-only tests before
+  fresh train/development; test, integration, real and protected stay sealed.

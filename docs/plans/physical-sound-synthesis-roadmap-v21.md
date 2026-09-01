@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / V20_I1_REPEAT_EXACT_REJECT / ACTUAL_ACOUSTIC_PASS / P0D_OPEN / F1_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / F0_PROTOCOL_CONFORMANCE_REJECT / V20_I1_REPEAT_EXACT_REJECT / ACTUAL_ACOUSTIC_DIAGNOSTIC_PASS / P0D_FROZEN / P1A_FROZEN / F1A_IMPLEMENTATION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V20](physical-sound-synthesis-roadmap-v20.md), closed by its repeat-exact I1 reject |
-| Evidence basis | [V20 I1 result](../development/physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [V21 remesh research](../development/physical-sound-v21-remesh-consistency-research-2026-09-01.md), [M0b metric pass](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [F0 field pass](../development/physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md) and [source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
+| Evidence basis | [F0 conformance audit](../development/physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V20 I1 result](../development/physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [V21 remesh research](../development/physical-sound-v21-remesh-consistency-research-2026-09-01.md), [P0d](../development/physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [P1a](../development/physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [M0b metric pass](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md) and [source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, absent source, unsupported material or tooling failure |
 
@@ -51,13 +51,20 @@ The second cause is repaired only by a successor protocol; historical P0c/I1
 stay rejected. The first opens one new field family, not global-mode tuning,
 metric loosening or an unrestricted model search.
 
+A later direct conformance audit found that F0's frozen protocol required every
+topology gradient mean `<=0.50`, while its runner used `<=0.55`; Cylinder and
+Bowl are above the real gate. F0 is therefore a reproducible control, not a
+passing prerequisite. V21 retains the original `0.50` and treats I1 acoustic
+values only as useful diagnostics inside an already rejected lineage.
+
 ## Immutable boundaries
 
 - I1 identities and values `1701…1712` are attribution-only. They cannot choose
   an F1 architecture, basis order, weight, regularization, threshold, context,
   contact or checkpoint.
-- B0 and C0 remain exact immutable dependencies. M0b's MRSC/MCLM/DSR/TE code
-  and thresholds remain unchanged.
+- B0 and C0 remain exact immutable dependencies. F0 remains an exact control
+  with no pass credit. M0b's MRSC/MCLM/DSR/TE code and thresholds remain
+  unchanged.
 - P0d changes only counterfactual ownership: alternating signs must reject the
   signed-gain physical gate; acoustic metrics remain diagnostic for that case.
 - Reserve paired F1 bands: `1801…1824` train, `1901…1912` development,
@@ -90,6 +97,11 @@ better prior alone removes the discrepancy. Candidate choice uses a small
 predeclared train/development tournament and a deterministic ranking that puts
 hard/coverage/remesh gates before aggregate accuracy.
 
+[P1a](../development/physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md)
+freezes six basis-order/regularization candidates, analytic mesh-independent
+prior features, paired loss, the original per-topology gradient `<=0.50`, exact
+row roots and a remesh-first lexicographic selection rule.
+
 Research supports continuous integral/spectral formulations on changing point
 sets, but does not grant a pass: [GINO](https://arxiv.org/abs/2309.00583),
 [MeshGraphNets](https://arxiv.org/abs/2010.03409), and
@@ -117,10 +129,11 @@ separate certificates.
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | R0 | V20 I1 attribution | `COMPLETE / REPEAT_EXACT_REJECT` | [Result](../development/physical-sound-v20-i1-frozen-integration-result-2026-09-01.md) isolates one F0 remesh reject and one P0c ownership defect; all actual acoustic gates pass. |
-| P0d | Counterfactual owner correction | `OPEN` | Successor protocol preserves every M0b threshold and makes signed-gain rejection sufficient for alternating signs before any fresh integration value. |
+| C0d | F0 protocol conformance audit | `COMPLETE / PREDECESSOR_REJECT` | [Audit](../development/physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md) proves the runner used `0.55` instead of frozen `0.50`; F0 becomes control-only. |
+| P0d | Counterfactual owner correction | `COMPLETE / FROZEN` | [Successor rule](../development/physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md) preserves every M0b threshold and makes signed-gain rejection sufficient for alternating signs. |
 | R1 | Remesh successor research | `COMPLETE / DIRECTION_SELECTED` | [Research decision](../development/physical-sound-v21-remesh-consistency-research-2026-09-01.md) selects a small continuous residual tournament and bounds neural-operator escalation. |
-| P1a | F1 protocol and metadata freeze | `NEXT` | Exact paired rows, basis candidates, losses, controls, ranking, gates, resource ceilings, role access and output schema freeze before `1801…` mesh/value generation. |
-| F1a | Train/development tournament | `BLOCKED_BY_P1A` | On `1801…1824`/`1901…1912`, one predeclared candidate passes hard/coverage/remesh gates and beats frozen F0 by the frozen ranking; otherwise F1 closes before test. |
+| P1a | F1 protocol and metadata freeze | `COMPLETE / FROZEN_BEFORE_VALUES` | [Exact protocol](../development/physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md) freezes paired rows, six candidates, losses, controls, strict gates, ranking, access and nine-file output. |
+| F1a | Train/development tournament | `IMPLEMENTATION_NEXT / VALUES_SEALED` | On `1801…1824`/`1901…1912`, one predeclared candidate passes hard/coverage/remesh gates and improves the exact F0 control by the frozen ranking; otherwise F1 closes before test. |
 | P1b | One-shot F1 test freeze | `BLOCKED_BY_F1A` | Winner identity, artifact hashes and unchanged test gates freeze while `2001…2012` values remain unopened. |
 | F1b | One-shot F1 capability | `BLOCKED_BY_P1B` | Fresh paired test passes all absolute, gradient, remesh, control, mutation, serialization, access and repeat-exact gates twice. Reject closes F1. |
 | P1c | Fresh integration protocol | `BLOCKED_BY_F1B_AND_P0D` | Exact B0+C0+F1 identities, `2101…2112` rows, M0b thresholds, corrected owners and fallback freeze before values. |
@@ -138,20 +151,20 @@ separate certificates.
 
 ## Ordered implementation queue
 
-1. Preserve I1 result, V21 research and this roadmap as the new baseline.
-2. Freeze P0d. It is a protocol correction only and generates no fresh value.
-3. Freeze P1a metadata and the exact bounded F1 tournament before opening train
-   meshes or values.
-4. Run F1a on train/development only. If no candidate passes the predeclared
+1. Preserve I1, the F0 conformance reject, P0d, P1a and this roadmap as the
+   immutable successor baseline.
+2. Implement F1a plus metadata-only tests and commit them before opening a
+   train/development mesh or value.
+3. Run F1a on train/development only. If no candidate passes the predeclared
    ranking, close F1 and research a genuinely new F2 family with new bands.
-5. Freeze the selected artifact and P1b, commit implementation/tests, then run
+4. Freeze the selected artifact and P1b, commit implementation/tests, then run
    F1b twice on unopened `2001…2012`.
-6. Only after F1b pass, freeze P1c and run I2 twice on `2101…2112`.
-7. Continue S1 independently. Real candidate work requires both I2 and the
+5. Only after F1b pass, freeze P1c and run I2 twice on `2101…2112`.
+6. Continue S1 independently. Real candidate work requires both I2 and the
    corresponding immutable generator-role certificate.
-8. Freeze generator before validator, validator before method holdout, and
+7. Freeze generator before validator, validator before method holdout, and
    method holdout before protected shadow.
-9. Bake and demonstrate only after A0 `Pass`; keep fallback for every other
+8. Bake and demonstrate only after A0 `Pass`; keep fallback for every other
    decision. Consider product promotion only through a separate ADR.
 
 ## Stop rules

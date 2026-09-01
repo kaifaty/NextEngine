@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `CLOSED / I1_REPEAT_EXACT_REJECT / ACTUAL_ACOUSTIC_PASS / REPLACED_BY_V21` |
+| Status | `CLOSED / F0_PROTOCOL_CONFORMANCE_REJECT / I1_REPEAT_EXACT_REJECT / ACTUAL_ACOUSTIC_DIAGNOSTIC_PASS / REPLACED_BY_V21` |
 | Replaced by | [Roadmap V21](physical-sound-synthesis-roadmap-v21.md) |
 | Replaces | [Roadmap V19](physical-sound-synthesis-roadmap-v19.md), closed before I0 by its development-control rejection |
 | Evidence basis | [V19 I0 development control](../development/physical-sound-v19-i0-development-control-result-2026-09-01.md), [V19 F0](../development/physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [V19 C0](../development/physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [V18 B0](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
@@ -44,8 +44,10 @@ that synthetic truth is real material acoustics.
 
 ## Why V20 exists
 
-V18 B0, V19 C0 and V19 F0 each pass their isolated fresh capability gates
-twice exactly. Before opening V19 I0, a composition control on already-opened
+At V20 execution time, V18 B0, V19 C0 and V19 F0 were treated as isolated
+repeat-exact passes. The later [V21 conformance audit](../development/physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md)
+supersedes only F0's pass label because its runner used `0.55` instead of the
+frozen `0.50`. Before opening V19 I0, a composition control on already-opened
 development objects found:
 
 - B0 frequency error `6.81/14.05 cents` median/p95 and F0's complete 17-gate
@@ -64,8 +66,9 @@ harmful perturbations must first be separable on development evidence.
 
 ## Immutable boundaries
 
-- Reuse exact passing B0/C0/F0 artifacts by complete-tree and member hashes.
-  They cannot be refit, reselected or reinterpreted in M0/P0c/I1.
+- Reuse exact B0/C0/F0 artifacts by complete-tree and member hashes. F0 is now
+  control-only under the V21 audit. None can be refit, reselected or
+  reinterpreted in M0/P0c/I1.
 - Reuse only opened V19 development identities `1401…1412` for metric design.
 - Retire V19 integration band `1601…1612`; its metadata was frozen but its
   meshes, truth, predictions, metrics and waveforms remain unopened.
@@ -131,7 +134,7 @@ threshold: [DDSP](https://arxiv.org/abs/2001.04643),
 | Lane | Question | Output | Promotion rule |
 | --- | --- | --- | --- |
 | M — metric validity | Does each automatic metric distinguish the physical defect it claims to gate? | `PhaseConsistentMetricCertificateV0` | Must pass successful controls and causal attribution before P0c. |
-| B/C/F — frozen capability | Are global modes, coverage and contact field still exact dependencies? | pinned B0/C0/F0 identities | Reuse only; no training or fresh claim in I1. |
+| B/C/F — frozen inputs | Are global modes, coverage and contact-field bytes exact dependencies? | pinned B0/C0/F0 identities; F0 later audited control-only | Reuse only; no training or fresh claim in I1. |
 | I — integration | Do frozen components reproduce complete phase-consistent endpoints? | `IntegratedCapabilityV1` | Repeat-exact pass on fresh I1 opens only disclosed-real work whose source prerequisites are also ready. |
 | S — internet sources | Are enough complete, provenance-carrying physical groups role-eligible? | source and immutable role certificates | Independent prerequisite; no local recording and no alias leakage. |
 | R — disclosed-real candidate | Does one frozen formula improve generator-visible real recordings? | candidate certificate | Candidate never sees validator/holdout/shadow values. |
