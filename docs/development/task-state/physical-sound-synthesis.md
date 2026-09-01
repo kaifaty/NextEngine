@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V22_ADOPTED / V21_F1A_RESOURCE_REJECT / QUALITY_UNOBSERVED / P1R_PROTOCOL_NEXT / FRESH_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P2_BLOCKED` |
+| Status | `ROADMAP_V22_ADOPTED / V21_F1A_RESOURCE_REJECT / QUALITY_UNOBSERVED / P1R_FROZEN / E1R_IMPLEMENTATION_NEXT / FRESH_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P2_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -21,9 +21,9 @@
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** freeze V22 P1r on fresh `2201…2512` metadata, unchanged P1a
-  science and a metadata-only reference/batched equivalence fixture; commit the
-  protocol before any new mesh or truth value.
+- **Next action:** implement frozen [P1r](../physical-sound-v22-p1r-resource-bounded-continuous-field-protocol-2026-09-01.md)
+  batching plus metadata/reference-equivalence tests; commit before any
+  `2201…2312` mesh or truth value.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -56,7 +56,7 @@
 | V19 C0–I0 | `C0_PASS / F0_IMPLEMENTATION_CONFORMANCE_REJECT / I0_NOT_RUN` | F0 bytes reproduce, but Cylinder/Bowl exceed frozen topology-gradient `0.50`; the artifact is control-only. |
 | V20 M0–I1 | `M0B_PASS / I1_REPEAT_EXACT_REJECT / CLOSED` | Acoustic diagnostics pass; F0 lineage, one remesh gate and one P0c owner defect forbid capability credit. |
 | V21 P0d–I2 | `F1A_SINGLE_RUN_RESOURCE_REJECT / NO_ARTIFACT / CLOSED` | P1a/implementation are exact, but run A exceeded `1,800 s`; no quality inference and no V21 retry. |
-| V22 P1r–I2 | `P1R_PROTOCOL_NEXT / FRESH_VALUES_SEALED` | Prove execution-equivalent batching first, then strict-`0.50` field quality on fresh `2201…2412` and reintegration on `2501…2512`. |
+| V22 P1r–I2 | `P1R_FROZEN / E1R_IMPLEMENTATION_NEXT / FRESH_VALUES_SEALED` | Prove `5e-12` reference/batched equivalence, then strict-`0.50` field quality on fresh `2201…2412` and reintegration on `2501…2512`. |
 | V22 S1–P2 | `SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / ADR_REQUIRED` | Real roles, validator, shadow, cooker and promotion retain unchanged prerequisites and clip fallback. |
 
 ## Material transition: V21 closes on execution resources
@@ -69,8 +69,7 @@
   many-small-call implementation fits its resource envelope.
 - **Decision:** spend `1801…1912`; do not run B. V22 may preregister only
   algebraically equivalent batching/precomputation on fresh `2201…2512`.
-- **Smallest next action:** freeze P1r row roots and equivalence contract before
-  a V22 mesh/value exists.
+- **Smallest next action:** commit E1r code/tests before a V22 mesh/value exists.
 
 ## Durable negative knowledge
 
@@ -194,5 +193,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** B0/C0/M0b pass; F0 conformance and V20 I1 reject. No real
   formula, validator, atlas or runtime integration exists; fallback is authority.
-- **Next commit boundary:** V22 P1r protocol/row roots/equivalence contract
-  before fresh train/development; test, integration, real and protected stay sealed.
+- **Next commit boundary:** V22 E1r implementation/equivalence tests before
+  fresh train/development; test, integration, real and protected stay sealed.

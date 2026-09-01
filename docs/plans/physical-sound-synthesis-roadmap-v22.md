@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / V21_F1A_RESOURCE_REJECT / QUALITY_UNOBSERVED / P1R_PROTOCOL_NEXT / FRESH_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / V21_F1A_RESOURCE_REJECT / QUALITY_UNOBSERVED / P1R_FROZEN / E1R_IMPLEMENTATION_NEXT / FRESH_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V21](physical-sound-synthesis-roadmap-v21.md), closed before artifact publication by its F1a 30-minute resource gate |
 | Evidence basis | [F1a result](../development/physical-sound-v21-f1a-continuous-field-result-2026-09-01.md), [P1a](../development/physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [F0 conformance audit](../development/physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [P0d](../development/physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md) and [M0b result](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -94,8 +94,8 @@ as capability evidence from this planning document.
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | R0 | V21 resource attribution | `COMPLETE / NO_QUALITY_OBSERVED` | [F1a result](../development/physical-sound-v21-f1a-continuous-field-result-2026-09-01.md) records the single resource reject, absent outputs, spent roles and elapsed-time attribution. |
-| P1r | Execution-equivalent successor protocol | `NEXT / VALUES_SEALED` | Freeze fresh row roots, exact equivalence fixture/tolerance, batched computation, unchanged P1a science, outputs, gates and stop rules before code may create a V22 mesh/value. |
-| E1r | Batched runner and metadata/equivalence tests | `BLOCKED_BY_P1R` | Focused tests prove identity guards, sealed roles, resource accounting and reference/batched forward-loss-gradient agreement; implementation is committed before fresh values. |
+| P1r | Execution-equivalent successor protocol | `COMPLETE / FROZEN_BEFORE_VALUES` | [P1r](../development/physical-sound-v22-p1r-resource-bounded-continuous-field-protocol-2026-09-01.md) freezes fresh roots, a `5e-12` metadata-only equivalence fixture, batched computation and unchanged P1a science/gates. |
+| E1r | Batched runner and metadata/equivalence tests | `NEXT / VALUES_SEALED` | Focused tests prove identity guards, sealed roles, resource accounting and reference/batched forward-loss-gradient agreement; implementation is committed before fresh values. |
 | F1r | Train/development tournament | `BLOCKED_BY_E1R` | Two independent runs finish under every resource ceiling, emit byte-identical nine-file trees and select one candidate passing every unchanged P1a development gate. Any resource or quality reject closes the family before test. |
 | P1b | One-shot test freeze | `BLOCKED_BY_F1R` | Freeze winner/model/tree identities and unchanged test gates while `2401…2412` values remain unopened. |
 | F1b | One-shot capability | `BLOCKED_BY_P1B` | Two executions on fresh test pass every unchanged hard, quality, remesh, corruption, resource and byte-exact gate. Reject closes the family. |
