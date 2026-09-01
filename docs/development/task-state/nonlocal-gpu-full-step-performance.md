@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP14_INDEPENDENT_GO / SURFACE_VISCOSITY_TRAJECTORY_NEXT` |
+| Status | `ACTIVE / NCGP15_UNIFIED_CONSTRAINED_CONTRACT_FROZEN / CPU_IMPLEMENTATION_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,10 +20,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** freeze the smallest CPU long-double successor that adds
-  corrected surface and viscosity to the independently reviewed confined
-  pressure/contact baseline. Do not return to CUDA or timing until that
-  trajectory closes its physical and apparatus gates.
+- **Current action:** implement the frozen NCGP15 CPU long-double unified
+  constrained step, run its term oracles, four one-step masks and fixed
+  16-step confined trajectory. Do not return to CUDA or timing until that
+  corpus closes its physical and apparatus gates.
 - **Latest exact result:** NCGP14 independently supports the two-step
   TIGHT-128 pressure/contact lane at the unchanged physical tolerances with a
   `16384`-sweep QP ceiling. OPEN-128/512 remain valid negative controls and
@@ -46,6 +46,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/10-pressure-state-equilibrium-discriminator.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/11-pressure-contact-tiny-trajectory.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/12-confined-pressure-contact-discriminator.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/13-unified-constrained-surface-viscosity-step.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
@@ -553,6 +554,41 @@
   independently reviewed route; NCGP14 itself is closed and its review
   allowance is exhausted.
 
+### D-023 — Freeze one unified constrained Nonlocal step before CUDA
+
+- **Observation:** NCGP14 supplies a reviewed pressure/contact constraint
+  baseline, but it deliberately disables corrected viscosity and surface. The
+  selected Nonlocal formulation couples pressure, viscosity and surface in one
+  position-space variational objective; a sequential force kick plus pressure
+  projection would test a different algorithm. The old finite compression
+  penalty also cannot supply nonzero equilibrium pressure at exact zero
+  positive strain.
+- **External evidence:** the July 2026 Nonlocal paper identifies operator
+  splitting artefacts as the motivation for its unified objective. DFSPH is a
+  useful conventional predictor/projection comparator, not authority to rename
+  an operator-split successor as the corrected Nonlocal method.
+- **Decision:** freeze NCGP15 Revision 1 before code. Minimize the exact
+  inertia + corrected normal-viscosity + corrected surface objective subject
+  to unilateral corrected-density and analytic box constraints. Use a
+  deterministic long-double PHR solve, exact corrected coefficients, explicit
+  term oracles, ordered `P/PV/PS/PVS` one-step masks and exactly 16 confined
+  full-term steps. All term masks, manufactured boundary/gravity modes, work
+  caps, gates and roots are fixed before execution.
+- **Evidence identity:** contract SHA-256
+  `d28e73fbb9c4bb3e630df28e7ac67e53cc315e404750171b99ae31a108d40ada`;
+  immutable parent result root
+  `54c89f7a0bd4fd13920db325a2b401591cd8cfca3690fc694440d28b42f54221`.
+- **Rejected:** restoring the finite penalty, adding surface/viscosity as
+  sequential kicks, warm-starting pressure across steps, tuning coefficients
+  or work after a result, and returning directly to the old CUDA/50k timing
+  path.
+- **Consequence:** NCGP15 can support or refute only the exact 128-particle
+  CPU long-double short corpus. CUDA correspondence is the sole authorized
+  successor after independent GO; 4k/16k/50k correctness and performance stay
+  blocked.
+- **Reconsider when:** the frozen CPU corpus reaches its first exact physical,
+  work or apparatus classification.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -589,6 +625,10 @@
 | H14A-result | missing lateral support is the first cause of the NCGP13 witness | selected bounded: open 128/512 reject while confined 128 passes unchanged physical gates | closed for the two-step fixture |
 | H14B-result | pressure/contact fails even with valid wall support | falsified for the frozen two-step confined fixture; longer coupled dynamics remain untested | surface/viscosity successor |
 | H14C-result | the 4096-sweep tight failure is a work ceiling rather than physics | selected exactly: 4096 exhausts, predeclared 16384 closes with maximum 8111 sweeps | retain 16384 cap without tuning |
+| H15A | corrected viscosity/surface plus constrained pressure admit one unified short solve | frozen prediction: term controls, all four masks and 16 PVS steps pass | implement/run NCGP15 exactly |
+| H15B | corrected surface is the first failing coupled term | PV passes while PS/PVS share the first surface or energy failure; gamma-zero removes it | ordered Phase-B masks |
+| H15C | normal viscosity/reference-graph semantics are first failing | PS passes while PV/PVS share the first dissipation failure; lambda-zero removes it | analytic pair plus ordered masks |
+| H15D | formulation is viable but the deterministic PHR budget is insufficient | finite decreasing residual reaches a frozen cap before any oracle/physical failure | typed work-ceiling route; no cap tuning |
 
 ## Do not retry
 
@@ -601,11 +641,11 @@
 
 ## Next action
 
-1. Freeze an NCGP15 CPU long-double composition of corrected surface and
-   viscosity with the exact NCGP14 confined pressure/contact lane retained.
-2. Run a bounded short-horizon discriminator, then a longer correctness
-   trajectory without changing tolerances, physical coefficients or work caps
-   after observing the result.
-3. After independent GO, port the identical frozen corpus to CUDA and establish
+1. Implement the frozen NCGP15 CPU long-double unified constrained target and
+   run Phase A term controls, the ordered `P/PV/PS/PVS` masks and exactly 16
+   full-term confined steps without changing coefficients, tolerances or caps.
+2. Close its identity, work, transaction and numerical evidence with two clean
+   builds, sanitizers and one independent review.
+3. Only after independent GO, port the identical frozen corpus to CUDA and establish
    CPU/GPU correspondence before 4k, 16k and 50k performance measurements.
 4. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
