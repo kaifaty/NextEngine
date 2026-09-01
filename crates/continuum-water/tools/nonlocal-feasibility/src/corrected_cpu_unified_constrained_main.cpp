@@ -101,11 +101,11 @@ constexpr std::string_view kInvocation =
     "nonlocal-corrected-cpu-unified-constrained "
     "--unified-constrained-surface-viscosity";
 constexpr std::string_view kExpectedContractSha =
-    "d468e358cbdf33a25c4ef68733001f202673b7851661984e7a807ea8f688c9ab";
+    "3c1b486094828efb6d6887a7d75d50131de6e4e844426725916bf414f4454f5b";
 constexpr std::string_view kExpectedContractCommit =
-    "bccd49f2984b5f1ee5edf52d879066c2ff0e3bb9";
+    "09ae8d6a82b7bd26b7ea05e156e3e01f2ec9e367";
 constexpr std::string_view kExpectedContractTree =
-    "c95b82d365641d32c3df6d23f397a925e8615bf3";
+    "49a9119f90c45efb6c2fe5d3c80a130411637895";
 constexpr std::string_view kExpectedParentFixture =
     "6dbaddf563b825e28e37aee58606f25cf50b17479cc3260e919103be79f7c2b2";
 constexpr std::string_view kExpectedParentLane =
@@ -1644,9 +1644,9 @@ State15 active_pressure_mutation_fixture15() {
             for (std::uint32_t ix = 0U; ix < 3U; ++ix) {
                 const std::uint32_t logical = ix + 3U * (iy + 3U * iz);
                 const Vec3l position = canonical_vec({
-                    0.5L + 0.04L * static_cast<long double>(ix),
-                    0.5L + 0.04L * static_cast<long double>(iy),
-                    0.5L + 0.04L * static_cast<long double>(iz)});
+                    0.055L + 0.045L * static_cast<long double>(ix),
+                    0.055L + 0.045L * static_cast<long double>(iy),
+                    0.055L + 0.045L * static_cast<long double>(iz)});
                 state.dynamic.push_back(
                     {100U + logical, position, position, {}});
             }
@@ -5247,7 +5247,7 @@ PhaseA15 run_phase_a15(const Profile15& profile, const State15& tight,
     const State15 active_pressure = active_pressure_mutation_fixture15();
     result.mutations.push_back(solver_mutation_control15(profile,
         "missing-kernel-derivative-2-over-h", active_pressure, pressure_terms,
-        GravityMode15::Zero, BoundaryMode15::UnboundedManufactured,
+        GravityMode15::Zero, BoundaryMode15::AnalyticBox,
         Mutation15::MissingKernelChain));
     result.mutations.push_back(solver_mutation_control15(profile,
         "half-normal-viscosity", pair_fixture15({0.10L, 0.10L, 0.10L},
@@ -5274,7 +5274,7 @@ PhaseA15 run_phase_a15(const Profile15& profile, const State15& tight,
     result.mutations.push_back(solver_mutation_control15(profile,
         "finite-pressure-penalty-substitution", active_pressure,
         pressure_terms, GravityMode15::Zero,
-        BoundaryMode15::UnboundedManufactured,
+        BoundaryMode15::AnalyticBox,
         Mutation15::FinitePressurePenalty));
     State15 nonfinite = tetra_fixture15();
     nonfinite.dynamic[0].position.x =
