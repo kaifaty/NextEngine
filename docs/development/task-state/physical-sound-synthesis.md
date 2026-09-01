@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V20_ADOPTED / V19_I0_DEVELOPMENT_REJECT / M0_PROTOCOL_FROZEN / M0_IMPLEMENTATION_PENDING / I1_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V20_ADOPTED / M0A_REPEAT_EXACT_REJECT / M0B_PROTOCOL_FROZEN / M0B_IMPLEMENTATION_PENDING / I1_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,18 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md)
-  closes V19 before integration: accepted pitch error makes raw samples and a
-  mixed Hilbert envelope contradict the passing B0/F0 component contract.
-- **Exact evidence:** combined waveform/envelope is `0.4447/0.4779`; global-only
-  is already `0.4139/0.4670`, field-only waveform passes at `0.1809`, and
-  phase-tolerant spectrum passes at `2.3246 dB`. No I0 value was generated.
+- **Current conclusion:** [M0a](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md)
+  repeats exact and closes: nine gates pass, but raw MRLM misses the frozen
+  frequency margin and absolute DE confounds accepted modal gains with damping.
+- **Exact evidence:** MRSC passes frequency at `0.8900x/0.8930x`; MRLM gives
+  `0.9235x/0.9055x`, while DE gives `1.6031x/1.5772x`. Both trees are identical
+  at `12f3ce72…49fbfd`; I1/real/protected access is zero.
 - **B0 result:** the frozen ridge passes twice byte-exactly on 72 fresh rows;
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** implement the frozen [V20 M0 protocol](../physical-sound-v20-m0-phase-consistent-metric-protocol-2026-09-01.md)
-  on opened `1401…1412` development only; I1 and real/protected roles stay sealed.
+- **Next action:** implement frozen [M0b](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md)
+  centered-log and normalized-decay-slope metrics on the same opened development
+  only; I1 and real/protected roles stay sealed.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -53,19 +54,20 @@
 | V18 O0–I0 | `O0_REPEAT_EXACT_REJECT / F0_I0_NOT_RUN` | [O0](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md) misses thinning gates; V18 closes and integration stays sealed. |
 | V19 R0/P0a | `R0_COMPLETE / P0A_FROZEN` | Composite integrity/fill/reachability and disjoint bands, thresholds, reason codes and ablations are frozen before C0 implementation. |
 | V19 C0–I0 | `C0_REPEAT_EXACT_PASS / F0_REPEAT_EXACT_PASS / I0_DEVELOPMENT_CONTROL_REJECT / VALUES_UNOPENED` | Coverage and signed field pass; phase-sensitive integration gates conflict with accepted component tolerances, so V19 closes before I0. |
-| V20 M0–I1 | `M0_PROTOCOL_FROZEN / IMPLEMENTATION_PENDING / P0C_BLOCKED / I1_SEALED` | Calibrate exact modal, MR-STFT, decay/transient-energy controls before fresh `1701…1712` integration. |
+| V20 M0–I1 | `M0A_REPEAT_EXACT_REJECT / M0B_PROTOCOL_FROZEN / IMPLEMENTATION_PENDING / P0C_BLOCKED / I1_SEALED` | Recalibrate centered-log spectral shape and normalized EDC slope before fresh `1701…1712` integration. |
 | V20 S1–P1 | `SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / ADR_REQUIRED` | Real roles, validator, shadow, cooker and promotion retain unchanged prerequisites and clip fallback. |
 
-## Material transition: V19 closes on an invalid integration instrument
+## Material transition: M0a isolates two metric confounds
 
-- **Observation:** exact B0/F0 composition passes modal/field/spectrum gates but
-  rejects raw waveform and mixed-envelope gates on development.
-- **Evidence:** global-only `0.4139` waveform nearly explains combined `0.4447`;
-  field-only is `0.1809`. B0 p95 is only `14.05 cents`; I0 values stay unopened.
-- **Conclusion:** nonzero pitch tolerance and long raw-sample equality are
-  mathematically incompatible; mixed-envelope interference has the same defect.
-- **Decision:** fail-close V19 I0 and adopt V20 phase-consistent validation.
-- **Smallest next action:** M0 counterfactual metric calibration on development.
+- **Observation:** all physical owners and severity ladders work, but raw MRLM
+  has insufficient 20/40-cent margin and absolute DE is dominated by accepted gains.
+- **Evidence:** M0a repeats byte-exact; only metric separation fails. Centered
+  log magnitude reaches `0.8524x/0.8071x`; normalized EDC slope reaches
+  `0.7735x/0.8314x` in bounded development research.
+- **Conclusion:** spectrum level and decay level must be residualized while
+  physical signed gain remains independently binding.
+- **Decision:** close M0a, freeze M0b, keep P0c/I1 sealed.
+- **Smallest next action:** implement and execute M0b twice exactly.
 
 ## Material transition: V12 closes on force coverage
 
@@ -169,6 +171,7 @@
 | D-024 | F0 is a learned topology-conditioned prior plus deterministic intrinsic harmonic extension of only the observed residual; C0 rejects bypass inference and select fallback. | Fresh F0 rejects the hybrid or disclosed-real evidence motivates a new preregistered family. |
 | D-025 | F0 passes twice exactly; its model/normalization are immutable inputs to successor integration and cannot be refit there. | A fresh preregistered field family is required after causally attributed integration failure. |
 | D-026 | Automatic integration validation separates hard structure, modal parameters, phase-tolerant acoustics and diagnostics; raw waveform cannot block when accepted frequency error permits phase drift. | A preregistered alignment/phase contract proves raw samples measure an independent required product property. |
+| D-027 | M0a raw MRLM and absolute DE are diagnostic only; M0b assigns spectral shape to mean-centered log magnitude and damping to normalized backward-EDC log slope without weakening physical gain gates. | Fresh I1 causally rejects the frozen operator or M0b cannot repeat exact. |
 
 ## Open hypotheses
 
@@ -177,7 +180,7 @@
 | H1: deterministic scale-separated ridge generalizes poles/damping | B0 passes twice exactly at `4.434/15.891 cents` and `0.001226/0.004701` damping | Synthetic truth is not a real-material claim | `CLOSED_SYNTHETIC_PASS`; freeze B0 hash |
 | H2: topology-aware prior plus intrinsic residual transport recovers continuous gains | F0 passes twice at `0.1683/0.2420`, beating all controls | Synthetic truth is not a real-material claim | `CLOSED_SYNTHETIC_PASS`; freeze F0 hash |
 | H3: composite integrity/fill/reachability detects missing contact support | C0 passes twice: zero valid false OOD, every mutation cell `1.0` | Synthetic scope only | `CLOSED_SYNTHETIC_PASS`; freeze exact C0 hashes |
-| H4: automatic validator reaches useful bounded risk | Hard/acoustic/physics/corpus components are defined | V19 exposed a contradictory metric contract; no independent release or shadow result | V20 M0 then V0–A0 |
+| H4: automatic validator reaches useful bounded risk | M0a proves hard/physical/transient/monotonic behavior and identifies exact confounds | M0a separation rejects; no independent real validator or shadow result | M0b then V0–A0 |
 | H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V20 K0/D0 after A0 pass |
 
 ## Do not retry
@@ -208,7 +211,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [V20 M0 protocol](../physical-sound-v20-m0-phase-consistent-metric-protocol-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
+3. [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [M0b protocol](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md), [M0b research](../physical-sound-v20-m0b-confound-resistant-metric-research-2026-09-01.md), [M0a result](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
    [F0 result](../physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [C0 result](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
    [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
    [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [O0 result](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md),
@@ -237,7 +240,8 @@ Read in precedence order:
   PCM, arrays, weights, reports and generated audio remain external.
 - **Isolation:** object-92 PCM/force/YAML numeric values remain sealed; object
   41 microphone and every protected role also remain sealed.
-- **Quality:** B0/C0/F0 pass; V19 I0 is fail-closed and did not run. No real
+- **Quality:** B0/C0/F0 pass; M0a rejects only the metric contract and M0b is
+  frozen. No real
   formula, validator, atlas or runtime integration exists; fallback is authoritative.
-- **Next commit boundary:** frozen V20 M0 development-only metric laboratory; I1 and
-  all real/protected roles remain sealed.
+- **Next commit boundary:** M0b development-only metric laboratory; I1 and all
+  real/protected roles remain sealed.

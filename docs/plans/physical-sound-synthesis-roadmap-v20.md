@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / R0_COMPLETE / M0_PROTOCOL_FROZEN / M0_IMPLEMENTATION_PENDING / P0C_BLOCKED_BY_M0 / I1_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / R0_COMPLETE / M0A_REPEAT_EXACT_REJECT / M0B_PROTOCOL_FROZEN / M0B_IMPLEMENTATION_PENDING / P0C_BLOCKED_BY_M0B / I1_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V19](physical-sound-synthesis-roadmap-v19.md), closed before I0 by its development-control rejection |
 | Evidence basis | [V19 I0 development control](../development/physical-sound-v19-i0-development-control-result-2026-09-01.md), [V19 F0](../development/physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [V19 C0](../development/physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [V18 B0](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -97,7 +97,7 @@ another:
    block only when frequencies, onset and phase are identical or when a future
    protocol first freezes an independently justified alignment rule.
 
-M0 uses deterministic counterfactual ladders on development only:
+M0a used deterministic counterfactual ladders on development only:
 
 - frequency offsets from identity through the accepted cents boundary and
   beyond it;
@@ -110,9 +110,13 @@ M0 uses deterministic counterfactual ladders on development only:
 
 For each blocking metric/family, all declared acceptable controls must lie
 strictly below all corresponding harmful controls with a preregistered margin.
-If the intervals overlap, that metric cannot receive a threshold and M0
-rejects. Thresholds, STFT windows, normalization, decay bands, aggregation,
-reason precedence and mutation severity freeze in P0c before I1.
+If the intervals overlap, that metric cannot receive a threshold and the
+revision rejects. [M0a rejected exactly](../development/physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md): raw MRLM missed the frequency margin narrowly and absolute DE mixed accepted
+modal gains with damping. [M0b](../development/physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md)
+therefore preregisters mean-centered log spectral shape and normalized decay
+slope without changing the controls or margin. Thresholds, STFT windows,
+normalization, aggregation, reason precedence and mutation severity freeze in
+P0c before I1.
 
 Primary literature motivates the candidate family but supplies no transferable
 threshold: [DDSP](https://arxiv.org/abs/2001.04643),
@@ -139,8 +143,9 @@ threshold: [DDSP](https://arxiv.org/abs/2001.04643),
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | R0 | V19 failure research and V20 rebaseline | `COMPLETE` | Causal B0-only/F0-only/combined evidence and primary-source limits are recorded; V19 I0 is fail-closed without opening integration values. |
-| M0 | Phase-consistent metric calibration | `PROTOCOL_FROZEN / IMPLEMENTATION_PENDING / DEVELOPMENT_ONLY` | [Exact perturbations, metric formulas, attribution/separability gates, access boundary and resource ceilings](../development/physical-sound-v20-m0-phase-consistent-metric-protocol-2026-09-01.md) are frozen; implementation must pass twice on `1401…1412` only. |
-| P0c | V20 integration protocol | `BLOCKED_BY_M0` | Exact I1 rows/root, metric formulas, thresholds, aggregations, successful controls, access ledger and resource ceilings are frozen before I1 code may generate values. |
+| M0a | Phase-consistent metric calibration | `COMPLETE / REPEAT_EXACT_REJECT / FAMILY_CLOSED` | [Exact result](../development/physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md) proves deterministic controls and physical owners but rejects raw MRLM/absolute DE separation. |
+| M0b | Confound-resistant metric calibration | `PROTOCOL_FROZEN / IMPLEMENTATION_PENDING / DEVELOPMENT_ONLY` | [Exact centered-log/decay-slope formulas](../development/physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md) must pass twice on the same opened development identities. |
+| P0c | V20 integration protocol | `BLOCKED_BY_M0B` | Exact I1 rows/root, metric formulas, thresholds, aggregations, successful controls, access ledger and resource ceilings are frozen before I1 code may generate values. |
 | I1 | Frozen B0+C0+F0 integration | `SEALED` | Exact dependencies pass all hard, physical and phase-consistent gates twice byte-exactly on `1701…1712` plus twins. |
 | G1/F1 | Evidence-triggered component revision | `DORMANT` | Only a causally attributed I1 reject may open one new global or field family on fresh `1801…2101` bands; a metric-contract defect returns to M/P, not model tuning. |
 | S1 | Published-source growth | `PARALLEL / SOURCE_INSUFFICIENT` | Each candidate source gets exact revision/member/axis/provenance evidence or a machine-readable closure reason. |
@@ -156,11 +161,12 @@ threshold: [DDSP](https://arxiv.org/abs/2001.04643),
 ## Implementation order
 
 1. Commit the V19 development rejection and fail-closed runner.
-2. Implement M0 as a deterministic development-only metric laboratory. Pin
-   exact B0/F0 artifacts and prohibit generation of I1 or real/protected data.
-3. Run M0 twice into independent external roots. A reject changes the metric
-   family in a new protocol revision; it never opens I1 or tunes B0/F0.
-4. On M0 pass, freeze P0c with exact formulas, controls, thresholds and fresh
+2. Preserve the repeat-exact M0a reject and implement frozen M0b as a
+   deterministic development-only metric laboratory. Pin exact B0/F0/M0a
+   artifacts and prohibit generation of I1 or real/protected data.
+3. Run M0b twice into independent external roots. A reject changes the metric
+   family in another protocol revision; it never opens I1 or tunes B0/F0.
+4. On M0b pass, freeze P0c with exact formulas, controls, thresholds and fresh
    `1701…1712` metadata root.
 5. Commit I1 code/tests before generating any I1 value, then execute exactly
    twice. Attribute any reject before choosing a successor lane.
@@ -196,7 +202,7 @@ threshold: [DDSP](https://arxiv.org/abs/2001.04643),
 
 V20 completes its research objective only when:
 
-- M0 proves the automatic metric contract on successful and harmful controls;
+- M0b proves the automatic metric contract on successful and harmful controls;
 - I1 passes twice exactly on fresh identities;
 - enough disclosed Metal sources satisfy immutable generator and evaluation
   roles;
