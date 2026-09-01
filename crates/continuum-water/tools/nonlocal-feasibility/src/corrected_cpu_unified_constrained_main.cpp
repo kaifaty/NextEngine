@@ -101,11 +101,11 @@ constexpr std::string_view kInvocation =
     "nonlocal-corrected-cpu-unified-constrained "
     "--unified-constrained-surface-viscosity";
 constexpr std::string_view kExpectedContractSha =
-    "edce0d46d8ea1772e7c5ee6d5af21a46b27d5ebc623471cbfaf530032c5b6cf6";
+    "a5ebdd492e5d784cbd309c42a5a870f1462e21b850882c3b9f7ecd6d05e9a5d1";
 constexpr std::string_view kExpectedContractCommit =
-    "593801cd863aac9a335a21b56bdf24c315320a49";
+    "afe8459cd129fc3fabe86a35cac73b2f59cbc3b3";
 constexpr std::string_view kExpectedContractTree =
-    "1d0adcfca74a03332003f9072f3bdc5a5f67b27c";
+    "07d72dfd4e8e59469ca55eaf536b1585ec02d7b2";
 constexpr std::string_view kExpectedParentFixture =
     "6dbaddf563b825e28e37aee58606f25cf50b17479cc3260e919103be79f7c2b2";
 constexpr std::string_view kExpectedParentLane =
