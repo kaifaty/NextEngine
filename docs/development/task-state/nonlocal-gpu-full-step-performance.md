@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP15_REVISION_3_INCONCLUSIVE / REVISION_4_FIXTURE_FREEZE_NEXT` |
+| Status | `ACTIVE / NCGP15_REVISION_4_INCONCLUSIVE / REVISION_5_IMPLEMENTATION_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,9 +20,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** freeze the evidence-backed NCGP15 Revision 4 mutation
-  fixture. The binary32 `3x3x3`, `0.04 m` pressure-only cube gives corrected
-  CSR/oracle PASS and typed rejection for both surviving pressure mutations.
+- **Current action:** implement the evidence-backed NCGP15 Revision 5 mutation
+  fixture. The interior binary32 `3x3x3`, `0.045 m` analytical-box cube gives
+  corrected CSR/oracle PASS and typed rejection for both pressure mutations
+  without weakening the manufactured empty-pressure gate.
   Do not return to CUDA or timing until the revised apparatus reaches the
   physical masks.
 - **Latest exact result:** NCGP14 independently supports the two-step
@@ -668,6 +669,27 @@
 - **Reconsider when:** Revision 4 reaches its first root-closed Phase-A/B/C
   classification.
 
+### D-027 — Keep active pressure out of the manufactured-empty route
+
+- **Observation:** the integrated Revision-4 corrected steps reach numerical
+  `PASS`, but do not transactionally commit because their unbounded boundary
+  tag makes the retained `manufactured_active_empty` gate applicable. The new
+  fixture deliberately has one active multiplier, so the gate rejects it by
+  design.
+- **Counterfactual evidence:** translating the cube inside the existing
+  analytical box and using binary32 spacing `0.045 m` gives corrected
+  CSR/all-pairs PASS in `14 / 204`, exact zero contact, missing-chain line
+  search exhaustion and finite-penalty outer-cap rejection. No solver setting
+  or generic gate changes.
+- **Decision:** close Revision 4 `APPARATUS_INCONCLUSIVE` and freeze Revision 5
+  with only these fixture coordinates/boundary semantics changed. Preserve the
+  unbounded manufactured empty-pressure regression exactly.
+- **Rejected:** exempting one active fixture from the generic manufactured
+  gate, interpreting a private numerical PASS as a committed control, or
+  changing the box/profile/caps.
+- **Reconsider when:** Revision 5 reaches its first root-closed Phase-A/B/C
+  classification.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -720,9 +742,9 @@
 
 ## Next action
 
-1. Freeze and implement NCGP15 Revision 4, changing only the two pressure
-   mutation fixtures and mutation-local typed-noncommit admission; retain all
-   physical bytes, equations, tolerances and caps.
+1. Implement NCGP15 Revision 5, changing only the two pressure mutation
+   fixture coordinates/boundary and mutation-local typed-noncommit admission;
+   retain all physical bytes, equations, tolerances and caps.
 2. Run its Phase A controls, ordered `P/PV/PS/PVS` masks and exactly 16
    full-term confined steps, then close two clean builds, sanitizers and one
    independent review.

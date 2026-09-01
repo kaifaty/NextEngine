@@ -86,9 +86,34 @@ mutation receipt must not require the deliberately mutated child itself to set
 the production `apparatus_valid` bit; it must require the declared finite
 prefix, closed roots and exact work instead.
 
+## Revision-4 transaction follow-up
+
+The first integrated Revision-4 execution preserved the numerical research
+result but exposed one adjacent gate mismatch. Both corrected routes report
+internal `PASS` at `7 / 1540` with one active multiplier, yet their closed
+transaction does not commit because the common
+`manufactured_active_empty` gate intentionally applies to every
+`UNBOUNDED_MANUFACTURED` term fixture. This is an apparatus failure, not a
+pressure result, and the gate must not be weakened.
+
+A bounded follow-up retained the same 27 records, zero gravity, zero ghosts,
+pressure-only mask and all solver settings, but placed the cube strictly inside
+the existing analytical box at binary32 coordinates
+`0.055 + 0.045*index`. Corrected CSR/all-pairs both pass in `14 / 204` with
+one active multiplier; missing `2/h` line-search-exhausts after one inner
+iteration; finite penalty reaches the outer cap after 41 accepted inner
+iterations with maximum density strain `6.3342642397639207e-3`, KKT maximum
+`1.3469598262338257e-3 m` and multiplier fixed-point residual
+`7.7673915240105077`. No contact occurs.
+
+Revision 5 therefore changes only the two mutation-fixture coordinates and
+boundary tag. The generic manufactured empty-pressure gate, physical
+TIGHT-128 corpus, equations, tolerances and work ceilings remain unchanged.
+
 ## Smallest next action
 
-Freeze Revision 4 in the existing NCGP15 contract, delete the temporary
-research driver, implement the fixture and conditional mutation admission,
-then run the focused Phase-A route. Only a fully admitted Phase A authorizes
-the unchanged Phase B/C execution. CUDA and performance remain `NOT_RUN`.
+Freeze Revision 5 in the existing NCGP15 contract, delete the temporary
+research driver, implement the analytical-box fixture and conditional mutation
+admission, then run the focused Phase-A route. Only a fully admitted Phase A
+authorizes the unchanged Phase B/C execution. CUDA and performance remain
+`NOT_RUN`.

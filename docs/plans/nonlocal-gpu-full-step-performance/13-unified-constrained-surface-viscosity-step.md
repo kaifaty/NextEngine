@@ -1,10 +1,54 @@
 # NCGP15 — Unified constrained surface/viscosity step discriminator
 
-Status: `FROZEN_REVISION_4 / CPU_LONG_DOUBLE / IMPLEMENTATION_AUTHORIZED`
+Status: `FROZEN_REVISION_5 / CPU_LONG_DOUBLE / IMPLEMENTATION_AUTHORIZED`
 
 Date: `2026-09-01`
 
-## Revision-4 bounded mutation-fixture correction
+## Revision-5 active-pressure gate correction
+
+Revision 4 remains an exact `APPARATUS_INCONCLUSIVE` result. Its numerical
+`3x3x3` pressure solve behaves as predicted, but the fixture was declared
+`UNBOUNDED_MANUFACTURED`; the retained common gate correctly requires every
+such manufactured term fixture to have an empty active multiplier signature.
+The corrected solver therefore reaches `PASS` internally but the enclosing
+transaction cannot commit. Revision 5 replaces only the two pressure-mutation
+fixture coordinates and boundary tag so the active pressure state uses the
+existing analytical-box semantics instead of weakening the manufactured gate.
+
+The shared Revision-5 fixture is:
+
+```text
+dynamic count: 27
+ghost count: 0
+stable IDs: 100 + ix + 3*(iy + 3*iz)
+ix,iy,iz: each 0..2, serialized in z/y/x loop order with x fastest
+position/reference:
+  widen_f32(0.055 + 0.045*ix),
+  widen_f32(0.055 + 0.045*iy),
+  widen_f32(0.055 + 0.045*iz) metres
+velocity: exactly (0,0,0)
+gravity: ZERO
+boundary: ANALYTIC_BOX
+term mask: P = density constraint only
+ghost support: absent
+```
+
+All initial coordinates lie strictly inside the unchanged box and the
+corrected terminal state must retain exact zero contact masks and exact zero
+box reaction. Candidate CSR and separately written all-pairs corrected routes
+must both commit and pass all ordinary analytical-box, correspondence and
+physical gates before mutation attribution. The same exact typed-noncommit
+rules frozen below apply. No special active-pressure exception is added to
+`UNBOUNDED_MANUFACTURED`, and its empty-signature regression remains mandatory.
+
+The bounded pre-freeze route census is diagnostic rather than a new threshold:
+corrected CSR/all-pairs both reach `PASS` with one active multiplier in
+`14 / 204` outer/accepted-inner iterations; missing `2/h` reaches
+`LINE_SEARCH_EXHAUSTED` after one accepted inner iteration; finite penalty
+reaches the 64th outer update with density/KKT failure. The fixed numerical
+gates and caps, not these exact counts, decide the Revision-5 execution.
+
+## Revision-4 historical bounded mutation-fixture correction
 
 Revision 3 remains an exact `APPARATUS_INCONCLUSIVE` result. It correctly
 admits the current/reference graph-swap mutation, but its two pressure
