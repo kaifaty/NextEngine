@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / V23_IMPLEMENTATION_REJECT / QUALITY_UNOBSERVED / D0_DATA_CONTRACT_NEXT / DATA_FIRST_ML / INTERNET_ONLY_EVIDENCE / AUTOMATED_VALIDATOR_REQUIRED / CLIP_FALLBACK / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / V23_IMPLEMENTATION_REJECT / QUALITY_UNOBSERVED / D0_PROTOCOL_FROZEN / D0_IMPLEMENTATION_NEXT / DATA_FIRST_ML / INTERNET_ONLY_EVIDENCE / AUTOMATED_VALIDATOR_REQUIRED / CLIP_FALLBACK / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V23](physical-sound-synthesis-roadmap-v23.md) as planning authority; its frozen P2a protocol remains binding for the one bounded V23 closeout |
 | Evidence basis | [V23 F2a result](../development/physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md), [V23 P2a](../development/physical-sound-v23-p2a-fixed-feature-ridge-protocol-2026-09-01.md), [V23 research](../development/physical-sound-v23-closed-form-field-research-2026-09-01.md), [V22 result](../development/physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md), [M0b automatic-metric result](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [neural acoustic-field strategy](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) and the existing internet-source registry evidence referenced by SPEC-45 |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no current public/runtime contract |
@@ -155,7 +155,7 @@ individual asset or changes a threshold.
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | C0 | V23 bounded closeout | `COMPLETE / IMPLEMENTATION_CONFORMANCE_REJECT / NO_ARTIFACT` | [F2a result](../development/physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md) records the missing inherited `analytic_surface` callback, spent `2601…2712`, absent artifact, unstarted B and retired unopened later roles. No quality inference or V23 repair is allowed. |
-| D0 | External dataset contract | `NEXT / VALUES_UNOPENED` | One builder emits hash-closed lane/axis/provenance records and disjoint roles; absent axes remain machine-readable. It reuses the current registry rather than inventing a second source authority. |
+| D0 | External dataset contract | `PROTOCOL_FROZEN / IMPLEMENTATION_NEXT / VALUES_UNOPENED` | [D0 protocol](../development/physical-sound-v24-d0-neural-evidence-plane-protocol-2026-09-01.md) extends the existing neural data plane compatibly with three evidence lanes and synthetic teacher targets; full `run_cli` A/B must pass before T0/X0 protocols. |
 | T0 | Synthetic teacher corpus | `BLOCKED_BY_D0` | Twice-exact multi-object corpus spans declared geometry, thickness, support, material and contact axes; analytic controls recover known modes and remesh twins preserve the same physical truth. |
 | X0 | Exact real-object pilot | `BLOCKED_BY_D0` | One admissible internet object produces a finite contact/transfer record with no fabricated force, support, composition or listener facts; otherwise it terminates `FallbackOutOfDomain`. |
 | M0 | Exact-object neural student | `BLOCKED_BY_T0_AND_X0` | Frozen compact student beats the frozen classical controls on unopened synthetic contact/remesh gates and improves disclosed real development metrics without weakening physical gates. |
