@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ACTIVE_R&D / R0_RESEARCH_COMPLETE / P0A_PROTOCOL_NEXT / V16_PRIMARY_CLOSED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ACTIVE_R&D / R0_RESEARCH_COMPLETE / P0A_PROTOCOL_FROZEN / G0_IMPLEMENTATION_NEXT / V16_PRIMARY_CLOSED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V16](physical-sound-synthesis-roadmap-v16.md) as the active execution plan |
 | Evidence basis | [V17 successor research](../development/physical-sound-v17-factorized-operator-research-2026-09-01.md), [V16 L0b rejection](../development/physical-sound-v16-l0b-known-truth-neural-oracle-result-2026-09-01.md) and [V15 S0c source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -171,7 +171,7 @@ open protected signal.
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | R0 | V17 research/rebaseline | `COMPLETE` | Primary sources and V16 evidence yield three falsifiable successor hypotheses, fallbacks and non-claims. |
-| P0a | Disjoint truth protocol | `NEXT` | Freeze new G/O/F/I corpora, controls, successful controls, power/coverage rationale, seeds, compute, metrics, mutations and stop rules before implementation. |
+| P0a | Disjoint truth protocol | `COMPLETE / FROZEN_BEFORE_IMPLEMENTATION` | [P0a](../development/physical-sound-v17-p0a-disjoint-factorized-truth-protocol-2026-09-01.md) freezes 144 G rows, 60 F/I physical groups plus remeshed twins, topology-valid O mutations, candidates/controls, successful controls, sample rationale, gates, seeds, compute and stop rules with zero external evidence. |
 | G0 | Scale-separated global oracle | `BLOCKED_BY_P0A` | Two exact runs recover unseen-object poles/damping, beat raw-dimensional/simple controls and pass scale/material/support mutations. |
 | O0 | Intrinsic coverage oracle | `BLOCKED_BY_P0A` | Two exact runs reject at least the frozen mutation rate per topology while preserving frozen valid coverage; no model prediction is needed. |
 | F0 | Masked intrinsic field oracle | `BLOCKED_BY_P0A` | Two exact runs beat all compatible interpolation/pooled/attention controls on held gains and continuity, including remeshed twins. |
@@ -207,7 +207,8 @@ open protected signal.
 ## Immediate commit sequence
 
 1. `R0` — `COMPLETE`: record V16 rejection, primary-source research and V17.
-2. `P0a` — freeze disjoint corpora, successful controls, exact gates and compute.
+2. `P0a` — `COMPLETE`: freeze disjoint corpora, successful controls, exact
+   gates and compute before successor implementation.
 3. `G0a/G0b` — implement, test and execute scale-separated global oracle twice.
 4. `O0a/O0b` — implement topology-valid intrinsic coverage and execute twice.
 5. `F0a/F0b` — implement masked diffusion field and execute twice.
