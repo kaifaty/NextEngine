@@ -25,6 +25,7 @@ mod physical_sound_steel_search_command;
 mod physx;
 mod visual_smoke;
 mod water_preview;
+mod water_stream;
 use native_gate_environment::run_output_with_state;
 use serde::{Serialize, Serializer};
 use xtask::native_gate::{

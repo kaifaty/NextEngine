@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ENGINE VULKAN DYNAMIC SURFACE PASS / GPU EXTRACTION NEXT` |
+| Status | `ACTIVE / ENGINE VULKAN LIVE STREAM PASS (4K REAL TIME) / 16K EXTRACTION NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -14,20 +14,22 @@
 - **Goal:** qualify a plausible game-water Nonlocal GPU step near 50,000
   particles against `p95 <= 4 ms`, `p99 <= 6 ms` on RTX 3080; laboratory
   fidelity to the later research solver is not required.
-- **Current boundary:** the five accepted 4k/16k NGQ5 keyframes now cycle
-  through the production SDL3/Ash renderer via a declared presentation-only
-  dynamic surface ring. Each 600-frame Release run builds the catalog,
-  snapshot and frame plan once (`1` miss / `599` hits), refreshes the ring
-  `150` times for `75` publications and draws it every frame; critical-path
-  p95 is `0.18/0.54--0.59 ms` (4k/16k) with zero dropped samples.
-- **First current risk:** the ring is host-visible, so a 16k refresh costs
-  `~0.47 ms` p95 on the render thread and host vertex fetch raises GPU time
-  above the static device-local path. Keyframes still come from the CPU NGQ5
-  extractor (`~3.6/13.9 ms` per keyframe), not from live CUDA state.
-- **Current action:** move the ring to device-local memory (staging copy or
-  compute-written), then port the fixed close/bilateral extraction to GPU
-  compute and measure it through the separate `dynamic_surface_upload` phase,
-  apart from `3.23 ms` physics and B0 raster.
+- **Current boundary:** the live Nonlocal GPU solver now drives the
+  production SDL3/Ash renderer as a separate process:
+  `nonlocal-feasibility --game-surface-stream` steps one persistent advected
+  device state and streams the NGQ5 surface of every K-th step;
+  `xtask water-preview --stream-binary` validates, converts and paces the
+  frames into the D-039 dynamic surface ring. The 4k lane is real time
+  (`0.999`) with a 60 Hz surface; 16k is real time at 15 Hz and `0.53x` at
+  30 Hz. One catalog/snapshot/frame plan per run, `0` dropped samples.
+- **First current risk:** 16k is bounded by the single-thread CPU reference
+  extractor (`~41 ms` per frame, observer plus bilateral), not by physics
+  (`2.0 ms` per step) or raster (`<1 ms`). The stream lane keeps float state
+  on the device and audits diagnostics every 60 frames, so it does not
+  reproduce the accepted corpus roots and must not be cited as such.
+- **Current action:** raise 16k to real time with ordered extraction workers
+  or GPU extraction, then move the ring to device-local memory; keep every
+  step presentation-only and one-directional across the process boundary.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -80,6 +82,7 @@
 - `docs/development/nonlocal-gpu-presentation-surface-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-engine-water-preview-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-engine-dynamic-surface-evidence-2026-09-01.md`
+- `docs/development/nonlocal-gpu-engine-live-stream-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -1066,6 +1069,39 @@
   `PresentationSnapshotV3`, device-local staging does not close the 16k gap, or
   SPEC-30 must describe the third vertex path for a shipped feature.
 
+### D-040 — Stream the live solver into the renderer across a process boundary
+
+- **Observation:** the corpus loop rebuilt the fixture and solver every step
+  (`29.8 ms` wall at 4k for `1.5 ms` of GPU work). A persistent advected
+  solver failed at step 65 (`local_solve`) because the neighbor grid is sized
+  once from the initial column; a grid margin equal to the basin extent fixed
+  it. Light position download with a 60-frame audit and a worker thread for
+  observer/extraction/serialization brought 4k to `4.15 ms` per step.
+- **Evidence:** live Release runs of 900 frames: 4k every 4 publishes `338`
+  frames at real-time ratio `0.999` with render critical p95 `244 us`; 16k
+  every 8 reaches `0.532`; 16k every 16 reaches `0.994`. Frames are validated
+  (magic, version, bounds, counts, indices) before conversion; ring refreshes
+  equal two per publication; child summaries close with `stream_closed`.
+  Raw JSON `7247489f.../f9469ce4.../2cd2d074...`; sources and binaries are
+  hashed in the linked evidence report.
+- **Conclusion:** the engine can show the accepted five-iteration water live.
+  The remaining real-time gap is the CPU reference extractor at 16k, which is
+  presentation work outside the physics budget.
+- **Decision:** retain the two-process, one-directional binary stream as the
+  developer path; keep the solver outside the Cargo workspace. Do not present
+  stream-lane trajectories as corpus evidence (float device state, sparse
+  audit). Next: ordered extraction workers or GPU extraction for 16k, then a
+  device-local ring.
+- **Rejected:** linking CUDA into the Rust workspace, rebuilding the solver
+  per step, sending particles instead of surfaces to the renderer, and
+  dropping frames inside the solver process (back-pressure keeps order).
+- **Remaining risk:** `--stream-cycles 0` restarts show a hard cut; a stalled
+  consumer blocks the solver by design; the window ran uncapped (~160 fps),
+  so pacing is by simulation time only.
+- **Reconsider when:** a runtime consumer needs in-process ownership, the
+  16k gap survives parallel extraction, or the stream must carry particle
+  data for effects.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1123,6 +1159,8 @@
 | HG6A | accepted surface meshes are themselves too expensive for the current B0 raster path | falsified bounded for static 4k/16k: p95 `0.088/0.193 ms`, one draw | dynamic upload/GPU extraction |
 | HG6B | changing surface topology forces a per-frame render-content rebuild | falsified bounded: declared ring cycles five keyframes with one catalog/snapshot/frame plan and `0` rebuilds | device-local ring, GPU extraction |
 | HG6C | a host-visible ring is sufficient for live 16k surface refresh | not selected: refresh p95 `~0.47 ms` plus host vertex fetch exceed the static 16k raster path | device-local staging/compute-written ring |
+| HG6D | the live solver can feed the renderer in real time across a process boundary | selected bounded: 4k `0.999` real time at 60 Hz surface; 16k `0.994` at 15 Hz, `0.53` at 30 Hz | ordered extraction workers / GPU extraction |
+| HG6E | per-step solver reconstruction, not physics, dominated live stepping | selected: `29.8 -> 4.15 ms` per 4k step with a persistent advected solver, light download and threaded extraction | none; keep persistent state |
 
 ## Do not retry
 
@@ -1135,12 +1173,13 @@
 
 ## Next action
 
-1. Move the declared dynamic surface ring to device-local memory (staging
+1. Bring the 16k live lane to real time at a 30 Hz surface: two to three
+   ordered extraction workers in the stream process, or the GPU port of the
+   frozen close/bilateral extraction with smooth normals; measure per-frame
+   extraction separately from physics and raster.
+2. Move the declared dynamic surface ring to device-local memory (staging
    copy or compute-written) and re-measure the 16k refresh through the
    `dynamic_surface_upload` phase; keep the host-visible result as control.
-2. Port the frozen close/bilateral surface reference to GPU compute, refresh
-   smooth normals and measure extraction/upload separately from physics and
-   the now-measured B0 raster cost.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.

@@ -6,6 +6,8 @@ use std::fs::File;
 use std::io::Read;
 #[cfg(feature = "desktop-sdl-ash")]
 use std::sync::Arc;
+#[cfg(feature = "desktop-sdl-ash")]
+use std::time::Duration;
 
 #[cfg(feature = "desktop-sdl-ash")]
 use next_contracts::ids::{AssetId, PersistentId};
@@ -61,6 +63,22 @@ pub(super) struct WaterPreviewRequest {
     /// Event-loop pumps each keyframe stays current before the next one is
     /// published.
     hold: u64,
+    /// Live surface stream from the external research solver process.
+    stream: Option<StreamRequest>,
+}
+
+/// `nonlocal-feasibility --game-surface-stream` child-process parameters.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct StreamRequest {
+    binary: PathBuf,
+    lane: String,
+    steps: u32,
+    every: u32,
+    /// Zero streams until the renderer finishes.
+    cycles: u32,
+    /// Stream seconds published per wall second; zero disables pacing and
+    /// publishes every frame as soon as it arrives.
+    rate: f64,
 }
 
 pub(super) fn parse_arguments(
@@ -71,8 +89,67 @@ pub(super) fn parse_arguments(
     let mut frames = 600_u64;
     let mut extent = [1280, 720];
     let mut hold = 8_u64;
+    let mut stream_binary: Option<PathBuf> = None;
+    let mut stream_lane = "4k".to_owned();
+    let mut stream_steps = 960_u32;
+    let mut stream_every = 4_u32;
+    let mut stream_cycles = 0_u32;
+    let mut stream_rate = 1.0_f64;
+    let bounded_u32 = |arguments: &mut dyn Iterator<Item = String>,
+                       name: &str,
+                       low: u32,
+                       high: u32|
+     -> Result<u32, String> {
+        let value: u32 = arguments
+            .next()
+            .ok_or_else(|| format!("water-preview {name} requires a value"))?
+            .parse()
+            .map_err(|_| format!("water-preview {name} is invalid"))?;
+        if value < low || value > high {
+            return Err(format!("water-preview {name} must be in {low}..={high}"));
+        }
+        Ok(value)
+    };
     while let Some(argument) = arguments.next() {
         match argument.as_str() {
+            "--stream-binary" => {
+                let value =
+                    PathBuf::from(arguments.next().ok_or_else(|| {
+                        "water-preview --stream-binary requires a path".to_owned()
+                    })?);
+                stream_binary = Some(if value.is_relative() {
+                    root.join(value)
+                } else {
+                    value
+                });
+            }
+            "--stream-lane" => {
+                stream_lane = arguments
+                    .next()
+                    .ok_or_else(|| "water-preview --stream-lane requires 4k or 16k".to_owned())?;
+                if stream_lane != "4k" && stream_lane != "16k" {
+                    return Err("water-preview --stream-lane must be 4k or 16k".to_owned());
+                }
+            }
+            "--stream-steps" => {
+                stream_steps = bounded_u32(&mut arguments, "--stream-steps", 1, 100_000)?;
+            }
+            "--stream-every" => {
+                stream_every = bounded_u32(&mut arguments, "--stream-every", 1, 240)?;
+            }
+            "--stream-cycles" => {
+                stream_cycles = bounded_u32(&mut arguments, "--stream-cycles", 0, 1_000_000)?;
+            }
+            "--stream-rate" => {
+                stream_rate = arguments
+                    .next()
+                    .ok_or_else(|| "water-preview --stream-rate requires a value".to_owned())?
+                    .parse()
+                    .map_err(|_| "water-preview stream rate is invalid".to_owned())?;
+                if !stream_rate.is_finite() || !(0.0..=100.0).contains(&stream_rate) {
+                    return Err("water-preview stream rate must be in 0..=100".to_owned());
+                }
+            }
             "--mesh" => {
                 let value = PathBuf::from(
                     arguments
@@ -119,14 +196,32 @@ pub(super) fn parse_arguments(
             _ => return Err(format!("unknown water-preview argument: {argument}")),
         }
     }
-    if meshes.is_empty() {
-        return Err("water-preview requires at least one --mesh <surface.obj>".to_owned());
+    let stream = stream_binary.map(|binary| StreamRequest {
+        binary,
+        lane: stream_lane,
+        steps: stream_steps,
+        every: stream_every,
+        cycles: stream_cycles,
+        rate: stream_rate,
+    });
+    if let Some(stream) = &stream {
+        if !meshes.is_empty() {
+            return Err("water-preview --stream-binary cannot be combined with --mesh".to_owned());
+        }
+        if stream.every > stream.steps {
+            return Err("water-preview --stream-every cannot exceed --stream-steps".to_owned());
+        }
+    } else if meshes.is_empty() {
+        return Err(
+            "water-preview requires --mesh <surface.obj> or --stream-binary <path>".to_owned(),
+        );
     }
     Ok(WaterPreviewRequest {
         meshes,
         frames,
         extent,
         hold,
+        stream,
     })
 }
 
@@ -159,7 +254,22 @@ fn keyframe_for_pump(pump_index: u64, hold: u64, keyframe_count: usize) -> usize
 
 #[cfg(feature = "desktop-sdl-ash")]
 pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
-    let preview = build_preview(request)?;
+    let mut stream_session = request
+        .stream
+        .as_ref()
+        .map(StreamSession::spawn)
+        .transpose()?;
+    let source = match stream_session.as_mut() {
+        Some(session) => PreviewSource::Stream(session.take_first_frame()?),
+        None => PreviewSource::Keyframes(
+            request
+                .meshes
+                .iter()
+                .map(|path| parse_obj(path))
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+    };
+    let preview = build_preview(request, source)?;
     let dynamic = preview.dynamic.as_ref();
     let options = next_desktop_sdl_ash::DesktopRunOptions {
         title: "Next Engine — Nonlocal Water Preview".to_owned(),
@@ -174,28 +284,24 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             .unwrap_or_default(),
         ..next_desktop_sdl_ash::DesktopRunOptions::default()
     };
-    let mut pump_index = 0_u64;
-    let mut published_keyframe: Option<usize> = None;
-    let mut publications = 0_u64;
+    let mut feed = match (dynamic, stream_session.as_mut()) {
+        (Some(dynamic), Some(session)) => {
+            session.start_conversion(dynamic.profile.mesh_revision);
+            DynamicFeed::Stream(Box::new(StreamFeed::new(session, request)?))
+        }
+        (Some(_), None) => DynamicFeed::Keyframes(KeyframeFeed::default()),
+        (None, _) => DynamicFeed::Static,
+    };
     let report = if let Some(dynamic) = dynamic {
         next_desktop_sdl_ash::run_interactive_with_shared_frame_publication_and_finalize(
             Arc::new(preview.snapshot.clone()),
             &preview.catalog,
             &options,
-            |_events, _elapsed, _audio| {
-                let keyframe = keyframe_for_pump(pump_index, request.hold, dynamic.keyframes.len());
-                pump_index = pump_index.saturating_add(1);
-                if published_keyframe == Some(keyframe) {
-                    return Ok(DesktopFramePublicationV1::default());
-                }
-                publications = publications.saturating_add(1);
-                published_keyframe = Some(keyframe);
-                let update = dynamic.keyframes[keyframe]
-                    .update
-                    .with_sequence(publications)?;
+            |_events, elapsed, _audio| {
+                let update = feed.next_update(request, dynamic, elapsed)?;
                 Ok(DesktopFramePublicationV1 {
                     snapshot: None,
-                    dynamic_surface_updates: vec![Arc::new(update)],
+                    dynamic_surface_updates: update.into_iter().map(Arc::new).collect(),
                 })
             },
             || DesktopApplicationFinalization::Complete,
@@ -204,13 +310,23 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
         next_desktop_sdl_ash::run_interactive(&preview.snapshot, &preview.catalog, &options)
     }
     .map_err(|error| error.to_string())?;
+    let mode = match &feed {
+        DynamicFeed::Static => "static",
+        DynamicFeed::Keyframes(_) => "dynamic-keyframes",
+        DynamicFeed::Stream(_) => "dynamic-stream",
+    };
+    let feed_summary = feed.summary();
+    // Dropping the feed closes the converted-frame channel so the child
+    // observes a closed pipe and exits before the summary is collected.
+    drop(feed);
+    let stream_summary = stream_session.map(StreamSession::finish).transpose()?;
     if report.rendered_objects != u64::from(preview.visible_object_count)
         || report.indexed_draws != u64::from(preview.indexed_draw_count)
     {
         return Err("water-preview Vulkan report does not contain the planned draw".to_owned());
     }
     if let Some(dynamic) = dynamic {
-        if report.dynamic_surface_publications != publications {
+        if report.dynamic_surface_publications != feed_summary.publications {
             return Err("water-preview adapter accepted a different publication count".to_owned());
         }
         if report.dynamic_surface_draws != 1 {
@@ -218,16 +334,16 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
         }
         let slot_count = u64::try_from(next_desktop_sdl_ash::DESKTOP_FRAME_SLOT_COUNT)
             .map_err(|_| "water-preview frame slot count overflow".to_owned())?;
-        if report.dynamic_surface_uploads < publications
-            || report.dynamic_surface_uploads > publications.saturating_mul(slot_count)
+        if report.dynamic_surface_uploads < feed_summary.publications
+            || report.dynamic_surface_uploads > feed_summary.publications.saturating_mul(slot_count)
         {
             return Err(
                 "water-preview ring refresh count is outside the publication bound".to_owned(),
             );
         }
-        let expected_hash = published_keyframe
-            .map(|keyframe| dynamic.keyframes[keyframe].update.canonical_hash())
-            .ok_or_else(|| "water-preview published no keyframe".to_owned())?;
+        let expected_hash = feed_summary
+            .last_hash
+            .ok_or_else(|| "water-preview published no surface update".to_owned())?;
         if report.dynamic_surface_hashes != vec![(dynamic.profile.mesh_revision, expected_hash)] {
             return Err("water-preview adapter holds a different current surface".to_owned());
         }
@@ -323,14 +439,37 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
         "idle_frames": idle_samples.len(),
         "idle_p95_us": nearest_rank(&idle_samples, 95),
     });
+    let stream = request.stream.as_ref().map(|stream| {
+        serde_json::json!({
+            "binary": stream.binary,
+            "lane": stream.lane,
+            "steps": stream.steps,
+            "every": stream.every,
+            "cycles": stream.cycles,
+            "rate": stream.rate,
+            "frames_received": feed_summary.frames_received,
+            "frames_published": feed_summary.publications,
+            "frames_skipped": feed_summary.frames_skipped,
+            "first_frame_wait_ms": feed_summary.first_frame_wait_ms,
+            "published_stream_seconds": feed_summary.published_stream_seconds,
+            "wall_seconds": feed_summary.wall_seconds,
+            "realtime_ratio": (feed_summary.wall_seconds > 0.0)
+                .then(|| feed_summary.published_stream_seconds / feed_summary.wall_seconds),
+            "last_published_step": feed_summary.last_step,
+            "last_published_cycle": feed_summary.last_cycle,
+            "extraction_ms_p95": nearest_rank_f64(&feed_summary.extraction_ms, 95),
+            "physics_ms_per_frame_p95": nearest_rank_f64(&feed_summary.physics_ms, 95),
+            "child": stream_summary,
+        })
+    });
     println!(
         "{}",
         serde_json::json!({
-            "schema_version": 2,
+            "schema_version": 3,
             "command": "water-preview",
             "status": "PASS",
             "authority": "PRESENTATION_ONLY_TOOL",
-            "mode": if dynamic.is_some() { "dynamic-keyframes" } else { "static" },
+            "mode": mode,
             "keyframes": keyframes,
             "hold_pumps": request.hold,
             "mesh_revision": {
@@ -356,6 +495,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "physics_feedback": false,
             "timing": timing,
             "dynamic_surface": dynamic_surface,
+            "stream": stream,
         })
     );
     Ok(())
@@ -364,9 +504,9 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
 #[cfg(not(feature = "desktop-sdl-ash"))]
 pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
     Err(format!(
-        "water-preview for {} keyframe(s) starting at {} ({} frames at {}x{}, hold {}) requires --features desktop-sdl-ash",
+        "water-preview for {} keyframe(s), stream {:?} ({} frames at {}x{}, hold {}) requires --features desktop-sdl-ash",
         request.meshes.len(),
-        request.meshes[0].display(),
+        request.stream.as_ref().map(|stream| stream.lane.as_str()),
         request.frames,
         request.extent[0],
         request.extent[1],
@@ -383,6 +523,374 @@ fn nearest_rank(values: &[u64], percentile: usize) -> Option<u64> {
     ordered.sort_unstable();
     let rank = (ordered.len() * percentile).div_ceil(100);
     ordered.get(rank.saturating_sub(1)).copied()
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+fn nearest_rank_f64(values: &[f64], percentile: usize) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    let mut ordered = values.to_vec();
+    ordered.sort_by(f64::total_cmp);
+    let rank = (ordered.len() * percentile).div_ceil(100);
+    ordered.get(rank.saturating_sub(1)).copied()
+}
+
+/// One converted stream frame ready for publication.
+#[cfg(feature = "desktop-sdl-ash")]
+struct ConvertedStreamFrame {
+    step: i32,
+    cycle: i32,
+    stream_seconds: f64,
+    extraction_ms: f64,
+    physics_ms: f64,
+    update: DynamicSurfaceUpdateV1,
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+struct StreamSession {
+    child: std::process::Child,
+    frames: Option<std::sync::mpsc::Receiver<super::water_stream::StreamFrame>>,
+    converted: Option<std::sync::mpsc::Receiver<ConvertedStreamFrame>>,
+    reader: Option<std::thread::JoinHandle<Result<(), String>>>,
+    converter: Option<std::thread::JoinHandle<Result<(), String>>>,
+    stderr: Option<std::thread::JoinHandle<String>>,
+    first_frame: Option<super::water_stream::StreamFrame>,
+    first_frame_wait_ms: f64,
+    steps: u32,
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+impl StreamSession {
+    fn spawn(request: &StreamRequest) -> Result<Self, String> {
+        use std::process::{Command, Stdio};
+        let mut child = Command::new(&request.binary)
+            .args([
+                "--game-surface-stream",
+                "--lane",
+                request.lane.as_str(),
+                "--steps",
+                &request.steps.to_string(),
+                "--every",
+                &request.every.to_string(),
+                "--cycles",
+                &request.cycles.to_string(),
+            ])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| format!("{}: {error}", request.binary.display()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| "water-preview stream child has no stdout".to_owned())?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| "water-preview stream child has no stderr".to_owned())?;
+        let (frame_sender, frame_receiver) = std::sync::mpsc::sync_channel(8);
+        let reader = std::thread::spawn(move || {
+            let mut reader = std::io::BufReader::with_capacity(1 << 20, stdout);
+            loop {
+                match super::water_stream::read_frame(&mut reader, MAX_VERTICES, MAX_TRIANGLES)? {
+                    Some(frame) => {
+                        if frame_sender.send(frame).is_err() {
+                            return Ok(());
+                        }
+                    }
+                    None => return Ok(()),
+                }
+            }
+        });
+        let stderr = std::thread::spawn(move || {
+            let mut text = String::new();
+            let _ = std::io::Read::read_to_string(&mut std::io::BufReader::new(stderr), &mut text);
+            text
+        });
+        Ok(Self {
+            child,
+            frames: Some(frame_receiver),
+            converted: None,
+            reader: Some(reader),
+            converter: None,
+            stderr: Some(stderr),
+            first_frame: None,
+            first_frame_wait_ms: 0.0,
+            steps: request.steps,
+        })
+    }
+
+    /// Blocks for the solver's step-0 surface, which seeds the catalog mesh.
+    fn take_first_frame(&mut self) -> Result<super::water_stream::StreamFrame, String> {
+        let started = std::time::Instant::now();
+        let frame = self
+            .frames
+            .as_ref()
+            .ok_or_else(|| "water-preview stream already converted".to_owned())?
+            .recv_timeout(std::time::Duration::from_secs(120))
+            .map_err(|_| self.take_failure("water-preview stream produced no first frame"))?;
+        self.first_frame_wait_ms = started.elapsed().as_secs_f64() * 1_000.0;
+        self.first_frame = Some(frame.clone());
+        Ok(frame)
+    }
+
+    fn take_failure(&mut self, context: &str) -> String {
+        let reader = self.reader.take().and_then(|handle| handle.join().ok());
+        match reader {
+            Some(Err(error)) => format!("{context}: {error}"),
+            _ => context.to_owned(),
+        }
+    }
+
+    /// Moves normal reconstruction and update hashing off the render thread.
+    fn start_conversion(&mut self, mesh_revision: next_contracts::project::AssetRevisionRefV1) {
+        let Some(frames) = self.frames.take() else {
+            return;
+        };
+        let (sender, receiver) = std::sync::mpsc::sync_channel(8);
+        let steps = f64::from(self.steps);
+        let first = self.first_frame.take();
+        self.converter = Some(std::thread::spawn(move || {
+            let convert =
+                |frame: super::water_stream::StreamFrame| -> Result<ConvertedStreamFrame, String> {
+                    let normals = smooth_normals(&frame.positions_micrometres, &frame.indices)?;
+                    let update = DynamicSurfaceUpdateV1::new(
+                        mesh_revision,
+                        1,
+                        frame.positions_micrometres,
+                        normals,
+                        frame.indices,
+                    )
+                    .map_err(|error| error.to_string())?;
+                    Ok(ConvertedStreamFrame {
+                        step: frame.step,
+                        cycle: frame.cycle,
+                        stream_seconds: f64::from(frame.cycle)
+                            * steps
+                            * super::water_stream::SIMULATION_STEP_SECONDS
+                            + frame.simulation_seconds,
+                        extraction_ms: frame.extraction_ms,
+                        physics_ms: frame.physics_ms,
+                        update,
+                    })
+                };
+            if let Some(first) = first
+                && sender.send(convert(first)?).is_err()
+            {
+                return Ok(());
+            }
+            for frame in frames {
+                if sender.send(convert(frame)?).is_err() {
+                    return Ok(());
+                }
+            }
+            Ok(())
+        }));
+        self.converted = Some(receiver);
+    }
+
+    fn finish(mut self) -> Result<serde_json::Value, String> {
+        drop(self.converted.take());
+        drop(self.frames.take());
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            match self.child.try_wait() {
+                Ok(Some(_)) => break,
+                Ok(None) if std::time::Instant::now() < deadline => {
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+                Ok(None) => {
+                    let _ = self.child.kill();
+                    let _ = self.child.wait();
+                    break;
+                }
+                Err(error) => {
+                    return Err(format!("water-preview stream child wait failed: {error}"));
+                }
+            }
+        }
+        let reader = self
+            .reader
+            .take()
+            .and_then(|handle| handle.join().ok())
+            .unwrap_or(Ok(()));
+        let converter = self
+            .converter
+            .take()
+            .and_then(|handle| handle.join().ok())
+            .unwrap_or(Ok(()));
+        let stderr = self
+            .stderr
+            .take()
+            .and_then(|handle| handle.join().ok())
+            .unwrap_or_default();
+        reader?;
+        converter?;
+        let summary = stderr
+            .lines()
+            .rev()
+            .find(|line| line.starts_with('{'))
+            .map(serde_json::from_str::<serde_json::Value>)
+            .transpose()
+            .map_err(|error| format!("water-preview stream summary is not JSON: {error}"))?;
+        Ok(summary.unwrap_or(serde_json::Value::Null))
+    }
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+#[derive(Default)]
+struct FeedSummary {
+    publications: u64,
+    last_hash: Option<next_contracts::ids::ContentHash>,
+    frames_received: u64,
+    frames_skipped: u64,
+    first_frame_wait_ms: f64,
+    published_stream_seconds: f64,
+    wall_seconds: f64,
+    last_step: Option<i32>,
+    last_cycle: Option<i32>,
+    extraction_ms: Vec<f64>,
+    physics_ms: Vec<f64>,
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+#[derive(Default)]
+struct KeyframeFeed {
+    pump_index: u64,
+    published_keyframe: Option<usize>,
+    publications: u64,
+    last_hash: Option<next_contracts::ids::ContentHash>,
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+struct StreamFeed {
+    converted: std::sync::mpsc::Receiver<ConvertedStreamFrame>,
+    rate: f64,
+    pending: Option<ConvertedStreamFrame>,
+    summary: FeedSummary,
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+impl StreamFeed {
+    fn new(session: &mut StreamSession, request: &WaterPreviewRequest) -> Result<Self, String> {
+        Ok(Self {
+            converted: session
+                .converted
+                .take()
+                .ok_or_else(|| "water-preview stream conversion was not started".to_owned())?,
+            rate: request.stream.as_ref().map_or(1.0, |stream| stream.rate),
+            pending: None,
+            summary: FeedSummary {
+                first_frame_wait_ms: session.first_frame_wait_ms,
+                ..FeedSummary::default()
+            },
+        })
+    }
+
+    /// Publishes the newest frame whose stream time has been reached by the
+    /// paced wall clock; earlier eligible frames are skipped, never queued.
+    fn next(&mut self, elapsed: Duration) -> Option<DynamicSurfaceUpdateV1> {
+        self.summary.wall_seconds += elapsed.as_secs_f64();
+        let budget = if self.rate == 0.0 {
+            f64::INFINITY
+        } else {
+            self.summary.wall_seconds * self.rate
+        };
+        let mut chosen: Option<ConvertedStreamFrame> = None;
+        loop {
+            if self.pending.is_none() {
+                match self.converted.try_recv() {
+                    Ok(frame) => {
+                        self.summary.frames_received += 1;
+                        self.pending = Some(frame);
+                    }
+                    Err(_) => break,
+                }
+            }
+            let eligible = self
+                .pending
+                .as_ref()
+                .is_some_and(|frame| frame.stream_seconds <= budget);
+            if !eligible {
+                break;
+            }
+            if chosen.is_some() {
+                self.summary.frames_skipped += 1;
+            }
+            chosen = self.pending.take();
+        }
+        let frame = chosen?;
+        self.summary.publications += 1;
+        self.summary.last_hash = Some(frame.update.canonical_hash());
+        self.summary.published_stream_seconds = frame.stream_seconds;
+        self.summary.last_step = Some(frame.step);
+        self.summary.last_cycle = Some(frame.cycle);
+        self.summary.extraction_ms.push(frame.extraction_ms);
+        self.summary.physics_ms.push(frame.physics_ms);
+        frame.update.with_sequence(self.summary.publications).ok()
+    }
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+enum DynamicFeed {
+    Static,
+    Keyframes(KeyframeFeed),
+    Stream(Box<StreamFeed>),
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+impl DynamicFeed {
+    fn next_update(
+        &mut self,
+        request: &WaterPreviewRequest,
+        dynamic: &DynamicPreview,
+        elapsed: Duration,
+    ) -> Result<Option<DynamicSurfaceUpdateV1>, next_desktop_sdl_ash::DesktopAdapterError> {
+        match self {
+            Self::Static => Ok(None),
+            Self::Keyframes(feed) => {
+                let keyframe =
+                    keyframe_for_pump(feed.pump_index, request.hold, dynamic.keyframes.len());
+                feed.pump_index = feed.pump_index.saturating_add(1);
+                if feed.published_keyframe == Some(keyframe) {
+                    return Ok(None);
+                }
+                feed.publications = feed.publications.saturating_add(1);
+                feed.published_keyframe = Some(keyframe);
+                let update = dynamic.keyframes[keyframe]
+                    .update
+                    .with_sequence(feed.publications)?;
+                feed.last_hash = Some(update.canonical_hash());
+                Ok(Some(update))
+            }
+            Self::Stream(feed) => Ok(feed.next(elapsed)),
+        }
+    }
+
+    fn summary(&self) -> FeedSummary {
+        match self {
+            Self::Static => FeedSummary::default(),
+            Self::Keyframes(feed) => FeedSummary {
+                publications: feed.publications,
+                last_hash: feed.last_hash,
+                ..FeedSummary::default()
+            },
+            Self::Stream(feed) => FeedSummary {
+                publications: feed.summary.publications,
+                last_hash: feed.summary.last_hash,
+                frames_received: feed.summary.frames_received,
+                frames_skipped: feed.summary.frames_skipped,
+                first_frame_wait_ms: feed.summary.first_frame_wait_ms,
+                published_stream_seconds: feed.summary.published_stream_seconds,
+                wall_seconds: feed.summary.wall_seconds,
+                last_step: feed.summary.last_step,
+                last_cycle: feed.summary.last_cycle,
+                extraction_ms: feed.summary.extraction_ms.clone(),
+                physics_ms: feed.summary.physics_ms.clone(),
+            },
+        }
+    }
 }
 
 #[cfg(feature = "desktop-sdl-ash")]
@@ -418,14 +926,92 @@ struct WaterPreview {
     indexed_draw_count: u32,
 }
 
+/// Where the catalog placeholder mesh and the dynamic declaration come from.
 #[cfg(feature = "desktop-sdl-ash")]
-fn build_preview(request: &WaterPreviewRequest) -> Result<WaterPreview, String> {
-    let parsed = request
-        .meshes
-        .iter()
-        .map(|path| parse_obj(path))
-        .collect::<Result<Vec<_>, _>>()?;
-    let bounds = union_bounds(parsed.iter().map(|obj| obj.bounds))?;
+enum PreviewSource {
+    Keyframes(Vec<ParsedObj>),
+    Stream(super::water_stream::StreamFrame),
+}
+
+/// Declared envelope for a streamed lane: the solver box plus one pixel
+/// pitch on every side, so any extracted height stays inside the bounds the
+/// frame plan validates.
+#[cfg(feature = "desktop-sdl-ash")]
+fn stream_bounds(frame: &super::water_stream::StreamFrame) -> Result<AabbI64V1, String> {
+    let margin = super::water_stream::SURFACE_PIXEL_PITCH_METRES;
+    let quantize = |value: f64| -> Result<i64, String> {
+        let micrometres = value * 1_000_000.0;
+        if !micrometres.is_finite() || micrometres.abs() > 1.0e15 {
+            return Err("water-preview stream box is outside the bounded profile".to_owned());
+        }
+        Ok(micrometres.round() as i64)
+    };
+    let mut min = [0_i64; 3];
+    let mut max = [0_i64; 3];
+    for axis in 0..3 {
+        min[axis] = quantize(frame.box_min_metres[axis] - margin)?;
+        max[axis] = quantize(frame.box_max_metres[axis] + margin)?;
+    }
+    AabbI64V1::new(min, max).map_err(|error| error.to_string())
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+fn build_preview(
+    request: &WaterPreviewRequest,
+    source: PreviewSource,
+) -> Result<WaterPreview, String> {
+    let (parsed, bounds, capacity) = match source {
+        PreviewSource::Keyframes(parsed) => {
+            let bounds = union_bounds(parsed.iter().map(|obj| obj.bounds))?;
+            let capacity = if parsed.len() >= 2 {
+                let vertex_capacity = parsed
+                    .iter()
+                    .map(|obj| obj.positions.len())
+                    .max()
+                    .and_then(|count| u32::try_from(count).ok())
+                    .ok_or_else(|| "water-preview vertex capacity overflow".to_owned())?;
+                let index_capacity = parsed
+                    .iter()
+                    .map(|obj| obj.indices.len())
+                    .max()
+                    .and_then(|count| u32::try_from(count).ok())
+                    .ok_or_else(|| "water-preview index capacity overflow".to_owned())?;
+                Some((vertex_capacity, index_capacity))
+            } else {
+                None
+            };
+            (parsed, bounds, capacity)
+        }
+        PreviewSource::Stream(frame) => {
+            let bounds = stream_bounds(&frame)?;
+            let (vertex_capacity, index_capacity) =
+                super::water_stream::surface_capacity(frame.box_min_metres, frame.box_max_metres)?;
+            let normals = smooth_normals(&frame.positions_micrometres, &frame.indices)?;
+            let uv = planar_uv(&frame.positions_micrometres, bounds);
+            let mut preimage = Vec::new();
+            for position in &frame.positions_micrometres {
+                for component in position {
+                    preimage.extend_from_slice(&component.to_le_bytes());
+                }
+            }
+            for index in &frame.indices {
+                preimage.extend_from_slice(&index.to_le_bytes());
+            }
+            let placeholder = ParsedObj {
+                positions: frame.positions_micrometres,
+                normals,
+                uv,
+                indices: frame.indices,
+                bounds,
+                source_sha256: format!("{:x}", Sha256::digest(&preimage)),
+            };
+            (
+                vec![placeholder],
+                bounds,
+                Some((vertex_capacity, index_capacity)),
+            )
+        }
+    };
     let first = &parsed[0];
     let mut source =
         next_reference_game::project_source_v7_with_id("org.nextengine.developer.water-preview")
@@ -571,10 +1157,23 @@ fn build_preview(request: &WaterPreviewRequest) -> Result<WaterPreview, String> 
         QuantizedPresentationTransformV1::default(),
         true,
     );
-    let focus = [800_000, 230_000, 500_000];
+    // Frame the declared envelope: look at its centre from above and behind
+    // so both lanes fit the same viewport.
+    let centre = [
+        (bounds.min()[0] + bounds.max()[0]) / 2,
+        bounds.min()[1] + (bounds.max()[1] - bounds.min()[1]) / 3,
+        (bounds.min()[2] + bounds.max()[2]) / 2,
+    ];
+    let span = (bounds.max()[0] - bounds.min()[0]).max(bounds.max()[2] - bounds.min()[2]);
+    let distance = span.saturating_mul(3).saturating_div(2).max(2_400_000);
+    let focus = centre;
     let camera_result = CameraResultSampleV1 {
         pose: QuantizedPresentationTransformV1 {
-            translation_micrometres: [800_000, 1_250_000, 2_350_000],
+            translation_micrometres: [
+                centre[0],
+                centre[1].saturating_add(distance.saturating_mul(17).saturating_div(40)),
+                centre[2].saturating_add(distance.saturating_mul(37).saturating_div(40)),
+            ],
             ..QuantizedPresentationTransformV1::default()
         },
         focus_point_micrometres: focus,
@@ -591,7 +1190,8 @@ fn build_preview(request: &WaterPreviewRequest) -> Result<WaterPreview, String> 
             focus_point_micrometres: focus,
             orbit_yaw_millidegrees: 0,
             orbit_pitch_millidegrees: -24_000,
-            distance_micrometres: 2_400_000,
+            distance_micrometres: u64::try_from(distance)
+                .map_err(|_| "water-preview camera distance overflow".to_owned())?,
             shoulder_offset_micrometres: [0; 3],
         },
         camera_result,
@@ -625,51 +1225,41 @@ fn build_preview(request: &WaterPreviewRequest) -> Result<WaterPreview, String> 
     let frame_plan = build_b0_frame_plan(&snapshot, &cooked.render_content_catalog, target)
         .map_err(|error| error.to_string())?;
 
-    let dynamic = if parsed.len() >= 2 {
-        let vertex_capacity = parsed
-            .iter()
-            .map(|obj| obj.positions.len())
-            .max()
-            .and_then(|count| u32::try_from(count).ok())
-            .ok_or_else(|| "water-preview vertex capacity overflow".to_owned())?;
-        let index_capacity = parsed
-            .iter()
-            .map(|obj| obj.indices.len())
-            .max()
-            .and_then(|count| u32::try_from(count).ok())
-            .ok_or_else(|| "water-preview index capacity overflow".to_owned())?;
-        let keyframes = parsed
-            .iter()
-            .map(|obj| {
-                DynamicSurfaceUpdateV1::new(
+    let dynamic = capacity
+        .map(|(vertex_capacity, index_capacity)| {
+            let keyframes = parsed
+                .iter()
+                .map(|obj| {
+                    DynamicSurfaceUpdateV1::new(
+                        mesh_revision,
+                        1,
+                        obj.positions.clone(),
+                        obj.normals.clone(),
+                        obj.indices.clone(),
+                    )
+                    .map(|update| DynamicKeyframe { update })
+                    .map_err(|error| error.to_string())
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok::<_, String>(DynamicPreview {
+                profile: DynamicSurfaceProfileV1 {
                     mesh_revision,
-                    1,
-                    obj.positions.clone(),
-                    obj.normals.clone(),
-                    obj.indices.clone(),
-                )
-                .map(|update| DynamicKeyframe { update })
-                .map_err(|error| error.to_string())
+                    vertex_capacity,
+                    index_capacity,
+                },
+                keyframes,
             })
-            .collect::<Result<Vec<_>, _>>()?;
-        Some(DynamicPreview {
-            profile: DynamicSurfaceProfileV1 {
-                mesh_revision,
-                vertex_capacity,
-                index_capacity,
-            },
-            keyframes,
         })
-    } else {
-        None
-    };
-    let keyframes = request
-        .meshes
+        .transpose()?;
+    let keyframes = parsed
         .iter()
-        .zip(&parsed)
         .enumerate()
-        .map(|(index, (path, obj))| PreviewKeyframe {
-            path: path.clone(),
+        .map(|(index, obj)| PreviewKeyframe {
+            path: request
+                .meshes
+                .get(index)
+                .cloned()
+                .unwrap_or_else(|| PathBuf::from("<stream step 0>")),
             source_sha256: obj.source_sha256.clone(),
             vertex_count: obj.positions.len(),
             triangle_count: obj.indices.len() / 3,
@@ -1015,13 +1605,22 @@ mod tests {
         ));
         std::fs::write(&path, "v 0 0 0\nv 0 0 1\nv 1 0 0\nf 1 2 3\n")
             .expect("writes bounded OBJ fixture");
-        let preview = build_preview(&WaterPreviewRequest {
+        let request = WaterPreviewRequest {
             meshes: vec![path.clone()],
             frames: 1,
             extent: [640, 480],
             hold: 1,
-        })
-        .expect("builds B0 preview");
+            stream: None,
+        };
+        let source = PreviewSource::Keyframes(
+            request
+                .meshes
+                .iter()
+                .map(|path| parse_obj(path))
+                .collect::<Result<Vec<_>, _>>()
+                .expect("parses keyframe"),
+        );
+        let preview = build_preview(&request, source).expect("builds B0 preview");
         std::fs::remove_file(path).expect("removes bounded OBJ fixture");
         assert_eq!(preview.visible_object_count, 1);
         assert_eq!(preview.indexed_draw_count, 1);
@@ -1046,13 +1645,22 @@ mod tests {
             "v 0 0.5 0\nv 0 0 2\nv 2 0 0\nv 2 0.25 2\nf 1 2 3\nf 3 2 4\n",
         )
         .expect("second keyframe");
-        let preview = build_preview(&WaterPreviewRequest {
+        let request = WaterPreviewRequest {
             meshes: vec![first.clone(), second.clone()],
             frames: 1,
             extent: [640, 480],
             hold: 2,
-        })
-        .expect("builds dynamic preview");
+            stream: None,
+        };
+        let source = PreviewSource::Keyframes(
+            request
+                .meshes
+                .iter()
+                .map(|path| parse_obj(path))
+                .collect::<Result<Vec<_>, _>>()
+                .expect("parses keyframes"),
+        );
+        let preview = build_preview(&request, source).expect("builds dynamic preview");
         std::fs::remove_file(first).expect("removes first keyframe");
         std::fs::remove_file(second).expect("removes second keyframe");
         let dynamic = preview.dynamic.as_ref().expect("dynamic surface declared");
