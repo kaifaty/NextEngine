@@ -145,6 +145,22 @@ Profile product_h3_support_profile() {
     return profile;
 }
 
+Profile product_h3_analytic_contact_profile() {
+    Profile profile = product_bridge_profile(
+        "nuv-basin-48k-analytic-contact-game.v5", 0.15, 1.0 / 240.0, 123,
+        "product_h3_no_ghost_analytic_box_contact_game_candidate");
+    profile.record_version = 5;
+    profile.kappa = 9196.875;
+    profile.lambda = 360.0;
+    profile.fixed_iterations = 5;
+    profile.basin_min = {-2.0, 0.0, -1.0};
+    profile.basin_max = {2.0, 1.0, 1.0};
+    profile.particle_radius = 0.025;
+    profile.boundary = "analytic_box_contact_no_ghost_support";
+    profile.contact = "analytic_box_clamp_gpu_v1";
+    return profile;
+}
+
 std::string bool_json(bool value) { return value ? "true" : "false"; }
 
 } // namespace
@@ -224,6 +240,7 @@ const std::vector<Profile>& profiles() {
             "nuv-basin-48k-static-support-derived.v3", 576.0, 360.0,
             "dimensionally_derived_coefficient_hypothesis"),
         product_h3_support_profile(),
+        product_h3_analytic_contact_profile(),
     };
     return values;
 }
@@ -313,7 +330,9 @@ std::string canonical_profile_json(const Profile& profile) {
            << ",\"reference\":{\"repository\":\"PeriDyno\",\"commit\":\""
            << PERIDYNO_COMMIT << "\"}"
            << ",\"research_choices\":["
-           << "\"performance blocks are boundary-free\","
+           << (profile.contact == "analytic_box_clamp_gpu_v1"
+                   ? "\"game performance block uses timed analytic box contact\","
+                   : "\"performance blocks are boundary-free\",")
            << "\"tiny closed-box boundary is a fixed ghost shell\","
            << (profile.record_version == 0
                    ? "\"neighbor membership is frozen from the initial position\","
@@ -352,6 +371,8 @@ std::string production_profile_audit_json() {
     const std::string static_derived_id = "nuv-basin-48k-static-support-derived.v3";
     const std::string h3_candidate_id =
         "nuv-basin-48k-static-support-h3-physical.v4";
+    const std::string game_candidate_id =
+        "nuv-basin-48k-analytic-contact-game.v5";
     const Profile& retained_48k = find_profile(retained_48k_id);
     const Profile& retained_50k = find_profile(retained_50k_id);
     const Profile& source_scale = find_profile(source_scale_id);
@@ -360,6 +381,7 @@ std::string production_profile_audit_json() {
     const Profile& static_control = find_profile(static_control_id);
     const Profile& static_derived = find_profile(static_derived_id);
     const Profile& h3_candidate = find_profile(h3_candidate_id);
+    const Profile& game_candidate = find_profile(game_candidate_id);
 
     const auto append_profile = [](std::ostringstream& output, const Profile& profile) {
         const std::string canonical = canonical_profile_json(profile);
@@ -400,6 +422,8 @@ std::string production_profile_audit_json() {
     append_profile(output, static_derived);
     output << ',';
     append_profile(output, h3_candidate);
+    output << ',';
+    append_profile(output, game_candidate);
     output << "]"
            << ",\"product_expectation\":{\"samples_nominal\":48000"
            << ",\"samples_hard_capacity\":50000,\"lattice\":[80,15,40]"
@@ -421,6 +445,13 @@ std::string production_profile_audit_json() {
            << h3_candidate.samples + h3_candidate.static_boundary_samples
            << ",\"fixed_iterations\":" << h3_candidate.fixed_iterations
            << ",\"runtime_authority\":false,\"npr1_authorized\":false}"
+           << ",\"game_candidate\":{\"profile_id\":\""
+           << game_candidate.id << "\",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(game_candidate))
+           << "\",\"total_solver_samples\":" << game_candidate.samples
+           << ",\"fixed_iterations\":" << game_candidate.fixed_iterations
+           << ",\"analytic_contact_in_gpu_step\":true"
+           << ",\"runtime_authority\":false}"
            << ",\"mismatch\":{\"spacing_scale_from_retained_48k\":"
            << source_scale.spacing / retained_48k.spacing
            << ",\"mass_scale_from_retained_48k\":"
@@ -437,7 +468,7 @@ std::string production_profile_audit_json() {
            << ",\"open_gates\":{\"coefficient_scale_law_derived\":true"
            << ",\"coefficient_scale_law_physically_selected\":false"
            << ",\"static_density_support_selected\":true"
-           << ",\"sealed_contact_implemented\":false"
+           << ",\"sealed_contact_implemented\":true"
            << ",\"canonical_publication_selected\":false"
            << ",\"physical_corpus_passed\":false"
            << ",\"authority_selected\":false}}";

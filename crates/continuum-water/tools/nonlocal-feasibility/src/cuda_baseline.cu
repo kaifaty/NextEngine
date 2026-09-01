@@ -610,6 +610,21 @@ __global__ void predict_positions(
     current[index] = predicted[index];
 }
 
+__global__ void clamp_analytic_box_contact(
+    float3* position,
+    const std::uint8_t* fixed,
+    int count,
+    float3 lower,
+    float3 upper) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index >= count || fixed[index] != 0U) {
+        return;
+    }
+    position[index].x = fminf(fmaxf(position[index].x, lower.x), upper.x);
+    position[index].y = fminf(fmaxf(position[index].y, lower.y), upper.y);
+    position[index].z = fminf(fmaxf(position[index].z, lower.z), upper.z);
+}
+
 template <typename NeighborIndex>
 __global__ void compute_density(
     const float3* position,
@@ -1636,6 +1651,7 @@ struct StageTiming {
     double surface_tension = 0.0;
     double fused_owner_terms = 0.0;
     double local_update = 0.0;
+    double contact = 0.0;
     double state_handoff = 0.0;
     double total = 0.0;
 };
@@ -1683,6 +1699,7 @@ struct EventInterval {
         Surface,
         FusedOwnerTerms,
         Update,
+        Contact,
         Handoff,
     };
 
@@ -1831,6 +1848,10 @@ Fixture performance_fixture(const Profile& profile, int iterations) {
     fixture.iterations = iterations;
     fixture.pair_capacity = profile.max_directed_pairs;
     fixture.grid_margin = profile.grid_margin;
+    fixture.analytic_box_contact = profile.contact == "analytic_box_clamp_gpu_v1";
+    fixture.contact_minimum = profile.basin_min;
+    fixture.contact_maximum = profile.basin_max;
+    fixture.particle_radius = profile.particle_radius;
     fixture.advected = profile.advected;
     fixture.trace_length = profile.trace_length;
     fixture.particles.reserve(profile.samples + profile.static_boundary_samples);
@@ -1910,6 +1931,12 @@ std::string fixture_input_hash(const Fixture& fixture) {
         for (int index : fixture.lattice_index_by_sample) {
             data << index << ',';
         }
+    }
+    if (fixture.analytic_box_contact) {
+        data << "|analytic_box_contact:" << fixture.contact_minimum.x << ','
+             << fixture.contact_minimum.y << ',' << fixture.contact_minimum.z << ';'
+             << fixture.contact_maximum.x << ',' << fixture.contact_maximum.y << ','
+             << fixture.contact_maximum.z << ';' << fixture.particle_radius;
     }
     return sha256_hex(data.str());
 }
@@ -2047,6 +2074,18 @@ public:
               static_cast<float>(fixture.spacing), static_cast<float>(fixture.horizon))) {
         if (count_ <= 0) {
             throw std::invalid_argument("CUDA fixture is empty");
+        }
+        if (fixture_.analytic_box_contact
+            && (!finite(fixture_.contact_minimum) || !finite(fixture_.contact_maximum)
+                || !std::isfinite(fixture_.particle_radius)
+                || fixture_.particle_radius <= 0.0
+                || fixture_.contact_maximum.x - fixture_.contact_minimum.x
+                    < 2.0 * fixture_.particle_radius
+                || fixture_.contact_maximum.y - fixture_.contact_minimum.y
+                    < 2.0 * fixture_.particle_radius
+                || fixture_.contact_maximum.z - fixture_.contact_minimum.z
+                    < 2.0 * fixture_.particle_radius)) {
+            throw std::invalid_argument("invalid analytic box contact fixture");
         }
         if (handoff_mode_ == HandoffMode::PointerSwapO1
             && accumulation_mode_ != AccumulationMode::GatherDirectedR0
@@ -2421,6 +2460,21 @@ public:
                                    cudaMemcpyDeviceToDevice),
                         "handoff next position");
                 }
+            });
+        }
+        if (fixture_.analytic_box_contact) {
+            timed(intervals, EventInterval::Stage::Contact, [&] {
+                const float radius = static_cast<float>(fixture_.particle_radius);
+                clamp_analytic_box_contact<<<blocks_for(count_), THREADS>>>(
+                    current_, solver_fixed, count_,
+                    make_float3(
+                        static_cast<float>(fixture_.contact_minimum.x) + radius,
+                        static_cast<float>(fixture_.contact_minimum.y) + radius,
+                        static_cast<float>(fixture_.contact_minimum.z) + radius),
+                    make_float3(
+                        static_cast<float>(fixture_.contact_maximum.x) - radius,
+                        static_cast<float>(fixture_.contact_maximum.y) - radius,
+                        static_cast<float>(fixture_.contact_maximum.z) - radius));
             });
         }
         timed(intervals, EventInterval::Stage::Density, [&] {
@@ -2979,6 +3033,9 @@ private:
             break;
         case EventInterval::Stage::Update:
             timing.local_update += milliseconds;
+            break;
+        case EventInterval::Stage::Contact:
+            timing.contact += milliseconds;
             break;
         case EventInterval::Stage::Handoff:
             timing.state_handoff += milliseconds;
@@ -3583,6 +3640,7 @@ void append_timing(std::ostringstream& output, const StageTiming& timing) {
            << ",\"surface_tension_ms\":" << timing.surface_tension
            << ",\"fused_owner_terms_ms\":" << timing.fused_owner_terms
            << ",\"local_update_ms\":" << timing.local_update
+           << ",\"analytic_contact_ms\":" << timing.contact
            << ",\"state_handoff_and_velocity_ms\":" << timing.state_handoff
            << ",\"total_ms\":" << timing.total << '}';
 }
@@ -3650,6 +3708,8 @@ void append_stage_statistics(
     append_statistics(output, collect_statistics(timings, &StageTiming::fused_owner_terms));
     output << ",\"local_update\":";
     append_statistics(output, collect_statistics(timings, &StageTiming::local_update));
+    output << ",\"analytic_contact\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::contact));
     output << ",\"state_handoff_and_velocity\":";
     append_statistics(output, collect_statistics(timings, &StageTiming::state_handoff));
     output << ",\"total\":";
@@ -6360,10 +6420,11 @@ CommandReport run_cuda_p2_check(
     const Profile& profile,
     int iterations) {
     if ((profile.record_version != 1 && profile.record_version != 2
-            && profile.record_version != 3 && profile.record_version != 4)
+            && profile.record_version != 3 && profile.record_version != 4
+            && profile.record_version != 5)
         || iterations < 1 || iterations > 100) {
         throw std::invalid_argument(
-            "P2 check requires a v1/v2/v3/v4 profile and 1..=100 iterations");
+            "P2 check requires a v1/v2/v3/v4/v5 profile and 1..=100 iterations");
     }
     const CommandReport retained_self = run_cuda_self_test(
         P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE);
@@ -7148,10 +7209,12 @@ CommandReport run_cuda_p2_decision(
     int warmup,
     int runs) {
     if ((profile.id != "nuv-water-50k-coherent.v1"
-            && profile.id != "nuv-water-50k-advected.v1")
+            && profile.id != "nuv-water-50k-advected.v1"
+            && profile.id != "nuv-basin-48k-analytic-contact-game.v5")
         || warmup != 64 || runs != 512) {
         throw std::invalid_argument(
-            "P2 decision requires exact-50k coherent/advected --warmup 64 --runs 512");
+            "P2 decision requires an admitted coherent/advected/game-contact profile "
+            "with --warmup 64 --runs 512");
     }
     const CommandReport check = run_cuda_p2_check(profile, profile.fixed_iterations);
     const Fixture fixture = performance_fixture(profile, profile.fixed_iterations);
@@ -7253,6 +7316,8 @@ CommandReport run_cuda_p2_decision(
            << "\",\"binary_sha256\":\"" << executable_hash()
            << "\",\"command\":\"nonlocal-feasibility --p2-decision " << profile.id
            << " --warmup 64 --runs 512\",\"conditioning_runs\":" << CONDITIONING_RUNS
+           << ",\"analytic_contact_in_primary_timing\":"
+           << (fixture.analytic_box_contact ? "true" : "false")
            << ",\"warmup_runs\":" << warmup << ",\"measured_runs\":" << runs
            << ",\"correctness\":{\"p2_check_passed\":"
            << (check.passed ? "true" : "false")
@@ -7311,6 +7376,7 @@ struct GameScenarioResult {
     std::size_t satellites = 0;
     double maximum_penetration = 0.0;
     double maximum_fixed_displacement = 0.0;
+    double maximum_contact_velocity_error = 0.0;
     double maximum_speed = 0.0;
     double maximum_positive_compression = 0.0;
     double horizontal_com_drift = 0.0;
@@ -7349,15 +7415,16 @@ GameContactResult game_sweep_box(
     const GameQualityBox& box) {
     GameContactResult result;
     result.position = tentative;
+    const float radius = static_cast<float>(GAME_RADIUS);
     const std::array<double, 3> lower = {
-        box.minimum.x + GAME_RADIUS,
-        box.minimum.y + GAME_RADIUS,
-        box.minimum.z + GAME_RADIUS,
+        static_cast<double>(static_cast<float>(box.minimum.x) + radius),
+        static_cast<double>(static_cast<float>(box.minimum.y) + radius),
+        static_cast<double>(static_cast<float>(box.minimum.z) + radius),
     };
     const std::array<double, 3> upper = {
-        box.maximum.x - GAME_RADIUS,
-        box.maximum.y - GAME_RADIUS,
-        box.maximum.z - GAME_RADIUS,
+        static_cast<double>(static_cast<float>(box.maximum.x) - radius),
+        static_cast<double>(static_cast<float>(box.maximum.y) - radius),
+        static_cast<double>(static_cast<float>(box.maximum.z) - radius),
     };
     const std::array<int, 3> lower_feature = {0, 2, 4};
     const std::array<int, 3> upper_feature = {1, 3, 5};
@@ -7365,10 +7432,10 @@ GameContactResult game_sweep_box(
         const double start_value = game_axis(start, component);
         const double tentative_value = game_axis(tentative, component);
         const double displacement = tentative_value - start_value;
-        if (tentative_value < lower[component] && displacement < 0.0) {
+        if (tentative_value <= lower[component] && displacement < 0.0) {
             set_game_axis(result.position, component, lower[component]);
             result.features.push_back(lower_feature[component]);
-        } else if (tentative_value > upper[component] && displacement > 0.0) {
+        } else if (tentative_value >= upper[component] && displacement > 0.0) {
             set_game_axis(result.position, component, upper[component]);
             result.features.push_back(upper_feature[component]);
         }
@@ -7432,8 +7499,12 @@ Fixture game_fixture(
     fixture.terms = profile.terms;
     fixture.iterations = iterations;
     fixture.particles = fluid;
-    const std::size_t boundary = append_game_boundary(fixture, box, 3);
+    const std::size_t boundary = append_game_boundary(fixture, box, 0);
     fixture.pair_capacity = (fluid.size() + boundary) * 123U;
+    fixture.analytic_box_contact = true;
+    fixture.contact_minimum = box.minimum;
+    fixture.contact_maximum = box.maximum;
+    fixture.particle_radius = GAME_RADIUS;
     return fixture;
 }
 
@@ -7533,12 +7604,15 @@ void game_accumulate_step(
         result.maximum_penetration = std::max(
             result.maximum_penetration, contact.penetration);
         result.maximum_speed = std::max(result.maximum_speed, norm(contact.velocity));
+        result.maximum_contact_velocity_error = std::max(
+            result.maximum_contact_velocity_error,
+            norm(run.state.final_velocity[index] - contact.velocity));
         const double positive_compression = std::max(
             run.state.density[index] / fixture.rest_density - 1.0, 0.0);
         result.maximum_positive_compression = std::max(
             result.maximum_positive_compression, positive_compression);
-        fluid[index].position = contact.position;
-        fluid[index].velocity = contact.velocity;
+        fluid[index].position = run.state.next_position[index];
+        fluid[index].velocity = run.state.final_velocity[index];
     }
     trace << ordered_output_digest(run.state) << '|';
     for (const Particle& particle : fluid) {
@@ -7591,6 +7665,7 @@ GameScenarioResult run_game_hold(const Profile& profile, int iterations) {
     result.quality_passed = result.apparatus_passed
         && result.maximum_penetration <= 1.0e-12
         && result.maximum_fixed_displacement <= 1.0e-12
+        && result.maximum_contact_velocity_error <= 1.0e-4
         && result.horizontal_com_drift <= 0.005
         && result.vertical_com_drift <= GAME_RADIUS
         && result.maximum_speed <= 1.0
@@ -7601,6 +7676,8 @@ GameScenarioResult run_game_hold(const Profile& profile, int iterations) {
         result.first_failure = "containment";
     } else if (result.maximum_fixed_displacement > 1.0e-12) {
         result.first_failure = "fixed_boundary_moved";
+    } else if (result.maximum_contact_velocity_error > 1.0e-4) {
+        result.first_failure = "contact_velocity_correspondence";
     } else if (result.horizontal_com_drift > 0.005) {
         result.first_failure = "horizontal_drift";
     } else if (result.vertical_com_drift > GAME_RADIUS) {
@@ -7653,6 +7730,7 @@ GameScenarioResult run_game_release(const Profile& profile, int iterations) {
     result.quality_passed = result.apparatus_passed
         && result.maximum_penetration <= 1.0e-12
         && result.maximum_fixed_displacement <= 1.0e-12
+        && result.maximum_contact_velocity_error <= 1.0e-4
         && result.forward_com_travel >= 0.05
         && result.maximum_speed <= 3.0
         && result.components <= 2U && result.satellites <= 4U;
@@ -7662,6 +7740,8 @@ GameScenarioResult run_game_release(const Profile& profile, int iterations) {
         result.first_failure = "containment";
     } else if (result.maximum_fixed_displacement > 1.0e-12) {
         result.first_failure = "fixed_boundary_moved";
+    } else if (result.maximum_contact_velocity_error > 1.0e-4) {
+        result.first_failure = "contact_velocity_correspondence";
     } else if (result.forward_com_travel < 0.05) {
         result.first_failure = "release_motion";
     } else if (result.maximum_speed > 3.0) {
@@ -7716,6 +7796,9 @@ GameScenarioResult run_game_contact(const Profile& profile, int iterations) {
         result.maximum_penetration = std::max(
             result.maximum_penetration, contact.penetration);
         result.maximum_speed = std::max(result.maximum_speed, norm(contact.velocity));
+        result.maximum_contact_velocity_error = std::max(
+            result.maximum_contact_velocity_error,
+            norm(run.state.final_velocity.front() - contact.velocity));
         result.solver_total_ms += run.timing.total;
         result.solver_maximum_ms = std::max(result.solver_maximum_ms, run.timing.total);
         for (std::size_t fixed = 1; fixed < fixture.particles.size(); ++fixed) {
@@ -7733,7 +7816,8 @@ GameScenarioResult run_game_contact(const Profile& profile, int iterations) {
     result.trace_sha256 = sha256_hex(trace.str());
     result.quality_passed = result.apparatus_passed && exact_features
         && result.maximum_penetration <= 1.0e-12
-        && result.maximum_fixed_displacement <= 1.0e-12;
+        && result.maximum_fixed_displacement <= 1.0e-12
+        && result.maximum_contact_velocity_error <= 1.0e-4;
     if (!result.apparatus_passed) {
         result.first_failure = "apparatus";
     } else if (!exact_features) {
@@ -7742,6 +7826,8 @@ GameScenarioResult run_game_contact(const Profile& profile, int iterations) {
         result.first_failure = "containment";
     } else if (result.maximum_fixed_displacement > 1.0e-12) {
         result.first_failure = "fixed_boundary_moved";
+    } else if (result.maximum_contact_velocity_error > 1.0e-4) {
+        result.first_failure = "contact_velocity_correspondence";
     }
     return result;
 }
@@ -7763,6 +7849,8 @@ void append_game_scenario(
            << ",\"maximum_penetration_m\":" << result.maximum_penetration
            << ",\"maximum_fixed_displacement_m\":"
            << result.maximum_fixed_displacement
+           << ",\"maximum_contact_velocity_error_m_s\":"
+           << result.maximum_contact_velocity_error
            << ",\"maximum_speed_m_s\":" << result.maximum_speed
            << ",\"maximum_positive_compression\":"
            << result.maximum_positive_compression
@@ -7835,14 +7923,15 @@ CommandReport run_cuda_game_quality_smoke() {
            << sha256_hex(canonical_profile_json(profile)) << "\""
            << ",\"binary_sha256\":\"" << executable_hash() << "\""
            << ",\"observer_timing_in_primary_gpu_step\":false"
-           << ",\"contact_timing_in_primary_gpu_step\":false"
+           << ",\"contact_timing_in_primary_gpu_step\":true"
            << ",\"gates\":{\"hold_horizontal_com_drift_m\":0.005"
            << ",\"hold_vertical_com_drift_m\":0.025"
            << ",\"hold_maximum_speed_m_s\":1"
            << ",\"release_forward_com_travel_m\":0.05"
            << ",\"release_maximum_speed_m_s\":3"
            << ",\"maximum_penetration_m\":1e-12"
-           << ",\"maximum_fixed_displacement_m\":1e-12}"
+           << ",\"maximum_fixed_displacement_m\":1e-12"
+           << ",\"maximum_contact_velocity_error_m_s\":1e-4}"
            << ",\"lanes\":[";
     for (std::size_t index = 0; index < lanes.size(); ++index) {
         if (index != 0U) {
@@ -7866,7 +7955,8 @@ CommandReport run_cuda_game_quality_smoke() {
            << selected_iterations
            << ",\"quality_passed\":"
            << (selected_iterations != 0 ? "true" : "false")
-           << ",\"performance_campaign_authorized\":false}"
+           << ",\"performance_campaign_authorized\":"
+           << (quality_passed ? "true" : "false") << '}'
            << ",\"result_sha256\":\"" << sha256_hex(root.str()) << "\""
            << ",\"device\":" << device_json() << '}';
     return {quality_passed, output.str()};

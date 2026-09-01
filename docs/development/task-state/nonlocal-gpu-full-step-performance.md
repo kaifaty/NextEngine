@@ -2,37 +2,38 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ORIGINAL_GPU_GAME_QUALITY_SMOKE_PASS / FULL_SIZE_TIMING_NEXT` |
+| Status | `ACTIVE / 48K GAME GPU CONTACT TIMING PASS / DYNAMIC VISUAL CORPUS NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
-| Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
-| Definition of done | complete frozen correctness followed by two-process 50k p95/p99 evidence, or the first honest bounded refutation |
+| Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
+| Definition of done | bounded dynamic visual/invariant acceptance plus two-process near-50k p95/p99 evidence, or the first honest bounded refutation |
 | Authority | Working context only; SPEC-38, ADR-076/081, frozen NCGP1--NCGP4 contracts and exact evidence outrank this file |
 
 ## Resume in 60 seconds
 
-- **Goal:** measure the complete corrected Nonlocal GPU water step on 50,000
-  particles against `p95 <= 4 ms`, `p99 <= 6 ms` on RTX 3080.
-- **Current boundary:** correct-water performance is still `NOT_RUN`. NCGP11
-  measured only the implementation cost of the physically failed NCGP10 route
-  and found 50k `p95=1.145--1.165 s`, `p99=1.168--1.176 s`.
-- **First failing fact:** exact corrected NCGP3 hydrostatic hold fails GPU step
-  39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
-  240-step ordering, reverse-energy apparatus, result closure and rollback
-  handling were incomplete.
-- **Current action:** measure the selected original five-iteration GPU core on
-  the full-size profiles, then add/timestamp the minimal analytic contact stage
-  before making a complete-step budget claim. The game-quality smoke passes;
-  its observer and host-side contact work are deliberately outside GPU timing.
+- **Goal:** qualify a plausible game-water Nonlocal GPU step near 50,000
+  particles against `p95 <= 4 ms`, `p99 <= 6 ms` on RTX 3080; laboratory
+  fidelity to the later research solver is not required.
+- **Current boundary:** the selected five-iteration 48k H3 route with timed
+  analytic GPU box contact passes the bounded smoke and two performance
+  processes. Runtime/product readiness remains open because no long 4k/16k
+  dynamic visual trajectory has passed this exact route.
+- **First current risk:** a static ghost shell raises the solver population to
+  86,856, disables compact u16 neighbors and costs about `15--16 ms`. The
+  no-ghost analytic-contact route fits the budget, but must still demonstrate
+  acceptable moving free-surface behavior at a larger scale.
+- **Current action:** run the same GPU/contact implementation over a bounded
+  4k/16k release or dam trajectory with product-facing surface/topology gates.
+  Keep host observer work outside the primary CUDA timing distribution.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
   root-exact and inside `4/6 ms`; this is a reusable speed baseline, not
   corrected-water evidence.
-- **Latest exact result:** NCGP14 independently supports the two-step
-  TIGHT-128 pressure/contact lane at the unchanged physical tolerances with a
-  `16384`-sweep QP ceiling. OPEN-128/512 remain valid negative controls and
-  TIGHT4096 stops only on work. Final re-review is `GO`.
+- **Latest exact result:** two 48k processes with analytic contact included in
+  primary timing give p95 `3.797568 / 3.798176 ms` and p99
+  `3.808544 / 3.874656 ms`; all traces/capacity checks pass. This is bounded
+  game-candidate evidence, not a shipping or corrected-research claim.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -62,6 +63,7 @@
 - `docs/development/nonlocal-gpu-unified-constrained-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-unified-mutation-fixture-research-2026-09-01.md`
 - `docs/development/nonlocal-gpu-unified-solver-diagnosis-2026-09-01.md`
+- `docs/development/nonlocal-gpu-game-quality-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -864,6 +866,37 @@
 - **Reconsider when:** a full-size run exceeds the budget, timed contact changes
   the route materially, or a larger visual corpus exposes instability/leakage.
 
+### D-033 — Replace the ghost shell with timed analytic GPU contact
+
+- **Observation:** removing the static ghost shell while retaining independent
+  analytic box contact improves the smoke rather than destabilizing it. Both
+  five and sixteen iterations pass hold/release/contact; the five-iteration
+  released block travels `150.002 mm`, hold drift is `7.046 mm`, topology is
+  one component with zero satellites, and maximum GPU/contact-oracle velocity
+  discrepancy is `1.779e-6 m/s`.
+- **Negative control:** five H3 iterations over `48k + 38,856` ghost samples are
+  exact but take about `14.94--16.05 ms`, use u32 neighbor IDs and cannot meet
+  the game budget. The representation, not the retained five-iteration core,
+  is the first performance failure.
+- **Evidence:** final binary `b6b04703...`; smoke normalized SHA
+  `ca03f14c...`, result `29816d43...`. Two 48k/no-ghost/contact-included
+  processes give p95 `3.797568 / 3.798176 ms` and p99
+  `3.808544 / 3.874656 ms`; contact p95/p99 is `0.005120 ms`. Both have exact
+  trace/output/CSR roots and 512/512 valid measurements. Full roots, commands
+  and raw hashes are in the linked evidence report.
+- **Conclusion:** the original compact/fused GPU architecture can meet the
+  four-millisecond budget with the selected H3 coefficients and an actual
+  timed wall-contact stage. Tens of thousands of fixed ghost samples are not
+  required by the bounded game-quality corpus.
+- **Decision:** retain five iterations, compact u16 CSR and analytic GPU box
+  contact as the current game candidate. Advance to a bounded dynamic visual
+  corpus before runtime/product promotion. Keep host observers outside timing.
+- **Rejected:** static ghost support for the shipping performance path, sixteen
+  iterations without a demonstrated quality benefit, and wholesale transfer
+  of the pressure-QP research apparatus.
+- **Reconsider when:** a dynamic 4k/16k visual trajectory leaks, fragments,
+  grows energy visibly or shows that analytic contact alone is insufficient.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -925,14 +958,13 @@
 
 ## Next action
 
-1. Benchmark the selected original five-iteration GPU core at 4k/16k/50k in
-   two fresh processes and retain exact trace/capacity checks.
-2. Add the minimal analytic box-contact stage to the GPU dataflow and measure
-   it inside the same CUDA-event window. Do not count host observers in the
-   primary distribution.
-3. If the timed complete step exceeds the budget or a larger visual corpus
-   fails, transplant only the smallest responsible semantic block; do not port
-   the whole research solver automatically.
+1. Run a bounded 4k/16k dynamic release or dam trajectory with the same
+   five-iteration GPU/contact path and product-facing surface/topology gates.
+2. Keep observer work outside the primary CUDA distribution and report it
+   separately.
+3. If the dynamic corpus fails or later runtime integration exceeds the budget,
+   transplant only the smallest responsible semantic block; do not port the
+   whole research solver automatically.
 4. Keep the NCGP16 CPU free-surface result as a diagnostic reference and
    counterexample corpus, not a prerequisite for accepting a simpler game
    model.
