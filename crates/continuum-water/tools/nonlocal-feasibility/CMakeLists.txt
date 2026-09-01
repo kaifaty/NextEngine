@@ -206,6 +206,15 @@ add_executable(
     src/corrected_cuda_full_step_reference.cpp
     src/sha256.cpp
 )
+add_executable(
+    nonlocal-corrected-cpu-pressure-qp-unified
+    src/corrected_cpu_unified_constrained.hpp
+    src/corrected_cpu_unified_constrained_candidate.cpp
+    src/corrected_cpu_unified_constrained_oracle.cpp
+    src/corrected_cpu_pressure_qp_unified_main.cpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/sha256.cpp
+)
 set(NCGP1_SOURCE_FILES
     CMakeLists.txt
     src/corrected_cuda_full_step.hpp
@@ -1817,6 +1826,108 @@ add_custom_target(
 add_dependencies(
     nonlocal-corrected-cpu-unified-constrained
     ncgp15-verify-compile-profile)
+
+set(NCGP16_SOURCE_FILES
+    CMakeLists.txt
+    src/corrected_cpu_unified_constrained.hpp
+    src/corrected_cpu_unified_constrained_candidate.cpp
+    src/corrected_cpu_unified_constrained_oracle.cpp
+    src/corrected_cpu_pressure_qp_unified_main.cpp
+    src/corrected_cuda_full_step.hpp
+    src/corrected_cuda_full_step_reference.cpp
+    src/sha256.cpp
+    src/sha256.hpp
+)
+set(NCGP16_SOURCE_MATERIAL "")
+set(NCGP16_SOURCE_DEPENDENCIES "")
+foreach(NCGP16_SOURCE_FILE IN LISTS NCGP16_SOURCE_FILES)
+    set(NCGP16_SOURCE_PATH
+        "${CMAKE_CURRENT_SOURCE_DIR}/${NCGP16_SOURCE_FILE}")
+    list(APPEND NCGP16_SOURCE_DEPENDENCIES "${NCGP16_SOURCE_PATH}")
+    ncgp15_require_head_blob("${NCGP16_SOURCE_PATH}")
+    file(SHA256 "${NCGP16_SOURCE_PATH}" NCGP16_SOURCE_FILE_ROOT)
+    string(APPEND NCGP16_SOURCE_MATERIAL
+        "${NCGP16_SOURCE_FILE}:${NCGP16_SOURCE_FILE_ROOT}\n")
+endforeach()
+string(SHA256 NCGP16_SOURCE_ROOT "${NCGP16_SOURCE_MATERIAL}")
+
+set(NCGP16_CONTRACT_14_PATH
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../docs/plans/nonlocal-gpu-full-step-performance/14-pressure-qp-preconditioned-unified-step.md")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    ${NCGP16_SOURCE_DEPENDENCIES}
+    ${NCGP14_GIT_DEPENDENCIES}
+    "${NCGP16_CONTRACT_14_PATH}")
+ncgp15_require_head_blob("${NCGP16_CONTRACT_14_PATH}")
+file(SHA256 "${NCGP16_CONTRACT_14_PATH}" NCGP16_CONTRACT_14_ROOT)
+set(NCGP16_FROZEN_CONTRACT_14_ROOT
+    "66dfda6b5caa25ea3df9a008c5022593c0c1a79707cf0cf1e11af3a16ca69947")
+if(NOT NCGP16_CONTRACT_14_ROOT STREQUAL
+        NCGP16_FROZEN_CONTRACT_14_ROOT)
+    message(FATAL_ERROR "NCGP16 frozen Revision-1 contract identity mismatch")
+endif()
+set(NCGP16_CONTRACT_MATERIAL
+    "13:${NCGP15_CONTRACT_ROOT}\n14:${NCGP16_CONTRACT_14_ROOT}\n")
+string(SHA256 NCGP16_CONTRACT_ROOT "${NCGP16_CONTRACT_MATERIAL}")
+
+if(CMAKE_CONFIGURATION_TYPES)
+    message(FATAL_ERROR "NCGP16 requires a single-config Release generator")
+endif()
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(FATAL_ERROR "NCGP16 evidence target requires CMAKE_BUILD_TYPE=Release")
+endif()
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+        AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    message(FATAL_ERROR "NCGP16 requires the frozen GNU/Clang compiler family")
+endif()
+if(DEFINED CMAKE_CXX_STANDARD
+        AND NOT CMAKE_CXX_STANDARD STREQUAL ""
+        AND NOT CMAKE_CXX_STANDARD STREQUAL "17")
+    message(FATAL_ERROR "NCGP16 rejects every ambient C++ standard except 17")
+endif()
+
+set(NCGP16_TARGET_CXX_OPTIONS
+    -O3
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Werror
+    -pedantic-errors
+    -ffp-contract=off
+    -fno-fast-math
+)
+string(JOIN "," NCGP16_TARGET_CXX_FLAGS_CSV
+    ${NCGP16_TARGET_CXX_OPTIONS})
+set(NCGP16_EFFECTIVE_COMPILER_FLAGS
+    "CXX_STANDARD:-std=c++17|CXX_RELEASE:-O3,-DNDEBUG|CXX_TARGET:${NCGP16_TARGET_CXX_FLAGS_CSV}|LINK_RELEASE:-s")
+target_compile_definitions(
+    nonlocal-corrected-cpu-pressure-qp-unified
+    PRIVATE
+        NCGP16_CONTRACT_ROOT="${NCGP16_CONTRACT_ROOT}"
+        NCGP16_CONTRACT_SHA="${NCGP16_CONTRACT_14_ROOT}"
+        NCGP16_SOURCE_ROOT="${NCGP16_SOURCE_ROOT}"
+        NCGP16_SOURCE_COMMIT="${NCGP15_SOURCE_COMMIT}"
+        NCGP16_SOURCE_TREE="${NCGP15_SOURCE_TREE}"
+        NCGP16_COMPILER_FAMILY="${CMAKE_CXX_COMPILER_ID}"
+        NCGP16_COMPILER_VERSION="${CMAKE_CXX_COMPILER_VERSION}"
+        NCGP16_COMPILER_FLAGS="${NCGP16_EFFECTIVE_COMPILER_FLAGS}"
+)
+set_target_properties(
+    nonlocal-corrected-cpu-pressure-qp-unified
+    PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS NO
+        UNITY_BUILD OFF)
+target_compile_options(
+    nonlocal-corrected-cpu-pressure-qp-unified
+    PRIVATE
+        ${NCGP16_TARGET_CXX_OPTIONS}
+)
+target_link_options(
+    nonlocal-corrected-cpu-pressure-qp-unified
+    PRIVATE
+        -s
+)
 target_compile_features(
     nonlocal-corrected-cuda-static-solve PRIVATE cxx_std_17 cuda_std_17)
 set_target_properties(
