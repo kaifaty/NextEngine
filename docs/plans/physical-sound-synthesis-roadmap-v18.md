@@ -5,6 +5,7 @@
 | Rebaseline date | `2026-09-01` |
 | Status | `CLOSED_AT_O0 / B0_REPEAT_EXACT_PASS / O0_REPEAT_EXACT_REJECT / F0_I0_NOT_RUN / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V17](physical-sound-synthesis-roadmap-v17.md) after its frozen G0 rejection |
+| Successor | [Roadmap V19](physical-sound-synthesis-roadmap-v19.md), which preregisters a composite integrity/fill/reachability certificate on fresh identities |
 | Evidence basis | [V18 O0 result](../development/physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md), [V18 B0 result](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md), [V18 P0b protocol](../development/physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, unsupported material, missing source or tooling failure |
