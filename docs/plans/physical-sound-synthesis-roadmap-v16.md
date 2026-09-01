@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ACTIVE_R&D / L0_TRUTH_ORACLE_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ACTIVE_R&D / L0A_PROTOCOL_FROZEN / L0B_TRUTH_EXECUTION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V15](physical-sound-synthesis-roadmap-v15.md) as the active execution plan |
 | Evidence basis | [V16 decoupled-learning rebaseline](../development/physical-sound-v16-decoupled-learning-admission-rebaseline-2026-09-01.md) and [V15 S0c](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -124,8 +124,8 @@ all three lanes and cannot be simulated by development data.
 | ID | Package | State | Observable exit criterion |
 | --- | --- | --- | --- |
 | R0 | V16 rebaseline | `COMPLETE` | Capability, candidate-quality and admission claims are separated without changing V15 data minima or SPEC-45. |
-| L0 | Known-truth protocol | `NEXT / UNBLOCKED` | Freeze scene distribution, train/dev/test topology split, model/controls, mutations, metrics, compute ceiling, seeds and stop rule before running optimization. |
-| L1 | Known-truth tournament | `BLOCKED_BY_L0` | Two exact reruns recover stable poles/damping and held surface gains, beat every compatible classical control and reject wrong scale/material, contact shuffle, instability and coverage collapse. |
+| L0 | Known-truth protocol | `COMPLETE / FROZEN_BEFORE_IMPLEMENTATION` | [L0a](../development/physical-sound-v16-l0a-known-truth-neural-oracle-protocol-2026-09-01.md) freezes 18 synthetic object groups, train/development/test topology splits, structured and equal-budget ablation models, classical controls, mutations, metrics, compute ceiling, seeds and stop rule with zero real access. |
+| L1 | Known-truth tournament | `NEXT / PROTOCOL_FROZEN` | Two exact reruns recover stable poles/damping and held surface gains, beat every compatible classical control and reject wrong scale/material, contact shuffle, instability and coverage collapse. |
 | S0 | Exposure-role recovery | `PARALLEL / ZERO_SIGNAL` | Reclassify every historical Metal alias through an allowlist of known manifest schemas; emit generator-only, protected or unknown evidence with zero source body/signal access. |
 | S1 | Published-source adapters | `BLOCKED_BY_S0` | Prove per-object identity, exact member, geometry/scale, contact, excitation, listener, response, support and freshness for bounded ObjectFolder/RealImpact/YCB/other candidates, or close each source with a machine-readable reason. |
 | S2 | Metal role freeze | `BLOCKED_BY_S1` | Freeze five generator-ready and three fresh evaluation-complete Metal groups with immutable hashes and no protected signal decode. |
@@ -190,8 +190,9 @@ A pleasing development WAV alone is never a completion criterion.
 ## Immediate commit sequence
 
 1. `R0` — `COMPLETE`: adopt V16 and record the unchanged product/data boundary.
-2. `L0a` — freeze the multi-object/contact known-truth distribution, model,
-   controls, metrics, mutations, compute ceiling and exact stop rules.
+2. `L0a` — `COMPLETE`: [freeze](../development/physical-sound-v16-l0a-known-truth-neural-oracle-protocol-2026-09-01.md)
+   the multi-object/contact known-truth distribution, model, controls, metrics,
+   mutations, compute ceiling and exact stop rules.
 3. `L0b` — implement and run the truth tournament twice; authorize or reject R1.
 4. `S0a` — classify historical RealImpact exposure by known manifest semantics,
    fail-closing unknown schemas without source-body or signal access.
@@ -206,4 +207,3 @@ A pleasing development WAV alone is never a completion criterion.
 9. `A0/C0/D0` — open the shadow once, cook only on pass and wire only the bounded
    demo vertical.
 10. `G0` — repeat the complete unchanged pipeline for Wood, then Glass.
-

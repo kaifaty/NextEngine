@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V16 / L0_TRUTH_ORACLE_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V16 / L0A_PROTOCOL_FROZEN / L0B_TRUTH_EXECUTION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object neural canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -20,9 +20,8 @@
   but starts the engine-owned structured modal-field truth oracle immediately.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** L0a freezes the truth-scene distribution, model, controls,
-  metrics, mutations, compute ceiling and stop rule. Source-role recovery
-  continues separately with zero source-body and signal access.
+- **Next action:** implement and run [L0a](../physical-sound-v16-l0a-known-truth-neural-oracle-protocol-2026-09-01.md)
+  twice exactly as L0b; no real/source/protected payload may be read.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -47,7 +46,7 @@
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
-| V16 L0–L1 | `L0_NEXT / UNBLOCKED / KNOWN_TRUTH_ONLY` | Test the structured modal field before spending scarce protected evidence; no realism or admission claim follows from a pass. |
+| V16 L0–L1 | `L0A_FROZEN / L0B_NEXT / KNOWN_TRUTH_ONLY` | The 18-object structured-modal tournament is immutable; execute it twice before spending real or protected evidence. |
 | V16 S0–R1 | `SOURCE_GROWTH_PARALLEL / REAL_TOURNAMENT_BLOCKED` | Recover generator-only exposure and fresh protected sources; real training waits for L1 plus five exact generator groups. |
 | V16 V0–D0 | `SCAFFOLD_AFTER_L0 / ADMISSION_BLOCKED` | Mutation machinery may start early; real thresholds, shadow, cooker and demo require R1 plus a frozen protected split. |
 | V16 G0–P0 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence, larger risk evidence and a separate Accepted ADR. |
@@ -188,6 +187,7 @@ Read in precedence order:
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 3. [Roadmap V16](../../plans/physical-sound-synthesis-roadmap-v16.md),
    [V16 rebaseline](../physical-sound-v16-decoupled-learning-admission-rebaseline-2026-09-01.md),
+   [L0a protocol](../physical-sound-v16-l0a-known-truth-neural-oracle-protocol-2026-09-01.md),
    [Roadmap V15](../../plans/physical-sound-synthesis-roadmap-v15.md),
    [V15 rebaseline](../physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md),
    [S0a result](../physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md),
@@ -226,5 +226,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** no real formula, neural field, validator release, baked atlas,
   admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V16 L0a known-truth protocol; all published real
-  signal and every protected role remain sealed.
+- **Next commit boundary:** V16 L0b runner/tests and two-run known-truth result;
+  all published real signal and every protected role remain sealed.
