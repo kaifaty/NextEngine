@@ -3,11 +3,18 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ACTIVE_R&D / R0_RESEARCH_COMPLETE / P0A_PROTOCOL_FROZEN / G0_IMPLEMENTATION_NEXT / V16_PRIMARY_CLOSED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `SUPERSEDED_BY_V18 / G0_REPEAT_EXACT_REJECT / O0_F0_I0_NOT_RUN / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V16](physical-sound-synthesis-roadmap-v16.md) as the active execution plan |
 | Evidence basis | [V17 successor research](../development/physical-sound-v17-factorized-operator-research-2026-09-01.md), [V16 L0b rejection](../development/physical-sound-v16-l0b-known-truth-neural-oracle-result-2026-09-01.md) and [V15 S0c source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, unsupported material, missing source or tooling failure |
+
+V17 closed at its first frozen dependency. [G0](../development/physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md)
+passed absolute and scale-transfer quality but failed both required complexity
+margins against degree-two ridge. Per P0a, O0/F0/I0 were not run. Execution
+continues only through [Roadmap V18](physical-sound-synthesis-roadmap-v18.md),
+which preserves scale separation as a deterministic baseline and reserves
+learning for intrinsic surface structure.
 
 ## Goal
 
@@ -172,10 +179,10 @@ open protected signal.
 | --- | --- | --- | --- |
 | R0 | V17 research/rebaseline | `COMPLETE` | Primary sources and V16 evidence yield three falsifiable successor hypotheses, fallbacks and non-claims. |
 | P0a | Disjoint truth protocol | `COMPLETE / FROZEN_BEFORE_IMPLEMENTATION` | [P0a](../development/physical-sound-v17-p0a-disjoint-factorized-truth-protocol-2026-09-01.md) freezes 144 G rows, 60 F/I physical groups plus remeshed twins, topology-valid O mutations, candidates/controls, successful controls, sample rationale, gates, seeds, compute and stop rules with zero external evidence. |
-| G0 | Scale-separated global oracle | `BLOCKED_BY_P0A` | Two exact runs recover unseen-object poles/damping, beat raw-dimensional/simple controls and pass scale/material/support mutations. |
-| O0 | Intrinsic coverage oracle | `BLOCKED_BY_P0A` | Two exact runs reject at least the frozen mutation rate per topology while preserving frozen valid coverage; no model prediction is needed. |
-| F0 | Masked intrinsic field oracle | `BLOCKED_BY_P0A` | Two exact runs beat all compatible interpolation/pooled/attention controls on held gains and continuity, including remeshed twins. |
-| I0 | Integrated truth tournament | `BLOCKED_BY_G0_O0_F0` | Frozen components pass complete waveform/modal/mutation/OOD gates twice byte-exact on a new test set. |
+| G0 | Scale-separated global oracle | `COMPLETE / REPEAT_EXACT / REJECT` | `10/12` gates pass; absolute and raw-MLP transfer gates pass, but neural/ridge ratios `0.9497x/0.9239x` miss the required `<=0.90x`. |
+| O0 | Intrinsic coverage oracle | `NOT_RUN / V17_CLOSED` | P0a stop rule prevents downstream execution after G0 rejection. |
+| F0 | Masked intrinsic field oracle | `NOT_RUN / V17_CLOSED` | P0a stop rule prevents downstream execution after G0 rejection. |
+| I0 | Integrated truth tournament | `NOT_RUN / V17_CLOSED` | No passing V17 G/O/F dependency set exists. |
 | S1 | Published-source growth | `PARALLEL / SOURCE_INSUFFICIENT` | Each bounded source gains an exact identity/member/axis/freshness certificate or machine-readable closure reason; no user recording. |
 | S2 | Metal role freeze | `BLOCKED_BY_S1` | Five generator-ready plus three fresh evaluation-complete Metal groups satisfy unchanged `4/1/1/1/1`. |
 | R1 | Disclosed-real tournament | `BLOCKED_BY_I0_AND_5_GENERATOR_GROUPS` | Frozen successor beats compatible real controls without protected access; otherwise close it. |
@@ -209,11 +216,10 @@ open protected signal.
 1. `R0` — `COMPLETE`: record V16 rejection, primary-source research and V17.
 2. `P0a` — `COMPLETE`: freeze disjoint corpora, successful controls, exact
    gates and compute before successor implementation.
-3. `G0a/G0b` — implement, test and execute scale-separated global oracle twice.
-4. `O0a/O0b` — implement topology-valid intrinsic coverage and execute twice.
-5. `F0a/F0b` — implement masked diffusion field and execute twice.
-6. `I0a/I0b` — freeze passing components, integrate and open new truth test once
-   per exact execution.
+3. `G0a/G0b` — `COMPLETE / REPEAT_EXACT_REJECT`; preserve reports and close
+   the candidate family without test-driven tuning.
+4. `O0a/O0b`, `F0a/F0b`, `I0a/I0b` — `NOT_RUN`; superseded by the V18
+   dependency graph.
 7. `S1a…` — in parallel, add bounded published-source adapters/closure reports.
 8. `R1/S2/V1/A0` — proceed only when both capability and source prerequisites
    pass; otherwise preserve external reports and fallback.

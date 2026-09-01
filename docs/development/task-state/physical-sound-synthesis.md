@@ -2,27 +2,27 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V17 / P0A_PROTOCOL_FROZEN / G0_IMPLEMENTATION_NEXT / V16_PRIMARY_CLOSED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V18 / V17_G0_REPEAT_EXACT_REJECT / P0B_PROTOCOL_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
-| Scope | External multi-object neural canonical-impact research, deterministic clip cooker and independent automatic validation |
+| Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
 | Definition of done | One frozen Metal generator/cooker and independent validator process one untouched Metal shadow exactly once; later materials repeat the identical gates and unavailable domains select complete fallback |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [P0a](../physical-sound-v17-p0a-disjoint-factorized-truth-protocol-2026-09-01.md)
-  freezes separate scale-normalized global, intrinsic coverage, masked surface
-  field and integration exams on new rows/meshes.
-- **Exact evidence:** both external L0b directories have `26` byte-identical
-  files and tree digest `95ac0bf8…01b3`; report `0993c0d5…93b2f7b`; all
-  real/source/protected/network counters are zero.
-- **Rebaseline:** V17 keeps the complete `4/1/1/1/1` real role shape but
-  separates synthetic global, coverage, field and integration certificates.
+- **Current conclusion:** [V17 G0](../physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md)
+  supports dimensional factorization but rejects the neural global head because
+  it does not beat degree-two ridge by the frozen ten-percent margin.
+- **Exact evidence:** both external G0 directories have `11` byte-identical
+  files and tree digest `217cd08b…4c23`; report `ebbbb9f4…fc532`; all
+  real/source/protected/network/V16-artifact counters are zero.
+- **Rebaseline:** V18 verifies the unchanged deterministic modal scaffold on
+  fresh rows and reserves ML for intrinsic contact-field structure.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** implement G0 generator, scale-separated/raw heads, controls
-  and reachability tests; execute twice without reading any V16 output.
+- **Next action:** freeze P0b fresh baseline verification and decide whether
+  still-unopened P0a O/F objects remain admissible under the V18 dependency graph.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -48,34 +48,30 @@
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
 | V16 L0–L1 | `L0B_REPEAT_EXACT_REJECT / FAMILY_CLOSED` | Gain structure is learnable, but poles/damping, continuity, waveform and coverage OOD fail; no test-driven retry or real training. |
-| V17 R0/P0 | `RESEARCH_COMPLETE / PROTOCOL_FROZEN` | P0a freezes disjoint G/O/F/I corpora, successful controls, gates and compute before code. |
-| V17 G0 | `IMPLEMENTATION_NEXT / GLOBAL_ONLY` | Test scale-separated modes/damping against equal-budget raw MLP and simple controls before any field/integration work. |
-| V17 S1–R1 | `SOURCE_GROWTH_PARALLEL / PRIMARY_R1_CLOSED` | Source adapters may continue, but real training needs both I0 pass and five exact generator groups. |
-| V17 V0–D0 | `SCAFFOLD_AFTER_I0 / ADMISSION_BLOCKED` | Real thresholds, shadow, cooker and demo require successor R1 plus a frozen protected split. |
-| V17 G1–P1 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence, larger risk evidence and a separate Accepted ADR. |
+| V17 G0 | `COMPLETE / REPEAT_EXACT_REJECT` | Absolute/transfer/mutation gates pass, but neural/ridge ratios `0.9497x/0.9239x` miss the required `<=0.90x`; V17 O/F/I were not run. |
+| V18 R0/P0b | `REBASELINED / PROTOCOL_NEXT` | Freeze fresh verification for the unchanged deterministic global scaffold, then intrinsic coverage/field/integration in dependency order. |
+| V18 S1–R1 | `SOURCE_GROWTH_PARALLEL / PRIMARY_R1_CLOSED` | Source adapters may continue, but real training needs both I0 pass and five exact generator groups. |
+| V18 V0–D0 | `SCAFFOLD_AFTER_I0 / ADMISSION_BLOCKED` | Real thresholds, shadow, cooker and demo require successor R1 plus a frozen protected split. |
+| V18 G1–P1 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence, larger risk evidence and a separate Accepted ADR. |
 
-## Material transition: V16 primary fails known truth
+## Material transition: V17 global neural head lacks complexity margin
 
-- **Observation:** candidate gain NRMSE is `0.3489`, versus `0.6432` for the
-  best classical control and `0.8120` for the geometry-agnostic ablation, but
-  frequency median/p95 are `164.1/431.9 cents`, continuity is `0.8592` and
-  collapsed-coverage rejection is only `52.08%`.
-- **Evidence:** two complete runs produce byte-identical manifests, reports,
-  predictions and model streams under tree digest `95ac0bf8…01b3`; only
-  `7/21` frozen gates pass and access counters remain exactly zero.
-- **Conclusion:** geometry carries useful gain information, but the generic
-  object MLP, pooled context decoder and current OOD score are not a complete
-  unseen-object modal-field solution.
-- **Decision:** close this model family before R1. Preserve the positive gain
-  result, forbid any L0b-test-driven capacity/seed/threshold retry, and require
-  a new falsifiable successor protocol on unopened truth objects.
-- **Remaining uncertainty:** whether explicit analytic global factorization,
-  topology-aware query/context transport and geodesic coverage each close its
-  isolated endpoint.
-- **Reconsideration condition:** a preregistered successor passes isolated
-  controls and then a fresh complete known-truth tournament twice exactly.
-- **Smallest next action:** bounded primary-source research, then L2 protocol
-  freeze; no real or protected signal access.
+- **Observation:** scale-separated neural frequency median/p95 is
+  `4.238/19.891 cents`, damping is `0.001370/0.004173`, scale-transfer wins are
+  `22/24` and all `72` mutations reject, but neural/ridge endpoint ratios are
+  `0.9497x/0.9239x` rather than the required `<=0.90x`.
+- **Evidence:** two complete runs produce `11` byte-identical files under tree
+  digest `217cd08b…4c23`; `10/12` gates pass and all access counters are zero.
+- **Conclusion:** dimensionless physics removes the raw MLP's scale failure,
+  while the smooth remaining law does not justify a neural global head.
+- **Decision:** close V17 G0 and do not run its downstream O/F/I. V18 freezes
+  the unchanged ridge as a provisional scaffold and spends ML only on the
+  relational surface field after fresh protocol and baseline verification.
+- **Remaining uncertainty:** whether the scaffold survives new rows and whether
+  intrinsic propagation beats classical contact interpolation.
+- **Reconsideration condition:** only a new clustered real residual and fresh
+  preregistration may reopen neural global modeling.
+- **Smallest next action:** freeze V18 P0b; no real/protected signal access.
 
 ## Material transition: V12 closes on force coverage
 
@@ -180,14 +176,15 @@ decisions remain in their linked reports rather than this resume surface.
 | D-017 | Capability, disclosed-data candidate quality and protected admission are separate certificates; only admission can authorize a cooked research vertical. | Evidence proves that this separation invalidates the representation experiment or a superseding Accepted ADR changes the boundary. |
 | D-018 | The V16 generic object MLP plus pooled context decoder is closed after repeat-exact known-truth rejection; its opened test cannot select a retry. | A new preregistered family passes isolated global/contact/OOD controls and a disjoint unopened truth tournament twice exactly. |
 | D-019 | V17 tests scale-separated global modes, deterministic intrinsic coverage and a masked intrinsic field independently before integration. | One isolated certificate falsifies its hypothesis or a new research record justifies another decomposition. |
+| D-020 | After V17 G0, deterministic scale-separated ridge is the provisional global scaffold; neural capacity is reserved for surface transport. | Fresh B0 rejects the scaffold or disclosed-real residual evidence motivates a preregistered global residual family. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: analytic global baseline plus learned residual generalizes poles/damping | Exact truth is multiplicative and one Glass Cylinder generalized | Generic MLP missed most objects by `116–434 cents` | L2 isolated global control on new objects |
-| H2: topology-aware query/context transport recovers continuous gains | Geometry-aware gain error beat ablation and controls | Mean/max pooling failed gain and continuity gates | L2 graph/operator control with held surface regions |
-| H3: geodesic/topological coverage detects missing contact support | Valid-test OOD and hard mutations pass | Collapsed coverage rejection is only `52.08%` | L2 coverage-only oracle independent of model disagreement |
+| H1: deterministic scale-separated ridge generalizes poles/damping | G0 reaches `5.598 cents`/`0.001674` mean error and neural adds insufficient margin | Result was selected on opened G0 test, not fresh V18 verification | B0 on frozen fresh rows |
+| H2: topology-aware query/context transport recovers continuous gains | Geometry-aware gain error beat ablation and controls | Mean/max pooling failed gain and continuity gates | V18 F0 with held surface regions |
+| H3: geodesic/topological coverage detects missing contact support | Valid-test OOD and hard mutations pass | Collapsed coverage rejection is only `52.08%` | V18 O0 independent of model disagreement |
 | H4: automatic validator reaches useful bounded risk | Hard/acoustic/physics/corpus components are defined | No independent release or shadow result | V16 V0–A0 after successor L1/R1 |
 | H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V16 C0 then demo consumer |
 
@@ -195,6 +192,8 @@ decisions remain in their linked reports rather than this resume surface.
 
 - The V16 generic object MLP, pooled-context decoder, opened 18-object corpus or
   any capacity/seed/update/threshold/contact variant selected from L0b results.
+- The V17 global neural head, opened G0 rows or nearby variants; preserve its
+  scale separation and verify the unchanged ridge only on fresh B0 evidence.
 - Any per-object threshold, seed, capacity, checkpoint, contact or model
   selection after a role is opened.
 - Lowering V12-C4 force coverage, selecting favorable object-41 contacts or
@@ -216,7 +215,9 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V17](../../plans/physical-sound-synthesis-roadmap-v17.md),
+3. [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
+   [G0 result](../physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md),
+   [Roadmap V17](../../plans/physical-sound-synthesis-roadmap-v17.md),
    [V17 research](../physical-sound-v17-factorized-operator-research-2026-09-01.md),
    [P0a protocol](../physical-sound-v17-p0a-disjoint-factorized-truth-protocol-2026-09-01.md),
    [Roadmap V16](../../plans/physical-sound-synthesis-roadmap-v16.md),
@@ -236,12 +237,12 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** V16 L0b runner/tests and exact result are in Git; datasets,
+- **Workspace:** V17 G0 runner/tests and exact result are in Git; datasets,
   PCM, arrays, weights, reports and generated audio remain external.
 - **Isolation:** object-92 PCM/force/YAML numeric values remain sealed; object
   41 microphone and every protected role also remain sealed.
-- **Quality:** the V16 primary is rejected before real training; no real
+- **Quality:** V17 G0 is rejected before surface/integration or real training; no real
   formula, validator release, baked atlas, admitted domain or runtime
   integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V17 G0 runner/tests and two-run result; all
+- **Next commit boundary:** V18 P0b protocol; all
   published real signal and every protected role remain sealed.
