@@ -3,9 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / R0_COMPLETE / P0A_FROZEN / C0_REPEAT_EXACT_PASS / P0B_FROZEN / F0_REPEAT_EXACT_PASS / I0_IMPLEMENTATION_PENDING / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `CLOSED / C0_REPEAT_EXACT_PASS / F0_REPEAT_EXACT_PASS / I0_DEVELOPMENT_CONTROL_REJECT / INTEGRATION_NOT_RUN / SUPERSEDED_BY_V20` |
 | Replaces | [Roadmap V18](physical-sound-synthesis-roadmap-v18.md), closed by its repeat-exact O0 rejection |
-| Evidence basis | [V19 F0 result](../development/physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [V19 P0b field/integration protocol](../development/physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [V19 C0 result](../development/physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [V19 P0a protocol](../development/physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 coverage research](../development/physical-sound-v19-composite-coverage-research-2026-09-01.md), [V18 B0 result](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
+| Evidence basis | [V19 I0 development control](../development/physical-sound-v19-i0-development-control-result-2026-09-01.md), [V19 F0 result](../development/physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [V19 P0b field/integration protocol](../development/physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [V19 C0 result](../development/physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [V18 B0 result](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [V15 source insufficiency](../development/physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md) |
+| Superseded by | [Roadmap V20](physical-sound-synthesis-roadmap-v20.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, unsupported material, absent source or tooling failure |
 
@@ -137,7 +138,7 @@ P0a freezes the exact gates, but they must include:
 | C0 | Composite coverage capability | `COMPLETE / REPEAT_EXACT_PASS` | [All 15 gates pass twice byte-exactly](../development/physical-sound-v19-c0-composite-coverage-result-2026-09-01.md): valid false OOD `0.0`, every mutation/reason cell `1.0`, composite utility `1.0` versus raw intrinsic `0.961706` and Euclidean `0.760927`. |
 | P0b | Field/integration protocol | `COMPLETE / FROZEN_BEFORE_OFFICIAL_IMPLEMENTATION` | [Exact F0/I0 identities, smooth object-specific signed-gain truth, C0 masks, `ResidualHarmonicOperatorV0`, controls, corruptions, remesh probes, renderer endpoints and gates](../development/physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md) are frozen; test/I0 values remain sealed. |
 | F0 | Residual harmonic field operator | `COMPLETE / REPEAT_EXACT_PASS` | [All 17 gates pass twice byte-exactly](../development/physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md): gain NRMSE `0.1683/0.2420`, all controls beaten, all corruptions rejected and coverage/remesh preserved. |
-| I0 | Frozen hybrid tournament | `NOT_RUN / IMPLEMENTATION_PENDING / UNSEALED_BY_F0` | Exact B0+C0+F0 hashes reproduce held modal endpoints and dry renders on `1601…1612` twice exactly. |
+| I0 | Frozen hybrid tournament | `CLOSED_BY_DEVELOPMENT_CONTROL / NOT_RUN / VALUES_UNOPENED` | [Development composition](../development/physical-sound-v19-i0-development-control-result-2026-09-01.md) proves raw waveform/envelope gates inconsistent with passing B0/F0 tolerances; the runner is fail-closed and `1601…1612` values remain sealed. |
 | S1 | Published-source growth | `PARALLEL / SOURCE_INSUFFICIENT` | Each bounded source gains exact identity/member/axis/freshness/provenance evidence or a machine-readable closure reason. |
 | M1 | Metal role freeze | `BLOCKED_BY_S1` | Five generator-ready and three evaluation-complete groups satisfy unchanged `4/1/1/1/1`; no exposed alias receives protected credit. |
 | R1 | Disclosed-real tournament | `BLOCKED_BY_I0_AND_M1_GENERATOR_PREREQUISITE` | Frozen hybrid candidate beats compatible deterministic and authored controls without protected access. |
@@ -156,8 +157,9 @@ P0a freezes the exact gates, but they must include:
    before learned field work; pass freezes the exact certificate hash.
 4. Freeze P0b on all-new F0/I0 identities and successful development controls.
 5. Implement and commit F0 before opening its test; execute twice.
-6. If F0 passes, integrate only exact passing B0/C0/F0 hashes and execute I0
-   twice. No component refit is allowed in I0.
+6. F0 passed, but the required development composition rejected the metric
+   contract before I0. I0 was not executed; [V20](physical-sound-synthesis-roadmap-v20.md)
+   now requires phase-consistent metric calibration before fresh integration.
 7. Continue source growth independently. R1 waits for both I0 and generator
    source prerequisites.
 8. Freeze the independent validator, then open one protected Metal shadow once.
@@ -182,7 +184,8 @@ P0a freezes the exact gates, but they must include:
 
 ## Definition of done
 
-V19 succeeds as a research roadmap only when:
+V19 did not reach this definition of done and is superseded by V20. Its
+historical success criteria were:
 
 - C0, F0 and I0 pass twice exactly in dependency order;
 - enough disclosed Metal sources satisfy the unchanged role contract;
