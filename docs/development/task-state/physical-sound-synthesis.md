@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V16 / L0A_PROTOCOL_FROZEN / L0B_TRUTH_EXECUTION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V16 / L0B_REPEAT_EXACT_REJECT / PRIMARY_MODEL_FAMILY_CLOSED / L2_RESEARCH_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object neural canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,17 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [Roadmap V16](../../plans/physical-sound-synthesis-roadmap-v16.md)
-  decouples known-truth capability, disclosed real candidate quality and fresh
-  protected admission. Source insufficiency blocks admission, not L0.
-- **Exact evidence:** sufficiency `eecbe019…923d`, decision `f12e769f…e718`,
-  report `2c9fd6b8…4cf3`; all payload/header/signal counters are zero.
+- **Current conclusion:** [L0b](../physical-sound-v16-l0b-known-truth-neural-oracle-result-2026-09-01.md)
+  reproducibly rejects the V16 primary model before real training. Geometry is
+  learnable for gains, but the combined global/contact/OOD architecture fails.
+- **Exact evidence:** both external L0b directories have `26` byte-identical
+  files and tree digest `95ac0bf8…01b3`; report `0993c0d5…93b2f7b`; all
+  real/source/protected/network counters are zero.
 - **Rebaseline:** V16 keeps the complete `4/1/1/1/1` shape per admitted material
   but starts the engine-owned structured modal-field truth oracle immediately.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** implement and run [L0a](../physical-sound-v16-l0a-known-truth-neural-oracle-protocol-2026-09-01.md)
-  twice exactly as L0b; no real/source/protected payload may be read.
+- **Next action:** run bounded primary-source research on analytic global
+  factorization, topology-aware contact inference and geodesic coverage OOD,
+  then freeze a new unopened truth protocol. Do not tune on L0b test evidence.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -46,30 +48,34 @@
 | V12 C4a | `CLOSED / REPEAT_EXACT_DATA_INSUFFICIENT` | Force coverage fails before response decode; protected roles remain sealed. |
 | V13 M1 | `COMPLETE / REPEAT_EXACT_ZERO_SIGNAL` | Record, builder and real historical census/shortlist pass. |
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
-| V16 L0–L1 | `L0A_FROZEN / L0B_NEXT / KNOWN_TRUTH_ONLY` | The 18-object structured-modal tournament is immutable; execute it twice before spending real or protected evidence. |
-| V16 S0–R1 | `SOURCE_GROWTH_PARALLEL / REAL_TOURNAMENT_BLOCKED` | Recover generator-only exposure and fresh protected sources; real training waits for L1 plus five exact generator groups. |
+| V16 L0–L1 | `L0B_REPEAT_EXACT_REJECT / FAMILY_CLOSED` | Gain structure is learnable, but poles/damping, continuity, waveform and coverage OOD fail; no test-driven retry or real training. |
+| V16 L2 | `BOUNDED_RESEARCH_NEXT / NEW_TRUTH_REQUIRED` | A successor must separate analytic global physics, topology-aware contact inference and coverage OOD on a new unopened corpus. |
+| V16 S0–R1 | `SOURCE_GROWTH_PARALLEL / PRIMARY_R1_CLOSED` | Source adapters may continue, but real training needs both a successor L1 pass and five exact generator groups. |
 | V16 V0–D0 | `SCAFFOLD_AFTER_L0 / ADMISSION_BLOCKED` | Mutation machinery may start early; real thresholds, shadow, cooker and demo require R1 plus a frozen protected split. |
 | V16 G0–P0 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence, larger risk evidence and a separate Accepted ADR. |
 
-## Pre-execution L0a correction
+## Material transition: V16 primary fails known truth
 
-- **Observation:** raw nearest-context distance divided by mesh diameter is
-  bounded by `1`, while the initially frozen OOD threshold was at least `1`.
-- **Conclusion:** the declared coverage-collapse mutation could not reliably
-  cross its own gate, independently of model quality.
-- **Decision:** before implementation, training or test inspection, calibrate
-  disagreement and coverage by their valid-development maxima, calibrate
-  static extrapolation by a fixed `0.25` train-range allowance, aggregate
-  waveform/envelope error at object scale and exclude analytic zero-truth
-  nodes only from gain-invariant spectra. Retain the single frozen
-  `max(1.0, 1.25 * development maximum)` rule. L0b remains unopened.
-- **Smallest next action:** implement the corrected protocol without changing
-  its objects, model, seeds, budgets, quality gates or stop rule.
-- **Execution defect closed:** the first full attempt published no output and
-  exposed only that a compatible constant control can predict exact zero at a
-  non-nodal query. Such a row now receives the fixed worst-scale `80 dB`; it
-  cannot abort evaluation, and it fails finite/stable when produced by the
-  candidate. No model prediction or aggregate test metric selected this fix.
+- **Observation:** candidate gain NRMSE is `0.3489`, versus `0.6432` for the
+  best classical control and `0.8120` for the geometry-agnostic ablation, but
+  frequency median/p95 are `164.1/431.9 cents`, continuity is `0.8592` and
+  collapsed-coverage rejection is only `52.08%`.
+- **Evidence:** two complete runs produce byte-identical manifests, reports,
+  predictions and model streams under tree digest `95ac0bf8…01b3`; only
+  `7/21` frozen gates pass and access counters remain exactly zero.
+- **Conclusion:** geometry carries useful gain information, but the generic
+  object MLP, pooled context decoder and current OOD score are not a complete
+  unseen-object modal-field solution.
+- **Decision:** close this model family before R1. Preserve the positive gain
+  result, forbid any L0b-test-driven capacity/seed/threshold retry, and require
+  a new falsifiable successor protocol on unopened truth objects.
+- **Remaining uncertainty:** whether explicit analytic global factorization,
+  topology-aware query/context transport and geodesic coverage each close its
+  isolated endpoint.
+- **Reconsideration condition:** a preregistered successor passes isolated
+  controls and then a fresh complete known-truth tournament twice exactly.
+- **Smallest next action:** bounded primary-source research, then L2 protocol
+  freeze; no real or protected signal access.
 
 ## Material transition: V12 closes on force coverage
 
@@ -172,18 +178,22 @@ decisions remain in their linked reports rather than this resume surface.
 | D-015 | A learned canonical-impact prior may claim bounded plausibility, not true material recovery or arbitrary-force transfer; network output is cooked offline. | Independent exact-object and measured-transfer evidence justifies a stronger record. |
 | D-016 | Materials enter progressively with the unchanged `4/1/1/1/1` real role shape; Metal is first, while Wood and Glass remain pending/fallback until separately eligible. | A hash-closed published source makes another material eligible before the next role freeze. |
 | D-017 | Capability, disclosed-data candidate quality and protected admission are separate certificates; only admission can authorize a cooked research vertical. | Evidence proves that this separation invalidates the representation experiment or a superseding Accepted ADR changes the boundary. |
+| D-018 | The V16 generic object MLP plus pooled context decoder is closed after repeat-exact known-truth rejection; its opened test cannot select a retry. | A new preregistered family passes isolated global/contact/OOD controls and a disjoint unopened truth tournament twice exactly. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: hybrid neural modes plus spatial gains represent canonical impacts | Physical factorization, AV-MSF evidence and multi-object contact data | No new structured known-truth tournament or fresh real held-contact pass | V16 L0–L1, then R1 |
-| H2: shared mesh/material prior beats interpolation on unseen objects | ObjectFolder spans many objects/materials | Prior coordinate-only fields failed | V16 R1 object-disjoint tournament |
-| H3: automatic validator reaches useful bounded risk | Hard/acoustic/physics/corpus components are defined | No independent release or shadow result | V16 V0–A0 |
-| H4: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V16 C0 then demo consumer |
+| H1: analytic global baseline plus learned residual generalizes poles/damping | Exact truth is multiplicative and one Glass Cylinder generalized | Generic MLP missed most objects by `116–434 cents` | L2 isolated global control on new objects |
+| H2: topology-aware query/context transport recovers continuous gains | Geometry-aware gain error beat ablation and controls | Mean/max pooling failed gain and continuity gates | L2 graph/operator control with held surface regions |
+| H3: geodesic/topological coverage detects missing contact support | Valid-test OOD and hard mutations pass | Collapsed coverage rejection is only `52.08%` | L2 coverage-only oracle independent of model disagreement |
+| H4: automatic validator reaches useful bounded risk | Hard/acoustic/physics/corpus components are defined | No independent release or shadow result | V16 V0–A0 after successor L1/R1 |
+| H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V16 C0 then demo consumer |
 
 ## Do not retry
 
+- The V16 generic object MLP, pooled-context decoder, opened 18-object corpus or
+  any capacity/seed/update/threshold/contact variant selected from L0b results.
 - Any per-object threshold, seed, capacity, checkpoint, contact or model
   selection after a role is opened.
 - Lowering V12-C4 force coverage, selecting favorable object-41 contacts or
@@ -208,29 +218,11 @@ Read in precedence order:
 3. [Roadmap V16](../../plans/physical-sound-synthesis-roadmap-v16.md),
    [V16 rebaseline](../physical-sound-v16-decoupled-learning-admission-rebaseline-2026-09-01.md),
    [L0a protocol](../physical-sound-v16-l0a-known-truth-neural-oracle-protocol-2026-09-01.md),
-   [Roadmap V15](../../plans/physical-sound-synthesis-roadmap-v15.md),
-   [V15 rebaseline](../physical-sound-v15-progressive-material-admission-rebaseline-2026-09-01.md),
-   [S0a result](../physical-sound-v15-s0a-revision-aware-identity-exposure-result-2026-09-01.md),
-   [S0b result](../physical-sound-v15-s0b-ycb-capability-cost-result-2026-09-01.md),
+   [L0b result](../physical-sound-v16-l0b-known-truth-neural-oracle-result-2026-09-01.md),
    [S0c result](../physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md),
-   [Roadmap V14](../../plans/physical-sound-synthesis-roadmap-v14.md),
-   [V14 research](../physical-sound-v14-data-first-neural-rebaseline-2026-08-31.md),
-   [N1a protocol](../physical-sound-v14-n1a-dataset-contract-v1-protocol-2026-09-01.md),
    [N1a result](../physical-sound-v14-n1a-dataset-contract-v1-result-2026-09-01.md),
-   [Roadmap V13](../../plans/physical-sound-synthesis-roadmap-v13.md),
-   [M2c protocol](../physical-sound-v13-m2c-realimpact-five-impact-control-protocol-2026-08-31.md),
    [M2c result](../physical-sound-v13-m2c-realimpact-five-impact-control-result-2026-08-31.md),
-   [M2b protocol](../physical-sound-v13-m2b-object92-raw-force-inventory-protocol-2026-08-31.md),
-   [M2b result](../physical-sound-v13-m2b-object92-raw-force-inventory-result-2026-08-31.md),
-   [M2a protocol](../physical-sound-v13-m2a-object92-source-role-freeze-protocol-2026-08-31.md),
-   [M2a result](../physical-sound-v13-m2a-object92-source-role-freeze-result-2026-08-31.md),
-   [M1a protocol](../physical-sound-v13-m1a-research-record-v0-protocol-2026-08-31.md),
-   [M1a result](../physical-sound-v13-m1a-research-record-v0-result-2026-08-31.md),
-   [M1b protocol](../physical-sound-v13-m1b-exposure-ledger-v0-protocol-2026-08-31.md),
-   [M1b result](../physical-sound-v13-m1b-exposure-ledger-v0-result-2026-08-31.md),
-   [V13 research](../physical-sound-v13-canonical-modal-field-research-2026-08-31.md),
    [C4a result](../physical-sound-r3a-v12-c4a-object41-real-frf-fit-result-2026-08-31.md),
-   [C4 protocol](../physical-sound-r3a-v12-c4-object41-real-frf-fit-protocol-2026-08-31.md)
    and [Roadmap V12](../../plans/physical-sound-synthesis-roadmap-v12.md).
 4. [C3 result](../physical-sound-r3a-v12-c3-object41-source-role-freeze-result-2026-08-31.md),
    [C2 result](../physical-sound-r3a-v12-c2-internet-source-zero-decode-inventory-2026-08-31.md),
@@ -240,11 +232,13 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** V12 C1–C4a code/evidence are in Git; datasets, PCM, arrays,
-  reports and generated audio remain external.
+- **Workspace:** V16 L0b runner/tests and exact result are in Git; datasets,
+  PCM, arrays, weights, reports and generated audio remain external.
 - **Isolation:** object-92 PCM/force/YAML numeric values remain sealed; object
   41 microphone and every protected role also remain sealed.
-- **Quality:** no real formula, neural field, validator release, baked atlas,
-  admitted domain or runtime integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V16 L0b runner/tests and two-run known-truth result;
-  all published real signal and every protected role remain sealed.
+- **Quality:** the V16 primary is rejected before real training; no real
+  formula, validator release, baked atlas, admitted domain or runtime
+  integration exists. Clip fallback is authoritative.
+- **Next commit boundary:** bounded L2 primary-source research and successor
+  roadmap/protocol; all published real signal and every protected role remain
+  sealed.
