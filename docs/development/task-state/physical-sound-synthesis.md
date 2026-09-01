@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V19_ADOPTED / C0_REPEAT_EXACT_PASS / P0B_FROZEN / F0_IMPLEMENTATION_PENDING / I0_NOT_RUN / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V19_ADOPTED / C0_REPEAT_EXACT_PASS / P0B_FROZEN / F0_IMPLEMENTED_TEST_NOT_RUN / I0_NOT_RUN / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,8 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [V19 P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md)
-  freezes `ResidualHarmonicOperatorV0` after successful train/development controls.
+- **Current conclusion:** `ResidualHarmonicOperatorV0` is implemented against
+  [V19 P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md);
+  all 17 development gates and ten focused tests pass without test generation.
 - **Exact evidence:** production-shaped development gain NRMSE is
   `0.1831/0.2906` mean/max versus `0.4100` prior-only and `0.5578` raw harmonic;
   three corruptions reject `12/12`.
@@ -20,8 +21,8 @@
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** implement F0 and commit its development-only tests before
-  generating any `1501…1512` mesh, truth, prediction or metric.
+- **Next action:** after the implementation commit, execute exactly two F0
+  roots on `1501…1512`, compare them byte-for-byte and record pass or reject.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -51,7 +52,7 @@
 | V18 P0b/B0 | `PROTOCOL_FROZEN / REPEAT_EXACT_PASS` | [B0](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) passes `19/19` gates and freezes its exact ridge hash. |
 | V18 O0–I0 | `O0_REPEAT_EXACT_REJECT / F0_I0_NOT_RUN` | [O0](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md) misses thinning gates; V18 closes and integration stays sealed. |
 | V19 R0/P0a | `R0_COMPLETE / P0A_FROZEN` | Composite integrity/fill/reachability and disjoint bands, thresholds, reason codes and ablations are frozen before C0 implementation. |
-| V19 C0–I0 | `C0_REPEAT_EXACT_PASS / P0B_FROZEN / F0_IMPLEMENTATION_PENDING / I0_NOT_RUN` | Coverage and exact field/integration protocol are frozen; official test values remain sealed until committed F0 code. |
+| V19 C0–I0 | `C0_REPEAT_EXACT_PASS / P0B_FROZEN / F0_IMPLEMENTED_TEST_NOT_RUN / I0_NOT_RUN` | Coverage/protocol are frozen and F0 code passes development; official test values remain sealed until this implementation commit. |
 | V19 S1–P1 | `SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / ADR_REQUIRED` | Real roles, validator, shadow, cooker and promotion retain unchanged prerequisites and clip fallback. |
 
 ## Material transition: P0b selects the smallest observable field hybrid
@@ -64,7 +65,7 @@
 - **Decision:** freeze the hybrid, C0-first fallback, exact F0/I0 roles and
   one-shot gates in P0b; do not revive the rejected direct-kernel family.
 - **Remaining uncertainty:** untouched `1501…1512` generalization.
-- **Smallest next action:** implement and commit F0 without opening its test.
+- **Smallest next action:** commit F0, then run its two exact one-shot roots.
 
 ## Material transition: V12 closes on force coverage
 
@@ -236,5 +237,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** B0/C0 pass and P0b is frozen; F0/I0 have not run. No real
   formula, validator, atlas or runtime integration exists; fallback is authoritative.
-- **Next commit boundary:** F0 implementation and development-only tests; all
-  field-test/integration values, published real signal and protected roles stay sealed.
+- **Next commit boundary:** F0 implementation, ten development-only tests and
+  roadmap readiness; field-test/integration values remain sealed until after it.
