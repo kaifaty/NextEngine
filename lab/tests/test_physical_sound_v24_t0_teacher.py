@@ -143,12 +143,19 @@ class PhysicalSoundV24T0TeacherTests(unittest.TestCase):
         self.assertEqual(gain_bytes[:8], b"NEGAIN01")
         self.assertEqual(struct.unpack_from("<III", gain_bytes, 8), (1, 81, 2))
         self.assertEqual(gain_bytes[20:52], bytes.fromhex(teacher.sha256_bytes(mesh_bytes)))
+        teacher.validate_gain_binding(mesh_bytes, gain_bytes)
+        corrupt_binding = bytearray(gain_bytes)
+        corrupt_binding[20] ^= 1
+        with self.assertRaisesRegex(ValueError, "mesh hash mismatch"):
+            teacher.validate_gain_binding(mesh_bytes, bytes(corrupt_binding))
         self.assertEqual(wav[:4], b"RIFF")
         self.assertEqual(wav[8:12], b"WAVE")
         self.assertEqual(struct.unpack_from("<H", wav, 20)[0], 3)
         self.assertLess(float(np.max(np.abs(samples))), 0.95)
         with self.assertRaisesRegex(ValueError, "unsorted"):
             teacher.encode_modes(frequencies[::-1], decay[::-1], indices[::-1])
+        with self.assertRaisesRegex(ValueError, "unsorted"):
+            teacher.encode_modes(frequencies[:0], decay[:0], indices[:0])
         corrupt_gains = gains.copy()
         corrupt_gains[0, 0] = np.nan
         with self.assertRaisesRegex(ValueError, "contact-gain"):
@@ -199,6 +206,22 @@ class PhysicalSoundV24T0TeacherTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 teacher.modal_solution(bad_recipe, 2)
 
+            selected = teacher.profile("contract-fixture-v1")
+            material = replace(selected.recipes[0].material, density=2701.0)
+            material_recipe = replace(selected.recipes[0], material=material)
+            with self.assertRaisesRegex(ValueError, "profile drift"):
+                teacher.validate_profile(
+                    replace(selected, recipes=(material_recipe, *selected.recipes[1:]))
+                )
+            with self.assertRaisesRegex(ValueError, "profile drift"):
+                teacher.validate_profile(replace(selected, mode_count=3))
+            contact = selected.contacts[0]
+            changed_contact = (contact[0], "wrong-role", contact[2], contact[3])
+            with self.assertRaisesRegex(ValueError, "profile drift"):
+                teacher.validate_profile(
+                    replace(selected, contacts=(changed_contact, *selected.contacts[1:]))
+                )
+
             roots = ("1.0", *teacher.BEAM_ROOTS[1:])
             with mock.patch.object(teacher, "BEAM_ROOTS", roots):
                 with self.assertRaisesRegex(ValueError, "root table"):
@@ -206,6 +229,40 @@ class PhysicalSoundV24T0TeacherTests(unittest.TestCase):
             with mock.patch.object(teacher, "FORMULA_IDS", ("wrong-formula",)):
                 with self.assertRaisesRegex(ValueError, "constants drift"):
                     teacher.run(manifest, root / "formula-corrupt-output")
+            with mock.patch.dict(teacher.SUPPORT_IDS, {"plate": "free"}, clear=True):
+                with self.assertRaisesRegex(ValueError, "constants drift"):
+                    teacher.run(manifest, root / "support-corrupt-output")
+
+    def test_remesh_and_artifact_hash_corruptions_fail_closed(self) -> None:
+        selected = teacher.profile("contract-fixture-v1")
+        recipe = selected.recipes[0]
+        frequencies, _, indices = teacher.modal_solution(recipe, selected.mode_count)
+        _, _, coarse_uv = teacher.mesh(recipe, selected.coarse_grid)
+        _, _, fine_uv = teacher.mesh(recipe, selected.fine_grid)
+        coarse_gains, coarse_bounds = teacher.normalized_gains(
+            recipe, indices, frequencies, coarse_uv
+        )
+        fine_gains, fine_bounds = teacher.normalized_gains(
+            recipe, indices, frequencies, fine_uv
+        )
+        corrupt_fine = fine_gains.copy()
+        corrupt_fine[0, 0] += 1.0
+        with self.assertRaisesRegex(ValueError, "remesh truth drift"):
+            teacher.validate_remesh(
+                coarse_uv,
+                coarse_gains,
+                coarse_bounds,
+                fine_uv,
+                corrupt_fine,
+                fine_bounds,
+            )
+
+        with tempfile.TemporaryDirectory(prefix="nextengine-v24-t0-hash-") as temporary:
+            root = Path(temporary)
+            artifact = teacher.write_bytes(root, "artifact.bin", b"exact")
+            corrupt = dict(artifact, sha256="0" * 64)
+            with self.assertRaisesRegex(ValueError, "artifact hash mismatch"):
+                teacher.verify_artifacts(root, [corrupt])
 
     def test_failed_build_removes_owned_staging_and_publishes_nothing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="nextengine-v24-t0-atomic-") as temporary:

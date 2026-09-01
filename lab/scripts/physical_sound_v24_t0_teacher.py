@@ -32,6 +32,14 @@ CLAIM = "SYNTHETIC_ANALYTIC_MODAL_TEACHER_ONLY / NO_REAL_MATERIAL_QUALITY_OR_RUN
 LINEAGE_ID = "v24-t0-analytic-teacher"
 TEACHER_REPRESENTATION = "sorted-modal-contact-field-v1"
 FORMULA_IDS = ("euler-bernoulli-cantilever-v1", "kirchhoff-love-simply-supported-v1")
+SUPPORT_IDS = {
+    "beam": "cantilever-clamped-u0",
+    "plate": "simply-supported-all-edges",
+}
+PROFILE_SHA256 = {
+    "contract-fixture-v1": "d088ccf23c5c3989c3bbfd7831964050ae4be4f16b1e84e907773cd70dd082d4",
+    "official-v1": "3c997de7238e4e761960244465d3f09898470f637c35a650ef78831715f030f4",
+}
 MESH_MAGIC = b"NEMESH01"
 MODAL_MAGIC = b"NEMODT01"
 GAIN_MAGIC = b"NEGAIN01"
@@ -151,6 +159,40 @@ def sha256_bytes(data: bytes) -> str:
 
 def canonical_json(value: Any) -> bytes:
     return (json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+
+
+def profile_sha256(selected: Profile) -> str:
+    value = {
+        "profile_id": selected.profile_id,
+        "mode_count": selected.mode_count,
+        "coarse_grid": list(selected.coarse_grid),
+        "fine_grid": list(selected.fine_grid),
+        "contacts": [list(contact) for contact in selected.contacts],
+        "duration_seconds": selected.duration_seconds,
+        "recipes": [
+            {
+                "object_id": recipe.object_id,
+                "role": recipe.role,
+                "family": recipe.family,
+                "material": {
+                    "material_id": recipe.material.material_id,
+                    "density": recipe.material.density,
+                    "youngs": recipe.material.youngs,
+                    "poisson": recipe.material.poisson,
+                    "damping_base": recipe.material.damping_base,
+                    "damping_slope": recipe.material.damping_slope,
+                },
+                "dimensions": list(recipe.dimensions),
+            }
+            for recipe in selected.recipes
+        ],
+    }
+    return sha256_bytes(canonical_json(value))
+
+
+def validate_profile(selected: Profile) -> None:
+    if PROFILE_SHA256.get(selected.profile_id) != profile_sha256(selected):
+        raise ValueError(f"T0 profile drift: {selected.profile_id}")
 
 
 def load_manifest(path: Path) -> tuple[dict[str, Any], bytes]:
@@ -318,6 +360,8 @@ def validate_contract_constants() -> None:
         or MODAL_MAGIC != b"NEMODT01"
         or GAIN_MAGIC != b"NEGAIN01"
         or TEACHER_REPRESENTATION != "sorted-modal-contact-field-v1"
+        or SUPPORT_IDS
+        != {"beam": "cantilever-clamped-u0", "plate": "simply-supported-all-edges"}
     ):
         raise ValueError("T0 implementation constants drift from the frozen protocol")
 
@@ -409,6 +453,7 @@ def encode_mesh(vertices: np.ndarray, triangles: np.ndarray) -> bytes:
 def encode_modes(frequencies: np.ndarray, decay: np.ndarray, indices: np.ndarray) -> bytes:
     if (
         frequencies.ndim != 1
+        or not 1 <= len(frequencies) <= len(BEAM_ROOTS)
         or decay.shape != frequencies.shape
         or indices.shape != (len(frequencies), 2)
         or np.any(~np.isfinite(frequencies))
@@ -449,6 +494,13 @@ def encode_gains(mesh_sha256: str, gains: np.ndarray) -> bytes:
         + bytes.fromhex(mesh_sha256)
         + gains.astype("<f8", copy=False).tobytes()
     )
+
+
+def validate_gain_binding(mesh_bytes: bytes, gain_bytes: bytes) -> None:
+    if len(gain_bytes) < 52 or gain_bytes[:8] != GAIN_MAGIC:
+        raise ValueError("T0 contact-gain header is invalid")
+    if gain_bytes[20:52] != bytes.fromhex(sha256_bytes(mesh_bytes)):
+        raise ValueError("T0 contact-gain mesh hash mismatch")
 
 
 def encode_float32_wav(samples: np.ndarray) -> bytes:
@@ -540,6 +592,16 @@ def write_bytes(root: Path, relative: str, data: bytes) -> dict[str, Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     return {"path": relative, "sha256": sha256_bytes(data), "byte_count": len(data)}
+
+
+def verify_artifacts(root: Path, artifacts: list[dict[str, Any]]) -> None:
+    paths = [artifact["path"] for artifact in artifacts]
+    if len(paths) != len(set(paths)):
+        raise ValueError("T0 artifact paths are not unique")
+    for artifact in artifacts:
+        data = (root / artifact["path"]).read_bytes()
+        if len(data) != artifact["byte_count"] or sha256_bytes(data) != artifact["sha256"]:
+            raise ValueError(f"T0 artifact hash mismatch: {artifact['path']}")
 
 
 def contact_point(recipe: Recipe, u: float, v: float) -> list[float]:
@@ -639,8 +701,33 @@ def analytic_controls(recipe: Recipe, count: int) -> dict[str, float]:
     }
 
 
+def validate_remesh(
+    coarse_uv: np.ndarray,
+    coarse_gains: np.ndarray,
+    coarse_bounds: np.ndarray,
+    fine_uv: np.ndarray,
+    fine_gains: np.ndarray,
+    fine_bounds: np.ndarray,
+) -> None:
+    lookup = {
+        (round(float(u), 15), round(float(v), 15)): row
+        for (u, v), row in zip(fine_uv, fine_gains, strict=True)
+    }
+    try:
+        exact = all(
+            row.tobytes()
+            == lookup[(round(float(uv[0]), 15), round(float(uv[1]), 15))].tobytes()
+            for uv, row in zip(coarse_uv, coarse_gains, strict=True)
+        )
+    except KeyError as error:
+        raise ValueError("T0 remesh common vertex is missing") from error
+    if not exact or coarse_bounds.tobytes() != fine_bounds.tobytes():
+        raise ValueError("T0 remesh truth drift")
+
+
 def build_into(staging: Path, selected: Profile, manifest_bytes: bytes) -> dict[str, Any]:
     validate_contract_constants()
+    validate_profile(selected)
     artifacts: list[dict[str, Any]] = []
     pending_rows: list[dict[str, Any]] = []
     object_reports = []
@@ -662,6 +749,8 @@ def build_into(staging: Path, selected: Profile, manifest_bytes: bytes) -> dict[
         modal_bytes = encode_modes(frequencies, decay, indices)
         coarse_gain_bytes = encode_gains(coarse_mesh_ref["sha256"], coarse_gains)
         fine_gain_bytes = encode_gains(fine_mesh_ref["sha256"], fine_gains)
+        validate_gain_binding(coarse_mesh_bytes, coarse_gain_bytes)
+        validate_gain_binding(fine_mesh_bytes, fine_gain_bytes)
         modal_ref = write_bytes(staging, f"objects/{recipe.object_id}/modal-parameters.bin", modal_bytes)
         coarse_gain_ref = write_bytes(
             staging, f"objects/{recipe.object_id}/contact-gain-field-coarse.bin", coarse_gain_bytes
@@ -671,16 +760,9 @@ def build_into(staging: Path, selected: Profile, manifest_bytes: bytes) -> dict[
         )
         artifacts.extend((modal_ref, coarse_gain_ref, fine_gain_ref))
 
-        fine_lookup = {
-            (round(float(u), 15), round(float(v), 15)): row
-            for (u, v), row in zip(fine_uv, fine_gains, strict=True)
-        }
-        common_exact = True
-        for uv, row in zip(coarse_uv, coarse_gains, strict=True):
-            counterpart = fine_lookup[(round(float(uv[0]), 15), round(float(uv[1]), 15))]
-            common_exact &= row.tobytes() == counterpart.tobytes()
-        if not common_exact or coarse_bounds.tobytes() != fine_bounds.tobytes():
-            raise ValueError(f"T0 remesh truth drift for {recipe.object_id}")
+        validate_remesh(
+            coarse_uv, coarse_gains, coarse_bounds, fine_uv, fine_gains, fine_bounds
+        )
 
         contact_vectors = []
         audio_refs = []
@@ -744,6 +826,7 @@ def build_into(staging: Path, selected: Profile, manifest_bytes: bytes) -> dict[
                 }
             )
 
+    verify_artifacts(staging, artifacts)
     evidence = {
         "schema": EVIDENCE_SCHEMA,
         "status": "Validated",
@@ -784,9 +867,7 @@ def build_into(staging: Path, selected: Profile, manifest_bytes: bytes) -> dict[
                 "evidence": evidence_file,
             },
             "support": {
-                "value_id": "simply-supported-all-edges"
-                if recipe.family == "plate"
-                else "cantilever-clamped-u0",
+                "value_id": SUPPORT_IDS[recipe.family],
                 "evidence": evidence_file,
             },
             "impact": {
