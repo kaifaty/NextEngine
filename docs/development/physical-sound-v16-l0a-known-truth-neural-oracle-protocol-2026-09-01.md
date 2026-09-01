@@ -75,6 +75,23 @@ features, UV and an adjacency graph. Cylinder and bowl U edges are periodic;
 plate edges are open. Mesh identity is the SHA-256 of canonical little-endian
 vertices and faces plus the object table row.
 
+The exact embeddings use row-major `(u, v)` samples. Plate samples include
+both endpoints of `u,v in [-1,1]` and use
+`(0.5*L*u, 0.5*L/aspect*v, 0)`. Cylinder uses
+`u_i = -1 + 2*i/n_u`, inclusive `v in [-1,1]`,
+`theta = pi*(u+1)`, radius `L/(2*pi)`, height `L*aspect`, and
+`(r*cos(theta), r*sin(theta), 0.5*L*aspect*v)`. Bowl uses the same periodic
+`u_i`, cell-centred `v_j = -1 + 2*(j+0.5)/n_v`,
+`alpha = pi*(v+1)/4`, radial semiaxis `a=0.5*L`, axial semiaxis
+`c=0.5*L*aspect`, and
+`(a*sin(alpha)*cos(theta), a*sin(alpha)*sin(theta), -c*cos(alpha))`.
+Normals are analytic outward unit normals. Principal curvatures are `(0,0)`
+for Plate, `(1/r,0)` for Cylinder, and the analytic spheroid meridional and
+azimuthal curvatures for Bowl. `mean_absolute_curvature` is the arithmetic
+mean of both absolute principal-curvature channels over every vertex. Each
+quad becomes triangles `(a,b,c)` and `(a,c,d)` in row-major order; only the
+periodic surfaces wrap the final U row to the first.
+
 For mode ordinal `m = 0..7`, use:
 
 ```text
@@ -178,6 +195,26 @@ endpoint.
 
 All aggregations group first by object and then take an unweighted aggregate
 across the six test objects.
+
+Waveform NRMSE is sample RMSE divided by truth sample RMS, without peak
+normalization. Envelope NRMSE applies the analytic-signal Hilbert envelope to
+those same unnormalized waveforms and divides envelope RMSE by truth-envelope
+RMS. Gain NRMSE uses the same RMSE/truth-RMS definition over all query vertices
+and modes of one object. The gain-invariant multiresolution spectrum metric
+independently peak-normalizes truth and prediction, applies periodic Hann
+windows to their first `512`, `1024`, `2048` and `4096` samples, computes an
+`rfft`, converts magnitude relative to each spectrum peak to dB with a
+`-80 dB` floor, and averages the four per-query dB RMSE values. A zero-peak
+waveform is a hard numerical failure. The edge-continuity statistic is the
+p99 over undirected mesh edges of the eight-mode predicted-minus-truth gain-
+difference RMS, divided by the object's truth gain RMS. Cents error is
+`abs(1200*log2(predicted/truth))`; damping error is absolute relative error.
+
+For the classical comparison, every compatible pair of the two declared
+global controls and five declared contact-gain controls is evaluated. The best
+aggregate non-neural gain endpoint is the minimum over the five gain controls;
+the best spectrum endpoint is the minimum over all ten compatible pairs. No
+per-object control selection is allowed.
 
 | Gate | Required result |
 | --- | --- |
