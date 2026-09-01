@@ -85,11 +85,29 @@ pub(super) fn project_row(
             })
         })
         .transpose()?;
+    let teacher_target = row
+        .axes
+        .teacher_target
+        .as_ref()
+        .map(|claim| -> Result<ProjectedTeacherTarget, String> {
+            Ok(ProjectedTeacherTarget {
+                representation_id: claim.representation_id.clone(),
+                mode_count: claim.mode_count,
+                modal_parameters: resolve(&claim.modal_parameters, "teacher modal parameters")?,
+                contact_gain_field: resolve(
+                    &claim.contact_gain_field,
+                    "teacher contact gain field",
+                )?,
+                evidence: resolve(&claim.evidence, "teacher target evidence")?,
+            })
+        })
+        .transpose()?;
     Ok(ProjectedRow {
         row_id: row.row_id.clone(),
         split_role: row.split_role.as_str(),
         sample_role: row.sample_role.as_str(),
         corpus_role: row.corpus_role.as_str(),
+        evidence_lane: row.evidence_lane.map(EvidenceLane::as_str),
         audio_semantics: row.audio_semantics.as_str(),
         source_group_id: row.source_group_id.clone(),
         family_group_id: row.family_group_id.clone(),
@@ -107,6 +125,7 @@ pub(super) fn project_row(
             impact,
             listener,
             excitation,
+            teacher_target,
         },
     })
 }

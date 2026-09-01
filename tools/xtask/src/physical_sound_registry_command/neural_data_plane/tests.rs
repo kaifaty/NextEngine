@@ -71,10 +71,17 @@ fn projection_is_hash_closed_repeatable_and_keeps_sealed_rows_private() {
             fs::read(second.join(file)).expect("read second output")
         );
     }
+    assert_eq!(
+        fs::read_dir(&first)
+            .expect("read first V3 output directory")
+            .count(),
+        4
+    );
     let report: Value =
         serde_json::from_slice(&fs::read(first.join("report.json")).expect("read neural report"))
             .expect("parse neural report");
     assert_eq!(report["status"], "Validated");
+    assert_eq!(report["schema"], REPORT_SCHEMA);
     assert_eq!(report["decision"], "DeclaredAxisCoverageComplete");
     assert_eq!(report["row_count"], 10);
     assert_eq!(report["capability_counts"]["recorded_impact_waveform"], 10);
@@ -91,6 +98,8 @@ fn projection_is_hash_closed_repeatable_and_keeps_sealed_rows_private() {
     assert!(!sealed.contains("row-method-holdout"));
     assert!(!sealed.contains("row-admission-shadow"));
     let fit = fs::read_to_string(first.join("fit-projection.json")).expect("read fit projection");
+    assert!(!fit.contains("evidence_lane"));
+    assert!(!fit.contains("teacher_target"));
     let calibration = fs::read_to_string(first.join("calibration-projection.json"))
         .expect("read calibration projection");
     for row in manifest
@@ -102,6 +111,310 @@ fn projection_is_hash_closed_repeatable_and_keeps_sealed_rows_private() {
         assert!(!fit.contains(&row.row_id));
         assert!(!calibration.contains(&row.row_id));
     }
+}
+
+#[test]
+fn atomic_publish_abandons_owned_staging_after_write_failure() {
+    let directory = TestDirectory::new();
+    let output = directory.path.join("never-published");
+    let error = publish_output(
+        &output,
+        [
+            ("first.json", b"first".to_vec()),
+            ("missing/second.json", b"second".to_vec()),
+            ("third.json", b"third".to_vec()),
+            ("fourth.json", b"fourth".to_vec()),
+        ],
+    )
+    .expect_err("nested missing parent forces publish failure");
+    assert!(error.contains("write neural data plane"));
+    assert!(!output.exists());
+    assert!(
+        fs::read_dir(&directory.path)
+            .expect("read temporary parent")
+            .all(|entry| !entry
+                .expect("read temporary entry")
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".nextengine-neural-data-plane-"))
+    );
+}
+
+#[test]
+fn v3_three_lane_run_cli_is_twice_exact_and_keeps_protected_rows_private() {
+    let directory = TestDirectory::new();
+    let manifest = write_v3_manifest(&directory.path);
+    let manifest_path = directory.path.join("manifest-v3.json");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).expect("serialize V3 manifest"),
+    )
+    .expect("write V3 manifest");
+
+    let first = directory.path.join("v3-first");
+    run_cli(
+        workspace_root(),
+        vec![
+            "--manifest".to_owned(),
+            manifest_path.display().to_string(),
+            "--output".to_owned(),
+            first.display().to_string(),
+        ]
+        .into_iter(),
+    )
+    .expect("first V3 CLI projection validates");
+    let second = directory.path.join("v3-second");
+    run_cli(
+        workspace_root(),
+        vec![
+            "--manifest".to_owned(),
+            manifest_path.display().to_string(),
+            "--output".to_owned(),
+            second.display().to_string(),
+        ]
+        .into_iter(),
+    )
+    .expect("second V3 CLI projection validates");
+
+    for file in [
+        "fit-projection.json",
+        "calibration-projection.json",
+        "sealed-role-commitments.json",
+        "report.json",
+    ] {
+        assert_eq!(
+            fs::read(first.join(file)).expect("read first V3 output"),
+            fs::read(second.join(file)).expect("read second V3 output")
+        );
+    }
+    let report: Value =
+        serde_json::from_slice(&fs::read(first.join("report.json")).expect("read V3 report"))
+            .expect("parse V3 report");
+    assert_eq!(report["schema"], REPORT_SCHEMA_V2);
+    assert_eq!(report["status"], "Validated");
+    assert_eq!(report["row_count"], 10);
+    assert_eq!(report["lane_capability_counts"]["synthetic_teacher"], 2);
+    assert_eq!(report["lane_capability_counts"]["exact_real_transfer"], 2);
+    assert_eq!(
+        report["lane_capability_counts"]["identified_real_recording"],
+        6
+    );
+    assert_eq!(report["lane_capability_counts"]["teacher_target"], 2);
+    assert_eq!(
+        report["lane_capability_counts"]["lane_contract_complete"],
+        10
+    );
+    assert_eq!(report["model_training_authorized"], false);
+    assert_eq!(report["method_holdout_materialized"], false);
+    assert_eq!(report["admission_shadow_materialized"], false);
+
+    let fit =
+        fs::read_to_string(first.join("fit-projection.json")).expect("read V3 fit projection");
+    let calibration = fs::read_to_string(first.join("calibration-projection.json"))
+        .expect("read V3 calibration projection");
+    let sealed = fs::read_to_string(first.join("sealed-role-commitments.json"))
+        .expect("read V3 sealed commitments");
+    assert!(fit.contains("synthetic_teacher"));
+    assert!(fit.contains("exact_real_transfer"));
+    assert!(fit.contains("teacher_target"));
+    assert!(calibration.contains("identified_real_recording"));
+    for row in manifest
+        .rows
+        .iter()
+        .filter(|row| row.split_role.is_sealed())
+    {
+        assert!(!fit.contains(&row.row_id));
+        assert!(!calibration.contains(&row.row_id));
+        assert!(!sealed.contains(&row.row_id));
+        assert!(!sealed.contains(&row.audio.sha256));
+    }
+}
+
+#[test]
+fn v3_lane_semantic_teacher_and_axis_corruptions_fail_closed() {
+    let directory = TestDirectory::new();
+    let manifest = write_v3_manifest(&directory.path);
+
+    for (lane, wrong_semantics) in [
+        (
+            EvidenceLane::SyntheticTeacher,
+            AudioSemantics::RecordedImpactWaveform,
+        ),
+        (
+            EvidenceLane::ExactRealTransfer,
+            AudioSemantics::RecordedImpactWaveform,
+        ),
+        (
+            EvidenceLane::IdentifiedRealRecording,
+            AudioSemantics::ForceDeconvolvedTransferResponse,
+        ),
+    ] {
+        let mut candidate = manifest.clone();
+        candidate
+            .rows
+            .iter_mut()
+            .find(|row| row.evidence_lane == Some(lane))
+            .expect("lane row")
+            .audio_semantics = wrong_semantics;
+        assert!(validate_manifest(&candidate).is_err());
+    }
+
+    let synthetic_index = manifest
+        .rows
+        .iter()
+        .position(|row| row.evidence_lane == Some(EvidenceLane::SyntheticTeacher))
+        .expect("synthetic row");
+    let mut missing_teacher = manifest.clone();
+    missing_teacher.rows[synthetic_index].axes.teacher_target = None;
+    assert!(
+        validate_manifest(&missing_teacher)
+            .expect_err("missing teacher rejects")
+            .contains("teacher_target")
+    );
+    let mut missing_axis = manifest.clone();
+    missing_axis.rows[synthetic_index].axes.geometry = None;
+    assert!(
+        validate_manifest(&missing_axis)
+            .expect_err("missing synthetic axis rejects")
+            .contains("every physical axis")
+    );
+
+    for lane in [
+        EvidenceLane::ExactRealTransfer,
+        EvidenceLane::IdentifiedRealRecording,
+    ] {
+        let mut candidate = manifest.clone();
+        let teacher = candidate.rows[synthetic_index].axes.teacher_target.clone();
+        candidate
+            .rows
+            .iter_mut()
+            .find(|row| row.evidence_lane == Some(lane))
+            .expect("real lane row")
+            .axes
+            .teacher_target = teacher;
+        assert!(
+            validate_manifest(&candidate)
+                .expect_err("real teacher target rejects")
+                .contains("forbids teacher_target")
+        );
+    }
+
+    for mode_count in [0, MAX_TEACHER_MODES + 1] {
+        let mut candidate = manifest.clone();
+        candidate.rows[synthetic_index]
+            .axes
+            .teacher_target
+            .as_mut()
+            .expect("teacher target")
+            .mode_count = mode_count;
+        assert!(
+            validate_manifest(&candidate)
+                .expect_err("invalid mode count rejects")
+                .contains("mode count")
+        );
+    }
+    let mut wrong_representation = manifest.clone();
+    wrong_representation.rows[synthetic_index]
+        .axes
+        .teacher_target
+        .as_mut()
+        .expect("teacher target")
+        .representation_id = "unknown-teacher".to_owned();
+    assert!(
+        validate_manifest(&wrong_representation)
+            .expect_err("unknown representation rejects")
+            .contains(TEACHER_REPRESENTATION)
+    );
+
+    let mut stale_hash = manifest.clone();
+    stale_hash.rows[synthetic_index]
+        .axes
+        .teacher_target
+        .as_mut()
+        .expect("teacher target")
+        .modal_parameters
+        .sha256 = "0".repeat(64);
+    validate_manifest(&stale_hash).expect("stale hash retains valid record shape");
+    let bytes = serde_json::to_vec_pretty(&stale_hash).expect("serialize stale hash manifest");
+    assert!(
+        build_projection(
+            workspace_root(),
+            &directory.path,
+            &stale_hash,
+            &sha256_hex(&bytes),
+        )
+        .err()
+        .expect("stale target hash rejects")
+        .contains("hash mismatch")
+    );
+}
+
+#[test]
+fn v3_requires_every_evidence_lane() {
+    let directory = TestDirectory::new();
+    let manifest = write_v3_manifest(&directory.path);
+
+    for missing in [
+        EvidenceLane::SyntheticTeacher,
+        EvidenceLane::ExactRealTransfer,
+        EvidenceLane::IdentifiedRealRecording,
+    ] {
+        let retained = manifest
+            .rows
+            .iter()
+            .filter(|row| row.evidence_lane != Some(missing))
+            .cloned()
+            .collect::<Vec<_>>();
+        assert!(
+            validate_lane_coverage(&retained, DataPlaneVersion::V3)
+                .expect_err("missing evidence lane rejects")
+                .contains(missing.as_str())
+        );
+    }
+}
+
+#[test]
+fn v3_unknown_schema_field_and_nonempty_output_fail_closed() {
+    let directory = TestDirectory::new();
+    let manifest = write_v3_manifest(&directory.path);
+
+    let mut unknown_schema = manifest.clone();
+    unknown_schema.schema = "nextengine.experimental-unknown.v1".to_owned();
+    assert!(
+        validate_manifest(&unknown_schema)
+            .expect_err("unknown schema rejects")
+            .contains("unsupported")
+    );
+
+    let mut unknown_field = serde_json::to_value(&manifest).expect("serialize V3 value");
+    unknown_field
+        .as_object_mut()
+        .expect("manifest object")
+        .insert("unknown".to_owned(), serde_json::json!(true));
+    assert!(serde_json::from_value::<NeuralDataPlaneManifest>(unknown_field).is_err());
+
+    let manifest_path = directory.path.join("manifest-v3-nonempty.json");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).expect("serialize V3 manifest"),
+    )
+    .expect("write V3 manifest");
+    let output = directory.path.join("occupied");
+    fs::create_dir(&output).expect("create occupied output");
+    fs::write(output.join("marker"), b"occupied").expect("write occupied marker");
+    assert!(
+        run_cli(
+            workspace_root(),
+            vec![
+                "--manifest".to_owned(),
+                manifest_path.display().to_string(),
+                "--output".to_owned(),
+                output.display().to_string(),
+            ]
+            .into_iter(),
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -322,6 +635,7 @@ fn write_manifest(directory: &Path) -> NeuralDataPlaneManifest {
                 split_role: role,
                 sample_role,
                 corpus_role: CorpusRole::Target,
+                evidence_lane: None,
                 audio_semantics: AudioSemantics::RecordedImpactWaveform,
                 source_group_id: format!("source-{role_name}"),
                 family_group_id: "thin-glass-vessel".to_owned(),
@@ -362,6 +676,48 @@ fn write_manifest(directory: &Path) -> NeuralDataPlaneManifest {
     }
 }
 
+fn write_v3_manifest(directory: &Path) -> NeuralDataPlaneManifest {
+    let mut manifest = write_manifest(directory);
+    manifest.schema = MANIFEST_SCHEMA_V3.to_owned();
+    fs::write(directory.join("teacher-modal.bin"), [3, 1, 4, 1, 5, 9])
+        .expect("write teacher modal fixture");
+    fs::write(directory.join("teacher-gain.bin"), [2, 6, 5, 3, 5, 8])
+        .expect("write teacher gain fixture");
+    let modal_parameters = file_ref(directory, "teacher-modal.bin");
+    let contact_gain_field = file_ref(directory, "teacher-gain.bin");
+    for row in &mut manifest.rows {
+        match row.split_role {
+            SplitRole::Train => {
+                row.evidence_lane = Some(EvidenceLane::SyntheticTeacher);
+                row.audio_semantics = AudioSemantics::SyntheticModalRender;
+                let evidence = row
+                    .axes
+                    .material
+                    .as_ref()
+                    .expect("material evidence")
+                    .evidence
+                    .clone();
+                row.axes.teacher_target = Some(TeacherTargetClaim {
+                    representation_id: TEACHER_REPRESENTATION.to_owned(),
+                    mode_count: 8,
+                    modal_parameters: modal_parameters.clone(),
+                    contact_gain_field: contact_gain_field.clone(),
+                    evidence,
+                });
+            }
+            SplitRole::Development => {
+                row.evidence_lane = Some(EvidenceLane::ExactRealTransfer);
+                row.audio_semantics = AudioSemantics::ForceDeconvolvedTransferResponse;
+            }
+            SplitRole::Calibration | SplitRole::MethodHoldout | SplitRole::AdmissionShadow => {
+                row.evidence_lane = Some(EvidenceLane::IdentifiedRealRecording);
+                row.audio_semantics = AudioSemantics::RecordedImpactWaveform;
+            }
+        }
+    }
+    manifest
+}
+
 fn complete_axes(
     role_index: usize,
     sample_index: usize,
@@ -399,6 +755,7 @@ fn complete_axes(
             force_profile: None,
             evidence,
         }),
+        teacher_target: None,
     }
 }
 

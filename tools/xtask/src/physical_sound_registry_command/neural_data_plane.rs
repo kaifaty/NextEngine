@@ -1,30 +1,38 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
+mod evidence_record;
 mod row_projection;
 #[cfg(test)]
 mod tests;
 
+use evidence_record::*;
 use row_projection::{
     audit_leakage, project_row, resolve_cached_artifact, validate_lineage_report,
 };
 
 use super::{
-    ArtifactReport, FileRef, MAX_MANIFEST_BYTES, canonical_external_file, read_bounded_file,
-    require_empty_output, resolve_artifact, resolve_cli_path, resolve_output_path, set_once,
-    sha256_hex, validate_file_ref, validate_label, validate_sorted_labels,
+    FileRef, MAX_MANIFEST_BYTES, canonical_external_file, read_bounded_file, require_empty_output,
+    resolve_artifact, resolve_cli_path, resolve_output_path, set_once, sha256_hex,
+    validate_file_ref, validate_label, validate_sorted_labels,
 };
 
 const MANIFEST_SCHEMA: &str =
     "nextengine.experimental-physical-sound-neural-data-plane.manifest.v2";
+const MANIFEST_SCHEMA_V3: &str =
+    "nextengine.experimental-physical-sound-neural-data-plane.manifest.v3";
 const PROJECTION_SCHEMA: &str =
     "nextengine.experimental-physical-sound-neural-data-plane.projection.v2";
+const PROJECTION_SCHEMA_V3: &str =
+    "nextengine.experimental-physical-sound-neural-data-plane.projection.v3";
 const COMMITMENT_SCHEMA: &str =
     "nextengine.experimental-physical-sound-neural-data-plane.sealed-roles.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-neural-data-plane.report.v1";
+const REPORT_SCHEMA_V2: &str = "nextengine.experimental-physical-sound-neural-data-plane.report.v2";
 const REPORT_CLAIM: &str =
     "HASH_CLOSED_NEURAL_DATA_PROJECTION_ONLY / NO_MODEL_TRAINING_QUALITY_OR_ADMISSION_AUTHORITY";
 const MAX_ROWS: usize = 65_536;
@@ -32,6 +40,9 @@ const MAX_LINEAGE_REPORTS: usize = 256;
 const MAX_LINEAGE_REPORT_BYTES: usize = 4 * 1024 * 1024;
 const NORMAL_SQUARED_MINIMUM: f64 = 0.998_001;
 const NORMAL_SQUARED_MAXIMUM: f64 = 1.002_001;
+const TEACHER_REPRESENTATION: &str = "sorted-modal-contact-field-v1";
+const MAX_TEACHER_MODES: usize = 256;
+static NEXT_STAGING: AtomicU64 = AtomicU64::new(0);
 const SPLIT_ROLES: [SplitRole; 5] = [
     SplitRole::Train,
     SplitRole::Development,
@@ -39,6 +50,38 @@ const SPLIT_ROLES: [SplitRole; 5] = [
     SplitRole::MethodHoldout,
     SplitRole::AdmissionShadow,
 ];
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DataPlaneVersion {
+    V2,
+    V3,
+}
+
+impl DataPlaneVersion {
+    fn from_schema(schema: &str) -> Result<Self, String> {
+        match schema {
+            MANIFEST_SCHEMA => Ok(Self::V2),
+            MANIFEST_SCHEMA_V3 => Ok(Self::V3),
+            _ => Err(format!(
+                "unsupported physical sound neural data plane schema: {schema}"
+            )),
+        }
+    }
+
+    const fn projection_schema(self) -> &'static str {
+        match self {
+            Self::V2 => PROJECTION_SCHEMA,
+            Self::V3 => PROJECTION_SCHEMA_V3,
+        }
+    }
+
+    const fn report_schema(self) -> &'static str {
+        match self {
+            Self::V2 => REPORT_SCHEMA,
+            Self::V3 => REPORT_SCHEMA_V2,
+        }
+    }
+}
 
 pub(super) struct Request {
     manifest: PathBuf,
@@ -73,331 +116,6 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
                 .to_owned()
         })?,
     })
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct NeuralDataPlaneManifest {
-    schema: String,
-    projection_id: String,
-    revision: String,
-    task_scope: TaskScope,
-    split_policy: SplitPolicy,
-    lineage_reports: Vec<LineageReport>,
-    rows: Vec<NeuralRow>,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum TaskScope {
-    ExactObjectFewShotImpactListenerField,
-}
-
-impl TaskScope {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::ExactObjectFewShotImpactListenerField => {
-                "exact_object_few_shot_impact_listener_field"
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct SplitPolicy {
-    object_groups_disjoint_across_roles: bool,
-    source_groups_disjoint_across_roles: bool,
-    recording_parents_disjoint_across_roles: bool,
-    condition_groups_disjoint_across_roles: bool,
-    mutation_parents_disjoint_across_roles: bool,
-    identical_audio_disjoint_across_roles: bool,
-    method_holdout_sealed_before_candidate_freeze: bool,
-    admission_shadow_sealed_until_validator_release: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct LineageReport {
-    id: String,
-    expected_schema: String,
-    expected_claim: String,
-    artifact: FileRef,
-}
-
-#[derive(Deserialize)]
-struct LineageReportProbe {
-    schema: String,
-    status: String,
-    claim: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct NeuralRow {
-    row_id: String,
-    split_role: SplitRole,
-    sample_role: SampleRole,
-    corpus_role: CorpusRole,
-    audio_semantics: AudioSemantics,
-    source_group_id: String,
-    family_group_id: String,
-    object_group_id: String,
-    recording_parent_id: String,
-    condition_group_id: String,
-    #[serde(default)]
-    mutation_parent_id: Option<String>,
-    lineage_report_ids: Vec<String>,
-    audio: FileRef,
-    audio_provenance: FileRef,
-    #[serde(default)]
-    axes: AxisClaims,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum AudioSemantics {
-    RecordedImpactWaveform,
-    ForceDeconvolvedTransferResponse,
-}
-
-impl AudioSemantics {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::RecordedImpactWaveform => "recorded_impact_waveform",
-            Self::ForceDeconvolvedTransferResponse => "force_deconvolved_transfer_response",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum SplitRole {
-    Train,
-    Development,
-    Calibration,
-    MethodHoldout,
-    AdmissionShadow,
-}
-
-impl SplitRole {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Train => "train",
-            Self::Development => "development",
-            Self::Calibration => "calibration",
-            Self::MethodHoldout => "method_holdout",
-            Self::AdmissionShadow => "admission_shadow",
-        }
-    }
-
-    const fn is_sealed(self) -> bool {
-        matches!(self, Self::MethodHoldout | Self::AdmissionShadow)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum SampleRole {
-    Context,
-    Query,
-}
-
-impl SampleRole {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Context => "context",
-            Self::Query => "query",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum CorpusRole {
-    Target,
-    RejectParent,
-}
-
-impl CorpusRole {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Target => "target",
-            Self::RejectParent => "reject_parent",
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct AxisClaims {
-    #[serde(default)]
-    material: Option<LabelClaim>,
-    #[serde(default)]
-    geometry: Option<GeometryClaim>,
-    #[serde(default)]
-    support: Option<LabelClaim>,
-    #[serde(default)]
-    impact: Option<ImpactClaim>,
-    #[serde(default)]
-    listener: Option<ListenerClaim>,
-    #[serde(default)]
-    excitation: Option<ExcitationClaim>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct LabelClaim {
-    value_id: String,
-    evidence: FileRef,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct GeometryClaim {
-    geometry_id: String,
-    feature_artifact: FileRef,
-    evidence: FileRef,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct ImpactClaim {
-    coordinate_profile: String,
-    point_metres: [f64; 3],
-    #[serde(default)]
-    outward_normal: Option<[f64; 3]>,
-    evidence: FileRef,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct ListenerClaim {
-    coordinate_profile: String,
-    point_metres: [f64; 3],
-    evidence: FileRef,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct ExcitationClaim {
-    #[serde(default)]
-    impulse_newton_seconds: Option<f64>,
-    #[serde(default)]
-    energy_joules: Option<f64>,
-    #[serde(default)]
-    force_profile: Option<FileRef>,
-    evidence: FileRef,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct VerifiedArtifact {
-    sha256: String,
-    byte_count: usize,
-}
-
-impl From<ArtifactReport> for VerifiedArtifact {
-    fn from(report: ArtifactReport) -> Self {
-        Self {
-            sha256: report.sha256,
-            byte_count: report.byte_count,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ProjectedLineageReport {
-    id: String,
-    schema: String,
-    claim: String,
-    artifact: VerifiedArtifact,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ProjectedRow {
-    row_id: String,
-    split_role: &'static str,
-    sample_role: &'static str,
-    corpus_role: &'static str,
-    audio_semantics: &'static str,
-    source_group_id: String,
-    family_group_id: String,
-    object_group_id: String,
-    recording_parent_id: String,
-    condition_group_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    mutation_parent_id: Option<String>,
-    lineage_report_ids: Vec<String>,
-    audio: VerifiedArtifact,
-    audio_provenance: VerifiedArtifact,
-    axes: ProjectedAxes,
-}
-
-#[derive(Clone, Debug, Default, Serialize)]
-struct ProjectedAxes {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    material: Option<ProjectedLabelClaim>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    geometry: Option<ProjectedGeometryClaim>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    support: Option<ProjectedLabelClaim>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    impact: Option<ProjectedImpactClaim>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    listener: Option<ProjectedListenerClaim>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    excitation: Option<ProjectedExcitationClaim>,
-}
-
-impl ProjectedAxes {
-    const fn complete_for_modal_field(&self) -> bool {
-        self.material.is_some()
-            && self.geometry.is_some()
-            && self.support.is_some()
-            && self.impact.is_some()
-            && self.listener.is_some()
-            && self.excitation.is_some()
-    }
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ProjectedLabelClaim {
-    value_id: String,
-    evidence: VerifiedArtifact,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ProjectedGeometryClaim {
-    geometry_id: String,
-    feature_artifact: VerifiedArtifact,
-    evidence: VerifiedArtifact,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ProjectedImpactClaim {
-    coordinate_profile: String,
-    point_metres: [f64; 3],
-    #[serde(skip_serializing_if = "Option::is_none")]
-    outward_normal: Option<[f64; 3]>,
-    evidence: VerifiedArtifact,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ProjectedListenerClaim {
-    coordinate_profile: String,
-    point_metres: [f64; 3],
-    evidence: VerifiedArtifact,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ProjectedExcitationClaim {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    impulse_newton_seconds: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    energy_joules: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    force_profile: Option<VerifiedArtifact>,
-    evidence: VerifiedArtifact,
 }
 
 #[derive(Serialize)]
@@ -446,6 +164,8 @@ struct DataPlaneReport {
     row_count: usize,
     role_counts: Vec<RoleCountReport>,
     capability_counts: CapabilityCounts,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lane_capability_counts: Option<LaneCapabilityCounts>,
     leakage_audit: LeakageAudit,
     emitted_files: Vec<&'static str>,
     model_training_authorized: bool,
@@ -478,6 +198,15 @@ struct CapabilityCounts {
     listener: usize,
     excitation: usize,
     complete_modal_field: usize,
+}
+
+#[derive(Default, Serialize)]
+struct LaneCapabilityCounts {
+    synthetic_teacher: usize,
+    exact_real_transfer: usize,
+    identified_real_recording: usize,
+    teacher_target: usize,
+    lane_contract_complete: usize,
 }
 
 #[derive(Serialize)]
@@ -517,20 +246,20 @@ fn run(root: &Path, request: &Request) -> Result<(), String> {
     let manifest_sha256 = sha256_hex(&manifest_bytes);
     let built = build_projection(&root, manifest_directory, &manifest, &manifest_sha256)?;
 
-    fs::create_dir_all(&output).map_err(|error| format!("create {}: {error}", output.display()))?;
-    write_json(&output.join("fit-projection.json"), &built.fit_projection)?;
-    write_json(
-        &output.join("calibration-projection.json"),
-        &built.calibration_projection,
-    )?;
-    write_json(
-        &output.join("sealed-role-commitments.json"),
-        &built.sealed_commitments,
-    )?;
+    let fit_json = serialize_json("fit projection", &built.fit_projection)?;
+    let calibration_json = serialize_json("calibration projection", &built.calibration_projection)?;
+    let commitments_json = serialize_json("sealed role commitments", &built.sealed_commitments)?;
     let report_json = serde_json::to_vec_pretty(&built.report)
         .map_err(|error| format!("serialize neural data plane report: {error}"))?;
-    fs::write(output.join("report.json"), &report_json)
-        .map_err(|error| format!("write neural data plane report: {error}"))?;
+    publish_output(
+        &output,
+        [
+            ("calibration-projection.json", calibration_json),
+            ("fit-projection.json", fit_json),
+            ("report.json", report_json.clone()),
+            ("sealed-role-commitments.json", commitments_json),
+        ],
+    )?;
     println!(
         "{}",
         String::from_utf8(report_json).map_err(|error| error.to_string())?
@@ -538,19 +267,46 @@ fn run(root: &Path, request: &Request) -> Result<(), String> {
     Ok(())
 }
 
-fn write_json(path: &Path, value: &impl Serialize) -> Result<(), String> {
-    let bytes = serde_json::to_vec_pretty(value)
-        .map_err(|error| format!("serialize {}: {error}", path.display()))?;
-    fs::write(path, bytes).map_err(|error| format!("write {}: {error}", path.display()))
+fn serialize_json(role: &str, value: &impl Serialize) -> Result<Vec<u8>, String> {
+    serde_json::to_vec_pretty(value).map_err(|error| format!("serialize {role}: {error}"))
 }
 
-fn validate_manifest(manifest: &NeuralDataPlaneManifest) -> Result<(), String> {
-    if manifest.schema != MANIFEST_SCHEMA {
-        return Err(format!(
-            "unsupported physical sound neural data plane schema: {}",
-            manifest.schema
-        ));
+fn publish_output(output: &Path, files: [(&str, Vec<u8>); 4]) -> Result<(), String> {
+    let parent = output
+        .parent()
+        .ok_or_else(|| "neural data plane output has no parent directory".to_owned())?;
+    let sequence = NEXT_STAGING.fetch_add(1, Ordering::Relaxed);
+    let staging = parent.join(format!(
+        ".nextengine-neural-data-plane-{}-{sequence}",
+        std::process::id()
+    ));
+    fs::create_dir(&staging)
+        .map_err(|error| format!("create neural data plane staging: {error}"))?;
+    let guard = StagingGuard(staging.clone());
+    for (name, bytes) in files {
+        fs::write(staging.join(name), bytes)
+            .map_err(|error| format!("write neural data plane {name}: {error}"))?;
     }
+    if output.exists() {
+        fs::remove_dir(output)
+            .map_err(|error| format!("remove confirmed-empty neural output: {error}"))?;
+    }
+    fs::rename(&staging, output)
+        .map_err(|error| format!("publish neural data plane output: {error}"))?;
+    std::mem::forget(guard);
+    Ok(())
+}
+
+struct StagingGuard(PathBuf);
+
+impl Drop for StagingGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+fn validate_manifest(manifest: &NeuralDataPlaneManifest) -> Result<DataPlaneVersion, String> {
+    let version = DataPlaneVersion::from_schema(&manifest.schema)?;
     validate_label(&manifest.projection_id, "neural projection id")?;
     validate_label(&manifest.revision, "neural projection revision")?;
     validate_split_policy(&manifest.split_policy)?;
@@ -577,13 +333,15 @@ fn validate_manifest(manifest: &NeuralDataPlaneManifest) -> Result<(), String> {
     }
     let mut previous_row: Option<&str> = None;
     for row in &manifest.rows {
-        validate_row(row, &lineage_ids)?;
+        validate_row(row, &lineage_ids, version)?;
         if previous_row.is_some_and(|previous| previous >= row.row_id.as_str()) {
             return Err("neural rows must be strictly sorted by row_id".to_owned());
         }
         previous_row = Some(&row.row_id);
     }
-    validate_role_coverage(&manifest.rows)
+    validate_role_coverage(&manifest.rows)?;
+    validate_lane_coverage(&manifest.rows, version)?;
+    Ok(version)
 }
 
 fn validate_split_policy(policy: &SplitPolicy) -> Result<(), String> {
@@ -604,7 +362,11 @@ fn validate_split_policy(policy: &SplitPolicy) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_row(row: &NeuralRow, lineage_ids: &BTreeSet<&str>) -> Result<(), String> {
+fn validate_row(
+    row: &NeuralRow,
+    lineage_ids: &BTreeSet<&str>,
+    version: DataPlaneVersion,
+) -> Result<(), String> {
     for (value, role) in [
         (&row.row_id, "neural row id"),
         (&row.source_group_id, "source group id"),
@@ -631,7 +393,8 @@ fn validate_row(row: &NeuralRow, lineage_ids: &BTreeSet<&str>) -> Result<(), Str
     }
     validate_file_ref(&row.audio, "neural row audio")?;
     validate_file_ref(&row.audio_provenance, "neural row audio provenance")?;
-    validate_axis_claims(&row.axes)
+    validate_axis_claims(&row.axes)?;
+    validate_lane_binding(row, version)
 }
 
 fn validate_axis_claims(axes: &AxisClaims) -> Result<(), String> {
@@ -683,6 +446,101 @@ fn validate_axis_claims(axes: &AxisClaims) -> Result<(), String> {
             validate_file_ref(profile, "force profile artifact")?;
         }
         validate_file_ref(&claim.evidence, "excitation claim evidence")?;
+    }
+    if let Some(claim) = &axes.teacher_target {
+        if claim.representation_id != TEACHER_REPRESENTATION {
+            return Err(format!(
+                "teacher target representation must be {TEACHER_REPRESENTATION}"
+            ));
+        }
+        if !(1..=MAX_TEACHER_MODES).contains(&claim.mode_count) {
+            return Err(format!(
+                "teacher target mode count must be in 1..={MAX_TEACHER_MODES}"
+            ));
+        }
+        validate_file_ref(&claim.modal_parameters, "teacher modal parameters")?;
+        validate_file_ref(&claim.contact_gain_field, "teacher contact gain field")?;
+        validate_file_ref(&claim.evidence, "teacher target evidence")?;
+    }
+    Ok(())
+}
+
+fn validate_lane_binding(row: &NeuralRow, version: DataPlaneVersion) -> Result<(), String> {
+    if version == DataPlaneVersion::V2 {
+        if row.evidence_lane.is_some()
+            || row.audio_semantics == AudioSemantics::SyntheticModalRender
+            || row.axes.teacher_target.is_some()
+        {
+            return Err("V2 rows cannot carry V3 evidence-lane fields".to_owned());
+        }
+        return Ok(());
+    }
+    let lane = row
+        .evidence_lane
+        .ok_or_else(|| "V3 row requires evidence_lane".to_owned())?;
+    match lane {
+        EvidenceLane::SyntheticTeacher => {
+            if row.audio_semantics != AudioSemantics::SyntheticModalRender {
+                return Err(
+                    "synthetic_teacher requires synthetic_modal_render semantics".to_owned(),
+                );
+            }
+            if !row_has_complete_physical_axes(row) || row.axes.teacher_target.is_none() {
+                return Err(
+                    "synthetic_teacher requires every physical axis and teacher_target".to_owned(),
+                );
+            }
+        }
+        EvidenceLane::ExactRealTransfer => {
+            if row.audio_semantics != AudioSemantics::ForceDeconvolvedTransferResponse {
+                return Err(
+                    "exact_real_transfer requires force_deconvolved_transfer_response semantics"
+                        .to_owned(),
+                );
+            }
+            if row.axes.teacher_target.is_some() {
+                return Err("exact_real_transfer forbids teacher_target".to_owned());
+            }
+        }
+        EvidenceLane::IdentifiedRealRecording => {
+            if row.audio_semantics != AudioSemantics::RecordedImpactWaveform {
+                return Err(
+                    "identified_real_recording requires recorded_impact_waveform semantics"
+                        .to_owned(),
+                );
+            }
+            if row.axes.teacher_target.is_some() {
+                return Err("identified_real_recording forbids teacher_target".to_owned());
+            }
+        }
+    }
+    Ok(())
+}
+
+fn row_has_complete_physical_axes(row: &NeuralRow) -> bool {
+    row.axes.material.is_some()
+        && row.axes.geometry.is_some()
+        && row.axes.support.is_some()
+        && row.axes.impact.is_some()
+        && row.axes.listener.is_some()
+        && row.axes.excitation.is_some()
+}
+
+fn validate_lane_coverage(rows: &[NeuralRow], version: DataPlaneVersion) -> Result<(), String> {
+    if version == DataPlaneVersion::V2 {
+        return Ok(());
+    }
+    for lane in [
+        EvidenceLane::SyntheticTeacher,
+        EvidenceLane::ExactRealTransfer,
+        EvidenceLane::IdentifiedRealRecording,
+    ] {
+        if !rows.iter().any(|row| row.evidence_lane == Some(lane)) {
+            return Err(format!(
+                "V3 evidence plane requires at least one {} row",
+                lane.as_str()
+            ));
+        }
     }
     Ok(())
 }
@@ -751,6 +609,7 @@ fn build_projection(
     manifest: &NeuralDataPlaneManifest,
     manifest_sha256: &str,
 ) -> Result<BuiltProjection, String> {
+    let version = DataPlaneVersion::from_schema(&manifest.schema)?;
     let mut artifact_cache = BTreeMap::<(String, String), VerifiedArtifact>::new();
     let mut lineage_reports = BTreeMap::<String, ProjectedLineageReport>::new();
     for lineage in &manifest.lineage_reports {
@@ -784,6 +643,8 @@ fn build_projection(
     let leakage_audit = audit_leakage(&rows)?;
     let role_counts = build_role_counts(&rows);
     let capability_counts = build_capability_counts(&rows);
+    let lane_capability_counts =
+        (version == DataPlaneVersion::V3).then(|| build_lane_capability_counts(&rows));
 
     let fit_rows = rows
         .iter()
@@ -804,7 +665,7 @@ fn build_projection(
         "DeclaredAxisCoverageIncomplete"
     };
     let common_projection = |role_scope, lineage_reports, rows| ProjectionFile {
-        schema: PROJECTION_SCHEMA,
+        schema: version.projection_schema(),
         projection_id: manifest.projection_id.clone(),
         revision: manifest.revision.clone(),
         task_scope: manifest.task_scope.as_str(),
@@ -826,7 +687,7 @@ fn build_projection(
         ),
         sealed_commitments,
         report: DataPlaneReport {
-            schema: REPORT_SCHEMA,
+            schema: version.report_schema(),
             status: "Validated",
             decision,
             claim: REPORT_CLAIM,
@@ -838,6 +699,7 @@ fn build_projection(
             row_count: rows.len(),
             role_counts,
             capability_counts,
+            lane_capability_counts,
             leakage_audit,
             emitted_files: vec![
                 "calibration-projection.json",
@@ -973,6 +835,21 @@ fn build_capability_counts(rows: &[ProjectedRow]) -> CapabilityCounts {
         counts.listener += usize::from(row.axes.listener.is_some());
         counts.excitation += usize::from(row.axes.excitation.is_some());
         counts.complete_modal_field += usize::from(row.axes.complete_for_modal_field());
+    }
+    counts
+}
+
+fn build_lane_capability_counts(rows: &[ProjectedRow]) -> LaneCapabilityCounts {
+    let mut counts = LaneCapabilityCounts::default();
+    for row in rows {
+        match row.evidence_lane {
+            Some("synthetic_teacher") => counts.synthetic_teacher += 1,
+            Some("exact_real_transfer") => counts.exact_real_transfer += 1,
+            Some("identified_real_recording") => counts.identified_real_recording += 1,
+            _ => continue,
+        }
+        counts.teacher_target += usize::from(row.axes.teacher_target.is_some());
+        counts.lane_contract_complete += 1;
     }
     counts
 }
