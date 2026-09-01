@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ENGINE VULKAN LIVE STREAM PASS (4K+16K REAL TIME 60 HZ, DEVICE-LOCAL RING) / GPU EXTRACTION NEXT` |
-| Updated | `2026-09-01` |
+| Status | `ACTIVE / ENGINE VULKAN LIVE STREAM PASS (4K+16K REAL TIME 60 HZ, GPU EXTRACTION) / 48K LIVE LANE NEXT` |
+| Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
 | Definition of done | bounded dynamic visual/invariant acceptance plus two-process near-50k p95/p99 evidence, or the first honest bounded refutation |
@@ -23,16 +23,16 @@
   workers both lanes are real time at a 60 Hz surface (4k `0.999` with two
   workers, 16k `0.997` with four; 16k at 30 Hz `0.996` with three). One
   catalog/snapshot/frame plan per run, `0` dropped samples.
-- **First current risk:** the CPU reference extractor burns three to four
-  cores for the live 16k lane; the render side is no longer the bottleneck
-  (16k live critical p95 `0.34 ms` with the device-local ring and
-  producer-side packing). The stream lane keeps float state on the device and
-  audits diagnostics every 60 frames, so it does not reproduce the accepted
-  corpus roots and must not be cited as such.
-- **Current action:** port the frozen close/bilateral extraction with smooth
-  normals to GPU compute (CUDA in the stream process or Vulkan compute in the
-  renderer) and measure per-frame extraction separately; keep every step
-  presentation-only and one-directional across the process boundary.
+- **First current risk:** the live lanes stop at 16k while the SPEC-38
+  production fixture is 48k in a `4 x 2 x 1 m` basin; the accepted 48k step
+  (`3.23 ms` p95) leaves under one millisecond of the 240 Hz budget, so a 48k
+  live lane may need a lower physics-to-surface cadence or a step-rate
+  decision. The stream lane keeps float state on the device and audits
+  diagnostics every 60 frames, so it does not reproduce the accepted corpus
+  roots and must not be cited as such.
+- **Current action:** add a 48k basin lane to the stream (same profile,
+  production fixture geometry), measure solver-bound wall per step with the
+  GPU extractor, and decide real time versus paced slow motion for 48k.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -86,6 +86,7 @@
 - `docs/development/nonlocal-gpu-engine-water-preview-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-engine-dynamic-surface-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-engine-live-stream-evidence-2026-09-01.md`
+- `docs/development/nonlocal-gpu-engine-gpu-extraction-evidence-2026-09-02.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -1151,6 +1152,35 @@
 - **Reconsider when:** a device without a host-visible staging path appears,
   or memory for the doubled per-slot allocation becomes a constraint.
 
+### D-043 — GPU extraction equivalent to the frozen CPU reference
+
+- **Observation:** the frozen NGQ5 extraction ported to CUDA (splat with a
+  64-bit `atomicMax` on depth bits, host largest-component labelling, close,
+  fill and bilateral kernels in the reference's neighbour order) reproduces
+  the CPU mask and mesh counts exactly on every frame of both lanes. A
+  nanometre depth gate failed on frame 0 with identical masks: at pixels
+  exactly tangent to a seed-lattice sphere `sqrt(r^2 - d^2)` amplifies
+  `long double` versus `double` rounding to `5e-8 / 9e-8 m`.
+- **Evidence:** `verify` over `241` (4k) and `121` (16k) frames: `0` raw or
+  closed mask mismatches, `0` mesh count mismatches, maximum depth difference
+  `2.9e-8 / 6.9e-8 m`; GPU extraction `0.57 / 1.21 ms` per frame against CPU
+  `11 / 41 ms`; `gpu` and `verify` streams byte-identical for 4k. Live: 16k
+  every 4 with one worker `0.997`, critical p95 `341 us`; 4k `1.000`,
+  `87 us`; live verify `192` frames clean. Raw JSON
+  `2c1a03cd.../640ced01.../4c80ac8c.../e9ce0c0b.../17730382...`.
+- **Conclusion:** the presentation extractor no longer needs CPU cores or
+  the reference's diagnostics at runtime; the bridge is solver-bound at both
+  lanes with more than two milliseconds of 240 Hz headroom at 16k.
+- **Decision:** gate GPU equivalence on identical masks and counts plus
+  `1e-6 m` of depth (the engine position quantum) and record the tangent-tie
+  reason; default the live bridge to `gpu`; keep the CPU reference as the
+  only source of corpus roots, diagnostics and gates.
+- **Rejected:** a `long double` emulation on the GPU to chase nanometres,
+  changing the reference to `double`, and removing the CPU path.
+- **Reconsider when:** a lane with a different pixel pitch or radius
+  changes the tangent-tie bound, or a renderer-side Vulkan compute port must
+  replace the CUDA one for an in-process consumer.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1212,6 +1242,7 @@
 | HG6E | per-step solver reconstruction, not physics, dominated live stepping | selected: `29.8 -> 4.15 ms` per 4k step with a persistent advected solver, light download and threaded extraction | none; keep persistent state |
 | HG6F | the frozen CPU extractor parallelizes to real-time 16k without algorithm change | selected bounded: `2.45 ms` per step with three ordered workers, geometry byte-identical | device-local ring, then GPU extraction |
 | HG6G | ring residency, not CPU packing, dominates the 16k refresh cost | falsified: producer packing cut refresh `469 -> 97 us` on the host ring; device-local then halved GPU time only | closed; keep both |
+| HG6H | the frozen extraction ports to GPU without changing the accepted surface | selected bounded: identical masks/counts on all verified frames, depth within `6.9e-8 m`, `0.6--1.2 ms` per frame | 48k live lane |
 
 ## Do not retry
 
@@ -1224,12 +1255,13 @@
 
 ## Next action
 
-1. Port the frozen close/bilateral extraction with smooth normals to GPU
-   compute to free the three to four CPU cores the live stream now uses;
-   validate it against the CPU reference on the accepted keyframes and
-   measure per-frame extraction separately from physics and raster.
+1. Add a 48k production-fixture lane (`4 x 2 x 1 m` basin filled to
+   `0.75 m`) to `--game-surface-stream`, measure solver-bound wall per step
+   with the GPU extractor and one worker, and record real time versus paced
+   slow motion; keep the 4k/16k lanes unchanged.
 2. Only after that, consider a compute-written ring (no staging copy) if the
-   GPU extractor lives in the renderer process.
+   GPU extractor moves into the renderer process, and smooth-normal
+   reconstruction on the GPU for visual quality.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.

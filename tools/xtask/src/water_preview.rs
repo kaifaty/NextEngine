@@ -80,6 +80,8 @@ pub(super) struct StreamRequest {
     cycles: u32,
     /// Ordered extraction worker threads inside the solver process.
     workers: u32,
+    /// Surface extractor inside the solver process: `cpu`, `gpu` or `verify`.
+    extractor: String,
     /// Stream seconds published per wall second; zero disables pacing and
     /// publishes every frame as soon as it arrives.
     rate: f64,
@@ -99,6 +101,7 @@ pub(super) fn parse_arguments(
     let mut stream_every = 4_u32;
     let mut stream_cycles = 0_u32;
     let mut stream_workers = 3_u32;
+    let mut stream_extractor = "gpu".to_owned();
     let mut stream_rate = 1.0_f64;
     let mut device_local_ring = true;
     let bounded_u32 = |arguments: &mut dyn Iterator<Item = String>,
@@ -159,6 +162,16 @@ pub(super) fn parse_arguments(
             }
             "--stream-workers" => {
                 stream_workers = bounded_u32(&mut arguments, "--stream-workers", 1, 16)?;
+            }
+            "--stream-extractor" => {
+                stream_extractor = arguments.next().ok_or_else(|| {
+                    "water-preview --stream-extractor requires cpu, gpu or verify".to_owned()
+                })?;
+                if !matches!(stream_extractor.as_str(), "cpu" | "gpu" | "verify") {
+                    return Err(
+                        "water-preview --stream-extractor must be cpu, gpu or verify".to_owned(),
+                    );
+                }
             }
             "--stream-rate" => {
                 stream_rate = arguments
@@ -223,6 +236,7 @@ pub(super) fn parse_arguments(
         every: stream_every,
         cycles: stream_cycles,
         workers: stream_workers,
+        extractor: stream_extractor,
         rate: stream_rate,
     });
     if let Some(stream) = &stream {
@@ -469,6 +483,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "every": stream.every,
             "cycles": stream.cycles,
             "workers": stream.workers,
+            "extractor": stream.extractor,
             "rate": stream.rate,
             "frames_received": feed_summary.frames_received,
             "frames_published": feed_summary.publications,
@@ -606,6 +621,8 @@ impl StreamSession {
                 &request.cycles.to_string(),
                 "--workers",
                 &request.workers.to_string(),
+                "--extractor",
+                request.extractor.as_str(),
             ])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
