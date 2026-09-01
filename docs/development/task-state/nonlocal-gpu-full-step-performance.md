@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP15_APPARATUS_INCONCLUSIVE / MUTATION_REVISION_NEXT` |
+| Status | `ACTIVE / NCGP15_REVISION_3_FROZEN / MUTATION_IMPLEMENTATION_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,10 +20,11 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** freeze the smallest NCGP15 successor revision for three
-  invalid mutation controls. Keep physics, coefficients, tolerances, caps and
-  the `P/PV/PS/PVS` plus 16-step corpus unchanged. Do not return to CUDA or
-  timing until the revised apparatus reaches the physical masks.
+- **Current action:** implement frozen NCGP15 Revision 3: pressure-only
+  corrected baselines for omitted-`2/h` and finite-penalty mutations, typed
+  cap/non-commit rejection for graph swap, and the retained trace regression.
+  Do not return to CUDA or timing until the revised apparatus reaches the
+  physical masks.
 - **Latest exact result:** NCGP14 independently supports the two-step
   TIGHT-128 pressure/contact lane at the unchanged physical tolerances with a
   `16384`-sweep QP ceiling. OPEN-128/512 remain valid negative controls and
@@ -619,6 +620,25 @@
 - **Reconsider when:** the revised mutation corpus passes and independently
   admits entry to all four Phase-B masks.
 
+### D-025 — Freeze NCGP15 Revision 3 without changing physics
+
+- **Observation:** Revision-2 evidence isolates both remaining apparatus
+  defects. Omitted-`2/h` and finite-penalty used an all-term TIGHT baseline
+  that exhausted work before mutation attribution. Graph swap already gives
+  corrected CSR/oracle PASS and a distinct mutated work ceiling, but the
+  control excluded that typed non-commit from expected rejection.
+- **Decision:** freeze Revision 3 in the existing NCGP15 contract. The two
+  pressure mutations use exact TIGHT-128 with the `P` mask; graph swap retains
+  its existing fixture. A finite, root/work-exact mutated cap, line-search
+  exhaustion or corrected-oracle disagreement is an expected rejection only
+  after corrected CSR and oracle commit and pass. Add the repaired unbounded
+  trace path as a regression.
+- **Guardrail:** equations, coefficients, tolerances, optimizer schedule,
+  caps, Phase-B masks and Phase-C bytes remain unchanged. A corrected-route
+  cap is not reclassified as mutation success.
+- **Reconsider when:** the exact Revision-3 implementation returns its first
+  root-closed route; no result permits post-hoc fixture or cap changes.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -671,9 +691,9 @@
 
 ## Next action
 
-1. Freeze and implement the smallest NCGP15 successor revision that repairs
-   only the three invalid mutation discriminators; retain all physical bytes,
-   equations, tolerances and caps.
+1. Implement frozen NCGP15 Revision 3, changing only the three mutation
+   discriminators and trace regression; retain all physical bytes, equations,
+   tolerances and caps.
 2. Run its Phase A controls, ordered `P/PV/PS/PVS` masks and exactly 16
    full-term confined steps, then close two clean builds, sanitizers and one
    independent review.

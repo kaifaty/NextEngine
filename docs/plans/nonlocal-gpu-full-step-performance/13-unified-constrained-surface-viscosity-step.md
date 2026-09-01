@@ -1,8 +1,45 @@
 # NCGP15 — Unified constrained surface/viscosity step discriminator
 
-Status: `FROZEN_REVISION_2 / CPU_LONG_DOUBLE / IMPLEMENTATION_AUTHORIZED`
+Status: `FROZEN_REVISION_3 / CPU_LONG_DOUBLE / IMPLEMENTATION_AUTHORIZED`
 
 Date: `2026-09-01`
+
+## Revision-3 apparatus correction
+
+Revision 2 remains an exact `APPARATUS_INCONCLUSIVE` result. Its one allowed
+repair corrected only the missing unbounded
+`PROJECTION -> FINAL_GATE` trace transition. The repaired run passed every
+corrected term, translation, energy, zero-coefficient and transaction control,
+but three mutation controls prevented entry to Phase B. Revision 3 changes
+only those controls and retains that trace transition as a regression. It does
+not change an equation, coefficient, tolerance, optimizer rule, work cap,
+Phase-B mask, Phase-C byte or classification threshold.
+
+The omitted kernel-derivative `2/h` mutation and the finite-pressure-penalty
+substitution both use the exact NCGP14 TIGHT-128 bytes with the `P`
+pressure/contact-only mask (`lambda_v=mu_v=gamma=0`). Their corrected CSR and
+corrected all-pairs routes must both commit, pass correspondence and pass every
+applicable physical gate before the mutated route is interpreted. The
+current/reference viscosity-graph swap retains its existing manufactured
+fixture and corrected normal-viscosity mask; its corrected CSR and all-pairs
+routes have the same prerequisites.
+
+For these three controls, a mutation is rejected when its distinct rooted
+input reaches any finite, root-closed, work-exact typed non-commit route,
+including `SOLVER_WORK_CEILING_INCONCLUSIVE` or `LINE_SEARCH_EXHAUSTED`, or
+when its completed step fails corrected-oracle correspondence. A cap in the
+corrected CSR or corrected oracle is not an expected mutation rejection and
+invalidates that control. A mutation result that commits and still passes the
+corrected oracle is `MUTATION_SURVIVED`. Each control publishes the corrected,
+oracle and mutated outcomes, work/result roots and maximum state difference.
+
+The existing combined-tetrahedron and transaction receipts retain the accepted
+unbounded step as the trace regression and require the exact terminal subsequence
+`MULTIPLIER_UPDATE,PROJECTION,FINAL_GATE,TOPOLOGY`. It also retains the
+analytic-box terminal path and the inner-/outer-cap prefixes. The grammar and
+independent expected predicate count must accept all four declared routes and
+reject an omitted `PROJECTION -> FINAL_GATE` alternative. This control changes
+no optimizer execution.
 
 ## Decision under test
 
