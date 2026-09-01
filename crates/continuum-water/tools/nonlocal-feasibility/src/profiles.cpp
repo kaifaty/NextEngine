@@ -161,6 +161,17 @@ Profile product_h3_analytic_contact_profile() {
     return profile;
 }
 
+Profile product_h3_analytic_contact_capacity_profile() {
+    Profile profile = product_h3_analytic_contact_profile();
+    profile.id = "nuv-basin-48k-analytic-contact-game-cap160.v6";
+    profile.record_version = 6;
+    profile.max_neighbors = 160;
+    profile.max_directed_pairs = profile.samples * profile.max_neighbors;
+    profile.geometry =
+        "product_h3_no_ghost_analytic_box_contact_game_candidate_cap160";
+    return profile;
+}
+
 std::string bool_json(bool value) { return value ? "true" : "false"; }
 
 } // namespace
@@ -241,6 +252,7 @@ const std::vector<Profile>& profiles() {
             "dimensionally_derived_coefficient_hypothesis"),
         product_h3_support_profile(),
         product_h3_analytic_contact_profile(),
+        product_h3_analytic_contact_capacity_profile(),
     };
     return values;
 }
@@ -373,6 +385,8 @@ std::string production_profile_audit_json() {
         "nuv-basin-48k-static-support-h3-physical.v4";
     const std::string game_candidate_id =
         "nuv-basin-48k-analytic-contact-game.v5";
+    const std::string capacity_game_candidate_id =
+        "nuv-basin-48k-analytic-contact-game-cap160.v6";
     const Profile& retained_48k = find_profile(retained_48k_id);
     const Profile& retained_50k = find_profile(retained_50k_id);
     const Profile& source_scale = find_profile(source_scale_id);
@@ -382,6 +396,7 @@ std::string production_profile_audit_json() {
     const Profile& static_derived = find_profile(static_derived_id);
     const Profile& h3_candidate = find_profile(h3_candidate_id);
     const Profile& game_candidate = find_profile(game_candidate_id);
+    const Profile& capacity_game_candidate = find_profile(capacity_game_candidate_id);
 
     const auto append_profile = [](std::ostringstream& output, const Profile& profile) {
         const std::string canonical = canonical_profile_json(profile);
@@ -424,6 +439,8 @@ std::string production_profile_audit_json() {
     append_profile(output, h3_candidate);
     output << ',';
     append_profile(output, game_candidate);
+    output << ',';
+    append_profile(output, capacity_game_candidate);
     output << "]"
            << ",\"product_expectation\":{\"samples_nominal\":48000"
            << ",\"samples_hard_capacity\":50000,\"lattice\":[80,15,40]"
@@ -450,6 +467,16 @@ std::string production_profile_audit_json() {
            << sha256_hex(canonical_profile_json(game_candidate))
            << "\",\"total_solver_samples\":" << game_candidate.samples
            << ",\"fixed_iterations\":" << game_candidate.fixed_iterations
+           << ",\"analytic_contact_in_gpu_step\":true"
+           << ",\"runtime_authority\":false}"
+           << ",\"capacity_game_candidate\":{\"profile_id\":\""
+           << capacity_game_candidate.id << "\",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(capacity_game_candidate))
+           << "\",\"total_solver_samples\":" << capacity_game_candidate.samples
+           << ",\"maximum_neighbors\":" << capacity_game_candidate.max_neighbors
+           << ",\"maximum_directed_pairs\":"
+           << capacity_game_candidate.max_directed_pairs
+           << ",\"fixed_iterations\":" << capacity_game_candidate.fixed_iterations
            << ",\"analytic_contact_in_gpu_step\":true"
            << ",\"runtime_authority\":false}"
            << ",\"mismatch\":{\"spacing_scale_from_retained_48k\":"

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / 4K+16K DYNAMIC VISUAL PASS / 48K CAPACITY-160 TIMING NEXT` |
+| Status | `ACTIVE / QUALITY+48K BUDGET PASS / PRESENTATION SURFACE NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -14,27 +14,27 @@
 - **Goal:** qualify a plausible game-water Nonlocal GPU step near 50,000
   particles against `p95 <= 4 ms`, `p99 <= 6 ms` on RTX 3080; laboratory
   fidelity to the later research solver is not required.
-- **Current boundary:** the selected five-iteration/no-ghost/analytic-contact
-  route passes the frozen 96-step 4k and 16k falling-dam visual corpus. The
-  first valid revision-1 run exposed degree `124` against capacity `123`;
-  revision 2 predeclared `160` and passed with maximum degree `138`.
-- **First current risk:** the existing 48k `3.80 ms` evidence used `N*123`
-  capacity and cannot be inherited by the visually admitted `N*160` route.
-  The 4k final raster also has a small `0.846%` satellite area, acceptable in
-  the frozen game band but worth watching in renderer smoothing/longer motion.
-- **Current action:** repeat the exact 48k/two-process performance campaign
-  with capacity 160 and unchanged five iterations/contact. If it still fits
-  `4/6 ms`, advance the accepted frames to presentation-only smoothing and
-  extraction; never feed the visual observer back into simulation.
+- **Current boundary:** one explicit five-iteration/no-ghost/analytic-contact
+  capacity-160 profile passes the frozen 96-step 4k/16k visual corpus and two
+  independent 48k performance processes. Visual semantic roots are unchanged
+  from NGQ2 after the profile identity consolidation.
+- **First current risk:** the 4k final raster has a small `0.846%` satellite
+  area, acceptable in the frozen game band but worth watching in renderer
+  smoothing and longer motion. Surface extraction cost is not included in the
+  `3.23 ms` solver result and needs its own budget.
+- **Current action:** prototype presentation-only smoothing/extraction over
+  the exact accepted frames. Keep it outside simulation authority and measure
+  its incremental GPU/renderer cost separately.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
   root-exact and inside `4/6 ms`; this is a reusable speed baseline, not
   corrected-water evidence.
-- **Latest exact result:** two 48k processes with analytic contact included in
-  primary timing give p95 `3.797568 / 3.798176 ms` and p99
-  `3.808544 / 3.874656 ms`; all traces/capacity checks pass. This is bounded
-  game-candidate evidence, not a shipping or corrected-research claim.
+- **Latest exact result:** two capacity-160 48k processes with analytic contact
+  included in primary timing give p95 `3.225760 / 3.231616 ms` and p99
+  `3.269312 / 3.334560 ms`; all traces/capacity checks pass. Combined with the
+  exact 4k/16k visual PASS, this is bounded quality-and-budget evidence, not a
+  shipping or corrected-research claim.
 - **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
   no Rust/public/runtime/PhysX/renderer contract changes.
 
@@ -57,6 +57,7 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/14-pressure-qp-preconditioned-unified-step.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/15-original-gpu-dynamic-visual-corpus.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/16-original-gpu-dynamic-visual-capacity-corrigendum.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/17-analytic-contact-cap160-performance.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
@@ -68,6 +69,7 @@
 - `docs/development/nonlocal-gpu-unified-solver-diagnosis-2026-09-01.md`
 - `docs/development/nonlocal-gpu-game-quality-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-dynamic-visual-evidence-2026-09-01.md`
+- `docs/development/nonlocal-gpu-cap160-performance-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -928,6 +930,32 @@
   corpus exceeds the 2% satellite band, or renderer extraction exposes a
   materially different visual failure.
 
+### D-035 — Admit combined capacity-160 quality and budget evidence
+
+- **Observation:** the version-6 profile changes only compact-u16 CSR
+  allocation from `123` to `160` slots per sample. The 4k/16k visual rerun
+  preserves every NGQ2 trace/result root. Two sequential 48k processes each
+  complete 256 conditioning runs, 64 warmups and 512 valid measurements.
+- **Evidence:** p95 is `3.225760 / 3.231616 ms`; p99 is
+  `3.269312 / 3.334560 ms`. Input `775f0c4a...`, trace `5b5a0b3f...`, output
+  `b49be7bb...` and CSR `bee4107f...` are exact across processes. Device memory
+  rises by exactly `3,552,000` bytes to `24,469,770`; the reset timing graph
+  remains `5,200,628` pairs with maximum degree `123`, while the admitted
+  dynamic visual graph reaches degree `138` within capacity `160`.
+- **Conclusion:** the capacity correction required for visible dynamics does
+  not consume the four-millisecond game budget on this RTX 3080 witness. The
+  original five-iteration model now has one coherent bounded quality-and-speed
+  configuration.
+- **Decision:** advance to presentation-only surface smoothing/extraction.
+  Keep its cost separate, forbid feedback into physics, and retain CPU DFSPH
+  plus Proposed architecture status.
+- **Rejected:** inheriting the old N*123 timing without measurement, lowering
+  capacity after the result, removing timed contact, or treating this finite
+  corpus as proof of laboratory fidelity.
+- **Reconsider when:** presentation cost exhausts remaining frame budget, a
+  longer visual corpus exceeds topology bands, or runtime integration changes
+  the measured work.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -977,7 +1005,8 @@
 | H17A | the original sub-4-ms GPU result was a stale or irreproducible artifact | falsified: exact historical source and roots reproduce in four complete 50k processes | retain as denominator only |
 | H17B | the original GPU dataflow remains a useful host for corrected work | plausible: compact CSR/fused traversal retain 50k headroom, but corrected pressure/contact work is absent | port only after CPU physical selection |
 | H17C | the original five-iteration GPU model is adequate for game-quality water | selected on the bounded smoke: hold/release/contact pass while sixteen iterations over-damp release | full-size timing plus timed GPU contact |
-| H17D | the fast route remains coherent on a moving 4k/16k visible surface | supported bounded after the one-time 123->160 capacity correction; both lanes pass, final satellite area 0.846%/0% | remeasure 48k with N*160, then presentation smoothing |
+| H17D | the fast route remains coherent on a moving 4k/16k visible surface | supported bounded after the one-time 123->160 capacity correction; both lanes pass, final satellite area 0.846%/0% | presentation smoothing |
+| H17E | the visually required N*160 allocation still fits the 48k game budget | selected bounded: p95 3.226/3.232 ms and p99 3.269/3.335 ms with exact semantics | presentation extraction cost |
 
 ## Do not retry
 
@@ -990,11 +1019,10 @@
 
 ## Next action
 
-1. Rerun the two-process 48k performance campaign with the visually required
-   `N*160` capacity; retain five iterations and analytic GPU contact.
-2. If `4/6 ms` still passes, add presentation-only smoothing/extraction over
-   the exact accepted 4k/16k frames, with observer work outside physics timing.
-3. If revised capacity or later runtime integration exceeds the budget,
+1. Add presentation-only smoothing/extraction over the exact accepted 4k/16k
+   frames, with observer work outside physics timing and no simulation feedback.
+2. Measure its incremental cost separately from the `3.23 ms` physics step.
+3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.
 4. Keep the NCGP16 CPU free-surface result as a diagnostic reference and

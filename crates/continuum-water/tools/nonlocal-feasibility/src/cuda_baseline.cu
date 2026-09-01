@@ -6421,10 +6421,10 @@ CommandReport run_cuda_p2_check(
     int iterations) {
     if ((profile.record_version != 1 && profile.record_version != 2
             && profile.record_version != 3 && profile.record_version != 4
-            && profile.record_version != 5)
+            && profile.record_version != 5 && profile.record_version != 6)
         || iterations < 1 || iterations > 100) {
         throw std::invalid_argument(
-            "P2 check requires a v1/v2/v3/v4/v5 profile and 1..=100 iterations");
+            "P2 check requires a v1/v2/v3/v4/v5/v6 profile and 1..=100 iterations");
     }
     const CommandReport retained_self = run_cuda_self_test(
         P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE);
@@ -7210,7 +7210,9 @@ CommandReport run_cuda_p2_decision(
     int runs) {
     if ((profile.id != "nuv-water-50k-coherent.v1"
             && profile.id != "nuv-water-50k-advected.v1"
-            && profile.id != "nuv-basin-48k-analytic-contact-game.v5")
+            && profile.id != "nuv-basin-48k-analytic-contact-game.v5"
+            && profile.id !=
+                "nuv-basin-48k-analytic-contact-game-cap160.v6")
         || warmup != 64 || runs != 512) {
         throw std::invalid_argument(
             "P2 decision requires an admitted coherent/advected/game-contact profile "
@@ -8413,6 +8415,7 @@ GameVisualLaneResult run_game_visual_lane(
     result.id = id;
     result.executed = true;
     result.apparatus_passed = true;
+    result.neighbor_capacity_per_sample = profile.max_neighbors;
     std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z);
     result.dynamic_samples = fluid.size();
     const Vec3 initial_com = game_center_of_mass(fluid);
@@ -8683,7 +8686,8 @@ CommandReport run_cuda_game_visual_corpus(const std::string& frame_prefix) {
     if (!game_frame_prefix_valid(frame_prefix)) {
         throw std::invalid_argument("frame prefix contains unsupported characters");
     }
-    const Profile& profile = find_profile("nuv-basin-48k-analytic-contact-game.v5");
+    const Profile& profile =
+        find_profile("nuv-basin-48k-analytic-contact-game-cap160.v6");
     const GameQualityBox box4k{
         {0.0, 0.0, 0.0}, {2.0, 0.75, 1.0}, {40, 15, 20}};
     const GameQualityBox box16k{
