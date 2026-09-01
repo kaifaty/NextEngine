@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V23_ADOPTED / V21_RESOURCE_REJECT / V22_IMPLEMENTATION_REJECT / QUALITY_UNOBSERVED / FIXED_FEATURE_RIDGE_SELECTED / P2A_PROTOCOL_NEXT / FRESH_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P3_BLOCKED` |
+| Status | `ROADMAP_V23_ADOPTED / V21_RESOURCE_REJECT / V22_IMPLEMENTATION_REJECT / QUALITY_UNOBSERVED / FIXED_FEATURE_RIDGE_SELECTED / P2A_FROZEN / E2A_IMPLEMENTATION_NEXT / FRESH_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P3_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -21,9 +21,9 @@
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** freeze V23 P2a for `FixedFeatureRidgePriorV1`, fresh
-  `2601…2912`, closed-form candidate grid and complete evaluator API smoke
-  before any new mesh/truth.
+- **Next action:** implement frozen [P2a](../physical-sound-v23-p2a-fixed-feature-ridge-protocol-2026-09-01.md)
+  and twice-exact full evaluator API smoke; commit before any `2601…2712`
+  mesh/truth.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -57,7 +57,7 @@
 | V20 M0–I1 | `M0B_PASS / I1_REPEAT_EXACT_REJECT / CLOSED` | Acoustic diagnostics pass; F0 lineage, one remesh gate and one P0c owner defect forbid capability credit. |
 | V21 P0d–I2 | `F1A_SINGLE_RUN_RESOURCE_REJECT / NO_ARTIFACT / CLOSED` | P1a/implementation are exact, but run A exceeded `1,800 s`; no quality inference and no V21 retry. |
 | V22 P1r–I2 | `F1R_IMPLEMENTATION_REJECT / NO_ARTIFACT / CLOSED` | Numeric equivalence passed; missing evaluator API export spent `2201…2312` before quality publication. |
-| V23 P2a–I2 | `FIXED_FEATURE_RIDGE_SELECTED / P2A_PROTOCOL_NEXT / FRESH_VALUES_SEALED` | Freeze complete evaluator surface, then test closed-form learned field on fresh `2601…2812` and integration `2901…2912`. |
+| V23 P2a–I2 | `P2A_FROZEN / E2A_IMPLEMENTATION_NEXT / FRESH_VALUES_SEALED` | Implement twice-exact full evaluator smoke, then test closed-form field on fresh `2601…2812` and integration `2901…2912`. |
 | V23 S1–P3 | `SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / ADR_REQUIRED` | Real roles, validator, shadow, cooker and promotion retain unchanged prerequisites and fallback. |
 
 ## Material transition: V21/V22 close without quality
@@ -70,7 +70,7 @@
   execution and incomplete API smoke are both closed.
 - **Decision:** select closed-form fixed-feature ridge plus a whole-evaluator
   synthetic smoke on fresh V23 identities; no V21/V22 retry.
-- **Smallest next action:** freeze P2a before any V23 mesh/value exists.
+- **Smallest next action:** commit E2a code/full API smoke before any V23 value.
 
 ## Durable negative knowledge
 
@@ -197,5 +197,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** B0/C0/M0b pass; F0 conformance and V20 I1 reject. No real
   formula, validator, atlas or runtime integration exists; fallback is authority.
-- **Next commit boundary:** V23 P2a protocol/row roots/candidate/API-smoke
-  contract before fresh train/development; later roles stay sealed.
+- **Next commit boundary:** V23 E2a implementation/twice-exact API smoke before
+  fresh train/development; later roles stay sealed.

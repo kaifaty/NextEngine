@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / V21_RESOURCE_REJECT / V22_IMPLEMENTATION_REJECT / QUALITY_UNOBSERVED / FIXED_FEATURE_RIDGE_SELECTED / P2A_PROTOCOL_NEXT / FRESH_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / V21_RESOURCE_REJECT / V22_IMPLEMENTATION_REJECT / QUALITY_UNOBSERVED / FIXED_FEATURE_RIDGE_SELECTED / P2A_FROZEN / E2A_IMPLEMENTATION_NEXT / FRESH_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V22](physical-sound-synthesis-roadmap-v22.md), closed by its single-run implementation-conformance reject before publication |
 | Evidence basis | [V22 result](../development/physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md), [V23 research](../development/physical-sound-v23-closed-form-field-research-2026-09-01.md), [V21 result](../development/physical-sound-v21-f1a-continuous-field-result-2026-09-01.md), [P0d](../development/physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md) and [M0b](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
@@ -64,8 +64,8 @@ metric can be reused.
 | --- | --- | --- | --- |
 | R0 | V22 attribution | `COMPLETE / IMPLEMENTATION_REJECT` | [Result](../development/physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md) records exact missing API, absent artifact, spent roles and unopened test/integration. |
 | R1 | Smaller-family research | `COMPLETE / DIRECTION_SELECTED` | [Research](../development/physical-sound-v23-closed-form-field-research-2026-09-01.md) compares four hypotheses and selects fixed-feature ridge without quality inheritance. |
-| P2a | F2 protocol and metadata freeze | `NEXT / VALUES_SEALED` | Freeze fresh roots, exact features/candidates/solves, unchanged physical gates, tighter resource budget, full evaluator API manifest/smoke and output before code may generate a mesh/value. |
-| E2a | Closed-form runner and complete-boundary tests | `BLOCKED_BY_P2A` | Metadata tests plus miniature no-F2-value tournament invoke every required API, corruption and serialization path; implementation is committed before fresh values. |
+| P2a | F2 protocol and metadata freeze | `COMPLETE / FROZEN_BEFORE_VALUES` | [P2a](../development/physical-sound-v23-p2a-fixed-feature-ridge-protocol-2026-09-01.md) freezes fresh roots, eight closed-form candidates, unchanged gates, 5-minute budget and twice-exact full evaluator API smoke. |
+| E2a | Closed-form runner and complete-boundary tests | `NEXT / VALUES_SEALED` | Metadata tests plus miniature no-F2-value tournament invoke every required API, corruption and serialization path; implementation is committed before fresh values. |
 | F2a | Train/development tournament | `BLOCKED_BY_E2A` | Two runs finish within frozen resources, emit byte-identical complete trees and select one candidate passing all unchanged quality/remesh/control gates. Any reject closes F2 before test. |
 | P2b | One-shot test freeze | `BLOCKED_BY_F2A` | Freeze winner/tree and unchanged test gates while `2801…2812` values remain unopened. |
 | F2b | One-shot capability | `BLOCKED_BY_P2B` | Two fresh test runs pass every hard, quality, remesh, mutation, resource and byte-exact gate. |
