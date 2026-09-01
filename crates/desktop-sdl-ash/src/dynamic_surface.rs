@@ -26,16 +26,29 @@ pub const MAX_DYNAMIC_SURFACES: usize = 8;
 
 const DYNAMIC_SURFACE_UPDATE_DOMAIN: &str = "nextengine.desktop.dynamic-surface-update.v1";
 
+/// Where a dynamic surface ring lives on the device.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DynamicSurfaceResidencyV1 {
+    /// One host-visible, host-coherent vertex/index pair per frame slot; the
+    /// GPU fetches vertices from host memory. Cheapest CPU path.
+    HostVisible,
+    /// One host-visible staging pair plus one device-local pair per frame
+    /// slot; a refresh records a transfer at the start of that frame's
+    /// command buffer and the GPU fetches from device memory.
+    DeviceLocal,
+}
+
 /// Declares one bounded dynamic surface for the whole desktop run.
 ///
-/// The adapter allocates one host-visible vertex/index ring per frame slot at
-/// this capacity before the first frame. Capacity never grows at runtime; an
+/// The adapter allocates one vertex/index ring per frame slot at this
+/// capacity before the first frame. Capacity never grows at runtime; an
 /// update that exceeds it fails closed with a typed diagnostic.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DynamicSurfaceProfileV1 {
     pub mesh_revision: AssetRevisionRefV1,
     pub vertex_capacity: u32,
     pub index_capacity: u32,
+    pub residency: DynamicSurfaceResidencyV1,
 }
 
 /// One immutable vertex/index replacement for a declared dynamic surface.
@@ -47,6 +60,8 @@ pub struct DynamicSurfaceUpdateV1 {
     normals_snorm16: Vec<[i16; 3]>,
     indices: Vec<u32>,
     canonical_hash: ContentHash,
+    packed_b0_vertices: Vec<u8>,
+    packed_b0_indices: Vec<u8>,
 }
 
 impl DynamicSurfaceUpdateV1 {
@@ -97,6 +112,11 @@ impl DynamicSurfaceUpdateV1 {
             &normals_snorm16,
             &indices,
         )?;
+        let packed_b0_vertices =
+            crate::gpu_content::pack_b0_vertices(&positions_micrometres, &normals_snorm16)
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+        let packed_b0_indices = crate::gpu_content::pack_b0_indices(&indices)
+            .ok_or(DesktopAdapterError::CounterOverflow)?;
         Ok(Self {
             mesh_revision,
             sequence,
@@ -104,7 +124,21 @@ impl DynamicSurfaceUpdateV1 {
             normals_snorm16,
             indices,
             canonical_hash,
+            packed_b0_vertices,
+            packed_b0_indices,
         })
+    }
+
+    /// Locked B0 vertex bytes (28 per vertex), packed at construction.
+    #[must_use]
+    pub(crate) fn packed_b0_vertices(&self) -> &[u8] {
+        &self.packed_b0_vertices
+    }
+
+    /// Little-endian `u32` triangle indices, packed at construction.
+    #[must_use]
+    pub(crate) fn packed_b0_indices(&self) -> &[u8] {
+        &self.packed_b0_indices
     }
 
     /// Republishes the same immutable payload under a later sequence, for
@@ -516,6 +550,7 @@ mod tests {
                         mesh_revision: revision(1),
                         vertex_capacity: 3,
                         index_capacity: 3,
+                        residency: DynamicSurfaceResidencyV1::DeviceLocal,
                     },
                     bounds,
                 },

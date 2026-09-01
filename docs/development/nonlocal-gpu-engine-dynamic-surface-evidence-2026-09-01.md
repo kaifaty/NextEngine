@@ -188,6 +188,56 @@ Raw JSON SHA-256: `23d1c06f...` (4k), `5546eba9...` (16k).
   Hold `1` would upload once per publication and leave the previous slot's ring
   stale but unread, which the hash check tolerates by design.
 
+## Device-local ring and producer-side packing (same day, follow-up)
+
+`DynamicSurfaceProfileV1` gained `residency`: `HostVisible` keeps the
+original host-coherent pair per frame slot; `DeviceLocal` adds a host-coherent
+staging pair and device-local vertex/index buffers, and a refresh records
+`cmd_copy_buffer` plus a `TRANSFER -> VERTEX_INPUT` barrier at the start of
+that frame's command buffer, before the shadow pass. `DynamicSurfaceUpdateV1`
+now packs the locked 28-byte B0 vertices and little-endian indices in `new`,
+on the producer thread, so a ring refresh is a copy into mapped memory only.
+`water-preview --ring device|host` selects the residency (`device` default).
+
+Since the live-stream commit the preview camera frames the declared envelope,
+so 16k presentation roots are `bdd9c475...` (catalog, unchanged),
+`271acadc...` (snapshot) and `c383655b...` (frame plan); the final update hash
+`6bc94b02...` is unchanged.
+
+16k keyframes (600 frames, hold 8, `75` publications, `150` refreshes):
+
+| Variant | CPU extract+submit p95 | GPU p95 | critical p95 / p99 / max | refresh p95 / max | raw JSON |
+| --- | ---: | ---: | ---: | ---: | --- |
+| host ring, render-thread packing (D-039) | `464--467 us` | `471--592 us` | `537--592 / 583--609 / 753--1,021 us` | `469--476 / 633--664 us` | `a1a73823...` / `a204588d...` |
+| device ring, render-thread packing | `422 us` | `323 us` | `430 / 495 / 1,233 us` | `416 / 495 us` | `21f81113...` |
+| host ring, producer packing | `137 us` | `410 us` | `412 / 440 / 612 us` | `97 / 124 us` | `6abfe74c...` |
+| device ring, producer packing | `121 us` | `185 us` | `186 / 401 / 611 us` | `106 / 129 us` | `89227f16...` |
+
+Live stream (900 frames, `--stream-every 4`, producer packing):
+
+| Variant | CPU p95 | GPU p95 | critical p95 / p99 / max | refresh p95 / max | real-time ratio | raw JSON |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| 16k, 4 workers, host ring | `356 us` | `403 us` | `406 / 439 / 899 us` | `251 / 397 us` | `0.998` | `091bc14f...` |
+| 16k, 4 workers, device ring | `342 us` | `258 us` | `342 / 428 / 598 us` | `234 / 443 us` | `0.997` | `2b0a4272...` |
+| 4k, 2 workers, device ring | `136 us` | `87 us` | `136 / 152 / 605 us` | `46 / 63 us` | `0.999` | `c56e3bc3...` |
+
+Engine-owned device allocation grows from `33,407,200` to `36,886,992` bytes
+for the 16k keyframe ring (staging plus device-local pairs). Sources after the
+follow-up:
+
+```text
+desktop dynamic_surface.rs      8b1bd739fa33cb6cb39d8b2830ba10e7e034dbd5f31780b4595a573225a9348f
+desktop gpu_content.rs          36bbda1747635460dd4eaead622026afe4f4546938d4d59585be318ab2f345cb
+desktop graphics.rs             643276f3a351677e9b1ef6fd5bc93a19f5a1d81ee14d2ca3a41a3e24be7861e0
+xtask water_preview.rs          4a138a3ef08407bd9279465d83ce8783eb044fab51c2203c2952b74b009294b8
+release xtask                   556ea318f4c37c24338f1ef439f1c683eba563319949c33829ff422e9f7db987
+```
+
+Producer-side packing removes most of the render-thread cost in both
+residencies; the device-local ring then halves GPU time on top. The 16k live
+critical path drops from about `1.0 ms` to `0.34 ms`, below the static 16k
+raster path (`0.32 ms`), so the ring is no longer the next bottleneck.
+
 ## Checks
 
 - `cargo test -p next_desktop_sdl_ash`: PASS (`69` tests, including update
@@ -200,8 +250,11 @@ Raw JSON SHA-256: `23d1c06f...` (4k), `5546eba9...` (16k).
 - extractor rerun: corpus root and final OBJ hashes exact;
 - two 600-frame dynamic Release runs per lane: PASS, `0` dropped samples;
 - one 600-frame static Release run per lane: exact prior roots;
-- `cargo run -p xtask --features desktop-sdl-ash -- platform`: PASS;
-- `cargo run -p xtask -- host-check`: PASS on Rust `1.97.1`;
+- `cargo run -p xtask --features desktop-sdl-ash -- platform`: PASS, and
+  PASS again after the device-local follow-up;
+- `cargo run -p xtask -- host-check`: PASS on Rust `1.97.1`, and PASS again
+  after the device-local follow-up (first rerun caught one dead-code lint in
+  the no-feature `xtask` build, fixed before the passing rerun);
 - `git diff --check`: PASS;
 - screenshot/capture: `NOT_RUN`; the backend still has no readback path.
 

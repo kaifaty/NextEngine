@@ -511,6 +511,7 @@ impl GraphicsContext {
             elapsed_microseconds(dynamic_surface_upload_started)?;
         cpu_phases.dynamic_surface_uploads = dynamic_surface_uploads.uploads;
         let command_record_started = profiling_enabled.then(Instant::now);
+        b0_content.record_dynamic_surface_uploads(frame_slot.command_buffer, frame_slot_index)?;
         b0_content.record_shadow(
             frame_slot.command_buffer,
             frame_plan,

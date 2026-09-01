@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ENGINE VULKAN LIVE STREAM PASS (4K+16K REAL TIME 60 HZ) / DEVICE-LOCAL RING NEXT` |
+| Status | `ACTIVE / ENGINE VULKAN LIVE STREAM PASS (4K+16K REAL TIME 60 HZ, DEVICE-LOCAL RING) / GPU EXTRACTION NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -23,14 +23,15 @@
   workers both lanes are real time at a 60 Hz surface (4k `0.999` with two
   workers, 16k `0.997` with four; 16k at 30 Hz `0.996` with three). One
   catalog/snapshot/frame plan per run, `0` dropped samples.
-- **First current risk:** the 16k render path costs `~0.9 ms` per refresh
-  in the host-visible ring plus host vertex fetch (critical p95 `~0.9--1.0
-  ms`), and the CPU extractor still burns three to four cores. The stream
-  lane keeps float state on the device and audits diagnostics every 60
-  frames, so it does not reproduce the accepted corpus roots and must not be
-  cited as such.
-- **Current action:** move the ring to device-local memory (staging copy or
-  compute-written), then port extraction to GPU compute; keep every step
+- **First current risk:** the CPU reference extractor burns three to four
+  cores for the live 16k lane; the render side is no longer the bottleneck
+  (16k live critical p95 `0.34 ms` with the device-local ring and
+  producer-side packing). The stream lane keeps float state on the device and
+  audits diagnostics every 60 frames, so it does not reproduce the accepted
+  corpus roots and must not be cited as such.
+- **Current action:** port the frozen close/bilateral extraction with smooth
+  normals to GPU compute (CUDA in the stream process or Vulkan compute in the
+  renderer) and measure per-frame extraction separately; keep every step
   presentation-only and one-directional across the process boundary.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
@@ -1126,6 +1127,30 @@
 - **Reconsider when:** a host with fewer cores cannot keep three workers, or
   a larger lane exceeds the pool.
 
+### D-042 — Device-local ring with producer-side packing
+
+- **Observation:** with the host-visible ring the 16k refresh cost
+  `~0.47 ms` (keyframes) to `~0.9 ms` (live) on the render thread, almost
+  all of it packing 51k vertices into the B0 layout, and host vertex fetch
+  raised GPU time above the static path. Moving the ring to device-local
+  memory alone cut GPU p95 (`441 -> 323 us`) but not the CPU side.
+- **Evidence:** packing the payload in `DynamicSurfaceUpdateV1::new` on the
+  producer thread and copying staging to device-local buffers at the start
+  of the frame gives 16k keyframes critical p95 `186 us` (host ring with
+  packing `412 us`; D-039 `537--592 us`) and 16k live p95 `342 us` (host
+  `406 us`; before `985--1,011 us`); 4k live p95 `136 us`. Ratios stay at
+  `0.997--0.999`. Raw JSON `89227f16.../6abfe74c.../2b0a4272.../091bc14f.../c56e3bc3...`.
+- **Conclusion:** render-thread packing, not the copy or the residency, was
+  the first cost; device-local residency then halves GPU time. The ring is
+  now below the static 16k raster path and stops being a bottleneck.
+- **Decision:** `DeviceLocal` is the default residency for `water-preview`;
+  `HostVisible` stays selectable as the control. Next work is GPU
+  extraction, which is CPU-core relief rather than a frame-time need.
+- **Rejected:** compute-written ring before a GPU extractor exists, and
+  packing on the render thread with a larger scratch.
+- **Reconsider when:** a device without a host-visible staging path appears,
+  or memory for the doubled per-slot allocation becomes a constraint.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1186,6 +1211,7 @@
 | HG6D | the live solver can feed the renderer in real time across a process boundary | selected bounded: 4k `0.999` real time at 60 Hz surface; 16k `0.994` at 15 Hz, `0.53` at 30 Hz | ordered extraction workers / GPU extraction |
 | HG6E | per-step solver reconstruction, not physics, dominated live stepping | selected: `29.8 -> 4.15 ms` per 4k step with a persistent advected solver, light download and threaded extraction | none; keep persistent state |
 | HG6F | the frozen CPU extractor parallelizes to real-time 16k without algorithm change | selected bounded: `2.45 ms` per step with three ordered workers, geometry byte-identical | device-local ring, then GPU extraction |
+| HG6G | ring residency, not CPU packing, dominates the 16k refresh cost | falsified: producer packing cut refresh `469 -> 97 us` on the host ring; device-local then halved GPU time only | closed; keep both |
 
 ## Do not retry
 
@@ -1198,12 +1224,12 @@
 
 ## Next action
 
-1. Move the declared dynamic surface ring to device-local memory (staging
-   copy or compute-written) and re-measure the 16k refresh through the
-   `dynamic_surface_upload` phase; keep the host-visible result as control.
-2. Port the frozen close/bilateral extraction with smooth normals to GPU
+1. Port the frozen close/bilateral extraction with smooth normals to GPU
    compute to free the three to four CPU cores the live stream now uses;
+   validate it against the CPU reference on the accepted keyframes and
    measure per-frame extraction separately from physics and raster.
+2. Only after that, consider a compute-written ring (no staging copy) if the
+   GPU extractor lives in the renderer process.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.

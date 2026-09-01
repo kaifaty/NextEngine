@@ -33,7 +33,7 @@ use next_contracts::render_content::{
 #[cfg(feature = "desktop-sdl-ash")]
 use next_desktop_sdl_ash::{
     DesktopApplicationFinalization, DesktopFramePublicationV1, DynamicSurfaceProfileV1,
-    DynamicSurfaceUpdateV1,
+    DynamicSurfaceResidencyV1, DynamicSurfaceUpdateV1,
 };
 #[cfg(feature = "desktop-sdl-ash")]
 use next_render::{RenderTargetV1, build_b0_frame_plan};
@@ -65,6 +65,8 @@ pub(super) struct WaterPreviewRequest {
     hold: u64,
     /// Live surface stream from the external research solver process.
     stream: Option<StreamRequest>,
+    /// Dynamic surface ring residency: `device` (default) or `host` control.
+    device_local_ring: bool,
 }
 
 /// `nonlocal-feasibility --game-surface-stream` child-process parameters.
@@ -98,6 +100,7 @@ pub(super) fn parse_arguments(
     let mut stream_cycles = 0_u32;
     let mut stream_workers = 3_u32;
     let mut stream_rate = 1.0_f64;
+    let mut device_local_ring = true;
     let bounded_u32 = |arguments: &mut dyn Iterator<Item = String>,
                        name: &str,
                        low: u32,
@@ -115,6 +118,17 @@ pub(super) fn parse_arguments(
     };
     while let Some(argument) = arguments.next() {
         match argument.as_str() {
+            "--ring" => {
+                device_local_ring = match arguments
+                    .next()
+                    .ok_or_else(|| "water-preview --ring requires device or host".to_owned())?
+                    .as_str()
+                {
+                    "device" => true,
+                    "host" => false,
+                    _ => return Err("water-preview --ring must be device or host".to_owned()),
+                };
+            }
             "--stream-binary" => {
                 let value =
                     PathBuf::from(arguments.next().ok_or_else(|| {
@@ -229,6 +243,7 @@ pub(super) fn parse_arguments(
         extent,
         hold,
         stream,
+        device_local_ring,
     })
 }
 
@@ -478,6 +493,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "status": "PASS",
             "authority": "PRESENTATION_ONLY_TOOL",
             "mode": mode,
+            "ring_residency": if request.device_local_ring { "device-local" } else { "host-visible" },
             "keyframes": keyframes,
             "hold_pumps": request.hold,
             "mesh_revision": {
@@ -512,13 +528,18 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
 #[cfg(not(feature = "desktop-sdl-ash"))]
 pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
     Err(format!(
-        "water-preview for {} keyframe(s), stream {:?} ({} frames at {}x{}, hold {}) requires --features desktop-sdl-ash",
+        "water-preview for {} keyframe(s), stream {:?} ({} frames at {}x{}, hold {}, {} ring) requires --features desktop-sdl-ash",
         request.meshes.len(),
         request.stream.as_ref().map(|stream| stream.lane.as_str()),
         request.frames,
         request.extent[0],
         request.extent[1],
-        request.hold
+        request.hold,
+        if request.device_local_ring {
+            "device-local"
+        } else {
+            "host-visible"
+        }
     ))
 }
 
@@ -1261,6 +1282,11 @@ fn build_preview(
                     mesh_revision,
                     vertex_capacity,
                     index_capacity,
+                    residency: if request.device_local_ring {
+                        DynamicSurfaceResidencyV1::DeviceLocal
+                    } else {
+                        DynamicSurfaceResidencyV1::HostVisible
+                    },
                 },
                 keyframes,
             })
@@ -1626,6 +1652,7 @@ mod tests {
             extent: [640, 480],
             hold: 1,
             stream: None,
+            device_local_ring: true,
         };
         let source = PreviewSource::Keyframes(
             request
@@ -1666,6 +1693,7 @@ mod tests {
             extent: [640, 480],
             hold: 2,
             stream: None,
+            device_local_ring: true,
         };
         let source = PreviewSource::Keyframes(
             request

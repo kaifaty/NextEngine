@@ -27,7 +27,9 @@ use self::resources::{
 };
 use self::shadow::{ShadowPipelineState, initialize_shadow_map};
 pub(crate) use self::ui_overlay_gpu::UiOverlayState;
-use crate::dynamic_surface::{DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1, validate_profiles};
+use crate::dynamic_surface::{
+    DynamicSurfaceProfileV1, DynamicSurfaceResidencyV1, DynamicSurfaceUpdateV1, validate_profiles,
+};
 
 const VERTEX_STRIDE: u32 = 28;
 const INDIRECT_COMMAND_STRIDE: u32 = 20;
@@ -110,21 +112,32 @@ pub(super) struct B0GpuContent {
     dynamic_vertex_scratch: Vec<u8>,
     dynamic_vertex_offsets: Vec<i32>,
     dynamic_surfaces: BTreeMap<AssetRevisionRefV1, DynamicSurfaceRing>,
-    dynamic_surface_scratch: Vec<u8>,
     catalog_hash: ContentHash,
 }
 
-/// Per-frame-slot host-visible vertex/index storage for one declared
-/// presentation-only dynamic surface. Capacity is fixed at creation.
+/// Per-frame-slot vertex/index storage for one declared presentation-only
+/// dynamic surface. Capacity is fixed at creation.
 struct DynamicSurfaceRing {
     profile: DynamicSurfaceProfileV1,
     slots: Vec<DynamicSurfaceSlot>,
 }
 
+/// `vertices`/`indices` are what draws bind. For `HostVisible` they are the
+/// host-coherent allocations written directly; for `DeviceLocal` they are
+/// device-local and `staging` holds the host-coherent pair whose pending
+/// byte counts are copied by `record_dynamic_surface_uploads`.
 struct DynamicSurfaceSlot {
     vertices: BufferAllocation,
     indices: BufferAllocation,
+    staging: Option<DynamicSurfaceStaging>,
     uploaded: Option<UploadedDynamicSurface>,
+}
+
+struct DynamicSurfaceStaging {
+    vertices: BufferAllocation,
+    indices: BufferAllocation,
+    pending_vertex_bytes: vk::DeviceSize,
+    pending_index_bytes: vk::DeviceSize,
 }
 
 #[derive(Clone, Copy)]
@@ -222,28 +235,52 @@ impl B0GpuContent {
             let index_bytes = vk::DeviceSize::from(profile.index_capacity)
                 .checked_mul(size_of::<u32>() as vk::DeviceSize)
                 .ok_or(B0GpuContentError::CountOverflow)?;
+            let host =
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
             let mut slots = Vec::with_capacity(frame_slot_count);
             for _ in 0..frame_slot_count {
-                slots.push(DynamicSurfaceSlot {
-                    vertices: BufferAllocation::new(
-                        instance,
-                        physical_device,
-                        device,
-                        vertex_bytes,
-                        vk::BufferUsageFlags::VERTEX_BUFFER,
-                        vk::MemoryPropertyFlags::HOST_VISIBLE
-                            | vk::MemoryPropertyFlags::HOST_COHERENT,
-                    )?,
-                    indices: BufferAllocation::new(
-                        instance,
-                        physical_device,
-                        device,
-                        index_bytes,
-                        vk::BufferUsageFlags::INDEX_BUFFER,
-                        vk::MemoryPropertyFlags::HOST_VISIBLE
-                            | vk::MemoryPropertyFlags::HOST_COHERENT,
-                    )?,
-                    uploaded: None,
+                let allocate = |size, usage, memory| {
+                    BufferAllocation::new(instance, physical_device, device, size, usage, memory)
+                };
+                slots.push(match profile.residency {
+                    DynamicSurfaceResidencyV1::HostVisible => DynamicSurfaceSlot {
+                        vertices: allocate(
+                            vertex_bytes,
+                            vk::BufferUsageFlags::VERTEX_BUFFER,
+                            host,
+                        )?,
+                        indices: allocate(index_bytes, vk::BufferUsageFlags::INDEX_BUFFER, host)?,
+                        staging: None,
+                        uploaded: None,
+                    },
+                    DynamicSurfaceResidencyV1::DeviceLocal => DynamicSurfaceSlot {
+                        vertices: allocate(
+                            vertex_bytes,
+                            vk::BufferUsageFlags::VERTEX_BUFFER
+                                | vk::BufferUsageFlags::TRANSFER_DST,
+                            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+                        )?,
+                        indices: allocate(
+                            index_bytes,
+                            vk::BufferUsageFlags::INDEX_BUFFER | vk::BufferUsageFlags::TRANSFER_DST,
+                            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+                        )?,
+                        staging: Some(DynamicSurfaceStaging {
+                            vertices: allocate(
+                                vertex_bytes,
+                                vk::BufferUsageFlags::TRANSFER_SRC,
+                                host,
+                            )?,
+                            indices: allocate(
+                                index_bytes,
+                                vk::BufferUsageFlags::TRANSFER_SRC,
+                                host,
+                            )?,
+                            pending_vertex_bytes: 0,
+                            pending_index_bytes: 0,
+                        }),
+                        uploaded: None,
+                    },
                 });
             }
             if dynamic_surfaces
@@ -350,7 +387,6 @@ impl B0GpuContent {
             dynamic_vertex_scratch: Vec::new(),
             dynamic_vertex_offsets: Vec::new(),
             dynamic_surfaces,
-            dynamic_surface_scratch: Vec::new(),
             catalog_hash: catalog.catalog_sha256(),
         })
     }
@@ -395,20 +431,30 @@ impl B0GpuContent {
             {
                 continue;
             }
-            pack_dynamic_surface_vertices(update, &mut self.dynamic_surface_scratch)?;
-            slot.vertices.write(0, &self.dynamic_surface_scratch)?;
-            pack_dynamic_surface_indices(update, &mut self.dynamic_surface_scratch)?;
-            slot.indices.write(0, &self.dynamic_surface_scratch)?;
-            slot.uploaded = Some(UploadedDynamicSurface {
-                canonical_hash: update.canonical_hash(),
-                index_count: update.index_count(),
-            });
             let vertex_bytes = u64::from(update.vertex_count())
                 .checked_mul(u64::from(VERTEX_STRIDE))
                 .ok_or(B0GpuContentError::CountOverflow)?;
             let index_bytes = u64::from(update.index_count())
                 .checked_mul(size_of::<u32>() as u64)
                 .ok_or(B0GpuContentError::CountOverflow)?;
+            // The payload was packed on the producer thread; this is a copy
+            // into mapped memory only.
+            match slot.staging.as_mut() {
+                Some(staging) => {
+                    staging.vertices.write(0, update.packed_b0_vertices())?;
+                    staging.indices.write(0, update.packed_b0_indices())?;
+                    staging.pending_vertex_bytes = vertex_bytes;
+                    staging.pending_index_bytes = index_bytes;
+                }
+                None => {
+                    slot.vertices.write(0, update.packed_b0_vertices())?;
+                    slot.indices.write(0, update.packed_b0_indices())?;
+                }
+            }
+            slot.uploaded = Some(UploadedDynamicSurface {
+                canonical_hash: update.canonical_hash(),
+                index_count: update.index_count(),
+            });
             stats.uploads = stats
                 .uploads
                 .checked_add(1)
@@ -420,6 +466,86 @@ impl B0GpuContent {
                 .ok_or(B0GpuContentError::CountOverflow)?;
         }
         Ok(stats)
+    }
+
+    /// Records the staging-to-device copies queued by
+    /// [`Self::prepare_dynamic_surfaces`] for device-local rings. Must run
+    /// outside any rendering instance and before the first pass that reads
+    /// the ring (the shadow pass).
+    pub(super) fn record_dynamic_surface_uploads(
+        &mut self,
+        command_buffer: vk::CommandBuffer,
+        frame_slot_index: usize,
+    ) -> Result<(), B0GpuContentError> {
+        let mut barriers = Vec::new();
+        for ring in self.dynamic_surfaces.values_mut() {
+            let slot =
+                ring.slots
+                    .get_mut(frame_slot_index)
+                    .ok_or(B0GpuContentError::InvalidFramePlan(
+                        "frame slot index is outside the dynamic surface ring",
+                    ))?;
+            let Some(staging) = slot.staging.as_mut() else {
+                continue;
+            };
+            if staging.pending_vertex_bytes == 0 || staging.pending_index_bytes == 0 {
+                continue;
+            }
+            let copies = [
+                (
+                    staging.vertices.buffer,
+                    slot.vertices.buffer,
+                    staging.pending_vertex_bytes,
+                ),
+                (
+                    staging.indices.buffer,
+                    slot.indices.buffer,
+                    staging.pending_index_bytes,
+                ),
+            ];
+            for (source, destination, size) in copies {
+                let regions = [vk::BufferCopy::default()
+                    .src_offset(0)
+                    .dst_offset(0)
+                    .size(size)];
+                // SAFETY: both buffers belong to this device, the slot fence
+                // completed so neither is read by pending work, and the size
+                // was bounded by the declared capacity in prepare.
+                unsafe {
+                    self.geometry.device.cmd_copy_buffer(
+                        command_buffer,
+                        source,
+                        destination,
+                        &regions,
+                    );
+                }
+                barriers.push(
+                    vk::BufferMemoryBarrier2::default()
+                        .src_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+                        .src_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+                        .dst_stage_mask(vk::PipelineStageFlags2::VERTEX_INPUT)
+                        .dst_access_mask(
+                            vk::AccessFlags2::VERTEX_ATTRIBUTE_READ | vk::AccessFlags2::INDEX_READ,
+                        )
+                        .buffer(destination)
+                        .offset(0)
+                        .size(size),
+                );
+            }
+            staging.pending_vertex_bytes = 0;
+            staging.pending_index_bytes = 0;
+        }
+        if !barriers.is_empty() {
+            let dependency = vk::DependencyInfo::default().buffer_memory_barriers(&barriers);
+            // SAFETY: the barriers reference buffers copied above in this
+            // same command buffer and make them visible to vertex input.
+            unsafe {
+                self.geometry
+                    .device
+                    .cmd_pipeline_barrier2(command_buffer, &dependency);
+            }
+        }
+        Ok(())
     }
 
     /// Returns the dynamic ring binding for a draw whose mesh revision is a
@@ -829,6 +955,15 @@ impl B0GpuContent {
                 dynamic_surface_allocations = dynamic_surface_allocations
                     .checked_add(2)
                     .ok_or(B0GpuContentError::CountOverflow)?;
+                if let Some(staging) = slot.staging.as_ref() {
+                    bytes = bytes
+                        .checked_add(staging.vertices.allocation_size())
+                        .and_then(|value| value.checked_add(staging.indices.allocation_size()))
+                        .ok_or(B0GpuContentError::CountOverflow)?;
+                    dynamic_surface_allocations = dynamic_surface_allocations
+                        .checked_add(2)
+                        .ok_or(B0GpuContentError::CountOverflow)?;
+                }
             }
         }
         for texture in self.textures.values() {
@@ -1108,57 +1243,41 @@ fn push_f32(bytes: &mut Vec<u8>, value: f32) {
     bytes.extend_from_slice(&value.to_le_bytes());
 }
 
-/// Packs one dynamic surface update into the locked 28-byte B0 vertex layout:
+/// Packs a dynamic surface payload into the locked 28-byte B0 vertex layout:
 /// metre position, planar metre UV and snorm16x4 normal. The planar UV keeps
 /// the closed B0 shader interface unchanged for a surface whose topology may
-/// differ from the catalog placeholder every frame.
-fn pack_dynamic_surface_vertices(
-    update: &DynamicSurfaceUpdateV1,
-    scratch: &mut Vec<u8>,
-) -> Result<(), B0GpuContentError> {
-    scratch.clear();
-    let bytes = update
-        .positions_micrometres()
+/// differ from the catalog placeholder every frame. Runs on the producer
+/// thread inside `DynamicSurfaceUpdateV1::new`, never on the render thread.
+pub(crate) fn pack_b0_vertices(
+    positions_micrometres: &[[i64; 3]],
+    normals_snorm16: &[[i16; 3]],
+) -> Option<Vec<u8>> {
+    let bytes = positions_micrometres
         .len()
-        .checked_mul(VERTEX_STRIDE as usize)
-        .ok_or(B0GpuContentError::CountOverflow)?;
-    scratch
-        .try_reserve(bytes)
-        .map_err(|_| B0GpuContentError::CountOverflow)?;
-    for (position, normal) in update
-        .positions_micrometres()
-        .iter()
-        .zip(update.normals_snorm16())
-    {
+        .checked_mul(VERTEX_STRIDE as usize)?;
+    let mut packed = Vec::new();
+    packed.try_reserve_exact(bytes).ok()?;
+    for (position, normal) in positions_micrometres.iter().zip(normals_snorm16) {
         let metres = position.map(|component| component as f32 / 1_000_000.0);
         for component in metres {
-            push_f32(scratch, component);
+            push_f32(&mut packed, component);
         }
-        push_f32(scratch, metres[0]);
-        push_f32(scratch, metres[2]);
-        push_normal_snorm16(scratch, *normal);
+        push_f32(&mut packed, metres[0]);
+        push_f32(&mut packed, metres[2]);
+        push_normal_snorm16(&mut packed, *normal);
     }
-    debug_assert_eq!(scratch.len(), bytes);
-    Ok(())
+    debug_assert_eq!(packed.len(), bytes);
+    Some(packed)
 }
 
-fn pack_dynamic_surface_indices(
-    update: &DynamicSurfaceUpdateV1,
-    scratch: &mut Vec<u8>,
-) -> Result<(), B0GpuContentError> {
-    scratch.clear();
-    let bytes = update
-        .indices()
-        .len()
-        .checked_mul(size_of::<u32>())
-        .ok_or(B0GpuContentError::CountOverflow)?;
-    scratch
-        .try_reserve(bytes)
-        .map_err(|_| B0GpuContentError::CountOverflow)?;
-    for index in update.indices() {
-        scratch.extend_from_slice(&index.to_le_bytes());
+pub(crate) fn pack_b0_indices(indices: &[u32]) -> Option<Vec<u8>> {
+    let bytes = indices.len().checked_mul(size_of::<u32>())?;
+    let mut packed = Vec::new();
+    packed.try_reserve_exact(bytes).ok()?;
+    for index in indices {
+        packed.extend_from_slice(&index.to_le_bytes());
     }
-    Ok(())
+    Some(packed)
 }
 
 fn push_normal_snorm16(bytes: &mut Vec<u8>, normal: [i16; 3]) {
@@ -1217,8 +1336,7 @@ mod tests {
             vec![0, 2, 1],
         )
         .expect("valid update");
-        let mut scratch = Vec::new();
-        pack_dynamic_surface_vertices(&update, &mut scratch).expect("packs vertices");
+        let scratch = update.packed_b0_vertices();
         assert_eq!(scratch.len(), 3 * VERTEX_STRIDE as usize);
         assert_eq!(&scratch[0..4], &1.0_f32.to_le_bytes());
         assert_eq!(&scratch[4..8], &0.25_f32.to_le_bytes());
@@ -1227,7 +1345,9 @@ mod tests {
         assert_eq!(&scratch[16..20], &(-0.5_f32).to_le_bytes());
         assert_eq!(&scratch[22..24], &i16::MAX.to_le_bytes());
         assert_eq!(&scratch[26..28], &0_i16.to_le_bytes());
-        pack_dynamic_surface_indices(&update, &mut scratch).expect("packs indices");
-        assert_eq!(scratch, [0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0]);
+        assert_eq!(
+            update.packed_b0_indices(),
+            [0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0]
+        );
     }
 }
