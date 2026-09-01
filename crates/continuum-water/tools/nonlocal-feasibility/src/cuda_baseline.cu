@@ -7483,7 +7483,8 @@ Fixture game_fixture(
     const std::string& name,
     const std::vector<Particle>& fluid,
     const GameQualityBox& box,
-    int iterations) {
+    int iterations,
+    std::size_t neighbor_capacity = 123U) {
     Fixture fixture;
     fixture.name = name;
     fixture.rest_density = profile.rest_density;
@@ -7500,7 +7501,7 @@ Fixture game_fixture(
     fixture.iterations = iterations;
     fixture.particles = fluid;
     const std::size_t boundary = append_game_boundary(fixture, box, 0);
-    fixture.pair_capacity = (fluid.size() + boundary) * 123U;
+    fixture.pair_capacity = (fluid.size() + boundary) * neighbor_capacity;
     fixture.analytic_box_contact = true;
     fixture.contact_minimum = box.minimum;
     fixture.contact_maximum = box.maximum;
@@ -7958,6 +7959,811 @@ CommandReport run_cuda_game_quality_smoke() {
            << ",\"performance_campaign_authorized\":"
            << (quality_passed ? "true" : "false") << '}'
            << ",\"result_sha256\":\"" << sha256_hex(root.str()) << "\""
+           << ",\"device\":" << device_json() << '}';
+    return {quality_passed, output.str()};
+}
+
+namespace {
+
+constexpr double GAME_VISUAL_PIXEL_PITCH = GAME_SPACING / 4.0;
+constexpr std::array<int, 5> GAME_VISUAL_FRAME_STEPS = {0, 24, 48, 72, 96};
+
+struct GameSurfaceFrame {
+    bool valid = false;
+    int step = 0;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::vector<std::uint8_t> wet;
+    std::vector<double> depth;
+    std::uint64_t wet_pixels = 0;
+    std::uint32_t material_components = 0;
+    double largest_component_fraction = 0.0;
+    double satellite_area_fraction = 1.0;
+    double depth_p50 = 0.0;
+    double depth_p95 = 0.0;
+    double minimum_depth = 0.0;
+    double maximum_depth = 0.0;
+    std::string root;
+};
+
+struct GameVisualLaneResult {
+    std::string id;
+    bool executed = false;
+    bool apparatus_passed = false;
+    bool quality_passed = false;
+    int requested_steps = 96;
+    int completed_steps = 0;
+    std::size_t dynamic_samples = 0;
+    std::size_t neighbor_capacity_per_sample = 160U;
+    std::size_t maximum_directed_pairs = 0;
+    std::size_t maximum_degree = 0;
+    std::size_t neighbor_id_bytes = 0;
+    double maximum_penetration = 0.0;
+    double maximum_contact_velocity_error = 0.0;
+    double maximum_speed = 0.0;
+    double maximum_positive_compression = 0.0;
+    double vertical_com_drop = 0.0;
+    double front_advance = 0.0;
+    double wet_area_ratio = 0.0;
+    double depth_p95_drop = 0.0;
+    std::size_t particle_components = 0;
+    std::size_t particle_satellites = 0;
+    double particle_largest_component_fraction = 0.0;
+    std::vector<GameSurfaceFrame> frames;
+    std::vector<double> total_timings;
+    std::vector<double> contact_timings;
+    std::string trace_root;
+    std::string result_root;
+    std::string first_failure;
+    bool montage_written = false;
+};
+
+struct GameVisualObserverControls {
+    bool empty_rejected = false;
+    bool nonfinite_rejected = false;
+    bool mask_mutation_changed_root = false;
+    bool depth_mutation_changed_root = false;
+    std::string root;
+};
+
+double game_percentile(std::vector<double> values, double probability) {
+    if (values.empty()) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    std::sort(values.begin(), values.end());
+    const std::size_t rank = static_cast<std::size_t>(
+        std::ceil(probability * static_cast<double>(values.size())));
+    return values[std::max<std::size_t>(1U, rank) - 1U];
+}
+
+std::string game_surface_root(const GameSurfaceFrame& frame) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.game-surface-frame.v1\n"
+             << frame.valid << ':' << frame.step << ':' << frame.width << ':'
+             << frame.height << ':' << frame.wet_pixels << ':'
+             << frame.material_components << ':' << std::hexfloat
+             << frame.largest_component_fraction << ':'
+             << frame.satellite_area_fraction << ':' << frame.depth_p50 << ':'
+             << frame.depth_p95 << ':' << frame.minimum_depth << ':'
+             << frame.maximum_depth << '\n';
+    for (std::size_t pixel = 0; pixel < frame.wet.size(); ++pixel) {
+        material << static_cast<unsigned>(frame.wet[pixel]);
+        if (frame.wet[pixel] != 0U) {
+            material << ':' << frame.depth[pixel];
+        }
+        material << ';';
+    }
+    return sha256_hex(material.str());
+}
+
+GameSurfaceFrame game_surface_frame(
+    const std::vector<Particle>& fluid,
+    const GameQualityBox& box,
+    int step) {
+    GameSurfaceFrame frame;
+    frame.step = step;
+    if (fluid.empty()) {
+        return frame;
+    }
+    const double extent_x = box.maximum.x - box.minimum.x;
+    const double extent_z = box.maximum.z - box.minimum.z;
+    const double cells_x = extent_x / GAME_VISUAL_PIXEL_PITCH;
+    const double cells_z = extent_z / GAME_VISUAL_PIXEL_PITCH;
+    frame.width = static_cast<std::uint32_t>(std::llround(cells_x));
+    frame.height = static_cast<std::uint32_t>(std::llround(cells_z));
+    if (frame.width == 0U || frame.height == 0U
+        || std::abs(cells_x - static_cast<double>(frame.width)) > 1.0e-12
+        || std::abs(cells_z - static_cast<double>(frame.height)) > 1.0e-12) {
+        return frame;
+    }
+    const std::size_t pixels = static_cast<std::size_t>(frame.width) * frame.height;
+    frame.wet.assign(pixels, 0U);
+    frame.depth.assign(pixels, 0.0);
+    const long double radius_squared =
+        static_cast<long double>(GAME_RADIUS) * GAME_RADIUS;
+    const float radius_f32 = static_cast<float>(GAME_RADIUS);
+    const std::array<double, 3> lower_center = {
+        static_cast<double>(static_cast<float>(box.minimum.x) + radius_f32),
+        static_cast<double>(static_cast<float>(box.minimum.y) + radius_f32),
+        static_cast<double>(static_cast<float>(box.minimum.z) + radius_f32),
+    };
+    const std::array<double, 3> upper_center = {
+        static_cast<double>(static_cast<float>(box.maximum.x) - radius_f32),
+        static_cast<double>(static_cast<float>(box.maximum.y) - radius_f32),
+        static_cast<double>(static_cast<float>(box.maximum.z) - radius_f32),
+    };
+    const std::array<double, 3> observer_lower = {
+        std::min(box.minimum.x + GAME_RADIUS, lower_center[0]),
+        std::min(box.minimum.y + GAME_RADIUS, lower_center[1]),
+        std::min(box.minimum.z + GAME_RADIUS, lower_center[2]),
+    };
+    const std::array<double, 3> observer_upper = {
+        std::max(box.maximum.x - GAME_RADIUS, upper_center[0]),
+        std::max(box.maximum.y - GAME_RADIUS, upper_center[1]),
+        std::max(box.maximum.z - GAME_RADIUS, upper_center[2]),
+    };
+    for (const Particle& particle : fluid) {
+        constexpr double observer_boundary_tolerance = 1.0e-12;
+        if (!finite(particle.position)
+            || particle.position.x
+                < observer_lower[0] - observer_boundary_tolerance
+            || particle.position.y
+                < observer_lower[1] - observer_boundary_tolerance
+            || particle.position.z
+                < observer_lower[2] - observer_boundary_tolerance
+            || particle.position.x
+                > observer_upper[0] + observer_boundary_tolerance
+            || particle.position.y
+                > observer_upper[1] + observer_boundary_tolerance
+            || particle.position.z
+                > observer_upper[2] + observer_boundary_tolerance) {
+            return frame;
+        }
+        const auto minimum_index = [](double value, double origin) {
+            return static_cast<std::int64_t>(std::ceil(
+                (value - GAME_RADIUS - origin) / GAME_VISUAL_PIXEL_PITCH - 0.5));
+        };
+        const auto maximum_index = [](double value, double origin) {
+            return static_cast<std::int64_t>(std::floor(
+                (value + GAME_RADIUS - origin) / GAME_VISUAL_PIXEL_PITCH - 0.5));
+        };
+        const std::int64_t min_x = std::max<std::int64_t>(
+            0, minimum_index(particle.position.x, box.minimum.x));
+        const std::int64_t max_x = std::min<std::int64_t>(
+            frame.width - 1U, maximum_index(particle.position.x, box.minimum.x));
+        const std::int64_t min_z = std::max<std::int64_t>(
+            0, minimum_index(particle.position.z, box.minimum.z));
+        const std::int64_t max_z = std::min<std::int64_t>(
+            frame.height - 1U, maximum_index(particle.position.z, box.minimum.z));
+        for (std::int64_t iz = min_z; iz <= max_z; ++iz) {
+            for (std::int64_t ix = min_x; ix <= max_x; ++ix) {
+                const long double pixel_x = static_cast<long double>(box.minimum.x)
+                    + (static_cast<long double>(ix) + 0.5L)
+                        * GAME_VISUAL_PIXEL_PITCH;
+                const long double pixel_z = static_cast<long double>(box.minimum.z)
+                    + (static_cast<long double>(iz) + 0.5L)
+                        * GAME_VISUAL_PIXEL_PITCH;
+                const long double dx =
+                    static_cast<long double>(particle.position.x) - pixel_x;
+                const long double dz =
+                    static_cast<long double>(particle.position.z) - pixel_z;
+                const long double distance_squared = dx * dx + dz * dz;
+                if (distance_squared > radius_squared) {
+                    continue;
+                }
+                const double depth = static_cast<double>(
+                    static_cast<long double>(particle.position.y)
+                    + std::sqrt(std::max(0.0L, radius_squared - distance_squared)));
+                if (!std::isfinite(depth)) {
+                    return frame;
+                }
+                const std::size_t pixel = static_cast<std::size_t>(iz) * frame.width
+                    + static_cast<std::size_t>(ix);
+                if (frame.wet[pixel] == 0U || depth > frame.depth[pixel]) {
+                    frame.wet[pixel] = 1U;
+                    frame.depth[pixel] = depth;
+                }
+            }
+        }
+    }
+    frame.wet_pixels = static_cast<std::uint64_t>(std::count(
+        frame.wet.begin(), frame.wet.end(), std::uint8_t{1U}));
+    if (frame.wet_pixels == 0U) {
+        return frame;
+    }
+
+    const std::uint32_t absent = std::numeric_limits<std::uint32_t>::max();
+    std::vector<std::uint32_t> labels(pixels, absent);
+    std::vector<std::uint32_t> stack;
+    std::vector<std::uint32_t> component_sizes;
+    for (std::uint32_t seed = 0; seed < pixels; ++seed) {
+        if (frame.wet[seed] == 0U || labels[seed] != absent) {
+            continue;
+        }
+        const std::uint32_t label =
+            static_cast<std::uint32_t>(component_sizes.size());
+        component_sizes.push_back(0U);
+        labels[seed] = label;
+        stack.push_back(seed);
+        while (!stack.empty()) {
+            const std::uint32_t pixel = stack.back();
+            stack.pop_back();
+            ++component_sizes[label];
+            const std::int32_t x = static_cast<std::int32_t>(pixel % frame.width);
+            const std::int32_t z = static_cast<std::int32_t>(pixel / frame.width);
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    if (dx == 0 && dz == 0) {
+                        continue;
+                    }
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx < 0 || nz < 0
+                        || nx >= static_cast<std::int32_t>(frame.width)
+                        || nz >= static_cast<std::int32_t>(frame.height)) {
+                        continue;
+                    }
+                    const std::uint32_t neighbor =
+                        static_cast<std::uint32_t>(nz) * frame.width
+                        + static_cast<std::uint32_t>(nx);
+                    if (frame.wet[neighbor] != 0U && labels[neighbor] == absent) {
+                        labels[neighbor] = label;
+                        stack.push_back(neighbor);
+                    }
+                }
+            }
+        }
+    }
+    std::uint32_t largest = 0U;
+    for (std::uint32_t size : component_sizes) {
+        if (size >= 4U) {
+            ++frame.material_components;
+        }
+        largest = std::max(largest, size);
+    }
+    frame.largest_component_fraction = static_cast<double>(largest)
+        / static_cast<double>(frame.wet_pixels);
+    frame.satellite_area_fraction = 1.0 - frame.largest_component_fraction;
+    std::vector<double> depths;
+    depths.reserve(frame.wet_pixels);
+    for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
+        if (frame.wet[pixel] != 0U) {
+            depths.push_back(frame.depth[pixel]);
+        }
+    }
+    frame.depth_p50 = game_percentile(depths, 0.50);
+    frame.depth_p95 = game_percentile(depths, 0.95);
+    const auto [minimum, maximum] = std::minmax_element(depths.begin(), depths.end());
+    frame.minimum_depth = *minimum;
+    frame.maximum_depth = *maximum;
+    frame.valid = std::isfinite(frame.depth_p50) && std::isfinite(frame.depth_p95)
+        && frame.minimum_depth >= box.minimum.y
+        && frame.maximum_depth <= observer_upper[1] + GAME_RADIUS + 1.0e-12;
+    frame.root = game_surface_root(frame);
+    return frame;
+}
+
+std::tuple<std::size_t, std::size_t, double> game_csr_topology(
+    const CapturedRun& run,
+    std::size_t count) {
+    if (run.offsets.size() != count + 1U || run.neighbors.empty()) {
+        return {count, count, 0.0};
+    }
+    std::vector<std::uint8_t> visited(count, 0U);
+    std::vector<std::size_t> stack;
+    std::size_t components = 0U;
+    std::size_t largest = 0U;
+    for (std::size_t seed = 0; seed < count; ++seed) {
+        if (visited[seed] != 0U) {
+            continue;
+        }
+        ++components;
+        std::size_t component_size = 0U;
+        visited[seed] = 1U;
+        stack.push_back(seed);
+        while (!stack.empty()) {
+            const std::size_t owner = stack.back();
+            stack.pop_back();
+            ++component_size;
+            const int begin = run.offsets[owner];
+            const int end = run.offsets[owner + 1U];
+            if (begin < 0 || end < begin
+                || static_cast<std::size_t>(end) > run.neighbors.size()) {
+                return {count, count, 0.0};
+            }
+            for (int cursor = begin; cursor < end; ++cursor) {
+                const int neighbor = run.neighbors[static_cast<std::size_t>(cursor)];
+                if (neighbor < 0 || static_cast<std::size_t>(neighbor) >= count) {
+                    return {count, count, 0.0};
+                }
+                if (visited[static_cast<std::size_t>(neighbor)] == 0U) {
+                    visited[static_cast<std::size_t>(neighbor)] = 1U;
+                    stack.push_back(static_cast<std::size_t>(neighbor));
+                }
+            }
+        }
+        largest = std::max(largest, component_size);
+    }
+    return {components, count - largest,
+        static_cast<double>(largest) / static_cast<double>(count)};
+}
+
+bool game_frame_prefix_valid(const std::string& prefix) {
+    return std::all_of(prefix.begin(), prefix.end(), [](unsigned char value) {
+        return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z')
+            || (value >= '0' && value <= '9') || value == '/' || value == '.'
+            || value == '_' || value == '-';
+    });
+}
+
+bool write_game_surface_montage(
+    const std::string& path,
+    const std::vector<GameSurfaceFrame>& frames,
+    const GameQualityBox& box) {
+    if (frames.empty() || !frames.front().valid) {
+        return false;
+    }
+    const std::uint32_t frame_width = frames.front().width;
+    const std::uint32_t frame_height = frames.front().height;
+    if (!std::all_of(frames.begin(), frames.end(), [&](const auto& frame) {
+            return frame.valid && frame.width == frame_width
+                && frame.height == frame_height;
+        })) {
+        return false;
+    }
+    std::ofstream stream(path, std::ios::binary);
+    if (!stream) {
+        return false;
+    }
+    const std::uint32_t width =
+        frame_width * static_cast<std::uint32_t>(frames.size());
+    stream << "P6\n" << width << ' ' << frame_height << "\n255\n";
+    for (std::uint32_t row = 0; row < frame_height; ++row) {
+        for (const GameSurfaceFrame& frame : frames) {
+            for (std::uint32_t column = 0; column < frame_width; ++column) {
+                const std::size_t pixel =
+                    static_cast<std::size_t>(row) * frame_width + column;
+                unsigned char red = 12U;
+                unsigned char green = 18U;
+                unsigned char blue = 28U;
+                if (frame.wet[pixel] != 0U) {
+                    const double normalized = std::clamp(
+                        (frame.depth[pixel] - box.minimum.y)
+                            / (box.maximum.y - box.minimum.y),
+                        0.0, 1.0);
+                    red = static_cast<unsigned char>(20.0 + 45.0 * normalized);
+                    green = static_cast<unsigned char>(85.0 + 125.0 * normalized);
+                    blue = static_cast<unsigned char>(160.0 + 95.0 * normalized);
+                }
+                stream.put(static_cast<char>(red));
+                stream.put(static_cast<char>(green));
+                stream.put(static_cast<char>(blue));
+            }
+        }
+    }
+    return static_cast<bool>(stream);
+}
+
+std::vector<Particle> game_visual_particles(int lattice_x, int lattice_z) {
+    std::vector<Particle> fluid;
+    fluid.reserve(static_cast<std::size_t>(lattice_x) * 10U * lattice_z);
+    for (int x = 0; x < lattice_x; ++x) {
+        for (int y = 0; y < 10; ++y) {
+            for (int z = 0; z < lattice_z; ++z) {
+                fluid.push_back({
+                    {GAME_RADIUS + x * GAME_SPACING,
+                        GAME_RADIUS + 2.0 * GAME_SPACING + y * GAME_SPACING,
+                        GAME_RADIUS + z * GAME_SPACING},
+                    {},
+                    false,
+                });
+            }
+        }
+    }
+    return fluid;
+}
+
+GameVisualObserverControls game_visual_observer_controls(
+    const std::vector<Particle>& initial,
+    const GameQualityBox& box) {
+    GameVisualObserverControls controls;
+    const GameSurfaceFrame base = game_surface_frame(initial, box, 0);
+    controls.empty_rejected = !game_surface_frame({}, box, 0).valid;
+    std::vector<Particle> nonfinite = initial;
+    nonfinite.front().position.y = std::numeric_limits<double>::quiet_NaN();
+    controls.nonfinite_rejected = !game_surface_frame(nonfinite, box, 0).valid;
+    if (base.valid) {
+        GameSurfaceFrame mask_mutation = base;
+        const auto wet = std::find(mask_mutation.wet.begin(), mask_mutation.wet.end(),
+            std::uint8_t{1U});
+        if (wet != mask_mutation.wet.end()) {
+            *wet = 0U;
+            controls.mask_mutation_changed_root =
+                game_surface_root(mask_mutation) != base.root;
+        }
+        GameSurfaceFrame depth_mutation = base;
+        const auto depth_pixel = std::find(depth_mutation.wet.begin(),
+            depth_mutation.wet.end(), std::uint8_t{1U});
+        if (depth_pixel != depth_mutation.wet.end()) {
+            const std::size_t index = static_cast<std::size_t>(
+                std::distance(depth_mutation.wet.begin(), depth_pixel));
+            depth_mutation.depth[index] = std::nextafter(
+                depth_mutation.depth[index], std::numeric_limits<double>::infinity());
+            controls.depth_mutation_changed_root =
+                game_surface_root(depth_mutation) != base.root;
+        }
+    }
+    std::ostringstream material;
+    material << "nextengine.nonlocal.game-surface-controls.v1\n"
+             << controls.empty_rejected << ':' << controls.nonfinite_rejected << ':'
+             << controls.mask_mutation_changed_root << ':'
+             << controls.depth_mutation_changed_root << '\n';
+    controls.root = sha256_hex(material.str());
+    return controls;
+}
+
+GameVisualLaneResult run_game_visual_lane(
+    const Profile& profile,
+    const std::string& id,
+    int lattice_x,
+    int lattice_z,
+    const GameQualityBox& box,
+    const std::string& frame_prefix) {
+    GameVisualLaneResult result;
+    result.id = id;
+    result.executed = true;
+    result.apparatus_passed = true;
+    std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z);
+    result.dynamic_samples = fluid.size();
+    const Vec3 initial_com = game_center_of_mass(fluid);
+    const double initial_front = std::max_element(fluid.begin(), fluid.end(),
+        [](const Particle& lhs, const Particle& rhs) {
+            return lhs.position.x < rhs.position.x;
+        })->position.x;
+    result.frames.push_back(game_surface_frame(fluid, box, 0));
+    result.apparatus_passed = result.frames.back().valid;
+    std::ostringstream trace;
+    CapturedRun final_run;
+    std::size_t next_frame = 1U;
+    for (int step = 1; step <= result.requested_steps && result.apparatus_passed;
+         ++step) {
+        const Fixture fixture = game_fixture(
+            profile, "game-visual-" + id, fluid, box, profile.fixed_iterations,
+            result.neighbor_capacity_per_sample);
+        CudaBaseline gpu(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1,
+            NeighborEncodingMode::CompactU16P2);
+        const CapturedRun run = gpu.execute(true);
+        result.maximum_directed_pairs = std::max(
+            result.maximum_directed_pairs, run.state.directed_pairs);
+        result.maximum_degree = std::max(result.maximum_degree, run.state.maximum_degree);
+        result.neighbor_id_bytes = run.neighbor_id_bytes;
+        const bool finite_state_passed = game_finite(run, fluid.size());
+        const bool output_size_passed =
+            run.state.next_position.size() == fluid.size();
+        const bool compact_ids_passed =
+            run.neighbor_id_bytes == sizeof(std::uint16_t);
+        const bool pair_capacity_passed =
+            run.state.directed_pairs <= fixture.pair_capacity;
+        const bool degree_capacity_passed =
+            run.state.maximum_degree <= result.neighbor_capacity_per_sample;
+        const bool step_valid = finite_state_passed && output_size_passed
+            && compact_ids_passed && pair_capacity_passed && degree_capacity_passed;
+        if (!step_valid) {
+            result.apparatus_passed = false;
+            if (run.local_solve_failed) {
+                result.first_failure = "local_solve";
+            } else if (!run.neighbor_build_valid) {
+                result.first_failure = "neighbor_build";
+            } else if (!finite_state_passed) {
+                result.first_failure = "nonfinite_state";
+            } else if (!output_size_passed) {
+                result.first_failure = "output_size";
+            } else if (!compact_ids_passed) {
+                result.first_failure = "compact_neighbor_ids";
+            } else if (!pair_capacity_passed) {
+                result.first_failure = "directed_pair_capacity";
+            } else if (!degree_capacity_passed) {
+                result.first_failure = "neighbor_degree_capacity";
+            } else {
+                result.first_failure = "step_apparatus";
+            }
+            trace << step << ":INVALID:" << result.first_failure << ':'
+                  << run.neighbor_build_valid << ':' << run.local_solve_failed
+                  << ':' << run.state.directed_pairs << ':'
+                  << run.state.maximum_degree << '|';
+            break;
+        }
+        result.total_timings.push_back(run.timing.total);
+        result.contact_timings.push_back(run.timing.contact);
+        for (std::size_t index = 0; index < fluid.size(); ++index) {
+            const GameContactResult contact = game_sweep_box(
+                fluid[index].position, run.state.next_position[index], box);
+            result.maximum_penetration = std::max(
+                result.maximum_penetration, contact.penetration);
+            result.maximum_contact_velocity_error = std::max(
+                result.maximum_contact_velocity_error,
+                norm(run.state.final_velocity[index] - contact.velocity));
+            result.maximum_speed = std::max(
+                result.maximum_speed, norm(run.state.final_velocity[index]));
+            result.maximum_positive_compression = std::max(
+                result.maximum_positive_compression,
+                std::max(run.state.density[index] / fixture.rest_density - 1.0, 0.0));
+            fluid[index].position = run.state.next_position[index];
+            fluid[index].velocity = run.state.final_velocity[index];
+        }
+        ++result.completed_steps;
+        trace << step << ':' << ordered_output_digest(run.state) << '|';
+        final_run = run;
+        if (next_frame < GAME_VISUAL_FRAME_STEPS.size()
+            && step == GAME_VISUAL_FRAME_STEPS[next_frame]) {
+            result.frames.push_back(game_surface_frame(fluid, box, step));
+            if (!result.frames.back().valid) {
+                result.apparatus_passed = false;
+                result.first_failure = "surface_observer";
+                break;
+            }
+            ++next_frame;
+        }
+    }
+    result.trace_root = sha256_hex(trace.str());
+    if (result.apparatus_passed) {
+        result.apparatus_passed = result.completed_steps == result.requested_steps
+            && result.frames.size() == GAME_VISUAL_FRAME_STEPS.size()
+            && result.maximum_penetration <= 1.0e-12
+            && result.maximum_contact_velocity_error <= 1.0e-4;
+        if (!result.apparatus_passed && result.first_failure.empty()) {
+            result.first_failure = "apparatus_closure";
+        }
+    }
+    if (result.completed_steps != 0) {
+        const Vec3 final_com = game_center_of_mass(fluid);
+        result.vertical_com_drop = initial_com.y - final_com.y;
+        const double final_front = std::max_element(fluid.begin(), fluid.end(),
+            [](const Particle& lhs, const Particle& rhs) {
+                return lhs.position.x < rhs.position.x;
+            })->position.x;
+        result.front_advance = final_front - initial_front;
+        std::tie(result.particle_components, result.particle_satellites,
+            result.particle_largest_component_fraction) =
+            game_csr_topology(final_run, fluid.size());
+    }
+    if (result.frames.size() == GAME_VISUAL_FRAME_STEPS.size()) {
+        result.wet_area_ratio = static_cast<double>(result.frames.back().wet_pixels)
+            / static_cast<double>(result.frames.front().wet_pixels);
+        result.depth_p95_drop =
+            result.frames.front().depth_p95 - result.frames.back().depth_p95;
+    }
+    bool frames_coherent = result.frames.size() == GAME_VISUAL_FRAME_STEPS.size();
+    for (const GameSurfaceFrame& frame : result.frames) {
+        frames_coherent = frames_coherent && frame.valid
+            && frame.largest_component_fraction >= 0.98
+            && frame.satellite_area_fraction <= 0.02
+            && frame.material_components <= 4U;
+    }
+    const double particle_satellite_fraction = result.dynamic_samples == 0U
+        ? 1.0
+        : static_cast<double>(result.particle_satellites)
+            / static_cast<double>(result.dynamic_samples);
+    result.quality_passed = result.apparatus_passed
+        && result.maximum_speed <= 10.0
+        && result.vertical_com_drop >= 0.075
+        && result.front_advance >= 0.10
+        && result.wet_area_ratio >= 1.05 && result.wet_area_ratio <= 3.0
+        && frames_coherent
+        && result.particle_largest_component_fraction >= 0.98
+        && particle_satellite_fraction <= 0.02
+        && result.depth_p95_drop >= 0.025;
+    if (result.apparatus_passed && !result.quality_passed) {
+        if (result.maximum_speed > 10.0) {
+            result.first_failure = "speed";
+        } else if (result.vertical_com_drop < 0.075) {
+            result.first_failure = "vertical_motion";
+        } else if (result.front_advance < 0.10) {
+            result.first_failure = "front_advance";
+        } else if (result.wet_area_ratio < 1.05 || result.wet_area_ratio > 3.0) {
+            result.first_failure = "wet_area";
+        } else if (!frames_coherent) {
+            result.first_failure = "surface_topology";
+        } else if (result.particle_largest_component_fraction < 0.98
+            || particle_satellite_fraction > 0.02) {
+            result.first_failure = "particle_topology";
+        } else if (result.depth_p95_drop < 0.025) {
+            result.first_failure = "surface_settling";
+        }
+    }
+    if (!frame_prefix.empty()) {
+        result.montage_written = write_game_surface_montage(
+            frame_prefix + "-" + result.id + ".ppm", result.frames, box);
+    }
+    std::ostringstream root;
+    root << "nextengine.nonlocal.game-visual-lane.v1\n" << result.id << ':'
+         << result.executed << ':' << result.apparatus_passed << ':'
+         << result.quality_passed << ':' << result.completed_steps << ':'
+         << result.dynamic_samples << ':' << result.neighbor_capacity_per_sample
+         << ':' << result.maximum_directed_pairs << ':'
+         << result.maximum_degree << ':' << result.neighbor_id_bytes << ':'
+         << std::hexfloat << result.maximum_penetration << ':'
+         << result.maximum_contact_velocity_error << ':' << result.maximum_speed << ':'
+         << result.maximum_positive_compression << ':' << result.vertical_com_drop << ':'
+         << result.front_advance << ':' << result.wet_area_ratio << ':'
+         << result.depth_p95_drop << ':' << result.particle_components << ':'
+         << result.particle_satellites << ':'
+         << result.particle_largest_component_fraction << '\n'
+         << result.trace_root << '\n';
+    for (const GameSurfaceFrame& frame : result.frames) {
+        root << frame.root << '\n';
+    }
+    result.result_root = sha256_hex(root.str());
+    return result;
+}
+
+void append_game_surface_frame(
+    std::ostringstream& output,
+    const GameSurfaceFrame& frame) {
+    output << std::setprecision(17)
+           << "{\"valid\":" << (frame.valid ? "true" : "false")
+           << ",\"step\":" << frame.step << ",\"width\":" << frame.width
+           << ",\"height\":" << frame.height
+           << ",\"wet_pixels\":" << frame.wet_pixels
+           << ",\"material_components\":" << frame.material_components
+           << ",\"largest_component_fraction\":"
+           << frame.largest_component_fraction
+           << ",\"satellite_area_fraction\":" << frame.satellite_area_fraction
+           << ",\"depth_p50_m\":" << frame.depth_p50
+           << ",\"depth_p95_m\":" << frame.depth_p95
+           << ",\"minimum_depth_m\":" << frame.minimum_depth
+           << ",\"maximum_depth_m\":" << frame.maximum_depth
+           << ",\"frame_root\":\"" << frame.root << "\"}";
+}
+
+void append_game_visual_lane(
+    std::ostringstream& output,
+    const GameVisualLaneResult& lane) {
+    output << std::setprecision(17)
+           << "{\"id\":\"" << lane.id << "\",\"executed\":"
+           << (lane.executed ? "true" : "false")
+           << ",\"apparatus_passed\":"
+           << (lane.apparatus_passed ? "true" : "false")
+           << ",\"quality_passed\":"
+           << (lane.quality_passed ? "true" : "false")
+           << ",\"first_failure\":\"" << lane.first_failure << "\""
+           << ",\"requested_steps\":" << lane.requested_steps
+           << ",\"completed_steps\":" << lane.completed_steps
+           << ",\"dynamic_samples\":" << lane.dynamic_samples
+           << ",\"neighbor_capacity_per_sample\":"
+           << lane.neighbor_capacity_per_sample
+           << ",\"maximum_directed_pairs\":" << lane.maximum_directed_pairs
+           << ",\"maximum_degree\":" << lane.maximum_degree
+           << ",\"neighbor_id_bytes\":" << lane.neighbor_id_bytes
+           << ",\"maximum_penetration_m\":" << lane.maximum_penetration
+           << ",\"maximum_contact_velocity_error_m_s\":"
+           << lane.maximum_contact_velocity_error
+           << ",\"maximum_speed_m_s\":" << lane.maximum_speed
+           << ",\"maximum_positive_compression\":"
+           << lane.maximum_positive_compression
+           << ",\"vertical_com_drop_m\":" << lane.vertical_com_drop
+           << ",\"front_advance_m\":" << lane.front_advance
+           << ",\"wet_area_ratio\":" << lane.wet_area_ratio
+           << ",\"depth_p95_drop_m\":" << lane.depth_p95_drop
+           << ",\"particle_components\":" << lane.particle_components
+           << ",\"particle_satellites\":" << lane.particle_satellites
+           << ",\"particle_largest_component_fraction\":"
+           << lane.particle_largest_component_fraction
+           << ",\"trace_root\":\"" << lane.trace_root << "\""
+           << ",\"result_root\":\"" << lane.result_root << "\""
+           << ",\"montage_written\":"
+           << (lane.montage_written ? "true" : "false")
+           << ",\"gpu_timing\":";
+    if (lane.total_timings.empty()) {
+        output << "null";
+    } else {
+        const Statistics total = statistics(lane.total_timings);
+        const Statistics contact = statistics(lane.contact_timings);
+        output << "{\"total\":";
+        append_statistics(output, total);
+        output << ",\"analytic_contact\":";
+        append_statistics(output, contact);
+        output << '}';
+    }
+    output << ",\"frames\":[";
+    for (std::size_t index = 0; index < lane.frames.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        append_game_surface_frame(output, lane.frames[index]);
+    }
+    output << "]}";
+}
+
+} // namespace
+
+CommandReport run_cuda_game_visual_corpus(const std::string& frame_prefix) {
+    if (!game_frame_prefix_valid(frame_prefix)) {
+        throw std::invalid_argument("frame prefix contains unsupported characters");
+    }
+    const Profile& profile = find_profile("nuv-basin-48k-analytic-contact-game.v5");
+    const GameQualityBox box4k{
+        {0.0, 0.0, 0.0}, {2.0, 0.75, 1.0}, {40, 15, 20}};
+    const GameQualityBox box16k{
+        {0.0, 0.0, 0.0}, {4.0, 0.75, 2.0}, {80, 15, 40}};
+    const std::vector<Particle> control_particles = game_visual_particles(20, 20);
+    const GameVisualObserverControls controls =
+        game_visual_observer_controls(control_particles, box4k);
+    const bool controls_passed = controls.empty_rejected
+        && controls.nonfinite_rejected && controls.mask_mutation_changed_root
+        && controls.depth_mutation_changed_root;
+    GameVisualLaneResult lane4k = run_game_visual_lane(
+        profile, "falling-dam-4k", 20, 20, box4k, frame_prefix);
+    GameVisualLaneResult lane16k;
+    lane16k.id = "falling-dam-16k";
+    lane16k.first_failure = "NOT_RUN_4K_REJECTED";
+    if (controls_passed && lane4k.apparatus_passed && lane4k.quality_passed) {
+        lane16k = run_game_visual_lane(
+            profile, "falling-dam-16k", 40, 40, box16k, frame_prefix);
+    }
+    const bool apparatus_passed = controls_passed && lane4k.apparatus_passed
+        && (!lane16k.executed || lane16k.apparatus_passed);
+    const bool quality_passed = apparatus_passed && lane4k.quality_passed
+        && lane16k.quality_passed;
+    const char* semantic_status = !controls_passed ? "APPARATUS_INCONCLUSIVE"
+        : (!lane4k.apparatus_passed ? "APPARATUS_INCONCLUSIVE"
+            : (!lane4k.quality_passed ? "DYNAMIC_VISUAL_4K_REFUTED"
+                : (!lane16k.apparatus_passed ? "APPARATUS_INCONCLUSIVE"
+                    : (!lane16k.quality_passed ? "DYNAMIC_VISUAL_16K_REFUTED"
+                        : "ORIGINAL_GPU_DYNAMIC_VISUAL_SUPPORTED_BOUNDED"))));
+    std::ostringstream root;
+    root << "nextengine.nonlocal.game-visual-corpus.v1\n"
+         << controls.root << '\n' << lane4k.result_root << '\n'
+         << lane16k.result_root << '\n' << semantic_status << '\n';
+    const std::string result_root = sha256_hex(root.str());
+
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.cuda_game_visual_corpus.v1\""
+           << ",\"status\":\"" << (quality_passed ? "PASS" : "FAIL") << "\""
+           << ",\"semantic_status\":\"" << semantic_status << "\""
+           << ",\"apparatus_passed\":"
+           << (apparatus_passed ? "true" : "false")
+           << ",\"quality_passed\":" << (quality_passed ? "true" : "false")
+           << ",\"claim_ceiling\":\"finite_game_quality_tool_only\""
+           << ",\"backend_identity\":"
+              "\"fused-owner-terms-p1+compact-csr-u16-p2\""
+           << ",\"profile_id\":\"" << profile.id << "\""
+           << ",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(profile)) << "\""
+           << ",\"binary_sha256\":\"" << executable_hash() << "\""
+           << ",\"observer_timing_in_primary_gpu_step\":false"
+           << ",\"contact_timing_in_primary_gpu_step\":true"
+           << ",\"gates\":{\"maximum_speed_m_s\":10"
+           << ",\"minimum_vertical_com_drop_m\":0.075"
+           << ",\"minimum_front_advance_m\":0.10"
+           << ",\"wet_area_ratio_minimum\":1.05"
+           << ",\"wet_area_ratio_maximum\":3.0"
+           << ",\"minimum_largest_component_fraction\":0.98"
+           << ",\"maximum_satellite_fraction\":0.02"
+           << ",\"maximum_material_components\":4"
+           << ",\"minimum_depth_p95_drop_m\":0.025"
+           << ",\"maximum_penetration_m\":1e-12"
+           << ",\"maximum_contact_velocity_error_m_s\":1e-4}"
+           << ",\"observer_controls\":{\"passed\":"
+           << (controls_passed ? "true" : "false")
+           << ",\"empty_rejected\":"
+           << (controls.empty_rejected ? "true" : "false")
+           << ",\"nonfinite_rejected\":"
+           << (controls.nonfinite_rejected ? "true" : "false")
+           << ",\"mask_mutation_changed_root\":"
+           << (controls.mask_mutation_changed_root ? "true" : "false")
+           << ",\"depth_mutation_changed_root\":"
+           << (controls.depth_mutation_changed_root ? "true" : "false")
+           << ",\"root\":\"" << controls.root << "\"}"
+           << ",\"lanes\":[";
+    append_game_visual_lane(output, lane4k);
+    output << ',';
+    append_game_visual_lane(output, lane16k);
+    output << "]"
+           << ",\"result_root\":\"" << result_root << "\""
            << ",\"device\":" << device_json() << '}';
     return {quality_passed, output.str()};
 }

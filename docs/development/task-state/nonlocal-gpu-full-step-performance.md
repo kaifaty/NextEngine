@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / 48K GAME GPU CONTACT TIMING PASS / DYNAMIC VISUAL CORPUS NEXT` |
+| Status | `ACTIVE / 4K+16K DYNAMIC VISUAL PASS / 48K CAPACITY-160 TIMING NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -14,17 +14,18 @@
 - **Goal:** qualify a plausible game-water Nonlocal GPU step near 50,000
   particles against `p95 <= 4 ms`, `p99 <= 6 ms` on RTX 3080; laboratory
   fidelity to the later research solver is not required.
-- **Current boundary:** the selected five-iteration 48k H3 route with timed
-  analytic GPU box contact passes the bounded smoke and two performance
-  processes. Runtime/product readiness remains open because no long 4k/16k
-  dynamic visual trajectory has passed this exact route.
-- **First current risk:** a static ghost shell raises the solver population to
-  86,856, disables compact u16 neighbors and costs about `15--16 ms`. The
-  no-ghost analytic-contact route fits the budget, but must still demonstrate
-  acceptable moving free-surface behavior at a larger scale.
-- **Current action:** run the same GPU/contact implementation over a bounded
-  4k/16k release or dam trajectory with product-facing surface/topology gates.
-  Keep host observer work outside the primary CUDA timing distribution.
+- **Current boundary:** the selected five-iteration/no-ghost/analytic-contact
+  route passes the frozen 96-step 4k and 16k falling-dam visual corpus. The
+  first valid revision-1 run exposed degree `124` against capacity `123`;
+  revision 2 predeclared `160` and passed with maximum degree `138`.
+- **First current risk:** the existing 48k `3.80 ms` evidence used `N*123`
+  capacity and cannot be inherited by the visually admitted `N*160` route.
+  The 4k final raster also has a small `0.846%` satellite area, acceptable in
+  the frozen game band but worth watching in renderer smoothing/longer motion.
+- **Current action:** repeat the exact 48k/two-process performance campaign
+  with capacity 160 and unchanged five iterations/contact. If it still fits
+  `4/6 ms`, advance the accepted frames to presentation-only smoothing and
+  extraction; never feed the visual observer back into simulation.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -54,6 +55,8 @@
 - `docs/plans/nonlocal-gpu-full-step-performance/12-confined-pressure-contact-discriminator.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/13-unified-constrained-surface-viscosity-step.md`
 - `docs/plans/nonlocal-gpu-full-step-performance/14-pressure-qp-preconditioned-unified-step.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/15-original-gpu-dynamic-visual-corpus.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/16-original-gpu-dynamic-visual-capacity-corrigendum.md`
 - `docs/development/nonlocal-gpu-complete-4k-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-f64-corpus-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-invalid-physics-cost-evidence-2026-08-31.md`
@@ -64,6 +67,7 @@
 - `docs/development/nonlocal-gpu-unified-mutation-fixture-research-2026-09-01.md`
 - `docs/development/nonlocal-gpu-unified-solver-diagnosis-2026-09-01.md`
 - `docs/development/nonlocal-gpu-game-quality-evidence-2026-09-01.md`
+- `docs/development/nonlocal-gpu-dynamic-visual-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -897,6 +901,33 @@
 - **Reconsider when:** a dynamic 4k/16k visual trajectory leaks, fragments,
   grows energy visibly or shows that analytic contact alone is insufficient.
 
+### D-034 — Admit the dynamic visual route with bounded CSR headroom
+
+- **Observation:** NGQ2 revision 1 reached impact step 42 with a finite,
+  contained, connected state but required degree `124` against the exact
+  `123`-neighbor allocation. Revision 2 changed only dynamic-corpus capacity
+  to `160`; both 4k and 16k then completed 96 steps with maximum degree `138`.
+- **Evidence:** two processes have exact corpus result root `c2f1f6e7...`, 4k
+  trace/result `369ac07d...` / `18f48386...`, and 16k trace/result
+  `61c45089...` / `8e3e9f95...`. The 4k/16k front advances are
+  `0.604/0.645 m`, wet-area ratios `2.019/1.665`, particle topology is one
+  component with zero satellites, and final silhouette satellite areas are
+  `0.846%/0%`. Full hashes, timings and frame roots are in the linked dynamic
+  visual evidence report.
+- **Conclusion:** the original five-iteration GPU model is plausible stylized
+  water on this finite dynamic corpus. Its first scaling correction is memory
+  headroom, not a changed physical formula.
+- **Decision:** retain `N*160`, u16 neighbors, five iterations and analytic GPU
+  contact for the next performance measurement. Do not inherit the earlier
+  `N*123` 48k timing; rerun it. Presentation smoothing may follow only after
+  the revised capacity still meets the budget.
+- **Rejected:** classifying revision-1 capacity failure as bad physics,
+  increasing capacity repeatedly after results, changing quality thresholds,
+  or reintroducing the ghost shell.
+- **Reconsider when:** 48k capacity-160 exceeds `4/6 ms`, a longer visual
+  corpus exceeds the 2% satellite band, or renderer extraction exposes a
+  materially different visual failure.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -946,6 +977,7 @@
 | H17A | the original sub-4-ms GPU result was a stale or irreproducible artifact | falsified: exact historical source and roots reproduce in four complete 50k processes | retain as denominator only |
 | H17B | the original GPU dataflow remains a useful host for corrected work | plausible: compact CSR/fused traversal retain 50k headroom, but corrected pressure/contact work is absent | port only after CPU physical selection |
 | H17C | the original five-iteration GPU model is adequate for game-quality water | selected on the bounded smoke: hold/release/contact pass while sixteen iterations over-damp release | full-size timing plus timed GPU contact |
+| H17D | the fast route remains coherent on a moving 4k/16k visible surface | supported bounded after the one-time 123->160 capacity correction; both lanes pass, final satellite area 0.846%/0% | remeasure 48k with N*160, then presentation smoothing |
 
 ## Do not retry
 
@@ -958,11 +990,11 @@
 
 ## Next action
 
-1. Run a bounded 4k/16k dynamic release or dam trajectory with the same
-   five-iteration GPU/contact path and product-facing surface/topology gates.
-2. Keep observer work outside the primary CUDA distribution and report it
-   separately.
-3. If the dynamic corpus fails or later runtime integration exceeds the budget,
+1. Rerun the two-process 48k performance campaign with the visually required
+   `N*160` capacity; retain five iterations and analytic GPU contact.
+2. If `4/6 ms` still passes, add presentation-only smoothing/extraction over
+   the exact accepted 4k/16k frames, with observer work outside physics timing.
+3. If revised capacity or later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.
 4. Keep the NCGP16 CPU free-surface result as a diagnostic reference and
