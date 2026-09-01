@@ -78,5 +78,6 @@ The smallest next actions are:
    analytic controls, object/contact/remesh partitions and resource ceiling;
 2. freeze X0's exact internet-object identity and the precise axes it can
    claim without inference;
-3. execute T0 and X0 independently into external V3 manifests; stop before M0
-   if either record is invalid or insufficient.
+3. execute T0 and X0 into independent external lane records, then assemble one
+   combined V3 manifest; stop before M0 if either record is invalid or
+   insufficient.
