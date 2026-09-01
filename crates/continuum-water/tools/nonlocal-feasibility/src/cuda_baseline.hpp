@@ -117,6 +117,7 @@ CommandReport run_cuda_game_surface_stream(
     int steps,
     int every,
     int cycles,
+    int workers,
     std::ostream& frames);
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,

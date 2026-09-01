@@ -18,6 +18,7 @@
 #include <iomanip>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <numeric>
 #include <sstream>
 #include <stdexcept>
@@ -9605,16 +9606,23 @@ struct StreamExtractionJob {
     int step = 0;
     int cycle = 0;
     double physics_ms = 0.0;
+    std::uint64_t sequence = 0U;
 };
 
-/// Runs observer, edge-aware extraction and frame serialization on one
-/// worker thread so the solver keeps stepping. The single-slot mailbox
-/// applies back-pressure: a new frame waits until the previous one has been
-/// written, so frames are never reordered or dropped by this process.
+/// Runs observer, edge-aware extraction and frame serialization on a small
+/// pool of worker threads so the solver keeps stepping. Jobs carry a
+/// sequence number; finished frames are written strictly in sequence order
+/// by whichever worker completes the next expected frame, so parallelism
+/// never reorders or drops a frame. The bounded queue applies back-pressure
+/// to the solver thread.
 class StreamExtractor {
 public:
-    StreamExtractor(std::ostream& out, const GameQualityBox& box)
-        : out_(out), box_(box), worker_([this] { run(); }) {}
+    StreamExtractor(std::ostream& out, const GameQualityBox& box, unsigned workers)
+        : out_(out), box_(box), capacity_(std::max(1U, workers) * 2U) {
+        for (unsigned index = 0; index < std::max(1U, workers); ++index) {
+            workers_.emplace_back([this] { run(); });
+        }
+    }
 
     StreamExtractor(const StreamExtractor&) = delete;
     StreamExtractor& operator=(const StreamExtractor&) = delete;
@@ -9625,27 +9633,30 @@ public:
             stop_ = true;
         }
         condition_.notify_all();
-        if (worker_.joinable()) {
-            worker_.join();
+        for (std::thread& worker : workers_) {
+            if (worker.joinable()) {
+                worker.join();
+            }
         }
     }
 
     bool submit(StreamExtractionJob job) {
         std::unique_lock<std::mutex> lock(mutex_);
-        condition_.wait(lock, [this] { return !job_.has_value() || !failure_.empty(); });
+        condition_.wait(lock, [this] { return queue_.size() < capacity_ || !failure_.empty(); });
         if (!failure_.empty()) {
             return false;
         }
-        job_ = std::move(job);
+        job.sequence = next_sequence_++;
+        queue_.push_back(std::move(job));
         lock.unlock();
         condition_.notify_all();
         return true;
     }
 
-    /// Waits until the mailbox is empty and the worker is idle.
+    /// Waits until every submitted frame has been written.
     bool drain() {
         std::unique_lock<std::mutex> lock(mutex_);
-        condition_.wait(lock, [this] { return (!job_.has_value() && !busy_) || !failure_.empty(); });
+        condition_.wait(lock, [this] { return next_write_ == next_sequence_ || !failure_.empty(); });
         return failure_.empty();
     }
 
@@ -9674,19 +9685,22 @@ public:
         return frame_wall_max_ms_;
     }
 
+    std::size_t worker_count() const {
+        return workers_.size();
+    }
+
 private:
     void run() {
         while (true) {
             StreamExtractionJob job;
             {
                 std::unique_lock<std::mutex> lock(mutex_);
-                condition_.wait(lock, [this] { return job_.has_value() || stop_; });
-                if (!job_.has_value()) {
+                condition_.wait(lock, [this] { return !queue_.empty() || stop_; });
+                if (queue_.empty()) {
                     return;
                 }
-                job = std::move(*job_);
-                job_.reset();
-                busy_ = true;
+                job = std::move(queue_.front());
+                queue_.erase(queue_.begin());
             }
             condition_.notify_all();
             const auto frame_begin = std::chrono::steady_clock::now();
@@ -9695,6 +9709,7 @@ private:
                 std::chrono::steady_clock::now() - frame_begin).count();
             std::string failure;
             double extraction_ms = 0.0;
+            std::ostringstream serialized;
             if (!raw.valid) {
                 failure = "surface_observer";
             } else {
@@ -9704,24 +9719,44 @@ private:
                 if (!frame.valid) {
                     failure = "surface_extraction";
                 } else if (!write_presentation_surface_stream_frame(
-                               out_, frame, box_, job.cycle,
+                               serialized, frame, box_, job.cycle,
                                static_cast<double>(job.step) * GAME_TIME_STEP,
                                job.physics_ms)) {
-                    failure = "stream_closed";
+                    failure = "surface_serialization";
                 }
             }
             const double frame_wall_ms = std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - frame_begin).count();
             {
-                std::lock_guard<std::mutex> lock(mutex_);
-                busy_ = false;
+                std::unique_lock<std::mutex> lock(mutex_);
                 observer_total_ms_ += observer_ms;
                 extraction_total_ms_ += extraction_ms;
                 frame_wall_max_ms_ = std::max(frame_wall_max_ms_, frame_wall_ms);
-                if (failure.empty()) {
-                    ++frames_written_;
-                } else if (failure_.empty()) {
-                    failure_ = failure;
+                if (!failure.empty()) {
+                    if (failure_.empty()) {
+                        failure_ = failure;
+                    }
+                } else {
+                    finished_.emplace(job.sequence, serialized.str());
+                    // Flush every frame that is now contiguous with the
+                    // write cursor; the writer holds the lock, so frames
+                    // reach stdout strictly in sequence order.
+                    while (failure_.empty()) {
+                        const auto next = finished_.find(next_write_);
+                        if (next == finished_.end()) {
+                            break;
+                        }
+                        out_.write(next->second.data(),
+                            static_cast<std::streamsize>(next->second.size()));
+                        out_.flush();
+                        finished_.erase(next);
+                        if (!out_) {
+                            failure_ = "stream_closed";
+                            break;
+                        }
+                        ++frames_written_;
+                        ++next_write_;
+                    }
                 }
             }
             condition_.notify_all();
@@ -9730,17 +9765,20 @@ private:
 
     std::ostream& out_;
     GameQualityBox box_;
+    std::size_t capacity_;
     mutable std::mutex mutex_;
     std::condition_variable condition_;
-    std::optional<StreamExtractionJob> job_;
-    bool busy_ = false;
+    std::vector<StreamExtractionJob> queue_;
+    std::map<std::uint64_t, std::string> finished_;
+    std::uint64_t next_sequence_ = 0U;
+    std::uint64_t next_write_ = 0U;
     bool stop_ = false;
     std::string failure_;
     std::uint64_t frames_written_ = 0U;
     double observer_total_ms_ = 0.0;
     double extraction_total_ms_ = 0.0;
     double frame_wall_max_ms_ = 0.0;
-    std::thread worker_;
+    std::vector<std::thread> workers_;
 };
 
 } // namespace
@@ -9750,10 +9788,12 @@ CommandReport run_cuda_game_surface_stream(
     int steps,
     int every,
     int cycles,
+    int workers,
     std::ostream& frames) {
     if (steps < 1 || steps > 100000 || every < 1 || every > steps || cycles < 0
-        || cycles > 1000000) {
-        throw std::invalid_argument("stream steps/every/cycles are outside the bounded range");
+        || cycles > 1000000 || workers < 1 || workers > 16) {
+        throw std::invalid_argument(
+            "stream steps/every/cycles/workers are outside the bounded range");
     }
     const Profile& profile =
         find_profile("nuv-basin-48k-analytic-contact-game-cap160.v6");
@@ -9782,7 +9822,7 @@ CommandReport run_cuda_game_surface_stream(
     std::size_t dynamic_samples = 0U;
     std::string first_failure;
     const auto stream_begin = std::chrono::steady_clock::now();
-    StreamExtractor extractor(frames, box);
+    StreamExtractor extractor(frames, box, static_cast<unsigned>(workers));
     for (int cycle = 0; (cycles == 0 || cycle < cycles) && first_failure.empty();
          ++cycle) {
         std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z);
@@ -9913,6 +9953,7 @@ CommandReport run_cuda_game_surface_stream(
            << ",\"dynamic_samples\":" << dynamic_samples
            << ",\"requested_steps\":" << steps
            << ",\"frame_every_steps\":" << every
+           << ",\"extraction_workers\":" << extractor.worker_count()
            << ",\"requested_cycles\":" << cycles
            << ",\"completed_cycles\":" << completed_cycles
            << ",\"completed_steps\":" << completed_steps

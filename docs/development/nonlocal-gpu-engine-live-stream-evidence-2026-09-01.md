@@ -143,6 +143,63 @@ frame count.
 - Dam restarts are visible as a hard cut when `--stream-cycles 0` wraps; that
   is the tool's loop, not a solver event.
 
+## Ordered extraction workers (same day, follow-up)
+
+The stream process now runs observer, extraction and serialization on a
+bounded pool of worker threads (`--workers`, default `3`). Jobs carry a
+sequence number and finished frames are flushed strictly in sequence by the
+worker that completes the next expected frame, so parallelism never reorders
+or drops a frame; the queue is bounded at two jobs per worker and applies
+back-pressure to the solver thread. The frozen extraction algorithm is
+untouched: the streamed geometry of the 16k lane is byte-identical for one,
+three and four workers after excluding the two per-frame timing fields.
+
+Standalone 16k trials (`480` steps, every `8`, frames to a file):
+
+| Workers | wall per step | note |
+| ---: | ---: | --- |
+| `1` | `7.05 ms` | extractor-bound |
+| `2` | `3.53 ms` | inside the `4.17 ms` step budget |
+| `3` | `2.45 ms` | selected default |
+| `4` | `1.88 ms` | solver-bound (`1.79 ms` execute wall) |
+
+Raw trial summaries: `f33f81ad...`, `0b200e09...`, `ea98eb44...`,
+`beb37598...`. The engine side additionally assigns the update sequence on
+the converter thread, so the render thread publishes without cloning the
+payload.
+
+Live Release runs with workers (900 rendered frames each):
+
+| Metric | 16k every 8, 3 workers | 16k every 4, 4 workers | 4k every 4, 2 workers |
+| --- | ---: | ---: | ---: |
+| surface cadence | `30 Hz` | `60 Hz` | `60 Hz` |
+| frames received / published / skipped | `172 / 169 / 2` | `341 / 336 / 4` | `341 / 336 / 4` |
+| real-time ratio | `0.996` | `0.997` | `0.999` |
+| solver steps completed before close | `1,552` | `1,464` | `1,448` |
+| ring refreshes / copied bytes | `338 / 806,112,344` | `670 / 1,601,808,152` | `672 / 415,143,944` |
+| render critical p95 / p99 / max | `924 / 1,102 / 1,671 us` | `985 / 1,111 / 2,229 us` | `329 / 473 / 1,050 us` |
+| refresh-frame upload p95 / max | `950 / 1,601 us` | `914 / 2,087 us` | `265 / 453 us` |
+| frame-source p95 | `251 us` | `250 us` | `67 us` |
+| extraction per frame p95 | `27.6 ms` | `26.8 ms` | `6.5 ms` |
+| dropped timing samples | `0` | `0` | `0` |
+
+Raw JSON SHA-256: `4dc98c95...` (16k every 8), `86db22b5...` (16k every 4),
+`bfcf2cef...` (4k every 4). Sources after the follow-up:
+
+```text
+extractor cuda_baseline.cu      57a7ff0e7a077625c6ac646fb7f48bcb1d3496c9311a446021bc5856a107eef8
+extractor cuda_baseline.hpp     577dff55e573ce28062db14f72cc669d1e338412a9625e9dd4d7760b21c90422
+extractor main.cpp              bd2adced60137dc947cc38963b0dac9adf81a008d34051fd74d89e24cfcffec4
+extractor binary                0364f7cbd08178754b5836f895b32a4a991b7e94b647f3aa3ec5071c65a3c7d3
+xtask water_preview.rs          e87ff42003d0ab35ca08788bafe2c7d67edaf726d37ad9e28a9f71ac8705cce2
+release xtask                   17c9ade1d1633d57634a6cf8fdf7c86f7ceb45f068d8946d8cc5bf3d5b1387cc
+```
+
+Both lanes are now real time at a 60 Hz surface on this host. The remaining
+render-side cost at 16k is the host-visible ring (`~0.9 ms` refresh, host
+vertex fetch), which the device-local ring addresses next; GPU extraction
+remains the path that removes the CPU extractor entirely.
+
 ## Checks
 
 - `cargo test -p xtask water_` without and with `desktop-sdl-ash`: PASS
@@ -150,13 +207,16 @@ frame count.
 - `cargo clippy -p xtask --all-targets` for both feature sets: clean;
 - `cargo fmt --check -p xtask`: PASS;
 - extractor Release build: PASS; standalone 4k/16k stream trials: PASS;
-- three live Release runs: PASS, one dynamic draw per frame, `0` dropped
-  timing samples, child summaries captured after `stream_closed`;
+- three live Release runs before and three after the worker follow-up: PASS,
+  one dynamic draw per frame, `0` dropped timing samples, child summaries
+  captured after `stream_closed`;
+- worker-count sweep: streamed 16k geometry byte-identical for 1/3/4 workers;
 - `git diff --check`: PASS;
 - desktop adapter unchanged since its `platform`/`host-check` PASS;
 - screenshot/capture: `NOT_RUN`; the backend still has no readback path.
 
-Decision: retain the two-process stream as the developer path to watch the
-Nonlocal solver live in the engine. Next raise 16k to real time with ordered
-extraction workers or GPU extraction, and move the ring to device-local
-memory; both are presentation-only and keep the solver boundary unchanged.
+Decision: retain the two-process stream with ordered extraction workers as
+the developer path to watch the Nonlocal solver live in the engine at 60 Hz
+for both lanes. Next move the ring to device-local memory, then port
+extraction to the GPU; both are presentation-only and keep the solver
+boundary unchanged.

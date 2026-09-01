@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ENGINE VULKAN LIVE STREAM PASS (4K REAL TIME) / 16K EXTRACTION NEXT` |
+| Status | `ACTIVE / ENGINE VULKAN LIVE STREAM PASS (4K+16K REAL TIME 60 HZ) / DEVICE-LOCAL RING NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -19,17 +19,19 @@
   `nonlocal-feasibility --game-surface-stream` steps one persistent advected
   device state and streams the NGQ5 surface of every K-th step;
   `xtask water-preview --stream-binary` validates, converts and paces the
-  frames into the D-039 dynamic surface ring. The 4k lane is real time
-  (`0.999`) with a 60 Hz surface; 16k is real time at 15 Hz and `0.53x` at
-  30 Hz. One catalog/snapshot/frame plan per run, `0` dropped samples.
-- **First current risk:** 16k is bounded by the single-thread CPU reference
-  extractor (`~41 ms` per frame, observer plus bilateral), not by physics
-  (`2.0 ms` per step) or raster (`<1 ms`). The stream lane keeps float state
-  on the device and audits diagnostics every 60 frames, so it does not
-  reproduce the accepted corpus roots and must not be cited as such.
-- **Current action:** raise 16k to real time with ordered extraction workers
-  or GPU extraction, then move the ring to device-local memory; keep every
-  step presentation-only and one-directional across the process boundary.
+  frames into the D-039 dynamic surface ring. With ordered extraction
+  workers both lanes are real time at a 60 Hz surface (4k `0.999` with two
+  workers, 16k `0.997` with four; 16k at 30 Hz `0.996` with three). One
+  catalog/snapshot/frame plan per run, `0` dropped samples.
+- **First current risk:** the 16k render path costs `~0.9 ms` per refresh
+  in the host-visible ring plus host vertex fetch (critical p95 `~0.9--1.0
+  ms`), and the CPU extractor still burns three to four cores. The stream
+  lane keeps float state on the device and audits diagnostics every 60
+  frames, so it does not reproduce the accepted corpus roots and must not be
+  cited as such.
+- **Current action:** move the ring to device-local memory (staging copy or
+  compute-written), then port extraction to GPU compute; keep every step
+  presentation-only and one-directional across the process boundary.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -1102,6 +1104,28 @@
   16k gap survives parallel extraction, or the stream must carry particle
   data for effects.
 
+### D-041 — Close the 16k live gap with ordered extraction workers
+
+- **Observation:** the 16k stream was extractor-bound (`7.05 ms` per step
+  with one worker against a `4.17 ms` budget) while execute wall was
+  `1.79 ms`. A bounded worker pool with sequence-ordered flushing gives
+  `3.53 / 2.45 / 1.88 ms` per step for two, three and four workers, and the
+  streamed geometry is byte-identical across worker counts.
+- **Evidence:** live runs of 900 frames: 16k every 8 with three workers
+  `0.996`, 16k every 4 with four workers `0.997`, 4k every 4 with two workers
+  `0.999`; render critical p95 `924 / 985 / 329 us`; frame-source p95 fell
+  from `1,077` to `251 us` for 16k after the converter assigns sequences and
+  the render thread stops cloning. Raw JSON `4dc98c95.../86db22b5.../bfcf2cef...`.
+- **Conclusion:** the frozen CPU extractor is sufficient for live 16k on
+  this host when parallelized; no algorithm change was needed.
+- **Decision:** default to three workers; keep GPU extraction as the way to
+  free the CPU cores rather than as a real-time prerequisite. Next is the
+  device-local ring.
+- **Rejected:** changing the extraction algorithm for speed, dropping frames
+  inside the solver process, and unordered output.
+- **Reconsider when:** a host with fewer cores cannot keep three workers, or
+  a larger lane exceeds the pool.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1161,6 +1185,7 @@
 | HG6C | a host-visible ring is sufficient for live 16k surface refresh | not selected: refresh p95 `~0.47 ms` plus host vertex fetch exceed the static 16k raster path | device-local staging/compute-written ring |
 | HG6D | the live solver can feed the renderer in real time across a process boundary | selected bounded: 4k `0.999` real time at 60 Hz surface; 16k `0.994` at 15 Hz, `0.53` at 30 Hz | ordered extraction workers / GPU extraction |
 | HG6E | per-step solver reconstruction, not physics, dominated live stepping | selected: `29.8 -> 4.15 ms` per 4k step with a persistent advected solver, light download and threaded extraction | none; keep persistent state |
+| HG6F | the frozen CPU extractor parallelizes to real-time 16k without algorithm change | selected bounded: `2.45 ms` per step with three ordered workers, geometry byte-identical | device-local ring, then GPU extraction |
 
 ## Do not retry
 
@@ -1173,13 +1198,12 @@
 
 ## Next action
 
-1. Bring the 16k live lane to real time at a 30 Hz surface: two to three
-   ordered extraction workers in the stream process, or the GPU port of the
-   frozen close/bilateral extraction with smooth normals; measure per-frame
-   extraction separately from physics and raster.
-2. Move the declared dynamic surface ring to device-local memory (staging
+1. Move the declared dynamic surface ring to device-local memory (staging
    copy or compute-written) and re-measure the 16k refresh through the
    `dynamic_surface_upload` phase; keep the host-visible result as control.
+2. Port the frozen close/bilateral extraction with smooth normals to GPU
+   compute to free the three to four CPU cores the live stream now uses;
+   measure per-frame extraction separately from physics and raster.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.
