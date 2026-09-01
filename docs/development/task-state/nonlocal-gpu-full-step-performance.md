@@ -567,7 +567,7 @@
   splitting artefacts as the motivation for its unified objective. DFSPH is a
   useful conventional predictor/projection comparator, not authority to rename
   an operator-split successor as the corrected Nonlocal method.
-- **Decision:** freeze NCGP15 Revision 1 before code. Minimize the exact
+- **Decision:** freeze NCGP15 Revision 2 before code. Minimize the exact
   inertia + corrected normal-viscosity + corrected surface objective subject
   to unilateral corrected-density and analytic box constraints. Use a
   deterministic long-double PHR solve, exact corrected coefficients, explicit
@@ -575,7 +575,7 @@
   full-term steps. All term masks, manufactured boundary/gravity modes, work
   caps, gates and roots are fixed before execution.
 - **Evidence identity:** contract SHA-256
-  `d28e73fbb9c4bb3e630df28e7ac67e53cc315e404750171b99ae31a108d40ada`;
+  `edce0d46d8ea1772e7c5ee6d5af21a46b27d5ebc623471cbfaf530032c5b6cf6`;
   immutable parent result root
   `54c89f7a0bd4fd13920db325a2b401591cd8cfca3690fc694440d28b42f54221`.
 - **Rejected:** restoring the finite penalty, adding surface/viscosity as

@@ -1,6 +1,6 @@
 # NCGP15 — Unified constrained surface/viscosity step discriminator
 
-Status: `FROZEN_REVISION_1 / CPU_LONG_DOUBLE / IMPLEMENTATION_AUTHORIZED`
+Status: `FROZEN_REVISION_2 / CPU_LONG_DOUBLE / IMPLEMENTATION_AUTHORIZED`
 
 Date: `2026-09-01`
 
@@ -321,6 +321,16 @@ invalid rather than silently selecting a one-sided derivative.
 
 ## Solver and physical gates
 
+All vector metrics use these exact definitions. For ordered 3-vectors
+`z_i`, `rms_vec(z)=sqrt(sum_i |z_i|^2/N)` and
+`max_vec(z)=max_i |z_i|`. For ordered scalars, RMS has the analogous `N`
+denominator. A relative L2 comparison is `||candidate-oracle||_2 /
+||oracle||_2`; the oracle norm must be finite and strictly positive or the
+comparison is apparatus-invalid. Positive density strain means
+`s_i=max(rho_i/rho0-1,0)`, with maximum `max_i s_i` and RMS
+`sqrt(sum_i s_i^2/N)`. An active multiplier is exactly `pi_i>0`; no hidden
+epsilon or pressure threshold is allowed.
+
 For final `y,pi`, recompute all values from scratch. Let
 
 ```text
@@ -333,7 +343,7 @@ The solver gate is:
 - finite objective, gradient, multipliers, state and observables;
 - exact `pi_i>=0`;
 - maximum/RMS positive density strain `<=1e-3 / 2.5e-4`;
-- RMS/max `d_kkt` magnitude `<=1 um / 5 um`;
+- `rms_vec(d_kkt)<=1 um` and `max_vec(d_kkt)<=5 um`;
 - `max_i |pi_i*c_i| / max(1 J,max_i pi_i) <=1e-8`;
 - multiplier fixed-point relative L2
   `||max(0,pi+beta*c)-pi||_2/max(||pi||_2,1 J) <=1e-8`;
@@ -389,7 +399,8 @@ R_E(k) = max(E_k-E_0,0)/max(abs(E_0),1 J).
 
 The momentum gate is `max_k R_P(k)<=0.01`; the energy gate is
 `max_k R_E(k)<=0.01`. Internal dynamic/dynamic pressure, viscosity and surface
-forces are reduced separately and must each close to normalized `1e-12`; they
+forces are reduced separately. For each term with endpoint force records
+`f_i`, its closure is `||sum_i f_i||_2/max(sum_i ||f_i||_2,1 N)<=1e-12`; they
 are not inserted as external corrections. `F_ghost` is the pressure force on
 dynamic particles from only dynamic/fixed-ghost density pairs; equivalently it
 is the opposite of the virtual force on those fixed ghosts. It uses the
@@ -453,7 +464,8 @@ ratio.
    `surface-attractive-pair` at `1.7*r0`, zero gravity/pressure/contact.
    Compare the converged scalar separation with a separately written
    bracketed one-dimensional long-double root to `<=5 um`; center of mass is
-   invariant to `<=1e-12` normalized.
+   invariant under
+   `||COM_new-COM_old||/max(spacing,1e-30 m)<=1e-12`.
 5. Repeat both surface pairs after translations `(0.75,0.75,0.75) m` and
    `(100000,100000,100000) m`. The base pair is first canonicalized through
    binary32, widened to `long double`, and only then translated; the translated
@@ -467,7 +479,9 @@ ratio.
    exact and the KKT gates pass.
 7. Run 32 steps of the retained pressure-inactive surface tetrahedron at zero
    gravity. Corrected surface energy plus kinetic energy may not increase by
-   more than relative `1e-8`; positive excess above `1e-10 J` fails. A separate
+   more than
+   `max_k max(E_k-E_0,0)/max(abs(E_0),1 J)<=1e-8`; positive excess above
+   `1e-10 J` also fails. A separate
    inviscid reversible-energy control runs 16 forward steps, keeps the final
    positions, negates every final velocity and runs 16 more steps from that
    time-reversed state. Its complete-energy drift, normalized by the initial
