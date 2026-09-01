@@ -3,11 +3,12 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-01` |
-| Status | `ADOPTED / V21_F1A_RESOURCE_REJECT / QUALITY_UNOBSERVED / P1R_FROZEN / E1R_IMPLEMENTATION_NEXT / FRESH_VALUES_SEALED / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / RUNTIME_NOT_AUTHORIZED` |
+| Status | `SUPERSEDED_BY_V23 / F1R_SINGLE_RUN_IMPLEMENTATION_REJECT / NO_ARTIFACT / QUALITY_UNOBSERVED / TEST_INTEGRATION_NOT_RUN / FAMILY_CLOSED / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V21](physical-sound-synthesis-roadmap-v21.md), closed before artifact publication by its F1a 30-minute resource gate |
 | Evidence basis | [F1a result](../development/physical-sound-v21-f1a-continuous-field-result-2026-09-01.md), [P1a](../development/physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [F0 conformance audit](../development/physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [P0d](../development/physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md) and [M0b result](../development/physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed` |
 | Mandatory fallback | Existing authored/recorded clip for every reject, OOD, absent source, unsupported material or tooling failure |
+| Successor | [Roadmap V23](physical-sound-synthesis-roadmap-v23.md), genuinely smaller closed-form learned field on fresh identities |
 
 ## Outcome sought
 
@@ -96,8 +97,8 @@ as capability evidence from this planning document.
 | R0 | V21 resource attribution | `COMPLETE / NO_QUALITY_OBSERVED` | [F1a result](../development/physical-sound-v21-f1a-continuous-field-result-2026-09-01.md) records the single resource reject, absent outputs, spent roles and elapsed-time attribution. |
 | P1r | Execution-equivalent successor protocol | `COMPLETE / FROZEN_BEFORE_VALUES` | [P1r](../development/physical-sound-v22-p1r-resource-bounded-continuous-field-protocol-2026-09-01.md) freezes fresh roots, a `5e-12` metadata-only equivalence fixture, batched computation and unchanged P1a science/gates. |
 | E1r | Batched runner and metadata/equivalence tests | `NEXT / VALUES_SEALED` | Focused tests prove identity guards, sealed roles, resource accounting and reference/batched forward-loss-gradient agreement; implementation is committed before fresh values. |
-| F1r | Train/development tournament | `BLOCKED_BY_E1R` | Two independent runs finish under every resource ceiling, emit byte-identical nine-file trees and select one candidate passing every unchanged P1a development gate. Any resource or quality reject closes the family before test. |
-| P1b | One-shot test freeze | `BLOCKED_BY_F1R` | Freeze winner/model/tree identities and unchanged test gates while `2401…2412` values remain unopened. |
+| F1r | Train/development tournament | `SINGLE_RUN_IMPLEMENTATION_REJECT / NO_ARTIFACT / QUALITY_UNOBSERVED` | [Run A](../development/physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md) failed on missing `validate_request` export before publication; run B not started and `2201…2312` are spent. |
+| P1b | One-shot test freeze | `NOT_AUTHORIZED / V22_CLOSED` | No winner/tree exists; `2401…2512` remained unopened and is not inherited. |
 | F1b | One-shot capability | `BLOCKED_BY_P1B` | Two executions on fresh test pass every unchanged hard, quality, remesh, corruption, resource and byte-exact gate. Reject closes the family. |
 | P1c | Reintegration freeze | `BLOCKED_BY_F1B_AND_P0D` | Freeze exact B0+C0+winner identities, `2501…2512`, corrected counterfactual owners and M0b gates. |
 | I2 | Phase-consistent reintegration | `BLOCKED_BY_P1C` | Two byte-identical runs pass hard, physical, remesh, acoustic, counterfactual, access and resource gates. |
@@ -112,12 +113,11 @@ as capability evidence from this planning document.
 1. Commit this roadmap and the V21 resource-reject evidence.
 2. Freeze P1r, row roots and equivalence contract before generating any V22
    mesh or truth value.
-3. Implement batching/precomputation plus metadata-only/equivalence tests and
-   commit that boundary.
-4. Run F1r A/B on train/development only. Close the continuous family on any
-   resource, reproducibility or quality reject; do not optimize from values.
-5. On pass only, freeze P1b and run the one-shot test twice; then freeze P1c
-   and run reintegration twice.
+3. Preserve the committed E1r implementation and [single-run reject](../development/physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md);
+   do not repair/replay its spent roles or infer quality.
+4. Continue through [V23](physical-sound-synthesis-roadmap-v23.md), which uses a
+   genuinely smaller closed-form family and full evaluator API smoke on fresh bands.
+5. Freeze one-shot test/reintegration only after V23 F2a passes all gates twice.
 6. Continue internet-source growth independently. Do not open real generator,
    validator, holdout or protected roles before their immutable certificates.
 7. Bake and demonstrate only after one protected Metal `Pass`; authored clips
