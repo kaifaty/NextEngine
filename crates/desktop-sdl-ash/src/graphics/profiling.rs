@@ -11,6 +11,8 @@ pub(super) struct CpuFramePhaseTimings {
     pub(super) image_acquire_wait_microseconds: u64,
     pub(super) swapchain_image_wait_microseconds: u64,
     pub(super) frame_plan_microseconds: u64,
+    pub(super) dynamic_surface_upload_microseconds: u64,
+    pub(super) dynamic_surface_uploads: u64,
     pub(super) command_record_microseconds: u64,
     pub(super) queue_submit_microseconds: u64,
 }
@@ -135,6 +137,10 @@ impl VulkanFrameProfiler {
                         .phases
                         .swapchain_image_wait_microseconds,
                     frame_plan_microseconds: pending.phases.frame_plan_microseconds,
+                    dynamic_surface_upload_microseconds: pending
+                        .phases
+                        .dynamic_surface_upload_microseconds,
+                    dynamic_surface_uploads: pending.phases.dynamic_surface_uploads,
                     command_record_microseconds: pending.phases.command_record_microseconds,
                     queue_submit_microseconds: pending.phases.queue_submit_microseconds,
                     present_wait_microseconds,

@@ -16,11 +16,13 @@ use next_contracts::platform::{
     NormalizedControlPhaseV1, PlatformCapabilitySetV1, PlatformEventKindV1, PlatformEventV1,
 };
 use next_contracts::presentation::PresentationSnapshotV3;
+use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::render_content::RenderContentCatalogV1;
 use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::{Mod, Scancode};
 use sdl3::video::Window;
 
+mod dynamic_surface;
 mod error;
 mod prepared_run;
 mod run_state;
@@ -28,7 +30,13 @@ mod run_state;
 pub mod audio_output;
 
 pub use audio_output::DesktopAudioOutputV1;
+use dynamic_surface::DynamicSurfaceState;
+pub use dynamic_surface::{
+    DesktopFramePublicationV1, DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1,
+    MAX_DYNAMIC_SURFACE_INDICES, MAX_DYNAMIC_SURFACE_VERTICES, MAX_DYNAMIC_SURFACES,
+};
 pub use error::DesktopAdapterError;
+pub use graphics::FRAME_SLOT_COUNT as DESKTOP_FRAME_SLOT_COUNT;
 pub use prepared_run::{DesktopRunMeasurement, PreparedDesktopRun, prepare_interactive};
 use run_state::{AdapterFinalizer, InteractivePacingClock, apply_software_pacing};
 pub use run_state::{
@@ -175,14 +183,47 @@ pub fn run_interactive_with_shared_timed_frame_source_audio_and_finalize(
     snapshot: Arc<PresentationSnapshotV3>,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
+    mut frame_source: impl FnMut(
+        &[PlatformEventV1],
+        Duration,
+        &mut DesktopAudioOutputV1,
+    )
+        -> Result<Option<Arc<PresentationSnapshotV3>>, DesktopAdapterError>,
+    finalize_application: impl FnMut() -> DesktopApplicationFinalization,
+) -> Result<DesktopRunReport, DesktopAdapterError> {
+    prepared_run::run_interactive_with_shared_frame_publication_and_finalize(
+        snapshot,
+        render_content_catalog,
+        options,
+        |events, elapsed, audio| {
+            frame_source(events, elapsed, audio).map(DesktopFramePublicationV1::snapshot_only)
+        },
+        finalize_application,
+    )
+}
+
+/// Publication-aware shared-snapshot variant: the frame source may replace the
+/// immutable snapshot and, independently, publish immutable vertex/index
+/// updates for dynamic surfaces declared in
+/// [`DesktopRunOptions::dynamic_surfaces`].
+///
+/// Dynamic surface updates are renderer caches for one exact catalog mesh
+/// revision. They never rebuild the render-content catalog, never change a
+/// snapshot, frame-plan or gameplay root, and are rejected before use when
+/// undeclared, over capacity, outside the declared mesh bounds or when their
+/// sequence regresses.
+pub fn run_interactive_with_shared_frame_publication_and_finalize(
+    snapshot: Arc<PresentationSnapshotV3>,
+    render_content_catalog: &RenderContentCatalogV1,
+    options: &DesktopRunOptions,
     frame_source: impl FnMut(
         &[PlatformEventV1],
         Duration,
         &mut DesktopAudioOutputV1,
-    ) -> Result<Option<Arc<PresentationSnapshotV3>>, DesktopAdapterError>,
+    ) -> Result<DesktopFramePublicationV1, DesktopAdapterError>,
     finalize_application: impl FnMut() -> DesktopApplicationFinalization,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
-    prepared_run::run_interactive_with_shared_timed_frame_source_audio_and_finalize(
+    prepared_run::run_interactive_with_shared_frame_publication_and_finalize(
         snapshot,
         render_content_catalog,
         options,
@@ -219,22 +260,33 @@ pub fn validate_presentation_snapshot_transition(
 
 fn apply_frame_source_result(
     current_snapshot: &RefCell<Arc<PresentationSnapshotV3>>,
+    dynamic_surfaces: &RefCell<DynamicSurfaceState>,
     frame_source: &mut impl FnMut(
         &[PlatformEventV1],
         Duration,
         &mut DesktopAudioOutputV1,
-    )
-        -> Result<Option<Arc<PresentationSnapshotV3>>, DesktopAdapterError>,
+    ) -> Result<DesktopFramePublicationV1, DesktopAdapterError>,
     events: &[PlatformEventV1],
     elapsed: Duration,
     audio: &mut DesktopAudioOutputV1,
 ) -> Result<(), DesktopAdapterError> {
-    if let Some(next_snapshot) = frame_source(events, elapsed, audio)? {
+    let publication = frame_source(events, elapsed, audio)?;
+    if let Some(next_snapshot) = publication.snapshot {
         validate_presentation_snapshot_transition(
             current_snapshot.borrow().as_ref(),
             next_snapshot.as_ref(),
         )?;
         *current_snapshot.borrow_mut() = next_snapshot;
+    }
+    // Every update is validated before any is exposed; a rejected batch
+    // leaves the prior complete dynamic state untouched.
+    if !publication.dynamic_surface_updates.is_empty() {
+        let mut state = dynamic_surfaces.borrow_mut();
+        let mut staged = state.stage();
+        for update in publication.dynamic_surface_updates {
+            staged.publish(update)?;
+        }
+        state.commit(staged);
     }
     Ok(())
 }

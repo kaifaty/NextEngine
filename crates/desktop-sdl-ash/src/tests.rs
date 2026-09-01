@@ -348,15 +348,19 @@ fn shared_frame_source_transfers_the_exact_immutable_projection() {
     let current = Arc::new(test_snapshot(1, 4, 7, 10));
     let next = Arc::new(test_snapshot(1, 5, 8, 10));
     let current_slot = RefCell::new(current);
+    let dynamic_surfaces = RefCell::new(DynamicSurfaceState::empty());
     let published = Arc::clone(&next);
     let mut frame_source =
         move |_: &[PlatformEventV1], _: Duration, _: &mut crate::DesktopAudioOutputV1| {
-            Ok::<_, DesktopAdapterError>(Some(Arc::clone(&published)))
+            Ok::<_, DesktopAdapterError>(DesktopFramePublicationV1::snapshot_only(Some(
+                Arc::clone(&published),
+            )))
         };
 
     let mut audio = crate::DesktopAudioOutputV1::disabled();
     apply_frame_source_result(
         &current_slot,
+        &dynamic_surfaces,
         &mut frame_source,
         &[],
         Duration::ZERO,
@@ -365,6 +369,56 @@ fn shared_frame_source_transfers_the_exact_immutable_projection() {
     .expect("shared projection transition");
 
     assert!(Arc::ptr_eq(&current_slot.borrow(), &next));
+    assert_eq!(dynamic_surfaces.borrow().publications(), 0);
+}
+
+#[test]
+fn undeclared_dynamic_surface_publication_fails_closed_without_touching_the_snapshot() {
+    let current = Arc::new(test_snapshot(1, 4, 7, 10));
+    let next = Arc::new(test_snapshot(1, 5, 8, 10));
+    let current_slot = RefCell::new(Arc::clone(&current));
+    let dynamic_surfaces = RefCell::new(DynamicSurfaceState::empty());
+    let update = Arc::new(
+        DynamicSurfaceUpdateV1::new(
+            AssetRevisionRefV1 {
+                asset_id: next_contracts::ids::AssetId::from_bytes([0xd1; 16]),
+                record_sha256: ContentHash::from_bytes([0xd2; 32]),
+            },
+            1,
+            vec![[0, 0, 0], [1, 0, 0], [0, 0, 1]],
+            vec![[0, i16::MAX, 0]; 3],
+            vec![0, 1, 2],
+        )
+        .expect("valid update"),
+    );
+    let published = Arc::clone(&next);
+    let mut frame_source =
+        move |_: &[PlatformEventV1], _: Duration, _: &mut crate::DesktopAudioOutputV1| {
+            Ok::<_, DesktopAdapterError>(DesktopFramePublicationV1 {
+                snapshot: Some(Arc::clone(&published)),
+                dynamic_surface_updates: vec![Arc::clone(&update)],
+            })
+        };
+
+    let mut audio = crate::DesktopAudioOutputV1::disabled();
+    let error = apply_frame_source_result(
+        &current_slot,
+        &dynamic_surfaces,
+        &mut frame_source,
+        &[],
+        Duration::ZERO,
+        &mut audio,
+    )
+    .expect_err("undeclared surface must be rejected");
+    assert_eq!(
+        error.diagnostic_code(),
+        "PRESENTATION_DYNAMIC_SURFACE_UNDECLARED"
+    );
+    // The snapshot transition is applied before the surface batch is
+    // validated, and the rejected batch leaves the surface state untouched.
+    assert!(Arc::ptr_eq(&current_slot.borrow(), &next));
+    assert_eq!(dynamic_surfaces.borrow().publications(), 0);
+    assert!(dynamic_surfaces.borrow().current().is_empty());
 }
 
 #[test]

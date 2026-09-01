@@ -51,6 +51,18 @@ pub enum DesktopAdapterError {
         requested: [u32; 2],
         observed: [u32; 2],
     },
+    DynamicSurfaceInvalid {
+        reason: &'static str,
+    },
+    DynamicSurfaceUndeclared,
+    DynamicSurfaceCapacityExceeded {
+        requested: u32,
+        limit: u32,
+    },
+    DynamicSurfaceSequenceRegressed {
+        previous: u64,
+        actual: u64,
+    },
 }
 
 impl DesktopAdapterError {
@@ -94,6 +106,14 @@ impl DesktopAdapterError {
             Self::DeviceRecoveryLimitExceeded { .. } => "PRESENTATION_DEVICE_RECOVERY_EXHAUSTED",
             Self::FullscreenStartExtentUnavailable { .. } => {
                 "PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE"
+            }
+            Self::DynamicSurfaceInvalid { .. } => "PRESENTATION_DYNAMIC_SURFACE_INVALID",
+            Self::DynamicSurfaceUndeclared => "PRESENTATION_DYNAMIC_SURFACE_UNDECLARED",
+            Self::DynamicSurfaceCapacityExceeded { .. } => {
+                "PRESENTATION_DYNAMIC_SURFACE_CAPACITY_EXCEEDED"
+            }
+            Self::DynamicSurfaceSequenceRegressed { .. } => {
+                "PRESENTATION_DYNAMIC_SURFACE_SEQUENCE_INVALID"
             }
         }
     }
@@ -187,6 +207,21 @@ impl Display for DesktopAdapterError {
                 formatter,
                 "PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE: borderless fullscreen start settled at {:?} instead of the declared extent {:?}",
                 observed, requested
+            ),
+            Self::DynamicSurfaceInvalid { reason } => write!(
+                formatter,
+                "PRESENTATION_DYNAMIC_SURFACE_INVALID: {reason}"
+            ),
+            Self::DynamicSurfaceUndeclared => formatter.write_str(
+                "PRESENTATION_DYNAMIC_SURFACE_UNDECLARED: mesh revision is not a declared dynamic surface in the exact catalog",
+            ),
+            Self::DynamicSurfaceCapacityExceeded { requested, limit } => write!(
+                formatter,
+                "PRESENTATION_DYNAMIC_SURFACE_CAPACITY_EXCEEDED: requested {requested} exceeds declared capacity {limit}"
+            ),
+            Self::DynamicSurfaceSequenceRegressed { previous, actual } => write!(
+                formatter,
+                "PRESENTATION_DYNAMIC_SURFACE_SEQUENCE_INVALID: previous {previous}, got {actual}"
             ),
         }
     }

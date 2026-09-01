@@ -80,6 +80,11 @@ pub struct DesktopRunOptions {
     /// bounds, so hosts with a fractional logical/pixel scale mismatch fail
     /// closed rather than presenting at an undeclared size.
     pub prefer_borderless_fullscreen_when_display_matches: bool,
+    /// Presentation-only dynamic surfaces declared for the whole run. Each
+    /// entry names one exact catalog mesh revision and a fixed vertex/index
+    /// capacity; the adapter allocates one host-visible ring per frame slot
+    /// once and never rebuilds the render-content catalog to refresh it.
+    pub dynamic_surfaces: Vec<DynamicSurfaceProfileV1>,
 }
 
 impl Default for DesktopRunOptions {
@@ -103,6 +108,7 @@ impl Default for DesktopRunOptions {
             audio_output_enabled: true,
             ui_subtitles_enabled: true,
             prefer_borderless_fullscreen_when_display_matches: false,
+            dynamic_surfaces: Vec::new(),
         }
     }
 }
@@ -119,6 +125,11 @@ pub struct DesktopFrameTimingSample {
     pub image_acquire_wait_microseconds: u64,
     pub swapchain_image_wait_microseconds: u64,
     pub frame_plan_microseconds: u64,
+    /// Host-visible dynamic surface ring refresh for this frame slot,
+    /// including the per-surface hash check that skips an unchanged ring.
+    pub dynamic_surface_upload_microseconds: u64,
+    /// Declared surfaces whose ring was actually rewritten in this frame.
+    pub dynamic_surface_uploads: u64,
     pub command_record_microseconds: u64,
     pub queue_submit_microseconds: u64,
     pub present_wait_microseconds: u64,
@@ -180,6 +191,17 @@ pub struct DesktopRunReport {
     pub audio_device_reopens: u64,
     /// Whether a live audio stream existed at report time.
     pub audio_output_active: bool,
+    /// Frame-source publications accepted for declared dynamic surfaces.
+    pub dynamic_surface_publications: u64,
+    /// Host-visible ring refreshes performed across all frame slots.
+    pub dynamic_surface_uploads: u64,
+    /// Bytes copied into dynamic surface rings across the whole run.
+    pub dynamic_surface_upload_bytes: u64,
+    /// Draws in the last submitted frame that consumed a dynamic ring instead
+    /// of the immutable catalog geometry.
+    pub dynamic_surface_draws: u64,
+    /// Canonical hash of the current update per declared surface at exit.
+    pub dynamic_surface_hashes: Vec<(AssetRevisionRefV1, ContentHash)>,
 }
 
 #[derive(Debug, Default)]

@@ -1,4 +1,7 @@
+use std::collections::BTreeMap;
+
 use super::*;
+use crate::dynamic_surface::{DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1};
 use crate::gpu_content::{B0GpuContent, DepthAttachment, UiOverlayState};
 use next_render::{B0FramePlannerMetricsV1, B0FramePlannerV1, RenderTargetV1};
 mod capabilities;
@@ -8,7 +11,9 @@ mod setup;
 use capabilities::select_physical_device;
 use profiling::{CpuFramePhaseTimings, FrameProfilingReport, VulkanFrameProfiler};
 use setup::*;
-const FRAME_SLOT_COUNT: usize = 2;
+/// Frames that may be in flight at once. Every per-slot ring (uniforms,
+/// skinned vertices, dynamic surfaces, timestamps) has exactly this depth.
+pub const FRAME_SLOT_COUNT: usize = 2;
 pub(super) struct GraphicsContext {
     _entry: ash::Entry,
     instance: ash::Instance,
@@ -21,6 +26,7 @@ pub(super) struct GraphicsContext {
     swapchain_loader: ash::khr::swapchain::Device,
     swapchain: Option<SwapchainState>,
     render_content_catalog: RenderContentCatalogV1,
+    dynamic_surface_profiles: Vec<DynamicSurfaceProfileV1>,
     frame_planner: B0FramePlannerV1,
     b0_content: Option<B0GpuContent>,
     ui_overlay: UiOverlayState,
@@ -144,6 +150,9 @@ pub(super) struct SubmittedB0Frame {
     pub(super) frame_plan_hash: ContentHash,
     pub(super) drawable_extent: [u32; 2],
     pub(super) target_revision: u64,
+    pub(super) dynamic_surface_uploads: u64,
+    pub(super) dynamic_surface_upload_bytes: u64,
+    pub(super) dynamic_surface_draws: u64,
 }
 
 impl GraphicsContext {
@@ -296,6 +305,7 @@ impl GraphicsContext {
                     swapchain.depth_format,
                     render_content_catalog,
                     frame_slots.len(),
+                    &options.dynamic_surfaces,
                 )
             })
             .transpose()?;
@@ -355,6 +365,7 @@ impl GraphicsContext {
             swapchain_loader,
             swapchain,
             render_content_catalog: render_content_catalog.clone(),
+            dynamic_surface_profiles: options.dynamic_surfaces.clone(),
             frame_planner: B0FramePlannerV1::new(),
             b0_content,
             ui_overlay,
@@ -368,6 +379,7 @@ impl GraphicsContext {
     pub(super) fn render(
         &mut self,
         snapshot: &PresentationSnapshotV3,
+        dynamic_surfaces: &BTreeMap<AssetRevisionRefV1, Arc<DynamicSurfaceUpdateV1>>,
         window: &Window,
         event_and_frame_source_update_microseconds: u64,
     ) -> Result<Option<SubmittedB0Frame>, DesktopAdapterError> {
@@ -486,11 +498,19 @@ impl GraphicsContext {
             self.frame_planner
                 .build_or_reuse(snapshot, &self.render_content_catalog, target)?;
         cpu_phases.frame_plan_microseconds = elapsed_microseconds(frame_plan_started)?;
-        let command_record_started = profiling_enabled.then(Instant::now);
         let b0_content = self
             .b0_content
             .as_mut()
             .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
+        // The slot fence completed above, so this slot's dynamic surface ring
+        // is not read by any pending submission and may be refreshed now.
+        let dynamic_surface_upload_started = profiling_enabled.then(Instant::now);
+        let dynamic_surface_uploads =
+            b0_content.prepare_dynamic_surfaces(dynamic_surfaces, frame_slot_index)?;
+        cpu_phases.dynamic_surface_upload_microseconds =
+            elapsed_microseconds(dynamic_surface_upload_started)?;
+        cpu_phases.dynamic_surface_uploads = dynamic_surface_uploads.uploads;
+        let command_record_started = profiling_enabled.then(Instant::now);
         b0_content.record_shadow(
             frame_slot.command_buffer,
             frame_plan,
@@ -605,7 +625,7 @@ impl GraphicsContext {
                 .cmd_begin_rendering(frame_slot.command_buffer, &rendering_info);
         }
         b0_content.record_sky(frame_slot.command_buffer, swapchain.extent)?;
-        b0_content.record(
+        let dynamic_surface_draws = b0_content.record(
             frame_slot.command_buffer,
             frame_plan,
             swapchain.extent,
@@ -680,6 +700,9 @@ impl GraphicsContext {
             frame_plan_hash: frame_plan.frame_plan_hash,
             drawable_extent: target.extent,
             target_revision: target.target_revision,
+            dynamic_surface_uploads: dynamic_surface_uploads.uploads,
+            dynamic_surface_upload_bytes: dynamic_surface_uploads.bytes,
+            dynamic_surface_draws,
         };
         self.swapchain
             .as_mut()
@@ -776,6 +799,7 @@ impl GraphicsContext {
                         depth_format,
                         &self.render_content_catalog,
                         self.frame_slots.len(),
+                        &self.dynamic_surface_profiles,
                     )
                 })
                 .transpose();

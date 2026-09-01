@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ENGINE VULKAN STATIC SURFACE PASS / LIVE UPLOAD NEXT` |
+| Status | `ACTIVE / ENGINE VULKAN DYNAMIC SURFACE PASS / GPU EXTRACTION NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -14,16 +14,20 @@
 - **Goal:** qualify a plausible game-water Nonlocal GPU step near 50,000
   particles against `p95 <= 4 ms`, `p99 <= 6 ms` on RTX 3080; laboratory
   fidelity to the later research solver is not required.
-- **Current boundary:** the accepted 4k/16k NGQ5 meshes now pass through the
-  real neutral-content cooker, immutable presentation snapshot and SDL3/Ash
-  Vulkan B0 renderer. Each 600-frame Release run submits one indexed draw;
-  raster critical-path p95 is `0.088/0.193 ms` with zero dropped samples.
-- **First current risk:** this bridge uploads an already-extracted static OBJ.
-  It does not refresh vertices from live CUDA state, and the CPU reference
-  extraction still costs about `3.6/13.9 ms` per keyframe.
-- **Current action:** add a presentation-only dynamic surface upload/lifetime
-  boundary, then port the fixed close/bilateral extraction to GPU compute and
-  measure live update cost separately from `3.23 ms` physics and B0 raster.
+- **Current boundary:** the five accepted 4k/16k NGQ5 keyframes now cycle
+  through the production SDL3/Ash renderer via a declared presentation-only
+  dynamic surface ring. Each 600-frame Release run builds the catalog,
+  snapshot and frame plan once (`1` miss / `599` hits), refreshes the ring
+  `150` times for `75` publications and draws it every frame; critical-path
+  p95 is `0.18/0.54--0.59 ms` (4k/16k) with zero dropped samples.
+- **First current risk:** the ring is host-visible, so a 16k refresh costs
+  `~0.47 ms` p95 on the render thread and host vertex fetch raises GPU time
+  above the static device-local path. Keyframes still come from the CPU NGQ5
+  extractor (`~3.6/13.9 ms` per keyframe), not from live CUDA state.
+- **Current action:** move the ring to device-local memory (staging copy or
+  compute-written), then port the fixed close/bilateral extraction to GPU
+  compute and measure it through the separate `dynamic_surface_upload` phase,
+  apart from `3.23 ms` physics and B0 raster.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -75,6 +79,7 @@
 - `docs/development/nonlocal-gpu-cap160-performance-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-presentation-surface-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-engine-water-preview-evidence-2026-09-01.md`
+- `docs/development/nonlocal-gpu-engine-dynamic-surface-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -1025,6 +1030,42 @@
   live surface cost exhausts frame headroom, or changing topology cannot reuse
   a bounded renderer allocation.
 
+### D-039 — Refresh the surface through a declared renderer ring, not the catalog
+
+- **Observation:** the extractor now exports all five accepted keyframes per
+  lane without changing any root (corpus `a98f189b...`, final OBJ `23ba8765...`
+  / `0a20f711...`). The desktop adapter gained
+  `DynamicSurfaceProfileV1`/`DynamicSurfaceUpdateV1` and a per-frame-slot
+  host-visible vertex/index ring keyed by one exact catalog mesh revision;
+  `xtask water-preview --mesh ...` (repeated) cycles the keyframes on a pure
+  pump schedule.
+- **Evidence:** two dynamic Release runs per lane are semantically identical:
+  catalog/snapshot/frame-plan roots `ed5b6379.../88931184.../f13b8a83...` (4k)
+  and `bdd9c475.../3be1373a.../7c3dbf62...` (16k), `75` publications, `150`
+  ring refreshes, `59.0/219.6 MB` copied, one dynamic draw per frame and
+  `1/599` frame-plan miss/hit. Critical p95/p99 is `182--186/216--245 us` (4k)
+  and `537--592/583--609 us` (16k); refresh-frame upload p95 is `140--158` /
+  `469--476 us`; idle frames cost `0 us`. The single-mesh path reproduces the
+  D-038 roots exactly. Raw JSON `d8b97d58.../769f607f.../a1a73823.../a204588d...`.
+- **Conclusion:** changing surface topology does not require rebuilding or
+  re-cooking render content, a new snapshot or a new frame plan. The next
+  presentation cost is the host-visible copy and host vertex fetch, which
+  already exceed the static 16k raster critical path.
+- **Decision:** retain the declared ring as the adapter-private,
+  presentation-only update boundary (no `crates/contracts` type, no SPEC-30
+  wording change, inert unless a run declares a surface). Next move the ring
+  to device-local memory and port bilateral extraction to GPU compute, timed
+  through the same phase.
+- **Rejected:** re-cooking the catalog per keyframe, reusing the skinning
+  stream through a fake skeleton record, exposing the ring type as a public
+  contract before a runtime consumer exists, and growing capacity at runtime.
+- **Remaining risk:** hash-based refresh skipping is content-only, so a
+  single-slot hold leaves a stale unread ring by design; `platform` and
+  `host-check` both PASS after the change; screenshot readback is still absent.
+- **Reconsider when:** a runtime consumer needs the surface inside
+  `PresentationSnapshotV3`, device-local staging does not close the 16k gap, or
+  SPEC-30 must describe the third vertex path for a shipped feature.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1080,6 +1121,8 @@
 | HG5B | closed-pixel interpolation is the first depth-error source | falsified on the frozen frames by the edge-aware result | closed for this witness |
 | HG5C | one top-down height field cannot form a connected developed-front mesh | falsified bounded: every 4k/16k extracted mesh is one component | reconsider on overhang/splash corpus |
 | HG6A | accepted surface meshes are themselves too expensive for the current B0 raster path | falsified bounded for static 4k/16k: p95 `0.088/0.193 ms`, one draw | dynamic upload/GPU extraction |
+| HG6B | changing surface topology forces a per-frame render-content rebuild | falsified bounded: declared ring cycles five keyframes with one catalog/snapshot/frame plan and `0` rebuilds | device-local ring, GPU extraction |
+| HG6C | a host-visible ring is sufficient for live 16k surface refresh | not selected: refresh p95 `~0.47 ms` plus host vertex fetch exceed the static 16k raster path | device-local staging/compute-written ring |
 
 ## Do not retry
 
@@ -1092,8 +1135,9 @@
 
 ## Next action
 
-1. Add a bounded presentation-only dynamic surface buffer/update path; retain
-   immutable simulation inputs and no simulation feedback.
+1. Move the declared dynamic surface ring to device-local memory (staging
+   copy or compute-written) and re-measure the 16k refresh through the
+   `dynamic_surface_upload` phase; keep the host-visible result as control.
 2. Port the frozen close/bilateral surface reference to GPU compute, refresh
    smooth normals and measure extraction/upload separately from physics and
    the now-measured B0 raster cost.

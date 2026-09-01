@@ -348,6 +348,55 @@ impl B0GpuContent {
             );
         }
         for draw in plan.draws.iter().filter(|draw| draw.casts_shadow) {
+            let push_constants =
+                draw_push_constant_bytes(draw.transform, draw.base_color_rgba_unorm16);
+            if let Some(binding) = self.dynamic_draw_binding(draw.mesh_revision, frame_slot_index) {
+                // SAFETY: the slot ring was refreshed after this slot's fence
+                // completed, both buffers are live host-visible allocations
+                // of this device, and the immutable stream is rebound after.
+                unsafe {
+                    self.geometry.device.cmd_push_constants(
+                        command_buffer,
+                        pipeline.layout,
+                        vk::ShaderStageFlags::VERTEX,
+                        0,
+                        &push_constants,
+                    );
+                    self.geometry.device.cmd_bind_vertex_buffers(
+                        command_buffer,
+                        0,
+                        &[binding.vertex_buffer],
+                        &[0],
+                    );
+                    self.geometry.device.cmd_bind_index_buffer(
+                        command_buffer,
+                        binding.index_buffer,
+                        0,
+                        vk::IndexType::UINT32,
+                    );
+                    self.geometry.device.cmd_draw_indexed(
+                        command_buffer,
+                        binding.index_count,
+                        1,
+                        0,
+                        0,
+                        0,
+                    );
+                    self.geometry.device.cmd_bind_vertex_buffers(
+                        command_buffer,
+                        0,
+                        &vertex_buffers,
+                        &vertex_offsets,
+                    );
+                    self.geometry.device.cmd_bind_index_buffer(
+                        command_buffer,
+                        self.geometry.buffer,
+                        self.index_buffer_offset,
+                        vk::IndexType::UINT32,
+                    );
+                }
+                continue;
+            }
             let draw_key = super::DrawKey {
                 mesh_revision: draw.mesh_revision,
                 first_index: draw.first_index,
@@ -356,8 +405,6 @@ impl B0GpuContent {
             let indirect_offset = self.draw_offsets.get(&draw_key).copied().ok_or(
                 B0GpuContentError::ResourceMissing("shadow indexed-indirect command"),
             )?;
-            let push_constants =
-                draw_push_constant_bytes(draw.transform, draw.base_color_rgba_unorm16);
             // SAFETY: the fixed push range and initialized indirect command
             // match the depth-only pipeline and uploaded geometry.
             unsafe {
