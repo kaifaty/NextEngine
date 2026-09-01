@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NCGP15_UNIFIED_CONSTRAINED_CONTRACT_FROZEN / CPU_IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE / NCGP15_APPARATUS_INCONCLUSIVE / MUTATION_REVISION_NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Diagnose the corrected compensated solver work ceiling, close the correctness corpus, then measure the 50k full GPU step |
@@ -20,10 +20,10 @@
   39 at 126/128 HVP; CPU succeeds. NCGP3 is closed `INCONCLUSIVE` because its
   240-step ordering, reverse-energy apparatus, result closure and rollback
   handling were incomplete.
-- **Current action:** implement the frozen NCGP15 CPU long-double unified
-  constrained step, run its term oracles, four one-step masks and fixed
-  16-step confined trajectory. Do not return to CUDA or timing until that
-  corpus closes its physical and apparatus gates.
+- **Current action:** freeze the smallest NCGP15 successor revision for three
+  invalid mutation controls. Keep physics, coefficients, tolerances, caps and
+  the `P/PV/PS/PVS` plus 16-step corpus unchanged. Do not return to CUDA or
+  timing until the revised apparatus reaches the physical masks.
 - **Latest exact result:** NCGP14 independently supports the two-step
   TIGHT-128 pressure/contact lane at the unchanged physical tolerances with a
   `16384`-sweep QP ceiling. OPEN-128/512 remain valid negative controls and
@@ -53,6 +53,7 @@
 - `docs/development/nonlocal-gpu-pressure-state-discriminator-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-pressure-contact-trajectory-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-confined-pressure-contact-evidence-2026-09-01.md`
+- `docs/development/nonlocal-gpu-unified-constrained-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -589,6 +590,35 @@
 - **Reconsider when:** the frozen CPU corpus reaches its first exact physical,
   work or apparatus classification.
 
+### D-024 — NCGP15 term physics passes, mutation apparatus does not
+
+- **Observation:** the initial NCGP15 run failed only because its trace grammar
+  omitted the valid unbounded `PROJECTION -> FINAL_GATE` transition. The one
+  allowed one-line apparatus repair admits that transition without changing
+  physics, tolerances, solver schedule or work.
+- **Repaired result:** every corrected formula, viscosity, surface,
+  translation, energy, zero-coefficient and transaction control passes. Total
+  expected and actual work roots are identical. The repaired run still exits
+  `2 / APPARATUS_INCONCLUSIVE` before Phase B because three mutation controls
+  are not valid discriminators.
+- **Evidence:** repaired commit `9aaf9a3a`, binary `73614eb9...`, stdout
+  `6632e5d1...`, result `61951c00...`, total work `4529b808...`; full evidence
+  is linked above.
+- **Cause:** omitted-`2/h` and finite-penalty use an all-term TIGHT baseline
+  that itself reaches the frozen work ceiling. The graph-swap fixture does
+  distinguish corrected PASS from mutated work ceiling, but its control
+  incorrectly excludes a typed cap from expected rejection.
+- **Decision:** close NCGP15 Revision 2 as `APPARATUS_INCONCLUSIVE`; its single
+  repair allowance is exhausted and it makes no physical claim. Freeze a new
+  apparatus revision with a converged pressure-only baseline for the two
+  pressure mutations and explicit typed-cap rejection for graph swap. Keep
+  the physical corpus byte-identical.
+- **Rejected:** counting mutation caps as PASS after the result, increasing a
+  cap, weakening a gate, deleting mutations, or proceeding to CUDA/50k from
+  passing term oracles alone.
+- **Reconsider when:** the revised mutation corpus passes and independently
+  admits entry to all four Phase-B masks.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -625,10 +655,10 @@
 | H14A-result | missing lateral support is the first cause of the NCGP13 witness | selected bounded: open 128/512 reject while confined 128 passes unchanged physical gates | closed for the two-step fixture |
 | H14B-result | pressure/contact fails even with valid wall support | falsified for the frozen two-step confined fixture; longer coupled dynamics remain untested | surface/viscosity successor |
 | H14C-result | the 4096-sweep tight failure is a work ceiling rather than physics | selected exactly: 4096 exhausts, predeclared 16384 closes with maximum 8111 sweeps | retain 16384 cap without tuning |
-| H15A | corrected viscosity/surface plus constrained pressure admit one unified short solve | frozen prediction: term controls, all four masks and 16 PVS steps pass | implement/run NCGP15 exactly |
+| H15A | corrected viscosity/surface plus constrained pressure admit one unified short solve | unresolved: corrected term controls pass, but mutation apparatus blocks Phase B/C | repair mutation corpus without physics changes |
 | H15B | corrected surface is the first failing coupled term | PV passes while PS/PVS share the first surface or energy failure; gamma-zero removes it | ordered Phase-B masks |
 | H15C | normal viscosity/reference-graph semantics are first failing | PS passes while PV/PVS share the first dissipation failure; lambda-zero removes it | analytic pair plus ordered masks |
-| H15D | formulation is viable but the deterministic PHR budget is insufficient | finite decreasing residual reaches a frozen cap before any oracle/physical failure | typed work-ceiling route; no cap tuning |
+| H15D | formulation is viable but the deterministic PHR budget is insufficient | unresolved: observed caps belong to invalid mutation controls, not an admitted primary mask | typed primary work-ceiling route only; no cap tuning |
 
 ## Do not retry
 
@@ -641,11 +671,12 @@
 
 ## Next action
 
-1. Implement the frozen NCGP15 CPU long-double unified constrained target and
-   run Phase A term controls, the ordered `P/PV/PS/PVS` masks and exactly 16
-   full-term confined steps without changing coefficients, tolerances or caps.
-2. Close its identity, work, transaction and numerical evidence with two clean
-   builds, sanitizers and one independent review.
+1. Freeze and implement the smallest NCGP15 successor revision that repairs
+   only the three invalid mutation discriminators; retain all physical bytes,
+   equations, tolerances and caps.
+2. Run its Phase A controls, ordered `P/PV/PS/PVS` masks and exactly 16
+   full-term confined steps, then close two clean builds, sanitizers and one
+   independent review.
 3. Only after independent GO, port the identical frozen corpus to CUDA and establish
    CPU/GPU correspondence before 4k, 16k and 50k performance measurements.
 4. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
