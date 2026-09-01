@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V18 / V17_G0_REPEAT_EXACT_REJECT / P0B_PROTOCOL_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V18 / P0B_PROTOCOL_FROZEN / B0_IMPLEMENTATION_NEXT / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / METAL_FIRST / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -21,8 +21,8 @@
   fresh rows and reserves ML for intrinsic contact-field structure.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** freeze P0b fresh baseline verification and decide whether
-  still-unopened P0a O/F objects remain admissible under the V18 dependency graph.
+- **Next action:** implement the exact serialized B0 ridge and evaluator tests;
+  do not open fresh B quality values before that implementation is committed.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -49,7 +49,7 @@
 | V13 M2 | `CLOSED_BY_V14_REBASELINE` | RealImpact control is exact; object 92 stays rejected and source recovery no longer blocks model feasibility. |
 | V16 L0–L1 | `L0B_REPEAT_EXACT_REJECT / FAMILY_CLOSED` | Gain structure is learnable, but poles/damping, continuity, waveform and coverage OOD fail; no test-driven retry or real training. |
 | V17 G0 | `COMPLETE / REPEAT_EXACT_REJECT` | Absolute/transfer/mutation gates pass, but neural/ridge ratios `0.9497x/0.9239x` miss the required `<=0.90x`; V17 O/F/I were not run. |
-| V18 R0/P0b | `REBASELINED / PROTOCOL_NEXT` | Freeze fresh verification for the unchanged deterministic global scaffold, then intrinsic coverage/field/integration in dependency order. |
+| V18 R0/P0b | `REBASELINED / PROTOCOL_FROZEN` | [P0b](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md) freezes 72 fresh B rows, exact ridge/serialization/gates and unchanged unopened O/F/I roles. |
 | V18 S1–R1 | `SOURCE_GROWTH_PARALLEL / PRIMARY_R1_CLOSED` | Source adapters may continue, but real training needs both I0 pass and five exact generator groups. |
 | V18 V0–D0 | `SCAFFOLD_AFTER_I0 / ADMISSION_BLOCKED` | Real thresholds, shadow, cooker and demo require successor R1 plus a frozen protected split. |
 | V18 G1–P1 | `WOOD_PENDING / GLASS_FALLBACK / ADR_REQUIRED` | Later materials repeat unchanged gates; production waits for shadow evidence, larger risk evidence and a separate Accepted ADR. |
@@ -64,14 +64,15 @@
   digest `217cd08b…4c23`; `10/12` gates pass and all access counters are zero.
 - **Conclusion:** dimensionless physics removes the raw MLP's scale failure,
   while the smooth remaining law does not justify a neural global head.
-- **Decision:** close V17 G0 and do not run its downstream O/F/I. V18 freezes
-  the unchanged ridge as a provisional scaffold and spends ML only on the
-  relational surface field after fresh protocol and baseline verification.
+- **Decision:** close V17 G0. P0b freezes the unchanged ridge on 72 fresh B
+  rows and reuses the still-unopened P0a O/F/I roles without changing their
+  truth, controls or gates; ML is reserved for the relational surface field.
 - **Remaining uncertainty:** whether the scaffold survives new rows and whether
   intrinsic propagation beats classical contact interpolation.
 - **Reconsideration condition:** only a new clustered real residual and fresh
   preregistration may reopen neural global modeling.
-- **Smallest next action:** freeze V18 P0b; no real/protected signal access.
+- **Smallest next action:** implement and test B0 before its official fresh
+  exam; no opened G0 artifact or real/protected signal access.
 
 ## Material transition: V12 closes on force coverage
 
@@ -176,7 +177,7 @@ decisions remain in their linked reports rather than this resume surface.
 | D-017 | Capability, disclosed-data candidate quality and protected admission are separate certificates; only admission can authorize a cooked research vertical. | Evidence proves that this separation invalidates the representation experiment or a superseding Accepted ADR changes the boundary. |
 | D-018 | The V16 generic object MLP plus pooled context decoder is closed after repeat-exact known-truth rejection; its opened test cannot select a retry. | A new preregistered family passes isolated global/contact/OOD controls and a disjoint unopened truth tournament twice exactly. |
 | D-019 | V17 tests scale-separated global modes, deterministic intrinsic coverage and a masked intrinsic field independently before integration. | One isolated certificate falsifies its hypothesis or a new research record justifies another decomposition. |
-| D-020 | After V17 G0, deterministic scale-separated ridge is the provisional global scaffold; neural capacity is reserved for surface transport. | Fresh B0 rejects the scaffold or disclosed-real residual evidence motivates a preregistered global residual family. |
+| D-020 | P0b freezes deterministic scale-separated ridge as the provisional global scaffold and preserves unopened P0a O/F/I roles unchanged; neural capacity is reserved for surface transport. | Fresh B0 rejects the scaffold or disclosed-real residual evidence motivates a preregistered global residual family. |
 
 ## Open hypotheses
 
@@ -216,6 +217,7 @@ Read in precedence order:
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 3. [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
+   [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md),
    [G0 result](../physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md),
    [Roadmap V17](../../plans/physical-sound-synthesis-roadmap-v17.md),
    [V17 research](../physical-sound-v17-factorized-operator-research-2026-09-01.md),
@@ -244,5 +246,5 @@ Read in precedence order:
 - **Quality:** V17 G0 is rejected before surface/integration or real training; no real
   formula, validator release, baked atlas, admitted domain or runtime
   integration exists. Clip fallback is authoritative.
-- **Next commit boundary:** V18 P0b protocol; all
-  published real signal and every protected role remain sealed.
+- **Next commit boundary:** V18 B0 implementation/tests, then a separately
+  frozen official run; all published real signal and protected roles stay sealed.
