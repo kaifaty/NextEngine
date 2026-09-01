@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V19_ADOPTED / C0_REPEAT_EXACT_PASS / P0B_PENDING / F0_I0_NOT_RUN / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
+| Status | `ROADMAP_V19_ADOPTED / C0_REPEAT_EXACT_PASS / P0B_FROZEN / F0_IMPLEMENTATION_PENDING / I0_NOT_RUN / SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / FALLBACK_REQUIRED / P1_BLOCKED` |
 | Updated | `2026-09-01` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,16 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [V19 C0](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md)
-  passes `15/15` gates twice exactly; integrity + fill + reachability is frozen.
-- **Exact evidence:** both eight-file C0 roots are byte-identical under tree
-  digest `ac0f3a28…9ace`; valid false OOD is zero and every mutation cell is `1.0`.
+- **Current conclusion:** [V19 P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md)
+  freezes `ResidualHarmonicOperatorV0` after successful train/development controls.
+- **Exact evidence:** production-shaped development gain NRMSE is
+  `0.1831/0.2906` mean/max versus `0.4100` prior-only and `0.5578` raw harmonic;
+  three corruptions reject `12/12`.
 - **B0 result:** the frozen ridge passes twice byte-exactly on 72 fresh rows;
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Next action:** freeze P0b on all-new F0/I0 bands before learned code or
-  any field-test value is generated.
+- **Next action:** implement F0 and commit its development-only tests before
+  generating any `1501…1512` mesh, truth, prediction or metric.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -50,22 +51,20 @@
 | V18 P0b/B0 | `PROTOCOL_FROZEN / REPEAT_EXACT_PASS` | [B0](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) passes `19/19` gates and freezes its exact ridge hash. |
 | V18 O0–I0 | `O0_REPEAT_EXACT_REJECT / F0_I0_NOT_RUN` | [O0](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md) misses thinning gates; V18 closes and integration stays sealed. |
 | V19 R0/P0a | `R0_COMPLETE / P0A_FROZEN` | Composite integrity/fill/reachability and disjoint bands, thresholds, reason codes and ablations are frozen before C0 implementation. |
-| V19 C0–I0 | `C0_REPEAT_EXACT_PASS / P0B_PENDING / F0_I0_NOT_RUN` | Coverage is frozen passing; exact field/integration truth and gates must now freeze before ML. |
+| V19 C0–I0 | `C0_REPEAT_EXACT_PASS / P0B_FROZEN / F0_IMPLEMENTATION_PENDING / I0_NOT_RUN` | Coverage and exact field/integration protocol are frozen; official test values remain sealed until committed F0 code. |
 | V19 S1–P1 | `SOURCE_GROWTH_PARALLEL / ADMISSION_BLOCKED / ADR_REQUIRED` | Real roles, validator, shadow, cooker and promotion retain unchanged prerequisites and clip fallback. |
 
-## Material transition: C0 closes the deterministic coverage prerequisite
+## Material transition: P0b selects the smallest observable field hybrid
 
-- **Observation:** C0 has `0.0` valid false OOD, `1.0` rejection in all 16
-  mutation/topology cells and exact structural/disconnection/fill reasons.
-- **Evidence:** two eight-file roots repeat under `ac0f3a28…9ace`; composite
-  utility `1.0` beats raw intrinsic `0.961706` and Euclidean `0.760927`.
-- **Conclusion:** the ordered deterministic composite closes O0's thinning
-  failure without learned confidence or an opened-test threshold repair.
-- **Decision:** freeze C0 as the coverage input; unseal only P0b protocol work.
-- **Remaining uncertainty:** whether a masked intrinsic operator can recover
-  signed modal-gain fields and beat compatible classical interpolation.
-- **Reconsideration condition:** a fresh preregistered F0 result.
-- **Smallest next action:** freeze exact F0/I0 truth, controls and gates.
+- **Observation:** direct multiscale-kernel learning lost to coordinate-only;
+  a learned shared prior plus harmonic transport of observed residual did not.
+- **Evidence:** final development candidate is `0.1831` mean gain NRMSE versus
+  `0.4100` prior-only, `0.2911` Euclidean residual and `0.5578` raw harmonic;
+  remesh metric drift is `<7.9%` and all three numeric corruptions reject.
+- **Decision:** freeze the hybrid, C0-first fallback, exact F0/I0 roles and
+  one-shot gates in P0b; do not revive the rejected direct-kernel family.
+- **Remaining uncertainty:** untouched `1501…1512` generalization.
+- **Smallest next action:** implement and commit F0 without opening its test.
 
 ## Material transition: V12 closes on force coverage
 
@@ -166,13 +165,14 @@
 | D-021 | Raw nearest-context graph distance is closed as a complete coverage certificate after O0 thinning failure; disconnection and ambient-geodesic checks remain valid components. | A fresh preregistered density/fill family passes disjoint test identities without valid false OOD. |
 | D-022 | V19 coverage is an ordered deterministic composite: structural context closure, set-level intrinsic fill, then local intrinsic reachability; learned confidence cannot replace these checks. | Fresh C0 rejects the composite or evidence proves a layer is redundant without weakening a frozen gate. |
 | D-023 | C0 passes twice exactly and becomes an immutable prerequisite/hash input to F0/I0; later learning cannot replace or refit it. | A new preregistered coverage revision is required by a demonstrated fresh-domain failure. |
+| D-024 | F0 is a learned topology-conditioned prior plus deterministic intrinsic harmonic extension of only the observed residual; C0 rejects bypass inference and select fallback. | Fresh F0 rejects the hybrid or disclosed-real evidence motivates a new preregistered family. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: deterministic scale-separated ridge generalizes poles/damping | B0 passes twice exactly at `4.434/15.891 cents` and `0.001226/0.004701` damping | Synthetic truth is not a real-material claim | `CLOSED_SYNTHETIC_PASS`; freeze B0 hash |
-| H2: topology-aware query/context transport recovers continuous gains | Geometry-aware gain error beat ablation and controls | Mean/max pooling failed gain and continuity gates | V19 F0 after C0 pass, on fresh held surface regions |
+| H2: topology-aware prior plus intrinsic residual transport recovers continuous gains | Development hybrid beats prior-only, Euclidean residual and raw harmonic | Development is not untouched evidence | V19 F0 on fresh `1501…1512` |
 | H3: composite integrity/fill/reachability detects missing contact support | C0 passes twice: zero valid false OOD, every mutation cell `1.0` | Synthetic scope only | `CLOSED_SYNTHETIC_PASS`; freeze exact C0 hashes |
 | H4: automatic validator reaches useful bounded risk | Hard/acoustic/physics/corpus components are defined | No independent release or shadow result | V19 V0–A0 after I0/R1 |
 | H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V19 K0/D0 after A0 pass |
@@ -206,7 +206,7 @@ Read in precedence order:
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
 3. [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
-   [C0 result](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
+   [P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [C0 result](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
    [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
    [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [O0 result](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md),
    [G0 result](../physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md),
@@ -234,7 +234,7 @@ Read in precedence order:
   PCM, arrays, weights, reports and generated audio remain external.
 - **Isolation:** object-92 PCM/force/YAML numeric values remain sealed; object
   41 microphone and every protected role also remain sealed.
-- **Quality:** B0/C0 pass; P0b is pending and F0/I0 have not run. No real
+- **Quality:** B0/C0 pass and P0b is frozen; F0/I0 have not run. No real
   formula, validator, atlas or runtime integration exists; fallback is authoritative.
-- **Next commit boundary:** P0b exact F0/I0 protocol; all field/integration test
-  values, published real signal and protected roles stay sealed.
+- **Next commit boundary:** F0 implementation and development-only tests; all
+  field-test/integration values, published real signal and protected roles stay sealed.
