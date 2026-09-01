@@ -2444,6 +2444,7 @@ dependencies = [
  "next_cli",
  "next_continuum_water",
  "next_contracts",
+ "next_desktop_sdl_ash",
  "next_motor",
  "next_presentation",
  "next_project",

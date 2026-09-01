@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / EDGE-AWARE SURFACE MESH PASS / GPU RENDERER PORT NEXT` |
+| Status | `ACTIVE / ENGINE VULKAN STATIC SURFACE PASS / LIVE UPLOAD NEXT` |
 | Updated | `2026-09-01` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -14,16 +14,16 @@
 - **Goal:** qualify a plausible game-water Nonlocal GPU step near 50,000
   particles against `p95 <= 4 ms`, `p99 <= 6 ms` on RTX 3080; laboratory
   fidelity to the later research solver is not required.
-- **Current boundary:** the capacity-160 simulation passes visual quality and
-  48k timing, and a presentation-only edge-aware extractor turns all ten
-  accepted keyframes into one connected height-field mesh. Parent simulation
-  roots remain exact and no presentation value feeds back into physics.
-- **First current risk:** the CPU reference costs about `3.6 ms/frame` at 4k
-  and `13.9 ms/frame` at 16k, and debug normal lighting still exposes residual
-  particle-lattice texture. This is not yet a production renderer surface.
-- **Current action:** port the fixed close/bilateral/mesh-or-indirect-draw work
-  to GPU/renderer compute, reconstruct smoother presentation normals and
-  measure its incremental cost separately from the `3.23 ms` physics step.
+- **Current boundary:** the accepted 4k/16k NGQ5 meshes now pass through the
+  real neutral-content cooker, immutable presentation snapshot and SDL3/Ash
+  Vulkan B0 renderer. Each 600-frame Release run submits one indexed draw;
+  raster critical-path p95 is `0.088/0.193 ms` with zero dropped samples.
+- **First current risk:** this bridge uploads an already-extracted static OBJ.
+  It does not refresh vertices from live CUDA state, and the CPU reference
+  extraction still costs about `3.6/13.9 ms` per keyframe.
+- **Current action:** add a presentation-only dynamic surface upload/lifetime
+  boundary, then port the fixed close/bilateral extraction to GPU compute and
+  measure live update cost separately from `3.23 ms` physics and B0 raster.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -34,8 +34,9 @@
   `3.269312 / 3.334560 ms`; all traces/capacity checks pass. Combined with the
   exact 4k/16k visual PASS, this is bounded quality-and-budget evidence, not a
   shipping or corrected-research claim.
-- **Product ceiling:** tool-only Proposed benchmark. CPU DFSPH remains fallback;
-  no Rust/public/runtime/PhysX/renderer contract changes.
+- **Product ceiling:** developer presentation tool under Proposed SPEC-38.
+  CPU DFSPH remains fallback; no public gameplay/runtime authority, PhysX or
+  renderer semantic contract changed.
 
 ## Required context
 
@@ -73,6 +74,7 @@
 - `docs/development/nonlocal-gpu-dynamic-visual-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-cap160-performance-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-presentation-surface-evidence-2026-09-01.md`
+- `docs/development/nonlocal-gpu-engine-water-preview-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -1000,6 +1002,29 @@
 - **Reconsider when:** GPU port exceeds its presentation budget, smooth normals
   reveal topology defects, or longer motion violates the frozen surface bands.
 
+### D-038 — Admit the static surface into the real Vulkan presentation path
+
+- **Observation:** both accepted NGQ5 OBJ files cook into neutral B0 content
+  and render for 600 frames through the production SDL3/Ash backend. The frame
+  plan and runtime report each contain one visible object and one indexed draw.
+- **Evidence:** OBJ roots `23ba8765...` / `0a20f711...`; frame-plan roots
+  `8eaa50fa...` / `aad92e8a...`; raw JSON `d6a1c5fa...` / `0aacd037...`.
+  Release critical p95/p99 is `0.088/0.098 ms` for 4k and `0.193/0.199 ms`
+  for 16k, with zero dropped timing samples.
+- **Conclusion:** mesh size and existing B0 raster submission are not the next
+  bottleneck. The open cost is producing and uploading changing surface data,
+  not drawing the accepted static topology.
+- **Decision:** retain `xtask water-preview` as the engine-facing developer
+  bridge. Next define a presentation-only dynamic buffer ownership boundary;
+  do not rebuild the content catalog per frame and do not feed presentation
+  data back into simulation.
+- **Remaining risk:** no live CUDA-to-render synchronization, GPU bilateral
+  extraction, dynamic vertex upload, screenshot artifact or gameplay scene
+  integration has passed yet.
+- **Reconsider when:** dynamic updates force a public/runtime authority change,
+  live surface cost exhausts frame headroom, or changing topology cannot reuse
+  a bounded renderer allocation.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1054,6 +1079,7 @@
 | HG5A | isotropic presentation blur crosses real moving-front depth edges | selected bounded: bilateral p95 <=8.257 mm while isotropic control repeats >=141.897 mm | GPU/renderer port |
 | HG5B | closed-pixel interpolation is the first depth-error source | falsified on the frozen frames by the edge-aware result | closed for this witness |
 | HG5C | one top-down height field cannot form a connected developed-front mesh | falsified bounded: every 4k/16k extracted mesh is one component | reconsider on overhang/splash corpus |
+| HG6A | accepted surface meshes are themselves too expensive for the current B0 raster path | falsified bounded for static 4k/16k: p95 `0.088/0.193 ms`, one draw | dynamic upload/GPU extraction |
 
 ## Do not retry
 
@@ -1066,10 +1092,11 @@
 
 ## Next action
 
-1. Port the frozen close/bilateral surface reference to GPU/renderer compute;
-   retain immutable inputs and no simulation feedback.
-2. Reconstruct smooth presentation normals, render the accepted 4k/16k frames
-   in the actual renderer and measure incremental cost separately from physics.
+1. Add a bounded presentation-only dynamic surface buffer/update path; retain
+   immutable simulation inputs and no simulation feedback.
+2. Port the frozen close/bilateral surface reference to GPU compute, refresh
+   smooth normals and measure extraction/upload separately from physics and
+   the now-measured B0 raster cost.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.
