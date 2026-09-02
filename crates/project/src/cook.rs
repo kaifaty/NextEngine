@@ -790,7 +790,7 @@ pub fn cook_project_v7(
         content_manifest_sha256: content_manifest.content_manifest_sha256,
         world_partition_manifest_sha256: world_partition.world_partition_manifest_sha256,
         mechanics_lock_sha256: rpg_definitions.mechanics_lock.mechanics_lock_sha256,
-        runtime_determinism_profile_sha256: RuntimeDeterminismBundleV1::core_r8c()
+        runtime_determinism_profile_sha256: RuntimeDeterminismBundleV1::core_r8d()
             .expect("the engine-owned determinism bundle is canonical")
             .runtime_profile_hash(),
         launch_profiles_sha256: launch_profiles_sha256(),

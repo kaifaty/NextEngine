@@ -257,7 +257,7 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
     }));
     assert_eq!(
         activated.project_lock.runtime_determinism_profile_sha256,
-        next_contracts::identity::RuntimeDeterminismBundleV1::core_r8c()
+        next_contracts::identity::RuntimeDeterminismBundleV1::core_r8d()
             .expect("current determinism bundle")
             .runtime_profile_hash(),
     );

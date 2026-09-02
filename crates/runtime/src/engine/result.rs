@@ -94,6 +94,12 @@ pub enum RejectionCode {
     WaterVolumeRevisionStale,
     WaterVolumeLevelOutOfExtent,
     WaterVolumeRevisionExhausted,
+    WaterFlowEdgeUnknown,
+    WaterFlowEdgeKindMismatch,
+    WaterFlowRevisionStale,
+    WaterFlowOpeningOutOfRange,
+    WaterFlowRateOutOfRange,
+    WaterFlowRevisionExhausted,
 }
 
 impl RejectionCode {
@@ -143,6 +149,12 @@ impl RejectionCode {
             Self::WaterVolumeRevisionStale => "WATER_VOLUME_REVISION_STALE",
             Self::WaterVolumeLevelOutOfExtent => "WATER_VOLUME_LEVEL_OUT_OF_EXTENT",
             Self::WaterVolumeRevisionExhausted => "WATER_VOLUME_REVISION_EXHAUSTED",
+            Self::WaterFlowEdgeUnknown => "WATER_FLOW_EDGE_UNKNOWN",
+            Self::WaterFlowEdgeKindMismatch => "WATER_FLOW_EDGE_KIND_MISMATCH",
+            Self::WaterFlowRevisionStale => "WATER_FLOW_REVISION_STALE",
+            Self::WaterFlowOpeningOutOfRange => "WATER_FLOW_OPENING_OUT_OF_RANGE",
+            Self::WaterFlowRateOutOfRange => "WATER_FLOW_RATE_OUT_OF_RANGE",
+            Self::WaterFlowRevisionExhausted => "WATER_FLOW_REVISION_EXHAUSTED",
         }
     }
 

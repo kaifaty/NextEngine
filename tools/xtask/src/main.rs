@@ -24,6 +24,7 @@ mod physical_sound_reproduce_command;
 mod physical_sound_steel_search_command;
 mod physx;
 mod visual_smoke;
+mod water_flow_command;
 mod water_preview;
 mod water_stream;
 mod water_volume_command;
@@ -106,7 +107,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-benchmark, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-mutations, physical-sound-registry, physical-sound-reproduce, physical-sound-steel-search, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, water-preview, water-volume, v1-closure or v1-package".to_owned()
+        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-benchmark, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-mutations, physical-sound-registry, physical-sound-reproduce, physical-sound-steel-search, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, water-flow, water-preview, water-volume, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "animation-lod" => {
@@ -176,6 +177,10 @@ fn run() -> Result<(), String> {
         "water-volume" => {
             reject_extra_arguments(arguments)?;
             water_volume_command::run()
+        }
+        "water-flow" => {
+            reject_extra_arguments(arguments)?;
+            water_flow_command::run()
         }
         "physical-character" => {
             reject_extra_arguments(arguments)?;

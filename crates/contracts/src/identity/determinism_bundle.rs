@@ -43,11 +43,20 @@ impl RuntimeDeterminismBundleV1 {
         Self::materialize(command_kind_registry, schedule_manifest)
     }
 
-    /// Current production bundle: the R5c schedule plus the ADR-100 water
-    /// level command kind. Water needs no system of its own because the
-    /// authored level ramp is a pure function of the tick.
+    /// R8c bundle: the R5c schedule plus the ADR-100 water level command
+    /// kind. Water needs no system of its own because the authored level
+    /// ramp is a pure function of the tick.
     pub fn core_r8c() -> Result<Self, IdentityContractError> {
         let command_kind_registry = CommandKindRegistryV1::core_r8c()?;
+        let schedule_manifest = ScheduleManifestV1::core_r4d()?;
+        Self::materialize(command_kind_registry, schedule_manifest)
+    }
+
+    /// Current production bundle: R8c plus the ADR-103 water flow command
+    /// kind. The exact flow step runs inside the physics owner's tick after
+    /// the rigid step, so the schedule manifest is unchanged.
+    pub fn core_r8d() -> Result<Self, IdentityContractError> {
+        let command_kind_registry = CommandKindRegistryV1::core_r8d()?;
         let schedule_manifest = ScheduleManifestV1::core_r4d()?;
         Self::materialize(command_kind_registry, schedule_manifest)
     }

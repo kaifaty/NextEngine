@@ -169,7 +169,7 @@ impl RuntimeBootstrapV4 {
     }
 
     pub fn neutral_empty() -> Result<Self, SnapshotRestoreError> {
-        let profile = RuntimeDeterminismBundleV1::core_r8c()?.runtime_profile();
+        let profile = RuntimeDeterminismBundleV1::core_r8d()?.runtime_profile();
         let world_identity = WorldIdentityManifestV1::new(
             ProjectId::new("nextengine.runtime-empty")
                 .expect("built-in neutral project identifier is valid"),
@@ -204,7 +204,7 @@ pub(super) fn validate_bootstrap(
     bootstrap.rpg_bindings.validate()?;
     bootstrap.rpg_definitions.validate()?;
     bootstrap.physics_checkpoint.validate()?;
-    let determinism = RuntimeDeterminismBundleV1::core_r8c()?;
+    let determinism = RuntimeDeterminismBundleV1::core_r8d()?;
     bootstrap
         .physics_checkpoint
         .snapshot

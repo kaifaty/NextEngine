@@ -65,6 +65,10 @@ pub use ui_dialogue::dialogue_semantic_ui_records_for_ids;
 pub use water::{
     REFERENCE_WATER_BASIN_ID, REFERENCE_WATER_BASIN_INITIAL_LEVEL_MICROMETRES,
     REFERENCE_WATER_BASIN_MAXIMUM_MICROMETRES, REFERENCE_WATER_BASIN_MINIMUM_MICROMETRES,
-    REFERENCE_WATER_BASIN_SWIMMING_DEPTH_MICROMETRES, player_submersion,
-    reference_water_basin_definition, reference_water_volumes, water_surface_translation,
+    REFERENCE_WATER_BASIN_SWIMMING_DEPTH_MICROMETRES, REFERENCE_WATER_FLOW_GATE_ID,
+    REFERENCE_WATER_FLOW_SINK_ID, REFERENCE_WATER_FLOW_SOURCE_ID,
+    REFERENCE_WATER_FLOW_TICKS_PER_SECOND, REFERENCE_WATER_VESSEL_A_ID,
+    REFERENCE_WATER_VESSEL_B_ID, player_submersion, reference_water_basin_definition,
+    reference_water_flow, reference_water_flow_edges, reference_water_vessel_definitions,
+    reference_water_volumes, water_surface_translation,
 };

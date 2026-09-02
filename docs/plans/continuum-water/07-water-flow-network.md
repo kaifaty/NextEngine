@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `WF1` |
-| Status | `FROZEN / NOT_RUN` |
+| Status | `RUN / G1 G2 G3 G4 G5 G7 PASS / G6 FAIL (183 us release, 1,405 us debug) / CONTINUUM-WATER-FLOW-P1 = PASS` |
 | Parent | ADR-103 (Proposed); ADR-100 R8c `WaterVolume`; calibration from plan `nonlocal-gpu-full-step-performance/22` |
 | Purpose | authoritative, exact, cheap water mechanics: cells joined by edges that move water by head |
 
@@ -43,3 +43,31 @@
 
 Do not change the flux laws, limits or coefficients after seeing the
 results; a coefficient change is a new revision with its own evidence.
+
+## Result (R8d, 2026-09-02)
+
+`cargo run -p xtask -- water-flow` PASS (`CONTINUUM-WATER-FLOW-P1`):
+
+| Gate | Result |
+| --- | --- |
+| G1 conservation | exact at every one of `1,800` ticks: initial `1,500,000,000 mm^3`, sources `29,998,800`, sinks `29,982,134`, final `1,500,016,666` — PASS |
+| G2 convergence | vessel A at its floor (`1.000005 m`, the head that passes the `0.5 L/s` source) by tick `868`; analytic bound `840` ticks (Torricelli drain `26.8 s` plus the `2 s` gate closure), twice the bound `1,680` — PASS; vessel B ends at `0.357 m`, the level of all the water over its plan area |
+| G3 gate | flux `0` from the tick after `SetGate(0)`, positive again after the reopen — PASS |
+| G4 determinism | physics checkpoint round-trips byte-exactly at tick `900`; the restored runtime's per-tick physics hashes, events and final state root equal the live run's (`41e84ebc...`, physics `e93a8c35...`); the repeated generation is identical — PASS |
+| G5 rejections | unknown edge, pump command on a gate, stale revision, opening `1001`: four stable rejections, no event, edge states unchanged — PASS |
+| G6 cost | `64` cells / `256` edges: `183 us` maximum per step in a release build (`1,405 us` in debug) — FAIL against `50 us` |
+| G7 no presentation read | reviewed: `water_flow.rs`, `physics_step.rs` and the command arm import no presentation type — PASS |
+
+Apparatus corrections (recorded, not tuned): the plan's `1,200` ticks were
+shorter than twice the analytic drain time of this scene, so the run is
+`1,800` ticks with the save at `900`; the G2 wording assumed a common
+level, but vessel A's floor (`1.0 m`) is above the level all the water
+reaches in B (`0.357 m`), so the equilibrium of this scene is A drained to
+its floor, which is what the gate now checks (the contract unit test
+`communicating_vessels_equalise_when_floors_allow` covers the common-level
+case with both floors at `0`: `0.625 m` within `1 mm`).
+
+G6 reading: the step clones the network and the volume set (two
+`BTreeMap`s of `64` and `256` entries) and evaluates the fluxes in `i128`;
+`183 us` at `30 Hz` is `0.5%` of a frame. Candidates for a next revision:
+in-place stepping and `i64` fast paths.

@@ -19,6 +19,7 @@ use super::primitives::{
 };
 use super::profiles::{AuthoritativeNumericProfileV1, PhysicsQuantizationProfileV1};
 use super::water::WaterVolumeSetV1;
+use super::water_flow::WaterFlowNetworkV1;
 use super::{
     PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_SNAPSHOT_SCHEMA_ID, PHYSICS_SNAPSHOT_SCHEMA_VERSION,
     PHYSICS_SNAPSHOT_SEGMENT_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
@@ -453,6 +454,9 @@ pub struct PhysicsWorldCheckpointV1 {
     pub snapshot: PhysicsCanonicalSnapshotV2,
     /// ADR-100 authoritative water table; empty for worlds without water.
     pub water_volumes: WaterVolumeSetV1,
+    /// ADR-103 authoritative flow network over the water table; empty for
+    /// worlds whose water does not move.
+    pub water_flow: WaterFlowNetworkV1,
 }
 
 impl PhysicsWorldCheckpointV1 {
@@ -468,11 +472,26 @@ impl PhysicsWorldCheckpointV1 {
         snapshot: PhysicsCanonicalSnapshotV2,
         water_volumes: WaterVolumeSetV1,
     ) -> Result<Self, PhysicsContractError> {
+        Self::with_water(
+            catalog,
+            snapshot,
+            water_volumes,
+            WaterFlowNetworkV1::empty(),
+        )
+    }
+
+    pub fn with_water(
+        catalog: PhysicsWorldCatalogV1,
+        snapshot: PhysicsCanonicalSnapshotV2,
+        water_volumes: WaterVolumeSetV1,
+        water_flow: WaterFlowNetworkV1,
+    ) -> Result<Self, PhysicsContractError> {
         let value = Self {
             schema_version: PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION,
             catalog,
             snapshot,
             water_volumes,
+            water_flow,
         };
         value.validate()?;
         Ok(value)
@@ -493,6 +512,8 @@ impl PhysicsWorldCheckpointV1 {
             return Err(PhysicsContractError::ProfileMismatch);
         }
         self.water_volumes.validate()?;
+        self.water_flow.validate()?;
+        self.water_flow.validate_against(&self.water_volumes)?;
         Ok(())
     }
 
@@ -509,6 +530,11 @@ impl PhysicsWorldCheckpointV1 {
                     4,
                     CANONICAL_TYPE_STRUCT,
                     self.water_volumes.canonical_record()?,
+                ),
+                CanonicalField::new(
+                    5,
+                    CANONICAL_TYPE_STRUCT,
+                    self.water_flow.canonical_record()?,
                 ),
             ],
         )
@@ -529,6 +555,7 @@ impl PhysicsWorldCheckpointV1 {
                 (2, CANONICAL_TYPE_BYTES),
                 (3, CANONICAL_TYPE_BYTES),
                 (4, CANONICAL_TYPE_STRUCT),
+                (5, CANONICAL_TYPE_STRUCT),
             ],
         )?;
         let value = Self {
@@ -539,6 +566,7 @@ impl PhysicsWorldCheckpointV1 {
                 limits,
             )?,
             water_volumes: WaterVolumeSetV1::from_record(field(&segment, 4)?, limits)?,
+            water_flow: WaterFlowNetworkV1::from_record(field(&segment, 5)?, limits)?,
         };
         value.validate()?;
         require_round_trip(bytes, value.canonical_bytes()?)?;
@@ -547,7 +575,7 @@ impl PhysicsWorldCheckpointV1 {
 
     pub fn checkpoint_hash(&self) -> Result<ContentHash, CanonicalError> {
         physics_contract_hash(
-            b"nextengine.physics-world-checkpoint.v2\0",
+            b"nextengine.physics-world-checkpoint.v3\0",
             &self.canonical_bytes()?,
         )
     }

@@ -297,7 +297,7 @@ fn event_principal_subject(event: &DomainEventEnvelopeV2) -> Option<PersistentId
         }),
         EventPayload::WorldActivity(event) => Some(event.subject_id),
         EventPayload::AgentCognition(event) => Some(event.subject_id),
-        EventPayload::WaterVolume(_) => None,
+        EventPayload::WaterVolume(_) | EventPayload::WaterFlow(_) => None,
     }
 }
 

@@ -7,8 +7,8 @@ use crate::cognition::{AgentDecisionCommittedV1, COGNITION_SCHEMA_VERSION};
 use crate::command::{CommandPhase, DomainEvent, EventPayload};
 use crate::ids::{CommandId, ContentHash, PersistentId, SchemaId};
 use crate::persistence::ManifestValidationError;
-use crate::physics::WaterVolumeChangedV1;
 use crate::physics::{PhysicalEventV1, PhysicsPoseV1};
+use crate::physics::{WaterFlowChangedV1, WaterVolumeChangedV1};
 use crate::rpg::SkillProficiency;
 use crate::rpg::{CommitmentStateV1, RpgEventV1};
 use crate::world_activity::{WorldActivityChangedV1, WorldActivityStateV1};
@@ -215,6 +215,15 @@ fn encode_event_payload(payload: &EventPayload) -> JcsValue {
             string(event.current_level_micrometres.to_string()),
             string(event.boundary_tick.to_string()),
         ]),
+        EventPayload::WaterFlow(event) => JcsValue::Array(vec![
+            string("water_flow_changed"),
+            string(event.edge_id.to_hex()),
+            string(event.record_revision.to_string()),
+            string(event.opening_permille.to_string()),
+            string(u64::from(event.enabled).to_string()),
+            string(event.rate_cubic_millimetres_per_second.to_string()),
+            string(event.boundary_tick.to_string()),
+        ]),
         EventPayload::AgentCognition(event) => JcsValue::Array(vec![
             string("agent_cognition_decision_committed"),
             string(event.subject_id.to_hex()),
@@ -288,6 +297,9 @@ pub(super) fn decode_domain_events(
                 }
                 EventPayload::WaterVolume(payload) => {
                     DomainEvent::water_volume(tick, phase, command_id, event_slot, payload)?
+                }
+                EventPayload::WaterFlow(payload) => {
+                    DomainEvent::water_flow(tick, phase, command_id, event_slot, payload)?
                 }
             };
             if event.event_slot != event_slot || event.canonical_bytes()? != canonical_bytes {
@@ -551,6 +563,43 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
                 "event.boundary_tick",
             )?,
         }),
+        "water_flow_changed" => {
+            let edge_id = decode_persistent_id(next(&mut columns, "event.edge_id")?)?;
+            let record_revision = decode_u64_string(
+                next(&mut columns, "event.record_revision")?,
+                "event.record_revision",
+            )?;
+            let opening = decode_u64_string(
+                next(&mut columns, "event.opening_permille")?,
+                "event.opening_permille",
+            )?;
+            let enabled = decode_u64_string(next(&mut columns, "event.enabled")?, "event.enabled")?;
+            let rate = decode_i64_string(
+                next(&mut columns, "event.rate_cubic_millimetres_per_second")?,
+                "event.rate_cubic_millimetres_per_second",
+            )?;
+            let boundary_tick = decode_u64_string(
+                next(&mut columns, "event.boundary_tick")?,
+                "event.boundary_tick",
+            )?;
+            if enabled > 1 {
+                return Err(ManifestCodecError::UnknownField(
+                    "ticks[].expected_events[].payload.event.enabled".to_owned(),
+                ));
+            }
+            EventPayload::WaterFlow(WaterFlowChangedV1 {
+                edge_id,
+                record_revision,
+                opening_permille: u32::try_from(opening).map_err(|_| {
+                    ManifestCodecError::UnknownField(
+                        "ticks[].expected_events[].payload.event.opening_permille".to_owned(),
+                    )
+                })?,
+                enabled: enabled == 1,
+                rate_cubic_millimetres_per_second: rate,
+                boundary_tick,
+            })
+        }
         _ => {
             return Err(ManifestCodecError::UnknownField(format!(
                 "ticks[].expected_events[].payload.{tag}"

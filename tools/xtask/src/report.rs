@@ -488,6 +488,41 @@ pub struct WaterProbeDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct WaterFlowDetailsV1 {
+    pub check_id: String,
+    pub vessel_a_id: String,
+    pub vessel_b_id: String,
+    pub gate_id: String,
+    pub run_ticks: u64,
+    pub analytic_drain_ticks: u64,
+    pub drained_by_tick: Option<u64>,
+    pub level_a_initial_um: i64,
+    pub level_a_final_um: i64,
+    pub level_b_final_um: i64,
+    pub total_volume_initial_mm3: String,
+    pub total_volume_final_mm3: String,
+    pub source_volume_mm3: String,
+    pub sink_volume_mm3: String,
+    pub conservation_exact: bool,
+    pub gate_closed_flux_zero: bool,
+    pub gate_reopened_flux_positive: bool,
+    pub committed_commands: u64,
+    pub rejected_commands: u64,
+    pub flow_events: u64,
+    pub checkpoint_round_trip: bool,
+    pub restored_run_identical: bool,
+    pub repeated_run_identical: bool,
+    pub step_cost_cells: usize,
+    pub step_cost_edges: usize,
+    pub step_cost_max_us: String,
+    pub step_cost_debug_build: bool,
+    pub final_state_root: String,
+    pub final_physics_checkpoint_hash: String,
+    pub matrix_digest: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WaterVolumeDetailsV1 {
     pub check_id: String,
     pub basin_id: String,

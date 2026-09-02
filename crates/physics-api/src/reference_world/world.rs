@@ -418,6 +418,17 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         self.checkpoint.water_volumes = water_volumes;
     }
 
+    #[must_use]
+    pub const fn water_flow(&self) -> &next_contracts::physics::WaterFlowNetworkV1 {
+        &self.checkpoint.water_flow
+    }
+
+    /// The flow network is checkpoint field 5, outside the snapshot and the
+    /// catalog: neither derived hash memo is affected.
+    pub fn set_water_flow(&mut self, water_flow: next_contracts::physics::WaterFlowNetworkV1) {
+        self.checkpoint.water_flow = water_flow;
+    }
+
     pub fn set_checkpoint_revision(&mut self, revision: u64) {
         self.checkpoint.snapshot.checkpoint_revision = revision;
         // checkpoint_revision is canonical snapshot field 4: the mutation

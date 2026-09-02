@@ -21,6 +21,7 @@ struct LiveCommandBodyCountsV1 {
     world_activity: u64,
     agent_cognition: u64,
     water_volume: u64,
+    water_flow: u64,
 }
 
 impl LiveCommandBodyCountsV1 {
@@ -32,7 +33,8 @@ impl LiveCommandBodyCountsV1 {
             .checked_add(self.world_population)?
             .checked_add(self.world_activity)?
             .checked_add(self.agent_cognition)?
-            .checked_add(self.water_volume)
+            .checked_add(self.water_volume)?
+            .checked_add(self.water_flow)
     }
 }
 
@@ -60,6 +62,7 @@ fn live_command_body_counts(
             CommandPayload::WorldActivity(_) => &mut counts.world_activity,
             CommandPayload::AgentCognition(_) => &mut counts.agent_cognition,
             CommandPayload::WaterVolume(_) => &mut counts.water_volume,
+            CommandPayload::WaterFlow(_) => &mut counts.water_flow,
         };
         *count = count.checked_add(1).ok_or_else(|| {
             LiveRuntimePerformanceError::new("command body classification", "count overflow")

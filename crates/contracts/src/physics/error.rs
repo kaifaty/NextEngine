@@ -34,6 +34,7 @@ pub enum PhysicsContractError {
     QueryUnsupported,
     SnapshotSelectorMismatch,
     WaterVolumeInvalid,
+    WaterFlowInvalid,
 }
 
 impl PhysicsContractError {
@@ -53,6 +54,7 @@ impl PhysicsContractError {
             Self::QueryUnsupported => "PHYS_QUERY_UNSUPPORTED",
             Self::SnapshotSelectorMismatch => "PHYS_QUERY_SNAPSHOT_MISMATCH",
             Self::WaterVolumeInvalid => "PHYS_WATER_VOLUME_INVALID",
+            Self::WaterFlowInvalid => "PHYS_WATER_FLOW_INVALID",
             _ => "PHYSICS_CONTRACT_INVALID",
         }
     }
@@ -112,6 +114,9 @@ impl Display for PhysicsContractError {
             }
             Self::WaterVolumeInvalid => {
                 formatter.write_str("water volume definition or state is invalid")
+            }
+            Self::WaterFlowInvalid => {
+                formatter.write_str("water flow network definition or state is invalid")
             }
         }
     }

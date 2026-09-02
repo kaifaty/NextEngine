@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 2.5 |
+| Версия | 2.6 |
 | Последняя проверка | 2026-09-02 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-26 2.4; records the Proposed ADR-100 water-volume table as field 4 of `PhysicsWorldCheckpointV1` schema version 2 and its exact submersion query |
+| Заменяет | SPEC-26 2.5; records the Proposed ADR-103 water flow network as field 5 of `PhysicsWorldCheckpointV1` schema version 3, its exact per-tick step and its flux and volume queries |
 | Дополнительные зависимости V2.5 | [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
+| Дополнительные зависимости V2.6 | [ADR-103](adr/103-authoritative-water-flow-network.md) |
 | Дополнительная зависимость V2.0 | [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Дополнительные зависимости V2.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 
@@ -1003,8 +1004,28 @@ committed table: the containing volume, `level - y` as depth, and the
 `Dry`/`Wading`/`Swimming` class from the authored swimming depth. It is
 evaluated only against a committed checkpoint, never against presentation
 water, and has no backend, tolerance or float input. The physics checkpoint
-hash domain is `nextengine.physics-world-checkpoint.v2`; earlier checkpoint
+hash domain is `nextengine.physics-world-checkpoint.v3`; earlier checkpoint
 bytes are current-only alpha artifacts and reject before mutation.
+
+### Authoritative water flow network (Proposed ADR-103)
+
+`PhysicsWorldCheckpointV1` schema version `3` carries `WaterFlowNetworkV1`
+as field 5: at most `256` edges over the water-volume cells (open sill,
+pipe, gate, pump, source, sink; every coefficient a permille profile
+value), one mutable state per edge (record revision, gate opening, pump
+switch, rate, last flux) and one exact stored volume per cell in cubic
+millimetres. Cells are the water volumes themselves; the level a
+submersion query sees is `floor + volume / area` in integer arithmetic,
+saturated at the cell ceiling. The network changes through the validated
+`nextengine.command.water-flow` transaction (`SetGate`, `SetPump`,
+`SetSource`, event `nextengine.event.water-flow-changed`) and through one
+exact Jacobi step per tick inside the physics owner after the rigid step:
+integer square roots of the Torricelli and weir laws, fluxes limited by
+the water above the sill and half the equalising volume, per-cell
+largest-remainder scaling so no cell goes negative, total volume changed
+only by sources and sinks. `cell_volume(id)` and `edge_flux(id)` are the
+two exact queries. The rigid step never reads the network; backends carry
+it unchanged.
 
 ## Persistence, replay and schema evolution
 
@@ -1072,6 +1093,7 @@ or partial snapshot continuation is allowed.
 | `PHYS-SNAPSHOT-P1` | 1 000 checkpoint restores with 100-substep continuation across `game`, `headless`, `capture-worker`, worker counts and Windows/Linux | canonical snapshot/projection roots, joint state, query/contact order and outcomes byte-identical; faults expose only complete prior or restored world | retain prior valid checkpoint/save and reject incompatible backend/profile |
 | `MOTOR-ROLLOUT-P1` (future) | `K` candidate chunks from one checkpoint under candidate/worker/completion permutations | exact ordered score/evidence roots, winner and selected chunk; zero command/event/save/RNG/cache side effect escapes a fork | reject rollout profile and retain declared base chunk/procedural route |
 | `CONTINUUM-WATER-VOLUME-P1` (Proposed ADR-100) | `xtask water-volume`: reference basin probes, level command, rejections, checkpoint round trip, restore/continue, repeated generation | exact probe table and roots; rejections leave the table unchanged; restored and live runs converge | reject the region before activation and keep the dry scene |
+| `CONTINUUM-WATER-FLOW-P1` (Proposed ADR-103) | `xtask water-flow`: two reference vessels joined by a gated pipe with a source and a sink, stepped for a bounded run with a gate closure, a mid-run save, restore, continuation and rejections | exact volume conservation at every tick, drain within twice the analytic Torricelli time, gate response within one tick, identical live and restored roots, stable rejections | keep the network absent and the authored levels (R8c behaviour) |
 
 These checks cover the lower-level descriptor, collision, joint, query and
 snapshot contracts consumed by `PHYS-P1`…`PHYS-P8` and `NUMERIC-P1`.
@@ -1083,7 +1105,7 @@ snapshot contracts consumed by `PHYS-P1`…`PHYS-P8` and `NUMERIC-P1`.
 | REQ-128 | Every physics world, material, shape and body MUST use bounded versioned engine-owned descriptors, canonical units/right-handed axes and exact IDs/hashes, with no ECS, OS, importer or vendor/backend public type. | PHYS-API-P1 |
 | REQ-129 | Collision filtering, material combination, shape-feature mapping and `ContactEventV1` continuity MUST be backend-independent, bounded and published in complete canonical participant/feature/value order. | PHYS-COLLISION-P1 |
 | REQ-130 | Joint graphs and authoritative scene queries MUST use closed bounded descriptors, exact revisions/snapshot selectors, atomic mutation and complete canonical ordering; callers MUST NOT access backend handles or partial results. | PHYS-JOINT-P1, PHYS-QUERY-P1 |
-| REQ-131 | Every authoritative field MUST be `ExactCanonical`, `QuantizedExact` or `ToleranceDiagnosticOnly`; active save/replay MUST use portable `PhysicsCanonicalSnapshotV2` inside `PhysicsWorldCheckpointV1` (schema version 2, carrying the water table) with exact continuation across composition roots and shipping targets. | PHYS-SNAPSHOT-P1, CONTINUUM-WATER-VOLUME-P1 |
+| REQ-131 | Every authoritative field MUST be `ExactCanonical`, `QuantizedExact` or `ToleranceDiagnosticOnly`; active save/replay MUST use portable `PhysicsCanonicalSnapshotV2` inside `PhysicsWorldCheckpointV1` (schema version 3, carrying the water table and the flow network) with exact continuation across composition roots and shipping targets. | PHYS-SNAPSHOT-P1, CONTINUUM-WATER-VOLUME-P1, CONTINUUM-WATER-FLOW-P1 |
 
 ## Failure paths
 

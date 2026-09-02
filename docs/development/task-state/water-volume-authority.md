@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Implement ADR-100 option C: exact CPU `WaterVolume` for gameplay, presentation-only water for the renderer |
-| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / PLAYER_CLASS_AND_STILL_SURFACE_DONE / SOLVER_SURFACE_NEXT` |
+| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / CONTINUUM-WATER-FLOW-P1=PASS (R8d) / PLAYER_CLASS_AND_STILL_SURFACE_DONE / VESSEL_SURFACES_AND_SOLVER_SURFACE_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-02 |
 
@@ -37,8 +37,17 @@
   Swimming across the level command, surface translation `0.5 -> 1.5 m`,
   three rejections, checkpoint round trip, restore/continue, repeated
   generation.
-- **Next:** the ADR-101 ring inside the game root fed by the presentation
-  solver stream (`CONTINUUM-WATER-PRESENT-P1`, `RENDER-DYNSURF-P1`); the
+- **Flow network (R8d, ADR-103).** `WaterFlowNetworkV1` is field 5 of the
+  physics checkpoint (schema 3): cells are volumes, edges move water by
+  head in one exact integer Jacobi step per tick after the rigid step;
+  `WaterFlowCommandV1` (`SetGate`/`SetPump`/`SetSource`, tenth kind,
+  priority 291, capability `nextengine.capability.water-flow-control`).
+  Reference scene: vessels `0x7e`/`0x7f`, gate `0x80`, source `0x81`,
+  sink `0x82`. `cargo run -p xtask -- water-flow` runs
+  `CONTINUUM-WATER-FLOW-P1`.
+- **Next:** surface meshes for the two vessels (presentation only), then
+  the ADR-101 ring inside the game root fed by the presentation solver
+  stream (`CONTINUUM-WATER-PRESENT-P1`, `RENDER-DYNSURF-P1`); the
   research CUDA tool stays a separate process behind the neutral stream.
 
 ## Required context
@@ -120,6 +129,18 @@
 
 ## Evidence
 
+- `xtask water-flow` PASS 2026-09-02 (R8d, plan `continuum-water/07`):
+  conservation exact over `1,800` ticks, vessel A drained by tick `868`
+  (bound `1,680`), gate response within one tick, four rejections,
+  checkpoint round trip, restored and repeated runs identical; matrix
+  digest `a57b0ca3...`, final state root `41e84ebc...`, physics checkpoint
+  `e93a8c35...`; step cost `183 us` release / `1,405 us` debug for `64`
+  cells and `256` edges (G6 `50 us` not met). Values change with any
+  profile/registry/content change; they are not golden.
+- Pinned roots refreshed for the R8d registry and checkpoint schema 3:
+  play ledger root `bdfba580...`, replay root `320cd4b5...`, creator-smoke
+  lock `def43dcf...` and its five expectations; content counts unchanged
+  (no new assets).
 - `xtask water-volume` PASS 2026-09-02 (with the player walk and surface
   binding): matrix digest `fce46535...`, final state root `38372827...`,
   physics checkpoint `0efdf9d1...` (values change with any
@@ -139,12 +160,10 @@
 
 ## Next action
 
-0. Water mechanics (ADR-103, plan `docs/plans/continuum-water/07`):
-   implement `WaterFlowNetworkV1` (cells = volumes, edges by head, exact
-   integer Jacobi step, `SetGate`/`SetPump`/`SetSource`) as field 5 of the
-   physics checkpoint (schema 3), the two-vessel reference scene and
-   `xtask water-flow` (`CONTINUUM-WATER-FLOW-P1`); refresh the pinned
-   goldens with the evidence.
+0. Water mechanics (ADR-103): done in R8d (`CONTINUUM-WATER-FLOW-P1 =
+   PASS`). Next increments under the same ADR: surface meshes for the
+   vessels, a jet spawned at the gate mouth from the edge flux in the
+   particle pass, and the lattice-cell network for map-wide water.
 1. Presentation solver in the game root: declare the basin mesh as an
    ADR-101 dynamic surface in `apps/game`, feed it from the neutral stream
    (`nonlocal-feasibility --game-surface-stream`) or a still fallback, and

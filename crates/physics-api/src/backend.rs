@@ -6,7 +6,8 @@ use next_contracts::ids::ContentHash;
 use next_contracts::input::TickRateProfileV1;
 use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PhysicsCanonicalSnapshotV2, PhysicsQuantizationProfileV1,
-    PhysicsStepInputV2, PhysicsStepResultV1, PhysicsWorldCheckpointV1, WaterVolumeSetV1,
+    PhysicsStepInputV2, PhysicsStepResultV1, PhysicsWorldCheckpointV1, WaterFlowNetworkV1,
+    WaterVolumeSetV1,
 };
 
 use crate::{GroundedCapsuleQuery, GroundedCapsuleWorld, ReferencePhysicsError};
@@ -61,6 +62,8 @@ pub trait PhysicsWorldBackend: Debug {
     /// The table is outside the canonical snapshot and never read by the
     /// rigid step; backends only carry it.
     fn set_water_volumes(&mut self, water_volumes: WaterVolumeSetV1);
+    /// Replaces the ADR-103 flow network of the checkpoint; carried only.
+    fn set_water_flow(&mut self, water_flow: WaterFlowNetworkV1);
     fn step(
         &mut self,
         input: &PhysicsStepInputV2,
@@ -122,6 +125,10 @@ where
 
     fn set_water_volumes(&mut self, water_volumes: WaterVolumeSetV1) {
         GroundedCapsuleWorld::set_water_volumes(self, water_volumes);
+    }
+
+    fn set_water_flow(&mut self, water_flow: WaterFlowNetworkV1) {
+        GroundedCapsuleWorld::set_water_flow(self, water_flow);
     }
 
     fn step(
@@ -286,6 +293,15 @@ impl PhysicsWorldHost {
 
     pub fn set_water_volumes(&mut self, water_volumes: WaterVolumeSetV1) {
         self.world.set_water_volumes(water_volumes);
+    }
+
+    #[must_use]
+    pub fn water_flow(&self) -> &WaterFlowNetworkV1 {
+        &self.world.checkpoint().water_flow
+    }
+
+    pub fn set_water_flow(&mut self, water_flow: WaterFlowNetworkV1) {
+        self.world.set_water_flow(water_flow);
     }
 
     pub fn step(

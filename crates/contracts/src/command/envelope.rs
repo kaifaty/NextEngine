@@ -14,8 +14,9 @@ use crate::physical_animation::{
 };
 use crate::physics::{
     PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION,
-    PhysicalCommandV1, WATER_VOLUME_CAPABILITY_ID, WATER_VOLUME_COMMAND_SCHEMA_ID,
-    WATER_VOLUME_COMMAND_SCHEMA_VERSION, WaterVolumeCommandV1,
+    PhysicalCommandV1, WATER_FLOW_CAPABILITY_ID, WATER_FLOW_COMMAND_SCHEMA_ID,
+    WATER_FLOW_COMMAND_SCHEMA_VERSION, WATER_VOLUME_CAPABILITY_ID, WATER_VOLUME_COMMAND_SCHEMA_ID,
+    WATER_VOLUME_COMMAND_SCHEMA_VERSION, WaterFlowCommandV1, WaterVolumeCommandV1,
 };
 use crate::rpg::{RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID};
 use crate::rpg::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
@@ -116,6 +117,36 @@ impl WorldCommandEnvelopeV2 {
                 capability_claims: vec![CapabilityRefV1::unscoped(WATER_VOLUME_CAPABILITY_ID)?],
                 preconditions: Vec::new(),
                 payload: CommandPayload::WaterVolume(payload),
+            },
+        };
+        command.refresh_command_id()?;
+        Ok(command)
+    }
+
+    /// External water flow command (ADR-103): ingress phase, no subject
+    /// target, one water flow capability claim.
+    pub fn water_flow(
+        stream_id: CommandStreamId,
+        issuer: IssuerPrincipal,
+        sequence: u64,
+        target_tick: u64,
+        payload: WaterFlowCommandV1,
+    ) -> Result<Self, CanonicalError> {
+        let mut command = Self {
+            envelope_schema_version: COMMAND_ENVELOPE_SCHEMA_VERSION,
+            claimed_command_id: None,
+            body: CanonicalCommandBodyV2 {
+                payload_schema_id: SchemaId::new(WATER_FLOW_COMMAND_SCHEMA_ID)?,
+                payload_schema_version: WATER_FLOW_COMMAND_SCHEMA_VERSION,
+                issuer,
+                stream_id,
+                sequence,
+                target_tick,
+                phase: CommandPhase::Ingress,
+                target: None,
+                capability_claims: vec![CapabilityRefV1::unscoped(WATER_FLOW_CAPABILITY_ID)?],
+                preconditions: Vec::new(),
+                payload: CommandPayload::WaterFlow(payload),
             },
         };
         command.refresh_command_id()?;

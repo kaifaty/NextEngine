@@ -84,7 +84,7 @@ fn activate_pinned_project(
 
     if generation.generation_id != project_lock.project_lock_sha256
         || project_lock.runtime_determinism_profile_sha256
-            != RuntimeDeterminismBundleV1::core_r8c()
+            != RuntimeDeterminismBundleV1::core_r8d()
                 .expect("the engine-owned determinism bundle is canonical")
                 .runtime_profile_hash()
         || project_lock.launch_profiles_sha256 != launch_profiles_sha256()

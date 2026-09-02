@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-103 |
 | Status | Proposed |
-| Version | 0.1 |
+| Version | 0.2 |
 | Proposal date | 2026-09-02 |
 | Last verified | 2026-09-02 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
@@ -106,17 +106,34 @@ speed `0.5..0.55` of free fall for the head (revisions 5-9).
 - Coupling to rigid bodies (buoyancy, drag) stays with the later
   crate-coupled consumer named by ADR-100.
 
-## Implementation (first increment, plan `continuum-water/07`)
+## Implementation (R8d, first increment, plan `continuum-water/07`)
 
-- `crates/contracts/src/physics/water_flow.rs`: `WaterFlowEdgeV1`,
-  `WaterFlowEdgeStateV1`, `WaterFlowNetworkV1` with `validate`,
-  canonical record and `step(tick)`; exact helpers (`isqrt`, level from
-  volume, largest-remainder scaling); `WaterFlowCommandV1`,
-  `WaterFlowChangedV1`.
-- `PhysicsWorldCheckpointV1` schema `3` with field 5; pinned goldens
-  refreshed as a consequence (state, play ledger, replay roots).
-- Reference scene: two vessels joined by a pipe with a gate, one source,
-  one sink; `xtask water-flow` runs `CONTINUUM-WATER-FLOW-P1`.
+- `crates/contracts/src/physics/water_flow.rs`: `WaterFlowEdgeKindV1`,
+  `WaterFlowEdgeV1`, `WaterFlowEdgeStateV1`, `WaterFlowCellStateV1`,
+  `WaterFlowNetworkV1` (`from_edges`, `validate`, `validate_against`,
+  `apply_command`, `step`, canonical record, `cell_volume`, `edge_flux`,
+  `total_volume`), exact helpers (`isqrt_i128`, `level_from_volume`,
+  `volume_from_level`, largest-remainder scaling), `WaterFlowCommandV1`,
+  `WaterFlowChangedV1`, `WaterFlowRejectionV1`.
+- `PhysicsWorldCheckpointV1` schema `3` (segment `v3`, hash domain
+  `nextengine.physics-world-checkpoint.v3`) with field 5; the network's
+  cells must be declared volumes without an authored ramp; a cell whose
+  volume state carries a newer record revision (an authored `SetLevel`)
+  is resynchronised from the level at the next step; an overfull cell
+  reads as full and keeps its excess for the following ticks.
+- `WaterFlowCommandV1` is the tenth command kind (`core_r8d`, priority
+  `291`, capability `nextengine.capability.water-flow-control`, either
+  phase); the exact step runs in the physics owner's tick after the
+  rigid step (`physics_step.rs`); the schedule manifest is unchanged.
+- Reference scene: vessel A (`0x7e`, `2 x 1.5 m` on a `1 m` shelf, level
+  `1.5 m`) and vessel B (`0x7f`, `2.8 x 1.5 m` on the floor, empty)
+  joined by the gate `0x80` (`0.04 m^2`, invert `0.6 m`, `c_d = 0.40`),
+  the source `0x81` and the sink `0x82` at `0.5 L/s`; both vessels sit
+  east of the basin, away from the locomotion walk, and have no surface
+  mesh yet.
+- `xtask water-flow` runs `CONTINUUM-WATER-FLOW-P1` (plan 07 gates):
+  `1,800` ticks, gate closed at tick `300` and reopened at `360`, save at
+  `900`, restore and continue, four rejections, repeated generation.
 
 ## Consequences
 

@@ -22,6 +22,7 @@ mod streaming_performance;
 #[cfg(test)]
 mod test_support;
 mod v1_closure;
+mod water_flow;
 mod water_volume;
 
 pub use agent_performance::{
@@ -130,6 +131,7 @@ pub use v1_closure::{
     TargetGateStatusV1, V1ClosureCheckError, V1ClosureCheckReportV2, V1ReleaseTargetGateV2,
     run_v1_closure_check, run_v1_closure_check_in,
 };
+pub use water_flow::{WaterFlowCheckErrorV1, WaterFlowCheckReportV1, run_water_flow_check};
 pub use water_volume::{
     WaterProbeResultV1, WaterVolumeCheckErrorV1, WaterVolumeCheckReportV1, run_water_volume_check,
 };

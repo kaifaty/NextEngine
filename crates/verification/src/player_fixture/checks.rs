@@ -466,7 +466,7 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         || command_identity_index_root
             != "0b2283188fb33597884dd0c53a4eb1a54c53449b4eaf1c9151b6d53bfa520578"
         || report.final_command_ledger_hash.to_hex()
-            != "f12cbbb6c2bd025f88e64a0729f051020dc442ff37cb76071aa9db149823b4e7"
+            != "bdfba580579a445723d7d19156d5a35acd01987679d930d6e7ac2063c2a30ee2"
         || stage_checkpoint_count != 3
         || !stage_checkpoints_match_acceptance
         || !duty_branch_matches
