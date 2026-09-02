@@ -315,6 +315,7 @@ def build_role(
                                 stencil,
                                 ordinal,
                             )
+                            base["oracle_context"]["v"] = float(fixture["contact"]["v"])
                             target = oracle_targets(base)
                             local_key = c0.local_key(
                                 solution, fixture, multipliers, ordinal, stencil

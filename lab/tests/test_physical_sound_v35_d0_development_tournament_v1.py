@@ -115,6 +115,11 @@ class DevelopmentTournamentTests(unittest.TestCase):
         self.assertEqual(actual[2], expected_contact)
         self.assertTrue(np.all(np.isfinite(actual)))
 
+        missing_v = copy.deepcopy(context)
+        del missing_v["v"]
+        with self.assertRaises(KeyError):
+            d0.oracle_targets({"oracle_context": missing_v})
+
     def test_geometry_ablation_preserves_group_and_removes_only_distance_fields(
         self,
     ) -> None:
