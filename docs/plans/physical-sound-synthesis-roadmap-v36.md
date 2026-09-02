@@ -3,13 +3,14 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-03` |
-| Status | `ACTIVE / R0_A0_F0_C0_COMPLETE / X0_NEXT / FRESH_V36_TARGETS_UNOPENED / V35_QUALITY_UNOBSERVED / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Status | `ACTIVE / R0_A0_F0_C0_X0_COMPLETE / E0_NEXT / FRESH_V36_TARGETS_UNOPENED / V35_QUALITY_UNOBSERVED / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V35](physical-sound-synthesis-roadmap-v35.md), closed after a repeat-exact post-access owner fault; every V35 train/development role is spent and H0 stays unopened |
 | Research basis | [V36 sealed-owner rebaseline](../development/physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md) |
 | Trigger evidence | [V35 D0 terminal result](../development/physical-sound-v35-d0-development-tournament-result-2026-09-03.md) |
 | A0 evidence | [Repeat-exact typed owner/provider contract](../development/physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md) |
 | F0 evidence | [Repeat-exact fresh-role and unchanged-science freeze](../development/physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md) |
 | C0 evidence | [Repeat-exact fresh structural census](../development/physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md) |
+| X0 evidence | [Repeat-exact mutation and terminal conformance](../development/physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no production consumer or promoting ADR |
 | Product-owner constraint | Evidence is internet-sourced or synthetic; the user records no impacts and does not approve sounds one by one |
 
@@ -144,8 +145,8 @@ upstream reject as partial admission.
 | A0 | Typed single-path owner/provider contract | [`COMPLETE / REPEAT_EXACT / ZERO_OFFICIAL_VALUES`](../development/physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md) | One immutable concrete `RoleBatch` has explicit `row_count` and no length protocol; strict positive/negative typing, 10 lifecycle mutations and complete D0/H0 topology traces pass; four artifacts/stdout repeat exactly with zero official access. |
 | F0 | Fresh-role and unchanged-science freeze | [`COMPLETE / REPEAT_EXACT / ZERO_TARGET_VALUES`](../development/physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md) | V35 scientific projection is hash-exact outside eight declared identity paths; `1,512 / 15,120` fresh case/row commitments and every V32–V35 identity intersection close at zero with no target/model/prior-value access. |
 | C0 | Fresh structural census | [`COMPLETE / REPEAT_EXACT / ZERO_TRUTH_TARGET_VALUES`](../development/physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md) | Dedicated truth-free structural profile reproduces all F0 roots; every `15,120` P1 row is valid, all witnesses/support close, 216/215 local counts hold, both experts are reachable and OOD count is zero. |
-| X0 | Mutation and lifecycle conformance | `NEXT` | Bounded property/state-machine tests detect wrong container shape, illegal `len`, stage skip/reorder, role leak, double-open, terminal exception and every publication failpoint; all failure artifacts remain atomic. |
-| E0 | Full surrogate rehearsal and execution seal | `BLOCKED_BY_X0` | The actual D0 owner completes all four model fits, predictions, controls, metrics, gates and every terminal over `6,480 / 4,320` disposable rows; the actual H0 owner completes train reconstruction, frozen-candidate load and `4,320` disposable holdout rows. Both paths run twice; files/stdout/stage traces match exactly within the frozen envelope and one seal binds both roots before D0. |
+| X0 | Mutation and lifecycle conformance | [`COMPLETE / REPEAT_EXACT / 38_MUTATIONS / ZERO_OFFICIAL_VALUES`](../development/physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md) | All 38 container/lifecycle/trace mutations reject; eight complete D0/H0 scientific terminals, four failpoints and pre/post-access exception conversion close atomically in two exact processes. |
+| E0 | Full surrogate rehearsal and execution seal | `NEXT` | The actual D0 owner completes all four model fits, predictions, controls, metrics, gates and every terminal over `6,480 / 4,320` disposable rows; the actual H0 owner completes train reconstruction, frozen-candidate load and `4,320` disposable holdout rows. Both paths run twice; files/stdout/stage traces match exactly within the frozen envelope and one seal binds both roots before D0. |
 | D0 | Fresh development tournament | `BLOCKED_BY_E0_SEAL` | The unchanged candidate beats nearest and continuous-local controls in aggregate and every transfer stratum, passes both-expert ablations and all hard/resource gates, freezes one candidate and leaves H0 access at zero. |
 | H0 | One-shot method holdout | `BLOCKED_BY_D0_PASS` | Frozen candidate runs without training and independently passes all aggregate/branch/stratum, P1 hard, provenance, trace and resource gates. Any reject/fault closes V36. |
 | S0 | Bounded internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Each batch audits at most three named primary-source leads and returns `Feasible`, `ImprovedFrontier` or `NoEligibleDelta` without signal access. |
@@ -211,10 +212,10 @@ a miss.
 4. **V36.3 — complete:** a dedicated truth-free profile reproduces every F0
    root; all P1 witnesses, local/gate support and both-expert reachability close
    twice exactly over `15,120` structural rows.
-5. **V36.4 — next:** implement bounded generated mutations for container
-   contracts, lifecycle/access order, stage trace and atomic terminal
-   publication.
-6. **V36.5:** run the actual D0 and H0 owners twice end-to-end on full-count/
+5. **V36.4 — complete:** all 38 container/lifecycle/trace mutations, eight
+   scientific terminals, four failpoints and access-sensitive exception
+   conversion pass twice exactly through the shared atomic publisher.
+6. **V36.5 — next:** run the actual D0 and H0 owners twice end-to-end on full-count/
    full-step surrogate values; publish the byte-closed execution seal only on
    exact Pass of both paths.
 7. **V36.6:** execute fresh D0 once in two processes. Freeze one candidate only
