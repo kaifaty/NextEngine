@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / CAUSAL_BASELINE_NEXT / BOUNDED_SOURCE_SCOUTING / SYNTHETIC_VALIDATOR_MECHANICS_ALLOWED / REAL_ADMISSION_BLOCKED_BY_SOURCE_POWER / OFFLINE_ML_ONLY / NO_PER_SOUND_HUMAN_REVIEW / AUTHORED_FALLBACK` |
+| Status | `ADOPTED / P0_PROTOCOL_FROZEN / P1_OWNER_NEXT / BOUNDED_SOURCE_SCOUTING / SYNTHETIC_VALIDATOR_MECHANICS_ALLOWED / REAL_ADMISSION_BLOCKED_BY_SOURCE_POWER / OFFLINE_ML_ONLY / NO_PER_SOUND_HUMAN_REVIEW / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V30](physical-sound-synthesis-roadmap-v30.md) as planning authority; V30 source identities, power thresholds, role isolation and exact E2/E3 result remain immutable |
 | Current evidence | [V30 E2 source-growth result](../development/physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md), [V28 R2 representation result](../development/physical-sound-v28-r2-official-feasibility-result-2026-09-02.md), [V18 B0 classical baseline](../development/physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; authored clips and deterministic gameplay acoustic facts remain authoritative |
@@ -113,8 +113,8 @@ real release claim remain blocked until the unchanged source-power gate passes.
 | R0 | Preserve evidence | `COMPLETE` | V28 R2, Q0/Q1 and V30 E2/E3 identities reproduce; protected signal counters remain zero. |
 | S0 | Bounded source scout | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Each batch examines at most three concrete primary-source leads and publishes exactly one outcome: `Feasible`, `ImprovedFrontier` or `NoEligibleDelta`. It never opens payloads. |
 | S1 | Fresh Steel role freeze | `BLOCKED_BY_S0_FEASIBLE` | Two disjoint protected roles each receive at least two projects, 16 exact-Steel groups and 35 non-Metal reject parents while at least five projects remain for other one-use roles. |
-| P0 | Causal baseline protocol | `NEXT` | Freeze geometry/material/contact/support inputs, modal output, resource limits, deterministic numeric profile and isolated `E`, density, thickness, scale, contact and support interventions before values. |
-| P1 | Deterministic modal owner | `BLOCKED_BY_P0` | Two executions are byte-identical; analytic plate/beam controls, remesh pairs, energy bounds and every isolated intervention pass. Unsupported inputs return a typed fallback. |
+| P0 | Causal baseline protocol | [`COMPLETE / REPEAT_EXACT_ZERO_SIGNAL`](../development/physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) | Geometry/material/contact/support inputs, modal output, resource limits, deterministic numeric profile and isolated `E`, density, thickness, scale, impulse, contact and support interventions are frozen before solver values. |
+| P1 | Deterministic modal owner | `NEXT` | Two executions are byte-identical; analytic plate/beam controls, remesh pairs, energy bounds and every isolated intervention pass. Unsupported inputs return a typed fallback. |
 | T0 | Truth and mutation library | `BLOCKED_BY_P1` | Freeze clean causal cases plus wrong-decay, frozen-carrier, shuffled-envelope, mode-collapse, spectral-copy, clipping and provenance mutations with exact expected validator outcomes. |
 | V0 | Validator shell | `BLOCKED_BY_T0` | One external CLI implements canonical PCM/provenance checks, physical-time and spectral specialists, deterministic feature caching, abstention and mutation coverage. Learned real thresholds remain unset. |
 | M0 | Bounded correction protocol | `BLOCKED_BY_T0` | Freeze one CPU-feasible model family, parameter bounds, losses, control baselines, complete-entry smoke and resource oracle before training values. No free waveform decoder. |
@@ -202,9 +202,9 @@ one neural checkpoint trusted for every material.
 
 ## Execution order and commit boundaries
 
-1. **P0 protocol:** freeze the causal classical owner, intervention suite and
-   CPU/resource envelope. No audio or model value opens.
-2. **P1 owner:** implement deterministic modes/rendering and typed fallback;
+1. **P0 protocol — complete:** the causal owner contract, intervention suite
+   and CPU/resource envelope are frozen with zero audio/model/solver values.
+2. **P1 owner — next:** implement deterministic modes/rendering and typed fallback;
    require complete-entry and remesh controls.
 3. **T0 truth:** add causal fixtures and adversarial audio mutations with exact
    expected outcomes.
@@ -222,7 +222,7 @@ one neural checkpoint trusted for every material.
 9. **K0/D0:** cook an ordinary clip and prove opt-in/fault fallback in the demo.
 10. **G0/W0:** repeat the complete evidence-to-admission loop per material.
 
-The immediate next commit is P0, not another open-ended source crawl. A newly
+The immediate next commit is P1, not another open-ended source crawl. A newly
 published high-value source may interrupt only at an S0 commit boundary; it
 cannot alter P0/T0/M0 values or any previously frozen role.
 

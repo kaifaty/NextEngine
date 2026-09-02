@@ -1,0 +1,255 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "external_research_only": true,
+    "model_allowed": false,
+    "network_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "real_signal_allowed": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "validator_authority": false
+  },
+  "baseline_commit": "362378eb40e4e4a9c1b1789426ace1cbbab9f7d0",
+  "claim": "SYNTHETIC_CAUSAL_BASELINE_PROTOCOL_ONLY / NO_SOLVER_QUALITY_REAL_MATERIAL_VALIDATOR_ADMISSION_OR_RUNTIME_AUTHORITY",
+  "fallback": {
+    "authored_clip_class": "engine.authored-impact-clip",
+    "contract_failure": "ContractReject",
+    "out_of_domain": "FallbackOutOfDomain",
+    "publish_partial_output": false,
+    "reason_codes": [
+      "UnsupportedGeometry",
+      "UnsupportedAcousticMaterial",
+      "UnsupportedSupport",
+      "UnsupportedContact",
+      "InvalidNumericInput",
+      "ResourceLimitExceeded"
+    ]
+  },
+  "fixtures": [
+    {
+      "contact": {
+        "normal_impulse_ns": "1",
+        "u": "0.25",
+        "v": "0.25"
+      },
+      "family": "rectangular_plate",
+      "fixture_id": "synthetic-plate-reference",
+      "formula_id": "kirchhoff-love-simply-supported-v1",
+      "geometry": {
+        "length_x_m": "0.24",
+        "length_y_m": "0.18",
+        "thickness_m": "0.003"
+      },
+      "material": {
+        "density_kg_m3": "2700",
+        "loss_rate_per_second": "8",
+        "material_id": "synthetic-elastic-reference",
+        "poisson_ratio": "0.33",
+        "youngs_modulus_pa": "69000000000"
+      },
+      "mesh_pair": {
+        "coarse_u": 17,
+        "coarse_v": 13,
+        "fine_u": 33,
+        "fine_v": 25
+      },
+      "mode_count": 10,
+      "pickup": {
+        "u": "0.37",
+        "v": "0.61"
+      },
+      "support": "simply-supported-all-edges"
+    },
+    {
+      "contact": {
+        "normal_impulse_ns": "1",
+        "u": "0.25",
+        "v": "0.5"
+      },
+      "family": "rectangular_beam",
+      "fixture_id": "synthetic-beam-reference",
+      "formula_id": "euler-bernoulli-cantilever-v1",
+      "geometry": {
+        "height_m": "0.004",
+        "length_m": "0.30",
+        "width_m": "0.04"
+      },
+      "material": {
+        "density_kg_m3": "2700",
+        "loss_rate_per_second": "8",
+        "material_id": "synthetic-elastic-reference",
+        "poisson_ratio": "0.33",
+        "youngs_modulus_pa": "69000000000"
+      },
+      "mesh_pair": {
+        "coarse_u": 17,
+        "coarse_v": 13,
+        "fine_u": 33,
+        "fine_v": 25
+      },
+      "mode_count": 10,
+      "pickup": {
+        "u": "0.83",
+        "v": "0.5"
+      },
+      "support": "cantilever-clamped-u0"
+    }
+  ],
+  "formulae": [
+    {
+      "family": "rectangular_plate",
+      "formula_id": "kirchhoff-love-simply-supported-v1",
+      "support": "simply-supported-all-edges"
+    },
+    {
+      "beta_roots": [
+        "1.875104068711961",
+        "4.694091132974175",
+        "7.854757438237612",
+        "10.99554073487547",
+        "14.13716839104647",
+        "17.27875953208824",
+        "20.42035225104125",
+        "23.56194490180644",
+        "26.70353755551830",
+        "29.84513020910282"
+      ],
+      "family": "rectangular_beam",
+      "formula_id": "euler-bernoulli-cantilever-v1",
+      "support": "cantilever-clamped-u0"
+    },
+    {
+      "beta_rule": "n*pi",
+      "family": "rectangular_beam",
+      "formula_id": "euler-bernoulli-simply-supported-v1",
+      "support": "simply-supported-both-ends"
+    }
+  ],
+  "interventions": [
+    {
+      "axis": "youngs_modulus",
+      "changed_coordinate": "material.youngs_modulus_pa",
+      "expected_frequency_ratio": "2",
+      "expected_gain": "not-gated",
+      "fixture_id": "synthetic-plate-reference",
+      "operation": "multiply",
+      "value": "4"
+    },
+    {
+      "axis": "density",
+      "changed_coordinate": "material.density_kg_m3",
+      "expected_frequency_ratio": "0.5",
+      "expected_gain": "not-gated",
+      "fixture_id": "synthetic-plate-reference",
+      "operation": "multiply",
+      "value": "4"
+    },
+    {
+      "axis": "thickness",
+      "changed_coordinate": "geometry.thickness_m",
+      "expected_frequency_ratio": "2",
+      "expected_gain": "not-gated",
+      "fixture_id": "synthetic-plate-reference",
+      "operation": "multiply",
+      "value": "2"
+    },
+    {
+      "axis": "uniform_scale",
+      "changed_coordinate": "geometry.uniform_scale",
+      "expected_frequency_ratio": "0.5",
+      "expected_gain": "not-gated",
+      "fixture_id": "synthetic-plate-reference",
+      "operation": "multiply",
+      "value": "2"
+    },
+    {
+      "axis": "impulse",
+      "changed_coordinate": "contact.normal_impulse_ns",
+      "expected_frequency_ratio": "1",
+      "expected_gain": "linear-ratio:2",
+      "fixture_id": "synthetic-plate-reference",
+      "operation": "multiply",
+      "value": "2"
+    },
+    {
+      "axis": "contact",
+      "changed_coordinate": "contact.normalized_position",
+      "expected_frequency_ratio": "1",
+      "expected_gain": "target-mode-zero",
+      "fixture_id": "synthetic-plate-reference",
+      "operation": "set_plate_mode_node",
+      "target": {
+        "m": 2,
+        "n": 1,
+        "u": "0.5",
+        "v": "0.5"
+      }
+    },
+    {
+      "axis": "support",
+      "changed_coordinate": "support",
+      "expected_frequency_ratio": "2.8070425317861318020883192852828806909956755557646",
+      "expected_gain": "not-gated",
+      "fixture_id": "synthetic-beam-reference",
+      "operation": "replace",
+      "value": "simply-supported-both-ends"
+    }
+  ],
+  "modal_output": {
+    "beam_cantilever_shape": "v24-t0-normalized-cantilever-v1",
+    "beam_simply_supported_shape": "sin(n*pi*u)",
+    "decay_law": "declared-loss-rate-per-second",
+    "mode_count": 10,
+    "normalization": "single-global-render-scale/no-per-mode-contact-or-render-normalization",
+    "plate_candidate_range": "m,n=1..10/take-lowest-10",
+    "plate_shape": "sin(m*pi*u)*sin(n*pi*v)",
+    "record_fields": [
+      "ordinal",
+      "family_index_a",
+      "family_index_b",
+      "frequency_hz",
+      "decay_per_second",
+      "contact_participation",
+      "pickup_participation",
+      "signed_gain"
+    ],
+    "render_equation": "v31-p0-linear-damped-modal-sum-v1"
+  },
+  "numeric_profile": {
+    "canonical_json": "utf8-sort-keys-indent2-lf",
+    "coordinates": "right-handed",
+    "execution": "single-thread-cpu-reference",
+    "modal_sort": [
+      "frequency_hz",
+      "family_index_a",
+      "family_index_b"
+    ],
+    "output_encoding": "mono-f32le-wav",
+    "randomness": "forbidden",
+    "render_frames": 144000,
+    "render_scale_per_ns": "0.01",
+    "rounding": "nearest-ties-to-even",
+    "sample_rate_hz": 48000,
+    "scalar_format": "ieee754-binary64-little-endian",
+    "units": "SI"
+  },
+  "profile_id": "physical-sound-v31-p0-causal-baseline-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v31-p0-causal-baseline-protocol-2026-09-02.md",
+    "sha256": "fc5ca56495ef0f21d50685707a95d0253013228b4df3bf4abdc185a7fb37cd5a"
+  },
+  "resources": {
+    "max_mesh_elements": 200000,
+    "max_mesh_vertices": 100000,
+    "max_modes": 64,
+    "max_output_bytes": 268435456,
+    "max_peak_rss_bytes": 1073741824,
+    "max_render_frames": 144000,
+    "max_wall_seconds": 300
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v31-p0-causal-baseline-profile.v1"
+}

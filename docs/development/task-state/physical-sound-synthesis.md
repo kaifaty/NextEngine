@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V31_ADOPTED / CAUSAL_BASELINE_NEXT / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / BOUNDED_SCOUTING / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V31 / P0_PROTOCOL_FROZEN / P1_OWNER_NEXT / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -20,6 +20,9 @@
 - **Planning authority:** [Roadmap V31](../../plans/physical-sound-synthesis-roadmap-v31.md)
   preserves V30's real gates but makes source scouting bounded; causal baseline,
   synthetic truth and validator mechanics now advance without real-quality credit.
+- **P0 result:** the [causal baseline owner](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md)
+  freezes two analytic fixtures, seven isolated interventions, deterministic
+  resources and typed fallback twice exactly with zero signal/model access.
 - **Q1-M result:** [role-power audit](../physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md)
   accounts for all 109 identities twice exactly with zero signal access. Two
   projects miss the 9-project role floor, exact Steel is `23/32`, rejects are
@@ -45,8 +48,8 @@
 - **R0 result:** [implementation conformance](../physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md)
   passes full-entry A/B and actual official contexts at commit `db85c799`, root
   `d013ec35…f456`; no model/query/protected value opened.
-- **Next action:** freeze V31 P0's deterministic causal modal owner, physical
-  interventions and CPU envelope; S0 may audit only bounded concrete source leads.
+- **Next action:** implement V31 P1's deterministic modal owner under the exact
+  P0 profile; S0 may audit only bounded concrete source leads.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -84,7 +87,7 @@
 | V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
 | V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
-| V31 R0–PR | `CAUSAL_BASELINE_NEXT / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | V30 E2/E3 remains exact; bounded source batches cannot block P0–M1, but S1/V1/M2 and every real admission claim still require the unchanged `6/27` frontier to close. |
+| V31 R0–PR | `P0_PROTOCOL_FROZEN / P1_OWNER_NEXT / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | P0 passes exact/zero-signal; bounded source batches cannot block P1–M1, but S1/V1/M2 and every real admission claim still require the unchanged `6/27` frontier to close. |
 
 ## Material transition: V31 convergent execution order
 
@@ -96,7 +99,7 @@
   protected signal has opened.
 - **Decision:** E3 stays OOD and the `6/27`, exact-Steel and `16/35` gates do not
   change. Source work becomes bounded batches while P0–M1 advance without real credit.
-- **Smallest next action:** freeze V31 P0 before implementing or opening values.
+- **Smallest next action:** implement P1 modes/rendering and typed fallback without opening real or model values.
 
 ## Durable negative knowledge
 
@@ -244,8 +247,8 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** Q1a owner, E2 result and V31 are in Git; capture/audits/ML artifacts remain external.
+- **Workspace:** Q1a owner, E2, V31 and the P0 owner/result are in Git; generated artifacts remain external.
 - **Isolation:** every Q1 role and payload stays sealed; object 41/92 rules also
   remain unchanged.
 - **Quality:** B0/C0/M0b pass; F0/I1 reject; no real formula, validator, atlas or runtime integration exists and fallback remains authority.
-- **Next commit boundary:** V31 P0 causal-baseline protocol; fallback remains authority.
+- **Next commit boundary:** V31 P1 deterministic modal owner; fallback remains authority.
