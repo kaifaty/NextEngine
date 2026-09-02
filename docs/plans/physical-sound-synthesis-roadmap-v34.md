@@ -39,8 +39,8 @@ features work without turning an infrastructure failure into model tuning.
    remesh identity. ML changes only bounded decay/gain/contact residuals.
 2. V33 train/development identities, targets, weights and unpublished metrics
    never enter V34 selection, training, controls or thresholds.
-3. V34 uses fresh materials, geometry cells, contact sets, truth coefficients,
-   seeds and role commitments. Method holdout remains inaccessible until D0
+3. V34 uses fresh materials, geometry cells, contact sets, truth coefficients
+   and role commitments while keeping V33 seeds unchanged. Method holdout remains inaccessible until D0
    passes in full.
 4. Structural preflight may inspect geometry, role membership, P1 modes and
    exact witness predicates. It may not materialize residual targets, truth

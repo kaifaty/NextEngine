@@ -34,7 +34,7 @@ change whether this exact code path counted a witness or opened targets.
 ## Decision
 
 V34 preserves the untested V33 model topology, feature lift, optimizer, step
-count, controls, metrics and numeric gates. It changes only the experimental
+count, seeds, controls, metrics and numeric gates. It changes only the experimental
 protocol and necessarily creates fresh materials, geometry cells, contacts,
 truth coefficients, role identities and commitments. Nothing learned from an
 unpublished V33 metric may select a V34 value.
@@ -73,4 +73,3 @@ Freeze one V34 profile that commits fresh role identities and a machine-readable
 hard-gate witness specification without materializing residual targets. Then
 implement the census owner twice exactly. No training owner or official target
 builder is authorized before that result passes.
-
