@@ -1354,7 +1354,10 @@
 - **Reconsider when:** a solver-driven surface inside the game root needs
   a different capacity or a non-B0 composite (deferred lighting, MSAA),
   or when the interior stripe / bead look is judged unacceptable and a new
-  frozen revision changes radius or thickness smoothing.
+  frozen revision changes radius or thickness smoothing. Revision 2 (spray
+  split by neighbour count, thickness smoothing) is in; the remaining
+  bead clusters need a cluster-size criterion and the G3 apparatus must
+  become frame-rate independent before the look is accepted.
 
 ### D-051 — Presentation surface keeps every water body (NGQ9)
 
@@ -1514,6 +1517,7 @@
 | HG8G | the residual shelf sheet is the D-047 monolayer stall | consistent: sheet degree `92 -> 29..45`, `0.12` of the fluid stays on the shelf with `0.05 m` head | profile-level; not gated |
 | HG8H | the `flush` lip's `25 mm` floor step throws samples crossing the lip | supported: `margin` late speed follows the head; rev 8 level floor under `flush` restores that (`0.60 -> 0.20 m/s`) while keeping `Cd 0.443` | closed |
 | HG8I | isolated pipe samples are ejected by fixed-sample over-density | refuted: same pipe under `margin` trickles at head speed | closed |
+| HG10A | a neighbour-count spray split plus thickness smoothing removes the isolated sphere contours and interior stripes of the screen-space surface | partial: single particles become dots, two-to-five particle clusters keep contours, stripes reduced; G3 confounded by a doubled frame interval (plan 24 rev 2) | closed |
 | HG8J | a nearest-exit positional clamp over shelf, divider, pipe body and two channels keeps an L-shaped under-floor pipe free of penetration and teleports | supported: `spill-pipe` penetration `0 m`, maximum speed `3.28 m/s`, jet arcs from the pipe mouth; `Cd 0.13` recorded (duct throttles) | closed |
 | HG9A | small water bodies flicker because the frozen extractor keeps only the largest wet component | supported: largest-only drops up to `32%` of wet pixels on the spill drain; keeping every component `>= 9` pixels retains `100%`, stays CPU/GPU exact and passes the closing gates | closed; preview default `all`, corpus keeps `largest` |
 

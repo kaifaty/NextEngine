@@ -49,7 +49,7 @@
             "vertex",
             "fragment"
           ],
-          "minimum_size_bytes": 208
+          "minimum_size_bytes": 224
         },
         {
           "set": 1,
@@ -95,8 +95,33 @@
             "location": 0,
             "type": "vec4"
           }
+        ],
+        "spray": [
+          {
+            "location": 0,
+            "type": "vec4",
+            "semantic": "alpha_blended_rgb"
+          }
+        ],
+        "thickness": [
+          {
+            "location": 0,
+            "type": "float"
+          }
         ]
-      }
+      },
+      "vertex_inputs": [
+        {
+          "location": 0,
+          "type": "vec3",
+          "semantic": "particle_centre_metres"
+        },
+        {
+          "location": 1,
+          "type": "uint",
+          "semantic": "neighbour_count"
+        }
+      ]
     }
   },
   "interface": {
@@ -226,18 +251,18 @@
       "compiler": "fluid_suite_compiler",
       "stage": "vertex",
       "source": "fluid_splat.vert",
-      "source_sha256": "0535d23c77dd9ec2ada09dc188459bedb35b039a3a70952743ef4e7045750b2b",
+      "source_sha256": "9d4138ae6fd658e11fdca3f3322e39be7d6162e4ef082e23dbb95bd304eb8927",
       "module": "fluid_splat.vert.spv",
-      "module_sha256": "05aeeaa6f3751000e6c71502ae42bbe663aa9a24c34360888a2e6bd6962fbe8e"
+      "module_sha256": "72b06dab50dda839505e665313dc808366c8ae86e9706c162600d9ebb8e07a40"
     },
     {
       "suite": "fluid_surface",
       "compiler": "fluid_suite_compiler",
       "stage": "fragment",
       "source": "fluid_splat.frag",
-      "source_sha256": "dee2ac080217e7becfe2dc02c6cbd12e1374374bb98b7caaddc458cb5d959fbd",
+      "source_sha256": "e1535b75b440b87a767de145cb3e4168973db5cb454820570e7105348f2f0efa",
       "module": "fluid_splat.frag.spv",
-      "module_sha256": "1b207383e03cd6648d64932a1288c680c5f66dea51c219d8bc25016842712f7e"
+      "module_sha256": "bd115b5413fdbd314f6d2660c71e723f30f50da6de49a268f69241d30117c41a"
     },
     {
       "suite": "fluid_surface",
@@ -253,18 +278,45 @@
       "compiler": "fluid_suite_compiler",
       "stage": "fragment",
       "source": "fluid_filter.frag",
-      "source_sha256": "de006269b8c71c89ea426057b80da739db0d57c28d288c9960838983ac57dacd",
+      "source_sha256": "0b621ab5b7cebfbc70f0b497adf764e155bc5ed40539b2c82db348fe76ac902c",
       "module": "fluid_filter.frag.spv",
-      "module_sha256": "b43f8681d5144a5f0a777281b8e6a5ab13de7d4e311fecbde90819b1636a4ae8"
+      "module_sha256": "1fe9036d9cddaf52789593c899d2265cc628b6bab137c93369511633e8b27de9"
+    },
+    {
+      "suite": "fluid_surface",
+      "compiler": "fluid_suite_compiler",
+      "stage": "fragment",
+      "source": "fluid_thickness.frag",
+      "source_sha256": "ec6e60479e5048e33f13079c77961392dc600ee770b1a0b3b06ee10c76141952",
+      "module": "fluid_thickness.frag.spv",
+      "module_sha256": "823b7096f8e86b1c663c0a0936c4008972ba1e0bd69d0fc6dd577d1a6a0d0494"
     },
     {
       "suite": "fluid_surface",
       "compiler": "fluid_suite_compiler",
       "stage": "fragment",
       "source": "fluid_composite.frag",
-      "source_sha256": "1319c3a2cee901d540b7c367b2dfbdc7e8f426277d596126dfbeb34066218c89",
+      "source_sha256": "8254b2f60671b52914be51c60425ffefb43af51ef931e61dd34a9a0c1ae5054c",
       "module": "fluid_composite.frag.spv",
-      "module_sha256": "348eef11772394ea2f32243de32c9c13bedffd308ef30c968df1c9e38d5d8b92"
+      "module_sha256": "cd0c741f0c19d31e38ff36a6113ba126d3837181d1b9d161fc08716399fb70c4"
+    },
+    {
+      "suite": "fluid_surface",
+      "compiler": "fluid_suite_compiler",
+      "stage": "vertex",
+      "source": "fluid_spray.vert",
+      "source_sha256": "17c0ee2e240fb6d5b3f50c5e37f1718b2fa84ef8ffd96d5468a213d0bdcdfd20",
+      "module": "fluid_spray.vert.spv",
+      "module_sha256": "3a94238b69bb0ee72bc1e119a9dc6324fdd9908ac8c9cdeb850a115e6355f8fc"
+    },
+    {
+      "suite": "fluid_surface",
+      "compiler": "fluid_suite_compiler",
+      "stage": "fragment",
+      "source": "fluid_spray.frag",
+      "source_sha256": "c049de30344e38a5fda103340813c75a75b3f08f0efe2c9b4c5101ef11678a30",
+      "module": "fluid_spray.frag.spv",
+      "module_sha256": "4c843b510cbf077a26f1819afa016df95dd567b35b6c0a09111c3fc4cfd5f1dd"
     }
   ]
 }

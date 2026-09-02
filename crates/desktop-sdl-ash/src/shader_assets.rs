@@ -16,6 +16,10 @@ const FLUID_FILTER_FRAGMENT_SHADER_BYTES: &[u8] =
     include_bytes!("../shaders/fluid_filter.frag.spv");
 const FLUID_COMPOSITE_FRAGMENT_SHADER_BYTES: &[u8] =
     include_bytes!("../shaders/fluid_composite.frag.spv");
+const FLUID_THICKNESS_FRAGMENT_SHADER_BYTES: &[u8] =
+    include_bytes!("../shaders/fluid_thickness.frag.spv");
+const FLUID_SPRAY_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fluid_spray.vert.spv");
+const FLUID_SPRAY_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fluid_spray.frag.spv");
 
 pub(super) const B0_SHADER_MANIFEST: &str = include_str!("../shaders/manifest.json");
 
@@ -85,7 +89,10 @@ pub(super) struct FluidShaderModules {
     pub(super) splat_fragment: Vec<u32>,
     pub(super) screen_vertex: Vec<u32>,
     pub(super) filter_fragment: Vec<u32>,
+    pub(super) thickness_fragment: Vec<u32>,
     pub(super) composite_fragment: Vec<u32>,
+    pub(super) spray_vertex: Vec<u32>,
+    pub(super) spray_fragment: Vec<u32>,
 }
 
 pub(super) fn fluid_shader_modules() -> Result<FluidShaderModules, &'static str> {
@@ -97,7 +104,10 @@ pub(super) fn fluid_shader_modules() -> Result<FluidShaderModules, &'static str>
         splat_fragment: decode_spirv(FLUID_SPLAT_FRAGMENT_SHADER_BYTES)?,
         screen_vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
         filter_fragment: decode_spirv(FLUID_FILTER_FRAGMENT_SHADER_BYTES)?,
+        thickness_fragment: decode_spirv(FLUID_THICKNESS_FRAGMENT_SHADER_BYTES)?,
         composite_fragment: decode_spirv(FLUID_COMPOSITE_FRAGMENT_SHADER_BYTES)?,
+        spray_vertex: decode_spirv(FLUID_SPRAY_VERTEX_SHADER_BYTES)?,
+        spray_fragment: decode_spirv(FLUID_SPRAY_FRAGMENT_SHADER_BYTES)?,
     })
 }
 
@@ -160,11 +170,11 @@ mod tests {
         );
         assert_eq!(
             hex(sha256(FLUID_SPLAT_VERTEX_SHADER_BYTES)),
-            "05aeeaa6f3751000e6c71502ae42bbe663aa9a24c34360888a2e6bd6962fbe8e"
+            "72b06dab50dda839505e665313dc808366c8ae86e9706c162600d9ebb8e07a40"
         );
         assert_eq!(
             hex(sha256(FLUID_SPLAT_FRAGMENT_SHADER_BYTES)),
-            "1b207383e03cd6648d64932a1288c680c5f66dea51c219d8bc25016842712f7e"
+            "bd115b5413fdbd314f6d2660c71e723f30f50da6de49a268f69241d30117c41a"
         );
         assert_eq!(
             hex(sha256(FLUID_SCREEN_VERTEX_SHADER_BYTES)),
@@ -172,11 +182,23 @@ mod tests {
         );
         assert_eq!(
             hex(sha256(FLUID_FILTER_FRAGMENT_SHADER_BYTES)),
-            "b43f8681d5144a5f0a777281b8e6a5ab13de7d4e311fecbde90819b1636a4ae8"
+            "1fe9036d9cddaf52789593c899d2265cc628b6bab137c93369511633e8b27de9"
+        );
+        assert_eq!(
+            hex(sha256(FLUID_THICKNESS_FRAGMENT_SHADER_BYTES)),
+            "823b7096f8e86b1c663c0a0936c4008972ba1e0bd69d0fc6dd577d1a6a0d0494"
         );
         assert_eq!(
             hex(sha256(FLUID_COMPOSITE_FRAGMENT_SHADER_BYTES)),
-            "348eef11772394ea2f32243de32c9c13bedffd308ef30c968df1c9e38d5d8b92"
+            "cd0c741f0c19d31e38ff36a6113ba126d3837181d1b9d161fc08716399fb70c4"
+        );
+        assert_eq!(
+            hex(sha256(FLUID_SPRAY_VERTEX_SHADER_BYTES)),
+            "3a94238b69bb0ee72bc1e119a9dc6324fdd9908ac8c9cdeb850a115e6355f8fc"
+        );
+        assert_eq!(
+            hex(sha256(FLUID_SPRAY_FRAGMENT_SHADER_BYTES)),
+            "4c843b510cbf077a26f1819afa016df95dd567b35b6c0a09111c3fc4cfd5f1dd"
         );
         let fluid = fluid_shader_modules().expect("checked-in fluid modules decode");
         assert_eq!(fluid.splat_vertex[0], SPIRV_MAGIC);

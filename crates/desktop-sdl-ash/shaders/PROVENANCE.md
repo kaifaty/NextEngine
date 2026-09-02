@@ -57,8 +57,8 @@ SHA-256
 
 ## Fluid surface suite (ADR-102, presentation-only)
 
-`fluid_splat`, `fluid_screen`, `fluid_filter` and `fluid_composite` form the
-separate `fluid_surface` suite: the screen-space particle surface pass that
+`fluid_splat`, `fluid_screen`, `fluid_filter`, `fluid_thickness`,
+`fluid_composite` and `fluid_spray` form the separate `fluid_surface` suite: the screen-space particle surface pass that
 runs after the opaque world pass and before the UI overlay. The suite does
 not touch the closed `B0ShaderInterfaceV2` contract (`interface_contract_sha256`
 is unchanged); its own descriptor and push-constant layout is recorded under
@@ -87,7 +87,10 @@ glslangValidator --quiet -V --target-env vulkan1.2 -S vert -e main -o fluid_spla
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o fluid_splat.frag.spv fluid_splat.frag
 glslangValidator --quiet -V --target-env vulkan1.2 -S vert -e main -o fluid_screen.vert.spv fluid_screen.vert
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o fluid_filter.frag.spv fluid_filter.frag
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o fluid_thickness.frag.spv fluid_thickness.frag
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o fluid_composite.frag.spv fluid_composite.frag
+glslangValidator --quiet -V --target-env vulkan1.2 -S vert -e main -o fluid_spray.vert.spv fluid_spray.vert
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o fluid_spray.frag.spv fluid_spray.frag
 ```
 
 The `vulkan1.2` target emits SPIR-V 1.5 from this compiler as well, so the

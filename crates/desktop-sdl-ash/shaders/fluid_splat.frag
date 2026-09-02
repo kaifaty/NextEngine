@@ -15,6 +15,7 @@ layout(set = 0, binding = 0, std140) uniform FluidFrame {
     vec4 absorption;
     vec4 focal;
     vec4 sun;
+    vec4 spray;
 } frame;
 
 layout(location = 0) out float out_depth;

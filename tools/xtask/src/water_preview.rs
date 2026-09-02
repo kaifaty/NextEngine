@@ -135,6 +135,13 @@ const PARTICLE_SURFACE_ABSORPTION_PER_METRE: [f32; 3] = [1.2, 0.5, 0.25];
 const PARTICLE_SURFACE_REFRACTION_STRENGTH: f32 = 0.08;
 #[cfg(feature = "desktop-sdl-ash")]
 const PARTICLE_SURFACE_THICKNESS_SCALE: f32 = 1.0;
+/// NGQ10 revision 2 spray split, fixed before the run.
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_SPRAY_THRESHOLD: u32 = 6;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_SPRAY_RADIUS_MICROMETRES: u32 = 12_000;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_SPRAY_ALPHA: f32 = 0.35;
 
 /// `nonlocal-feasibility --game-surface-stream` child-process parameters.
 #[derive(Clone, Debug, PartialEq)]
@@ -711,6 +718,9 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
                     "absorption_per_metre": profile.absorption_per_metre,
                     "refraction_strength": profile.refraction_strength,
                     "thickness_scale": profile.thickness_scale,
+                    "spray_neighbour_threshold": profile.spray_neighbour_threshold,
+                    "spray_radius_micrometres": profile.spray_radius_micrometres,
+                    "spray_alpha": profile.spray_alpha,
                 },
                 "publications": report.particle_surface_publications,
                 "uploads": report.particle_surface_uploads,
@@ -718,6 +728,8 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
                 "frames_recorded": report.particle_surface_frames,
                 "last_particle_count": feed_summary.last_particle_count,
                 "max_particle_count": feed_summary.max_particle_count,
+                "last_spray_fraction": feed_summary.last_spray_fraction,
+                "max_spray_fraction": feed_summary.max_spray_fraction,
                 "last_update_hash": feed_summary.last_particle_hash.map(|hash| hash.to_hex()),
                 "gpu_frames_sampled": gpu_samples.len(),
                 "gpu_p95_us": nearest_rank(&gpu_samples, 95),
@@ -1073,6 +1085,8 @@ struct ConvertedStreamFrame {
     physics_ms: f64,
     update: DynamicSurfaceUpdateV1,
     particles: Option<ParticleSurfaceUpdateV1>,
+    /// Fraction of particles below the spray threshold (NGQ10 rev 2).
+    spray_fraction: f64,
 }
 
 #[cfg(feature = "desktop-sdl-ash")]
@@ -1232,12 +1246,25 @@ impl StreamSession {
                     .map_err(|error| error.to_string())?;
                     let particles = if surface.particles() {
                         Some(
-                            ParticleSurfaceUpdateV1::new(sequence, frame.particles_micrometres)
-                                .map_err(|error| error.to_string())?,
+                            ParticleSurfaceUpdateV1::new(
+                                sequence,
+                                frame.particles_micrometres,
+                                frame.particle_neighbours,
+                            )
+                            .map_err(|error| error.to_string())?,
                         )
                     } else {
                         None
                     };
+                    let spray_fraction = particles.as_ref().map_or(0.0, |set| {
+                        let count = set.particle_count();
+                        if count == 0 {
+                            0.0
+                        } else {
+                            f64::from(set.spray_count(PARTICLE_SURFACE_SPRAY_THRESHOLD))
+                                / f64::from(count)
+                        }
+                    });
                     Ok(ConvertedStreamFrame {
                         step: frame.step,
                         cycle: frame.cycle,
@@ -1249,6 +1276,7 @@ impl StreamSession {
                         physics_ms: frame.physics_ms,
                         update,
                         particles,
+                        spray_fraction,
                     })
                 };
             if let Some(first) = first
@@ -1332,6 +1360,8 @@ struct FeedSummary {
     last_particle_hash: Option<next_contracts::ids::ContentHash>,
     last_particle_count: u32,
     max_particle_count: u32,
+    last_spray_fraction: f64,
+    max_spray_fraction: f64,
 }
 
 #[cfg(feature = "desktop-sdl-ash")]
@@ -1416,6 +1446,9 @@ impl StreamFeed {
                 .summary
                 .max_particle_count
                 .max(particles.particle_count());
+            self.summary.last_spray_fraction = frame.spray_fraction;
+            self.summary.max_spray_fraction =
+                self.summary.max_spray_fraction.max(frame.spray_fraction);
         }
         Some(StreamPublication {
             mesh: frame.update,
@@ -1495,6 +1528,8 @@ impl DynamicFeed {
                 last_particle_hash: feed.summary.last_particle_hash,
                 last_particle_count: feed.summary.last_particle_count,
                 max_particle_count: feed.summary.max_particle_count,
+                last_spray_fraction: feed.summary.last_spray_fraction,
+                max_spray_fraction: feed.summary.max_spray_fraction,
             },
         }
     }
@@ -1630,6 +1665,9 @@ fn build_preview(
             absorption_per_metre: PARTICLE_SURFACE_ABSORPTION_PER_METRE,
             refraction_strength: PARTICLE_SURFACE_REFRACTION_STRENGTH,
             thickness_scale: PARTICLE_SURFACE_THICKNESS_SCALE,
+            spray_neighbour_threshold: PARTICLE_SURFACE_SPRAY_THRESHOLD,
+            spray_radius_micrometres: PARTICLE_SURFACE_SPRAY_RADIUS_MICROMETRES,
+            spray_alpha: PARTICLE_SURFACE_SPRAY_ALPHA,
         },
     );
     let mut source =

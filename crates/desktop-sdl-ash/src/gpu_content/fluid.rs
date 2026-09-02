@@ -23,8 +23,8 @@ use crate::particle_surface::{
 };
 
 /// Fluid frame uniform: view, projection, viewport, params, absorption,
-/// focal, sun (seven 16-byte-aligned rows plus two matrices).
-const FLUID_UNIFORM_SIZE: vk::DeviceSize = 64 + 64 + 16 * 5;
+/// focal, sun, spray (six 16-byte-aligned rows plus two matrices).
+const FLUID_UNIFORM_SIZE: vk::DeviceSize = 64 + 64 + 16 * 6;
 /// Depth target clear value; the shaders treat anything at or above
 /// `EMPTY_DEPTH_METRES` as "no fluid".
 const EMPTY_DEPTH_METRES: f32 = 1.0e30;
@@ -105,19 +105,24 @@ pub(crate) struct FluidPassState {
     extent: vk::Extent2D,
     splat: FluidPipeline,
     filter: FluidPipeline,
+    thickness: FluidPipeline,
     composite: FluidPipeline,
+    spray: FluidPipeline,
     descriptor_pool: vk::DescriptorPool,
     frame_layout: vk::DescriptorSetLayout,
     image_layout: vk::DescriptorSetLayout,
     frame_sets: Vec<vk::DescriptorSet>,
     filter_a_set: vk::DescriptorSet,
     filter_b_set: vk::DescriptorSet,
+    thickness_a_set: vk::DescriptorSet,
+    thickness_b_set: vk::DescriptorSet,
     composite_set: vk::DescriptorSet,
     nearest_sampler: vk::Sampler,
     linear_sampler: vk::Sampler,
     depth_target: Target,
     ping_target: Target,
     thickness_target: Target,
+    thickness_ping: Target,
     scene_copy: Target,
     slots: Vec<FluidSlot>,
 }
@@ -218,6 +223,14 @@ impl FluidPassState {
             THICKNESS_FORMAT,
             target_usage,
         )?;
+        let thickness_ping = Target::new(
+            instance,
+            physical_device,
+            device,
+            extent,
+            THICKNESS_FORMAT,
+            target_usage,
+        )?;
         let scene_copy = Target::new(
             instance,
             physical_device,
@@ -264,6 +277,7 @@ impl FluidPassState {
                 depth_target.view,
                 ping_target.view,
                 thickness_target.view,
+                thickness_ping.view,
                 scene_copy.view,
             ],
             armed: true,
@@ -322,17 +336,17 @@ impl FluidPassState {
             },
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                descriptor_count: 9,
+                descriptor_count: 15,
             },
         ];
         let pool_info = vk::DescriptorPoolCreateInfo::default()
-            .max_sets(slot_count.saturating_add(3))
+            .max_sets(slot_count.saturating_add(5))
             .pool_sizes(&pool_sizes);
         // SAFETY: pool sizes exactly cover the fixed set of the pass.
         let descriptor_pool = unsafe { device.create_descriptor_pool(&pool_info, None) }?;
         guard.pool = descriptor_pool;
         let mut layouts = vec![frame_layout; frame_slot_count];
-        layouts.extend([image_layout; 3]);
+        layouts.extend([image_layout; 5]);
         let allocation_info = vk::DescriptorSetAllocateInfo::default()
             .descriptor_pool(descriptor_pool)
             .set_layouts(&layouts);
@@ -342,6 +356,8 @@ impl FluidPassState {
         let filter_a_set = sets[frame_slot_count];
         let filter_b_set = sets[frame_slot_count + 1];
         let composite_set = sets[frame_slot_count + 2];
+        let thickness_a_set = sets[frame_slot_count + 3];
+        let thickness_b_set = sets[frame_slot_count + 4];
         for (slot, set) in slots.iter().zip(&frame_sets) {
             let buffer_info = [vk::DescriptorBufferInfo::default()
                 .buffer(slot.uniform.buffer)
@@ -396,6 +412,22 @@ impl FluidPassState {
                 (scene_copy.view, linear_sampler),
             ],
         );
+        image_set(
+            thickness_a_set,
+            [
+                (depth_target.view, nearest_sampler),
+                (thickness_target.view, nearest_sampler),
+                (scene_copy.view, linear_sampler),
+            ],
+        );
+        image_set(
+            thickness_b_set,
+            [
+                (depth_target.view, nearest_sampler),
+                (thickness_ping.view, nearest_sampler),
+                (scene_copy.view, linear_sampler),
+            ],
+        );
 
         let modules =
             crate::shader_assets::fluid_shader_modules().map_err(B0GpuContentError::ShaderAsset)?;
@@ -427,6 +459,34 @@ impl FluidPassState {
             },
         )?;
         guard.pipelines.push((filter.pipeline, filter.layout));
+        let thickness = create_pipeline(
+            device,
+            &[frame_layout, image_layout],
+            FILTER_PUSH_SIZE,
+            &modules.screen_vertex,
+            &modules.thickness_fragment,
+            PipelineShape {
+                color_formats: &[THICKNESS_FORMAT],
+                depth_format: None,
+                blends: &[opaque_blend_state()],
+                instanced: false,
+            },
+        )?;
+        guard.pipelines.push((thickness.pipeline, thickness.layout));
+        let spray = create_pipeline(
+            device,
+            &[frame_layout],
+            0,
+            &modules.spray_vertex,
+            &modules.spray_fragment,
+            PipelineShape {
+                color_formats: &[color_format],
+                depth_format: Some(depth_format),
+                blends: &[spray_blend_state()],
+                instanced: true,
+            },
+        )?;
+        guard.pipelines.push((spray.pipeline, spray.layout));
         let composite = create_pipeline(
             device,
             &[frame_layout, image_layout],
@@ -447,19 +507,24 @@ impl FluidPassState {
             extent,
             splat,
             filter,
+            thickness,
             composite,
+            spray,
             descriptor_pool,
             frame_layout,
             image_layout,
             frame_sets,
             filter_a_set,
             filter_b_set,
+            thickness_a_set,
+            thickness_b_set,
             composite_set,
             nearest_sampler,
             linear_sampler,
             depth_target,
             ping_target,
             thickness_target,
+            thickness_ping,
             scene_copy,
             slots,
         })
@@ -599,6 +664,15 @@ impl FluidPassState {
                 view_sun[1],
                 view_sun[2],
                 sun_direction_intensity[3],
+            ],
+        );
+        write_f32(
+            &mut uniform[208..224],
+            &[
+                self.profile.spray_neighbour_threshold as f32,
+                self.profile.spray_radius_micrometres as f32 / 1_000_000.0,
+                self.profile.spray_alpha,
+                0.0,
             ],
         );
         slot.uniform.write(0, &uniform)?;
@@ -914,6 +988,84 @@ impl FluidPassState {
             }
         }
 
+        // 3b. Two separable Gaussian passes over the thickness:
+        // thickness -> thickness_ping -> thickness, sampling the smoothed depth.
+        let thickness_a_barriers = [
+            filter_b_done[0],
+            sampled_to_attachment(
+                self.thickness_ping.image.image(),
+                vk::ImageLayout::UNDEFINED,
+            ),
+        ];
+        let thickness_b_barriers = [
+            attachment_to_sampled(self.thickness_ping.image.image()),
+            sampled_to_attachment(
+                self.thickness_target.image.image(),
+                vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+            ),
+        ];
+        let thickness_done = [attachment_to_sampled(self.thickness_target.image.image())];
+        let thickness_passes = [
+            (
+                &thickness_a_barriers[..],
+                self.thickness_ping.view,
+                self.thickness_a_set,
+                [1.0_f32, 0.0],
+            ),
+            (
+                &thickness_b_barriers[..],
+                self.thickness_target.view,
+                self.thickness_b_set,
+                [0.0_f32, 1.0],
+            ),
+        ];
+        for (barriers, target_view, image_set, direction) in thickness_passes {
+            let colors = [vk::RenderingAttachmentInfo::default()
+                .image_view(target_view)
+                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::DONT_CARE)
+                .store_op(vk::AttachmentStoreOp::STORE)];
+            let info = vk::RenderingInfo::default()
+                .render_area(full)
+                .layer_count(1)
+                .color_attachments(&colors);
+            let sets = [frame_set, image_set];
+            let mut push = [0_u8; FILTER_PUSH_SIZE as usize];
+            write_f32(&mut push, &direction);
+            // SAFETY: same ordering argument as the depth filter passes.
+            unsafe {
+                device.cmd_pipeline_barrier2(
+                    command_buffer,
+                    &vk::DependencyInfo::default().image_memory_barriers(barriers),
+                );
+                device.cmd_begin_rendering(command_buffer, &info);
+                device.cmd_bind_pipeline(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.thickness.pipeline,
+                );
+                device.cmd_set_viewport(command_buffer, 0, &viewports);
+                device.cmd_set_scissor(command_buffer, 0, &scissors);
+                device.cmd_bind_descriptor_sets(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.thickness.layout,
+                    0,
+                    &sets,
+                    &[],
+                );
+                device.cmd_push_constants(
+                    command_buffer,
+                    self.thickness.layout,
+                    vk::ShaderStageFlags::FRAGMENT,
+                    0,
+                    &push,
+                );
+                device.cmd_draw(command_buffer, 3, 1, 0, 0);
+                device.cmd_end_rendering(command_buffer);
+            }
+        }
+
         // 4. Composite over the opaque swapchain image.
         let composite_colors = [vk::RenderingAttachmentInfo::default()
             .image_view(swapchain_view)
@@ -931,7 +1083,7 @@ impl FluidPassState {
         unsafe {
             device.cmd_pipeline_barrier2(
                 command_buffer,
-                &vk::DependencyInfo::default().image_memory_barriers(&filter_b_done),
+                &vk::DependencyInfo::default().image_memory_barriers(&thickness_done),
             );
             device.cmd_begin_rendering(command_buffer, &composite_info);
             device.cmd_bind_pipeline(
@@ -952,6 +1104,68 @@ impl FluidPassState {
             device.cmd_draw(command_buffer, 3, 1, 0, 0);
             device.cmd_end_rendering(command_buffer);
         }
+
+        // 5. Spray: particles below the neighbour threshold as soft discs,
+        // alpha-blended over the composite and depth-tested against the
+        // opaque scene (RGB only, the alpha coverage channel is untouched).
+        if self.profile.spray_neighbour_threshold != 0 {
+            let spray_colors = [vk::RenderingAttachmentInfo::default()
+                .image_view(swapchain_view)
+                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(vk::AttachmentStoreOp::STORE)];
+            let spray_depth = vk::RenderingAttachmentInfo::default()
+                .image_view(scene_depth_view)
+                .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(vk::AttachmentStoreOp::STORE);
+            let spray_info = vk::RenderingInfo::default()
+                .render_area(full)
+                .layer_count(1)
+                .color_attachments(&spray_colors)
+                .depth_attachment(&spray_depth);
+            let color_written = [vk::MemoryBarrier2::default()
+                .src_stage_mask(vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
+                .src_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
+                .dst_stage_mask(vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
+                .dst_access_mask(
+                    vk::AccessFlags2::COLOR_ATTACHMENT_READ
+                        | vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+                )];
+            // SAFETY: the composite write is ordered before the blended
+            // read/write, the depth attachment is only tested, and the
+            // instance buffer is the one bound for the splat.
+            unsafe {
+                device.cmd_pipeline_barrier2(
+                    command_buffer,
+                    &vk::DependencyInfo::default().memory_barriers(&color_written),
+                );
+                device.cmd_begin_rendering(command_buffer, &spray_info);
+                device.cmd_bind_pipeline(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.spray.pipeline,
+                );
+                device.cmd_set_viewport(command_buffer, 0, &viewports);
+                device.cmd_set_scissor(command_buffer, 0, &scissors);
+                device.cmd_bind_descriptor_sets(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.spray.layout,
+                    0,
+                    &frame_sets,
+                    &[],
+                );
+                device.cmd_bind_vertex_buffers(
+                    command_buffer,
+                    0,
+                    &particle_buffers,
+                    &particle_offsets,
+                );
+                device.cmd_draw(command_buffer, 6, slot.uploaded_count, 0, 0);
+                device.cmd_end_rendering(command_buffer);
+            }
+        }
         Ok(true)
     }
 
@@ -962,6 +1176,7 @@ impl FluidPassState {
             &self.depth_target,
             &self.ping_target,
             &self.thickness_target,
+            &self.thickness_ping,
             &self.scene_copy,
         ] {
             bytes = bytes
@@ -986,7 +1201,13 @@ impl Drop for FluidPassState {
         // the pass; pipelines go before layouts, sets before samplers and
         // views, views before their images.
         unsafe {
-            for pipeline in [&self.splat, &self.filter, &self.composite] {
+            for pipeline in [
+                &self.splat,
+                &self.filter,
+                &self.thickness,
+                &self.composite,
+                &self.spray,
+            ] {
                 self.device.destroy_pipeline(pipeline.pipeline, None);
                 self.device.destroy_pipeline_layout(pipeline.layout, None);
             }
@@ -1002,6 +1223,7 @@ impl Drop for FluidPassState {
                 &self.depth_target,
                 &self.ping_target,
                 &self.thickness_target,
+                &self.thickness_ping,
                 &self.scene_copy,
             ] {
                 self.device.destroy_image_view(target.view, None);
@@ -1115,12 +1337,20 @@ fn create_pipeline(
             stride: PARTICLE_SURFACE_STRIDE,
             input_rate: vk::VertexInputRate::INSTANCE,
         }];
-        let attributes = [vk::VertexInputAttributeDescription {
-            location: 0,
-            binding: 0,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: 0,
-        }];
+        let attributes = [
+            vk::VertexInputAttributeDescription {
+                location: 0,
+                binding: 0,
+                format: vk::Format::R32G32B32_SFLOAT,
+                offset: 0,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 1,
+                binding: 0,
+                format: vk::Format::R32_UINT,
+                offset: 12,
+            },
+        ];
         let vertex_input = if shape.instanced {
             vk::PipelineVertexInputStateCreateInfo::default()
                 .vertex_binding_descriptions(&bindings)
@@ -1206,6 +1436,20 @@ fn blend_state(op: vk::BlendOp) -> vk::PipelineColorBlendAttachmentState {
         .dst_alpha_blend_factor(vk::BlendFactor::ONE)
         .alpha_blend_op(op)
         .color_write_mask(vk::ColorComponentFlags::R)
+}
+
+fn spray_blend_state() -> vk::PipelineColorBlendAttachmentState {
+    vk::PipelineColorBlendAttachmentState::default()
+        .blend_enable(true)
+        .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+        .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+        .color_blend_op(vk::BlendOp::ADD)
+        .src_alpha_blend_factor(vk::BlendFactor::ZERO)
+        .dst_alpha_blend_factor(vk::BlendFactor::ONE)
+        .alpha_blend_op(vk::BlendOp::ADD)
+        .color_write_mask(
+            vk::ColorComponentFlags::R | vk::ColorComponentFlags::G | vk::ColorComponentFlags::B,
+        )
 }
 
 fn opaque_blend_state() -> vk::PipelineColorBlendAttachmentState {

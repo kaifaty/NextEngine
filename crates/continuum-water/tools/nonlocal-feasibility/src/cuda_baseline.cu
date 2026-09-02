@@ -10029,7 +10029,75 @@ namespace {
 
 constexpr char GAME_SURFACE_STREAM_MAGIC[4] = {'N', 'E', 'W', 'S'};
 // Version 2 (NGQ10) appends the fluid particle positions after the indices.
-constexpr std::uint32_t GAME_SURFACE_STREAM_VERSION = 2U;
+constexpr std::uint32_t GAME_SURFACE_STREAM_VERSION = 3U;
+// NGQ10 revision 2: presentation neighbour radius for the per-particle
+// neighbour count appended to every version 3 frame (two spacings).
+constexpr double GAME_SURFACE_NEIGHBOUR_RADIUS = 2.0 * GAME_SPACING;
+
+// Fluid neighbours of every particle within the presentation radius (self
+// excluded, capped at 255), from a uniform hash grid over the frame's own
+// positions; independent of the solver's neighbour encoding.
+std::vector<std::uint8_t> presentation_neighbour_counts(
+    const std::vector<Particle>& particles,
+    double radius) {
+    const std::size_t count = particles.size();
+    std::vector<std::uint8_t> counts(count, 0U);
+    if (count == 0U) {
+        return counts;
+    }
+    Vec3 minimum = particles[0].position;
+    for (const Particle& particle : particles) {
+        minimum.x = std::min(minimum.x, particle.position.x);
+        minimum.y = std::min(minimum.y, particle.position.y);
+        minimum.z = std::min(minimum.z, particle.position.z);
+    }
+    const double inverse = 1.0 / radius;
+    const auto cell_of = [&](const Vec3& p) {
+        return std::array<long long, 3>{
+            static_cast<long long>(std::floor((p.x - minimum.x) * inverse)),
+            static_cast<long long>(std::floor((p.y - minimum.y) * inverse)),
+            static_cast<long long>(std::floor((p.z - minimum.z) * inverse))};
+    };
+    const auto key_of = [](const std::array<long long, 3>& cell) {
+        return static_cast<std::uint64_t>(cell[0]) * 73856093ULL
+            ^ static_cast<std::uint64_t>(cell[1]) * 19349663ULL
+            ^ static_cast<std::uint64_t>(cell[2]) * 83492791ULL;
+    };
+    std::vector<std::pair<std::uint64_t, std::uint32_t>> entries;
+    entries.reserve(count);
+    for (std::size_t index = 0; index < count; ++index) {
+        entries.emplace_back(key_of(cell_of(particles[index].position)),
+            static_cast<std::uint32_t>(index));
+    }
+    std::sort(entries.begin(), entries.end());
+    const double radius_squared = radius * radius;
+    for (std::size_t index = 0; index < count; ++index) {
+        const Vec3& p = particles[index].position;
+        const auto cell = cell_of(p);
+        unsigned neighbours = 0U;
+        for (long long dx = -1; dx <= 1; ++dx) {
+            for (long long dy = -1; dy <= 1; ++dy) {
+                for (long long dz = -1; dz <= 1; ++dz) {
+                    const std::uint64_t key = key_of({cell[0] + dx, cell[1] + dy, cell[2] + dz});
+                    auto it = std::lower_bound(entries.begin(), entries.end(),
+                        std::make_pair(key, 0U));
+                    for (; it != entries.end() && it->first == key; ++it) {
+                        const std::size_t other = it->second;
+                        if (other == index) {
+                            continue;
+                        }
+                        const Vec3 delta = particles[other].position - p;
+                        if (dot(delta, delta) <= radius_squared) {
+                            ++neighbours;
+                        }
+                    }
+                }
+            }
+        }
+        counts[index] = static_cast<std::uint8_t>(std::min(neighbours, 255U));
+    }
+    return counts;
+}
 constexpr std::uint64_t GAME_SURFACE_STREAM_AUDIT_FRAMES = 60U;
 
 template <typename T>
@@ -10108,6 +10176,11 @@ bool write_presentation_surface_stream_frame(
         write_stream_pod<float>(out, static_cast<float>(particle.position.y));
         write_stream_pod<float>(out, static_cast<float>(particle.position.z));
     }
+    // Version 3: one neighbour count per particle in the same order.
+    const std::vector<std::uint8_t> neighbours =
+        presentation_neighbour_counts(particles, GAME_SURFACE_NEIGHBOUR_RADIUS);
+    out.write(reinterpret_cast<const char*>(neighbours.data()),
+        static_cast<std::streamsize>(neighbours.size()));
     out.flush();
     return static_cast<bool>(out) && vertex == frame.mesh_vertices
         && triangles == frame.mesh_triangles;

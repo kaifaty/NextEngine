@@ -14,10 +14,11 @@ use crate::DesktopAdapterError;
 
 /// Upper particle bound for the one declared particle surface.
 pub const MAX_PARTICLE_SURFACE_PARTICLES: u32 = 65_536;
-/// Bytes per packed particle: three binary32 metres.
-pub const PARTICLE_SURFACE_STRIDE: u32 = 12;
+/// Bytes per packed particle: three binary32 metres plus one u32
+/// neighbour count.
+pub const PARTICLE_SURFACE_STRIDE: u32 = 16;
 
-const PARTICLE_SURFACE_UPDATE_DOMAIN: &str = "nextengine.desktop.particle-surface-update.v1";
+const PARTICLE_SURFACE_UPDATE_DOMAIN: &str = "nextengine.desktop.particle-surface-update.v2";
 const MICROMETRES_PER_METRE: f64 = 1_000_000.0;
 
 /// Declares the one bounded particle surface for the whole desktop run.
@@ -38,6 +39,13 @@ pub struct ParticleSurfaceProfileV1 {
     pub refraction_strength: f32,
     /// Multiplier on the accumulated sphere thickness.
     pub thickness_scale: f32,
+    /// Particles with fewer neighbours than this leave the surface splat
+    /// and are drawn as spray; `0` keeps every particle in the surface.
+    pub spray_neighbour_threshold: u32,
+    /// Disc radius of one spray particle.
+    pub spray_radius_micrometres: u32,
+    /// Peak opacity of one spray disc, `0..=1`.
+    pub spray_alpha: f32,
 }
 
 impl ParticleSurfaceProfileV1 {
@@ -47,6 +55,12 @@ impl ParticleSurfaceProfileV1 {
         }
         if self.radius_micrometres == 0 || self.radius_micrometres > 1_000_000 {
             return Err(invalid("particle radius must lie in (0, 1 m]"));
+        }
+        if self.spray_radius_micrometres > 1_000_000 {
+            return Err(invalid("spray radius must not exceed 1 m"));
+        }
+        if !(0.0..=1.0).contains(&self.spray_alpha) {
+            return Err(invalid("spray alpha must lie in 0..=1"));
         }
         let finite = self
             .absorption_per_metre
@@ -67,15 +81,20 @@ impl ParticleSurfaceProfileV1 {
 pub struct ParticleSurfaceUpdateV1 {
     sequence: u64,
     positions_micrometres: Vec<[i64; 3]>,
+    /// Fluid neighbours per particle within the producer's presentation
+    /// radius; empty means every particle counts as bulk.
+    neighbour_counts: Vec<u8>,
     canonical_hash: ContentHash,
     packed_positions: Vec<u8>,
 }
 
 impl ParticleSurfaceUpdateV1 {
     /// Validates the bounded set and binds its content-only canonical hash.
+    /// `neighbour_counts` is empty or one count per particle.
     pub fn new(
         sequence: u64,
         positions_micrometres: Vec<[i64; 3]>,
+        neighbour_counts: Vec<u8>,
     ) -> Result<Self, DesktopAdapterError> {
         if sequence == 0 {
             return Err(invalid("particle update sequence must be positive"));
@@ -85,22 +104,50 @@ impl ParticleSurfaceUpdateV1 {
                 "particle update count exceeds the particle surface bound",
             ));
         }
-        let mut preimage = Vec::with_capacity(positions_micrometres.len() * 24);
-        let mut packed_positions = Vec::with_capacity(positions_micrometres.len() * 12);
-        for position in &positions_micrometres {
+        if !neighbour_counts.is_empty() && neighbour_counts.len() != positions_micrometres.len() {
+            return Err(invalid(
+                "particle neighbour counts do not match the particle count",
+            ));
+        }
+        let mut preimage = Vec::with_capacity(positions_micrometres.len() * 25);
+        let mut packed_positions = Vec::with_capacity(positions_micrometres.len() * 16);
+        for (index, position) in positions_micrometres.iter().enumerate() {
             for component in position {
                 preimage.extend_from_slice(&component.to_le_bytes());
                 let metres = *component as f64 / MICROMETRES_PER_METRE;
                 packed_positions.extend_from_slice(&(metres as f32).to_le_bytes());
             }
+            let neighbours = neighbour_counts.get(index).copied().unwrap_or(u8::MAX);
+            preimage.push(neighbours);
+            packed_positions.extend_from_slice(&u32::from(neighbours).to_le_bytes());
         }
         let canonical_hash = domain_hash(PARTICLE_SURFACE_UPDATE_DOMAIN, &preimage);
         Ok(Self {
             sequence,
             positions_micrometres,
+            neighbour_counts,
             canonical_hash,
             packed_positions,
         })
+    }
+
+    /// Particles below the threshold (drawn as spray); `0` for no split.
+    #[must_use]
+    pub fn spray_count(&self, threshold: u32) -> u32 {
+        if threshold == 0 {
+            return 0;
+        }
+        let spray = self
+            .neighbour_counts
+            .iter()
+            .filter(|count| u32::from(**count) < threshold)
+            .count();
+        u32::try_from(spray).unwrap_or(u32::MAX)
+    }
+
+    #[must_use]
+    pub fn neighbour_counts(&self) -> &[u8] {
+        &self.neighbour_counts
     }
 
     pub fn with_sequence(&self, sequence: u64) -> Result<Self, DesktopAdapterError> {

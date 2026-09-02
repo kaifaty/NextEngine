@@ -102,3 +102,44 @@ particle slots, two uniforms), `50.5 MB / 27` without. Particle uploads
   `tools/xtask/src/water_stream.rs` (frame version 2 with particles).
 - Research tool: `write_presentation_surface_stream_frame` appends the
   particle block (`GAME_SURFACE_STREAM_VERSION = 2`).
+
+## Revision 2: spray split and thickness smoothing (user observation)
+
+Plan 24 revision 2. The research tool appends one fluid-neighbour count
+per particle (radius `0.1 m`) to every stream frame (version 3); the
+adapter packs it next to the position (stride `16` B), skips particles
+below `6` neighbours in the surface splat and draws them after the
+composite as `12 mm` discs at alpha `0.35`; two separable Gaussian passes
+smooth the thickness target with the depth filter's sigma.
+
+```text
+tool binary       5dbe75b2fd698514...
+shader suite      fluid_surface, eight modules (manifest.json)
+runs              particles x3, mesh x1; --capture-frame 100 --capture-frames 5, --capture-frame 200
+```
+
+| Measure | `particles` (3 runs) | `mesh` baseline |
+| --- | --- | --- |
+| pass GPU p95 / p99 / max | `487..492 / 491..496 / 494..504 µs` | n/a (`210 µs` whole frame) |
+| whole-frame GPU p95 | `548..552 µs` | `210 µs` |
+| coverage flips, max pair | `0.60..0.66%` | n/a |
+| spray fraction max / last | `0.78..0.80% / 0` | n/a |
+| rendered frame interval | `19..20 ms` | `19.8 ms` |
+| device allocations | `91.8 MB / 36` | |
+| roots | identical to revision 1 | identical |
+
+G2 passes with a `0.17 ms` increase for the two thickness passes and the
+spray pass. G3 fails under the frozen definition (`0.66% > 0.5%`), but
+the rendered frame interval more than doubled against revision 1 in every
+run of this session, including the baseline without the pass, so each
+compared pair spans `2.3` stream frames instead of `1.0`; per stream frame
+the flip fraction is `0.26..0.29%` (revision 1: `0.19%`). The pass itself
+is unchanged between frames without a new set (`0` flips).
+
+Look (captures at rendered frames 100 and 200): single splash particles
+are soft dots instead of sphere contours; clusters of two to five
+particles above the pool keep their contours because each member has at
+least six neighbours; the refracted interior of the upper tank shows
+fewer, softer bands. Candidates for a next revision, not applied: a
+cluster-size criterion (connected component under a link distance) instead
+of the neighbour count, and a larger depth-splat radius on the pool sheet.

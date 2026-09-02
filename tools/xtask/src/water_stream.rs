@@ -9,7 +9,9 @@
 use std::io::Read;
 
 pub(super) const STREAM_MAGIC: [u8; 4] = *b"NEWS";
-pub(super) const STREAM_VERSION: u32 = 2;
+pub(super) const STREAM_VERSION: u32 = 3;
+/// Version 2 carried particle centres without neighbour counts.
+const STREAM_VERSION_WITH_PARTICLES: u32 = 2;
 /// Version 1 frames carry no particle set; version 2 appends it.
 const STREAM_VERSION_WITHOUT_PARTICLES: u32 = 1;
 /// ADR-102 bound on one published particle set.
@@ -32,8 +34,11 @@ pub(super) struct StreamFrame {
     pub(super) physics_ms: f64,
     pub(super) positions_micrometres: Vec<[i64; 3]>,
     pub(super) indices: Vec<u32>,
-    /// Fluid particle centres (version 2), empty for version 1 frames.
+    /// Fluid particle centres (version 2+), empty for version 1 frames.
     pub(super) particles_micrometres: Vec<[i64; 3]>,
+    /// Fluid neighbours per particle within the producer's presentation
+    /// radius (version 3), empty for earlier versions.
+    pub(super) particle_neighbours: Vec<u8>,
 }
 
 /// Reads one frame; `Ok(None)` is a clean end of stream before a header.
@@ -63,7 +68,10 @@ pub(super) fn read_frame(
     let version = take_u32();
     let step = take_u32() as i32;
     let cycle = take_u32() as i32;
-    if version != STREAM_VERSION && version != STREAM_VERSION_WITHOUT_PARTICLES {
+    if version != STREAM_VERSION
+        && version != STREAM_VERSION_WITH_PARTICLES
+        && version != STREAM_VERSION_WITHOUT_PARTICLES
+    {
         return Err(format!("surface stream version {version} is unsupported"));
     }
     let mut take_f64 = || {
@@ -143,7 +151,8 @@ pub(super) fn read_frame(
         return Err("surface stream face index is outside the vertex array".to_owned());
     }
     let mut particles_micrometres = Vec::new();
-    if version == STREAM_VERSION {
+    let mut particle_neighbours = Vec::new();
+    if version >= STREAM_VERSION_WITH_PARTICLES {
         let mut count_bytes = [0_u8; 8];
         reader
             .read_exact(&mut count_bytes)
@@ -173,6 +182,12 @@ pub(super) fn read_frame(
             }
             particles_micrometres.push(position);
         }
+        if version == STREAM_VERSION {
+            particle_neighbours = vec![0_u8; particle_count];
+            reader
+                .read_exact(&mut particle_neighbours)
+                .map_err(|error| format!("surface stream neighbour counts truncated: {error}"))?;
+        }
     }
     Ok(Some(StreamFrame {
         step,
@@ -185,6 +200,7 @@ pub(super) fn read_frame(
         positions_micrometres,
         indices,
         particles_micrometres,
+        particle_neighbours,
     }))
 }
 
