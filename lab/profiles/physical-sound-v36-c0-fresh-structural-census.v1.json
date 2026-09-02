@@ -1,0 +1,578 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "external_research_only": true,
+    "model_allowed": false,
+    "network_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "real_signal_allowed": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "target_allowed": false,
+    "truth_allowed": false,
+    "validator_release_authority": false,
+    "x0_allowed_after_c0": true
+  },
+  "baseline_commit": "eb4f9cf70ad2626202616494afe58f86160b426e",
+  "claim": "FRESH_SIGNAL_BLIND_P1_WITNESS_AND_HYBRID_SUPPORT_CENSUS_ONLY / NO_TRUTH_TARGET_MODEL_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "corpus": {
+    "base_fixture_profile": "physical-sound-v31-p0-causal-baseline-v1",
+    "contacts": {
+      "development": [
+        [
+          "0",
+          "0.67"
+        ],
+        [
+          "0.32",
+          "0.25"
+        ],
+        [
+          "0.52",
+          "0.77"
+        ],
+        [
+          "0.60",
+          "0.95"
+        ],
+        [
+          "0.82",
+          "0.35"
+        ],
+        [
+          "0.97",
+          "0.29"
+        ]
+      ],
+      "method_holdout": [
+        [
+          "0",
+          "0.85"
+        ],
+        [
+          "0.23",
+          "0.59"
+        ],
+        [
+          "0.41",
+          "0.27"
+        ],
+        [
+          "0.57",
+          "0.55"
+        ],
+        [
+          "0.73",
+          "0.99"
+        ],
+        [
+          "0.91",
+          "0.09"
+        ]
+      ],
+      "train": [
+        [
+          "0",
+          "0.37"
+        ],
+        [
+          "0.10",
+          "0.70"
+        ],
+        [
+          "0.24",
+          "0.44"
+        ],
+        [
+          "0.36",
+          "0.88"
+        ],
+        [
+          "0.48",
+          "0.18"
+        ],
+        [
+          "0.56",
+          "0.68"
+        ],
+        [
+          "0.66",
+          "0.28"
+        ],
+        [
+          "0.76",
+          "0.92"
+        ],
+        [
+          "0.86",
+          "0.46"
+        ],
+        [
+          "0.20",
+          "0.94"
+        ],
+        [
+          "0.70",
+          "0.04"
+        ],
+        [
+          "0.96",
+          "0.74"
+        ]
+      ]
+    },
+    "counts": {
+      "cases": 1512,
+      "development": {
+        "cases": 432,
+        "modal_rows": 4320,
+        "role_local_geometry_groups": 36,
+        "strata": {
+          "contact-only": {
+            "cases": 108,
+            "modal_rows": 1080,
+            "role_local_geometry_groups": 18
+          },
+          "geometry-only": {
+            "cases": 216,
+            "modal_rows": 2160,
+            "role_local_geometry_groups": 18
+          },
+          "joint": {
+            "cases": 108,
+            "modal_rows": 1080,
+            "role_local_geometry_groups": 18
+          }
+        }
+      },
+      "method_holdout": {
+        "cases": 432,
+        "modal_rows": 4320,
+        "role_local_geometry_groups": 36,
+        "strata": {
+          "contact-only": {
+            "cases": 108,
+            "modal_rows": 1080,
+            "role_local_geometry_groups": 18
+          },
+          "geometry-only": {
+            "cases": 216,
+            "modal_rows": 2160,
+            "role_local_geometry_groups": 18
+          },
+          "joint": {
+            "cases": 108,
+            "modal_rows": 1080,
+            "role_local_geometry_groups": 18
+          }
+        }
+      },
+      "modal_rows": 15120,
+      "role_local_geometry_groups": 126,
+      "train": {
+        "cases": 648,
+        "modal_rows": 6480,
+        "role_local_geometry_groups": 54
+      },
+      "unique_geometry_groups": 90
+    },
+    "families": [
+      {
+        "family": "rectangular_plate",
+        "family_code": -1,
+        "fixture_id": "synthetic-plate-reference",
+        "formula_id": "kirchhoff-love-simply-supported-v1",
+        "geometry_component_order": [
+          "length_x_m",
+          "length_y_m",
+          "thickness_m"
+        ],
+        "support": "simply-supported-all-edges",
+        "support_code": -1
+      },
+      {
+        "family": "rectangular_beam",
+        "family_code": 1,
+        "fixture_id": "synthetic-beam-reference",
+        "formula_id": "euler-bernoulli-cantilever-v1",
+        "geometry_component_order": [
+          "length_m",
+          "width_m",
+          "height_m"
+        ],
+        "support": "cantilever-clamped-u0",
+        "support_code": 0
+      },
+      {
+        "family": "rectangular_beam",
+        "family_code": 1,
+        "fixture_id": "synthetic-beam-reference",
+        "formula_id": "euler-bernoulli-simply-supported-v1",
+        "geometry_component_order": [
+          "length_m",
+          "width_m",
+          "height_m"
+        ],
+        "support": "simply-supported-both-ends",
+        "support_code": 1
+      }
+    ],
+    "geometry_multiplier_cells": [
+      [
+        "0.82",
+        "0.88",
+        "1.02"
+      ],
+      [
+        "0.92",
+        "1.16",
+        "0.88"
+      ],
+      [
+        "0.94",
+        "0.78",
+        "1.16"
+      ],
+      [
+        "1.08",
+        "1.12",
+        "0.90"
+      ],
+      [
+        "1.12",
+        "0.92",
+        "1.26"
+      ],
+      [
+        "1.16",
+        "1.08",
+        "1.04"
+      ],
+      [
+        "0.86",
+        "1.12",
+        "1.12"
+      ],
+      [
+        "1.12",
+        "0.82",
+        "0.92"
+      ],
+      [
+        "0.88",
+        "1.28",
+        "0.98"
+      ],
+      [
+        "1.28",
+        "0.94",
+        "1.20"
+      ]
+    ],
+    "impulse_ns": "1",
+    "materials": [
+      {
+        "density_kg_m3": "3050",
+        "loss_rate_per_second": "8.8",
+        "material_id": "synthetic-m",
+        "poisson_ratio": "0.265",
+        "youngs_modulus_pa": "74000000000"
+      },
+      {
+        "density_kg_m3": "7200",
+        "loss_rate_per_second": "16.5",
+        "material_id": "synthetic-n",
+        "poisson_ratio": "0.31",
+        "youngs_modulus_pa": "176000000000"
+      },
+      {
+        "density_kg_m3": "8650",
+        "loss_rate_per_second": "23.2",
+        "material_id": "synthetic-o",
+        "poisson_ratio": "0.245",
+        "youngs_modulus_pa": "252000000000"
+      }
+    ],
+    "mode_count": 10,
+    "role_plan": {
+      "development": [
+        {
+          "contact_set": "train",
+          "geometry_cells": [
+            6,
+            7
+          ],
+          "stratum": "geometry-only"
+        },
+        {
+          "contact_set": "development",
+          "geometry_cells": [
+            4,
+            5
+          ],
+          "stratum": "contact-only"
+        },
+        {
+          "contact_set": "development",
+          "geometry_cells": [
+            6,
+            7
+          ],
+          "stratum": "joint"
+        }
+      ],
+      "method_holdout": [
+        {
+          "contact_set": "train",
+          "geometry_cells": [
+            8,
+            9
+          ],
+          "stratum": "geometry-only"
+        },
+        {
+          "contact_set": "method_holdout",
+          "geometry_cells": [
+            2,
+            3
+          ],
+          "stratum": "contact-only"
+        },
+        {
+          "contact_set": "method_holdout",
+          "geometry_cells": [
+            8,
+            9
+          ],
+          "stratum": "joint"
+        }
+      ],
+      "train": [
+        {
+          "contact_set": "train",
+          "geometry_cells": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "stratum": "train"
+        }
+      ]
+    }
+  },
+  "f0_commitments": {
+    "development": {
+      "case_count": 432,
+      "case_root_sha256": "8214e9a4b6c5ede0ababfa8f43156a0897312d57a0362915de2bbb2a79fda728",
+      "modal_row_count": 4320,
+      "modal_row_root_sha256": "1b748d53f8484a265d641d0c42aa5a7fd91b2f1040ba9a1298e928c96b53b276"
+    },
+    "method_holdout": {
+      "case_count": 432,
+      "case_root_sha256": "8cb0f37ea9633a04e0b8b03381a31f49e8a1bed4029653e8336a1a9d619b82f5",
+      "modal_row_count": 4320,
+      "modal_row_root_sha256": "6c9683b943318639feaead4a98ab4236f7d2ec54c1d992dd2176cf93cca773cc"
+    },
+    "profile_sha256": "6c71249f4cf999bbed14a5e311fdd7d04776722af1ce0943a2b00012690eb3a8",
+    "train": {
+      "case_count": 648,
+      "case_root_sha256": "ac2fc5a5340b49818433c5e47286f2cbe68d6f5f185cdb1af101d3ef91df4305",
+      "modal_row_count": 6480,
+      "modal_row_root_sha256": "32d7d0ab5f642736be66254cc6b638e0fbd65b4a71f68e9ab69d26f8d766a997"
+    }
+  },
+  "features": {
+    "lift": {
+      "axis_order_within_frequency": [
+        "sin(k*pi*u)",
+        "cos(k*pi*u)",
+        "sin(k*pi*v)",
+        "cos(k*pi*v)"
+      ],
+      "boundary_rule": "clamp(x+signed_h,0,1)-and-retain-actual-distance",
+      "contact_base_input_count": 12,
+      "contact_input_count": 32,
+      "fourier_orders": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "local_stencil_offset": "0.0625",
+      "local_stencil_order": [
+        "u_minus",
+        "u_plus",
+        "v_minus",
+        "v_plus"
+      ],
+      "mode_field_owner": "physical-sound-v31-p1-modal-owner-v1",
+      "transcendentals": "python-math-binary64"
+    }
+  },
+  "hybrid_support": {
+    "coverage_gate": {
+      "bandwidth_contact": "median-positive-nearest-neighbor-distance-among-distinct-train-contact-keys",
+      "bandwidth_geometry": "median-positive-nearest-neighbor-distance-among-distinct-train-geometry-keys",
+      "blend_equation": "local_weight=0.80*exp(-0.5*((d_geometry/h_geometry)^2+(d_contact/h_contact)^2)); neural_weight=1-local_weight",
+      "contact_key": [
+        "contact.u_signed",
+        "contact.v_signed"
+      ],
+      "exact_match_shortcut": false,
+      "geometry_key": [
+        "geometry.log_multiplier_0",
+        "geometry.log_multiplier_1",
+        "geometry.log_multiplier_2"
+      ],
+      "input_partition": "same-family-formula-and-support",
+      "local_weight_cap": "0.80",
+      "nearest_distance_role_scope": "train-only",
+      "ood_normalized_squared_distance_strict_max": "16",
+      "transcendentals": "python-math-binary64",
+      "zero_distance_behavior": "same-blend-equation-local-weight-exactly-0.80"
+    },
+    "features": {
+      "forbidden_fields": [
+        "object_id",
+        "record_id",
+        "role",
+        "stratum",
+        "geometry_cell_index",
+        "contact_set",
+        "contact_index",
+        "mesh_resolution",
+        "vertex_index",
+        "expected",
+        "oracle_coefficient",
+        "validator_decision"
+      ]
+    },
+    "local_expert": {
+      "compatible_partition": "same-family-formula-support-and-mode-ordinal",
+      "distance": "sum(((query_i-train_i)/scale_i)^2)",
+      "distance_key": [
+        "material.log_youngs",
+        "material.log_density",
+        "material.poisson",
+        "material.loss",
+        "geometry.log_multiplier_0",
+        "geometry.log_multiplier_1",
+        "geometry.log_multiplier_2",
+        "contact.u_signed",
+        "contact.v_signed",
+        "mode.log_frequency",
+        "p1.contact_participation",
+        "p1.contact_participation_u_minus",
+        "p1.contact_participation_u_plus",
+        "p1.contact_participation_v_minus",
+        "p1.contact_participation_v_plus"
+      ],
+      "distance_scale_by_field": "all-exactly-1-after-frozen-normalization",
+      "kernel": "exp(-0.5*(distance-min_compatible_distance))",
+      "maximum_compatible_rows": 216,
+      "neighbor_count": "all-compatible-train-rows",
+      "role_scope": "train-only",
+      "train_cross_fit_exclusion": "all-rows-sharing-family-material-geometry-contact-case-group-including-every-remesh-view",
+      "transcendentals": "python-math-binary64",
+      "zero_distance_behavior": "same-kernel-equation-no-shortcut"
+    }
+  },
+  "identity": {
+    "case_enumeration_seed": 36001,
+    "role_identity_prefix": "physical-sound-v36-fresh-role-unchanged-science-v1",
+    "role_seed_by_role": {
+      "development": 36101,
+      "method_holdout": 36102,
+      "train": 36103
+    },
+    "truth_namespace_seed_by_branch": {
+      "contact": 36201,
+      "decay": 36202,
+      "global_gain": 36203
+    }
+  },
+  "parent": {
+    "f0_owner": {
+      "path": "lab/scripts/physical_sound_v36_f0_fresh_role_science_freeze_v1.py",
+      "sha256": "14b2245357a4da9ec4780694742630edb029d7352a822ffcb3d8b15bfce551e4"
+    },
+    "f0_result": {
+      "path": "docs/development/physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md",
+      "sha256": "5262eed94b52f448cc8270e6b6dd10bbf623d1ad6d15d444719496cfa0f6a258"
+    },
+    "p0_profile": {
+      "path": "lab/profiles/physical-sound-v31-p0-causal-baseline.v1.json",
+      "sha256": "c6b7f816d65bdcaa18618a72d40cfedb6ed970359d3a1cf8f28825cd4c686a3d"
+    },
+    "p1_owner": {
+      "path": "lab/scripts/physical_sound_v31_p1_modal_owner_v1.py",
+      "sha256": "04b44d77ce073d07f30e94c3c361ca4c199cb554ecbe017947aa423842781650"
+    },
+    "v35_c0_owner": {
+      "path": "lab/scripts/physical_sound_v35_c0_witness_and_coverage_census_v1.py",
+      "sha256": "c0f5aa7ea02e51b1c43e46d95ae0fd47518f411759ca1b32dd9d7f5b6def9cd7"
+    }
+  },
+  "profile_id": "physical-sound-v36-c0-fresh-structural-census-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v36-c0-fresh-structural-census-protocol-2026-09-03.md",
+    "sha256": "dccd8291b5061c77fd7cd3f7e98c7bcd6578a03159a9fede61f500343afa7eb6"
+  },
+  "resources": {
+    "max_output_bytes": 67108864,
+    "max_peak_rss_bytes": 1073741824,
+    "max_wall_seconds": 300,
+    "network_requests": 0,
+    "real_signal_values_decoded": 0
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v36-c0-fresh-structural-census-profile.v1",
+  "structural_prohibitions": {
+    "forbidden_import_stems": [
+      "physical_sound_v33_d0_development_tournament_v1",
+      "physical_sound_v33_i0_mode_local_spectral_owner_v1",
+      "physical_sound_v34_d0_development_tournament_v1",
+      "physical_sound_v34_h0_method_holdout_v1",
+      "physical_sound_v35_d0_geometry_hybrid_tournament_v1",
+      "physical_sound_v35_i0_complete_owner_terminal_proof_v1",
+      "torch"
+    ],
+    "forbidden_top_level_sections": [
+      "gates",
+      "model",
+      "optimizer",
+      "oracle",
+      "predictions",
+      "targets",
+      "training",
+      "truth",
+      "weights"
+    ]
+  },
+  "witness_contract": {
+    "evaluation_roles": [
+      "development",
+      "method_holdout"
+    ],
+    "exact_nodal_min_modal_rows_per_stratum": 180,
+    "minimum_both_expert_reachable_rows_per_stratum": 1,
+    "minimum_contact_sensitive_rows_per_stratum": 1,
+    "minimum_finite_local_support_rows_per_stratum": 1,
+    "minimum_material_sensitive_rows_per_stratum": 1,
+    "minimum_non_silent_cases_per_family_and_stratum": 1,
+    "minimum_nonzero_pickup_negative_rows_per_role": 1,
+    "minimum_nonzero_pickup_positive_rows_per_role": 1,
+    "minimum_remesh_pairs_per_family_and_role": 1,
+    "strata": [
+      "contact-only",
+      "geometry-only",
+      "joint"
+    ],
+    "target_rows_allowed": 0
+  }
+}
