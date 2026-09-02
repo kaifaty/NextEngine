@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V26_ADOPTED / V24_EVIDENCE_PLANE_COMPLETE / QUALITY_UNOBSERVED / M0A_E_PREPROCESS_CONFORMANCE_REJECT / NO_MODEL_VALUES_OPENED / RUN_B_NOT_STARTED / P0_ALIGNMENT_DEFECT / P0A_PROTOCOL_FROZEN / I0_NEXT / INTERNET_ONLY_REAL_EVIDENCE / AUTOMATED_VALIDATOR_REQUIRED / FALLBACK_REQUIRED / P3_BLOCKED` |
+| Status | `ROADMAP_V27_ADOPTED / QUALITY_UNOBSERVED / P0A_PROTOCOL_FROZEN / R0_PREPROCESSOR_NEXT / INTERNET_ONLY_REAL_EVIDENCE / AUTOMATED_VALIDATOR_REQUIRED / METAL_FIRST / OFFLINE_COOKED_CLIPS / RUNTIME_ML_NOT_AUTHORIZED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
-| Definition of done | One offline neural Metal generator, independent validator and cooker process one untouched Metal shadow exactly once and supply one fallback-safe demo prop; a frozen reject closes the branch without a product claim |
+| Definition of done | One external neural Metal generator, independent validator and deterministic cooker process one untouched Metal shadow exactly once and supply one fallback-safe demo prop; the pipeline can then start Glass without per-sound human approval |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
 
 ## Resume in 60 seconds
@@ -23,10 +23,11 @@
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
-- **Planning authority:** [Roadmap V26](../../plans/physical-sound-synthesis-roadmap-v26.md)
-  replaces V25 after M0a-E's pre-training conformance reject. It orders a
-  barycentric execution-equivalent M0b successor, independent V0, protected
-  Metal admission, deterministic cooker and one fallback-safe demo prop.
+- **Planning authority:** [Roadmap V27](../../plans/physical-sound-synthesis-roadmap-v27.md)
+  retains V26's P0a/I0/M0b dependency, then makes the scalable four-plane
+  pipeline explicit: internet evidence, external generator, independent
+  validator and deterministic cooker. Metal is first; Glass and Wood require
+  independent admissions.
 - **M0 correction:** the [implementation-conformance rebaseline](../physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md)
   proves one-hot material input cannot expose isolated `E`/density gates. No
   model value opened; [M0a](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md)
@@ -79,11 +80,11 @@
 | V22 P1r–I2 | `F1R_IMPLEMENTATION_REJECT / NO_ARTIFACT / CLOSED` | Numeric equivalence passed; missing evaluator API export spent `2201…2312` before quality publication. |
 | V23 P2a–F2a | `IMPLEMENTATION_CONFORMANCE_REJECT / NO_ARTIFACT / CLOSED` | `2601…2712` are spent after missing inherited `analytic_surface`; B not started, `2801…2912` retired unopened and quality unobserved. |
 | V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
-| V26 P0–M0b | `P0_SURFACE_FROZEN / P0_ALIGNMENT_DEFECT / P0A_FROZEN / I0_NEXT` | P0a `54522c26…49e8` adds bounded zero padding after context peaks disproved unpadded peak-to-512; surface/model/seed/loss/schedule/roles/gates stay unchanged. |
-| V26 V0–D1 | `VALIDATOR_THEN_METAL / BLOCKED_BY_M0B` | Independent validation, protected Metal admission, deterministic cooker and one fallback-safe demo form the first product-shaped vertical. |
-| V26 G0–P3 | `GLASS_WOOD_LATER / ADR_REQUIRED` | Glass and Wood repeat admission independently; runtime/public promotion remains blocked. |
+| V27 R0–R1 | `P0A_FROZEN / PREPROCESSOR_NEXT / QUALITY_UNOBSERVED` | R0 completes the owning surface/alignment path; one frozen R1 run then decides compact-representation feasibility without value-driven repair. |
+| V27 Q0–R6 | `VALIDATOR_AND_METAL_VERTICAL / BLOCKED_BY_R0` | Signal-blind validator inventory may overlap R0; independent validation, one Metal admission, cooker and fallback-safe demo remain ordered gates. |
+| V27 R7–P3 | `GLASS_WOOD_LATER / ADR_REQUIRED` | Glass and Wood repeat admission independently; runtime/public promotion remains blocked. |
 
-## Material transition: V26 repairs surface-field semantics before quality
+## Material transition: V27 turns the research record into an ML pipeline
 
 - **Observation:** D0/T0/X0 and the combined V3 record are complete, while
   model quality, validator risk and product use remain unobserved.
@@ -91,9 +92,12 @@
   next legal context fails because its peak `87` needs `425` leading zeros to
   reach anchor `512`; two more contexts independently need `439/473` zeros.
 - **Conclusion:** surface evaluation is repaired, while inherited alignment
-  lacked boundary padding. Neither observation is neural-quality evidence.
-- **Decision:** P0a retains P0 barycentric semantics and adds only bounded
-  zero padding; anchor/window/model/value choices do not change.
+  lacked boundary padding. Neither observation is neural-quality evidence, and
+  further manual formula tuning is not the scalable product path.
+- **Decision:** P0a retains P0 barycentric semantics and adds only bounded zero
+  padding. V27 uses formulas as teacher/renderer/constraints, makes the
+  external learned generator primary and requires a separately frozen
+  automatic validator before any cooked asset admission.
 - **Smallest next action:** implement P0a alignment and complete the owning M0b
   entry through surface, alignment and full-entry fixtures.
 
@@ -160,16 +164,17 @@
 | D-041 | M0a-E spends M0a on a preprocessing conformance reject before model values: exact-vertex remesh sampling cannot represent all legal official contacts. M0b may replace only this sampling with deterministic barycentric surface evaluation plus full official-profile fixture coverage. | The P0 fixture falsifies barycentric invariants or proves a second model/value-affecting semantic change is necessary before implementation. |
 | D-042 | P0 freezes the execution-equivalent M0b surface evaluator at `4fff3ebd…65e7`: strict point-on-surface validation, canonical face tie-break and float64 barycentric interpolation; every M0a model/value choice remains unchanged. | I0's value-independent full-entry or official-shape fixture proves the protocol internally inconsistent before official M0b values. |
 | D-043 | I0 smoke exercises D-042's reconsideration condition: surface evaluation passes, but unpadded inherited transfer alignment rejects all three adaptation contexts. P0a `54522c26…49e8` adds at most 512 zero samples per side and keeps anchor/window/model semantics unchanged. | Alignment fixtures or complete preprocessing show the bounded pad/copy invariants cannot cover legal context without another value-affecting change. |
+| D-044 | V27 makes an external learned generator the scalable authoring path; formulas remain teacher, deterministic renderer, constraints and fallback. Admission belongs to a separate real-data validator, then an offline cooker publishes ordinary clips. | A non-learned method passes the same protected multi-object admission more cheaply, or an Accepted ADR authorizes a different product boundary. |
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: deterministic scale-separated ridge generalizes poles/damping | B0 passes twice exactly at `4.434/15.891 cents` and `0.001226/0.004701` damping | Synthetic truth is not a real-material claim | `CLOSED_SYNTHETIC_PASS`; freeze B0 hash |
-| H2: a continuous residual field is stable across valid remeshes | F0 is close and I1 acoustics are useful diagnostics | M0a quality stayed unopened because off-vertex field evaluation failed first | V26 M0b after P0/I0 pass |
+| H2: a continuous residual field is stable across valid remeshes | F0 is close and I1 acoustics are useful diagnostics | M0a quality stayed unopened because off-vertex field evaluation failed first | V27 R1 after R0 pass |
 | H3: composite integrity/fill/reachability detects missing contact support | C0 passes twice: zero valid false OOD, every mutation cell `1.0` | Synthetic scope only | `CLOSED_SYNTHETIC_PASS`; freeze exact C0 hashes |
-| H4: automatic validator reaches useful bounded risk | M0b calibrates synthetic metrics and I1 actual acoustics pass | No independent real validator or shadow result | V26 V0 then Metal A0 |
-| H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V24 K0/D1 after Metal A0 pass |
+| H4: automatic validator reaches useful bounded risk | M0b calibrates synthetic metrics and I1 actual acoustics pass | No independent real validator or shadow result | V27 Q0/Q1 then R4 |
+| H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V27 R5/R6 after Metal R4 pass |
 
 ## Do not retry
 
@@ -206,7 +211,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V26](../../plans/physical-sound-synthesis-roadmap-v26.md), [P0a protocol](../physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md), [P0 rebaseline](../physical-sound-v26-p0-implementation-conformance-rebaseline-2026-09-02.md), [P0 protocol](../physical-sound-v26-p0-barycentric-surface-query-protocol-2026-09-02.md), [M0a-E result](../physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md), [V26 research](../physical-sound-v26-off-vertex-field-transfer-research-2026-09-02.md), [Roadmap V25](../../plans/physical-sound-synthesis-roadmap-v25.md), [M0a-I result](../physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md), [M0a protocol](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md), [M0 rebaseline](../physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md), [Roadmap V24](../../plans/physical-sound-synthesis-roadmap-v24.md), [M0 protocol](../physical-sound-v24-m0-exact-object-neural-student-protocol-2026-09-01.md), [X0 result](../physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), [T0 result](../physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [T0 protocol](../physical-sound-v24-t0-analytic-teacher-protocol-2026-09-01.md), [X0 protocol](../physical-sound-v24-x0-blue-bowl-pilot-protocol-2026-09-01.md), [V24 D0 result](../physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [V24 D0 protocol](../physical-sound-v24-d0-neural-evidence-plane-protocol-2026-09-01.md), [V23 F2a result](../physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md), [Roadmap V23](../../plans/physical-sound-synthesis-roadmap-v23.md), [V23 research](../physical-sound-v23-closed-form-field-research-2026-09-01.md), [V22 result](../physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md), [Roadmap V22](../../plans/physical-sound-synthesis-roadmap-v22.md), [P1r](../physical-sound-v22-p1r-resource-bounded-continuous-field-protocol-2026-09-01.md), [V21 F1a result](../physical-sound-v21-f1a-continuous-field-result-2026-09-01.md), [Roadmap V21](../../plans/physical-sound-synthesis-roadmap-v21.md), [P1a](../physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [P0d](../physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [F0 audit](../physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V21 remesh research](../physical-sound-v21-remesh-consistency-research-2026-09-01.md), [I1 result](../physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [P0c](../physical-sound-v20-p0c-i1-integration-protocol-2026-09-01.md), [M0b result](../physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [M0b protocol](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md), [M0b research](../physical-sound-v20-m0b-confound-resistant-metric-research-2026-09-01.md), [M0a result](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
+3. [Roadmap V27](../../plans/physical-sound-synthesis-roadmap-v27.md), [Roadmap V26](../../plans/physical-sound-synthesis-roadmap-v26.md), [P0a protocol](../physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md), [P0 rebaseline](../physical-sound-v26-p0-implementation-conformance-rebaseline-2026-09-02.md), [P0 protocol](../physical-sound-v26-p0-barycentric-surface-query-protocol-2026-09-02.md), [M0a-E result](../physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md), [V26 research](../physical-sound-v26-off-vertex-field-transfer-research-2026-09-02.md), [Roadmap V25](../../plans/physical-sound-synthesis-roadmap-v25.md), [M0a-I result](../physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md), [M0a protocol](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md), [M0 rebaseline](../physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md), [Roadmap V24](../../plans/physical-sound-synthesis-roadmap-v24.md), [M0 protocol](../physical-sound-v24-m0-exact-object-neural-student-protocol-2026-09-01.md), [X0 result](../physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), [T0 result](../physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [T0 protocol](../physical-sound-v24-t0-analytic-teacher-protocol-2026-09-01.md), [X0 protocol](../physical-sound-v24-x0-blue-bowl-pilot-protocol-2026-09-01.md), [V24 D0 result](../physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [V24 D0 protocol](../physical-sound-v24-d0-neural-evidence-plane-protocol-2026-09-01.md), [V23 F2a result](../physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md), [Roadmap V23](../../plans/physical-sound-synthesis-roadmap-v23.md), [V23 research](../physical-sound-v23-closed-form-field-research-2026-09-01.md), [V22 result](../physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md), [Roadmap V22](../../plans/physical-sound-synthesis-roadmap-v22.md), [P1r](../physical-sound-v22-p1r-resource-bounded-continuous-field-protocol-2026-09-01.md), [V21 F1a result](../physical-sound-v21-f1a-continuous-field-result-2026-09-01.md), [Roadmap V21](../../plans/physical-sound-synthesis-roadmap-v21.md), [P1a](../physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [P0d](../physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [F0 audit](../physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V21 remesh research](../physical-sound-v21-remesh-consistency-research-2026-09-01.md), [I1 result](../physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [P0c](../physical-sound-v20-p0c-i1-integration-protocol-2026-09-01.md), [M0b result](../physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [M0b protocol](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md), [M0b research](../physical-sound-v20-m0b-confound-resistant-metric-research-2026-09-01.md), [M0a result](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
    [F0 result](../physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [C0 result](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
    [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
    [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [O0 result](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md),
