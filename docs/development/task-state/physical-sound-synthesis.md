@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V32 / P0_P1_T0_V0A_COMPLETE / V0_V1_REJECT_PRESERVED / M0_PROTOCOL_FROZEN / M0_IMPLEMENTATION_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V32 / P0_P1_T0_V0A_M0_CONFORMANCE_COMPLETE / V0_V1_REJECT_PRESERVED / M1_OWNER_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -44,8 +44,8 @@
   equal-PCM/equal-modal causal alias pairs. No output or real value opened.
 - **V0a result:** the [modal-equivalence validator mechanics](../physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md)
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
-- **M0 protocol:** [physics-locked residual M0](../physical-sound-v32-m0-physics-locked-residual-protocol-2026-09-02.md) freezes a `1,491`-parameter three-head model; P1 retains frequencies, nodes, impulse and remesh authority.
-- **Next action:** implement the frozen M0 owner and value-independent conformance fixtures before the one-shot M1 tournament.
+- **M0 conformance:** the [physics-locked owner](../physical-sound-v32-m0-physics-locked-residual-conformance-result-2026-09-02.md) repeats exactly with 1,491 parameters and zero official development/holdout access.
+- **Next action:** implement the complete M1 corpus/control owner, then spend its one-shot synthetic development/holdout tournament.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -83,16 +83,15 @@
 | V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
 | V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
-| V32 F0–PR | `P0_P1_T0_V0A_COMPLETE / M0_PROTOCOL_FROZEN / M0_IMPLEMENTATION_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | M0 structurally locks P1 frequency/nodes/impulse/remesh and permits only bounded decay/global-gain/contact multipliers; all real `6/27` gates remain unchanged. |
+| V32 F0–PR | `P0_P1_T0_V0A_M0_CONFORMANCE_COMPLETE / M1_OWNER_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | M0 repeats exact topology/composition conformance without official values; M1 still must implement and spend the frozen tournament, while all real `6/27` gates remain unchanged. |
 
 ## Material transition: V32 automatic release chain
 
-- **Observation:** V28 fit output metrics while failing every physical frequency
-  counterfactual; another end-to-end frequency head cannot explain improvement.
+- **Observation:** V28 fit output metrics while failing every physical frequency counterfactual; another end-to-end frequency head cannot explain improvement.
 - **Evidence:** [bounded research](../physical-sound-v32-m0-physics-locked-residual-research-2026-09-02.md) and primary prior art support composing known physics with learned unknowns.
 - **Conclusion:** the smallest falsifiable successor leaves frequencies and exact invariants in P1 and learns only bounded decay/gain/contact corrections.
-- **Decision:** freeze the 1,491-parameter M0 profile before implementation.
-- **Smallest next action:** build its owner and conformance fixtures without M1.
+- **Decision:** M0 owner conformance passes twice without official role access.
+- **Smallest next action:** implement the full M1 owner, then run it once A/B.
 
 ## Durable negative knowledge
 
@@ -170,6 +169,7 @@
 | D-055 | V0-v1 target-ID-only retrieval is closed after repeat-exact clean false positive. V0a may change only retrieval equivalence to exact target modal signature and must retain plate→beam rejection. | A T0 defect invalidates the alias or a preregistered counterexample proves modal equivalence still permits an inadmissible retrieval copy. |
 | D-056 | V0a passes repeat-exactly with `9 Pass / 7 Reject`, both lawful alias classes and plate→beam rejection. It grants M0 protocol sequencing only, never real validation or ProductCheck credit. | A V0a identity/probe defect appears before M0 values or a fresh preregistered mutation escapes the frozen specialist conjunction. |
 | D-057 | M0 cannot predict frequency or consume mesh resolution/object/role labels. Three bounded positive multipliers preserve P1 nodes, signs, impulse scaling and remesh identity structurally; M1 is one-shot. | Value-independent conformance falsifies a structural invariant or official M1 closes the family without selecting a nearby retry. |
+| D-058 | M0 owner conformance passes repeat-exactly at 1,491 parameters with zero development/holdout rows. The 3-step loss is a discarded finite-gradient probe, never candidate evidence. | An identity/test defect appears before M1 or M1 returns its frozen terminal pass/reject/resource result. |
 
 ## Open hypotheses
 
@@ -247,4 +247,4 @@ Read in precedence order:
 - **Isolation:** every Q1 role and payload stays sealed; object 41/92 rules also
   remain unchanged.
 - **Quality:** B0/C0/M0b and T0/V0a mechanics pass; F0/I1 reject; no real formula, validator release, atlas or runtime integration exists and fallback remains authority.
-- **Next commit boundary:** M0 owner plus value-independent conformance result; fallback remains authority.
+- **Next commit boundary:** complete M1 owner and one-shot result; fallback remains authority.
