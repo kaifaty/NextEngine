@@ -9036,11 +9036,12 @@ PresentationSurfaceLane make_presentation_surface_lane(
     return lane;
 }
 
-std::vector<Particle> game_visual_particles(int lattice_x, int lattice_z) {
+std::vector<Particle> game_visual_particles(int lattice_x, int lattice_z, int lattice_y) {
     std::vector<Particle> fluid;
-    fluid.reserve(static_cast<std::size_t>(lattice_x) * 10U * lattice_z);
+    fluid.reserve(static_cast<std::size_t>(lattice_x) * static_cast<std::size_t>(lattice_y)
+        * lattice_z);
     for (int x = 0; x < lattice_x; ++x) {
-        for (int y = 0; y < 10; ++y) {
+        for (int y = 0; y < lattice_y; ++y) {
             for (int z = 0; z < lattice_z; ++z) {
                 fluid.push_back({
                     {GAME_RADIUS + x * GAME_SPACING,
@@ -9053,6 +9054,10 @@ std::vector<Particle> game_visual_particles(int lattice_x, int lattice_z) {
         }
     }
     return fluid;
+}
+
+std::vector<Particle> game_visual_particles(int lattice_x, int lattice_z) {
+    return game_visual_particles(lattice_x, lattice_z, 10);
 }
 
 GameVisualObserverControls game_visual_observer_controls(
@@ -10384,6 +10389,7 @@ CommandReport run_cuda_game_surface_stream(
         find_profile("nuv-basin-48k-analytic-contact-game-cap160.v6");
     GameQualityBox box;
     int lattice_x = 0;
+    int lattice_y = 10;
     int lattice_z = 0;
     if (lane == "4k") {
         box = GameQualityBox{{0.0, 0.0, 0.0}, {2.0, 0.75, 1.0}, {40, 15, 20}};
@@ -10393,8 +10399,24 @@ CommandReport run_cuda_game_surface_stream(
         box = GameQualityBox{{0.0, 0.0, 0.0}, {4.0, 0.75, 2.0}, {80, 15, 40}};
         lattice_x = 40;
         lattice_z = 40;
+    } else if (lane == "48k") {
+        // SPEC-38 production fixture extent: the 4 x 1 x 2 m sealed basin
+        // with the accepted 80 x 15 x 40 fill (0.75 m deep), released from
+        // the same 0.1 m lift as the visual lanes so it slams and sloshes.
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {4.0, 1.0, 2.0}, {80, 20, 40}};
+        lattice_x = 80;
+        lattice_y = 15;
+        lattice_z = 40;
+    } else if (lane == "48k-dam") {
+        // Same sample count as the production fixture, released as a 2 m
+        // column in a taller 4 x 2 x 2 m box so the dam-break front is
+        // visible at 48k.
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {4.0, 2.0, 2.0}, {80, 40, 40}};
+        lattice_x = 40;
+        lattice_y = 30;
+        lattice_z = 40;
     } else {
-        throw std::invalid_argument("stream lane must be 4k or 16k");
+        throw std::invalid_argument("stream lane must be 4k, 16k, 48k or 48k-dam");
     }
     std::uint64_t completed_steps = 0U;
     std::uint64_t audits = 0U;
@@ -10409,10 +10431,10 @@ CommandReport run_cuda_game_surface_stream(
     const auto stream_begin = std::chrono::steady_clock::now();
     StreamExtractor extractor(
         frames, box, static_cast<unsigned>(workers), extractor_mode,
-        static_cast<std::size_t>(lattice_x) * lattice_z * 10U);
+        static_cast<std::size_t>(lattice_x) * static_cast<std::size_t>(lattice_y) * lattice_z);
     for (int cycle = 0; (cycles == 0 || cycle < cycles) && first_failure.empty();
          ++cycle) {
-        std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z);
+        std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z, lattice_y);
         dynamic_samples = fluid.size();
         double physics_since_frame_ms = 0.0;
         const auto emit = [&](int step) {

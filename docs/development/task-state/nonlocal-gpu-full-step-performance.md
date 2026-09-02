@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ENGINE VULKAN LIVE STREAM PASS (4K+16K REAL TIME 60 HZ, GPU EXTRACTION) / 48K LIVE LANE NEXT` |
+| Status | `ACTIVE / ENGINE VULKAN LIVE STREAM PASS (4K+16K REAL TIME, 48K PACED 0.7X) / VISUAL QUALITY NEXT` |
 | Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -23,16 +23,16 @@
   workers both lanes are real time at a 60 Hz surface (4k `0.999` with two
   workers, 16k `0.997` with four; 16k at 30 Hz `0.996` with three). One
   catalog/snapshot/frame plan per run, `0` dropped samples.
-- **First current risk:** the live lanes stop at 16k while the SPEC-38
-  production fixture is 48k in a `4 x 2 x 1 m` basin; the accepted 48k step
-  (`3.23 ms` p95) leaves under one millisecond of the 240 Hz budget, so a 48k
-  live lane may need a lower physics-to-surface cadence or a step-rate
-  decision. The stream lane keeps float state on the device and audits
-  diagnostics every 60 frames, so it does not reproduce the accepted corpus
-  roots and must not be cited as such.
-- **Current action:** add a 48k basin lane to the stream (same profile,
-  production fixture geometry), measure solver-bound wall per step with the
-  GPU extractor, and decide real time versus paced slow motion for 48k.
+- **First current risk:** 48k is solver-bound below real time on this host
+  (`3.87 ms` GPU per `4.17 ms` step plus `~0.9 ms` research-wrapper
+  overhead: `0.74x` unpaced, continuous at `--stream-rate 0.7`); no bridge
+  change closes that gap. The stream lanes keep float state on the device
+  and audit diagnostics every 60 frames, so they do not reproduce the
+  accepted corpus roots and must not be cited as such.
+- **Current action:** the bridge is complete for its purpose; remaining
+  presentation work is visual (GPU smooth normals, water material) and a
+  screenshot readback for human evidence. A 48k real-time claim would need
+  a solver-side change under its own contract, not more bridge work.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -87,6 +87,7 @@
 - `docs/development/nonlocal-gpu-engine-dynamic-surface-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-engine-live-stream-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-engine-gpu-extraction-evidence-2026-09-02.md`
+- `docs/development/nonlocal-gpu-engine-48k-live-lane-evidence-2026-09-02.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -1181,6 +1182,32 @@
   changes the tangent-tie bound, or a renderer-side Vulkan compute port must
   replace the CUDA one for an in-process consumer.
 
+### D-044 — 48k lives in the bridge at paced 0.7x, not real time
+
+- **Observation:** two 48k lanes (production `4 x 1 x 2 m` fill and a
+  `48k-dam` column in `4 x 2 x 2 m`) stream through the GPU extractor at
+  `1.4 ms` per frame with degree `<= 140`. Without extraction the 48k step
+  costs `3.87 ms` of GPU time and `4.80 ms` of `execute` wall; 16k costs
+  `1.51 / 1.77 ms`.
+- **Evidence:** live runs of 900 frames: `48k` `0.739`, `48k-dam` `0.710`,
+  `48k` paced at `0.7` gives `0.699` with one skipped frame; render critical
+  p95 `310--321 us`. 48k verify: `61` frames, `0` mismatches, `1.13e-7 m`.
+  Raw JSON `6ccc651b.../5c8638c6.../9e4b90af...`, standalone
+  `ef71f217.../bf267dd3.../e03b7e25.../5e7138aa...`.
+- **Conclusion:** the bridge adds nothing measurable at 48k; the solver
+  alone consumes `93%` of the 240 Hz budget on this RTX 3080, so unpaced
+  real time is unreachable here without a solver-side change.
+- **Decision:** ship 48k in the developer bridge as paced playback
+  (`--stream-rate 0.7`); do not touch the research timing apparatus for the
+  `~0.9 ms` wrapper overhead inside this task. Record the fixed 240 Hz
+  cadence and the accepted `3.23 ms` p95 as the constraint.
+- **Rejected:** lowering the physics cadence for the demo, hiding the deficit
+  by frame skipping, and rebuilding the campaign's `execute` timing path for
+  a demo gain that still misses real time.
+- **Reconsider when:** a faster host, a solver-side iteration or kernel
+  change under its own contract, or a lower accepted physics cadence moves
+  the 48k step below `~3.5 ms` wall.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1243,6 +1270,7 @@
 | HG6F | the frozen CPU extractor parallelizes to real-time 16k without algorithm change | selected bounded: `2.45 ms` per step with three ordered workers, geometry byte-identical | device-local ring, then GPU extraction |
 | HG6G | ring residency, not CPU packing, dominates the 16k refresh cost | falsified: producer packing cut refresh `469 -> 97 us` on the host ring; device-local then halved GPU time only | closed; keep both |
 | HG6H | the frozen extraction ports to GPU without changing the accepted surface | selected bounded: identical masks/counts on all verified frames, depth within `6.9e-8 m`, `0.6--1.2 ms` per frame | 48k live lane |
+| HG6I | the 48k production size reaches real time through the bridge | falsified on this host: `3.87 ms` GPU per `4.17 ms` step before bridge cost; paced `0.7x` is continuous | solver-side contract, not bridge work |
 
 ## Do not retry
 
@@ -1255,13 +1283,13 @@
 
 ## Next action
 
-1. Add a 48k production-fixture lane (`4 x 2 x 1 m` basin filled to
-   `0.75 m`) to `--game-surface-stream`, measure solver-bound wall per step
-   with the GPU extractor and one worker, and record real time versus paced
-   slow motion; keep the 4k/16k lanes unchanged.
-2. Only after that, consider a compute-written ring (no staging copy) if the
-   GPU extractor moves into the renderer process, and smooth-normal
-   reconstruction on the GPU for visual quality.
+1. Visual quality of the live surface: reconstruct smooth normals on the
+   GPU in the stream process (or in the renderer), then a water material
+   beyond the flat B0 base colour; both presentation-only.
+2. A bounded screenshot/readback path in the desktop adapter so live water
+   can be captured as human evidence without changing any root.
+3. Only if a runtime consumer appears: a compute-written ring without the
+   staging copy and an in-process ownership decision under its own ADR.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.

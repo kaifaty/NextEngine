@@ -144,11 +144,13 @@ pub(super) fn parse_arguments(
                 });
             }
             "--stream-lane" => {
-                stream_lane = arguments
-                    .next()
-                    .ok_or_else(|| "water-preview --stream-lane requires 4k or 16k".to_owned())?;
-                if stream_lane != "4k" && stream_lane != "16k" {
-                    return Err("water-preview --stream-lane must be 4k or 16k".to_owned());
+                stream_lane = arguments.next().ok_or_else(|| {
+                    "water-preview --stream-lane requires 4k, 16k, 48k or 48k-dam".to_owned()
+                })?;
+                if !matches!(stream_lane.as_str(), "4k" | "16k" | "48k" | "48k-dam") {
+                    return Err(
+                        "water-preview --stream-lane must be 4k, 16k, 48k or 48k-dam".to_owned(),
+                    );
                 }
             }
             "--stream-steps" => {
