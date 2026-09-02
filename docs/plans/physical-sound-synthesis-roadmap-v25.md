@@ -3,9 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / V24_EVIDENCE_PLANE_COMPLETE / M0_ONEHOT_CAUSAL_DEFECT / M0A_IMPLEMENTATION_REPEAT_EXACT_PASS / M0A_E_READY / MODEL_VALUES_UNOPENED / AUTOMATIC_VALIDATOR_REQUIRED / INTERNET_ONLY_REAL_EVIDENCE / OFFLINE_COOKED_CLIPS / RUNTIME_NOT_AUTHORIZED` |
+| Status | `CLOSED_BY_M0A_E_PREPROCESS_CONFORMANCE_REJECT / NO_MODEL_VALUES_OPENED / RUN_B_NOT_STARTED / SUPERSEDED_BY_V26` |
 | Replaces | [Roadmap V24](physical-sound-synthesis-roadmap-v24.md) as planning authority; every frozen V24 protocol, hash and spent-role rule remains binding |
-| Current evidence | [D0 result](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [T0 result](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [X0 result](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), [M0 conformance rebaseline](../development/physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md), [M0a protocol](../development/physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md) and [M0a-I result](../development/physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md) |
+| Superseded by | [Roadmap V26](physical-sound-synthesis-roadmap-v26.md) |
+| Current evidence | [M0a-E result](../development/physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md), [D0 result](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [T0 result](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [X0 result](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), [M0 conformance rebaseline](../development/physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md), [M0a protocol](../development/physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md) and [M0a-I result](../development/physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no public schema, runtime model, physics authority or production ProductCheck is promoted |
 | Mandatory fallback | The ordinary authored clip remains authoritative for every reject, OOD result, missing source, unsupported query or tooling failure |
 
@@ -81,7 +82,7 @@ early merely to shorten the path.
 | --- | --- | --- | ---: | --- |
 | R0 | V24 evidence closeout | `COMPLETE` | — | D0, T0 and X0 pass twice; combined V3 SHA-256 is `c43ba8eac68e32a8ef8fbe37d3ffa3d21db1d59e0443766cee1d98f51cad70bb`; no model, validator or runtime authority follows from it. |
 | M0a-I | Causal-material student implementation conformance | `COMPLETE / REPEAT_EXACT_PASS / VALUES_UNOPENED` | M | Commit `6b04dc5f`, implementation root `9df63e…e46`; deterministic preprocessing, protected-role access, fixed model, controls, canonical tensors, local diagnostic MLflow and atomic full-entry fixture pass. Two executions are byte-identical and declared corruptions fail closed. |
-| M0a-E | Exact-object official evaluation | `READY / VALUES_UNOPENED` | M | Run the frozen `3101`, CPU-only, 2,000-step candidate twice under `1,800 s`, `4 GiB` and `256 MiB`; freeze weights before one-shot method holdout; publish exactly one `PASS`, `REPRESENTATION_REJECT`, `DOMAIN_GAP_REJECT` or resource/conformance result. |
+| M0a-E | Exact-object official evaluation | `IMPLEMENTATION_CONFORMANCE_REJECT / NO_MODEL_VALUES / RUN_B_NOT_STARTED` | M | Run A stopped on the first off-vertex coarse-mesh contact before model construction. M0a is spent; V26 owns the barycentric execution-equivalent successor. |
 | V0-P | Validator protocol and role freeze | `MAY_INVENTORY_SIGNAL_BLIND / VALUES_SEALED` | M | Freeze real-only calibration, positive holdout, mutation, OOD and untouched shadow groups; declare feature versions, thresholds, false-pass bound and access order before any candidate-sensitive value. |
 | V0-I | Independent Validator V1 | `BLOCKED_BY_M0A_PASS_AND_V0-P` | M–L | A separate owning CLI passes hard, physical, real-acoustic, mutation and selective-risk fixtures twice exactly; generator targets/checkpoints and candidate development outputs are unavailable to calibration. |
 | S0 | Metal evidence freeze | `BLOCKED_BY_V0-P` | M | Internet-only sources provide hash-closed object/family-disjoint train, development, method-holdout, validator and admission roles. Missing geometry, force, support, composition or listener axes narrow the claim or produce `FallbackOutOfDomain`. |
@@ -118,6 +119,10 @@ Commit this implementation and its value-independent fixture before the first
 official M0a run. That commit is the rollback boundary for the model family.
 
 ### 2. Execute M0a-E once as a scientific decision
+
+`CLOSED`: [official run A](../development/physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md)
+rejected during preprocessing before model values; the stop rule forbade B and
+[Roadmap V26](physical-sound-synthesis-roadmap-v26.md) supersedes this plan.
 
 Run official A/B without changing architecture, losses, seed, capacity,
 thresholds, contacts or step count. Compare canonical artifacts, then open
@@ -183,7 +188,7 @@ only and cannot change gameplay hearing, physics, save or replay.
 | Checkpoint | Meaning |
 | --- | --- |
 | M0a-I | The causal-material neural experiment can run reproducibly without leaking protected evidence or hiding an unobservable physical gate. |
-| M0a-E | We have a trustworthy answer to whether the fixed exact-object neural representation beats its classical controls. |
+| M0a-E | Preprocessing rejected before model values, so V25 has no neural-quality answer; M0a is spent and V26 owns the execution-equivalent repair. |
 | V0-I | Bad, implausible and out-of-domain sounds can be rejected automatically without the generator judging itself. |
 | A0 | One unseen Metal object has passed the frozen automatic test exactly once. |
 | K0 + D1 | The admitted result is an ordinary deterministic asset audible in the demo, with the original clip always available. |
