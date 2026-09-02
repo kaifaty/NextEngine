@@ -23,8 +23,9 @@ use crate::particle_surface::{
 };
 
 /// Fluid frame uniform: view, projection, viewport, params, absorption,
-/// focal, sun, spray (six 16-byte-aligned rows plus two matrices).
-const FLUID_UNIFORM_SIZE: vk::DeviceSize = 64 + 64 + 16 * 6;
+/// focal, sun, spray, spray2 (seven 16-byte-aligned rows plus two
+/// matrices).
+const FLUID_UNIFORM_SIZE: vk::DeviceSize = 64 + 64 + 16 * 7;
 /// Depth target clear value; the shaders treat anything at or above
 /// `EMPTY_DEPTH_METRES` as "no fluid".
 const EMPTY_DEPTH_METRES: f32 = 1.0e30;
@@ -672,7 +673,16 @@ impl FluidPassState {
                 self.profile.spray_neighbour_threshold as f32,
                 self.profile.spray_radius_micrometres as f32 / 1_000_000.0,
                 self.profile.spray_alpha,
-                0.0,
+                self.profile.spray_cluster_threshold as f32,
+            ],
+        );
+        write_f32(
+            &mut uniform[224..240],
+            &[
+                self.profile.spray_streak_seconds,
+                self.profile.spray_subdroplets as f32,
+                self.profile.bulk_neighbour_count as f32,
+                self.profile.edge_radius_scale,
             ],
         );
         slot.uniform.write(0, &uniform)?;
@@ -1108,7 +1118,8 @@ impl FluidPassState {
         // 5. Spray: particles below the neighbour threshold as soft discs,
         // alpha-blended over the composite and depth-tested against the
         // opaque scene (RGB only, the alpha coverage channel is untouched).
-        if self.profile.spray_neighbour_threshold != 0 {
+        if self.profile.spray_neighbour_threshold != 0 || self.profile.spray_cluster_threshold != 0
+        {
             let spray_colors = [vk::RenderingAttachmentInfo::default()
                 .image_view(swapchain_view)
                 .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
@@ -1162,7 +1173,13 @@ impl FluidPassState {
                     &particle_buffers,
                     &particle_offsets,
                 );
-                device.cmd_draw(command_buffer, 6, slot.uploaded_count, 0, 0);
+                device.cmd_draw(
+                    command_buffer,
+                    6 * self.profile.spray_subdroplets.clamp(1, 32),
+                    slot.uploaded_count,
+                    0,
+                    0,
+                );
                 device.cmd_end_rendering(command_buffer);
             }
         }
@@ -1349,6 +1366,12 @@ fn create_pipeline(
                 binding: 0,
                 format: vk::Format::R32_UINT,
                 offset: 12,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 2,
+                binding: 0,
+                format: vk::Format::R32G32B32_SFLOAT,
+                offset: 16,
             },
         ];
         let vertex_input = if shape.instanced {

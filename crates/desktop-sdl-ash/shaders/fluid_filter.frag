@@ -15,6 +15,7 @@ layout(set = 0, binding = 0, std140) uniform FluidFrame {
     vec4 focal;
     vec4 sun;
     vec4 spray;
+    vec4 spray2;
 } frame;
 
 layout(set = 1, binding = 0) uniform sampler2D depth_in;

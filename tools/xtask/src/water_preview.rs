@@ -138,10 +138,22 @@ const PARTICLE_SURFACE_THICKNESS_SCALE: f32 = 1.0;
 /// NGQ10 revision 2 spray split, fixed before the run.
 #[cfg(feature = "desktop-sdl-ash")]
 const PARTICLE_SURFACE_SPRAY_THRESHOLD: u32 = 6;
+/// NGQ10 revision 3: sub-droplet spray, fixed before the run (alpha
+/// replaces the revision-2 disc alpha of 0.35).
 #[cfg(feature = "desktop-sdl-ash")]
-const PARTICLE_SURFACE_SPRAY_RADIUS_MICROMETRES: u32 = 12_000;
+const PARTICLE_SURFACE_SPRAY_ALPHA: f32 = 0.5;
 #[cfg(feature = "desktop-sdl-ash")]
-const PARTICLE_SURFACE_SPRAY_ALPHA: f32 = 0.35;
+const PARTICLE_SURFACE_SPRAY_CLUSTER_THRESHOLD: u32 = 16;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_SPRAY_SUBDROPLETS: u32 = 12;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_SPRAY_SUBDROPLET_RADIUS_MICROMETRES: u32 = 4_000;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_SPRAY_STREAK_SECONDS: f32 = 1.0 / 60.0;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_BULK_NEIGHBOURS: u32 = 20;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_EDGE_RADIUS_SCALE: f32 = 0.6;
 
 /// `nonlocal-feasibility --game-surface-stream` child-process parameters.
 #[derive(Clone, Debug, PartialEq)]
@@ -680,12 +692,22 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
                 .windows(2)
                 .map(|pair| fluid_coverage_flip_fraction(&pair[0].rgba8, &pair[1].rgba8))
                 .collect::<Vec<_>>();
+            // NGQ10 revision 3 apparatus: flips per stream frame, dividing
+            // the maximum pair flip by the mean stream frames per
+            // publication of the run (received / published).
+            let flip_max = flips.iter().copied().fold(0.0_f64, f64::max);
+            let stream_frames_per_publication = (feed_summary.publications > 0)
+                .then(|| feed_summary.frames_received as f64 / feed_summary.publications as f64);
             Some(serde_json::json!({
                 "frames": frames,
                 "coverage_flip_fractions": preview.particle_profile.is_some().then_some(&flips),
-                "coverage_flip_fraction_max": preview.particle_profile.is_some().then(|| {
-                    flips.iter().copied().fold(0.0_f64, f64::max)
-                }),
+                "coverage_flip_fraction_max": preview.particle_profile.is_some().then_some(flip_max),
+                "stream_frames_per_publication": stream_frames_per_publication,
+                "coverage_flip_fraction_max_per_stream_frame": preview
+                    .particle_profile
+                    .is_some()
+                    .then(|| stream_frames_per_publication.map(|ratio| flip_max / ratio.max(1.0)))
+                    .flatten(),
             }))
         }
         None => None,
@@ -721,6 +743,11 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
                     "spray_neighbour_threshold": profile.spray_neighbour_threshold,
                     "spray_radius_micrometres": profile.spray_radius_micrometres,
                     "spray_alpha": profile.spray_alpha,
+                    "spray_cluster_threshold": profile.spray_cluster_threshold,
+                    "spray_subdroplets": profile.spray_subdroplets,
+                    "spray_streak_seconds": profile.spray_streak_seconds,
+                    "bulk_neighbour_count": profile.bulk_neighbour_count,
+                    "edge_radius_scale": profile.edge_radius_scale,
                 },
                 "publications": report.particle_surface_publications,
                 "uploads": report.particle_surface_uploads,
@@ -1219,9 +1246,45 @@ impl StreamSession {
             // feed skips a frame; the adapter requires only strict growth,
             // so the render thread publishes without cloning the payload.
             let mut sequence = 0_u64;
+            // NGQ10 revision 3: velocities from the previous received frame
+            // of the same cycle (particle order is stable in the stream).
+            let mut previous: Option<(i32, f64, Vec<[i64; 3]>)> = None;
             let mut convert =
                 |frame: super::water_stream::StreamFrame| -> Result<ConvertedStreamFrame, String> {
                     sequence += 1;
+                    let velocities = match previous.as_ref() {
+                        Some((cycle, seconds, positions))
+                            if *cycle == frame.cycle
+                                && positions.len() == frame.particles_micrometres.len()
+                                && frame.simulation_seconds > *seconds =>
+                        {
+                            let inverse_dt = 1.0 / (frame.simulation_seconds - seconds);
+                            frame
+                                .particles_micrometres
+                                .iter()
+                                .zip(positions)
+                                .map(|(now, before)| {
+                                    let mut velocity = [0_i32; 3];
+                                    for axis in 0..3 {
+                                        let micrometres_per_second =
+                                            (now[axis] - before[axis]) as f64 * inverse_dt;
+                                        velocity[axis] =
+                                            micrometres_per_second.clamp(-2.0e9, 2.0e9).round()
+                                                as i32;
+                                    }
+                                    velocity
+                                })
+                                .collect::<Vec<_>>()
+                        }
+                        _ => Vec::new(),
+                    };
+                    if surface.particles() {
+                        previous = Some((
+                            frame.cycle,
+                            frame.simulation_seconds,
+                            frame.particles_micrometres.clone(),
+                        ));
+                    }
                     let update = if surface.mesh() {
                         let normals = smooth_normals(&frame.positions_micrometres, &frame.indices)?;
                         DynamicSurfaceUpdateV1::new(
@@ -1250,6 +1313,8 @@ impl StreamSession {
                                 sequence,
                                 frame.particles_micrometres,
                                 frame.particle_neighbours,
+                                frame.particle_clusters,
+                                velocities,
                             )
                             .map_err(|error| error.to_string())?,
                         )
@@ -1261,8 +1326,10 @@ impl StreamSession {
                         if count == 0 {
                             0.0
                         } else {
-                            f64::from(set.spray_count(PARTICLE_SURFACE_SPRAY_THRESHOLD))
-                                / f64::from(count)
+                            f64::from(set.spray_count(
+                                PARTICLE_SURFACE_SPRAY_THRESHOLD,
+                                PARTICLE_SURFACE_SPRAY_CLUSTER_THRESHOLD,
+                            )) / f64::from(count)
                         }
                     });
                     Ok(ConvertedStreamFrame {
@@ -1666,8 +1733,13 @@ fn build_preview(
             refraction_strength: PARTICLE_SURFACE_REFRACTION_STRENGTH,
             thickness_scale: PARTICLE_SURFACE_THICKNESS_SCALE,
             spray_neighbour_threshold: PARTICLE_SURFACE_SPRAY_THRESHOLD,
-            spray_radius_micrometres: PARTICLE_SURFACE_SPRAY_RADIUS_MICROMETRES,
+            spray_radius_micrometres: PARTICLE_SURFACE_SPRAY_SUBDROPLET_RADIUS_MICROMETRES,
             spray_alpha: PARTICLE_SURFACE_SPRAY_ALPHA,
+            spray_cluster_threshold: PARTICLE_SURFACE_SPRAY_CLUSTER_THRESHOLD,
+            spray_subdroplets: PARTICLE_SURFACE_SPRAY_SUBDROPLETS,
+            spray_streak_seconds: PARTICLE_SURFACE_SPRAY_STREAK_SECONDS,
+            bulk_neighbour_count: PARTICLE_SURFACE_BULK_NEIGHBOURS,
+            edge_radius_scale: PARTICLE_SURFACE_EDGE_RADIUS_SCALE,
         },
     );
     let mut source =

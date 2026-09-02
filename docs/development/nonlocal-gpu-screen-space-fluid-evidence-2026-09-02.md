@@ -143,3 +143,48 @@ least six neighbours; the refracted interior of the upper tank shows
 fewer, softer bands. Candidates for a next revision, not applied: a
 cluster-size criterion (connected component under a link distance) instead
 of the neighbour count, and a larger depth-splat radius on the pool sheet.
+
+## Revision 3: clusters, sub-droplets, streaks (user observation)
+
+Plan 24 revision 3. Stream frame version 4 appends a 16-bit
+connected-component size per particle (link `0.075 m`); the bridge
+derives velocities from consecutive received frames; the adapter packs
+position, flags and velocity (`32` B per particle), classifies spray by
+cluster (`< 16`) or neighbours (`< 6`), draws `12` capsule sub-droplets
+of `4 mm` per spray particle jittered inside the `35 mm` sphere and
+stretched by `|v| / 60 s` (cap `0.15 m`) at alpha `0.5`, and grades the
+surface splat radius from `0.6` at the spray threshold to `1.0` at `20`
+neighbours.
+
+```text
+tool binary       b073cb990ef46080...
+shader suite      fluid_surface, eight modules, 240-byte uniform
+runs              particles x3 (frames 100..104), particles (frame 200), mesh x1
+```
+
+| Measure | `particles` (3 runs) | `mesh` baseline |
+| --- | --- | --- |
+| pass GPU p95 / max | `451..455 / 478..1073 µs` | n/a (`163 µs` whole frame) |
+| whole-frame GPU p95 | `509..515 µs` | `163 µs` |
+| coverage flips, max pair (raw) | `0.088..0.122%` | n/a |
+| stream frames per publication | `1.03..1.07` | `1.08` |
+| coverage flips per stream frame (G3n) | `0.085..0.118%` | n/a |
+| spray fraction max / last | `0.78..0.82% / same` | n/a |
+| rendered frame interval | `6.5 ms` | `6.7 ms` |
+| device allocations | `85.1 MB / 36` | `50.5 MB / 27` |
+| roots | identical to revision 1 | identical |
+
+Look (captures at rendered frames 100 and 200, ~steps 150 and 300): the
+jelly spheres are gone; single falling particles read as short white
+streaks; the upper tank surface and the upper half of the jet are the
+clear refracting surface. The jet tail and the thin, fragmented pool on
+the lower floor are classified as spray by the cluster rule and render
+as bright white streak clusters, a foam look rather than clear water.
+The classification is correct under the frozen rule (those components
+have fewer than sixteen particles); the look is a shading question for a
+next revision: refracted-scene tint instead of white, fewer or fainter
+sub-droplets, or a cluster rule restricted to airborne components.
+
+Apparatus note: revision 2's raw flip gate depended on the presentation
+rate (the interval varied `6.5..20 ms` across this session); the
+normalised G3n figure is the comparable one from now on.

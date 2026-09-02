@@ -1,8 +1,8 @@
 #version 450
 
-// Spray disc: a soft, slightly bluish white dot alpha-blended over the
-// composited frame; RGB only, the swapchain alpha coverage channel is not
-// written. Depth-tested against the opaque scene, no depth write.
+// Spray capsule: a soft, slightly bluish white droplet streak alpha-blended
+// over the composited frame; RGB only, the swapchain alpha coverage channel
+// is not written. Depth-tested against the opaque scene, no depth write.
 
 layout(set = 0, binding = 0, std140) uniform FluidFrame {
     mat4 view;
@@ -13,14 +13,17 @@ layout(set = 0, binding = 0, std140) uniform FluidFrame {
     vec4 focal;
     vec4 sun;
     vec4 spray;
+    vec4 spray2;
 } frame;
 
 layout(location = 0) in vec2 in_corner;
+layout(location = 1) in float in_half_length;
 
 layout(location = 0) out vec4 out_color;
 
 void main() {
-    float radial = dot(in_corner, in_corner);
+    vec2 capsule = vec2(in_corner.x, max(abs(in_corner.y) - in_half_length, 0.0));
+    float radial = dot(capsule, capsule);
     if (radial > 1.0) {
         discard;
     }

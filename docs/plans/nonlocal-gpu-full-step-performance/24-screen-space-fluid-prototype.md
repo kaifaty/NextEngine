@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `NGQ10` |
-| Status | `REV 1-2 RUN / G2 G5 PASS / G3 REV 2 FAIL UNDER A FRAME-RATE CONFOUND / G7 SPRAY 0.8% / G8 PARTIAL` — evidence `docs/development/nonlocal-gpu-screen-space-fluid-evidence-2026-09-02.md` |
+| Status | `REV 1-2 RUN / G2 G5 PASS / G3 REV 2 FAIL UNDER A FRAME-RATE CONFOUND / G7 SPRAY 0.8% / G8 PARTIAL / REV 3 RUN: G2 G3n G5 PASS, G7 0.8%, G9 PARTIAL (FOAM LOOK)` — evidence `docs/development/nonlocal-gpu-screen-space-fluid-evidence-2026-09-02.md` |
 | Parent | ADR-102 (Proposed); research note `docs/development/water-rendering-research-2026-09-02.md` |
 | Purpose | first screen-space fluid pass in the SDL3/Ash adapter, fed by the live particle stream of `water-preview` |
 
@@ -134,3 +134,73 @@ gate to the presentation rate; a frame-rate-independent apparatus
 re-reading of this one.
 
 No constant was changed after the first run.
+
+## Revision 3 (frozen before running): clusters, sub-droplets, streaks
+
+User observation: isolated particles and small clusters fall as solid
+spheres of the surface radius and read as jelly. A solver particle is a
+`125 cm^3` volume element, not a droplet; the fix is presentation-only.
+
+Frozen changes:
+
+- Stream frame version 4 appends, after the neighbour counts, one
+  16-bit connected-component size per particle (link distance `0.075 m`,
+  `1.5` spacings, union-find over the emitted positions).
+- The bridge derives a per-particle velocity from consecutive received
+  frames of the same cycle (position difference over the simulation time
+  between them; zero on the first frame and across a cycle restart) and
+  publishes it with the set (`ParticleSurfaceUpdateV1` gains velocities
+  in micrometres per second; packed stride `32` B: position, flags,
+  velocity).
+- Spray criterion: cluster size below `16` particles, or fewer than `6`
+  neighbours (revision 2 rule kept).
+- Spray rendering: `12` sub-droplets per spray particle, each a capsule
+  of radius `4 mm` jittered deterministically (hash of particle index and
+  sub-index) inside the `35 mm` sphere, stretched along the screen
+  projection of the velocity by `|v| / 60 s` (one presentation frame of
+  motion, capped at `0.15 m`), alpha `0.5`, alpha-blended RGB only,
+  depth-tested.
+- Surface splat radius graded by neighbours: scale `0.6` at the spray
+  threshold rising linearly to `1.0` at `20` neighbours; thickness uses
+  the same graded radius.
+- Every earlier constant unchanged.
+
+Gates (spill-narrow flush, 960 steps, 1920x1080, particles x3 plus a
+mesh baseline):
+
+| Gate | Definition | Pass |
+| --- | --- | --- |
+| G2 cost | particle pass GPU p95, all passes | `<= 2.0 ms` |
+| G3n stability (new apparatus) | maximum coverage flip over the burst pairs, divided by the run's mean stream frames per publication (`frames_received / frames_published`) | `<= 0.5%` per stream frame |
+| G5 roots | unchanged | pass |
+| G7 spray fraction | particles meeting the spray criterion, maximum and last | report, expected `< 5%` |
+| G9 look (human) | no solid sphere blobs in flight or on the pool; falling singles read as droplet streaks; the jet stays continuous | human |
+
+Do not change the thresholds, the sub-droplet count, radii, streak time
+or the grading after seeing the results.
+
+## Revision 3 result
+
+Three `particles` runs, one `mesh` baseline (`spill-narrow`, `960`
+steps, `1920x1080`):
+
+| Gate | Result |
+| --- | --- |
+| G2 | `451..455 µs` p95 (`478..1073 µs` max, two outlier frames) — PASS |
+| G3n | `0.085..0.118%` per stream frame (raw `0.088..0.122%`, `1.03..1.07` stream frames per publication) — PASS |
+| G5 | roots identical — PASS |
+| G7 | spray fraction `0.78..0.82%` maximum and last — reported |
+| G9 | no solid sphere blobs anywhere; falling singles are droplet streaks; the jet stays continuous in its upper part — but its lower part and the whole thin pool on the lower floor now render as bright white streak clusters (foam look) instead of clear water — PARTIAL |
+
+The rendered frame interval was `6.5 ms` in every run of this session
+(revision 2: `19..20 ms`; revision 1: `8.5 ms`), confirming that the
+interval is environmental; the normalised G3n apparatus is the one to
+keep.
+
+Reading: the cluster criterion classifies the fragmented pool sheet and
+the breaking jet tail correctly as small components, so they become
+spray; twelve sub-droplets at alpha `0.5` overlap into saturated white.
+Candidates for a next revision, not applied: tint the spray with the
+refracted scene colour instead of white, fewer sub-droplets or lower
+alpha, and a cluster threshold that only applies to airborne components
+(components not touching a larger body or the floor).

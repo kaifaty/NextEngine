@@ -14,11 +14,12 @@ use crate::DesktopAdapterError;
 
 /// Upper particle bound for the one declared particle surface.
 pub const MAX_PARTICLE_SURFACE_PARTICLES: u32 = 65_536;
-/// Bytes per packed particle: three binary32 metres plus one u32
-/// neighbour count.
-pub const PARTICLE_SURFACE_STRIDE: u32 = 16;
+/// Bytes per packed particle: three binary32 metres, one u32 of flags
+/// (neighbour count in the low byte, cluster size above), three binary32
+/// metres per second and one pad.
+pub const PARTICLE_SURFACE_STRIDE: u32 = 32;
 
-const PARTICLE_SURFACE_UPDATE_DOMAIN: &str = "nextengine.desktop.particle-surface-update.v2";
+const PARTICLE_SURFACE_UPDATE_DOMAIN: &str = "nextengine.desktop.particle-surface-update.v3";
 const MICROMETRES_PER_METRE: f64 = 1_000_000.0;
 
 /// Declares the one bounded particle surface for the whole desktop run.
@@ -46,6 +47,17 @@ pub struct ParticleSurfaceProfileV1 {
     pub spray_radius_micrometres: u32,
     /// Peak opacity of one spray disc, `0..=1`.
     pub spray_alpha: f32,
+    /// Particles in a connected component smaller than this are spray;
+    /// `0` disables the cluster criterion.
+    pub spray_cluster_threshold: u32,
+    /// Sub-droplets drawn per spray particle (`1..=32`).
+    pub spray_subdroplets: u32,
+    /// Streak length per metre per second of velocity, in seconds.
+    pub spray_streak_seconds: f32,
+    /// Neighbour count at which the surface splat reaches its full radius.
+    pub bulk_neighbour_count: u32,
+    /// Surface splat radius scale at the spray threshold, `0..=1`.
+    pub edge_radius_scale: f32,
 }
 
 impl ParticleSurfaceProfileV1 {
@@ -61,6 +73,17 @@ impl ParticleSurfaceProfileV1 {
         }
         if !(0.0..=1.0).contains(&self.spray_alpha) {
             return Err(invalid("spray alpha must lie in 0..=1"));
+        }
+        if self.spray_subdroplets == 0 || self.spray_subdroplets > 32 {
+            return Err(invalid("spray sub-droplet count must lie in 1..=32"));
+        }
+        if !self.spray_streak_seconds.is_finite() || self.spray_streak_seconds < 0.0 {
+            return Err(invalid(
+                "spray streak seconds must be finite and non-negative",
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.edge_radius_scale) {
+            return Err(invalid("edge radius scale must lie in 0..=1"));
         }
         let finite = self
             .absorption_per_metre
@@ -84,17 +107,24 @@ pub struct ParticleSurfaceUpdateV1 {
     /// Fluid neighbours per particle within the producer's presentation
     /// radius; empty means every particle counts as bulk.
     neighbour_counts: Vec<u8>,
+    /// Connected-component size per particle; empty means unbounded.
+    cluster_sizes: Vec<u16>,
+    /// Velocity per particle in micrometres per second; empty means rest.
+    velocities_micrometres_per_second: Vec<[i32; 3]>,
     canonical_hash: ContentHash,
     packed_positions: Vec<u8>,
 }
 
 impl ParticleSurfaceUpdateV1 {
     /// Validates the bounded set and binds its content-only canonical hash.
-    /// `neighbour_counts` is empty or one count per particle.
+    /// `neighbour_counts`, `cluster_sizes` and `velocities` are each empty
+    /// or one entry per particle.
     pub fn new(
         sequence: u64,
         positions_micrometres: Vec<[i64; 3]>,
         neighbour_counts: Vec<u8>,
+        cluster_sizes: Vec<u16>,
+        velocities_micrometres_per_second: Vec<[i32; 3]>,
     ) -> Result<Self, DesktopAdapterError> {
         if sequence == 0 {
             return Err(invalid("particle update sequence must be positive"));
@@ -104,13 +134,26 @@ impl ParticleSurfaceUpdateV1 {
                 "particle update count exceeds the particle surface bound",
             ));
         }
-        if !neighbour_counts.is_empty() && neighbour_counts.len() != positions_micrometres.len() {
+        let count = positions_micrometres.len();
+        if !neighbour_counts.is_empty() && neighbour_counts.len() != count {
             return Err(invalid(
                 "particle neighbour counts do not match the particle count",
             ));
         }
-        let mut preimage = Vec::with_capacity(positions_micrometres.len() * 25);
-        let mut packed_positions = Vec::with_capacity(positions_micrometres.len() * 16);
+        if !cluster_sizes.is_empty() && cluster_sizes.len() != count {
+            return Err(invalid(
+                "particle cluster sizes do not match the particle count",
+            ));
+        }
+        if !velocities_micrometres_per_second.is_empty()
+            && velocities_micrometres_per_second.len() != count
+        {
+            return Err(invalid(
+                "particle velocities do not match the particle count",
+            ));
+        }
+        let mut preimage = Vec::with_capacity(count * 39);
+        let mut packed_positions = Vec::with_capacity(count * PARTICLE_SURFACE_STRIDE as usize);
         for (index, position) in positions_micrometres.iter().enumerate() {
             for component in position {
                 preimage.extend_from_slice(&component.to_le_bytes());
@@ -118,31 +161,62 @@ impl ParticleSurfaceUpdateV1 {
                 packed_positions.extend_from_slice(&(metres as f32).to_le_bytes());
             }
             let neighbours = neighbour_counts.get(index).copied().unwrap_or(u8::MAX);
+            let cluster = cluster_sizes.get(index).copied().unwrap_or(u16::MAX);
+            let velocity = velocities_micrometres_per_second
+                .get(index)
+                .copied()
+                .unwrap_or([0; 3]);
             preimage.push(neighbours);
-            packed_positions.extend_from_slice(&u32::from(neighbours).to_le_bytes());
+            preimage.extend_from_slice(&cluster.to_le_bytes());
+            let flags = u32::from(neighbours) | (u32::from(cluster) << 8);
+            packed_positions.extend_from_slice(&flags.to_le_bytes());
+            for component in velocity {
+                preimage.extend_from_slice(&component.to_le_bytes());
+                let metres_per_second = f64::from(component) / MICROMETRES_PER_METRE;
+                packed_positions.extend_from_slice(&(metres_per_second as f32).to_le_bytes());
+            }
+            packed_positions.extend_from_slice(&0_f32.to_le_bytes());
         }
         let canonical_hash = domain_hash(PARTICLE_SURFACE_UPDATE_DOMAIN, &preimage);
         Ok(Self {
             sequence,
             positions_micrometres,
             neighbour_counts,
+            cluster_sizes,
+            velocities_micrometres_per_second,
             canonical_hash,
             packed_positions,
         })
     }
 
-    /// Particles below the threshold (drawn as spray); `0` for no split.
+    /// Particles meeting the spray criterion: fewer neighbours than
+    /// `neighbour_threshold` or a component smaller than
+    /// `cluster_threshold` (`0` disables either rule).
     #[must_use]
-    pub fn spray_count(&self, threshold: u32) -> u32 {
-        if threshold == 0 {
-            return 0;
-        }
-        let spray = self
-            .neighbour_counts
-            .iter()
-            .filter(|count| u32::from(**count) < threshold)
+    pub fn spray_count(&self, neighbour_threshold: u32, cluster_threshold: u32) -> u32 {
+        let spray = (0..self.positions_micrometres.len())
+            .filter(|index| {
+                let neighbours = self
+                    .neighbour_counts
+                    .get(*index)
+                    .copied()
+                    .unwrap_or(u8::MAX);
+                let cluster = self.cluster_sizes.get(*index).copied().unwrap_or(u16::MAX);
+                (neighbour_threshold != 0 && u32::from(neighbours) < neighbour_threshold)
+                    || (cluster_threshold != 0 && u32::from(cluster) < cluster_threshold)
+            })
             .count();
         u32::try_from(spray).unwrap_or(u32::MAX)
+    }
+
+    #[must_use]
+    pub fn cluster_sizes(&self) -> &[u16] {
+        &self.cluster_sizes
+    }
+
+    #[must_use]
+    pub fn velocities_micrometres_per_second(&self) -> &[[i32; 3]] {
+        &self.velocities_micrometres_per_second
     }
 
     #[must_use]
