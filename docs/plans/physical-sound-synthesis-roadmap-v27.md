@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / R0_REPEAT_EXACT_PASS / OFFICIAL_CONTEXT_PREFLIGHT_PASS / R1_NEXT / MODEL_QUALITY_UNOBSERVED / AUTOMATIC_VALIDATOR_REQUIRED / METAL_FIRST / OFFLINE_COOKED_CLIPS / RUNTIME_ML_NOT_AUTHORIZED` |
+| Status | `ADOPTED / R0_REPEAT_EXACT_PASS / R1_A_RESOURCE_TIMEOUT / NO_CANONICAL_OUTPUT / RUN_B_NOT_STARTED / MODEL_QUALITY_UNOBSERVED / GENERATOR_BRANCH_CLOSED / Q0_SIGNAL_BLIND_NEXT / RUNTIME_ML_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V26](physical-sound-synthesis-roadmap-v26.md) as planning authority; V26 evidence, frozen protocols, protected-role order and spent experiments remain binding |
-| Current evidence | [R0 result](../development/physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md), implementation root `d013ec35…f456`; [P0a](../development/physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md) `54522c26…49e8`, [P0 rebaseline](../development/physical-sound-v26-p0-implementation-conformance-rebaseline-2026-09-02.md), [M0a-E](../development/physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md), [M0a-I](../development/physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md), [V24 D0](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [T0](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md) and [X0](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md) |
+| Current evidence | [R1 result](../development/physical-sound-v27-r1-official-feasibility-result-2026-09-02.md), [R0 result](../development/physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md), implementation root `d013ec35…f456`; [P0a](../development/physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md) `54522c26…49e8`, [M0a-E](../development/physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md), [V24 D0](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [T0](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md) and [X0](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; the accepted clip path remains production authority |
 | User constraint | Evidence comes from published internet sources; no user recording and no per-sound human approval |
 
@@ -96,11 +96,11 @@ predecessors permit them.
 | ID | Package | State | Size | Observable exit criterion |
 | --- | --- | --- | ---: | --- |
 | R0 | Deterministic preprocessing owner | `COMPLETE / REPEAT_EXACT_PASS` | M | [R0](../development/physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md) passes full-entry A/B, 48 surface queries, mutations and all three real contexts at root `d013ec35…f456`; M0a stays unchanged. |
-| R1 | Compact-representation feasibility | `NEXT / MANIFEST_NOT_YET_FROZEN` | M | One hash-closed A/B run under the frozen seed/model/loss/schedule ends in exactly one terminal decision and emits reproducible artifacts or no quality claim. |
-| Q0 | Validator protocol and source inventory | `SIGNAL_BLIND_WORK_ALLOWED` | M | Freeze positive groups, negative mutations, OOD groups, feature families, access order, confidence method and minimum evidence before candidate-sensitive values. |
-| Q1 | Independent Validator V1 | `BLOCKED_BY_Q0_AND_R1_PASS` | L | Separate CLI passes hard, physical, acoustic, mutation and selective-risk fixtures twice; generator code/checkpoints are unavailable to calibration. |
-| R2A | Physical-coefficient neural field | `CONDITIONAL_ON_R1_PASS` | L | Predict object-global modes/damping plus contact-conditioned gains/residuals and beat frozen ridge/retrieval controls on object-disjoint development. |
-| R2B | Conditional waveform-latent probe | `ONLY_ON_R1_REPRESENTATION_REJECT` | M | One preregistered offline model tests whether the compact representation, rather than learnability itself, was the blocker; no runtime or admission authority. |
+| R1 | Compact-representation feasibility | `CLOSED / RUN_A_RESOURCE_TIMEOUT / RUN_B_NOT_STARTED` | M | [R1](../development/physical-sound-v27-r1-official-feasibility-result-2026-09-02.md) reached the `1,800 s` wall limit without canonical output; quality remains unobserved and M0b is spent. |
+| Q0 | Validator protocol and source inventory | `NEXT / SIGNAL_BLIND_ONLY` | M | Freeze positive groups, negative mutations, OOD groups, feature families, access order, confidence method and minimum evidence before candidate-sensitive values. |
+| Q1 | Independent Validator V1 | `BLOCKED_BY_Q0_AND_FRESH_GENERATOR_PASS` | L | Separate CLI passes hard, physical, acoustic, mutation and selective-risk fixtures twice; generator code/checkpoints are unavailable to calibration. |
+| R2A | Physical-coefficient neural field | `NOT_AUTHORIZED_BY_R1_RESOURCE_REJECT` | L | A fresh roadmap/protocol must first prove a resource-bounded generator predecessor. |
+| R2B | Conditional waveform-latent probe | `NOT_AUTHORIZED_WITHOUT_REPRESENTATION_REJECT` | M | Resource timeout cannot select a waveform/codec-latent family. |
 | R3 | Metal corpus and candidate freeze | `BLOCKED_BY_Q1_AND_R2` | L | Hash-close internet-only train/development/method-holdout/validator/shadow roles, train one declared candidate and open the holdout once without selection. |
 | R4 | Protected Metal admission | `BLOCKED_BY_R3` | S | Frozen generator and Validator V1 open one untouched shadow exactly once; every mandatory gate and false-pass bound passes. |
 | R5 | Deterministic cooker | `BLOCKED_BY_R4_PASS` | M | Accepted record cooks twice into byte-identical bounded clips and provenance; stale, invalid or OOD input publishes nothing and selects fallback. |
@@ -156,12 +156,13 @@ a required production gate or a way to rescue a failed automatic decision.
 
 1. `COMPLETE`: R0 binds P0a surface/alignment in the owning M0b entry and
    passes conformance plus official-context preflight at `d013ec35…f456`.
-2. Freeze the exact R1 manifest, then execute R1 A/B once under the
-   existing resource and access limits.
-3. In parallel, perform only signal-blind Q0 source inventory; freeze the full
+2. `CLOSED / RESOURCE_REJECT`: R1-A reached `1,800 s` without canonical
+   output; B did not start and no quality inference is legal.
+3. Next, perform only signal-blind Q0 source inventory; freeze the full
    validator protocol before any Metal candidate-sensitive value is opened.
-4. If R1 passes, implement Q1 and R2A. If it returns a representation reject,
-   write one R2B protocol before code. Other failures close the branch.
+4. The current generator branch is closed. A successor requires a new bounded
+   research result, roadmap and protocol; R2A/R2B cannot be selected from the
+   timeout.
 5. Freeze the Metal roles, train one R3 candidate, open one method holdout and
    then one R4 shadow. No successful shadow means no cooker or demo promotion.
 6. After R6, repeat admission for Glass and then Wood. Reuse tooling, not
@@ -170,6 +171,8 @@ a required production gate or a way to rescue a failed automatic decision.
 ## Stop rules
 
 - Do not rerun or repair spent M0a, earlier field families or opened roles.
+- Do not rerun R1-A, start R1-B or inspect partial values after the resource
+  timeout; M0b is spent and published no quality result.
 - Do not open model values until R0 fixtures and its implementation root are
   committed.
 - Do not weaken surface/alignment tolerances to accept one convenient sample.
