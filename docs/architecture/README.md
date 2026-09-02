@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.73 |
+| Версия | 2.74 |
 | Последняя проверка | 2026-09-02 |
-| Заменяет | INDEX-001 2.72; indexes Proposed ADR-103 (authoritative water flow network) |
+| Заменяет | INDEX-001 2.73; indexes Proposed ADR-104 (water V1 authority is the exact table and flow network; particle water is presentation only) |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -310,6 +310,7 @@ traceability — навигационная карта, не admission authority
 | ADR-101 | [Presentation-only dynamic surface ring and bounded frame capture](adr/101-presentation-only-dynamic-surface-ring.md) | Proposed; declared per-frame-slot vertex/index rings for exact catalog meshes and a one-frame developer capture, both outside every root |
 | ADR-102 | [Presentation-only particle surface pass](adr/102-presentation-particle-surface-pass.md) | Proposed; one bounded particle set rendered as a screen-space fluid (depth splat, narrow-range smoothing, thickness, Fresnel/refraction composite) after the world pass, outside every root |
 | ADR-103 | [Authoritative water flow network](adr/103-authoritative-water-flow-network.md) | Proposed; cells are `WaterVolume`s, edges (open sill, pipe, gate, pump, source, sink) move water by head in one exact integer Jacobi step per tick, field 5 of the physics checkpoint (schema 3), commands `SetGate`/`SetPump`/`SetSource`, check `CONTINUUM-WATER-FLOW-P1` |
+| ADR-104 | [Water V1 authority is the exact table and flow network](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) | Proposed; closes the water authority ladder on ADR-100/ADR-103, keeps particle water presentation-only for V1, routes rigid coupling through exact levels, demotes the ADR-076 particle ladder to research reports and names the four `CONTINUUM-WATER-*` product checks |
 
 ## Proposed tracks
 

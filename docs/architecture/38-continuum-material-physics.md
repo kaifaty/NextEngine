@@ -29,16 +29,24 @@ adaptive resolution, broad gameplay queries, generic solver/plugin ABI, full
 vehicle simulation and production sleep conversion are outside the first
 water consumer.
 
-`CONTINUUM-WATER-VOLUME-P1` passes through `xtask water-volume` on the
-reference basin (R8c, first increment); every other `CONTINUUM-*` check
-remains `NOT_RUN`. The authoritative water table lives in the physics world
+`CONTINUUM-WATER-VOLUME-P1` (R8c) and `CONTINUUM-WATER-FLOW-P1` (R8d)
+pass through `xtask water-volume` and `xtask water-flow`; the remaining
+product checks are `CONTINUUM-WATER-PRESENT-P1` and
+`CONTINUUM-WATER-BUOYANCY-P1` (ADR-104). The research checks below are
+reports, not promotion gates. The authoritative water table lives in the physics world
 checkpoint under Proposed ADR-100 and SPEC-26 2.5; the particle lanes below
 still change no production world, save/replay format or public contract.
 
 ## Candidate authority and canonical water state
 
-Physical Embodiment is the future owner of active continuum state. Under
-ADR-100 water V1 has two owners with one direction of flow:
+Physical Embodiment owns the authoritative water. Under ADR-100, ADR-103 and
+ADR-104 water V1 has two owners with one direction of flow, and the
+authority ladder is closed: the exact integer table plus the exact flow
+network are the only canonical water, particle water is presentation only
+for the whole of V1, rigid coupling reads exact cell levels through the
+one-pass reaction batch, and the particle lanes remain research oracles
+and calibration sources. No particle state is canonical, saved, replayed,
+queried by gameplay or reduced into a rigid reaction.
 
 - **`WaterVolume` is the authoritative water.** A bounded set of sealed
   regions in the portable CPU core, each binding an exact integer extent, a
@@ -56,8 +64,11 @@ ADR-100 water V1 has two owners with one direction of flow:
   missing capability or a stopped presentation process fall back to the
   still surface of the authoritative level. `headless` never executes it.
 
-CPU DFSPH remains the research oracle lane for particle-water fidelity and
-for any later authoritative particle solver; it is not a shipping promise.
+CPU DFSPH and the Nonlocal GPU lane remain the research oracles for
+particle-water fidelity and the calibration source of the network's
+profile constants (discharge coefficients, exit speeds, boundary support);
+neither is a shipping promise, and an authoritative particle solver would
+be a new ADR, not a continuation of ADR-076.
 A GPU particle solver cannot emit authoritative commands, events,
 checkpoints or body impulses; GPU authority would require a new ADR with a
 GPU `CanonicalFloatExecutionProfile`.
@@ -98,9 +109,11 @@ own SoA. A universal particle record is forbidden. Spatial hashes, temporary
 MPM grids, matrices, render meshes, wetness textures and GPU buffers remain
 reconstructible caches.
 
-## Fixed water profile V1
+## Research appendix: fixed particle water profile
 
-The first profile is a clean, fixed-resolution baseline:
+Research lane only (ADR-104): this profile calibrates the presentation
+solvers and the network constants and is not a promotion gate. The first
+profile is a clean, fixed-resolution baseline:
 
 | Property | V1 value |
 |---|---:|
@@ -145,9 +158,14 @@ after pressure and before integration, resolves outer faces plus internal
 faces and aperture edges in stable feature order, reports per-feature impulse,
 and performs no post-integration clamp, retry or positional repair.
 
-## One-pass rigid coupling candidate
+## One-pass rigid coupling
 
-Each physical substep has one staged coupling pass:
+The one-pass composite step below is the coupling path of every later
+water consumer. For water V1 (ADR-104) the reaction source is the exact
+network: buoyancy and drag from the exact cell level and the body's exact
+submerged geometry (`CONTINUUM-WATER-BUOYANCY-P1`). The particle reaction
+reduction (steps 2-5 as written for samples) is the research form of the
+same pass. Each physical substep has one staged coupling pass:
 
 1. freeze the prior canonical water state and exact rigid projection;
 2. reconstruct water caches in stable `(cell key, SampleId)` order;
@@ -181,7 +199,12 @@ preserving that rigid-body authority.
 
 ## Region, persistence and fallback
 
-The first water vertical has exactly one sealed, pinned-active region. Its
+Water V1 persistence is the exact table and network inside the physics
+checkpoint (SPEC-26 2.6, `CONTINUUM-WATER-VOLUME-P1`,
+`CONTINUUM-WATER-FLOW-P1`); the particle region, particle persistence and
+checkpoint-epoch clauses below are the research form and bind no product
+consumer (ADR-104). The first particle research vertical has exactly one
+sealed, pinned-active region. Its
 analytical boundary admits no particle crossing. Halo exchange, cross-region
 neighbor pairs, ownership transfer, camera-selected activation and active
 eviction are forbidden.
@@ -286,22 +309,35 @@ would convert a failed trajectory into false evidence.
 
 ## Product scenario and checks before promotion
 
-The production fixture is one `4 × 2 × 1 m` sealed basin filled to `0.75 m`,
-nominally `48,000` samples under the V1 spacing, with one `0.5 m` cube of mass
-`50 kg`. Expected equilibrium immersion is `0.20 ± 0.05 m`. Player control
-uses the production command path; deterministic headless consumes the same
-recorded command trace without test-only mutation.
+The product water scene is the reference basin (`WaterVolume`) and the two
+flow vessels (ADR-103); the first coupling consumer adds one `0.5 m`
+cube of mass `50 kg` whose expected equilibrium immersion is
+`0.20 ± 0.05 m` from the exact level (`CONTINUUM-WATER-BUOYANCY-P1`).
+Player control uses the production command path; deterministic headless
+consumes the same recorded command trace without test-only mutation. The
+`4 × 2 × 1 m` basin with `48,000` samples is the research scenario of
+the particle lanes.
+
+Product checks (ADR-104): water is promoted when the four
+`CONTINUUM-WATER-*` rows pass on the reference host with pinned roots.
 
 | Check | Required result |
 |---|---|
 | `CONTINUUM-WATER-VOLUME-P1` | Activate one sealed basin `WaterVolume`, query submersion at authored points, save/load and replay; exact roots on `game` and `headless`, queries never read presentation, level changes only through commands. |
 | `CONTINUUM-WATER-FLOW-P1` | Step the two reference vessels through a gated pipe with a source and a sink; exact volume conservation every tick, drain within twice the analytic time, gate response within one tick, identical live and restored roots, stable rejections, no presentation read. |
 | `CONTINUUM-WATER-PRESENT-P1` | Drive the basin surface from the presentation solver for a bounded window with capture; one catalog/snapshot/frame plan per run, declared ring capacity respected, gameplay roots identical with and without presentation, capture diagnostic only. |
+| `CONTINUUM-WATER-BUOYANCY-P1` | One reference body over the exact cell level: buoyancy and drag delivered as one reaction batch through the one-pass composite step; identical roots on `game` and `headless`; the batch reads no presentation state; a body outside every cell receives no reaction. |
+
+Research reports (frozen plans and evidence; calibration sources, not
+promotion gates):
+
+| Check | Required result |
+|---|---|
 | `CONTINUUM-WATER-REF-P1` | Exact sample count/mass; mean positive compression and projected-KKT residual each `<= 0.01%` within `2..=50` pressure-operator applications; no nonfinite/non-convergence; boundary-centre penetration `<= 2.5 mm`; normalized impulse residual `<= 1%`; W0G absolute energy drift `<= 1%` for reversible/control scenarios and positive energy excess `<= 1%` for named static-impact scenarios with deficit/stage accounting; mandatory hydro/dam-break/orifice reference RMSE `<= 5%` and maximum error `<= 10%`; repeat/insertion permutations have the same target-local root. |
-| `CONTINUUM-COUPLING-P1` | One-pass reaction closure, crate float/impact and failure cases publish one complete composite result or none; no second rigid writer. |
-| `CONTINUUM-PERSISTENCE-P1` | Exact active save/restart continuation matches uninterrupted roots; corrupt/stale/capacity cases fail before mutation. |
+| `CONTINUUM-COUPLING-P1` (particle form) | One-pass reaction closure from a particle set, crate float/impact and failure cases publish one complete composite result or none; no second rigid writer. |
+| `CONTINUUM-PERSISTENCE-P1` (particle form) | Exact active particle save/restart continuation matches uninterrupted roots; corrupt/stale/capacity cases fail before mutation. |
 | `CONTINUUM-MIRROR-P1` | Optional GPU aggregate correspondence passes its predeclared metrics without an authority claim. |
-| `CONTINUUM-TERRAIN-P1` | One calibrated dry-sand profile and prescribed wheel/terrain contact pass declared conservation and reference curves. |
+| `CONTINUUM-TERRAIN-P1` (separate lane) | One calibrated dry-sand profile and prescribed wheel/terrain contact pass declared conservation and reference curves. |
 | conditional `performance` | The presentation solver owns its own budget row: `48k` presentation water at the THOTH `4/6 ms` p95/p99 stop target on the reference host; a missed budget lowers surface cadence or sample count, never gameplay. An authoritative particle solver, if ever proposed, must additionally pass the successor mutually exclusive `world-dynamics-step` row across every substep in one gameplay tick. `10k` and `100k` remain report profiles. |
 
 The CPU oracle also compares published curves with aggregate output from an

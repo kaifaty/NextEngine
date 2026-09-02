@@ -97,6 +97,26 @@
   commands or ramps); publishing ring updates for a flat quad (cost without
   benefit).
 
+### D-006 — The specifications close the water ladder on the exact table and network
+
+- **Observation:** the user asked whether the specifications still
+  require heavy simulation now that the implementation is the exact
+  network plus presentation tiers.
+- **Evidence:** SPEC-38 1.x and ADR-076 still placed the particle
+  reference, particle coupling, particle persistence and the GPU mirror
+  before water promotion and kept a `48,000`-sample coupling scenario as
+  the product fixture; nothing implemented reads a particle.
+- **Decision:** ADR-104 (Proposed) closes the water authority ladder on
+  ADR-100/ADR-103, keeps particle water presentation-only for V1, routes
+  rigid coupling through exact levels (`CONTINUUM-WATER-BUOYANCY-P1`)
+  and demotes the particle checks to research reports; SPEC-38 2.0,
+  ADR-076 superseded in its water clauses, routing/traceability/roadmap
+  updated.
+- **Rejected:** keeping two authorities side by side; deleting the
+  research lanes (they are the calibration oracle).
+- **Reconsider when:** a consumer needs authoritative particle water,
+  which is a new ADR with its own evidence.
+
 ### D-005 — Water mechanics live in an exact cell/edge network, not in particles
 
 - **Observation:** the product wants Timberborn-class mechanics

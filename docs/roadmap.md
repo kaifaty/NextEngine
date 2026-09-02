@@ -79,6 +79,12 @@ Roadmap намеренно не содержит календарных обещ
 - R8c authoritative water: one reference basin `WaterVolume` inside the
   physics checkpoint with exact submersion query and level command
   (`CONTINUUM-WATER-VOLUME-P1 = PASS`);
+- R8d water mechanics: the exact flow network (two vessels, a gated pipe,
+  a source and a sink) inside the physics checkpoint with one exact step
+  per tick and the flow command (`CONTINUUM-WATER-FLOW-P1 = PASS`); under
+  ADR-104 water is done when `CONTINUUM-WATER-PRESENT-P1` and
+  `CONTINUUM-WATER-BUOYANCY-P1` also pass, the particle lanes stay
+  research;
 - 100-record tiered population, 64-node graph navigation, abstract transfer,
   one production systemic cognition/activity subject, exact derived calendar
   and one authored relay-keeper `Duty → Rest` routine inside the current
