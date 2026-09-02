@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V32 / P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V33 / R0_COMPLETE / F0_NEXT / V32_M1_FAMILY_CLOSED / FRESH_SYNTHETIC_ROLES_REQUIRED / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -15,11 +15,9 @@
   is a repeat-exact `REPRESENTATION_REJECT`: six A/B artifacts match. Frequency,
   gain and spectrum beat ridge, but decay, remesh and all four physical
   counterfactuals fail; M0c is closed before holdout/real access.
-- **B0 result:** the frozen ridge passes twice byte-exactly on 72 fresh rows;
-  all 19 gates pass, including both scale strata, OOD and 72 mutations.
-- **Planning authority:** [Roadmap V32](../../plans/physical-sound-synthesis-roadmap-v32.md)
-  turns the completed causal owner into an artifact-gated automatic chain:
-  T0 truth, V0 validator mechanics, M0 correction freeze and one M1 tournament;
+- **Planning authority:** [Roadmap V33](../../plans/physical-sound-synthesis-roadmap-v33.md)
+  selects one fixed spectral plus P1 mode-local contact successor, fresh roles
+  and separate geometry/contact/joint generalization strata;
   source scouting stays bounded and real gates remain unchanged.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md)
   and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md)
@@ -45,7 +43,8 @@
 - **V0a result:** the [modal-equivalence validator mechanics](../physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md)
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
 - **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
-- **Next action:** run a bounded generator-successor research/rebaseline with fresh synthetic roles; S0 source batches remain independent and bounded to three named leads.
+- **V33 R0:** [bounded successor research](../physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md) selects the smallest representation-only change after comparing Fourier features, SIREN and modal-acoustic prior art; no new oracle/model value opened.
+- **Next action:** freeze F0 corpus/truth commitments, spectral/stencil mechanics, controls and exact gates before materializing any fresh synthetic target; S0 remains independent and bounded to three named leads.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -83,15 +82,15 @@
 | V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
 | V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
-| V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2; all real `6/27` gates remain unchanged. |
+| V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
+| V33 R0–PR | `R0_COMPLETE / F0_NEXT / FRESH_SYNTHETIC_ROLES_REQUIRED / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | One spectral+mode-local successor must beat raw MLP, nearest and spectral ridge on fresh geometry/contact/joint strata before real M2; all real `6/27` gates remain unchanged. |
 
-## Material transition: V32 automatic release chain
+## Material transition: V33 mode-local successor
 
-- **Observation:** V28 fit output metrics while failing every physical frequency counterfactual; another end-to-end frequency head cannot explain improvement.
-- **Evidence:** [bounded research](../physical-sound-v32-m0-physics-locked-residual-research-2026-09-02.md) and primary prior art support composing known physics with learned unknowns.
-- **Conclusion:** P1-owned frequency/topology remains correct, but the generic bounded contact MLP does not beat local retrieval on fresh geometry cells.
-- **Decision:** M1 is a repeat-exact development reject; the compact residual family is closed and method holdout remains sealed.
-- **Smallest next action:** preregister a materially different geometry/mode-local contact representation on fresh synthetic roles, or retain P1/authored fallback.
+- **Evidence:** [R0 research](../physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md) connects the isolated failure to coordinate-MLP spectral bias while NeuralSound/DiffSound support keeping modal structure explicit.
+- **Conclusion:** P1 frequency/topology remains correct; a fixed spectral plus local P1 mode-field lift is the smallest causal discriminator, not a larger M1 retry.
+- **Decision:** V33 adopts one candidate and fresh truth roles with geometry-only, contact-only and joint strata; raw MLP and spectral ridge are mandatory controls.
+- **Smallest next action:** freeze F0 mechanics and role commitments before any new target value opens, or retain P1/authored fallback.
 
 ## Durable negative knowledge
 
@@ -170,6 +169,7 @@
 | D-056 | V0a passes repeat-exactly with `9 Pass / 7 Reject`, both lawful alias classes and plate→beam rejection. It grants M0 protocol sequencing only, never real validation or ProductCheck credit. | A V0a identity/probe defect appears before M0 values or a fresh preregistered mutation escapes the frozen specialist conjunction. |
 | D-057 | M0 cannot predict frequency or consume mesh resolution/object/role labels. Three bounded positive multipliers preserve P1 nodes, signs, impulse scaling and remesh identity structurally; M1 is one-shot. | Value-independent conformance falsifies a structural invariant or official M1 closes the family without selecting a nearby retry. |
 | D-058 | M0 owner conformance passes repeat-exactly at 1,491 parameters with zero development/holdout rows. The 3-step loss is a discarded finite-gradient probe, never candidate evidence. | An identity/test defect appears before M1 or M1 returns its frozen terminal pass/reject/resource result. |
+| D-059 | V33 selects one fixed surface-spectral plus P1 mode-local contact lift after M1's isolated contact reject. It must use new truth/material/geometry/contact roles and beat raw MLP, nearest and spectral ridge across geometry-only, contact-only and joint strata; no SIREN/GNN/capacity sweep is authorized. | F0 cannot freeze a truth bank distinct from V32, D0/H0 rejects, or new primary evidence motivates a materially different topology representation under a new roadmap. |
 
 ## Open hypotheses
 
@@ -218,7 +218,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V32](../../plans/physical-sound-synthesis-roadmap-v32.md), [V32 M0 protocol](../physical-sound-v32-m0-physics-locked-residual-protocol-2026-09-02.md), [V32 M0 research](../physical-sound-v32-m0-physics-locked-residual-research-2026-09-02.md), [V32 V0a result](../physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md), [V32 V0a protocol](../physical-sound-v32-v0a-modal-equivalence-validator-protocol-2026-09-02.md), [V32 V0 protocol](../physical-sound-v32-v0-validator-mechanics-protocol-2026-09-02.md), [V32 T0 result](../physical-sound-v32-t0-truth-mutation-result-2026-09-02.md), [V32 T0 protocol](../physical-sound-v32-t0-truth-mutation-protocol-2026-09-02.md), [Roadmap V31](../../plans/physical-sound-synthesis-roadmap-v31.md), [Roadmap V30](../../plans/physical-sound-synthesis-roadmap-v30.md), [E2 result](../physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md), [Q1a acquisition control](../physical-sound-v29-q1a-acquisition-control-result-2026-09-02.md), [Roadmap V29](../../plans/physical-sound-synthesis-roadmap-v29.md), [Q1-M result](../physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md), [Q1-M protocol](../physical-sound-v29-q1m-metal-role-power-protocol-2026-09-02.md), [V29 research](../physical-sound-v29-validator-first-ml-rebaseline-research-2026-09-02.md), [Roadmap V28](../../plans/physical-sound-synthesis-roadmap-v28.md), [V28 R2 result](../physical-sound-v28-r2-official-feasibility-result-2026-09-02.md), [V28 R1 result](../physical-sound-v28-r1-m0c-owner-resource-result-2026-09-02.md), [V28 R0 protocol](../physical-sound-v28-r0-m0c-prefix-resource-protocol-2026-09-02.md), [V28 H0 research](../physical-sound-v28-prefix-bounded-training-research-2026-09-02.md), [Roadmap V27](../../plans/physical-sound-synthesis-roadmap-v27.md), [R1 result](../physical-sound-v27-r1-official-feasibility-result-2026-09-02.md), [R0 result](../physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md), [Roadmap V26](../../plans/physical-sound-synthesis-roadmap-v26.md), [P0a protocol](../physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md), [P0 rebaseline](../physical-sound-v26-p0-implementation-conformance-rebaseline-2026-09-02.md), [P0 protocol](../physical-sound-v26-p0-barycentric-surface-query-protocol-2026-09-02.md), [M0a-E result](../physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md), [V26 research](../physical-sound-v26-off-vertex-field-transfer-research-2026-09-02.md), [Roadmap V25](../../plans/physical-sound-synthesis-roadmap-v25.md), [M0a-I result](../physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md), [M0a protocol](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md), [M0 rebaseline](../physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md), [Roadmap V24](../../plans/physical-sound-synthesis-roadmap-v24.md), [M0 protocol](../physical-sound-v24-m0-exact-object-neural-student-protocol-2026-09-01.md), [X0 result](../physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), [T0 result](../physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [T0 protocol](../physical-sound-v24-t0-analytic-teacher-protocol-2026-09-01.md), [X0 protocol](../physical-sound-v24-x0-blue-bowl-pilot-protocol-2026-09-01.md), [V24 D0 result](../physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [V24 D0 protocol](../physical-sound-v24-d0-neural-evidence-plane-protocol-2026-09-01.md), [V23 F2a result](../physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md), [Roadmap V23](../../plans/physical-sound-synthesis-roadmap-v23.md), [V23 research](../physical-sound-v23-closed-form-field-research-2026-09-01.md), [V22 result](../physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md), [Roadmap V22](../../plans/physical-sound-synthesis-roadmap-v22.md), [P1r](../physical-sound-v22-p1r-resource-bounded-continuous-field-protocol-2026-09-01.md), [V21 F1a result](../physical-sound-v21-f1a-continuous-field-result-2026-09-01.md), [Roadmap V21](../../plans/physical-sound-synthesis-roadmap-v21.md), [P1a](../physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [P0d](../physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [F0 audit](../physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V21 remesh research](../physical-sound-v21-remesh-consistency-research-2026-09-01.md), [I1 result](../physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [P0c](../physical-sound-v20-p0c-i1-integration-protocol-2026-09-01.md), [M0b result](../physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [M0b protocol](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md), [M0b research](../physical-sound-v20-m0b-confound-resistant-metric-research-2026-09-01.md), [M0a result](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
+3. [Roadmap V33](../../plans/physical-sound-synthesis-roadmap-v33.md), [V33 R0 research](../physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md), [Roadmap V32](../../plans/physical-sound-synthesis-roadmap-v32.md), [V32 M1 result](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md), [V32 M0 protocol](../physical-sound-v32-m0-physics-locked-residual-protocol-2026-09-02.md), [V32 V0a result](../physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md), [V32 T0 result](../physical-sound-v32-t0-truth-mutation-result-2026-09-02.md), [Roadmap V31](../../plans/physical-sound-synthesis-roadmap-v31.md), [Roadmap V30](../../plans/physical-sound-synthesis-roadmap-v30.md), [E2 result](../physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md), [Roadmap V29](../../plans/physical-sound-synthesis-roadmap-v29.md), [Q1-M result](../physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md), [V29 research](../physical-sound-v29-validator-first-ml-rebaseline-research-2026-09-02.md), [Roadmap V28](../../plans/physical-sound-synthesis-roadmap-v28.md), [V28 R2 result](../physical-sound-v28-r2-official-feasibility-result-2026-09-02.md), [Roadmap V24](../../plans/physical-sound-synthesis-roadmap-v24.md), [V24 D0 result](../physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
    [F0 result](../physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [C0 result](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
    [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
    [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [O0 result](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md),
@@ -243,8 +243,8 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** Q1a/E2/V32 and the P0/P1/T0 owners/results are in Git; generated artifacts remain external.
+- **Workspace:** Q1a/E2/V32 and V33 R0 are in Git; generated artifacts remain external.
 - **Isolation:** every Q1 role and payload stays sealed; object 41/92 rules also
   remain unchanged.
 - **Quality:** B0/C0/M0b and T0/V0a mechanics pass; F0/I1 reject; no real formula, validator release, atlas or runtime integration exists and fallback remains authority.
-- **Next commit boundary:** bounded post-M1 generator-successor research/rebaseline; fallback remains authority.
+- **Next commit boundary:** V33 F0 value-independent corpus/truth/feature mechanics freeze; fallback remains authority.
