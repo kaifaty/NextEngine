@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL MONOLAYER STALL OBSERVED (D-033 RECONSIDERATION MET) / SOLVER DECISION PENDING` |
+| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED BY DENSITY-ONLY BOUNDARY SUPPORT (NGQ7 REV 2) / G1 OBSERVABLE OPEN` |
 | Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -29,14 +29,16 @@
   change closes that gap. The stream lanes keep float state on the device
   and audit diagnostics every 60 frames, so they do not reproduce the
   accepted corpus roots and must not be cited as such.
-- **Current action:** the bridge is watchable, capturable and streams the
-  NGQ6 revision-2 surface. Watching the 16k dam break past the accepted
-  96-step corpus exposed a solver artifact: the one-particle floor sheet
-  that leads the front stalls at the far wall (step 240), compresses `2.6x`
-  in plane and acts as an invisible obstacle for `~0.7 s` while the bulk
-  jumps `0.5 m` upstream. This meets D-033's reconsideration condition for
-  analytic-only contact; the next step is a solver-side discriminator
-  (boundary density support), which is the user's call.
+- **Current action:** the user authorized the solver-side discriminator.
+  NGQ7 revision 2 (two fixed lattice layers on the basin faces that support
+  density only; viscosity and surface terms skip them) removes the wall
+  stall on 4k and 16k: crest at the wall, `0` stall frames, front `1.2x`
+  faster than the control, 16k physics cost unchanged. Revision 1 (fixed
+  samples in every term) was refuted by a `0.89 m/s` no-slip front. The
+  live bridge now defaults to density-only support (one layer on 48k, u16
+  bound). Open: the frozen G1 compression observable counts squeezed second
+  layer samples and must be split before a compression claim; 48k physics
+  rises to `5.35 ms` per step with one layer.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -93,6 +95,8 @@
 - `docs/development/nonlocal-gpu-engine-gpu-extraction-evidence-2026-09-02.md`
 - `docs/development/nonlocal-gpu-engine-48k-live-lane-evidence-2026-09-02.md`
 - `docs/development/nonlocal-gpu-engine-visual-surface-evidence-2026-09-02.md`
+- `docs/plans/nonlocal-gpu-full-step-performance/21-wall-monolayer-boundary-support.md`
+- `docs/development/nonlocal-gpu-wall-monolayer-evidence-2026-09-02.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -1295,6 +1299,34 @@
   density-correction-only variant proves equivalent without boundary
   samples.
 
+### D-048 — Density-only boundary support removes the wall stall
+
+- **Observation:** with two fixed lattice layers in every term (revision 1)
+  the stall vanished but the 16k front slowed from `2.22` to `0.89 m/s`
+  (no-slip drag through the viscosity terms). With the fixed samples in
+  density and incompressibility only (revision 2) the front runs at
+  `2.61 m/s`, the first `0.25 m` crest after arrival forms `0.06 m` from
+  the wall, the stall gate reads `0` frames and the wall band layers up
+  within `32` steps; 4k behaves the same (`0.04 m`, `0`, `1.22x`).
+- **Evidence:** runs `66d9665c.../c41222dc.../8197a551...` (16k control,
+  full, density) and `a62da60e.../06c7b406.../d4b66863...` (4k); gate
+  script `lab/scripts/nonlocal_wall_monolayer_gates.py`; live captures
+  `47315355.../7689f694...`; 48k cost `3.86 -> 5.35 ms` physics per step
+  with one layer (`2d87c255.../c3284983...`).
+- **Conclusion:** H7B holds in its density-only form; the frozen G1
+  observable (`y < 0.06 m`) fails at `1.53 / 1.63` only because it counts
+  second-layer samples squeezed under a loaded column, while the
+  floor-touching layer stays within `1.32`.
+- **Decision:** make density-only support the live default (`2` layers,
+  `1` on 48k); keep corpus commands at `0` layers with unchanged roots; do
+  not retune G1 after the fact, record it as open and split its observable
+  in a later frozen revision.
+- **Rejected:** fixed samples in the viscosity/surface terms, retuning the
+  compression threshold to fit, and claiming a compression PASS.
+- **Reconsider when:** the G1 observable is split and rerun, a 48k
+  step-cost decision is made under the solver contract, or the accepted
+  dynamic corpus is extended past the wall phase with these layers.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1362,7 +1394,9 @@
 | HG6K | a dome envelope over the sphere mask fills pits without inventing water | falsified by its gate: lift p95 `0.27 m` at the falling column | closed; do not retune |
 | HG6L | a 5x5 grayscale closing fills pits while leaving the bulk surface | selected bounded: median lift `<= 10 mm`, `0` ceiling violations, pits `> 100 mm` gone, CPU/GPU exact masks | material and front edges |
 | HG7A | the invisible obstacle is a geometry or rendering mismatch | falsified: walls and contact box coincide within `12.5 mm`, the front reaches `3.994 m`, the wall band stays `50 mm` thin | closed |
-| HG7B | the obstacle is a stalled, in-plane compressed floor monolayer without boundary density support | supported bounded: `2.6x` compression, `~0 m/s` for `120` steps, second layer restores motion | solver-side discriminator (boundary support) |
+| HG7B | the obstacle is a stalled, in-plane compressed floor monolayer without boundary density support | selected bounded: density-only fixed layers remove the stall and put the crest at the wall on 4k and 16k | split the G1 observable |
+| HG7C | the stall comes from the contact clamp or the sheet itself | falsified for the stall: unchanged clamp, stall gone with density support | closed |
+| HG7E | fixed samples may take part in every term | falsified: no-slip drag slows the front to `0.40x`; density-only keeps `1.18x` | closed |
 
 ## Do not retry
 
@@ -1375,14 +1409,15 @@
 
 ## Next action
 
-1. User decision: run the frozen solver-side discriminator for the wall
-   monolayer stall (boundary density support in the game profile with the
-   D-047 gates and a step-cost measurement) before more presentation work,
-   because the artifact is visible in every wall interaction.
-2. Otherwise: water material within the locked B0 shader interface and the
-   raw sphere heights at mask boundaries.
-3. Only if a runtime consumer appears: a compute-written ring without the
-   staging copy and an in-process ownership decision under its own ADR.
+1. Split the G1 observable into floor-touching and squeezed layers in a
+   frozen NGQ7 revision 3 and rerun the stored dumps; then decide whether
+   the accepted dynamic corpus should be extended past the wall phase with
+   density-only layers (new roots, new evidence).
+2. 48k: decide under the solver contract whether one density-only layer at
+   `5.35 ms` physics per step is the game candidate or whether the lid and
+   wall layers can be thinned; the bridge itself is unchanged.
+3. Presentation: water material within the locked B0 shader interface and
+   the raw sphere heights at mask boundaries.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.

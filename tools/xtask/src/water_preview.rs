@@ -101,6 +101,10 @@ pub(super) struct StreamRequest {
     /// Presentation height model inside the solver process: `sphere` (frozen
     /// NGQ5) or `closing` (NGQ6 revision 2).
     surface_model: String,
+    /// Fixed boundary lattice layers on the basin faces (NGQ7), `0..=2`.
+    boundary_layers: u32,
+    /// How fixed samples take part in the solve: `full` or `density`.
+    boundary_support: String,
     /// Stream seconds published per wall second; zero disables pacing and
     /// publishes every frame as soon as it arrives.
     rate: f64,
@@ -122,6 +126,8 @@ pub(super) fn parse_arguments(
     let mut stream_workers = 3_u32;
     let mut stream_extractor = "gpu".to_owned();
     let mut stream_surface_model = "closing".to_owned();
+    let mut stream_boundary_layers: Option<u32> = None;
+    let mut stream_boundary_support = "density".to_owned();
     let mut stream_rate = 1.0_f64;
     let mut device_local_ring = true;
     let mut until_close = false;
@@ -214,6 +220,25 @@ pub(super) fn parse_arguments(
             "--stream-workers" => {
                 stream_workers = bounded_u32(&mut arguments, "--stream-workers", 1, 16)?;
             }
+            "--stream-boundary-layers" => {
+                stream_boundary_layers = Some(bounded_u32(
+                    &mut arguments,
+                    "--stream-boundary-layers",
+                    0,
+                    2,
+                )?);
+            }
+            "--stream-boundary-support" => {
+                stream_boundary_support = arguments.next().ok_or_else(|| {
+                    "water-preview --stream-boundary-support requires full or density".to_owned()
+                })?;
+                if !matches!(stream_boundary_support.as_str(), "full" | "density") {
+                    return Err(
+                        "water-preview --stream-boundary-support must be full or density"
+                            .to_owned(),
+                    );
+                }
+            }
             "--stream-surface-model" => {
                 stream_surface_model = arguments.next().ok_or_else(|| {
                     "water-preview --stream-surface-model requires sphere or closing".to_owned()
@@ -290,6 +315,7 @@ pub(super) fn parse_arguments(
             _ => return Err(format!("unknown water-preview argument: {argument}")),
         }
     }
+    let default_boundary_layers = if stream_lane.starts_with("48k") { 1 } else { 2 };
     let stream = stream_binary.map(|binary| StreamRequest {
         binary,
         lane: stream_lane,
@@ -299,6 +325,11 @@ pub(super) fn parse_arguments(
         workers: stream_workers,
         extractor: stream_extractor,
         surface_model: stream_surface_model,
+        // NGQ7: density-only boundary support is the live default. Compact
+        // u16 neighbour identifiers bound the sample count, so the 48k lanes
+        // default to one layer.
+        boundary_layers: stream_boundary_layers.unwrap_or(default_boundary_layers),
+        boundary_support: stream_boundary_support,
         rate: stream_rate,
     });
     if let Some(stream) = &stream {
@@ -598,6 +629,8 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "workers": stream.workers,
             "extractor": stream.extractor,
             "surface_model": stream.surface_model,
+            "boundary_layers": stream.boundary_layers,
+            "boundary_support": stream.boundary_support,
             "rate": stream.rate,
             "frames_received": feed_summary.frames_received,
             "frames_published": feed_summary.publications,
@@ -799,6 +832,10 @@ impl StreamSession {
                 request.extractor.as_str(),
                 "--surface-model",
                 request.surface_model.as_str(),
+                "--boundary-layers",
+                &request.boundary_layers.to_string(),
+                "--boundary-support",
+                request.boundary_support.as_str(),
             ])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
