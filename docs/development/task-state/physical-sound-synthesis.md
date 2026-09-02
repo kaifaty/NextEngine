@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V34 / R0_F0_C0_T0_COMPLETE / D0_NEXT / OFFICIAL_MODEL_VALUES_UNOPENED / TARGET_SAFE_PREFLIGHT_COMPLETE / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V34 / R0_F0_C0_T0_D0_COMPLETE / H0_NEXT / CANDIDATE_FROZEN / METHOD_HOLDOUT_UNOPENED / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,9 +11,8 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [V34 T0](../physical-sound-v34-t0-terminal-path-proof-result-2026-09-02.md)
-  proves shared Pass/metric/hard/resource/pre-access terminal publication and
-  injected-failure atomicity twice exactly with zero official values.
+- **Current conclusion:** [V34 D0](../physical-sound-v34-d0-development-tournament-result-2026-09-02.md)
+  repeats ten artifacts exactly and passes every gate; contact beats raw MLP, nearest and spectral ridge, candidate freezes and holdout remains zero.
 - **Planning authority:** [Roadmap V34](../../plans/physical-sound-synthesis-roadmap-v34.md)
   preserves the untested spectral hypothesis under fresh roles, but requires a zero-target witness census and whole-owner terminal-path proof before any training; source scouting and real gates remain unchanged.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md)
@@ -41,7 +40,7 @@
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
 - **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
 - **V33 R0/F0/I0:** [bounded research](../physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md) selects the representation; [F0](../physical-sound-v33-f0-fresh-role-spectral-freeze-result-2026-09-02.md) freezes fresh roles and [I0](../physical-sound-v33-i0-mode-local-spectral-owner-result-2026-09-02.md) passes complete-owner conformance without official values.
-- **Next action:** implement/freeze the official V34 D0 owner bound to F0/C0/T0 and the shared publisher, then run development once in A/B. S0 remains independent and bounded to three named leads.
+- **Next action:** implement/freeze H0 bound to the exact D0 candidate/controls, then open method holdout once in A/B without retraining. S0 remains independent and bounded to three named leads.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -81,14 +80,14 @@
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
 | V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
 | V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
-| V34 R0–PR | `R0_F0_C0_T0_COMPLETE / D0_NEXT / OFFICIAL_VALUES_UNOPENED / REAL_RELEASE_BLOCKED` | Both V33 protocol boundaries are closed; D0 owner must now bind the shared publisher before one-shot development. |
+| V34 R0–PR | `R0_F0_C0_T0_D0_COMPLETE / H0_NEXT / CANDIDATE_FROZEN / REAL_RELEASE_BLOCKED` | D0 passes every gate twice exactly; H0 may open the frozen holdout once without retraining. |
 
 ## Material transition: V34 target-safe recovery
 
-- **Evidence:** [V34 T0](../physical-sound-v34-t0-terminal-path-proof-result-2026-09-02.md) repeats `28` files and every terminal/failpoint atomicity rule with zero official access.
+- **Evidence:** [V34 D0](../physical-sound-v34-d0-development-tournament-result-2026-09-02.md) passes hard/metric/ablation/resource gates twice exactly and freezes candidate `831fd0…80bd`.
 - **Conclusion:** representation quality is still an open question, but fresh evidence may be spent only after target-safe structural and terminal-path preflights.
 - **Decision:** keep V33 topology/training/controls/gates unchanged, create fresh roles and forbid training until F0/C0/T0 pass.
-- **Smallest next action:** freeze a D0 owner that imports publisher `60c54b…8f8d`, binds F0/C0/T0 hashes and cannot access holdout.
+- **Smallest next action:** freeze H0 owner against the exact D0 artifacts before materializing one method-holdout row.
 
 ## Durable negative knowledge
 
@@ -170,6 +169,7 @@
 | D-059 | V33 D0 is spent and closed after a repeat-exact post-training `nodal_zero_exact` protocol reject with no artifact or quality inference. H0 stays exact zero. | Never reopen V33; a successor needs fresh roles, zero-target hard-gate witness census and whole-owner terminal-publication preflight. |
 | D-060 | V34 F0/C0 preserve the spectral hypothesis, freeze fresh roles and prove actual witnesses with zero forbidden access; T0 remains mandatory before training. | T0 falsifies target safety or D0/H0 returns its one-shot terminal result. |
 | D-061 | V34 T0 freezes publisher `60c54b…8f8d` and proves every terminal/failpoint atomic on discarded official-shape payloads; future D0 must import it unchanged. | A pre-access identity defect appears before D0 or D0 returns its terminal result. |
+| D-062 | V34 D0 passes every frozen gate twice exactly and freezes candidate `831fd0…80bd`; only one immutable H0 opening is authorized. | H0 returns its terminal result; no D0-selected retry exists. |
 
 ## Open hypotheses
 
@@ -243,8 +243,8 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** Q1a/E2/V32/V33 and V34 R0/F0/C0/T0 are in Git; generated artifacts remain external.
+- **Workspace:** Q1a/E2/V32/V33 and V34 R0/F0/C0/T0/D0 are in Git; generated artifacts remain external.
 - **Isolation:** every Q1 role and payload stays sealed; object 41/92 rules also
   remain unchanged.
 - **Quality:** B0/C0/M0b, T0/V0a and V33 F0/I0 mechanics pass, but D0 is a protocol reject with no quality inference; no real formula, validator release, atlas or runtime integration exists and fallback remains authority.
-- **Next commit boundary:** V34 D0 official owner freeze before any target/model value; fallback remains authority.
+- **Next commit boundary:** V34 H0 owner freeze before one-shot method-holdout access; fallback remains authority.

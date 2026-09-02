@@ -3,11 +3,11 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / R0_F0_C0_T0_COMPLETE / D0_NEXT / OFFICIAL_MODEL_VALUES_UNOPENED / V33_D0_PROTOCOL_REJECT / FRESH_ROLES_WITNESS_COMPLETE / TARGET_SAFE_PREFLIGHT_COMPLETE / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Status | `ADOPTED / R0_F0_C0_T0_D0_COMPLETE / H0_NEXT / CANDIDATE_FROZEN / METHOD_HOLDOUT_UNOPENED / TARGET_SAFE_PREFLIGHT_COMPLETE / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V33](physical-sound-synthesis-roadmap-v33.md) as planning authority; V33 roles remain spent/closed and its H0 remains exact zero |
 | Research basis | [V34 protocol-closure rebaseline](../development/physical-sound-v34-protocol-closure-rebaseline-2026-09-02.md) |
 | Trigger evidence | [V33 D0 terminal contract reject](../development/physical-sound-v33-d0-fresh-development-tournament-result-2026-09-02.md) |
-| Current evidence | [V34 T0 terminal-path proof](../development/physical-sound-v34-t0-terminal-path-proof-result-2026-09-02.md) |
+| Current evidence | [V34 D0 development tournament](../development/physical-sound-v34-d0-development-tournament-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no production consumer or promoting ADR |
 | Product-owner constraint | All evidence is internet-sourced or synthetic; the user records no impacts and does not approve sounds one by one |
 
@@ -139,8 +139,8 @@ generator scores. No downstream stage may reinterpret a failed upstream role.
 | F0 | Fresh profile/witness freeze | [`COMPLETE / REPEAT_EXACT / ZERO_TARGET_MODEL_SIGNAL_ACCESS`](../development/physical-sound-v34-f0-target-safe-profile-freeze-result-2026-09-02.md) | Canonical overlay freezes fresh roles/truth and unchanged V33 model/controls/gates; all three artifacts repeat exactly with nine zero access counters. |
 | C0 | Signal-blind structural census | [`COMPLETE / REPEAT_EXACT / ACTUAL_WITNESSES_NONVACUOUS / ZERO_TARGET_MODEL_SIGNAL_ACCESS`](../development/physical-sound-v34-c0-structural-witness-census-result-2026-09-02.md) | `864` P1 cases prove every witness class with canonical identity commitments; three artifacts/stdout repeat exactly and all forbidden counters remain zero. |
 | T0 | Whole-owner terminal proof | [`COMPLETE / REPEAT_EXACT / ALL_TERMINALS_ATOMIC / ZERO_OFFICIAL_ACCESS`](../development/physical-sound-v34-t0-terminal-path-proof-result-2026-09-02.md) | `28` files repeat exactly; Pass/metric/hard/resource and pre-access terminals satisfy freeze, atomicity and access rules on discarded official-shape payloads. |
-| D0 | Fresh development tournament | `NEXT / OWNER_FREEZE_BEFORE_VALUES` | Two official processes repeat all artifacts; every hard/metric/ablation/resource gate passes. Any miss or post-access exception closes V34 before holdout. |
-| H0 | One-shot method holdout | `BLOCKED_BY_D0_PASS` | Frozen candidate/controls open holdout once and pass every branch/stratum/aggregate comparison twice exactly with no change. |
+| D0 | Fresh development tournament | [`COMPLETE / REPEAT_EXACT / PASS / CANDIDATE_FROZEN`](../development/physical-sound-v34-d0-development-tournament-result-2026-09-02.md) | Ten artifacts repeat exactly; every hard/metric/ablation/resource gate passes and method holdout remains zero. |
+| H0 | One-shot method holdout | `NEXT / OWNER_FREEZE_BEFORE_VALUES` | Frozen candidate/controls open holdout once and pass every branch/stratum/aggregate comparison twice exactly with no change. |
 | S0 | Bounded internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Each batch audits at most three named primary-source leads and returns `Feasible`, `ImprovedFrontier` or `NoEligibleDelta` without signal access. |
 | S1 | Protected real-role freeze | `BLOCKED_BY_S0_FEASIBLE` | Both protected roles have at least two projects, 16 exact-Steel groups and 35 non-Metal reject parents, with five projects reserved for other one-use roles. |
 | V1 | Independent real validator | `BLOCKED_BY_S1` | Project/object-disjoint calibration reaches grouped 95% false-pass upper bound `<=0.10` and useful-coverage lower bound `>=0.80`; mutations and leave-project-out repeat. |
@@ -192,9 +192,9 @@ seed, basis, stencil, width, loss, step or threshold retry is allowed.
    identities/counts twice exactly with zero forbidden access.
 4. **V34.3 — complete:** T0 proves all complete-owner terminal paths and atomic
    publication at discarded official shapes/resources.
-5. **V34.4 — next:** freeze the official owner commit and execute
-   D0 in two fresh CPU processes.
-6. **V34.5:** only after D0 pass, freeze the candidate and spend H0 once.
+5. **V34.4 — complete:** frozen D0 owner executes twice exactly, passes every
+   gate and publishes one candidate freeze with zero holdout access.
+6. **V34.5 — next:** bind the exact candidate/controls and spend H0 once.
 7. **V34.S:** continue at most three named internet leads per source batch.
 8. **V34.6:** after H0+S1, qualify V1 and run M2/M3/A0.
 9. **V34.7:** after A0 pass, implement K0/D1, then independent Glass and Wood
