@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V24_ADOPTED / V23_IMPLEMENTATION_REJECT / QUALITY_UNOBSERVED / D0_T0_X0_REPEAT_EXACT_PASS / COMBINED_V3_VALIDATED_AXIS_INCOMPLETE / M0_PROTOCOL_FROZEN / M0_IMPLEMENTATION_NEXT / MODEL_VALUES_UNOPENED / X0_DISCLOSED_ONLY / DATA_FIRST_ML / INTERNET_ONLY_REAL_EVIDENCE / AUTOMATED_VALIDATOR_REQUIRED / FALLBACK_REQUIRED / P3_BLOCKED` |
-| Updated | `2026-09-01` |
+| Status | `ROADMAP_V25_ADOPTED / V24_EVIDENCE_PLANE_COMPLETE / QUALITY_UNOBSERVED / D0_T0_X0_REPEAT_EXACT_PASS / COMBINED_V3_VALIDATED_AXIS_INCOMPLETE / M0_PROTOCOL_FROZEN / M0_IMPLEMENTATION_NEXT / MODEL_VALUES_UNOPENED / X0_DISCLOSED_ONLY / INTERNET_ONLY_REAL_EVIDENCE / AUTOMATED_VALIDATOR_REQUIRED / FALLBACK_REQUIRED / P3_BLOCKED` |
+| Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
-| Definition of done | V23 has one final baseline result; one offline neural Metal generator, independent validator and cooker process one untouched Metal shadow exactly once and supply one fallback-safe demo prop |
+| Definition of done | One offline neural Metal generator, independent validator and cooker process one untouched Metal shadow exactly once and supply one fallback-safe demo prop; a frozen reject closes the branch without a product claim |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
 
 ## Resume in 60 seconds
@@ -23,6 +23,10 @@
   all 19 gates pass, including both scale strata, OOD and 72 mutations.
 - **M1c predecessor:** its numeric shortlist is superseded by S0a's
   revision-aware physical-group census and must not be reused for freshness.
+- **Planning authority:** [Roadmap V25](../../plans/physical-sound-synthesis-roadmap-v25.md)
+  turns the completed evidence plane into one decision-producing path:
+  M0 conformance and official A/B, independent V0, protected Metal admission,
+  deterministic cooker and one fallback-safe demo prop.
 - **Next action:** implement [M0](../physical-sound-v24-m0-exact-object-neural-student-protocol-2026-09-01.md)
   contract/preprocessing fixtures and full owning entry point before opening
   any model-derived value; seed `3101` and CPU-only execution are fixed.
@@ -60,21 +64,26 @@
 | V21 P0d–I2 | `F1A_SINGLE_RUN_RESOURCE_REJECT / NO_ARTIFACT / CLOSED` | P1a/implementation are exact, but run A exceeded `1,800 s`; no quality inference and no V21 retry. |
 | V22 P1r–I2 | `F1R_IMPLEMENTATION_REJECT / NO_ARTIFACT / CLOSED` | Numeric equivalence passed; missing evaluator API export spent `2201…2312` before quality publication. |
 | V23 P2a–F2a | `IMPLEMENTATION_CONFORMANCE_REJECT / NO_ARTIFACT / CLOSED` | `2601…2712` are spent after missing inherited `analytic_surface`; B not started, `2801…2912` retired unopened and quality unobserved. |
-| V24 D0–D1 | `D0_T0_X0_REPEAT_EXACT_PASS / COMBINED_V3_VALIDATED_AXIS_INCOMPLETE / M0_PROTOCOL_FROZEN / IMPLEMENTATION_NEXT` | V3 contains 144 exact teacher plus seven disclosed Blue Bowl rows; M0 freezes one CPU candidate before model values while row 2407 stays sealed. |
-| V24 G0–P3 | `GLASS_WOOD_LATER / ADR_REQUIRED` | Glass and Wood repeat admission independently; runtime/public promotion remains blocked. |
+| V25 R0–M0 | `R0_COMPLETE / M0_PROTOCOL_FROZEN / IMPLEMENTATION_NEXT` | V3 contains 144 exact teacher plus seven disclosed Blue Bowl rows; the next rollback boundary is a committed full-entry M0 implementation before official model values. |
+| V25 V0–D1 | `VALIDATOR_THEN_METAL / BLOCKED_BY_M0` | Independent validation, protected Metal admission, deterministic cooker and one fallback-safe demo form the first product-shaped vertical. |
+| V25 G0–P3 | `GLASS_WOOD_LATER / ADR_REQUIRED` | Glass and Wood repeat admission independently; runtime/public promotion remains blocked. |
 
-## Material transition: X0 joins real evidence without fabricating physics
+## Material transition: V25 narrows the critical path to one admitted asset
 
-- **Observation:** X0 carries exact transfer rows with geometry/impact/listener
-  and separate recordings with only object/material/repeat identity.
+- **Observation:** D0/T0/X0 and the combined V3 record are complete, while
+  model quality, validator risk and product use remain unobserved.
 - **Evidence:** X0 and assembler A/B are byte-exact; the Rust owner validates
-  151 lane contracts, reports no cross-role leakage and keeps row 2407 absent.
-- **Conclusion:** the pipeline can combine causal synthetic targets with
-  internet realism evidence while preserving absent-axis truth.
-- **Decision:** D0/T0/X0 are complete; only M0 protocol freeze is authorized,
-  not training, validator calibration, admission or runtime use.
-- **Smallest next action:** implement M0 fixtures and full entry point before
-  any checkpoint or metric value.
+  151 lane contracts, reports no cross-role leakage and keeps row `2407`
+  absent. M0 freezes one model family before implementation or values.
+- **Conclusion:** more general data-plane work is not the limiting step. The
+  next uncertainty is whether the fixed M0 representation beats controls, then
+  whether a separate real-only validator can bound false passes.
+- **Decision:** [Roadmap V25](../../plans/physical-sound-synthesis-roadmap-v25.md)
+  supersedes V24 planning and orders M0 conformance/evaluation, V0, protected
+  Metal admission, cooker and demo. It grants no training result or runtime
+  authority.
+- **Smallest next action:** implement and commit complete M0 entry-point
+  fixtures before any official checkpoint or metric value.
 
 ## Durable negative knowledge
 
@@ -180,7 +189,7 @@ Read in precedence order:
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V24](../../plans/physical-sound-synthesis-roadmap-v24.md), [M0 protocol](../physical-sound-v24-m0-exact-object-neural-student-protocol-2026-09-01.md), [X0 result](../physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), [T0 result](../physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [T0 protocol](../physical-sound-v24-t0-analytic-teacher-protocol-2026-09-01.md), [X0 protocol](../physical-sound-v24-x0-blue-bowl-pilot-protocol-2026-09-01.md), [V24 D0 result](../physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [V24 D0 protocol](../physical-sound-v24-d0-neural-evidence-plane-protocol-2026-09-01.md), [V23 F2a result](../physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md), [Roadmap V23](../../plans/physical-sound-synthesis-roadmap-v23.md), [V23 research](../physical-sound-v23-closed-form-field-research-2026-09-01.md), [V22 result](../physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md), [Roadmap V22](../../plans/physical-sound-synthesis-roadmap-v22.md), [P1r](../physical-sound-v22-p1r-resource-bounded-continuous-field-protocol-2026-09-01.md), [V21 F1a result](../physical-sound-v21-f1a-continuous-field-result-2026-09-01.md), [Roadmap V21](../../plans/physical-sound-synthesis-roadmap-v21.md), [P1a](../physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [P0d](../physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [F0 audit](../physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V21 remesh research](../physical-sound-v21-remesh-consistency-research-2026-09-01.md), [I1 result](../physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [P0c](../physical-sound-v20-p0c-i1-integration-protocol-2026-09-01.md), [M0b result](../physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [M0b protocol](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md), [M0b research](../physical-sound-v20-m0b-confound-resistant-metric-research-2026-09-01.md), [M0a result](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
+3. [Roadmap V25](../../plans/physical-sound-synthesis-roadmap-v25.md), [Roadmap V24](../../plans/physical-sound-synthesis-roadmap-v24.md), [M0 protocol](../physical-sound-v24-m0-exact-object-neural-student-protocol-2026-09-01.md), [X0 result](../physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), [T0 result](../physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [T0 protocol](../physical-sound-v24-t0-analytic-teacher-protocol-2026-09-01.md), [X0 protocol](../physical-sound-v24-x0-blue-bowl-pilot-protocol-2026-09-01.md), [V24 D0 result](../physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [V24 D0 protocol](../physical-sound-v24-d0-neural-evidence-plane-protocol-2026-09-01.md), [V23 F2a result](../physical-sound-v23-f2a-fixed-feature-ridge-result-2026-09-01.md), [Roadmap V23](../../plans/physical-sound-synthesis-roadmap-v23.md), [V23 research](../physical-sound-v23-closed-form-field-research-2026-09-01.md), [V22 result](../physical-sound-v22-f1r-resource-bounded-result-2026-09-01.md), [Roadmap V22](../../plans/physical-sound-synthesis-roadmap-v22.md), [P1r](../physical-sound-v22-p1r-resource-bounded-continuous-field-protocol-2026-09-01.md), [V21 F1a result](../physical-sound-v21-f1a-continuous-field-result-2026-09-01.md), [Roadmap V21](../../plans/physical-sound-synthesis-roadmap-v21.md), [P1a](../physical-sound-v21-p1a-continuous-residual-field-protocol-2026-09-01.md), [P0d](../physical-sound-v21-p0d-counterfactual-owner-correction-protocol-2026-09-01.md), [F0 audit](../physical-sound-v21-f0-protocol-conformance-audit-2026-09-01.md), [V21 remesh research](../physical-sound-v21-remesh-consistency-research-2026-09-01.md), [I1 result](../physical-sound-v20-i1-frozen-integration-result-2026-09-01.md), [Roadmap V20](../../plans/physical-sound-synthesis-roadmap-v20.md), [P0c](../physical-sound-v20-p0c-i1-integration-protocol-2026-09-01.md), [M0b result](../physical-sound-v20-m0b-confound-resistant-metric-result-2026-09-01.md), [M0b protocol](../physical-sound-v20-m0b-confound-resistant-metric-protocol-2026-09-01.md), [M0b research](../physical-sound-v20-m0b-confound-resistant-metric-research-2026-09-01.md), [M0a result](../physical-sound-v20-m0-phase-consistent-metric-result-2026-09-01.md), [V19 I0 development control](../physical-sound-v19-i0-development-control-result-2026-09-01.md), [Roadmap V19](../../plans/physical-sound-synthesis-roadmap-v19.md),
    [F0 result](../physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [C0 result](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
    [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
    [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [O0 result](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md),
@@ -212,4 +221,5 @@ Read in precedence order:
 - **Quality:** B0/C0/M0b pass; F0 conformance and V20 I1 reject. No real
   formula, validator, atlas or runtime integration exists; fallback is authority.
 - **Next commit boundary:** implement M0 contract/preprocessing fixtures and
-  owning entry point before model values; authored fallback remains authority.
+  owning entry point, commit that value-independent boundary, then run the
+  frozen official A/B without tuning; authored fallback remains authority.
