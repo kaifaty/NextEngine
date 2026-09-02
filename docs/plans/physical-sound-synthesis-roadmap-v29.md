@@ -4,6 +4,7 @@
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
 | Status | `ADOPTED / V28_M0C_CLOSED / Q0M_SOURCE_IDENTITIES_FEASIBLE / Q1M_SOURCE_POWER_OOD / Q1AM_SOURCE_GROWTH_NEXT / VALIDATOR_FIRST / CAUSAL_HYBRID_GENERATOR_RESEARCH / INTERNET_ONLY / AUTOMATIC_ADMISSION / CLIP_FALLBACK / RUNTIME_ML_NOT_AUTHORIZED` |
+| Superseded by | [Roadmap V30](physical-sound-synthesis-roadmap-v30.md) on `2026-09-02`; this document remains immutable planning/evidence context |
 | Replaces | [Roadmap V28](physical-sound-synthesis-roadmap-v28.md) as planning authority; all V28 evidence, protected-value access records and closed-family stop rules remain immutable |
 | Research basis | [V29 rebaseline](../development/physical-sound-v29-validator-first-ml-rebaseline-research-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; current authored clips and deterministic gameplay acoustic facts remain authority |
