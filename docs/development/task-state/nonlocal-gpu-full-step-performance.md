@@ -1501,8 +1501,12 @@
 
 ## Next action
 
-1. Presentation: water material within the locked B0 shader interface and
-   the raw sphere heights at mask boundaries, judged through captures.
+1. Presentation: the research note
+   `docs/development/water-rendering-research-2026-09-02.md` recommends a
+   screen-space fluid pass (particle depth, narrow-range smoothing,
+   thickness, Fresnel/refraction composite) under its own Proposed ADR,
+   prototyped in the preview bridge with frozen cost and flicker gates;
+   the B0 water material remains the interim path.
 2. Extend the accepted dynamic corpus past the wall phase with density-only
    layers (new roots, new evidence) when the solver contract admits them;
    the 48k game candidate is one density-only layer at `4.98 ms` physics
